@@ -1,5 +1,6 @@
 package app.lensly.ui.screenshot
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -70,12 +71,33 @@ class AddressBookScreenshotTest {
     val compose = createComposeRule()
 
     @Test
-    fun addressBookList() = compose.snapshot("address_book_list") {
+    fun addressBookList() = compose.snapshot("address_book_list") { ListSnapshot() }
+
+    @Test
+    @Config(qualifiers = SCREENSHOT_NIGHT_QUALIFIERS)
+    fun addressBookListNight() = compose.snapshot("address_book_list_night") { ListSnapshot() }
+
+    @Test
+    fun addressBookFormAdd() = compose.snapshot("address_book_form_add") { FormAddSnapshot() }
+
+    @Test
+    @Config(qualifiers = SCREENSHOT_NIGHT_QUALIFIERS)
+    fun addressBookFormAddNight() = compose.snapshot("address_book_form_add_night") { FormAddSnapshot() }
+
+    @Test
+    fun addressBookFormEdit() = compose.snapshot("address_book_form_edit") { FormEditSnapshot() }
+
+    @Test
+    @Config(qualifiers = SCREENSHOT_NIGHT_QUALIFIERS)
+    fun addressBookFormEditNight() = compose.snapshot("address_book_form_edit_night") { FormEditSnapshot() }
+
+    @Composable
+    private fun ListSnapshot() {
         AddressBookScreen(entries = listEntries, onOpen = {}, onAdd = {}, onBack = {})
     }
 
-    @Test
-    fun addressBookFormAdd() = compose.snapshot("address_book_form_add") {
+    @Composable
+    private fun FormAddSnapshot() {
         AddressBookFormScreen(
             title = "Add Address",
             address = CAROL_ADDRESS,
@@ -91,8 +113,8 @@ class AddressBookScreenshotTest {
         )
     }
 
-    @Test
-    fun addressBookFormEdit() = compose.snapshot("address_book_form_edit") {
+    @Composable
+    private fun FormEditSnapshot() {
         AddressBookFormScreen(
             title = "Edit Address",
             address = CAROL_ADDRESS,

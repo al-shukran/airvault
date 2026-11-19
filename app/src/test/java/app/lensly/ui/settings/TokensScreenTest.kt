@@ -1,14 +1,18 @@
 package app.lensly.ui.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.home.groupedAddress
+import app.lensly.ui.shippedRegistry
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
@@ -43,6 +47,22 @@ class TokensScreenTest {
                 )
             }
         }
+    }
+
+    @Test
+    fun theCatalogIsALazyListThatComposesOnlyWhatShows() {
+        val registry = shippedRegistry()
+        val last = groupedAddress(registry.tokens().last().contract)
+        compose.setContent {
+            LumenTheme {
+                TokensScreen(networks = registry.networks(), tokens = registry.tokens(), onBack = {})
+            }
+        }
+
+        compose.onNode(hasScrollToIndexAction()).assertExists()
+        compose.onNodeWithText(last).assertDoesNotExist()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText(last))
+        compose.onNodeWithText(last).assertExists()
     }
 
     @Test

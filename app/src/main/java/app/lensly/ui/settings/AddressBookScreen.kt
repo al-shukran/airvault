@@ -15,10 +15,12 @@ import app.lensly.app.export.PairingCodec
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.EmptyState
+import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.ListRow
 import app.lensly.ui.components.RowArrow
+import app.lensly.ui.components.SettingsIsland
 import app.lensly.ui.sign.MutedText
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WalletPill
@@ -60,14 +62,19 @@ fun AddressBookScreen(
             MutedText("Lumio pairs the first ${PairingCodec.MAX_ADDRESS_BOOK} entries, in the order they were added. The rest are not sent.")
             Spacer(Modifier.height(LenslySpacing.md))
         }
-        entries.sortedBy { it.name.lowercase() }.forEach { entry ->
-            ListRow(onClick = { onOpen(entry) }) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = entry.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-                    entry.label?.let { MutedText(it) }
-                    AddressText(address = entry.address, icon = false)
+        if (entries.isNotEmpty()) {
+            SettingsIsland("Saved Addresses") {
+                entries.sortedBy { it.name.lowercase() }.forEachIndexed { index, entry ->
+                    if (index > 0) IslandDivider()
+                    ListRow(onClick = { onOpen(entry) }) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = entry.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                            entry.label?.let { MutedText(it) }
+                            AddressText(address = entry.address, icon = false)
+                        }
+                        RowArrow()
+                    }
                 }
-                RowArrow()
             }
         }
     }

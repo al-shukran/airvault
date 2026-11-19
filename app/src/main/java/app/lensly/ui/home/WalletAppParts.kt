@@ -1,7 +1,8 @@
 package app.lensly.ui.home
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,36 +10,37 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.graphics.Path
 import app.lensly.app.WalletApp
 import app.lensly.ui.components.AddressIcon
-import app.lensly.ui.components.AppTitle
 import app.lensly.ui.components.BitcoinIcon
+import app.lensly.ui.components.DetailTopBar
+import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.LenslyIcons
-import app.lensly.ui.components.rememberKeyHaptics
-import app.lensly.ui.components.tapHaptic
+import app.lensly.ui.components.LumioIsland
+import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.wallet.WalletScaffold
+
+/** How far a pressed account row shrinks: the same 0.98 as the other rows of an island. */
+private const val ACCOUNT_PRESS_SCALE = 0.98f
 
 /** How many accounts an App holds, in words a reader takes in at a glance: "1 account", "3 accounts". */
 internal fun accountCountLabel(count: Int): String = if (count == 1) "1 account" else "$count accounts"
@@ -102,51 +104,121 @@ internal fun AlgorandIcon(size: Dp, modifier: Modifier = Modifier) {
 }
 
 /**
- * The name of an App in the dot-matrix face, with its logo, under the name of the wallet it belongs to, so the reader knows whose
- * accounts the screen shows.
+ * The head of an App's accounts, in the wallet detail's faces: the App's logo beside the wallet's name, and under the name how many accounts
+ * the App holds. The top bar already names the App, so the head does not repeat it.
  */
 @Composable
-internal fun AppHeader(app: WalletApp, walletName: String) {
-    AppTitle(logo = { size -> AppIcon(app = app, size = size) }, name = app.label, walletName = walletName)
-}
-
-/** The last row of an App's accounts: a dashed outline with a plus, which [label] names, such as "ADD ACCOUNT". */
-@Composable
-internal fun AddAccountRow(label: String, onClick: () -> Unit) {
-    val colors = MaterialTheme.colorScheme
-    val haptics = rememberKeyHaptics()
-    val radius = MaterialTheme.shapes.medium
+internal fun AppHeader(app: WalletApp, walletName: String, count: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp)
-            .drawBehind {
-                val stroke = 1.dp.toPx()
-                drawRoundRect(
-                    color = colors.outline,
-                    topLeft = Offset(stroke / 2f, stroke / 2f),
-                    size = Size(size.width - stroke, size.height - stroke),
-                    cornerRadius = CornerRadius((radius as RoundedCornerShape).topStart.toPx(size, this)),
-                    style = Stroke(width = stroke, pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f))),
-                )
-            }
-            .tapHaptic(haptics)
-            .clickable(role = Role.Button, onClick = onClick),
-        horizontalArrangement = Arrangement.Center,
+            .padding(top = LenslySpacing.lg),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = Icons.Filled.Add,
-            contentDescription = null,
-            tint = colors.onSurface,
-            modifier = Modifier.size(20.dp),
-        )
-        Spacer(Modifier.width(LenslySpacing.xs))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = colors.onSurface,
-        )
+        AppIcon(app = app, size = 56.dp)
+        Spacer(Modifier.width(LenslySpacing.md))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = walletName,
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(LenslySpacing.xxs))
+            Text(
+                text = accountCountLabel(count),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * The frame of an App's accounts, in the wallet detail's pattern: the top bar with the App's options, the App's head, then the "Accounts"
+ * heading with [trailing] at its end and [beforeAccounts] under it, and the accounts in one island. The island scrolls on its own, so a
+ * wallet with hundreds of accounts composes only the rows on screen. [footer] sits under the island: the one text action, and the notes.
+ */
+@Composable
+internal fun AppAccountsScaffold(
+    title: String,
+    app: WalletApp,
+    walletName: String,
+    count: Int,
+    onBack: () -> Unit,
+    onOptions: () -> Unit,
+    listState: LazyListState,
+    modifier: Modifier = Modifier,
+    trailing: @Composable () -> Unit = {},
+    beforeAccounts: @Composable () -> Unit = {},
+    footer: @Composable ColumnScope.() -> Unit = {},
+    accounts: LazyListScope.() -> Unit,
+) {
+    WalletScaffold(
+        modifier = modifier,
+        scrollable = false,
+        topBar = {
+            DetailTopBar(title = title, onBack = onBack, onOptions = onOptions, optionsLabel = "App options")
+        },
+        footer = footer,
+    ) {
+        AppHeader(app = app, walletName = walletName, count = count)
+        Spacer(Modifier.height(LenslySpacing.lg))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Accounts",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.weight(1f))
+            trailing()
+        }
+        beforeAccounts()
+        Spacer(Modifier.height(LenslySpacing.xs))
+        LumioIsland(modifier = Modifier.weight(1f)) {
+            LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(1f), content = accounts)
+        }
+    }
+}
+
+/**
+ * One account in an island: an optional [leading] mark, then the [content] in a column. A hairline runs above the row unless [divider] is
+ * false, which it is for the island's first row. A tap calls [onClick] and a long press [onLongClick]; a row without [onClick] takes no press.
+ */
+@Composable
+internal fun AccountRow(
+    divider: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
+    leading: (@Composable () -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        if (divider) IslandDivider()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(
+                    if (onClick != null) {
+                        Modifier.lumioPress(scale = ACCOUNT_PRESS_SCALE, onClick = onClick, onLongClick = onLongClick)
+                    } else {
+                        Modifier
+                    },
+                )
+                .padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (leading != null) {
+                leading()
+                Spacer(Modifier.width(LenslySpacing.sm))
+            }
+            Column(modifier = Modifier.weight(1f), content = content)
+        }
     }
 }
 

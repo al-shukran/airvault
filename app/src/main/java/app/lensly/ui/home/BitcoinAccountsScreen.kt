@@ -1,27 +1,25 @@
 package app.lensly.ui.home
 
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -41,17 +39,14 @@ import app.lensly.app.visualIdentity
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.ui.components.AddressText
-import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
+import app.lensly.ui.components.LumioTextAction
 import app.lensly.ui.components.PillChip
+import app.lensly.ui.components.rememberKeyHaptics
+import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.profile.ProfileAvatar
 import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.wallet.WalletEyebrow
-import app.lensly.ui.wallet.WalletPill
-import app.lensly.ui.wallet.WalletPillSize
-import app.lensly.ui.wallet.WalletPillStyle
-import app.lensly.ui.wallet.WalletScaffold
 
 /** The name of a Script Type, as the filter and the rows show it. */
 private fun scriptName(scriptType: ScriptType): String = when (scriptType) {
@@ -77,8 +72,8 @@ private fun networkBadge(network: BtcNetwork): String = if (network == BtcNetwor
  * Ethereum accounts are.
  *
  * A tap or a long press on a row opens the account's options, which hold [onEditAccount]. [onEditAccount] gets the account's place in
- * [accounts], which only grows, so it stays the same account. GENERATE ACCOUNTS is the last row for a wallet with a seed, and it opens the
- * bulk screen on this App through [onGenerate]. A Single Key wallet has no seed, so it has no Bitcoin accounts and no generate row, and a
+ * [accounts], which only grows, so it stays the same account. "Generate Accounts" is the text action under the list, and it opens the bulk
+ * screen on this App through [onGenerate]. A Single Key wallet has no seed, so it has no Bitcoin accounts and no generate action, and a
  * note says why. The App's options hold [onPair] and [onScan], and generating again.
  */
 @Composable
@@ -92,6 +87,9 @@ fun BitcoinAccountsScreen(
     onEditAccount: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = rememberKeyHaptics()
+    val haptic = LocalHapticFeedback.current
+    val listState = rememberLazyListState()
     var filter by rememberSaveable { mutableStateOf<ScriptType?>(null) }
     var sheetOpen by remember { mutableStateOf(false) }
     // The place of the account whose options are open, or null while none is.
@@ -106,101 +104,99 @@ fun BitcoinAccountsScreen(
     fun accountIdentity(position: Int): VisualIdentity =
         visualIdentity(accounts[position].profile.colour, accounts[position].profile.icon, position)
 
-    WalletScaffold(
+    AppAccountsScaffold(
+        title = "Bitcoin Accounts",
+        app = WalletApp.BITCOIN,
+        walletName = wallet.name,
+        count = accounts.size,
+        onBack = onBack,
+        onOptions = { sheetOpen = true },
+        listState = listState,
         modifier = modifier,
-        scrollable = false,
-        topBar = {
-            DetailTopBar(
-                title = "Bitcoin Accounts",
-                onBack = onBack,
-                onOptions = { sheetOpen = true },
-                optionsLabel = "App options",
-            )
+        beforeAccounts = {
+            ScriptFilter(chosen = filter, onChoose = { filter = it })
         },
-    ) {
-        LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
-            item(key = "app") { AppHeader(app = WalletApp.BITCOIN, walletName = wallet.name) }
-            item(key = "accounts-header") {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Spacer(Modifier.height(LenslySpacing.lg))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        WalletEyebrow("Accounts")
-                        Spacer(Modifier.weight(1f))
-                        WalletEyebrow("${accounts.size}")
+        footer = {
+            if (singleKey) {
+                InlineBanner(message = SINGLE_KEY_NO_BITCOIN, tone = BannerTone.Info)
+            } else {
+                LumioTextAction(text = "Generate Accounts", onClick = onGenerate, modifier = Modifier.tapHaptic(haptics))
+                Text(
+                    text = "Tip: press and hold an account for options. Pair This Wallet to export its Bitcoin accounts",
+                    modifier = Modifier.padding(top = LenslySpacing.xs, bottom = LenslySpacing.xs),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        accounts = {
+            // Each row learns whether a divider goes above it: every row does except the first of the island.
+            var placed = 0
+            if (shown.isEmpty()) {
+                item(key = "empty") {
+                    AccountRow(divider = false) {
+                        Text(
+                            text = if (accounts.isEmpty()) "No Bitcoin accounts yet." else "No accounts of this script type.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
-                    Spacer(Modifier.height(LenslySpacing.sm))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        FilterPill(text = "All", chosen = filter == null, onClick = { filter = null })
-                        ScriptType.entries.forEach { scriptType ->
-                            FilterPill(
-                                text = scriptFilterLabel(scriptType),
-                                chosen = filter == scriptType,
-                                onClick = { filter = scriptType },
+                }
+            }
+            sections.forEach { section ->
+                if (grouped) {
+                    val divider = placed++ > 0
+                    item(key = "group-${section.group.orEmpty()}") {
+                        GroupHeader(name = section.group ?: "Ungrouped", count = section.indices.size, divider = divider)
+                    }
+                }
+                section.indices.forEach { position ->
+                    val divider = placed++ > 0
+                    val account = accounts[position]
+                    val openAccount = { accountSheet = position }
+                    val longPress: () -> Unit = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        openAccount()
+                    }
+                    item(key = "${account.scriptType}-${account.network}-${account.index}") {
+                        AccountRow(
+                            divider = divider,
+                            modifier = Modifier.animateItem(),
+                            onClick = openAccount,
+                            onLongClick = longPress,
+                            leading = { ProfileAvatar(identity = accountIdentity(position), size = 32.dp) },
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = accountName(position),
+                                    modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                PillChip(text = networkBadge(account.network))
+                            }
+                            account.profile.label?.let { label ->
+                                Spacer(Modifier.height(LenslySpacing.xxs))
+                                PillChip(text = label)
+                            }
+                            Spacer(Modifier.height(LenslySpacing.xxs))
+                            PillChip(text = scriptRowLabel(account.scriptType))
+                            Spacer(Modifier.height(LenslySpacing.xxs))
+                            AddressText(
+                                address = account.firstReceiveAddress,
+                                shown = groupedInFours(account.firstReceiveAddress),
+                                icon = false,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                onClick = openAccount,
                             )
                         }
                     }
                 }
             }
-            if (singleKey) {
-                item(key = "single-key") {
-                    Spacer(Modifier.height(LenslySpacing.md))
-                    InlineBanner(message = SINGLE_KEY_NO_BITCOIN, tone = BannerTone.Info)
-                }
-            }
-            if (shown.isEmpty()) {
-                item(key = "empty") {
-                    Text(
-                        text = if (accounts.isEmpty()) "No Bitcoin accounts yet." else "No accounts of this script type.",
-                        modifier = Modifier.padding(vertical = LenslySpacing.md),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            sections.forEach { section ->
-                if (grouped) {
-                    item(key = "group-${section.group.orEmpty()}") {
-                        GroupHeader(name = section.group ?: "Ungrouped", count = section.indices.size)
-                    }
-                }
-                items(
-                    section.indices,
-                    key = { position -> "${accounts[position].scriptType}-${accounts[position].network}-${accounts[position].index}" },
-                ) { position ->
-                    BitcoinAccountRow(
-                        account = accounts[position],
-                        name = accountName(position),
-                        identity = accountIdentity(position),
-                        onOptions = { accountSheet = position },
-                        modifier = Modifier.animateItem(),
-                    )
-                }
-            }
-            if (!singleKey) {
-                item(key = "generate") {
-                    Spacer(Modifier.height(LenslySpacing.md))
-                    AddAccountRow(label = "Generate Accounts", onClick = onGenerate)
-                }
-                item(key = "tip") {
-                    Text(
-                        text = "Tip: press and hold an account for options. Pair This Wallet to export its Bitcoin accounts",
-                        modifier = Modifier.padding(top = LenslySpacing.md, bottom = LenslySpacing.xs),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-    }
+        },
+    )
 
     if (sheetOpen) {
         AppOptionsSheet(
@@ -237,75 +233,44 @@ fun BitcoinAccountsScreen(
     }
 }
 
-/** One choice of the script filter: the accent when it is the chosen one, an outline otherwise. */
-@Composable
-private fun FilterPill(text: String, chosen: Boolean, onClick: () -> Unit) {
-    WalletPill(
-        text = text,
-        onClick = onClick,
-        style = if (chosen) WalletPillStyle.Accent else WalletPillStyle.Outline,
-        size = WalletPillSize.Compact,
-    )
-}
-
 /**
- * One Bitcoin account: its Visual Identity, its name or Auto-Name in the primary text, its network badge, its label as a chip, its Script
- * Type, and its first receive address in the mono face, grouped in fours without a prefix. A tap or a long press calls [onOptions].
+ * The script filter: "All" and one choice per Script Type, in words under the heading. The chosen one is bright and the others dim, and the
+ * row scrolls sideways when the labels do not fit.
  */
 @Composable
-private fun BitcoinAccountRow(
-    account: BitcoinAccountRecord,
-    name: String,
-    identity: VisualIdentity,
-    onOptions: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val haptic = LocalHapticFeedback.current
-    Column(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .combinedClickable(
-                    role = Role.Button,
-                    onClick = onOptions,
-                    onLongClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onOptions()
-                    },
-                )
-                .padding(vertical = LenslySpacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ProfileAvatar(identity = identity, size = 32.dp)
-            Spacer(Modifier.width(LenslySpacing.sm))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = name,
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    PillChip(text = networkBadge(account.network))
-                }
-                account.profile.label?.let { label ->
-                    Spacer(Modifier.height(LenslySpacing.xxs))
-                    PillChip(text = label)
-                }
-                Spacer(Modifier.height(LenslySpacing.xxs))
-                PillChip(text = scriptRowLabel(account.scriptType))
-                Spacer(Modifier.height(LenslySpacing.xxs))
-                AddressText(
-                    address = account.firstReceiveAddress,
-                    shown = groupedInFours(account.firstReceiveAddress),
-                    icon = false,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    onClick = onOptions,
-                )
-            }
+private fun ScriptFilter(chosen: ScriptType?, onChoose: (ScriptType?) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(LenslySpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        FilterText(text = "All", chosen = chosen == null, onClick = { onChoose(null) })
+        ScriptType.entries.forEach { scriptType ->
+            FilterText(
+                text = scriptFilterLabel(scriptType),
+                chosen = chosen == scriptType,
+                onClick = { onChoose(scriptType) },
+            )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+/** One choice of the script filter: a line of text with a 48 dp touch target, bright while it is the chosen one. */
+@Composable
+private fun FilterText(text: String, chosen: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .defaultMinSize(minHeight = 48.dp)
+            .selectable(selected = chosen, role = Role.RadioButton, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleSmall,
+            color = if (chosen) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+        )
     }
 }

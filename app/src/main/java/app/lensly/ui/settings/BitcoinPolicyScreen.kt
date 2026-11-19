@@ -4,12 +4,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.lensly.core.btc.InputVerificationPolicy
 import app.lensly.core.btc.SigningSourcePolicy
+import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.RadioRow
-import app.lensly.ui.components.SettingsSection
+import app.lensly.ui.components.SettingsIsland
 
 /**
- * The Bitcoin policies, in two sections of radio rows: how input amounts are verified, and which online side may ask for a Bitcoin
+ * The Bitcoin policies, in two islands of radio rows: how input amounts are verified, and which online side may ask for a Bitcoin
  * signature. Each option has its own one-line description. A tap applies the choice at once, so there is no Save. [ready] is false
  * until the saved choices have been read, and the rows are off until then.
  */
@@ -24,25 +25,29 @@ fun BitcoinPolicyScreen(
     modifier: Modifier = Modifier,
 ) {
     LenslyScreen(title = "Bitcoin Policy", modifier = modifier, onBack = onBack) {
-        SettingsSection("Input Amounts") {
-            InputVerificationPolicy.entries.forEach { policy ->
+        SettingsIsland("Input Amounts") {
+            InputVerificationPolicy.entries.forEachIndexed { index, policy ->
+                if (index > 0) IslandDivider()
                 RadioRow(
                     title = inputPolicyLabel(policy),
                     description = inputPolicyDescription(policy),
                     selected = policy == inputPolicy,
                     onSelect = { onInputPolicy(policy) },
                     enabled = ready,
+                    divided = false,
                 )
             }
         }
-        SettingsSection("Signing Source") {
-            SigningSourcePolicy.entries.forEach { source ->
+        SettingsIsland("Signing Source") {
+            SigningSourcePolicy.entries.forEachIndexed { index, source ->
+                if (index > 0) IslandDivider()
                 RadioRow(
                     title = signingSourceLabel(source),
                     description = signingSourceDescription(source),
                     selected = source == signingSource,
                     onSelect = { onSigningSource(source) },
                     enabled = ready,
+                    divided = false,
                 )
             }
         }

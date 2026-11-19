@@ -1,5 +1,6 @@
 package app.lensly.ui.screenshot
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcReview
@@ -90,7 +91,21 @@ class BitcoinScreenshotTest {
     }
 
     @Test
-    fun feeWarningsAtTheirDefaults() = compose.snapshot("fee_warnings_defaults") {
+    fun feeWarningsAtTheirDefaults() = compose.snapshot("fee_warnings_defaults") { FeeWarningsAtDefaults() }
+
+    @Test
+    @Config(qualifiers = SCREENSHOT_NIGHT_QUALIFIERS)
+    fun feeWarningsAtTheirDefaultsNight() = compose.snapshot("fee_warnings_defaults_night") { FeeWarningsAtDefaults() }
+
+    @Test
+    fun bitcoinPolicyAtItsDefaults() = compose.snapshot("bitcoin_policy_defaults") { BitcoinPolicyAtDefaults() }
+
+    @Test
+    @Config(qualifiers = SCREENSHOT_NIGHT_QUALIFIERS)
+    fun bitcoinPolicyAtItsDefaultsNight() = compose.snapshot("bitcoin_policy_defaults_night") { BitcoinPolicyAtDefaults() }
+
+    @Composable
+    private fun FeeWarningsAtDefaults() {
         FeeWarningScreen(
             rate = 200,
             share = 10,
@@ -100,8 +115,8 @@ class BitcoinScreenshotTest {
         )
     }
 
-    @Test
-    fun bitcoinPolicyAtItsDefaults() = compose.snapshot("bitcoin_policy_defaults") {
+    @Composable
+    private fun BitcoinPolicyAtDefaults() {
         BitcoinPolicyScreen(
             inputPolicy = InputVerificationPolicy.STRICT,
             signingSource = SigningSourcePolicy.ANY,

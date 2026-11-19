@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,11 +37,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
@@ -73,14 +70,8 @@ private val SECTION_GAP = LenslySpacing.lg
 /** The room before Readiness, which is the group of device checks rather than of the wallet. */
 private val READINESS_GAP = 40.dp
 
-/** The room the content keeps clear of the dock: the bar, the dock's bottom margin, and the page gutter. */
-private val DOCK_CLEARANCE = DOCK_BAR_HEIGHT + LenslySpacing.xs + WALLET_GUTTER
-
-/**
- * How far above the dock's top edge the content fades to black. The fade starts below the last card of the first screen, so the
- * cards stay whole, and it is solid from the dock's edge down.
- */
-private val DOCK_FADE = 16.dp
+/** The room the content keeps clear of the dock: the bar and the page gutter. */
+private val DOCK_CLEARANCE = DOCK_BAR_HEIGHT + WALLET_GUTTER
 
 /** The bottom edge of the pairing confirmation: it sits just above the dock. */
 private val NOTICE_BOTTOM = 100.dp
@@ -93,7 +84,7 @@ private const val NOTICE_MS = 2_400L
 /**
  * Home: the vault's front page, from the top down. A small wordmark with the lock; the Scan to sign button; the backup panel, while a
  * wallet's seed is not backed up; the signing activity chart; Recent activity; the wallets as a row of cards; the readiness tiles; and a
- * collage of the supported logos. The action dock floats at the foot over a fade, and the content keeps clear of it. With no wallet, the
+ * collage of the supported logos. The action dock is a flat bar at the foot, and the content keeps clear of it. With no wallet, the
  * sections give way to the empty state with Create and Restore.
  *
  * [wallets], [recent] and [readiness] are null until each has been read. [recent] holds every Review Record, which the chart and Recent
@@ -134,10 +125,8 @@ fun WalletHomeScreen(
     val walletNames = remember(wallets) { wallets.orEmpty().associate { it.id to it.name } }
     val newest = remember(recent) { recent?.sortedByDescending { it.record.atMs }?.take(HOME_ACTIVITY_LIMIT) }
     val records = remember(recent) { recent?.map { it.record } }
-    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     // A vault with no wallet shows only the empty state.
     val empty = wallets != null && wallets.isEmpty()
-    val fadeHeight = DOCK_BAR_HEIGHT + LenslySpacing.xs + DOCK_FADE + navBottom
     Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             HomeTopBar(wordmark = "LENSLY", onLock = onLock, debugNotice = debugNotice)
@@ -196,20 +185,12 @@ fun WalletHomeScreen(
                 Spacer(Modifier.height(DOCK_CLEARANCE))
             }
         }
-        DockFade(
-            height = fadeHeight,
-            stop = DOCK_FADE / fadeHeight,
-            modifier = Modifier.align(Alignment.BottomCenter),
-        )
         ActionDock(
             onPair = onStartPairing,
             onWallets = onWallets,
             onActivity = onActivity,
             onSettings = onSettings,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(start = WALLET_GUTTER, end = WALLET_GUTTER, bottom = LenslySpacing.xs),
+            modifier = Modifier.align(Alignment.BottomCenter),
         )
         HomeNotice(
             notice = notice,
@@ -305,26 +286,6 @@ private fun EmptyVault(onCreate: () -> Unit, onRestore: () -> Unit, modifier: Mo
             textAlign = TextAlign.Center,
         )
     }
-}
-
-/**
- * The fade above the dock: clear at the top, then black from [stop] of the way down, which is the dock's line. Content dims as it
- * passes under the dock, and the dock itself sits on black.
- */
-@Composable
-private fun DockFade(height: Dp, stop: Float, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(height)
-            .background(
-                Brush.verticalGradient(
-                    0f to MaterialTheme.colorScheme.background.copy(alpha = 0f),
-                    stop to MaterialTheme.colorScheme.background,
-                    1f to MaterialTheme.colorScheme.background,
-                ),
-            ),
-    )
 }
 
 /**
