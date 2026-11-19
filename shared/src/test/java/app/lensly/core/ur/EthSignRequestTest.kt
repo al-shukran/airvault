@@ -134,6 +134,21 @@ class EthSignRequestTest {
     }
 
     @Test
+    fun anOriginOfTheCapDecodesAndOneByteMoreIsRefused() {
+        assertEquals("a".repeat(512), okOf(EthSignRequest.decode(payload(origin = Cbor.Text("a".repeat(512))))).origin)
+        val overCap = assertIs<EthSignRequest.Result.Rejected>(EthSignRequest.decode(payload(origin = Cbor.Text("a".repeat(513)))))
+        assertEquals("origin exceeds 512 bytes", overCap.reason)
+    }
+
+    @Test
+    fun theOriginCapCountsUtf8BytesNotCharacters() {
+        // 256 two-byte characters are 512 bytes, which is at the cap. One more ASCII byte makes 513.
+        val atCap = "\u00e9".repeat(256)
+        assertEquals(atCap, okOf(EthSignRequest.decode(payload(origin = Cbor.Text(atCap)))).origin)
+        assertIs<EthSignRequest.Result.Rejected>(EthSignRequest.decode(payload(origin = Cbor.Text(atCap + "a"))))
+    }
+
+    @Test
     fun randomAndMutatedInputNeverThrow() {
         val random = java.util.Random(7)
         repeat(2000) {

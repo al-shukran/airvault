@@ -105,6 +105,13 @@ sealed class BtcRefusal {
             get() = "Input $inputIndex spends a script type this Account does not use."
     }
 
+    /** The input gives only its previous transaction, and it spends a segwit output. Lensly signs a segwit input from its witness UTXO. */
+    data class SegwitWithoutWitness(val inputIndex: Int) : BtcRefusal() {
+        override val reason: String
+            get() = "Input $inputIndex spends a segwit output but gives only its previous transaction. " +
+                "Lensly signs a segwit input from its witness UTXO."
+    }
+
     /** The input's derivation names this wallet's key outside this Account. */
     data class InputOutsideAccount(val inputIndex: Int) : BtcRefusal() {
         override val reason: String

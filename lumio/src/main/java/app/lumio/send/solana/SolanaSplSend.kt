@@ -4,6 +4,7 @@ import app.lensly.core.solana.SolanaSplTransfer
 import app.lensly.core.solana.SolanaTokenAccounts
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.SplBalance
+import app.lumio.data.provider.SolanaAccountState
 import fr.acinq.bitcoin.Base58
 import java.math.BigInteger
 
@@ -13,11 +14,25 @@ class SplSendToken(val mint: String, val decimals: Int, val amount: ULong)
 /** The reason a send is refused for a token of the Token-2022 program. Its transfers can carry hooks and fees that Lumio does not read. */
 const val SPL_2022_REFUSAL = "Tokens in the Token-2022 program can be shown but not sent yet."
 
+/** The reason a send is refused when the recipient's token account address holds an account that the token program does not own. */
+const val RECIPIENT_NOT_TOKEN_ACCOUNT = "The recipient's token account address belongs to another program, so the send cannot go through."
+
 /**
  * A send of an SPL token from one Solana account. It is planned as a SOL send is: a legacy message that spends from the account's nonce account, so
  * Lensly can sign it offline, and it is signed and broadcast by the same functions. Lumio holds no key.
  */
 object SolanaSplSend {
+    /**
+     * Whether the recipient already has a token account for the mint, from the account read at its address: null when no account is there. Throws
+     * IllegalArgumentException, with the owner's words, when an account is there that the token program does not own. Such an account blocks the
+     * new token account, so the send would fail on the network after it is signed.
+     */
+    fun recipientAccountExists(account: SolanaAccountState?): Boolean {
+        if (account == null) return false
+        require(account.owner == SolanaTokenAccounts.TOKEN_PROGRAM) { RECIPIENT_NOT_TOKEN_ACCOUNT }
+        return true
+    }
+
     /**
      * The send of [amount] base units of the token in [balance] from [account] to [recipient]. [sol] is the account's SOL balance, and [nonceValue] the
      * nonce that its nonce account holds. [recipientAccountExists] says whether the recipient already has a token account for the mint. When it does

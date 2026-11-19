@@ -1,5 +1,6 @@
 package app.lensly.core.registry
 
+import app.airvault.chains.evm.evmManifest
 import app.lensly.core.registry.update.RegistryUpdate
 import app.lensly.core.registry.update.TrustedKeys
 import app.lensly.ui.components.chainIconDrawables
@@ -114,10 +115,21 @@ class ShippedRegistryDataTest {
     }
 
     @Test
-    fun noTestnetIsInTheMainAssets() {
-        assertTrue(registry.networks().none { it.testnet }, "a testnet row is in networks.json")
-        assertTrue(!TESTNET_TRUE.containsMatchIn(networksText), "testnet: true in networks.json")
+    fun onlyTheMonadTestnetIsInTheMainAssets() {
+        // Monad testnet is the project's default testnet, so the release registry ships it. Every other testnet is debug-only.
+        assertEquals(listOf(MONAD_TESTNET), registry.networks().filter { it.testnet }.map { it.chainId })
+        assertEquals(1, TESTNET_TRUE.findAll(networksText).count(), "testnet: true in networks.json must name only Monad testnet")
         assertTrue(!TESTNET_TRUE.containsMatchIn(tokensText), "testnet flag in tokens.json")
+    }
+
+    @Test
+    fun everyEvmPrimaryNetworkIsInTheReleaseRegistry() {
+        // The primary network of a side is where an account's native coin is read, so a release build must list it.
+        for (primary in evmManifest.networks.filter { it.primary }) {
+            val network = registry.network(primary.chainId.caip2.substringAfter(':').toLong())
+            assertTrue(network != null, "${primary.chainId} is primary in the EVM manifest but is not in networks.json")
+            assertEquals(primary.testnet, network?.testnet, "${primary.chainId}: testnet flag differs from the EVM manifest")
+        }
     }
 
     @Test
@@ -132,7 +144,7 @@ class ShippedRegistryDataTest {
                 else -> null
             }
         }
-        val debugOnly = debug.networks().filter { it.testnet }.map { it.chainId }.toSet()
+        val debugOnly = debug.networks().filter { it.testnet }.map { it.chainId }.toSet() - MONAD_TESTNET
         val leaked = registry.networks().map { it.chainId }.filter { it in debugOnly }
 
         assertEquals(emptyList(), leaked, "debug-only testnet chain IDs in the main networks.json")
@@ -142,6 +154,7 @@ class ShippedRegistryDataTest {
         const val MAIN = "src/main/assets"
         const val DEBUG = "src/debug/assets"
         const val BUNDLED_PATH = "registry/bundled.lrp"
+        const val MONAD_TESTNET = 10143L
         val CONTRACT = Regex("0x[0-9a-f]{40}")
         val TESTNET_TRUE = Regex("\"testnet\"\\s*:\\s*true")
 

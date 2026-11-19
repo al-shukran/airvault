@@ -1,6 +1,7 @@
 package app.lumio.data.provider.algorand
 
 import android.util.Log
+import app.airvault.chains.algorand.AlgorandNetwork
 import app.lumio.BuildConfig
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
@@ -124,7 +125,8 @@ class AlgorandAlgod(private val endpoints: Map<String, String> = ENDPOINTS) : Pr
 
     /**
      * The parameters that algod suggests for the next transaction, from `GET /v2/transactions/params`. The genesis ID and hash name the network, and
-     * the genesis hash must be 32 bytes. Each number is a whole number, and a missing one is a malformed answer.
+     * the genesis hash must be 32 bytes. They must also be the pinned ones of the network that was asked for, so an endpoint that serves another
+     * network is refused. Each number is a whole number, and a missing one is a malformed answer.
      */
     private suspend fun params(req: AlgorandParams, http: Http): AlgorandSuggestedParams {
         val answer = answerObject(send(http, get(urlOf(req.net, "v2", "transactions", "params"))))
@@ -132,6 +134,10 @@ class AlgorandAlgod(private val endpoints: Map<String, String> = ENDPOINTS) : Pr
         val genesisHash = answer["genesis-hash"].base64()
         if (genesisId.isEmpty() || genesisId.toByteArray().size > MAX_GENESIS_ID_BYTES || genesisHash.size != GENESIS_HASH_BYTES) {
             throw ProviderError.Fatal(SHAPE)
+        }
+        val network = if (req.net.testnet) AlgorandNetwork.TESTNET else AlgorandNetwork.MAINNET
+        if (genesisId != network.genesisId || !genesisHash.contentEquals(network.genesisHash)) {
+            throw ProviderError.Fatal("The endpoint serves another Algorand network.")
         }
         return AlgorandSuggestedParams(
             genesisId = genesisId,
