@@ -1,7 +1,6 @@
 package app.lensly.ui.flow
 
 import app.airvault.chains.evm.signer.ParsedRequest
-import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.core.model.Approval
 import app.airvault.core.signer.AppRequest
 import app.lensly.app.BitcoinAccountRecord
@@ -12,7 +11,6 @@ import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
-import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.WalletView
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcFixtures
@@ -309,14 +307,6 @@ private class BitcoinPorts(
         signCalls++
         return signed(ready, unverifiedConfirmed)
     }
-
-    override suspend fun solanaPrepare(walletId: String, request: SolSignRequest): SolanaPrepared =
-        error("a Solana request is not expected in the Bitcoin tests")
-
-    override suspend fun solanaSign(ready: SolanaPrepared.Ready): List<String> =
-        error("a Solana request is not expected in the Bitcoin tests")
-
-    override suspend fun recordSolana(entry: SolanaReviewEntry): Unit = error("a Solana request is not expected in the Bitcoin tests")
 
     override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared =
         error("an Algorand request is not expected in the Bitcoin tests")

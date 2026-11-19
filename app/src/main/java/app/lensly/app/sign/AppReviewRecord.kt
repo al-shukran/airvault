@@ -2,6 +2,8 @@ package app.lensly.app.sign
 
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.algorandManifest
+import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.recordFacts
 import app.airvault.core.model.Review as CoreReview
@@ -50,6 +52,12 @@ class AppReviewEntry(
 )
 
 /**
+ * The most rows a Review Record keeps. The history holds at most 256 rows, so a longer review keeps its first rows and a note of how many it
+ * left out. Every chain app's record is bounded the same way.
+ */
+private const val MAX_RECORD_ROWS = 200
+
+/**
  * The Review Record of [entry], written at [atMs] (spec 8.6). Its facts are the review's [recordFacts]: the network, the rows the owner read,
  * and the checks ticked. [origin] is the origin the request names, [dataHash] the hash of its data, and [displayName] the name of its chain app,
  * which names the network of a request refused before any review.
@@ -70,7 +78,7 @@ fun appReviewRecordOf(entry: AppReviewEntry, atMs: Long, origin: String?, dataHa
         amount = null,
         tokenContract = null,
         fee = emptyList(),
-        params = facts?.rows.orEmpty(),
+        params = keptRows(facts?.rows.orEmpty()),
         origin = origin,
         refusal = entry.refusal,
         dataHash = dataHash,
@@ -88,10 +96,22 @@ internal fun appRequestFactsOf(request: AppRequest): Pair<String?, String> = whe
         is AlgoSignRequest.Result.Ok -> decoded.request.origin to sha256Hex(decoded.request.signData)
         is AlgoSignRequest.Result.Rejected -> null to sha256Hex(request.body)
     }
+    solanaManifest.id -> when (val decoded = SolSignRequest.decode(request.body)) {
+        is SolSignRequest.Result.Ok -> decoded.request.origin to sha256Hex(decoded.request.signData)
+        is SolSignRequest.Result.Rejected -> null to sha256Hex(request.body)
+    }
     else -> null to sha256Hex(request.body)
 }
 
 private fun sha256Hex(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).toHex()
+
+/** The rows a record keeps: all of them up to [MAX_RECORD_ROWS], otherwise the first rows and a note of how many were left out. */
+private fun keptRows(rows: List<Pair<String, String>>): List<Pair<String, String>> =
+    if (rows.size > MAX_RECORD_ROWS) {
+        rows.take(MAX_RECORD_ROWS - 1) + ("More" to "${rows.size - MAX_RECORD_ROWS + 1} rows not kept")
+    } else {
+        rows
+    }
 
 private fun kindOf(kind: RequestKind): ReviewKind = when (kind) {
     RequestKind.TRANSACTION -> ReviewKind.TRANSACTION

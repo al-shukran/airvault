@@ -41,15 +41,15 @@ class SolanaSignFlowTest : SignFlowE2eBase() {
 
         val driver = driverFor(wallet, partsOf(framesOf(UR("sol-sign-request", request), DEFAULT_MAX_FRAGMENT)))
         driver.open()
-        val review = (driver.awaitReview { it is SignStep.SolanaReview } as SignStep.SolanaReview).ready.review
+        val ready = (driver.awaitReview { it is SignStep.AppReview } as SignStep.AppReview).ready
 
-        assertEquals(SolanaAccount.addressOf(signer), review.signerAddress)
+        assertEquals(SolanaAccount.addressOf(signer), ready.signer.address)
         // One SOL transfer of 1,000 lamports, which is 0.000001 SOL, to the recipient.
         compose.onNodeWithText("Sends 0.000001 SOL to ${SolanaAccount.addressOf(recipient)}.").assertExists()
         driver.readToTheEnd()
         assertTrue(driver.approvable())
 
-        val parts = driver.approveAndSign { it is SignStep.SolanaConfirming }
+        val parts = driver.approveAndSign { it is SignStep.AppConfirming }
         val fields = fieldsOf(urOfParts(parts, "sol-signature"))
         assertArrayEquals(requestId, ((fields.getValue(1L) as Cbor.Tagged).value as Cbor.Bytes).value)
         val signature = (fields.getValue(2L) as Cbor.Bytes).value
