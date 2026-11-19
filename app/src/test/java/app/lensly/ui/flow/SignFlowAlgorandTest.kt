@@ -3,16 +3,21 @@ package app.lensly.ui.flow
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.AlgoSignType
 import app.airvault.chains.algorand.algorandManifest
-import app.airvault.chains.algorand.bytesToSign
+import app.airvault.chains.algorand.signer.AlgorandSigner
+import app.airvault.chains.algorand.signer.toReview
 import app.airvault.chains.evm.signer.ParsedRequest
+import app.airvault.core.model.Approval
 import app.airvault.core.model.Curve
+import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.Path
 import app.airvault.core.signer.ScopedKeyAccess
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.WalletKeyAccess
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.lensly.app.export.partsOf
-import app.lensly.app.sign.AlgorandReviewEntry
+import app.lensly.app.ALGORAND_FAMILY
+import app.lensly.app.sign.AppPrepared
+import app.lensly.app.sign.AppReviewEntry
 import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
@@ -26,7 +31,7 @@ import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.ur.AlgoSignature
-import app.lensly.core.ur.AlgoSignatureEncoder
+import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.ur.framesOf
@@ -55,8 +60,8 @@ class SignFlowAlgorandTest {
 
         flow.onScanned(partOf(requestCbor(PAY_BASIC)))
 
-        val review = assertIs<SignStep.AlgorandReview>(flow.state.value)
-        assertEquals(0, review.ready.review.accountIndex)
+        val review = assertIs<SignStep.AppReview>(flow.state.value)
+        assertEquals(0, review.ready.accountIndex)
         flow.approve()
         flow.confirm("the password".toCharArray())
 
@@ -64,6 +69,7 @@ class SignFlowAlgorandTest {
         assertContentEquals(REQUEST_ID, answer.requestId)
         assertContentEquals(ALGORAND_KEYS[0], answer.publicKey)
         assertTrue(Ed25519Signer.verify(ALGORAND_KEYS[0], TX_TAG + SIGN_DATA, answer.signature))
+        assertContentEquals(legacySignature(0), answer.signature)
         assertEquals(listOf(ReviewOutcome.SIGNED), ports.records.map { it.outcome })
         assertEquals(1, ports.signCalls)
     }
@@ -75,7 +81,7 @@ class SignFlowAlgorandTest {
 
         flow.onScanned(partOf(requestCbor(PAY_BASIC)))
 
-        assertEquals(WALLET, assertIs<SignStep.AlgorandReview>(flow.state.value).ready.walletId)
+        assertEquals(WALLET, assertIs<SignStep.AppReview>(flow.state.value).ready.walletId)
     }
 
     @Test
@@ -126,7 +132,7 @@ class SignFlowAlgorandTest {
         flow.approve()
         flow.confirm("wrong".toCharArray())
 
-        assertEquals(false, assertIs<SignStep.AlgorandConfirming>(flow.state.value).busy)
+        assertEquals(false, assertIs<SignStep.AppConfirming>(flow.state.value).busy)
         assertEquals(0, ports.signCalls)
         assertTrue(ports.records.isEmpty())
     }
@@ -170,7 +176,7 @@ class SignFlowAlgorandTest {
         private val wallets: List<WalletView> = emptyList(),
         private val outOfScope: Boolean = false,
     ) : SignFlowPorts {
-        val records = mutableListOf<AlgorandReviewEntry>()
+        val records = mutableListOf<AppReviewEntry>()
         var prepareCalls = 0
         var signCalls = 0
 
@@ -207,31 +213,37 @@ class SignFlowAlgorandTest {
 
         override suspend fun recordSolana(entry: SolanaReviewEntry): Unit = error("a Solana request is not expected in the Algorand tests")
 
-        override suspend fun algorandPrepare(walletId: String, request: AlgoSignRequest): AlgorandPrepared {
+        override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared {
             prepareCalls++
-            if (request.sourceFingerprint != FINGERPRINT) return AlgorandPrepared.Refused("This request is for a different wallet")
-            return when (val checked = AlgorandRequestCheck.check(request, ALGORAND_KEYS)) {
-                is AlgorandRequestCheck.Result.Ok -> AlgorandPrepared.Ready(walletId, request, checked.review, SAMPLE_SIGNER, emptyMap())
-                is AlgorandRequestCheck.Result.Refused -> AlgorandPrepared.Refused(checked.reason)
+            val algo = when (val decoded = AlgoSignRequest.decode(request.body)) {
+                is AlgoSignRequest.Result.Ok -> decoded.request
+                is AlgoSignRequest.Result.Rejected -> return AppPrepared.Refused(decoded.reason)
+            }
+            if (algo.sourceFingerprint != FINGERPRINT) return AppPrepared.Refused("This request is for a different wallet")
+            return when (val checked = AlgorandRequestCheck.check(algo, ALGORAND_KEYS)) {
+                is AlgorandRequestCheck.Result.Ok -> AppPrepared.Ready(
+                    walletId = walletId,
+                    request = request,
+                    review = checked.review.toReview(),
+                    accountIndex = checked.review.accountIndex,
+                    signer = SAMPLE_SIGNER,
+                    addressChain = ALGORAND_FAMILY,
+                    counterparties = emptyList(),
+                    addressNotes = emptyMap(),
+                )
+                is AlgorandRequestCheck.Result.Refused -> AppPrepared.Refused(checked.reason)
             }
         }
 
-        override suspend fun algorandSign(ready: AlgorandPrepared.Ready): List<String> {
+        override suspend fun appSign(ready: AppPrepared.Ready, approval: Approval): List<String> {
             signCalls++
-            if (outOfScope) {
-                ScopedKeyAccess(algorandManifest.keys, WalletKeyAccess(SEED))
-                    .signEd25519(Curve.ED25519_BIP32, OTHER_COIN_PATH, ByteArray(0))
-            }
-            val key = LedgerEd25519.algorandAccount(SEED, ready.review.accountIndex)
-            try {
-                val signature = Ed25519Signer.sign(key.kL, bytesToSign(ready.request.signData))
-                return partsOf(AlgoSignatureEncoder.encode(ready.request.requestId, signature, publicKey = ready.review.signer))
-            } finally {
-                key.wipe()
-            }
+            val keys = ScopedKeyAccess(algorandManifest.keys, WalletKeyAccess(SEED))
+            if (outOfScope) keys.signEd25519(Curve.ED25519_BIP32, OTHER_COIN_PATH, ByteArray(0))
+            val response = AlgorandSigner.sign(ready.request, approval, keys)
+            return partsOf(framesOf(UR(response.urType, response.cbor), DEFAULT_MAX_FRAGMENT))
         }
 
-        override suspend fun recordAlgorand(entry: AlgorandReviewEntry) {
+        override suspend fun recordApp(entry: AppReviewEntry) {
             records += entry
         }
     }
@@ -304,6 +316,16 @@ class SignFlowAlgorandTest {
             val ur = assertNotNull(scanner.result())
             assertEquals("algo-signature", ur.type)
             return assertIs<AlgoSignature.Result.Ok>(AlgoSignature.decode(ur)).signature
+        }
+
+        /** The signature the Ledger key of account [index] made before the one sign flow, over "TX" and the signed bytes. */
+        fun legacySignature(index: Int): ByteArray {
+            val key = LedgerEd25519.algorandAccount(SEED, index)
+            try {
+                return Ed25519Signer.sign(key.kL, TX_TAG + SIGN_DATA)
+            } finally {
+                key.wipe()
+            }
         }
 
         fun hex(text: String): ByteArray = ByteArray(text.length / 2) { text.substring(2 * it, 2 * it + 2).toInt(16).toByte() }
