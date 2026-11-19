@@ -17,6 +17,10 @@ pluginManagement {
             content {
                 excludeGroupByRegex("androidx(\\..*)?")
                 excludeGroupByRegex("com\\.android(\\..*)?")
+                // The Kotlin plugin markers are on Central and on the Portal, as different files. CI runners were served the
+                // Portal's copy (the verification failures name the Portal), so the Portal is the one source for the markers, and
+                // verification-metadata.xml pins its bytes. Kotlin's implementation jars still come from Central.
+                excludeGroupByRegex("org\\.jetbrains\\.kotlin\\.(jvm|plugin\\..*)")
             }
         }
         gradlePluginPortal()
