@@ -71,3 +71,33 @@ subprojects {
         )
     }
 }
+
+// Robolectric runs offline. Robolectric 4.17 downloads the Android SDK jar of the API level a test runs at (sdk = 36 here) from
+// Maven Central during the test, with no retry, and a failed download failed the partition. Here the jar is a Gradle dependency:
+// Gradle fetches it with its retries and keeps it in the Gradle user home, which cache-warm saves on master, so the PR partitions
+// find it in the restored cache. robolectric.offline=true turns a missing jar into an error rather than a download.
+// 16-robolectric-13921718-i7 is the sdk = 36 jar of Robolectric 4.17 (DefaultSdkProvider); a Robolectric upgrade moves it.
+val robolectricSdk by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
+
+dependencies {
+    robolectricSdk("org.robolectric:android-all-instrumented:16-robolectric-13921718-i7")
+}
+
+val robolectricSdkDir = layout.buildDirectory.dir("robolectric-sdk")
+
+val syncRobolectricSdk by tasks.registering(Sync::class) {
+    from(robolectricSdk)
+    into(robolectricSdkDir)
+}
+
+// Only the modules whose unit tests run on Robolectric depend on the jar, so a JVM-only test task never waits for it.
+listOf("app", "lumio", "shared").forEach { module ->
+    project(":$module").tasks.withType<Test>().configureEach {
+        dependsOn(syncRobolectricSdk)
+        systemProperty("robolectric.offline", "true")
+        systemProperty("robolectric.dependency.dir", robolectricSdkDir.get().asFile.absolutePath)
+    }
+}

@@ -61,9 +61,9 @@ jobs:
           restore-keys: |
             owasp-nvd-${{ runner.os }}-
 
-      # Step 1, the NVD refresh. An NVD failure is retried six times with a 10-minute pause, about an hour inside the
-      # job's 120-minute limit (run 43586280383 failed on a longer 503 window). continue-on-error keeps the job going
-      # when NVD stays down; step 2 decides what that means.
+      # Step 1, the NVD refresh. An NVD outage is retried three times, a minute apart, and the step is capped at five minutes.
+      # It used to wait up to 70 minutes (run 43859789186), so one NVD outage held the nightly red for hours. continue-on-error
+      # keeps the job going when NVD stays down; step 2 decides what that means.
       # The update runs with --no-configuration-cache: gradle.properties enables the configuration cache, and the
       # plugin's Update task cannot be stored in it (dependency-check-gradle 13.0.0 serializes DefaultProject, which
       # Gradle rejects), so the task fails at configuration time. Analyze is unaffected.
@@ -74,17 +74,18 @@ jobs:
         id: owasp-update
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 5
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
           set -o pipefail
-          for attempt in 1 2 3 4 5 6; do
+          for attempt in 1 2 3; do
             if ./gradlew --no-configuration-cache :app:dependencyCheckUpdate 2>&1 | tee dependency-check-update.log; then
               exit 0
             fi
             grep -q -E "NVD Returned Status Code|Error updating the NVD Data" dependency-check-update.log || exit 1
-            echo "NVD is unavailable (attempt $attempt of 6); retrying in 10 minutes"
-            sleep 600
+            echo "NVD is unavailable (attempt $attempt of 3); retrying in 60 seconds"
+            sleep 60
           done
           exit 1
 
