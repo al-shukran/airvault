@@ -46,6 +46,40 @@ class HdWalletTest {
     }
 
     @Test
+    fun throwawayMnemonicPinsTheEvmAddressesOfAccountsZeroToFour() {
+        // A public throwaway mnemonic that has never held funds. Account N is the Ledger Live address m/44'/60'/N'/0/0, which must stay
+        // byte-identical. The BIP44 address m/44'/60'/0'/0/N is the one Rabby derives from the account 0 key.
+        val words = "supply excess unit online visa snow include grief sketch grace rural near leaf finish jewel embark elite make " +
+            "venture enroll vacuum worth over pioneer"
+        val wallet = HdWallet(Mnemonic.toSeed(words.split(" ")))
+        val ledgerLive = listOf(
+            "0x7F96216EF57Ff291cB334238779Eeb3B73866755",
+            "0xBc085967d1CBaDB173a5ea92567e78eec79e7893",
+            "0x1029CedC4d45275d9200C80201cdc33196640C13",
+            "0x3E71905898D74e3cfceE458ed8850D19dA7397Fc",
+            "0x55F0a1C5Eb48e00C601AA82C0a7dd2BFde9E79Bf",
+        )
+        val bip44 = listOf(
+            "0x7F96216EF57Ff291cB334238779Eeb3B73866755",
+            "0xfC9bbE74dB0C69dd4C6E82692720A3F001bF3DA0",
+            "0x179744CCfFC6D78BCfFA1eB46709740E5bFCA71C",
+            "0x5F71cDd479a173B0Cb38e187BD70293de978c6e8",
+            "0xf072c362Dc386A932194AED3e25493a2b3C1d8D8",
+        )
+        for (account in 0..4) {
+            assertEquals(ledgerLive[account], wallet.address(account), "Ledger Live account $account")
+            assertEquals(ledgerLive[account], AccountAddresses.addressAt(wallet.accountXpub(account), 0), "public account $account")
+            val key = wallet.privateKey(account)
+            try {
+                assertEquals(ledgerLive[account], AccountAddresses.addressOfPrivateKey(key), "key of account $account")
+            } finally {
+                key.fill(0)
+            }
+            assertEquals(bip44[account], AccountAddresses.addressAt(wallet.accountXpub(0), account), "BIP44 0/$account")
+        }
+    }
+
+    @Test
     fun passphraseChangesAddress() {
         val withPassphrase = HdWallet(Mnemonic.toSeed(artMnemonic, "TREZOR")).address(0)
         assertNotEquals(artWallet.address(0), withPassphrase)
