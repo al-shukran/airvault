@@ -1,7 +1,7 @@
 package app.lensly.app
 
 import android.content.Context
-import app.lensly.core.solana.SolanaTokenList
+import app.airvault.chains.solana.signer.SolanaTokenList
 
 /**
  * The SPL tokens that Solana reviews name: the list bundled in the shared assets, read on the first call and kept after it. The first

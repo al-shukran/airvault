@@ -1,12 +1,16 @@
 package app.lensly.core.solana
 
+import app.airvault.chains.solana.createWithSeed
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.signer.SolSignType
+import app.airvault.chains.solana.signer.SolanaInstruction
 import app.airvault.chains.solana.signer.SolanaMessageAccount
+import app.airvault.chains.solana.signer.SolanaRequestCheck
+import app.airvault.chains.solana.signer.SolanaRequestReview
+import app.airvault.chains.solana.signer.SolanaWarning
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.toHex
 import fr.acinq.bitcoin.Base58
-import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -15,6 +19,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import org.junit.Test
 
 /**
  * The durable-nonce shapes: AdvanceNonceAccount as the first instruction, and the one-time setup of CreateAccount or
@@ -210,7 +215,7 @@ class SolanaNonceTest {
     fun createWithSeedIsTheSha256OfBaseSeedAndOwner() {
         assertEquals(
             "7dee5a4151fbe74220046c3ddc8c51e4abb07cd8446172bf3ee9a9d4089df1fb",
-            SolanaAccount.createWithSeed(ByteArray(32) { 1 }, SEED.toByteArray(), ByteArray(32)).toHex(),
+            createWithSeed(ByteArray(32) { 1 }, SEED.toByteArray(), ByteArray(32)).toHex(),
         )
     }
 

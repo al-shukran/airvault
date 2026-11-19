@@ -1,4 +1,4 @@
-package app.lensly.core.solana
+package app.airvault.chains.solana.signer
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
