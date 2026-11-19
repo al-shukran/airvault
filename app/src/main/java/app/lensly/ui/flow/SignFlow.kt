@@ -1,7 +1,5 @@
 package app.lensly.ui.flow
 
-import app.airvault.chains.algorand.AlgoSignRequest
-import app.airvault.chains.algorand.algorandManifest
 import app.airvault.chains.evm.evmManifest
 import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.chains.evm.signer.EvmRequestBody
@@ -17,7 +15,8 @@ import app.airvault.core.signer.RequestHeader
 import app.lensly.app.AddressNotes
 import app.lensly.app.BitcoinReviewed
 import app.lensly.app.SigningAccount
-import app.lensly.app.sign.AlgorandReviewEntry
+import app.lensly.app.sign.AppPrepared
+import app.lensly.app.sign.AppReviewEntry
 import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
@@ -28,8 +27,6 @@ import app.lensly.app.sign.WalletMatch
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.routeScan
 import app.lensly.ui.sign.bitcoinReviewOf
-import app.airvault.chains.algorand.signer.AlgorandRequestReview
-import app.airvault.chains.algorand.signer.toReview
 import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.NOT_A_PSBT
 import app.airvault.chains.bitcoin.signer.UNVERIFIED_CHECK
@@ -75,11 +72,14 @@ sealed interface SignStep {
     /** The Solana hold-to-sign ran. The App Password is checked before anything is signed. [busy] while that check runs. */
     data class SolanaConfirming(val ready: SolanaPrepared.Ready, val busy: Boolean) : SignStep
 
-    /** An Algorand request passed its checks. The owner reads the review, then approves or rejects it. */
-    data class AlgorandReview(val ready: AlgorandPrepared.Ready) : SignStep
+    /** A request of a chain app on the one sign flow passed its checks. The owner reads the review, then approves or rejects it. */
+    data class AppReview(val ready: AppPrepared.Ready) : SignStep
 
-    /** The Algorand hold-to-sign ran. The App Password is checked before anything is signed. [busy] while that check runs. */
-    data class AlgorandConfirming(val ready: AlgorandPrepared.Ready, val busy: Boolean) : SignStep
+    /**
+     * The hold-to-sign of an approved request of a chain app ran. [approval] is the owner's approval of [ready], which the signature needs. The
+     * App Password is checked before anything is signed. [busy] while that check runs.
+     */
+    data class AppConfirming(val ready: AppPrepared.Ready, val approval: Approval, val busy: Boolean) : SignStep
 
     /** The hold-to-sign control ran. The App Password is checked before anything is signed. [busy] while that check runs. */
     data class Confirming(val ready: Prepared.Ready, val busy: Boolean) : SignStep
@@ -119,21 +119,6 @@ sealed interface SolanaPrepared {
 
     /** The request cannot be signed. [reason] says why, in plain words. Nothing is signed for it. */
     data class Refused(val reason: String) : SolanaPrepared
-}
-
-/** The outcome of reviewing an Algorand request against a wallet: the review the owner reads, or the reason it is refused. */
-sealed interface AlgorandPrepared {
-    /** The request names an account of the wallet and passed every rule. [request] is the parsed algo-sign-request. */
-    data class Ready(
-        val walletId: String,
-        val request: AlgoSignRequest,
-        val review: AlgorandRequestReview,
-        val signer: SigningAccount,
-        val addressNotes: Map<String, AddressNotes>,
-    ) : AlgorandPrepared
-
-    /** The request cannot be signed. [reason] says why, in plain words. Nothing is signed for it. */
-    data class Refused(val reason: String) : AlgorandPrepared
 }
 
 /** What [SignFlow] asks of the app. [VaultSignPorts] is the app's implementation. Tests use fakes. */
@@ -197,19 +182,20 @@ interface SignFlowPorts {
     suspend fun recordSolana(entry: SolanaReviewEntry)
 
     /**
-     * Reviews the Algorand [request] against wallet [walletId]: its Algorand accounts, its master fingerprint and the rules of the request.
-     * Throws [WalletUnavailable] when the wallet cannot be read.
+     * Reviews the request [request] of an installed chain app against wallet [walletId]: the app's rules, the wallet's keys and the master
+     * fingerprint the request names. Throws [WalletUnavailable] when the wallet cannot be read.
      */
-    suspend fun algorandPrepare(walletId: String, request: AlgoSignRequest): AlgorandPrepared
+    suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared
 
     /**
-     * Signs the reviewed Algorand request with the account it was reviewed under, and returns the `ur:algo-signature` frames. Throws
-     * [WalletUnavailable] when the wallet cannot be read, and IllegalArgumentException when the wallet's key is not the account's key.
+     * Signs the approved request [ready] through its app's `SignerApp.sign`, with the wallet's key access scoped to the app's key scopes, and
+     * returns the frames of the response UR. Throws [WalletUnavailable] when the wallet cannot be read, and [KeyScopeViolation] when the app asks
+     * for a key outside its scope.
      */
-    suspend fun algorandSign(ready: AlgorandPrepared.Ready): List<String>
+    suspend fun appSign(ready: AppPrepared.Ready, approval: Approval): List<String>
 
-    /** Writes the Algorand [entry] as a Review Record of its wallet. Throws [ReviewNotSaved] when the record cannot be written. */
-    suspend fun recordAlgorand(entry: AlgorandReviewEntry)
+    /** Writes the [entry] of a chain app as a Review Record of its wallet. Throws [ReviewNotSaved] when the record cannot be written. */
+    suspend fun recordApp(entry: AppReviewEntry)
 }
 
 /**
@@ -291,12 +277,12 @@ class SignFlow(
     fun approve() {
         val step = current.value
         val review = reviewOf(step) ?: return
-        if (Approval.of(review, checks.value) == null) return
+        val approval = Approval.of(review, checks.value) ?: return
         current.value = when (step) {
             is SignStep.Review -> SignStep.Confirming(step.ready, busy = false)
             is SignStep.BitcoinReview -> SignStep.BitcoinConfirming(step.ready, confirmed = UNVERIFIED_CHECK in checks.value, busy = false)
             is SignStep.SolanaReview -> SignStep.SolanaConfirming(step.ready, busy = false)
-            is SignStep.AlgorandReview -> SignStep.AlgorandConfirming(step.ready, busy = false)
+            is SignStep.AppReview -> SignStep.AppConfirming(step.ready, approval, busy = false)
             else -> return
         }
     }
@@ -324,9 +310,9 @@ class SignFlow(
                     confirmSolana(solana, password)
                     return
                 }
-                val algorand = current.value as? SignStep.AlgorandConfirming
-                if (algorand != null) {
-                    confirmAlgorand(algorand, password)
+                val app = current.value as? SignStep.AppConfirming
+                if (app != null) {
+                    confirmApp(app, password)
                     return
                 }
                 val waiting = current.value as? SignStep.Confirming ?: return
@@ -357,7 +343,7 @@ class SignFlow(
             is SignStep.Confirming -> cancelApproval()
             is SignStep.BitcoinConfirming -> cancelBitcoinApproval()
             is SignStep.SolanaConfirming -> cancelSolanaApproval()
-            is SignStep.AlgorandConfirming -> cancelAlgorandApproval()
+            is SignStep.AppConfirming -> cancelAppApproval()
             SignStep.Closed -> Unit
             else -> leave()
         }
@@ -383,9 +369,9 @@ class SignFlow(
             is SignStep.SolanaConfirming -> step.ready
             else -> null
         }
-        val algorand = when (val step = current.value) {
-            is SignStep.AlgorandReview -> step.ready
-            is SignStep.AlgorandConfirming -> step.ready
+        val app = when (val step = current.value) {
+            is SignStep.AppReview -> step.ready
+            is SignStep.AppConfirming -> step.ready
             else -> null
         }
         epoch++
@@ -400,8 +386,8 @@ class SignFlow(
         solana?.let {
             recordSolanaQuietly(SolanaReviewEntry(it.walletId, ReviewOutcome.CANCELLED, it.request, it.review, refusal = null))
         }
-        algorand?.let {
-            recordAlgorandQuietly(AlgorandReviewEntry(it.walletId, ReviewOutcome.CANCELLED, it.request, it.review, refusal = null))
+        app?.let {
+            recordAppQuietly(AppReviewEntry(it.walletId, ReviewOutcome.CANCELLED, it.request, it, acknowledged = emptyList(), refusal = null))
         }
     }
 
@@ -588,18 +574,20 @@ class SignFlow(
         }
     }
 
-    private fun cancelAlgorandApproval() {
-        val waiting = current.value as? SignStep.AlgorandConfirming ?: return
-        if (!waiting.busy) current.value = SignStep.AlgorandReview(waiting.ready)
+    private fun cancelAppApproval() {
+        val waiting = current.value as? SignStep.AppConfirming ?: return
+        if (!waiting.busy) current.value = SignStep.AppReview(waiting.ready)
     }
 
-    /** Reviews a complete request that an installed chain app parsed. Algorand, Bitcoin, Solana and EVM are the apps with a review so far. */
+    /**
+     * Reviews a complete request that an installed chain app parsed. Bitcoin, Solana and EVM keep their own steps until they move to the one
+     * sign flow (WP14-16). Every other app goes through [decideGeneric].
+     */
     private suspend fun decideApp(started: Int, request: AppRequest): SignStep = when (request.header.app) {
-        algorandManifest.id -> decideAlgorand(started, request.header, request.body)
         bitcoinManifest.id -> decideBitcoin(started, request.body)
         solanaManifest.id -> decideSolana(started, request.header, request.body)
         evmManifest.id -> decideEvm(started, request.body)
-        else -> SignStep.Refused(UNSUPPORTED_CODE)
+        else -> decideGeneric(started, request)
     }
 
     /** Reviews a complete EVM request. Its body is the parse the EVM app made in the Parser Sandbox, read back under the wire's checks. */
@@ -612,58 +600,54 @@ class SignFlow(
         return decide(started, parsed)
     }
 
-    /** Reviews a complete Algorand request against the wallet it is for. A refusal is recorded under that wallet. */
-    private suspend fun decideAlgorand(started: Int, header: RequestHeader, payload: ByteArray): SignStep {
-        val request = when (val decoded = AlgoSignRequest.decode(payload)) {
-            is AlgoSignRequest.Result.Ok -> decoded.request
-            is AlgoSignRequest.Result.Rejected -> return SignStep.Refused(decoded.reason)
-        }
-        return routed(ScannedRequest.App(header)) { target ->
+    /** Reviews a complete request of a chain app on the one sign flow, for the wallet it is for. A refusal is recorded under that wallet. */
+    private suspend fun decideGeneric(started: Int, request: AppRequest): SignStep =
+        routed(ScannedRequest.App(request.header)) { target ->
             try {
-                when (val prepared = ports.algorandPrepare(target, request)) {
-                    is AlgorandPrepared.Ready -> SignStep.AlgorandReview(prepared)
-                    is AlgorandPrepared.Refused -> algorandRefusal(started, target, request, prepared.reason, ready = null)
+                when (val prepared = ports.appPrepare(target, request)) {
+                    is AppPrepared.Ready -> SignStep.AppReview(prepared)
+                    is AppPrepared.Refused -> appRefusal(started, target, request, prepared.reason, ready = null)
                 }
             } catch (e: WalletUnavailable) {
-                algorandRefusal(started, target, request, WALLET_UNREADABLE, ready = null)
+                appRefusal(started, target, request, WALLET_UNREADABLE, ready = null)
             }
         }
-    }
 
-    /** Checks the App Password for an Algorand signature, then signs the reviewed request. The caller zeroes [password]. */
-    private suspend fun confirmAlgorand(waiting: SignStep.AlgorandConfirming, password: CharArray) {
+    /** Checks the App Password for an approved request of a chain app, then signs it. The caller zeroes [password]. */
+    private suspend fun confirmApp(waiting: SignStep.AppConfirming, password: CharArray) {
         if (waiting.busy) return
         val started = epoch
         current.value = waiting.copy(busy = true)
         val next = when (ports.checkPassword(password)) {
-            PasswordCheck.Accepted -> signAlgorand(waiting, started)
-            PasswordCheck.Rejected -> SignStep.AlgorandConfirming(waiting.ready, busy = false)
+            PasswordCheck.Accepted -> signApp(waiting, started)
+            PasswordCheck.Rejected -> SignStep.AppConfirming(waiting.ready, waiting.approval, busy = false)
             PasswordCheck.Unavailable ->
-                algorandRefusal(started, waiting.ready.walletId, waiting.ready.request, VAULT_UNCHECKED, waiting.ready)
+                appRefusal(started, waiting.ready.walletId, waiting.ready.request, VAULT_UNCHECKED, waiting.ready)
         }
         publish(started, next)
     }
 
     /**
-     * Signs the reviewed Algorand request. A refusal, or a wallet that cannot be read, signs nothing and is shown as the reason. The
+     * Signs the approved request through its app. A refusal, or a wallet that cannot be read, signs nothing and is shown as the reason. The
      * signature is recorded before it is returned, so no signature is shown without its record.
      */
-    private suspend fun signAlgorand(waiting: SignStep.AlgorandConfirming, started: Int): SignStep {
+    private suspend fun signApp(waiting: SignStep.AppConfirming, started: Int): SignStep {
         if (started != epoch) return SignStep.Closed
         val ready = waiting.ready
         val parts = try {
-            ports.algorandSign(ready)
+            ports.appSign(ready, waiting.approval)
         } catch (e: WalletUnavailable) {
-            return algorandRefusal(started, ready.walletId, ready.request, WALLET_UNREADABLE, ready)
+            return appRefusal(started, ready.walletId, ready.request, WALLET_UNREADABLE, ready)
         } catch (e: KeyScopeViolation) {
             // The key scope refused the path before any key was derived. The refusal is recorded (spec 2.2 rule 6).
-            return algorandRefusal(started, ready.walletId, ready.request, OUT_OF_SCOPE, ready)
+            return appRefusal(started, ready.walletId, ready.request, OUT_OF_SCOPE, ready)
         } catch (e: IllegalArgumentException) {
-            return algorandRefusal(started, ready.walletId, ready.request, e.message ?: SIGN_REFUSED, ready)
+            return appRefusal(started, ready.walletId, ready.request, e.message ?: SIGN_REFUSED, ready)
         }
         return try {
             if (started != epoch) return SignStep.Closed
-            ports.recordAlgorand(AlgorandReviewEntry(ready.walletId, ReviewOutcome.SIGNED, ready.request, ready.review, refusal = null))
+            val signed = AppReviewEntry(ready.walletId, ReviewOutcome.SIGNED, ready.request, ready, waiting.approval.acknowledged, null)
+            ports.recordApp(signed)
             SignStep.Signature(parts)
         } catch (e: ReviewNotSaved) {
             SignStep.Refused(NOT_SAVED)
@@ -671,26 +655,24 @@ class SignFlow(
     }
 
     /**
-     * The step that shows a refusal of an Algorand request, recorded under [wallet] with the [ready] review it came after, if any. A refusal
+     * The step that shows a refusal of a request of a chain app, recorded under [wallet] with the [ready] review it came after, if any. A refusal
      * decided after the flow was left was never shown, so it is not recorded either.
      */
-    private suspend fun algorandRefusal(
+    private suspend fun appRefusal(
         started: Int,
         wallet: String,
-        request: AlgoSignRequest,
+        request: AppRequest,
         reason: String,
-        ready: AlgorandPrepared.Ready?,
+        ready: AppPrepared.Ready?,
     ): SignStep.Refused {
-        if (started == epoch) {
-            recordAlgorandQuietly(AlgorandReviewEntry(wallet, ReviewOutcome.REFUSED, request, ready?.review, refusal = reason))
-        }
+        if (started == epoch) recordAppQuietly(AppReviewEntry(wallet, ReviewOutcome.REFUSED, request, ready, emptyList(), reason))
         return SignStep.Refused(reason)
     }
 
-    /** Writes the Algorand [entry]. A write that fails is left out, as the other Review Records are. */
-    private suspend fun recordAlgorandQuietly(entry: AlgorandReviewEntry) {
+    /** Writes the entry of a chain app. A write that fails is left out, as the other Review Records are. */
+    private suspend fun recordAppQuietly(entry: AppReviewEntry) {
         try {
-            ports.recordAlgorand(entry)
+            ports.recordApp(entry)
         } catch (e: ReviewNotSaved) {
             // Left out: the screen already shows the outcome, and nothing is signed for it.
         }
@@ -824,7 +806,7 @@ class SignFlow(
         is SignStep.Review -> step.ready.review
         is SignStep.BitcoinReview -> bitcoinReviewOf(step.ready.reviewed.review, step.ready.reviewed.account.network, step.ready.reviewed.account.scriptType)
         is SignStep.SolanaReview -> step.ready.review.toReview()
-        is SignStep.AlgorandReview -> step.ready.review.toReview()
+        is SignStep.AppReview -> step.ready.review
         else -> null
     }
 
