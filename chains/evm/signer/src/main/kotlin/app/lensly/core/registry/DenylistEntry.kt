@@ -62,7 +62,7 @@ data class DenylistEntry(
  * The entries that a request matches: a call with [calldata] to [contract] on [chainId]. An entry whose condition needs the decoded
  * amount still matches calldata that Lensly cannot decode, because the owner should see the warning rather than none.
  */
-internal fun matchingDenylist(
+fun matchingDenylist(
     entries: List<DenylistEntry>,
     chainId: Long,
     contract: String,
@@ -78,7 +78,7 @@ internal fun matchingDenylist(
  * The entries that typed data of [primaryType] matches: a message whose domain names [chainId] and, when the domain names one,
  * [verifyingContract]. An entry matches only when it names that primary type, and its chain and contract when it names them.
  */
-internal fun matchingTypedDenylist(
+fun matchingTypedDenylist(
     entries: List<DenylistEntry>,
     chainId: Long,
     verifyingContract: String?,
