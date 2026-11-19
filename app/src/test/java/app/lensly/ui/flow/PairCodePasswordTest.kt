@@ -2,6 +2,7 @@ package app.lensly.ui.flow
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -22,10 +23,14 @@ import org.robolectric.annotation.Config
 
 private const val APP_PASSWORD = "sesame"
 private const val PASSWORD_PROMPT = "Application Password"
+private const val LUMIO_OPTION = "LUMIO (AIRVAULT COMPANION)"
+private const val RABBY_OPTION = "RABBY (AIRGAP VAULT)"
+private const val METAMASK_OPTION = "METAMASK (QR-BASED)"
+private const val QR_CODE = "QR code"
 
 /**
- * The AirVault code is built only once the App Password is right. A wrong password builds nothing, an unavailable vault leaves for its
- * notice, and the code locks again when the app leaves the foreground, as Show Secret does.
+ * Every pairing code is built only once the App Password is right. A wrong password builds nothing, an unavailable vault leaves for
+ * its notice, and the code locks again when the app leaves the foreground, as Show Secret does.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w720dp-h1600dp-port-mdpi")
@@ -40,7 +45,7 @@ class PairCodePasswordTest {
 
     @Test
     fun noCodeIsBuiltBeforeTheAppPasswordIsRight() {
-        showLumioCode(check = { password -> if (String(password) == APP_PASSWORD) PasswordCheck.Accepted else PasswordCheck.Rejected })
+        showCode(check = { password -> if (String(password) == APP_PASSWORD) PasswordCheck.Accepted else PasswordCheck.Rejected })
 
         compose.onNodeWithText(PASSWORD_PROMPT, substring = true).assertExists()
         assertTrue(built.isEmpty(), "the code is built only after the password")
@@ -60,7 +65,7 @@ class PairCodePasswordTest {
     @Test
     fun anUnavailableVaultLeavesForTheNoticeWithNoCode() {
         var unavailable = 0
-        showLumioCode(check = { PasswordCheck.Unavailable }, onUnavailable = { unavailable++ })
+        showCode(check = { PasswordCheck.Unavailable }, onUnavailable = { unavailable++ })
 
         type(APP_PASSWORD)
         pressDone()
@@ -71,7 +76,7 @@ class PairCodePasswordTest {
 
     @Test
     fun theCodeLocksAgainWhenTheAppLeavesTheForeground() {
-        showLumioCode(check = { PasswordCheck.Accepted })
+        showCode(check = { PasswordCheck.Accepted })
         type(APP_PASSWORD)
         pressDone()
         assertEquals(1, built.size)
@@ -86,7 +91,7 @@ class PairCodePasswordTest {
     @Test
     fun aCheckThatEndsAfterTheAppLeftTheForegroundDoesNotUnlockTheCode() {
         val answer = CompletableDeferred<PasswordCheck>()
-        showLumioCode(check = { answer.await() })
+        showCode(check = { answer.await() })
         type(APP_PASSWORD)
         pressDone()
 
@@ -99,8 +104,57 @@ class PairCodePasswordTest {
         compose.onNodeWithText(PASSWORD_PROMPT, substring = true).assertExists()
     }
 
-    /** Opens PAIR WALLET for [wallet] on the LUMIO code, and stops at the App Password step. */
-    private fun showLumioCode(
+    @Test
+    fun theRabbyCodeIsNotComposedBeforeTheAppPasswordIsRight() = assertCodeIsBehindThePassword(RABBY_OPTION)
+
+    @Test
+    fun theMetaMaskCodeIsNotComposedBeforeTheAppPasswordIsRight() = assertCodeIsBehindThePassword(METAMASK_OPTION)
+
+    @Test
+    fun theRabbyCodeLocksAgainWhenTheAppLeavesTheForeground() {
+        showCode(RABBY_OPTION, check = { PasswordCheck.Accepted })
+        type(APP_PASSWORD)
+        pressDone()
+        waitForQrCode()
+
+        stopApp()
+        startApp()
+
+        compose.onNodeWithText(PASSWORD_PROMPT, substring = true).assertExists()
+        compose.onNodeWithContentDescription(QR_CODE, substring = true).assertDoesNotExist()
+    }
+
+    /**
+     * The code of [option] has no QR node until the App Password is right: none is composed for a wrong password, and the code appears
+     * once the right one is typed.
+     */
+    private fun assertCodeIsBehindThePassword(option: String) {
+        showCode(option, check = { password -> if (String(password) == APP_PASSWORD) PasswordCheck.Accepted else PasswordCheck.Rejected })
+        compose.onNodeWithText(PASSWORD_PROMPT, substring = true).assertExists()
+        compose.onNodeWithContentDescription(QR_CODE, substring = true).assertDoesNotExist()
+        assertTrue(built.isEmpty(), "the code is built only after the password")
+
+        type("wrong")
+        pressDone()
+        compose.onNodeWithText(PASSWORD_PROMPT, substring = true).assertExists()
+        compose.onNodeWithContentDescription(QR_CODE, substring = true).assertDoesNotExist()
+        assertTrue(built.isEmpty(), "a wrong password builds no code")
+
+        type(APP_PASSWORD)
+        pressDone()
+        waitForQrCode()
+        assertEquals(listOf(wallet), built)
+        compose.onNodeWithText(PASSWORD_PROMPT, substring = true).assertDoesNotExist()
+    }
+
+    /** The frames of a Rabby or MetaMask code are built off the main thread, so the test waits for their QR to appear. */
+    private fun waitForQrCode() = compose.waitUntil(timeoutMillis = 5_000) {
+        compose.onAllNodesWithContentDescription(QR_CODE, substring = true).fetchSemanticsNodes().isNotEmpty()
+    }
+
+    /** Opens PAIR WALLET for [wallet] on the [option] code, and stops at the App Password step. */
+    private fun showCode(
+        option: String = LUMIO_OPTION,
         check: suspend (CharArray) -> PasswordCheck,
         onUnavailable: () -> Unit = {},
     ) {
@@ -116,12 +170,16 @@ class PairCodePasswordTest {
                         built += meta
                         listOf("ur:x-airvault-pairing/1-1/aa")
                     },
+                    ethereumParts = { meta ->
+                        built += meta
+                        listOf("ur:crypto-multi-accounts/1-1/aa")
+                    },
                     checkPassword = check,
                     onUnavailable = onUnavailable,
                 )
             }
         }
-        compose.onNodeWithText("LUMIO (AIRVAULT COMPANION)").performClick()
+        compose.onNodeWithText(option).performClick()
         compose.waitForIdle()
         compose.onNodeWithText("Show Code", ignoreCase = true).performClick()
         compose.waitForIdle()
