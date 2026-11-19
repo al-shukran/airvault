@@ -54,6 +54,11 @@ jobs:
           # The default is read-only on any branch that is not the repository default, which
           # would leave phase-1-5 without a cache of its own.
           cache-read-only: false
+          # Cleanup deletes the Kotlin/KSP plugin marker POMs from the saved entry (the build reads the
+          # descriptor from the metadata cache and never opens the POM), while the descriptor survives. A later
+          # restore then has descriptor and no file, and the PR and master test jobs fail with "plugin not found"
+          # (runs 44495699055, 44489012891). Keep the entry as the build left it.
+          cache-cleanup: never
 
       # Compile resolves only the compile classpaths. The test runtime classpaths (JUnit, Robolectric,
       # Roborazzi, ...) were never saved, so every PR test partition downloaded them from Maven Central at
@@ -66,29 +71,12 @@ jobs:
       # deletes them while the metadata descriptor survives. The PR lane then downloads the POM from Central
       # with about 22 partitions at once, and the failed download is reported as "plugin not found"
       # (2026-11-19, runs 44474000225 and 44475202113). Configuring every time keeps the markers in use.
-      - name: DIAG before resolve
-        run: |
-          echo "== KSP files in gradle home (size path)"
-          find ~/.gradle -path '*devtools.ksp*' -type f -printf '%s %p\n' | sort -k2
-          echo "== ksp strings in modules-2 bin files"
-          find ~/.gradle/caches/modules-2 -maxdepth 2 -name '*.bin' -print0 | while IFS= read -r -d '' f; do echo "# $f"; LC_ALL=C grep -a -o '[[:print:]]*ksp[[:print:]]*' "$f" | head -8; done
-          echo "== descriptor strings"
-          find ~/.gradle/caches/modules-2 -path '*devtools.ksp.gradle.plugin*' -type f -print0 | while IFS= read -r -d '' f; do echo "# $f"; LC_ALL=C grep -a -o '[[:print:]]*' "$f" | head -c 1500; echo; done
-
       - name: Resolve unit-test runtime classpaths
         run: >
-          ./gradlew --no-configuration-cache --info --stacktrace
+          ./gradlew --no-configuration-cache
           :shared:testDebugUnitTest --tests 'app.lensly.core.btc.*'
           :app:testDebugUnitTest --tests 'app.lensly.SmokeTest'
           :lumio:testDebugUnitTest --tests 'app.lumio.data.cache.*'
-
-      - name: DIAG after resolve
-        if: always()
-        run: |
-          echo "== KSP files in gradle home (size path)"
-          find ~/.gradle -path '*devtools.ksp*' -type f -printf '%s %p\n' | sort -k2
-          echo "== ksp strings in modules-2 bin files"
-          find ~/.gradle/caches/modules-2 -maxdepth 2 -name '*.bin' -print0 | while IFS= read -r -d '' f; do echo "# $f"; LC_ALL=C grep -a -o '[[:print:]]*ksp[[:print:]]*' "$f" | head -8; done
 
       # Compile every variant the PR lane compiles, and nothing else. Each task was confirmed
       # present with `./gradlew <tasks> --dry-run`. Keep this list in step with the build types
@@ -130,6 +118,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           cache-read-only: false
+          cache-cleanup: never # see the test job: cleanup purges the KSP marker POM from the saved entry
 
       - name: Lint lumio
         # --no-configuration-cache: a config-cache hit never reads the plugin marker POMs, so on-success cache cleanup
