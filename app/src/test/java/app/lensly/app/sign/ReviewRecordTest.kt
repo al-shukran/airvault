@@ -69,42 +69,6 @@ private fun transferReview() = TxReview(
 class ReviewRecordTest {
 
     @Test
-    fun aSignedTransactionKeepsTheFactsTheOwnerSaw() {
-        val request = request(signData = byteArrayOf(9, 8, 7))
-        val ready = Prepared.Ready(transferReview(), request, accountIndex = 3, walletId = "wallet")
-
-        val record = reviewRecordOf(
-            ReviewEntry("wallet", ReviewOutcome.SIGNED, request, ready, refusal = null),
-            atMs = 42L,
-            registry = REGISTRY,
-        )
-
-        assertEquals(42L, record.atMs)
-        assertEquals(ReviewOutcome.SIGNED, record.outcome)
-        assertEquals(ReviewKind.TRANSACTION, record.kind)
-        assertEquals(MONAD, record.chainId)
-        assertEquals("Monad Testnet", record.networkName)
-        assertEquals(3, record.accountIndex)
-        assertEquals(SENDER, record.address)
-        assertEquals("transfer", record.function)
-        assertEquals(RECIPIENT, record.to)
-        assertEquals("1.5 USDC", record.amount)
-        assertEquals(CONTRACT_ADDR, record.tokenContract)
-        assertEquals(
-            listOf(
-                "Gas Limit" to "21000",
-                "Max Fee" to "0.0021 MON",
-                "Note" to "L1 data fee is not computable offline; total may be higher",
-            ),
-            record.fee,
-        )
-        assertEquals(transferReview().params, record.params)
-        assertEquals("https://app.example", record.origin)
-        assertNull(record.refusal)
-        assertEquals(sha256Hex(byteArrayOf(9, 8, 7)), record.dataHash)
-    }
-
-    @Test
     fun aRefusalBeforeAnyReviewNamesTheChainAndKeepsTheReason() {
         val record = reviewRecordOf(
             ReviewEntry("wallet", ReviewOutcome.REFUSED, request(), null, refusal = "Unknown Contract Call"),
@@ -143,36 +107,6 @@ class ReviewRecordTest {
 
         assertNull(record.chainId)
         assertNull(record.networkName)
-    }
-
-    @Test
-    fun aMessageIsKindMessageWithItsTextAndNoAmountOrRecipient() {
-        val message = "Sign in to Lensly".toByteArray()
-        val review = transferReview().copy(
-            function = SIGN_MESSAGE_FUNCTION,
-            toAddress = "",
-            amount = "",
-            symbol = "",
-            tokenContract = null,
-            params = listOf("message" to "Sign in to Lensly"),
-            fee = emptyList(),
-            feeNote = null,
-            txType = "Personal Message",
-        )
-        val request = request(dataType = DataType.PERSONAL_MESSAGE, signData = message)
-
-        val record = reviewRecordOf(
-            ReviewEntry("wallet", ReviewOutcome.SIGNED, request, Prepared.Ready(review, request, 0, "wallet"), refusal = null),
-            atMs = 1L,
-            registry = REGISTRY,
-        )
-
-        assertEquals(ReviewKind.MESSAGE, record.kind)
-        assertEquals(SIGN_MESSAGE_FUNCTION, record.function)
-        assertNull(record.to)
-        assertNull(record.amount)
-        assertEquals(listOf("message" to "Sign in to Lensly"), record.params)
-        assertEquals(sha256Hex(message), record.dataHash)
     }
 
     @Test

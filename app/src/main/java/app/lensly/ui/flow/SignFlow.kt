@@ -6,6 +6,7 @@ import app.airvault.chains.evm.evmManifest
 import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.chains.evm.signer.EvmRequestBody
 import app.airvault.chains.evm.signer.ParsedRequest
+import app.airvault.chains.evm.signer.UndecodedCall
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.signer.AppRequest
@@ -20,7 +21,6 @@ import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ScannedRequest
 import app.lensly.app.sign.SolanaReviewEntry
-import app.lensly.app.sign.UndecodedCall
 import app.lensly.app.sign.WalletMatch
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.routeScan
@@ -738,7 +738,7 @@ class SignFlow(
         try {
             if (started != epoch) return SignStep.Closed
             val keyAddress = AccountAddresses.addressOfPrivateKey(key)
-            if (!keyAddress.equals(ready.review.fromAddress, ignoreCase = true)) {
+            if (!keyAddress.equals(ready.signer.address, ignoreCase = true)) {
                 return refusal(started, ready.walletId, ready.request, KEY_MISMATCH, ready)
             }
             val parts = try {

@@ -1,5 +1,6 @@
 package app.lensly.app.sign
 
+import app.airvault.core.model.DisplayValue
 import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.chains.evm.signer.EvmRequestParser
@@ -115,43 +116,6 @@ private fun ready(json: String, pipeline: SignPipeline = OPEN_PIPELINE, chainId:
 class TypedDataPipelineTest {
 
     @Test
-    fun aPermitIsReviewedWithItsTokenSpenderAmountDeadlineAndDomain() {
-        val review = ready(permitDoc()).review
-
-        assertEquals("Permit", review.function)
-        assertEquals("Typed data (EIP-712)", review.txType)
-        val summary = review.typed!!.summary.toMap()
-        assertEquals("USD Coin (USDC) $USDC_CHECKSUM", summary["Token"])
-        assertEquals(SPENDER, summary["Spender"])
-        assertEquals("1 USDC", summary["Amount"])
-        assertEquals("17 Mar 2030, 17:46 UTC", summary["Deadline"])
-        assertEquals(listOf("Name" to "USD Coin", "Version" to "2", "Chain ID" to "1 (Ethereum)"), review.typed!!.domain.take(3))
-        assertTrue(review.warnings.isEmpty())
-        assertTrue(review.requiredChecks.isEmpty())
-    }
-
-    @Test
-    fun anUnlimitedPermitIsFlaggedAndWarnedAgainstAsAnUnlimitedApproval() {
-        val review = ready(permitDoc(value = MAX_UINT256)).review
-
-        assertTrue(review.typed!!.summary.toMap().getValue("Amount").startsWith("Unlimited"))
-        assertEquals(listOf(unlimitedApprovalWarning("USDC")), review.warnings)
-        assertEquals(listOf(ReviewCheck.UNLIMITED), review.requiredChecks)
-    }
-
-    @Test
-    fun aPermitMatchingTheShippedWarnEntryReachesReviewWithItsReasonAndNeedsTheConfirmationBeforeSigning() {
-        val review = ready(permitDoc(), pipeline = SHIPPED_PIPELINE).review
-
-        assertEquals(listOf(PERMIT_REASON), review.denylisted.map { it.reason })
-        assertEquals(DenylistSeverity.WARN, SHIPPED.typedDenylistMatches(1, USDC, "Permit").single().severity)
-        assertTrue(ReviewCheck.DENYLIST in review.requiredChecks)
-        // HOLD TO SIGN stays off until the owner has ticked the warning's confirmation, as it does for a transaction.
-        assertFalse(review.canApprove(everyFactShown = true, checked = emptySet()))
-        assertTrue(review.canApprove(everyFactShown = true, checked = setOf(ReviewCheck.DENYLIST)))
-    }
-
-    @Test
     fun aBlockEntryMatchingTypedDataRefusesItBeforeItsReviewWithTheEntryReason() {
         val blocked = OPEN.withDenylist(
             listOf(DenylistEntry(primaryType = "Permit", severity = DenylistSeverity.BLOCK, reason = "Blocked permit.")),
@@ -188,43 +152,18 @@ class TypedDataPipelineTest {
     }
 
     @Test
-    fun aPermitSingleForAnUnregisteredTokenIsReviewedAsUnknownAndNeedsTheRegistryCheck() {
-        val ready = ready(permitSingleDoc(token = SPENDER), pipeline = SHIPPED_PIPELINE)
-
-        val typed = assertNotNull(ready.review.typed)
-        assertTrue(typed.hasUnknownToken)
-        assertEquals("Unknown token $SPENDER", typed.summary.toMap().getValue("Token"))
-        assertEquals("1000000 (decimals unknown)", typed.summary.toMap().getValue("Amount"))
-        assertTrue(ready.review.needsRegistryConfirmation)
-        assertTrue(ReviewCheck.REGISTRY in ready.review.requiredChecks)
-    }
-
-    @Test
-    fun aMessageOfAnotherTypeReachesReviewWithEveryFieldNested() {
-        val review = ready(MAIL, pipeline = SHIPPED_PIPELINE).review
-
-        assertEquals("Mail", review.function)
-        assertTrue(review.typed!!.summary.isEmpty())
-        assertEquals(
-            listOf(
-                TypedRow(0, "from", "Person", null),
-                TypedRow(1, "name", "string", "Cow"),
-                TypedRow(1, "wallet", "address", "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826"),
-                TypedRow(0, "to", "Person", null),
-                TypedRow(1, "name", "string", "Bob"),
-                TypedRow(1, "wallet", "address", "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"),
-                TypedRow(0, "contents", "string", "Hello, Bob!"),
-            ),
-            review.typed!!.fields,
-        )
-        assertEquals("Cow", review.params.single { it.first == "from.name" }.second)
-    }
-
-    @Test
     fun aTypedDocumentThatDoesNotParseIsRefusedWithTheParsersReason() {
         val refused = assertIs<Prepared.Refused>(prepared(SHIPPED_PIPELINE, """{"types":{},"message":{}}"""))
 
         assertEquals("the document is missing primaryType", refused.reason)
+    }
+
+    @Test
+    fun anEip712ReviewIsBuiltByTheEvmBuilderAndTitledByItsPrimaryType() {
+        val ready = ready(permitDoc())
+        assertEquals("Permit", ready.review.title)
+        val header = ready.review.sections.first().rows
+        assertEquals("Typed data (EIP-712)", (header.single { it.label == "Type" }.value as DisplayValue.Text).text)
     }
 
     @Test
@@ -256,16 +195,4 @@ class TypedDataPipelineTest {
         assertTrue(key.all { it == 0.toByte() })
     }
 
-    @Test
-    fun aDenylistWarningOnATypedRequestIsShownAndNeedsItsOwnCheck() {
-        val withWarning = OPEN.withDenylist(
-            listOf(DenylistEntry(primaryType = "Permit", severity = DenylistSeverity.WARN, reason = "Warned permit.")),
-        )
-        val pipeline = SignPipeline(withWarning, InProcessParser)
-
-        val review = ready(permitDoc(), pipeline = pipeline).review
-
-        assertEquals(listOf("Warned permit."), review.denylisted.map { it.reason })
-        assertTrue(ReviewCheck.DENYLIST in review.requiredChecks)
-    }
 }

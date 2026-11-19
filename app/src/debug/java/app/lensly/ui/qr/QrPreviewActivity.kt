@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.chains.evm.signer.EvmRequestParser
+import app.lensly.app.EVM_FAMILY
 import app.lensly.app.HideDelay
 import app.lensly.app.RegistryHolder
 import app.lensly.app.sign.Prepared
@@ -44,6 +45,7 @@ import app.lensly.ui.settings.FailureCapChoice
 import app.lensly.ui.settings.HideDelayScreen
 import app.lensly.ui.settings.SettingsScreen
 import app.lensly.ui.sign.NestedCall
+import app.lensly.ui.sign.ReviewScreen
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.TxReview
 import app.lensly.ui.sign.TxReviewScreen
@@ -239,8 +241,15 @@ private fun ReviewPreview(review: TxReview) {
 @Composable
 private fun TypedPermitPreview() {
     val context = LocalContext.current
-    val review = remember(context) { typedPermitSampleReview(context) }
-    ReviewPreview(review)
+    val ready = remember(context) { typedPermitSampleReady(context) }
+    ReviewScreen(
+        review = ready.review,
+        signer = ready.signer,
+        addressNotes = ready.addressNotes,
+        addressChain = EVM_FAMILY,
+        onApprove = { Toast.makeText(context, "Preview: approved", Toast.LENGTH_SHORT).show() },
+        onReject = { Toast.makeText(context, "Preview: rejected", Toast.LENGTH_SHORT).show() },
+    )
 }
 
 /** The refusal the sign pipeline gives a typed message for a chain that the registry does not hold. */
@@ -252,12 +261,12 @@ private fun TypedRefusedPreview(onDone: () -> Unit) {
 }
 
 /**
- * The review of a sample Permit on chain 1, built by the sign pipeline from the shipped registry. The shipped denylist holds a WARN
+ * The ready review of a sample Permit on chain 1, built by the sign pipeline from the shipped registry. The shipped denylist holds a WARN
  * entry for Permit, so the review shows its reason and needs the risky-request confirmation before HOLD TO SIGN.
  */
-private fun typedPermitSampleReview(context: Context): TxReview =
+private fun typedPermitSampleReady(context: Context): Prepared.Ready =
     when (val prepared = samplePermitPrepared(context, chainId = 1)) {
-        is Prepared.Ready -> prepared.review
+        is Prepared.Ready -> prepared
         is Prepared.Refused -> error("The sample Permit was refused: ${prepared.reason}")
     }
 

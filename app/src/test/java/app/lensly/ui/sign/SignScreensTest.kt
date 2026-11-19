@@ -31,7 +31,7 @@ import app.lensly.app.ProfileColour
 import app.lensly.app.ProfileIcon
 import app.lensly.app.VisualIdentity
 import app.lensly.app.addressKeyOf
-import app.lensly.app.sign.UndecodedCall
+import app.airvault.chains.evm.signer.UndecodedCall
 import app.lensly.app.sign.WhitelistedCall
 import app.lensly.core.registry.DenylistCondition
 import app.lensly.core.registry.DenylistEntry
