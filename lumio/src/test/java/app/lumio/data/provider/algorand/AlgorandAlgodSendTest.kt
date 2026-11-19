@@ -54,8 +54,8 @@ class AlgorandAlgodSendTest {
 
     private fun <T> call(req: Request<T>): T = runBlocking { provider().execute(req, cfg, http) }
 
-    private fun params(genesisHash: String = GENESIS_HASH, minFee: String = "1000") = MockResponse().setBody(
-        """{"consensus-version":"v41","fee":0,"genesis-hash":"$genesisHash","genesis-id":"testnet-v1.0","last-round":61000000,"min-fee":$minFee}""",
+    private fun params(genesisId: String = "testnet-v1.0", genesisHash: String = GENESIS_HASH, minFee: String = "1000") = MockResponse().setBody(
+        """{"consensus-version":"v41","fee":0,"genesis-hash":"$genesisHash","genesis-id":"$genesisId","last-round":61000000,"min-fee":$minFee}""",
     )
 
     @Test
@@ -82,6 +82,15 @@ class AlgorandAlgodSendTest {
         server.enqueue(MockResponse().setBody("""{"genesis-id":"testnet-v1.0","genesis-hash":"$GENESIS_HASH","last-round":1}"""))
 
         repeat(4) { assertFailsWith<ProviderError.Fatal> { call(AlgorandParams(ALGORAND_TESTNET)) } }
+    }
+
+    @Test
+    fun paramsOfAnotherNetworkAreRefusedForTheNetworkAsked() {
+        server.enqueue(params(genesisId = "mainnet-v1.0", genesisHash = MAINNET_GENESIS_HASH))
+        server.enqueue(params(genesisHash = MAINNET_GENESIS_HASH))
+        server.enqueue(params(genesisId = "mainnet-v1.0"))
+
+        repeat(3) { assertFailsWith<ProviderError.Fatal> { call(AlgorandParams(ALGORAND_TESTNET)) } }
     }
 
     @Test
@@ -196,6 +205,9 @@ class AlgorandAlgodSendTest {
     private companion object {
         /** The genesis hash of testnet-v1.0, as algod writes it: base64 of 32 bytes. */
         const val GENESIS_HASH = "SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI="
+
+        /** The genesis hash of mainnet-v1.0, the network that the testnet request must refuse. */
+        const val MAINNET_GENESIS_HASH = "wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8="
 
         /** A well-formed transaction ID for the mock's answers. The mock does not check it against the bytes that were sent. */
         const val TXID = "VOLN5LOJUU2NAHUPUHYMFX5TXEZI4WIHJDUOLLXGLO6MX53SUEUA"

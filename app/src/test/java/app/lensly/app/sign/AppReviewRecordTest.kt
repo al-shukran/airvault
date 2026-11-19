@@ -1,6 +1,11 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.algorand.AlgoAddress
+import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.chains.algorand.AlgoSignRequestEncoder
+import app.airvault.chains.algorand.AlgoSignType
 import app.airvault.chains.algorand.algorandManifest
+import app.airvault.chains.algorand.bytesToSign
 import app.airvault.chains.algorand.signer.AlgorandRequestCheck
 import app.airvault.chains.algorand.signer.toReview
 import app.airvault.core.signer.AppRequest
@@ -8,12 +13,16 @@ import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
 import app.airvault.core.signer.SignerRef
 import app.lensly.app.SigningAccount
+import app.lensly.app.export.partsOf
 import app.lensly.core.ur.PathStep
+import app.lensly.core.ur.UrScanner
 import app.lensly.core.wallet.toHex
 import java.security.MessageDigest
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import org.junit.Test
 
 /** The Review Record of an Algorand request, built from the review the owner saw: the account that signs, its rows, its network and the checks ticked. */
@@ -105,6 +114,31 @@ class AppReviewRecordTest {
     )
 
     private fun appRequest(): AppRequest = AppRequest(header(RequestKind.TRANSACTION), PAY_BASIC)
+
+    @Test
+    fun anAlgorandRecordHashesTheTransactionTheOwnerSawNotTheTaggedBytesTheSignatureCovers() {
+        val scanner = UrScanner()
+        partsOf(
+            AlgoSignRequestEncoder.encode(
+                AlgoSignRequest(
+                    requestId = REQUEST_ID,
+                    signData = PAY_BASIC,
+                    derivationPath = PATH,
+                    sourceFingerprint = 0x1234_5678,
+                    address = AlgoAddress.encode(SENDER_KEY),
+                    origin = "test-origin",
+                    signType = AlgoSignType.TRANSACTION,
+                ),
+            ),
+        ).forEach { assertTrue(scanner.receive(it)) }
+        val body = checkNotNull(scanner.result()).cborBytes
+
+        val (origin, dataHash) = appRequestFactsOf(AppRequest(header(RequestKind.TRANSACTION), body))
+
+        assertEquals("test-origin", origin)
+        assertEquals(sha256Hex(PAY_BASIC), dataHash)
+        assertNotEquals(sha256Hex(bytesToSign(PAY_BASIC)), dataHash)
+    }
 
     private fun sha256Hex(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).toHex()
 

@@ -1,12 +1,12 @@
 package app.lumio.send.solana
 
 import app.airvault.chains.solana.signer.SolCluster
+import app.airvault.chains.solana.wallet.SolanaWallet
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.signer.SolSignType
 import app.lensly.app.export.partsOf
 import app.lensly.core.solana.SolanaNonce
 import app.lensly.core.solana.SolanaTransaction
-import app.lensly.core.ur.PathStep
 import app.lensly.core.ur.SolSignRequestEncoder
 import app.lensly.core.ur.SolSignature
 import app.lensly.core.wallet.Ed25519Signer
@@ -254,7 +254,7 @@ object SolanaSend {
         val request = SolSignRequest(
             requestId = plan.requestId,
             signData = plan.message,
-            derivationPath = listOf(PathStep(PURPOSE, true), PathStep(SOLANA_COIN_TYPE, true), PathStep(plan.account.index, true)),
+            derivationPath = SolanaWallet.pathOf(plan.account.index),
             sourceFingerprint = plan.account.sourceFingerprint,
             address = plan.account.key,
             origin = ORIGIN,
@@ -324,8 +324,6 @@ object SolanaSend {
         "https://explorer.solana.com/tx/$signature" + if (network == SOLANA_MAINNET) "" else "?cluster=devnet"
 
     private const val REQUEST_ID_BYTES = 16
-    private const val PURPOSE = 44
-    private const val SOLANA_COIN_TYPE = 501
 }
 
 /**
