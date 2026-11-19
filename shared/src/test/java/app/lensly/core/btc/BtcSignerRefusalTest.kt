@@ -268,6 +268,18 @@ class BtcSignerRefusalTest {
     }
 
     @Test
+    fun aNestedNonWitnessInputWithoutItsRedeemScriptIsRefusedBeforeAnySignature() {
+        // Without a redeem script the P2SH output is not a nested P2WPKH, so the input is not of the account's script type.
+        val nested = BtcAccount.fromSeed(seed, testnet4, ScriptType.NESTED_SEGWIT)
+        val spend = BtcFixtures.Spend(BtcFixtures.funding(nested, 0, 0, 100_000L), nested, 0, 0)
+        val withRedeem = BtcFixtures.previousTransactionOnly(spend, outputs(nested, 90_000L))
+        val input = withRedeem.inputs[0] as Input.NonWitnessInput.PartiallySignedNonWitnessInput
+        val psbt = withRedeem.copy(inputs = listOf(input.copy(redeemScript = null)))
+        assertRefusal(BtcRefusal.ScriptTypeNotUsed(0)) { BtcFixtures.signerOf(nested, seed).review(psbt) }
+        assertRefusal(BtcRefusal.ScriptTypeNotUsed(0)) { BtcFixtures.signerOf(nested, seed).sign(psbt) }
+    }
+
+    @Test
     fun aNonWitnessInputThatSpendsALegacyOutputIsStillSigned() {
         val legacy = BtcAccount.fromSeed(seed, testnet4, ScriptType.LEGACY)
         val spend = BtcFixtures.Spend(BtcFixtures.funding(legacy, 0, 0, 100_000L), legacy, 0, 0)

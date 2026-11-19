@@ -341,11 +341,17 @@ class SignFlowTest {
     }
 
     @Test
-    fun aRequestLargerThan128KiBIsRefusedBeforeItCompletes() {
+    fun aRequestOverTheScanLimitIsRefused() {
         val flow = SignFlow(FakePorts(), WALLET_ID)
-        val read = scan(flow, framesOf(messageRequest(signData = ByteArray(100 * 1024) { 1 }), FRAGMENT))
-        assertEquals("The request is larger than 128 KiB.", assertIs<SignStep.Refused>(flow.state.value).reason)
-        assertTrue(read < 400, "refused only after $read frames, so the scan did not stop early")
+        scan(flow, framesOf(messageRequest(signData = ByteArray(120 * 1024) { 1 }), FRAGMENT))
+        assertEquals("The request is larger than 200 KiB.", assertIs<SignStep.Refused>(flow.state.value).reason)
+    }
+
+    @Test
+    fun aRequestOfTheLargestSizeTheParserReadsIsNotRefusedAsTooLarge() {
+        val flow = SignFlow(FakePorts(), WALLET_ID)
+        scan(flow, framesOf(messageRequest(signData = ByteArray(ParserLimits.MAX_SIGN_DATA_BYTES) { 1 }), FRAGMENT))
+        assertIs<SignStep.Review>(flow.state.value)
     }
 
     @Test

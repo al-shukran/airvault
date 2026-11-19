@@ -19,6 +19,7 @@ import app.lensly.app.sign.WalletMatch
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.routeScan
 import app.lensly.core.parse.CANNOT_BE_READ
+import app.lensly.core.parse.ParserLimits
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.UNSUPPORTED_CODE
 import app.lensly.core.parse.WireException
@@ -519,12 +520,15 @@ class SignFlow(
     }
 
     private companion object {
+        /** The most characters one part of a UR adds beyond its payload: its `ur:` prefix, type and sequence, and its fragment header. */
+        const val PART_OVERHEAD_CHARS = 64
+
         /**
-         * The most scanned text the flow accepts, in characters. A UR in bytewords uses two characters per byte, and an
-         * animated request repeats frames when the camera misses some. A 16 KiB calldata request reads in about 35 K
-         * characters when every frame arrives, and in about 65 K when half of them are missed, so this leaves room for both.
+         * The most scanned text the flow accepts, in characters: the largest CBOR payload a request may carry, at two characters per byte
+         * in bytewords, plus the overhead of each part of the largest number of parts a UR may declare. An animated request repeats frames
+         * when the camera misses some, and a repeated frame is counted once, so the repeats do not use this up.
          */
-        const val MAX_SCAN_CHARS = 128L * 1024
+        const val MAX_SCAN_CHARS = 2L * ParserLimits.MAX_APP_PAYLOAD_BYTES + ParserLimits.MAX_UR_PARTS * PART_OVERHEAD_CHARS
 
         const val SCAN_HINT = "Scan the sign request from your online wallet."
         const val READING = "Reading the request. Keep the code in view."

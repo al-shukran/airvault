@@ -22,6 +22,9 @@ enum class AlgorandWarning {
 
     /** The transaction is part of a group. Lensly shows only this transaction, not the others in the group. */
     GROUP,
+
+    /** The transaction carries a lease, which holds the sender's transaction with that lease until its last valid round. */
+    LEASE,
 }
 
 /**
@@ -58,6 +61,7 @@ class AlgorandRequestReview internal constructor(
             if (closeTo != null) add(AlgorandWarning.CLOSE_TO)
             if (txn is AssetTransfer && asset == null) add(AlgorandWarning.UNKNOWN_ASSET)
             if (txn.group != null) add(AlgorandWarning.GROUP)
+            if (txn.lease != null) add(AlgorandWarning.LEASE)
         }
 }
 

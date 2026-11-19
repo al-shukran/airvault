@@ -6,6 +6,7 @@ import app.airvault.chains.algorand.signer.AlgorandWarning
 import app.airvault.chains.algorand.signer.AsaCatalog
 import app.airvault.chains.algorand.signer.toReview
 import app.airvault.chains.algorand.signer.warningText
+import app.airvault.core.model.Danger
 import app.airvault.core.model.text
 import app.lensly.core.ur.PathStep
 import kotlin.test.assertEquals
@@ -97,6 +98,20 @@ class AlgorandReviewRowsTest {
 
         assertEquals("0x" + "33".repeat(32), algorandRows(review).single { it.first == "Lease" }.second)
         assertEquals("0x" + "22".repeat(32), algorandRows(review).single { it.first == "Group ID" }.second)
+    }
+
+    @Test
+    fun aLeaseIsCautionedAndNamesTheRoundItHoldsTheTransactionTo() {
+        val review = reviewOf(withLease(PAY_BASIC))
+
+        assertEquals(listOf(AlgorandWarning.LEASE), review.warnings)
+        assertEquals(
+            "This transaction carries a lease: it can be submitted once until round 50001000.",
+            algorandWarningText(review, AlgorandWarning.LEASE),
+        )
+        val warning = review.toReview().warnings.single()
+        assertEquals(Danger.CAUTION, warning.level)
+        assertEquals("algorand.lease", warning.code)
     }
 
     @Test
@@ -291,6 +306,11 @@ class AlgorandReviewRowsTest {
     private fun withLeaseAndGroup(hex: String): String = hex
         .replaceFirst("89a3616d74", "8ba3616d74")
         .replaceFirst("a26c76ce02faf468", "a3677270c420${"22".repeat(32)}a26c76ce02faf468a26c78c420${"33".repeat(32)}")
+
+    /** [hex] with a lease of 0x33 repeated and no group ID, in its canonical key position after the last valid round. */
+    private fun withLease(hex: String): String = hex
+        .replaceFirst("89a3616d74", "8aa3616d74")
+        .replaceFirst("a26c76ce02faf468", "a26c76ce02faf468a26c78c420${"33".repeat(32)}")
 
     private fun hexBytes(hex: String): ByteArray = ByteArray(hex.length / 2) { hex.substring(2 * it, 2 * it + 2).toInt(16).toByte() }
 
