@@ -35,7 +35,7 @@ object EvmWallet : WalletApp {
      * manifest). Anything else throws [IllegalArgumentException].
      */
     override fun accountFrom(export: AccountExport): List<WalletAccount> {
-        require(export.chain.namespace in manifest.namespaces) { "${export.chain} is not an EVM network" }
+        require(export.chain in manifest.networks.map { it.chainId }) { "${export.chain} is not an EVM network" }
         require(export.kind == AddressKind.DEFAULT) { "EVM accounts have one address kind" }
         require(export.publicKey.curve == Curve.SECP256K1) { "an EVM key is a ${Curve.SECP256K1} key" }
         require(isAccountPath(export.signer.path)) { "${export.signer.path} is not an EVM account key, m/44'/60'/N'/0/0" }
