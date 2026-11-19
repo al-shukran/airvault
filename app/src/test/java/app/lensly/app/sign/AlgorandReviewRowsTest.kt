@@ -376,7 +376,7 @@ class AlgorandReviewRowsTest {
 private fun algorandRows(review: AlgorandRequestReview): List<Pair<String, String>> =
     review.toReview().sections.flatMap { it.rows }.map { it.label to it.value.text() }
 
-private fun algorandSentence(review: AlgorandRequestReview): String = review.toReview().summary
+private fun algorandSentence(review: AlgorandRequestReview): String = review.toReview().summary.text()
 
 private fun algorandFacts(review: AlgorandRequestReview): List<Pair<String, String>> =
     review.toReview().facts.map { it.label to it.value.text() }

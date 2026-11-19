@@ -69,7 +69,7 @@ class AlgorandReviewTest {
         assertTrue(review.unaccounted().isEmpty(), "every decoded field is shown or excluded")
         assertTrue(review.warnings.none { it.level == Danger.BLOCK })
         assertEquals(listOf("Sender", "Receiver", "Amount", "Fee", "Valid from Round", "Valid until Round"), review.labels())
-        assertEquals("Sends 1.500000 ALGO to ${AlgoAddress.encode(receiver)}.", review.summary)
+        assertEquals("Sends 1.500000 ALGO to ${AlgoAddress.encode(receiver)}.", review.summary.text())
     }
 
     @Test
