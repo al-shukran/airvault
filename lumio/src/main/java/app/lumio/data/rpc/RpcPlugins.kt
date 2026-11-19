@@ -5,7 +5,8 @@ import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
@@ -14,7 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** The operations an EVM RPC provider serves: balances, nonces, fees, gas estimates and broadcasts. */
-private val EVM_OPS = setOf(Op.NATIVE_BALANCE, Op.NONCE, Op.RPC_CALL, Op.FEE_ESTIMATES, Op.BROADCAST)
+private val EVM_OPS = setOf(Ops.EVM_NATIVE_BALANCE, Ops.EVM_NONCE, Ops.EVM_CALL, Ops.EVM_GAS_FEES, Ops.EVM_BROADCAST)
 
 /** A key as it goes into a URL path. Only letters, digits, '-' and '_' pass, so a key can never change the host or the path. */
 private val KEY = Regex("[A-Za-z0-9_-]{1,128}")
@@ -47,9 +48,9 @@ abstract class EvmRpcProvider(
     open fun endpoints(net: NetworkId, cfg: ProviderConfig): List<String> = listOfNotNull(endpoint(net, cfg))
 
     /** Whether the endpoint serves [op] under [cfg]. Every EVM operation, unless a provider says otherwise. */
-    open fun serves(op: Op, cfg: ProviderConfig): Boolean = true
+    open fun serves(op: OpKey, cfg: ProviderConfig): Boolean = true
 
-    override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
+    override fun supports(net: NetworkId, op: OpKey, cfg: ProviderConfig): Boolean =
         net.isEvm && op in EVM_OPS && serves(op, cfg) && endpoints(net, cfg).isNotEmpty()
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = limits
@@ -172,7 +173,7 @@ class Alchemy : EvmRpcProvider("alchemy", setOf(Trait.KEYLESS, Trait.KEY_OPTIONA
         return if (KEY.matches(key)) "https://$slug.g.alchemy.com/v2/$key" else null
     }
 
-    override fun serves(op: Op, cfg: ProviderConfig): Boolean = op != Op.BROADCAST || cfg.apiKey != null
+    override fun serves(op: OpKey, cfg: ProviderConfig): Boolean = op != Ops.EVM_BROADCAST || cfg.apiKey != null
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = if (cfg.apiKey == null) KEYLESS_ALCHEMY else KEYED_ALCHEMY
 

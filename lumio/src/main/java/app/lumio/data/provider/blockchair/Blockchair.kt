@@ -7,7 +7,8 @@ import app.lumio.data.provider.AddressUtxos
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
 import app.lumio.data.provider.NativeBalance
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
@@ -53,7 +54,7 @@ class BlockchairProvider(fallbackOnly: Boolean = false) : Provider {
     override val traits: Set<Trait> =
         if (fallbackOnly) setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL, Trait.FALLBACK_ONLY) else setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL)
 
-    override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean =
+    override fun supports(net: NetworkId, op: OpKey, cfg: ProviderConfig): Boolean =
         chainOf(net, op) != null && providerBase(cfg.baseUrl, BASE) != null
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = if (keyOf(cfg) == null) KEYLESS_LIMITS else KEYED_LIMITS
@@ -69,9 +70,9 @@ class BlockchairProvider(fallbackOnly: Boolean = false) : Provider {
     }
 
     /** The Blockchair chain name for [op] on [net], or null when this provider does not serve it. */
-    private fun chainOf(net: NetworkId, op: Op): String? = when {
-        op == Op.ADDRESS_UTXOS && net.isBtc && net.name == "mainnet" && !net.testnet -> "bitcoin"
-        op == Op.NATIVE_BALANCE && net.isEvm && net.name == "1" && !net.testnet -> "ethereum"
+    private fun chainOf(net: NetworkId, op: OpKey): String? = when {
+        op == Ops.BTC_UTXOS && net.isBtc && net.name == "mainnet" && !net.testnet -> "bitcoin"
+        op == Ops.EVM_NATIVE_BALANCE && net.isEvm && net.name == "1" && !net.testnet -> "ethereum"
         else -> null
     }
 

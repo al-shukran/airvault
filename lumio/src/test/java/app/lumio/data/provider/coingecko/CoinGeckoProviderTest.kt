@@ -7,7 +7,8 @@ import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativePrice
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.PriceQuote
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Trait
@@ -113,8 +114,8 @@ class CoinGeckoProviderTest {
     fun theProviderNeedsItsKeyAndIsNotAFallback() {
         val provider = CoinGeckoProvider()
         assertEquals(setOf(Trait.KEY_REQUIRED), provider.traits)
-        assertTrue(provider.supports(BTC, Op.PRICE, ProviderConfig()))
-        assertFalse(provider.supports(BTC, Op.NATIVE_BALANCE, ProviderConfig()))
+        assertTrue(provider.supports(BTC, Ops.PRICE_NATIVE, ProviderConfig()))
+        assertFalse(provider.supports(BTC, OpKey.on(BTC, "nativeBalance"), ProviderConfig()))
         assertFalse(provider.defaultLimits(ProviderConfig()) == provider.defaultLimits(ProviderConfig(apiKey = "k")))
     }
 }

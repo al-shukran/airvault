@@ -5,7 +5,8 @@ import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
-import app.lumio.data.provider.Op
+import app.lumio.data.provider.OpKey
+import app.lumio.data.provider.Ops
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
@@ -13,14 +14,14 @@ import app.lumio.data.provider.Trait
 
 /** The operations an Esplora server serves. Broadcast is `POST /tx`, which every Esplora server takes. */
 private val ESPLORA_OPS = setOf(
-    Op.ADDRESS_STATS,
-    Op.ADDRESS_TXS,
-    Op.ADDRESS_UTXOS,
-    Op.TIP_HEIGHT,
-    Op.FEE_ESTIMATES,
-    Op.BLOCK,
-    Op.TX,
-    Op.BROADCAST,
+    Ops.BTC_ADDRESS_STATS,
+    Ops.BTC_ADDRESS_TXS,
+    Ops.BTC_UTXOS,
+    Ops.BTC_TIP_HEIGHT,
+    Ops.BTC_FEE_ESTIMATES,
+    Ops.BTC_BLOCK,
+    Ops.BTC_TX,
+    Ops.BTC_BROADCAST,
 )
 
 /**
@@ -39,7 +40,7 @@ abstract class EsploraProvider : Provider {
     /** The base URL that serves [net] under [cfg], or null when this provider does not serve [net]. */
     protected abstract fun baseUrl(net: NetworkId, cfg: ProviderConfig): String?
 
-    override fun supports(net: NetworkId, op: Op, cfg: ProviderConfig): Boolean = op in ESPLORA_OPS && baseUrl(net, cfg) != null
+    override fun supports(net: NetworkId, op: OpKey, cfg: ProviderConfig): Boolean = op in ESPLORA_OPS && baseUrl(net, cfg) != null
 
     override fun defaultLimits(cfg: ProviderConfig): Limits = DEFAULT_LIMITS
 

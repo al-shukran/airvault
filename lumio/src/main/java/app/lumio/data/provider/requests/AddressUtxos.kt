@@ -14,4 +14,4 @@ data class Utxo(val txid: String, val vout: Int, val valueSats: Long, val blockH
  * The unspent outputs of a Bitcoin [address], confirmed and unconfirmed. A provider answers with the whole set or with an error, never with
  * part of it, because a balance summed from part of the set is wrong.
  */
-class AddressUtxos(net: NetworkId, val address: String) : Request<List<Utxo>>(net, Op.ADDRESS_UTXOS)
+class AddressUtxos(net: NetworkId, val address: String) : Request<List<Utxo>>(net, Ops.BTC_UTXOS)

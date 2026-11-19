@@ -22,23 +22,23 @@ class ProviderRoutingTest {
         override fun score(providerId: String, nowMs: Long): Double = 0.0
     }
 
-    private fun ids(net: NetworkId, op: Op): Set<String> =
+    private fun ids(net: NetworkId, op: OpKey): Set<String> =
         router.route(net, op, emptyMap(), everyone, 0L, emptySet(), emptySet()).map { it.id }.toSet()
 
     @Test
     fun bitcoinOutputsGoOnlyToBlockchair() {
-        assertEquals(setOf("blockchair"), ids(BTC, Op.ADDRESS_UTXOS))
+        assertEquals(setOf("blockchair"), ids(BTC, Ops.BTC_UTXOS))
     }
 
     @Test
     fun ethereumMainnetBalancesGoToBothPlugins() {
-        assertEquals(setOf("blockchair", "3xpl"), ids(ETH, Op.NATIVE_BALANCE))
+        assertEquals(setOf("blockchair", "3xpl"), ids(ETH, OpKey.on(ETH, "nativeBalance")))
     }
 
     @Test
     fun aNetworkNeitherPluginServesHasNoCandidate() {
-        assertTrue(ids(NetworkId(Networks.evm(11155111), testnet = true), Op.NATIVE_BALANCE).isEmpty())
-        assertTrue(ids(NetworkId(Networks.BTC_TESTNET4, testnet = true), Op.ADDRESS_UTXOS).isEmpty())
-        assertTrue(ids(BTC, Op.ADDRESS_STATS).isEmpty())
+        assertTrue(ids(NetworkId(Networks.evm(11155111), testnet = true), OpKey.on(NetworkId(Networks.evm(11155111), testnet = true), "nativeBalance")).isEmpty())
+        assertTrue(ids(NetworkId(Networks.BTC_TESTNET4, testnet = true), Ops.BTC_UTXOS).isEmpty())
+        assertTrue(ids(BTC, Ops.BTC_ADDRESS_STATS).isEmpty())
     }
 }
