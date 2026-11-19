@@ -38,7 +38,10 @@ class SecureKeyboardScreenshotTest {
     @Test
     fun shiftArmed() = compose.snapshot(
         "secure_keyboard_shift_armed",
-        beforeCapture = { onNodeWithContentDescription("Shift").performClick() },
+        beforeCapture = {
+            onNodeWithContentDescription("Shift").performClick()
+            mainClock.advanceTimeBy(16)
+        },
     ) {
         AtFoot { SecureKeyboard(onKey = {}, onBackspace = {}, onDone = {}) }
     }
@@ -48,7 +51,9 @@ class SecureKeyboardScreenshotTest {
         "secure_keyboard_caps_lock",
         beforeCapture = {
             onNodeWithContentDescription("Shift").performClick()
+            mainClock.advanceTimeBy(16)
             onNodeWithContentDescription("Shift").performClick()
+            mainClock.advanceTimeBy(16)
         },
     ) {
         AtFoot { SecureKeyboard(onKey = {}, onBackspace = {}, onDone = {}) }
