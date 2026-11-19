@@ -2,9 +2,12 @@ package app.lensly.app.sign
 
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.signer.SolSignType
-import app.lensly.core.solana.SolanaRequestCheck
-import app.lensly.core.solana.SolanaRequestReview
-import app.lensly.core.solana.SolanaTokenList
+import app.airvault.chains.solana.signer.SolanaRequestCheck
+import app.airvault.chains.solana.signer.SolanaRequestReview
+import app.airvault.chains.solana.signer.SolanaTokenList
+import app.airvault.chains.solana.signer.toReview
+import app.airvault.core.model.Danger
+import app.airvault.core.model.unaccounted
 import app.lensly.core.ur.PathStep
 import fr.acinq.bitcoin.Base58
 import org.junit.Test
@@ -162,5 +165,15 @@ class SolanaSplRowsTest {
             ),
             rows.subList(rows.size - 3, rows.size),
         )
+    }
+
+    /** Every fixture of the SPL vectors passes the coverage check: each field the parser read is shown by a row, or excluded with its reason. */
+    @Test
+    fun everySplFixtureShowsEveryFieldItReads() {
+        listOf("spl-transfer-plain", "spl-usdc-first-transfer", "spl-compute-transfer-checked", "spl-unknown-program-usdc").forEach { name ->
+            val checked = review(name, usdcTokens).toReview()
+            assertEquals(emptySet(), checked.unaccounted(), name)
+            assertEquals(emptyList(), checked.warnings.filter { it.level == Danger.BLOCK }, name)
+        }
     }
 }

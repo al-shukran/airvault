@@ -1,6 +1,5 @@
 package app.lensly.ui.sign
 
-import app.airvault.chains.solana.signer.SolCluster
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.registry.NetworkEntry
 
@@ -19,9 +18,3 @@ internal fun bitcoinNetworkName(network: BtcNetwork): String = when (network) {
     BtcNetwork.TESTNET4 -> "Bitcoin Testnet4"
 }
 
-/** The name of a Solana cluster a request states. Mainnet-beta is named as the mainnet, and devnet and testnet as the test networks. */
-internal fun solanaClusterName(cluster: SolCluster): String = when (cluster) {
-    SolCluster.MAINNET_BETA -> "Solana Mainnet"
-    SolCluster.DEVNET -> "Solana Devnet"
-    SolCluster.TESTNET -> "Solana Testnet"
-}

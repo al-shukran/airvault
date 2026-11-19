@@ -1,7 +1,7 @@
 package app.lumio.chains
 
 import android.content.Context
-import app.lensly.core.solana.SolanaTokenList
+import app.airvault.chains.solana.signer.SolanaTokenList
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.AsaAssetInfo
 import app.lumio.data.provider.AsaHolding
