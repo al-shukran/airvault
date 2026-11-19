@@ -18,6 +18,7 @@ import app.lensly.core.btc.BtcNetwork
 import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.BtcRefusal
 import app.airvault.chains.bitcoin.signer.BtcRefusedException
+import app.airvault.chains.bitcoin.signer.UNVERIFIED_CHECK
 import app.lensly.core.btc.BtcSigner
 import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
@@ -71,8 +72,8 @@ class SignFlowBitcoinTest {
 
         scanAll(flow, BtcPsbt.encodeUrParts(psbt))
 
-        val review = assertIs<SignStep.BitcoinReview>(flow.state.value)
-        assertEquals(false, review.confirmed)
+        assertIs<SignStep.BitcoinReview>(flow.state.value)
+        assertEquals(emptySet(), flow.ticked.value)
         assertContentEquals(Psbt.write(psbt).toByteArray(), ports.preparedBytes.single())
     }
 
@@ -212,9 +213,14 @@ class SignFlowBitcoinTest {
         scanAll(flow, BtcPsbt.encodeUrParts(psbt))
 
         flow.approve()
-        assertEquals(false, assertIs<SignStep.BitcoinReview>(flow.state.value).confirmed)
+        assertIs<SignStep.BitcoinReview>(flow.state.value)
 
-        flow.confirmUnverified(true)
+        flow.tick(UNVERIFIED_CHECK, on = true)
+        flow.tick(UNVERIFIED_CHECK, on = false)
+        flow.approve()
+        assertIs<SignStep.BitcoinReview>(flow.state.value)
+
+        flow.tick(UNVERIFIED_CHECK, on = true)
         flow.approve()
         assertEquals(true, assertIs<SignStep.BitcoinConfirming>(flow.state.value).confirmed)
     }

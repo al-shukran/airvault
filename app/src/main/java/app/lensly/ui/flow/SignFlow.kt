@@ -9,7 +9,10 @@ import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.chains.evm.signer.UndecodedCall
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.solanaManifest
+import app.airvault.core.model.Approval
+import app.airvault.core.model.Review as CoreReview
 import app.airvault.core.signer.AppRequest
+import app.airvault.core.signer.KeyScopeViolation
 import app.airvault.core.signer.RequestHeader
 import app.lensly.app.AddressNotes
 import app.lensly.app.BitcoinReviewed
@@ -24,9 +27,12 @@ import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.WalletMatch
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.routeScan
+import app.lensly.ui.sign.bitcoinReviewOf
 import app.airvault.chains.algorand.signer.AlgorandRequestReview
+import app.airvault.chains.algorand.signer.toReview
 import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.NOT_A_PSBT
+import app.airvault.chains.bitcoin.signer.UNVERIFIED_CHECK
 import app.airvault.chains.bitcoin.signer.bitcoinManifest
 import app.airvault.chains.bitcoin.signer.BtcRefusedException
 import app.lensly.core.parse.CANNOT_BE_READ
@@ -34,6 +40,7 @@ import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.UNSUPPORTED_CODE
 import app.lensly.core.parse.WireException
 import app.airvault.chains.solana.signer.SolanaRequestReview
+import app.airvault.chains.solana.signer.toReview
 import app.lensly.core.wallet.AccountAddresses
 import fr.acinq.bitcoin.psbt.Psbt
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,11 +63,8 @@ sealed interface SignStep {
     /** The request passed every check. The owner reads the review, then approves or rejects it. */
     data class Review(val ready: Prepared.Ready) : SignStep
 
-    /**
-     * A Bitcoin request passed its review checks. The owner reads it, then approves or rejects it. [confirmed] is set once the owner has
-     * checked the unverified input amounts, which the review asks for before it can be signed.
-     */
-    data class BitcoinReview(val ready: BitcoinPrepared.Ready, val confirmed: Boolean) : SignStep
+    /** A Bitcoin request passed its review checks. The owner ticks the checks the review names, then approves or rejects it. */
+    data class BitcoinReview(val ready: BitcoinPrepared.Ready) : SignStep
 
     /** The Bitcoin hold-to-sign ran. The App Password is checked before anything is signed. [busy] while that check runs. */
     data class BitcoinConfirming(val ready: BitcoinPrepared.Ready, val confirmed: Boolean, val busy: Boolean) : SignStep
@@ -238,7 +242,13 @@ class SignFlow(
 
     private val current = MutableStateFlow<SignStep>(SignStep.Scanning(progress = null, status = SCAN_HINT))
 
+    /** The checks ticked on the review on screen, by label. Approve waits until every check the review names is ticked. */
+    private val checks = MutableStateFlow<Set<String>>(emptySet())
+
     val state: StateFlow<SignStep> = current.asStateFlow()
+
+    /** The checks ticked on the review on screen, as the screen shows them. */
+    val ticked: StateFlow<Set<String>> = checks.asStateFlow()
 
     /**
      * Feeds one scanned QR text. Only texts that belong to the request count, and each distinct text counts once, so a
@@ -275,25 +285,26 @@ class SignFlow(
     }
 
     /**
-     * APPROVE on the review. The App Password is asked before anything is signed. A Bitcoin review that asks for a confirmation of its
-     * unverified amounts waits until the owner has given it.
+     * APPROVE on the review. The gate is the review's own (spec 3.2 and 8.3, [Approval]): every check it names must be ticked, and no
+     * warning may be a block. Until then nothing changes, whatever the screen shows. The App Password is asked before anything is signed.
      */
     fun approve() {
-        when (val step = current.value) {
-            is SignStep.Review -> current.value = SignStep.Confirming(step.ready, busy = false)
-            is SignStep.BitcoinReview -> if (!step.ready.reviewed.review.requiresConfirmation || step.confirmed) {
-                current.value = SignStep.BitcoinConfirming(step.ready, step.confirmed, busy = false)
-            }
-            is SignStep.SolanaReview -> current.value = SignStep.SolanaConfirming(step.ready, busy = false)
-            is SignStep.AlgorandReview -> current.value = SignStep.AlgorandConfirming(step.ready, busy = false)
-            else -> Unit
+        val step = current.value
+        val review = reviewOf(step) ?: return
+        if (Approval.of(review, checks.value) == null) return
+        current.value = when (step) {
+            is SignStep.Review -> SignStep.Confirming(step.ready, busy = false)
+            is SignStep.BitcoinReview -> SignStep.BitcoinConfirming(step.ready, confirmed = UNVERIFIED_CHECK in checks.value, busy = false)
+            is SignStep.SolanaReview -> SignStep.SolanaConfirming(step.ready, busy = false)
+            is SignStep.AlgorandReview -> SignStep.AlgorandConfirming(step.ready, busy = false)
+            else -> return
         }
     }
 
-    /** The owner checked, or unchecked, the unverified input amounts of a Bitcoin review. */
-    fun confirmUnverified(checked: Boolean) {
-        val step = current.value as? SignStep.BitcoinReview ?: return
-        current.value = step.copy(confirmed = checked)
+    /** The owner ticked, or unticked, one check of the review on screen. Nothing changes when no review is on screen. */
+    fun tick(label: String, on: Boolean) {
+        if (reviewOf(current.value) == null) return
+        checks.value = if (on) checks.value + label else checks.value - label
     }
 
     /**
@@ -379,6 +390,7 @@ class SignFlow(
         }
         epoch++
         current.value = SignStep.Closed
+        checks.value = emptySet()
         reviewed?.let {
             recordQuietly(ReviewEntry(it.walletId, ReviewOutcome.CANCELLED, it.request, it, refusal = null))
         }
@@ -400,7 +412,7 @@ class SignFlow(
 
     private fun cancelBitcoinApproval() {
         val waiting = current.value as? SignStep.BitcoinConfirming ?: return
-        if (!waiting.busy) current.value = SignStep.BitcoinReview(waiting.ready, waiting.confirmed)
+        if (!waiting.busy) current.value = SignStep.BitcoinReview(waiting.ready)
     }
 
     /**
@@ -415,7 +427,7 @@ class SignFlow(
         return routed(ScannedRequest.Bitcoin(parsed)) { target ->
             try {
                 when (val prepared = ports.bitcoinPrepare(target, psbt)) {
-                    is BitcoinPrepared.Ready -> SignStep.BitcoinReview(prepared, confirmed = false)
+                    is BitcoinPrepared.Ready -> SignStep.BitcoinReview(prepared)
                     is BitcoinPrepared.Refused -> bitcoinRefusal(started, target, psbt, prepared.reason, reviewed = null)
                 }
             } catch (e: WalletUnavailable) {
@@ -643,6 +655,9 @@ class SignFlow(
             ports.algorandSign(ready)
         } catch (e: WalletUnavailable) {
             return algorandRefusal(started, ready.walletId, ready.request, WALLET_UNREADABLE, ready)
+        } catch (e: KeyScopeViolation) {
+            // The key scope refused the path before any key was derived. The refusal is recorded (spec 2.2 rule 6).
+            return algorandRefusal(started, ready.walletId, ready.request, OUT_OF_SCOPE, ready)
         } catch (e: IllegalArgumentException) {
             return algorandRefusal(started, ready.walletId, ready.request, e.message ?: SIGN_REFUSED, ready)
         }
@@ -797,8 +812,20 @@ class SignFlow(
 
     private fun scanning(status: String): SignStep.Scanning = SignStep.Scanning(progress, status)
 
+    /** Shows [step] while its flow is still the one that started it. A review starts with no check ticked. */
     private fun publish(started: Int, step: SignStep) {
-        if (started == epoch) current.value = step
+        if (started != epoch) return
+        if (reviewOf(step) != null) checks.value = emptySet()
+        current.value = step
+    }
+
+    /** The review the owner reads on [step], or null when [step] is not a review step. */
+    private fun reviewOf(step: SignStep): CoreReview? = when (step) {
+        is SignStep.Review -> step.ready.review
+        is SignStep.BitcoinReview -> bitcoinReviewOf(step.ready.reviewed.review, step.ready.reviewed.account.network, step.ready.reviewed.account.scriptType)
+        is SignStep.SolanaReview -> step.ready.review.toReview()
+        is SignStep.AlgorandReview -> step.ready.review.toReview()
+        else -> null
     }
 
     private companion object {
@@ -818,6 +845,7 @@ class SignFlow(
         const val WALLET_UNREADABLE = "The wallet could not be read. Nothing was signed."
         const val VAULT_UNCHECKED = "The Application Password could not be checked. Nothing was signed."
         const val NOT_SAVED = "The review could not be saved, so the signature is not shown."
+        const val OUT_OF_SCOPE = "The request asks for a key Lensly does not sign with for this chain. Nothing was signed."
         const val SIGN_REFUSED = "The request could not be signed."
         const val NO_WALLET = "No wallet in this vault can sign this request"
         const val SEVERAL_WALLETS = "More than one wallet in this vault can sign this request. Lensly will not guess which one signs."
