@@ -2,9 +2,9 @@ package app.lumio.ui.send
 
 import app.lensly.core.btc.BtcNetwork
 import app.lumio.ui.btc.btcRecipientError
-import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import org.junit.Test
 
 /**
  * The words the paste field shows for a recipient that is not an address the send can pay. A valid address shows nothing, and each

@@ -3,12 +3,12 @@ package app.lensly.core.vault
 import java.io.File
 import java.security.GeneralSecurityException
 import javax.crypto.SecretKey
-import kotlinx.coroutines.runBlocking
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder

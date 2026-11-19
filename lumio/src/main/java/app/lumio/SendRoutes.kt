@@ -35,8 +35,8 @@ import app.lumio.evm.SendAssets
 import app.lumio.evm.SendInput
 import app.lumio.evm.SignatureScan
 import app.lumio.evm.SignatureStep
-import app.lumio.pair.PairedWallet
 import app.lumio.network.NetworkMode
+import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
 import app.lumio.pair.ownAccountsOf
 import app.lumio.send.EvmPaymentCode
@@ -51,15 +51,16 @@ import app.lumio.ui.send.RECIPIENT_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendFormScreen
 import app.lumio.ui.send.SendReviewScreen
-import app.lumio.ui.send.SubmitScreen
-import app.lumio.ui.send.evmSummary
 import app.lumio.ui.send.SignRequestScreen
 import app.lumio.ui.send.SignatureScanScreen
+import app.lumio.ui.send.SubmitScreen
+import app.lumio.ui.send.evmSummary
 import com.sparrowwallet.hummingbird.UR
 import java.security.SecureRandom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
 
 /**
  * What a send reads from the open vault: the wallet, the address that sends, the settings, the chains that are on, and the tokens that the sending

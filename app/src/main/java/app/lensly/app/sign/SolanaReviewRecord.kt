@@ -1,8 +1,10 @@
 package app.lensly.app.sign
 
-import app.lensly.core.solana.SolanaRequestReview
-import app.lensly.core.ur.SolSignRequest
-import app.lensly.core.ur.SolSignType
+import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.signer.SolSignType
+import app.airvault.chains.solana.signer.SolanaRequestReview
+import app.airvault.chains.solana.signer.toReview
+import app.airvault.core.model.text
 import app.lensly.core.wallet.toHex
 import java.security.MessageDigest
 
@@ -34,7 +36,7 @@ class SolanaReviewEntry(
  */
 fun solanaReviewRecordOf(entry: SolanaReviewEntry, atMs: Long): ReviewRecord {
     val reviewed = entry.reviewed
-    val rows = reviewed?.let(::solanaRows).orEmpty()
+    val rows = reviewed?.toReview()?.sections?.flatMap { it.rows }?.map { it.label to it.value.text() }.orEmpty()
     val kept = if (rows.size > MAX_RECORD_ROWS) {
         rows.take(MAX_RECORD_ROWS - 1) + ("More" to "${rows.size - MAX_RECORD_ROWS + 1} rows not kept")
     } else {

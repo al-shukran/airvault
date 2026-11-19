@@ -1,7 +1,7 @@
 package app.lumio.evm
-import org.junit.Assert.assertTrue
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.rpc.parseQuantity
+import org.junit.Assert.assertTrue
 
 import java.math.BigInteger
 import org.junit.Assert.assertEquals

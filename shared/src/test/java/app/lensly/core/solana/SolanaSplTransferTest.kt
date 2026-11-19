@@ -1,8 +1,11 @@
 package app.lensly.core.solana
 
+import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.signer.SolSignType
+import app.airvault.chains.solana.signer.SolanaInstruction
+import app.airvault.chains.solana.signer.SolanaRequestCheck
+import app.airvault.chains.solana.signer.SolanaRequestReview
 import app.lensly.core.ur.PathStep
-import app.lensly.core.ur.SolSignRequest
-import app.lensly.core.ur.SolSignType
 import fr.acinq.bitcoin.Base58
 import java.security.MessageDigest
 import kotlin.test.assertContentEquals

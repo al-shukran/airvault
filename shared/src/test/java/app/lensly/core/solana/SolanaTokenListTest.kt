@@ -1,5 +1,7 @@
 package app.lensly.core.solana
 
+import app.airvault.chains.solana.signer.SolanaToken
+import app.airvault.chains.solana.signer.SolanaTokenList
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
 import kotlin.test.assertNull

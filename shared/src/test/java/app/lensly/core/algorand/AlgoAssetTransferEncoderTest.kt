@@ -1,5 +1,7 @@
 package app.lensly.core.algorand
 
+import app.airvault.chains.algorand.signer.AlgorandRequestCheck
+
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.AlgoSignType
 import app.airvault.chains.algorand.AssetTransfer

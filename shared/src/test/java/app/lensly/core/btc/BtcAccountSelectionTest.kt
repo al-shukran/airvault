@@ -1,9 +1,9 @@
 package app.lensly.core.btc
 
 import fr.acinq.bitcoin.psbt.Psbt
-import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import org.junit.Test
 
 class BtcAccountSelectionTest {
     private val seed = BitcoinVectors.seed()

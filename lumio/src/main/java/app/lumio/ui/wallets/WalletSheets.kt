@@ -24,8 +24,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MonotonicFrameClock
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.MonotonicFrameClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import app.airvault.core.model.AccountId
 import app.lensly.ui.navigation.NavReducedMotion
 import app.lumio.network.NetworkMode
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -55,7 +56,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import kotlin.math.roundToInt
+
 
 /** The spring of a sheet's rise and its fall: critically damped, so it settles without overshoot. */
 private val SheetSpring = spring<Float>(dampingRatio = 1f, stiffness = 400f, visibilityThreshold = 0.001f)

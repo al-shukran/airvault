@@ -1,19 +1,22 @@
 package app.lensly.ui.flow
 
 import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.chains.evm.signer.ParsedRequest
+import app.airvault.chains.evm.signer.UnsignedTx
+import app.airvault.chains.solana.signer.SolSignRequest
 import app.lensly.app.export.PairingExport
+import app.lensly.app.sign.AlgorandReviewEntry
 import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.SolanaReviewEntry
-import app.lensly.app.sign.AlgorandReviewEntry
 import app.lensly.app.sign.WalletView
-import app.lensly.core.evm.UnsignedTx
+import app.lensly.app.sign.evmParsedOf
+import app.lensly.app.sign.evmReplyOf
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.DecodeClock
-import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.SandboxedParser
@@ -24,19 +27,12 @@ import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.Registry
 import app.lensly.core.ur.Cbor
-import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.ur.framesOf
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import com.sparrowwallet.hummingbird.UR
-import kotlin.test.assertContentEquals
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -50,6 +46,12 @@ import org.web3j.utils.Numeric
 import java.math.BigInteger
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 private const val MONAD_TESTNET = 10143L
 private const val ART_ADDRESS = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb"
@@ -248,9 +250,9 @@ private fun scan(flow: SignFlow, frames: Sequence<String>, limit: Int = 2000): I
 private class ValueChangingParser : RequestParser by inProcessSandboxParser {
     override fun scan(parts: List<String>): ScanReply {
         val reply = inProcessSandboxParser.scan(parts)
-        if (reply !is ScanReply.Complete) return reply
-        val tx = assertIs<UnsignedTx.Result.Ok>(reply.parsed.tx).tx
-        return ScanReply.Complete(reply.parsed.copy(tx = UnsignedTx.Result.Ok(tx.copy(value = tx.value + BigInteger.ONE))))
+        val parsed = evmParsedOf(reply) ?: return reply
+        val tx = assertIs<UnsignedTx.Result.Ok>(parsed.tx).tx
+        return evmReplyOf(parsed.copy(tx = UnsignedTx.Result.Ok(tx.copy(value = tx.value + BigInteger.ONE))))
     }
 }
 

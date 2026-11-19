@@ -8,8 +8,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -26,6 +26,8 @@ import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
 import app.lensly.app.sign.algorandCounterparties
+import app.airvault.chains.algorand.signer.toReview
+import app.airvault.chains.solana.signer.toReview
 import app.lensly.app.sign.solanaCounterparties
 import app.lensly.ui.camera.FrameSource
 import app.lensly.ui.gate.PasswordBuffer
@@ -37,10 +39,10 @@ import app.lensly.ui.navigation.rememberAddressBook
 import app.lensly.ui.qr.ScanScreen
 import app.lensly.ui.qr.ShowQrScreen
 import app.lensly.ui.sign.BitcoinReviewScreen
-import app.lensly.ui.sign.AlgorandReviewScreen
-import app.lensly.ui.sign.SolanaReviewScreen
+import app.lensly.ui.sign.ReviewScreen
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.TxReviewScreen
+
 
 /** The view model key of a scan that is not for one wallet, so it never shares a flow with a wallet's scan. */
 private const val ANY_WALLET_KEY = "sign-any-wallet"
@@ -124,19 +126,21 @@ internal fun SignWalletRoute(
             onOpenAddress = openAddress,
         )
         is SignStep.BitcoinConfirming -> ConfirmPasswordRoute(busy = shown.busy, holder = holder, onConfirm = flow::confirm)
-        is SignStep.SolanaReview -> SolanaReviewScreen(
-            review = shown.ready.review,
+        is SignStep.SolanaReview -> ReviewScreen(
+            review = remember(shown.ready.review) { shown.ready.review.toReview() },
             signer = shown.ready.signer,
             addressNotes = notesNow(shown.ready.addressNotes, solanaCounterparties(shown.ready.review), SOLANA_FAMILY, book),
+            addressChain = SOLANA_FAMILY,
             onApprove = flow::approve,
             onReject = flow::leave,
             onOpenAddress = openAddress,
         )
         is SignStep.SolanaConfirming -> ConfirmPasswordRoute(busy = shown.busy, holder = holder, onConfirm = flow::confirm)
-        is SignStep.AlgorandReview -> AlgorandReviewScreen(
-            review = shown.ready.review,
+        is SignStep.AlgorandReview -> ReviewScreen(
+            review = remember(shown.ready.review) { shown.ready.review.toReview() },
             signer = shown.ready.signer,
             addressNotes = notesNow(shown.ready.addressNotes, algorandCounterparties(shown.ready.review), ALGORAND_FAMILY, book),
+            addressChain = ALGORAND_FAMILY,
             onApprove = flow::approve,
             onReject = flow::leave,
             onOpenAddress = openAddress,

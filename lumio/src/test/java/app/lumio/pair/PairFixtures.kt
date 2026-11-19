@@ -5,9 +5,9 @@ import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.btc.ScriptType
-import app.lensly.core.wallet.Mnemonic
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
+import app.lensly.core.wallet.Mnemonic
 import app.lensly.core.wallet.toHex
 
 /** Seeds of two public 24-word BIP39 test vectors. They hold no funds, and the tests derive every key from them. */

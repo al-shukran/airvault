@@ -1,9 +1,16 @@
 package app.lensly.core.parse
 
-import app.lensly.core.registry.CallDecode
-import app.lensly.core.registry.WhitelistParam
-import app.lensly.core.ur.DataType
-import app.lensly.core.ur.EthSignRequest
+import app.airvault.abi.CallDecode
+import app.airvault.abi.WhitelistParam
+import app.airvault.chains.evm.evmManifest
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.EthSignRequest
+import app.airvault.chains.evm.signer.EvmRequestBody
+import app.airvault.chains.evm.signer.EvmRequestParser
+import app.airvault.core.model.ChainId
+import app.airvault.core.signer.AppRequest
+import app.airvault.core.signer.RequestHeader
+import app.airvault.core.signer.RequestKind
 import app.lensly.core.ur.KeystoneVectors
 import app.lensly.core.ur.framesOf
 import app.lensly.fuzz.FuzzSeeds
@@ -300,9 +307,11 @@ class SandboxedParserTest {
         val origin = "https://example.com/" + "a".repeat(5_000)
         val request = EthSignRequest(null, "hello".toByteArray(), DataType.PERSONAL_MESSAGE, null, emptyList(), null, null, origin)
 
-        val reply = ParserWire.encodeScanReply(ScanReply.Complete(InProcessParser.parsedOf(request)))
+        val body = EvmRequestBody.encode(EvmRequestParser.parsedOf(request))
+        val header = RequestHeader(evmManifest.id, ChainId("eip155:1"), RequestKind.MESSAGE, emptyList(), null)
+        val reply = ParserWire.encodeScanReply(ScanReply.App(AppRequest(header, body)))
 
-        assertEquals(origin, assertIs<ScanReply.Complete>(ParserWire.decodeScanReply(reply)).parsed.request.origin)
+        assertEquals(origin, EvmRequestBody.decode(assertIs<ScanReply.App>(ParserWire.decodeScanReply(reply)).request.body).request.origin)
     }
 
     @Test
@@ -313,7 +322,7 @@ class SandboxedParserTest {
         assertEquals(ScanReply.NotPart, InProcessParser.scan(listOf(stray)))
         assertEquals(ScanReply.NotPart, inProcessSandboxParser.scan(listOf(frames.first(), stray)))
         val direct = InProcessParser.scan(frames)
-        assertIs<ScanReply.Complete>(direct)
+        assertIs<ScanReply.App>(direct)
         assertContentEquals(
             ParserWire.encodeScanReply(direct),
             ParserWire.encodeScanReply(InProcessParser.scan(listOf(frames.first(), stray) + frames.drop(1))),
@@ -343,7 +352,7 @@ class SandboxedParserTest {
         val frames = framesOf(URDecoder.decode(KeystoneVectors.ur(vector)), MULTI_PART_FRAGMENT)
             .take(MULTI_PART_FRAMES)
             .toList()
-        val complete = frames.indices.first { InProcessParser.scan(frames.take(it + 1)) is ScanReply.Complete }
+        val complete = frames.indices.first { InProcessParser.scan(frames.take(it + 1)) is ScanReply.App }
         return frames.take(complete + 1)
     }
 }

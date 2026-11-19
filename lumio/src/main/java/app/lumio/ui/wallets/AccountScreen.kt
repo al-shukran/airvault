@@ -23,6 +23,9 @@ import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.LumioIsland
+import app.lensly.ui.components.LumioRow
+import app.lensly.ui.components.LumioTextAction
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LumenMono
 import app.lumio.data.net.Networks
@@ -32,10 +35,7 @@ import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.home.AssetIcon
 import app.lumio.ui.kit.AnimatedAmount
 import app.lumio.ui.kit.LumioAssetIcon
-import app.lensly.ui.components.LumioIsland
 import app.lumio.ui.kit.LumioPrimaryButton
-import app.lensly.ui.components.LumioRow
-import app.lensly.ui.components.LumioTextAction
 import app.lumio.ui.kit.rememberCopyAction
 import app.lumio.ui.transactions.ActivityRow
 import app.lumio.wallets.WalletAccount

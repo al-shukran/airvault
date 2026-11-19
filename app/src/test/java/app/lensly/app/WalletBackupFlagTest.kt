@@ -6,6 +6,7 @@ import app.lensly.core.vault.VaultSession
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.After
@@ -13,7 +14,6 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
-import kotlin.test.assertFailsWith
 
 /**
  * The seed backed-up flag: what a create, a restore and an import store, and how the draft tracks the flag through the create ceremony.

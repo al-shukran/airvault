@@ -20,7 +20,6 @@ import app.lensly.app.VaultHolder
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
-import app.lumio.ui.scan.LumioScanScreen
 import app.lumio.LumioApp
 import app.lumio.chains.ChainHoldings
 import app.lumio.data.net.NetworkId
@@ -42,6 +41,7 @@ import app.lumio.wallets.WalletAccounts
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
+import app.lumio.ui.scan.LumioScanScreen
 import app.lumio.ui.send.SubmitScreen
 import app.lumio.ui.send.algorandSummary
 import com.sparrowwallet.hummingbird.UR
@@ -51,6 +51,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
 
 /** The screens of an Algorand send, in the order the owner goes through them. The recipient and the amount are on the Details step. */
 private sealed interface AlgorandSendStep {

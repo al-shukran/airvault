@@ -20,6 +20,8 @@ import app.airvault.core.model.AccountId
 import app.lensly.app.VaultHolder
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.LumioIsland
+import app.lensly.ui.components.LumioRow
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.theme.LenslySpacing
@@ -33,12 +35,11 @@ import app.lumio.network.NetworkMode
 import app.lumio.onVault
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
-import app.lumio.wallets.WalletAccounts
-import app.lensly.ui.components.LumioIsland
-import app.lensly.ui.components.LumioRow
 import app.lumio.ui.kit.LumioTag
+import app.lumio.wallets.WalletAccounts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
 
 /** An asset the Add asset screen lists on one network without a warning. */
 internal data class VerifiedAsset(val assetId: ULong, val symbol: String, val testnet: Boolean)

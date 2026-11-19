@@ -1,5 +1,6 @@
 package app.lensly.core.registry
 
+import app.airvault.chains.evm.signer.ContractCall
 import java.math.BigInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

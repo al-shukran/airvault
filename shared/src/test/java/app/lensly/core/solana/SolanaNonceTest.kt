@@ -1,8 +1,14 @@
 package app.lensly.core.solana
 
+import app.airvault.chains.solana.createWithSeed
+import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.signer.SolSignType
+import app.airvault.chains.solana.signer.SolanaInstruction
+import app.airvault.chains.solana.signer.SolanaMessageAccount
+import app.airvault.chains.solana.signer.SolanaRequestCheck
+import app.airvault.chains.solana.signer.SolanaRequestReview
+import app.airvault.chains.solana.signer.SolanaWarning
 import app.lensly.core.ur.PathStep
-import app.lensly.core.ur.SolSignRequest
-import app.lensly.core.ur.SolSignType
 import app.lensly.core.wallet.toHex
 import fr.acinq.bitcoin.Base58
 import java.io.ByteArrayOutputStream
@@ -209,7 +215,7 @@ class SolanaNonceTest {
     fun createWithSeedIsTheSha256OfBaseSeedAndOwner() {
         assertEquals(
             "7dee5a4151fbe74220046c3ddc8c51e4abb07cd8446172bf3ee9a9d4089df1fb",
-            SolanaAccount.createWithSeed(ByteArray(32) { 1 }, SEED.toByteArray(), ByteArray(32)).toHex(),
+            createWithSeed(ByteArray(32) { 1 }, SEED.toByteArray(), ByteArray(32)).toHex(),
         )
     }
 

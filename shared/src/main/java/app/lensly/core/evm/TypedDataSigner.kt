@@ -1,6 +1,7 @@
 package app.lensly.core.evm
 
-import app.lensly.core.ur.DataType
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.TypedData
 import java.math.BigInteger
 
 /** Signs typed data (EIP-712) over its digest, never over the JSON text. */

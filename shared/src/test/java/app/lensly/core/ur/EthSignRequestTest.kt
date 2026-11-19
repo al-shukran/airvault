@@ -1,5 +1,7 @@
 package app.lensly.core.ur
 
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.EthSignRequest
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.wallet.toHex
 import com.sparrowwallet.hummingbird.UR

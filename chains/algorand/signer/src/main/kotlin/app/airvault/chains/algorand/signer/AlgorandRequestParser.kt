@@ -11,7 +11,6 @@ import app.airvault.core.signer.RequestKind
 import app.airvault.core.signer.RequestParser
 import app.airvault.core.signer.SignerRef
 import app.lensly.core.parse.ParserLimits
-import java.util.Base64
 
 /** The limits Algorand asks for: the codec's own. The parser lowers the core's limits to these, so it reads no more than either allows. */
 private val ALGORAND_LIMITS = ParserLimits(
@@ -22,9 +21,6 @@ private val ALGORAND_LIMITS = ParserLimits(
 /** The same refusal as the review's unknown-network check, which names the networks Lensly signs for. */
 private const val UNKNOWN_NETWORK =
     "This transaction is for a network Lensly does not sign for. Lensly signs for Algorand testnet and mainnet."
-
-/** A CAIP-2 reference for Algorand is the first 32 characters of the base64 genesis hash (the manifest's two chain ids are this form). */
-private const val GENESIS_REFERENCE_CHARS = 32
 
 /**
  * The parser of algo-sign-request (spec 3.2). It reads the request, and for a transaction the transaction too. A transaction names its
@@ -53,7 +49,7 @@ object AlgorandRequestParser : RequestParser {
                     return ParseOutcome.Refused(e.message ?: "The transaction could not be read.")
                 }
                 kind = RequestKind.TRANSACTION
-                chain = chainOf(txn.genesisHash) ?: return ParseOutcome.Refused(UNKNOWN_NETWORK)
+                chain = runCatching { algorandChainId(txn.genesisHash) }.getOrNull() ?: return ParseOutcome.Refused(UNKNOWN_NETWORK)
             }
             AlgoSignType.MESSAGE -> {
                 kind = RequestKind.MESSAGE
@@ -69,9 +65,4 @@ object AlgorandRequestParser : RequestParser {
         )
         return ParseOutcome.Parsed(AppRequest(header, cbor))
     }
-
-    /** The CAIP-2 chain id of the network that [genesisHash] names, or null when it has no valid form. */
-    private fun chainOf(genesisHash: ByteArray): ChainId? = runCatching {
-        ChainId("algorand:" + Base64.getEncoder().encodeToString(genesisHash).take(GENESIS_REFERENCE_CHARS))
-    }.getOrNull()
 }

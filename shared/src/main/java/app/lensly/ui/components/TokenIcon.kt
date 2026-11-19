@@ -11,9 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
-import app.lensly.shared.R
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
+import app.lensly.shared.R
 
 /**
  * Token logos that are too dark to see on black, so they draw on a light backdrop. Each one averages under 0.15 relative

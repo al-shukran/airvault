@@ -1,6 +1,6 @@
 package app.lensly.core.evm
 
-import app.lensly.core.ur.DataType
+import app.airvault.chains.evm.signer.DataType
 import java.math.BigInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertIs

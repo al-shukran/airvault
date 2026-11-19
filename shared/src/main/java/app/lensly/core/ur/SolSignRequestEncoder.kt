@@ -1,5 +1,6 @@
 package app.lensly.core.ur
 
+import app.airvault.chains.solana.signer.SolSignRequest
 import com.sparrowwallet.hummingbird.UR
 
 /**

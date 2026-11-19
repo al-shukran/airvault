@@ -1,8 +1,8 @@
 package app.lumio.evm
 
+import java.math.BigInteger
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import java.math.BigInteger
 
 /** The cache merge: a fresh read replaces its own key, a read of an address no longer shown is dropped, and other wallets are kept. */
 class PortfolioMergeTest {

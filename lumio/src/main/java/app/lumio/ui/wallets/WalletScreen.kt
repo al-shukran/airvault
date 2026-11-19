@@ -21,13 +21,13 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.InlineBanner
+import app.lensly.ui.components.IslandDivider
+import app.lensly.ui.components.LumioIsland
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.data.Clock
 import app.lumio.data.WallClock
 import app.lumio.network.NetworkMode
 import app.lumio.ui.kit.GlowBackdrop
-import app.lensly.ui.components.LumioIsland
-import app.lensly.ui.components.IslandDivider
 import app.lumio.ui.kit.WalletOrb
 import app.lumio.ui.network.label
 import app.lumio.ui.theme.LumioGutter

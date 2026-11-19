@@ -2,10 +2,10 @@ package app.lensly.app.export
 
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.wallet.BulkCap
+import kotlin.random.Random
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import kotlin.random.Random
 
 /**
  * The size of the version-6 pairing for three wallets: the realistic vault (four chains, the Bitcoin accounts the owner stores, and an Address

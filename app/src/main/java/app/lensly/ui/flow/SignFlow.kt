@@ -2,6 +2,12 @@ package app.lensly.ui.flow
 
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.algorandManifest
+import app.airvault.chains.evm.evmManifest
+import app.airvault.chains.evm.signer.EthSignRequest
+import app.airvault.chains.evm.signer.EvmRequestBody
+import app.airvault.chains.evm.signer.ParsedRequest
+import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.RequestHeader
 import app.lensly.app.AddressNotes
@@ -18,17 +24,16 @@ import app.lensly.app.sign.UndecodedCall
 import app.lensly.app.sign.WalletMatch
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.routeScan
-import app.lensly.core.algorand.AlgorandRequestReview
+import app.airvault.chains.algorand.signer.AlgorandRequestReview
 import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.NOT_A_PSBT
 import app.airvault.chains.bitcoin.signer.bitcoinManifest
 import app.lensly.core.btc.BtcRefusedException
-import app.lensly.core.parse.ParsedRequest
+import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.UNSUPPORTED_CODE
-import app.lensly.core.solana.SolanaRequestReview
-import app.lensly.core.ur.EthSignRequest
-import app.lensly.core.ur.SolSignRequest
+import app.lensly.core.parse.WireException
+import app.airvault.chains.solana.signer.SolanaRequestReview
 import app.lensly.core.wallet.AccountAddresses
 import fr.acinq.bitcoin.psbt.Psbt
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -256,8 +261,6 @@ class SignFlow(
                     progress = reply.progress.toFloat()
                     current.value = scanning(READING)
                 }
-                is ScanReply.Complete -> if (accept(text)) publish(started, decide(started, reply.parsed))
-                is ScanReply.Solana -> if (accept(text)) publish(started, decideSolana(started, reply.payload))
                 is ScanReply.App -> if (accept(text)) publish(started, decideApp(started, reply.request))
             }
         }
@@ -489,12 +492,12 @@ class SignFlow(
     }
 
     /** Reviews a complete Solana request against the wallet it is for. A refusal is recorded under that wallet. */
-    private suspend fun decideSolana(started: Int, payload: ByteArray): SignStep {
+    private suspend fun decideSolana(started: Int, header: RequestHeader, payload: ByteArray): SignStep {
         val request = when (val decoded = SolSignRequest.decode(payload)) {
             is SolSignRequest.Result.Ok -> decoded.request
             is SolSignRequest.Result.Rejected -> return SignStep.Refused(decoded.reason)
         }
-        return routed(ScannedRequest.Solana(request)) { target ->
+        return routed(ScannedRequest.App(header)) { target ->
             if (request.requestId == null) {
                 solanaRefusal(started, target, request, NO_REQUEST_ID, ready = null)
             } else {
@@ -578,11 +581,23 @@ class SignFlow(
         if (!waiting.busy) current.value = SignStep.AlgorandReview(waiting.ready)
     }
 
-    /** Reviews a complete request that an installed chain app parsed. Algorand and Bitcoin are the apps with a review so far. */
+    /** Reviews a complete request that an installed chain app parsed. Algorand, Bitcoin, Solana and EVM are the apps with a review so far. */
     private suspend fun decideApp(started: Int, request: AppRequest): SignStep = when (request.header.app) {
         algorandManifest.id -> decideAlgorand(started, request.header, request.body)
         bitcoinManifest.id -> decideBitcoin(started, request.body)
+        solanaManifest.id -> decideSolana(started, request.header, request.body)
+        evmManifest.id -> decideEvm(started, request.body)
         else -> SignStep.Refused(UNSUPPORTED_CODE)
+    }
+
+    /** Reviews a complete EVM request. Its body is the parse the EVM app made in the Parser Sandbox, read back under the wire's checks. */
+    private suspend fun decideEvm(started: Int, body: ByteArray): SignStep {
+        val parsed = try {
+            EvmRequestBody.decode(body)
+        } catch (e: WireException) {
+            return SignStep.Refused(CANNOT_BE_READ)
+        }
+        return decide(started, parsed)
     }
 
     /** Reviews a complete Algorand request against the wallet it is for. A refusal is recorded under that wallet. */

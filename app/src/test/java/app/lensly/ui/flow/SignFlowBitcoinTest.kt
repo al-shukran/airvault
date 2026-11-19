@@ -1,6 +1,8 @@
 package app.lensly.ui.flow
 
 import app.airvault.chains.algorand.AlgoSignRequest
+import app.airvault.chains.evm.signer.ParsedRequest
+import app.airvault.chains.solana.signer.SolSignRequest
 import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.BitcoinReviewed
 import app.lensly.app.sign.AlgorandReviewEntry
@@ -19,18 +21,16 @@ import app.lensly.core.btc.BtcRefusedException
 import app.lensly.core.btc.BtcSigner
 import app.lensly.core.btc.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
-import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser
-import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.sign.SAMPLE_SIGNER
 import fr.acinq.bitcoin.psbt.Psbt
+import kotlinx.coroutines.runBlocking
+import org.junit.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlinx.coroutines.runBlocking
-import org.junit.Test
 
 private const val BTC_WALLET_ID = "wallet-bitcoin"
 

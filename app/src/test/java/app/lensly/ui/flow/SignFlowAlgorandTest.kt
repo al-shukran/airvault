@@ -3,6 +3,8 @@ package app.lensly.ui.flow
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.AlgoSignType
 import app.airvault.chains.algorand.bytesToSign
+import app.airvault.chains.evm.signer.ParsedRequest
+import app.airvault.chains.solana.signer.SolSignRequest
 import app.lensly.app.export.partsOf
 import app.lensly.app.sign.AlgorandReviewEntry
 import app.lensly.app.sign.BitcoinReviewEntry
@@ -12,29 +14,27 @@ import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.SolanaReviewEntry
 import app.lensly.app.sign.WalletView
 import app.lensly.core.algorand.AlgorandAccount
-import app.lensly.core.algorand.AlgorandRequestCheck
+import app.airvault.chains.algorand.signer.AlgorandRequestCheck
 import app.lensly.core.algorand.LedgerEd25519
-import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.ur.AlgoSignature
 import app.lensly.core.ur.AlgoSignatureEncoder
 import app.lensly.core.ur.Cbor
-import app.lensly.core.ur.SolSignRequest
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.ur.framesOf
 import app.lensly.core.wallet.Ed25519Signer
 import app.lensly.ui.sign.SAMPLE_SIGNER
 import com.sparrowwallet.hummingbird.UR
+import kotlinx.coroutines.runBlocking
+import org.junit.Test
+import org.web3j.crypto.MnemonicUtils
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import kotlinx.coroutines.runBlocking
-import org.junit.Test
-import org.web3j.crypto.MnemonicUtils
 
 /**
  * The Algorand sign flow: a scanned algo-sign-request is reviewed, approved, checked with the App Password, and answered with an

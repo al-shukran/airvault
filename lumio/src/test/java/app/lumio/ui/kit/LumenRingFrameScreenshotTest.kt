@@ -11,9 +11,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
-import app.lumio.ui.screenshot.LUMIO_DARK_QUALIFIERS
-import app.lensly.ui.theme.LumenTheme
 import app.lensly.ui.screenshot.snapshot
+import app.lensly.ui.theme.LumenTheme
+import app.lumio.ui.screenshot.LUMIO_DARK_QUALIFIERS
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

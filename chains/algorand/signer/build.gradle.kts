@@ -19,6 +19,7 @@ kotlin {
 dependencies {
     api(project(":core:signer-api"))
     api(project(":chains:algorand:common"))
+    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)

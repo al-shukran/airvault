@@ -1,6 +1,6 @@
 package app.lumio.tokens
 
-import app.lensly.core.registry.ContractCall
+import app.airvault.chains.evm.signer.ContractCall
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger
 import kotlin.test.assertEquals

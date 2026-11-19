@@ -1,7 +1,9 @@
 package app.lensly.core.evm
 
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.TxType
+import app.airvault.chains.evm.signer.UnsignedTx
 import app.lensly.core.parse.ParserLimits
-import app.lensly.core.ur.DataType
 import java.math.BigInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertIs

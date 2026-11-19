@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import app.airvault.abi.WhitelistParam
 import app.lensly.app.HideDelay
 import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.DenylistSeverity
@@ -15,7 +16,6 @@ import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.WalletEntry
 import app.lensly.core.registry.WhitelistEntry
-import app.lensly.core.registry.WhitelistParam
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LumenTheme

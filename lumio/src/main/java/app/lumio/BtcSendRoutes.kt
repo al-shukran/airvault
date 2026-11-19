@@ -18,12 +18,11 @@ import androidx.navigation.NavHostController
 import app.lensly.DebugBtcFixture
 import app.airvault.core.model.AccountId
 import app.lensly.app.VaultHolder
-import app.lensly.core.btc.BtcNetwork
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.btc.BtcAccountRef
-import app.lumio.btc.BtcReadException
 import app.lumio.btc.BtcPortfolio
+import app.lumio.btc.BtcReadException
 import app.lumio.btc.BtcSend
 import app.lumio.btc.BtcSendInput
 import app.lumio.btc.BtcSendPlan
@@ -34,11 +33,10 @@ import app.lumio.data.provider.FeeEstimates
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.sched.Priority
 import app.lumio.evm.SignatureScan
+import app.lumio.evm.SignatureStep
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
-import app.lumio.wallets.WalletAccounts
-import app.lumio.evm.SignatureStep
 import app.lumio.send.BtcPaymentCode
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
@@ -51,10 +49,12 @@ import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SignatureScanScreen
 import app.lumio.ui.send.SubmitScreen
 import app.lumio.ui.send.btcSummary
+import app.lumio.wallets.WalletAccounts
 import com.sparrowwallet.hummingbird.UR
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
 
 /** The screens of a Bitcoin send, in the order the owner goes through them. */
 private sealed interface BtcSendStep {

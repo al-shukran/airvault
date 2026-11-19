@@ -11,7 +11,7 @@ import app.airvault.chains.evm.EvmAddressCodec
 import app.airvault.chains.evm.ethereumMainnet
 import app.airvault.chains.solana.SolanaAddressCodec
 import app.airvault.chains.solana.solanaAddressOf
-import app.airvault.chains.solana.solanaMainnet
+import app.airvault.chains.solana.SOLANA_MAINNET
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
@@ -219,7 +219,7 @@ class MultiChainAddressBookTest {
         assertEquals(p2wpkhTest, BitcoinAddressCodec.fromPublicKey(bitcoinTestnet4, compressed))
         assertEquals("0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf", EvmAddressCodec.fromPublicKey(ethereumMainnet, uncompressed))
         // A Solana and an Algorand address are their public key written out, so each one reads back to itself.
-        assertEquals(solana, SolanaAddressCodec.fromPublicKey(solanaMainnet, Base58.decode(solana)))
+        assertEquals(solana, SolanaAddressCodec.fromPublicKey(SOLANA_MAINNET,Base58.decode(solana)))
         assertEquals(algorand, AlgorandAddressCodec.fromPublicKey(algorandMainnet, AlgoAddress.decode(algorand)))
     }
 

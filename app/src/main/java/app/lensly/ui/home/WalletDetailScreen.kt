@@ -27,12 +27,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -49,11 +49,11 @@ import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.app.visualIdentity
 import app.lensly.ui.components.AddressText
-import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.BannerTone
+import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.IslandDivider
+import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.LumioIsland
 import app.lensly.ui.components.LumioRow
 import app.lensly.ui.components.rememberKeyHaptics
@@ -64,6 +64,7 @@ import app.lensly.ui.wallet.WALLET_GUTTER
 import app.lensly.ui.wallet.WalletPill
 import app.lensly.ui.wallet.WalletPillStyle
 import app.lensly.ui.wallet.WalletScaffold
+
 
 /** Why a Single Key wallet offers no add or generate action. The sentence is the spec's wording. */
 internal const val SINGLE_KEY_ONE_ACCOUNT =

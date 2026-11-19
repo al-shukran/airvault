@@ -1,10 +1,14 @@
 package app.lensly.core.evm
 
+import app.airvault.chains.evm.signer.EIP712_DOMAIN
+import app.airvault.chains.evm.signer.TypedDataParser
+import app.airvault.chains.evm.signer.TypedField
+import app.airvault.chains.evm.signer.TypedValue
 import java.math.BigInteger
-import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import org.junit.Test
 
 /** The address of Bob in the standard's Mail example, with its EIP-55 checksum. */
 private const val MAIL_CHECKSUM_OF_BOB = "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"

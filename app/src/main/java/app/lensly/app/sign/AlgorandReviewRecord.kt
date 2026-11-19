@@ -3,7 +3,9 @@ package app.lensly.app.sign
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.AlgoSignType
 import app.airvault.chains.algorand.AlgorandNetwork
-import app.lensly.core.algorand.AlgorandRequestReview
+import app.airvault.chains.algorand.signer.AlgorandRequestReview
+import app.airvault.chains.algorand.signer.toReview
+import app.airvault.core.model.text
 import app.lensly.core.wallet.toHex
 import java.security.MessageDigest
 
@@ -44,7 +46,7 @@ fun algorandReviewRecordOf(entry: AlgorandReviewEntry, atMs: Long): ReviewRecord
         amount = null,
         tokenContract = null,
         fee = emptyList(),
-        params = reviewed?.let(::algorandRows).orEmpty(),
+        params = reviewed?.toReview()?.sections?.flatMap { it.rows }?.map { it.label to it.value.text() }.orEmpty(),
         origin = entry.request.origin,
         refusal = entry.refusal,
         dataHash = MessageDigest.getInstance("SHA-256").digest(entry.request.signData).toHex(),
