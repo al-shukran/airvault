@@ -32,6 +32,8 @@ sealed interface AppPrepared {
         val addressChain: ChainId,
         val counterparties: List<String>,
         val addressNotes: Map<String, AddressNotes>,
+        /** What the review of a Bitcoin request showed of its PSBT, which its Review Record keeps. Null for every other app. */
+        val bitcoin: BitcoinRecordFacts? = null,
     ) : AppPrepared
 
     /** The request cannot be signed. [reason] says why, in plain words. Nothing is signed for it. */

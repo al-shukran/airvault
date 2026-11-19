@@ -19,11 +19,9 @@ import app.airvault.core.model.ChainId
 import app.lensly.DebugBtcFixture
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressNotes
-import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.app.EVM_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
-import app.lensly.app.notesOf
 import app.lensly.app.sign.evmCounterparties
 import app.lensly.ui.camera.FrameSource
 import app.lensly.ui.gate.PasswordBuffer
@@ -36,8 +34,6 @@ import app.lensly.ui.qr.ScanScreen
 import app.lensly.ui.qr.ShowQrScreen
 import app.lensly.ui.sign.ReviewScreen
 import app.lensly.ui.sign.SignRefusedScreen
-import app.lensly.ui.sign.bitcoinReviewOf
-import app.lensly.ui.sign.shownName
 
 
 /** The view model key of a scan that is not for one wallet, so it never shares a flow with a wallet's scan. */
@@ -108,31 +104,6 @@ internal fun SignWalletRoute(
             onOpenAddress = openAddress,
         )
         is SignStep.Confirming -> ConfirmPasswordRoute(busy = shown.busy, holder = holder, onConfirm = flow::confirm)
-        is SignStep.BitcoinReview -> {
-            val reviewed = shown.ready.reviewed
-            val notes = notesNow(
-                reviewed.addressNotes,
-                reviewed.review.outputs.mapNotNull { it.address },
-                BITCOIN_FAMILY,
-                book,
-            )
-            ReviewScreen(
-                review = remember(reviewed.review, reviewed.account.network, reviewed.account.scriptType, notes) {
-                    bitcoinReviewOf(reviewed.review, reviewed.account.network, reviewed.account.scriptType) { address ->
-                        notes.notesOf(address)?.shownName()
-                    }
-                },
-                signer = reviewed.signer,
-                addressNotes = notes,
-                addressChain = BITCOIN_FAMILY,
-                ticked = ticked,
-                onTick = flow::tick,
-                onApprove = flow::approve,
-                onReject = flow::leave,
-                onOpenAddress = openAddress,
-            )
-        }
-        is SignStep.BitcoinConfirming -> ConfirmPasswordRoute(busy = shown.busy, holder = holder, onConfirm = flow::confirm)
         is SignStep.AppReview -> ReviewScreen(
             review = shown.ready.review,
             signer = shown.ready.signer,

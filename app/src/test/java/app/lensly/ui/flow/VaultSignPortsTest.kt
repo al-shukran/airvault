@@ -6,7 +6,28 @@ import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.signer.SolanaRequestParser
 import app.airvault.core.model.Approval
+import app.airvault.chains.bitcoin.signer.BitcoinSigner
+import app.airvault.chains.bitcoin.signer.BtcRefusal
+import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
+import app.airvault.chains.bitcoin.signer.bitcoinManifest
+import app.airvault.core.signer.RequestHeader
+import app.airvault.core.signer.RequestKind
+import app.airvault.core.signer.SignerRef
+import app.lensly.app.export.partsOf
+import app.lensly.core.parse.ScanReply
+import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
+import app.lensly.core.ur.PathStep
+import app.lensly.core.ur.framesOf
+import app.lensly.core.wallet.WalletKeyAccess
+import com.sparrowwallet.hummingbird.UR
 import app.airvault.core.model.checkLabels
+import app.lensly.app.AppSettings
+import app.lensly.app.SettingsStore
+import app.lensly.core.btc.BtcAccount
+import app.lensly.core.btc.BtcFixtures
+import app.lensly.core.btc.BtcNetwork
+import app.lensly.core.btc.ScriptType
+import fr.acinq.bitcoin.psbt.Psbt
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.ParseOutcome
 import app.lensly.app.VaultHolder
@@ -56,6 +77,9 @@ class VaultSignPortsTest {
 
     private val context: Context = RuntimeEnvironment.getApplication()
     private val words = List(23) { "abandon" } + "art"
+
+    /** The words of a second wallet, which holds other keys. */
+    private val otherWords = "supply excess unit online visa snow include grief sketch grace rural near leaf finish jewel embark elite make venture enroll vacuum worth over pioneer".split(" ")
 
     @Test
     fun aStoreThatThrowsAnUnexpectedExceptionIsReportedAsReviewNotSaved() {
@@ -188,6 +212,152 @@ class VaultSignPortsTest {
         } finally {
             session.close()
         }
+    }
+
+    /** A Bitcoin request is reviewed and signed through the ports, and the frames are the signer's own for the reviewed account. */
+    @Test
+    fun aBitcoinSignatureThroughThePortsIsTheSignersOwnForTheReviewedAccount() {
+        val (session, id) = sessionWithWallet()
+        try {
+            WalletStore(session).addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, BulkCap.DEFAULT.accounts)
+            val ports = VaultSignPorts(context, holderOf(session))
+            val account = BtcAccount.fromSeed(seed(), BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0)
+            val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+            val psbt = BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, paid = 30_000L, change = 60_000L))
+            val ready = reviewed(ports, id, bitcoinRequest(psbt, account.masterFingerprint.toInt()))
+            val approval = assertNotNull(Approval.of(ready.review, ready.review.checkLabels().toSet()))
+
+            assertEquals(expectedFrames(ready.request, approval), runBlocking { ports.appSign(ready, approval) })
+        } finally {
+            session.close()
+        }
+    }
+
+    /** A request that also claims an input of a key outside the vault names the routed wallet's account alone, and signs only that input. */
+    @Test
+    fun aBitcoinRequestWithAnOutsideInputSignsOnlyTheAccountOfTheRoutedWallet() {
+        val (session, id) = sessionWithWallet()
+        try {
+            WalletStore(session).addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, BulkCap.DEFAULT.accounts)
+            val ours = BtcAccount.fromSeed(seed(), BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0)
+            val outside = BtcAccount.fromSeed(ByteArray(16) { 9 }, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0)
+            val spends = listOf(
+                BtcFixtures.Spend(BtcFixtures.funding(ours, 0, 0, 100_000L), ours, 0, 0),
+                BtcFixtures.Spend(BtcFixtures.funding(outside, 0, 0, 50_000L), outside, 0, 0),
+            )
+            val ports = VaultSignPorts(context, holderOf(session))
+            val psbt = BtcFixtures.psbt(spends, BtcFixtures.paying(ours, paid = 30_000L, change = 110_000L))
+            val fingerprints = listOf(ours.masterFingerprint.toInt(), outside.masterFingerprint.toInt())
+            val ready = reviewed(ports, id, bitcoinRequest(psbt, *fingerprints.toIntArray()))
+            val approval = assertNotNull(Approval.of(ready.review, ready.review.checkLabels().toSet()))
+
+            assertEquals(listOf(fingerprintOf(ports)), ready.request.header.signers.map { it.fingerprint })
+            assertEquals(expectedFrames(ready.request, approval), runBlocking { ports.appSign(ready, approval) })
+        } finally {
+            session.close()
+        }
+    }
+
+    /** Claimed inputs of two vault wallets are one request that no single signature covers, so it is refused as several accounts, for either wallet. */
+    @Test
+    fun aBitcoinRequestClaimingInputsOfTwoVaultWalletsIsRefusedAsSeveralAccounts() {
+        val (session, id) = sessionWithWallet()
+        try {
+            val store = WalletStore(session)
+            val other = store.create(name = "OTHER", deviceGenerated = false, words = otherWords, passphrase = null, nowMs = 2L)
+            store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, BulkCap.DEFAULT.accounts)
+            store.addBitcoinAccounts(other, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, BulkCap.DEFAULT.accounts)
+            val ours = BtcAccount.fromSeed(seed(), BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0)
+            val theirs = BtcAccount.fromSeed(Mnemonic.of(otherWords).use { it.deriveSeed("") }, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0)
+            val spends = listOf(
+                BtcFixtures.Spend(BtcFixtures.funding(ours, 0, 0, 100_000L), ours, 0, 0),
+                BtcFixtures.Spend(BtcFixtures.funding(theirs, 0, 0, 100_000L), theirs, 0, 0),
+            )
+            val psbt = BtcFixtures.psbt(spends, BtcFixtures.paying(ours, paid = 30_000L, change = 150_000L))
+            val request = bitcoinRequest(psbt, ours.masterFingerprint.toInt(), theirs.masterFingerprint.toInt())
+            val ports = VaultSignPorts(context, holderOf(session))
+
+            assertEquals(BtcRefusal.SeveralAccounts.reason, assertIs<AppPrepared.Refused>(runBlocking { ports.appPrepare(id, request) }).reason)
+            assertEquals(BtcRefusal.SeveralAccounts.reason, assertIs<AppPrepared.Refused>(runBlocking { ports.appPrepare(other, request) }).reason)
+        } finally {
+            session.close()
+        }
+    }
+
+    /** The owner's Bitcoin settings decide the signature: a request reviewed under the default source policy is refused once Companion only is set. */
+    @Test
+    fun theOwnersBitcoinSourcePolicyDecidesTheSignature() {
+        val (session, id) = sessionWithWallet()
+        try {
+            WalletStore(session).addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, BulkCap.DEFAULT.accounts)
+            val account = BtcAccount.fromSeed(seed(), BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0)
+            val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+            val ports = VaultSignPorts(context, holderOf(session))
+            val psbt = BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, paid = 30_000L, change = 60_000L))
+            val ready = reviewed(ports, id, bitcoinRequest(psbt, account.masterFingerprint.toInt()))
+            val approval = assertNotNull(Approval.of(ready.review, ready.review.checkLabels().toSet()))
+            SettingsStore(session).save(AppSettings(bitcoinSigningSource = SigningSourcePolicy.COMPANION_ONLY))
+
+            val refused = assertFailsWith<IllegalArgumentException> { runBlocking { ports.appSign(ready, approval) } }
+
+            assertEquals(BtcRefusal.SourceExcluded.reason, refused.message)
+        } finally {
+            session.close()
+        }
+    }
+
+    /**
+     * A non-witness input that spends a segwit output is refused through the one sign flow, for each segwit Script Type, before any signature:
+     * the legacy digest does not commit to the amount.
+     */
+    @Test
+    fun aNonWitnessInputSpendingASegwitOutputIsRefusedThroughTheFlow() {
+        val (session, id) = sessionWithWallet()
+        try {
+            val types = listOf(ScriptType.NATIVE_SEGWIT, ScriptType.NESTED_SEGWIT, ScriptType.TAPROOT)
+            types.forEach { WalletStore(session).addBitcoinAccounts(id, it, BtcNetwork.TESTNET4, 1, BulkCap.DEFAULT.accounts) }
+            val ports = VaultSignPorts(context, holderOf(session))
+            val walletSeed = seed()
+            for (type in types) {
+                val account = BtcAccount.fromSeed(walletSeed, BtcNetwork.TESTNET4, type, 0)
+                val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+                val psbt = BtcFixtures.previousTransactionOnly(spend, BtcFixtures.paying(account, paid = 90_000L, change = 0L).take(1))
+                val flow = SignFlow(scanningAs(ports, bitcoinRequest(psbt, account.masterFingerprint.toInt())), id)
+
+                runBlocking { flow.onScanned("crypto-psbt") }
+
+                assertEquals(SignStep.Refused(BtcRefusal.SegwitWithoutWitness(0).reason), flow.state.value, type.name)
+            }
+        } finally {
+            session.close()
+        }
+    }
+
+    /**
+     * The Bitcoin request of [psbt] that names an account of each fingerprint in [fingerprints], at account 0 of native segwit on testnet4: the
+     * header the parser makes for those inputs, with the PSBT's own bytes as its body. The parser is not run here, since Robolectric cannot decode
+     * the `crypto-psbt` CBOR (hummingbird needs a newer cbor than the Robolectric classpath has).
+     */
+    private fun bitcoinRequest(psbt: Psbt, vararg fingerprints: Int): AppRequest = AppRequest(
+        RequestHeader(
+            app = bitcoinManifest.id,
+            chain = bitcoinManifest.networks.single { it.testnet }.chainId,
+            kind = RequestKind.TRANSACTION,
+            signers = fingerprints.map { SignerRef(it, listOf(PathStep(84, hardened = true), PathStep(1, hardened = true), PathStep(0, hardened = true))) },
+            requestId = null,
+        ),
+        Psbt.write(psbt).toByteArray(),
+    )
+
+    /** The frames of the response [BitcoinSigner] makes for [request] under [approval], signed with the test wallet's keys. */
+    private fun expectedFrames(request: AppRequest, approval: Approval): List<String> {
+        val response = BitcoinSigner().sign(request, approval, WalletKeyAccess(seed()))
+        return partsOf(framesOf(UR(response.urType, response.cbor), DEFAULT_MAX_FRAGMENT))
+    }
+
+    /** The ports of [ports], with the Parser Sandbox's answer to any scan set to [request]. The sandbox decodes the CBOR, which Robolectric cannot. */
+    private fun scanningAs(ports: SignFlowPorts, request: AppRequest): SignFlowPorts = object : SignFlowPorts by ports {
+        override suspend fun scan(parts: List<String>): ScanReply = ScanReply.App(request)
     }
 
     /** A vault session holding one wallet of [words], and that wallet's id. The caller closes the session. */

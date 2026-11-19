@@ -1,6 +1,7 @@
 package app.lensly.app.sign
 
 import app.airvault.chains.algorand.algorandManifest
+import app.airvault.chains.bitcoin.signer.bitcoinManifest
 import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.chains.solana.SOLANA_MAINNET
@@ -9,7 +10,6 @@ import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
 import app.airvault.core.signer.SignerRef
 import app.lensly.core.btc.BtcAccount
-import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.ur.PathStep
@@ -71,11 +71,20 @@ private fun algorand(fingerprint: Int?) = ScannedRequest.App(
     ),
 )
 
-/** A testnet4 native segwit spend from the first account of [SEED], which names that account's master fingerprint. */
-private fun bitcoin(): ScannedRequest.Bitcoin {
-    val spend = BtcFixtures.Spend(BtcFixtures.funding(TESTNET, 0, 0, 100_000L), TESTNET, 0, 0)
-    return ScannedRequest.Bitcoin(BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(TESTNET, paid = 30_000L, change = 60_000L)))
-}
+/** The reference of an account of the first testnet4 native segwit account's path, under the master fingerprint [fingerprint]. */
+private fun testnetAccount(fingerprint: Int = TESTNET.masterFingerprint.toInt()) =
+    SignerRef(fingerprint, listOf(PathStep(84, true), PathStep(1, true), PathStep(0, true)))
+
+/** A Bitcoin request whose inputs name [signers], one reference per account. The default names the first testnet4 native segwit account. */
+private fun bitcoin(signers: List<SignerRef> = listOf(testnetAccount())): ScannedRequest.App = ScannedRequest.App(
+    RequestHeader(
+        app = bitcoinManifest.id,
+        chain = bitcoinManifest.networks.single { it.testnet }.chainId,
+        kind = RequestKind.TRANSACTION,
+        signers = signers,
+        requestId = null,
+    ),
+)
 
 class ScanRouteTest {
 
@@ -153,6 +162,25 @@ class ScanRouteTest {
         val wallets = listOf(mnemonic("first", FINGERPRINT), mnemonic("second", FINGERPRINT))
 
         assertEquals(WalletMatch.Several(2), routeScan(solana(FINGERPRINT), wallets))
+    }
+
+    @Test
+    fun aBitcoinRequestWithAnOutsideCoSignerRoutesToTheWalletOfItsOwnAccount() {
+        val wallets = listOf(mnemonic("btc", TESTNET.masterFingerprint.toInt(), listOf(TESTNET.path)))
+        val outside = testnetAccount(TESTNET.masterFingerprint.toInt() xor 1)
+
+        assertEquals(WalletMatch.One("btc"), routeScan(bitcoin(listOf(testnetAccount(), outside)), wallets))
+    }
+
+    @Test
+    fun aBitcoinRequestClaimingAccountsOfTwoWalletsRoutesToSeveral() {
+        val other = TESTNET.masterFingerprint.toInt() xor 1
+        val wallets = listOf(
+            mnemonic("btc", TESTNET.masterFingerprint.toInt(), listOf(TESTNET.path)),
+            mnemonic("other", other, listOf(TESTNET.path)),
+        )
+
+        assertEquals(WalletMatch.Several(2), routeScan(bitcoin(listOf(testnetAccount(), testnetAccount(other))), wallets))
     }
 
     @Test

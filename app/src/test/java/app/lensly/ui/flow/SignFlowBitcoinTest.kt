@@ -1,36 +1,39 @@
 package app.lensly.ui.flow
 
+import app.airvault.chains.bitcoin.signer.BtcPsbt
+import app.airvault.chains.bitcoin.signer.BtcRefusal
+import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
+import app.airvault.chains.bitcoin.signer.UNVERIFIED_CHECK
+import app.airvault.chains.bitcoin.signer.bitcoinManifest
 import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.core.model.Approval
 import app.airvault.core.signer.AppRequest
+import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.BitcoinReviewed
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
-import app.lensly.app.sign.BitcoinReviewEntry
 import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.WalletView
+import app.lensly.app.sign.bitcoinRecordFactsOf
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
-import app.airvault.chains.bitcoin.signer.BtcPsbt
-import app.airvault.chains.bitcoin.signer.BtcRefusal
-import app.airvault.chains.bitcoin.signer.BtcRefusedException
-import app.airvault.chains.bitcoin.signer.UNVERIFIED_CHECK
-import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.sign.SAMPLE_SIGNER
+import app.lensly.ui.sign.bitcoinReviewOf
 import fr.acinq.bitcoin.psbt.Psbt
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 private const val BTC_WALLET_ID = "wallet-bitcoin"
 
@@ -47,11 +50,27 @@ private fun bitcoinRequest(withPreviousTransaction: Boolean = true): Psbt {
     )
 }
 
-/** The review the app's wallet store would hand the flow for [psbt], under the given input policy. */
-private fun readyOf(psbt: Psbt, policy: InputVerificationPolicy = InputVerificationPolicy.STRICT): BitcoinPrepared.Ready {
+/**
+ * The review the app's wallet store would hand the flow for [request], under the given input policy. The app's review carries the record facts
+ * of the Bitcoin review, as the Review Record keeps them.
+ */
+private fun readyOf(request: AppRequest, policy: InputVerificationPolicy = InputVerificationPolicy.STRICT): AppPrepared.Ready {
+    val psbt = BtcPsbt.parse(request.body)
     val record = BitcoinAccountRecord(BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0, BTC_ACCOUNT.receiveAddress(0))
     val review = BtcFixtures.signerOf(BTC_ACCOUNT, BTC_SEED, policy).review(psbt)
-    return BitcoinPrepared.Ready(BTC_WALLET_ID, psbt, BitcoinReviewed(record, review, SAMPLE_SIGNER))
+    val reviewed = BitcoinReviewed(record, review, SAMPLE_SIGNER)
+    val core = bitcoinReviewOf(review, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT)
+    return AppPrepared.Ready(
+        walletId = BTC_WALLET_ID,
+        request = request,
+        review = core,
+        accountIndex = 0,
+        signer = SAMPLE_SIGNER,
+        addressChain = BITCOIN_FAMILY,
+        counterparties = review.outputs.mapNotNull { it.address },
+        addressNotes = emptyMap(),
+        bitcoin = bitcoinRecordFactsOf(reviewed, core),
+    )
 }
 
 /** Feeds the frames of one scanned code to [flow], stopping once the flow has left the scanning step. */
@@ -62,25 +81,29 @@ private fun scanAll(flow: SignFlow, frames: List<String>) = runBlocking {
     }
 }
 
+/**
+ * The Bitcoin request through the one sign flow, with the app's side in [BitcoinPorts]. A Bitcoin request is scanned and parsed by the Parser
+ * Sandbox, reviewed by the app's `appPrepare`, approved, signed by its `appSign`, and recorded by its `recordApp`.
+ */
 class SignFlowBitcoinTest {
 
     @Test
     fun aBitcoinRequestReachesItsReviewThroughTheSandbox() {
         val psbt = bitcoinRequest()
-        val ports = BitcoinPorts(prepared = { readyOf(psbt) })
+        val ports = BitcoinPorts(prepared = { readyOf(it) })
         val flow = SignFlow(ports, BTC_WALLET_ID)
 
         scanAll(flow, BtcPsbt.encodeUrParts(psbt))
 
-        assertIs<SignStep.BitcoinReview>(flow.state.value)
+        assertIs<SignStep.AppReview>(flow.state.value)
         assertEquals(emptySet(), flow.ticked.value)
-        assertContentEquals(Psbt.write(psbt).toByteArray(), ports.preparedBytes.single())
+        assertContentEquals(Psbt.write(psbt).toByteArray(), ports.preparedRequests.single().body)
     }
 
     @Test
     fun aBitcoinRequestTheRulesRefuseShowsTheReason() {
         val psbt = bitcoinRequest()
-        val flow = SignFlow(BitcoinPorts(prepared = { BitcoinPrepared.Refused(BtcRefusal.NetworkMismatch.reason) }), BTC_WALLET_ID)
+        val flow = SignFlow(BitcoinPorts(prepared = { AppPrepared.Refused(BtcRefusal.NetworkMismatch.reason) }), BTC_WALLET_ID)
 
         scanAll(flow, BtcPsbt.encodeUrParts(psbt))
 
@@ -98,12 +121,11 @@ class SignFlowBitcoinTest {
             addressAt = { BTC_ACCOUNT.receiveAddress(0) },
             bitcoinAccountPaths = listOf(BTC_ACCOUNT.path),
         )
-        val ports = BitcoinPorts(prepared = { readyOf(psbt) }, wallets = listOf(view))
-        val flow = SignFlow(ports, walletId = null)
+        val flow = SignFlow(BitcoinPorts(prepared = { readyOf(it) }, wallets = listOf(view)), walletId = null)
 
         scanAll(flow, BtcPsbt.encodeUrParts(psbt))
 
-        assertEquals(BTC_WALLET_ID, assertIs<SignStep.BitcoinReview>(flow.state.value).ready.walletId)
+        assertEquals(BTC_WALLET_ID, assertIs<SignStep.AppReview>(flow.state.value).ready.walletId)
     }
 
     @Test
@@ -114,14 +136,14 @@ class SignFlowBitcoinTest {
         scanAll(flow, BtcPsbt.encodeUrParts(bitcoinRequest()))
 
         assertEquals(SignStep.Refused("No wallet in this vault can sign this request"), flow.state.value)
-        assertEquals(0, ports.preparedBytes.size)
+        assertEquals(0, ports.preparedRequests.size)
     }
 
     @Test
     fun aSignedBitcoinRequestIsRecordedAsSignedWithTheReviewItWasSignedUnder() {
         val psbt = bitcoinRequest()
         val frames = BtcPsbt.encodeUrParts(psbt)
-        val ports = BitcoinPorts(prepared = { readyOf(psbt) }, signed = { _, _ -> frames }, passwordAccepted = true)
+        val ports = BitcoinPorts(prepared = { readyOf(it) }, signed = { _, _ -> frames }, passwordAccepted = true)
         val flow = SignFlow(ports, BTC_WALLET_ID)
         scanAll(flow, BtcPsbt.encodeUrParts(psbt))
         flow.approve()
@@ -133,15 +155,15 @@ class SignFlowBitcoinTest {
         assertEquals(BTC_WALLET_ID, entry.walletId)
         assertEquals(ReviewOutcome.SIGNED, entry.outcome)
         assertEquals(null, entry.refusal)
-        assertContentEquals(Psbt.write(psbt).toByteArray(), entry.psbt)
-        assertEquals(30_000L, entry.reviewed?.review?.outputs?.filterNot { it.isOwnChange }?.sumOf { it.amountSats })
+        assertContentEquals(Psbt.write(psbt).toByteArray(), entry.request.body)
+        assertEquals(30_000L, entry.reviewed?.bitcoin?.outputs?.filterNot { it.isOwnChange }?.sumOf { it.amountSats })
     }
 
     @Test
     fun aSignatureWhoseRecordCannotBeWrittenIsNotShown() {
         val psbt = bitcoinRequest()
         val ports = BitcoinPorts(
-            prepared = { readyOf(psbt) },
+            prepared = { readyOf(it) },
             signed = { _, _ -> BtcPsbt.encodeUrParts(psbt) },
             passwordAccepted = true,
             recordFails = true,
@@ -158,7 +180,7 @@ class SignFlowBitcoinTest {
     @Test
     fun aBitcoinReviewLeftUnsignedIsRecordedAsCancelled() {
         val psbt = bitcoinRequest()
-        val ports = BitcoinPorts(prepared = { readyOf(psbt) })
+        val ports = BitcoinPorts(prepared = { readyOf(it) })
         val flow = SignFlow(ports, BTC_WALLET_ID)
         scanAll(flow, BtcPsbt.encodeUrParts(psbt))
 
@@ -173,7 +195,7 @@ class SignFlowBitcoinTest {
     @Test
     fun aBitcoinRequestTheRulesRefuseIsRecordedAsRefusedWithItsReason() {
         val psbt = bitcoinRequest()
-        val ports = BitcoinPorts(prepared = { BitcoinPrepared.Refused(BtcRefusal.NetworkMismatch.reason) })
+        val ports = BitcoinPorts(prepared = { AppPrepared.Refused(BtcRefusal.NetworkMismatch.reason) })
         val flow = SignFlow(ports, BTC_WALLET_ID)
         scanAll(flow, BtcPsbt.encodeUrParts(psbt))
 
@@ -187,8 +209,8 @@ class SignFlowBitcoinTest {
     fun aBitcoinSigningRefusalIsRecordedWithTheReviewItCameAfter() {
         val psbt = bitcoinRequest()
         val ports = BitcoinPorts(
-            prepared = { readyOf(psbt) },
-            signed = { _, _ -> throw BtcRefusedException(BtcRefusal.ConfirmationRequired) },
+            prepared = { readyOf(it) },
+            signed = { _, _ -> throw IllegalArgumentException(BtcRefusal.ConfirmationRequired.reason) },
             passwordAccepted = true,
         )
         val flow = SignFlow(ports, BTC_WALLET_ID)
@@ -207,29 +229,29 @@ class SignFlowBitcoinTest {
     fun unverifiedAmountsWaitForTheOwnersConfirmationBeforeApproval() {
         val psbt = bitcoinRequest(withPreviousTransaction = false)
         val flow = SignFlow(
-            BitcoinPorts(prepared = { readyOf(psbt, InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING) }),
+            BitcoinPorts(prepared = { readyOf(it, InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING) }),
             BTC_WALLET_ID,
         )
         scanAll(flow, BtcPsbt.encodeUrParts(psbt))
 
         flow.approve()
-        assertIs<SignStep.BitcoinReview>(flow.state.value)
+        assertIs<SignStep.AppReview>(flow.state.value)
 
         flow.tick(UNVERIFIED_CHECK, on = true)
         flow.tick(UNVERIFIED_CHECK, on = false)
         flow.approve()
-        assertIs<SignStep.BitcoinReview>(flow.state.value)
+        assertIs<SignStep.AppReview>(flow.state.value)
 
         flow.tick(UNVERIFIED_CHECK, on = true)
         flow.approve()
-        assertEquals(true, assertIs<SignStep.BitcoinConfirming>(flow.state.value).confirmed)
+        assertTrue(UNVERIFIED_CHECK in assertIs<SignStep.AppConfirming>(flow.state.value).approval.acknowledged)
     }
 
     @Test
     fun aBitcoinRequestIsSignedOnlyAfterThePasswordAndItsFramesAreShown() {
         val psbt = bitcoinRequest()
         val frames = BtcPsbt.encodeUrParts(psbt)
-        val ports = BitcoinPorts(prepared = { readyOf(psbt) }, signed = { _, _ -> frames })
+        val ports = BitcoinPorts(prepared = { readyOf(it) }, signed = { _, _ -> frames })
         val flow = SignFlow(ports, BTC_WALLET_ID)
         scanAll(flow, BtcPsbt.encodeUrParts(psbt))
         flow.approve()
@@ -237,7 +259,7 @@ class SignFlowBitcoinTest {
         runBlocking { flow.confirm("not the password".toCharArray()) }
         // A wrong password signs nothing: the approval waits again.
         assertEquals(0, ports.signCalls)
-        assertEquals(false, assertIs<SignStep.BitcoinConfirming>(flow.state.value).busy)
+        assertEquals(false, assertIs<SignStep.AppConfirming>(flow.state.value).busy)
 
         ports.passwordAccepted = true
         runBlocking { flow.confirm("the password".toCharArray()) }
@@ -249,8 +271,8 @@ class SignFlowBitcoinTest {
     fun aBitcoinSigningRefusalIsShownAndNothingIsShown() {
         val psbt = bitcoinRequest()
         val ports = BitcoinPorts(
-            prepared = { readyOf(psbt) },
-            signed = { _, _ -> throw BtcRefusedException(BtcRefusal.ConfirmationRequired) },
+            prepared = { readyOf(it) },
+            signed = { _, _ -> throw IllegalArgumentException(BtcRefusal.ConfirmationRequired.reason) },
             passwordAccepted = true,
         )
         val flow = SignFlow(ports, BTC_WALLET_ID)
@@ -264,18 +286,18 @@ class SignFlowBitcoinTest {
 }
 
 /**
- * The app's side of the flow for a Bitcoin request. The Bitcoin ports are answered by the functions given; the EVM ports are never
- * reached by a Bitcoin request, so they refuse if they are.
+ * The app's side of the flow for a Bitcoin request. The app's functions answer the Bitcoin requests; the EVM ports are never reached by a
+ * Bitcoin request, so they refuse if they are.
  */
 private class BitcoinPorts(
-    private val prepared: (ByteArray) -> BitcoinPrepared = { error("no review is expected") },
-    private val signed: (BitcoinPrepared.Ready, Boolean) -> List<String> = { _, _ -> error("no signature is expected") },
+    private val prepared: (AppRequest) -> AppPrepared = { error("no review is expected") },
+    private val signed: (AppPrepared.Ready, Approval) -> List<String> = { _, _ -> error("no signature is expected") },
     var passwordAccepted: Boolean = false,
     private val recordFails: Boolean = false,
     private val wallets: List<WalletView> = emptyList(),
 ) : SignFlowPorts {
-    val preparedBytes = mutableListOf<ByteArray>()
-    val recorded = mutableListOf<BitcoinReviewEntry>()
+    val preparedRequests = mutableListOf<AppRequest>()
+    val recorded = mutableListOf<AppReviewEntry>()
     var signCalls = 0
 
     override suspend fun wallets(): List<WalletView> = wallets
@@ -293,27 +315,19 @@ private class BitcoinPorts(
 
     override suspend fun record(entry: ReviewEntry): Unit = error("no EVM Review Record is written for a Bitcoin request")
 
-    override suspend fun recordBitcoin(entry: BitcoinReviewEntry) {
+    override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared {
+        check(request.header.app == bitcoinManifest.id) { "only a Bitcoin request is expected in the Bitcoin tests" }
+        preparedRequests += request
+        return prepared(request)
+    }
+
+    override suspend fun appSign(ready: AppPrepared.Ready, approval: Approval): List<String> {
+        signCalls++
+        return signed(ready, approval)
+    }
+
+    override suspend fun recordApp(entry: AppReviewEntry) {
         if (recordFails) throw ReviewNotSaved()
         recorded += entry
     }
-
-    override suspend fun bitcoinPrepare(walletId: String, psbt: ByteArray): BitcoinPrepared {
-        preparedBytes += psbt
-        return prepared(psbt)
-    }
-
-    override suspend fun bitcoinSign(ready: BitcoinPrepared.Ready, unverifiedConfirmed: Boolean): List<String> {
-        signCalls++
-        return signed(ready, unverifiedConfirmed)
-    }
-
-    override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared =
-        error("an Algorand request is not expected in the Bitcoin tests")
-
-    override suspend fun appSign(ready: AppPrepared.Ready, approval: Approval): List<String> =
-        error("an Algorand request is not expected in the Bitcoin tests")
-
-    override suspend fun recordApp(entry: AppReviewEntry): Unit =
-        error("an Algorand request is not expected in the Bitcoin tests")
 }

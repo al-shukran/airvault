@@ -3,13 +3,12 @@ package app.lensly.app.sign
 import app.airvault.chains.bitcoin.signer.btcText
 import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
+import app.airvault.core.model.Review
 import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.text
 import app.lensly.app.BitcoinReviewed
 import app.lensly.core.registry.Registry
 import app.lensly.core.wallet.toHex
-import app.lensly.ui.sign.bitcoinNetworkName
-import app.lensly.ui.sign.bitcoinReviewOf
 import app.lensly.ui.sign.scriptTypeName
 import app.lensly.ui.sign.unknownNetworkName
 import java.security.MessageDigest
@@ -135,57 +134,45 @@ class ReviewEntry(
 )
 
 /**
- * What the Bitcoin sign flow showed and decided for one PSBT of wallet [walletId]. [reviewed] is the review the owner saw, when the
- * request got one. [refusal] is the reason, for a refusal. [psbt] is the PSBT as the Parser Sandbox wrote it, and its SHA-256 is kept.
+ * What the Bitcoin review [reviewed] showed of its PSBT, as the record keeps it: the Script Type, each output, the fee and its rate, and a WARN
+ * notice for each warning of [review], the review the owner read.
  */
-class BitcoinReviewEntry(
-    val walletId: String,
-    val outcome: ReviewOutcome,
-    val psbt: ByteArray,
-    val reviewed: BitcoinReviewed?,
-    val refusal: String?,
+fun bitcoinRecordFactsOf(reviewed: BitcoinReviewed, review: Review): BitcoinRecordFacts = BitcoinRecordFacts(
+    scriptType = scriptTypeName(reviewed.account.scriptType),
+    outputs = reviewed.review.outputs.map { BitcoinRecordOutput(it.address, it.amountSats, it.isOwnChange) },
+    feeSats = reviewed.review.feeSats,
+    feeRateSatPerVb = reviewed.review.feeRateSatPerVb,
+    notices = review.warnings.map { BitcoinRecordNotice(NoticeLevel.WARN, it.message) },
 )
 
 /**
- * The Review Record of the Bitcoin request [entry], written at [atMs]. The record keeps the account, its Script Type and network, each
- * output, the fee and its rate, and every notice the review showed. A refusal after the review adds its reason as a BLOCK notice.
+ * The Review Record of the Bitcoin request [entry], written at [atMs]. The record keeps the account, its Script Type and network, each output, the
+ * fee and its rate, and every notice the review showed. A refusal after the review adds its reason as a BLOCK notice. A refusal before any review
+ * keeps only its reason, since no account was chosen.
  */
-fun bitcoinReviewRecordOf(entry: BitcoinReviewEntry, atMs: Long): ReviewRecord {
+fun bitcoinReviewRecordOf(entry: AppReviewEntry, atMs: Long): ReviewRecord {
     val reviewed = entry.reviewed
-    val review = reviewed?.review
-    val reviewModel = reviewed?.let { bitcoinReviewOf(it.review, it.account.network, it.account.scriptType) }
-    val notices = buildList {
-        reviewModel?.warnings?.forEach { add(BitcoinRecordNotice(NoticeLevel.WARN, it.message)) }
-        if (entry.outcome == ReviewOutcome.REFUSED && review != null) {
-            entry.refusal?.let { add(BitcoinRecordNotice(NoticeLevel.BLOCK, it)) }
-        }
-    }
+    val facts = reviewed?.bitcoin
+    val block = entry.refusal?.takeIf { entry.outcome == ReviewOutcome.REFUSED && reviewed != null }
     return ReviewRecord(
         atMs = atMs,
         outcome = entry.outcome,
         kind = ReviewKind.BITCOIN_TRANSACTION,
         chainId = null,
-        networkName = reviewed?.account?.network?.let(::bitcoinNetworkName),
-        accountIndex = reviewed?.account?.index,
+        networkName = reviewed?.review?.network?.name,
+        accountIndex = reviewed?.accountIndex,
         address = null,
         function = null,
         to = null,
-        amount = review?.let { btcText(it.outputs.filterNot { output -> output.isOwnChange }.sumOf { output -> output.amountSats }) },
+        amount = facts?.let { btcText(it.outputs.filterNot { output -> output.isOwnChange }.sumOf { output -> output.amountSats }) },
         tokenContract = null,
         fee = emptyList(),
         params = emptyList(),
         origin = null,
         refusal = entry.refusal,
-        dataHash = bitcoinDataHash(entry.psbt),
-        bitcoin = reviewed?.let { shown ->
-            BitcoinRecordFacts(
-                scriptType = scriptTypeName(shown.account.scriptType),
-                outputs = shown.review.outputs.map { BitcoinRecordOutput(it.address, it.amountSats, it.isOwnChange) },
-                feeSats = shown.review.feeSats,
-                feeRateSatPerVb = shown.review.feeRateSatPerVb,
-                notices = notices,
-            )
-        },
+        dataHash = bitcoinDataHash(entry.request.body),
+        bitcoin = facts?.let { shown -> shown.copy(notices = shown.notices + listOfNotNull(block?.let { BitcoinRecordNotice(NoticeLevel.BLOCK, it) })) },
+        acknowledged = entry.acknowledged,
     )
 }
 

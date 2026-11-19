@@ -44,12 +44,13 @@ class BitcoinSignFlowTest : SignFlowE2eBase() {
 
         val driver = driverFor(wallet, BtcPsbt.encodeUrParts(psbt))
         driver.open()
-        val review = (driver.awaitReview { it is SignStep.BitcoinReview } as SignStep.BitcoinReview).ready.reviewed.review
+        val ready = (driver.awaitReview { it is SignStep.AppReview } as SignStep.AppReview).ready
+        val facts = checkNotNull(ready.bitcoin)
 
-        assertEquals(5_000L, review.feeSats)
-        assertEquals(recipient, review.outputs[0].address)
-        assertFalse(review.outputs[0].isOwnChange)
-        assertTrue(review.outputs[1].isOwnChange)
+        assertEquals(5_000L, facts.feeSats)
+        assertEquals(recipient, facts.outputs[0].address)
+        assertFalse(facts.outputs[0].isOwnChange)
+        assertTrue(facts.outputs[1].isOwnChange)
 
         // The summary sentence names the amount sent and the recipient's full address: a shortened one could pass a look-alike (R26).
         compose.onNodeWithText("Send 0.0015 BTC to $recipient").assertExists()
@@ -57,7 +58,7 @@ class BitcoinSignFlowTest : SignFlowE2eBase() {
         driver.readToTheEnd()
         assertTrue(driver.approvable())
 
-        val parts = driver.approveAndSign { it is SignStep.BitcoinConfirming }
+        val parts = driver.approveAndSign { it is SignStep.AppConfirming }
         val signed = BtcPsbt.fromUr(urOfParts(parts, "crypto-psbt"))
         val tx = BtcFixtures.finalize(signed, spends)
         val prevouts = BtcFixtures.prevouts(spends)
