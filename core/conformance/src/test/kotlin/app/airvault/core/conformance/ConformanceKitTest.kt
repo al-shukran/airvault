@@ -3,6 +3,7 @@ package app.airvault.core.conformance
 import app.airvault.chains.algorand.algorandManifest
 import app.airvault.chains.algorand.signer.AlgorandSigner
 import app.airvault.chains.bitcoin.signer.BitcoinSigner
+import app.airvault.chains.evm.evmManifest
 import app.airvault.chains.evm.signer.EvmSigner
 import app.airvault.chains.solana.signer.SolanaSigner
 import app.airvault.core.model.AIRVAULT_API_VERSION
@@ -37,9 +38,11 @@ class ConformanceKitTest {
     }
 
     @Test
-    fun algorandPassesTheKeyScopeChecksThroughTheCoreEnforcer() {
-        val keys = ScopedKeyAccess(algorandManifest.keys, DerivingKeys)
-        assertEquals(emptyList(), checkKeyScopes(AlgorandSigner, keys))
+    fun everySignerPassesTheKeyScopeChecksThroughTheCoreEnforcer() {
+        for (app in listOf(EvmSigner, BitcoinSigner, SolanaSigner, AlgorandSigner)) {
+            val keys = ScopedKeyAccess(app.manifest.keys, DerivingKeys)
+            assertEquals(emptyList(), checkKeyScopes(app, keys), "${app.manifest.id}")
+        }
     }
 
     @Test
@@ -67,6 +70,7 @@ class ConformanceKitTest {
     fun brokenManifestsFailTheManifestCheck() {
         val base = algorandManifest
         val fixtures = mapOf(
+            "EVM without a primary" to evmManifest.copy(networks = evmManifest.networks.map { it.copy(primary = false) }),
             "apiVersion" to base.copy(apiVersion = AIRVAULT_API_VERSION + 1),
             "namespace" to base.copy(namespaces = setOf("other")),
             "coin type" to keyed(PathTemplate("m/44'/0'/*'/0/0")),
@@ -92,6 +96,7 @@ class ConformanceKitTest {
             ),
         )
         val expected = mapOf(
+            "EVM without a primary" to "no primary testnet",
             "apiVersion" to "apiVersion",
             "namespace" to "namespace",
             "coin type" to "coin-type level must be hardened",

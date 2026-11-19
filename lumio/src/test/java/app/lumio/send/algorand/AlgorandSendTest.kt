@@ -5,8 +5,10 @@ import app.airvault.chains.algorand.AlgoSignType
 import app.airvault.chains.algorand.Payment
 import app.airvault.chains.algorand.bytesToSign
 import app.airvault.chains.algorand.signer.AlgoTxnDecoder
+import app.airvault.chains.algorand.wallet.AlgorandWallet
 import app.airvault.chains.algorand.AlgoAddress
 import app.lensly.core.algorand.AlgoSignedTxn
+import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.ur.AlgoSignatureEncoder
 import app.lensly.core.ur.UrScanner
 import app.lumio.data.MonotonicClock
@@ -29,8 +31,10 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
 import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
 import org.bouncycastle.crypto.signers.Ed25519Signer
 import org.junit.After
@@ -136,7 +140,7 @@ class AlgorandSendTest {
 
     @Test
     fun theDerivationPathIsTheLedgerAlgorandPathOfTheAccount() {
-        val path = AlgorandSend.derivationPath(3)
+        val path = AlgorandWallet.pathOf(3)
         assertEquals(listOf(44, 283, 3, 0, 0), path.map { it.index })
         assertEquals(listOf(true, true, true, false, false), path.map { it.hardened })
     }
@@ -205,6 +209,7 @@ class AlgorandSendTest {
         assertEquals(AlgorandSend.ORIGIN, request.origin)
         assertEquals(0x1234_5678, request.sourceFingerprint)
         assertEquals(listOf(44, 283, 3, 0, 0), request.derivationPath.map { it.index })
+        assertEquals(AlgorandWallet.pathOf(3), request.derivationPath)
     }
 
     @Test
@@ -317,6 +322,57 @@ class AlgorandSendTest {
             AlgorandSend.ownerWords(ProviderError.Transient(), "fallback"),
         )
         assertEquals("fallback", AlgorandSend.ownerWords(IllegalStateException(), "fallback"))
+    }
+
+    /**
+     * Answers the local algod as the network answers at review: the balance of an account and the next round are read at each call, so a test
+     * can move the network between the read a form takes when it opens and the read a review takes.
+     */
+    private fun algodAt(balance: () -> Long, round: () -> Long) {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when {
+                request.path?.startsWith("/v2/accounts/") == true -> MockResponse().setBody("""{"amount":${balance()},"assets":[]}""")
+                request.path == "/v2/transactions/params" -> MockResponse().setBody(
+                    """{"genesis-id":"testnet-v1.0","genesis-hash":"SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=","last-round":${round()},""" +
+                        """"fee":0,"min-fee":1000}""",
+                )
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+    }
+
+    @Test
+    fun theReviewPlansFromTheRoundOfTheNetworkAtReviewNotTheRoundTheFormOpenedAt() = runBlocking {
+        var round = 61_000_000L
+        algodAt(balance = { 2_000_000L }, round = { round })
+        AlgorandSend.funds(scheduler(this), ALGORAND_TESTNET, AlgorandAccount.addressOf(signer)) // the form opens at round 61,000,000
+        round = 61_001_200L // the form sits open past the 1,000-round window
+
+        val plan = reviewPlan(
+            scheduler(this), ALGORAND_TESTNET, AlgorandAccount.addressOf(signer), AlgorandAssets.native, AlgoAddress.encode(recipient),
+            "1", 0x1234_5678L, 3, signer,
+        )
+
+        val txn = AlgoTxnDecoder.decode(plan.txnBytes) as Payment
+        assertEquals(61_001_200UL, txn.firstValid)
+        assertEquals(61_002_200UL, txn.lastValid)
+    }
+
+    @Test
+    fun theBalanceAtReviewDecidesTheSendNotTheBalanceTheFormOpenedWith() {
+        runBlocking {
+            var balance = 2_000_000L
+            algodAt(balance = { balance }, round = { 61_000_000L })
+            AlgorandSend.funds(scheduler(this), ALGORAND_TESTNET, AlgorandAccount.addressOf(signer)) // the form opens with 2 ALGO
+            balance = 1_000_500L // the account is spent down since the form opened
+
+            assertFailsWith<IllegalArgumentException> {
+                reviewPlan(
+                    scheduler(this), ALGORAND_TESTNET, AlgorandAccount.addressOf(signer), AlgorandAssets.native, AlgoAddress.encode(recipient),
+                    "1", 0x1234_5678L, 3, signer,
+                )
+            }
+        }
     }
 
     private fun scheduler(scope: CoroutineScope): Scheduler = Scheduler(

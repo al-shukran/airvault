@@ -34,6 +34,9 @@ private const val LAMPORT_DECIMALS = 9
 /** The note under the origin the wallet names. The origin is the wallet's word, so the review says Lensly cannot check it. */
 private const val ORIGIN_NOTE = "Named by the wallet. Lensly cannot verify it."
 
+/** The label of the origin a request names. The request sets it, so the review does not vouch for it. Same label as the EVM review. */
+private const val CLAIMED_ORIGIN_LABEL = "Claimed by Request (Not Verified)"
+
 /** The decoded fields of a Solana request, as the review names them. */
 private object Fields {
     val signer = FieldPath("solana.signer")
@@ -173,7 +176,7 @@ private fun SolanaRequestReview.messageInstructionCount(): Int = message?.instru
  * text, and for a transaction its fee payer, other required signers, recent blockhash and each instruction with its accounts. */
 private fun SolanaRequestReview.rows(chain: ChainId): List<ReviewRow> = buildList {
     add(ReviewRow("Signer", DisplayValue.Address(chain, signerAddress), Fields.signer))
-    origin?.let { add(ReviewRow("Origin", DisplayValue.Text(it), Fields.origin, notes = listOf(ORIGIN_NOTE))) }
+    origin?.let { add(ReviewRow(CLAIMED_ORIGIN_LABEL, DisplayValue.Text(it), Fields.origin, notes = listOf(ORIGIN_NOTE))) }
     val offchain = offchainMessage
     val tx = message
     if (offchain != null) {
