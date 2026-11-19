@@ -2,6 +2,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 // Android modules that depend on this code compile to Java 17, so the pure-JVM chain modules do too.
@@ -22,6 +23,8 @@ dependencies {
     api(project(":abi"))
     // Keccak-256, EIP-55 checksums and the ABI-free helpers of the transaction and typed data codecs come from web3j's crypto module.
     implementation(libs.web3j.crypto)
+    // The registry's catalog entries are @Serializable, so the serialization plugin runs here as well as in :shared.
+    implementation(libs.kotlinx.serialization.json)
     // The pins :shared holds for web3j's transitive libraries (Dependabot alerts 6-12, 15-23 and 37-39). They keep this module on the
     // artifacts the verification metadata lists.
     constraints {
