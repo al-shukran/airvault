@@ -31,10 +31,7 @@ import app.lensly.app.sign.Prepared
 import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.WalletView
 import app.lensly.core.parse.InProcessParser
-import app.lensly.core.registry.FeeModel
-import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyPolicy
-import app.lensly.core.registry.TokenEntry
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.BulkCap
 import app.lensly.core.wallet.HdWallet
@@ -44,18 +41,9 @@ import app.lensly.ui.settings.Catalog
 import app.lensly.ui.settings.FailureCapChoice
 import app.lensly.ui.settings.HideDelayScreen
 import app.lensly.ui.settings.SettingsScreen
-import app.lensly.ui.sign.NestedCall
 import app.lensly.ui.sign.ReviewScreen
 import app.lensly.ui.sign.SignRefusedScreen
-import app.lensly.ui.sign.TxReview
-import app.lensly.ui.sign.TxReviewScreen
-import app.lensly.ui.sign.UNKNOWN_DECIMALS_NOTE
-import app.lensly.ui.sign.UNKNOWN_UNIT
-import app.lensly.ui.sign.assumedAmountNote
-import app.lensly.ui.sign.unknownFeeNote
-import app.lensly.ui.sign.unknownNetworkName
 import app.lensly.ui.theme.LumenTheme
-import java.math.BigInteger
 
 
 /**
@@ -63,17 +51,13 @@ import java.math.BigInteger
  * on a device without the vault.
  *
  * The activity is not exported, so `adb shell am start` is refused with a permission denial. Start it from inside the app's own
- * process, with the "screen" string extra set to one of show1, show12, scan, review, review-large, review-token, review-pegged,
- * review-unknown-chain, review-unknown-token, review-typed, refused-typed, refused, settings or hide-delay.
+ * process, with the "screen" string extra set to one of show1, show12, scan, review-typed, refused-typed, refused, settings or hide-delay.
  *
  * show1 and show12 animate one or twelve fake UR parts. scan opens the live camera and writes each
- * decoded text into the status line (and its length to logcat under the tag [TAG]). review shows a native transfer,
- * review-token a token transfer, review-pegged a transfer of Binance Pegged USDT on BNB Chain (the BNB badge),
- * review-large a 24-call batch of token transfers, about 6 KB of calldata, which scrolls,
+ * decoded text into the status line (and its length to logcat under the tag [TAG]).
  * settings the real Settings screen with sample values, including the dice and coin hide delay rows,
  * hide-delay the hide delay editor, interactive, with sample values,
- * review-unknown-chain a native transfer on a chain outside the registry,
- * review-unknown-token a transfer of a token outside the registry, review-typed a Permit (ERC-2612) typed-data request
+ * review-typed a Permit (ERC-2612) typed-data request
  * built by the sign pipeline from the shipped registry: its denylist warning and confirmation are shown. refused-typed a typed-data
  * request on a chain outside the registry, which the pipeline refuses before review. refused a refusal, all with sample data.
  */
@@ -102,12 +86,6 @@ class QrPreviewActivity : ComponentActivity() {
                     when (current) {
                         SCREEN_SHOW12 -> ShowPreview(title = "SIGNATURE", parts = sampleTwelveParts(), onDone = ::finish)
                         SCREEN_SCAN -> ScanPreview(onFinish = ::finish)
-                        SCREEN_REVIEW -> ReviewPreview(sampleReview)
-                        SCREEN_REVIEW_LARGE -> ReviewPreview(sampleLargeBatchReview)
-                        SCREEN_REVIEW_TOKEN -> ReviewPreview(sampleTokenReview)
-                        SCREEN_REVIEW_PEGGED -> ReviewPreview(samplePeggedReview)
-                        SCREEN_REVIEW_UNKNOWN_CHAIN -> ReviewPreview(sampleUnknownChainReview)
-                        SCREEN_REVIEW_UNKNOWN_TOKEN -> ReviewPreview(sampleUnknownTokenReview)
                         SCREEN_REVIEW_TYPED -> TypedPermitPreview()
                         SCREEN_REFUSED_TYPED -> TypedRefusedPreview(onDone = ::finish)
                         SCREEN_REFUSED -> SignRefusedScreen(
@@ -132,12 +110,6 @@ class QrPreviewActivity : ComponentActivity() {
         when (intent.getStringExtra(EXTRA_SCREEN)) {
             SCREEN_SHOW12 -> SCREEN_SHOW12
             SCREEN_SCAN -> SCREEN_SCAN
-            SCREEN_REVIEW -> SCREEN_REVIEW
-            SCREEN_REVIEW_LARGE -> SCREEN_REVIEW_LARGE
-            SCREEN_REVIEW_TOKEN -> SCREEN_REVIEW_TOKEN
-            SCREEN_REVIEW_PEGGED -> SCREEN_REVIEW_PEGGED
-            SCREEN_REVIEW_UNKNOWN_CHAIN -> SCREEN_REVIEW_UNKNOWN_CHAIN
-            SCREEN_REVIEW_UNKNOWN_TOKEN -> SCREEN_REVIEW_UNKNOWN_TOKEN
             SCREEN_REVIEW_TYPED -> SCREEN_REVIEW_TYPED
             SCREEN_REFUSED_TYPED -> SCREEN_REFUSED_TYPED
             SCREEN_REFUSED -> SCREEN_REFUSED
@@ -152,12 +124,6 @@ class QrPreviewActivity : ComponentActivity() {
         const val SCREEN_SHOW1 = "show1"
         const val SCREEN_SHOW12 = "show12"
         const val SCREEN_SCAN = "scan"
-        const val SCREEN_REVIEW = "review"
-        const val SCREEN_REVIEW_LARGE = "review-large"
-        const val SCREEN_REVIEW_TOKEN = "review-token"
-        const val SCREEN_REVIEW_PEGGED = "review-pegged"
-        const val SCREEN_REVIEW_UNKNOWN_CHAIN = "review-unknown-chain"
-        const val SCREEN_REVIEW_UNKNOWN_TOKEN = "review-unknown-token"
         const val SCREEN_REVIEW_TYPED = "review-typed"
         const val SCREEN_REFUSED_TYPED = "refused-typed"
         const val SCREEN_REFUSED = "refused"
@@ -224,16 +190,6 @@ private fun HideDelayPreview(onBack: () -> Unit) {
         onShortest = { shortest = it },
         onLongest = { longest = it },
         onBack = onBack,
-    )
-}
-
-@Composable
-private fun ReviewPreview(review: TxReview) {
-    val context = LocalContext.current
-    TxReviewScreen(
-        review = review,
-        onApprove = { Toast.makeText(context, "Preview: approved", Toast.LENGTH_SHORT).show() },
-        onReject = { Toast.makeText(context, "Preview: rejected", Toast.LENGTH_SHORT).show() },
     )
 }
 
@@ -326,202 +282,3 @@ private fun sampleTwelveParts(): List<String> {
         "UR:CRYPTO-PSBT/${part + 1}-12/" + body.joinToString("")
     }
 }
-
-/** Monad Testnet shows the Monad logo, as in the debug catalog, and a TESTNET pill beside its name. */
-private val monadTestnet = NetworkEntry(
-    chainId = 10143L,
-    name = "Monad Testnet",
-    nativeSymbol = "MON",
-    feeModel = FeeModel.L1,
-    explorerName = "MonadVision",
-    testnet = true,
-    icon = "chain_monad",
-)
-
-/** A native MON transfer. The amount row shows the chain logo, because MON is the native coin. */
-private val sampleReview = TxReview(
-    networkName = "Monad Testnet",
-    chainId = 10143L,
-    fromAccountLabel = "Main account",
-    fromAddress = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
-    toAddress = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2",
-    amount = "0.0100",
-    symbol = "MON",
-    tokenContract = null,
-    function = "Native Transfer",
-    params = emptyList(),
-    fee = listOf(
-        "Gas Limit" to "21000",
-        "Max Fee" to "52.5 gwei",
-        "Priority Fee" to "2 gwei",
-        "Max total" to "0.0011 MON",
-    ),
-    feeNote = "Fee is paid in MON from the sender's balance.",
-    warnings = listOf("This address has never received a transaction on this network."),
-    nonce = 42L,
-    txType = "EIP-1559 (type 2)",
-    network = monadTestnet,
-)
-
-/** A USDC transfer on Base. The network row shows the Base logo, and the amount row shows the USDC logo. */
-private val sampleTokenReview = TxReview(
-    networkName = "Base",
-    chainId = 8453L,
-    fromAccountLabel = "Main account",
-    fromAddress = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
-    toAddress = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2",
-    amount = "25.00",
-    symbol = "USDC",
-    tokenContract = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-    function = "Token Transfer",
-    params = emptyList(),
-    fee = listOf(
-        "Gas Limit" to "65000",
-        "Max Fee" to "0.00013 ETH",
-    ),
-    feeNote = "L1 data fee is not computable offline; total may be higher",
-    warnings = emptyList(),
-    nonce = 7L,
-    txType = "EIP-1559",
-    network = NetworkEntry(
-        chainId = 8453L,
-        name = "Base",
-        nativeSymbol = "ETH",
-        feeModel = FeeModel.L2_ROLLUP,
-        explorerName = "Basescan",
-        testnet = false,
-        icon = "chain_base",
-    ),
-    token = TokenEntry(
-        chainId = 8453L,
-        contract = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-        symbol = "USDC",
-        name = "USD Coin",
-        decimals = 6,
-        icon = "token_usdc",
-    ),
-)
-
-/**
- * A Multicall3 batch of 24 USDC transfers on Base, about 6 KB of calldata. Each call is its own row, so the review is
- * longer than the screen and scrolls to the end before it can be approved.
- */
-private val sampleLargeBatchReview = sampleTokenReview.copy(
-    function = "aggregate3",
-    signature = "aggregate3((address,bool,bytes)[])",
-    nested = List(24) { index ->
-        NestedCall(
-            depth = 1,
-            target = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-            function = "transfer",
-            params = listOf("to" to "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2", "value" to "${index + 1}000000 (${index + 1}.00 USDC)"),
-        )
-    },
-)
-
-/**
- * A Binance Pegged USDT transfer on BNB Chain. The amount row shows the USDT logo with the BNB logo as its badge, and
- * the network row shows the BNB logo.
- */
-private val samplePeggedReview = TxReview(
-    networkName = "BNB Smart Chain",
-    chainId = 56L,
-    fromAccountLabel = "Main account",
-    fromAddress = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
-    toAddress = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2",
-    amount = "25.00",
-    symbol = "USDT",
-    tokenContract = "0x55d398326f99059ff775485246999027b3197955",
-    function = "Token Transfer",
-    params = emptyList(),
-    fee = listOf(
-        "Gas Limit" to "65000",
-        "Max Fee" to "0.00013 BNB",
-    ),
-    feeNote = "Fee is paid in BNB from the sender's balance.",
-    warnings = emptyList(),
-    nonce = 7L,
-    txType = "EIP-1559",
-    network = NetworkEntry(
-        chainId = 56L,
-        name = "BNB Smart Chain",
-        nativeSymbol = "BNB",
-        feeModel = FeeModel.L1,
-        explorerName = "BscScan",
-        testnet = false,
-        icon = "chain_binance_smart_chain",
-    ),
-    token = TokenEntry(
-        chainId = 56L,
-        contract = "0x55d398326f99059ff775485246999027b3197955",
-        symbol = "USDT",
-        name = "Binance Pegged USDT",
-        decimals = 18,
-        icon = "token_usdt",
-    ),
-)
-
-/**
- * A native transfer on a chain outside the registry. The network row shows the Ethereum logo, the amount is in base
- * units with its 18-decimal reading marked as an assumption, and the registry warning sits above it.
- */
-private val sampleUnknownChainReview = TxReview(
-    networkName = unknownNetworkName(999_999L),
-    chainId = 999_999L,
-    fromAccountLabel = "ACCOUNT 1",
-    fromAddress = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
-    toAddress = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2",
-    amount = "1000000000000000000",
-    symbol = UNKNOWN_UNIT,
-    tokenContract = null,
-    function = "Native Transfer",
-    params = emptyList(),
-    fee = listOf(
-        "Gas Limit" to "21000",
-        "Max Fee per Gas" to "30 gwei",
-        "Max Priority Fee" to "1.5 gwei",
-        "Max Fee" to "630000000000000 base units",
-    ),
-    feeNote = unknownFeeNote(BigInteger.valueOf(630_000_000_000_000L)),
-    warnings = emptyList(),
-    nonce = 42L,
-    txType = "EIP-1559",
-    network = null,
-    amountNote = assumedAmountNote(BigInteger.TEN.pow(18)),
-)
-
-/**
- * A transfer of a token outside the registry, on Base. The token row shows the unknown-token icon and the raw amount in
- * base units, and says the decimals are unknown.
- */
-private val sampleUnknownTokenReview = TxReview(
-    networkName = "Base",
-    chainId = 8453L,
-    fromAccountLabel = "ACCOUNT 1",
-    fromAddress = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
-    toAddress = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2",
-    amount = "25000000",
-    symbol = UNKNOWN_UNIT,
-    tokenContract = "0x1111111111111111111111111111111111111111",
-    function = "Token Transfer",
-    params = emptyList(),
-    fee = listOf(
-        "Gas Limit" to "65000",
-        "Max Fee" to "0.00013 ETH",
-    ),
-    feeNote = "L1 data fee is not computable offline; total may be higher",
-    warnings = emptyList(),
-    nonce = 7L,
-    txType = "EIP-1559",
-    network = NetworkEntry(
-        chainId = 8453L,
-        name = "Base",
-        nativeSymbol = "ETH",
-        feeModel = FeeModel.L2_ROLLUP,
-        explorerName = "Basescan",
-        testnet = false,
-        icon = "chain_base",
-    ),
-    token = null,
-    amountNote = UNKNOWN_DECIMALS_NOTE,
-)

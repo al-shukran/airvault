@@ -22,7 +22,6 @@ import app.lensly.core.evm.TxSigner
 import app.lensly.core.evm.TypedDataSigner
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.RequestParser
-import app.lensly.core.registry.CallSteps
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.UnknownCallPolicy
@@ -52,18 +51,6 @@ sealed interface Prepared {
     /** [call] is set when the refusal is for a contract call Lensly cannot decode, so the refusal can show it. */
     data class Refused(val reason: String, val call: UndecodedCall? = null) : Prepared
 }
-
-/**
- * A call Lensly cannot decode that the signed whitelist approves. [signature] and [meaning] are the approved facts, and [call]
- * is the whole call. [steps] are the human-readable steps of a call Lensly describes, such as a Universal Router batch, and null for
- * any other.
- */
-data class WhitelistedCall(
-    val signature: String,
-    val meaning: String,
-    val call: UndecodedCall,
-    val steps: CallSteps? = null,
-)
 
 /**
  * Checks a scanned eth-sign-request, as the Parser Sandbox parsed it, against the wallet and the registry, and signs only after the owner
