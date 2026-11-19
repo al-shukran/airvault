@@ -84,13 +84,18 @@ class BtcSigner(
             val spent = spentOutput(index, txIn.outPoint, input)
             if (scriptTypeOf(spent.script, input) != scriptType) refuse(BtcRefusal.ScriptTypeNotUsed(index))
             val owner = ownerOf(index, input, spent.script)
+            // An open non-witness input is signed with the legacy digest, which does not commit to the amount. A segwit output (P2WPKH,
+            // nested P2WPKH or P2TR) is signed only from its witness UTXO, so it is refused here, before any signature is made.
+            if (owner != null && input is Input.NonWitnessInput.PartiallySignedNonWitnessInput && isSegwit(spent.script, input)) {
+                refuse(BtcRefusal.SegwitWithoutWitness(index))
+            }
             if (owner != null && !sighashIsAll(input)) refuse(BtcRefusal.SighashNotAll(index))
             BtcReviewInput(index, spent.amountSats, spent.verified, owner, txIn.sequence)
         }
         // The user's own Change Output is a change-path address of this Account within the known index range. Any other
         // path or index, including every receive address, is an outside Address.
-        val changeIndexByScript = (0 until BtcAccount.GAP_LIMIT).associate { index ->
-            ByteVector(scriptPubKeyAt(BtcAccount.CHANGE, index)).toHex() to index
+        val changeIndexByScript = (0 until BtcAccountLayout.GAP_LIMIT).associate { index ->
+            ByteVector(scriptPubKeyAt(BtcAccountLayout.CHANGE, index)).toHex() to index
         }
         val outputs = tx.txOut.mapIndexed { index, txOut ->
             val changeIndex = changeIndexByScript[txOut.publicKeyScript.toHex()]

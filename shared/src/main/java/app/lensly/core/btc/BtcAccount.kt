@@ -62,13 +62,13 @@ class BtcAccount private constructor(
 
     companion object {
         /** The standard gap limit: the run of empty addresses a restore scan accepts before it stops. */
-        const val GAP_LIMIT = 20
+        const val GAP_LIMIT = BtcAccountLayout.GAP_LIMIT
 
         /** Branch 0: receive addresses. */
-        internal const val RECEIVE = 0
+        internal const val RECEIVE = BtcAccountLayout.RECEIVE
 
         /** Branch 1: change addresses. */
-        internal const val CHANGE = 1
+        internal const val CHANGE = BtcAccountLayout.CHANGE
 
         /** The Account at [accountIndex] of [scriptType] on [network], derived from a BIP39 [seed] of 16 to 64 bytes. */
         fun fromSeed(seed: ByteArray, network: BtcNetwork, scriptType: ScriptType, accountIndex: Int = 0): BtcAccount {
