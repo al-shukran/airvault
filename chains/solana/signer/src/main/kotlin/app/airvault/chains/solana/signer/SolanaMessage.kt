@@ -1,4 +1,4 @@
-package app.lensly.core.solana
+package app.airvault.chains.solana.signer
 
 import fr.acinq.bitcoin.Base58
 
@@ -6,7 +6,7 @@ import fr.acinq.bitcoin.Base58
  * A Solana message as Lensly reviews it before signing: the bytes the signer signs, split into their parts. Read-only. Nothing here
  * signs, sends or looks up an address. [decode] builds one from bytes, and it checks every length and index first.
  */
-class SolanaMessage internal constructor(
+class SolanaMessage(
     val version: Version,
     val header: Header,
     /** The static account keys, 32 bytes each. Key 0 is the fee payer. */

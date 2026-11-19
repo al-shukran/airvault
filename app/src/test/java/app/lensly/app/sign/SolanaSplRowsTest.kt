@@ -1,15 +1,15 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.solana.signer.SolSignRequest
+import app.airvault.chains.solana.signer.SolSignType
 import app.lensly.core.solana.SolanaRequestCheck
 import app.lensly.core.solana.SolanaRequestReview
 import app.lensly.core.solana.SolanaTokenList
 import app.lensly.core.ur.PathStep
-import app.lensly.core.ur.SolSignRequest
-import app.lensly.core.ur.SolSignType
 import fr.acinq.bitcoin.Base58
+import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import org.junit.Test
 
 /** The rows, sentence and facts of the SPL vectors, as the Solana review shows them. */
 class SolanaSplRowsTest {

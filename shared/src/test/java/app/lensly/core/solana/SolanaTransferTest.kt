@@ -1,12 +1,14 @@
 package app.lensly.core.solana
 
+import app.airvault.chains.solana.signer.SolanaMessage
+import app.airvault.chains.solana.signer.SolanaMessageAccount
 import app.lensly.core.wallet.toHex
 import fr.acinq.bitcoin.Base58
+import org.junit.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
-import org.junit.Test
 
 /**
  * The legacy transfer message against fixtures from a second generator. The fixtures were made with @solana/web3.js 1.98.4, in a folder of their

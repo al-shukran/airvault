@@ -1,8 +1,10 @@
 package app.lensly.core.solana
 
+import app.airvault.chains.solana.signer.SolanaMessage
+import app.airvault.chains.solana.signer.SolanaMessageAccount
+import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import org.junit.Test
 
 class SolanaInstructionTest {
 

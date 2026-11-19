@@ -1,4 +1,4 @@
-package app.lensly.core.solana
+package app.airvault.chains.solana.signer
 
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException

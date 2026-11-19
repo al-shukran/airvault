@@ -1,10 +1,11 @@
 package app.lensly.core.solana
 
+import app.airvault.chains.solana.signer.SolanaMessageReader
 import app.lensly.core.wallet.toHex
+import org.junit.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import org.junit.Test
 
 class SolanaTransactionTest {
 
