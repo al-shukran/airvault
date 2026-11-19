@@ -19,11 +19,12 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
+import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.core.btc.BtcNetwork
-import app.lensly.core.btc.BtcReview
-import app.lensly.core.btc.BtcReviewInput
-import app.lensly.core.btc.BtcReviewOutput
-import app.lensly.core.btc.InputVerificationPolicy
+import app.airvault.chains.bitcoin.signer.BtcReview
+import app.airvault.chains.bitcoin.signer.BtcReviewInput
+import app.airvault.chains.bitcoin.signer.BtcReviewOutput
+import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.sign.SAMPLE_SIGNER
@@ -58,13 +59,12 @@ class BitcoinReviewScreenTest {
             LumenTheme {
                 var confirmed by remember { mutableStateOf(false) }
                 Box(modifier = if (small) Modifier.size(width = 360.dp, height = 640.dp) else Modifier.fillMaxSize()) {
-                    BitcoinReviewScreen(
-                        review = review,
-                        network = BtcNetwork.TESTNET4,
-                        scriptType = ScriptType.NATIVE_SEGWIT,
+                    ReviewScreen(
+                        review = bitcoinReviewOf(review, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT),
                         signer = SAMPLE_SIGNER,
-                        confirmed = confirmed,
-                        onConfirmedChange = { confirmed = it },
+                        addressNotes = emptyMap(),
+                        addressChain = BITCOIN_FAMILY,
+                        acknowledge = bitcoinAcknowledgement(review, confirmed) { confirmed = it },
                         onApprove = {},
                         onReject = {},
                     )
@@ -171,7 +171,7 @@ class BitcoinReviewScreenTest {
 
         compose.onNodeWithText("Block 850000").assertExists()
         compose.onNodeWithText("The transaction cannot confirm before block 850000.").assertExists()
-        compose.onNodeWithText("Sequence 0xFFFFFFFD, replace-by-fee on").assertExists()
+        compose.onNodeWithText("0xFFFFFFFD, replace-by-fee on").assertExists()
     }
 
     @Test

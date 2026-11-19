@@ -6,6 +6,14 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import app.airvault.chains.bitcoin.signer.BtcFeeThresholds
+import app.airvault.chains.bitcoin.signer.BtcReview
+import app.airvault.chains.bitcoin.signer.BtcReviewInput
+import app.airvault.chains.bitcoin.signer.BtcReviewOutput
+import app.airvault.chains.bitcoin.signer.BtcWarning
+import app.airvault.chains.bitcoin.signer.FINAL_SEQUENCE
+import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
+import app.airvault.chains.bitcoin.signer.warnings
 
 class BtcReviewWarningsTest {
     private val seed = BitcoinVectors.seed()

@@ -1,6 +1,6 @@
 package app.lensly.app
 
-import app.lensly.core.btc.BtcFeeThresholds
+import app.airvault.chains.bitcoin.signer.BtcFeeThresholds
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout

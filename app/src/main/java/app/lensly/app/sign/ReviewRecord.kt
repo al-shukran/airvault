@@ -1,16 +1,15 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.bitcoin.signer.btcText
 import app.lensly.app.BitcoinReviewed
-import app.lensly.core.btc.warnings
 import app.lensly.core.registry.Registry
 import app.lensly.core.ur.DataType
 import app.lensly.core.ur.EthSignRequest
 import app.lensly.core.wallet.toHex
 import app.lensly.ui.sign.bitcoinNetworkName
-import app.lensly.ui.sign.btcText
+import app.lensly.ui.sign.bitcoinReviewOf
 import app.lensly.ui.sign.scriptTypeName
 import app.lensly.ui.sign.unknownNetworkName
-import app.lensly.ui.sign.warningText
 import java.security.MessageDigest
 
 /** What a Review Record says was decided. */
@@ -149,8 +148,9 @@ class BitcoinReviewEntry(
 fun bitcoinReviewRecordOf(entry: BitcoinReviewEntry, atMs: Long): ReviewRecord {
     val reviewed = entry.reviewed
     val review = reviewed?.review
+    val reviewModel = reviewed?.let { bitcoinReviewOf(it.review, it.account.network, it.account.scriptType) }
     val notices = buildList {
-        review?.warnings()?.forEach { add(BitcoinRecordNotice(NoticeLevel.WARN, warningText(it))) }
+        reviewModel?.warnings?.forEach { add(BitcoinRecordNotice(NoticeLevel.WARN, it.message)) }
         if (entry.outcome == ReviewOutcome.REFUSED && review != null) {
             entry.refusal?.let { add(BitcoinRecordNotice(NoticeLevel.BLOCK, it)) }
         }

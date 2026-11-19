@@ -34,8 +34,11 @@ data class NetworkLabel(val name: String, val testnet: Boolean, val detail: Stri
 /** A titled group of rows. */
 data class ReviewSection(val heading: String, val rows: List<ReviewRow>)
 
-/** One label and the value it shows. [field] is the decoded field the row shows, which the coverage check reads. */
-data class ReviewRow(val label: String, val value: DisplayValue, val field: FieldPath)
+/**
+ * One label and the value it shows. [field] is the decoded field the row shows, which the coverage check reads. [notes] are short
+ * sentences under the value, for what the owner should know about it, such as whether Lensly signs an input.
+ */
+data class ReviewRow(val label: String, val value: DisplayValue, val field: FieldPath, val notes: List<String> = emptyList())
 
 /** A value a review shows. [text] is the one way it becomes text, so every screen and every record shows it alike. */
 sealed interface DisplayValue {

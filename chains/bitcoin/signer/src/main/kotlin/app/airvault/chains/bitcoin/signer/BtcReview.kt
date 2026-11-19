@@ -1,4 +1,4 @@
-package app.lensly.core.btc
+package app.airvault.chains.bitcoin.signer
 
 import fr.acinq.bitcoin.KeyPath
 

@@ -16,9 +16,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.app.HideDelay
-import app.lensly.core.btc.BtcFeeThresholds
-import app.lensly.core.btc.InputVerificationPolicy
-import app.lensly.core.btc.SigningSourcePolicy
+import app.airvault.chains.bitcoin.signer.BtcFeeThresholds
+import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
+import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
 import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyPolicy

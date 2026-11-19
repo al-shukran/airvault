@@ -62,7 +62,7 @@ import app.lensly.ui.sign.FactRow
 import app.lensly.ui.sign.MonoText
 import app.lensly.ui.sign.MutedText
 import app.lensly.ui.sign.ReviewAddress
-import app.lensly.ui.sign.btcText
+import app.airvault.chains.bitcoin.signer.btcText
 import app.lensly.ui.sign.groupHex
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalLumenPalette

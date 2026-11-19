@@ -29,7 +29,7 @@ import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.LenslySpacing
 
 /**
- * The Solana review, the counterpart of [BitcoinReviewScreen]. The header names Solana, then a network row that names the cluster Lumio
+ * The Solana review, the counterpart of the Bitcoin review. The header names Solana, then a network row that names the cluster Lumio
  * states, or says it is not stated, then the signing account, its wallet and its address. One sentence says what the request does, with a
  * few facts under it. Every warning sits in one banner, and every detail is shown on first render. The request is signed only after it is
  * read to its end and, when it has an instruction Lensly does not read, after the owner ticks that Lensly cannot say what it does. REJECT

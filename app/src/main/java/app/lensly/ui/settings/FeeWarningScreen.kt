@@ -4,7 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import app.lensly.core.btc.BtcFeeThresholds
+import app.airvault.chains.bitcoin.signer.BtcFeeThresholds
 import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.NumberFieldSetting

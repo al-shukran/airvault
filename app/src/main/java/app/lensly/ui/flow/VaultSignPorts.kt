@@ -43,7 +43,7 @@ import app.lensly.app.sign.solanaReviewRecordOf
 import app.lensly.app.visualIdentity
 import app.airvault.chains.algorand.signer.AlgorandRequestCheck
 import app.airvault.chains.bitcoin.signer.BtcPsbt
-import app.lensly.core.btc.BtcRefusedException
+import app.airvault.chains.bitcoin.signer.BtcRefusedException
 import app.lensly.core.parse.ParsedRequest
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.ScanReply

@@ -23,8 +23,8 @@ import app.lensly.app.withFeeRate
 import app.lensly.app.withFeeShare
 import app.lensly.app.withHideDelayMax
 import app.lensly.app.withHideDelayMin
-import app.lensly.core.btc.InputVerificationPolicy
-import app.lensly.core.btc.SigningSourcePolicy
+import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
+import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.vault.DuressResult
 import app.lensly.core.vault.FailureDelay

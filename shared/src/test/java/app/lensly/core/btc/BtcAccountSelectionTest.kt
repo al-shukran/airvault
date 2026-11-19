@@ -4,6 +4,8 @@ import fr.acinq.bitcoin.psbt.Psbt
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import app.airvault.chains.bitcoin.signer.BtcRefusal
+import app.airvault.chains.bitcoin.signer.BtcRefusedException
 
 class BtcAccountSelectionTest {
     private val seed = BitcoinVectors.seed()

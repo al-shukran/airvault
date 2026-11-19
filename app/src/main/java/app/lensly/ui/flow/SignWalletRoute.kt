@@ -25,6 +25,7 @@ import app.lensly.app.EVM_FAMILY
 import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
+import app.lensly.app.notesOf
 import app.lensly.app.sign.algorandCounterparties
 import app.airvault.chains.algorand.signer.toReview
 import app.lensly.app.sign.solanaCounterparties
@@ -37,11 +38,13 @@ import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.navigation.rememberAddressBook
 import app.lensly.ui.qr.ScanScreen
 import app.lensly.ui.qr.ShowQrScreen
-import app.lensly.ui.sign.BitcoinReviewScreen
 import app.lensly.ui.sign.ReviewScreen
 import app.lensly.ui.sign.SolanaReviewScreen
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.TxReviewScreen
+import app.lensly.ui.sign.bitcoinAcknowledgement
+import app.lensly.ui.sign.bitcoinReviewOf
+import app.lensly.ui.sign.shownName
 
 /** The view model key of a scan that is not for one wallet, so it never shares a flow with a wallet's scan. */
 private const val ANY_WALLET_KEY = "sign-any-wallet"
@@ -107,23 +110,29 @@ internal fun SignWalletRoute(
             onOpenAddress = openAddress,
         )
         is SignStep.Confirming -> ConfirmPasswordRoute(busy = shown.busy, holder = holder, onConfirm = flow::confirm)
-        is SignStep.BitcoinReview -> BitcoinReviewScreen(
-            review = shown.ready.reviewed.review,
-            network = shown.ready.reviewed.account.network,
-            scriptType = shown.ready.reviewed.account.scriptType,
-            signer = shown.ready.reviewed.signer,
-            addressNotes = notesNow(
-                shown.ready.reviewed.addressNotes,
-                shown.ready.reviewed.review.outputs.mapNotNull { it.address },
+        is SignStep.BitcoinReview -> {
+            val reviewed = shown.ready.reviewed
+            val notes = notesNow(
+                reviewed.addressNotes,
+                reviewed.review.outputs.mapNotNull { it.address },
                 BITCOIN_FAMILY,
                 book,
-            ),
-            confirmed = shown.confirmed,
-            onConfirmedChange = flow::confirmUnverified,
-            onApprove = flow::approve,
-            onReject = flow::leave,
-            onOpenAddress = openAddress,
-        )
+            )
+            ReviewScreen(
+                review = remember(reviewed.review, reviewed.account.network, reviewed.account.scriptType, notes) {
+                    bitcoinReviewOf(reviewed.review, reviewed.account.network, reviewed.account.scriptType) { address ->
+                        notes.notesOf(address)?.shownName()
+                    }
+                },
+                signer = reviewed.signer,
+                addressNotes = notes,
+                addressChain = BITCOIN_FAMILY,
+                acknowledge = bitcoinAcknowledgement(reviewed.review, shown.confirmed, flow::confirmUnverified),
+                onApprove = flow::approve,
+                onReject = flow::leave,
+                onOpenAddress = openAddress,
+            )
+        }
         is SignStep.BitcoinConfirming -> ConfirmPasswordRoute(busy = shown.busy, holder = holder, onConfirm = flow::confirm)
         is SignStep.SolanaReview -> SolanaReviewScreen(
             review = shown.ready.review,

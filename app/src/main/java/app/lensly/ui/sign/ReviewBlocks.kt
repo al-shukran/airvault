@@ -201,7 +201,8 @@ internal fun addressTapOn(chain: ChainId, onOpenAddress: ((String, ChainId) -> U
 
 /**
  * One argument or field of a review: its label above, and its value below. An address is shown with its names, and with whether the
- * Address Book holds it, through [ReviewAddress]. Any other value is in mono, since it is data.
+ * Address Book holds it, through [ReviewAddress]. Any other value is in mono, since it is data. [isAddress] says the value is an address,
+ * and [bitcoin] picks the Bitcoin icon for it. [lines] are the notes of the row, in sans under the value.
  */
 @Composable
 internal fun ReviewField(
@@ -210,6 +211,9 @@ internal fun ReviewField(
     notes: AddressNotes? = null,
     modifier: Modifier = Modifier,
     onOpen: ((String) -> Unit)? = null,
+    isAddress: Boolean = isAddressValue(value),
+    bitcoin: Boolean = false,
+    lines: List<String> = emptyList(),
 ) {
     Column(modifier = modifier
         .fillMaxWidth()
@@ -221,8 +225,8 @@ internal fun ReviewField(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(LenslySpacing.xxs))
-        if (isAddressValue(value)) {
-            ReviewAddress(address = value, notes = notes, onClick = onOpen?.let { open -> { open(value) } })
+        if (isAddress) {
+            ReviewAddress(address = value, notes = notes, bitcoin = bitcoin, onClick = onOpen?.let { open -> { open(value) } })
         } else {
             Text(
                 text = value,
@@ -230,6 +234,7 @@ internal fun ReviewField(
                 color = MaterialTheme.colorScheme.onSurface,
             )
         }
+        lines.forEach { NoteText(it) }
     }
 }
 
@@ -437,3 +442,10 @@ internal fun AddressNotes.shownName(): String? = internal?.let { account -> acco
 internal fun AnnotatedString.Builder.appendMono(text: String, mono: FontFamily) {
     withStyle(SpanStyle(fontFamily = mono)) { append(text) }
 }
+
+/** Addresses longer than this are shortened in a sentence. */
+private const val SHORT_ADDRESS_LIMIT = 16
+
+/** An address shortened to its first and last characters, for a sentence with no room for the full one. */
+internal fun shortAddress(address: String): String =
+    if (address.length <= SHORT_ADDRESS_LIMIT) address else "${address.take(10)}...${address.takeLast(6)}"

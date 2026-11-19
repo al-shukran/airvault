@@ -3,6 +3,8 @@ package app.lensly.core.btc
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.KeyPath
 import fr.acinq.bitcoin.psbt.Psbt
+import app.airvault.chains.bitcoin.signer.BtcRefusal
+import app.airvault.chains.bitcoin.signer.BtcRefusedException
 
 /**
  * The (master fingerprint, key path) pairs that the inputs of [psbt] name, from their ECDSA and taproot derivations. A PSBT names
