@@ -1,6 +1,6 @@
 package app.airvault.core.model
 
-private val UR_TYPE_FORMAT = Regex("[A-Za-z0-9-]+")
+private val UR_TYPE_FORMAT = Regex("[a-z0-9-]+")
 
 /**
  * The apps one phone app is built with, indexed for lookup (spec 2.4). Lensly uses `ChainRegistry<SignerApp>` and
@@ -43,6 +43,10 @@ class ChainRegistry<A : ChainApp>(private val apps: List<A>) {
         }
         require(m.networks.count { it.primary && it.testnet } <= 1) { "${m.id}: more than one primary testnet" }
         require(m.networks.count { it.primary && !it.testnet } <= 1) { "${m.id}: more than one primary mainnet" }
+        if (m.requiresPrimary) {
+            require(m.networks.any { it.primary && it.testnet }) { "${m.id}: no primary testnet" }
+            require(m.networks.any { it.primary && !it.testnet }) { "${m.id}: no primary mainnet" }
+        }
         for (network in m.networks) {
             require(network.chainId.namespace in m.namespaces) {
                 "${m.id}: network ${network.chainId} uses a namespace the app does not declare"

@@ -379,6 +379,43 @@ class EvmReviewTest {
         assertTrue(review.facts.isEmpty())
         assertEquals(Danger.CAUTION, review.warnings.single().level)
     }
+
+    @Test
+    fun aPersonalMessageThatNamesNoChainIsReadOnEthereumMainnet() {
+        val request = EthSignRequest(
+            requestId = null,
+            signData = "hello".toByteArray(),
+            dataType = DataType.PERSONAL_MESSAGE,
+            chainId = null,
+            derivationPath = PATH,
+            sourceFingerprint = null,
+            address = null,
+            origin = "dapp.example",
+        )
+
+        val review = reviewOf(EvmRequestParser.parsedOf(request))
+
+        assertEquals("Sign Message", review.title)
+        assertEquals(ChainId("eip155:1"), review.chain)
+        assertEquals(NetworkLabel("Ethereum", testnet = false, detail = "Chain ID 1"), review.network)
+        assertEquals("hello", review.sections.single { it.heading == "Message" }.rows.single { it.label == "Message" }.value.text())
+    }
+
+    @Test
+    fun aTransactionThatNamesNoChainIsStillRefused() {
+        val request = EthSignRequest(
+            requestId = null,
+            signData = "hello".toByteArray(),
+            dataType = DataType.TRANSACTION,
+            chainId = null,
+            derivationPath = PATH,
+            sourceFingerprint = null,
+            address = null,
+            origin = "dapp.example",
+        )
+
+        assertEquals("The request does not name a network", refusalOf(EvmRequestParser.parsedOf(request)).reason)
+    }
 }
 
 /** A whitelisted `foo(address,uint256)` on [NFT]: a recipient and an amount, which the signed list approves. */
