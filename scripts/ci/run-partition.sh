@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs one CI lane (scripts/ci/README.md). Every Gradle call runs --offline except `resolve`, the one online step.
-# The test lanes come from scripts/ci/shards.txt, where each test class is in exactly one lane.
+# The test lanes come from scripts/ci/shards.txt. A test class the file does not list runs in its default lane (unlisted_units).
 set -euo pipefail
 
 # Gradle encrypts configuration-cache entries with GRADLE_ENCRYPTION_KEY when it is set, and otherwise with a keystore in the
@@ -47,7 +47,7 @@ usage: scripts/ci/run-partition.sh <lane>
 
 lanes:
   resolve      the one online step: ./gradlew resolveAll, retried only on network errors
-  shard-1..6   the unit tests listed under that lane in scripts/ci/shards.txt; pure JVM modules run whole
+  shard-1..6   the unit tests shards.txt lists under the lane; shard-6 also runs the unlisted ones; pure JVM modules run whole
   verify       the Roborazzi pixel tests of :app and :lumio, with verifyRoborazziDebug
   fuzz         the Jazzer seed replays (app.lensly.fuzz.*), with -PfuzzLane
   android      androidTest and benchmark compile of :app and :lumio, and the Lumio debug APK
@@ -63,26 +63,40 @@ if [ "$#" -ne 1 ]; then
 fi
 lane="$1"
 
-# Prints the modules that a lane lists, in file order, once each.
-lane_modules() {
-    local l m c
-    while read -r l m c; do
-        case "$l" in
-            '' | \#*) continue ;;
+# Prints "<lane> <module> <class>" for every test unit that shards.txt does not list. A Jazzer target runs in fuzz, a screenshot
+# test of :app or :lumio in verify, and every other unit in shard-6, the catch-all lane.
+unlisted_units() {
+    "$ROOT/scripts/ci/test-units.sh" | awk -v lanes="$SHARDS" '
+        BEGIN {
+            while ((getline line < lanes) > 0) {
+                if (line ~ /^(#|[ \t]*$)/) continue
+                split(line, f, " ")
+                listed[f[2] " " f[3]] = 1
+            }
+        }
+        !(($1 " " $2) in listed)
+    ' | while read -r module class _; do
+        case "$module:$class" in
+            ':shared:app.lensly.fuzz.'*) echo "fuzz $module $class" ;;
+            ':app:'*ScreenshotTest | ':lumio:'*ScreenshotTest) echo "verify $module $class" ;;
+            *) echo "shard-6 $module $class" ;;
         esac
-        if [ "$l" = "$1" ]; then printf '%s\n' "$m"; fi
-    done < "$SHARDS" | awk '!seen[$0]++'
+    done
 }
 
-# Prints the classes that a lane lists for one module.
-lane_classes() {
-    local l m c
+# Prints "<module> <class>" for the test units of one lane: the classes that shards.txt lists in it, then the unlisted units that
+# unlisted_units routes to it. $2 is the output of unlisted_units, so the test-unit scan runs once per invocation.
+lane_units() {
+    local lane=$1 unlisted=$2 l m c
     while read -r l m c; do
         case "$l" in
             '' | \#*) continue ;;
         esac
-        if [ "$l" = "$1" ] && [ "$m" = "$2" ]; then printf '%s\n' "$c"; fi
+        if [ "$l" = "$lane" ]; then printf '%s %s\n' "$m" "$c"; fi
     done < "$SHARDS"
+    printf '%s\n' "$unlisted" | while read -r l m c; do
+        if [ "$l" = "$lane" ]; then printf '%s %s\n' "$m" "$c"; fi
+    done
 }
 
 # Runs one online Gradle call. Network errors are retried, because a dropped connection is not a defect. Any other failure
@@ -127,36 +141,45 @@ run_resolve() {
 
 run_shard() {
     local -a tasks=()
-    local m c
+    local unlisted units m c
+    unlisted=$(unlisted_units)
+    units=$(lane_units "$1" "$unlisted")
+    if [ -z "$units" ]; then
+        echo "run-partition: lane $1 has no test units" >&2
+        exit 1
+    fi
+    printf '%s\n' "$unlisted" | awk -v lane="$1" '$1 == lane { printf "run-partition: %s runs the unlisted %s %s\n", lane, $2, $3 }'
     while IFS= read -r m; do
         case "$m" in
             :app | :lumio | :shared)
                 local -a tests=()
                 while IFS= read -r c; do
                     tests+=(--tests "$c")
-                done < <(lane_classes "$1" "$m")
+                done < <(printf '%s\n' "$units" | awk -v m="$m" '$1 == m { print $2 }')
                 tasks+=("$m:testDebugUnitTest" "${tests[@]}")
                 ;;
             *)
                 tasks+=("$m:test")
                 ;;
         esac
-    done < <(lane_modules "$1")
-    if [ "${#tasks[@]}" -eq 0 ]; then
-        echo "run-partition: lane $1 lists no tests in $SHARDS" >&2
-        exit 1
-    fi
+    done < <(printf '%s\n' "$units" | awk '!seen[$1]++ { print $1 }')
     ./gradlew --offline "${tasks[@]}"
 }
 
 run_verify() {
-    local -a app=() lumio=() c
-    while IFS= read -r c; do
-        app+=(--tests "$c")
-    done < <(lane_classes verify :app)
-    while IFS= read -r c; do
-        lumio+=(--tests "$c")
-    done < <(lane_classes verify :lumio)
+    local -a app=() lumio=()
+    local unlisted m c
+    unlisted=$(unlisted_units)
+    while read -r m c; do
+        case "$m" in
+            :app) app+=(--tests "$c") ;;
+            :lumio) lumio+=(--tests "$c") ;;
+            *)
+                echo "run-partition: verify lists $m $c, and only :app and :lumio have Roborazzi tasks" >&2
+                exit 1
+                ;;
+        esac
+    done < <(lane_units verify "$unlisted")
     # The filtered test task runs the pixel tests in verify mode (Roborazzi switches it on when the verify task is requested), so
     # each pixel test runs once. Without the filter, verifyRoborazziDebug would run every unit test of the module again.
     ./gradlew --offline :app:testDebugUnitTest "${app[@]}" :app:verifyRoborazziDebug \
@@ -165,10 +188,11 @@ run_verify() {
 
 run_fuzz() {
     local -a tests=()
-    local c
+    local unlisted c
+    unlisted=$(unlisted_units)
     while IFS= read -r c; do
         tests+=(--tests "$c")
-    done < <(lane_classes fuzz :shared)
+    done < <(lane_units fuzz "$unlisted" | awk '$1 == ":shared" { print $2 }')
     # The fuzz targets read -PfuzzLane and run in their own JVM: Jazzer and Robolectric cannot share one.
     ./gradlew --offline :shared:testDebugUnitTest "${tests[@]}" -PfuzzLane
 }

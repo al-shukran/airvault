@@ -1,8 +1,9 @@
 # Test lanes for scripts/ci/run-partition.sh: one line per test class, "<lane> <gradle module> <fully qualified class>".
 # A pure JVM module runs whole, so its line names the class `*`. Lanes: shard-1..shard-6 run the unit tests (--offline);
 # verify runs the Roborazzi pixel tests with verifyRoborazziDebug; fuzz replays the Jazzer seeds with -PfuzzLane.
-# Every test class is in exactly one lane. scripts/ci/check-partitions.sh fails when a class is missing, listed twice,
-# or no longer exists. The balance comes from measured durations (JUnit XML of the shard runs), see scripts/ci/README.md.
+# A test class with no line is not an error: it runs in its default lane (shard-6, or verify or fuzz by name), so a new test
+# needs no line here. scripts/ci/check-partitions.sh fails when a class is listed twice or no longer exists. The balance comes
+# from measured durations (JUnit XML of the shard runs), see scripts/ci/README.md.
 fuzz :shared app.lensly.fuzz.AlgorandRequestFuzzTest
 fuzz :shared app.lensly.fuzz.CborFuzzTest
 fuzz :shared app.lensly.fuzz.EthSignRequestFuzzTest
