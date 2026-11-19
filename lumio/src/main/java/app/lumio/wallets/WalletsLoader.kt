@@ -10,35 +10,52 @@ import app.lumio.data.price.Price
 import app.lumio.evm.BalanceCache
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmSettingsStore
+import app.lumio.home.HomeAsset
 import app.lumio.home.HomeAssets
+import app.lumio.home.HomeBalances
 import app.lumio.home.HomeLoader
+import app.lumio.home.TokenAsset
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
 import app.lumio.rowsOf
+import app.lumio.tokens.TokenBalanceCache
+import app.lumio.tokens.TokenPortfolio
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * The wallets of the open vault on one side, each with its accounts, and the prices of the balances those accounts show. A wallet with no account on
- * the side has an empty list.
+ * The wallets of the open vault on one side, each with its accounts and the ERC-20 tokens its addresses hold, and the prices of the balances those accounts
+ * and tokens show. A wallet with no account on the side has an empty list.
  */
 class WalletsView(
     val wallets: List<PairedWallet>,
     private val accounts: Map<String, List<WalletAccount>>,
+    private val tokens: Map<String, List<TokenAsset>>,
     private val prices: Map<AssetId, Price>,
 ) {
     /** The accounts of the wallet [walletId] on the side, in chain order. */
     fun accountsOf(walletId: String): List<WalletAccount> = accounts[walletId].orEmpty()
 
+    /**
+     * The assets of the wallet [walletId], or of every wallet on the side when [walletId] is null: each account's native coin and each token. Each has
+     * its value in dollars when it has a price, and no value when it has none.
+     */
+    fun assetsOf(walletId: String?): List<HomeAsset> = HomeAssets.priced(balancesOf(walletId), prices)
+
     /** The value in dollars of the priced balances of the wallet [walletId], or null when none of them has a price. */
-    fun usd(walletId: String): Double? = HomeAssets.totalUsd(HomeAssets.priced(balancesOf(walletId), prices))
+    fun usd(walletId: String): Double? = HomeAssets.totalUsd(assetsOf(walletId))
 
     /** The time of the oldest price kept from an earlier read, among the balances of the side, or null when every price is from this read. */
-    fun staleSinceMs(): Long? = HomeAssets.staleSinceMs(accounts.values.flatten().mapNotNull { it.balance }, prices)
+    fun staleSinceMs(): Long? = HomeAssets.staleSinceMs(balancesOf(null), prices)
 
-    private fun balancesOf(walletId: String) = accountsOf(walletId).mapNotNull { it.balance }
+    /** The native coins and tokens of the wallet [walletId], or of every wallet when it is null, before they are priced. */
+    private fun balancesOf(walletId: String?): List<HomeAsset> {
+        val natives: List<HomeAsset> = (if (walletId == null) accounts.values.flatten() else accountsOf(walletId)).mapNotNull { it.balance }
+        val held: List<HomeAsset> = if (walletId == null) tokens.values.flatten() else tokens[walletId].orEmpty()
+        return natives + held
+    }
 }
 
 /** Reads the wallets' accounts from the vault, and refreshes their balances from the networks. */
@@ -50,8 +67,10 @@ internal object WalletsLoader {
     suspend fun read(app: LumioApp, session: VaultSession, mode: NetworkMode): WalletsView {
         val wallets = withContext(Dispatchers.IO) { PairedWallets.list(session) }
         val accounts = accountsOn(app, session, mode, wallets)
-        val prices = HomeLoader.prices(app, accounts.values.flatten().mapNotNull { it.balance })
-        return WalletsView(wallets, accounts, prices)
+        val tokens = tokensOn(app, session, mode, wallets)
+        val assets: List<HomeAsset> = accounts.values.flatten().mapNotNull { it.balance } + tokens.values.flatten()
+        val prices = HomeLoader.prices(app, assets)
+        return WalletsView(wallets, accounts, tokens, prices)
     }
 
     /**
@@ -81,6 +100,25 @@ internal object WalletsLoader {
         val account = accountsOn(app, session, mode, listOf(wallet))[walletId].orEmpty()
             .firstOrNull { it.chain == chain && it.index == index } ?: return null
         return wallet.name to account
+    }
+
+    /**
+     * The ERC-20 assets that each of [wallets] holds on its shown addresses on [mode]'s side, from the vault's token cache. It reads no balance from the
+     * network, and a token with no read is not an asset.
+     */
+    private suspend fun tokensOn(
+        app: LumioApp,
+        session: VaultSession,
+        mode: NetworkMode,
+        wallets: List<PairedWallet>,
+    ): Map<String, List<TokenAsset>> = withContext(Dispatchers.IO) {
+        val settings = EvmSettingsStore.read(session)
+        val chains = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
+        val cache = TokenBalanceCache.read(session)
+        val tokensOf = app.tokensFor(session)
+        wallets.associate { wallet ->
+            wallet.id to HomeBalances.tokens(TokenPortfolio.holdings(wallet, settings.addressCount, chains, tokensOf, cache))
+        }
     }
 
     /** The accounts of [wallets] on [mode]'s side, from the open vault. Runs off the main thread. */

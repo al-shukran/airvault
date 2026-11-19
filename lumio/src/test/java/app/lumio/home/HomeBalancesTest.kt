@@ -6,9 +6,12 @@ import app.lumio.btc.BtcAccountRef
 import app.lumio.btc.BtcRow
 import app.lumio.btc.BtcSnapshot
 import app.lumio.data.net.Family
+import app.lumio.data.net.NetworkId
 import app.lumio.evm.EvmChain
 import app.lumio.evm.Holding
 import app.lumio.pair.PairFixtures
+import app.lumio.tokens.Token
+import app.lumio.tokens.TokenHolding
 import java.math.BigDecimal
 import java.math.BigInteger
 import org.junit.Assert.assertEquals
@@ -21,6 +24,7 @@ class HomeBalancesTest {
     private val ethereum = EvmChain(1L, "Ethereum", "ETH", 18, testnet = false, explorerUrl = null)
     private val sepolia = EvmChain(11155111L, "Sepolia", "ETH", 18, testnet = true, explorerUrl = null)
     private val base = EvmChain(8453L, "Base", "ETH", 18, testnet = false, explorerUrl = null)
+    private val usdc = "0x" + "c3".repeat(20)
 
     @Test
     fun anEthereumChainSumsEveryAddressAndSkipsAChainWithNoRead() {
@@ -75,6 +79,33 @@ class HomeBalancesTest {
 
         assertTrue(HomeBalances.bitcoin(listOf(BtcRow(BtcAccountRef("wallet-a", testnet), null))).isEmpty())
     }
+
+    @Test
+    fun aTokenIsOneAssetWithItsHoldingsAddedAndZeroHoldingsLeftOut() {
+        val holdings = listOf(
+            tokenHolding(usdc.uppercase().replace("0X", "0x"), "1500000"),
+            tokenHolding(usdc, "0"),
+            tokenHolding(usdc, "2000000"),
+        )
+
+        val assets = HomeBalances.tokens(holdings)
+
+        assertEquals(listOf(TokenAsset.idOf(NetworkId(Family.EVM, "1", testnet = false), usdc)), assets.map { it.id })
+        assertEquals(usdc, assets.single().contract)
+        assertEquals(0, BigDecimal("3.5").compareTo(assets.single().balance))
+    }
+
+    @Test
+    fun aTokenWithNoBalanceIsNoAsset() {
+        assertTrue(HomeBalances.tokens(listOf(tokenHolding(usdc, "0"))).isEmpty())
+    }
+
+    private fun tokenHolding(contract: String, amount: String) = TokenHolding(
+        chain = ethereum,
+        token = Token(chainId = 1L, contract = contract, symbol = "USDC", name = "USD Coin", decimals = 6),
+        amount = BigInteger(amount),
+        atMs = 1L,
+    )
 
     private fun snapshot(key: String, confirmed: Long, pending: Long) = BtcSnapshot(
         key = key,

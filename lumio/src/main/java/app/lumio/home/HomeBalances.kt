@@ -11,6 +11,8 @@ import app.lumio.data.net.NetworkId
 import app.lumio.evm.EvmChain
 import app.lumio.evm.Holding
 import app.lumio.pair.PairedWallet
+import app.lumio.tokens.TokenHolding
+import app.lumio.transactions.evmNetwork
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -82,6 +84,26 @@ object HomeBalances {
             }
         }
     }
+
+    /**
+     * The ERC-20 assets of [holdings] that hold more than zero, one per token. A token that two addresses hold is one asset with their balances added, as
+     * [nativeCoins] adds a coin over the wallets. Its balance is in whole tokens.
+     */
+    fun tokens(holdings: List<TokenHolding>): List<TokenAsset> = holdings
+        .filter { it.amount.signum() > 0 }
+        .groupBy { TokenAsset.idOf(evmNetwork(it.chain), it.token.contract.lowercase()) }
+        .map { (id, same) ->
+            val first = same.first()
+            val base = same.fold(BigInteger.ZERO) { sum, holding -> sum + holding.amount }
+            TokenAsset(
+                id = id,
+                symbol = first.token.symbol,
+                name = first.chain.name,
+                network = evmNetwork(first.chain),
+                contract = first.token.contract.lowercase(),
+                balance = BigDecimal(base).movePointLeft(first.token.decimals),
+            )
+        }
 
     private const val BTC_DECIMALS = 8
 }

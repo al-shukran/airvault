@@ -2,6 +2,7 @@ package app.lumio
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -29,6 +30,7 @@ import app.lumio.pair.PairedWallets
 import app.lumio.transactions.TxFeedItem
 import app.lumio.transactions.TxSync
 import app.lumio.transactions.TxSyncPlan
+import app.lumio.ui.kit.AllocationState
 import app.lumio.ui.receive.ReceiveScreen
 import app.lumio.ui.settings.WalletsSettings
 import app.lumio.ui.wallets.AccountScreen
@@ -49,6 +51,7 @@ import app.lumio.wallets.AccountReads
 import app.lumio.wallets.AccountReadsLoader
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
+import app.lumio.wallets.WalletsAllocation
 import app.lumio.wallets.WalletsBoard
 import app.lumio.wallets.WalletsLoader
 import app.lumio.wallets.WalletsView
@@ -108,11 +111,18 @@ internal fun WalletsRoute(
     SideEffect { sheets.keepSide(selection.mode) }
     val display = rememberDisplay(app)
     val view = board.view
+    val background = MaterialTheme.colorScheme.background
+    val allocationShown = display.showTotal && display.showAssets
+    // The ring is drawn from the board's view, the same balances the rows show. Until the view lands the rows are empty and the hero is not drawn,
+    // so Loading never shows on this screen.
+    val allocation = remember(view, allocationShown, background) {
+        view?.let { WalletsAllocation.state(it, allocationShown, background) } ?: AllocationState.Loading
+    }
     Box(modifier = Modifier.fillMaxSize()) {
         WalletsScreen(
             rows = view?.let { shown -> shown.wallets.map { wallet -> walletRow(shown, wallet) } }.orEmpty(),
             loading = view == null,
-            totalUsd = view?.let(::allWalletsUsd),
+            allocation = allocation,
             showTotal = display.showTotal,
             refreshing = board.refreshing,
             refreshByPull = board.refreshByPull,
@@ -421,9 +431,6 @@ private fun walletRow(view: WalletsView, wallet: PairedWallet): WalletRow = Wall
     summary = summaryLine(view.accountsOf(wallet.id)),
     usd = view.usd(wallet.id),
 )
-
-/** The dollar total of every wallet on the side, or null when none of its balances has a price. */
-private fun allWalletsUsd(view: WalletsView): Double? = view.wallets.mapNotNull { view.usd(it.id) }.takeIf { it.isNotEmpty() }?.sum()
 
 /**
  * The paired wallets of the open vault, read again when [listVersion] changes. Empty while the vault is locked, and the gate takes over then.

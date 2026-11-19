@@ -2,6 +2,7 @@ package app.lumio.ui.screenshot
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -26,6 +27,9 @@ import app.lumio.tokens.Token
 import app.lumio.tokens.TokenHolding
 import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.home.AssetIconSpec
+import app.lumio.ui.kit.AllocationPalette
+import app.lumio.ui.kit.AllocationSlice
+import app.lumio.ui.kit.AllocationState
 import app.lumio.ui.wallets.AccountScreen
 import app.lumio.ui.wallets.AssetRowModel
 import app.lumio.ui.wallets.AssetRows
@@ -129,6 +133,13 @@ class WalletScreensScreenshotTest {
     private fun rowsOf(account: WalletAccount, tokens: List<TokenHolding> = emptyList(), holdings: List<ChainHolding> = emptyList()): List<AssetRowModel> =
         AssetRows.of(account, tokens, holdings, prices, network = { null }, token = { _, _ -> null })
 
+    /** The ready allocation of [assets], each coloured as the page colours its id, as the Wallets home builds it. */
+    @Composable
+    private fun readyAllocation(vararg assets: Pair<String, Double>): AllocationState.Ready {
+        val background = MaterialTheme.colorScheme.background
+        return AllocationState.Ready(assets.map { (id, usd) -> AllocationSlice(id, usd, AllocationPalette.colorOf(id, background)) })
+    }
+
     @Test
     fun wallets() = compose.lumioSnapshot("wallets", content = walletsScreen)
 
@@ -142,7 +153,7 @@ class WalletScreensScreenshotTest {
                 WalletRow("wallet-demo", "Demo", fingerprint = 0x1a2b3c4d, summary = "4 chains · 4 accounts", usd = 1234.56),
                 WalletRow("wallet-second", "Savings", fingerprint = 0x5e6f7a8b, summary = "1 chain · 2 accounts", usd = 980.0),
             ),
-            totalUsd = 2214.56,
+            allocation = readyAllocation("monad" to 1500.0, "usdc" to 700.0, "dust" to 14.56),
             showTotal = true,
             refreshing = false,
             updatedAtMs = UPDATED_3_MIN_AGO,
@@ -163,7 +174,7 @@ class WalletScreensScreenshotTest {
                 WalletRow("wallet-demo", "Demo", fingerprint = 0x1a2b3c4d, summary = "4 chains · 4 accounts", usd = 1234.56),
                 WalletRow("wallet-second", "Savings", fingerprint = 0x5e6f7a8b, summary = "1 chain · 2 accounts", usd = 980.0),
             ),
-            totalUsd = 2214.56,
+            allocation = AllocationState.Hidden,
             showTotal = false,
             refreshing = false,
             updatedAtMs = UPDATED_3_MIN_AGO,
@@ -180,7 +191,7 @@ class WalletScreensScreenshotTest {
     fun walletsEmpty() = compose.lumioSnapshot("wallets_empty") {
         WalletsScreen(
             rows = emptyList(),
-            totalUsd = null,
+            allocation = AllocationState.Empty,
             showTotal = true,
             refreshing = false,
             updatedAtMs = null,
@@ -197,7 +208,7 @@ class WalletScreensScreenshotTest {
     fun walletsNotice() = compose.lumioSnapshot("wallets_notice") {
         WalletsScreen(
             rows = listOf(WalletRow("wallet-demo", "Demo", fingerprint = 0x1a2b3c4d, summary = "4 chains · 4 accounts", usd = null)),
-            totalUsd = null,
+            allocation = AllocationState.Empty,
             showTotal = true,
             refreshing = true,
             updatedAtMs = UPDATED_3_MIN_AGO,
@@ -279,7 +290,7 @@ class WalletScreensScreenshotTest {
     fun walletsLoading() = compose.lumioSnapshot("wallets_loading") {
         WalletsScreen(
             rows = emptyList(),
-            totalUsd = null,
+            allocation = AllocationState.Loading,
             showTotal = true,
             refreshing = false,
             updatedAtMs = null,

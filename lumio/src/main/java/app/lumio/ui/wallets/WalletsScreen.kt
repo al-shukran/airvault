@@ -26,6 +26,8 @@ import app.lumio.data.WallClock
 import app.lumio.home.HomeFormat
 import app.lumio.home.Masking
 import app.lumio.ui.pair.PairIntro
+import app.lumio.ui.kit.AllocationRing
+import app.lumio.ui.kit.AllocationState
 import app.lumio.ui.kit.GlowBackdrop
 import app.lensly.ui.components.LumioIsland
 import app.lensly.ui.components.IslandDivider
@@ -41,14 +43,15 @@ import app.lumio.ui.theme.LumioGutter
 data class WalletRow(val id: String, val name: String, val fingerprint: Int, val summary: String, val usd: Double?)
 
 /**
- * The start screen (section 2.1): the total of all wallets under a glow, with its freshness line, then one island with a row per wallet and "Pair another
- * wallet" as the one text action under them. The top bar holds Settings and the lock, and pulling down anywhere reads the balances again. [notice] names a
- * read that did not answer, and the balances kept from before stay on screen. [clock] is the time the freshness line ages by.
+ * The start screen (section 2.1): the allocation of all wallets under a glow, its total in the ring's centre and its freshness line below, then one island
+ * with a row per wallet and "Pair another wallet" as the one text action under them. The top bar holds Settings and the lock, and pulling down anywhere reads
+ * the balances again. [allocation] is the ring's state, and [notice] names a read that did not answer, and the balances kept from before stay on screen.
+ * [clock] is the time the freshness line ages by.
  */
 @Composable
 fun WalletsScreen(
     rows: List<WalletRow>,
-    totalUsd: Double?,
+    allocation: AllocationState,
     showTotal: Boolean,
     refreshing: Boolean,
     updatedAtMs: Long?,
@@ -71,7 +74,7 @@ fun WalletsScreen(
                 contentPadding = PaddingValues(horizontal = LumioGutter, vertical = LenslySpacing.sm),
             ) {
                 if (rows.isNotEmpty()) {
-                    item(key = "total") { WalletsTotal(totalUsd = totalUsd, showTotal = showTotal, refreshing = refreshing, updatedAtMs = updatedAtMs, clock = clock) }
+                    item(key = "total") { WalletsTotal(allocation = allocation, refreshing = refreshing, updatedAtMs = updatedAtMs, clock = clock) }
                 }
                 notice?.let { message ->
                     item(key = "notice") {
@@ -105,17 +108,17 @@ fun WalletsScreen(
     }
 }
 
-/** The hero of the list: "All wallets", their total under the glow, and the line that says how fresh it is. */
+/** The hero of the list: "All Wallets", the allocation ring with the total in its centre, and the line that says how fresh it is. */
 @Composable
-private fun WalletsTotal(totalUsd: Double?, showTotal: Boolean, refreshing: Boolean, updatedAtMs: Long?, clock: Clock) {
+private fun WalletsTotal(allocation: AllocationState, refreshing: Boolean, updatedAtMs: Long?, clock: Clock) {
     GlowBackdrop(breathing = refreshing, modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.md)) {
-        Column {
+        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = "All Wallets",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            TotalAmount(usd = totalUsd, shown = showTotal)
+            AllocationRing(state = allocation, modifier = Modifier.padding(vertical = LenslySpacing.sm))
             FreshnessLine(refreshing = refreshing, updatedAtMs = updatedAtMs, clock = clock, modifier = Modifier.padding(top = LenslySpacing.xs))
         }
     }
