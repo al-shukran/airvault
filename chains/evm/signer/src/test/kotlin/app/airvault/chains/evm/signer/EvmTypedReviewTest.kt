@@ -27,6 +27,8 @@ private const val TYPED_USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
 private const val TYPED_USDC_CHECKSUM = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 private const val TYPED_UNKNOWN_TOKEN = "0x2222222222222222222222222222222222222222"
 private const val TYPED_MAX_UINT256 = "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+private const val TYPED_MAX_UINT160 = "1461501637330902918203684832716283019655932542975"
+private const val PERMIT2 = "0x000000000022D473030F116dDEE9F6B43aC78BA3"
 private const val PERMIT_WARNING = "A signed permit lets a spender move your tokens without a transaction. Scam sites use it to drain wallets."
 
 /** The registry the typed review reads: Ethereum with USDC, and a denylist entry the tests choose. */
@@ -45,6 +47,25 @@ private fun permitJson(chainId: Long = 1, value: String = "1000000", token: Stri
         """{"name":"nonce","type":"uint256"},{"name":"deadline","type":"uint256"}]},"primaryType":"Permit",""" +
         """"domain":{"name":"USD Coin","version":"2","chainId":$chainId,"verifyingContract":"$token"},""" +
         """"message":{"owner":"$OWNER","spender":"$TYPED_SPENDER","value":"$value","nonce":"0","deadline":"1900000000"}}"""
+
+/** A Permit2 PermitSingle of USDC for [amount], with a memo member the Permit2 layout does not have. */
+private fun permitSingleWithMemoJson(amount: String): String =
+    """{"types":{"PermitSingle":[{"name":"details","type":"PermitDetails"},{"name":"spender","type":"address"},""" +
+        """{"name":"sigDeadline","type":"uint256"},{"name":"memo","type":"string"}],""" +
+        """"PermitDetails":[{"name":"token","type":"address"},{"name":"amount","type":"uint160"},""" +
+        """{"name":"expiration","type":"uint48"},{"name":"nonce","type":"uint48"}]},""" +
+        """"primaryType":"PermitSingle","domain":{"name":"Permit2","chainId":1,"verifyingContract":"$PERMIT2"},""" +
+        """"message":{"details":{"token":"$TYPED_USDC","amount":"$amount","expiration":"1900000000","nonce":"0"},""" +
+        """"spender":"$TYPED_SPENDER","sigDeadline":"1900000000","memo":"hi"}}"""
+
+/** An ERC-2612 Permit of USDC for [value], with a memo member the Permit layout does not have. */
+private fun permitWithMemoJson(value: String): String =
+    """{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},""" +
+        """{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],""" +
+        """"Permit":[{"name":"owner","type":"address"},{"name":"spender","type":"address"},{"name":"value","type":"uint256"},""" +
+        """{"name":"nonce","type":"uint256"},{"name":"deadline","type":"uint256"},{"name":"memo","type":"string"}]},""" +
+        """"primaryType":"Permit","domain":{"name":"USD Coin","version":"2","chainId":1,"verifyingContract":"$TYPED_USDC"},""" +
+        """"message":{"owner":"$OWNER","spender":"$TYPED_SPENDER","value":"$value","nonce":"0","deadline":"1900000000","memo":"hi"}}"""
 
 /** A typed message that is not a permit: a Mail struct under a domain with no verifying contract. */
 private fun mailJson(): String =
@@ -104,6 +125,26 @@ class EvmTypedReviewTest {
         assertEquals(Danger.DANGER, warning.level)
         assertEquals(FieldPath("eip712.value"), warning.field)
         assertEquals("I understand this approval is unlimited.", warning.acknowledge)
+    }
+
+    @Test
+    fun aPermitWithAnExtraMemberStillWarnsAgainstAnUnlimitedApproval() {
+        val review = typedReview(permitWithMemoJson(value = TYPED_MAX_UINT256))
+
+        assertTrue(rowOf(review, "Summary", "Amount").value.text().startsWith("Unlimited"))
+        val warning = review.warnings.single()
+        assertEquals(Danger.DANGER, warning.level)
+        assertEquals("Unlimited approval: this contract can spend all your USDC", warning.message)
+    }
+
+    @Test
+    fun aPermit2WithAnExtraMemberStillWarnsAgainstAnUnlimitedApproval() {
+        val review = typedReview(permitSingleWithMemoJson(amount = TYPED_MAX_UINT160))
+
+        assertTrue(rowOf(review, "Summary", "Amount").value.text().startsWith("Unlimited"))
+        val warning = review.warnings.single()
+        assertEquals(Danger.DANGER, warning.level)
+        assertEquals("Unlimited approval: this contract can spend all your USDC", warning.message)
     }
 
     @Test

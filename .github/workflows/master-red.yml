@@ -5,8 +5,8 @@ name: master-red
 # workflow_run workflow, GitHub runs only the copy of this file on the default branch.
 on:
   workflow_run:
-    # pr-fast runs on pull requests only, so its master filter below never matches. It stays listed so a master run added later is covered.
-    workflows: [pr-fast, cache-warm, nightly]
+    # pr-fast also runs on every master push, and its master runs decide whether master is red.
+    workflows: [pr-fast, nightly]
     types: [completed]
 
 permissions:
@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   alarm:
-    # Only master counts. A cancelled run is a superseded push (cache-warm cancels its own), not a failure.
+    # Only master counts. A cancelled run is a superseded push, not a failure.
     if: github.event.workflow_run.head_branch == 'master' && github.event.workflow_run.conclusion != 'cancelled'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -63,7 +63,7 @@ jobs:
               n=$(open_issue)
               [ -n "$n" ] || exit 0
               still=""
-              for wf in pr-fast cache-warm nightly; do
+              for wf in pr-fast nightly; do
                 # The latest finished, non-cancelled run on master decides whether that workflow is red.
                 latest=$(gh run list --repo "$REPO" --workflow "$wf.yml" --branch master --limit 10 --json conclusion,status \
                   --jq '[.[] | select(.status == "completed" and .conclusion != "cancelled" and .conclusion != "skipped")][0].conclusion // empty')
