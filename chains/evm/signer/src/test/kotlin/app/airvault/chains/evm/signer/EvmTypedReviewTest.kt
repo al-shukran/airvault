@@ -229,6 +229,19 @@ class EvmTypedReviewTest {
     }
 
     @Test
+    fun chainlessTypedDataUnderAnotherRequestChainIsCheckedAgainstTheDenylistEntryOfEveryChain() {
+        val registry = TYPED_REGISTRY.withDenylist(
+            listOf(DenylistEntry(chainId = 137, primaryType = "Permit", severity = DenylistSeverity.WARN, reason = PERMIT_WARNING)),
+        )
+
+        val result = EvmReviewBuilder(registry, { calldata, params -> AbiDecoder.decode(calldata, params) })
+            .review(typedRequest(chainlessPermitJson(), chainId = 1), sender = OWNER)
+
+        val denylist = assertIs<EvmReviewResult.Ok>(result).review.warnings.single { it.message == PERMIT_WARNING }
+        assertEquals(Danger.DANGER, denylist.level)
+    }
+
+    @Test
     fun aChainlessDomainUnderAnotherRequestChainShowsAnyChainAndIsReadOnTheRequestChain() {
         val review = typedReview(chainlessPermitJson(), chainId = 1)
 
