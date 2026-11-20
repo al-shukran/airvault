@@ -10,8 +10,8 @@ import org.junit.Test
  * The demo pairing as Lensly's encoder writes it with Brotli (DemoPairingGolden). Lumio reads the frames back through its decoder and its
  * importer, and the code stays within the size the pairing is designed for.
  *
- * Measured for version 6 (this test): the code is 3,257 bytes in 11 frames at 300 bytes per frame. The budget of 3,600 bytes is the same
- * budget as the device test that writes these frames, and leaves 343 bytes of headroom. The demo carries the Ethereum and Bitcoin Apps only:
+ * Measured for version 7 (this test): the code is 3,401 bytes in 12 frames. The budget of 3,600 bytes is the same
+ * budget as the device test that writes these frames, and leaves 199 bytes of headroom. The demo carries the Ethereum and Bitcoin Apps only:
  * twelve Ethereum accounts and the three Bitcoin accounts the owner stores. The worst case the UI allows is measured in PairingSizeTest, and
  * it is far above this budget.
  */
