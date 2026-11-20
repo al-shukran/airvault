@@ -45,7 +45,7 @@ object TokenBalanceCache {
     /** The vault record that holds the reads. */
     const val RECORD = "lumio-token-balances"
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json
 
     @Serializable
     private class CacheFile(val entries: List<CachedTokenBalance> = emptyList())

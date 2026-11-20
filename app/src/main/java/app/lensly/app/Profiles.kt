@@ -32,8 +32,7 @@ enum class ProfileColour(val wire: Int) {
 
 /**
  * The fixed set of Visual Identity icons. The first twelve are simple glyphs from the Material core set; the rest are drawn
- * in the app, so it needs no icon library beyond the one it has. A record stores [wire], as for [ProfileColour]. The list
- * only grows: a wire written by an older build keeps its icon.
+ * in the app, so it needs no icon library beyond the one it has. A record stores [wire], as for [ProfileColour].
  */
 enum class ProfileIcon(val wire: Int) {
     STAR(1),
@@ -63,7 +62,6 @@ enum class ProfileIcon(val wire: Int) {
     GEM(25),
     ROCKET(26),
     SHIELD(27),
-    /** Wire 28 stays, so a profile that stored it still loads; it is the lantern now, not the padlock it once was. */
     LANTERN(28),
     LINK(29),
     NODE(30),

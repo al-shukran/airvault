@@ -20,7 +20,7 @@ object TxCommentTransfer {
     private const val MAX_TEXT_CHARS = 2_000
     private const val MAX_ID_CHARS = 300
     private val AAD = "lumio-tx-comments-export-v1".toByteArray(Charsets.UTF_8)
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json
 
     /** Seals every comment in [store] under the export key of [keys]. */
     suspend fun export(store: TxStore, keys: TxKeys): ByteArray {

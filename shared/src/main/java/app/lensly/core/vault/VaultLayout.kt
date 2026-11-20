@@ -68,8 +68,7 @@ internal object VaultRole {
 
 /**
  * The vault format version. `header.bin` and `vault.key` both hold it after their magic, and the slot key label names it (see [Vault]).
- * It is 3 since a slot's software key became bound to the device's slot key. A file of any other version is refused as a format change,
- * and nothing is migrated from it (see [VaultFormatChangedException]).
+ * A file of any other version is refused as a format change, and nothing is migrated from it (see [VaultFormatChangedException]).
  */
 internal const val VAULT_FORMAT_VERSION: Byte = 3
 

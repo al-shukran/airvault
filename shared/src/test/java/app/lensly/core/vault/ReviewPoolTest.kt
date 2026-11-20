@@ -13,8 +13,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * The Review Record pool: the shape it shows, the batches it grows by, the keys that guard it, the migration of records from
- * wallet folders, and the overwrite on delete.
+ * The Review Record pool: the shape it shows, the batches it grows by, the keys that guard it, and the overwrite on delete.
  */
 class ReviewPoolTest {
 
