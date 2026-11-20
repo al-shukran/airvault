@@ -181,10 +181,22 @@ class WalletStoreBitcoinTest {
         val hundred = BulkCap.HUNDRED.accounts
         assertEquals(99, store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.MAINNET, 99, hundred)?.size)
 
-        assertFailsWith<IllegalArgumentException> {
+        // The refusal names the cap, so the Bulk Run can tell the owner why nothing was saved.
+        val refusal = assertFailsWith<BitcoinCapReached> {
             store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.MAINNET, 1, hundred)
         }
+        assertEquals("A wallet keeps at most 100 Bitcoin accounts.", refusal.message)
         assertEquals(100, store.bitcoinAccounts(id).size)
+    }
+
+    /** A Bitcoin account is stored under the purpose of its Script Type, the coin type of its network and its index, each hardened. */
+    @Test
+    fun aBitcoinAccountIsStoredUnderItsPurposeCoinTypeAndIndex() {
+        val testnetSegwit = BitcoinAccountRecord(BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0, "tb1q")
+        val mainnetTaproot = BitcoinAccountRecord(BtcNetwork.MAINNET, ScriptType.TAPROOT, 3, "bc1p")
+
+        assertEquals(Path(listOf(PathStep(84, true), PathStep(1, true), PathStep(0, true))), testnetSegwit.storedPath)
+        assertEquals(Path(listOf(PathStep(86, true), PathStep(0, true), PathStep(3, true))), mainnetTaproot.storedPath)
     }
 
     @Test

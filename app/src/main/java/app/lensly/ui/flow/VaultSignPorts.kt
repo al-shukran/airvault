@@ -463,7 +463,6 @@ internal class VaultSignPorts(
             val profiles = store.accountProfiles(meta.id, meta.accountCount)
             val identity = visualIdentity(profile.colour, profile.icon, position)
             val accountNames = profiles.mapNotNull { (index, accountProfile) -> accountProfile.name?.let { index to it } }.toMap()
-            val accountLabels = profiles.mapNotNull { (index, accountProfile) -> accountProfile.label?.let { index to it } }.toMap()
             val accountIdentity = { index: Int ->
                 profiles[index].let { accountProfile -> visualIdentity(accountProfile?.colour, accountProfile?.icon, index) }
             }
@@ -480,7 +479,6 @@ internal class VaultSignPorts(
                             accountCount = meta.accountCount,
                             autoNameBase = meta.autoNameBase,
                             accountNames = accountNames,
-                            accountLabels = accountLabels,
                             addressAt = { account, index -> AccountAddresses.addressAt(keys[account], index) },
                             name = meta.name,
                             identity = identity,
@@ -496,7 +494,6 @@ internal class VaultSignPorts(
                     autoNameBase = meta.autoNameBase,
                     // The one account is index 0. Its name is absent while the owner has not renamed it.
                     accountName = accountNames[0],
-                    accountLabel = accountLabels[0],
                     name = meta.name,
                     identity = identity,
                     accountIdentity = accountIdentity(0),

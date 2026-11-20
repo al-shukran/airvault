@@ -1,9 +1,11 @@
 package app.lensly.app
 
+import app.airvault.core.signer.Path
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
 import app.airvault.chains.bitcoin.signer.BtcReview
 import app.lensly.core.btc.ScriptType
+import app.lensly.core.ur.PathStep
 
 /**
  * A Bitcoin request reviewed against a wallet: the Bitcoin account it spends from, as its stored record, and the review the owner
@@ -39,6 +41,16 @@ data class BitcoinAccountRecord(
     /** The identity of the account inside its wallet. */
     val key: Triple<ScriptType, BtcNetwork, Int>
         get() = Triple(scriptType, network, index)
+
+    /** The derivation path m/purpose'/coin'/account' of this account, which a request names when it spends from the account. */
+    val storedPath: Path
+        get() = Path(
+            listOf(
+                PathStep(scriptType.purpose, hardened = true),
+                PathStep(network.coinType, hardened = true),
+                PathStep(index, hardened = true),
+            ),
+        )
 }
 
 /**

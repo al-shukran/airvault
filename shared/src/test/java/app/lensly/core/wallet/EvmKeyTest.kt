@@ -53,6 +53,9 @@ class EvmKeyTest {
         assertNull(EvmKey.of(path(44 to true, 283 to true, 0 to true, 0 to false, 0 to false), accountCount = 3))
         assertNull(EvmKey.of(path(44 to false, 60 to true, 0 to true, 0 to false, 0 to false), accountCount = 3))
         assertNull(EvmKey.of(path(44 to true, 60 to true, 0 to true, 0 to false), accountCount = 3))
+        // An account level that is not hardened, and an account number under an address key's account level, are no key either.
+        assertNull(EvmKey.of(path(44 to true, 60 to true, 0 to false, 0 to false, 0 to false), accountCount = 3))
+        assertNull(EvmKey.of(path(44 to true, 60 to true, 1 to true, 0 to false, 2 to false), accountCount = 3))
     }
 
     @Test

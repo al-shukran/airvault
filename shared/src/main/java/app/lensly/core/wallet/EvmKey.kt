@@ -1,5 +1,6 @@
 package app.lensly.core.wallet
 
+import app.airvault.chains.evm.EvmAccountPath
 import app.lensly.core.ur.PathStep
 
 /**
@@ -23,26 +24,15 @@ data class EvmKey(val account: Int, val index: Int) {
         /** The one key of a Single Key wallet. A Single Key has no path, so this is only its place in the request. */
         val SINGLE_KEY = EvmKey(0, 0)
 
-        private val COIN_PATH = listOf(PathStep(44, hardened = true), PathStep(60, hardened = true))
-        private val EXTERNAL_CHAIN = PathStep(0, hardened = false)
-        private const val PATH_LENGTH = 5
-
         /**
          * The key of [path] in a wallet of [accountCount] accounts, or null when [path] is not one of its keys. Two forms are the wallet's keys,
          * m/44'/60'/N'/0/0 and m/44'/60'/0'/0/N, and N must be below [accountCount]. Any other path is no key of the wallet, and so is an N past
          * the last account.
          */
         fun of(path: List<PathStep>, accountCount: Int): EvmKey? {
-            if (path.size != PATH_LENGTH || path.subList(0, COIN_PATH.size) != COIN_PATH) return null
-            val account = path[COIN_PATH.size]
-            val chain = path[COIN_PATH.size + 1]
-            val index = path[COIN_PATH.size + 2]
-            if (!account.hardened || chain != EXTERNAL_CHAIN || index.hardened) return null
-            return when {
-                index.index == 0 && account.index < accountCount -> EvmKey(account.index, 0)
-                account.index == 0 && index.index < accountCount -> EvmKey(0, index.index)
-                else -> null
-            }
+            EvmAccountPath.accountOf(path)?.let { account -> return EvmKey(account, 0).takeIf { account < accountCount } }
+            EvmAccountPath.addressOf(path)?.let { index -> return EvmKey(0, index).takeIf { index < accountCount } }
+            return null
         }
     }
 }
