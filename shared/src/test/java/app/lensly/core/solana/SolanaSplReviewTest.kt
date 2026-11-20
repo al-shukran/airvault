@@ -12,6 +12,8 @@ import app.airvault.chains.solana.signer.SolanaToken
 import app.airvault.chains.solana.signer.SolanaTokenList
 import app.airvault.chains.solana.signer.SolanaWarning
 import app.airvault.chains.solana.signer.decodeInstructions
+import app.airvault.chains.solana.signer.toReview
+import app.airvault.core.model.Danger
 import app.lensly.core.ur.PathStep
 import fr.acinq.bitcoin.Base58
 import kotlin.test.assertEquals
@@ -145,7 +147,15 @@ class SolanaSplReviewTest {
             review.instructions,
         )
         assertNull(review.tokenOf(key(SolanaVectors.MINT22)))
-        assertEquals(listOf(SolanaWarning.UNKNOWN_TOKEN), review.warnings)
+        assertEquals(listOf(SolanaWarning.UNKNOWN_TOKEN, SolanaWarning.TOKEN_2022), review.warnings)
+    }
+
+    @Test
+    fun aToken2022TransferWarnsOnTheReviewThatItsMintMayCarryExtensionsLenslyCannotRead() {
+        // A transfer fee can make the recipient get less than the amount shown, so the review shows a CAUTION for the extensions.
+        val caution = review("spl-token2022-transfer-checked").toReview().warnings.filter { it.code == "solana.token-2022" }
+
+        assertEquals(listOf(Danger.CAUTION), caution.map { it.level })
     }
 
     @Test
