@@ -51,8 +51,9 @@ lanes:
   verify       the Roborazzi pixel tests of :app and :lumio, with verifyRoborazziDebug
   fuzz         the Jazzer seed replays (app.lensly.fuzz.*), with -PfuzzLane
   android      androidTest and benchmark compile of :app and :lumio, and the Lumio debug APK
-  lint-app, lint-lumio, lint-shared
+  lint-app, lint-shared
                lintDebug of one module, the legs of the lint job
+  lint-lumio   the lumio leg: lints its main sources only (no test-variant analyses), see run_lint
   manifest    merged manifests: no INTERNET in :app, Lumio's allow-list, OkHttp off the release classpath of :app
   ci           bash -n on every script, check-partitions.sh and check-test-network.sh (no Gradle)
 USAGE_END
@@ -205,6 +206,15 @@ run_android() {
 
 run_lint() {
     # $1 is the module: app, lumio or shared. Its lintDebug covers the main, unit-test, androidTest and test-fixture sources.
+    if [ "$1" = lumio ]; then
+        # Lumio's leg lints its main (debug) sources only. lintReportDebug depends on every analysis, so the lumio and shared
+        # unit-test, androidTest and test-fixture analyses are excluded: lumio's test variants are not linted in this leg, and
+        # shared's test sources are still linted by the shared leg. The report reads the main analyses alone.
+        ./gradlew --offline :lumio:lintReportDebug \
+            -x :lumio:lintAnalyzeDebugUnitTest -x :lumio:lintAnalyzeDebugAndroidTest \
+            -x :shared:lintAnalyzeDebugUnitTest -x :shared:lintAnalyzeDebugAndroidTest -x :shared:lintAnalyzeDebugTestFixtures
+        return
+    fi
     ./gradlew --offline ":$1:lintDebug"
 }
 
