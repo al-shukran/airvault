@@ -16,6 +16,8 @@ import fr.acinq.bitcoin.Transaction
 import fr.acinq.bitcoin.TxHash
 import fr.acinq.bitcoin.TxIn
 import fr.acinq.bitcoin.TxOut
+import fr.acinq.bitcoin.psbt.DataEntry
+import fr.acinq.bitcoin.psbt.Input
 import fr.acinq.bitcoin.psbt.KeyPathWithMaster
 import fr.acinq.bitcoin.psbt.Psbt
 import fr.acinq.bitcoin.psbt.TaprootBip32DerivationPath
@@ -69,6 +71,17 @@ object BtcFixtures {
 
     /** The previous outputs the spends consume, in input order. */
     fun prevouts(spends: List<Spend>): List<TxOut> = spends.map { it.funding.txOut[0] }
+
+    /** [this] with [entries] added to the input map of input [index], as an online side writes them. [psbt] builds partially signed inputs only. */
+    fun Psbt.withInputEntries(index: Int, entries: List<DataEntry>): Psbt = copy(
+        inputs = inputs.mapIndexed { i, input -> if (i == index) input.withUnknown(input.unknown + entries) else input },
+    )
+
+    private fun Input.withUnknown(unknown: List<DataEntry>): Input = when (this) {
+        is Input.WitnessInput.PartiallySignedWitnessInput -> copy(unknown = unknown)
+        is Input.NonWitnessInput.PartiallySignedNonWitnessInput -> copy(unknown = unknown)
+        else -> error("withInputEntries takes a partially signed input, which psbt builds")
+    }
 
     /** Adds the UTXO and the derivation of [spend] to the input that spends its funding output. */
     private fun Psbt.withDerivedInput(spend: Spend, sighash: Int?, withPreviousTransaction: Boolean): Psbt {
