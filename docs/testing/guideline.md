@@ -91,7 +91,7 @@ Each fixed bug lands with a failing test in the layer where it was found. Nightl
 ### 2.1 Hard requirements
 
 - **No test demand for untouched code.** A partition runs only when its own paths change. No repo-wide coverage gate; any JaCoCo report is informational and limited to changed files.
-- **PR runs finish in 3 minutes wall clock.** Each partition job sets `timeout-minutes: 3`, covering checkout, JDK, and Gradle setup. The `test` job of `pr-fast` is the exception: see the amendment below.
+- **Each PR lane finishes in 5 minutes wall clock** (budget raised from 3 minutes on 2026-11-21), covering checkout, JDK, cache restore and Gradle. `scripts/ci/lane-budget.sh` measures every lane of every `pr-fast` run and, on master, files a `ci-budget` issue for a lane over budget.
 - **2.1 amendment (2026-11-12): pr-fast test cap 5 min because** the ui-a partition took 180 s on PR 125 with the Gradle cache restored, and earlier PR runs on the same partitions were killed at the 3-minute cap. Cold work that the cache cannot skip (configuration of about 40 s, since no configuration cache survives to CI, and main and test Kotlin compile of about 55 s) does not fit reliably in 3 minutes. The `test` job sets `timeout-minutes: 5`; the other jobs keep their caps.
 - **Over-budget work moves** to a nightly schedule and a comment command (2.5, 2.6).
 - **Docs, text, and non-build config changes run zero test jobs.** The aggregate job in 2.4 keeps branch protection satisfied.
@@ -126,7 +126,7 @@ A `core` change does not run `ui`; `ui` depends on `core`, and the nightly run c
 
 - Enable `org.gradle.configuration-cache=true`. Build cache is already on.
 - `gradle/actions/setup-gradle` caches the Gradle user home (saved on `master`, restored on PRs). Also cache `~/.m2/repository/org/robolectric`, keyed on the Robolectric version.
-- One filtered Gradle task per job; the build cache absorbs unchanged compile tasks. Measure warm runs in Phase 1.5 and split or move any partition over 3 minutes.
+- One filtered Gradle task per job; the build cache absorbs unchanged compile tasks. Split or move any lane over the 5-minute budget.
 
 ### 2.4 PR fast lane
 
@@ -272,7 +272,7 @@ Durations are estimates, to be measured in Phase 1.5.
 | Test type | Trigger | Expected wall clock |
 |---|---|---|
 | Unit `core/*` | PR fast lane, partition paths | 1 to 2 min warm |
-| Integration and UI (Robolectric) | PR fast lane, `ui-a`, `ui-b` and `ui-c` partitions | up to 3 min warm each; split or move if over |
+| Integration and UI (Robolectric) | PR fast lane, `ui-a`, `ui-b` and `ui-c` partitions | up to 5 min each; split or move if over |
 | Manifest guard | PR fast lane, manifest and dependency paths | about 1 min |
 | Secrets scan, dependency review | PR fast lane, changed files | under 30 s |
 | Screenshot (Roborazzi verify) | nightly 03:17 UTC; `/run-screenshot-testing` | 5 to 10 min |
@@ -301,7 +301,7 @@ Durations are estimates, to be measured in Phase 1.5.
 1. Enable `org.gradle.configuration-cache=true`; confirm the build passes.
 2. Add `scripts/ci/run-partition.sh`, `run-extended.sh`, `check-manifest.sh`.
 3. Add `pr-fast.yml` (2.4) with a filter row for each partition in 2.2. Create the `nightly-failure` label.
-4. Add the manifest guard, `gitleaks`, and dependency review to the PR lane. Measure warm PR runs; split or move anything over 3 minutes.
+4. Add the manifest guard, `gitleaks`, and dependency review to the PR lane. Measure PR runs; split or move anything over 5 minutes.
 5. Add catalog entries: `ui-test-junit4`, Robolectric, Roborazzi, `espresso-accessibility`, UI Automator, Microbenchmark, Macrobenchmark, Jazzer. Pin versions at least two weeks old.
 6. Add the WCAG contrast test for `ui/theme/Color.kt` and the standard vectors with exact-match tests.
 7. Add Jazzer targets for `UrScanner`, `Cbor`, `EthSignRequest`; commit seeds; enable PR replay.

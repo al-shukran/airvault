@@ -55,10 +55,15 @@ The lines balance the lanes. A test class with no line still runs, so adding a t
   A pull request restores master's entries (`bc-<lane>-master-`) only. Its own entries would be restored ahead of master's, and a
   lint entry a pull request saved lacked the compile outputs master's entries hold, so the next run of that pull request compiled
   cold. Each lane's entry is 0.1 to 0.7 GB, so one push to master saves about 5.5 GB. `cache-prune` (`pr-fast.yml`, running
-  `prune-caches.sh`) deletes, after the lanes of each push, the other master build caches, the other dependency caches and every
-  setup-gradle `gradle-*` cache. The repository then holds one master generation (about 5.5 GB) and one dependency cache (about
-  1.2 GB), under GitHub's 10 GB per repository limit. Before that prune, GitHub evicted least recently used entries and evicted
-  master's shard entries (run 44727796023). A pull request cannot change what master restores.
+  `prune-caches.sh`, one at a time in `master-cache-prune`) runs after the lanes of each push. On master a cache's group is its key
+  without the trailing hash, and each group keeps its newest entry; no entry newer than the prune's own run and no entry of master's
+  current head (its commit, and the dependency key of its tree) is deleted. So neither two pushes close together, a late prune, nor
+  a rerun of an older push can delete the newest caches, and the setup-gradle `gradle-*` caches of nightly and other workflows keep
+  their newest entry. Merge-queue caches (`gh-readonly-queue/...`), which no other run can restore, are deleted. The listing pages
+  through every cache. GitHub evicts least recently used entries over 10 GB per repository (run 44727796023).
+- Lane budget: `pr-ok` runs `lane-budget.sh` after every lane. Each job's time (start to end, without a `Save ...` cache upload)
+  goes to the step summary, and a job over 5 minutes gets a warning. On a push to master it opens, or comments on, the open
+  `ci-budget` issue. It never fails the gate: fix a slow lane in a pull request, never rerun a run to make it green.
 - The configuration cache is encrypted with `GRADLE_ENCRYPTION_KEY`, a repository secret. Without it, each runner encrypts with its
   own keystore, a restored entry reads as absent ("no cached configuration is available"), and no lane reuses the configuration.
   Empty means no key, which is how a fork's pull request runs.
