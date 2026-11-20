@@ -500,35 +500,44 @@ jobs:
         with:
           fail-on-severity: high
 
-  # Deletes the caches this push supersedes. It runs after every lane, so the previous master's caches stay restorable until this
-  # push has saved its own: a pull request that starts meanwhile restores them. Pull requests save no caches, so nothing here
-  # touches a pull request's entries.
+  # Deletes superseded caches after every lane of this push has saved, so the previous master's caches stay restorable until
+  # then (scripts/ci/prune-caches.sh). It keeps the newest entry of each cache and every entry of master's current head, so a late
+  # or rerun prune of an older push never deletes a newer push's caches. One prune runs at a time.
   cache-prune:
     name: prune superseded caches
     if: always() && github.event_name == 'push'
     needs: [deps, shard, roborazzi, fuzz, android, lint]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    concurrency:
+      group: master-cache-prune
+      cancel-in-progress: false
     permissions:
       actions: write
       contents: read
     steps:
+      # Master's current head, not this run's commit.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: master
           persist-credentials: false
 
-      - name: Delete the caches this push supersedes
+      - name: Delete superseded caches
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          DEPS_KEY: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
-        run: scripts/ci/prune-caches.sh
+          MASTER_DEPS_KEY: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+        run: MASTER_SHA="$(git rev-parse HEAD)" scripts/ci/prune-caches.sh
 
   pr-ok: # the single required check
     if: always()
     needs: [deps, shard, roborazzi, fuzz, android, lint, manifest, ci, secrets, dependency_review]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      actions: read # the lane times of this run
+      contents: read
+      issues: write # the ci-budget issue, on a push to master
     env:
       DEPS: ${{ needs.deps.result }}
       SHARD: ${{ needs.shard.result }}
@@ -542,6 +551,21 @@ jobs:
       DEPENDENCY_REVIEW: ${{ needs.dependency_review.result }}
       DEPENDENCY_GRAPH_ENABLED: ${{ vars.DEPENDENCY_GRAPH_ENABLED }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/ci
+
+      # The machine-enforced lane budget (scripts/ci/lane-budget.sh, 5 minutes). It reports, and on master files an issue; it never
+      # fails the gate, so a slow lane is fixed in a pull request, not rerun to green.
+      - name: Check the lane budget
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          FILE_ISSUE: ${{ github.event_name == 'push' }}
+        run: scripts/ci/lane-budget.sh
+
       - name: Aggregate results
         run: |
           failed=0
