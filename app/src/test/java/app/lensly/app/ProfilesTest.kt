@@ -107,6 +107,13 @@ class ProfilesTest {
     }
 
     @Test
+    fun aLabelWithAQuestionMarkIsRefusedAsADisplayNameIs() {
+        // The review's headline shows the label, and a question mark there reads as a question.
+        assertFalse(isValidProfileText("Rent?"))
+        assertFailsWith<IllegalArgumentException> { profileTextOf("Rent?") }
+    }
+
+    @Test
     fun anAccountProfileRoundTripsEveryField() {
         val profile = AccountProfile(
             name = "Savings",
