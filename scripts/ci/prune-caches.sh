@@ -3,12 +3,16 @@
 # A cache's group is its key without the trailing commit or content hash (bs-shard-1-master, deps-v3-Linux, a setup-gradle
 # entry of a nightly job). Each group keeps its newest entry, so the build state of every lane, the dependency cache and the
 # setup-gradle caches that nightly and other workflows restore survive. An entry created after this run started is never
-# deleted: two pushes close together each keep the other's fresh entries. Legacy build caches (bc-*) are deleted.
+# deleted, and neither is an entry of the current master head (MASTER_SHA, MASTER_DEPS_KEY): two pushes close together, a late
+# prune, or a rerun of an older push that saves again cannot delete what master's newest tree restores. Legacy build caches
+# (bc-*) are deleted.
 # Pull request caches are not listed: cache-cleanup.yml deletes them when the pull request closes. --dry-run prints only.
 set -euo pipefail
 
 run_id="${GITHUB_RUN_ID:?GITHUB_RUN_ID is not set}"
 started="$(gh api "repos/{owner}/{repo}/actions/runs/$run_id" --jq .run_started_at)"
+master_sha="${MASTER_SHA:?MASTER_SHA is not set}"
+master_deps="${MASTER_DEPS_KEY:?MASTER_DEPS_KEY is not set}"
 dry_run=0
 if [ "${1:-}" = "--dry-run" ]; then
     dry_run=1
@@ -20,10 +24,11 @@ doomed="$(gh api --paginate "repos/{owner}/{repo}/actions/caches?ref=refs/heads/
     jq -R '
         split("\t") | {id: .[0], key: .[1], created: .[2]}
         | .group = (.key | sub("-[0-9a-f]{8,}$"; ""))' |
-    jq -s -r --arg started "$started" '
+    jq -s -r --arg started "$started" --arg sha "$master_sha" --arg deps "$master_deps" '
         group_by(.group)
         | map(sort_by(.created) | reverse | to_entries[]
               | select(.value.created < $started)
+              | select((.value.key | endswith("-" + $sha)) or .value.key == $deps | not)
               | select(.key > 0 or (.value.key | startswith("bc-")))
               | .value)
         | .[] | "\(.id)\t\(.key)"')"

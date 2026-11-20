@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# The lane budget of pr-fast: every job of this run must finish within LANE_BUDGET_SECONDS (default 180) of its start.
+# The lane budget of pr-fast: every job of this run must finish within LANE_BUDGET_SECONDS (default 180) of its start. The
+# upload of a lane's build state on master ("Save the build state") is left out: a pull request never waits on it.
 # pr-ok runs it after every lane. It writes each job's time to the step summary and a warning for each job over the budget.
 # With FILE_ISSUE=true (a push to master) it also opens, or comments on, the one open `ci-budget` issue, so a slow lane is
 # tracked until someone fixes it. It gates nothing and never reruns anything. A cancelled or skipped job is not counted.
@@ -13,7 +14,9 @@ title="CI: a pr-fast lane took longer than ${budget} s"
 rows="$(gh api --paginate "repos/{owner}/{repo}/actions/runs/$run_id/attempts/$attempt/jobs?per_page=100" \
     --jq '.jobs[]
         | select(.status == "completed" and (.conclusion == "success" or .conclusion == "failure"))
-        | [.name, ((.completed_at | fromdate) - (.started_at | fromdate)), .html_url] | @tsv')"
+        | ([.steps[]? | select(.name == "Save the build state" and .completed_at != null and .started_at != null)
+            | (.completed_at | fromdate) - (.started_at | fromdate)] | add // 0) as $save
+        | [.name, ((.completed_at | fromdate) - (.started_at | fromdate) - $save), .html_url] | @tsv')"
 
 table="| job | seconds |"$'\n'"|---|---|"
 over=""

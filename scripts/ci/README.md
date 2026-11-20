@@ -56,15 +56,15 @@ The lines balance the lanes. A test class with no line still runs, so adding a t
   That is what keeps a lane under 3 minutes when a pull request, or master since the last saved state, changes a low module
   (`chains`, `core`, `shared`): a build cache restores outputs but no incremental state, so every module above the change
   recompiled from scratch in every lane. It also selects the affected tests for free: a test task whose inputs did not change is
-  up to date. The scope is `master` on a push or a queue entry, which saves every lane's state even when it fails or is
-  cancelled, and `pr<number>` in a pull request, which restores master's state and saves none. A lane with no master state builds
+  up to date. Every lane restores master's newest state. Only a push to master saves, even when the lane fails or is
+  cancelled; a pull request and a queue entry save none (a queue entry's cache scope is one no other run can restore). A lane with no master state builds
   cold (up to about 6 minutes, inside the 10-minute job cap) and the lane budget reports it.
-- `cache-prune` (`pr-fast.yml`, running `prune-caches.sh`) runs after the lanes of each push to master. A cache's group is its
-  key without the trailing hash; each group keeps its newest entry, and no entry newer than the prune's own run is deleted, so two
-  pushes close together cannot delete each other's state, and the setup-gradle `gradle-*` caches of nightly and other workflows
-  keep their newest entry. It pages through every cache. Pull request caches are deleted when the pull request closes
-  (`cache-cleanup.yml`). GitHub evicts least recently used entries over 10 GB per repository; one master generation of state plus
-  the dependency cache must stay under that.
+- `cache-prune` (`pr-fast.yml`, running `prune-caches.sh`) runs after the lanes of each push to master, one at a time
+  (`master-cache-prune`). A cache's group is its key without the trailing hash. Each group keeps its newest entry, and no entry
+  newer than the prune's own run is deleted, so neither two pushes close together, a late prune, nor a rerun of an older push can
+  delete the newest state. The setup-gradle `gradle-*` caches of nightly and other workflows keep their newest entry too. It pages
+  through every cache. Pull request caches are deleted when the pull request closes (`cache-cleanup.yml`). GitHub evicts least
+  recently used entries over 10 GB per repository; one master generation of state plus the dependency cache must stay under that.
 - Lane budget: `pr-ok` runs `lane-budget.sh` after every lane. Each job's time (start to end) goes to the step summary, a job over
   180 s gets a warning, and on a push to master it opens or comments on the open `ci-budget` issue. It never fails the gate:
   fix a slow lane in a pull request, never rerun a run to make it green.

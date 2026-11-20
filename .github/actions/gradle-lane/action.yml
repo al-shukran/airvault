@@ -2,7 +2,7 @@ name: gradle-lane
 description: >-
   Runs scripts/ci/run-partition.sh lanes offline. Restores the dependency cache and the lane's build state (the project's
   build directories and Gradle's execution history) from the newest master run, so Gradle reruns only the tasks whose inputs
-  the change touched and Kotlin compiles them incrementally. A push to master or a queue entry saves the state.
+  the change touched and Kotlin compiles them incrementally. The job saves the state with ./.github/actions/gradle-lane/save, a step of its own, so the lane budget can leave the upload out.
 inputs:
   lanes:
     description: The run-partition.sh lanes to run, space separated.
@@ -49,6 +49,12 @@ runs:
         restore-keys: |
           bs-${{ inputs.state }}-master-
 
+    # CI only, in the Gradle user home: Kotlin compiles inside the Gradle daemon instead of starting a Kotlin daemon per lane,
+    # and the local build cache is off, because the build state replaces it and nothing would restore its entries.
+    - name: Set the CI Gradle properties
+      shell: bash
+      run: printf '%s\n' kotlin.compiler.execution.strategy=in-process org.gradle.caching=false >> ~/.gradle/gradle.properties
+
     - name: Run ${{ inputs.lanes }}
       shell: bash
       env:
@@ -58,14 +64,7 @@ runs:
           ./scripts/ci/run-partition.sh "$lane"
         done
 
-    - name: Stop the Gradle daemon before the state is saved
+    - name: Stop the Gradle daemon so the state can be saved
       if: always()
       shell: bash
       run: ./gradlew --stop
-
-    - name: Save the build state of this lane
-      if: always() && inputs.state != '' && env.BUILD_CACHE_SCOPE == 'master'
-      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: ${{ env.BUILD_STATE_PATHS }}
-        key: bs-${{ inputs.state }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}

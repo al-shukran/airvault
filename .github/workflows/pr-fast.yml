@@ -22,8 +22,8 @@ permissions:
 # the tasks whose inputs the change touched, and Kotlin compiles those incrementally. A restored build cache gave outputs but no
 # incremental state, so any change in a low module (chains, core, shared) recompiled every module above it from scratch, in
 # every lane, for 2 to 3 minutes. A pull request restores master's state and saves none, so each run of a pull request starts
-# from master's last verified state. A push to master and a queue entry save every lane's state, even when it fails or is
-# cancelled. `cache-prune` keeps the newest entry of each cache (scripts/ci/prune-caches.sh).
+# from master's last verified state. A push to master saves every lane's state, even when it fails or is
+# cancelled; a queue entry saves none. `cache-prune` keeps the newest entry of each cache (scripts/ci/prune-caches.sh).
 env:
   BUILD_CACHE_SCOPE: ${{ github.event_name == 'pull_request' && format('pr{0}', github.event.pull_request.number) || 'master' }}
   # Gradle encrypts configuration-cache entries with this key. Without a shared key, each runner's own keystore encrypts them, so
@@ -121,6 +121,12 @@ jobs:
           lanes: shard-${{ matrix.shard }}
           state: shard-${{ matrix.shard }}
 
+      - name: Save the build state
+        if: always()
+        uses: ./.github/actions/gradle-lane/save
+        with:
+          state: shard-${{ matrix.shard }}
+
       - name: Upload the JUnit results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -144,6 +150,12 @@ jobs:
       - uses: ./.github/actions/gradle-lane
         with:
           lanes: verify
+          state: verify
+
+      - name: Save the build state
+        if: always()
+        uses: ./.github/actions/gradle-lane/save
+        with:
           state: verify
 
       - name: Upload the JUnit results
@@ -171,6 +183,12 @@ jobs:
           lanes: fuzz
           state: fuzz
 
+      - name: Save the build state
+        if: always()
+        uses: ./.github/actions/gradle-lane/save
+        with:
+          state: fuzz
+
   # Assembles the Lumio debug APK. The androidTest and benchmark sources compile on master and in the merge queue only: no test lane
   # runs them, and they would add about two minutes to a pull request.
   android:
@@ -186,6 +204,12 @@ jobs:
       - uses: ./.github/actions/gradle-lane
         with:
           lanes: ${{ github.event_name == 'pull_request' && 'apk' || 'apk android-tests' }}
+          state: android
+
+      - name: Save the build state
+        if: always()
+        uses: ./.github/actions/gradle-lane/save
+        with:
           state: android
 
   # Android lint, one leg per module (scripts/ci/run-partition.sh lint-<module>). A leg compiles its module and the modules it
@@ -209,6 +233,12 @@ jobs:
       - uses: ./.github/actions/gradle-lane
         with:
           lanes: lint-${{ matrix.module }}
+          state: lint-${{ matrix.module }}
+
+      - name: Save the build state
+        if: always()
+        uses: ./.github/actions/gradle-lane/save
+        with:
           state: lint-${{ matrix.module }}
 
   # Guideline 1.8 and R56. The merged manifests and the OkHttp check (scripts/ci/run-partition.sh manifest).
@@ -299,27 +329,33 @@ jobs:
           fail-on-severity: high
 
   # Deletes superseded master caches after every lane of this push has saved, so the previous master's state stays restorable
-  # until then. Each cache keeps its newest entry and no entry newer than this run is deleted, so two pushes close together never
-  # delete each other's fresh state. No concurrency group: a queued group member is cancelled, which marks the master run.
+  # until then. Each cache keeps its newest entry and no entry newer than this run is deleted, so a late or rerun prune of an
+  # older push never deletes a newer push's state. The group runs one prune at a time.
   cache-prune:
     name: prune superseded caches
     if: always() && github.event_name == 'push'
     needs: [deps, shard, roborazzi, fuzz, android, lint]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    concurrency:
+      group: master-cache-prune
+      cancel-in-progress: false
     permissions:
       actions: write
       contents: read
     steps:
+      # Master's current head, not this run's commit: a late or rerun prune must keep the newest tree's entries.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: master
           persist-credentials: false
 
       - name: Delete superseded caches
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-        run: scripts/ci/prune-caches.sh
+          MASTER_DEPS_KEY: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+        run: MASTER_SHA="$(git rev-parse HEAD)" scripts/ci/prune-caches.sh
 
   pr-ok: # the single required check
     if: always()

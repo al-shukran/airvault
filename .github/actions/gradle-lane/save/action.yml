@@ -1,0 +1,16 @@
+name: gradle-lane-save
+description: >-
+  Saves a lane's build state on a push to master, even when the lane failed. A pull request saves none, and neither does a
+  queue entry: its cache scope (gh-readonly-queue/...) is one no master or pull request run can restore. It is a step of the job, not of ../action.yml, so lane-budget.sh can leave the upload out of the lane time.
+inputs:
+  state:
+    description: The build-state cache name of this lane, as passed to ../action.yml.
+    required: true
+runs:
+  using: composite
+  steps:
+    - if: github.event_name == 'push'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ env.BUILD_STATE_PATHS }}
+        key: bs-${{ inputs.state }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
