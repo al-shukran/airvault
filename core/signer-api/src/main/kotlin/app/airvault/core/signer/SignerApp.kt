@@ -26,6 +26,14 @@ interface SignerApp : ChainApp {
     fun isForSingleKey(request: AppRequest, address: String): Boolean = false
 
     /**
+     * True when [signer], a key of a Mnemonic wallet that its master fingerprint names, is for one of the accounts the wallet stores under a
+     * derivation path of its own, [storedAccountPaths]. A Bitcoin request names the one account it spends from, so it is for the wallet only when
+     * the wallet stores that account. The default says yes: an app whose keys all derive from the master key stores no such account, so the
+     * fingerprint alone decides.
+     */
+    fun namesStoredAccount(signer: SignerRef, storedAccountPaths: List<Path>): Boolean = true
+
+    /**
      * Signs a request the owner approved (spec 3.2). [keys] is scoped to this app's key scopes by the core, so a path outside them throws
      * [KeyScopeViolation]. The app checks that the key it signs with is the one the request names. An app that has not moved to the one
      * sign flow refuses, since its own step signs it.
