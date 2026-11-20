@@ -10,6 +10,7 @@ import app.lensly.core.algorand.LedgerEd25519
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
+import app.lensly.core.evm.Secp256k1
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.ur.PathStep
 import fr.acinq.bitcoin.Crypto
@@ -159,6 +160,43 @@ class WalletKeyAccessTest {
         assertFailsWith<IllegalArgumentException> { keys.signEcdsaSecp256k1(path, ByteArray(31)) }
         assertFailsWith<IllegalArgumentException> { keys.signSchnorrBip340(path, ByteArray(32), ByteArray(31)) }
     }
+
+    /** The public keys of the Ethereum account keys are the address keys of the HD wallet of the same seed, and their addresses are its addresses. */
+    @Test
+    fun theEthereumPublicKeysAreTheAddressKeysOfTheHdWalletOfTheSameSeed() {
+        val keys = WalletKeyAccess(seed)
+        val wallet = HdWallet(seed)
+        for (account in listOf(0, 1, 7)) {
+            val publicKey = keys.publicKey(Curve.SECP256K1, evmPath(account)).bytes
+            assertEquals(wallet.address(account), AccountAddresses.addressOfKey(AccountXpub(publicKey, ByteArray(32), 0)), "account $account")
+        }
+    }
+
+    @Test
+    fun theEthereumEcdsaSignatureIsTheWeb3jSignatureOfTheHdWalletKey() {
+        val digest = Crypto.sha256("airvault".toByteArray())
+        val expected = Secp256k1.sign(digest, HdWallet(seed).privateKey(3))
+
+        val signed = WalletKeyAccess(seed).signEcdsaSecp256k1(evmPath(3), digest)
+
+        assertContentEquals(expected.r, signed.r)
+        assertContentEquals(expected.s, signed.s)
+        assertEquals(expected.recoveryId, signed.recoveryId)
+    }
+
+    /** An Ethereum account key answers a public key and an ECDSA signature, and no path other than the account's address key. */
+    @Test
+    fun aPathThatIsNotAnEthereumAccountKeyIsRefusedAndNeverMakesABip340Signature() {
+        val keys = WalletKeyAccess(seed)
+        val digest = ByteArray(32)
+        for (text in listOf("m/44'/60'/0'/0/1", "m/44'/60'/0'/1/0", "m/44'/60'/0/0/0", "m/44'/60'/0'/0", "m/44'/60'/0'/0/0/0")) {
+            assertFailsWith<IllegalArgumentException>(text) { keys.publicKey(Curve.SECP256K1, path(text)) }
+            assertFailsWith<IllegalArgumentException>(text) { keys.signEcdsaSecp256k1(path(text), digest) }
+        }
+        assertFailsWith<IllegalArgumentException> { keys.signSchnorrBip340(evmPath(0), digest, null) }
+    }
+
+    private fun evmPath(account: Int): Path = path("m/44'/60'/$account'/0/0")
 
     private fun btcPath(type: ScriptType, account: Int, branch: Int, index: Int): Path =
         path("m/${type.purpose}'/1'/$account'/$branch/$index")

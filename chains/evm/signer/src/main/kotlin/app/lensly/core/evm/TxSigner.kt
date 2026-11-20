@@ -2,6 +2,7 @@ package app.lensly.core.evm
 
 import app.airvault.chains.evm.signer.TxType
 import app.airvault.chains.evm.signer.UnsignedTx
+import app.airvault.core.signer.EcdsaSignature
 import app.lensly.core.parse.CANNOT_BE_READ
 import java.math.BigInteger
 import org.web3j.crypto.ECDSASignature
@@ -14,21 +15,28 @@ object TxSigner {
     private const val SIGNATURE_BYTES = 65
 
     /**
-     * Signs keccak256 of the payload that [tx] rebuilds from its fields, and returns r (32 bytes) || s (32 bytes) || v. The
+     * Signs keccak256 of the payload that [tx] rebuilds from its fields with [privateKey], and returns r (32 bytes) || s (32 bytes) || v. The
      * Parser Sandbox decoded [tx], so it is trusted only as far as the payload matches [signData]: when they differ, nothing
      * is signed. Legacy uses v = chainId * 2 + 35 + recId as minimal big-endian bytes, so v is longer than one byte for real
      * chain IDs (Monad testnet, 10143, gives two bytes). EIP-1559 uses v = recId, one byte of 0 or 1.
      */
-    fun sign(signData: ByteArray, tx: UnsignedTx, privateKey: ByteArray): ByteArray {
+    fun sign(signData: ByteArray, tx: UnsignedTx, privateKey: ByteArray): ByteArray =
+        signatureOf(signData, tx) { digest -> Secp256k1.sign(digest, privateKey) }
+
+    /**
+     * The signature of [tx] in the form [sign] gives it, with the digest signed by [signDigest]. A key that the signer does not hold, such as a
+     * KeyAccess's, signs through it. The payload must be exactly [signData], or nothing is signed.
+     */
+    fun signatureOf(signData: ByteArray, tx: UnsignedTx, signDigest: (ByteArray) -> EcdsaSignature): ByteArray {
         val payload = tx.encode()
         require(payload != null && payload.contentEquals(signData)) { CANNOT_BE_READ }
-        val signature = Secp256k1.sign(Hash.sha3(payload), privateKey)
+        val signature = signDigest(Hash.sha3(payload))
         val v = when (tx.type) {
-            TxType.LEGACY_EIP155 -> BigInteger.valueOf(signature.recId.toLong())
+            TxType.LEGACY_EIP155 -> BigInteger.valueOf(signature.recoveryId.toLong())
                 .add(BigInteger.valueOf(35))
                 .add(tx.chainId.shiftLeft(1))
                 .toMinimalBigEndian()
-            TxType.EIP1559, TxType.EIP2930 -> byteArrayOf(signature.recId.toByte())
+            TxType.EIP1559, TxType.EIP2930 -> byteArrayOf(signature.recoveryId.toByte())
         }
         return signature.r + signature.s + v
     }

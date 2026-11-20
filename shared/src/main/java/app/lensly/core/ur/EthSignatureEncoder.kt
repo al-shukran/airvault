@@ -1,15 +1,16 @@
 package app.lensly.core.ur
 
+import app.airvault.chains.evm.signer.EvmSignResponse
 import com.sparrowwallet.hummingbird.UR
 
 /**
- * ur:eth-signature response. Key 1 is the request UUID (tag 37), key 2 is r || s || v, and key 3 is the origin.
+ * ur:eth-signature, the writing side of the eth-signature type. The payload is built by [EvmSignResponse] in the EVM chain module; this object
+ * only frames it.
  */
 object EthSignatureEncoder {
-    const val DEFAULT_ORIGIN = "Lensly"
+    const val DEFAULT_ORIGIN = EvmSignResponse.DEFAULT_ORIGIN
 
-    internal const val UR_TYPE = "eth-signature"
-    private const val UUID_TAG = 37L
+    internal const val UR_TYPE = EvmSignResponse.UR_TYPE
     internal const val MIN_SIGNATURE_BYTES = 65
     // Legacy v (chainId * 2 + 35 + recId) is at most 8 bytes for any realistic chain ID.
     internal const val MAX_SIGNATURE_BYTES = 80
@@ -28,13 +29,6 @@ object EthSignatureEncoder {
     ): Sequence<String> {
         require(requestId.size == 16) { "requestId must be 16 bytes" }
         require(signature.size in MIN_SIGNATURE_BYTES..MAX_SIGNATURE_BYTES) { "signature must be r || s || v" }
-        val payload = Cbor.Dict(
-            listOf(
-                Cbor.Uint(1L) to Cbor.Tagged(UUID_TAG, Cbor.Bytes(requestId)),
-                Cbor.Uint(2L) to Cbor.Bytes(signature),
-                Cbor.Uint(3L) to Cbor.Text(origin),
-            ),
-        )
-        return framesOf(UR(UR_TYPE, Cbor.encode(payload)), maxFragment)
+        return framesOf(UR(UR_TYPE, EvmSignResponse.cbor(requestId, signature, origin)), maxFragment)
     }
 }
