@@ -39,7 +39,6 @@ import app.lensly.ui.home.HomeReadiness
 import app.lensly.ui.home.ImportState
 import app.lensly.ui.home.RegistryImportScreen
 import app.lensly.ui.home.SolanaAccountsScreen
-import app.lensly.ui.home.SoonScreen
 import app.lensly.ui.home.WalletDetailScreen
 import app.lensly.ui.home.WalletHomeScreen
 import app.lensly.ui.home.WalletsScreen
@@ -361,11 +360,6 @@ class HomeScreensScreenshotTest {
                 "Signature check failed. The file was altered, or it was not signed with the release key.",
             ),
         )
-    }
-
-    @Test
-    fun soonPlaceholder() = compose.snapshot("soon_placeholder") {
-        SoonScreen(onBack = {})
     }
 
     @Composable

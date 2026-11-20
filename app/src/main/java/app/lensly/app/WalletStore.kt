@@ -20,7 +20,7 @@ import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
 import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
 import app.lensly.core.solana.SolanaAccount
-import app.lensly.core.ur.PathStep
+import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WalletRecordNames
 import app.lensly.core.wallet.AccountAddresses
@@ -45,6 +45,9 @@ private const val UINT32_MASK = 0xFFFFFFFFL
 
 /** The name a pairing carries for a wallet that has none. */
 private const val DEFAULT_PAIRING_NAME = "Lensly"
+
+/** A Bitcoin Bulk Run refused because the wallet would keep more Bitcoin accounts than [PairingCodec.MAX_BITCOIN_ACCOUNTS]. Nothing is saved. */
+class BitcoinCapReached : IllegalArgumentException("A wallet keeps at most ${PairingCodec.MAX_BITCOIN_ACCOUNTS} Bitcoin accounts.")
 
 /**
  * What a wallet's secret is. A Mnemonic wallet holds a 24-word Mnemonic and an optional Passphrase, and every account
@@ -91,6 +94,11 @@ data class WalletMeta(
      * Single Key import. A wallet with it false is asked for a backup on Home.
      */
     val seedBackedUp: Boolean = true,
+    /**
+     * True once the wallet's first accounts are written. [WalletStore.create] saves a Mnemonic wallet incomplete and then completes it.
+     * [WalletStore.list] shows only complete wallets, and [WalletStore.dropIncomplete] removes the others when a vault opens.
+     */
+    val complete: Boolean = true,
 )
 
 /**
@@ -116,9 +124,9 @@ sealed interface WalletSecret {
  * a profile has one more, and so does a wallet with a profile. All of them use DataOutputStream and DataInputStream behind
  * a version byte. None is JSON.
  *
- * - `meta`, version 4: kind (byte), name (UTF), created-at ms (long), device-generated (boolean), account count (int), seed backed up
- *   (boolean). A Mnemonic wallet then has master fingerprint hex (UTF), account public key and chain code (each an int length,
- *   then bytes), and parent fingerprint (int). A Single Key wallet has nothing more.
+ * - `meta`, version 5: kind (byte), name (UTF), created-at ms (long), device-generated (boolean), account count (int), seed backed up
+ *   (boolean), complete (boolean). A Mnemonic wallet then has master fingerprint hex (UTF), account public key and chain code (each an int
+ *   length, then bytes), and parent fingerprint (int). A Single Key wallet has nothing more.
  * - `secret`, version 1 for a Mnemonic wallet: word count (byte), each word (UTF), has-passphrase (boolean), then the
  *   passphrase (UTF) when present. Version 2 for a Single Key wallet: the 32-byte private key.
  * - `account-<index>`, version 2: a flags byte, then each field the flags name, in order: the Display Name (UTF), the colour
@@ -141,10 +149,28 @@ sealed interface WalletSecret {
  */
 class WalletStore(private val session: VaultSession) {
 
-    /** Wallets whose metadata reads cleanly, oldest first. */
+    /** Complete wallets whose metadata reads cleanly, oldest first. A wallet whose first accounts are not written yet is not listed. */
     fun list(): List<WalletMeta> = session.listWallets()
         .mapNotNull { id -> meta(id) }
+        .filter { it.complete }
         .sortedBy { it.createdAtMs }
+
+    /**
+     * Removes every wallet that is not complete: one a crash left before its first accounts were written, and one saved by an earlier build,
+     * whose metadata no longer reads. Called when a vault opens. A wallet that cannot be read or deleted now is kept for the next open, so
+     * an unreadable folder never stops the vault opening.
+     */
+    fun dropIncomplete() {
+        for (id in session.listWallets()) {
+            try {
+                if (meta(id)?.complete != true) session.deleteWallet(id)
+            } catch (e: IOException) {
+                continue
+            } catch (e: VaultException) {
+                continue
+            }
+        }
+    }
 
     /** The metadata of wallet [id], or null if it does not exist or cannot be read. */
     fun meta(id: String): WalletMeta? {
@@ -171,7 +197,9 @@ class WalletStore(private val session: VaultSession) {
 
     /**
      * Saves a new wallet with one account of each App and returns its id. The secret is written first, then the name and the metadata, which
-     * the first accounts are added to. Each App then adds its first account, in [WalletApp] order. If a write fails, the partial wallet is removed.
+     * the first accounts are added to. The metadata is saved incomplete. Each App then adds its first account, in [WalletApp] order, and the
+     * metadata is saved complete last, so a crash before that leaves a wallet [list] does not show. If a write fails, the partial wallet
+     * is removed.
      *
      * @throws IllegalArgumentException if [words] is not a valid 24-word mnemonic.
      */
@@ -201,10 +229,13 @@ class WalletStore(private val session: VaultSession) {
                 masterFingerprintHex = fingerprint,
                 accountKeys = emptyList(),
                 seedBackedUp = seedBackedUp,
+                complete = false,
             )
             session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName(name))
             session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(meta))
             WalletApp.entries.forEach { app -> app.firstAccount(this, id) }
+            val done = requireNotNull(this.meta(id)) { "No wallet $id." }
+            session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(done.copy(complete = true)))
         } catch (e: Throwable) {
             session.deleteWallet(id)
             throw e
@@ -318,15 +349,7 @@ class WalletStore(private val session: VaultSession) {
      * The derivation path m/purpose'/coin'/account' of each Bitcoin account of wallet [id], in the order they were added. A request names the account
      * it spends from by such a path, so the sign flow matches requests against these.
      */
-    fun storedAccountPaths(id: String): List<Path> = bitcoinAccounts(id).map { account ->
-        Path(
-            listOf(
-                PathStep(account.scriptType.purpose, hardened = true),
-                PathStep(account.network.coinType, hardened = true),
-                PathStep(account.index, hardened = true),
-            ),
-        )
-    }
+    fun storedAccountPaths(id: String): List<Path> = bitcoinAccounts(id).map { it.storedPath }
 
     /**
      * A Bitcoin Bulk Run: adds [count] accounts of [scriptType] on [network] to wallet [id], numbered after the ones it already has
@@ -334,8 +357,9 @@ class WalletStore(private val session: VaultSession) {
      * run with nothing written. The record is written under the session's lock. If the wallet's Bitcoin accounts changed while the run
      * was deriving, nothing is saved and the result is null. [onProgress] receives the number of accounts derived so far.
      *
-     * @throws IllegalArgumentException if [count] is outside 1 to [cap], the wallet is missing, it is a Single Key wallet, which has no
-     * seed, or it would keep more than [PairingCodec.MAX_BITCOIN_ACCOUNTS] Bitcoin accounts. Nothing is saved then.
+     * @throws IllegalArgumentException if [count] is outside 1 to [cap], the wallet is missing, or it is a Single Key wallet, which has no
+     * seed.
+     * @throws BitcoinCapReached if it would keep more than [PairingCodec.MAX_BITCOIN_ACCOUNTS] Bitcoin accounts. Nothing is saved then.
      */
     fun addBitcoinAccounts(
         id: String,
@@ -351,9 +375,7 @@ class WalletStore(private val session: VaultSession) {
         val current = requireNotNull(meta(id)) { "No wallet $id." }
         require(current.kind == WalletKind.MNEMONIC) { SINGLE_KEY_NO_BITCOIN }
         val existing = bitcoinAccounts(id)
-        require(existing.size + count <= PairingCodec.MAX_BITCOIN_ACCOUNTS) {
-            "A wallet keeps at most ${PairingCodec.MAX_BITCOIN_ACCOUNTS} Bitcoin accounts."
-        }
+        if (existing.size + count > PairingCodec.MAX_BITCOIN_ACCOUNTS) throw BitcoinCapReached()
         val indices = BulkPolicy.indexRange(nextBitcoinIndex(existing, scriptType, network), count)
         val secret = mnemonicSecret(id)
         val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
@@ -1059,7 +1081,7 @@ internal object WalletRecords {
     private const val ALGORAND_KEY_BYTES = 32
 
     /** The version of a meta record. */
-    private const val META_VERSION = 4
+    private const val META_VERSION = 5
 
     /** The secret version of a Mnemonic wallet. A Single Key wallet's secret is version 2. */
     private const val MNEMONIC_SECRET_VERSION = 1
@@ -1288,6 +1310,7 @@ internal object WalletRecords {
         out.writeBoolean(meta.deviceGenerated)
         out.writeInt(meta.accountCount)
         out.writeBoolean(meta.seedBackedUp)
+        out.writeBoolean(meta.complete)
         when (meta.kind) {
             WalletKind.MNEMONIC -> {
                 require(meta.accountKeys.size == meta.accountCount) { "A Mnemonic wallet needs a public key for each account." }
@@ -1314,6 +1337,7 @@ internal object WalletRecords {
         val deviceGenerated = input.readBoolean()
         val accountCount = input.readInt()
         val seedBackedUp = input.readBoolean()
+        val complete = input.readBoolean()
         when (kind) {
             WalletKind.MNEMONIC -> {
                 val fingerprintHex = input.readUTF()
@@ -1333,6 +1357,7 @@ internal object WalletRecords {
                     accountKeys = keys,
                     kind = kind,
                     seedBackedUp = seedBackedUp,
+                    complete = complete,
                 )
             }
             WalletKind.SINGLE_KEY -> WalletMeta(
@@ -1345,6 +1370,7 @@ internal object WalletRecords {
                 accountKeys = emptyList(),
                 kind = kind,
                 seedBackedUp = seedBackedUp,
+                complete = complete,
             )
         }
     }

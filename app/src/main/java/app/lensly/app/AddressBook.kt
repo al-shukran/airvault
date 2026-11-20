@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.lensly.app.export.PairingCodec
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
 import java.io.ByteArrayInputStream
@@ -11,16 +12,19 @@ import java.io.IOException
 /** The most characters an entry's notes take. */
 const val ADDRESS_NOTES_MAX_LENGTH = 200
 
-/** True when [notes] is an entry's notes: up to [ADDRESS_NOTES_MAX_LENGTH] characters, with no control character. */
-fun isValidAddressNotes(notes: String): Boolean = notes.length <= ADDRESS_NOTES_MAX_LENGTH && notes.none { it.isISOControl() }
+/**
+ * True when [notes] is an entry's notes: up to [ADDRESS_NOTES_MAX_LENGTH] characters, with no control or hidden format character. A bidi
+ * override or a zero-width character would change how the review reads them, so they are refused as in a name.
+ */
+fun isValidAddressNotes(notes: String): Boolean = notes.length <= ADDRESS_NOTES_MAX_LENGTH && PairingCodec.hasNoHiddenCharacter(notes)
 
 /**
  * The entry that the form's [address], [name], [label] and [notes] make, under [id]. [book] holds the entries already saved, so an address
  * is in the book once on its chain. The chain is the one the address is valid on.
  *
  * @throws IllegalArgumentException with the reason, when the address is not a valid Ethereum, Bitcoin, Solana or Algorand address, another
- * entry of [book] has the address on the same chain, the name is not a Display Name, the label is too long or has a control character, or
- * the notes are too long or have one.
+ * entry of [book] has the address on the same chain, the name is not a Display Name, the label is too long or has a control or hidden
+ * character, or the notes are too long or have one.
  */
 fun addressBookEntryOf(
     id: String,
@@ -36,11 +40,15 @@ fun addressBookEntryOf(
         "That address is already in the Address Book."
     }
     val shownName = name.trim()
-    require(isValidDisplayName(shownName)) { "Enter a name of 1 to $DISPLAY_NAME_MAX_LENGTH characters." }
+    require(isValidDisplayName(shownName)) {
+        "Enter a name of 1 to $DISPLAY_NAME_MAX_LENGTH characters, with no control, hidden or question mark character."
+    }
     val shownLabel = label.trim()
     require(shownLabel.isEmpty() || isValidProfileText(shownLabel)) { "Enter a label of up to $PROFILE_TEXT_MAX_LENGTH characters." }
     val shownNotes = notes.trim()
-    require(shownNotes.isEmpty() || isValidAddressNotes(shownNotes)) { "Enter notes of up to $ADDRESS_NOTES_MAX_LENGTH characters." }
+    require(shownNotes.isEmpty() || isValidAddressNotes(shownNotes)) {
+        "Enter notes of up to $ADDRESS_NOTES_MAX_LENGTH characters, with no control or hidden character."
+    }
     return AddressBookEntry(
         id = id,
         address = canonical,
@@ -116,6 +124,10 @@ class AddressBookStore(private val session: VaultSession) {
                     val name = input.readText()
                     val label = input.readText().ifEmpty { null }
                     val notes = input.readText().ifEmpty { null }
+                    // An entry is read through the checks that saving runs. A record that fails them is refused, not shown.
+                    require(isValidDisplayName(name)) { "An Address Book name is not a valid name." }
+                    require(label == null || isValidProfileText(label)) { "An Address Book label is not valid text." }
+                    require(notes == null || isValidAddressNotes(notes)) { "Address Book notes are not valid text." }
                     AddressBookEntry(id = id, address = address, name = name, label = label, notes = notes)
                 }
             }

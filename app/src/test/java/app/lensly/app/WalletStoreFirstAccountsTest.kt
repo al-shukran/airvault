@@ -1,16 +1,22 @@
 package app.lensly.app
 
+import app.airvault.core.model.AppId
+import app.lensly.app.export.PairingCodec
+import app.lensly.app.export.PairingPayload
 import app.lensly.chains.installedSigners
+import app.lensly.chains.signerRegistry
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.solana.SolanaAccount
+import app.lensly.core.ur.UrScanner
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.Mnemonic
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import org.junit.After
 import org.junit.Before
@@ -65,12 +71,38 @@ class WalletStoreFirstAccountsTest {
     fun aNewWalletHasOneAccountPerInstalledChainApp() {
         val id = store.create(name = "Demo", deviceGenerated = false, words = DEMO_WORDS, passphrase = null, nowMs = 1L)
 
-        // The four Apps of a wallet are the installed chain apps, so a new one is added to both lists.
-        assertEquals(installedSigners.size, WalletApp.entries.size)
-        assertEquals(1, store.ethereumAccounts(id)?.addresses?.size)
-        assertEquals(1, store.bitcoinAccounts(id).size)
-        assertEquals(1, store.solanaKeys(id).size)
-        assertEquals(1, store.algorandKeys(id).size)
+        // Every installed chain app is a WalletApp, and each WalletApp holds exactly one account of the new wallet.
+        assertEquals(installedIds(), WalletApp.entries.map { it.appId }.toSet())
+        val created = WalletApp.entries.associate { app -> app.appId to accountCountOf(app, id) }
+        installedIds().forEach { appId -> assertEquals(1, created[appId], "The new wallet's accounts of $appId.") }
+    }
+
+    @Test
+    fun thePairingHoldsOneAccountPerInstalledChainApp() {
+        val id = store.create(name = "Demo", deviceGenerated = false, words = DEMO_WORDS, passphrase = null, nowMs = 1L)
+
+        // Each paired account is matched to the installed app that serves its chain. None may go unmatched.
+        val paired = pairingOf(store.pairingParts(id, null)).accounts
+            .groupingBy { signerRegistry.byChain(it.export.chain)?.manifest?.id }
+            .eachCount()
+        assertFalse(paired.containsKey(null), "A paired account is on no installed chain.")
+        installedIds().forEach { appId -> assertEquals(1, paired[appId], "The pairing's accounts of $appId.") }
+    }
+
+    private fun installedIds(): Set<AppId> = installedSigners.map { it.manifest.id }.toSet()
+
+    private fun accountCountOf(app: WalletApp, id: String): Int = when (app) {
+        WalletApp.BITCOIN -> store.bitcoinAccounts(id).size
+        WalletApp.ETHEREUM -> store.ethereumAccounts(id)?.addresses?.size ?: 0
+        WalletApp.SOLANA -> store.solanaKeys(id).size
+        WalletApp.ALGORAND -> store.algorandKeys(id).size
+    }
+
+    /** The pairing that [parts] carry, read as the online companion reads it. */
+    private fun pairingOf(parts: List<String>): PairingPayload {
+        val scanner = UrScanner()
+        parts.forEach { scanner.receive(it) }
+        return PairingCodec.fromUr(assertNotNull(scanner.result()), null)
     }
 
     private companion object {

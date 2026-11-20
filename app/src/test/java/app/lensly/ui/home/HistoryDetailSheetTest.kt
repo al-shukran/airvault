@@ -19,6 +19,7 @@ import app.lensly.app.sign.BitcoinRecordOutput
 import app.lensly.app.sign.ReviewKind
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
+import app.lensly.core.registry.NetworkEntry
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.theme.LumenTheme
 import kotlin.test.assertEquals
@@ -48,7 +49,7 @@ class HistoryDetailSheetTest {
     private val algorandCreator = "YEO767URJECB5BKVVIH4ZOBCN5EHGHLU5RCQPRBSCPQ3OBPVMFOYGSM47U"
 
     private fun evmRecord() = record(
-        networkName = "Monad testnet",
+        networkName = "Monad Testnet",
         address = sender,
         to = recipient,
         amount = "0.01 MON",
@@ -85,13 +86,14 @@ class HistoryDetailSheetTest {
         record: ReviewRecord,
         book: List<AddressBookEntry> = emptyList(),
         accounts: Map<String, InternalAccount> = emptyMap(),
+        networks: List<NetworkEntry> = sampleNetworks,
         onOpen: (String, ChainId) -> Unit = { _, _ -> },
     ) {
         compose.setContent {
             LumenTheme {
                 HistoryDetailSheet(
                     record = record,
-                    networks = emptyList(),
+                    networks = networks,
                     addressBook = book,
                     accounts = accounts,
                     onDismiss = {},
@@ -113,6 +115,19 @@ class HistoryDetailSheetTest {
         // The sender is not in the Address Book, so its row says so. The recipient is, so only one row says it.
         compose.onAllNodesWithText("Not in address book").assertCountEquals(1)
         compose.onAllNodesWithText("Add to Address Book").assertCountEquals(0)
+    }
+
+    /** An address row takes the logo of the registry network its record names. A network the registry does not list shows a letter instead. */
+    @Test
+    fun aRecordOnARegisteredNetworkShowsItsLogoNotALetter() {
+        setSheet(evmRecord())
+        compose.onAllNodesWithText("M").assertCountEquals(0)
+    }
+
+    @Test
+    fun aRecordOnANetworkTheRegistryDoesNotListShowsALetterForEachAddress() {
+        setSheet(evmRecord(), networks = emptyList())
+        compose.onAllNodesWithText("M").assertCountEquals(2)
     }
 
     @Test

@@ -86,8 +86,11 @@ class ChainRegistryTest {
 
     @Test
     fun acceptsHardenedSlip10PathsAndNonHardenedBip32Paths() {
-        ChainRegistry(listOf(FakeApp(withKeys(scope("m/44'/283'/0'/0'", Curve.ED25519_SLIP10)))))
-        ChainRegistry(listOf(FakeApp(withKeys(scope("m/44'/283'/*'/0/0", Curve.ED25519_BIP32)))))
+        val slip10 = FakeApp(withKeys(scope("m/44'/283'/0'/0'", Curve.ED25519_SLIP10)))
+        val bip32 = FakeApp(withKeys(scope("m/44'/283'/*'/0/0", Curve.ED25519_BIP32)))
+        // A manifest that a rule refuses throws, so each registry is built and then checked to index its app.
+        assertSame(slip10, ChainRegistry(listOf(slip10)).byChain(ChainId("testns:1")))
+        assertSame(bip32, ChainRegistry(listOf(bip32)).byChain(ChainId("testns:1")))
     }
 
     @Test

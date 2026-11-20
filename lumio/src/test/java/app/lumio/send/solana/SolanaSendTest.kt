@@ -278,13 +278,22 @@ class SolanaSendTest {
         }
     }
 
-    /** A setup that failed for another reason, and a send refused for its nonce, keep their request as before. */
+    /**
+     * Back from a send that the network refused for its nonce goes to its form, not its request: the request names the nonce that moved, so a
+     * signature scanned from it would be refused again. Making the send again reads the nonce that the network holds now.
+     */
+    @Test
+    fun aSendRefusedForItsNonceLeavesToItsForm() {
+        assertIs<SolanaSendStep.Form>(
+            unsentExit(failedSubmit(plan(), setup = false, failure = ProviderError.Fatal(JsonRpc.BLOCKHASH_REFUSED_MESSAGE))),
+        )
+    }
+
+    /** A setup that failed for another reason, and a send that failed for another reason, keep their request as before. */
     @Test
     fun otherFailuresLeaveToTheirRequest() {
         assertIs<SolanaSendStep.Request>(unsentExit(failedSubmit(setupPlan(window), setup = true, failure = ProviderError.Transient())))
-        assertIs<SolanaSendStep.Request>(
-            unsentExit(failedSubmit(plan(), setup = false, failure = ProviderError.Fatal(JsonRpc.BLOCKHASH_REFUSED_MESSAGE))),
-        )
+        assertIs<SolanaSendStep.Request>(unsentExit(failedSubmit(plan(), setup = false, failure = ProviderError.Transient())))
     }
 
     /** A setup that the owner has not submitted yet goes back to its request, since nothing has been refused. */
