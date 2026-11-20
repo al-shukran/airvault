@@ -1,6 +1,7 @@
 package app.airvault.chains.bitcoin.signer
 
 import app.airvault.chains.bitcoin.BitcoinAddressCodec
+import app.airvault.chains.bitcoin.bitcoinManifest
 import app.airvault.core.model.AddressCodec
 import app.airvault.core.model.Approval
 import app.airvault.core.model.ChainId
@@ -21,6 +22,9 @@ import app.lensly.core.btc.ScriptType
  * The owner's Bitcoin policies are the signer's own, so a signature is made under the policies its review was made under. An instance built
  * with the core defaults is the one the installed list holds. The one sign flow signs with an instance built from the owner's settings.
  */
+/** The levels of an account path m/purpose'/coin'/account'. A request names its accounts at this depth. */
+internal const val ACCOUNT_DEPTH = 3
+
 class BitcoinSigner(
     private val inputPolicy: InputVerificationPolicy = InputVerificationPolicy.STRICT,
     private val sourcePolicy: SigningSourcePolicy = SigningSourcePolicy.ANY,

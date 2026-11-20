@@ -26,6 +26,9 @@ enum class InputVerificationPolicy(
     }
 }
 
+/** The key of the Bitcoin signing source in the owner's settings. The Bitcoin app declares its own setting, so Lensly stores it per app. */
+const val SIGNING_SOURCE_SETTING = "bitcoin.signing-source"
+
 /** The owner's rule for which online side may ask for a Bitcoin signature. */
 enum class SigningSourcePolicy(
     /** The code the vault stores this policy as. A stored code never changes. */

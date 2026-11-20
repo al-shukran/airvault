@@ -4,6 +4,7 @@ import app.airvault.core.model.Curve
 import app.lensly.app.export.AlgorandPairingKeys
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.wallet.Ed25519Signer
+import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.WalletKeyAccess
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
@@ -121,11 +122,10 @@ class WalletStoreAlgorandTest {
 
         assertEquals(WalletApp.ALGORAND, WalletApp.fromRouteId("algorand"))
         assertEquals(listOf(WalletApp.BITCOIN, WalletApp.ETHEREUM, WalletApp.SOLANA, WalletApp.ALGORAND), WalletApp.entries)
-        assertEquals("algorand", WalletApp.ALGORAND.pairedApp(store, id, seed)?.app)
-        assertEquals(
-            listOf("bitcoin", "ethereum", "solana", "algorand"),
-            WalletApp.entries.mapNotNull { it.pairedApp(store, id, seed)?.app },
-        )
+        val fingerprint = HdWallet(seed).masterFingerprint
+        assertEquals(listOf("algorand", "algorand"), WalletApp.ALGORAND.pairedAccounts(store, id, seed, fingerprint).map { it.export.chain.namespace })
+        // The pairing lists the accounts of every App in the order of the Apps, so the two Algorand accounts come last.
+        assertEquals(listOf("algorand", "algorand"), WalletApp.entries.flatMap { it.pairedAccounts(store, id, seed, fingerprint) }.takeLast(2).map { it.export.chain.namespace })
     }
 
     @Test
@@ -134,23 +134,22 @@ class WalletStoreAlgorandTest {
         val seed = seed()
         store.addAlgorandAccounts(id, 2, cap)
 
-        val app = AlgorandPairingKeys.paired(WalletApp.ALGORAND.routeId, store, id, seed)
+        val accounts = AlgorandPairingKeys.paired(store, id, seed, HdWallet(seed).masterFingerprint)
 
-        assertEquals("algorand", app.app)
         assertEquals(
             listOf(
                 listOf(hardened(44), hardened(283), hardened(0), 0L, 0L),
                 listOf(hardened(44), hardened(283), hardened(1), 0L, 0L),
             ),
-            app.keys.map { it.path },
+            accounts.map { account -> account.export.signer.path.map { step -> if (step.hardened) hardened(step.index.toLong()) else step.index.toLong() } },
         )
-        app.keys.forEachIndexed { index, key ->
-            assertEquals(5, key.path.size)
-            assertContentEquals(AlgorandAccount.publicKey(seed, index), key.material)
-            assertEquals(null, key.chainCode)
+        accounts.forEachIndexed { index, account ->
+            assertEquals(5, account.export.signer.path.size)
+            assertContentEquals(AlgorandAccount.publicKey(seed, index), account.export.publicKey.bytes)
+            assertEquals(null, account.export.chainCode)
         }
-        assertEquals(listOf(0, 1), app.accounts.map { it.key })
-        assertEquals("Test 0", app.accounts.first().name)
+        assertEquals(listOf(0, 1), accounts.map { it.export.signer.path[2].index })
+        assertEquals("Test 0", accounts.first().name)
     }
 
     @Test

@@ -1,11 +1,13 @@
 package app.lumio.pair
 
+import app.airvault.chains.algorand.algorandMainnet
 import app.airvault.chains.algorand.wallet.AlgorandWallet
+import app.airvault.core.model.Curve
 import app.airvault.core.model.AccountId
 import app.lensly.app.export.PairingAccount
-import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingCodec
-import app.lensly.app.export.PairingKey
+import app.lensly.app.export.accountSteps
+import app.lensly.app.export.keyExport
 import app.lensly.app.export.PairingPayload
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.vault.MemoryKeystore
@@ -51,7 +53,15 @@ class PairAlgorandTest {
 
     @Test
     fun anAlgorandKeyOnAnotherPathIsRefused() {
-        val wrongPath = algorandKeys().map { key -> key.copy(path = key.path.dropLast(1) + (key.path.last() + 1)) }
+        // The last level of an Algorand account key is 0, so a key at level 1 is outside its key scope.
+        val wrongPath = (0 until 2).map { index ->
+            PairingAccount(
+                keyExport(algorandMainnet, PairFixtures.fingerprint(SEED), accountSteps(44, 283, index, 0, 1), Curve.ED25519_BIP32, AlgorandAccount.publicKey(SEED, index)),
+                "Algorand $index",
+                null,
+                null,
+            )
+        }
 
         assertThrows(PairingRefusal::class.java) { roundTrip(payload(algorand = wrongPath)) }
     }
@@ -121,31 +131,11 @@ class PairAlgorandTest {
     private fun roundTrip(payload: PairingPayload): PairingPayload =
         PairImport.of(UR(PairingCodec.UR_TYPE, PairingCodec.encode(payload, null)))
 
-    /** The Algorand keys of accounts 0 and 1, as Lensly's pairing carries them: the public key and the chain code of each. */
-    private fun algorandKeys(): List<PairingKey> = (0 until 2).map { index ->
-        PairingKey.algorandAccount(index, AlgorandAccount.publicKey(SEED, index))
-    }
+    /** The Algorand accounts 0 and 1, as Lensly's pairing carries them: the public key of each, at its path. */
+    private fun algorandKeys(): List<PairingAccount> = (0 until 2).map { index -> PairFixtures.algorandAccount(index, "Algorand $index", SEED) }
 
-    private fun payload(algorand: List<PairingKey>): PairingPayload {
-        val ethereum = PairingApp(
-            app = PairImport.ETHEREUM,
-            keys = listOf(PairingKey.ethereumAddress(0, PairFixtures.address(SEED, 0))),
-            accounts = listOf(PairingAccount(key = 0, name = "Main", label = null, group = null)),
-        )
-        val algorandApp = PairingApp(
-            app = PairImport.ALGORAND,
-            keys = algorand,
-            accounts = algorand.indices.map { index ->
-                PairingAccount(key = index, name = "Algorand $index", label = null, group = null)
-            },
-        )
-        return PairingPayload(
-            fingerprint = 0x5436D724L,
-            name = "Demo",
-            autoNameBase = "Demo",
-            apps = listOf(ethereum, algorandApp),
-        )
-    }
+    private fun payload(algorand: List<PairingAccount>): PairingPayload =
+        PairFixtures.payloadOf(listOf(PairFixtures.ethereumAccount(0, "Main", seed = SEED)) + algorand, seed = SEED, name = "Demo", base = "Demo")
 
     private companion object {
         /** Mnemonic A's 64-byte BIP39 seed, with no passphrase. */

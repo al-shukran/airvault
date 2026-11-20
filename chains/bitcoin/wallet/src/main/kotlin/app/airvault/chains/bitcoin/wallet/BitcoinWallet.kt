@@ -1,7 +1,7 @@
 package app.airvault.chains.bitcoin.wallet
 
 import app.airvault.chains.bitcoin.BitcoinAddressCodec
-import app.airvault.chains.bitcoin.signer.bitcoinManifest
+import app.airvault.chains.bitcoin.bitcoinManifest
 import app.airvault.core.model.AccountId
 import app.airvault.core.model.AddressCodec
 import app.airvault.core.model.AddressKind

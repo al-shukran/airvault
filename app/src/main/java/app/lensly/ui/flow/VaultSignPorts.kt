@@ -8,7 +8,7 @@ import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.BtcRefusal
 import app.airvault.chains.bitcoin.signer.BtcRefusedException
 import app.airvault.chains.bitcoin.signer.NOT_A_PSBT
-import app.airvault.chains.bitcoin.signer.bitcoinManifest
+import app.airvault.chains.bitcoin.bitcoinManifest
 import app.airvault.chains.evm.evmManifest
 import app.airvault.chains.evm.signer.EvmSigner
 import app.airvault.chains.evm.signer.EvmRequestBody
@@ -312,7 +312,7 @@ internal class VaultSignPorts(
                 walletId,
                 parsed,
                 settings.bitcoinInputPolicy,
-                settings.bitcoinSigningSource,
+                settings.bitcoinSigningSource(),
                 settings.bitcoinFeeThresholds,
                 book,
             )
@@ -417,7 +417,7 @@ internal class VaultSignPorts(
         val installed = installedSignerOf(app) ?: return null
         if (installed !is BitcoinSigner) return installed
         val settings = SettingsStore(session).load()
-        return BitcoinSigner(settings.bitcoinInputPolicy, settings.bitcoinSigningSource, settings.bitcoinFeeThresholds)
+        return BitcoinSigner(settings.bitcoinInputPolicy, settings.bitcoinSigningSource(), settings.bitcoinFeeThresholds)
     }
 
     /** The installed signer of app [app], or null when no installed app has that id. */

@@ -1,7 +1,7 @@
 package app.lensly.app.sign
 
 import app.airvault.chains.algorand.algorandManifest
-import app.airvault.chains.bitcoin.signer.bitcoinManifest
+import app.airvault.chains.bitcoin.bitcoinManifest
 import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.chains.solana.SOLANA_MAINNET

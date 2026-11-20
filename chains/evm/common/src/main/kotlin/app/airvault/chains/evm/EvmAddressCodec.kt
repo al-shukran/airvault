@@ -5,6 +5,7 @@ import app.airvault.core.model.AddressError
 import app.airvault.core.model.AddressKind
 import app.airvault.core.model.AddressResult
 import app.airvault.core.model.ChainId
+import org.bouncycastle.asn1.sec.SECNamedCurves
 import org.bouncycastle.crypto.digests.KeccakDigest
 
 private const val EVM_NAMESPACE = "eip155"
@@ -23,12 +24,18 @@ object EvmAddressCodec : AddressCodec {
         return AddressResult.Invalid(reason)
     }
 
-    /** The address of an uncompressed public key: the last 20 bytes of the Keccak-256 of its X and Y coordinates. */
+    /**
+     * The address of a secp256k1 public key, uncompressed (65 bytes) or compressed (33 bytes): the last 20 bytes of the Keccak-256 of its X and
+     * Y coordinates. A compressed key that is not on the curve throws IllegalArgumentException.
+     */
     override fun fromPublicKey(chain: ChainId, publicKey: ByteArray, kind: AddressKind): String {
         val xy = when {
             publicKey.size == UNCOMPRESSED_KEY_BYTES && publicKey[0] == UNCOMPRESSED_PREFIX -> publicKey.copyOfRange(1, publicKey.size)
             publicKey.size == XY_BYTES -> publicKey
-            else -> throw IllegalArgumentException("An Ethereum address needs an uncompressed public key of 65 bytes")
+            publicKey.size == COMPRESSED_KEY_BYTES -> SECP256K1.curve.decodePoint(publicKey).normalize().let { point ->
+                point.affineXCoord.encoded + point.affineYCoord.encoded
+            }
+            else -> throw IllegalArgumentException("An Ethereum address needs a public key of 33 bytes (compressed) or 65 bytes (uncompressed)")
         }
         val hash = keccak256(xy)
         return toChecksumAddress("0x" + hash.copyOfRange(hash.size - ADDRESS_BYTES, hash.size).toHex())
@@ -38,6 +45,8 @@ object EvmAddressCodec : AddressCodec {
 private const val EVM_ADDRESS_LENGTH = 42
 private const val ADDRESS_BYTES = 20
 private const val XY_BYTES = 64
+private const val COMPRESSED_KEY_BYTES = 33
+private val SECP256K1 = SECNamedCurves.getByName("secp256k1")
 private const val UNCOMPRESSED_KEY_BYTES = 65
 private const val UNCOMPRESSED_PREFIX: Byte = 0x04
 

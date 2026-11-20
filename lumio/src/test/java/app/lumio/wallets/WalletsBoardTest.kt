@@ -2,9 +2,7 @@ package app.lumio.wallets
 
 import android.os.Looper
 import app.lensly.app.export.PairingAccount
-import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingCodec
-import app.lensly.app.export.PairingKey
 import app.lensly.app.export.PairingPayload
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
@@ -21,6 +19,7 @@ import app.lumio.data.tx.TxAsset
 import app.lumio.data.tx.TxDirection
 import app.lumio.data.tx.TxStatus
 import app.lumio.network.NetworkMode
+import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairImport
 import app.lumio.pair.PairedWallets
 import com.sparrowwallet.hummingbird.UR
@@ -80,13 +79,7 @@ class WalletsBoardTest {
             fingerprint = 0x5436D724L,
             name = "Demo",
             autoNameBase = "Demo",
-            apps = listOf(
-                PairingApp(
-                    app = PairImport.ETHEREUM,
-                    keys = listOf(PairingKey.ethereumAddress(0, ADDRESS)),
-                    accounts = listOf(PairingAccount(key = 0, name = "Main", label = null, group = null)),
-                ),
-            ),
+            accounts = listOf(PairFixtures.ethereumAccount(0, "Main")),
         )
         return PairImport.of(UR(PairingCodec.UR_TYPE, PairingCodec.encode(payload, null)))
     }

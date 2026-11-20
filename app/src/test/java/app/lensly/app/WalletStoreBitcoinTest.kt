@@ -2,9 +2,7 @@ package app.lensly.app
 
 import app.lensly.app.export.LabelledPairingGolden
 import app.lensly.app.export.PairingAccount
-import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingCodec
-import app.lensly.app.export.PairingKey
 import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcCoin
@@ -115,7 +113,7 @@ class WalletStoreBitcoinTest {
 
         assertTrue(store.bitcoinAccounts(id).isEmpty())
         // The pairing still covers the wallet: its Bitcoin App is listed with no keys, so Lumio drops any Bitcoin account it held.
-        assertTrue(pairingOf(store.pairingParts(id, null)).apps.single { it.app == "bitcoin" }.keys.isEmpty())
+        assertTrue(pairingOf(store.pairingParts(id, null)).onChain("bip122").isEmpty())
     }
 
     @Test
@@ -215,7 +213,7 @@ class WalletStoreBitcoinTest {
         val keys = bitcoinKeysOf(id)
 
         assertEquals(3, keys.size)
-        assertEquals(setOf(0, 1, 2), keys.map { (it.path[2] - DeterministicWallet.hardenedKeyIndex).toInt() }.toSet())
+        assertEquals(setOf(0, 1, 2), keys.map { it.export.signer.path[2].index }.toSet())
     }
 
     @Test
@@ -227,21 +225,17 @@ class WalletStoreBitcoinTest {
         val pairing = pairingOf(store.pairingParts(id, null))
 
         assertEquals("Savings", pairing.name)
-        val ethereum = pairing.apps.single { it.app == "ethereum" }
+        val ethereum = pairing.onChain("eip155")
         val seed = Mnemonic.of(words).use { it.deriveSeed("") }
-        assertEquals(2, ethereum.keys.size)
-        // The Ethereum key of each account is its address, which the pairing carries as its 20 bytes.
+        assertEquals(2, ethereum.size)
+        // The Ethereum key of each account is its compressed public key, which Lumio turns into the account's address.
         for (account in 0..1) {
-            val address = AccountAddresses.addressOfKey(AccountAddresses.addressXpub(HdWallet(seed).accountXpub(account), 0))
-            assertEquals(address.removePrefix("0x").lowercase(), ethereum.keys[account].material.joinToString("") { "%02x".format(it) })
+            assertEquals(
+                AccountAddresses.addressXpub(HdWallet(seed).accountXpub(account), 0).publicKey.toList(),
+                ethereum[account].export.publicKey.bytes.toList(),
+            )
         }
-        assertEquals(
-            listOf(
-                PairingAccount(key = 0, name = "Cold", label = "vault", group = "Long term"),
-                PairingAccount(key = 1, name = "Savings 1", label = null, group = null),
-            ),
-            ethereum.accounts,
-        )
+        assertEquals(listOf(Triple("Cold", "vault", "Long term"), Triple("Savings 1", null, null)), ethereum.map { it.labelled() })
     }
 
     @Test
@@ -341,13 +335,12 @@ class WalletStoreBitcoinTest {
         store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 2, cap)
         store.saveBitcoinProfile(id, store.bitcoinAccounts(id)[0], AccountProfile(name = "Cold", label = "vault", group = "Long term"))
 
-        val bitcoin = pairingOf(store.pairingParts(id, null)).apps.single { it.app == "bitcoin" }
+        val bitcoin = pairingOf(store.pairingParts(id, null)).onChain("bip122")
 
         // The named account carries its profile. An account with none carries its Auto-Name, as an Ethereum account does.
         assertEquals(Triple("Cold", "vault", "Long term"), bitcoinAccountOf(bitcoin, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 0).labelled())
         assertEquals(Triple("Test 1", null, null), bitcoinAccountOf(bitcoin, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 1).labelled())
-        assertEquals(2, bitcoin.keys.size)
-        assertEquals(bitcoin.keys.size, bitcoin.accounts.size)
+        assertEquals(2, bitcoin.size)
     }
 
     @Test
@@ -367,25 +360,26 @@ class WalletStoreBitcoinTest {
         assertEquals(LabelledPairingGolden.FRAMES, store.pairingParts(id, null))
     }
 
-    /** The pairing account of the Bitcoin key on [scriptType], [network] and account [index], in the pairing [app]. */
-    private fun bitcoinAccountOf(app: PairingApp, scriptType: ScriptType, network: BtcNetwork, index: Int): PairingAccount {
-        val key = app.keys.indexOfFirst { key ->
-            scriptTypeOf(key) == scriptType && networkOf(key) == network && key.path[2] == DeterministicWallet.hardened(index.toLong())
+    /** The pairing account of the Bitcoin key on [scriptType], [network] and account [index], among the Bitcoin accounts [accounts]. */
+    private fun bitcoinAccountOf(accounts: List<PairingAccount>, scriptType: ScriptType, network: BtcNetwork, index: Int): PairingAccount {
+        val found = accounts.firstOrNull { account ->
+            scriptTypeOf(account) == scriptType && networkOf(account) == network && account.export.signer.path[2].index == index
         }
-        assertTrue(key >= 0, "the pairing holds the key of $scriptType on $network at $index")
-        return app.accounts.single { it.key == key }
+        return requireNotNull(found) { "the pairing holds the key of $scriptType on $network at $index" }
     }
 
     private fun PairingAccount.labelled(): Triple<String?, String?, String?> = Triple(name, label, group)
 
-    /** The Bitcoin keys of wallet [id], from the pairing that Lensly builds for it. */
-    private fun bitcoinKeysOf(id: String): List<PairingKey> = pairingOf(store.pairingParts(id, null)).apps.single { it.app == "bitcoin" }.keys
+    private fun PairingPayload.onChain(namespace: String): List<PairingAccount> = accounts.filter { it.export.chain.namespace == namespace }
 
-    private fun networkOf(key: PairingKey): BtcNetwork =
-        BtcNetwork.entries.single { it.coinType.toLong() == key.path[1] - DeterministicWallet.hardenedKeyIndex }
+    /** The Bitcoin accounts of wallet [id], from the pairing that Lensly builds for it. */
+    private fun bitcoinKeysOf(id: String): List<PairingAccount> = pairingOf(store.pairingParts(id, null)).onChain("bip122")
 
-    private fun scriptTypeOf(key: PairingKey): ScriptType =
-        ScriptType.entries.single { it.purpose.toLong() == key.path[0] - DeterministicWallet.hardenedKeyIndex }
+    private fun networkOf(account: PairingAccount): BtcNetwork =
+        BtcNetwork.entries.single { it.coinType == account.export.signer.path[1].index }
+
+    private fun scriptTypeOf(account: PairingAccount): ScriptType =
+        ScriptType.entries.single { it.purpose == account.export.signer.path[0].index }
 
     /** The pairing that [parts] carry, read as the online companion reads it. */
     private fun pairingOf(parts: List<String>): PairingPayload {

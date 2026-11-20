@@ -1,9 +1,11 @@
 package app.lumio.pair
 
+import app.airvault.chains.solana.SOLANA_MAINNET
+import app.airvault.core.model.Curve
 import app.lensly.app.export.PairingAccount
-import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingCodec
-import app.lensly.app.export.PairingKey
+import app.lensly.app.export.accountSteps
+import app.lensly.app.export.keyExport
 import app.lensly.app.export.PairingPayload
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.vault.MemoryKeystore
@@ -44,7 +46,15 @@ class PairSolanaTest {
 
     @Test
     fun aSolanaKeyOnAnotherPathIsRefused() {
-        val wrongPath = solanaKeys().map { key -> key.copy(path = key.path.dropLast(1) + (key.path.last() + 1)) }
+        // Each account is one account on from its position, so the first account is not numbered 0.
+        val wrongPath = (0 until 3).map { index ->
+            PairingAccount(
+                keyExport(SOLANA_MAINNET, PairFixtures.fingerprint(SEED), accountSteps(44, 501, index + 1), Curve.ED25519_SLIP10, SolanaAccount.publicKey(SEED, index)),
+                "Solana $index",
+                null,
+                null,
+            )
+        }
 
         assertThrows(PairingRefusal::class.java) { roundTrip(payload(solana = wrongPath)) }
     }
@@ -60,29 +70,11 @@ class PairSolanaTest {
     private fun roundTrip(payload: PairingPayload): PairingPayload =
         PairImport.of(UR(PairingCodec.UR_TYPE, PairingCodec.encode(payload, null)))
 
-    /** The Solana keys of accounts 0 to 2, as Lensly's pairing carries them: the public key and the SLIP-0010 chain code of each. */
-    private fun solanaKeys(): List<PairingKey> = (0 until 3).map { index ->
-        PairingKey.solanaAccount(index, SolanaAccount.publicKey(SEED, index))
-    }
+    /** The Solana accounts 0 to 2, as Lensly's pairing carries them: the public key of each, at its path. */
+    private fun solanaKeys(): List<PairingAccount> = (0 until 3).map { index -> PairFixtures.solanaAccount(index, "Solana $index", SEED) }
 
-    private fun payload(solana: List<PairingKey>): PairingPayload {
-        val ethereum = PairingApp(
-            app = PairImport.ETHEREUM,
-            keys = listOf(PairingKey.ethereumAddress(0, PairFixtures.address(PairFixtures.seed, 0))),
-            accounts = listOf(PairingAccount(key = 0, name = "Main", label = null, group = null)),
-        )
-        val solanaApp = PairingApp(
-            app = PairImport.SOLANA,
-            keys = solana,
-            accounts = solana.indices.map { index -> PairingAccount(key = index, name = "Solana $index", label = null, group = null) },
-        )
-        return PairingPayload(
-            fingerprint = 0x5436D724L,
-            name = "Demo",
-            autoNameBase = "Demo",
-            apps = listOf(ethereum, solanaApp),
-        )
-    }
+    private fun payload(solana: List<PairingAccount>): PairingPayload =
+        PairFixtures.payloadOf(listOf(PairFixtures.ethereumAccount(0, "Main", seed = SEED)) + solana, seed = SEED, name = "Demo", base = "Demo")
 
     private companion object {
         /** The 64-byte BIP39 seed of the 12-word phrase, with no passphrase. */

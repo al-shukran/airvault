@@ -2,7 +2,7 @@ package app.lensly.app.sign
 
 import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
 import app.airvault.chains.bitcoin.signer.UNVERIFIED_CHECK
-import app.airvault.chains.bitcoin.signer.bitcoinManifest
+import app.airvault.chains.bitcoin.bitcoinManifest
 import app.airvault.core.model.checkLabels
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.RequestHeader

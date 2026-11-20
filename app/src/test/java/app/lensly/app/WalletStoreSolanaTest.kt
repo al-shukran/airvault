@@ -2,6 +2,7 @@ package app.lensly.app
 
 import app.lensly.app.export.SolanaPairingKeys
 import app.lensly.core.solana.SolanaAccount
+import app.lensly.core.wallet.HdWallet
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
@@ -104,17 +105,18 @@ class WalletStoreSolanaTest {
         val seed = seed()
         store.addSolanaAccounts(id, 2, cap)
 
-        val app = SolanaPairingKeys.paired(WalletApp.SOLANA.routeId, store, id, seed)
+        val accounts = SolanaPairingKeys.paired(store, id, seed, HdWallet(seed).masterFingerprint)
 
-        assertEquals("solana", app.app)
-        assertEquals(listOf(listOf(hardened(44), hardened(501), hardened(0)), listOf(hardened(44), hardened(501), hardened(1))), app.keys.map { it.path })
-        app.keys.forEachIndexed { index, key ->
-            assertEquals(3, key.path.size)
-            assertContentEquals(SolanaAccount.publicKey(seed, index), key.material)
-            assertEquals(null, key.chainCode)
+        assertEquals(
+            listOf(listOf(hardened(44), hardened(501), hardened(0)), listOf(hardened(44), hardened(501), hardened(1))),
+            accounts.map { account -> account.export.signer.path.map { step -> if (step.hardened) hardened(step.index.toLong()) else step.index.toLong() } },
+        )
+        accounts.forEachIndexed { index, account ->
+            assertEquals(3, account.export.signer.path.size)
+            assertContentEquals(SolanaAccount.publicKey(seed, index), account.export.publicKey.bytes)
+            assertEquals(null, account.export.chainCode)
         }
-        assertEquals(listOf(0, 1), app.accounts.map { it.key })
-        assertEquals("Test 0", app.accounts.first().name)
+        assertEquals("Test 0", accounts.first().name)
     }
 
     @Test

@@ -13,7 +13,7 @@ import app.airvault.core.model.ChainId
 import app.airvault.chains.bitcoin.signer.BitcoinSigner
 import app.airvault.chains.bitcoin.signer.BtcRefusal
 import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
-import app.airvault.chains.bitcoin.signer.bitcoinManifest
+import app.airvault.chains.bitcoin.bitcoinManifest
 import app.airvault.core.signer.KeyScopeViolation
 import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
@@ -367,7 +367,7 @@ class VaultSignPortsTest {
             val psbt = BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, paid = 30_000L, change = 60_000L))
             val ready = reviewed(ports, id, bitcoinRequest(psbt, account.masterFingerprint.toInt()))
             val approval = assertNotNull(Approval.of(ready.review, ready.review.checkLabels().toSet()))
-            SettingsStore(session).save(AppSettings(bitcoinSigningSource = SigningSourcePolicy.COMPANION_ONLY))
+            SettingsStore(session).save(AppSettings().withBitcoinSigningSource(SigningSourcePolicy.COMPANION_ONLY))
 
             val refused = assertFailsWith<IllegalArgumentException> { runBlocking { ports.appSign(ready, approval) } }
 

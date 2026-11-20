@@ -175,6 +175,7 @@ object WalletAccounts {
                 chain = network,
                 signer = SignerRef(wallet.fingerprint.toInt(), SolanaWallet.pathOf(index)),
                 publicKey = PublicKey(Curve.ED25519_SLIP10, key),
+                chainCode = null,
                 kind = AddressKind.DEFAULT,
             )
             WalletAccount(
@@ -204,6 +205,7 @@ object WalletAccounts {
                 chain = network,
                 signer = SignerRef(wallet.fingerprint.toInt(), AlgorandWallet.pathOf(index)),
                 publicKey = PublicKey(Curve.ED25519_BIP32, key),
+                chainCode = null,
                 kind = AddressKind.DEFAULT,
             )
             WalletAccount(

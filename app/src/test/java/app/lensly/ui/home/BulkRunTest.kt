@@ -1,6 +1,6 @@
 package app.lensly.ui.home
 
-import app.airvault.chains.bitcoin.signer.bitcoinManifest
+import app.airvault.chains.bitcoin.bitcoinManifest
 import app.lensly.app.WalletStore
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
