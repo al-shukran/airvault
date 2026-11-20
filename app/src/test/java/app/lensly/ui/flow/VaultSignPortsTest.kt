@@ -22,6 +22,7 @@ import app.lensly.core.wallet.WalletKeyAccess
 import com.sparrowwallet.hummingbird.UR
 import app.airvault.core.model.checkLabels
 import app.lensly.app.AppSettings
+import app.lensly.app.DecoyVault
 import app.lensly.app.SettingsStore
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcFixtures
@@ -37,9 +38,12 @@ import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.solana.SolanaAccount
+import app.lensly.core.vault.CreateResult
+import app.lensly.core.vault.DuressResult
 import app.lensly.core.vault.FakeClock
 import app.lensly.core.vault.KdfParams
 import app.lensly.core.vault.MemoryKeystore
+import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
@@ -212,6 +216,48 @@ class VaultSignPortsTest {
         } finally {
             session.close()
         }
+    }
+
+    /** The sign prompt takes the App Password of the real vault, and refuses its Duress Password, which opens only the decoy. */
+    @Test
+    fun theSignPromptInTheRealVaultRejectsTheDuressPassword() {
+        val holder = openedHolder(duressVault(), APP)
+        val ports = VaultSignPorts(context, holder)
+
+        assertEquals(PasswordCheck.Accepted, runBlocking { ports.checkPassword(APP.toCharArray()) })
+        assertEquals(PasswordCheck.Rejected, runBlocking { ports.checkPassword(DURESS.toCharArray()) })
+        assertNotNull(holder.openSession(), "the real session stays open")
+    }
+
+    /** The sign prompt in a decoy takes the Duress Password, and refuses the real App Password. */
+    @Test
+    fun theSignPromptInTheDecoyRejectsTheRealAppPassword() {
+        val holder = openedHolder(duressVault(), DURESS)
+        val ports = VaultSignPorts(context, holder)
+
+        assertEquals(PasswordCheck.Accepted, runBlocking { ports.checkPassword(DURESS.toCharArray()) })
+        assertEquals(PasswordCheck.Rejected, runBlocking { ports.checkPassword(APP.toCharArray()) })
+        assertNotNull(holder.openSession(), "the decoy session stays open")
+    }
+
+    /** A real vault with a Duress Password. The App Password opens the real vault, and the Duress Password its decoy. */
+    private fun duressVault(): Vault {
+        val vault = Vault(VaultLayout(File(tmp.root, "duress")), MemoryKeystore(), FakeClock(), KdfParams(memoryKiB = 8 * 1024, iterations = 1))
+        runBlocking {
+            assertEquals(CreateResult.Created, vault.create(APP.toCharArray()))
+            val real = (vault.unlock(APP.toCharArray()) as UnlockResult.Unlocked).session
+            assertEquals(DuressResult.Enabled, vault.setDuress(real, DURESS.toCharArray()) { DecoyVault.populate(it) })
+            real.close()
+        }
+        return vault
+    }
+
+    /** A holder with the session that [password] opens in [vault] adopted, as the gate leaves it. */
+    private fun openedHolder(vault: Vault, password: String): VaultHolder {
+        val session = runBlocking { (vault.unlock(password.toCharArray()) as UnlockResult.Unlocked).session }
+        val holder = VaultHolder(vault)
+        holder.adopt(session, holder.unlockEpoch())
+        return holder
     }
 
     /** A Bitcoin request is reviewed and signed through the ports, and the frames are the signer's own for the reviewed account. */
@@ -406,4 +452,9 @@ class VaultSignPortsTest {
         address = null,
         origin = null,
     )
+
+    private companion object {
+        const val APP = "q7Vn!2Lx#Rb9Tm4Wc8Zp"
+        const val DURESS = "Gh5%Rt8!Yu2#Pk6@Ws3Fn"
+    }
 }
