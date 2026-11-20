@@ -36,14 +36,17 @@ private const val ARBITRUM = 42161L
 private const val BNB = 56L
 private const val HYPERLIQUID_L1_LABEL = "Off-Chain Signature for Hyperliquid"
 private const val ASTER_LABEL = "Off-Chain Signature for AsterDex"
-private const val HL_NOTE = "This signature is sent to Hyperliquid, not submitted to a chain."
-private const val ASTER_NOTE = "This signature is sent to AsterDex, not submitted to a chain."
+private const val HL_NOTE = "The domain matches Hyperliquid's published message format. " +
+    "Lensly cannot tell what the requester does with the signature."
+private const val ASTER_NOTE = "The domain matches AsterDex's published message format. " +
+    "Lensly cannot tell what the requester does with the signature."
 private const val HASHED_LABEL = "Order Details Are Hashed by Hyperliquid and Cannot Be Shown"
 private const val HASHED_NOTE = "The connection ID is a hash of the action. Lensly cannot read the action, so it cannot show what the action does."
-private const val HL_CAUTION = "This signature is for Hyperliquid, not for a chain. It can authorize actions in your Hyperliquid account. " +
+private const val HL_CAUTION = "This signature is for Hyperliquid. It can authorize actions in your Hyperliquid account. " +
     "Check the message before you sign."
-private const val ASTER_CAUTION = "This signature is for AsterDex, not for a chain. It can authorize actions in your AsterDex account. " +
+private const val ASTER_CAUTION = "This signature is for AsterDex. It can authorize actions in your AsterDex account. " +
     "Check the message before you sign."
+private const val HL_ACK = "I understand this signature goes to Hyperliquid, and Lensly cannot tell what it does."
 private const val ANY_CHAIN_NOTE = "The domain names no chain ID, so this signature is valid on any chain."
 private const val APPROVE_TEXT = "This approves another key to act for this account. Check the agent address and name before you sign."
 private const val WITHDRAW_TEXT = "This withdraws funds from this account. Check the destination and amount before you sign."
@@ -221,7 +224,7 @@ class OffChainSignatureReviewTest {
         assertEquals("1", message["amount (string)"])
         assertEquals("1687816341423", message["time (uint64)"])
         assertEquals(
-            listOf("type" to "usdSend", "signatureChainId" to "0x66eee"),
+            listOf("Unsigned: type" to "usdSend", "Unsigned: signatureChainId" to "0x66eee"),
             review.sections.single { it.heading == "Not Signed" }.rows.map { it.label to it.value.text() },
         )
         assertEquals(
@@ -303,7 +306,7 @@ class OffChainSignatureReviewTest {
         val unlabelled = reviewed(otherContract, ARBITRUM)
         assertTrue(rowsOf(unlabelled).any { it.label == "Signature for Chain 1337 (Unknown Network)" })
         assertTrue(rowsOf(unlabelled).none { it.label == HYPERLIQUID_L1_LABEL })
-        assertEquals(listOf(chainCaution("1337", "Unknown Network", "chain ID $ARBITRUM")), cautionsOf(unlabelled).map { it.message })
+        assertEquals(listOf(chainCaution("1337", "Unknown Network", "chain ID $ARBITRUM")), cautionTexts(unlabelled))
         assertNoStoppingWarning(unlabelled)
     }
 
@@ -351,7 +354,7 @@ class OffChainSignatureReviewTest {
 
         noteOf(review, HYPERLIQUID_L1_LABEL, HL_NOTE)
         assertEquals(listOf(HL_CAUTION), cautionTexts(review))
-        assertEquals(listOf("I understand this signature goes to Hyperliquid, not to a chain."), cautionsOf(review).filter { it.message == HL_CAUTION }.map { it.acknowledge })
+        assertEquals(listOf(HL_ACK), cautionsOf(review).filter { it.message == HL_CAUTION }.map { it.acknowledge })
         assertNoStoppingWarning(review)
     }
 
@@ -456,12 +459,12 @@ class OffChainSignatureReviewTest {
         // The L1 domain names no member beyond its type. A scalar the message adds is shown under Not Signed, as on any domain.
         val extraOnL1 = l1Agent("a", DUMMY_CONNECTION_ID, extra = ""","type":"dummy"""")
         val notSignedOnL1 = reviewed(extraOnL1, ARBITRUM).sections.single { it.heading == "Not Signed" }.rows
-        assertEquals(listOf("type" to "dummy"), notSignedOnL1.map { it.label to it.value.text() })
+        assertEquals(listOf("Unsigned: type" to "dummy"), notSignedOnL1.map { it.label to it.value.text() })
         // The same on a domain the registry does not label.
         val unlabelled = asterMessage(1, ASTER_APPROVE_MESSAGE).replace("AsterSignTransaction", "USD Coin")
             .replace("\"message\":{\"msg\"", "\"message\":{\"memo\":\"hi\",\"msg\"")
         val notSignedOnPermit = reviewed(unlabelled, ARBITRUM).sections.single { it.heading == "Not Signed" }.rows
-        assertEquals(listOf("memo" to "hi"), notSignedOnPermit.map { it.label to it.value.text() })
+        assertEquals(listOf("Unsigned: memo" to "hi"), notSignedOnPermit.map { it.label to it.value.text() })
         // A nested object the message adds is still refused.
         val nested = USD_SEND.replace("\"hyperliquidChain\":\"Testnet\"", "\"hyperliquidChain\":\"Testnet\",\"memo\":{\"a\":\"b\"}")
         assertEquals("message has an unknown member memo", refusedReason(nested, ARBITRUM))
@@ -479,10 +482,30 @@ class OffChainSignatureReviewTest {
 
         assertEquals(
             listOf(
-                "type" to "usdSend",
-                "signatureChainId" to "0x66eee",
-                "memo" to "0xe280ae6576696c (not printable)",
-                "0xe280ae6b6579 (not printable)" to "x",
+                "Unsigned: type" to "usdSend",
+                "Unsigned: signatureChainId" to "0x66eee",
+                "Unsigned: memo" to "0xe280ae6576696c (not printable)",
+                "Unsigned: 0xe280ae6b6579 (not printable)" to "x",
+            ),
+            notSigned,
+        )
+    }
+
+    @Test
+    fun aNotSignedLineBreakCannotStartARowAndALongNameOrValueIsCapped() {
+        // A line break in an unsigned value is shown as an escape, so it cannot start a row. A name is capped at 128 bytes and a value at 512.
+        val name = "n".repeat(200)
+        val value = "1\\n\\tToken: fake" + "v".repeat(600)
+        val json = USD_SEND.replace("\"hyperliquidChain\":\"Testnet\"", "\"hyperliquidChain\":\"Testnet\",\"$name\":\"$value\"")
+
+        val notSigned = reviewed(json, ARBITRUM).sections.single { it.heading == "Not Signed" }.rows.map { it.label to it.value.text() }
+
+        // The escaped value is 16 bytes of text and 600 more: 512 bytes are kept, and 104 are not.
+        assertEquals(
+            listOf(
+                "Unsigned: type" to "usdSend",
+                "Unsigned: signatureChainId" to "0x66eee",
+                "Unsigned: ${"n".repeat(128)}... 72 more bytes" to "1\\n\\tToken: fake${"v".repeat(496)}... 104 more bytes",
             ),
             notSigned,
         )
