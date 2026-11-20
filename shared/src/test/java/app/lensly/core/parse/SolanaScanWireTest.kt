@@ -17,6 +17,7 @@ import org.junit.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 
 class SolanaScanWireTest {
 
@@ -57,12 +58,14 @@ class SolanaScanWireTest {
 
     /**
      * A transaction sent as a message to sign is refused. A message must be an off-chain message, which begins with the signing domain
-     * that no transaction message begins with, so no transaction is ever signed as a message.
+     * that no transaction message begins with, so no transaction is ever signed as a message. The refusal names the request it read.
      */
     @Test
     fun aSolanaTransactionSentAsAMessageToSignIsRefused() {
         val payload = requestCbor(signData = SolanaVectors["legacy-sol-transfer"], signType = 2L)
-        assertEquals(ScanReply.Refused(SolanaOffchainMessage.NOT_OFF_CHAIN), InProcessParser.scan(parts(payload)))
+        val refused = assertIs<ScanReply.Refused>(InProcessParser.scan(parts(payload)))
+        assertEquals(SolanaOffchainMessage.NOT_OFF_CHAIN, refused.reason)
+        assertSameRequest(AppRequest(headerOf(RequestKind.MESSAGE), payload), assertNotNull(refused.request))
     }
 
     /** One complete UR part, uppercase as the wallet shows it. The payload is small, so it is a single frame. */

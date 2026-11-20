@@ -33,19 +33,9 @@ object SolanaRequestParser : RequestParser {
             is SolSignRequest.Result.Ok -> decoded.request
             is SolSignRequest.Result.Rejected -> return ParseOutcome.Refused(decoded.reason)
         }
-        if (request.signData.size > effective.maxSignDataBytes) {
-            return ParseOutcome.Refused("signData exceeds ${effective.maxSignDataBytes} bytes")
-        }
         val kind = when (request.signType) {
-            SolSignType.TRANSACTION -> {
-                (SolanaMessage.decode(request.signData) as? SolanaMessage.Result.Rejected)?.let { return ParseOutcome.Refused(it.reason) }
-                RequestKind.TRANSACTION
-            }
-            SolSignType.MESSAGE -> {
-                val parsed = SolanaOffchainMessage.parse(request.signData)
-                if (parsed is SolanaOffchainMessage.Result.Rejected) return ParseOutcome.Refused(parsed.reason)
-                RequestKind.MESSAGE
-            }
+            SolSignType.TRANSACTION -> RequestKind.TRANSACTION
+            SolSignType.MESSAGE -> RequestKind.MESSAGE
         }
         val header = RequestHeader(
             app = solanaManifest.id,
@@ -54,6 +44,15 @@ object SolanaRequestParser : RequestParser {
             signers = listOf(SignerRef(request.sourceFingerprint, request.derivationPath)),
             requestId = request.requestId,
         )
+        // A refusal of the sign data names the request it read, so the sign flow records it under the wallet.
+        if (request.signData.size > effective.maxSignDataBytes) {
+            return ParseOutcome.Refused("signData exceeds ${effective.maxSignDataBytes} bytes", AppRequest(header, cbor))
+        }
+        val rejection = when (request.signType) {
+            SolSignType.TRANSACTION -> (SolanaMessage.decode(request.signData) as? SolanaMessage.Result.Rejected)?.reason
+            SolSignType.MESSAGE -> (SolanaOffchainMessage.parse(request.signData) as? SolanaOffchainMessage.Result.Rejected)?.reason
+        }
+        if (rejection != null) return ParseOutcome.Refused(rejection, AppRequest(header, cbor))
         return ParseOutcome.Parsed(AppRequest(header, cbor))
     }
 
