@@ -563,7 +563,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          FILE_ISSUE: ${{ github.event_name == 'push' }}
+          FILE_ISSUE: true # TEMP #567 guard proof
+          LANE_BUDGET_SECONDS: 60 # TEMP #567 guard proof
         run: scripts/ci/lane-budget.sh
 
       - name: Aggregate results
