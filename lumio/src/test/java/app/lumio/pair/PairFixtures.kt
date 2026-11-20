@@ -58,6 +58,12 @@ internal object PairFixtures {
     fun ethereumAccount(index: Int, name: String, label: String? = null, group: String? = null, seed: ByteArray = PairFixtures.seed): PairingAccount =
         PairingAccount(keyExport(ethereumMainnet, fingerprint(seed), accountSteps(44, 60, index, 0, 0), Curve.SECP256K1, ethereumKey(seed, index)), name, label, group)
 
+    /** The key of address [index] of account 0 of [seed], m/44'/60'/0'/0/[index]: an address key, which is not an Ethereum account of a pairing. */
+    fun ethereumAddressAccount(index: Int, name: String, seed: ByteArray = PairFixtures.seed): PairingAccount = PairingAccount(
+        keyExport(ethereumMainnet, fingerprint(seed), accountSteps(44, 60, 0, 0, index), Curve.SECP256K1, AccountAddresses.addressXpub(HdWallet(seed).accountXpub(0), index).publicKey),
+        name, null, null,
+    )
+
     /** Solana account [index] of [seed], named [name]. */
     fun solanaAccount(index: Int, name: String, seed: ByteArray = PairFixtures.seed): PairingAccount = PairingAccount(
         keyExport(SOLANA_MAINNET, fingerprint(seed), accountSteps(44, 501, index), Curve.ED25519_SLIP10, SolanaAccount.publicKey(seed, index)),
