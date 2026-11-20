@@ -60,7 +60,7 @@ class BitcoinReviewScreenTest {
                 Box(modifier = if (small) Modifier.size(width = 360.dp, height = 640.dp) else Modifier.fillMaxSize()) {
                     var ticked by remember { mutableStateOf(emptySet<String>()) }
                     ReviewScreen(
-                        review = bitcoinReviewOf(review, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT),
+                        review = bitcoinReviewOf(review, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, SAMPLE_SIGNER.address),
                         signer = SAMPLE_SIGNER,
                         addressNotes = emptyMap(),
                         addressChain = BITCOIN_FAMILY,
@@ -146,7 +146,7 @@ class BitcoinReviewScreenTest {
     fun theSummarySaysWhatIsSentAndToWhomWithTheTotal() {
         show(cleanRequest())
 
-        compose.onNodeWithText("Send 0.0003 BTC to tb1qexampleexampleexampleexampleexample0").assertExists()
+        compose.onNodeWithText("Send 0.0003 BTC from OfPixelBlaze to tb1qexampleexampleexampleexampleexample0?").assertExists()
         compose.onNodeWithText("Total").assertExists()
     }
 
@@ -163,7 +163,7 @@ class BitcoinReviewScreenTest {
             ),
         )
 
-        compose.onNodeWithText("Send 0.0003 BTC to $taproot").assertExists()
+        compose.onNodeWithText("Send 0.0003 BTC from OfPixelBlaze to $taproot?").assertExists()
     }
 
     @Test

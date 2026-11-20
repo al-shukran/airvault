@@ -44,7 +44,6 @@ import app.lensly.app.addressNotesOf
 import app.lensly.app.autoAccountName
 import app.lensly.app.export.partsOf
 import app.lensly.app.internalAccountsOf
-import app.lensly.app.notesOf
 import app.lensly.app.requestParser
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
@@ -63,7 +62,6 @@ import app.lensly.app.sign.evmCounterparties
 import app.lensly.app.visualIdentity
 import app.lensly.chains.installedSignerOf
 import app.lensly.ui.sign.bitcoinReviewOf
-import app.lensly.ui.sign.shownName
 import app.airvault.chains.algorand.signer.AlgorandRequestCheck
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.RequestParser
@@ -316,9 +314,7 @@ internal class VaultSignPorts(
                 settings.bitcoinFeeThresholds,
                 book,
             )
-            val review = bitcoinReviewOf(reviewed.review, reviewed.account.network, reviewed.account.scriptType) { address ->
-                reviewed.addressNotes.notesOf(address)?.shownName()
-            }
+            val review = bitcoinReviewOf(reviewed.review, reviewed.account.network, reviewed.account.scriptType, reviewed.signer.address)
             AppPrepared.Ready(
                 walletId = walletId,
                 request = request,
@@ -326,7 +322,7 @@ internal class VaultSignPorts(
                 accountIndex = reviewed.account.index,
                 signer = reviewed.signer,
                 addressChain = BITCOIN_FAMILY,
-                counterparties = reviewed.review.outputs.mapNotNull { it.address },
+                counterparties = listOf(reviewed.signer.address) + reviewed.review.outputs.mapNotNull { it.address },
                 addressNotes = reviewed.addressNotes,
                 bitcoin = bitcoinRecordFactsOf(reviewed, review),
             )

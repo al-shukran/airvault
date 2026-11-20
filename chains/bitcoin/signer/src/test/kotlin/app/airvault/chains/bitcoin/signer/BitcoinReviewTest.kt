@@ -5,6 +5,7 @@ import app.airvault.core.model.ChainId
 import app.airvault.core.model.Danger
 import app.airvault.core.model.NetworkLabel
 import app.airvault.core.model.Review
+import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.checkLabels
 import app.airvault.core.model.text
 import app.airvault.core.model.unaccounted
@@ -38,11 +39,14 @@ class BitcoinReviewTest {
     /** A key of the account, so an input is owned and raises no external-input warning. */
     private val owned = KeyPath(listOf(0L))
 
-    private fun reviewOf(review: BtcReview, nameOf: (String) -> String? = { null }): Review = review.toReview(
+    /** The address of the account the requests spend from, which the summary names as the sender. */
+    private val account = "tb1qaccount"
+
+    private fun reviewOf(review: BtcReview): Review = review.toReview(
         chain = ChainId("bip122:00000000da84f2bafbbc53dee25a72ae"),
         network = testnet,
         scriptType = "Native Segwit P2WPKH",
-        nameOf = nameOf,
+        from = account,
     )
 
     @Test
@@ -102,7 +106,7 @@ class BitcoinReviewTest {
         val review = reviewOf(request(feeSats = 10_000L).copy(inputs = listOf(BtcReviewInput(0, 40_000L, true, owned, 0xFFFFFFFDL))))
         assertEquals(emptyList(), review.warnings)
         assertEquals(emptySet(), review.unaccounted())
-        assertEquals("Send 0.0003 BTC to tb1qreceiver", review.summary.text())
+        assertEquals("Send 0.0003 BTC from tb1qaccount to tb1qreceiver?", review.summary.text())
         assertEquals(listOf("Network Fee", "Fee Rate", "Total", "Change Back"), review.facts.map { it.label })
     }
 
@@ -132,9 +136,20 @@ class BitcoinReviewTest {
     }
 
     @Test
-    fun aSingleCounterpartyIsNamedByItsAddressBookNameWhenThereIsOne() {
-        assertEquals("Send 0.0003 BTC to Alice", reviewOf(request(feeSats = 10_000L)) { _ -> "Alice" }.summary.text())
-        assertEquals("Send 0.0003 BTC to tb1qreceiver", reviewOf(request(feeSats = 10_000L)).summary.text())
+    fun aSingleOutsideOutputIsASendOfItsAmountFromTheAccountToItsAddress() {
+        val send = reviewOf(request(feeSats = 10_000L)).summary.single()
+        assertEquals(SummaryPart.Send(amount = "0.0003", asset = "BTC", from = account, to = "tb1qreceiver"), send)
+    }
+
+    @Test
+    fun anOutsideOutputWithNoAddressIsNamedAsAScript() {
+        val scriptOnly = request(feeSats = 10_000L).copy(
+            outputs = listOf(
+                BtcReviewOutput(0, null, 30_000L, isOwnChange = false, changeIndex = null),
+                BtcReviewOutput(1, "tb1qchange", 60_000L, isOwnChange = true, changeIndex = 0),
+            ),
+        )
+        assertEquals(listOf(SummaryPart.Text("Send 0.0003 BTC to a script with no address")), reviewOf(scriptOnly).summary)
     }
 
     @Test

@@ -85,7 +85,7 @@ fun SolanaRequestReview.toReview(): Review {
         title = "Review",
         chain = chain,
         network = NetworkLabel(name = "Solana", testnet = chain.isTestnet(), detail = null, row = clusterRow()),
-        summary = listOf(SummaryPart.Text(sentence())),
+        summary = listOf(sentence()),
         facts = facts(),
         sections = listOf(ReviewSection(if (message == null) "Message" else "Instructions", rows(chain))),
         warnings = warnings.map(::warningOf),
@@ -135,22 +135,33 @@ private fun clusterName(cluster: SolCluster): String = when (cluster) {
     SolCluster.TESTNET -> "Solana Testnet"
 }
 
-/** The sentence at the top of the review. It names the one transfer when there is exactly one, in SOL or in a token, and otherwise says what is signed. */
-private fun SolanaRequestReview.sentence(): String {
-    if (offchainMessage != null) return "Signs a message as text."
+/**
+ * The summary at the top of the review. It is a [SummaryPart.Send] when there is exactly one transfer, in SOL or in a token, sent from its
+ * authority to its receiving account. Otherwise it says what is signed.
+ */
+private fun SolanaRequestReview.sentence(): SummaryPart {
+    if (offchainMessage != null) return SummaryPart.Text("Signs a message as text.")
     (instructions.singleOrNull() as? SolanaInstruction.CreateNonceAccount)?.let {
-        return "Create a nonce account ${accountText(it.account)}, rent ${lamportsText(it.lamports)} SOL, " +
-            "authority ${accountText(it.authority)}."
+        return SummaryPart.Text(
+            "Create a nonce account ${accountText(it.account)}, rent ${lamportsText(it.lamports)} SOL, " +
+                "authority ${accountText(it.authority)}.",
+        )
     }
     val transfers = instructions.filter {
         it is SolanaInstruction.SystemTransfer || it is SolanaInstruction.TokenTransfer || it is SolanaInstruction.TokenTransferChecked
     }
     return when (val only = transfers.singleOrNull()) {
-        is SolanaInstruction.SystemTransfer -> "Sends ${lamportsText(only.lamports)} SOL to ${accountText(only.to)}."
-        is SolanaInstruction.TokenTransferChecked ->
-            "Sends ${tokenAmountText(only.amount, only.decimals, tokenOf(only.mint))} to token account ${accountText(only.destination)}."
-        is SolanaInstruction.TokenTransfer -> "Sends ${only.amount} base units to token account ${accountText(only.destination)}."
-        else -> "Signs a transaction with ${messageInstructionCount()} instructions."
+        is SolanaInstruction.SystemTransfer ->
+            SummaryPart.Send(lamportsText(only.lamports), "SOL", accountText(only.from), accountText(only.to))
+        is SolanaInstruction.TokenTransferChecked -> SummaryPart.Send(
+            decimalText(only.amount, only.decimals),
+            tokenOf(only.mint)?.symbol ?: "of an unknown token",
+            accountText(only.authority),
+            accountText(only.destination),
+        )
+        is SolanaInstruction.TokenTransfer ->
+            SummaryPart.Send("${only.amount}", "base units", accountText(only.authority), accountText(only.destination))
+        else -> SummaryPart.Text("Signs a transaction with ${messageInstructionCount()} instructions.")
     }
 }
 

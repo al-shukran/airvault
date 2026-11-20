@@ -13,6 +13,7 @@ import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.Warning
 import app.airvault.core.model.checked
 import app.airvault.core.model.text
+import app.airvault.core.model.trimmedAmount
 import java.math.BigInteger
 import java.time.Instant
 import java.time.ZoneOffset
@@ -47,19 +48,19 @@ private fun outputField(index: Int, name: String) = FieldPath("bitcoin.output.$i
 
 /**
  * The review of this request (spec 3.2), built for the one review renderer. [chain] is the Bitcoin network's chain ID and [network] names it.
- * [scriptType] is the Script Type of the account in words. [nameOf] gives an output address its Address Book name for the summary sentence.
- * The coverage check is applied, so a decoded field that no row shows is a BLOCK.
+ * [scriptType] is the Script Type of the account in words, and [from] is the address of the account the request spends from. The coverage
+ * check is applied, so a decoded field that no row shows is a BLOCK.
  */
 fun BtcReview.toReview(
     chain: ChainId,
     network: NetworkLabel,
     scriptType: String,
-    nameOf: (String) -> String? = { null },
+    from: String,
 ): Review = Review(
     title = "Review",
     chain = chain,
     network = network,
-    summary = listOf(SummaryPart.Text(sentence(nameOf))),
+    summary = listOf(sentence(from)),
     facts = facts(),
     sections = listOf(inputsSection(), outputsSection(chain), transactionSection(scriptType)),
     warnings = warnings().map { warningOf(it, requiresConfirmation) },
@@ -67,19 +68,23 @@ fun BtcReview.toReview(
 ).checked()
 
 /**
- * The summary sentence: the verb, the amount sent to others, and the counterparty. A single outside output names its counterparty by its
- * Address Book name, or else by its full address, and several are counted. A request that pays nothing outside the wallet says so.
+ * The summary: a single outside output with an address is a [SummaryPart.Send] from [from]. A request that pays nothing outside the wallet
+ * says so, and several outside outputs are counted. An outside output with no address is named as a script.
  */
-private fun BtcReview.sentence(nameOf: (String) -> String?): String {
+private fun BtcReview.sentence(from: String): SummaryPart {
     val others = outputs.filterNot { it.isOwnChange }
     return when (others.size) {
-        0 -> "Pay nothing outside this wallet"
+        0 -> SummaryPart.Text("Pay nothing outside this wallet")
         1 -> {
-            val address = others.single().address
-            val counterparty = address?.let { nameOf(it) ?: it } ?: "a script with no address"
-            "Send ${btcShort(others.single().amountSats)} to $counterparty"
+            val output = others.single()
+            val address = output.address
+            if (address == null) {
+                SummaryPart.Text("Send ${btcShort(output.amountSats)} to a script with no address")
+            } else {
+                SummaryPart.Send(trimmedAmount(BigInteger.valueOf(output.amountSats), SAT_DECIMALS), "BTC", from, address)
+            }
         }
-        else -> "Send ${btcShort(sentToOthersSats())} to ${others.size} addresses"
+        else -> SummaryPart.Text("Send ${btcShort(sentToOthersSats())} to ${others.size} addresses")
     }
 }
 

@@ -43,13 +43,7 @@ class CounterpartyLookupTest {
             title = "transfer",
             chain = chain,
             network = NetworkLabel("Monad testnet", testnet = true, detail = "Chain ID 10143"),
-            summary = listOf(
-                SummaryPart.Text("Sends "),
-                SummaryPart.Mono("0.01 MON"),
-                SummaryPart.Text(" to "),
-                SummaryPart.Counterparty(recipient),
-                SummaryPart.Text("."),
-            ),
+            summary = listOf(SummaryPart.Send("0.01", "MON", fromAddress, recipient)),
             facts = emptyList(),
             sections = listOf(
                 ReviewSection(

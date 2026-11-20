@@ -99,6 +99,7 @@ class BtcSignerPsbtIdentityTest {
                 chain = bitcoinManifest.networks.single { it.testnet }.chainId,
                 network = NetworkLabel(name = "Bitcoin Testnet4", testnet = true, detail = null),
                 scriptType = type.name,
+                from = account.receiveAddress(0),
             )
             val signer = SignerRef(
                 account.masterFingerprint.toInt(),

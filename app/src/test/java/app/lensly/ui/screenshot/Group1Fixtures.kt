@@ -63,13 +63,7 @@ internal val sampleNativeReview = Review(
     title = "Native Transfer",
     chain = MONAD_CHAIN,
     network = NetworkLabel(name = "Monad Testnet", testnet = true, detail = "Chain ID 10143"),
-    summary = listOf(
-        SummaryPart.Text("Sends "),
-        SummaryPart.Mono("0.0100 MON"),
-        SummaryPart.Text(" to "),
-        SummaryPart.Counterparty(SAMPLE_TO),
-        SummaryPart.Text("."),
-    ),
+    summary = listOf(SummaryPart.Send("0.01", "MON", SAMPLE_FROM, SAMPLE_TO)),
     facts = listOf(
         ReviewRow("Gas Limit", DisplayValue.Number(BigInteger.valueOf(21_000)), null),
         ReviewRow("Max Fee per Gas", DisplayValue.Text("52.5 gwei"), null),
@@ -99,13 +93,7 @@ internal val sampleUnknownChainReview = Review(
     title = "Native Transfer",
     chain = UNKNOWN_CHAIN,
     network = NetworkLabel(name = unknownNetworkName(999_999L), testnet = false, detail = null),
-    summary = listOf(
-        SummaryPart.Text("Sends "),
-        SummaryPart.Mono("1000000000000000000 base units"),
-        SummaryPart.Text(" to "),
-        SummaryPart.Counterparty(SAMPLE_TO),
-        SummaryPart.Text("."),
-    ),
+    summary = listOf(SummaryPart.Send("1000000000000000000", "base units", SAMPLE_FROM, SAMPLE_TO)),
     facts = listOf(
         ReviewRow("Gas Limit", DisplayValue.Number(BigInteger.valueOf(21_000)), null),
         ReviewRow("Max Fee per Gas", DisplayValue.Text("30 gwei"), null),

@@ -7,8 +7,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.Danger
@@ -28,7 +30,9 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LocalLumenPalette
 import app.lensly.ui.theme.LocalMonoFamily
+import app.lensly.ui.theme.LumenPalette
 
 /**
  * The one review screen for every chain (spec 3.2). The core builds a [Review] and this screen draws it, so no chain draws its own. The
@@ -96,7 +100,7 @@ fun ReviewScreen(
                 )
                 Spacer(Modifier.height(LenslySpacing.md))
                 ReviewSummary(
-                    sentence = summarySentence(review.summary, addressNotes, LocalMonoFamily.current),
+                    sentence = summarySentence(review.summary, addressNotes, signer, LocalMonoFamily.current, LocalLumenPalette.current),
                     facts = review.facts.map { fact(it) },
                     icon = summaryIcon,
                 )
@@ -181,22 +185,49 @@ internal fun riskItems(warnings: List<Warning>, ticked: Set<String>, onTick: (St
 }
 
 /**
- * The summary sentence. Its text is written as it is, its amounts are in the monospace face, and each counterparty is named from the
- * Address Book or this device. A counterparty that neither names is shown short, in mono.
+ * The summary sentence. A send is the question it opens with, "Send <amount> <asset> from <sender> to <recipient>?". Each party is named
+ * from this device or the Address Book, or else shown in full. Any other sentence keeps its text, and each counterparty in it is named
+ * from this device or the Address Book, or else shown short. Amounts are in the monospace face. Every name is coloured by its role.
  */
-internal fun summarySentence(parts: List<SummaryPart>, notes: Map<String, AddressNotes>, mono: FontFamily): AnnotatedString =
-    buildAnnotatedString {
-        parts.forEach { part ->
-            when (part) {
-                is SummaryPart.Text -> append(part.text)
-                is SummaryPart.Mono -> appendMono(part.text, mono)
-                is SummaryPart.Counterparty -> {
-                    val name = notes.notesOf(part.address)?.shownName()
-                    if (name != null) append(name) else appendMono(shortAddress(part.address), mono)
-                }
+internal fun summarySentence(
+    parts: List<SummaryPart>,
+    notes: Map<String, AddressNotes>,
+    signer: SigningAccount,
+    mono: FontFamily,
+    palette: LumenPalette,
+): AnnotatedString = buildAnnotatedString {
+    parts.forEach { part ->
+        when (part) {
+            is SummaryPart.Text -> append(part.text)
+            is SummaryPart.Mono -> appendMono(part.text, mono)
+            is SummaryPart.Counterparty -> {
+                val known = notes.notesOf(part.address)
+                val name = known?.shownName()
+                val role = nameRoleOf(known)
+                if (name != null && role != null) appendNamed(name, role, palette) else appendMono(shortAddress(part.address), mono)
+            }
+            is SummaryPart.Send -> {
+                append("Send ")
+                appendMono("${part.amount} ${part.asset}", mono)
+                append(" from ")
+                appendParty(part.from, sendPartyOf(part.from, notes, signer), mono, palette)
+                append(" to ")
+                appendParty(part.to, sendPartyOf(part.to, notes, signer), mono, palette)
+                append("?")
             }
         }
     }
+}
+
+/** A party of a send: its name in its role's colour, or its address in full in mono when no name is known. */
+private fun AnnotatedString.Builder.appendParty(address: String, name: PartyName?, mono: FontFamily, palette: LumenPalette) {
+    if (name == null) appendMono(address, mono) else appendNamed(name.text, name.role, palette)
+}
+
+/** Appends [name] in the colour of [role]. */
+private fun AnnotatedString.Builder.appendNamed(name: String, role: NameRole, palette: LumenPalette) {
+    withStyle(SpanStyle(color = role.colourIn(palette))) { append(name) }
+}
 
 /** A row as a summary fact: set in the monospace face when its value is an amount, an address or data, or when the value asks for it. */
 private fun fact(row: ReviewRow): ReviewFact {

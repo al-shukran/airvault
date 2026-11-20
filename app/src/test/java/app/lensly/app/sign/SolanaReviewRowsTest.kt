@@ -60,7 +60,7 @@ class SolanaReviewRowsTest {
             ),
             solanaRows(review),
         )
-        assertEquals("Sends 1.5 SOL to ${address(9)}.", solanaSentence(review))
+        assertEquals("Send 1.5 SOL from ${address(1)} to ${address(9)}?", solanaSentence(review))
     }
 
     /**
@@ -319,7 +319,7 @@ class SolanaReviewRowsTest {
             ),
             solanaRows(review),
         )
-        assertEquals("Sends 1.5 SOL to ${address(9)}.", solanaSentence(review))
+        assertEquals("Send 1.5 SOL from ${address(1)} to ${address(9)}?", solanaSentence(review))
         assertEquals(listOf(SolanaWarning.DURABLE_NONCE), review.warnings)
         assertContains(solanaWarningText(SolanaWarning.DURABLE_NONCE), "no expiry")
     }

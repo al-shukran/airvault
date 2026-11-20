@@ -122,7 +122,7 @@ class EvmReviewTest {
 
         assertEquals(ChainId("eip155:10143"), review.chain)
         assertEquals(NetworkLabel("Monad Testnet", testnet = true, detail = "Chain ID 10143"), review.network)
-        assertEquals("Sends 0.01 MON to $SPENDER.", review.summary.text())
+        assertEquals("Send 0.01 MON from $SENDER to $SPENDER?", review.summary.text())
         assertTrue(review.warnings.isEmpty())
     }
 
@@ -433,6 +433,16 @@ class EvmReviewTest {
         )
 
         assertEquals("The request does not name a network", refusalOf(EvmRequestParser.parsedOf(request)).reason)
+    }
+
+    @Test
+    fun aTransferOfAKnownTokenIsASendOfItsAmountToItsChecksummedRecipient() {
+        // The calldata carries the recipient in lower case. The title names it checksummed, as the rest of the review shows it.
+        val recipient = "0x9858EfFD232B4033E47d90003D41EC34EcaEda94"
+        val review = reviewOf(txParsed(USDC, ContractCall.Transfer(recipient.lowercase(), BigInteger.valueOf(1_500_000)).encode()!!))
+
+        assertEquals("transfer", review.title)
+        assertEquals("Send 1.5 USDC from $SENDER to $recipient?", review.summary.text())
     }
 
     @Test
