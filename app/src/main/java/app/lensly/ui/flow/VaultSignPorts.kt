@@ -453,7 +453,7 @@ internal class VaultSignPorts(
      */
     private fun reviewedKeys(session: VaultSession, ready: AppPrepared.Ready, keys: KeyAccess): KeyAccess {
         if (ready.request.header.app != solanaManifest.id) return keys
-        val stored = WalletStore(session).solanaKeys(ready.walletId).getOrNull(ready.accountIndex)
+        val stored = ready.accountIndex?.let { WalletStore(session).solanaKeys(ready.walletId).getOrNull(it) }
             ?: throw IllegalArgumentException(SolanaRequestCheck.UNKNOWN_ACCOUNT)
         return StoredKeyAccess(keys, stored)
     }
@@ -512,7 +512,7 @@ internal class VaultSignPorts(
                             autoNameBase = meta.autoNameBase,
                             accountNames = accountNames,
                             accountLabels = accountLabels,
-                            addressAt = { index -> AccountAddresses.addressAt(keys[index], 0) },
+                            addressAt = { account, index -> AccountAddresses.addressAt(keys[account], index) },
                             name = meta.name,
                             identity = identity,
                             accountIdentity = accountIdentity,

@@ -102,7 +102,7 @@ private val VIEW by lazy {
         masterFingerprint = WALLET.masterFingerprint,
         accountCount = 2,
         autoNameBase = "Seed Wallet",
-        addressAt = { AccountAddresses.addressAt(XPUB, it) },
+        addressAt = { _, index -> AccountAddresses.addressAt(XPUB, index) },
     )
 }
 
@@ -113,7 +113,7 @@ private val VIEW by lazy {
 private class FakePorts(
     private val wallets: List<WalletView> = listOf(VIEW),
     private val passwordCheck: suspend (CharArray) -> PasswordCheck = { PasswordCheck.Accepted },
-    private val keysOf: () -> KeyAccess = { WalletKeyAccess(SEED) },
+    private val keysOf: () -> KeyAccess = { WalletKeyAccess(SEED, accountCount = 2) },
     private val unreadable: Boolean = false,
     private val recordFails: Boolean = false,
     private val prepareGate: CompletableDeferred<Unit>? = null,
@@ -588,7 +588,7 @@ class SignFlowTest {
             masterFingerprint = WALLET.masterFingerprint xor 1,
             accountCount = 1,
             autoNameBase = "Other",
-            addressAt = { AccountAddresses.addressAt(XPUB, it) },
+            addressAt = { _, index -> AccountAddresses.addressAt(XPUB, index) },
         )
         val flow = SignFlow(FakePorts(wallets = listOf(other)), walletId = null)
 
@@ -613,7 +613,7 @@ class SignFlowTest {
             masterFingerprint = WALLET.masterFingerprint,
             accountCount = 2,
             autoNameBase = "Copy",
-            addressAt = { AccountAddresses.addressAt(XPUB, it) },
+            addressAt = { _, index -> AccountAddresses.addressAt(XPUB, index) },
         )
         val ports = FakePorts(wallets = listOf(VIEW, copy))
         val flow = SignFlow(ports, walletId = null)

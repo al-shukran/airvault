@@ -24,6 +24,7 @@ import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
 import app.airvault.core.signer.ScopedKeyAccess
 import app.airvault.core.signer.SignResponse
+import app.airvault.core.signer.allows
 import app.airvault.core.signer.SignerRef
 import app.lensly.core.evm.Secp256k1
 import app.lensly.core.evm.TxSigner
@@ -98,6 +99,21 @@ class EvmSignerTest {
     }
 
     /** A path outside the EVM key scope is refused by the core, before any key signs. */
+    /**
+     * The BIP44 address keys m/44'/60'/0'/0/N are in the EVM key scope, as the account keys are. Which N a wallet holds is for its key access to say.
+     */
+    @Test
+    fun aBip44AddressKeyIsInsideTheEvmKeyScope() {
+        val addressKey = listOf(
+            PathStep(44, hardened = true),
+            PathStep(60, hardened = true),
+            PathStep(0, hardened = true),
+            PathStep(0, hardened = false),
+            PathStep(2, hardened = false),
+        )
+        assertTrue(evmManifest.keys.allows(Curve.SECP256K1, Path(addressKey)))
+    }
+
     @Test
     fun aPathOutsideTheEvmKeyScopeThrowsKeyScopeViolationBeforeAnyKeySigns() {
         val keys = FakeKeys(KEY)

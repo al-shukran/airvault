@@ -42,7 +42,10 @@ val evmManifest: ChainManifest = ChainManifest(
     keys = listOf(
         KeyScope(
             curve = Curve.SECP256K1,
-            pathPrefixes = listOf(PathTemplate("m/44'/$EVM_COIN_TYPE'/*'/0/0")),
+            pathPrefixes = listOf(
+                PathTemplate("m/44'/$EVM_COIN_TYPE'/*'/0/0"),
+                PathTemplate("m/44'/$EVM_COIN_TYPE'/0'/0/*"),
+            ),
             purpose = "EVM account keys",
         ),
     ),

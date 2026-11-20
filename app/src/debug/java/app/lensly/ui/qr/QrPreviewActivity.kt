@@ -241,7 +241,7 @@ private fun samplePermitPrepared(context: Context, chainId: Long): Prepared {
         masterFingerprint = wallet.masterFingerprint,
         accountCount = 1,
         autoNameBase = "Preview",
-        addressAt = { wallet.address(it) },
+        addressAt = { account, index -> wallet.address(account, index) },
     )
     val owner = wallet.address(0)
     val json = """{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},""" +

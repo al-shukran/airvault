@@ -613,7 +613,7 @@ class WalletStore(private val session: VaultSession) {
         is WalletSecret.Mnemonic -> {
             val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
             try {
-                use(WalletKeyAccess(seed))
+                use(WalletKeyAccess(seed, requireNotNull(meta(id)) { "No wallet $id." }.accountCount))
             } finally {
                 seed.fill(0)
             }
