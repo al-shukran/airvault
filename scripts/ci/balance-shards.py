@@ -3,7 +3,7 @@
 
 usage: gh run download <pr-fast run> --dir DIR; python3 -I scripts/ci/balance-shards.py scripts/ci/shards.txt DIR > new.txt
 
-A shard runs the test tasks of :app, :lumio and :shared side by side, so a lane ends with its slowest module, not with its total.
+Every measured class of a shard gets a line, listed or not. A shard runs the test tasks of :app, :lumio and :shared side by side, so a lane ends with its slowest module, not with its total.
 Each module's classes are therefore spread on their own, largest first onto the lane with the least time of that module. The
 pure JVM modules, verify, fuzz and classes with no measured time keep their lines. app.lumio.btc.BtcScanTest (about 50 s alone)
 keeps shard-1 to itself: no other :app, :lumio or :shared class goes there.
@@ -23,14 +23,12 @@ for path in glob.glob(junit + '/junit-shard-*/**/*.xml', recursive=True):
         times[(':' + module.group(1), suite.group(1))] += float(suite.group(2))
 
 lines = open(shards_txt).read().splitlines()
-rows, movable = [], []
+rows, movable = [], set(times)
 for line in lines:
     if not line.strip() or line.startswith('#'):
         continue
     lane, module, cls = line.split()
-    if lane.startswith('shard-') and module in MODULES and cls != '*' and times.get((module, cls)):
-        movable.append((module, cls))
-    else:
+    if (module, cls) not in movable:
         rows.append((lane, module, cls))
 
 load = collections.defaultdict(float)

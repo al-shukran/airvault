@@ -48,7 +48,8 @@ usage: scripts/ci/run-partition.sh <lane>
 lanes:
   resolve      the one online step: ./gradlew resolveAll, retried only on network errors
   shard-1..8   the unit tests shards.txt lists under the lane, and the unlisted ones hashed to it; pure JVM modules run whole
-  verify       the Roborazzi pixel tests of :app and :lumio, with verifyRoborazziDebug
+  verify-app, verify-lumio
+               the Roborazzi pixel tests of one module, with verifyRoborazziDebug
   fuzz         the Jazzer seed replays (app.lensly.fuzz.*), with -PfuzzLane
   apk          the Lumio debug APK (:lumio:assembleDebug)
   android-tests
@@ -171,13 +172,13 @@ run_shard() {
 }
 
 run_verify() {
-    local -a app=() lumio=()
+    # $1 is the module, app or lumio: each runs on its own runner, so neither waits for the other's compile.
+    local -a tests=()
     local unlisted m c
     unlisted=$(unlisted_units)
     while read -r m c; do
         case "$m" in
-            :app) app+=(--tests "$c") ;;
-            :lumio) lumio+=(--tests "$c") ;;
+            :app | :lumio) [ "$m" != ":$1" ] || tests+=(--tests "$c") ;;
             *)
                 echo "run-partition: verify lists $m $c, and only :app and :lumio have Roborazzi tasks" >&2
                 exit 1
@@ -186,8 +187,7 @@ run_verify() {
     done < <(lane_units verify "$unlisted")
     # The filtered test task runs the pixel tests in verify mode (Roborazzi switches it on when the verify task is requested), so
     # each pixel test runs once. Without the filter, verifyRoborazziDebug would run every unit test of the module again.
-    ./gradlew --offline :app:testDebugUnitTest "${app[@]}" :app:verifyRoborazziDebug \
-        :lumio:testDebugUnitTest "${lumio[@]}" :lumio:verifyRoborazziDebug
+    ./gradlew --offline ":$1:testDebugUnitTest" "${tests[@]}" ":$1:verifyRoborazziDebug"
 }
 
 run_fuzz() {
@@ -264,7 +264,7 @@ run_ci() {
 case "$lane" in
     resolve) run_resolve ;;
     shard-[1-8]) run_shard "$lane" ;;
-    verify) run_verify ;;
+    verify-app | verify-lumio) run_verify "${lane#verify-}" ;;
     fuzz) run_fuzz ;;
     apk) run_apk ;;
     android-tests) run_android_tests ;;

@@ -136,12 +136,16 @@ jobs:
           retention-days: 3
           if-no-files-found: ignore
 
-  # Roborazzi pixel tests of :app and :lumio, verified against the committed PNGs (guideline 2.7).
+  # Roborazzi pixel tests of :app and :lumio, verified against the committed PNGs (guideline 2.7), one leg per module.
   roborazzi:
-    name: verify screenshots
+    name: verify screenshots ${{ matrix.module }}
     needs: deps
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [app, lumio]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -149,20 +153,20 @@ jobs:
 
       - uses: ./.github/actions/gradle-lane
         with:
-          lanes: verify
-          state: verify
+          lanes: verify-${{ matrix.module }}
+          state: verify-${{ matrix.module }}
 
       - name: Save the build state
         if: always()
         uses: ./.github/actions/gradle-lane/save
         with:
-          state: verify
+          state: verify-${{ matrix.module }}
 
       - name: Upload the JUnit results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: junit-verify
+          name: junit-verify-${{ matrix.module }}
           path: '**/build/test-results/**/*.xml'
           retention-days: 3
           if-no-files-found: ignore

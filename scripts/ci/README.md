@@ -13,7 +13,7 @@ fails it, except dependency review, which is skipped until `DEPENDENCY_GRAPH_ENA
 |---|---|---|
 | `resolve` | `./gradlew resolveAll`, the only online step; retried when a repository is unreachable | `deps`, on a cache miss |
 | `shard-1` … `shard-8` | the unit tests listed under the lane in `shards.txt`, and the unlisted units hashed to it; pure JVM modules run whole | `shard` (matrix) |
-| `verify` | the Roborazzi pixel tests of `:app` and `:lumio` (listed, or unlisted and named `*ScreenshotTest`), with `verifyRoborazziDebug` | `roborazzi` |
+| `verify-app`, `verify-lumio` | the Roborazzi pixel tests of one module (listed under `verify`, or unlisted and named `*ScreenshotTest`), with `verifyRoborazziDebug` | `roborazzi` (matrix) |
 | `fuzz` | the Jazzer seed replays, `app.lensly.fuzz.*`, with `-PfuzzLane` | `fuzz` |
 | `apk` | the Lumio debug APK, `:lumio:assembleDebug` | `android` |
 | `android-tests` | androidTest and benchmark compile of `:app` and `:lumio`; master and merge queue only (a step of `android`) | `android` |
