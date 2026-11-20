@@ -36,3 +36,5 @@ internal suspend fun confirmDeviceCredential(context: Context): Boolean = withCo
         })
     }
 }
+
+// CI timing probe for #532: comment only, reverted after the run.
