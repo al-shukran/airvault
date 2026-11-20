@@ -72,7 +72,6 @@ import app.airvault.chains.solana.signer.SolanaRequestCheck
 import app.airvault.chains.solana.signer.SolanaTokenList
 import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
 import app.lensly.core.ur.framesOf
-import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.AccountAddresses
@@ -211,23 +210,7 @@ internal class VaultSignPorts(
         }
     }
 
-    /** Opens a second session only to prove the password, then closes it at once. The open session is left alone. */
-    override suspend fun checkPassword(password: CharArray): PasswordCheck = try {
-        when (val result = holder.vault.unlock(password)) {
-            is UnlockResult.Unlocked -> {
-                result.session.close()
-                PasswordCheck.Accepted
-            }
-            UnlockResult.Rejected -> PasswordCheck.Rejected
-            // The last allowed try erased the vault, so the open session goes with it, as on a wipe.
-            UnlockResult.Erased -> {
-                holder.lock()
-                PasswordCheck.Rejected
-            }
-        }
-    } catch (e: VaultException) {
-        PasswordCheck.Unavailable
-    }
+    override suspend fun checkPassword(password: CharArray): PasswordCheck = checkAppPassword(holder, password)
 
     override suspend fun sign(ready: Prepared.Ready, privateKey: ByteArray): List<String> =
         withContext(Dispatchers.Default) {
