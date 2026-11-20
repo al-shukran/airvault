@@ -7,6 +7,7 @@ import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.chains.solana.SOLANA_MAINNET
 import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.signer.AppRequest
+import app.airvault.core.signer.Path
 import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
 import app.airvault.core.signer.SignerRef
@@ -15,7 +16,6 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.Mnemonic
-import fr.acinq.bitcoin.KeyPath
 import kotlin.test.assertEquals
 import org.junit.Test
 
@@ -24,17 +24,22 @@ private const val ADDRESS = "0x0000000000000000000000000000000000000000"
 
 private val SEED by lazy { Mnemonic.toSeed(List(23) { "abandon" } + "art") }
 private val TESTNET = BtcAccount.fromSeed(SEED, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT)
-private val MAINNET_PATH = BtcAccount.fromSeed(SEED, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT).path
+private val TESTNET_PATH = nativeSegwitAccountOf(BtcNetwork.TESTNET4)
+private val MAINNET_PATH = nativeSegwitAccountOf(BtcNetwork.MAINNET)
 private val ACCOUNT_PATH = listOf(PathStep(44, true), PathStep(501, true), PathStep(0, true))
 
-/** A Mnemonic wallet with [fingerprint] and the Bitcoin Accounts at [bitcoinPaths]. */
-private fun mnemonic(id: String, fingerprint: Int, bitcoinPaths: List<KeyPath> = emptyList()) = WalletView(
+/** The path m/84'/coin'/0' of the first native segwit Bitcoin Account on [network], which a wallet stores for it. */
+private fun nativeSegwitAccountOf(network: BtcNetwork) =
+    Path(listOf(PathStep(ScriptType.NATIVE_SEGWIT.purpose, true), PathStep(network.coinType, true), PathStep(0, true)))
+
+/** A Mnemonic wallet with [fingerprint] that stores the accounts at [storedPaths]. */
+private fun mnemonic(id: String, fingerprint: Int, storedPaths: List<Path> = emptyList()) = WalletView(
     id = id,
     masterFingerprint = fingerprint,
     accountCount = 1,
     autoNameBase = id,
     addressAt = { _, _ -> ADDRESS },
-    bitcoinAccountPaths = bitcoinPaths,
+    storedAccountPaths = storedPaths,
 )
 
 private fun singleKey(id: String) = WalletView.singleKey(id = id, address = ADDRESS, autoNameBase = id)
@@ -106,7 +111,7 @@ class ScanRouteTest {
 
     @Test
     fun aBitcoinRequestRoutesToTheWalletOfTheAccountItSpendsFrom() {
-        val wallets = listOf(mnemonic("btc", TESTNET.masterFingerprint.toInt(), listOf(TESTNET.path)))
+        val wallets = listOf(mnemonic("btc", TESTNET.masterFingerprint.toInt(), listOf(TESTNET_PATH)))
 
         assertEquals(WalletMatch.One("btc"), routeScan(bitcoin(), wallets))
     }
@@ -120,7 +125,7 @@ class ScanRouteTest {
 
     @Test
     fun aBitcoinRequestOfAnotherFingerprintRoutesToNone() {
-        val wallets = listOf(mnemonic("other", TESTNET.masterFingerprint.toInt() xor 1, listOf(TESTNET.path)))
+        val wallets = listOf(mnemonic("other", TESTNET.masterFingerprint.toInt() xor 1, listOf(TESTNET_PATH)))
 
         assertEquals(WalletMatch.None, routeScan(bitcoin(), wallets))
     }
@@ -170,7 +175,7 @@ class ScanRouteTest {
 
     @Test
     fun aBitcoinRequestWithAnOutsideCoSignerRoutesToTheWalletOfItsOwnAccount() {
-        val wallets = listOf(mnemonic("btc", TESTNET.masterFingerprint.toInt(), listOf(TESTNET.path)))
+        val wallets = listOf(mnemonic("btc", TESTNET.masterFingerprint.toInt(), listOf(TESTNET_PATH)))
         val outside = testnetAccount(TESTNET.masterFingerprint.toInt() xor 1)
 
         assertEquals(WalletMatch.One("btc"), routeScan(bitcoin(listOf(testnetAccount(), outside)), wallets))
@@ -180,8 +185,8 @@ class ScanRouteTest {
     fun aBitcoinRequestClaimingAccountsOfTwoWalletsRoutesToSeveral() {
         val other = TESTNET.masterFingerprint.toInt() xor 1
         val wallets = listOf(
-            mnemonic("btc", TESTNET.masterFingerprint.toInt(), listOf(TESTNET.path)),
-            mnemonic("other", other, listOf(TESTNET.path)),
+            mnemonic("btc", TESTNET.masterFingerprint.toInt(), listOf(TESTNET_PATH)),
+            mnemonic("other", other, listOf(TESTNET_PATH)),
         )
 
         assertEquals(WalletMatch.Several(2), routeScan(bitcoin(listOf(testnetAccount(), testnetAccount(other))), wallets))

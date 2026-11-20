@@ -8,6 +8,7 @@ import app.airvault.core.model.ChainId
 import app.airvault.core.model.ChainManifest
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.KeyAccess
+import app.airvault.core.signer.Path
 import app.airvault.core.signer.RequestParser
 import app.airvault.core.signer.SignResponse
 import app.airvault.core.signer.SignerApp
@@ -35,6 +36,10 @@ class BitcoinSigner(
     override val parser: RequestParser = BitcoinRequestParser
 
     override val addresses: AddressCodec = BitcoinAddressCodec
+
+    /** A Bitcoin request names the one account it spends from, so it is for a wallet only when that wallet stores the Bitcoin Account. */
+    override fun namesStoredAccount(signer: SignerRef, storedAccountPaths: List<Path>): Boolean =
+        storedAccountPaths.any { it.steps == signer.path.take(ACCOUNT_DEPTH) }
 
     /**
      * Signs the approved PSBT of [request] with the keys of the one account its header names, and answers with the signed `crypto-psbt`.
