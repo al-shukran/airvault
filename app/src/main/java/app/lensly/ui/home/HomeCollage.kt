@@ -52,12 +52,13 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import app.lensly.ui.components.LogoTone
+import app.lensly.ui.components.backdropColor
 import app.lensly.ui.components.chainIconDrawables
-import app.lensly.ui.components.chainIconsNeedingBackdrop
+import app.lensly.ui.components.logoTone
+import app.lensly.ui.components.onDarkPage
 import app.lensly.ui.components.tokenIconDrawables
-import app.lensly.ui.components.tokenIconsNeedingBackdrop
 import app.lensly.ui.settings.animatorsDisabled
-import app.lensly.ui.theme.LenslyLogoBackdrop
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WALLET_GUTTER
 import kotlin.math.roundToInt
@@ -192,7 +193,7 @@ private fun CollageRow(logos: List<Int>, row: Int, still: Boolean, painters: Map
             .wrapContentWidth(Alignment.Start, unbounded = true),
     ) {
         repeat(COLLAGE_COPIES) {
-            logos.forEach { logo -> CollageLogo(painters.getValue(logo), lightDisc = logoOnLightDisc(logo)) }
+            logos.forEach { logo -> CollageLogo(painters.getValue(logo), tone = logoTone(logo)) }
         }
     }
 }
@@ -210,23 +211,11 @@ private fun drift(durationMs: Int): State<Float> {
 }
 
 /**
- * The logos too dark for the dark tile: the same set the rest of the app puts on a light disc. Every other logo sits on the dark tile,
- * where its average luminance is at least 0.15, which gives it 3:1 or better against [MaterialTheme.colorScheme.surface].
- */
-private val lightDiscRes: Set<Int> = buildSet {
-    chainIconsNeedingBackdrop.forEach { name -> chainIconDrawables[name]?.let { add(it) } }
-    tokenIconsNeedingBackdrop.forEach { name -> tokenIconDrawables[name]?.let { add(it) } }
-}
-
-/** Whether the logo [res] sits on a light disc in the collage, rather than on the dark tile. */
-internal fun logoOnLightDisc(res: Int): Boolean = res in lightDiscRes
-
-/**
- * One logo: a disc with the logo centred in it. A bright logo sits on the dark tile. A logo too dark for the tile sits on a light disc.
- * Its cell is narrower than the disc, so each logo overlaps its neighbours.
+ * One logo: a disc with the logo centred in it. A logo that would vanish on the tile sits on the disc of its [tone] (see [backdropColor]), and
+ * the others sit on the tile. Its cell is narrower than the disc, so each logo overlaps its neighbours.
  */
 @Composable
-private fun CollageLogo(painter: Painter, lightDisc: Boolean) {
+private fun CollageLogo(painter: Painter, tone: LogoTone) {
     Box(
         modifier = Modifier.size(LOGO_STEP, ROW_STEP),
         contentAlignment = Alignment.Center,
@@ -235,7 +224,7 @@ private fun CollageLogo(painter: Painter, lightDisc: Boolean) {
             modifier = Modifier
                 .requiredSize(LOGO_SIZE)
                 .clip(CircleShape)
-                .background(if (lightDisc) LenslyLogoBackdrop else MaterialTheme.colorScheme.surface)
+                .background(backdropColor(tone, onDarkPage()) ?: MaterialTheme.colorScheme.surface)
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
