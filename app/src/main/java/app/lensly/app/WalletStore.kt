@@ -1375,18 +1375,21 @@ internal object WalletRecords {
                     complete = complete,
                 )
             }
-            WalletKind.SINGLE_KEY -> WalletMeta(
-                id = id,
-                name = name,
-                createdAtMs = createdAtMs,
-                deviceGenerated = deviceGenerated,
-                accountCount = accountCount,
-                masterFingerprintHex = null,
-                accountKeys = emptyList(),
-                kind = kind,
-                seedBackedUp = seedBackedUp,
-                complete = complete,
-            )
+            WalletKind.SINGLE_KEY -> {
+                require(accountCount == 1) { "A Single Key wallet has one account." }
+                WalletMeta(
+                    id = id,
+                    name = name,
+                    createdAtMs = createdAtMs,
+                    deviceGenerated = deviceGenerated,
+                    accountCount = accountCount,
+                    masterFingerprintHex = null,
+                    accountKeys = emptyList(),
+                    kind = kind,
+                    seedBackedUp = seedBackedUp,
+                    complete = complete,
+                )
+            }
         }
     }
 

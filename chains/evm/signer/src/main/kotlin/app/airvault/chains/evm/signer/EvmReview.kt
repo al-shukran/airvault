@@ -161,7 +161,8 @@ class EvmReviewBuilder(
             val offChain = offChainLabelOf(typedData.domain, typedData.primaryType)
             val verifyingContract = (typedData.domain.fields["verifyingContract"] as? TypedValue.BytesValue)
                 ?.let { checksum(it.bytes.toHex()) }
-            val denyChains = listOfNotNull(request.chainId, domainChain?.longValueExact()).distinct().ifEmpty { listOf(chainId) }
+            // Typed data that names no chain is valid on every chain, so it is matched against the entries of all of them.
+            val denyChains = listOfNotNull(request.chainId, domainChain?.longValueExact()).distinct().ifEmpty { listOf<Long?>(null) }
             val denied = denyChains.flatMap { registry.typedDenylistMatches(it, verifyingContract, typedData.primaryType) }
             denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { throw Refusal(it.reason) }
             denied.forEach { warnings += denylistWarning(it, field = null) }
