@@ -1,6 +1,7 @@
 package app.lensly.core.evm
 
 import app.airvault.chains.evm.signer.DataType
+import app.airvault.core.signer.EcdsaSignature
 import org.web3j.crypto.Sign
 
 /** Signs personal messages (EIP-191, personal_sign). Typed data (dataType 2) is refused for now. */
@@ -14,12 +15,17 @@ object MessageSigner {
         class Refused(val reason: String) : Result
     }
 
-    /** Signs the EIP-191 hash of [message], keccak256("\u0019Ethereum Signed Message:\n" + length + message). */
+    /** Signs the EIP-191 hash of [message], keccak256("\u0019Ethereum Signed Message:\n" + length + message), with [privateKey]. */
     fun sign(dataType: DataType, message: ByteArray, privateKey: ByteArray): Result {
         if (dataType != DataType.PERSONAL_MESSAGE) {
             return Result.Refused("only personal messages (dataType 3) are signed, not dataType ${dataType.wire}")
         }
-        val signature = Secp256k1.sign(Sign.getEthereumMessageHash(message), privateKey)
-        return Result.Signed(signature.r + signature.s + byteArrayOf((27 + signature.recId).toByte()))
+        return Result.Signed(signatureOf(message) { digest -> Secp256k1.sign(digest, privateKey) })
+    }
+
+    /** The signature of [message] in the form [sign] gives it, with the EIP-191 hash signed by [signDigest]. */
+    fun signatureOf(message: ByteArray, signDigest: (ByteArray) -> EcdsaSignature): ByteArray {
+        val signature = signDigest(Sign.getEthereumMessageHash(message))
+        return signature.r + signature.s + byteArrayOf((27 + signature.recoveryId).toByte())
     }
 }

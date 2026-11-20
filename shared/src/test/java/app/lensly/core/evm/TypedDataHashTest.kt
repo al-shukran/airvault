@@ -99,7 +99,7 @@ class TypedDataHashTest {
         // eth-sig-util signTypedData, V4, with an empty domain: the signature is over the digest, with v of 27 or 28.
         val data = TypedData(ARRAY_TYPES, "Mail", struct(), arrayMail())
         val signature = Secp256k1.sign(data.digest(), Numeric.hexStringToByteArray(SIGNING_KEY))
-        val bytes = signature.r + signature.s + byteArrayOf((27 + signature.recId).toByte())
+        val bytes = signature.r + signature.s + byteArrayOf((27 + signature.recoveryId).toByte())
 
         assertEquals(TypedDataVectors.value("arrayMailSignature"), Numeric.toHexString(bytes))
     }
