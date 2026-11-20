@@ -51,8 +51,9 @@ lanes:
   verify       the Roborazzi pixel tests of :app and :lumio, with verifyRoborazziDebug
   fuzz         the Jazzer seed replays (app.lensly.fuzz.*), with -PfuzzLane
   android      androidTest and benchmark compile of :app and :lumio, and the Lumio debug APK
-  lint         lintDebug of every module
-  manifest     merged manifests: no INTERNET in :app, Lumio's allow-list, OkHttp off the release classpath of :app
+  lint-app, lint-lumio, lint-shared
+               lintDebug of one module, the legs of the lint job
+  manifest    merged manifests: no INTERNET in :app, Lumio's allow-list, OkHttp off the release classpath of :app
   ci           bash -n on every script, check-partitions.sh and check-test-network.sh (no Gradle)
 USAGE_END
 }
@@ -203,7 +204,8 @@ run_android() {
 }
 
 run_lint() {
-    ./gradlew --offline lintDebug
+    # $1 is the module: app, lumio or shared. Its lintDebug covers the main, unit-test, androidTest and test-fixture sources.
+    ./gradlew --offline ":$1:lintDebug"
 }
 
 run_manifest() {
@@ -249,7 +251,7 @@ case "$lane" in
     verify) run_verify ;;
     fuzz) run_fuzz ;;
     android) run_android ;;
-    lint) run_lint ;;
+    lint-app | lint-lumio | lint-shared) run_lint "${lane#lint-}" ;;
     manifest) run_manifest ;;
     ci) run_ci ;;
     *)
