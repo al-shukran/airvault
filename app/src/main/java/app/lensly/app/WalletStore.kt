@@ -318,7 +318,7 @@ class WalletStore(private val session: VaultSession) {
      * was deriving, nothing is saved and the result is null. [onProgress] receives the number of accounts derived so far.
      *
      * @throws IllegalArgumentException if [count] is outside 1 to [cap], the wallet is missing, it is a Single Key wallet, which has no
-     * seed, or it would keep more than [BITCOIN_MAX_ACCOUNTS] Bitcoin accounts. Nothing is saved then.
+     * seed, or it would keep more than [PairingCodec.MAX_BITCOIN_ACCOUNTS] Bitcoin accounts. Nothing is saved then.
      */
     fun addBitcoinAccounts(
         id: String,
@@ -334,8 +334,8 @@ class WalletStore(private val session: VaultSession) {
         val current = requireNotNull(meta(id)) { "No wallet $id." }
         require(current.kind == WalletKind.MNEMONIC) { SINGLE_KEY_NO_BITCOIN }
         val existing = bitcoinAccounts(id)
-        require(existing.size + count <= WalletRecords.BITCOIN_MAX_ACCOUNTS) {
-            "A wallet keeps at most ${WalletRecords.BITCOIN_MAX_ACCOUNTS} Bitcoin accounts."
+        require(existing.size + count <= PairingCodec.MAX_BITCOIN_ACCOUNTS) {
+            "A wallet keeps at most ${PairingCodec.MAX_BITCOIN_ACCOUNTS} Bitcoin accounts."
         }
         val indices = BulkPolicy.indexRange(nextBitcoinIndex(existing, scriptType, network), count)
         val secret = mnemonicSecret(id)
@@ -1029,9 +1029,6 @@ internal object WalletRecords {
     /** The record that holds the wallet's Bitcoin accounts. Only a wallet with one has it. */
     const val BITCOIN = "bitcoin"
 
-    /** The most Bitcoin accounts a wallet keeps, the largest Bulk Cap. The Bitcoin record's capacity is sized for them. */
-    const val BITCOIN_MAX_ACCOUNTS = 100
-
     /** The most Solana accounts a wallet keeps, the largest Bulk Cap. The Solana record's capacity is sized for them. */
     const val SOLANA_MAX_ACCOUNTS = 100
 
@@ -1184,7 +1181,7 @@ internal object WalletRecords {
         require(accounts.map { it.key }.distinct().size == accounts.size) {
             "A Bitcoin account is unique per Script Type, network and index."
         }
-        require(accounts.size <= BITCOIN_MAX_ACCOUNTS) { "A wallet keeps at most $BITCOIN_MAX_ACCOUNTS Bitcoin accounts." }
+        require(accounts.size <= PairingCodec.MAX_BITCOIN_ACCOUNTS) { "A wallet keeps at most ${PairingCodec.MAX_BITCOIN_ACCOUNTS} Bitcoin accounts." }
         return writeBytes { out ->
             out.writeByte(BITCOIN_VERSION)
             out.writeInt(accounts.size)
