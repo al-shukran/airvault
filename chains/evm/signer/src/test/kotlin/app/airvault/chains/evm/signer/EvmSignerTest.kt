@@ -12,6 +12,8 @@ import app.airvault.core.model.NetworkLabel
 import app.airvault.core.model.Review
 import app.airvault.core.model.ReviewRow
 import app.airvault.core.model.ReviewSection
+import app.airvault.core.model.checkLabels
+import app.airvault.core.model.text
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.EcdsaSignature
 import app.airvault.core.signer.KeyAccess
@@ -25,6 +27,8 @@ import app.airvault.core.signer.SignResponse
 import app.airvault.core.signer.SignerRef
 import app.lensly.core.evm.Secp256k1
 import app.lensly.core.evm.TxSigner
+import app.lensly.core.evm.TypedDataSigner
+import app.lensly.core.registry.Registry
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.PathStep
 import java.math.BigInteger
@@ -137,14 +141,72 @@ class EvmSignerTest {
         assertTrue(keys.signedPaths.isEmpty())
     }
 
+    /** A typed request signs when the approved review shows the domain separator and the message hash that it signs, each in full. */
+    @Test
+    fun aTypedRequestSignsWhenTheReviewShowsTheHashesItSigns() {
+        val request = requestOf(agentJson(MONAD), MONAD, dataType = DataType.TYPED_DATA)
+        val approval = tickedApproval(reviewOf(request))
+        val typed = typedDataOf(request)
+
+        val signature = signatureOf(EvmSigner.sign(request, approval, FakeKeys(KEY)))
+
+        assertEquals(hashText(typed.domainSeparator()), shownBy(approval, DOMAIN_HASH_LABEL))
+        assertEquals(hashText(typed.messageHash()), shownBy(approval, MESSAGE_HASH_LABEL))
+        assertContentEquals(TypedDataSigner.signatureOf(typed) { digest -> Secp256k1.sign(digest, KEY) }, signature)
+    }
+
+    /** A Hyperliquid action names chain 1337 in its domain and 42161 in its header. It signs on the domain's chain, which the review reads. */
+    @Test
+    fun aTypedRequestSignsOnTheChainItsDomainNamesWhenTheHeaderNamesAnother() {
+        val request = requestOf(agentJson(HYPERLIQUID_CHAIN), ARBITRUM, dataType = DataType.TYPED_DATA)
+        val approval = tickedApproval(reviewOf(request))
+
+        val signature = signatureOf(EvmSigner.sign(request, approval, FakeKeys(KEY)))
+
+        assertEquals(ChainId("eip155:$HYPERLIQUID_CHAIN"), approval.review.chain)
+        assertContentEquals(TypedDataSigner.signatureOf(typedDataOf(request)) { digest -> Secp256k1.sign(digest, KEY) }, signature)
+    }
+
+    /** A review that shows another domain separator than the one the request signs is refused, and nothing is signed. */
+    @Test
+    fun aTypedRequestIsRefusedWhenTheReviewShowsAnotherDomainHash() {
+        val request = requestOf(agentJson(MONAD), MONAD, dataType = DataType.TYPED_DATA)
+        val altered = reviewOf(request).withRows { row ->
+            if (row.label == DOMAIN_HASH_LABEL) row.copy(value = DisplayValue.Text(OTHER_HASH, mono = true)) else row
+        }
+
+        assertRefusedWithoutSigning(request, tickedApproval(altered))
+    }
+
+    /** A review that shows another message hash than the one the request signs is refused, and nothing is signed. */
+    @Test
+    fun aTypedRequestIsRefusedWhenTheReviewShowsAnotherMessageHash() {
+        val request = requestOf(agentJson(MONAD), MONAD, dataType = DataType.TYPED_DATA)
+        val altered = reviewOf(request).withRows { row ->
+            if (row.label == MESSAGE_HASH_LABEL) row.copy(value = DisplayValue.Text(OTHER_HASH, mono = true)) else row
+        }
+
+        assertRefusedWithoutSigning(request, tickedApproval(altered))
+    }
+
+    /** A review without a hash row has nothing to check the signed hash against, so it signs nothing. */
+    @Test
+    fun aTypedRequestIsRefusedWhenTheReviewLacksAHashRow() {
+        val request = requestOf(agentJson(MONAD), MONAD, dataType = DataType.TYPED_DATA)
+        val missing = reviewOf(request).withRows { row -> row.takeUnless { it.label == MESSAGE_HASH_LABEL } }
+
+        assertRefusedWithoutSigning(request, tickedApproval(missing))
+    }
+
     /** The request as the parser makes it: its body is the parsed request, and its header names the path the request names. */
     private fun requestOf(
         signData: ByteArray,
         chainId: Long,
         path: List<PathStep> = emptyList(),
         requestId: ByteArray? = REQUEST_ID,
+        dataType: DataType = DataType.TRANSACTION,
     ): AppRequest {
-        val request = EthSignRequest(requestId, signData, DataType.TRANSACTION, chainId, path, null, null, null)
+        val request = EthSignRequest(requestId, signData, dataType, chainId, path, null, null, null)
         val header = RequestHeader(
             app = evmManifest.id,
             chain = ChainId("eip155:$chainId"),
@@ -169,6 +231,35 @@ class EvmSignerTest {
             coverage = Coverage(decoded = emptySet(), excluded = emptyMap()),
         )
         return requireNotNull(Approval.of(review, emptySet()))
+    }
+
+    /** The review EvmReviewBuilder builds for [request] from the account of [KEY]. */
+    private fun reviewOf(request: AppRequest): Review =
+        assertIs<EvmReviewResult.Ok>(REVIEWS.review(EvmRequestBody.decode(request.body), senderOf(KEY))).review
+
+    /** The approval of [review] by an owner who ticks every check it names. */
+    private fun tickedApproval(review: Review): Approval = requireNotNull(Approval.of(review, review.checkLabels().toSet()))
+
+    /** The text of the one row named [label] that [approval] shows. */
+    private fun shownBy(approval: Approval, label: String): String =
+        approval.review.sections.flatMap { it.rows }.single { it.label == label }.value.text()
+
+    /** [this] review with each row passed through [transform], which returns null to drop the row. */
+    private fun Review.withRows(transform: (ReviewRow) -> ReviewRow?): Review =
+        copy(sections = sections.map { section -> section.copy(rows = section.rows.mapNotNull(transform)) })
+
+    /** The typed data of [request], as the parser reads it. */
+    private fun typedDataOf(request: AppRequest): TypedData =
+        assertIs<TypedDataParser.Result.Ok>(EvmRequestBody.decode(request.body).typed).data
+
+    /** Signs [request] with [approval], and asserts that the refusal names the hashes and that no key signs. */
+    private fun assertRefusedWithoutSigning(request: AppRequest, approval: Approval) {
+        val keys = FakeKeys(KEY)
+
+        val refusal = assertFailsWith<IllegalArgumentException> { EvmSigner.sign(request, approval, keys) }
+
+        assertEquals(HASHES_REFUSAL, refusal.message)
+        assertTrue(keys.signedPaths.isEmpty(), "A refused request signs nothing")
     }
 
     /** The signature in the response payload, which is key 2 of its map. */
@@ -214,6 +305,24 @@ class EvmSignerTest {
         val REQUEST_ID = ByteArray(16) { 0x11 }
         const val TO = "0x9858EfFD232B4033E47d90003D41EC34EcaEda94"
         const val MONAD = 10143L
+        const val ARBITRUM = 42161L
+        const val HYPERLIQUID_CHAIN = 1337L
+        const val HASHES_REFUSAL = "The review does not show the hashes of the typed data it signs."
+
+        /** A hash that no review of the fixtures below shows. */
+        val OTHER_HASH: String = hashText(ByteArray(32) { 0x11 })
+
+        /** The review of the typed data of this file: no registry entry, and no call to decode. */
+        val REVIEWS = EvmReviewBuilder(Registry(networks = emptyList(), tokens = emptyList()), { _, _ -> error("typed data decodes no call") })
+
+        /** The typed message of a Hyperliquid phantom agent: an Agent of a source and a connection ID, on the Exchange domain of [domainChain]. */
+        fun agentJson(domainChain: Long): ByteArray = (
+            """{"types":{"Agent":[{"name":"source","type":"string"},{"name":"connectionId","type":"bytes32"}],""" +
+                """"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},""" +
+                """{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}]},""" +
+                """"primaryType":"Agent","domain":{"chainId":$domainChain,"name":"Exchange","verifyingContract":"$TO","version":"1"},""" +
+                """"message":{"source":"a","connectionId":"0x${"ab".repeat(32)}"}}"""
+            ).toByteArray(Charsets.UTF_8)
 
         /** The EVM account path m/44'/60'/[index]'/0/0. */
         fun account(index: Int): List<PathStep> = listOf(
