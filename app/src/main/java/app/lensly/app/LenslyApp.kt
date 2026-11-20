@@ -13,7 +13,13 @@ import app.lensly.core.vault.Vault
  * because the camera reads the gesture before the vault is unlocked. The cover and the gate are shared with Lumio, see [CoverApplication].
  */
 class LenslyApp : Application(), CoverApplication {
-    override val vaultHolder: VaultHolder by lazy { VaultHolder(Vault(this)) { SessionReads(it) } }
+    // Opening a vault removes the wallets a crash left unfinished, before any read of the vault.
+    override val vaultHolder: VaultHolder by lazy {
+        VaultHolder(Vault(this)) { session ->
+            WalletStore(session).dropIncomplete()
+            SessionReads(session)
+        }
+    }
     override val entryGestureHolder: EntryGestureHolder by lazy { EntryGestureHolder(EntryGestureStore.open(this)) }
 
     /** The Parser Sandbox: every parser of scanned input runs in its isolated process, which holds no keys and no files. */
