@@ -43,9 +43,9 @@ import app.airvault.core.model.ChainId
 import app.lensly.app.AddressNotes
 import app.lensly.app.headline
 import app.lensly.app.isAddressValue
-import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
+import app.lensly.ui.components.LetterMonogram
 import app.lensly.ui.components.RowArrow
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
@@ -208,6 +208,7 @@ internal fun addressTapOn(chain: ChainId, onOpenAddress: ((String, ChainId) -> U
 internal fun ReviewField(
     label: String,
     value: String,
+    logo: @Composable () -> Unit,
     notes: AddressNotes? = null,
     modifier: Modifier = Modifier,
     onOpen: ((String) -> Unit)? = null,
@@ -225,7 +226,7 @@ internal fun ReviewField(
         )
         Spacer(Modifier.height(LenslySpacing.xxs))
         if (isAddress) {
-            ReviewAddress(address = value, notes = notes, onClick = onOpen?.let { open -> { open(value) } })
+            ReviewAddress(address = value, notes = notes, logo = logo, onClick = onOpen?.let { open -> { open(value) } })
         } else {
             Text(
                 text = value,
@@ -436,7 +437,7 @@ internal fun ReviewActions(
 internal fun ReviewAddress(
     address: String,
     notes: AddressNotes?,
-    logo: @Composable () -> Unit = { AddressIcon(size = 16.dp) },
+    logo: @Composable () -> Unit = { LetterMonogram(letter = "?", size = 16.dp) },
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
 ) {

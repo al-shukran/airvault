@@ -34,7 +34,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.airvault.core.model.ChainId
@@ -53,17 +52,16 @@ import app.lensly.app.sign.ReviewRecord
 import app.lensly.app.sign.recordChainOf
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.wallet.toHex
-import app.lensly.ui.components.BitcoinIcon
 import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.LumioIsland
-import app.lensly.ui.components.NetworkLogo
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.profile.ProfileAvatar
 import app.lensly.ui.sign.FactRow
 import app.lensly.ui.sign.MonoText
 import app.lensly.ui.sign.MutedText
+import app.lensly.ui.sign.ChainNetworkLogo
 import app.lensly.ui.sign.ReviewAddress
 import app.airvault.chains.bitcoin.signer.btcText
 import app.lensly.ui.sign.groupHex
@@ -175,7 +173,7 @@ internal fun HistoryRow(
             modifier = Modifier.size(24.dp),
         )
         Spacer(Modifier.width(LenslySpacing.sm))
-        RecordNetworkLogo(record = record, networks = networks, size = 24.dp)
+        ChainNetworkLogo(chain = recordChainOf(record), networkName = record.networkName, networks = networks, size = 24.dp)
         Spacer(Modifier.width(LenslySpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -242,7 +240,7 @@ internal fun HistoryDetailSheet(
     val chain = recordChainOf(record)
     val open = tapOf(chain, onOpenAddress, onDismiss)
     // Each address of the record shows the logo of the network the record names, as its row does.
-    val logo: @Composable () -> Unit = { RecordNetworkLogo(record = record, networks = networks, size = 16.dp) }
+    val logo: @Composable () -> Unit = { ChainNetworkLogo(chain = chain, networkName = record.networkName, networks = networks, size = 16.dp) }
     OptionsSheet(onDismiss = onDismiss, scrollable = true) {
         OutcomeHero(record)
         Spacer(Modifier.height(LenslySpacing.lg))
@@ -448,19 +446,6 @@ private fun LabelledRows(
         } else {
             MonoText(value)
         }
-    }
-}
-
-/**
- * The logo of the network a record names: the Bitcoin logo for a Bitcoin record, and otherwise the registry's logo for the network, looked up
- * by its name. A network with no logo shows a letter of its name, never the Ethereum logo.
- */
-@Composable
-internal fun RecordNetworkLogo(record: ReviewRecord, networks: List<NetworkEntry>, size: Dp) {
-    if (record.kind == ReviewKind.BITCOIN_TRANSACTION) {
-        BitcoinIcon(size = size)
-    } else {
-        NetworkLogo(name = record.networkName, networks = networks, size = size)
     }
 }
 
