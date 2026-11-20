@@ -265,12 +265,12 @@ private fun WaitBar(wait: Long, tallest: Long, atCap: Boolean, modifier: Modifie
 private const val STEP_TRIES = 5
 
 /**
- * The wait after each of the first [STEP_TRIES] wrong tries under [choice], from the domain's own policy. It is read at a time
- * past the 7-day learning period, so each wait is the one the choice sets, not the 10 s cap of the first week.
+ * The wait after each of the first [STEP_TRIES] wrong tries under [choice], from the domain's own policy. The learning week is left
+ * out, so each wait is the one the choice sets, not the 10 s cap of the first week.
  */
 internal fun waitSteps(choice: FailureCapChoice): List<Long> {
     val policy = FailureDelay(vaultCreatedWallMs = 0L, configuredCapMs = choice.capMs)
-    return (1..STEP_TRIES).map { policy.delayFor(it, nowWallMs = FailureDelay.LEARNING_PERIOD_MS) }
+    return (1..STEP_TRIES).map { policy.delayFor(it, learningWeek = false) }
 }
 
 /** A wait as the choices name it: "10 s", "1 min", "80 s", "1 h". */

@@ -107,9 +107,58 @@ class EraseRuleTest {
         assertEquals(20, store.recordLimits(store.load(clock), null, 20, clock).wipeAfter)
     }
 
+    /** One attempt as the unlock makes it: refused while a wait runs, otherwise a wrong try. */
+    private data class Attempt(val state: FailureState, val erased: Boolean)
+
+    private fun wrongTry(store: FailureStore): Attempt {
+        val check = store.checkDelay(clock, FakeClock.START_WALL)
+        assertFalse(check.blocked)
+        val failed = store.recordFailureOrLock(check.state, clock)
+        return Attempt(failed, FailureDelay.erases(failed))
+    }
+
+    @Test
+    fun theNthWrongTryErasesAfterABackwardClockStep() {
+        val store = FailureStore(tmp.newFolder("failures"), keys)
+        store.initialize(clock)
+        store.recordLimits(store.load(clock), null, FailureDelay.MIN_WIPE_AFTER, clock)
+
+        clock.advance(FailureDelay.MAX_CAP_MS)
+        assertFalse(wrongTry(store).erased)
+        clock.advance(FailureDelay.MAX_CAP_MS)
+        assertFalse(wrongTry(store).erased)
+
+        // The clock is set back an hour. The attempt that sees it is refused, and the two wrong tries still count.
+        clock.wall -= FailureDelay.MAX_CAP_MS
+        assertTrue(store.checkDelay(clock, FakeClock.START_WALL).blocked)
+        clock.advance(FailureDelay.MAX_CAP_MS)
+
+        // The third wrong try is the owner's last allowed one, so it erases.
+        assertTrue(wrongTry(store).erased)
+    }
+
+    @Test
+    fun theNthWrongTryErasesAfterTheBootCountGoesBack() {
+        var bootCount = 8
+        val store = FailureStore(tmp.newFolder("failures"), keys, { bootCount })
+        store.initialize(clock)
+        store.recordLimits(store.load(clock), null, FailureDelay.MIN_WIPE_AFTER, clock)
+
+        clock.advance(FailureDelay.MAX_CAP_MS)
+        assertFalse(wrongTry(store).erased)
+        clock.advance(FailureDelay.MAX_CAP_MS)
+        assertFalse(wrongTry(store).erased)
+
+        // Writing BOOT_COUNT back down is tampering. The attempt that sees it is refused, and the two wrong tries still count.
+        bootCount = 7
+        assertTrue(store.checkDelay(clock, FakeClock.START_WALL).blocked)
+        clock.advance(FailureDelay.MAX_CAP_MS)
+        assertTrue(wrongTry(store).erased)
+    }
+
     @Test
     fun theCapCannotBeSetBelowTenSeconds() {
         assertFailsWith<IllegalArgumentException> { FailureDelay(vaultCreatedWallMs = 0L, configuredCapMs = 9_999L) }
-        assertEquals(FailureDelay.MIN_CAP_MS, FailureDelay(vaultCreatedWallMs = 0L, configuredCapMs = 10_000L).capMs(Long.MAX_VALUE))
+        assertEquals(FailureDelay.MIN_CAP_MS, FailureDelay(vaultCreatedWallMs = 0L, configuredCapMs = 10_000L).capMs(learningWeek = false))
     }
 }
