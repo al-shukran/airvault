@@ -217,6 +217,38 @@ class TypedDataParserTest {
     }
 
     @Test
+    fun aUint256ValueWrappedPastItsWidthIsRefused() {
+        // 2^256 + 1000 is one word after wrapping, so it would be signed as 1000 while the review shows the full value.
+        val types = """{"Mail":[{"name":"n","type":"uint256"}]}"""
+        val wrapped = BigInteger.ONE.shiftLeft(256).add(BigInteger.valueOf(1000))
+
+        assertTrue(refusal(doc(types = types, message = """{"n":$wrapped}""")).contains("is out of range for uint256"))
+    }
+
+    @Test
+    fun aUint8ValueOf300IsRefused() {
+        val types = """{"Mail":[{"name":"n","type":"uint8"}]}"""
+
+        assertTrue(refusal(doc(types = types, message = """{"n":300}""")).contains("is out of range for uint8"))
+    }
+
+    @Test
+    fun anInt8ValueOfMinus129IsRefused() {
+        val types = """{"Mail":[{"name":"n","type":"int8"}]}"""
+
+        assertTrue(refusal(doc(types = types, message = """{"n":-129}""")).contains("is out of range for int8"))
+    }
+
+    @Test
+    fun theEdgeValuesOfInt8AndUint8AreAccepted() {
+        val int8 = """{"Mail":[{"name":"n","type":"int8"}]}"""
+        val uint8 = """{"Mail":[{"name":"n","type":"uint8"}]}"""
+
+        assertIs<TypedDataParser.Result.Ok>(parse(doc(types = int8, message = """{"n":-128}""")))
+        assertIs<TypedDataParser.Result.Ok>(parse(doc(types = uint8, message = """{"n":255}""")))
+    }
+
+    @Test
     fun aNegativeUnsignedValueIsRefused() {
         val types = """{"Mail":[{"name":"n","type":"uint256"}]}"""
 

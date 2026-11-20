@@ -21,4 +21,10 @@ class HistoryOriginTest {
     fun aControlCharacterShowsTheBytesOfTheOrigin() {
         assertEquals("6107", historyOrigin("a\u0007"))
     }
+
+    /** U+E0041 is a tag character. It draws nothing, so the origin shows its UTF-8 bytes in hex: 61, F3 A0 81 81. */
+    @Test
+    fun anInvisibleTagCharacterShowsTheBytesOfTheOrigin() {
+        assertEquals("61f3a08181", historyOrigin("a" + String(Character.toChars(0xE0041))))
+    }
 }

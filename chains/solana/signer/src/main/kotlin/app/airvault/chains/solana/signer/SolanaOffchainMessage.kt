@@ -1,5 +1,6 @@
 package app.airvault.chains.solana.signer
 
+import app.airvault.core.model.isPrintableCodePoint
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
@@ -110,7 +111,7 @@ class SolanaOffchainMessage private constructor(
                 }
                 Format.LIMITED_UTF8 -> {
                     val decoded = decodeUtf8(body) ?: return Result.Rejected(NOT_UTF8)
-                    if (!showable(decoded)) return Result.Rejected(UNSHOWABLE)
+                    if (!decoded.codePoints().allMatch(::isPrintableCodePoint)) return Result.Rejected(UNSHOWABLE)
                     decoded
                 }
             }
@@ -126,30 +127,6 @@ class SolanaOffchainMessage private constructor(
                 .toString()
         } catch (e: CharacterCodingException) {
             null
-        }
-
-        /** True when every character of [text] can be read by eye. Checked by code point, so a character outside the BMP counts too. */
-        private fun showable(text: String): Boolean {
-            var at = 0
-            while (at < text.length) {
-                val code = text.codePointAt(at)
-                if (!showableCode(code)) return false
-                at += Character.charCount(code)
-            }
-            return true
-        }
-
-        /** Line breaks and tabs are read by eye. Controls, invisible format characters, private-use and unassigned characters are not. */
-        private fun showableCode(code: Int): Boolean = when (code) {
-            '\n'.code, '\r'.code, '\t'.code -> true
-            else -> when (Character.getType(code)) {
-                Character.CONTROL.toInt(),
-                Character.FORMAT.toInt(),
-                Character.PRIVATE_USE.toInt(),
-                Character.UNASSIGNED.toInt(),
-                -> false
-                else -> true
-            }
         }
     }
 }

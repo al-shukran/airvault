@@ -21,14 +21,14 @@ class AlgorandReviewTest {
     private val receiver = ByteArray(32) { 9 }
     private val network = AlgorandNetwork.TESTNET
 
-    private fun payment(lease: ByteArray? = null, group: ByteArray? = null, closeTo: ByteArray? = null) = Payment(
+    private fun payment(lease: ByteArray? = null, group: ByteArray? = null, closeTo: ByteArray? = null, note: ByteArray = ByteArray(0)) = Payment(
         sender = sender,
         fee = 1_000UL,
         firstValid = 100UL,
         lastValid = 200UL,
         genesisId = network.genesisId,
         genesisHash = network.genesisHash,
-        note = ByteArray(0),
+        note = note,
         lease = lease,
         group = group,
         rekeyTo = null,
@@ -83,6 +83,16 @@ class AlgorandReviewTest {
         assertEquals("0x" + "01".repeat(32), rows["Lease"])
         assertEquals("0x" + "02".repeat(32), rows["Group ID"])
         assertTrue(review.unaccounted().isEmpty())
+    }
+
+    /** U+E0002 is unassigned. It draws nothing, so the note reads "rent" while the signed bytes hold more: the note shows its bytes. */
+    @Test
+    fun aNoteWithAnUnassignedCharacterShowsItsBytes() {
+        val note = "rent".toByteArray(Charsets.UTF_8) + String(Character.toChars(0xE0002)).toByteArray(Charsets.UTF_8)
+
+        val row = reviewOf(payment(note = note)).sections.flatMap { it.rows }.single { it.label == "Note" }
+
+        assertEquals("0x72656e74f3a08082", row.value.text())
     }
 
     @Test
