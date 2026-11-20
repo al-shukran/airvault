@@ -128,6 +128,14 @@ class EthSignRequestTest {
     }
 
     @Test
+    fun refusesAKeyOutsideTheSevenFields() {
+        for (key in listOf(0L, 8L, 100L)) {
+            val rejected = assertIs<EthSignRequest.Result.Rejected>(EthSignRequest.decode(payloadWithKey(key)), message = "key $key")
+            assertEquals("unknown map key $key", rejected.reason)
+        }
+    }
+
+    @Test
     fun refusesUrOfAnotherType() {
         val ur = UR("eth-signature", payload())
         assertIs<EthSignRequest.Result.Rejected>(EthSignRequest.decode(ur))
@@ -212,4 +220,10 @@ class EthSignRequestTest {
 
     private fun dictOf(vararg fields: Pair<Long, Cbor?>): Cbor.Dict =
         Cbor.Dict(fields.mapNotNull { (key, value) -> value?.let { Cbor.Uint(key) to it } })
+
+    /** A valid request with one more map key, [key], which the codec does not read. */
+    private fun payloadWithKey(key: Long): ByteArray {
+        val fields = assertIs<Cbor.Dict>(Cbor.decode(payload())).entries
+        return Cbor.encode(Cbor.Dict(fields + (Cbor.Uint(key) to Cbor.Uint(1L))))
+    }
 }
