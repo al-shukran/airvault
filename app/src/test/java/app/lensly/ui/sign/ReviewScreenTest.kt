@@ -106,9 +106,12 @@ class ReviewScreenTest {
             SummaryPart.Text(" to "),
             SummaryPart.Counterparty(receiver),
         )
-        assertEquals("Send 1.5 USDC to Alice", summarySentence(named, notes, FontFamily.Monospace).text)
+        assertEquals("Send 1.5 USDC to Alice", summarySentence(named, notes, SAMPLE_SIGNER, FontFamily.Monospace, testPalette).text)
         val unnamed = named.dropLast(1) + SummaryPart.Counterparty(other)
-        assertEquals("Send 1.5 USDC to ${shortAddress(other)}", summarySentence(unnamed, notes, FontFamily.Monospace).text)
+        assertEquals(
+            "Send 1.5 USDC to ${shortAddress(other)}",
+            summarySentence(unnamed, notes, SAMPLE_SIGNER, FontFamily.Monospace, testPalette).text,
+        )
     }
 
     @Test

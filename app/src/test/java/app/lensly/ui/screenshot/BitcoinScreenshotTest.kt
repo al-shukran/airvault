@@ -81,7 +81,7 @@ class BitcoinScreenshotTest {
     @Composable
     private fun BitcoinReviewAt(review: BtcReview) {
         ReviewScreen(
-            review = bitcoinReviewOf(review, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT),
+            review = bitcoinReviewOf(review, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, SAMPLE_SIGNER.address),
             signer = SAMPLE_SIGNER,
             addressNotes = emptyMap(),
             addressChain = BITCOIN_FAMILY,

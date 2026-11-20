@@ -14,19 +14,14 @@ internal fun bitcoinChainId(network: BtcNetwork): ChainId =
     bitcoinManifest.networks.single { it.testnet == (network == BtcNetwork.TESTNET4) }.chainId
 
 /**
- * The review the owner reads for a Bitcoin request on [network] from an account of [scriptType]. [nameOf] gives an output address its
- * Address Book name for the summary sentence. The app adds the names and the Android words; the core builds the rest.
+ * The review the owner reads for a Bitcoin request on [network] from an account of [scriptType], which spends from the address [from]. The
+ * app adds the names and the Android words; the core builds the rest.
  */
-internal fun bitcoinReviewOf(
-    review: BtcReview,
-    network: BtcNetwork,
-    scriptType: ScriptType,
-    nameOf: (String) -> String? = { null },
-): Review = review.toReview(
+internal fun bitcoinReviewOf(review: BtcReview, network: BtcNetwork, scriptType: ScriptType, from: String): Review = review.toReview(
     chain = bitcoinChainId(network),
     network = NetworkLabel(name = bitcoinNetworkName(network), testnet = network == BtcNetwork.TESTNET4, detail = null),
     scriptType = scriptTypeName(scriptType),
-    nameOf = nameOf,
+    from = from,
 )
 
 /** The Script Type a review shows, with its address kind. */

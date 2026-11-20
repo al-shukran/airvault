@@ -46,7 +46,7 @@ class AlgorandReviewRowsTest {
             ),
             algorandRows(review),
         )
-        assertEquals("Sends 1.500000 ALGO to $RECEIVER_ADDRESS.", algorandSentence(review))
+        assertEquals("Send 1.5 ALGO from $SENDER_ADDRESS to $RECEIVER_ADDRESS?", algorandSentence(review))
         assertEquals(emptyList(), algorandFacts(review))
         assertEquals(emptyList(), review.warnings)
     }
@@ -136,7 +136,7 @@ class AlgorandReviewRowsTest {
             ),
             algorandRows(review),
         )
-        assertEquals("Sends 250 base units of asset 10458941 to $RECEIVER_ADDRESS.", algorandSentence(review))
+        assertEquals("Send 250 base units of asset 10458941 from $SENDER_ADDRESS to $RECEIVER_ADDRESS?", algorandSentence(review))
         assertEquals(listOf(AlgorandWarning.UNKNOWN_ASSET), review.warnings)
         assertEquals(
             "Unknown asset #10458941: Lensly does not know its name or decimals, so its amount is shown in base units.",
@@ -242,7 +242,7 @@ class AlgorandReviewRowsTest {
             ),
             algorandRows(review),
         )
-        assertEquals("Sends 0.000250 USDC to $RECEIVER_ADDRESS.", algorandSentence(review))
+        assertEquals("Send 0.00025 USDC from $SENDER_ADDRESS to $RECEIVER_ADDRESS?", algorandSentence(review))
         assertEquals(emptyList(), review.warnings)
     }
 
@@ -252,7 +252,7 @@ class AlgorandReviewRowsTest {
 
         assertEquals("Algorand Mainnet", review.network.displayName)
         assertEquals("1.000000 USDC", algorandRows(review).single { it.first == "Amount" }.second)
-        assertEquals("Sends 1.000000 USDC to $RECEIVER_ADDRESS.", algorandSentence(review))
+        assertEquals("Send 1 USDC from $SENDER_ADDRESS to $RECEIVER_ADDRESS?", algorandSentence(review))
         assertEquals(emptyList(), review.warnings)
     }
 

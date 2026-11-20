@@ -590,13 +590,13 @@ class WalletStore(private val session: VaultSession) {
             ).review(psbt)
             val record = stored.first { it.key == Triple(account.scriptType, account.network, account.accountIndex) }
             val internal = internalAccountsOf(this, id) + ownBitcoinAccounts(id, stored, accounts)
-            val notes = addressNotesOf(review.outputs.mapNotNull { it.address }, BITCOIN_FAMILY, internal, book)
             val owner = meta(id)
             val signer = SigningAccount(
                 name = record.profile.name ?: autoAccountName(owner?.autoNameBase.orEmpty(), record.index),
                 walletName = owner?.name.orEmpty(),
                 address = record.firstReceiveAddress,
             )
+            val notes = addressNotesOf(listOf(signer.address) + review.outputs.mapNotNull { it.address }, BITCOIN_FAMILY, internal, book)
             return BitcoinReviewed(record, review, signer, notes)
         } finally {
             seed.fill(0)

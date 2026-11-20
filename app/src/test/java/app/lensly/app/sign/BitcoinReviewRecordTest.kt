@@ -43,7 +43,7 @@ class BitcoinReviewRecordTest {
         val signer = BtcFixtures.signerOf(account, seed, InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING)
         val review = signer.review(psbt)
         val record = BitcoinAccountRecord(BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0, account.receiveAddress(0))
-        val core = bitcoinReviewOf(review, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT)
+        val core = bitcoinReviewOf(review, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, SAMPLE_SIGNER.address)
         return AppPrepared.Ready(
             walletId = "wallet",
             request = request,

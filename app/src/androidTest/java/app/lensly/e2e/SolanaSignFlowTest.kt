@@ -45,7 +45,8 @@ class SolanaSignFlowTest : SignFlowE2eBase() {
 
         assertEquals(SolanaAccount.addressOf(signer), ready.signer.address)
         // One SOL transfer of 1,000 lamports, which is 0.000001 SOL, to the recipient.
-        compose.onNodeWithText("Sends 0.000001 SOL to ${SolanaAccount.addressOf(recipient)}.").assertExists()
+        compose.onNodeWithText("Send 0.000001 SOL from ${SolanaAccount.addressOf(signer)} to ${SolanaAccount.addressOf(recipient)}?")
+            .assertExists()
         driver.readToTheEnd()
         assertTrue(driver.approvable())
 

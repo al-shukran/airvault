@@ -255,14 +255,7 @@ class EvmReviewBuilder(
         private fun nativeTransaction(tx: UnsignedTx, to: String): Pair<String, List<SummaryPart>> {
             targetRow("To", to)
             valueRow(tx.value, always = true)
-            val summary = listOf(
-                SummaryPart.Text("Sends "),
-                SummaryPart.Mono(nativeAmount(tx.value)),
-                SummaryPart.Text(" to "),
-                SummaryPart.Counterparty(to),
-                SummaryPart.Text("."),
-            )
-            return "Native Transfer" to summary
+            return "Native Transfer" to listOf(sendOf(tx.value, network?.nativeDecimals, network?.nativeSymbol, sender, to))
         }
 
         /** A decoded contract call on [to]. A token call sends no native currency, so the request is refused when it does. */
@@ -500,7 +493,7 @@ class EvmReviewBuilder(
                     warnings = emptyList(),
                     note = note,
                     unregistered = unregistered,
-                    sentence = listOf(plain("Sends "), mono(displayAmount(call.value, token)), plain(" to "), party(call.to), plain(".")),
+                    sentence = listOf(sendOf(call.value, token?.decimals, token?.symbol, sender, checksum(call.to))),
                 )
                 is ContractCall.Approve -> CallPart(
                     function = call.name,
@@ -871,6 +864,17 @@ private fun amountText(raw: BigInteger, token: TokenEntry?): String =
 
 private fun displayAmount(raw: BigInteger, token: TokenEntry?): String =
     if (token == null) "$raw $UNKNOWN_UNIT" else "${Amounts.format(raw, token.decimals)} ${token.symbol}"
+
+/**
+ * The send of [raw] base units from [from] to [to]. Its amount is in the units of [unit] with [decimals] places, and without decimals, or
+ * for a coin or token Lensly does not know, it is in base units.
+ */
+private fun sendOf(raw: BigInteger, decimals: Int?, unit: String?, from: String, to: String): SummaryPart.Send =
+    if (decimals == null || unit == null) {
+        SummaryPart.Send(raw.toString(), UNKNOWN_UNIT, from, to)
+    } else {
+        SummaryPart.Send(Amounts.format(raw, decimals), unit, from, to)
+    }
 
 private fun amountPart(raw: BigInteger, token: TokenEntry?, unlimited: Boolean): SummaryPart =
     if (unlimited) plain("an unlimited amount") else mono(displayAmount(raw, token))
