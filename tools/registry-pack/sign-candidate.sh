@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # Signs the verified approved-contract entries into the bundled LRP2 package the app ships.
 #
-# usage: tools/registry-pack/sign-candidate.sh --sequence N [--created yyyy-mm-dd] [--key FILE] [--out FILE]
+# usage: tools/registry-pack/sign-candidate.sh --sequence N --key FILE [--created yyyy-mm-dd] [--out FILE]
 #
 #   --sequence  the package sequence (at least 1). Bump it whenever the content changes: an installed
 #               package with an equal or higher sequence is never replaced.
 #   --created   the package date (default: today).
-#   --key       the sealed release key (default: ~/.agentmemoir/heyaibi/lensly/keys/registry-release.key).
-#               Its public half is read from the same path with .pub.
+#   --key       the sealed release key, required. Its public half is read from the same path with .pub.
 #   --out       the package to write (default: shared/src/main/assets/registry/bundled.lrp).
 #
 # The entries are the lines of approved-contracts/verified-selectors.txt, taken from approved-contracts/candidate-whitelist.json.
@@ -23,7 +22,7 @@ REG_DATA="$ROOT/tools/registry-data/approved-contracts"
 CANDIDATE="$REG_DATA/candidate-whitelist.json"
 SELECTION="$REG_DATA/verified-selectors.txt"
 PINNED="$ROOT/shared/src/main/assets/registry/trusted-keys.json"
-KEY="$HOME/.agentmemoir/heyaibi/lensly/keys/registry-release.key"
+KEY=""
 OUT="$ROOT/shared/src/main/assets/registry/bundled.lrp"
 SEQUENCE=""
 CREATED="$(date +%Y-%m-%d)"
@@ -44,6 +43,7 @@ done
 case "$SEQUENCE" in ''|*[!0-9]*) die "--sequence must be a whole number, at least 1" ;; esac
 [ "$SEQUENCE" -ge 1 ] || die "--sequence must be at least 1"
 case "$CREATED" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;; *) die "--created must be yyyy-mm-dd" ;; esac
+[ -n "$KEY" ] || die "--key is required: the sealed release key"
 [ -f "$KEY" ] || die "no release key at $KEY"
 PUB="${KEY%.key}.pub"
 [ -f "$PUB" ] || die "no public key at $PUB"
