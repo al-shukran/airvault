@@ -139,6 +139,7 @@ fun ActivityScreen(
     open?.let { record ->
         HistoryDetailSheet(
             record = record,
+            networks = networks,
             addressBook = addressBook,
             accounts = accounts,
             onDismiss = { open = null },

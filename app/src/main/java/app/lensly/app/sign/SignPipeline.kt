@@ -4,9 +4,9 @@ import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.chains.evm.signer.EvmReviewBuilder
 import app.airvault.chains.evm.signer.EvmReviewResult
 import app.airvault.chains.evm.signer.ParsedRequest
-import app.airvault.chains.evm.signer.UndecodedCall
 import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.Review
+import app.airvault.core.model.ReviewRow
 import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.isPrintable
 import app.lensly.app.AddressNotes
@@ -37,8 +37,8 @@ sealed interface Prepared {
         val accountIndex: Int? get() = key.accountIndex
     }
 
-    /** [call] is set when the refusal is for a contract call Lensly cannot decode, so the refusal can show it. */
-    data class Refused(val reason: String, val call: UndecodedCall? = null) : Prepared
+    /** [rows] are set when the refusal is for a contract call Lensly cannot decode, so the refusal can show the whole call. */
+    data class Refused(val reason: String, val rows: List<ReviewRow> = emptyList()) : Prepared
 }
 
 /**
@@ -115,7 +115,7 @@ class SignPipeline(
                 key = key,
                 walletId = wallet.id,
             )
-            is EvmReviewResult.Refused -> Prepared.Refused(result.reason, result.call)
+            is EvmReviewResult.Refused -> Prepared.Refused(result.reason, result.rows)
         }
     }
 

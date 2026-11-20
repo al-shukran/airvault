@@ -47,24 +47,12 @@ import org.web3j.utils.Numeric
 sealed interface EvmReviewResult {
     class Ok(val review: Review) : EvmReviewResult
 
-    /** [call] is set when the refusal is for a contract call Lensly cannot decode, so the refusal can show its raw data. */
-    class Refused(val reason: String, val call: UndecodedCall? = null) : EvmReviewResult
+    /**
+     * [rows] are set when the refusal is for a contract call Lensly cannot decode: the whole call as review rows, so the refusal can show its
+     * raw data. Each calldata word is a row indented under the "Calldata" heading.
+     */
+    class Refused(val reason: String, val rows: List<ReviewRow> = emptyList()) : EvmReviewResult
 }
-
-/**
- * A contract call Lensly cannot decode, as its refusal shows it: the contract, the network, the native value, the selector, and the calldata
- * after the selector in 32-byte words. Hex has no 0x prefix. The last word is shorter when the calldata does not end on a word boundary.
- * [proxy] is the implementation a whitelisted proxy is bound to, and null for any other call.
- */
-data class UndecodedCall(
-    val target: String,
-    val networkName: String,
-    val chainId: Long,
-    val value: String,
-    val selector: String,
-    val words: List<String>,
-    val proxy: ProxyBinding? = null,
-)
 
 /**
  * Builds the review of an EVM request (spec 3.2) in the core model. It is the review the app's sign pipeline shows today: the same rows, the
@@ -94,7 +82,7 @@ class EvmReviewBuilder(
         val chainId = reviewChainId(parsed) ?: throw Refusal(NO_NETWORK)
         EvmReviewResult.Ok(Build(parsed, sender, derivationPath, chainId).build().checked())
     } catch (refusal: Refusal) {
-        EvmReviewResult.Refused(refusal.reason, refusal.call)
+        EvmReviewResult.Refused(refusal.reason, refusal.rows)
     }
 
     /** One review as it is built. Its rows, warnings and coverage collect here until [build] returns the review. */
@@ -436,21 +424,21 @@ class EvmReviewBuilder(
         private fun whitelisted(contract: String, calldata: ByteArray, value: BigInteger): Gap {
             val entry = whitelistEntry(contract, calldata)
             val proxy = entry?.takeIf { it.upgradeable }?.proxy
-            val undecoded = undecodedCall(contract, value, calldata, proxy)
+            val details = undecodedRows(contract, value, calldata, proxy)
             if (entry == null) {
-                if (unknownCalls == UnknownCallPolicy.REFUSE) throw Refusal(UNKNOWN_CALL_REFUSAL, undecoded)
+                if (unknownCalls == UnknownCallPolicy.REFUSE) throw Refusal(UNKNOWN_CALL_REFUSAL, details)
                 return Gap.Unknown(calldata.copyOfRange(0, minOf(SELECTOR_BYTES, calldata.size)).toHex())
             }
-            if (entry.upgradeable && proxyPolicy == ProxyPolicy.BIND_TO_IMPLEMENTATION) throw Refusal(BOUND_PROXY_REFUSAL, undecoded)
-            if (entry.upgradeable && proxyPolicy == ProxyPolicy.REFUSE_ALL_PROXIES) throw Refusal(ANY_PROXY_REFUSAL, undecoded)
+            if (entry.upgradeable && proxyPolicy == ProxyPolicy.BIND_TO_IMPLEMENTATION) throw Refusal(BOUND_PROXY_REFUSAL, details)
+            if (entry.upgradeable && proxyPolicy == ProxyPolicy.REFUSE_ALL_PROXIES) throw Refusal(ANY_PROXY_REFUSAL, details)
             val arguments = when (val result = decodeCall(calldata, entry.params)) {
                 is CallDecode.Ok -> result.params
-                is CallDecode.Refused -> throw Refusal(result.reason, undecoded)
+                is CallDecode.Refused -> throw Refusal(result.reason, details)
             }
             // The decoder must answer with exactly the params the entry declares, in their order.
-            if (arguments.map { it.param } != entry.params) throw Refusal(CANNOT_BE_READ, undecoded)
+            if (arguments.map { it.param } != entry.params) throw Refusal(CANNOT_BE_READ, details)
             // The labels are shown only when the decoded values are exactly the arguments that get signed.
-            if (AbiDecoder.encode(arguments)?.contentEquals(argumentsOf(calldata)) != true) throw Refusal(CANNOT_BE_READ, undecoded)
+            if (AbiDecoder.encode(arguments)?.contentEquals(argumentsOf(calldata)) != true) throw Refusal(CANNOT_BE_READ, details)
             val token = registry.token(chainId, contract)
             val steps = CallSteps.describe(registry, chainId, contract, entry.selector, entry.signature, sender, value, arguments)
             val params = arguments.flatMapIndexed { index, argument ->
@@ -741,17 +729,25 @@ class EvmReviewBuilder(
             return registry.whitelist(chainId, contract, "0x" + calldata.copyOfRange(0, SELECTOR_BYTES).toHex())
         }
 
-        /** What a refusal or an unapproved review of an undecodable call shows: its contract, network, value, selector and words. */
-        private fun undecodedCall(contract: String, value: BigInteger, calldata: ByteArray, proxy: ProxyBinding?): UndecodedCall =
-            UndecodedCall(
-                target = checksum(contract),
-                networkName = networkName,
-                chainId = chainId,
-                value = nativeAmount(value),
-                selector = calldata.copyOfRange(0, minOf(SELECTOR_BYTES, calldata.size)).toHex(),
-                words = wordsOf(calldata).map { it.toHex() },
-                proxy = proxy,
-            )
+        /**
+         * What a refusal of an undecodable call shows, as review rows: its contract, network, value and selector, the implementation a bound
+         * proxy is bound to, and then the calldata after the selector, one 32-byte word per row under a "Calldata" heading.
+         */
+        private fun undecodedRows(contract: String, value: BigInteger, calldata: ByteArray, proxy: ProxyBinding?): List<ReviewRow> = buildList {
+            val selector = calldata.copyOfRange(0, minOf(SELECTOR_BYTES, calldata.size)).toHex()
+            add(ReviewRow("Contract", DisplayValue.Address(chain, checksum(contract)), null))
+            add(ReviewRow("Network", DisplayValue.Text(networkName), null, notes = listOf("Chain $chainId")))
+            add(ReviewRow("Value", DisplayValue.Text(nativeAmount(value), mono = true), null))
+            add(ReviewRow("Selector", DisplayValue.Text("0x$selector", mono = true), null))
+            proxy?.implementationAddress?.let { add(ReviewRow("Approved Implementation", DisplayValue.Address(chain, it), null)) }
+            proxy?.implementationCodeHash?.let {
+                add(ReviewRow("Approved Code Hash", DisplayValue.Text(groupedHex(it.removePrefix("0x")), mono = true), null))
+            }
+            add(ReviewRow("Calldata", null, null))
+            wordsOf(calldata).forEachIndexed { index, word ->
+                add(ReviewRow("WORD ${index + 1}", DisplayValue.Text("0x" + groupedHex(word.toHex()), mono = true), null, depth = 1))
+            }
+        }
 
         /** Marks [path] as a field the review shows, and returns it. */
         private fun decode(path: String): FieldPath = FieldPath(path).also { decoded += it }
@@ -778,8 +774,8 @@ class EvmReviewBuilder(
         }
     }
 
-    /** A refusal raised while a review is built. It carries the reason the request is refused, and the call that caused it, if any. */
-    private class Refusal(val reason: String, val call: UndecodedCall? = null) : RuntimeException(reason, null, false, false)
+    /** A refusal raised while a review is built. It carries the reason the request is refused, and the rows of the call that caused it, if any. */
+    private class Refusal(val reason: String, val rows: List<ReviewRow> = emptyList()) : RuntimeException(reason, null, false, false)
 }
 
 /** A row of a call's details: a label, its value, and the name of the field it shows relative to the call. A row with no field shows none. */
@@ -915,6 +911,9 @@ private fun maxFeeWei(tx: UnsignedTx): BigInteger = tx.gasLimit * checkNotNull(t
 private fun argumentsOf(calldata: ByteArray): ByteArray = calldata.copyOfRange(minOf(SELECTOR_BYTES, calldata.size), calldata.size)
 
 private fun checksum(address: String): String = Keys.toChecksumAddress(address)
+
+/** Hex in groups of eight digits, as a calldata word or a hash is read on a refusal. */
+private fun groupedHex(hex: String): String = hex.chunked(8).joinToString(" ")
 
 /** A hash as the review shows it: 0x and every byte in hex, never shortened. The signer compares its recomputed hashes in this form. */
 internal fun hashText(hash: ByteArray): String = "0x" + hash.toHex()

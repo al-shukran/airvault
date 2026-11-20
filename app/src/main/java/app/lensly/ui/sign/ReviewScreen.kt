@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.Danger
 import app.airvault.core.model.DisplayValue
@@ -23,6 +24,7 @@ import app.airvault.core.model.unaccounted
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
 import app.lensly.app.notesOf
+import app.lensly.core.registry.NetworkEntry
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.LenslySpacing
@@ -52,6 +54,8 @@ fun ReviewScreen(
     networkIcon: (@Composable () -> Unit)? = null,
     /** The logo of the amount, shown before the summary sentence. Null shows the sentence alone. */
     summaryIcon: (@Composable () -> Unit)? = null,
+    /** The registry's networks, which give each address row the logo of the request's network. */
+    networks: List<NetworkEntry> = emptyList(),
     /** The checks ticked on this review, by label. The sign flow holds them and enforces them on approve, so this screen only shows them. */
     ticked: Set<String> = emptySet(),
     /** The owner ticked, or unticked, a check: its label and its new tick. */
@@ -62,6 +66,9 @@ fun ReviewScreen(
     key(review) {
         val read = rememberReviewRead(review)
         val owed = review.checkLabels().count { it !in ticked }
+        val addressLogo: @Composable () -> Unit = {
+            ChainNetworkLogo(chain = review.chain, networkName = review.network.name, networks = networks, size = 16.dp)
+        }
         LenslyScreen(
             title = review.title,
             modifier = modifier,
@@ -100,7 +107,7 @@ fun ReviewScreen(
                     ReviewSection(title = section.heading) {
                         section.rows.forEachIndexed { index, row ->
                             val step = if (section.style == SectionStyle.Steps) index + 1 else null
-                            ReviewRowView(row = row, step = step, notes = addressNotes, open = open)
+                            ReviewRowView(row = row, step = step, notes = addressNotes, open = open, logo = addressLogo)
                         }
                     }
                 }
@@ -114,7 +121,13 @@ fun ReviewScreen(
  * is a heading. Any other row is a label over its value, and an address in it shows its names. Each row is indented by its depth.
  */
 @Composable
-private fun ReviewRowView(row: ReviewRow, step: Int?, notes: Map<String, AddressNotes>, open: ((String) -> Unit)?) {
+private fun ReviewRowView(
+    row: ReviewRow,
+    step: Int?,
+    notes: Map<String, AddressNotes>,
+    open: ((String) -> Unit)?,
+    logo: @Composable () -> Unit,
+) {
     val indent = Modifier.padding(start = LenslySpacing.md * row.depth)
     val value = row.value
     when {
@@ -126,6 +139,7 @@ private fun ReviewRowView(row: ReviewRow, step: Int?, notes: Map<String, Address
             ReviewField(
                 label = row.label,
                 value = text,
+                logo = logo,
                 notes = notes.notesOf(text),
                 modifier = indent,
                 onOpen = open,

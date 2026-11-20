@@ -238,8 +238,10 @@ class EvmReviewTest {
         val refused = refusalOf(txParsed(NFT, calldata))
 
         assertEquals("Unknown Contract Call", refused.reason)
-        assertEquals("deadbeef", refused.call?.selector)
-        assertNull(refused.call?.proxy)
+        assertEquals("0xdeadbeef", refused.rows.single { it.label == "Selector" }.value.text())
+        assertNull(refused.rows.find { it.label == "Approved Implementation" })
+        // The calldata after the selector is one word row, indented under the Calldata heading.
+        assertEquals(1, refused.rows.count { it.depth == 1 })
     }
 
     @Test

@@ -38,8 +38,7 @@ internal const val ADDRESS_COPIED = "Address copied"
 /**
  * An address the owner can copy. [address] is the full address and it is what gets copied, so a copy is whole even when [shown] prints
  * the address shortened or grouped. The copy button and a long press on the text copy it to the clipboard, and a short toast confirms
- * it. [icon] puts the chain's logo before the address: the Bitcoin logo when [bitcoin], else the Ethereum logo, which every EVM
- * chain shares. [onClick], when set, runs on a tap of the text, for an address that sits in a
+ * it. [icon] puts the Ethereum logo before the address, which every EVM chain shares. [onClick], when set, runs on a tap of the text, for an address that sits in a
  * row which is itself tapped. The clip is marked sensitive and cleared after a minute, as every copy in Lensly is.
  */
 @Composable
@@ -50,7 +49,6 @@ fun AddressText(
     style: TextStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = LocalMonoFamily.current),
     color: Color = MaterialTheme.colorScheme.onSurface,
     icon: Boolean = true,
-    bitcoin: Boolean = false,
     textAlign: TextAlign = TextAlign.Start,
     onClick: (() -> Unit)? = null,
 ) {
@@ -58,7 +56,7 @@ fun AddressText(
     val haptic = LocalHapticFeedback.current
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         if (icon) {
-            if (bitcoin) BitcoinIcon(size = 16.dp) else AddressIcon(size = 16.dp)
+            AddressIcon(size = 16.dp)
             Spacer(Modifier.width(LenslySpacing.xs))
         }
         Text(

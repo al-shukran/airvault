@@ -19,7 +19,6 @@ import androidx.compose.ui.unit.dp
 import app.airvault.abi.AbiDecoder
 import app.airvault.abi.CallDecode
 import app.airvault.abi.WhitelistParam
-import app.airvault.chains.evm.signer.UndecodedCall
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.signer.SolSignType
 import app.airvault.chains.solana.signer.SolanaRequestCheck
@@ -51,6 +50,7 @@ import app.lensly.core.ur.PathStep
 import app.lensly.ui.sign.SAMPLE_SIGNER
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.ReviewScreen
+import app.lensly.ui.sign.undecodedCallRows
 import app.lensly.ui.theme.LumenTheme
 import com.github.takahirom.roborazzi.captureRoboImage
 import fr.acinq.bitcoin.Base58
@@ -430,7 +430,7 @@ class SignScreenshotTest {
             reason = "This contract is an upgradeable proxy. Lensly cannot confirm offline that its code is still the approved " +
                 "version, so your Proxy Policy refuses it.",
             onDone = {},
-            call = UndecodedCall(
+            rows = undecodedCallRows(
                 target = SWAP_CONTRACT,
                 networkName = "Monad Testnet",
                 chainId = 10143L,

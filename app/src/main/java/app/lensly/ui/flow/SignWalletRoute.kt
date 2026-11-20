@@ -8,6 +8,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
@@ -19,8 +20,10 @@ import app.airvault.core.model.ChainId
 import app.lensly.DebugBtcFixture
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressNotes
+import app.lensly.app.RegistryHolder
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
+import app.lensly.core.registry.NetworkEntry
 import app.lensly.ui.camera.FrameSource
 import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.gate.eraseWarning
@@ -32,6 +35,8 @@ import app.lensly.ui.qr.ScanScreen
 import app.lensly.ui.qr.ShowQrScreen
 import app.lensly.ui.sign.ReviewScreen
 import app.lensly.ui.sign.SignRefusedScreen
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 
 /** The view model key of a scan that is not for one wallet, so it never shares a flow with a wallet's scan. */
@@ -71,6 +76,10 @@ internal fun SignWalletRoute(
     )
     val step by flow.state.collectAsState()
     val ticked by flow.ticked.collectAsState()
+    // The registry's networks give each address of a review its network's logo. They are read off the main thread.
+    val networks by produceState(initialValue = emptyList<NetworkEntry>(), context) {
+        value = withContext(Dispatchers.IO) { RegistryHolder.get(context).networks() }
+    }
     // A debug build may offer a fixture request to a wallet's sign screen, which reads it as the first scan. Release offers none.
     LaunchedEffect(flow) {
         if (walletId != null) DebugBtcFixture.take()?.split(' ')?.forEach { flow.onScanned(it) }
@@ -89,12 +98,13 @@ internal fun SignWalletRoute(
             onCancel = flow::leave,
             frameSource = frameSource,
         )
-        is SignStep.Refused -> SignRefusedScreen(reason = shown.reason, call = shown.call, onDone = flow::leave)
+        is SignStep.Refused -> SignRefusedScreen(reason = shown.reason, rows = shown.rows, onDone = flow::leave)
         is SignStep.AppReview -> ReviewScreen(
             review = shown.ready.review,
             signer = shown.ready.signer,
             addressNotes = notesNow(shown.ready.addressNotes, shown.ready.counterparties, shown.ready.addressChain, book),
             addressChain = shown.ready.addressChain,
+            networks = networks,
             ticked = ticked,
             onTick = flow::tick,
             onApprove = flow::approve,

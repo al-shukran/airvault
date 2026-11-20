@@ -4,10 +4,10 @@ import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.algorandManifest
 import app.airvault.chains.evm.evmManifest
 import app.airvault.chains.evm.signer.EvmRequestBody
-import app.airvault.chains.evm.signer.UndecodedCall
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.model.ChainId
+import app.airvault.core.model.ReviewRow
 import app.airvault.core.model.recordFacts
 import app.airvault.core.model.text
 import app.airvault.core.model.Review as CoreReview
@@ -44,10 +44,10 @@ sealed interface AppPrepared {
     ) : AppPrepared
 
     /**
-     * The request cannot be signed. [reason] says why, in plain words. Nothing is signed for it. [call] is set when the request is a contract call
+     * The request cannot be signed. [reason] says why, in plain words. Nothing is signed for it. [rows] are set when the request is a contract call
      * Lensly cannot decode, so the refusal can show all of it.
      */
-    data class Refused(val reason: String, val call: UndecodedCall? = null) : AppPrepared
+    data class Refused(val reason: String, val rows: List<ReviewRow> = emptyList()) : AppPrepared
 }
 
 /** The addresses the rows of [review] show, each one looked up in the Address Book. */

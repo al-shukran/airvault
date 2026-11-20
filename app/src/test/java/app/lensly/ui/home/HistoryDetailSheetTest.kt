@@ -89,7 +89,14 @@ class HistoryDetailSheetTest {
     ) {
         compose.setContent {
             LumenTheme {
-                HistoryDetailSheet(record = record, addressBook = book, accounts = accounts, onDismiss = {}, onOpenAddress = onOpen)
+                HistoryDetailSheet(
+                    record = record,
+                    networks = emptyList(),
+                    addressBook = book,
+                    accounts = accounts,
+                    onDismiss = {},
+                    onOpenAddress = onOpen,
+                )
             }
         }
     }
