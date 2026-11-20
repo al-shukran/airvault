@@ -128,7 +128,7 @@ class BtcSignerPsbtIdentityTest {
             )
             val request = AppRequest(
                 RequestHeader(bitcoinManifest.id, review.chain, RequestKind.TRANSACTION, listOf(signer), requestId = null),
-                Psbt.write(psbt).toByteArray(),
+                BtcPsbt.requestBody(BtcPsbt.UR_TYPE, Psbt.write(psbt).toByteArray()),
             )
 
             val response = BitcoinSigner().sign(request, checkNotNull(Approval.of(review, emptySet())), WalletKeyAccess(seed))

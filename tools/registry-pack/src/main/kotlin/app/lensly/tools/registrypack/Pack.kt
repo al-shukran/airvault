@@ -22,8 +22,8 @@ data class PackageDto(
     val createdAt: String,
     val networks: List<NetworkDto>,
     val tokens: List<TokenDto>,
-    /** Optional. A package made before the whitelist existed has none, and the app then has an empty whitelist. */
-    val whitelist: List<WhitelistDto> = emptyList(),
+    /** Optional. Omitted, the app keeps its built-in whitelist. An empty list clears it. */
+    val whitelist: List<WhitelistDto>? = null,
     /** Optional. Omitted, the app keeps its built-in denylist. An empty list clears it. Needs minSchemaVersion 2. */
     val denylist: List<DenylistDto>? = null,
     /** Optional. Omitted, the app keeps its built-in wallets. An empty list clears them. Needs minSchemaVersion 2. */
@@ -125,10 +125,9 @@ enum class FeeModel { L1, L2_ROLLUP }
  *
  * File: `LRP2` | u32 big-endian payload length | 8-byte key ID | payload | 64-byte Ed25519 signature.
  * Key ID: the first 8 bytes of the SHA-256 of the signing public key. The app picks its trusted key by this ID.
- * Payload: canonical JSON (sorted keys, no whitespace, entries sorted by chain ID and then contract). The `whitelist` key
- * is written only when the package has whitelist entries, so a package without one keeps the bytes it had before. The
+ * Payload: canonical JSON (sorted keys, no whitespace, entries sorted by chain ID and then contract). The `whitelist`,
  * `denylist` and `wallets` keys are written whenever the source has them, even when empty, because an omitted list means
- * "keep the app's own" and an empty one means "clear it".
+ * "keep the app's own" and an empty one means "clear it". A package without a whitelist keeps the bytes it had before.
  * Signed message: `LENSLY-REGISTRY-v2\n`, the key ID, then the payload bytes.
  */
 internal object Pack {
@@ -188,9 +187,7 @@ internal object Pack {
             put("createdAt", content.createdAt)
             put("networks", content.networks.sortedBy { it.chainId }.map(::networkMap))
             put("tokens", content.tokens.sortedWith(compareBy<TokenDto>({ it.chainId }, { it.contract })).map(::tokenMap))
-            if (content.whitelist.isNotEmpty()) {
-                put("whitelist", content.whitelist.sortedWith(WHITELIST_ORDER).map(::whitelistMap))
-            }
+            content.whitelist?.let { put("whitelist", it.sortedWith(WHITELIST_ORDER).map(::whitelistMap)) }
             content.denylist?.let { put("denylist", it.sortedWith(DENYLIST_ORDER).map(::denylistMap)) }
             content.wallets?.let { put("wallets", it.sortedBy { wallet -> wallet.name }.map(::walletMap)) }
         },
@@ -302,11 +299,11 @@ internal object Pack {
                 "token ${token.contract} decimals must be 0 to $MAX_DECIMALS"
             }
         }
-        val approvals = content.whitelist.map { Triple(it.chainId, it.contract, it.selector) }
+        val approvals = content.whitelist.orEmpty().map { Triple(it.chainId, it.contract, it.selector) }
         require(approvals.distinct().size == approvals.size) {
             "a whitelist entry appears more than once (same chainId, contract and selector)"
         }
-        for (entry in content.whitelist) {
+        for (entry in content.whitelist.orEmpty()) {
             require(entry.chainId > 0) { "whitelist chainId must be positive: ${entry.chainId}" }
             require(CONTRACT.matches(entry.contract)) {
                 "whitelist contract must be 0x followed by 40 lowercase hex digits: ${entry.contract}"
@@ -345,7 +342,7 @@ internal object Pack {
             }
         }
         // A dynamic, array or tuple argument, or a named tuple field, needs schema 3. The application refuses it at schema 2.
-        val needsArgumentSchema = content.whitelist.any { entry ->
+        val needsArgumentSchema = content.whitelist.orEmpty().any { entry ->
             entry.params.any { param -> param.components != null || AbiSyntax.type(param.type) !is AbiType.Atomic }
         }
         require(!needsArgumentSchema || content.minSchemaVersion >= ARGUMENTS_SCHEMA) {

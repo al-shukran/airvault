@@ -42,19 +42,19 @@ class BitcoinSigner(
         storedAccountPaths.any { it.steps == signer.path.take(ACCOUNT_DEPTH) }
 
     /**
-     * Signs the approved PSBT of [request] with the keys of the one account its header names, and answers with the signed `crypto-psbt`.
-     * The request is read again from its body, and the approval must be for the request's chain. The signer reviews the PSBT against that
-     * account, signs the inputs the account owns, and refuses the request as the review does, under this signer's policies. A request that
-     * names no account, or more than one, is refused.
+     * Signs the approved PSBT of [request] with the keys of the one account its header names, and answers with the signed PSBT under the UR type
+     * the request used. The request is read again from its body, and the approval must be for the request's chain. The signer reviews the PSBT
+     * against that account, signs the inputs the account owns, and refuses the request as the review does, under this signer's policies. A
+     * request that names no account, or more than one, is refused.
      */
     override fun sign(request: AppRequest, approval: Approval, keys: KeyAccess): SignResponse {
-        val psbt = BtcPsbt.parse(request.body)
+        val psbt = BtcPsbt.parse(BtcPsbt.requestPsbt(request.body))
         require(approval.review.chain == request.header.chain) { "The approval is for another chain." }
         val account = accountOf(request.header.signers)
         require(chainIdOf(account.network) == request.header.chain) { ACCOUNT_CHAIN_REFUSED }
         val signer = BtcSigner(account.network, account.scriptType, account.accountIndex, account.fingerprint, keys, inputPolicy, sourcePolicy, feeThresholds)
         val signed = signer.sign(psbt, unverifiedAmountsConfirmed = UNVERIFIED_CHECK in approval.acknowledged)
-        return SignResponse(BtcPsbt.UR_TYPE, BtcPsbt.cborOf(signed.psbt))
+        return SignResponse(BtcPsbt.requestUrType(request.body), BtcPsbt.cborOf(signed.psbt))
     }
 }
 

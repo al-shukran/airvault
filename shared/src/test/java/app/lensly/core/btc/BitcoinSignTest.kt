@@ -19,6 +19,7 @@ import app.lensly.core.wallet.WalletKeyAccess
 import com.sparrowwallet.hummingbird.UR
 import com.sparrowwallet.hummingbird.UREncoder
 import fr.acinq.bitcoin.psbt.Psbt
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import org.junit.Test
@@ -41,9 +42,9 @@ class BitcoinSignTest {
         path = listOf(PathStep(84, hardened = true), PathStep(1, hardened = true), PathStep(1, hardened = true)),
     )
 
-    private fun request(signers: List<SignerRef>): AppRequest = AppRequest(
+    private fun request(signers: List<SignerRef>, urType: String = BtcPsbt.UR_TYPE): AppRequest = AppRequest(
         RequestHeader(bitcoinManifest.id, testnet4, RequestKind.TRANSACTION, signers, requestId = null),
-        Psbt.write(psbt).toByteArray(),
+        BtcPsbt.requestBody(urType, Psbt.write(psbt).toByteArray()),
     )
 
     /** The approval of the review of [psbt] on [chain]. Nothing in this request needs a tick, so the approval exists. */
@@ -63,6 +64,15 @@ class BitcoinSignTest {
         val expected = BtcFixtures.signerOf(native, seed).sign(psbt).psbt
         assertEquals(BtcPsbt.UR_TYPE, response.urType)
         assertEquals(BtcPsbt.encodeUr(expected), UREncoder.encode(UR(response.urType, response.cbor)))
+    }
+
+    /** A request is answered under the UR type it used: `psbt` for the registry's name, and `crypto-psbt` for the retired one. */
+    @Test
+    fun aRequestUnderThePsbtNameIsAnsweredUnderThePsbtName() {
+        val expected = BtcFixtures.signerOf(native, seed).sign(psbt).psbt
+        val response = BitcoinSigner().sign(request(listOf(nativeAccount), urType = BtcPsbt.PSBT_UR_TYPE), approval(), WalletKeyAccess(seed))
+        assertEquals(BtcPsbt.PSBT_UR_TYPE, response.urType)
+        assertContentEquals(BtcPsbt.cborOf(expected), response.cbor)
     }
 
     @Test

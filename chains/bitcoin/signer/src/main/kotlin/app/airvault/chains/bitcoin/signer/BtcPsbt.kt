@@ -196,8 +196,27 @@ object BtcPsbt {
         }.getOrDefault(false)
     }
 
-    /** The UR type of a PSBT, as a scanned UR names it. */
+    /** The UR type of a PSBT, as a scanned UR names it. This is the retired name, and Lumio still writes its requests under it. */
     const val UR_TYPE = "crypto-psbt"
+
+    /** The registry's current name for a PSBT. A request may use it, and its response uses the name the request used. */
+    const val PSBT_UR_TYPE = "psbt"
+
+    /** The UR types a PSBT request may carry. */
+    val REQUEST_UR_TYPES = setOf(PSBT_UR_TYPE, UR_TYPE)
+
+    /**
+     * The body of a request, which only the Bitcoin app reads: one length byte, the UR type the request used, then the PSBT in its serialized
+     * form. The response is framed under the same name, so the body keeps it.
+     */
+    fun requestBody(urType: String, psbt: ByteArray): ByteArray =
+        byteArrayOf(urType.length.toByte()) + urType.toByteArray(Charsets.US_ASCII) + psbt
+
+    /** The UR type that a request body carries. */
+    fun requestUrType(body: ByteArray): String = String(body, 1, body[0].toInt(), Charsets.US_ASCII)
+
+    /** The PSBT, in its serialized form, that a request body carries. */
+    fun requestPsbt(body: ByteArray): ByteArray = body.copyOfRange(1 + body[0].toInt(), body.size)
 
     /** The "i-n" sequence header that every frame of a multi-part UR carries after its type, as in ur:type/1-3/body. */
     private val SEQUENCE_HEADER = Regex("""^UR:[A-Z0-9-]+/\d+-(\d+)/""", RegexOption.IGNORE_CASE)

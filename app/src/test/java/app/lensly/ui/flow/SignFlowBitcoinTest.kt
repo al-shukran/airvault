@@ -52,7 +52,7 @@ private fun bitcoinRequest(withPreviousTransaction: Boolean = true): Psbt {
  * of the Bitcoin review, as the Review Record keeps them.
  */
 private fun readyOf(request: AppRequest, policy: InputVerificationPolicy = InputVerificationPolicy.STRICT): AppPrepared.Ready {
-    val psbt = BtcPsbt.parse(request.body)
+    val psbt = BtcPsbt.parse(BtcPsbt.requestPsbt(request.body))
     val record = BitcoinAccountRecord(BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0, BTC_ACCOUNT.receiveAddress(0))
     val review = BtcFixtures.signerOf(BTC_ACCOUNT, BTC_SEED, policy).review(psbt)
     val reviewed = BitcoinReviewed(record, review, SAMPLE_SIGNER)
@@ -94,7 +94,7 @@ class SignFlowBitcoinTest {
 
         assertIs<SignStep.AppReview>(flow.state.value)
         assertEquals(emptySet(), flow.ticked.value)
-        assertContentEquals(Psbt.write(psbt).toByteArray(), ports.preparedRequests.single().body)
+        assertContentEquals(Psbt.write(psbt).toByteArray(), BtcPsbt.requestPsbt(ports.preparedRequests.single().body))
     }
 
     @Test
@@ -154,7 +154,7 @@ class SignFlowBitcoinTest {
         assertEquals(BTC_WALLET_ID, entry.walletId)
         assertEquals(ReviewOutcome.SIGNED, entry.outcome)
         assertEquals(null, entry.refusal)
-        assertContentEquals(Psbt.write(psbt).toByteArray(), entry.request.body)
+        assertContentEquals(Psbt.write(psbt).toByteArray(), BtcPsbt.requestPsbt(entry.request.body))
         assertEquals(30_000L, entry.reviewed?.bitcoin?.outputs?.filterNot { it.isOwnChange }?.sumOf { it.amountSats })
     }
 

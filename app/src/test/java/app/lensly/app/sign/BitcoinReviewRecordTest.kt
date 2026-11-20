@@ -1,5 +1,6 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
 import app.airvault.chains.bitcoin.signer.UNVERIFIED_CHECK
 import app.airvault.chains.bitcoin.bitcoinManifest
@@ -26,7 +27,7 @@ class BitcoinReviewRecordTest {
     private val account = BtcAccount.fromSeed(seed, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT)
     private val request = AppRequest(
         RequestHeader(bitcoinManifest.id, BITCOIN_FAMILY, RequestKind.TRANSACTION, signers = emptyList(), requestId = null),
-        ByteArray(0),
+        BtcPsbt.requestBody(BtcPsbt.UR_TYPE, ByteArray(0)),
     )
 
     /**
