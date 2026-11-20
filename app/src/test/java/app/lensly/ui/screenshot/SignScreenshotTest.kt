@@ -430,6 +430,7 @@ class SignScreenshotTest {
             reason = "This contract is an upgradeable proxy. Lensly cannot confirm offline that its code is still the approved " +
                 "version, so your Proxy Policy refuses it.",
             onDone = {},
+            networks = EVM_NETWORKS,
             rows = undecodedCallRows(
                 target = SWAP_CONTRACT,
                 networkName = "Monad Testnet",
