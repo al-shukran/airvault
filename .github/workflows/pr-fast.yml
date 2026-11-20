@@ -17,11 +17,11 @@ on:
 permissions:
   contents: read
 
-# The build cache has a scope per run. A pull request restores its own `pr<number>` entries, then master's, and saves only the lint
-# entries (about 40 MB each). The other lanes' entries are about 450 MB each, and GitHub keeps 10 GB per repository, evicting the
-# least recently used entries past that. Pull requests used to save those lanes too, which evicted master's shard entries, so
-# master's shards ran cold and timed out. A push to master and a queue entry use `master` and save every lane's entry, even when
-# it fails or is cancelled, so the next run can restore what this run built.
+# The build cache has a scope per run. A pull request restores master's entries and saves none. A pull request's own entries were
+# restored ahead of master's, and its lint entries lacked the compile outputs master's entries hold, so the next run of the same
+# pull request compiled cold. Pull requests also used to save the other lanes' entries (about 450 MB each), which evicted master's
+# shard entries under GitHub's 10 GB per repository limit. A push to master and a queue entry use `master` and save every lane's
+# entry, even when it fails or is cancelled, so the next run can restore what this run built.
 env:
   BUILD_CACHE_SCOPE: ${{ github.event_name == 'pull_request' && format('pr{0}', github.event.pull_request.number) || 'master' }}
   # Gradle encrypts configuration-cache entries with this key. Without a shared key, each runner's own keystore encrypts them, so
@@ -368,7 +368,6 @@ jobs:
             .gradle/configuration-cache
           key: bc-lint-${{ matrix.module }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
           restore-keys: |
-            bc-lint-${{ matrix.module }}-${{ env.BUILD_CACHE_SCOPE }}-
             bc-lint-${{ matrix.module }}-master-
 
       - name: Lint :${{ matrix.module }}
@@ -379,7 +378,7 @@ jobs:
         run: ./gradlew --stop
 
       - name: Save the Gradle build cache
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
