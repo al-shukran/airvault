@@ -10,6 +10,7 @@ import app.airvault.chains.solana.signer.solanaWarningText
 import app.airvault.chains.solana.signer.toReview
 import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.model.Danger
+import app.airvault.core.model.text
 import app.airvault.core.model.unaccounted
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.RequestHeader
@@ -257,7 +258,10 @@ class SolanaReviewRowsTest {
         assertEquals("lumio", record.origin)
         assertEquals(address(1), record.address)
         assertEquals(0, record.accountIndex)
-        assertEquals(solanaRows(review), record.params)
+        // The record keeps the header (the cluster and the facts) before the rows the owner read.
+        val reviewed = review.toReview()
+        val header = (listOfNotNull(reviewed.network.row) + reviewed.facts).map { it.label to it.value.text() }
+        assertEquals(header + solanaRows(review), record.params)
         assertEquals(MessageDigest.getInstance("SHA-256").digest(signData).toHex(), record.dataHash)
     }
 
