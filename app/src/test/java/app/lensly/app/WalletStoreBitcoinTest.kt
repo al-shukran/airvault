@@ -103,10 +103,10 @@ class WalletStoreBitcoinTest {
 
         val added = assertNotNull(store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 1, cap))
 
-        val expected = BtcAccount.fromSeed(Mnemonic.toSeed(words), BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT, 0)
+        val expected = BtcAccount.fromSeed(Mnemonic.toSeed(words), BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT, 1)
             .receiveAddress(0)
         assertEquals(expected, added.single().firstReceiveAddress)
-        assertEquals(added, store.bitcoinAccounts(id))
+        assertEquals(added, store.bitcoinAccounts(id).takeLast(added.size))
     }
 
     @Test
@@ -117,6 +117,7 @@ class WalletStoreBitcoinTest {
 
         assertEquals(
             listOf(
+                Path(listOf(PathStep(84, true), PathStep(0, true), PathStep(0, true))),
                 Path(listOf(PathStep(84, true), PathStep(1, true), PathStep(0, true))),
                 Path(listOf(PathStep(86, true), PathStep(0, true), PathStep(0, true))),
                 Path(listOf(PathStep(86, true), PathStep(0, true), PathStep(1, true))),
@@ -126,12 +127,14 @@ class WalletStoreBitcoinTest {
     }
 
     @Test
-    fun aWalletHasNoBitcoinAccountUntilOneIsAdded() {
+    fun aNewWalletHasOneBitcoinAccountAtIndexZeroOfNativeSegwitOnMainnet() {
         val id = newWallet()
 
-        assertTrue(store.bitcoinAccounts(id).isEmpty())
-        // The pairing still covers the wallet: its Bitcoin App is listed with no keys, so Lumio drops any Bitcoin account it held.
-        assertTrue(pairingOf(store.pairingParts(id, null)).onChain("bip122").isEmpty())
+        val account = store.bitcoinAccounts(id).single()
+        assertEquals(0, account.index)
+        assertEquals(ScriptType.NATIVE_SEGWIT, account.scriptType)
+        assertEquals(BtcNetwork.MAINNET, account.network)
+        assertEquals(1, pairingOf(store.pairingParts(id, null)).onChain("bip122").size)
     }
 
     @Test
@@ -144,7 +147,7 @@ class WalletStoreBitcoinTest {
 
         val held = store.bitcoinAccounts(id)
         assertEquals(
-            listOf(0, 1, 2, 3, 4),
+            listOf(0, 1, 2, 3, 4, 5),
             held.filter { it.scriptType == ScriptType.NATIVE_SEGWIT && it.network == BtcNetwork.MAINNET }.map { it.index },
         )
         assertEquals(listOf(0, 1), held.filter { it.network == BtcNetwork.TESTNET4 }.map { it.index })
@@ -176,7 +179,7 @@ class WalletStoreBitcoinTest {
     fun aWalletKeepsAtMostOneHundredBitcoinAccounts() {
         val id = newWallet()
         val hundred = BulkCap.HUNDRED.accounts
-        assertEquals(100, store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.MAINNET, 100, hundred)?.size)
+        assertEquals(99, store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.MAINNET, 99, hundred)?.size)
 
         assertFailsWith<IllegalArgumentException> {
             store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.MAINNET, 1, hundred)
@@ -203,7 +206,7 @@ class WalletStoreBitcoinTest {
         assertFailsWith<IllegalArgumentException> {
             store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 21, cap = 20)
         }
-        assertTrue(store.bitcoinAccounts(id).isEmpty())
+        assertEquals(1, store.bitcoinAccounts(id).size)
     }
 
     @Test
@@ -214,8 +217,8 @@ class WalletStoreBitcoinTest {
 
         val keys = bitcoinKeysOf(id)
 
-        // The pairing carries the accounts the wallet stores, not every Script Type of each index: two stored accounts, two keys.
-        assertEquals(2, keys.size)
+        // The pairing carries the accounts the wallet stores, not every Script Type of each index: three stored accounts, three keys.
+        assertEquals(3, keys.size)
         assertEquals(
             setOf(ScriptType.NATIVE_SEGWIT to BtcNetwork.MAINNET, ScriptType.TAPROOT to BtcNetwork.TESTNET4),
             keys.map { scriptTypeOf(it) to networkOf(it) }.toSet(),
@@ -227,11 +230,11 @@ class WalletStoreBitcoinTest {
         val id = newWallet()
         store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 3, cap)
 
-        // Indices 0, 1 and 2 on mainnet, one key each: the Script Type and the network are the stored ones only.
+        // Indices 0 to 3 on mainnet, one key each: the Script Type and the network are the stored ones only.
         val keys = bitcoinKeysOf(id)
 
-        assertEquals(3, keys.size)
-        assertEquals(setOf(0, 1, 2), keys.map { it.export.signer.path[2].index }.toSet())
+        assertEquals(4, keys.size)
+        assertEquals(setOf(0, 1, 2, 3), keys.map { it.export.signer.path[2].index }.toSet())
     }
 
     @Test
@@ -266,7 +269,7 @@ class WalletStoreBitcoinTest {
 
         // A new store over the same session reads what was written, and the account that has no profile keeps its defaults.
         val read = WalletStore(session).bitcoinAccounts(id)
-        assertEquals(listOf(AccountProfile(), profile), read.map { it.profile })
+        assertEquals(listOf(AccountProfile(), profile, AccountProfile()), read.map { it.profile })
         // The record reads back to the same accounts and profiles.
         assertEquals(read, WalletRecords.decodeBitcoinAccounts(WalletRecords.encodeBitcoinAccounts(read)))
     }
@@ -275,9 +278,10 @@ class WalletStoreBitcoinTest {
     fun renamingLabellingAndGroupingABitcoinAccountChangesOnlyTheFieldAsked() {
         val id = newWallet()
         store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.MAINNET, 1, cap)
-        val address = store.bitcoinAccounts(id).single().firstReceiveAddress
-        fun current(): AccountProfile = store.bitcoinAccounts(id).single().profile
-        fun save(profile: AccountProfile) = store.saveBitcoinProfile(id, store.bitcoinAccounts(id).single(), profile)
+        // The Taproot account is the one added last, after the wallet's own Native Segwit account 0.
+        val address = store.bitcoinAccounts(id).last().firstReceiveAddress
+        fun current(): AccountProfile = store.bitcoinAccounts(id).last().profile
+        fun save(profile: AccountProfile) = store.saveBitcoinProfile(id, store.bitcoinAccounts(id).last(), profile)
 
         save(current().copy(name = "Cold"))
         assertEquals(AccountProfile(name = "Cold"), current())
@@ -296,7 +300,7 @@ class WalletStoreBitcoinTest {
         save(current().copy(name = null))
         assertEquals(AccountProfile(group = "Long term"), current())
 
-        assertEquals(address, store.bitcoinAccounts(id).single().firstReceiveAddress)
+        assertEquals(address, store.bitcoinAccounts(id).last().firstReceiveAddress)
     }
 
     @Test
@@ -314,19 +318,19 @@ class WalletStoreBitcoinTest {
         val id = newWallet()
         store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 1, cap)
         val named = AccountProfile(name = "Cold", label = "vault")
-        store.saveBitcoinProfile(id, store.bitcoinAccounts(id).single(), named)
+        store.saveBitcoinProfile(id, store.bitcoinAccounts(id).last(), named)
 
         store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 2, cap)
 
         val held = store.bitcoinAccounts(id)
-        assertEquals(listOf(0, 1, 2), held.map { it.index })
-        assertEquals(listOf(named, AccountProfile(), AccountProfile()), held.map { it.profile })
+        assertEquals(listOf(0, 1, 2, 3), held.map { it.index })
+        assertEquals(listOf(AccountProfile(), named, AccountProfile(), AccountProfile()), held.map { it.profile })
     }
 
     @Test
     fun aProfileThatDoesNotFitTheBitcoinRecordIsRefusedAndTheAccountKeepsItsOwn() {
         val id = newWallet()
-        store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.MAINNET, 100, BulkCap.HUNDRED.accounts)
+        store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.MAINNET, 99, BulkCap.HUNDRED.accounts)
         val long = AccountProfile(name = "N".repeat(32), label = "L".repeat(16), group = "G".repeat(16))
 
         // Each account takes a long profile in turn, until the record of the wallet has no room for one more.
@@ -358,7 +362,7 @@ class WalletStoreBitcoinTest {
         // The named account carries its profile. An account with none carries its Auto-Name, as an Ethereum account does.
         assertEquals(Triple("Cold", "vault", "Long term"), bitcoinAccountOf(bitcoin, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 0).labelled())
         assertEquals(Triple("Test 1", null, null), bitcoinAccountOf(bitcoin, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 1).labelled())
-        assertEquals(2, bitcoin.size)
+        assertEquals(3, bitcoin.size)
     }
 
     @Test
@@ -494,6 +498,8 @@ class WalletStoreBitcoinTest {
     @Test
     fun aWalletWithNoBitcoinAccountRefusesEveryRequest() {
         val id = newWallet()
+        // A wallet made before the first accounts were generated has no Bitcoin record.
+        session.deleteRecord(id, WalletRecords.BITCOIN)
         val refused = assertFailsWith<BtcRefusedException> {
             store.bitcoinReview(id, requestFrom(walletAccount(BtcNetwork.MAINNET, 0)), STRICT, SigningSourcePolicy.ANY)
         }
