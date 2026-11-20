@@ -1,18 +1,11 @@
 package app.lensly.app.sign
 
 import app.airvault.chains.bitcoin.signer.btcText
-import app.airvault.chains.evm.signer.DataType
-import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.core.model.Danger
 import app.airvault.core.model.Review
-import app.airvault.core.model.SummaryPart
-import app.airvault.core.model.checkLabels
-import app.airvault.core.model.text
 import app.lensly.app.BitcoinReviewed
-import app.lensly.core.registry.Registry
 import app.lensly.core.wallet.toHex
 import app.lensly.ui.sign.scriptTypeName
-import app.lensly.ui.sign.unknownNetworkName
 import java.security.MessageDigest
 
 /** What a Review Record says was decided. */
@@ -129,18 +122,6 @@ data class ReviewRecord(
 )
 
 /**
- * What the sign flow showed and decided for one request, of wallet [walletId]. [ready] is the review the owner saw, when the
- * request got one. [refusal] is the reason, for a refusal.
- */
-class ReviewEntry(
-    val walletId: String,
-    val outcome: ReviewOutcome,
-    val request: EthSignRequest,
-    val ready: Prepared.Ready?,
-    val refusal: String?,
-)
-
-/**
  * What the Bitcoin review [reviewed] showed of its PSBT, as the record keeps it: the Script Type, each output, the fee and its rate, and a WARN
  * notice for each warning of [review], the review the owner read.
  */
@@ -186,47 +167,3 @@ fun bitcoinReviewRecordOf(entry: AppReviewEntry, atMs: Long): ReviewRecord {
 
 /** The SHA-256 of the PSBT bytes [psbt], in hex. */
 fun bitcoinDataHash(psbt: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(psbt).toHex()
-
-/**
- * The Review Record of [entry], written at [atMs]. A review gives the facts the owner saw: its title is the function, its header names the
- * target, its summary states the amount, and its facts and argument rows are the fee and the params. Without a review, the chain and its
- * network name come from the request and [registry]. A signed record keeps the checks the review names, which the owner had to tick to
- * sign, and every warning the review showed.
- */
-fun reviewRecordOf(entry: ReviewEntry, atMs: Long, registry: Registry): ReviewRecord {
-    val request = entry.request
-    val ready = entry.ready
-    val review = ready?.review
-    val chainId = request.chainId
-    // The first section is the header, the rows that name the request's target and function.
-    val header = review?.sections?.firstOrNull()?.rows.orEmpty()
-    val amount = review?.summary?.filterIsInstance<SummaryPart.Mono>()?.firstOrNull()?.text
-    val target = header.firstOrNull { it.label == "To" || it.label == "Contract" }
-    return ReviewRecord(
-        atMs = atMs,
-        outcome = entry.outcome,
-        kind = kindOf(request.dataType),
-        chainId = chainId,
-        networkName = chainId?.let { registry.network(it)?.name ?: unknownNetworkName(it) },
-        accountIndex = ready?.accountIndex,
-        address = ready?.signer?.address,
-        function = review?.title,
-        to = target?.value?.text()?.takeIf { it.isNotEmpty() },
-        amount = amount,
-        // A token amount names the contract that moves it, which is the review's contract row.
-        tokenContract = target?.takeIf { it.label == "Contract" && amount != null }?.value?.text(),
-        fee = review?.facts.orEmpty().map { it.label to it.value.text() },
-        params = review?.sections.orEmpty().drop(1).flatMap { it.rows }.filter { it.value != null }
-            .map { it.label to it.value.text() },
-        origin = request.origin,
-        refusal = entry.refusal,
-        dataHash = MessageDigest.getInstance("SHA-256").digest(request.signData).toHex(),
-        acknowledged = if (entry.outcome == ReviewOutcome.SIGNED) review?.checkLabels().orEmpty() else emptyList(),
-        warnings = review?.warnings.orEmpty().map { it.level to it.message },
-    )
-}
-
-private fun kindOf(type: DataType): ReviewKind = when (type) {
-    DataType.TRANSACTION, DataType.TYPED_TRANSACTION -> ReviewKind.TRANSACTION
-    DataType.PERSONAL_MESSAGE, DataType.TYPED_DATA -> ReviewKind.MESSAGE
-}

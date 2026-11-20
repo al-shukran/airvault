@@ -132,8 +132,6 @@ private class FakePorts(
 
     override suspend fun scan(parts: List<String>): ScanReply = parser.scan(parts)
 
-    override suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray = error("The sign flow reads no private key.")
-
     override suspend fun checkPassword(password: CharArray): PasswordCheck = passwordCheck(password)
 
     override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared {

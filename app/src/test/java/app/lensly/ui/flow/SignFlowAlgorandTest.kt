@@ -317,9 +317,6 @@ class SignFlowAlgorandTest {
 
         override suspend fun scan(parts: List<String>): ScanReply = parser.scan(parts)
 
-        override suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray =
-            error("an EVM key is not read in the Algorand tests")
-
         override suspend fun checkPassword(password: CharArray): PasswordCheck = this.password
 
         override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared {

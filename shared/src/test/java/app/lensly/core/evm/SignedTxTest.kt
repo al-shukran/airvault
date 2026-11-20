@@ -37,7 +37,7 @@ class SignedTxTest {
         for (vector in vectors) {
             val tx = txOf(vector)
             val payload = assertNotNull(tx.encode())
-            val signature = TxSigner.sign(payload, tx, EvmFixtures.hex(vector.privateKey))
+            val signature = TxSigner.signatureOf(payload, tx, EvmFixtures.singleKeySigner(EvmFixtures.hex(vector.privateKey)))
 
             assertEquals(vector.signedTx, "0x" + assertNotNull(tx.encodeSigned(signature)).toHex(), "nonce ${vector.nonce}")
         }
@@ -48,7 +48,7 @@ class SignedTxTest {
         for (vector in vectors) {
             val tx = txOf(vector)
             val payload = assertNotNull(tx.encode())
-            val signature = TxSigner.sign(payload, tx, EvmFixtures.hex(vector.privateKey))
+            val signature = TxSigner.signatureOf(payload, tx, EvmFixtures.singleKeySigner(EvmFixtures.hex(vector.privateKey)))
 
             assertEquals(
                 AccountAddresses.addressOfPrivateKey(EvmFixtures.hex(vector.privateKey)),
@@ -63,7 +63,7 @@ class SignedTxTest {
         val first = vectors[0]
         val second = vectors[1]
         val firstTx = txOf(first)
-        val signature = TxSigner.sign(assertNotNull(firstTx.encode()), firstTx, EvmFixtures.hex(first.privateKey))
+        val signature = TxSigner.signatureOf(assertNotNull(firstTx.encode()), firstTx, EvmFixtures.singleKeySigner(EvmFixtures.hex(first.privateKey)))
         val secondPayload = assertNotNull(txOf(second).encode())
 
         assertNotEquals(AccountAddresses.addressOfPrivateKey(EvmFixtures.hex(first.privateKey)), TxSigner.recoverSigner(secondPayload, signature))
@@ -74,7 +74,7 @@ class SignedTxTest {
         val vector = vectors[0]
         val tx = txOf(vector)
         val payload = assertNotNull(tx.encode())
-        val signature = TxSigner.sign(payload, tx, EvmFixtures.hex(vector.privateKey))
+        val signature = TxSigner.signatureOf(payload, tx, EvmFixtures.singleKeySigner(EvmFixtures.hex(vector.privateKey)))
         val rs = signature.copyOf(64)
 
         assertNull(tx.encodeSigned(rs))
