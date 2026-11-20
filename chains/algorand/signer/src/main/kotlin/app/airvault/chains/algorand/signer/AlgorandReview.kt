@@ -97,7 +97,7 @@ fun AlgorandRequestReview.warningText(warning: AlgorandWarning): String = when (
         is Payment -> "Lensly does not know this asset."
     }
     AlgorandWarning.GROUP -> "Part of a group: other transactions in the group are not shown"
-    AlgorandWarning.LEASE -> "This transaction carries a lease: it can be submitted once until round ${txn.lastValid}."
+    AlgorandWarning.LEASE -> "This transaction carries a lease: another transaction with the same lease cannot be confirmed until round ${txn.lastValid}."
 }
 
 private fun AlgorandRequestReview.warningOf(warning: AlgorandWarning): Warning = when (warning) {
