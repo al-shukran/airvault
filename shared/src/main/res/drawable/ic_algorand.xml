@@ -1,0 +1,13 @@
+<!--
+    The Algorand mark: a plain A, drawn by hand, not generated (tools/icons/convert.mjs only writes chain_ and token_ files).
+    It is black, so AlgorandIcon draws it on a light backdrop, as it does for other dark logos.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M2 21L9.6 3H14.4L22 21H17.9L16.3 17.3H7.7L6.1 21Z"/>
+</vector>

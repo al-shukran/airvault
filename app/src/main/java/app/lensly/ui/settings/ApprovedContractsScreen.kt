@@ -203,7 +203,7 @@ private fun ApprovalCard(entry: WhitelistEntry) {
         }
         MonoText(text = entry.signature, modifier = Modifier.padding(top = LenslySpacing.xs))
         FactRow(label = "Contract") {
-            AddressText(address = entry.contract)
+            AddressText(address = entry.contract, icon = true)
         }
         FactRow(label = "Selector") {
             MonoText(text = entry.selector)

@@ -98,7 +98,12 @@ internal fun SignWalletRoute(
             onCancel = flow::leave,
             frameSource = frameSource,
         )
-        is SignStep.Refused -> SignRefusedScreen(reason = shown.reason, rows = shown.rows, onDone = flow::leave)
+        is SignStep.Refused -> SignRefusedScreen(
+            reason = shown.reason,
+            rows = shown.rows,
+            networks = networks,
+            onDone = flow::leave,
+        )
         is SignStep.AppReview -> ReviewScreen(
             review = shown.ready.review,
             signer = shown.ready.signer,
