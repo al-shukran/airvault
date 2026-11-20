@@ -90,8 +90,8 @@ object RegistryUpdate {
     /**
      * The [registry] with the installed package in [dir] merged in. Installed networks and tokens are only added. The effective
      * whitelist, denylist and wallets come from one source only: the installed package's when its sequence is higher than the
-     * build's [Registry.catalogSequence], otherwise the build's (a tie keeps the build's). A denylist or wallet list the package
-     * does not carry keeps the build's. When there is no installed package, or it no longer verifies against [registry] (for
+     * build's [Registry.catalogSequence], otherwise the build's (a tie keeps the build's). A list the package does not carry keeps
+     * the build's. When there is no installed package, or it no longer verifies against [registry] (for
      * example because an app update bakes one of its chain IDs), [registry] is returned unchanged; a failed verification is
      * flagged on the result so Settings can say the built-in catalog is in use.
      */
@@ -100,7 +100,7 @@ object RegistryUpdate {
         val installed = installedPackage(registry, dir, trustedKeys) ?: return registry.withInstalledUpdateUnverified()
         val merged = registry.withAdditions(installed.networks, installed.tokens)
         if (installed.sequence <= registry.catalogSequence) return merged
-        return merged.withWhitelist(installed.whitelist)
+        return merged.withWhitelist(installed.whitelist ?: registry.whitelistEntries())
             .withDenylist(installed.denylist ?: registry.denylistEntries())
             .withWallets(installed.wallets ?: registry.walletEntries())
     }
@@ -149,7 +149,7 @@ object RegistryUpdate {
                 )
             }
         }
-        for (entry in pkg.whitelist) {
+        for (entry in pkg.whitelist.orEmpty()) {
             val chainKnown = baked.network(entry.chainId) != null || pkg.networks.any { it.chainId == entry.chainId }
             if (!chainKnown) {
                 throw RegistryUpdateException.InvalidEntry(

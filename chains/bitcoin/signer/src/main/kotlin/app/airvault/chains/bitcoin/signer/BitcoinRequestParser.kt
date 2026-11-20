@@ -15,7 +15,7 @@ import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.psbt.Psbt
 
-/** The refusal of a `crypto-psbt` whose PSBT does not parse. */
+/** The refusal of a PSBT request whose PSBT does not parse. */
 const val NOT_A_PSBT = "The Bitcoin request is not a valid PSBT."
 
 /** Clears the hardened bit of a BIP32 child number, which a coin type carries in a path as 0x80000000 plus its value. */
@@ -59,13 +59,15 @@ private fun pathStep(child: Long): PathStep =
     PathStep(index = (child and UNHARDENED_MASK).toInt(), hardened = DeterministicWallet.isHardened(child))
 
 /**
- * The parser of crypto-psbt (spec 3.2). The body is the PSBT in its serialized form, which the app reads. The header names the network the
- * PSBT's derivation paths name, and mainnet when it names none. It also names the accounts the inputs claim, and the wallet is found from
- * those accounts, not from the PSBT alone.
+ * The parser of a PSBT request (spec 3.2), under the registry name `psbt` or the retired `crypto-psbt`. The body keeps the UR type the request
+ * used and the PSBT in its serialized form, which the app reads. The header names the network the PSBT's derivation paths name, and mainnet
+ * when it names none. It also names the accounts the inputs claim, and the wallet is found from those accounts, not from the PSBT alone.
  */
 object BitcoinRequestParser : RequestParser {
     override fun parse(urType: String, cbor: ByteArray, limits: ParserLimits): ParseOutcome {
-        if (urType != BtcPsbt.UR_TYPE) return ParseOutcome.Refused("UR type $urType is not ${BtcPsbt.UR_TYPE}")
+        if (urType !in BtcPsbt.REQUEST_UR_TYPES) {
+            return ParseOutcome.Refused("UR type $urType is not ${BtcPsbt.PSBT_UR_TYPE} or ${BtcPsbt.UR_TYPE}")
+        }
         // The size is checked before the PSBT is decoded, as the other parsers do, so an oversized payload is never read.
         if (cbor.size > limits.maxPayloadBytes) return ParseOutcome.Refused("payload exceeds ${limits.maxPayloadBytes} bytes")
         val psbt = try {
@@ -86,6 +88,6 @@ object BitcoinRequestParser : RequestParser {
             signers = accounts,
             requestId = null,
         )
-        return ParseOutcome.Parsed(AppRequest(header, body))
+        return ParseOutcome.Parsed(AppRequest(header, BtcPsbt.requestBody(urType, body)))
     }
 }

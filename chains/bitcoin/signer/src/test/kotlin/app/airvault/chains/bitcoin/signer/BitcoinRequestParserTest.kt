@@ -54,12 +54,19 @@ class BitcoinRequestParserTest {
         assertEquals(bitcoinManifest.id, request.header.app)
         assertEquals(ChainId("bip122:000000000019d6689c085ae165831e93"), request.header.chain)
         assertEquals(RequestKind.TRANSACTION, request.header.kind)
-        assertContentEquals(bytes, request.body)
+        assertContentEquals(bytes, BtcPsbt.requestPsbt(request.body))
     }
 
     @Test
     fun aUrOfAnotherTypeIsRefused() {
         assertIs<ParseOutcome.Refused>(parse(urType = "algo-sign-request"))
+    }
+
+    @Test
+    fun aPsbtUnderTheRegistryNameParsesToTheSameRequestAsTheRetiredName() {
+        val retired = assertIs<ParseOutcome.Parsed>(parse(urType = "crypto-psbt")).request
+        val current = assertIs<ParseOutcome.Parsed>(parse(urType = "psbt")).request
+        assertEquals(retired.header, current.header)
     }
 
     @Test
@@ -165,8 +172,10 @@ class BitcoinRequestParserTest {
     private fun hexBytes(text: String): ByteArray = text.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
 
     @Test
-    fun theRegistryRoutesCryptoPsbtToTheBitcoinApp() {
+    fun theRegistryRoutesBothPsbtUrTypesToTheBitcoinApp() {
         val signer = BitcoinSigner()
-        assertEquals(signer, ChainRegistry(listOf(signer)).byRequestType(BtcPsbt.UR_TYPE))
+        val registry = ChainRegistry(listOf(signer))
+        assertEquals(signer, registry.byRequestType(BtcPsbt.UR_TYPE))
+        assertEquals(signer, registry.byRequestType("psbt"))
     }
 }

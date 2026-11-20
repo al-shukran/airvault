@@ -280,7 +280,7 @@ internal class VaultSignPorts(
      */
     private suspend fun bitcoinPrepare(walletId: String, appRequest: AppRequest): AppPrepared = withContext(Dispatchers.IO) {
         val parsed = try {
-            BtcPsbt.parse(appRequest.body)
+            BtcPsbt.parse(BtcPsbt.requestPsbt(appRequest.body))
         } catch (e: RuntimeException) {
             return@withContext AppPrepared.Refused(NOT_A_PSBT)
         }

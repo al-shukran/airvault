@@ -2,6 +2,8 @@ package app.lensly.app.sign
 
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.algorandManifest
+import app.airvault.chains.bitcoin.bitcoinManifest
+import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.evm.evmManifest
 import app.airvault.chains.evm.signer.EvmRequestBody
 import app.airvault.chains.solana.signer.SolSignRequest
@@ -116,6 +118,7 @@ internal fun appRequestFactsOf(request: AppRequest): Pair<String?, String> = whe
         is SolSignRequest.Result.Rejected -> null to sha256Hex(request.body)
     }
     evmManifest.id -> evmFactsOf(request)
+    bitcoinManifest.id -> null to sha256Hex(BtcPsbt.requestPsbt(request.body))
     else -> null to sha256Hex(request.body)
 }
 
