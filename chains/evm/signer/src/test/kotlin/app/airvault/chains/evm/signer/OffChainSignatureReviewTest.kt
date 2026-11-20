@@ -280,6 +280,13 @@ class OffChainSignatureReviewTest {
     }
 
     @Test
+    fun anAsterDexAgentApprovalIsADangerWithATick() {
+        val review = reviewed(asterMessage(56, ASTER_APPROVE_MESSAGE), BNB)
+
+        assertEquals(listOf(APPROVE_TEXT), dangersOf(review).map { it.message })
+    }
+
+    @Test
     fun asterDexMasterAccountSignatureOnItsOwnDomainShowsTheWholeMessageText() {
         val review = reviewed(asterMessage(1666, ASTER_MASTER_MESSAGE), BNB)
 
@@ -287,6 +294,7 @@ class OffChainSignatureReviewTest {
         noteOf(review, ASTER_LABEL, ASTER_NOTE)
         assertTrue(rowsOf(review).any { it.value.text() == "1666 (Unknown Network)" })
         assertEquals(listOf(chainCaution("1666", "Unknown Network", "chain ID $BNB"), ASTER_CAUTION), cautionTexts(review))
+        assertTrue(dangersOf(review).isEmpty(), "a sub-account signature is not an agent approval")
         assertNoStoppingWarning(review)
     }
 

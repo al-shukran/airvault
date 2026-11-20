@@ -178,7 +178,7 @@ class EvmReviewTest {
         val refused = refusalOf(txParsed(NFT, calldata), builder(blocked, unknownCalls = UnknownCallPolicy.WARN))
 
         assertEquals("Blocked collection.", refused.reason)
-        assertEquals(listOf("Selector", "Calldata", "Data Hash"), refused.rows.map { it.label })
+        assertEquals(listOf("Selector", "Calldata", "Calldata Hash (Keccak-256)"), refused.rows.map { it.label })
         assertEquals("0xdeadbeef", refused.rows.single { it.label == "Selector" }.value.text())
     }
 
@@ -269,17 +269,20 @@ class EvmReviewTest {
         assertEquals(Danger.DANGER, unknown.level)
         assertEquals(UNKNOWN_WARNING, unknown.message)
         assertEquals(ACK_UNKNOWN, unknown.acknowledge)
-        assertEquals(listOf("Selector", "Calldata", "Data Hash"), review.sections.single { it.heading == "Arguments" }.rows.map { it.label })
+        assertEquals(
+            listOf("Selector", "Calldata", "Calldata Hash (Keccak-256)"),
+            review.sections.single { it.heading == "Arguments" }.rows.map { it.label },
+        )
     }
 
-    /** The Data Hash of an undecoded call is the keccak256 of its whole calldata, shown in full, for comparison with Lumio. */
+    /** The Calldata Hash of an undecoded call is the keccak256 of its whole calldata, shown in full, for comparison with Lumio. */
     @Test
     fun anUnknownCallShowsTheHashOfItsCalldata() {
         val calldata = Numeric.hexStringToByteArray("0xdeadbeef") + ByteArray(32) { 1 }
 
         val review = reviewOf(txParsed(NFT, calldata), builder(unknownCalls = UnknownCallPolicy.WARN))
 
-        val hash = review.sections.single { it.heading == "Arguments" }.rows.single { it.label == "Data Hash" }
+        val hash = review.sections.single { it.heading == "Arguments" }.rows.single { it.label == "Calldata Hash (Keccak-256)" }
         assertEquals("0x" + Hash.sha3(calldata).toHex(), hash.value.text())
     }
 
@@ -410,7 +413,9 @@ class EvmReviewTest {
         assertEquals("hello", message.single { it.label == "Message" }.value.text())
         assertEquals("5 characters, 5 bytes", message.single { it.label == "Size" }.value.text())
         assertTrue(review.facts.isEmpty())
-        assertEquals(Danger.CAUTION, review.warnings.single().level)
+        // The request names a chain, so the review also says the signature is valid on every chain.
+        assertEquals(listOf("evm.personal-message", "evm.personal-message.chain"), review.warnings.map { it.code })
+        assertEquals(listOf(Danger.CAUTION, Danger.CAUTION), review.warnings.map { it.level })
     }
 
     @Test
@@ -625,15 +630,52 @@ class EvmReviewTest {
 
         assertEquals("The request names an origin with a character Lensly cannot show.", refusal.reason)
     }
+
+    @Test
+    fun aPersonalMessageThatNamesAChainSaysItIsValidOnEveryChain() {
+        val review = reviewOf(personalParsed("hi".toByteArray(), chainId = 137L))
+
+        assertEquals(
+            listOf("This signature is valid on every EVM chain, not only the chain the request names."),
+            review.warnings.filter { it.code == "evm.personal-message.chain" }.map { it.message },
+        )
+        assertEquals(Danger.CAUTION, review.warnings.single { it.code == "evm.personal-message.chain" }.level)
+    }
+
+    @Test
+    fun aBip44AddressKeyIsACautionAndAnAccountKeyIsNot() {
+        assertEquals(listOf(BIP44_CAUTION), bip44CautionsOf("m/44'/60'/0'/0/1"))
+        assertEquals(listOf(BIP44_CAUTION), bip44CautionsOf("m/44'/60'/0'/0/12"))
+        assertEquals(emptyList(), bip44CautionsOf("m/44'/60'/0'/0/0"))
+        assertEquals(emptyList(), bip44CautionsOf("m/44'/60'/2'/0/0"))
+        assertEquals(emptyList(), bip44CautionsOf(null))
+    }
+
+    @Test
+    fun aRefusedProxyShowsItsApprovedCodeHashWithItsPrefix() {
+        val codeHash = "0x" + "ab".repeat(32)
+        val proxy = fooEntry().copy(upgradeable = true, proxy = ProxyBinding(implementationAddress = IMPLEMENTATION, implementationCodeHash = codeHash))
+
+        val refused = refusalOf(txParsed(NFT, fooCalldata()), builder(REGISTRY.withWhitelist(listOf(proxy))))
+
+        assertEquals("0x" + List(8) { "abababab" }.joinToString(" "), refused.rows.single { it.label == "Approved Code Hash" }.value.text())
+    }
+
+    /** The CAUTIONs a personal message of [path] gets, as their texts: none when [path] is null. */
+    private fun bip44CautionsOf(path: String?): List<String> =
+        assertIs<EvmReviewResult.Ok>(builder().review(personalParsed("hi".toByteArray()), SENDER, path)).review.warnings
+            .filter { it.code == "evm.bip44-address" }.map { it.message }
 }
 
-/** The parsed request of a personal message of [signData] on Monad testnet, as a wallet sends it. */
-private fun personalParsed(signData: ByteArray, origin: String = "dapp.example"): ParsedRequest = EvmRequestParser.parsedOf(
+private const val BIP44_CAUTION = "This key is a BIP44 address key, not one of this wallet's accounts. Check its address and path before you sign."
+
+/** The parsed request of a personal message of [signData] on Monad testnet, as a wallet sends it, or on [chainId] when it names one. */
+private fun personalParsed(signData: ByteArray, origin: String = "dapp.example", chainId: Long? = 10143L): ParsedRequest = EvmRequestParser.parsedOf(
     EthSignRequest(
         requestId = null,
         signData = signData,
         dataType = DataType.PERSONAL_MESSAGE,
-        chainId = 10143,
+        chainId = chainId,
         derivationPath = PATH,
         sourceFingerprint = null,
         address = null,

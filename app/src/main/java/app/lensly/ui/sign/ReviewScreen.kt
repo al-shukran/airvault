@@ -94,6 +94,7 @@ fun ReviewScreen(
                     chainDetail = review.network.detail,
                     networkFact = review.network.row?.let { fact(it) },
                     account = signer.name,
+                    accountLabel = if (signer.isAddressKey) "Key" else "Account",
                     wallet = signer.walletName,
                     address = signer.address,
                     addressLogo = addressLogo,
