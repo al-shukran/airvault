@@ -46,8 +46,8 @@ val solanaManifest: ChainManifest = ChainManifest(
     ),
     // Solana signs off-chain messages, such as a sign-in text, as well as transactions.
     capabilities = setOf(Capability.MESSAGE_SIGNING),
-    requestTypes = listOf(UrTypeSpec("sol-sign-request", Direction.REQUEST, 1..1)),
-    responseTypes = listOf(UrTypeSpec("sol-signature", Direction.RESPONSE, 1..1)),
+    requestTypes = listOf(UrTypeSpec("sol-sign-request", Direction.REQUEST)),
+    responseTypes = listOf(UrTypeSpec("sol-signature", Direction.RESPONSE)),
     fields = emptyList(),
 )
 

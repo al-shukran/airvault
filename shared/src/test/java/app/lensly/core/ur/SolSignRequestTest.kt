@@ -174,6 +174,13 @@ class SolSignRequestTest {
         }
     }
 
+    @Test
+    fun aKeyFromTheReservedRangeIsIgnoredAndAnyOtherUnknownKeyIsRefused() {
+        val fields = assertIs<Cbor.Dict>(Cbor.decode(payload())).entries
+        assertIs<SolSignRequest.Result.Ok>(SolSignRequest.decode(Cbor.encode(Cbor.Dict(fields + (Cbor.Uint(1000L) to Cbor.Uint(1L))))))
+        assertEquals("unknown map key 8", rejectedReason(Cbor.encode(Cbor.Dict(fields + (Cbor.Uint(8L) to Cbor.Uint(1L))))))
+    }
+
     private fun okOf(result: SolSignRequest.Result): SolSignRequest = assertIs<SolSignRequest.Result.Ok>(result).request
 
     private fun rejectedReason(bytes: ByteArray): String = assertIs<SolSignRequest.Result.Rejected>(SolSignRequest.decode(bytes)).reason

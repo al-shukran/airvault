@@ -55,7 +55,7 @@ val bitcoinManifest: ChainManifest = ChainManifest(
         ),
     ),
     capabilities = setOf(Capability.WATCH_ONLY_EXPORT),
-    requestTypes = listOf(UrTypeSpec("psbt", Direction.REQUEST, 1..1), UrTypeSpec("crypto-psbt", Direction.REQUEST, 1..1)),
+    requestTypes = listOf(UrTypeSpec("psbt", Direction.REQUEST), UrTypeSpec("crypto-psbt", Direction.REQUEST)),
     responseTypes = emptyList(),
     fields = emptyList(),
 )

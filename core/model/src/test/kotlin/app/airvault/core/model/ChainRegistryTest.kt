@@ -42,11 +42,11 @@ class ChainRegistryTest {
         )
         assertRejected(
             "duplicate UR type",
-            baseline().copy(responseTypes = listOf(UrTypeSpec("test-sign-request", Direction.RESPONSE, 1..1))),
+            baseline().copy(responseTypes = listOf(UrTypeSpec("test-sign-request", Direction.RESPONSE))),
         )
         assertRejected(
             "malformed",
-            baseline().copy(requestTypes = listOf(UrTypeSpec("test sign", Direction.REQUEST, 1..1))),
+            baseline().copy(requestTypes = listOf(UrTypeSpec("test sign", Direction.REQUEST))),
         )
     }
 
@@ -54,7 +54,7 @@ class ChainRegistryTest {
     fun rejectsUppercaseUrTypes() {
         assertRejected(
             "malformed",
-            baseline().copy(requestTypes = listOf(UrTypeSpec("Test-sign-request", Direction.REQUEST, 1..1))),
+            baseline().copy(requestTypes = listOf(UrTypeSpec("Test-sign-request", Direction.REQUEST))),
         )
     }
 
@@ -98,8 +98,8 @@ class ChainRegistryTest {
         val first = baseline()
         // Distinct UR types, so the only rule this pair can break is the shared key rule.
         val second = baseline(id = "second", chain = "other:1", namespace = "other").copy(
-            requestTypes = listOf(UrTypeSpec("other-sign-request", Direction.REQUEST, 1..1)),
-            responseTypes = listOf(UrTypeSpec("other-signature", Direction.RESPONSE, 1..1)),
+            requestTypes = listOf(UrTypeSpec("other-sign-request", Direction.REQUEST)),
+            responseTypes = listOf(UrTypeSpec("other-signature", Direction.RESPONSE)),
         )
         assertRejectedPair("rule 5", first, second)
 
@@ -179,8 +179,8 @@ class ChainRegistryTest {
         networks = listOf(network(chain)),
         keys = listOf(scope("m/44'/283'/*'/0/0")),
         capabilities = emptySet(),
-        requestTypes = listOf(UrTypeSpec("test-sign-request", Direction.REQUEST, 1..1)),
-        responseTypes = listOf(UrTypeSpec("test-signature", Direction.RESPONSE, 1..1)),
+        requestTypes = listOf(UrTypeSpec("test-sign-request", Direction.REQUEST)),
+        responseTypes = listOf(UrTypeSpec("test-signature", Direction.RESPONSE)),
         fields = emptyList(),
     )
 
