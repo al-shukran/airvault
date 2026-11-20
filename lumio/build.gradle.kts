@@ -6,6 +6,13 @@ plugins {
     alias(libs.plugins.roborazzi)
 }
 
+// The version code is the number of commits on HEAD, as in :app: each build from the same history is newer than the one before, so an
+// update cannot roll the app back to an older code. A build outside git keeps the code 1.
+val gitCommitCount = providers.exec {
+    commandLine("git", "rev-list", "--count", "HEAD")
+    isIgnoreExitValue = true
+}.standardOutput.asText.map { it.trim().toIntOrNull() ?: 1 }
+
 // Lumio, the companion app. It shares the camera cover, the gate and the theme with Lensly through :shared, and it has its own manifest,
 // navigation and Home. It holds no key material. The network permission is its own: check-manifest.sh holds its manifest to an allow-list.
 android {
@@ -16,7 +23,7 @@ android {
         applicationId = "app.lumio"
         minSdk = 31
         targetSdk = 36
-        versionCode = 1
+        versionCode = gitCommitCount.get()
         versionName = "0.1.0"
 
         // The same ABIs as :app. Phones are arm64-v8a, and x86_64 covers the x86 emulators.
