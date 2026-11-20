@@ -43,6 +43,7 @@ import app.lensly.app.WalletProfile
 import app.lensly.app.WalletReviewRecord
 import app.lensly.app.WalletStore
 import app.lensly.app.WalletWriter
+import app.lensly.app.displayNameOf
 import app.lensly.app.export.AccountExport
 import app.lensly.app.sessionReads
 import app.lensly.app.sign.ReviewRecord
@@ -553,6 +554,7 @@ private fun NameRoute(navController: NavHostController, holder: VaultHolder, ent
         value = withContext(Dispatchers.IO) { "WALLET ${WalletStore(session).list().size + 1}" }
     }
     var name by remember { mutableStateOf("") }
+    var refusal by remember { mutableStateOf<String?>(null) }
     val saving = save == SaveState.Saving
     // Back is ignored while the save runs, and the screen shows "Saving…" until it ends.
     BackHandler(enabled = saving) {}
@@ -567,14 +569,17 @@ private fun NameRoute(navController: NavHostController, holder: VaultHolder, ent
         onBackspace = {
             if (!saving && name.isNotEmpty()) name = name.dropLast(1)
         },
-        errorMessage = if (save == SaveState.Failed) SAVE_FAILED_MESSAGE else null,
+        errorMessage = refusal ?: if (save == SaveState.Failed) SAVE_FAILED_MESSAGE else null,
         saving = saving,
         onDone = {
-            if (!saving && draft.singleKey != null) {
-                draft.setName(effectiveWalletName(name, suggested))
+            // A name refused here is never saved, so the owner sees why on this screen rather than a failed save.
+            val finalName = effectiveWalletName(name, suggested)
+            val reason = nameRefusal(finalName)
+            refusal = reason
+            if (!saving && reason == null && draft.singleKey != null) {
+                draft.setName(finalName)
                 navController.navigate(HiddenRoute.KEY_BACKUP)
-            } else if (!saving && draft.words.isNotEmpty()) {
-                val finalName = effectiveWalletName(name, suggested)
+            } else if (!saving && reason == null && draft.words.isNotEmpty()) {
                 if (PassphraseGate.needsWriteDown(draft.passphrase)) {
                     draft.setName(finalName)
                     navController.navigate(HiddenRoute.PASSPHRASE_BACKUP)
@@ -584,6 +589,14 @@ private fun NameRoute(navController: NavHostController, holder: VaultHolder, ent
             }
         },
     )
+}
+
+/** Why [name] cannot be a wallet's name, or null when it can. */
+private fun nameRefusal(name: String): String? = try {
+    displayNameOf(name)
+    null
+} catch (e: IllegalArgumentException) {
+    e.message
 }
 
 /**

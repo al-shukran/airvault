@@ -158,6 +158,8 @@ fun WalletProfileScreen(
     onResetStyle: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
+    /** The reason a save was refused, shown above the fields until the next save. Null when there is none. */
+    error: String? = null,
 ) {
     val full = draft.groups.size >= WALLET_MAX_GROUPS
     val focused = draft.focus != null
@@ -171,6 +173,10 @@ fun WalletProfileScreen(
             },
         ) {
             ProfileHeader(identity = VisualIdentity(draft.colour, draft.icon), title = draft.name)
+            if (error != null) {
+                Spacer(Modifier.height(LenslySpacing.md))
+                InlineBanner(message = error, tone = BannerTone.Error)
+            }
             Spacer(Modifier.height(LenslySpacing.lg))
             ProfileFieldRow(
                 label = "Name",

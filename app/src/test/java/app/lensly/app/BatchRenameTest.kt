@@ -193,6 +193,16 @@ class BatchRenameTest {
     }
 
     @Test
+    fun aBaseNameWithAQuestionMarkIsRefusedWithItsReasonAndNothingIsRenamed() {
+        val id = newWallet(2)
+
+        val refusal = assertFailsWith<IllegalArgumentException> { store.renameAccounts(id, listOf(0), "Rent?") }
+
+        assertEquals("A batch name is 1 to 30 characters, with no control, hidden or question mark character.", refusal.message)
+        assertEquals(listOf(null, null), names(id, 2))
+    }
+
+    @Test
     fun theBatchBaseLimitLeavesRoomForTheIndex() {
         assertEquals(30, batchBaseMaxLength(listOf(0, 4)))
         assertEquals(29, batchBaseMaxLength(listOf(12)))
