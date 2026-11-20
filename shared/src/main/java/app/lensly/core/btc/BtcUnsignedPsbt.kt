@@ -7,6 +7,7 @@ import fr.acinq.bitcoin.Script
 import fr.acinq.bitcoin.Transaction
 import fr.acinq.bitcoin.TxIn
 import fr.acinq.bitcoin.TxOut
+import fr.acinq.bitcoin.psbt.Input
 import fr.acinq.bitcoin.psbt.KeyPathWithMaster
 import fr.acinq.bitcoin.psbt.Psbt
 import fr.acinq.bitcoin.psbt.TaprootBip32DerivationPath
@@ -17,13 +18,15 @@ private const val RBF_SEQUENCE = 0xFFFFFFFDL
 
 /**
  * One unspent output that a request spends: the transaction that created it, the index of the output inside that transaction, and the
- * key that owns it, as the [branch] (0 receive, 1 change) and the address [index] of an Account.
+ * key that owns it, as the [branch] (0 receive, 1 change) and the address [index] of an Account. [riskMarked] is true when the online side's
+ * indexer found an inscription or a rune on it, so the request marks its input (spec 5.5).
  */
 class BtcCoin(
     val previous: Transaction,
     val vout: Int,
     val branch: Int,
     val index: Int,
+    val riskMarked: Boolean = false,
 ) {
     init {
         require(vout in previous.txOut.indices) { "vout is not an output of the transaction" }
@@ -50,12 +53,28 @@ object BtcUnsignedPsbt {
 
     /**
      * The PSBT of the request. Each input carries the transaction that created its output, and the BIP32 derivation of the key that signs it,
-     * which is what Lensly's verifier reads to check the amount and find the key. The Companion App's marker is added as well.
+     * which is what Lensly's verifier reads to check the amount and find the key. An input of a [BtcCoin.riskMarked] coin carries the risk mark,
+     * and the Companion App's marker is added as well.
      */
     fun build(account: BtcWatchOnlyAccount, coins: List<BtcCoin>, outputs: List<TxOut>): Psbt {
         require(coins.isNotEmpty()) { "a request spends at least one coin" }
-        val psbt = coins.foldIndexed(Psbt(transaction(coins, outputs))) { index, acc, coin -> acc.withInput(index, account, coin) }
+        val psbt = coins.foldIndexed(Psbt(transaction(coins, outputs))) { index, acc, coin ->
+            val withCoin = acc.withInput(index, account, coin)
+            if (coin.riskMarked) withCoin.withRiskMark(index) else withCoin
+        }
         return BtcPsbt.withCompanionMarker(psbt)
+    }
+
+    /** [this] with the risk mark added to the input map of input [index]. */
+    private fun Psbt.withRiskMark(index: Int): Psbt = copy(
+        inputs = inputs.mapIndexed { i, input -> if (i == index) input.withRiskMark() else input },
+    )
+
+    /** The input with the risk mark added. [withInput] builds only partially signed inputs, so no other kind is marked. */
+    private fun Input.withRiskMark(): Input = when (this) {
+        is Input.WitnessInput.PartiallySignedWitnessInput -> copy(unknown = unknown + BtcPsbt.RISK_MARK)
+        is Input.NonWitnessInput.PartiallySignedNonWitnessInput -> copy(unknown = unknown + BtcPsbt.RISK_MARK)
+        else -> error("withRiskMark takes a partially signed input, which withInput builds")
     }
 
     private fun Psbt.withInput(index: Int, account: BtcWatchOnlyAccount, coin: BtcCoin): Psbt {

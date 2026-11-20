@@ -59,6 +59,22 @@ class BtcSendPlanTest {
     }
 
     @Test
+    fun unmarkedCoinsAreSpentBeforeAMarkedCoinWhenTheyCoverTheAmount() {
+        val marked = BtcCoin(BtcFixtures.funding(account, 0, 0, 50_000L, salt = 4), 0, 0, 0, riskMarked = true)
+        val pick = chooseCoins(listOf(marked, coin(20_000, 1, 2), coin(15_000, 2, 3)), 30_000, 1.0, stubVsize)
+        assertEquals(listOf(20_000L, 15_000L), pick.coins.map { it.valueSats })
+        assertFalse(pick.coins.any { it.riskMarked })
+    }
+
+    @Test
+    fun aMarkedCoinIsSpentOnlyWhenTheUnmarkedCoinsDoNotCoverTheAmountAndTheFee() {
+        val marked = BtcCoin(BtcFixtures.funding(account, 0, 0, 50_000L, salt = 4), 0, 0, 0, riskMarked = true)
+        val pick = chooseCoins(listOf(marked, coin(10_000, 1, 2)), 30_000, 1.0, stubVsize)
+        assertEquals(listOf(10_000L, 50_000L), pick.coins.map { it.valueSats })
+        assertEquals(listOf(false, true), pick.coins.map { it.riskMarked })
+    }
+
+    @Test
     fun theFeeIsTheRateTimesTheVsizeRoundedUp() {
         assertEquals(212L, feeFor(141, 1.5))
         assertEquals(141L, feeFor(141, 1.0))

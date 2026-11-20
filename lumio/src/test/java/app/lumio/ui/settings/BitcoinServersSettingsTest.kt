@@ -27,18 +27,22 @@ class BitcoinServersSettingsTest {
     val compose = createComposeRule()
 
     private val applied = mutableListOf<Pair<BtcNetwork, String?>>()
+    private val indexers = mutableListOf<String?>()
     private var resets = 0
     private val custom = "https://node.example.org/api"
+    private val indexerUrl = "https://ord.example.org"
 
-    private fun show(mainnet: String = EsploraServers.MAINNET_DEFAULT) {
+    private fun show(mainnet: String = EsploraServers.MAINNET_DEFAULT, indexer: String = "") {
         compose.setContent {
             LumenTheme {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     BitcoinServersSettings(
                         mainnet = mainnet,
                         testnet4 = EsploraServers.TESTNET4_DEFAULT,
+                        indexer = indexer,
                         error = null,
                         onApply = { network, url -> applied += network to url },
+                        onIndexer = { indexers += it },
                         onReset = { resets++ },
                     )
                 }
@@ -85,5 +89,44 @@ class BitcoinServersSettingsTest {
 
         assertEquals(1, resets)
         compose.onNodeWithText(EsploraServers.MAINNET_DEFAULT).assertExists()
+    }
+
+    @Test
+    fun theIndexerIsOffUntilTheOwnerSetsOne() {
+        show()
+
+        compose.onNodeWithTag(INDEXER_TAG).assertExists()
+        compose.onNodeWithText("Off. Lumio checks no output for inscriptions or runes.").assertExists()
+    }
+
+    @Test
+    fun aValidIndexerAddressIsAppliedWhenTheOwnerPressesTheKeyboardAction() {
+        show()
+
+        compose.onNodeWithTag(INDEXER_TAG).performTextReplacement(indexerUrl)
+        compose.onNodeWithTag(INDEXER_TAG).performImeAction()
+
+        assertEquals(listOf<String?>(indexerUrl), indexers)
+    }
+
+    @Test
+    fun anIndexerAddressThatIsNotHttpsIsRefusedUnderItsFieldAndAppliesNothing() {
+        show()
+
+        compose.onNodeWithTag(INDEXER_TAG).performTextReplacement("http://plain.example.org")
+        compose.onNodeWithTag(INDEXER_TAG).performImeAction()
+
+        assertEquals(emptyList<String?>(), indexers)
+        compose.onNodeWithText("Ordinals Indexer: The address must start with https://.").assertExists()
+    }
+
+    @Test
+    fun aBlankIndexerTurnsItOff() {
+        show(indexer = indexerUrl)
+
+        compose.onNodeWithTag(INDEXER_TAG).performTextReplacement("")
+        compose.onNodeWithTag(INDEXER_TAG).performImeAction()
+
+        assertEquals(listOf<String?>(null), indexers)
     }
 }

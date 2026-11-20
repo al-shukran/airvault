@@ -1,5 +1,7 @@
 package app.airvault.chains.bitcoin.signer
 
+import fr.acinq.bitcoin.OutPoint
+
 /** The dust limit in satoshis: an output of an address below it costs more to spend than it holds, and nodes do not relay it. */
 internal const val DUST_LIMIT_SATS = 546L
 
@@ -22,7 +24,7 @@ sealed class BtcWarning {
     data class DustOutputs(val count: Int) : BtcWarning()
 
     /** An input the online side marked as carrying an inscription or a rune. Spending it may burn that inscription or rune. */
-    data class RiskMarkedInput(val index: Int) : BtcWarning()
+    data class RiskMarkedInput(val index: Int, val outPoint: OutPoint) : BtcWarning()
 
     /** Inputs the online side did not mark, so their inscriptions and runes were not checked. Lensly cannot check them offline. */
     data object RiskUnchecked : BtcWarning()
@@ -42,7 +44,7 @@ sealed class BtcWarning {
 
 /** The warnings of this review, in the order the review shows them. An empty list is a review with nothing to point out. */
 fun BtcReview.warnings(): List<BtcWarning> = buildList {
-    inputs.filter { it.riskMarked }.forEach { add(BtcWarning.RiskMarkedInput(it.index)) }
+    inputs.filter { it.riskMarked }.forEach { add(BtcWarning.RiskMarkedInput(it.index, it.outPoint)) }
     if (inputs.any { !it.riskMarked }) add(BtcWarning.RiskUnchecked)
     val external = inputs.count { it.ownerPath == null }
     if (external > 0) add(BtcWarning.ExternalInputs(external))

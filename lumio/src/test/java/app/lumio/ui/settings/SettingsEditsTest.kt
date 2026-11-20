@@ -60,6 +60,21 @@ class SettingsEditsTest {
     }
 
     @Test
+    fun aBlankIndexerTurnsItOffAndAValidOneIsApplied() {
+        assertEquals(ServerEdit.Apply(null), indexerEdit("  ", requested = "https://ord.example.org"))
+        assertEquals(ServerEdit.Unchanged, indexerEdit("", requested = ""))
+        assertEquals(ServerEdit.Apply("https://ord.example.org"), indexerEdit(" https://ord.example.org/ ", requested = ""))
+        assertEquals(ServerEdit.Unchanged, indexerEdit("https://ord.example.org", requested = "https://ord.example.org"))
+    }
+
+    @Test
+    fun anIndexerAddressThatIsNotHttpsIsRefusedAndNamesTheIndexer() {
+        val refused = indexerEdit("http://plain.example.org", requested = "")
+        assertIs<ServerEdit.Refused>(refused)
+        assertTrue(refused.reason.startsWith("Ordinals Indexer: "), refused.reason)
+    }
+
+    @Test
     fun aSequenceOfSavesEndsOnTheLastServerOfEachNetwork() {
         var overrides: Map<BtcNetwork, String> = emptyMap()
         overrides = overrides.withServer(BtcNetwork.MAINNET, "https://a.example.org/api")

@@ -50,8 +50,10 @@ class SettingsPagesTest {
                 BitcoinServersSettings(
                     mainnet = EsploraServers.MAINNET_DEFAULT,
                     testnet4 = EsploraServers.TESTNET4_DEFAULT,
+                    indexer = "",
                     error = null,
                     onApply = { _, _ -> },
+                    onIndexer = {},
                     onReset = {},
                 )
             },
