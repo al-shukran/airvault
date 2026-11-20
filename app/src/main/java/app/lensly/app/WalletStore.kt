@@ -156,20 +156,31 @@ class WalletStore(private val session: VaultSession) {
         .sortedBy { it.createdAtMs }
 
     /**
-     * Removes every wallet that is not complete: one a crash left before its first accounts were written, and one saved by an earlier build,
-     * whose metadata no longer reads. Called when a vault opens. A wallet that cannot be read or deleted now is kept for the next open, so
-     * an unreadable folder never stops the vault opening.
+     * Removes every wallet whose META record says it is not complete, or has no META record: one a crash left before its first accounts
+     * were written. Called when a vault opens. Only the META record decides, so a wallet whose META is complete is never removed because
+     * another record cannot be read. A META record that cannot be decoded is kept, since it is unreadable and not incomplete. A wallet
+     * that cannot be read or deleted now is kept for the next open, so an unreadable folder never stops the vault opening.
      */
     fun dropIncomplete() {
         for (id in session.listWallets()) {
             try {
-                if (meta(id)?.complete != true) session.deleteWallet(id)
+                val bytes = session.getRecord(id, WalletRecords.META)
+                if (bytes == null || decodesAsIncomplete(id, bytes)) session.deleteWallet(id)
             } catch (e: IOException) {
                 continue
             } catch (e: VaultException) {
                 continue
             }
         }
+    }
+
+    /** True when META record [bytes] of wallet [id] decodes as incomplete. A record that cannot be decoded is not incomplete. */
+    private fun decodesAsIncomplete(id: String, bytes: ByteArray): Boolean = try {
+        !WalletRecords.decodeMeta(id, bytes).complete
+    } catch (e: IOException) {
+        false
+    } catch (e: IllegalArgumentException) {
+        false
     }
 
     /** The metadata of wallet [id], or null if it does not exist or cannot be read. */
@@ -201,7 +212,8 @@ class WalletStore(private val session: VaultSession) {
      * metadata is saved complete last, so a crash before that leaves a wallet [list] does not show. If a write fails, the partial wallet
      * is removed.
      *
-     * @throws IllegalArgumentException if [words] is not a valid 24-word mnemonic.
+     * @throws IllegalArgumentException if [name] is not a valid Display Name, or [words] is not a valid 24-word mnemonic. Nothing is
+     * written then.
      */
     fun create(
         name: String,
@@ -211,6 +223,7 @@ class WalletStore(private val session: VaultSession) {
         nowMs: Long,
         seedBackedUp: Boolean = true,
     ): String {
+        val clean = displayNameOf(name)
         val fingerprint = fingerprintOf(words, passphrase.orEmpty())
         val id = session.createWallet()
         try {
@@ -222,7 +235,7 @@ class WalletStore(private val session: VaultSession) {
             }
             val meta = WalletMeta(
                 id = id,
-                name = name,
+                name = clean,
                 createdAtMs = nowMs,
                 deviceGenerated = deviceGenerated,
                 accountCount = 0,
@@ -231,7 +244,7 @@ class WalletStore(private val session: VaultSession) {
                 seedBackedUp = seedBackedUp,
                 complete = false,
             )
-            session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName(name))
+            session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName(clean))
             session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(meta))
             WalletApp.entries.forEach { app -> app.firstAccount(this, id) }
             val done = requireNotNull(this.meta(id)) { "No wallet $id." }
@@ -247,9 +260,11 @@ class WalletStore(private val session: VaultSession) {
      * Saves a new Single Key wallet with its one account, and returns its id. [privateKey] is read here and not zeroed, so
      * the caller keeps its copy. The secret is written first and the metadata last, as in [create].
      *
-     * @throws IllegalArgumentException if [privateKey] is not a valid key (see [PrivateKey.isValid]).
+     * @throws IllegalArgumentException if [name] is not a valid Display Name, or [privateKey] is not a valid key (see
+     * [PrivateKey.isValid]). Nothing is written then.
      */
     fun createSingleKey(name: String, privateKey: ByteArray, nowMs: Long): String {
+        val clean = displayNameOf(name)
         require(PrivateKey.isValid(privateKey)) { "Not a valid private key." }
         val id = session.createWallet()
         try {
@@ -261,7 +276,7 @@ class WalletStore(private val session: VaultSession) {
             }
             val meta = WalletMeta(
                 id = id,
-                name = name,
+                name = clean,
                 createdAtMs = nowMs,
                 deviceGenerated = false,
                 accountCount = 1,
@@ -269,7 +284,7 @@ class WalletStore(private val session: VaultSession) {
                 accountKeys = emptyList(),
                 kind = WalletKind.SINGLE_KEY,
             )
-            session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName(name))
+            session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName(clean))
             session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(meta))
         } catch (e: Throwable) {
             session.deleteWallet(id)
@@ -887,7 +902,7 @@ class WalletStore(private val session: VaultSession) {
         val accounts = selectedAccounts(indices)
         val clean = base.trim()
         require(isValidBatchBase(clean, accounts)) {
-            "A batch name is 1 to ${batchBaseMaxLength(accounts)} characters, with no control or hidden character."
+            "A batch name is 1 to ${batchBaseMaxLength(accounts)} characters, with no control, hidden or question mark character."
         }
         synchronized(session) {
             requireAccounts(id, accounts)

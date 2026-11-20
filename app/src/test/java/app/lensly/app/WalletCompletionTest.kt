@@ -66,15 +66,27 @@ class WalletCompletionTest {
     }
 
     @Test
-    fun openingTheVaultRemovesAWalletSavedByAnEarlierBuild() {
+    fun openingTheVaultKeepsAWalletWhoseMetaCannotBeRead() {
         val id = session.createWallet()
         session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName("Earlier"))
-        // Version 4 of the meta record, before the complete flag: it no longer reads.
+        // Version 4 of the meta record, before the complete flag: it no longer reads, so it is unreadable, not incomplete.
         session.putRecord(id, WalletRecords.META, byteArrayOf(4))
 
         store.dropIncomplete()
 
-        assertEquals(emptyList(), session.listWallets())
+        assertEquals(listOf(id), session.listWallets())
+    }
+
+    @Test
+    fun openingTheVaultKeepsACompleteWalletWhoseBaseNameNoLongerReads() {
+        val id = store.create(name = "Demo", deviceGenerated = false, words = DEMO_WORDS, passphrase = null, nowMs = 1L)
+        // A name the Display Name rule refuses, as a '?' name saved before the rule was enforced: its base name no longer reads.
+        session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName("Bad?"))
+
+        store.dropIncomplete()
+
+        assertEquals(listOf(id), session.listWallets())
+        assertNull(store.meta(id))
     }
 
     /** The state a crash leaves behind: the secret, the name and an incomplete meta record, and no first accounts. */
