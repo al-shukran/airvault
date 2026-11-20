@@ -60,7 +60,9 @@ data class OffChainDomain(
     fun isAgentApproval(primaryType: String, message: TypedValue.StructValue): Boolean {
         if (primaryType != agentApprovalType) return false
         val param = agentApprovalParam ?: return true
-        val text = (message.fields["msg"] as? TypedValue.TextValue)?.value ?: return false
+        val msg = message.fields["msg"] ?: return false
+        // A msg that is present but not text cannot be read for the parameter, so it counts as the approval: the check fails closed.
+        val text = (msg as? TypedValue.TextValue)?.value ?: return true
         return text.split("&").any { it.substringBefore('=') == param }
     }
 }

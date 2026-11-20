@@ -284,4 +284,16 @@ class EvmTypedReviewTest {
         assertEquals("USD Coin (USDC) $TYPED_USDC_CHECKSUM", rowOf(review, "Summary", "Token").value.text())
         assertEquals("1 USDC", rowOf(review, "Summary", "Amount").value.text())
     }
+
+    @Test
+    fun aChainlessPermitDoesNotResolveItsTokenOnMainnetAndShowsTheRawAmount() {
+        // The domain names no chain, so the signature is valid on every chain. USDC is not looked up on chain 1, where the request is read.
+        val result = EvmReviewBuilder(TYPED_REGISTRY, { calldata, params -> AbiDecoder.decode(calldata, params) })
+            .review(typedRequest(chainlessPermitJson(), chainId = null), sender = OWNER)
+
+        val review = assertIs<EvmReviewResult.Ok>(result).review
+        assertEquals("Unknown token $TYPED_USDC_CHECKSUM", rowOf(review, "Summary", "Token").value.text())
+        assertEquals("1000000 (decimals unknown)", rowOf(review, "Summary", "Amount").value.text())
+        assertTrue(review.warnings.any { it.message.startsWith("This contract is not in Lensly's token registry") })
+    }
 }
