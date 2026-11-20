@@ -28,6 +28,9 @@ const val UNVERIFIED_AMOUNTS_CODE = "bitcoin.unverified-amounts"
 /** The tick the owner gives before a request with unverified amounts can be signed. Set only when the review asks for it. */
 const val UNVERIFIED_CHECK = "I have checked the unverified input amounts"
 
+/** The check the owner ticks before a request that spends a marked input can be signed. */
+private const val RISK_CHECK = "I understand spending a marked input may burn any inscription or rune it carries."
+
 private const val UNKNOWN_FEE_NOTE = "Unknown until every input amount is verified or confirmed."
 private const val SIZE_NOTE = "Estimated from the unsigned request, so the signed size may differ by a few vbytes."
 private const val NOT_ENFORCED_NOTE = "Not enforced, because every input is final."
@@ -178,6 +181,14 @@ private fun warningOf(warning: BtcWarning, confirmation: Boolean): Warning = whe
         warningText(warning),
         acknowledge = UNVERIFIED_CHECK.takeIf { confirmation },
     )
+    is BtcWarning.RiskMarkedInput -> Warning(
+        Danger.DANGER,
+        "bitcoin.risk-marked",
+        warningText(warning),
+        inputField(warning.index, "amount"),
+        acknowledge = RISK_CHECK,
+    )
+    is BtcWarning.RiskUnchecked -> Warning(Danger.CAUTION, "bitcoin.risk-unchecked", warningText(warning))
     is BtcWarning.ExternalInputs -> Warning(Danger.CAUTION, "bitcoin.external-inputs", warningText(warning))
     is BtcWarning.UnknownChange -> Warning(Danger.CAUTION, "bitcoin.unknown-change", warningText(warning))
     is BtcWarning.LockTime -> Warning(Danger.CAUTION, "bitcoin.lock-time", warningText(warning))
@@ -203,6 +214,8 @@ fun warningText(warning: BtcWarning): String = when (warning) {
     is BtcWarning.DustOutputs ->
         "${warning.count} output(s) pay less than $DUST_LIMIT_SATS sats, the dust limit. The network may not relay them."
     is BtcWarning.LockTime -> "The transaction cannot confirm before ${lockTimePoint(warning.lockTime)}."
+    is BtcWarning.RiskMarkedInput -> "Input ${warning.index} is marked as carrying an inscription or rune. Spending it may burn it."
+    is BtcWarning.RiskUnchecked -> "Inputs were not checked for inscriptions or runes."
 }
 
 /** The point a locktime holds the transaction until: "block N" for a block height, else the UTC date and time of a Unix time. */

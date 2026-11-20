@@ -5,29 +5,31 @@ import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
 
-/** The message as text, when it is UTF-8 whose every character is [isPrintable]. Null for any other bytes. */
+/** The message as text, when it is UTF-8 whose every code point is [isPrintableCodePoint]. Null for any other bytes. */
 fun printableText(bytes: ByteArray): String? = try {
     val text = StandardCharsets.UTF_8.newDecoder()
         .onMalformedInput(CodingErrorAction.REPORT)
         .onUnmappableCharacter(CodingErrorAction.REPORT)
         .decode(ByteBuffer.wrap(bytes))
         .toString()
-    text.takeIf { it.isNotEmpty() && it.all(::isPrintable) }
+    text.takeIf { it.isNotEmpty() && text.codePoints().allMatch(::isPrintableCodePoint) }
 } catch (e: CharacterCodingException) {
     null
 }
 
 /**
- * True for a character a reader can check by eye. Line breaks and tabs are fine. Controls, invisible format characters
- * such as a right-to-left override, private-use and unassigned characters are not, so the message shows its bytes.
+ * True for a code point a reader can check by eye. Line breaks and tabs are fine. Controls, invisible format characters such as a
+ * right-to-left override or a tag character, private-use and unassigned characters, and an unpaired surrogate are not, so the text shows
+ * its bytes. Text is checked code point by code point, so a character outside the Basic Multilingual Plane is classified as one character.
  */
-fun isPrintable(char: Char): Boolean = when (char) {
-    '\n', '\r', '\t' -> true
-    else -> when (Character.getType(char)) {
+fun isPrintableCodePoint(codePoint: Int): Boolean = when (codePoint) {
+    '\n'.code, '\r'.code, '\t'.code -> true
+    else -> when (Character.getType(codePoint)) {
         Character.CONTROL.toInt(),
         Character.FORMAT.toInt(),
         Character.PRIVATE_USE.toInt(),
         Character.UNASSIGNED.toInt(),
+        Character.SURROGATE.toInt(),
         -> false
         else -> true
     }

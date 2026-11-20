@@ -59,6 +59,11 @@ class BitcoinScreenshotTest {
     }
 
     @Test
+    fun bitcoinReviewWithAMarkedInput() = compose.snapshot("bitcoin_review_risk_marked") {
+        BitcoinReviewAt(review = riskMarkedReview())
+    }
+
+    @Test
     fun feeWarningsAtTheirDefaults() = compose.snapshot("fee_warnings_defaults") { FeeWarningsAtDefaults() }
 
     @Test
@@ -144,6 +149,22 @@ private fun externalInputReview() = cleanReview().copy(
         BtcReviewOutput(0, "tb1qexampleexampleexampleexampleexample0", 30_000L, isOwnChange = false, changeIndex = null),
         BtcReviewOutput(1, "tb1qexampleexampleexampleexampleexample1", 110_000L, isOwnChange = true, changeIndex = 0),
     ),
+)
+
+/**
+ * The clean request with its first input marked as carrying an inscription or a rune. That input is a DANGER row the owner must tick, and the
+ * other input is a note that it was not checked.
+ */
+private fun riskMarkedReview() = cleanReview().copy(
+    inputs = listOf(
+        BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = ownPath(0), sequence = 0xFFFFFFFDL, riskMarked = true),
+        BtcReviewInput(1, 50_000L, amountVerified = true, ownerPath = ownPath(1), sequence = 0xFFFFFFFDL),
+    ),
+    outputs = listOf(
+        BtcReviewOutput(0, "tb1qexampleexampleexampleexampleexample0", 30_000L, isOwnChange = false, changeIndex = null),
+        BtcReviewOutput(1, "tb1qexampleexampleexampleexampleexample1", 110_000L, isOwnChange = true, changeIndex = 0),
+    ),
+    estimatedVsize = 205L,
 )
 
 /**

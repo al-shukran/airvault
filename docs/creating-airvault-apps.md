@@ -624,6 +624,8 @@ Lumio shows a missing precondition as its own step with its own QR request. It n
 
 Runes, BRC-20 and Ordinals live on top of Bitcoin outputs and need indexers. They are out of scope. But a Bitcoin-family signer must still guard against them: spending an output that carries an inscription or a rune can destroy it. Lensly has no indexer, so the work is split: Lumio checks an indexer and marks risky inputs in the PSBT (a proprietary PSBT input field defined by the Bitcoin app). Lensly shows a danger warning for every marked input. For unmarked inputs it shows a note that inscription and rune status is not verified offline.
 
+The mark is the input-map entry `BtcPsbt.RISK_MARK`: BIP 174 proprietary key type `0xFC`, prefix `airvault`, subtype `0x01`, no key data, and value `0x01`. An input with exactly one such entry is marked. Any other entry, or a repeated one, is ignored, so the input counts as unmarked. A mark can only add a warning. Signing keeps the entry in the PSBT, as BIP 174 requires.
+
 ---
 
 ## 6. Transaction extras
