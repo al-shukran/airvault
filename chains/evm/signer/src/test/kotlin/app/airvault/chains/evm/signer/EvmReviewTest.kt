@@ -579,10 +579,31 @@ class EvmReviewTest {
         assertEquals(text, rows.single { it.label == "Message" }.value.text())
         assertEquals("300 characters, 300 bytes", rows.single { it.label == "Size" }.value.text())
     }
+
+    /** U+E0041 is a tag character. It draws nothing, so the text reads "Sign in" while the signed bytes hold more: the bytes show. */
+    @Test
+    fun aPersonalMessageWithAnInvisibleTagCharacterShowsItsBytes() {
+        val signed = "Sign in".toByteArray(Charsets.UTF_8) + String(Character.toChars(0xE0041)).toByteArray(Charsets.UTF_8)
+
+        val rows = reviewOf(personalParsed(signed)).sections.single { it.heading == "Message" }.rows
+
+        assertEquals("0x5369676e20696ef3a08181", rows.single { it.label == "Message" }.value.text())
+        assertEquals("11 bytes", rows.single { it.label == "Size" }.value.text())
+    }
+
+    /** U+F0000 is private use. It draws nothing a reader can check, so a request whose origin holds it is refused. */
+    @Test
+    fun aRequestWhoseOriginHasAPrivateUseCharacterIsRefused() {
+        val origin = "dapp" + String(Character.toChars(0xF0000))
+
+        val refusal = refusalOf(personalParsed("hi".toByteArray(), origin = origin))
+
+        assertEquals("The request names an origin with a character Lensly cannot show.", refusal.reason)
+    }
 }
 
 /** The parsed request of a personal message of [signData] on Monad testnet, as a wallet sends it. */
-private fun personalParsed(signData: ByteArray): ParsedRequest = EvmRequestParser.parsedOf(
+private fun personalParsed(signData: ByteArray, origin: String = "dapp.example"): ParsedRequest = EvmRequestParser.parsedOf(
     EthSignRequest(
         requestId = null,
         signData = signData,
@@ -591,7 +612,7 @@ private fun personalParsed(signData: ByteArray): ParsedRequest = EvmRequestParse
         derivationPath = PATH,
         sourceFingerprint = null,
         address = null,
-        origin = "dapp.example",
+        origin = origin,
     ),
 )
 

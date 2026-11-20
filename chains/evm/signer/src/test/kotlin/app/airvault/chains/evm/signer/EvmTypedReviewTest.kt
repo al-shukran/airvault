@@ -68,10 +68,10 @@ private fun permitWithMemoJson(value: String): String =
         """"message":{"owner":"$OWNER","spender":"$TYPED_SPENDER","value":"$value","nonce":"0","deadline":"1900000000","memo":"hi"}}"""
 
 /** A typed message that is not a permit: a Mail struct under a domain with no verifying contract. */
-private fun mailJson(): String =
+private fun mailJson(contents: String = "Hello"): String =
     """{"types":{"Mail":[{"name":"from","type":"address"},{"name":"contents","type":"string"},{"name":"amount","type":"uint256"}]},""" +
         """"primaryType":"Mail","domain":{"name":"Mailer","chainId":1},""" +
-        """"message":{"from":"$OWNER","contents":"Hello","amount":"42"}}"""
+        """"message":{"from":"$OWNER","contents":"$contents","amount":"42"}}"""
 
 private fun typedRequest(json: String, chainId: Long = 1): ParsedRequest = EvmRequestParser.parsedOf(
     EthSignRequest(
@@ -173,6 +173,14 @@ class EvmTypedReviewTest {
         assertEquals("42", rowOf(review, "Message", "amount (uint256)").value.text())
         assertTrue(review.sections.none { it.heading == "Summary" }, "no summary is guessed for a message that is not a permit")
         assertTrue(review.warnings.isEmpty())
+    }
+
+    /** U+E0001 is a language tag. It draws nothing, so the string reads "Hello" while the signed bytes hold more: the string shows its bytes. */
+    @Test
+    fun aTypedStringWithAnInvisibleTagCharacterShowsItsBytes() {
+        val review = typedReview(mailJson(contents = "Hello" + String(Character.toChars(0xE0001))))
+
+        assertEquals("0x48656c6c6ff3a08081 (not printable)", rowOf(review, "Message", "contents (string)").value.text())
     }
 
     @Test
