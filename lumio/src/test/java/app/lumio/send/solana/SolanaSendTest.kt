@@ -23,6 +23,7 @@ import app.lumio.data.provider.solana.SOLANA_DEVNET
 import app.lumio.data.provider.solana.SOLANA_MAINNET
 import app.lumio.data.rpc.JsonRpc
 import app.lumio.data.sched.Scheduler
+import app.lumio.send.SubmitMachine
 import app.lumio.ui.send.solana.SETUP_SIGN_TEXT
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Base58
@@ -123,6 +124,17 @@ class SolanaSendTest {
         val scanner = UrScanner()
         assertTrue(scanner.receive(SolSignatureEncoder.encode(id, signature).first()))
         return assertNotNull(scanner.result())
+    }
+
+    /** A submit of [plan] whose broadcast failed with [failure], as the route holds it once the owner has submitted it. */
+    private fun failedSubmit(plan: SolanaSendPlan, setup: Boolean, failure: Throwable): SolanaSendStep.Submit = runBlocking {
+        val machine = SubmitMachine<SolanaSignedSend, String>(
+            signed = SolanaSignedSend(raw = ByteArray(0), signature = "sig"),
+            broadcast = { throw failure },
+            describe = { solanaFailure(it, setup) },
+        )
+        machine.submit()
+        SolanaSendStep.Submit(plan, listOf("part"), machine, setup)
     }
 
     /** The UR that the frames of a request complete, read as a scanner reads them. */
@@ -250,6 +262,40 @@ class SolanaSendTest {
         assertFalse(failure.retryable)
         assertEquals(1, server.requestCount)
         assertTrue(server.takeRequest().body.readUtf8().contains("\"method\":\"getBlockHeight\""))
+    }
+
+    /**
+     * Back from a setup that the network refused for its blockhash goes to its review, not its request: the request names the blockhash that aged out, so
+     * a signature scanned from it could never land. The review fetches a fresh blockhash when it is shown.
+     */
+    @Test
+    fun aSetupRefusedForItsBlockhashLeavesToItsReview() {
+        val plan = setupPlan(window)
+        for (refusal in listOf(BlockhashExpired(), ProviderError.Fatal(JsonRpc.BLOCKHASH_REFUSED_MESSAGE))) {
+            val review = assertIs<SolanaSendStep.SetupReview>(unsentExit(failedSubmit(plan, setup = true, failure = refusal)))
+            assertEquals(plan.recipientAddress, review.nonceAccount)
+            assertEquals(plan.lamports, review.rentLamports)
+        }
+    }
+
+    /** A setup that failed for another reason, and a send refused for its nonce, keep their request as before. */
+    @Test
+    fun otherFailuresLeaveToTheirRequest() {
+        assertIs<SolanaSendStep.Request>(unsentExit(failedSubmit(setupPlan(window), setup = true, failure = ProviderError.Transient())))
+        assertIs<SolanaSendStep.Request>(
+            unsentExit(failedSubmit(plan(), setup = false, failure = ProviderError.Fatal(JsonRpc.BLOCKHASH_REFUSED_MESSAGE))),
+        )
+    }
+
+    /** A setup that the owner has not submitted yet goes back to its request, since nothing has been refused. */
+    @Test
+    fun aSetupNotYetSubmittedLeavesToItsRequest() {
+        val machine = SubmitMachine<SolanaSignedSend, String>(
+            signed = SolanaSignedSend(raw = ByteArray(0), signature = "sig"),
+            broadcast = { it.signature },
+            describe = { solanaFailure(it, setup = true) },
+        )
+        assertIs<SolanaSendStep.Request>(unsentExit(SolanaSendStep.Submit(setupPlan(window), listOf("part"), machine, setup = true)))
     }
 
     /** A setup still inside its window is checked, and then sent as it was signed. */

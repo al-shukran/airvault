@@ -58,7 +58,7 @@ import kotlinx.coroutines.withContext
 
 
 /** The screens of a Solana send, in the order the owner goes through them. */
-private sealed interface SolanaSendStep {
+internal sealed interface SolanaSendStep {
     data object Form : SolanaSendStep
 
     /** The camera reads a recipient: an address, or a `solana:` link that holds one. */
@@ -345,6 +345,13 @@ internal fun SolanaSendRoute(
         }
     }
 
+    /** Leaves a submit that did not send. A setup refused for its blockhash is shown again from its review, with the words why. */
+    fun leaveSubmit(current: SolanaSendStep.Submit) {
+        val next = unsentExit(current)
+        notice = if (next is SolanaSendStep.SetupReview) SETUP_EXPIRED else null
+        step = next
+    }
+
     /**
      * Done on a setup's submit screen. The form comes back with the outcome, and the balance is read again, since the rent has left the account.
      */
@@ -383,10 +390,7 @@ internal fun SolanaSendRoute(
             is SolanaSendStep.Submit -> when (current.machine.state.value) {
                 SubmitState.Submitting -> Unit
                 is SubmitState.Sent -> if (current.setup) finishSetup() else navController.popBackStack()
-                else -> {
-                    notice = null
-                    step = SolanaSendStep.Request(current.plan, current.parts, current.setup)
-                }
+                else -> leaveSubmit(current)
             }
         }
     }
@@ -473,12 +477,22 @@ internal fun SolanaSendRoute(
                 notice = null
                 step = SolanaSendStep.Form
             },
-            onBack = {
-                notice = null
-                step = SolanaSendStep.Request(current.plan, current.parts, current.setup)
-            },
+            onBack = { leaveSubmit(current) },
             onDone = { if (current.setup) finishSetup() else navController.popBackStack() },
         )
+    }
+}
+
+/**
+ * The step that leaves a submit which did not send. For a setup, a failure that is not retryable is the blockhash that aged out (see [solanaFailure]),
+ * and its request names that blockhash, so the setup goes back to its review for a fresh one. Every other failure returns to the request, as before.
+ */
+internal fun unsentExit(current: SolanaSendStep.Submit): SolanaSendStep {
+    val expired = (current.machine.state.value as? SubmitState.Failed)?.retryable == false
+    return if (current.setup && expired) {
+        SolanaSendStep.SetupReview(current.plan.recipientAddress, current.plan.lamports)
+    } else {
+        SolanaSendStep.Request(current.plan, current.parts, current.setup)
     }
 }
 
