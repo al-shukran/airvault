@@ -144,9 +144,9 @@ private class PermitRows(val rows: List<ReviewRow>, val warnings: List<Warning>,
 
 /**
  * Collects the summary rows of a payload. Each row names the message field it shows, so the coverage check accounts for it. A token the
- * registry does not hold sets [unknownToken].
+ * registry does not hold sets [unknownToken]. A null [chainId] looks up no token, so every token of the payload is unknown.
  */
-private class PermitSummary(private val registry: Registry, private val chainId: Long, private val chain: ChainId) {
+private class PermitSummary(private val registry: Registry, private val chainId: Long?, private val chain: ChainId) {
     private val rows = ArrayList<ReviewRow>()
     private val warnings = ArrayList<Warning>()
     private var unknownToken = false
@@ -162,7 +162,7 @@ private class PermitSummary(private val registry: Registry, private val chainId:
     /** A token row: its name and symbol when the registry holds it, otherwise Unknown token with its address. */
     fun token(label: String, contract: ByteArray, field: FieldPath?): TokenEntry? {
         val address = checksumOf(contract)
-        val entry = registry.token(chainId, address)
+        val entry = chainId?.let { registry.token(it, address) }
         if (entry == null) unknownToken = true
         text(label, if (entry != null) "${entry.name} (${entry.symbol}) $address" else "$UNKNOWN_TOKEN_NAME $address", field)
         return entry
@@ -216,7 +216,8 @@ private val DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy, H
  */
 private fun permitSummary(typed: TypedData, registry: Registry, chainId: Long, chain: ChainId): PermitRows? {
     if (!hasPermitLayout(typed)) return null
-    val summary = PermitSummary(registry, chainId, chain)
+    // A domain that names no chain is valid on every chain, so its tokens are not looked up on the chain the request is read on.
+    val summary = PermitSummary(registry, if (typed.domainChainId == null) null else chainId, chain)
     val message = typed.message.fields
     fun field(path: String) = FieldPath("eip712.$path")
     when (typed.primaryType) {
