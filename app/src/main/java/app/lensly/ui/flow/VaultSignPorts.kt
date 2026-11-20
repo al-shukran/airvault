@@ -381,7 +381,7 @@ internal class VaultSignPorts(
                     addressNotes = addressNotesFor(walletId, counterparties, EVM_FAMILY),
                 )
             }
-            is Prepared.Refused -> AppPrepared.Refused(prepared.reason, prepared.call)
+            is Prepared.Refused -> AppPrepared.Refused(prepared.reason, prepared.rows)
         }
     }
 

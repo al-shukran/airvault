@@ -43,6 +43,7 @@ import app.airvault.core.model.ChainId
 import app.lensly.app.AddressNotes
 import app.lensly.app.headline
 import app.lensly.app.isAddressValue
+import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.RowArrow
@@ -435,7 +436,7 @@ internal fun ReviewActions(
 internal fun ReviewAddress(
     address: String,
     notes: AddressNotes?,
-    bitcoin: Boolean = false,
+    logo: @Composable () -> Unit = { AddressIcon(size = 16.dp) },
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
 ) {
@@ -449,7 +450,9 @@ internal fun ReviewAddress(
             Spacer(Modifier.height(LenslySpacing.xxs))
         }
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            AddressText(address = address, bitcoin = bitcoin, modifier = Modifier.weight(1f), onClick = onClick)
+            logo()
+            Spacer(Modifier.width(LenslySpacing.xs))
+            AddressText(address = address, icon = false, modifier = Modifier.weight(1f), onClick = onClick)
             if (onClick != null) RowArrow()
         }
         AddressNoteLines(notes = notes)

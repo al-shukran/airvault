@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.airvault.core.model.ChainId
@@ -131,6 +132,7 @@ fun WalletHistoryScreen(
     open?.let { record ->
         HistoryDetailSheet(
             record = record,
+            networks = networks,
             addressBook = addressBook,
             accounts = accounts,
             onDismiss = { open = null },
@@ -173,11 +175,7 @@ internal fun HistoryRow(
             modifier = Modifier.size(24.dp),
         )
         Spacer(Modifier.width(LenslySpacing.sm))
-        if (record.kind == ReviewKind.BITCOIN_TRANSACTION) {
-            BitcoinIcon(size = 24.dp)
-        } else {
-            NetworkLogo(name = record.networkName, networks = networks, size = 24.dp)
-        }
+        RecordNetworkLogo(record = record, networks = networks, size = 24.dp)
         Spacer(Modifier.width(LenslySpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -235,6 +233,7 @@ internal fun HistoryRow(
 @Composable
 internal fun HistoryDetailSheet(
     record: ReviewRecord,
+    networks: List<NetworkEntry>,
     addressBook: List<AddressBookEntry>,
     accounts: Map<String, InternalAccount> = emptyMap(),
     onDismiss: () -> Unit,
@@ -242,6 +241,8 @@ internal fun HistoryDetailSheet(
 ) {
     val chain = recordChainOf(record)
     val open = tapOf(chain, onOpenAddress, onDismiss)
+    // Each address of the record shows the logo of the network the record names, as its row does.
+    val logo: @Composable () -> Unit = { RecordNetworkLogo(record = record, networks = networks, size = 16.dp) }
     OptionsSheet(onDismiss = onDismiss, scrollable = true) {
         OutcomeHero(record)
         Spacer(Modifier.height(LenslySpacing.lg))
@@ -256,18 +257,29 @@ internal fun HistoryDetailSheet(
                         book = addressBook,
                         accounts = accounts,
                         open = open,
+                        logo = logo,
                     )
                 }
                 FactRow("Kind") { FactText(kindLabel(record.kind)) }
-                record.bitcoin?.let { facts -> BitcoinFacts(record, facts, addressBook, accounts, open) }
+                record.bitcoin?.let { facts -> BitcoinFacts(record, facts, addressBook, accounts, open, logo) }
                 record.function?.let { function -> FactRow("Function") { FactText(function) } }
-                record.to?.let { to -> AddressFact(label = "To", value = to, chain = chain, book = addressBook, accounts = accounts, open = open) }
+                record.to?.let { to ->
+                    AddressFact(label = "To", value = to, chain = chain, book = addressBook, accounts = accounts, open = open, logo = logo)
+                }
                 record.amount?.let { amount -> FactRow("Amount") { MonoText(amount) } }
                 record.tokenContract?.let { contract ->
-                    AddressFact(label = "Token Contract", value = contract, chain = chain, book = addressBook, accounts = accounts, open = open)
+                    AddressFact(
+                        label = "Token Contract",
+                        value = contract,
+                        chain = chain,
+                        book = addressBook,
+                        accounts = accounts,
+                        open = open,
+                        logo = logo,
+                    )
                 }
-                if (record.fee.isNotEmpty()) FactRow("Fee") { LabelledRows(record.fee, chain, addressBook, accounts, open) }
-                if (record.params.isNotEmpty()) FactRow("Details") { LabelledRows(record.params, chain, addressBook, accounts, open) }
+                if (record.fee.isNotEmpty()) FactRow("Fee") { LabelledRows(record.fee, chain, addressBook, accounts, open, logo) }
+                if (record.params.isNotEmpty()) FactRow("Details") { LabelledRows(record.params, chain, addressBook, accounts, open, logo) }
                 record.origin?.let { origin -> FactRow("Claimed by Request (Not Verified)") { FactText(historyOrigin(origin)) } }
                 record.refusal?.let { reason -> FactRow("Refusal Reason") { FactText(reason) } }
                 FactRow("Data Hash, SHA-256") { MonoText(groupHex(record.dataHash)) }
@@ -333,10 +345,11 @@ private fun AddressFact(
     book: List<AddressBookEntry>,
     accounts: Map<String, InternalAccount>,
     open: ((String) -> Unit)?,
+    logo: @Composable () -> Unit,
 ) {
     FactRow(label) {
         if (chain != null && isAddressOn(value, chain)) {
-            AddressBlock(address = value, chain = chain, book = book, accounts = accounts, open = open)
+            AddressBlock(address = value, chain = chain, book = book, accounts = accounts, open = open, logo = logo)
         } else {
             FactText(value)
         }
@@ -344,8 +357,8 @@ private fun AddressFact(
 }
 
 /**
- * One address as a [ReviewAddress] row, with what the vault's [accounts] and the Address Book hold for it on [chain]. A tap opens it when
- * [open] is set.
+ * One address as a [ReviewAddress] row, with what the vault's [accounts] and the Address Book hold for it on [chain], and the [logo] of its
+ * network. A tap opens it when [open] is set.
  */
 @Composable
 private fun AddressBlock(
@@ -354,11 +367,12 @@ private fun AddressBlock(
     book: List<AddressBookEntry>,
     accounts: Map<String, InternalAccount>,
     open: ((String) -> Unit)?,
+    logo: @Composable () -> Unit,
 ) {
     ReviewAddress(
         address = address,
         notes = addressNotesOf(address, chain, accounts, book),
-        bitcoin = chain.namespace == BITCOIN_FAMILY.namespace,
+        logo = logo,
         onClick = open?.let { tap -> { tap(address) } },
     )
 }
@@ -387,13 +401,14 @@ private fun BitcoinFacts(
     book: List<AddressBookEntry>,
     accounts: Map<String, InternalAccount>,
     open: ((String) -> Unit)?,
+    logo: @Composable () -> Unit,
 ) {
     record.accountIndex?.let { index -> FactRow("Account $index") { FactText(facts.scriptType) } }
     facts.outputs.forEachIndexed { index, output ->
         FactRow("Output $index") {
             val address = output.address
             if (address != null) {
-                AddressBlock(address = address, chain = BITCOIN_FAMILY, book = book, accounts = accounts, open = open)
+                AddressBlock(address = address, chain = BITCOIN_FAMILY, book = book, accounts = accounts, open = open, logo = logo)
             } else {
                 MutedText("No address. The script is not paid to an address.")
             }
@@ -423,15 +438,29 @@ private fun LabelledRows(
     book: List<AddressBookEntry>,
     accounts: Map<String, InternalAccount>,
     open: ((String) -> Unit)?,
+    logo: @Composable () -> Unit,
 ) {
     rows.forEachIndexed { index, (label, value) ->
         if (index > 0) Spacer(Modifier.height(LenslySpacing.sm))
         MutedText(label)
         if (isAddressOn(value, chain)) {
-            AddressBlock(address = value, chain = requireNotNull(chain), book = book, accounts = accounts, open = open)
+            AddressBlock(address = value, chain = requireNotNull(chain), book = book, accounts = accounts, open = open, logo = logo)
         } else {
             MonoText(value)
         }
+    }
+}
+
+/**
+ * The logo of the network a record names: the Bitcoin logo for a Bitcoin record, and otherwise the registry's logo for the network, looked up
+ * by its name. A network with no logo shows a letter of its name, never the Ethereum logo.
+ */
+@Composable
+internal fun RecordNetworkLogo(record: ReviewRecord, networks: List<NetworkEntry>, size: Dp) {
+    if (record.kind == ReviewKind.BITCOIN_TRANSACTION) {
+        BitcoinIcon(size = size)
+    } else {
+        NetworkLogo(name = record.networkName, networks = networks, size = size)
     }
 }
 
