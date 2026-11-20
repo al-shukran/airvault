@@ -32,6 +32,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.web3j.crypto.Hash
 import org.web3j.utils.Numeric
 
 private const val USDC = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
@@ -251,7 +252,18 @@ class EvmReviewTest {
         assertEquals(Danger.DANGER, unknown.level)
         assertEquals(UNKNOWN_WARNING, unknown.message)
         assertEquals(ACK_UNKNOWN, unknown.acknowledge)
-        assertEquals(listOf("Selector", "Calldata"), review.sections.single { it.heading == "Arguments" }.rows.map { it.label })
+        assertEquals(listOf("Selector", "Calldata", "Data Hash"), review.sections.single { it.heading == "Arguments" }.rows.map { it.label })
+    }
+
+    /** The Data Hash of an undecoded call is the keccak256 of its whole calldata, shown in full, for comparison with Lumio. */
+    @Test
+    fun anUnknownCallShowsTheHashOfItsCalldata() {
+        val calldata = Numeric.hexStringToByteArray("0xdeadbeef") + ByteArray(32) { 1 }
+
+        val review = reviewOf(txParsed(NFT, calldata), builder(unknownCalls = UnknownCallPolicy.WARN))
+
+        val hash = review.sections.single { it.heading == "Arguments" }.rows.single { it.label == "Data Hash" }
+        assertEquals("0x" + Hash.sha3(calldata).toHex(), hash.value.text())
     }
 
     @Test

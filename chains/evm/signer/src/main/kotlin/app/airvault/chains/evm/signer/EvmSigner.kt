@@ -12,6 +12,7 @@ import app.airvault.core.model.ChainManifest
 import app.airvault.core.model.Curve
 import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.Review
+import app.airvault.core.model.text
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.EcdsaSignature
 import app.airvault.core.signer.KeyAccess
@@ -34,6 +35,9 @@ private const val NO_SENDER = "The approved review names no sender."
 
 /** The reason for a key that is not the sender the review shows, so nothing is signed for the request. */
 private const val SENDER_MISMATCH = "Key does not match account"
+
+/** The reason for typed data whose hashes the approved review does not show, so nothing is signed for the request. */
+private const val HASHES_MISMATCH = "The review does not show the hashes of the typed data it signs."
 
 /**
  * The Lensly (signer) side of the EVM chain app: its manifest, its request parser, its address codec, and the signing of an approved request.
@@ -79,7 +83,11 @@ object EvmSigner : SignerApp {
         val signature = when (parsed.request.dataType) {
             DataType.TRANSACTION, DataType.TYPED_TRANSACTION -> TxSigner.signatureOf(signData, txOf(parsed), signDigest)
             DataType.PERSONAL_MESSAGE -> MessageSigner.signatureOf(signData, signDigest)
-            DataType.TYPED_DATA -> TypedDataSigner.signatureOf(typedOf(parsed), signDigest)
+            DataType.TYPED_DATA -> {
+                val typed = typedOf(parsed)
+                requireReviewedHashes(approval.review, typed)
+                TypedDataSigner.signatureOf(typed, signDigest)
+            }
         }
         return SignResponse(EvmSignResponse.UR_TYPE, EvmSignResponse.cbor(requestId, signature))
     }
@@ -96,6 +104,19 @@ private fun senderOf(review: Review): String {
     val row = review.sections.flatMap { it.rows }.firstOrNull { it.label == FROM_LABEL }
     return (row?.value as? DisplayValue.Address)?.address ?: throw IllegalArgumentException(NO_SENDER)
 }
+
+/**
+ * The domain separator and the message hash that the signature covers must be the ones the approved review shows. Both are recomputed from
+ * the request and compared with their rows, so a review that shows other hashes, or lacks one, signs nothing.
+ */
+private fun requireReviewedHashes(review: Review, typed: TypedData) {
+    require(hashRowOf(review, DOMAIN_HASH_LABEL) == hashText(typed.domainSeparator())) { HASHES_MISMATCH }
+    require(hashRowOf(review, MESSAGE_HASH_LABEL) == hashText(typed.messageHash())) { HASHES_MISMATCH }
+}
+
+/** The text of the one row named [label], or null when the review has no such row or more than one. */
+private fun hashRowOf(review: Review, label: String): String? =
+    review.sections.flatMap { it.rows }.singleOrNull { it.label == label }?.value?.text()
 
 /** The transaction of [parsed], which the request must decode to. */
 private fun txOf(parsed: ParsedRequest): UnsignedTx = when (val tx = parsed.tx) {

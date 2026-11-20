@@ -56,11 +56,14 @@ class TypedData(
     val domainChainId: BigInteger?
         get() = (domain.fields["chainId"] as? TypedValue.IntValue)?.value
 
-    /** The digest that is signed: keccak256(0x1901 ‖ domainSeparator ‖ hashStruct(message)). */
-    fun digest(): ByteArray = Hash.sha3(byteArrayOf(0x19, 0x01) + domainSeparator() + hashStruct(primaryType, message))
+    /** The digest that is signed: keccak256(0x1901 ‖ domainSeparator ‖ messageHash). */
+    fun digest(): ByteArray = Hash.sha3(byteArrayOf(0x19, 0x01) + domainSeparator() + messageHash())
 
     /** The domain separator: the hash of the domain, which covers every member the domain declares. */
     fun domainSeparator(): ByteArray = hashStruct(EIP712_DOMAIN, domain)
+
+    /** The hash of the primary message: hashStruct of [primaryType] over [message]. */
+    fun messageHash(): ByteArray = hashStruct(primaryType, message)
 
     /** The EIP-712 encodeType of [type]: its own signature, then the struct types it uses, sorted by name. */
     fun encodeType(type: String): String {
