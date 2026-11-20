@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import app.airvault.chains.bitcoin.signer.bitcoinManifest
 import app.lensly.app.AccountProfile
 import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.ProfileColour
@@ -28,8 +29,10 @@ import app.lensly.core.registry.TokenEntry
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.home.AlgorandAccountsScreen
 import app.lensly.ui.home.BitcoinAccountsScreen
-import app.lensly.ui.home.BulkChain
 import app.lensly.ui.home.BulkGenerateScreen
+import app.lensly.ui.home.BulkTarget
+import app.lensly.ui.home.DEFAULT_BITCOIN
+import app.lensly.ui.home.DEFAULT_EVM
 import app.lensly.ui.home.EthereumAccountsScreen
 import app.lensly.ui.home.HOME_SCROLL_TAG
 import app.lensly.ui.home.HomeReadiness
@@ -320,12 +323,13 @@ class HomeScreensScreenshotTest {
 
     @Test
     fun bulkGenerateBitcoinOnTestnet() = compose.snapshot("bulk_generate_bitcoin_testnet") {
-        bulk(digits = "3", chain = BulkChain.Bitcoin(ScriptType.TAPROOT, BtcNetwork.TESTNET4))
+        val testnet = bitcoinManifest.networks.single { it.testnet }
+        bulk(digits = "3", chain = DEFAULT_BITCOIN.copy(network = testnet, scriptType = ScriptType.TAPROOT))
     }
 
     @Test
     fun bulkGenerateBitcoinRefusedForASingleKey() = compose.snapshot("bulk_generate_bitcoin_single_key") {
-        bulk(digits = "1", chain = BulkChain.Bitcoin(ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET), bitcoinAllowed = false)
+        bulk(digits = "1", chain = DEFAULT_BITCOIN, bitcoinAllowed = false)
     }
 
     @Test
@@ -562,7 +566,7 @@ class HomeScreensScreenshotTest {
         running: Boolean = false,
         derived: Int = 0,
         failure: String? = null,
-        chain: BulkChain = BulkChain.Evm,
+        chain: BulkTarget = DEFAULT_EVM,
         bitcoinAllowed: Boolean = true,
     ) {
         BulkGenerateScreen(

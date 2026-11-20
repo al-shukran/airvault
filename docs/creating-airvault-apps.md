@@ -134,7 +134,7 @@ enum class Capability {
     RAW_PRIVATE_KEY,        // app receives private key bytes in a zeroing scope (see 3.4). Needs justification.
     MESSAGE_SIGNING,        // off-chain message signing (EIP-191, Solana off-chain message, ...)
     TYPED_DATA_SIGNING,     // structured data signing (EIP-712)
-    BLIND_SIGNING,          // app may offer a "cannot decode" review; still off for the user by default (8.4)
+    BLIND_SIGNING,          // app may offer a "cannot decode" review; the owner's default policy is WARN (8.4)
     WATCH_ONLY_EXPORT,      // app exports extended public keys (xpub-style) at pairing
     MULTI_SCRIPT_ACCOUNTS,  // one account, several script types (Bitcoin family)
 }
@@ -829,10 +829,10 @@ These rules are not optional. A chain app that breaks one does not merge.
 
 A descriptor shows what the template says; it does not prove the transaction is honest or complete (search-result commentary on ERC-7730, **[UNVERIFIED]**). Coverage checks reduce that gap; they do not close it.
 
-### 8.4 No blind signing by default
+### 8.4 Blind signing warns by default
 
-- If `Coverage.opaque` is not empty, the request is blind. Blind signing is off unless both are true: the app declares `BLIND_SIGNING`, and the user turned on "allow requests the vault cannot read" for that chain in settings.
-- When allowed, a blind request gets a DANGER warning, shows the raw bytes as hex, and shows a hash the user can compare with Lumio.
+- If `Coverage.opaque` is not empty, the request is blind. The owner's unknown-call policy in settings (`UnknownCallPolicy`) decides it, and its default is WARN: the request is reviewed under a DANGER warning with its raw data shown in full, and the owner may sign it once that warning is ticked. REFUSE turns blind signing off, and nothing is signed.
+- A blind request gets a DANGER warning, shows the raw bytes as hex, and shows a hash the user can compare with Lumio.
 - Settings to enable blind signing are inside the vault, never on the cover.
 
 ### 8.5 Cover screen never leaks crypto
@@ -975,7 +975,7 @@ CAIP-2 references for `bip122`, `solana` and `algorand` are the registry values 
 | CAIP-2 | `bip122:000000000019d6689c085ae165831e93` (mainnet), `bip122:<testnet4>` | `eip155:1`, `eip155:10143` (Monad testnet, default), `eip155:143`, `eip155:11155111`, ... | `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` (mainnet), `solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1` (devnet) | `algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k` (mainnet), `algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDe` (testnet) |
 | SLIP-44 | 0 (mainnet), 1 (testnet) | 60 | 501 | 283 |
 | Curve | SECP256K1 | SECP256K1 | ED25519_SLIP10 | ED25519_BIP32 (Ledger-style, `LedgerEd25519.kt`) |
-| Paths | per script type, BIP-44/49/84/86 under coin type | `m/44'/60'/*'/0/0` | `m/44'/501'/*'` (all hardened) | `m/44'/283'/*'/0/0` |
+| Paths | per script type, BIP-44/49/84/86 under coin type | `m/44'/60'/*'/0/0`, `m/44'/60'/0'/0/*` | `m/44'/501'/*'` (all hardened) | `m/44'/283'/*'/0/0` |
 | Capabilities | MULTI_SCRIPT_ACCOUNTS, WATCH_ONLY_EXPORT, MESSAGE_SIGNING, RAW_PRIVATE_KEY (bitcoin-kmp; aim to drop) | MESSAGE_SIGNING, TYPED_DATA_SIGNING | MESSAGE_SIGNING (off-chain message) | none |
 | Request / response UR | `crypto-psbt` | `eth-sign-request` / `eth-signature` | `sol-sign-request` / `sol-signature` | `algo-sign-request` / `algo-signature` |
 | Fungible tokens | none | ERC-20 (Lumio balances, custom add; Lensly catalogue) | SPL, Token-2022 (Lensly review; Lumio balances only) | ASA (Lensly review; Lumio does not build `axfer`) |

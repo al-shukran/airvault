@@ -1,22 +1,60 @@
 package app.lensly.app.sign
 
 import app.airvault.chains.evm.evmManifest
+import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.chains.evm.signer.EvmRequestBody
 import app.airvault.chains.evm.signer.EvmRequestParser
+import app.airvault.chains.evm.signer.EvmSigner
 import app.airvault.chains.evm.signer.ParsedRequest
+import app.airvault.core.model.Approval
 import app.airvault.core.model.ChainId
+import app.airvault.core.model.checkLabels
 import app.airvault.core.signer.AppRequest
+import app.airvault.core.signer.Path
 import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
+import app.airvault.core.signer.SignerRef
+import app.lensly.app.export.partsOf
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.UNSUPPORTED_CODE
 import app.lensly.core.parse.inProcessSandboxParser
+import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
 import app.lensly.core.ur.framesOf
+import app.lensly.core.wallet.SingleKeyAccess
 import com.sparrowwallet.hummingbird.UR
 
 /** Large enough that a request of the largest size is one frame. */
 private const val ONE_FRAME = 64 * 1024
+
+/**
+ * The frames the sign flow answers [ready] with: the review with every check ticked, approved, then signed by [EvmSigner] with [key] as the one
+ * key the request names, at the path its header names. A Single Key request with no path is signed at the Single Key path.
+ */
+fun signFramesOf(ready: Prepared.Ready, key: ByteArray): List<String> {
+    val request = appRequestOf(ready.request)
+    val approval = requireNotNull(Approval.of(ready.review, ready.review.checkLabels().toSet()))
+    val path = Path(request.header.signers.single().path.ifEmpty { EvmSigner.singleKeyPath.steps })
+    val response = EvmSigner.sign(request, approval, SingleKeyAccess(key.copyOf(), path))
+    return partsOf(framesOf(UR(response.urType, response.cbor), DEFAULT_MAX_FRAGMENT))
+}
+
+/** [request] as the EVM app sends it to the sign flow: its header names the signer and path, and its body is the parsed request. */
+private fun appRequestOf(request: EthSignRequest): AppRequest {
+    val kind = when (request.dataType) {
+        DataType.TRANSACTION, DataType.TYPED_TRANSACTION -> RequestKind.TRANSACTION
+        DataType.TYPED_DATA -> RequestKind.TYPED_DATA
+        DataType.PERSONAL_MESSAGE -> RequestKind.MESSAGE
+    }
+    val header = RequestHeader(
+        app = evmManifest.id,
+        chain = ChainId("eip155:${request.chainId ?: 1}"),
+        kind = kind,
+        signers = listOf(SignerRef(request.sourceFingerprint, request.derivationPath)),
+        requestId = request.requestId,
+    )
+    return AppRequest(header, EvmRequestBody.encode(EvmRequestParser.parsedOf(request)))
+}
 
 /** Parses [urCbor] through the Parser Sandbox's wire format, as the app does, then prepares what it parsed. */
 fun SignPipeline.prepare(urCbor: ByteArray, wallet: WalletView): Prepared =

@@ -1,4 +1,4 @@
-package app.lensly.app.sign
+package app.lensly.core.wallet
 
 import app.lensly.core.ur.PathStep
 import kotlin.test.assertEquals
@@ -18,20 +18,23 @@ class EvmKeyTest {
 
     @Test
     fun aLedgerLiveAccountSignsWithItsOwnKey() {
-        assertEquals(EvmKey(2, 0), EvmKey.of(ledgerLive(2), accountCount = 3))
+        val key = EvmKey.of(ledgerLive(2), accountCount = 3)
+        assertEquals(EvmKey(2, 0), key)
+        assertEquals(2, key?.accountIndex)
     }
 
     @Test
-    fun aBip44AddressKeySignsAsItsAccount() {
+    fun aBip44AddressKeyBelongsToNoAccount() {
         val key = EvmKey.of(bip44(2), accountCount = 3)
         assertEquals(EvmKey(0, 2), key)
-        assertEquals(2, key?.accountIndex)
+        assertNull(key?.accountIndex)
     }
 
     @Test
     fun accountZeroIsTheSameKeyOnBothPaths() {
         assertEquals(EvmKey(0, 0), EvmKey.of(ledgerLive(0), accountCount = 1))
         assertEquals(EvmKey(0, 0), EvmKey.of(bip44(0), accountCount = 1))
+        assertEquals(0, EvmKey(0, 0).accountIndex)
     }
 
     @Test

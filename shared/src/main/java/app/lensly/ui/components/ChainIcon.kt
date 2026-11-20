@@ -38,29 +38,20 @@ val chainIconsNeedingBackdrop: Set<String> = setOf(
     "chain_sei_network",
 )
 
-/** What [ChainIcon] draws for a network. [chainIconSpec] decides it, without Compose, so the rules can be unit tested. */
-internal sealed interface ChainIconSpec {
-    /** A logo drawable. With [backdrop] set, the logo sits on a light disc. */
-    data class Logo(@DrawableRes val res: Int, val backdrop: Boolean) : ChainIconSpec
-
-    /** A network with no logo of its own: its [letter] in a thin outline circle. */
-    data class Monogram(val letter: String) : ChainIconSpec
-}
+/** A chain logo: its drawable, and whether it sits on a light disc ([backdrop]). [ChainIcon] and token badges draw it. */
+internal data class ChainLogo(@DrawableRes val res: Int, val backdrop: Boolean)
 
 /**
- * What to draw for [network]. A null network is not in the registry, so it shows the Ethereum logo, which unknown chains
- * share. A network in the registry shows its own logo. A registry network with no logo, or with a logo name that is not
- * in [chainIconDrawables], shows a monogram of its name. It never shows the Ethereum logo for a network of its own.
+ * The logo [network] shows, or null when it has none, and then [ChainIcon] shows a monogram of its name. A null network is not in the
+ * registry, so it shows the Ethereum logo, which unknown chains share. Otherwise the logo is the drawable that the network's icon names.
+ * A name that is not in [chainIconDrawables] is a logo this build does not ship, so the network has none. A network never shows the
+ * Ethereum logo for itself.
  */
-internal fun chainIconSpec(network: NetworkEntry?): ChainIconSpec {
-    if (network == null) return ChainIconSpec.Logo(R.drawable.chain_ethereum, backdrop = false)
-    val icon = network.icon
-    val res = icon?.let { chainIconDrawables[it] }
-    return if (icon != null && res != null) {
-        ChainIconSpec.Logo(res, backdrop = icon in chainIconsNeedingBackdrop)
-    } else {
-        ChainIconSpec.Monogram(monogramOf(network.name))
-    }
+internal fun chainLogo(network: NetworkEntry?): ChainLogo? {
+    if (network == null) return ChainLogo(R.drawable.chain_ethereum, backdrop = false)
+    val icon = network.icon ?: return null
+    val res = chainIconDrawables[icon] ?: return null
+    return ChainLogo(res, backdrop = icon in chainIconsNeedingBackdrop)
 }
 
 /** The letter of a monogram: the first letter or digit of [name] in capitals, or "?" when the name has neither. */
@@ -74,14 +65,15 @@ internal fun monogramOf(name: String): String =
  */
 @Composable
 fun ChainIcon(network: NetworkEntry?, size: Dp, modifier: Modifier = Modifier) {
-    when (val spec = chainIconSpec(network)) {
-        is ChainIconSpec.Logo -> BackdropLogo(
-            painter = painterResource(spec.res),
+    val logo = chainLogo(network)
+    when {
+        logo != null -> BackdropLogo(
+            painter = painterResource(logo.res),
             size = size,
-            backdrop = spec.backdrop,
+            backdrop = logo.backdrop,
             modifier = modifier,
         )
-        is ChainIconSpec.Monogram -> LetterMonogram(letter = spec.letter, size = size, modifier = modifier)
+        network != null -> LetterMonogram(letter = monogramOf(network.name), size = size, modifier = modifier)
     }
 }
 

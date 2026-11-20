@@ -2,6 +2,9 @@ package app.lensly.app.sign
 
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.algorandManifest
+import app.airvault.chains.evm.evmManifest
+import app.airvault.chains.evm.signer.EvmRequestBody
+import app.airvault.chains.evm.signer.UndecodedCall
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.model.ChainId
@@ -13,6 +16,7 @@ import app.airvault.core.signer.RequestKind
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
 import app.lensly.app.addressesIn
+import app.lensly.core.parse.WireException
 import app.lensly.core.wallet.toHex
 import java.security.MessageDigest
 
@@ -23,13 +27,14 @@ import java.security.MessageDigest
 sealed interface AppPrepared {
     /**
      * The request names an account of the wallet and passed every rule. [request] is the parsed request, which the app signs. [accountIndex] is
-     * the account that signs, [signer] its name and address, and [counterparties] the addresses the review names, looked up on [addressChain].
+     * the account that signs, or null for a key that is no account's, such as a BIP44 address key. [signer] is its name and address, and
+     * [counterparties] the addresses the review names, looked up on [addressChain].
      */
     data class Ready(
         val walletId: String,
         val request: AppRequest,
         val review: CoreReview,
-        val accountIndex: Int,
+        val accountIndex: Int?,
         val signer: SigningAccount,
         val addressChain: ChainId,
         val counterparties: List<String>,
@@ -38,8 +43,11 @@ sealed interface AppPrepared {
         val bitcoin: BitcoinRecordFacts? = null,
     ) : AppPrepared
 
-    /** The request cannot be signed. [reason] says why, in plain words. Nothing is signed for it. */
-    data class Refused(val reason: String) : AppPrepared
+    /**
+     * The request cannot be signed. [reason] says why, in plain words. Nothing is signed for it. [call] is set when the request is a contract call
+     * Lensly cannot decode, so the refusal can show all of it.
+     */
+    data class Refused(val reason: String, val call: UndecodedCall? = null) : AppPrepared
 }
 
 /** The addresses the rows of [review] show, each one looked up in the Address Book. */
@@ -97,7 +105,7 @@ fun appReviewRecordOf(entry: AppReviewEntry, atMs: Long, origin: String?, dataHa
 /**
  * The origin a request names, and the SHA-256 of the data it asks to sign, as its chain app reads them (spec 8.6). For Algorand that data is the
  * transaction the review decoded. The signature also covers the "TX" tag that go-algorand puts before those bytes. The record does not hash the
- * tag, so its hash is of the transaction the owner was shown.
+ * tag, so its hash is of the transaction the owner was shown. For Ethereum it is the signed data.
  */
 internal fun appRequestFactsOf(request: AppRequest): Pair<String?, String> = when (request.header.app) {
     algorandManifest.id -> when (val decoded = AlgoSignRequest.decode(request.body)) {
@@ -108,7 +116,15 @@ internal fun appRequestFactsOf(request: AppRequest): Pair<String?, String> = whe
         is SolSignRequest.Result.Ok -> decoded.request.origin to sha256Hex(decoded.request.signData)
         is SolSignRequest.Result.Rejected -> null to sha256Hex(request.body)
     }
+    evmManifest.id -> evmFactsOf(request)
     else -> null to sha256Hex(request.body)
+}
+
+/** The origin an Ethereum request names, and the SHA-256 of its signed data. A body that does not decode keeps the hash of the body. */
+private fun evmFactsOf(request: AppRequest): Pair<String?, String> = try {
+    EvmRequestBody.decode(request.body).request.let { it.origin to sha256Hex(it.signData) }
+} catch (e: WireException) {
+    null to sha256Hex(request.body)
 }
 
 private fun sha256Hex(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).toHex()

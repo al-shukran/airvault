@@ -10,6 +10,7 @@ import app.lensly.core.algorand.LedgerEd25519
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
+import app.lensly.core.evm.Secp256k1
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.ur.PathStep
 import fr.acinq.bitcoin.Crypto
@@ -159,6 +160,79 @@ class WalletKeyAccessTest {
         assertFailsWith<IllegalArgumentException> { keys.signEcdsaSecp256k1(path, ByteArray(31)) }
         assertFailsWith<IllegalArgumentException> { keys.signSchnorrBip340(path, ByteArray(32), ByteArray(31)) }
     }
+
+    /** The public keys of the Ethereum account keys are the address keys of the HD wallet of the same seed, and their addresses are its addresses. */
+    @Test
+    fun theEthereumPublicKeysAreTheAddressKeysOfTheHdWalletOfTheSameSeed() {
+        val keys = WalletKeyAccess(seed, accountCount = 8)
+        val wallet = HdWallet(seed)
+        for (account in listOf(0, 1, 7)) {
+            val publicKey = keys.publicKey(Curve.SECP256K1, evmPath(account)).bytes
+            assertEquals(wallet.address(account), AccountAddresses.addressOfKey(AccountXpub(publicKey, ByteArray(32), 0)), "account $account")
+        }
+    }
+
+    /** The BIP44 address key m/44'/60'/0'/0/[index] is the key of the HD wallet's address at that index, for each index below the account count. */
+    @Test
+    fun theBip44AddressKeysAreTheAddressesOfTheHdWalletOfTheSameSeed() {
+        val keys = WalletKeyAccess(seed, accountCount = 4)
+        val wallet = HdWallet(seed)
+        for (index in listOf(0, 1, 3)) {
+            val publicKey = keys.publicKey(Curve.SECP256K1, path("m/44'/60'/0'/0/$index")).bytes
+            assertEquals(wallet.address(0, index), AccountAddresses.addressOfKey(AccountXpub(publicKey, ByteArray(32), 0)), "index $index")
+        }
+    }
+
+    @Test
+    fun theEthereumEcdsaSignatureIsTheWeb3jSignatureOfTheHdWalletKey() {
+        val digest = Crypto.sha256("airvault".toByteArray())
+        val expected = Secp256k1.sign(digest, HdWallet(seed).privateKey(3))
+
+        val signed = WalletKeyAccess(seed, accountCount = 4).signEcdsaSecp256k1(evmPath(3), digest)
+
+        assertContentEquals(expected.r, signed.r)
+        assertContentEquals(expected.s, signed.s)
+        assertEquals(expected.recoveryId, signed.recoveryId)
+    }
+
+    @Test
+    fun aBip44AddressKeySignsWithTheHdWalletKeyOfItsPath() {
+        val digest = Crypto.sha256("airvault".toByteArray())
+        val expected = Secp256k1.sign(digest, HdWallet(seed).privateKey(0, 2))
+
+        val signed = WalletKeyAccess(seed, accountCount = 4).signEcdsaSecp256k1(path("m/44'/60'/0'/0/2"), digest)
+
+        assertContentEquals(expected.r, signed.r)
+        assertContentEquals(expected.s, signed.s)
+        assertEquals(expected.recoveryId, signed.recoveryId)
+    }
+
+    /** An Ethereum key is held only below the account count, on either form: an account or an index at the count, or past it, is refused. */
+    @Test
+    fun anEthereumKeyAtOrPastTheAccountCountIsRefused() {
+        val keys = WalletKeyAccess(seed, accountCount = 2)
+        val digest = ByteArray(32)
+        for (text in listOf("m/44'/60'/2'/0/0", "m/44'/60'/0'/0/2", "m/44'/60'/0'/0/3")) {
+            assertFailsWith<IllegalArgumentException>(text) { keys.publicKey(Curve.SECP256K1, path(text)) }
+            assertFailsWith<IllegalArgumentException>(text) { keys.signEcdsaSecp256k1(path(text), digest) }
+        }
+        // A wallet with no accounts holds no Ethereum key, not even that of account 0.
+        assertFailsWith<IllegalArgumentException> { WalletKeyAccess(seed).publicKey(Curve.SECP256K1, evmPath(0)) }
+    }
+
+    /** An Ethereum key answers a public key and an ECDSA signature, and no path other than the account keys and the BIP44 address keys. */
+    @Test
+    fun aPathThatIsNotAnEthereumKeyIsRefusedAndNeverMakesABip340Signature() {
+        val keys = WalletKeyAccess(seed, accountCount = 2)
+        val digest = ByteArray(32)
+        for (text in listOf("m/44'/60'/0'/1/0", "m/44'/60'/0/0/0", "m/44'/60'/0'/0", "m/44'/60'/0'/0/0/0", "m/44'/60'/0'/0/1'")) {
+            assertFailsWith<IllegalArgumentException>(text) { keys.publicKey(Curve.SECP256K1, path(text)) }
+            assertFailsWith<IllegalArgumentException>(text) { keys.signEcdsaSecp256k1(path(text), digest) }
+        }
+        assertFailsWith<IllegalArgumentException> { keys.signSchnorrBip340(evmPath(0), digest, null) }
+    }
+
+    private fun evmPath(account: Int): Path = path("m/44'/60'/$account'/0/0")
 
     private fun btcPath(type: ScriptType, account: Int, branch: Int, index: Int): Path =
         path("m/${type.purpose}'/1'/$account'/$branch/$index")

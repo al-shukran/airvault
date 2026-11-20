@@ -5,7 +5,6 @@ import app.airvault.chains.algorand.AlgoSignType
 import app.airvault.chains.algorand.algorandManifest
 import app.airvault.chains.algorand.signer.AlgorandSigner
 import app.airvault.chains.algorand.signer.toReview
-import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.core.model.Approval
 import app.airvault.core.model.Coverage
 import app.airvault.core.model.Curve
@@ -23,9 +22,6 @@ import app.lensly.app.export.partsOf
 import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
-import app.lensly.app.sign.EvmKey
-import app.lensly.app.sign.Prepared
-import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.WalletView
 import app.lensly.core.algorand.AlgorandAccount
@@ -321,18 +317,10 @@ class SignFlowAlgorandTest {
 
         override suspend fun scan(parts: List<String>): ScanReply = parser.scan(parts)
 
-        override suspend fun prepare(walletId: String, parsed: ParsedRequest): Prepared =
-            error("an EVM request is not expected in the Algorand tests")
-
-        override suspend fun privateKey(walletId: String, key: EvmKey): ByteArray =
+        override suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray =
             error("an EVM key is not read in the Algorand tests")
 
         override suspend fun checkPassword(password: CharArray): PasswordCheck = this.password
-
-        override suspend fun sign(ready: Prepared.Ready, privateKey: ByteArray): List<String> =
-            error("an EVM request is not expected in the Algorand tests")
-
-        override suspend fun record(entry: ReviewEntry): Unit = error("an EVM request is not expected in the Algorand tests")
 
         override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared {
             prepareCalls++

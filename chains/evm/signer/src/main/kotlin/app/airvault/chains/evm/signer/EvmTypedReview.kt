@@ -123,7 +123,7 @@ private fun valueText(type: String, value: TypedValue): String = when (value) {
     is TypedValue.BytesValue -> if (type == "address") checksumOf(value.bytes) else "0x" + value.bytes.toHex()
     is TypedValue.FlagValue -> value.value.toString()
     is TypedValue.TextValue -> if (value.value.isEmpty()) "(empty)" else printableOrHex(value.value)
-    is TypedValue.StructValue, is TypedValue.ArrayValue -> ""
+    is TypedValue.StructValue, is TypedValue.ArrayValue -> error("the parser reads only atomic values here")
 }
 
 /** [text] as a review shows it: the text itself when every character is printable, otherwise its UTF-8 bytes in hex. */
@@ -205,7 +205,7 @@ private val DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy, H
 
 /**
  * The summary of a Permit (ERC-2612) or Permit2 payload: its token, spender, amount and deadline. Null for any other payload, and for a
- * payload whose members do not have the layout of its primary type, so every field of it is still shown and nothing is guessed.
+ * payload that lacks a member of the layout of its primary type, so every field of it is still shown and nothing is guessed.
  */
 private fun permitSummary(typed: TypedData, registry: Registry, chainId: Long, chain: ChainId): PermitRows? {
     if (!hasPermitLayout(typed)) return null
@@ -268,17 +268,20 @@ private fun permitSummary(typed: TypedData, registry: Registry, chainId: Long, c
 /** " 1", " 2" and so on for the items of a list of more than one, and nothing for a list of one. */
 private fun numbered(index: Int, count: Int): String = if (count > 1) " ${index + 1}" else ""
 
-/** True when the primary type is a Permit or Permit2 type and its members, and the structs it uses, have that type's layout. */
+/** True when the primary type is a Permit or Permit2 type, and its members and the structs it uses declare that type's layout. */
 private fun hasPermitLayout(typed: TypedData): Boolean {
     val layout = PERMIT_LAYOUTS[typed.primaryType] ?: return false
-    if (layoutOf(typed.types, typed.primaryType) != layout) return false
+    if (!declaresLayout(typed.types, typed.primaryType, layout)) return false
     return PERMIT_NESTED_LAYOUTS.all { (name, members) ->
-        typed.types[name]?.let { layoutOf(typed.types, name) == members } ?: true
+        typed.types[name]?.let { declaresLayout(typed.types, name, members) } ?: true
     }
 }
 
-private fun layoutOf(types: Map<String, List<TypedField>>, name: String): List<Pair<String, String>>? =
-    types[name]?.map { it.name to it.type }
+/** True when the struct [name] declares every member of [layout] with its type. A member beyond the layout does not change the summary. */
+private fun declaresLayout(types: Map<String, List<TypedField>>, name: String, layout: List<Pair<String, String>>): Boolean {
+    val declared = types[name]?.map { it.name to it.type } ?: return false
+    return layout.all { it in declared }
+}
 
 private fun fieldsOf(fields: Map<String, TypedValue>, name: String): Map<String, TypedValue> =
     (fields.getValue(name) as TypedValue.StructValue).fields

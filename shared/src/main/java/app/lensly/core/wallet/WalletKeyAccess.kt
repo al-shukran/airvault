@@ -20,39 +20,34 @@ import fr.acinq.bitcoin.byteVector64
 
 /**
  * The key access of one Mnemonic wallet (spec 3.2). Each call derives the key it needs from [seed] and zeroes it when the call returns,
- * except for the Bitcoin keys, whose bitcoin-kmp objects cannot be wiped, as with [app.lensly.core.btc.BtcAccount]. The caller owns [seed]
+ * except for the secp256k1 keys, whose bitcoin-kmp objects cannot be wiped, as with [app.lensly.core.btc.BtcAccount]. The caller owns [seed]
  * and zeroes it.
  *
- * Three kinds of key are held, and nothing else:
+ * Four kinds of key are held, and nothing else:
  * - the Algorand account key at `m/44'/283'/account'/0/0` on ED25519_BIP32, which [LedgerEd25519] derives;
  * - the Solana account key at `m/44'/501'/account'` on ED25519_SLIP10, the SLIP-0010 key of [SolanaAccount];
  * - the Bitcoin account keys at `m/purpose'/coin'/account'/branch/index` on SECP256K1, for the purposes and coin types of [ScriptType] and
- *   [BtcNetwork], with branch 0 or 1 and a non-hardened index. These are the keys [app.lensly.core.btc.BtcAccount] derives.
+ *   [BtcNetwork], with branch 0 or 1 and a non-hardened index. These are the keys [app.lensly.core.btc.BtcAccount] derives. Only these answer
+ *   a BIP340 signature;
+ * - the Ethereum keys of the wallet's [accountCount] accounts on SECP256K1, as [EvmKey] names them: the account key at
+ *   `m/44'/60'/account'/0/0` and the BIP44 address key at `m/44'/60'/0'/0/index`, each below [accountCount]. They answer an ECDSA signature
+ *   and a public key, and nothing else. The default count of zero holds no Ethereum key, which a Bitcoin or Solana caller does not need.
  *
  * The raw private key is never handed out: [withPrivateKey] is unsupported.
  */
-class WalletKeyAccess(private val seed: ByteArray) : KeyAccess {
+class WalletKeyAccess(private val seed: ByteArray, private val accountCount: Int = 0) : KeyAccess {
     override fun publicKey(curve: Curve, path: Path): PublicKey = when (curve) {
-        Curve.SECP256K1 -> PublicKey(curve, publicBtcKey(path))
+        Curve.SECP256K1 -> PublicKey(curve, publicSecp256k1Key(path))
         Curve.ED25519_SLIP10 -> PublicKey(curve, SolanaAccount.publicKey(seed, solanaAccountOf(path)))
         else -> withAccount(curve, path) { key -> PublicKey(curve, key.publicKey.copyOf()) }
     }
 
     /**
-     * The ECDSA signature of [digest32] with the Bitcoin key at [path]: low-S, as bitcoin-kmp's Crypto.sign gives it, with the recovery id
-     * of the key's public key.
+     * The ECDSA signature of [digest32] with the secp256k1 key at [path], a Bitcoin or an Ethereum account key: low-S, as bitcoin-kmp's
+     * Crypto.sign gives it, with the recovery id of the key's public key.
      */
-    override fun signEcdsaSecp256k1(path: Path, digest32: ByteArray): EcdsaSignature {
-        require(digest32.size == 32) { "A digest is 32 bytes." }
-        return withBtcKey(path) { key ->
-            val signature = Crypto.sign(digest32, key).toByteArray()
-            val publicKey = key.publicKey().value.toByteArray()
-            val recoveryId = (0..1).firstOrNull { id ->
-                Crypto.recoverPublicKey(signature.byteVector64(), digest32, id).value.toByteArray().contentEquals(publicKey)
-            } ?: error("No recovery id recovers the key.")
-            EcdsaSignature(signature.copyOfRange(0, 32), signature.copyOfRange(32, 64), recoveryId)
-        }
-    }
+    override fun signEcdsaSecp256k1(path: Path, digest32: ByteArray): EcdsaSignature =
+        withDerivedKey(secp256k1KeyPathOf(path, accountCount)) { key -> ecdsaOf(key, digest32) }
 
     /**
      * The BIP340 signature of [digest32] with the Bitcoin key at [path], tweaked for a taproot output. [tweak] is the merkle root of the
@@ -63,7 +58,9 @@ class WalletKeyAccess(private val seed: ByteArray) : KeyAccess {
         require(digest32.size == 32) { "A digest is 32 bytes." }
         require(tweak == null || tweak.size == 32) { "A taproot merkle root is 32 bytes." }
         val taprootTweak = tweak?.let { Crypto.TaprootTweak.ScriptPathTweak(it.byteVector32()) } ?: Crypto.TaprootTweak.KeyPathTweak
-        return withBtcKey(path) { key -> Crypto.signSchnorr(digest32.byteVector32(), key, taprootTweak, null).toByteArray() }
+        return withDerivedKey(btcKeyPathOf(path)) { key ->
+            Crypto.signSchnorr(digest32.byteVector32(), key, taprootTweak, null).toByteArray()
+        }
     }
 
     override fun signEd25519(curve: Curve, path: Path, message: ByteArray): ByteArray = when (curve) {
@@ -84,21 +81,19 @@ class WalletKeyAccess(private val seed: ByteArray) : KeyAccess {
     }
 
     /**
-     * The public key at [path]. Only the account node is derived with a private key; the branch and index are derived from its public node,
-     * so no PrivateKey is made for a public key. The bytes are the same as withBtcKey's, since a non-hardened child of the public node is
-     * the public key of the private child.
+     * The public key at [path], a Bitcoin or an Ethereum account key. Only the account node is derived with a private key; the branch and index
+     * are derived from its public node, so no PrivateKey is made for a public key. The bytes are the same as withDerivedKey's, since a non-hardened
+     * child of the public node is the public key of the private child.
      */
-    private fun publicBtcKey(path: Path): ByteArray {
-        val steps = btcKeyPathOf(path).path
+    private fun publicSecp256k1Key(path: Path): ByteArray {
+        val steps = secp256k1KeyPathOf(path, accountCount).path
         val account = rootFromSeed(seed).derivePrivateKey(KeyPath(steps.subList(0, ACCOUNT_LEVELS))).extendedPublicKey
         return account.derivePublicKey(steps[BRANCH_LEVEL]).derivePublicKey(steps[INDEX_LEVEL]).publicKey.value.toByteArray()
     }
 
-    /** Runs [use] with the Bitcoin key at [path], derived from the seed. A path that is not a Bitcoin account key is refused first. */
-    private fun <T> withBtcKey(path: Path, use: (PrivateKey) -> T): T {
-        val key = rootFromSeed(seed).derivePrivateKey(btcKeyPathOf(path)).privateKey
-        return use(key)
-    }
+    /** Runs [use] with the key at [keyPath], derived from the seed. The caller has checked the path that [keyPath] came from. */
+    private fun <T> withDerivedKey(keyPath: KeyPath, use: (PrivateKey) -> T): T =
+        use(rootFromSeed(seed).derivePrivateKey(keyPath).privateKey)
 
     /** Signs [message] with the SLIP-0010 key of the Solana account at [path], and zeroes the key before it returns. */
     private fun signSolana(path: Path, message: ByteArray): ByteArray =
@@ -151,7 +146,29 @@ private fun btcKeyPathOf(path: Path): KeyPath {
         !steps[3].hardened && steps[3].index in 0..1 &&
         !steps[4].hardened && steps[4].index >= 0
     require(isBitcoinAccountKey) { "$path is not a Bitcoin account key path." }
-    return KeyPath(steps.map { step -> if (step.hardened) DeterministicWallet.hardened(step.index.toLong()) else step.index.toLong() })
+    return bip32PathOf(steps)
+}
+
+/**
+ * The BIP32 path of the secp256k1 key at [path]: one of the wallet's Ethereum keys for [accountCount] accounts, as [EvmKey.of] reads it, or a
+ * Bitcoin account key as [btcKeyPathOf] reads it. Any other path is refused.
+ */
+private fun secp256k1KeyPathOf(path: Path, accountCount: Int): KeyPath =
+    if (EvmKey.of(path.steps, accountCount) != null) bip32PathOf(path.steps) else btcKeyPathOf(path)
+
+/** The BIP32 path of [steps], where each hardened step carries the hardened bit. */
+private fun bip32PathOf(steps: List<PathStep>): KeyPath =
+    KeyPath(steps.map { step -> if (step.hardened) DeterministicWallet.hardened(step.index.toLong()) else step.index.toLong() })
+
+/** The ECDSA signature of [digest32] with [key]: low-S, with the recovery id of the key's public key. */
+internal fun ecdsaOf(key: PrivateKey, digest32: ByteArray): EcdsaSignature {
+    require(digest32.size == 32) { "A digest is 32 bytes." }
+    val signature = Crypto.sign(digest32, key).toByteArray()
+    val publicKey = key.publicKey().value.toByteArray()
+    val recoveryId = (0..1).firstOrNull { id ->
+        Crypto.recoverPublicKey(signature.byteVector64(), digest32, id).value.toByteArray().contentEquals(publicKey)
+    } ?: error("No recovery id recovers the key.")
+    return EcdsaSignature(signature.copyOfRange(0, 32), signature.copyOfRange(32, 64), recoveryId)
 }
 
 /** The account index of a Solana path on ED25519_SLIP10, m/44'/501'/account'. Any other path is refused. */

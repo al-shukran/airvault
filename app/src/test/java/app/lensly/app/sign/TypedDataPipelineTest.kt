@@ -5,6 +5,7 @@ import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.chains.evm.signer.EvmRequestParser
 import app.airvault.chains.evm.signer.ParsedRequest
+import app.airvault.chains.evm.signer.TypedDataParser
 import app.lensly.core.evm.EvmFixtures
 import app.lensly.core.parse.InProcessParser
 import app.lensly.core.registry.DenylistEntry
@@ -28,7 +29,7 @@ private val WALLET = HdWallet(Mnemonic.toSeed(List(23) { "abandon" } + "art"))
 private val VIEW = WalletView(
     id = WALLET_ID,
     masterFingerprint = WALLET.masterFingerprint,
-    accountCount = 5,
+    accountCount = 2,
     autoNameBase = "Seed Wallet",
     addressAt = { account, index -> WALLET.address(account, index) },
 )
@@ -88,7 +89,7 @@ private fun accountPath(index: Int) = listOf(
     PathStep(index, false),
 )
 
-/** The request of [json] as a wallet sends it, parsed the way the Parser Sandbox parses it. It names the BIP44 path of account [index]. */
+/** The request of [json] as a wallet sends it, parsed the way the Parser Sandbox parses it. */
 private fun parsedOf(json: String, chainId: Long? = 1, index: Int = 0): ParsedRequest = EvmRequestParser.parsedOf(
     EthSignRequest(
         requestId = REQUEST_ID,
@@ -101,6 +102,19 @@ private fun parsedOf(json: String, chainId: Long? = 1, index: Int = 0): ParsedRe
         origin = "metamask",
     ),
 )
+
+/** The 65-byte signature of the single ur:eth-signature frame that answers a signed request. */
+private fun signatureOf(frames: List<String>): ByteArray {
+    assertEquals(1, frames.size)
+    val scanner = UrScanner()
+    assertTrue(scanner.receive(frames.single()))
+    val ur = assertNotNull(scanner.result())
+    assertEquals("eth-signature", ur.type)
+    val fields = (Cbor.decode(ur.cborBytes) as Cbor.Dict).entries.associate { (field, value) ->
+        (field as Cbor.Uint).value to value
+    }
+    return (fields.getValue(2L) as Cbor.Bytes).value
+}
 
 private fun prepared(pipeline: SignPipeline, json: String, chainId: Long? = 1): Prepared =
     pipeline.prepare(parsedOf(json, chainId), VIEW)
@@ -156,10 +170,28 @@ class TypedDataPipelineTest {
     }
 
     @Test
+    fun aRabbyPermitForAnAddressKeyIsSignedWithThatKeyAndNamesItsPath() {
+        // Rabby derives address 1 as m/44'/60'/0'/0/1, below the two accounts of the wallet. That key signs the Permit, and the review
+        // names the path.
+        val address = AccountAddresses.addressAt(WALLET.accountXpub(0), 1)
+        val ready = assertIs<Prepared.Ready>(OPEN_PIPELINE.prepare(parsedOf(permitDoc(), index = 1), VIEW))
+        val header = ready.review.sections.first().rows
+
+        assertEquals("m/44'/60'/0'/0/1", (header.single { it.label == "Derivation Path" }.value as DisplayValue.Text).text)
+        assertEquals(address, ready.signer.address)
+        val signature = signatureOf(signFramesOf(ready, WALLET.privateKey(0, 1)))
+
+        val digest = (EvmRequestParser.parsedOf(ready.request).typed as TypedDataParser.Result.Ok).data.digest()
+        assertEquals(
+            EvmFixtures.normalize(address),
+            EvmFixtures.recoveredAddress(digest, signature.copyOfRange(0, 32), signature.copyOfRange(32, 64), signature[64].toInt() - 27),
+        )
+    }
+    @Test
     fun aSignedPermitRecoversToTheAccountOverTheDigestWithVOf27Or28() {
         val ready = ready(permitDoc())
-        val key = WALLET.privateKey(ready.accountIndex)
-        val frames = OPEN_PIPELINE.sign(ready, key)
+        val key = WALLET.privateKey(ready.key.account, ready.key.index)
+        val frames = signFramesOf(ready, key)
 
         assertEquals(1, frames.size)
         val scanner = UrScanner()
@@ -175,48 +207,12 @@ class TypedDataPipelineTest {
         assertTrue(signature[64] == 27.toByte() || signature[64] == 28.toByte())
 
         val recovered = EvmFixtures.recoveredAddress(
-            assertNotNull(ready.typed).digest(),
+            (EvmRequestParser.parsedOf(ready.request).typed as TypedDataParser.Result.Ok).data.digest(),
             signature.copyOfRange(0, 32),
             signature.copyOfRange(32, 64),
             signature[64].toInt() - 27,
         )
         assertEquals(EvmFixtures.normalize(VIEW.addressAt(0, 0)), recovered)
-        assertTrue(key.all { it == 0.toByte() })
     }
 
-    @Test
-    fun aRabbyPermitForAnAddressKeyIsSignedWithThatKeyAndNamesItsPath() {
-        // Rabby derives address 3 as m/44'/60'/0'/0/3. Account 3 signs the Permit with that key, and the review names the path.
-        val address = AccountAddresses.addressAt(WALLET.accountXpub(0), 3)
-        val ready = assertIs<Prepared.Ready>(OPEN_PIPELINE.prepare(parsedOf(permitDoc(), index = 3), VIEW))
-        val header = ready.review.sections.first().rows
-        assertEquals("m/44'/60'/0'/0/3", (header.single { it.label == "Derivation Path" }.value as DisplayValue.Text).text)
-        assertEquals(address, ready.signer.address)
-
-        val key = WALLET.privateKey(0, 3)
-        val signature = signatureOf(OPEN_PIPELINE.sign(ready, key))
-        assertTrue(key.all { it == 0.toByte() })
-        assertEquals(
-            EvmFixtures.normalize(address),
-            EvmFixtures.recoveredAddress(
-                assertNotNull(ready.typed).digest(),
-                signature.copyOfRange(0, 32),
-                signature.copyOfRange(32, 64),
-                signature[64].toInt() - 27,
-            ),
-        )
-    }
-
-    /** The 65-byte signature of the single ur:eth-signature frame that answers a signed request. */
-    private fun signatureOf(frames: List<String>): ByteArray {
-        assertEquals(1, frames.size)
-        val scanner = UrScanner()
-        assertTrue(scanner.receive(frames.single()))
-        val ur = assertNotNull(scanner.result())
-        assertEquals("eth-signature", ur.type)
-        val fields = (Cbor.decode(ur.cborBytes) as Cbor.Dict).entries.associate { (field, value) ->
-            (field as Cbor.Uint).value to value
-        }
-        return (fields.getValue(2L) as Cbor.Bytes).value
-    }
 }

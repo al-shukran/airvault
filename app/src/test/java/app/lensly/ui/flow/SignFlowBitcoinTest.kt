@@ -5,7 +5,6 @@ import app.airvault.chains.bitcoin.signer.BtcRefusal
 import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
 import app.airvault.chains.bitcoin.signer.UNVERIFIED_CHECK
 import app.airvault.chains.bitcoin.signer.bitcoinManifest
-import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.core.model.Approval
 import app.airvault.core.signer.AppRequest
 import app.lensly.app.BITCOIN_FAMILY
@@ -13,9 +12,6 @@ import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.BitcoinReviewed
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
-import app.lensly.app.sign.EvmKey
-import app.lensly.app.sign.Prepared
-import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.bitcoinRecordFactsOf
@@ -305,16 +301,10 @@ private class BitcoinPorts(
 
     override suspend fun scan(parts: List<String>): ScanReply = inProcessSandboxParser.scan(parts)
 
-    override suspend fun prepare(walletId: String, parsed: ParsedRequest): Prepared = error("an EVM request is not expected")
-
-    override suspend fun privateKey(walletId: String, key: EvmKey): ByteArray = error("an EVM key is not expected")
+    override suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray = error("an EVM key is not expected")
 
     override suspend fun checkPassword(password: CharArray): PasswordCheck =
         if (passwordAccepted) PasswordCheck.Accepted else PasswordCheck.Rejected
-
-    override suspend fun sign(ready: Prepared.Ready, privateKey: ByteArray): List<String> = error("an EVM request is not expected")
-
-    override suspend fun record(entry: ReviewEntry): Unit = error("no EVM Review Record is written for a Bitcoin request")
 
     override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared {
         check(request.header.app == bitcoinManifest.id) { "only a Bitcoin request is expected in the Bitcoin tests" }

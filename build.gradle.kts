@@ -101,3 +101,66 @@ listOf("app", "lumio", "shared").forEach { module ->
         systemProperty("robolectric.dependency.dir", robolectricSdkDir.get().asFile.absolutePath)
     }
 }
+
+// Lint analysis is cacheable. AGP leaves lintAnalyze tasks uncacheable, so every lint lane re-analyzed the Android modules
+// (about four minutes) with no source change. The analysis reads only the module's inputs, and the lint report task still
+// fails the build on an error, so this only skips re-analysis. The outputs keep absolute paths, so an entry is valid on the
+// same checkout path, which CI always uses.
+subprojects {
+    tasks.matching { it.name.startsWith("lintAnalyze") }.configureEach {
+        outputs.cacheIf("lint analysis depends only on its inputs") { true }
+    }
+}
+
+// resolveAll resolves every resolvable configuration of every project and every buildscript classpath. That covers the
+// robolectricSdk configuration above, which holds the Robolectric android-all jar the tests read. CI's deps job runs it
+// online to fill the Gradle module cache; every other CI job runs with --offline against that cache, so a missing artifact
+// fails by name instead of being fetched. See .github/workflows/pr-fast.yml.
+// Each project resolves its own configurations in its own task: Gradle rejects resolving another project's configuration
+// from a task. Not configuration-cache compatible: the task reads the project's configurations at execution time.
+// AGP's per-variant classpaths (for example benchmarkCompileClasspath) match several variants when no artifact type is
+// requested, so a bare resolve() cannot choose. The task that compiles against one requests its artifact type and resolves
+// it, so only that ambiguity is skipped here; every other resolution failure still fails resolveAll.
+fun Configuration.resolveForCache() {
+    try {
+        resolve()
+    } catch (e: Exception) {
+        val ambiguous = generateSequence(e as Throwable) { it.cause }
+            .any { it.message?.contains("cannot choose between the following variants") == true }
+        if (!ambiguous) throw e
+        println("resolveAll: skipped $name, which needs an artifact type to pick its variant")
+    }
+}
+
+allprojects {
+    tasks.register("resolveConfigurations") {
+        group = "help"
+        description = "Resolves every configuration of this project and of its buildscript."
+        notCompatibleWithConfigurationCache("reads the project's configurations at execution time")
+        doLast {
+            buildscript.configurations.toList().filter { it.isCanBeResolved }.forEach { it.resolveForCache() }
+            // Resolving can add configurations to the container, so take snapshots until no new resolvable one appears.
+            val done = mutableSetOf<String>()
+            var pending = configurations.toList().filter { it.isCanBeResolved }
+            while (pending.isNotEmpty()) {
+                pending.forEach { it.resolveForCache(); done += it.name }
+                pending = configurations.toList().filter { it.isCanBeResolved && it.name !in done }
+            }
+        }
+    }
+}
+
+tasks.register("resolveAll") {
+    group = "help"
+    description = "Resolves every configuration of every project and buildscript, so later --offline builds find each artifact."
+    notCompatibleWithConfigurationCache("resolves a detached configuration of the root project at execution time")
+    dependsOn(rootProject.allprojects.map { it.path.trimEnd(':') + ":resolveConfigurations" })
+    doLast {
+        // AGP runs aapt2 from a detached configuration that no project lists, and the configuration cache stores that task input,
+        // so the artifact must be cached. CI runs linux; a build on macOS runs osx. Version: AGP 9.5.1's bundled aapt2, as
+        // verification-metadata.xml pins it. A new AGP names the new version when this artifact is missing offline.
+        listOf("linux", "osx").forEach { platform ->
+            configurations.detachedConfiguration(dependencies.create("com.android.tools.build:aapt2:9.5.1-16666295:$platform")).resolve()
+        }
+    }
+}

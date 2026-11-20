@@ -9,16 +9,20 @@ import app.airvault.chains.bitcoin.signer.BtcRefusal
 import app.airvault.chains.bitcoin.signer.BtcRefusedException
 import app.airvault.chains.bitcoin.signer.NOT_A_PSBT
 import app.airvault.chains.bitcoin.signer.bitcoinManifest
-import app.airvault.chains.evm.signer.ParsedRequest
+import app.airvault.chains.evm.evmManifest
+import app.airvault.chains.evm.signer.EvmSigner
+import app.airvault.chains.evm.signer.EvmRequestBody
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.signer.toReview
 import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.model.Approval
+import app.airvault.core.model.AppId
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.Curve
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.KeyAccess
 import app.airvault.core.signer.Path
+import app.airvault.core.signer.SignerRef
 import app.airvault.core.signer.ScopedKeyAccess
 import app.airvault.core.signer.SignerApp
 import app.lensly.app.ALGORAND_FAMILY
@@ -46,9 +50,7 @@ import app.lensly.app.requestParser
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
 import app.lensly.app.sign.AsaCatalogHolder
-import app.lensly.app.sign.EvmKey
 import app.lensly.app.sign.Prepared
-import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.app.sign.SignPipeline
 import app.lensly.app.sign.WalletView
@@ -59,21 +61,21 @@ import app.lensly.app.sign.bitcoinRecordFactsOf
 import app.lensly.app.sign.bitcoinReviewRecordOf
 import app.lensly.app.sign.counterpartiesOf
 import app.lensly.app.sign.evmCounterparties
-import app.lensly.app.sign.reviewRecordOf
 import app.lensly.app.visualIdentity
-import app.lensly.chains.signerRegistry
+import app.lensly.chains.installedSigners
 import app.lensly.ui.sign.bitcoinReviewOf
 import app.lensly.ui.sign.shownName
 import app.airvault.chains.algorand.signer.AlgorandRequestCheck
+import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.UNSUPPORTED_CODE
 import app.lensly.core.parse.ScanReply
+import app.lensly.core.parse.WireException
 import app.lensly.core.registry.UnknownCallPolicy
 import app.airvault.chains.solana.signer.SolanaRequestCheck
 import app.airvault.chains.solana.signer.SolanaTokenList
 import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
 import app.lensly.core.ur.framesOf
-import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.AccountAddresses
@@ -150,20 +152,6 @@ internal class VaultSignPorts(
 
     override suspend fun scan(parts: List<String>): ScanReply = withContext(Dispatchers.IO) { parser.scan(parts) }
 
-    override suspend fun prepare(walletId: String, parsed: ParsedRequest): Prepared = withContext(Dispatchers.IO) {
-        val wallet = readWallet { session ->
-            val listed = WalletStore(session).list()
-            val position = listed.indexOfFirst { it.id == walletId }
-            if (position < 0) null else viewOf(session, listed[position], position)
-        }
-        val settings = readWallet { SettingsStore(it).load() }
-        val prepared = guardedCheck(EVM_UNREADABLE, { Prepared.Refused(it) }) {
-            SignPipeline(RegistryHolder.get(context), parser, settings.proxyPolicy, settings.unknownCallPolicy).prepare(parsed, wallet)
-        }
-        if (prepared !is Prepared.Ready) return@withContext prepared
-        prepared.copy(addressNotes = addressNotesFor(walletId, evmCounterparties(prepared.review), EVM_FAMILY))
-    }
-
     /** The account that signs a request, as its review names it: its name, its wallet's name and its address. */
     private fun signerOf(wallet: WalletView, index: Int, address: String): SigningAccount = SigningAccount(
         name = wallet.accountNames[index] ?: autoAccountName(wallet.autoNameBase, index),
@@ -191,19 +179,19 @@ internal class VaultSignPorts(
         }
     }
 
-    override suspend fun privateKey(walletId: String, key: EvmKey): ByteArray = withContext(Dispatchers.IO) {
+    override suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray = withContext(Dispatchers.IO) {
         when (val secret = readWallet { WalletStore(it).secret(walletId) }) {
             is WalletSecret.Mnemonic -> {
                 val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
                 try {
-                    HdWallet(seed).privateKey(key.account, key.index)
+                    HdWallet(seed).privateKey(accountIndex)
                 } finally {
                     seed.fill(0)
                 }
             }
             is WalletSecret.SingleKey -> {
                 // The one account of a Single Key is the key itself. The caller zeroes the array it gets back.
-                if (key != EvmKey.SINGLE_KEY) {
+                if (accountIndex != 0) {
                     secret.privateKey.fill(0)
                     throw IllegalArgumentException("A Single Key wallet has one account.")
                 }
@@ -212,54 +200,17 @@ internal class VaultSignPorts(
         }
     }
 
-    /** Opens a second session only to prove the password, then closes it at once. The open session is left alone. */
-    override suspend fun checkPassword(password: CharArray): PasswordCheck = try {
-        when (val result = holder.vault.unlock(password)) {
-            is UnlockResult.Unlocked -> {
-                result.session.close()
-                PasswordCheck.Accepted
-            }
-            UnlockResult.Rejected -> PasswordCheck.Rejected
-            // The last allowed try erased the vault, so the open session goes with it, as on a wipe.
-            UnlockResult.Erased -> {
-                holder.lock()
-                PasswordCheck.Rejected
-            }
-        }
-    } catch (e: VaultException) {
-        PasswordCheck.Unavailable
-    }
-
-    override suspend fun sign(ready: Prepared.Ready, privateKey: ByteArray): List<String> =
-        withContext(Dispatchers.Default) {
-            SignPipeline(RegistryHolder.get(context), parser).sign(ready, privateKey)
-        }
+    override suspend fun checkPassword(password: CharArray): PasswordCheck = checkAppPassword(holder, password)
 
     /**
-     * Writes [entry] as a Review Record of its wallet, through the open session. NonCancellable, so a record that has started is
-     * written even when the screen that asked for it is left.
-     */
-    override suspend fun record(entry: ReviewEntry): Unit = withContext(Dispatchers.IO + NonCancellable) {
-        val session = holder.openSession() ?: throw ReviewNotSaved()
-        try {
-            val record = reviewRecordOf(entry, System.currentTimeMillis(), RegistryHolder.get(context))
-            writeRecord(session, entry.walletId, record)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            // A closed or damaged vault, unwritable storage, or a record that cannot be written.
-            throw ReviewNotSaved()
-        }
-    }
-
-    /**
-     * Reviews the request [request] of an installed chain app against wallet [walletId]. The Algorand, Solana and Bitcoin apps have a review on
-     * the one sign flow so far, and any other app is refused.
+     * Reviews the request [request] of an installed chain app against wallet [walletId]. Every installed chain app has a review on the one sign
+     * flow, and any other app is refused.
      */
     override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared = when (request.header.app) {
         algorandManifest.id -> algorandPrepare(walletId, request)
         solanaManifest.id -> solanaPrepare(walletId, request)
         bitcoinManifest.id -> bitcoinPrepare(walletId, request)
+        evmManifest.id -> evmPrepare(walletId, request)
         else -> AppPrepared.Refused(UNSUPPORTED_CODE)
     }
 
@@ -415,6 +366,50 @@ internal class VaultSignPorts(
     }
 
     /**
+     * Reviews the Ethereum [appRequest] against wallet [walletId], by the rules [SignPipeline] checks: the wallet's master fingerprint and account
+     * path, or its address for a Single Key, and the registry. The request is read again from its body, as the sign flow reads it. A request the
+     * rules refuse is [AppPrepared.Refused], with the undecoded call the refusal shows, if any.
+     */
+    private suspend fun evmPrepare(walletId: String, appRequest: AppRequest): AppPrepared = withContext(Dispatchers.IO) {
+        val parsed = try {
+            EvmRequestBody.decode(appRequest.body)
+        } catch (e: WireException) {
+            return@withContext AppPrepared.Refused(CANNOT_BE_READ)
+        }
+        val wallet = readWallet { session ->
+            val listed = WalletStore(session).list()
+            val position = listed.indexOfFirst { it.id == walletId }
+            if (position < 0) null else viewOf(session, listed[position], position)
+        }
+        val settings = readWallet { SettingsStore(it).load() }
+        val prepared = guardedCheck(EVM_UNREADABLE, { Prepared.Refused(it) }) {
+            SignPipeline(RegistryHolder.get(context), parser, settings.proxyPolicy, settings.unknownCallPolicy).prepare(parsed, wallet)
+        }
+        when (prepared) {
+            is Prepared.Ready -> {
+                val counterparties = evmCounterparties(prepared.review)
+                // The review does not read the path of a Single Key request, so the signature is made at the path of its one key.
+                val request = if (wallet.masterFingerprint == null) {
+                    appRequest.copy(header = appRequest.header.copy(signers = listOf(SignerRef(null, EvmSigner.singleKeyPath.steps))))
+                } else {
+                    appRequest
+                }
+                AppPrepared.Ready(
+                    walletId = walletId,
+                    request = request,
+                    review = prepared.review,
+                    accountIndex = prepared.accountIndex,
+                    signer = prepared.signer,
+                    addressChain = EVM_FAMILY,
+                    counterparties = counterparties,
+                    addressNotes = addressNotesFor(walletId, counterparties, EVM_FAMILY),
+                )
+            }
+            is Prepared.Refused -> AppPrepared.Refused(prepared.reason, prepared.call)
+        }
+    }
+
+    /**
      * Signs the approved request through its app's `SignerApp.sign`, with the wallet's key access scoped to the app's key scopes, so a path outside
      * them throws [KeyScopeViolation] before any key is derived. The seed is zeroed inside [WalletStore.withKeys]. A Bitcoin refusal reads as the
      * refusal of any other app: its reason is the message.
@@ -422,7 +417,7 @@ internal class VaultSignPorts(
     override suspend fun appSign(ready: AppPrepared.Ready, approval: Approval): List<String> = withContext(Dispatchers.Default) {
         val session = holder.openSession() ?: throw WalletUnavailable()
         try {
-            val signer = signerForChain(session, ready.request.header.chain) ?: throw IllegalArgumentException(UNSUPPORTED_CODE)
+            val signer = signerOfApp(session, ready.request.header.app) ?: throw IllegalArgumentException(UNSUPPORTED_CODE)
             val response = WalletStore(session).withKeys(ready.walletId) { keys ->
                 signer.sign(ready.request, approval, reviewedKeys(session, ready, ScopedKeyAccess(signer.manifest.keys, keys)))
             }
@@ -437,15 +432,20 @@ internal class VaultSignPorts(
     }
 
     /**
-     * The installed signer of [chain]. The Bitcoin signer is built with the owner's Bitcoin policies, so a signature is made under the policies its
-     * review was made under. The installed instance holds the core defaults, and it is never used to sign a Bitcoin request.
+     * The installed signer of app [app], which names itself in the header of each request. It is found by app and not by chain, so an Ethereum
+     * request on a chain outside the manifest, which its review shows with a warning, is signed as well. The Bitcoin signer is built with the
+     * owner's Bitcoin policies, so a signature is made under the policies its review was made under. The installed instance holds the core
+     * defaults, and it is never used to sign a Bitcoin request.
      */
-    private fun signerForChain(session: VaultSession, chain: ChainId): SignerApp? {
-        val installed = signerRegistry.byChain(chain) ?: return null
+    private fun signerOfApp(session: VaultSession, app: AppId): SignerApp? {
+        val installed = installedSignerOf(app) ?: return null
         if (installed !is BitcoinSigner) return installed
         val settings = SettingsStore(session).load()
         return BitcoinSigner(settings.bitcoinInputPolicy, settings.bitcoinSigningSource, settings.bitcoinFeeThresholds)
     }
+
+    /** The installed signer of app [app], or null when no installed app has that id. */
+    private fun installedSignerOf(app: AppId): SignerApp? = installedSigners.firstOrNull { it.manifest.id == app }
 
     /**
      * The key access that signs [ready], over [keys]. A Solana key must be the public key the wallet stores for the reviewed account, or nothing
@@ -453,14 +453,15 @@ internal class VaultSignPorts(
      */
     private fun reviewedKeys(session: VaultSession, ready: AppPrepared.Ready, keys: KeyAccess): KeyAccess {
         if (ready.request.header.app != solanaManifest.id) return keys
-        val stored = WalletStore(session).solanaKeys(ready.walletId).getOrNull(ready.accountIndex)
+        val stored = ready.accountIndex?.let { WalletStore(session).solanaKeys(ready.walletId).getOrNull(it) }
             ?: throw IllegalArgumentException(SolanaRequestCheck.UNKNOWN_ACCOUNT)
         return StoredKeyAccess(keys, stored)
     }
 
     /**
      * Writes the [entry] of a chain app as a Review Record of its wallet, through the open session. A Bitcoin request keeps its own record shape,
-     * and every other app keeps the generic one. NonCancellable, as [record] is.
+     * and every other app keeps the generic one. NonCancellable, so a record that has started is written even when the screen that asked for it
+     * is left.
      */
     override suspend fun recordApp(entry: AppReviewEntry): Unit = withContext(Dispatchers.IO + NonCancellable) {
         val session = holder.openSession() ?: throw ReviewNotSaved()
@@ -470,7 +471,7 @@ internal class VaultSignPorts(
                 bitcoinReviewRecordOf(entry, now)
             } else {
                 val (origin, dataHash) = appRequestFactsOf(entry.request)
-                val displayName = signerRegistry.byChain(entry.request.header.chain)?.manifest?.displayName.orEmpty()
+                val displayName = installedSignerOf(entry.request.header.app)?.manifest?.displayName.orEmpty()
                 appReviewRecordOf(entry, now, origin, dataHash, displayName)
             }
             writeRecord(session, entry.walletId, record)

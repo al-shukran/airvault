@@ -195,7 +195,7 @@ object ParserWire {
                 flag(it.hardened)
             }
         }
-        optional(header.requestId) { blob(it, REQUEST_ID_BYTES) }
+        optional(header.requestId) { exact(it, REQUEST_ID_BYTES) }
         blob(request.body, MAX_APP_BODY_BYTES)
     }
 
