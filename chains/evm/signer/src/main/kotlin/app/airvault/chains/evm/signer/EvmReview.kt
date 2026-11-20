@@ -39,6 +39,7 @@ import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
+import org.web3j.crypto.Hash
 import org.web3j.crypto.Keys
 import org.web3j.utils.Numeric
 
@@ -158,6 +159,8 @@ class EvmReviewBuilder(
             denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { throw Refusal(it.reason) }
             denied.forEach { warnings += denylistWarning(it, field = null) }
             header += ReviewRow("Type", DisplayValue.Text(TYPED_DATA_TYPE), null)
+            header += ReviewRow(DOMAIN_HASH_LABEL, DisplayValue.Text(hashText(typedData.domainSeparator()), mono = true), null)
+            header += ReviewRow(MESSAGE_HASH_LABEL, DisplayValue.Text(hashText(typedData.messageHash()), mono = true), null)
             chainRow(domainChain, request.chainId)?.let { header += it }
             chainCaution(domainChain, request.chainId)?.let { warnings += it }
             if (offChain != null) {
@@ -811,9 +814,11 @@ private sealed interface Gap {
     class Unknown(val selector: String) : Gap
 }
 
+/** The rows of a call Lensly cannot read: its selector, its calldata in full, and the hash of that calldata for comparison with Lumio. */
 private fun unknownParams(calldata: ByteArray, selector: String): List<ParamRow> = listOf(
     ParamRow("Selector", DisplayValue.Text("0x$selector"), "selector"),
     calldataRow(calldata),
+    ParamRow(DATA_HASH_LABEL, DisplayValue.Text(hashText(Hash.sha3(calldata)), mono = true), null),
 )
 
 /** The signed calldata in full, as its own row. A call whose arguments are shown carries this row, so no byte is only a preview. */
@@ -911,6 +916,9 @@ private fun argumentsOf(calldata: ByteArray): ByteArray = calldata.copyOfRange(m
 
 private fun checksum(address: String): String = Keys.toChecksumAddress(address)
 
+/** A hash as the review shows it: 0x and every byte in hex, never shortened. The signer compares its recomputed hashes in this form. */
+internal fun hashText(hash: ByteArray): String = "0x" + hash.toHex()
+
 private fun messageValue(bytes: ByteArray): DisplayValue =
     printableMessage(bytes)?.let { DisplayValue.Message(it) } ?: DisplayValue.Bytes(bytes)
 
@@ -939,6 +947,13 @@ internal fun unlimitedApprovalWarning(symbol: String?): String =
 
 /** The label of the row that names the account a request is signed for. The signer checks its key against this row. */
 internal const val FROM_LABEL = "From"
+
+/** The labels of the hashes a typed-data review shows. The signer recomputes the first two and checks them against these rows. */
+internal const val DOMAIN_HASH_LABEL = "Domain Hash"
+internal const val MESSAGE_HASH_LABEL = "Message Hash"
+
+/** The label of the hash of an undecoded call's calldata. */
+internal const val DATA_HASH_LABEL = "Data Hash"
 
 /** The unit of an amount whose coin or token is not known. The amount is then shown as raw base units. */
 internal const val UNKNOWN_UNIT = "base units"
