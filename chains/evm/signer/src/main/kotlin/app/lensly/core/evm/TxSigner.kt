@@ -15,17 +15,11 @@ object TxSigner {
     private const val SIGNATURE_BYTES = 65
 
     /**
-     * Signs keccak256 of the payload that [tx] rebuilds from its fields with [privateKey], and returns r (32 bytes) || s (32 bytes) || v. The
-     * Parser Sandbox decoded [tx], so it is trusted only as far as the payload matches [signData]: when they differ, nothing
-     * is signed. Legacy uses v = chainId * 2 + 35 + recId as minimal big-endian bytes, so v is longer than one byte for real
-     * chain IDs (Monad testnet, 10143, gives two bytes). EIP-1559 uses v = recId, one byte of 0 or 1.
-     */
-    fun sign(signData: ByteArray, tx: UnsignedTx, privateKey: ByteArray): ByteArray =
-        signatureOf(signData, tx) { digest -> Secp256k1.sign(digest, privateKey) }
-
-    /**
-     * The signature of [tx] in the form [sign] gives it, with the digest signed by [signDigest]. A key that the signer does not hold, such as a
-     * KeyAccess's, signs through it. The payload must be exactly [signData], or nothing is signed.
+     * Signs keccak256 of the payload that [tx] rebuilds from its fields, with the digest signed by [signDigest], and returns r (32 bytes) || s (32
+     * bytes) || v. A key the signer does not hold, such as a KeyAccess's, signs through [signDigest]. The Parser Sandbox decoded [tx], so it is
+     * trusted only as far as the payload matches [signData]: when they differ, nothing is signed. Legacy uses v = chainId * 2 + 35 + recId as
+     * minimal big-endian bytes, so v is longer than one byte for real chain IDs (Monad testnet, 10143, gives two bytes). EIP-1559 uses v = recId,
+     * one byte of 0 or 1.
      */
     fun signatureOf(signData: ByteArray, tx: UnsignedTx, signDigest: (ByteArray) -> EcdsaSignature): ByteArray {
         val payload = tx.encode()

@@ -1,7 +1,10 @@
 package app.lensly.core.evm
 
+import app.airvault.chains.evm.signer.EvmSigner
+import app.airvault.core.signer.EcdsaSignature
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
+import app.lensly.core.wallet.SingleKeyAccess
 import java.math.BigInteger
 import org.web3j.crypto.ECDSASignature
 import org.web3j.crypto.Keys
@@ -14,6 +17,16 @@ object EvmFixtures {
     /** The address of account 0 for the "abandon ... art" mnemonic. The viem reference vector gives this key and address. */
     val artKey: ByteArray by lazy { HdWallet(Mnemonic.toSeed(artMnemonic)).privateKey(0) }
     const val ART_ADDRESS = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb"
+
+    /**
+     * The digest signer of a Single Key that holds [privateKey] at the path the EVM signer names for one key. A test signs through it the way the
+     * sign path does: the signature comes from the key access of a [SingleKeyAccess], and no raw key signs.
+     */
+    fun singleKeySigner(privateKey: ByteArray): (ByteArray) -> EcdsaSignature {
+        val path = EvmSigner.singleKeyPath
+        val keys = SingleKeyAccess(privateKey, path)
+        return { digest -> keys.signEcdsaSecp256k1(path, digest) }
+    }
 
     /** Address recovered from r || s || v over [hash], normalized to lowercase hex without a prefix. */
     fun recoveredAddress(hash: ByteArray, r: ByteArray, s: ByteArray, recId: Int): String {

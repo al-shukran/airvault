@@ -69,7 +69,7 @@ class EvmSignerTest {
 
         val signature = signatureOf(EvmSigner.sign(requestOf(unsigned, MONAD), approvalOf(MONAD, senderOf(KEY)), keys))
 
-        assertContentEquals(TxSigner.sign(unsigned, tx, KEY), signature)
+        assertContentEquals(TxSigner.signatureOf(unsigned, tx, keySigner(KEY)), signature)
         assertEquals(66, signature.size)
         val v = BigInteger(1, signature.copyOfRange(64, 66)).toInt()
         assertTrue(v == 20321 || v == 20322, "v must be 20321 or 20322, was $v")
@@ -168,7 +168,7 @@ class EvmSignerTest {
 
         assertEquals(hashText(typed.domainSeparator()), shownBy(approval, DOMAIN_HASH_LABEL))
         assertEquals(hashText(typed.messageHash()), shownBy(approval, MESSAGE_HASH_LABEL))
-        assertContentEquals(TypedDataSigner.signatureOf(typed) { digest -> Secp256k1.sign(digest, KEY) }, signature)
+        assertContentEquals(TypedDataSigner.signatureOf(typed, keySigner(KEY)), signature)
     }
 
     /** A Hyperliquid action names chain 1337 in its domain and 42161 in its header. It signs on the domain's chain, which the review reads. */
@@ -180,7 +180,7 @@ class EvmSignerTest {
         val signature = signatureOf(EvmSigner.sign(request, approval, FakeKeys(KEY)))
 
         assertEquals(ChainId("eip155:$HYPERLIQUID_CHAIN"), approval.review.chain)
-        assertContentEquals(TypedDataSigner.signatureOf(typedDataOf(request)) { digest -> Secp256k1.sign(digest, KEY) }, signature)
+        assertContentEquals(TypedDataSigner.signatureOf(typedDataOf(request), keySigner(KEY)), signature)
     }
 
     /** A review that shows another domain separator than the one the request signs is refused, and nothing is signed. */
@@ -295,6 +295,12 @@ class EvmSignerTest {
         BigInteger.ZERO,
         "0x",
     )
+
+    /** The digest signer of [key] held at the Single Key path, through the key access the sign path signs with. */
+    private fun keySigner(key: ByteArray): (ByteArray) -> EcdsaSignature {
+        val keys = FakeKeys(key)
+        return { digest -> keys.signEcdsaSecp256k1(EvmSigner.singleKeyPath, digest) }
+    }
 
     /** Key access that holds [key] for every path, and records the path of each digest it signs. */
     private class FakeKeys(private val key: ByteArray) : KeyAccess {

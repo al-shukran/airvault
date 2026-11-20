@@ -39,7 +39,6 @@ import app.lensly.app.SolanaTokensHolder
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
-import app.lensly.app.WalletSecret
 import app.lensly.app.WalletStore
 import app.lensly.app.addressNotesOf
 import app.lensly.app.autoAccountName
@@ -79,8 +78,6 @@ import app.lensly.core.ur.framesOf
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.AccountAddresses
-import app.lensly.core.wallet.HdWallet
-import app.lensly.core.wallet.Mnemonic
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -127,7 +124,7 @@ internal inline fun <T> guardedCheck(unreadable: String, refused: (String) -> T,
 }
 
 /**
- * The app's [SignFlowPorts]. Wallet reads go through the open session, and only [privateKey] reads a secret. The address check
+ * The app's [SignFlowPorts]. Wallet reads go through the open session, and only [appSign] reads a secret. The address check
  * and the review use the public xpub, so the mnemonic is not needed to show them. Everything scanned is parsed by [parser],
  * which is the Parser Sandbox.
  */
@@ -176,27 +173,6 @@ internal class VaultSignPorts(
             }
         } catch (e: WalletUnavailable) {
             emptyMap()
-        }
-    }
-
-    override suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray = withContext(Dispatchers.IO) {
-        when (val secret = readWallet { WalletStore(it).secret(walletId) }) {
-            is WalletSecret.Mnemonic -> {
-                val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
-                try {
-                    HdWallet(seed).privateKey(accountIndex)
-                } finally {
-                    seed.fill(0)
-                }
-            }
-            is WalletSecret.SingleKey -> {
-                // The one account of a Single Key is the key itself. The caller zeroes the array it gets back.
-                if (accountIndex != 0) {
-                    secret.privateKey.fill(0)
-                    throw IllegalArgumentException("A Single Key wallet has one account.")
-                }
-                secret.privateKey
-            }
         }
     }
 

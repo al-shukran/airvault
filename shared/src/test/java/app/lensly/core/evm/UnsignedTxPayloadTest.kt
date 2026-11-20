@@ -160,7 +160,7 @@ class UnsignedTxPayloadTest {
     fun aSignatureIsNeverMadeOverBytesOtherThanTheTransactionPayload() {
         val tx = decoded(legacy("0x"), DataType.TRANSACTION)
 
-        assertFailsWith<IllegalArgumentException> { TxSigner.sign(legacy("0x12"), tx, privateKey()) }
-        assertEquals(65, TxSigner.sign(legacy("0x"), tx, privateKey()).size)
+        assertFailsWith<IllegalArgumentException> { TxSigner.signatureOf(legacy("0x12"), tx, EvmFixtures.singleKeySigner(privateKey())) }
+        assertEquals(65, TxSigner.signatureOf(legacy("0x"), tx, EvmFixtures.singleKeySigner(privateKey())).size)
     }
 }

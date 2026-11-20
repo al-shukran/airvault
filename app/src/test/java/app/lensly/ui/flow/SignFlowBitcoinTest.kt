@@ -301,8 +301,6 @@ private class BitcoinPorts(
 
     override suspend fun scan(parts: List<String>): ScanReply = inProcessSandboxParser.scan(parts)
 
-    override suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray = error("an EVM key is not expected")
-
     override suspend fun checkPassword(password: CharArray): PasswordCheck =
         if (passwordAccepted) PasswordCheck.Accepted else PasswordCheck.Rejected
 
