@@ -21,8 +21,9 @@ import javax.crypto.SecretKey
  * lists is tampered. A deletion that the Keystore refuses does not fail the save, because the new pair is already on disk. The next
  * load or save deletes the keys that are left.
  *
- * The cap, the boot count and the time the wait had already run are in the MAC-protected payload. Each check made while a wait runs
- * saves the time served so far (see [checkDelay]), so a reboot continues the wait.
+ * The cap, the boot count, the time the wait had already run, the reading and boot count at creation, and the full-cap flag are in
+ * the MAC-protected payload. Each check made while a wait runs saves the time served so far (see [checkDelay]), so a reboot
+ * continues the wait.
  *
  * A pair whose copies hold different sequence numbers, which a crash between the two writes leaves, is settled by saving it again
  * under a new sequence number. The pending delay is kept.
@@ -78,10 +79,13 @@ internal class FailureStore(
             return trySave(pending.copy(seq = maxOf(highestSeq, pending.seq) + 1), clock) ?: pending
         }
         val bootCount = readBootCount()
+        // A copy verifies when its MAC checks out under its own key and no later save is known. Only copies that are not older than
+        // the newest key count.
+        val verified = listOfNotNull(p, b).filter { it.seq >= newest }
         // A boot count that went down is tampering, whatever the copies say, because no reboot does that.
         val recorded = listOfNotNull(p, b) + listOfNotNull(written?.state)
         if (recorded.any { FailureDelay.bootCountWentBack(it, bootCount) }) {
-            return lockAsTampered(clock, highestSeq, verified = emptyList())
+            return lockAsTampered(clock, highestSeq, verified)
         }
         if (p != null && b != null && p.seq >= b.seq && p.seq >= newest && !clockWentBack(p, clock, bootCount)) {
             // Copies that differ in sequence number mean a save was interrupted. Saving the state again under a new sequence number
@@ -96,9 +100,6 @@ internal class FailureStore(
         if (written != null && written.state.failures >= TAMPER_FAILURES && onDisk(primary, written.bytes) && onDisk(backup, written.bytes)) {
             return written.state
         }
-        // A copy verifies when its MAC checks out under its own key and no later save is known. Only copies that are not older than
-        // the newest key count.
-        val verified = listOfNotNull(p, b).filter { it.seq >= newest }
         return lockAsTampered(clock, highestSeq, verified)
     }
 
@@ -114,6 +115,8 @@ internal class FailureStore(
                 failures = 0,
                 lastFailureWallMs = clock.wallMillis(),
                 lastFailureElapsedMs = clock.elapsedMillis(),
+                createdElapsedMs = clock.elapsedMillis(),
+                createdBootCount = currentBootCount(),
             ),
             clock,
         )
@@ -134,6 +137,8 @@ internal class FailureStore(
                 // A new wait has served nothing, whatever the state it follows. The save takes this boot's count and reads 0.
                 bootCount = null,
                 elapsedAtSave = 0L,
+                // A new wait is the normal one, not the full cap of a clock anomaly.
+                fullCapWait = false,
             ),
             clock,
         )
@@ -161,6 +166,9 @@ internal class FailureStore(
             lastFailureElapsedMs = clock.elapsedMillis(),
             capMs = FailureDelay.MAX_CAP_MS,
             wipeAfter = previous.wipeAfter,
+            createdElapsedMs = previous.createdElapsedMs,
+            createdBootCount = previous.createdBootCount,
+            fullCapWait = true,
         )
         PENDING[seenKey] = locked
         return locked
@@ -177,10 +185,10 @@ internal class FailureStore(
      */
     fun recordSuccess(previous: FailureState, clock: Clock): FailureState {
         // The sequence number always moves on, so every save makes a key of its own and never replaces the key of the pair on disk.
-        val reset = previous.copy(seq = previous.seq + 1, failures = 0)
+        val reset = previous.copy(seq = previous.seq + 1, failures = 0, fullCapWait = false)
         trySave(reset, clock)?.let { return it }
         trySave(reset, clock)?.let { return it }
-        val cleared = previous.copy(failures = 0)
+        val cleared = previous.copy(failures = 0, fullCapWait = false)
         PENDING[seenKey] = cleared
         return cleared
     }
@@ -202,8 +210,8 @@ internal class FailureStore(
 
     /**
      * The Failure Delay check made before each password attempt, and the only such check. [vaultCreatedWallMs] is when the vault
-     * was made, which sets the learning-period cap. While the wait runs, the attempt is blocked, and the time the wait has served
-     * is saved, so that a reboot continues it (see the threat model in FailureDelay.kt).
+     * was made, and a clock that reads before it cannot open the learning week. While the wait runs, the attempt is blocked, and
+     * the time the wait has served is saved, so that a reboot continues it (see the threat model in FailureDelay.kt).
      */
     fun checkDelay(clock: Clock, vaultCreatedWallMs: Long): DelayCheck {
         val savesBefore = saveAttempts
@@ -236,18 +244,24 @@ internal class FailureStore(
         }
 
     /**
-     * The lockout for a state that cannot be verified. It is saved, which repairs a damaged copy. When it cannot be saved it is held
-     * in memory, anchored at this first attempt, and [load] returns it until a save goes through. Later attempts do not move the end
-     * of the wait.
+     * The lockout for a state that cannot be trusted as it stands: a clock or boot-count anomaly, or copies that do not verify. The count
+     * of the copies that verify is kept, so erasing still counts the wrong tries, and the wait restarts at the full cap. With no copy
+     * verified the count is the tamper count, which never erases, because the true count is unknown. The lockout is saved, which
+     * repairs a damaged copy. When it cannot be saved it is held in memory, anchored at this first attempt, and [load] returns it until
+     * a save goes through. Later attempts do not move the end of the wait.
      */
     private fun lockAsTampered(clock: Clock, highestSeq: Long, verified: List<FailureState>): FailureState {
+        val kept = verified.firstOrNull()
         val locked = FailureState(
             seq = highestSeq + 1,
-            failures = TAMPER_FAILURES,
+            failures = verified.maxOfOrNull { it.failures } ?: TAMPER_FAILURES,
             lastFailureWallMs = clock.wallMillis(),
             lastFailureElapsedMs = clock.elapsedMillis(),
             capMs = tamperedCap(verified),
             wipeAfter = tamperedWipeAfter(verified),
+            createdElapsedMs = kept?.createdElapsedMs,
+            createdBootCount = kept?.createdBootCount,
+            fullCapWait = true,
         )
         return trySave(locked, clock) ?: locked.also { PENDING[seenKey] = it }
     }
@@ -336,7 +350,12 @@ internal class FailureStore(
      */
     private fun stamped(state: FailureState, clock: Clock): FailureState {
         val bootCount = readBootCount()
-        val served = if (state.failures == 0) 0L else maxOf(0L, FailureDelay.elapsedSinceFailure(state, clock, bootCount))
+        // A lockout with no wrong try yet still has a wait, so its served time is kept too.
+        val served = if (state.failures == 0 && !state.fullCapWait) {
+            0L
+        } else {
+            maxOf(0L, FailureDelay.elapsedSinceFailure(state, clock, bootCount))
+        }
         return state.copy(
             bootCount = bootCount,
             elapsedAtSave = served,
@@ -382,7 +401,17 @@ internal class FailureStore(
         val wipeAfter = buffer.getInt()
         // A MAC-valid erase count outside the offered range is not something this app writes, so the copy is not trusted.
         if (wipeAfter !in FailureDelay.MIN_WIPE_AFTER..FailureDelay.MAX_WIPE_AFTER) return null
-        return FailureState(seq, failures, lastFailureWallMs, lastFailureElapsedMs, capMs, bootCount, elapsedAtSave, wipeAfter)
+        val createdElapsedMs = buffer.getLong().takeIf { it >= 0L }
+        val createdBootCount = bootCountOf(buffer.getInt())
+        val fullCapWait = when (buffer.get()) {
+            FALSE_ON_DISK -> false
+            TRUE_ON_DISK -> true
+            else -> return null
+        }
+        return FailureState(
+            seq, failures, lastFailureWallMs, lastFailureElapsedMs, capMs, bootCount, elapsedAtSave, wipeAfter,
+            createdElapsedMs, createdBootCount, fullCapWait,
+        )
     }
 
     private fun encode(state: FailureState, key: SecretKey): ByteArray {
@@ -397,6 +426,9 @@ internal class FailureStore(
             .putInt(state.bootCount ?: NO_BOOT_COUNT)
             .putLong(state.elapsedAtSave)
             .putInt(state.wipeAfter)
+            .putLong(state.createdElapsedMs ?: NO_CREATED_ON_DISK)
+            .putInt(state.createdBootCount ?: NO_BOOT_COUNT)
+            .put(if (state.fullCapWait) TRUE_ON_DISK else FALSE_ON_DISK)
             .array()
         return payload + keystore(STATE_UNAVAILABLE) { macOf(key, payload) }
     }
@@ -421,7 +453,7 @@ internal class FailureStore(
         private val MAGIC = "LNFS".toByteArray(Charsets.US_ASCII)
 
         /** The layout of a copy that this build writes and reads. A copy of any other version is not a copy. */
-        private const val VERSION: Byte = 4
+        private const val VERSION: Byte = 5
 
         /** The cap on disk when the owner chose Default. Zero is outside the offered range, so it cannot be a real cap. */
         private const val NO_CAP_ON_DISK = 0L
@@ -429,8 +461,18 @@ internal class FailureStore(
         /** The boot count on disk when the device did not report one. A real count is never negative. */
         private const val NO_BOOT_COUNT = -1
 
-        /** magic (4), version (1), seq (8), failures (4), wall (8), elapsed (8), cap (8), boot count (4), time served (8), erase count (4). */
-        private const val PAYLOAD_SIZE = 4 + 1 + 8 + 4 + 8 + 8 + 8 + 4 + 8 + 4
+        /** The creation reading on disk when it was not known. The monotonic clock never reads below zero. */
+        private const val NO_CREATED_ON_DISK = -1L
+
+        /** The full-cap flag on disk. */
+        private const val FALSE_ON_DISK: Byte = 0
+        private const val TRUE_ON_DISK: Byte = 1
+
+        /**
+         * magic (4), version (1), seq (8), failures (4), wall (8), elapsed (8), cap (8), boot count (4), time served (8), erase count (4),
+         * creation reading (8), creation boot count (4), full-cap flag (1).
+         */
+        private const val PAYLOAD_SIZE = 4 + 1 + 8 + 4 + 8 + 8 + 8 + 4 + 8 + 4 + 8 + 4 + 1
         private const val MAC_SIZE = 32
 
         private const val STATE_UNAVAILABLE = "The Failure Delay state could not be read or written through the Keystore."

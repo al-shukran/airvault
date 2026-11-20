@@ -31,7 +31,7 @@ class FailureStoreTest {
     private val capOffset = 33
 
     /** The MAC-covered part of a record: everything before the 32-byte MAC. */
-    private val payloadBytes = 57
+    private val payloadBytes = 70
 
     /** The magic that opens every record. */
     private val magic = "LNFS".toByteArray(Charsets.US_ASCII)
@@ -86,7 +86,7 @@ class FailureStoreTest {
     }
 
     @Test
-    fun editedPrimaryCopyLocksForTheFullCap() {
+    fun editedPrimaryCopyKeepsTheCountAndRestartsTheWaitAtTheFullCap() {
         val dir = File(tmp.root, "vault")
         val clock = FakeClock()
         val store = open(dir)
@@ -97,27 +97,30 @@ class FailureStoreTest {
         bytes[10] = (bytes[10].toInt() xor 0x01).toByte()
         dir.primary().writeBytes(bytes)
 
+        // The backup still verifies, so the one failure is kept, and the wait restarts at the owner's full cap of one minute.
         val delay = FailureDelay(FakeClock.START_WALL)
         val locked = open(dir).load(clock)
-        assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
+        assertEquals(1, locked.failures)
         assertTrue(delay.isBlocked(locked, clock))
-        clock.advance(FailureDelay.LEARNING_CAP_MS - 1)
+        clock.advance(FailureDelay.DEFAULT_CAP_MS - 1)
         assertTrue(delay.isBlocked(locked, clock))
         clock.advance(1)
         assertFalse(delay.isBlocked(locked, clock))
     }
 
     @Test
-    fun missingBackupCopyIsTampering() {
+    fun missingBackupCopyKeepsTheFailureCount() {
         val dir = File(tmp.root, "vault")
         val clock = FakeClock()
-        open(dir).initialize(clock)
+        val store = open(dir)
+        store.initialize(clock)
+        store.recordFailure(store.load(clock), clock)
         dir.backup().delete()
-        assertEquals(FailureStore.TAMPER_FAILURES, open(dir).load(clock).failures)
+        assertEquals(1, open(dir).load(clock).failures)
     }
 
     @Test
-    fun rollingBackOnlyThePrimaryCopyIsTampering() {
+    fun rollingBackOnlyThePrimaryCopyKeepsTheFailureCount() {
         val dir = File(tmp.root, "vault")
         val clock = FakeClock()
         val store = open(dir)
@@ -126,7 +129,7 @@ class FailureStoreTest {
         store.recordFailure(store.load(clock), clock)
 
         dir.primary().writeBytes(older)
-        assertEquals(FailureStore.TAMPER_FAILURES, open(dir).load(clock).failures)
+        assertEquals(1, open(dir).load(clock).failures)
     }
 
     @Test
@@ -164,7 +167,7 @@ class FailureStoreTest {
     }
 
     @Test
-    fun wallClockMovedBackwardIsTampering() {
+    fun wallClockMovedBackwardKeepsTheFailureCountAndRestartsTheWaitAtTheFullCap() {
         val dir = File(tmp.root, "vault")
         val clock = FakeClock()
         val store = open(dir)
@@ -172,7 +175,14 @@ class FailureStoreTest {
         store.recordFailure(store.load(clock), clock)
 
         clock.wall -= 5
-        assertEquals(FailureStore.TAMPER_FAILURES, open(dir).load(clock).failures)
+        val locked = open(dir).load(clock)
+        assertEquals(1, locked.failures)
+        val delay = FailureDelay(FakeClock.START_WALL)
+        assertTrue(delay.isBlocked(locked, clock))
+        clock.advance(FailureDelay.DEFAULT_CAP_MS - 1)
+        assertTrue(delay.isBlocked(locked, clock))
+        clock.advance(1)
+        assertFalse(delay.isBlocked(locked, clock))
     }
 
     @Test
@@ -214,7 +224,7 @@ class FailureStoreTest {
     }
 
     @Test
-    fun aDecreasedBootCountIsTamperingAndLocksAtTheStrictestCap() {
+    fun aDecreasedBootCountKeepsTheCountAndCapAndRestartsTheWaitAtTheCap() {
         val dir = File(tmp.root, "vault")
         val clock = FakeClock()
         val store = open(dir) { 8 }
@@ -222,10 +232,17 @@ class FailureStoreTest {
         store.recordLimits(store.load(clock), 10_000L, FailureDelay.DEFAULT_WIPE_AFTER, clock)
         store.recordFailure(store.load(clock), clock)
 
-        // No reboot lowers the count. The copies still verify, and the owner's 5 s cap is kept on paper, but the lock is the strictest one.
+        // No reboot lowers the count. The copies still verify, so the one failure and the owner's 10 s cap are kept, and the wait
+        // restarts at that cap.
         val locked = open(dir) { 7 }.load(clock)
-        assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
-        assertEquals(FailureDelay.MAX_CAP_MS, locked.capMs)
+        assertEquals(1, locked.failures)
+        assertEquals(10_000L, locked.capMs)
+        val delay = FailureDelay(FakeClock.START_WALL, 10_000L)
+        assertTrue(delay.isBlocked(locked, clock, bootCount = 7))
+        clock.advance(9_999)
+        assertTrue(delay.isBlocked(locked, clock, bootCount = 7))
+        clock.advance(1)
+        assertFalse(delay.isBlocked(locked, clock, bootCount = 7))
     }
 
     @Test
@@ -381,10 +398,12 @@ class FailureStoreTest {
 
         // The backup still verifies, so its cap is kept, and saving the lockout rewrites the primary.
         val locked = open(dir).load(clock)
-        assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
+        assertEquals(0, locked.failures)
         assertEquals(10_000L, locked.capMs)
+        // Even with no wrong try, the tampered lockout holds the owner's cap.
+        assertTrue(FailureDelay(FakeClock.START_WALL, 10_000L).isBlocked(locked, clock))
         val repaired = open(dir).load(clock)
-        assertEquals(FailureStore.TAMPER_FAILURES, repaired.failures)
+        assertEquals(0, repaired.failures)
         assertEquals(10_000L, repaired.capMs)
     }
 
@@ -417,7 +436,7 @@ class FailureStoreTest {
         dir.backup().delete()
 
         val locked = open(dir).load(clock)
-        assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
+        assertEquals(0, locked.failures)
         assertEquals(10_000L, locked.capMs)
     }
 
@@ -450,7 +469,7 @@ class FailureStoreTest {
         dir.primary().writeBytes(olderOneHour)
 
         val locked = open(dir).load(clock)
-        assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
+        assertEquals(0, locked.failures)
         assertEquals(10_000L, locked.capMs)
     }
 
@@ -469,7 +488,7 @@ class FailureStoreTest {
         FailureStore.forget(dir)
 
         val locked = open(dir).load(clock)
-        assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
+        assertEquals(0, locked.failures)
         assertEquals(FailureDelay.MAX_CAP_MS, locked.capMs)
     }
 
@@ -678,6 +697,126 @@ class FailureStoreTest {
         assertEquals(6L, next.seq)
         assertEquals(1, keys.failureMacKeyCount())
         assertEquals(next, open(dir).load(clock))
+    }
+
+    /** One day in milliseconds. */
+    private val day = 24L * 60 * 60 * 1000
+
+    @Test
+    fun aClockSetBackIntoTheLearningWeekKeepsTheOwnersCap() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir) { 7 }
+        store.initialize(clock)
+        store.recordLimits(store.load(clock), FailureDelay.MAX_CAP_MS, FailureDelay.DEFAULT_WIPE_AFTER, clock)
+
+        // A month passes, then the clock is set back to the vault's first day.
+        clock.advance(30 * day)
+        clock.wall = FakeClock.START_WALL + day
+        var state = store.load(clock)
+        repeat(4) { state = store.recordFailure(state, clock) }
+
+        // Four wrong tries under the owner's one-hour cap wait 80 s. The learning cap would wait 10 s.
+        clock.advance(79_999)
+        assertTrue(store.checkDelay(clock, FakeClock.START_WALL).blocked)
+        clock.advance(1)
+        assertFalse(store.checkDelay(clock, FakeClock.START_WALL).blocked)
+    }
+
+    @Test
+    fun aClockSetBeforeTheVaultWasMadeIsPastTheLearningWeek() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir) { 7 }
+        store.initialize(clock)
+        store.recordLimits(store.load(clock), FailureDelay.MAX_CAP_MS, FailureDelay.DEFAULT_WIPE_AFTER, clock)
+
+        clock.wall = FakeClock.START_WALL - day
+        var state = store.load(clock)
+        repeat(4) { state = store.recordFailure(state, clock) }
+
+        clock.advance(79_999)
+        assertTrue(store.checkDelay(clock, FakeClock.START_WALL).blocked)
+        clock.advance(1)
+        assertFalse(store.checkDelay(clock, FakeClock.START_WALL).blocked)
+    }
+
+    @Test
+    fun aNewVaultKeepsTheLearningCap() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir) { 7 }
+        store.initialize(clock)
+        store.recordLimits(store.load(clock), FailureDelay.MAX_CAP_MS, FailureDelay.DEFAULT_WIPE_AFTER, clock)
+        var state = store.load(clock)
+        repeat(4) { state = store.recordFailure(state, clock) }
+
+        clock.advance(FailureDelay.LEARNING_CAP_MS)
+        assertFalse(store.checkDelay(clock, FakeClock.START_WALL).blocked)
+    }
+
+    @Test
+    fun aRebootSeenOnlyByTheBootCountEndsTheLearningWeek() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        var bootCount = 7
+        val store = open(dir) { bootCount }
+        store.initialize(clock)
+        store.recordLimits(store.load(clock), FailureDelay.MAX_CAP_MS, FailureDelay.DEFAULT_WIPE_AFTER, clock)
+
+        // The device reboots. Its clock reads past the reading at creation, so only BOOT_COUNT shows the reboot.
+        FailureStore.forget(dir)
+        bootCount = 8
+        clock.elapsed = FakeClock.START_ELAPSED + 60_000L
+        var state = open(dir) { bootCount }.load(clock)
+        repeat(4) { state = open(dir) { bootCount }.recordFailure(state, clock) }
+
+        clock.advance(79_999)
+        assertTrue(open(dir) { bootCount }.checkDelay(clock, FakeClock.START_WALL).blocked)
+        clock.advance(1)
+        assertFalse(open(dir) { bootCount }.checkDelay(clock, FakeClock.START_WALL).blocked)
+    }
+
+    @Test
+    fun aForwardClockJumpDoesNotShortenAPendingWait() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir) { 7 }
+        store.initialize(clock)
+        clock.advance(30 * day)
+        store.recordLimits(store.load(clock), FailureDelay.MAX_CAP_MS, FailureDelay.DEFAULT_WIPE_AFTER, clock)
+        var state = store.load(clock)
+        repeat(4) { state = store.recordFailure(state, clock) }
+
+        // Twenty seconds into the 80 s wait, the wall clock jumps an hour forward. The monotonic clock still sets the wait.
+        clock.advance(20_000)
+        clock.wall += FailureDelay.MAX_CAP_MS
+        assertTrue(store.checkDelay(clock, FakeClock.START_WALL).blocked)
+        clock.advance(59_999)
+        assertTrue(store.checkDelay(clock, FakeClock.START_WALL).blocked)
+        clock.advance(1)
+        assertFalse(store.checkDelay(clock, FakeClock.START_WALL).blocked)
+    }
+
+    @Test
+    fun aLockoutWithNoWrongTryEndsAfterItsCapEvenWhenTheOwnerRetries() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir)
+        store.initialize(clock)
+        store.recordLimits(store.load(clock), 10_000L, FailureDelay.DEFAULT_WIPE_AFTER, clock)
+
+        // Tamper with the owner's cap in the primary copy. The backup verifies, and the lockout keeps no wrong try.
+        val bytes = dir.primary().readBytes()
+        bytes[capOffset + 7] = (bytes[capOffset + 7].toInt() xor 0x01).toByte()
+        dir.primary().writeBytes(bytes)
+
+        assertTrue(open(dir).checkDelay(clock, FakeClock.START_WALL).blocked)
+        // A retry during the wait saves the time served, so the wait still ends 10 s after the lockout, not 10 s after the retry.
+        clock.advance(6_000)
+        assertTrue(open(dir).checkDelay(clock, FakeClock.START_WALL).blocked)
+        clock.advance(4_000)
+        assertFalse(open(dir).checkDelay(clock, FakeClock.START_WALL).blocked)
     }
 
     @Test
