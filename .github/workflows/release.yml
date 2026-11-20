@@ -1,0 +1,191 @@
+name: release
+
+# Signed GitHub releases for Lensly and Lumio. A tag push builds one app, signs it with the keystore in the repository secrets,
+# checks the result, and publishes a GitHub release with the APK, SHA256SUMS and a build provenance attestation. No other event
+# runs this workflow, and no release is built or uploaded from a laptop. docs/releasing.md has the steps.
+#
+# lensly-v<versionName> builds :app (package app.lensly). lumio-v<versionName> builds :lumio (package app.lumio).
+
+on:
+  push:
+    tags:
+      - 'lensly-v*'
+      - 'lumio-v*'
+
+# Least privilege at the top. contents writes the release; id-token and attestations sign the build provenance.
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    name: release ${{ github.ref_name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      # fetch-depth 0: versionCode is the commit count of HEAD (app/build.gradle.kts). A shallow clone would build code 1.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          # A signed release builds from a clean state: never restore a cache another run wrote.
+          cache-disabled: true
+
+      - name: Resolve the app and version from the tag
+        id: tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          case "$TAG" in
+            lensly-v*) app=lensly; module=app ;;
+            lumio-v*) app=lumio; module=lumio ;;
+            *) echo "::error::Tag $TAG is neither lensly-v<version> nor lumio-v<version>."; exit 1 ;;
+          esac
+          version="${TAG#"$app"-v}"
+          # The tag must name the versionName the module builds, so the release and the APK carry the same version.
+          module_version=$(sed -n 's/^ *versionName = "\(.*\)"$/\1/p' "$module/build.gradle.kts")
+          if [ "$module_version" != "$version" ]; then
+            echo "::error::Tag $TAG names version $version, but $module/build.gradle.kts has versionName \"$module_version\"."
+            exit 1
+          fi
+          # A 0.x version, or one with a suffix such as -rc.1, is a prerelease.
+          case "$version" in
+            0.* | *-*) prerelease=true ;;
+            *) prerelease=false ;;
+          esac
+          # The newest build-tools on the runner image provide zipalign, apksigner and aapt2.
+          build_tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          if [ -z "$build_tools" ]; then
+            echo "::error::No Android build-tools under $ANDROID_HOME."
+            exit 1
+          fi
+          {
+            echo "app=$app"
+            echo "module=$module"
+            echo "version=$version"
+            echo "prerelease=$prerelease"
+            echo "apk=$app-v$version.apk"
+          } >> "$GITHUB_OUTPUT"
+          echo "BUILD_TOOLS=$build_tools" >> "$GITHUB_ENV"
+
+      # The release build type has no signingConfig, so this APK is unsigned. The next step signs it.
+      - name: Build the release APK with R8
+        env:
+          MODULE: ${{ steps.tag.outputs.module }}
+        run: ./gradlew ":$MODULE:assembleRelease"
+
+      - name: Align and sign the APK
+        env:
+          APP: ${{ steps.tag.outputs.app }}
+          MODULE: ${{ steps.tag.outputs.module }}
+          APK: ${{ steps.tag.outputs.apk }}
+          LENSLY_KEYSTORE_B64: ${{ secrets.LENSLY_KEYSTORE_B64 }}
+          LENSLY_KEYSTORE_PASS: ${{ secrets.LENSLY_KEYSTORE_PASS }}
+          LUMIO_KEYSTORE_B64: ${{ secrets.LUMIO_KEYSTORE_B64 }}
+          LUMIO_KEYSTORE_PASS: ${{ secrets.LUMIO_KEYSTORE_PASS }}
+        run: |
+          set -euo pipefail
+          case "$APP" in
+            lensly) keystore_b64=$LENSLY_KEYSTORE_B64 keystore_pass=$LENSLY_KEYSTORE_PASS ;;
+            lumio) keystore_b64=$LUMIO_KEYSTORE_B64 keystore_pass=$LUMIO_KEYSTORE_PASS ;;
+          esac
+          if [ -z "$keystore_b64" ] || [ -z "$keystore_pass" ]; then
+            echo "::error::Signing $APP needs the repository secrets ${APP^^}_KEYSTORE_B64 and ${APP^^}_KEYSTORE_PASS (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+          unsigned="$MODULE/build/outputs/apk/release/$MODULE-release-unsigned.apk"
+          if [ ! -f "$unsigned" ]; then
+            echo "::error::The release build produced no $unsigned."
+            exit 1
+          fi
+          # The keystore exists in $RUNNER_TEMP only until the cleanup step after this one, which runs even if signing fails.
+          umask 077
+          printf '%s' "$keystore_b64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+          export KEYSTORE_PASS="$keystore_pass"
+          aligned="$RUNNER_TEMP/$APP-aligned.apk"
+          "$BUILD_TOOLS/zipalign" -f -P 16 4 "$unsigned" "$aligned"
+          mkdir -p dist
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks "$RUNNER_TEMP/release.keystore" --ks-key-alias "$APP" \
+            --ks-pass env:KEYSTORE_PASS --key-pass env:KEYSTORE_PASS \
+            --v1-signing-enabled false --v2-signing-enabled true --v3-signing-enabled true --v4-signing-enabled false \
+            --out "dist/$APK" "$aligned"
+
+      - name: Delete the decoded keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.keystore"
+
+      - name: Verify the signature and the permissions
+        env:
+          APP: ${{ steps.tag.outputs.app }}
+          APK: ${{ steps.tag.outputs.apk }}
+        run: |
+          set -euo pipefail
+          apk="dist/$APK"
+          "$BUILD_TOOLS/zipalign" -c -P 16 4 "$apk"
+          # apksigner checks the v2 block only below API 28, where v3 takes over. Verifying from API 24 makes it check v2 too.
+          verify=$("$BUILD_TOOLS/apksigner" verify --verbose --print-certs --min-sdk-version 24 "$apk")
+          echo "$verify"
+          grep -Eq '^Verified using v2 scheme .*: true$' <<<"$verify" \
+            || { echo "::error::$APK is not signed with the v2 scheme."; exit 1; }
+          grep -Eq '^Verified using v3 scheme .*: true$' <<<"$verify" \
+            || { echo "::error::$APK is not signed with the v3 scheme."; exit 1; }
+          cert=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' <<<"$verify")
+          if [ -z "$cert" ]; then
+            echo "::error::apksigner printed no signing certificate digest for $APK."
+            exit 1
+          fi
+          echo "CERT_SHA256=$cert" >> "$GITHUB_ENV"
+          if [ "$APP" = lensly ]; then
+            permissions=$("$BUILD_TOOLS/aapt2" dump permissions "$apk")
+            if grep -Fq "name='android.permission.INTERNET'" <<<"$permissions"; then
+              echo "::error::Lensly is an offline vault and must not request android.permission.INTERNET."
+              exit 1
+            fi
+          fi
+
+      - name: Write SHA256SUMS
+        env:
+          APK: ${{ steps.tag.outputs.apk }}
+        run: (cd dist && sha256sum "$APK" > SHA256SUMS)
+
+      - name: Attest the APK's build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/${{ steps.tag.outputs.apk }}
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          APP: ${{ steps.tag.outputs.app }}
+          APK: ${{ steps.tag.outputs.apk }}
+          PRERELEASE: ${{ steps.tag.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          apk_sha=$(sha256sum "dist/$APK" | cut -d' ' -f1)
+          notes="$RUNNER_TEMP/notes.md"
+          cp ".github/release-notes/$APP.md" "$notes"
+          cat >> "$notes" <<EOF
+
+          ## Build
+
+          - APK: \`$APK\`
+          - APK SHA-256: \`$apk_sha\`
+          - Signing certificate SHA-256: \`$CERT_SHA256\`
+          - Source commit: \`$GITHUB_SHA\`
+          EOF
+          args=(--notes-file "$notes")
+          if [ "$PRERELEASE" = true ]; then args+=(--prerelease); fi
+          gh release create "$TAG" "dist/$APK" dist/SHA256SUMS "${args[@]}"
