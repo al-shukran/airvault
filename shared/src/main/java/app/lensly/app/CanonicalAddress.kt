@@ -81,3 +81,5 @@ fun btcNetworkOf(text: String): BtcNetwork? = when (chainOfAddress(text)) {
     bitcoinTestnet4 -> BtcNetwork.TESTNET4
     else -> null
 }
+
+internal fun ci567SharedProbe(): Int = 567
