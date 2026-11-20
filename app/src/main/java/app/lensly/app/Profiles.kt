@@ -1,5 +1,7 @@
 package app.lensly.app
 
+import app.lensly.app.export.PairingCodec
+
 /**
  * The fixed palette of Visual Identity colours. Each one reads on black, so a dot or an avatar of it shows on the page.
  * A record stores [wire], which never changes, so a record written now still reads after the palette is reordered.
@@ -30,8 +32,7 @@ enum class ProfileColour(val wire: Int) {
 
 /**
  * The fixed set of Visual Identity icons. The first twelve are simple glyphs from the Material core set; the rest are drawn
- * in the app, so it needs no icon library beyond the one it has. A record stores [wire], as for [ProfileColour]. The list
- * only grows: a wire written by an older build keeps its icon.
+ * in the app, so it needs no icon library beyond the one it has. A record stores [wire], as for [ProfileColour].
  */
 enum class ProfileIcon(val wire: Int) {
     STAR(1),
@@ -61,7 +62,6 @@ enum class ProfileIcon(val wire: Int) {
     GEM(25),
     ROCKET(26),
     SHIELD(27),
-    /** Wire 28 stays, so a profile that stored it still loads; it is the lantern now, not the padlock it once was. */
     LANTERN(28),
     LINK(29),
     NODE(30),
@@ -147,15 +147,15 @@ const val PROFILE_TEXT_MAX_LENGTH = 16
 /** The most groups one wallet sits in. A wallet's groups are listed on its screen, so the number stays small. */
 const val WALLET_MAX_GROUPS = 8
 
-/** True when [text] is a label or a group name: 1 to [PROFILE_TEXT_MAX_LENGTH] characters, with no control character. */
+/** True when [text] is a label or a group name: 1 to [PROFILE_TEXT_MAX_LENGTH] characters, with no control or hidden format character. */
 fun isValidProfileText(text: String): Boolean =
-    text.length in 1..PROFILE_TEXT_MAX_LENGTH && text.none { it.isISOControl() }
+    text.length in 1..PROFILE_TEXT_MAX_LENGTH && PairingCodec.hasNoHiddenCharacter(text)
 
 /** The label or group name [raw] gives once it is trimmed. @throws IllegalArgumentException if that is not a valid name. */
 fun profileTextOf(raw: String): String {
     val text = raw.trim()
     require(isValidProfileText(text)) {
-        "A label or group is 1 to $PROFILE_TEXT_MAX_LENGTH characters, with no control character."
+        "A label or group is 1 to $PROFILE_TEXT_MAX_LENGTH characters, with no control or hidden character."
     }
     return text
 }

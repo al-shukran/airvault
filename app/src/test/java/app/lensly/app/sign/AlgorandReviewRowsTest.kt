@@ -106,7 +106,7 @@ class AlgorandReviewRowsTest {
 
         assertEquals(listOf(AlgorandWarning.LEASE), review.warnings)
         assertEquals(
-            "This transaction carries a lease: it can be submitted once until round 50001000.",
+            "This transaction carries a lease: another transaction with the same lease cannot be confirmed until round 50001000.",
             algorandWarningText(review, AlgorandWarning.LEASE),
         )
         val warning = review.toReview().warnings.single()

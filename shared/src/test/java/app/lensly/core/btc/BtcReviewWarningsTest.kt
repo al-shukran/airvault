@@ -194,7 +194,7 @@ class BtcReviewWarningsTest {
     }
 
     @Test
-    fun aPsbtWithAMalformedOversizeOrRepeatedMarkIsUnmarkedAndShowsTheCaution() {
+    fun aPsbtWithAMalformedOrOversizeMarkIsUnmarkedAndShowsTheCaution() {
         val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
         val base = BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, 60_000L, 39_000L))
         val mark = BtcPsbt.RISK_MARK
@@ -207,11 +207,19 @@ class BtcReviewWarningsTest {
             "another subtype" to listOf(DataEntry(ByteVector(byteArrayOf(0xFC.toByte(), 0x08) + "airvault".encodeToByteArray() + byteArrayOf(0x02)), mark.value)),
             "key data after the subtype" to listOf(DataEntry(ByteVector(key.toByteArray() + byteArrayOf(0x00)), mark.value)),
             "an oversize key" to listOf(DataEntry(ByteVector(key.toByteArray() + ByteArray(4096)), mark.value)),
-            "a repeated mark" to listOf(mark, mark),
         )
         for ((label, entries) in cases) {
             val review = BtcFixtures.signerOf(account, seed).review(base.withInputEntries(0, entries))
             assertEquals(listOf(BtcWarning.RiskUnchecked), review.warnings(), label)
         }
+    }
+
+    @Test
+    fun aRepeatedMarkStillMarksItsInput() {
+        val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+        val psbt = BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, 60_000L, 39_000L))
+            .withInputEntries(0, listOf(BtcPsbt.RISK_MARK, BtcPsbt.RISK_MARK))
+        val review = BtcFixtures.signerOf(account, seed).review(psbt)
+        assertEquals(listOf(BtcWarning.RiskMarkedInput(0, OutPoint(spend.funding.hash, 0L))), review.warnings())
     }
 }

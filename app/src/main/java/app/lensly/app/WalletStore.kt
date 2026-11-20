@@ -170,8 +170,8 @@ class WalletStore(private val session: VaultSession) {
     }
 
     /**
-     * Saves a new wallet with one account and returns its id. The secret is written first and the metadata
-     * last, so a wallet is listed only once it is complete. If a write fails, the partial wallet is removed.
+     * Saves a new wallet with one account of each App and returns its id. The secret is written first, then the name and the metadata, which
+     * the first accounts are added to. Each App then adds its first account, in [WalletApp] order. If a write fails, the partial wallet is removed.
      *
      * @throws IllegalArgumentException if [words] is not a valid 24-word mnemonic.
      */
@@ -183,7 +183,7 @@ class WalletStore(private val session: VaultSession) {
         nowMs: Long,
         seedBackedUp: Boolean = true,
     ): String {
-        val identity = identityOf(words, passphrase.orEmpty())
+        val fingerprint = fingerprintOf(words, passphrase.orEmpty())
         val id = session.createWallet()
         try {
             val secret = WalletRecords.encodeSecret(words, passphrase)
@@ -197,13 +197,14 @@ class WalletStore(private val session: VaultSession) {
                 name = name,
                 createdAtMs = nowMs,
                 deviceGenerated = deviceGenerated,
-                accountCount = 1,
-                masterFingerprintHex = identity.fingerprintHex,
-                accountKeys = identity.keys,
+                accountCount = 0,
+                masterFingerprintHex = fingerprint,
+                accountKeys = emptyList(),
                 seedBackedUp = seedBackedUp,
             )
             session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName(name))
             session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(meta))
+            WalletApp.entries.forEach { app -> app.firstAccount(this, id) }
         } catch (e: Throwable) {
             session.deleteWallet(id)
             throw e
@@ -864,7 +865,7 @@ class WalletStore(private val session: VaultSession) {
         val accounts = selectedAccounts(indices)
         val clean = base.trim()
         require(isValidBatchBase(clean, accounts)) {
-            "A batch name is 1 to ${batchBaseMaxLength(accounts)} characters, with no control character."
+            "A batch name is 1 to ${batchBaseMaxLength(accounts)} characters, with no control or hidden character."
         }
         synchronized(session) {
             requireAccounts(id, accounts)
@@ -998,8 +999,6 @@ class WalletStore(private val session: VaultSession) {
             }
         }
 
-    private class Identity(val fingerprintHex: String, val keys: List<AccountXpub>)
-
     /** The public account key of account [account] of wallet [id], derived from its seed. The seed is zeroed here. */
     private fun accountKeyOf(id: String, account: Int): AccountXpub {
         val seed = seedOf(id)
@@ -1010,11 +1009,11 @@ class WalletStore(private val session: VaultSession) {
         }
     }
 
-    private fun identityOf(words: List<String>, passphrase: String): Identity {
+    /** The master fingerprint of the wallet that [words] and [passphrase] make, as 8 lowercase hex characters. The seed is zeroed here. */
+    private fun fingerprintOf(words: List<String>, passphrase: String): String {
         val seed = Mnemonic.toSeed(words, passphrase)
         try {
-            val wallet = HdWallet(seed)
-            return Identity(wallet.masterFingerprintHex, listOf(wallet.accountXpub(0)))
+            return HdWallet(seed).masterFingerprintHex
         } finally {
             seed.fill(0)
         }

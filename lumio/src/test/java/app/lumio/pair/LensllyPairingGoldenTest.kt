@@ -42,8 +42,8 @@ class LensllyPairingGoldenTest {
         val named = PairImport.accountsOf(payload, Networks.BIP122)
         val accounts = PairImport.bitcoinAccountsOf(payload)
 
-        // The pairing carries the two Bitcoin accounts the owner stores, and no other Script Type.
-        assertEquals(2, named.size)
+        // The pairing carries the three Bitcoin accounts the wallet stores, and no other Script Type.
+        assertEquals(3, named.size)
         assertEquals(named.size, accounts.size)
         val cold = keyOf(accounts, ScriptType.NATIVE_SEGWIT, index = 0)
         assertEquals(Triple("Cold BTC", "vault", "Long term"), named[cold].let { Triple(it.name, it.label, it.group) })

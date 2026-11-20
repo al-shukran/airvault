@@ -45,6 +45,8 @@ data class OffChainDomain(
     val primaryTypes: Set<String>,
     /** True when the message carries a hash of the action and not the action, so the review cannot show what the action does. */
     val hashesAction: Boolean = false,
+    /** The primary type that lets another key act for the account, or null. The review gives its message the DANGER of an ApproveAgent. */
+    val agentApprovalType: String? = null,
 ) {
     /** The title the review gives the signature. */
     val title: String get() = "Off-Chain Signature for $label"
@@ -58,10 +60,13 @@ val OFF_CHAIN_DOMAINS: List<OffChainDomain> = listOf(
     // hyperliquid/utils/signing.py, l1_payload.
     OffChainDomain("Exchange", "1", 1337, ZERO_ADDRESS, "Hyperliquid", setOf("Agent"), hashesAction = true),
     // Hyperliquid user-signed actions. signing.py, user_signed_payload; sign_user_signed_action sets signatureChainId to 0x66eee (421614).
-    OffChainDomain("HyperliquidSignTransaction", "1", 421614, ZERO_ADDRESS, "Hyperliquid", HYPERLIQUID_USER_SIGNED),
+    OffChainDomain(
+        "HyperliquidSignTransaction", "1", 421614, ZERO_ADDRESS, "Hyperliquid", HYPERLIQUID_USER_SIGNED,
+        agentApprovalType = "HyperliquidTransaction:ApproveAgent",
+    ),
     // AsterDex agent approval, registerAndApproveAgent, for an EVM user. github.com/asterdex/api-docs, V3 futures doc,
     // "Register and Approve Agent"; its primaryType is Message.
-    OffChainDomain("AsterSignTransaction", "1", 56, ZERO_ADDRESS, "AsterDex", setOf("Message")),
+    OffChainDomain("AsterSignTransaction", "1", 56, ZERO_ADDRESS, "AsterDex", setOf("Message"), agentApprovalType = "Message"),
     // AsterDex master-account signature, such as sub-account creation. The same doc, "Supported Signing Algorithms" (chainId=1666).
     OffChainDomain("AsterSignTransaction", "1", 1666, ZERO_ADDRESS, "AsterDex", setOf("Message")),
 )

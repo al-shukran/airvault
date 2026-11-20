@@ -110,7 +110,7 @@ class SignPipeline(
         return when (val result = reviews.review(parsed, address, path)) {
             is EvmReviewResult.Ok -> Prepared.Ready(
                 review = result.review,
-                signer = SigningAccount(name = label, walletName = wallet.name, address = address),
+                signer = SigningAccount(name = label, walletName = wallet.name, address = address, isAddressKey = key.accountIndex == null),
                 request = request,
                 key = key,
                 walletId = wallet.id,

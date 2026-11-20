@@ -241,6 +241,7 @@ class AlgoTxnDecoderTest {
         assertRefused(paymentWith("snd" to null), "missing required field 'snd'")
         assertRefused(paymentWith("fv" to null), "missing required field 'fv'")
         assertRefused(paymentWith("lv" to null), "missing required field 'lv'")
+        assertRefused(paymentWith("lv" to uint(0)), "'lv' is zero or empty")
         assertRefused(paymentWith("gh" to null), "missing required field 'gh'")
         assertRefused(paymentWith("rcv" to null), "missing required field 'rcv'")
         assertRefused(assetWith("xaid" to null), "missing required field 'xaid'")

@@ -69,7 +69,7 @@ object PairImport {
     private const val OUT_OF_ORDER = "The code's accounts on one chain are not numbered 0 to n-1 in order."
     private const val DUPLICATE = "The code lists one account more than once."
     private const val BAD_KEY = "The code's public key is not valid."
-    private const val BAD_ADDRESS = "The code's Address Book holds an address that is not a valid Ethereum or Bitcoin address."
+    private const val BAD_ADDRESS = "The code's Address Book holds an address that is not a valid address of a supported chain."
     private const val COMPRESSED_KEY_BYTES = 33
     private const val ED25519_KEY_BYTES = 32
     private const val CHAIN_CODE_BYTES = 32
@@ -105,8 +105,8 @@ object PairImport {
     }
 
     /**
-     * The Address Book entries with each address in its canonical form. An entry whose address is neither a valid Ethereum nor a valid
-     * Bitcoin address refuses the whole code, so Lumio never keeps a name for an address it cannot read. The count is bounded by the codec.
+     * The Address Book entries with each address in its canonical form. An entry whose address is not valid on any chain that
+     * [canonicalAddressOf] accepts refuses the whole code, so Lumio never keeps a name for an address it cannot read. The count is bounded by the codec.
      */
     private fun addressBookOf(book: List<AddressBookEntry>): List<AddressBookEntry> = book.map { entry ->
         entry.copy(address = canonicalAddressOf(entry.address) ?: throw PairingRefusal(BAD_ADDRESS))

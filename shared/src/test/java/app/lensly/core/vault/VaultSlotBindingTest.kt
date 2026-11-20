@@ -73,7 +73,7 @@ class VaultSlotBindingTest {
 
     @Test
     fun anOlderHeaderIsRefusedBeforeAnyPasswordIsChecked() {
-        // Version 1 is the header of every vault made before the slot key.
+        // Version 1 is refused.
         patchByte(layout.header, index = 4, value = 1)
 
         assertTrue(vault.formatChanged())
@@ -84,7 +84,7 @@ class VaultSlotBindingTest {
 
     @Test
     fun anOlderKeyFileIsRefusedAsAFormatChange() {
-        // Version 2 is the key file before the slot key.
+        // Version 2 is refused.
         patchByte(layout.vaultKey, index = 4, value = 2)
 
         assertFailsWith<VaultFormatChangedException> { attempt(APP) }
@@ -107,7 +107,7 @@ class VaultSlotBindingTest {
         vault.setDuress(session, DURESS.toCharArray()) { decoy -> decoy.createWallet() }
     }
 
-    /** Overwrites one byte of [file], as an older build or an edited copy would leave it. */
+    /** Overwrites one byte of [file], as an edited copy would leave it. */
     private fun patchByte(file: File, index: Int, value: Int) {
         val bytes = file.readBytes()
         bytes[index] = value.toByte()
