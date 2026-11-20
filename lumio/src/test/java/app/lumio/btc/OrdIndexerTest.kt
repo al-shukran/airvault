@@ -111,6 +111,20 @@ class OrdIndexerTest {
     }
 
     @Test
+    fun anAnswerNestedTooDeepLeavesItsOutputUnmarkedAndUnparsed() = runBlocking<Unit> {
+        // An inscription behind 100,000 levels of arrays. Parsing it would overflow the stack, so it is refused before the parse.
+        val depth = 100_000
+        ord.enqueue(answer("""{"inscriptions":[${"[".repeat(depth)}${"]".repeat(depth)}]}"""))
+
+        assertEquals(emptySet(), indexer().markedOutputs(listOf(txid to 0)))
+    }
+
+    @Test
+    fun aBracketInsideAStringDoesNotCountTowardTheDepth() {
+        assertTrue(markedAnswer("""{"inscriptions":[{"note":"${"[".repeat(100)}\"]"}]}"""))
+    }
+
+    @Test
     fun aServerErrorLeavesItsOutputUnmarked() = runBlocking<Unit> {
         ord.enqueue(MockResponse().setResponseCode(500))
         ord.enqueue(MockResponse().setResponseCode(404))
