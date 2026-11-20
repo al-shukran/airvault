@@ -40,6 +40,9 @@ private const val SENDER_MISMATCH = "Key does not match account"
 /** The reason for typed data whose hashes the approved review does not show, so nothing is signed for the request. */
 private const val HASHES_MISMATCH = "The review does not show the hashes of the typed data it signs."
 
+/** The reason for a request that does not name exactly one signer, whose key the sign takes its path from. */
+private const val NOT_ONE_SIGNER = "The request does not name exactly one signer."
+
 /**
  * The Lensly (signer) side of the EVM chain app: its manifest, its request parser, its address codec, and the signing of an approved request.
  */
@@ -83,7 +86,7 @@ object EvmSigner : SignerApp {
     /**
      * Signs the request of [request] that [approval] reviewed, with the key at the path its header names, and answers with the `eth-signature`.
      * The request is read again from its body. The key must be the sender the review shows, so a key of another account signs nothing. The
-     * signature covers the body, which is the one the review was built from.
+     * signature covers the data the review shows: the transaction or message of the body, and the typed data that signData reads to.
      */
     override fun sign(request: AppRequest, approval: Approval, keys: KeyAccess): SignResponse {
         val parsed = EvmRequestBody.decode(request.body)
@@ -92,7 +95,8 @@ object EvmSigner : SignerApp {
         val reviewChain = reviewChainId(parsed) ?: throw IllegalArgumentException(NO_NETWORK)
         require(approval.review.chain == ChainId("eip155:$reviewChain")) { "The approval is for another chain." }
         val requestId = requireNotNull(parsed.request.requestId) { NO_REQUEST_ID }
-        val path = Path(request.header.signers.single().path.ifEmpty { singleKeyPath.steps })
+        val signer = request.header.signers.singleOrNull() ?: throw IllegalArgumentException(NOT_ONE_SIGNER)
+        val path = Path(signer.path.ifEmpty { singleKeyPath.steps })
         val sender = addressOf(keys.publicKey(Curve.SECP256K1, path).bytes)
         require(sender.equals(senderOf(approval.review), ignoreCase = true)) { SENDER_MISMATCH }
         val signDigest: (ByteArray) -> EcdsaSignature = { digest -> keys.signEcdsaSecp256k1(path, digest) }
@@ -101,7 +105,11 @@ object EvmSigner : SignerApp {
             DataType.TRANSACTION, DataType.TYPED_TRANSACTION -> TxSigner.signatureOf(signData, txOf(parsed), signDigest)
             DataType.PERSONAL_MESSAGE -> MessageSigner.signatureOf(signData, signDigest)
             DataType.TYPED_DATA -> {
-                val typed = typedOf(parsed)
+                // The signature covers the typed data signData reads to, so that data is read again here and must be the reviewed data.
+                val typed = when (val result = TypedDataParser.parse(signData)) {
+                    is TypedDataParser.Result.Ok -> result.data
+                    is TypedDataParser.Result.Rejected -> throw IllegalArgumentException(result.reason)
+                }
                 requireReviewedHashes(approval.review, typed)
                 TypedDataSigner.signatureOf(typed, signDigest)
             }
@@ -139,12 +147,5 @@ private fun hashRowOf(review: Review, label: String): String? =
 private fun txOf(parsed: ParsedRequest): UnsignedTx = when (val tx = parsed.tx) {
     is UnsignedTx.Result.Ok -> tx.tx
     is UnsignedTx.Result.Rejected -> throw IllegalArgumentException(tx.reason)
-    null -> throw IllegalArgumentException(CANNOT_BE_READ)
-}
-
-/** The typed data of [parsed], which the request must parse to. */
-private fun typedOf(parsed: ParsedRequest): TypedData = when (val typed = parsed.typed) {
-    is TypedDataParser.Result.Ok -> typed.data
-    is TypedDataParser.Result.Rejected -> throw IllegalArgumentException(typed.reason)
     null -> throw IllegalArgumentException(CANNOT_BE_READ)
 }

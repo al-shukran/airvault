@@ -92,6 +92,7 @@ object EvmRequestBody {
             is TypedDataParser.Result.Ok -> {
                 int(TYPED_OK)
                 typedData(typed.data)
+                unsignedMembers(typed.unsigned)
             }
             is TypedDataParser.Result.Rejected -> {
                 int(TYPED_REJECTED)
@@ -113,7 +114,7 @@ object EvmRequestBody {
         val multicall = optional { batchOf(level = 1) }
         val typed: TypedDataParser.Result? = when (int()) {
             NO_TYPED -> null
-            TYPED_OK -> TypedDataParser.Result.Ok(typedDataOf())
+            TYPED_OK -> TypedDataParser.Result.Ok(typedDataOf(), unsignedMembersOf())
             TYPED_REJECTED -> TypedDataParser.Result.Rejected(text())
             else -> throw WireException("unknown typed data result")
         }
@@ -193,8 +194,11 @@ object EvmRequestBody {
         val primaryType = text(MAX_TYPED_NAME_BYTES)
         if (EIP712_DOMAIN !in types || primaryType !in types) throw WireException("the typed data names an unknown type")
         try {
+            checkDomainMembersAtomic(types)
             TypedData.checkSchema(types)
             val domain = typedValueOf(EIP712_DOMAIN, types) as TypedValue.StructValue
+            checkDomainChainId(types, domain)
+            checkColonTypeNames(types, domain)
             val message = typedValueOf(primaryType, types) as TypedValue.StructValue
             return TypedData(types, primaryType, domain, message)
         } catch (e: IllegalArgumentException) {
@@ -220,6 +224,25 @@ object EvmRequestBody {
             val magnitude = big()
             TypedValue.IntValue(if (negative) magnitude.negate() else magnitude)
         }
+    }
+
+    /** The members a message adds beside its typed fields, as text, in the order the document gives them. The review lists them as not signed. */
+    private fun WireWriter.unsignedMembers(members: Map<String, String>) {
+        count(members.size, ParserLimits.MAX_TYPED_VALUES)
+        members.forEach { (name, value) ->
+            text(name, ParserLimits.MAX_SIGN_DATA_BYTES)
+            text(value, ParserLimits.MAX_SIGN_DATA_BYTES)
+        }
+    }
+
+    /** The unsigned members that [unsignedMembers] wrote. A name appears once, so a repeated one is broken. */
+    private fun WireReader.unsignedMembersOf(): Map<String, String> {
+        val members = LinkedHashMap<String, String>()
+        repeat(count(ParserLimits.MAX_TYPED_VALUES)) {
+            val name = text(ParserLimits.MAX_SIGN_DATA_BYTES)
+            if (members.put(name, text(ParserLimits.MAX_SIGN_DATA_BYTES)) != null) throw WireException("an unsigned member appears twice")
+        }
+        return members
     }
 
     private fun WireWriter.transaction(tx: UnsignedTx) {
