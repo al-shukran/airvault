@@ -65,11 +65,16 @@ class OrdIndexer(http: Http, private val base: HttpUrl, private val budgetMs: Lo
         .build()
 }
 
+/** The deepest nesting of arrays and objects an `ord` answer may have. A real answer is a few levels deep; a deeper one is never parsed. */
+private const val MAX_ANSWER_DEPTH = 32
+
 /**
  * Whether an `ord` answer names an inscription or a rune on its output: a non-empty `inscriptions` array, or a non-empty `runes` map or array. Each
- * field is judged on its own, so a field of another shape contributes nothing. Text that is not a JSON object marks nothing.
+ * field is judged on its own, so a field of another shape contributes nothing. Text that is not a JSON object marks nothing, and so does an
+ * answer nested deeper than [MAX_ANSWER_DEPTH], which is refused before parsing since a parser that deep can overflow the stack.
  */
 internal fun markedAnswer(text: String): Boolean {
+    if (nestedTooDeep(text)) return false
     val root = try {
         Json.parseToJsonElement(text)
     } catch (e: SerializationException) {
@@ -81,6 +86,26 @@ internal fun markedAnswer(text: String): Boolean {
     return (answer["inscriptions"] as? JsonArray)?.isNotEmpty() == true ||
         (answer["runes"] as? JsonObject)?.isNotEmpty() == true ||
         (answer["runes"] as? JsonArray)?.isNotEmpty() == true
+}
+
+/** True when [text] nests arrays or objects deeper than [MAX_ANSWER_DEPTH]. A bracket inside a string does not count. */
+private fun nestedTooDeep(text: String): Boolean {
+    var depth = 0
+    var inString = false
+    var escaped = false
+    for (c in text) {
+        when {
+            inString -> when {
+                escaped -> escaped = false
+                c == '\\' -> escaped = true
+                c == '"' -> inString = false
+            }
+            c == '"' -> inString = true
+            c == '[' || c == '{' -> if (++depth > MAX_ANSWER_DEPTH) return true
+            c == ']' || c == '}' -> depth--
+        }
+    }
+    return false
 }
 
 /**
