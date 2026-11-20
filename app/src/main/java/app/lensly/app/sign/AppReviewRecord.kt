@@ -27,13 +27,14 @@ import java.security.MessageDigest
 sealed interface AppPrepared {
     /**
      * The request names an account of the wallet and passed every rule. [request] is the parsed request, which the app signs. [accountIndex] is
-     * the account that signs, [signer] its name and address, and [counterparties] the addresses the review names, looked up on [addressChain].
+     * the account that signs, or null for a key that is no account's, such as a BIP44 address key. [signer] is its name and address, and
+     * [counterparties] the addresses the review names, looked up on [addressChain].
      */
     data class Ready(
         val walletId: String,
         val request: AppRequest,
         val review: CoreReview,
-        val accountIndex: Int,
+        val accountIndex: Int?,
         val signer: SigningAccount,
         val addressChain: ChainId,
         val counterparties: List<String>,

@@ -87,7 +87,7 @@ class SignFlowSolanaTest {
 
     @Test
     fun aSolanaRequestScannedWithoutAWalletReachesTheReviewOfTheWalletItIsFor() = runBlocking {
-        val view = WalletView(id = WALLET, masterFingerprint = FINGERPRINT, accountCount = 1, autoNameBase = "Solana", addressAt = { "" })
+        val view = WalletView(id = WALLET, masterFingerprint = FINGERPRINT, accountCount = 1, autoNameBase = "Solana", addressAt = { _, _ -> "" })
         val flow = SignFlow(SolanaPorts(wallets = listOf(view)), walletId = null)
 
         flow.onScanned(partOf(requestCbor(transfer())))
@@ -97,7 +97,7 @@ class SignFlowSolanaTest {
 
     @Test
     fun aSolanaRequestNoWalletIsForIsRefusedInPlainWordsBeforeAnyCheck() = runBlocking {
-        val other = WalletView(id = "other", masterFingerprint = FINGERPRINT xor 1, accountCount = 1, autoNameBase = "Other", addressAt = { "" })
+        val other = WalletView(id = "other", masterFingerprint = FINGERPRINT xor 1, accountCount = 1, autoNameBase = "Other", addressAt = { _, _ -> "" })
         val ports = SolanaPorts(wallets = listOf(other))
         val flow = SignFlow(ports, walletId = null)
 

@@ -32,7 +32,7 @@ private fun mnemonic(id: String, fingerprint: Int, bitcoinPaths: List<KeyPath> =
     masterFingerprint = fingerprint,
     accountCount = 1,
     autoNameBase = id,
-    addressAt = { ADDRESS },
+    addressAt = { _, _ -> ADDRESS },
     bitcoinAccountPaths = bitcoinPaths,
 )
 

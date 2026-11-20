@@ -12,6 +12,7 @@ import app.lensly.app.SigningAccount
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.Registry
+import app.lensly.core.wallet.EvmKey
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -137,7 +138,7 @@ class ReviewRecordTest {
         review = review,
         signer = SigningAccount(name = "Test 0", walletName = "Test", address = ACCOUNT),
         request = request(),
-        accountIndex = 0,
+        key = EvmKey(0, 0),
         walletId = "wallet",
     )
 

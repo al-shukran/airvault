@@ -19,6 +19,7 @@ import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
 import app.airvault.core.signer.SignerRef
 import app.lensly.app.export.partsOf
+import app.lensly.core.evm.EvmFixtures
 import app.lensly.core.evm.Secp256k1
 import app.lensly.core.evm.TxSigner
 import app.lensly.core.evm.TypedDataSigner
@@ -27,6 +28,7 @@ import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
 import app.lensly.core.ur.EthSignatureEncoder
 import app.lensly.core.ur.PathStep
+import app.lensly.core.ur.UrScanner
 import app.lensly.core.ur.framesOf
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
@@ -72,6 +74,7 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.web3j.crypto.Hash
 import org.web3j.crypto.RawTransaction
 import org.web3j.crypto.TransactionEncoder
 import org.web3j.utils.Numeric
@@ -421,6 +424,78 @@ class VaultSignPortsTest {
     }
 
     /**
+     * A Rabby account is the BIP44 address key of its index: m/44'/60'/0'/0/1 for index 1, below the two accounts of the test wallet. That key signs
+     * the transaction, and the signature recovers to the address Rabby shows for it.
+     */
+    @Test
+    fun aRabbyTransactionIsSignedWithTheBip44AddressKeyOfItsIndex() {
+        val (session, id) = sessionWithTwoAccounts()
+        try {
+            val ports = VaultSignPorts(context, holderOf(session))
+            val signData = transfer(MONAD)
+            val request = evmRequest(signData, MONAD, fingerprint = fingerprintOf(ports), bip44Index = 1)
+            val frames = signedFrames(ports, id, request)
+
+            assertEquals(expectedEvmFrames(signData, HdWallet(seed()).privateKey(0, 1)), frames)
+            assertEquals(EvmFixtures.normalize(HdWallet(seed()).address(0, 1)), recoveredSignerOf(frames, signData))
+            assertEquals("Address 1", reviewed(ports, id, request).signer.name)
+        } finally {
+            session.close()
+        }
+    }
+
+    /**
+     * The BIP44 address key of index 2 is past the wallet's two accounts: it is refused when it is prepared, and the key access refuses it when it is
+     * signed.
+     */
+    @Test
+    fun aRabbyIndexAtTheAccountCountIsRefusedWhenItIsPreparedAndWhenItIsSigned() {
+        val (session, id) = sessionWithTwoAccounts()
+        try {
+            val ports = VaultSignPorts(context, holderOf(session))
+            val fingerprint = fingerprintOf(ports)
+            val signData = transfer(MONAD)
+            val refused = assertIs<AppPrepared.Refused>(
+                runBlocking { ports.appPrepare(id, evmRequest(signData, MONAD, fingerprint = fingerprint, bip44Index = 2)) },
+            )
+            assertEquals("Unknown account", refused.reason)
+
+            // An approved review of index 1 whose header names index 2 is refused by the key access, which holds no key past the account count.
+            val ready = reviewed(ports, id, evmRequest(signData, MONAD, fingerprint = fingerprint, bip44Index = 1))
+            val indexAtCount = listOf(
+                PathStep(44, hardened = true),
+                PathStep(60, hardened = true),
+                PathStep(0, hardened = true),
+                PathStep(0, hardened = false),
+                PathStep(2, hardened = false),
+            )
+            val header = ready.request.header.copy(signers = listOf(SignerRef(fingerprint, indexAtCount)))
+            val forged = ready.copy(request = ready.request.copy(header = header))
+            val approval = assertNotNull(Approval.of(ready.review, ready.review.checkLabels().toSet()))
+
+            assertFailsWith<IllegalArgumentException> { runBlocking { ports.appSign(forged, approval) } }
+        } finally {
+            session.close()
+        }
+    }
+
+    /** Ledger Live's account 1 signs with its own key, m/44'/60'/1'/0/0, and the address it had before the BIP44 keys were signable. */
+    @Test
+    fun aLedgerLiveAccountOneIsSignedWithItsAddressAsBefore() {
+        val (session, id) = sessionWithTwoAccounts()
+        try {
+            val ports = VaultSignPorts(context, holderOf(session))
+            val signData = transfer(MONAD)
+            val frames = signedFrames(ports, id, evmRequest(signData, MONAD, fingerprint = fingerprintOf(ports), account = 1))
+
+            assertEquals(expectedEvmFrames(signData, HdWallet(seed()).privateKey(1)), frames)
+            assertEquals(EvmFixtures.normalize(HdWallet(seed()).address(1)), recoveredSignerOf(frames, signData))
+        } finally {
+            session.close()
+        }
+    }
+
+    /**
      * A Single Key wallet holds one key. Its review does not read the path a request names, so the request is signed with that key as before, even
      * when the path names another account.
      */
@@ -546,6 +621,13 @@ class VaultSignPortsTest {
         return session to id
     }
 
+    /** The session of [sessionWithWallet] with one more account, so the wallet holds accounts 0 and 1, as a Rabby request for index 1 needs. */
+    private fun sessionWithTwoAccounts(): Pair<VaultSession, String> {
+        val (session, id) = sessionWithWallet()
+        WalletStore(session).addAccounts(id, 1, BulkCap.DEFAULT.accounts)
+        return session to id
+    }
+
     /** A holder that reads and writes through [session], as the open vault does. */
     private fun holderOf(session: VaultSession): VaultHolder {
         val vault = Vault(
@@ -593,6 +675,20 @@ class VaultSignPortsTest {
         return partsOf(EthSignatureEncoder.encode(EVM_REQUEST_ID, signature))
     }
 
+    /** The address the 65-byte signature in [frames] recovers to, over the digest of the transaction [signData] that was signed. */
+    private fun recoveredSignerOf(frames: List<String>, signData: ByteArray): String {
+        assertEquals(1, frames.size)
+        val scanner = UrScanner()
+        assertTrue(scanner.receive(frames.single()))
+        val ur = assertNotNull(scanner.result())
+        val fields = (Cbor.decode(ur.cborBytes) as Cbor.Dict).entries.associate { (field, value) -> (field as Cbor.Uint).value to value }
+        val signature = (fields.getValue(2L) as Cbor.Bytes).value
+        // A legacy transaction's v is its EIP-155 value, 2 * chain id + 35 + recovery id, which takes two bytes.
+        val v = BigInteger(1, signature.copyOfRange(64, signature.size)).toInt()
+        val recoveryId = if (signature.size == 66) v - (2 * MONAD + 35).toInt() else v
+        return EvmFixtures.recoveredAddress(Hash.sha3(signData), signature.copyOfRange(0, 32), signature.copyOfRange(32, 64), recoveryId)
+    }
+
     /** The frames the sign path gave for the transaction [signData] under [key], before the sign flow moved to the chain app. */
     private fun expectedEvmFrames(signData: ByteArray, key: ByteArray): List<String> {
         val tx = assertIs<UnsignedTx.Result.Ok>(UnsignedTx.decode(signData, DataType.TRANSACTION)).tx
@@ -626,8 +722,11 @@ class VaultSignPortsTest {
         account: Long = 0L,
         address: ByteArray? = null,
         dataType: DataType = DataType.TRANSACTION,
+        bip44Index: Long? = null,
     ): AppRequest {
-        val steps = listOf(44L to true, 60L to true, account to true, 0L to false, 0L to false)
+        // The Ledger Live key of [account], or the BIP44 address key of [bip44Index], which Rabby derives from the account 0 key.
+        val steps = bip44Index?.let { listOf(44L to true, 60L to true, 0L to true, 0L to false, it to false) }
+            ?: listOf(44L to true, 60L to true, account to true, 0L to false, 0L to false)
         val keypath = buildList<Pair<Cbor, Cbor>> {
             add(Cbor.Uint(1) to Cbor.Arr(steps.flatMap { (index, hardened) -> listOf(Cbor.Uint(index), Cbor.Bool(hardened)) }))
             fingerprint?.let { add(Cbor.Uint(2) to Cbor.Uint(it.toLong() and 0xFFFF_FFFFL)) }

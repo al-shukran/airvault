@@ -115,7 +115,7 @@ class SignFlowBitcoinTest {
             masterFingerprint = BTC_ACCOUNT.masterFingerprint.toInt(),
             accountCount = 1,
             autoNameBase = "Bitcoin",
-            addressAt = { BTC_ACCOUNT.receiveAddress(0) },
+            addressAt = { _, _ -> BTC_ACCOUNT.receiveAddress(0) },
             bitcoinAccountPaths = listOf(BTC_ACCOUNT.path),
         )
         val flow = SignFlow(BitcoinPorts(prepared = { readyOf(it) }, wallets = listOf(view)), walletId = null)

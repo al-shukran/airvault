@@ -80,7 +80,7 @@ private fun isFor(request: EthSignRequest, wallet: WalletView): Boolean {
     val fingerprint = wallet.masterFingerprint
     if (fingerprint != null) return request.sourceFingerprint == fingerprint
     val requested = request.address ?: return false
-    return sameAddress(requested, wallet.addressAt(0))
+    return sameAddress(requested, wallet.addressAt(0, 0))
 }
 
 /** True when the 20 bytes [address] are the hexadecimal address [expected], in either letter case. */

@@ -975,7 +975,7 @@ CAIP-2 references for `bip122`, `solana` and `algorand` are the registry values 
 | CAIP-2 | `bip122:000000000019d6689c085ae165831e93` (mainnet), `bip122:<testnet4>` | `eip155:1`, `eip155:10143` (Monad testnet, default), `eip155:143`, `eip155:11155111`, ... | `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` (mainnet), `solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1` (devnet) | `algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k` (mainnet), `algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDe` (testnet) |
 | SLIP-44 | 0 (mainnet), 1 (testnet) | 60 | 501 | 283 |
 | Curve | SECP256K1 | SECP256K1 | ED25519_SLIP10 | ED25519_BIP32 (Ledger-style, `LedgerEd25519.kt`) |
-| Paths | per script type, BIP-44/49/84/86 under coin type | `m/44'/60'/*'/0/0` | `m/44'/501'/*'` (all hardened) | `m/44'/283'/*'/0/0` |
+| Paths | per script type, BIP-44/49/84/86 under coin type | `m/44'/60'/*'/0/0`, `m/44'/60'/0'/0/*` | `m/44'/501'/*'` (all hardened) | `m/44'/283'/*'/0/0` |
 | Capabilities | MULTI_SCRIPT_ACCOUNTS, WATCH_ONLY_EXPORT, MESSAGE_SIGNING, RAW_PRIVATE_KEY (bitcoin-kmp; aim to drop) | MESSAGE_SIGNING, TYPED_DATA_SIGNING | MESSAGE_SIGNING (off-chain message) | none |
 | Request / response UR | `crypto-psbt` | `eth-sign-request` / `eth-signature` | `sol-sign-request` / `sol-signature` | `algo-sign-request` / `algo-signature` |
 | Fungible tokens | none | ERC-20 (Lumio balances, custom add; Lensly catalogue) | SPL, Token-2022 (Lensly review; Lumio balances only) | ASA (Lensly review; Lumio does not build `axfer`) |

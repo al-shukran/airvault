@@ -16,23 +16,26 @@ import app.lensly.core.parse.RequestParser
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.UnknownCallPolicy
-import app.lensly.core.ur.PathStep
+import app.lensly.core.wallet.EvmKey
 
 /** The outcome of [SignPipeline.prepare]: a review for the user to confirm, or a refusal that says why. */
 sealed interface Prepared {
     /**
      * The review the owner reads, built by [EvmReviewBuilder] from the request that gets signed. [signer] is the account that signs, and
-     * [addressNotes] are the notes of the review's addresses, which the port reads. [accountIndex] is N in m/44'/60'/N'/0/0, and [walletId] is
-     * the wallet that holds that account. Nothing is signed here: the sign flow signs the approved request through the chain app.
+     * [addressNotes] are the notes of the review's addresses, which the port reads. [key] is the key that signs, which [walletId] holds.
+     * Nothing is signed here: the sign flow signs the approved request through the chain app.
      */
     data class Ready(
         val review: Review,
         val signer: SigningAccount,
         val request: EthSignRequest,
-        val accountIndex: Int,
+        val key: EvmKey,
         val walletId: String,
         val addressNotes: Map<String, AddressNotes> = emptyMap(),
-    ) : Prepared
+    ) : Prepared {
+        /** The account whose own key signs, or null for a BIP44 address key, which belongs to no account of the wallet. */
+        val accountIndex: Int? get() = key.accountIndex
+    }
 
     /** [call] is set when the refusal is for a contract call Lensly cannot decode, so the refusal can show it. */
     data class Refused(val reason: String, val call: UndecodedCall? = null) : Prepared
@@ -58,9 +61,10 @@ class SignPipeline(
     private val reviews = EvmReviewBuilder(registry, parser::decodeCall, proxyPolicy, unknownCalls)
 
     /**
-     * Checks the request of [parsed] against [wallet]. A Mnemonic wallet's request names its master fingerprint and an account path,
-     * m/44'/60'/N'/0/0 for account N. A Single Key wallet has neither, so its request must name the wallet's address, and only that
-     * address signs. The derivation path is not read for a Single Key.
+     * Checks the request of [parsed] against [wallet]. A Mnemonic wallet's request names its master fingerprint and the path of its key, which
+     * [EvmKey.of] reads: m/44'/60'/N'/0/0 for account N, or m/44'/60'/0'/0/N for a BIP44 address key below the account count. A Single Key
+     * wallet has neither, so its request must name the wallet's address, and only that address signs. The derivation path is not read for a
+     * Single Key.
      */
     fun prepare(parsed: ParsedRequest, wallet: WalletView): Prepared {
         val request = parsed.request
@@ -72,14 +76,16 @@ class SignPipeline(
         val origin = request.origin
         if (origin != null && !origin.all(::isPrintable)) return Prepared.Refused(UNREADABLE_ORIGIN)
         val masterFingerprint = wallet.masterFingerprint
-        val index: Int
+        val key: EvmKey
         val address: String
+        val path: String?
         if (masterFingerprint == null) {
             val requestedAddress = request.address
                 ?: return Prepared.Refused("The request does not say which address to sign with")
-            index = 0
-            address = wallet.addressAt(index)
+            key = EvmKey.SINGLE_KEY
+            address = wallet.addressAt(key.account, key.index)
             if (!sameAddress(requestedAddress, address)) return Prepared.Refused("This request is for a different address")
+            path = null
         } else {
             val sourceFingerprint = request.sourceFingerprint
                 ?: return Prepared.Refused("The request does not say which wallet it is for")
@@ -87,23 +93,26 @@ class SignPipeline(
                 return Prepared.Refused("This request is for a different wallet")
             }
 
-            val accountIndex = accountIndexOf(request.derivationPath)
-            if (accountIndex == null || accountIndex >= wallet.accountCount) return Prepared.Refused("Unknown account")
-            index = accountIndex
-            address = wallet.addressAt(index)
+            key = EvmKey.of(request.derivationPath, wallet.accountCount) ?: return Prepared.Refused("Unknown account")
+            address = wallet.addressAt(key.account, key.index)
             val requestedAddress = request.address
             if (requestedAddress != null && !sameAddress(requestedAddress, address)) {
                 return Prepared.Refused("This request is for a different address")
             }
+            path = key.path
         }
 
-        val label = wallet.accountNames[index] ?: autoAccountName(wallet.autoNameBase, index)
-        return when (val result = reviews.review(parsed, address)) {
+        // A BIP44 address key is no account, so it takes no account's name. Its review names its own address and path instead.
+        val label = when (val account = key.accountIndex) {
+            null -> "Address ${key.index}"
+            else -> wallet.accountNames[account] ?: autoAccountName(wallet.autoNameBase, account)
+        }
+        return when (val result = reviews.review(parsed, address, path)) {
             is EvmReviewResult.Ok -> Prepared.Ready(
                 review = result.review,
                 signer = SigningAccount(name = label, walletName = wallet.name, address = address),
                 request = request,
-                accountIndex = index,
+                key = key,
                 walletId = wallet.id,
             )
             is EvmReviewResult.Refused -> Prepared.Refused(result.reason, result.call)
@@ -112,25 +121,6 @@ class SignPipeline(
 
     private companion object {
         const val UNREADABLE_ORIGIN = "The request names an origin with a character Lensly cannot show."
-        const val ACCOUNT_PATH_LENGTH = 5
-
-        /** The first two steps of every Lensly account path, m/44'/60'. The third step is the account, and [ACCOUNT_PATH_SUFFIX] ends it. */
-        val ACCOUNT_PATH_PREFIX = listOf(PathStep(44, true), PathStep(60, true))
-
-        /** The last two steps of every Lensly account path, 0/0: the address of the account. */
-        val ACCOUNT_PATH_SUFFIX = listOf(PathStep(0, false), PathStep(0, false))
-
-        /**
-         * N when [path] is exactly m/44'/60'/N'/0/0, otherwise null. The old form, with the account number as the last step, is not an account path, so a request
-         * for it is refused. For N = 0 the two forms are the same key.
-         */
-        fun accountIndexOf(path: List<PathStep>): Int? {
-            if (path.size != ACCOUNT_PATH_LENGTH) return null
-            if (path.subList(0, ACCOUNT_PATH_PREFIX.size) != ACCOUNT_PATH_PREFIX) return null
-            val account = path[ACCOUNT_PATH_PREFIX.size]
-            if (!account.hardened) return null
-            return if (path.subList(ACCOUNT_PATH_PREFIX.size + 1, path.size) == ACCOUNT_PATH_SUFFIX) account.index else null
-        }
     }
 }
 

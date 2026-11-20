@@ -1,6 +1,5 @@
 package app.lensly.core.wallet
 
-import app.airvault.chains.evm.EVM_COIN_TYPE
 import app.airvault.core.model.Curve
 import app.airvault.core.signer.EcdsaSignature
 import app.airvault.core.signer.KeyAccess
@@ -30,12 +29,13 @@ import fr.acinq.bitcoin.byteVector64
  * - the Bitcoin account keys at `m/purpose'/coin'/account'/branch/index` on SECP256K1, for the purposes and coin types of [ScriptType] and
  *   [BtcNetwork], with branch 0 or 1 and a non-hardened index. These are the keys [app.lensly.core.btc.BtcAccount] derives. Only these answer
  *   a BIP340 signature;
- * - the Ethereum account key at `m/44'/60'/account'/0/0` on SECP256K1, the address key of each EVM account. It answers an ECDSA signature and
- *   a public key, and nothing else.
+ * - the Ethereum keys of the wallet's [accountCount] accounts on SECP256K1, as [EvmKey] names them: the account key at
+ *   `m/44'/60'/account'/0/0` and the BIP44 address key at `m/44'/60'/0'/0/index`, each below [accountCount]. They answer an ECDSA signature
+ *   and a public key, and nothing else. The default count of zero holds no Ethereum key, which a Bitcoin or Solana caller does not need.
  *
  * The raw private key is never handed out: [withPrivateKey] is unsupported.
  */
-class WalletKeyAccess(private val seed: ByteArray) : KeyAccess {
+class WalletKeyAccess(private val seed: ByteArray, private val accountCount: Int = 0) : KeyAccess {
     override fun publicKey(curve: Curve, path: Path): PublicKey = when (curve) {
         Curve.SECP256K1 -> PublicKey(curve, publicSecp256k1Key(path))
         Curve.ED25519_SLIP10 -> PublicKey(curve, SolanaAccount.publicKey(seed, solanaAccountOf(path)))
@@ -47,7 +47,7 @@ class WalletKeyAccess(private val seed: ByteArray) : KeyAccess {
      * Crypto.sign gives it, with the recovery id of the key's public key.
      */
     override fun signEcdsaSecp256k1(path: Path, digest32: ByteArray): EcdsaSignature =
-        withDerivedKey(secp256k1KeyPathOf(path)) { key -> ecdsaOf(key, digest32) }
+        withDerivedKey(secp256k1KeyPathOf(path, accountCount)) { key -> ecdsaOf(key, digest32) }
 
     /**
      * The BIP340 signature of [digest32] with the Bitcoin key at [path], tweaked for a taproot output. [tweak] is the merkle root of the
@@ -86,7 +86,7 @@ class WalletKeyAccess(private val seed: ByteArray) : KeyAccess {
      * child of the public node is the public key of the private child.
      */
     private fun publicSecp256k1Key(path: Path): ByteArray {
-        val steps = secp256k1KeyPathOf(path).path
+        val steps = secp256k1KeyPathOf(path, accountCount).path
         val account = rootFromSeed(seed).derivePrivateKey(KeyPath(steps.subList(0, ACCOUNT_LEVELS))).extendedPublicKey
         return account.derivePublicKey(steps[BRANCH_LEVEL]).derivePublicKey(steps[INDEX_LEVEL]).publicKey.value.toByteArray()
     }
@@ -150,19 +150,11 @@ private fun btcKeyPathOf(path: Path): KeyPath {
 }
 
 /**
- * The BIP32 path of the secp256k1 account key at [path]: a Bitcoin account key as [btcKeyPathOf] reads it, or an Ethereum account key,
- * m/44'/60'/account'/0/0, the address key of an EVM account. Any other path is refused.
+ * The BIP32 path of the secp256k1 key at [path]: one of the wallet's Ethereum keys for [accountCount] accounts, as [EvmKey.of] reads it, or a
+ * Bitcoin account key as [btcKeyPathOf] reads it. Any other path is refused.
  */
-private fun secp256k1KeyPathOf(path: Path): KeyPath {
-    val steps = path.steps
-    val isEthereumAccountKey = steps.size == 5 &&
-        steps[0] == PathStep(44, hardened = true) &&
-        steps[1] == PathStep(EVM_COIN_TYPE, hardened = true) &&
-        steps[2].hardened && steps[2].index >= 0 &&
-        steps[3] == PathStep(0, hardened = false) &&
-        steps[4] == PathStep(0, hardened = false)
-    return if (isEthereumAccountKey) bip32PathOf(steps) else btcKeyPathOf(path)
-}
+private fun secp256k1KeyPathOf(path: Path, accountCount: Int): KeyPath =
+    if (EvmKey.of(path.steps, accountCount) != null) bip32PathOf(path.steps) else btcKeyPathOf(path)
 
 /** The BIP32 path of [steps], where each hardened step carries the hardened bit. */
 private fun bip32PathOf(steps: List<PathStep>): KeyPath =

@@ -76,7 +76,7 @@ class SignFlowAlgorandTest {
 
     @Test
     fun anAlgorandRequestScannedWithoutAWalletReachesTheReviewOfTheWalletItIsFor() = runBlocking {
-        val view = WalletView(id = WALLET, masterFingerprint = FINGERPRINT, accountCount = 1, autoNameBase = "Algorand", addressAt = { "" })
+        val view = WalletView(id = WALLET, masterFingerprint = FINGERPRINT, accountCount = 1, autoNameBase = "Algorand", addressAt = { _, _ -> "" })
         val flow = SignFlow(AlgorandPorts(wallets = listOf(view)), walletId = null)
 
         flow.onScanned(partOf(requestCbor(PAY_BASIC)))
@@ -86,7 +86,7 @@ class SignFlowAlgorandTest {
 
     @Test
     fun anAlgorandRequestNoWalletIsForIsRefusedInPlainWordsBeforeAnyCheck() = runBlocking {
-        val other = WalletView(id = "other", masterFingerprint = FINGERPRINT xor 1, accountCount = 1, autoNameBase = "Other", addressAt = { "" })
+        val other = WalletView(id = "other", masterFingerprint = FINGERPRINT xor 1, accountCount = 1, autoNameBase = "Other", addressAt = { _, _ -> "" })
         val ports = AlgorandPorts(wallets = listOf(other))
         val flow = SignFlow(ports, walletId = null)
 
