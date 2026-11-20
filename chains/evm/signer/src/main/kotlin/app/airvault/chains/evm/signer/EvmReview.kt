@@ -96,10 +96,10 @@ class EvmReviewBuilder(
         private val request = parsed.request
         private val network: NetworkEntry? = registry.network(chainId)
         private val networkName = network?.name ?: "Unknown network (chain id $chainId)"
-        // A message, or typed data whose domain names no chain, that the request names no chain for is read on Ethereum mainnet, but it is
-        // bound to no network, so the header names none.
-        private val bindsNoChain = request.chainId == null && when (request.dataType) {
-            DataType.PERSONAL_MESSAGE -> true
+        // A message that the request names no chain for is read on Ethereum mainnet, but it is bound to no network, so the header
+        // names none. Typed data is bound to the chain its domain names, so only a domain that names no chain makes the header name none.
+        private val bindsNoChain = when (request.dataType) {
+            DataType.PERSONAL_MESSAGE -> request.chainId == null
             DataType.TYPED_DATA -> (parsed.typed as? TypedDataParser.Result.Ok)?.data?.domainChainId == null
             else -> false
         }
@@ -161,7 +161,8 @@ class EvmReviewBuilder(
             val offChain = offChainLabelOf(typedData.domain, typedData.primaryType)
             val verifyingContract = (typedData.domain.fields["verifyingContract"] as? TypedValue.BytesValue)
                 ?.let { checksum(it.bytes.toHex()) }
-            val denyChains = listOfNotNull(request.chainId, domainChain?.longValueExact()).distinct().ifEmpty { listOf(chainId) }
+            // Typed data that names no chain is valid on every chain, so it is matched against the entries of all of them.
+            val denyChains = if (domainChain == null) listOf<Long?>(null) else listOfNotNull(request.chainId, domainChain.longValueExact()).distinct()
             val denied = denyChains.flatMap { registry.typedDenylistMatches(it, verifyingContract, typedData.primaryType) }
             denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { throw Refusal(it.reason) }
             denied.forEach { warnings += denylistWarning(it, field = null) }

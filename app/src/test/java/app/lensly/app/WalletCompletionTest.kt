@@ -3,6 +3,7 @@ package app.lensly.app
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
+import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
@@ -66,15 +67,52 @@ class WalletCompletionTest {
     }
 
     @Test
-    fun openingTheVaultRemovesAWalletSavedByAnEarlierBuild() {
+    fun openingTheVaultKeepsAWalletWhoseMetaCannotBeRead() {
         val id = session.createWallet()
         session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName("Earlier"))
-        // Version 4 of the meta record, before the complete flag: it no longer reads.
+        // Version 4 of the meta record, before the complete flag: it no longer reads, so it is unreadable, not incomplete.
         session.putRecord(id, WalletRecords.META, byteArrayOf(4))
 
         store.dropIncomplete()
 
-        assertEquals(emptyList(), session.listWallets())
+        assertEquals(listOf(id), session.listWallets())
+    }
+
+    @Test
+    fun openingTheVaultKeepsACompleteWalletWhoseMetaFileIsDamaged() {
+        val id = store.create(name = "Demo", deviceGenerated = false, words = DEMO_WORDS, passphrase = null, nowMs = 1L)
+        val meta = File(VaultLayout(tmp.root).walletDir(id), "${WalletRecords.META}.bin")
+        // A flipped bit in the tag of the sealed record: it fails authentication, so it no longer reads, though the file is there.
+        meta.writeBytes(meta.readBytes().also { it[it.size - 1] = (it[it.size - 1].toInt() xor 1).toByte() })
+
+        store.dropIncomplete()
+
+        assertEquals(listOf(id), session.listWallets())
+        assertNull(store.meta(id))
+    }
+
+    @Test
+    fun openingTheVaultRemovesAWalletWhoseMetaWasNeverWritten() {
+        val id = session.createWallet()
+        session.putRecord(id, WalletRecords.SECRET, WalletRecords.encodeSecret(DEMO_WORDS, null))
+        session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName("Unwritten"))
+
+        store.dropIncomplete()
+
+        assertEquals(emptyList<String>(), session.listWallets())
+        assertFalse(session.hasRecord(id, WalletRecords.META))
+    }
+
+    @Test
+    fun openingTheVaultKeepsACompleteWalletWhoseBaseNameNoLongerReads() {
+        val id = store.create(name = "Demo", deviceGenerated = false, words = DEMO_WORDS, passphrase = null, nowMs = 1L)
+        // A name the Display Name rule refuses, as a '?' name saved before the rule was enforced: its base name no longer reads.
+        session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName("Bad?"))
+
+        store.dropIncomplete()
+
+        assertEquals(listOf(id), session.listWallets())
+        assertNull(store.meta(id))
     }
 
     /** The state a crash leaves behind: the secret, the name and an incomplete meta record, and no first accounts. */

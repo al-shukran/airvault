@@ -61,6 +61,7 @@ private fun RenameAccountsRoute(navController: NavHostController, holder: VaultH
 
     var name by remember { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
+    var refusal by remember { mutableStateOf<String?>(null) }
     val limit = batchBaseMaxLength(indices)
 
     WalletNameScreen(
@@ -69,6 +70,7 @@ private fun RenameAccountsRoute(navController: NavHostController, holder: VaultH
         placeholder = "Base name",
         emptyHelp = "Leave empty to keep their names",
         maxLength = limit,
+        errorMessage = refusal,
         onKey = { c -> if (!saving && name.length < limit) name += c },
         onBackspace = { if (!saving && name.isNotEmpty()) name = name.dropLast(1) },
         onDone = {
@@ -78,11 +80,17 @@ private fun RenameAccountsRoute(navController: NavHostController, holder: VaultH
                     // Nothing typed, so every account keeps its name. No record is written.
                     navController.popBackStack()
                 } else {
+                    refusal = null
                     saving = true
                     scope.launch {
                         whileUnlocked(navController, holder) {
-                            withContext(Dispatchers.IO) { WalletStore(session).renameAccounts(walletId, indices, typed) }
-                            navController.popBackStack()
+                            try {
+                                withContext(Dispatchers.IO) { WalletStore(session).renameAccounts(walletId, indices, typed) }
+                                navController.popBackStack()
+                            } catch (e: IllegalArgumentException) {
+                                refusal = e.message
+                                saving = false
+                            }
                         }
                     }
                 }

@@ -43,23 +43,31 @@ The lines balance the lanes. A test class with no line still runs, so adding a t
   the requested tasks, so the filtered test task runs the pixel tests in verify mode.
 - Ui tests with the `prLane` property are no longer a separate partition: the pixel tests live in `verify`, and the rest in the shards.
 
-## Dependencies and the build cache
+## Dependencies and the build state
 
 - `deps-v3-<os>-<hash>` restores the directories in `DEPS_CACHE_PATHS` (`pr-fast.yml`): `modules-2`, the wrapper distributions,
   and the generated directories the configuration cache names as inputs (`dependencies-accessors`, `transforms`, `kotlin-dsl`,
   `scripts`, `generated-gradle-jars`, `jars-9`). The hash covers the version catalog, `verification-metadata.xml`, the wrapper
   properties, every `*.gradle.kts`, `settings.gradle.kts` and `gradle.properties`. The `deps` job looks the key up with
   `lookup-only`, so a hit downloads nothing there; it resolves and saves the entry on a miss only.
-- `bc-<lane>-<scope>-<sha>` holds `~/.gradle/caches/build-cache-1` and `.gradle/configuration-cache`. The lint legs name their
-  module in the lane (`bc-lint-app-<scope>-<sha>`). The scope is `master` on a push or a queue entry, and `pr<number>` in a pull
-  request, which saves nothing. A push to master and a queue entry save every lane's entry, even when it fails or is cancelled.
-  A pull request restores master's entries (`bc-<lane>-master-`) only. Its own entries would be restored ahead of master's, and a
-  lint entry a pull request saved lacked the compile outputs master's entries hold, so the next run of that pull request compiled
-  cold. Each lane's entry is 0.1 to 0.7 GB, so one push to master saves about 5.5 GB. `cache-prune` (`pr-fast.yml`, running
-  `prune-caches.sh`) deletes, after the lanes of each push, the other master build caches, the other dependency caches and every
-  setup-gradle `gradle-*` cache. The repository then holds one master generation (about 5.5 GB) and one dependency cache (about
-  1.2 GB), under GitHub's 10 GB per repository limit. Before that prune, GitHub evicted least recently used entries and evicted
-  master's shard entries (run 44727796023). A pull request cannot change what master restores.
+- `bs-<lane>-<scope>-<sha>` is a lane's build state: every module's `build` directory and the project's `.gradle` directory
+  (`BUILD_STATE_PATHS`: execution history, file hashes and the configuration cache). `.github/actions/gradle-lane` restores the
+  newest master entry of the lane, so Gradle reruns only the tasks whose inputs changed and Kotlin and KSP compile incrementally.
+  That is what keeps a lane under 3 minutes when a pull request, or master since the last saved state, changes a low module
+  (`chains`, `core`, `shared`): a build cache restores outputs but no incremental state, so every module above the change
+  recompiled from scratch in every lane. It also selects the affected tests for free: a test task whose inputs did not change is
+  up to date. The scope is `master` on a push or a queue entry, which saves every lane's state even when it fails or is
+  cancelled, and `pr<number>` in a pull request, which restores master's state and saves none. A lane with no master state builds
+  cold (up to about 6 minutes, inside the 10-minute job cap) and the lane budget reports it.
+- `cache-prune` (`pr-fast.yml`, running `prune-caches.sh`) runs after the lanes of each push to master. A cache's group is its
+  key without the trailing hash; each group keeps its newest entry, and no entry newer than the prune's own run is deleted, so two
+  pushes close together cannot delete each other's state, and the setup-gradle `gradle-*` caches of nightly and other workflows
+  keep their newest entry. It pages through every cache. Pull request caches are deleted when the pull request closes
+  (`cache-cleanup.yml`). GitHub evicts least recently used entries over 10 GB per repository; one master generation of state plus
+  the dependency cache must stay under that.
+- Lane budget: `pr-ok` runs `lane-budget.sh` after every lane. Each job's time (start to end) goes to the step summary, a job over
+  180 s gets a warning, and on a push to master it opens or comments on the open `ci-budget` issue. It never fails the gate:
+  fix a slow lane in a pull request, never rerun a run to make it green.
 - The configuration cache is encrypted with `GRADLE_ENCRYPTION_KEY`, a repository secret. Without it, each runner encrypts with its
   own keystore, a restored entry reads as absent ("no cached configuration is available"), and no lane reuses the configuration.
   Empty means no key, which is how a fork's pull request runs.
