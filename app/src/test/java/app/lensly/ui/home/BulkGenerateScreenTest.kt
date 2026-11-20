@@ -12,7 +12,6 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
-import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
@@ -40,13 +39,13 @@ class BulkGenerateScreenTest {
     private class Inputs {
         var cap by mutableStateOf(BulkCap.HUNDRED)
         var digits by mutableStateOf("")
-        var chain by mutableStateOf<BulkChain>(BulkChain.Evm)
+        var chain by mutableStateOf<BulkTarget>(DEFAULT_EVM)
         var running by mutableStateOf(false)
     }
 
     private val inputs = Inputs()
 
-    private fun showScreen(cap: BulkCap, digits: String, chain: BulkChain = BulkChain.Evm, running: Boolean = false) {
+    private fun showScreen(cap: BulkCap, digits: String, chain: BulkTarget = DEFAULT_EVM, running: Boolean = false) {
         inputs.cap = cap
         inputs.digits = digits
         inputs.chain = chain
@@ -213,7 +212,7 @@ class BulkGenerateScreenTest {
         compose.onNodeWithText("Script Type · Native Segwit").performClick()
         compose.onNodeWithText("Taproot").performClick()
 
-        assertEquals(BulkChain.Bitcoin(ScriptType.TAPROOT, BtcNetwork.MAINNET), inputs.chain)
+        assertEquals(DEFAULT_BITCOIN.copy(scriptType = ScriptType.TAPROOT), inputs.chain)
         assertShown("Script Type · Taproot")
         assertShown("Adds 3 Taproot accounts")
         compose.onNodeWithText("Generate 3 Accounts").assertIsEnabled()

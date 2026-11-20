@@ -20,52 +20,52 @@ class TokenBadgeTest {
     fun aBinancePeggedUsdtShowsTheUsdtLogoWithTheBnbBadge() {
         val token = registry.token(56L, BINANCE_PEGGED_USDT)
         assertEquals(R.drawable.token_usdt, tokenIconRes(token))
-        assertEquals(bnbBadge, tokenBadgeSpec(token, registry.network(56L)))
+        assertEquals(bnbBadge, tokenBadgeLogo(token, registry.network(56L)))
     }
 
     @Test
     fun aBinancePeggedEthShowsTheEthereumLogoWithTheBnbBadge() {
         val token = registry.token(56L, BINANCE_PEGGED_ETH)
         assertEquals(R.drawable.chain_ethereum, tokenIconRes(token))
-        assertEquals(bnbBadge, tokenBadgeSpec(token, registry.network(56L)))
+        assertEquals(bnbBadge, tokenBadgeLogo(token, registry.network(56L)))
     }
 
     @Test
     fun anAvalancheBridgedTokenShowsItsLogoWithTheAvalancheBadge() {
         val token = registry.token(43114L, AAVE_E_AVALANCHE)
         assertEquals(R.drawable.token_aave, tokenIconRes(token))
-        assertEquals(avalancheBadge, tokenBadgeSpec(token, registry.network(43114L)))
+        assertEquals(avalancheBadge, tokenBadgeLogo(token, registry.network(43114L)))
     }
 
     @Test
     fun anAvalancheBridgedWrappedEtherShowsTheEthereumLogoWithTheAvalancheBadge() {
         val token = registry.token(43114L, WETH_E_AVALANCHE)
         assertEquals(R.drawable.chain_ethereum, tokenIconRes(token))
-        assertEquals(avalancheBadge, tokenBadgeSpec(token, registry.network(43114L)))
+        assertEquals(avalancheBadge, tokenBadgeLogo(token, registry.network(43114L)))
     }
 
     @Test
     fun aNormalTokenShowsItsLogoWithoutABadge() {
         val token = registry.token(1L, USDC_ETHEREUM)
         assertEquals(R.drawable.token_usdc, tokenIconRes(token))
-        assertNull(tokenBadgeSpec(token, registry.network(1L)))
+        assertNull(tokenBadgeLogo(token, registry.network(1L)))
     }
 
     @Test
     fun aBridgedTokenOutsideAvalancheHasNoBadge() {
-        assertNull(tokenBadgeSpec(registry.token(10L, USDC_E_OPTIMISM), registry.network(10L)))
+        assertNull(tokenBadgeLogo(registry.token(10L, USDC_E_OPTIMISM), registry.network(10L)))
     }
 
     @Test
     fun aCopyHasNoBadgeWithoutItsOwnChain() {
         val token = registry.token(56L, BINANCE_PEGGED_USDT)
-        assertNull(tokenBadgeSpec(token, registry.network(1L)))
-        assertNull(tokenBadgeSpec(token, null))
+        assertNull(tokenBadgeLogo(token, registry.network(1L)))
+        assertNull(tokenBadgeLogo(token, null))
     }
 
     @Test
     fun aNullTokenHasNoBadge() {
-        assertNull(tokenBadgeSpec(null, registry.network(56L)))
+        assertNull(tokenBadgeLogo(null, registry.network(56L)))
     }
 
     private companion object {
@@ -76,7 +76,7 @@ class TokenBadgeTest {
         const val USDC_ETHEREUM = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
         const val USDC_E_OPTIMISM = "0x7f5c764cbc14f9669b88837ca1490cca17c31607"
 
-        val bnbBadge = ChainIconSpec.Logo(R.drawable.chain_binance_smart_chain, backdrop = false)
-        val avalancheBadge = ChainIconSpec.Logo(R.drawable.chain_avalanche, backdrop = false)
+        val bnbBadge = ChainLogo(R.drawable.chain_binance_smart_chain, backdrop = false)
+        val avalancheBadge = ChainLogo(R.drawable.chain_avalanche, backdrop = false)
     }
 }

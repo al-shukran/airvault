@@ -1,5 +1,6 @@
 package app.lensly.ui.home
 
+import app.airvault.chains.bitcoin.signer.bitcoinManifest
 import app.lensly.app.WalletStore
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
@@ -55,7 +56,7 @@ class BulkRunTest {
     fun aTaprootRunMakesTaprootAccountsOnTheBip86Path() {
         val id = newWallet()
 
-        val saved = runBulk(store, id, BulkChain.Bitcoin(ScriptType.TAPROOT, BtcNetwork.MAINNET), 3, cap) {}
+        val saved = runBulk(store, id, DEFAULT_BITCOIN.copy(scriptType = ScriptType.TAPROOT), 3, cap) {}
 
         assertTrue(saved)
         val held = store.bitcoinAccounts(id)
@@ -74,7 +75,7 @@ class BulkRunTest {
     @Test
     fun eachScriptTypeNumbersItsAccountsFromTheNextFreeIndexOfThatType() {
         val id = newWallet()
-        val mainnet = { type: ScriptType -> BulkChain.Bitcoin(type, BtcNetwork.MAINNET) }
+        val mainnet = { type: ScriptType -> DEFAULT_BITCOIN.copy(scriptType = type) }
 
         runBulk(store, id, mainnet(ScriptType.NATIVE_SEGWIT), 2, cap) {}
         runBulk(store, id, mainnet(ScriptType.TAPROOT), 2, cap) {}
@@ -90,8 +91,9 @@ class BulkRunTest {
         val id = newWallet()
         val seed = Mnemonic.toSeed(words)
 
+        val testnet = bitcoinManifest.networks.single { it.testnet }
         for (type in ScriptType.entries) {
-            assertTrue(runBulk(store, id, BulkChain.Bitcoin(type, BtcNetwork.TESTNET4), 1, cap) {})
+            assertTrue(runBulk(store, id, DEFAULT_BITCOIN.copy(network = testnet, scriptType = type), 1, cap) {})
         }
 
         val held = store.bitcoinAccounts(id).filter { it.network == BtcNetwork.TESTNET4 }
@@ -106,7 +108,7 @@ class BulkRunTest {
     fun anEthereumRunIsUnchanged() {
         val id = newWallet()
 
-        assertTrue(runBulk(store, id, BulkChain.Evm, 2, cap) {})
+        assertTrue(runBulk(store, id, DEFAULT_EVM, 2, cap) {})
 
         assertEquals(3, store.meta(id)?.accountCount)
         assertTrue(store.bitcoinAccounts(id).isEmpty())
