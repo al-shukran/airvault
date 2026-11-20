@@ -1,7 +1,7 @@
 package app.lensly.ui.flow
 
-import app.airvault.chains.evm.signer.UndecodedCall
 import app.airvault.core.model.Approval
+import app.airvault.core.model.ReviewRow
 import app.airvault.core.model.Review as CoreReview
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.KeyScopeViolation
@@ -28,10 +28,10 @@ sealed interface SignStep {
     data class Scanning(val progress: Float?, val status: String) : SignStep
 
     /**
-     * The request cannot be signed. [reason] says why, in plain words. [call] is set when the request is a contract call Lensly
+     * The request cannot be signed. [reason] says why, in plain words. [rows] are set when the request is a contract call Lensly
      * cannot decode, so the screen can show all of it.
      */
-    data class Refused(val reason: String, val call: UndecodedCall? = null) : SignStep
+    data class Refused(val reason: String, val rows: List<ReviewRow> = emptyList()) : SignStep
 
     /** The request passed every check of its chain app. The owner ticks the checks the review names, then approves or rejects it. */
     data class AppReview(val ready: AppPrepared.Ready) : SignStep
@@ -239,7 +239,7 @@ class SignFlow(
             try {
                 when (val prepared = ports.appPrepare(target, request)) {
                     is AppPrepared.Ready -> SignStep.AppReview(prepared)
-                    is AppPrepared.Refused -> appRefusal(started, target, request, prepared.reason, ready = null, call = prepared.call)
+                    is AppPrepared.Refused -> appRefusal(started, target, request, prepared.reason, ready = null, rows = prepared.rows)
                 }
             } catch (e: WalletUnavailable) {
                 appRefusal(started, target, request, WALLET_UNREADABLE, ready = null)
@@ -297,7 +297,7 @@ class SignFlow(
 
     /**
      * The step that shows a refusal of a request of a chain app, recorded under [wallet] with the [ready] review it came after, if any. A refusal
-     * decided after the flow was left was never shown, so it is not recorded either. [call] is the undecoded call the refusal shows, if any.
+     * decided after the flow was left was never shown, so it is not recorded either. [rows] are the rows of the undecoded call the refusal shows, if any.
      */
     private suspend fun appRefusal(
         started: Int,
@@ -305,10 +305,10 @@ class SignFlow(
         request: AppRequest,
         reason: String,
         ready: AppPrepared.Ready?,
-        call: UndecodedCall? = null,
+        rows: List<ReviewRow> = emptyList(),
     ): SignStep.Refused {
         if (started == epoch) recordAppQuietly(AppReviewEntry(wallet, ReviewOutcome.REFUSED, request, ready, emptyList(), reason))
-        return SignStep.Refused(reason, call)
+        return SignStep.Refused(reason, rows)
     }
 
     /** Writes the entry of a chain app. A write that fails is left out, as the other Review Records are. */

@@ -26,7 +26,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import app.airvault.chains.evm.signer.UndecodedCall
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.Coverage
 import app.airvault.core.model.Danger
@@ -732,6 +731,33 @@ class EvmReviewScreenTest {
     }
 }
 
+/**
+ * The rows a refusal of an undecodable call shows, laid out as the EVM review builds them: the contract, the network with its chain, the native
+ * value and the selector, the implementation a bound proxy is bound to, and each calldata word under the Calldata heading.
+ */
+internal fun undecodedCallRows(
+    target: String,
+    networkName: String,
+    chainId: Long,
+    value: String,
+    selector: String,
+    words: List<String>,
+    proxy: ProxyBinding? = null,
+): List<ReviewRow> {
+    val chain = ChainId("eip155:$chainId")
+    return buildList {
+        add(ReviewRow("Contract", DisplayValue.Address(chain, target), null))
+        add(ReviewRow("Network", DisplayValue.Text(networkName), null, notes = listOf("Chain $chainId")))
+        add(ReviewRow("Value", DisplayValue.Text(value, mono = true), null))
+        add(ReviewRow("Selector", DisplayValue.Text("0x$selector", mono = true), null))
+        proxy?.implementationAddress?.let { add(ReviewRow("Approved Implementation", DisplayValue.Address(chain, it), null)) }
+        add(ReviewRow("Calldata", null, null))
+        words.forEachIndexed { index, word ->
+            add(ReviewRow("WORD ${index + 1}", DisplayValue.Text("0x" + groupHex(word), mono = true), null, depth = 1))
+        }
+    }
+}
+
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
 class RefusalScreensTest {
@@ -748,7 +774,7 @@ class RefusalScreensTest {
 
     @Test
     fun anUndecodableCallShowsItsContractNetworkValueSelectorAndEveryWordInFull() {
-        val call = UndecodedCall(
+        val rows = undecodedCallRows(
             target = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
             networkName = "Ethereum",
             chainId = 1L,
@@ -757,13 +783,15 @@ class RefusalScreensTest {
             words = words,
         )
         compose.setContent {
-            LumenTheme { SignRefusedScreen(reason = "Unknown Contract Call", onDone = {}, call = call) }
+            LumenTheme { SignRefusedScreen(reason = "Unknown Contract Call", onDone = {}, rows = rows) }
         }
 
         compose.onNodeWithText(
             "Lensly cannot decode this call, so it will not sign it. The details below are the whole call.",
         ).assertExists()
         compose.onNodeWithText(groupAddress("0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb")).assertExists()
+        compose.onNodeWithText("Ethereum").assertExists()
+        compose.onNodeWithText("Chain 1").assertExists()
         compose.onNodeWithText("0.5 ETH").assertExists()
         compose.onNodeWithText("0x70a08231").assertExists()
         words.forEachIndexed { index, word ->
@@ -774,7 +802,7 @@ class RefusalScreensTest {
 
     @Test
     fun aRefusedProxyShowsTheImplementationItIsBoundTo() {
-        val call = UndecodedCall(
+        val rows = undecodedCallRows(
             target = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
             networkName = "Ethereum",
             chainId = 1L,
@@ -785,7 +813,7 @@ class RefusalScreensTest {
         )
         compose.setContent {
             LumenTheme {
-                SignRefusedScreen(reason = "This contract is an upgradeable proxy.", onDone = {}, call = call)
+                SignRefusedScreen(reason = "This contract is an upgradeable proxy.", onDone = {}, rows = rows)
             }
         }
 

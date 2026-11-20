@@ -5,6 +5,7 @@ import app.airvault.chains.evm.signer.EvmRequestBody
 import app.airvault.chains.evm.signer.EvmSigner
 import app.airvault.chains.evm.signer.UnsignedTx
 import app.airvault.core.model.Approval
+import app.airvault.core.model.text
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.EcdsaSignature
 import app.airvault.core.signer.KeyAccess
@@ -152,7 +153,7 @@ private class FakePorts(
                 counterparties = evmCounterparties(prepared.review),
                 addressNotes = emptyMap(),
             )
-            is Prepared.Refused -> AppPrepared.Refused(prepared.reason, prepared.call)
+            is Prepared.Refused -> AppPrepared.Refused(prepared.reason, prepared.rows)
         }
     }
 
@@ -410,7 +411,7 @@ class SignFlowTest {
         val frames = framesOf(transactionRequest(data), FRAGMENT).filterIndexed { index, _ -> index % 2 == 0 }
         scan(flow, frames)
         // The call is refused for being undecodable, and shown in full. The scan limit does not stop it.
-        assertEquals(512, assertNotNull(assertIs<SignStep.Refused>(flow.state.value).call).words.size)
+        assertEquals(512, assertIs<SignStep.Refused>(flow.state.value).rows.count { it.depth == 1 })
     }
 
     @Test
@@ -428,7 +429,7 @@ class SignFlowTest {
         scan(flow, framesOf(transactionRequest(data), FRAGMENT))
         val refused = assertIs<SignStep.Refused>(flow.state.value)
         // The whole call is shown, so a 16 KiB request is not cut short by the scan size limit.
-        assertEquals(512, assertNotNull(refused.call).words.size)
+        assertEquals(512, refused.rows.count { it.depth == 1 })
     }
 
     @Test
@@ -674,7 +675,7 @@ class SignFlowTest {
 
         val refused = assertIs<SignStep.Refused>(flow.state.value)
         assertEquals("Unknown Contract Call", refused.reason)
-        assertEquals("70a08231", assertNotNull(refused.call).selector)
+        assertEquals("0x70a08231", refused.rows.single { it.label == "Selector" }.value.text())
     }
 
     @Test

@@ -3,7 +3,6 @@ package app.lensly.ui.sign
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,38 +13,38 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import app.airvault.chains.evm.signer.UndecodedCall
+import app.airvault.core.model.DisplayValue
+import app.airvault.core.model.ReviewRow
+import app.airvault.core.model.text
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
-import app.lensly.ui.components.PillChip
 import app.lensly.ui.theme.LenslySpacing
 
-/** The most height the calldata block takes. Past it, the block scrolls on its own, so every word stays reachable. */
-private val CALLDATA_MAX_HEIGHT = 320.dp
+/** The most height a block of rows takes. Past it, the block scrolls on its own, so every row stays reachable. */
+private val BLOCK_MAX_HEIGHT = 320.dp
 
 /**
  * Shown when the vault refuses to sign a request, for example on a chain mismatch or a malformed payload. [reason] says
  * why, in plain words. The red REFUSED headline and the error banner make the outcome clear at a glance, and BACK TO
  * WALLET leaves the flow.
  *
- * A contract call Lensly cannot decode also passes its [call], and the screen shows all of it: the contract, the network,
- * the native value, the selector and every 32-byte word of calldata.
+ * A refusal that passes [rows] shows all of them, in order, so nothing is cut short: the whole call of a contract call Lensly
+ * cannot decode.
  */
 @Composable
 fun SignRefusedScreen(
     reason: String,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
-    call: UndecodedCall? = null,
+    rows: List<ReviewRow> = emptyList(),
 ) {
     LenslyScreen(
         title = "Sign Request",
@@ -68,8 +67,14 @@ fun SignRefusedScreen(
         Spacer(Modifier.height(LenslySpacing.md))
         InlineBanner(message = reason, tone = BannerTone.Error)
         Spacer(Modifier.height(LenslySpacing.md))
-        if (call != null) {
-            UndecodedCallDetails(call)
+        if (rows.isNotEmpty()) {
+            Text(
+                text = "Lensly cannot decode this call, so it will not sign it. The details below are the whole call.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(LenslySpacing.xs))
+            RefusedRows(rows)
             Spacer(Modifier.height(LenslySpacing.md))
         }
         Text(
@@ -80,53 +85,61 @@ fun SignRefusedScreen(
     }
 }
 
-/** What a call Lensly cannot decode would do, in full. It is the whole call, so nothing here is cut short. */
+/**
+ * The rows of a refusal, in order. A row with a value is a fact: its label over its value. A row with no value heads the rows indented
+ * under it, which form one block, drawn in a box that scrolls within [BLOCK_MAX_HEIGHT].
+ */
 @Composable
-private fun UndecodedCallDetails(call: UndecodedCall) {
-    Text(
-        text = "Lensly cannot decode this call, so it will not sign it. The details below are the whole call.",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-    )
-    Spacer(Modifier.height(LenslySpacing.xs))
-    FactRow(label = "Contract") {
-        AddressText(address = call.target)
+private fun RefusedRows(rows: List<ReviewRow>) {
+    var next = 0
+    while (next < rows.size) {
+        val row = rows[next++]
+        if (row.value != null) {
+            FactRow(label = row.label) { RowValue(row) }
+            continue
+        }
+        val start = next
+        while (next < rows.size && rows[next].depth > 0) next++
+        val block = rows.subList(start, next)
+        FactRow(label = row.label) { RefusedBlock(block) }
     }
-    FactRow(label = "Network") {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
-        ) {
+}
+
+/** The rows of one block: each one's label above its value. The block scrolls within its own height. */
+@Composable
+private fun RefusedBlock(rows: List<ReviewRow>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = BLOCK_MAX_HEIGHT)
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .verticalScroll(rememberScrollState())
+            .padding(LenslySpacing.sm),
+        verticalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
+    ) {
+        rows.forEach { row ->
+            MutedText(row.label)
+            RowValue(row)
+        }
+    }
+}
+
+/** The value of a row, then its notes under it. An address is shown in full, text in sans unless it is mono, and any other value in mono. */
+@Composable
+private fun RowValue(row: ReviewRow) {
+    when (val value = row.value) {
+        is DisplayValue.Address -> AddressText(address = value.address)
+        is DisplayValue.Text -> if (value.mono) {
+            MonoText(text = value.text)
+        } else {
             Text(
-                text = call.networkName,
+                text = value.text,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            PillChip(text = "Chain ${call.chainId}")
         }
+        else -> MonoText(text = value.text())
     }
-    FactRow(label = "Value") {
-        MonoText(text = call.value)
-    }
-    FactRow(label = "Selector") {
-        MonoText(text = "0x${call.selector}")
-    }
-    call.proxy?.let { ProxyFacts(it) }
-    FactRow(label = "Calldata") {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = CALLDATA_MAX_HEIGHT)
-                .clip(MaterialTheme.shapes.medium)
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .verticalScroll(rememberScrollState())
-                .padding(LenslySpacing.sm),
-            verticalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
-        ) {
-            call.words.forEachIndexed { index, word ->
-                MutedText("WORD ${index + 1}")
-                MonoText(text = "0x${groupHex(word)}")
-            }
-        }
-    }
+    row.notes.forEach { NoteText(it) }
 }

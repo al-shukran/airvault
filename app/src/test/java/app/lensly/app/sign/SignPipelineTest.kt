@@ -46,6 +46,7 @@ import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.shippedRegistry
+import app.lensly.ui.sign.groupHex
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
 import kotlin.test.assertContentEquals
@@ -273,19 +274,18 @@ class SignPipelineTest {
         val refused = assertIs<Prepared.Refused>(prepared(requestCbor(tx, chainId = ETHEREUM)))
 
         assertEquals("Unknown Contract Call", refused.reason)
-        val call = assertNotNull(refused.call)
-        assertEquals(USDC_ETHEREUM, call.target)
-        assertEquals("Ethereum", call.networkName)
-        assertEquals(ETHEREUM, call.chainId)
-        assertEquals("0 ETH", call.value)
-        assertEquals(SELECTOR_BALANCE_OF, call.selector)
+        assertEquals(USDC_ETHEREUM, shown(refused, "Contract"))
+        assertEquals("Ethereum", shown(refused, "Network"))
+        assertEquals(listOf("Chain $ETHEREUM"), refused.rows.single { it.label == "Network" }.notes)
+        assertEquals("0 ETH", shown(refused, "Value"))
+        assertEquals("0x$SELECTOR_BALANCE_OF", shown(refused, "Selector"))
         assertEquals(
             listOf(
-                "000000000000000000000000" + RECIPIENT.removePrefix("0x").lowercase(),
-                "0".repeat(64),
-                "ab",
+                "0x" + groupHex("000000000000000000000000" + RECIPIENT.removePrefix("0x").lowercase()),
+                "0x" + groupHex("0".repeat(64)),
+                "0xab",
             ),
-            call.words,
+            refused.rows.filter { it.depth == 1 }.map { it.value.text() },
         )
     }
 
@@ -340,8 +340,8 @@ class SignPipelineTest {
         val refused = assertIs<Prepared.Refused>(guarded(requestCbor(stakeTx(), chainId = ETHEREUM)))
 
         assertEquals(BOUND_PROXY_REASON, refused.reason)
-        assertEquals(STAKE_SELECTOR, refused.call?.selector)
-        assertEquals(ProxyBinding(implementationAddress = IMPLEMENTATION), refused.call?.proxy)
+        assertEquals("0x$STAKE_SELECTOR", shown(refused, "Selector"))
+        assertEquals(IMPLEMENTATION, shown(refused, "Approved Implementation"))
     }
 
     @Test
@@ -351,7 +351,7 @@ class SignPipelineTest {
         )
 
         assertEquals(ANY_PROXY_REASON, refused.reason)
-        assertEquals(ProxyBinding(implementationAddress = IMPLEMENTATION), refused.call?.proxy)
+        assertEquals(IMPLEMENTATION, shown(refused, "Approved Implementation"))
     }
 
     @Test
@@ -907,8 +907,8 @@ class SignPipelineTest {
         val refused = assertIs<Prepared.Refused>(batch(batchData(listOf(unknown))))
 
         assertEquals("Unknown Contract Call", refused.reason)
-        assertEquals(ROUTER_CHECKSUM, refused.call?.target)
-        assertEquals("70a08231", refused.call?.selector)
+        assertEquals(ROUTER_CHECKSUM, shown(refused, "Contract"))
+        assertEquals("0x70a08231", shown(refused, "Selector"))
     }
 
     @Test
@@ -1214,6 +1214,9 @@ class SignPipelineTest {
     private fun ready(cbor: ByteArray, view: WalletView = VIEW): Prepared.Ready = assertIs<Prepared.Ready>(prepared(cbor, view))
 
     private fun refusal(cbor: ByteArray, view: WalletView = VIEW): String = assertIs<Prepared.Refused>(prepared(cbor, view)).reason
+
+    /** The text a refusal shows under [label]. */
+    private fun shown(refused: Prepared.Refused, label: String): String = refused.rows.single { it.label == label }.value.text()
 
     /** A Mnemonic wallet of [accountCount] accounts, whose addresses are those of WALLET, and whose accounts have the names [names]. */
     private fun mnemonicView(accountCount: Int, names: Map<Int, String> = emptyMap()): WalletView = WalletView(

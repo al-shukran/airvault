@@ -26,6 +26,7 @@ import app.airvault.core.model.Warning
 import app.lensly.app.AddressNotes
 import app.lensly.app.EVM_FAMILY
 import app.lensly.app.SigningAccount
+import app.lensly.ui.shippedRegistry
 import app.lensly.ui.sign.ReviewScreen
 import app.lensly.ui.sign.unknownNetworkName
 import app.lensly.ui.theme.LumenTheme
@@ -176,6 +177,9 @@ internal val sampleMessageReview = Review(
     coverage = sampleCoverage(),
 )
 
+/** The networks of the shipped registry, which give each address of an EVM review its network's logo, as the sign route does. */
+private val EVM_NETWORKS by lazy { shippedRegistry().networks() }
+
 /** The EVM review of [review] as the sign route draws it: the sample signer, and the Address Book names in [notes]. */
 @Composable
 internal fun EvmReviewScreen(review: Review, notes: Map<String, AddressNotes> = emptyMap()) {
@@ -186,6 +190,7 @@ internal fun EvmReviewScreen(review: Review, notes: Map<String, AddressNotes> = 
         addressChain = EVM_FAMILY,
         onApprove = {},
         onReject = {},
+        networks = EVM_NETWORKS,
     )
 }
 
