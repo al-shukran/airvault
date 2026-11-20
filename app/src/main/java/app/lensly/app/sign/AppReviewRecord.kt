@@ -84,7 +84,6 @@ fun appReviewRecordOf(entry: AppReviewEntry, atMs: Long, origin: String?, dataHa
         atMs = atMs,
         outcome = entry.outcome,
         kind = kindOf(entry.request.header.kind),
-        chainId = null,
         networkName = facts?.network?.name ?: displayName,
         accountIndex = reviewed?.accountIndex,
         address = reviewed?.signer?.address,

@@ -2,6 +2,7 @@ package app.airvault.core.signer
 
 import app.airvault.core.model.Approval
 import app.airvault.core.model.ChainApp
+import app.lensly.core.parse.WireException
 
 /**
  * The Lensly (signer) side of a chain app. Its member for review is added by the change that owns its types (spec 3.2). Until then it
@@ -10,6 +11,19 @@ import app.airvault.core.model.ChainApp
 interface SignerApp : ChainApp {
     /** Parses this app's requests. It runs in the Parser Sandbox, with no key access (spec 3.2). */
     val parser: RequestParser
+
+    /**
+     * Why this app refuses [request] before any wallet is looked for, or null when it does not. The sign flow then routes nothing for the request
+     * and shows the reason, which is recorded under the flow's wallet when it has one. It throws [WireException] for a body it cannot read.
+     */
+    fun refusalBeforeRouting(request: AppRequest): String? = null
+
+    /**
+     * True when [request] is for the Single Key wallet whose one account is at [address], as the wallet shows it. A Single Key has no master
+     * fingerprint, so its requests name none in their header. An app whose requests can name a Single Key says so here. The default says no,
+     * which is right for an app whose requests all name a master fingerprint.
+     */
+    fun isForSingleKey(request: AppRequest, address: String): Boolean = false
 
     /**
      * Signs a request the owner approved (spec 3.2). [keys] is scoped to this app's key scopes by the core, so a path outside them throws

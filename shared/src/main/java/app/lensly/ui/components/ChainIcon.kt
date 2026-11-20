@@ -54,6 +54,15 @@ internal fun chainLogo(network: NetworkEntry?): ChainLogo? {
     return ChainLogo(res, backdrop = icon in chainIconsNeedingBackdrop)
 }
 
+/**
+ * The logo of the network of [networks] that a record names by [name], or null when no network has that name, or that network has no logo. A name
+ * the registry does not list has no logo: [NetworkLogo] shows a letter for it, never the Ethereum logo.
+ */
+internal fun networkLogoOf(name: String?, networks: List<NetworkEntry>): ChainLogo? {
+    val network = networks.firstOrNull { it.name == name } ?: return null
+    return chainLogo(network)
+}
+
 /** The letter of a monogram: the first letter or digit of [name] in capitals, or "?" when the name has neither. */
 internal fun monogramOf(name: String): String =
     name.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "?"
@@ -74,6 +83,20 @@ fun ChainIcon(network: NetworkEntry?, size: Dp, modifier: Modifier = Modifier) {
             modifier = modifier,
         )
         network != null -> LetterMonogram(letter = monogramOf(network.name), size = size, modifier = modifier)
+    }
+}
+
+/**
+ * The logo a record shows for the network it names by [name], looked up in [networks] (see [networkLogoOf]). A network with no logo, and a name no
+ * network has, show a letter of the name instead, and a record that names no network shows "?". It is decorative: the text beside it names the network.
+ */
+@Composable
+fun NetworkLogo(name: String?, networks: List<NetworkEntry>, size: Dp, modifier: Modifier = Modifier) {
+    val logo = networkLogoOf(name, networks)
+    if (logo != null) {
+        BackdropLogo(painter = painterResource(logo.res), size = size, backdrop = logo.backdrop, modifier = modifier)
+    } else {
+        LetterMonogram(letter = monogramOf(name.orEmpty()), size = size, modifier = modifier)
     }
 }
 

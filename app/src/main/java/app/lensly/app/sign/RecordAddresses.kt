@@ -5,7 +5,6 @@ import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.model.ChainId
 import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.BITCOIN_FAMILY
-import app.lensly.app.EVM_FAMILY
 import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.canonicalAddressOn
 import app.lensly.app.chainOfAddress
@@ -26,7 +25,6 @@ data class RecordAddress(val label: String, val address: String, val chain: Chai
  */
 fun recordChainOf(record: ReviewRecord): ChainId? = when {
     record.kind == ReviewKind.BITCOIN_TRANSACTION -> BITCOIN_FAMILY
-    record.chainId != null -> EVM_FAMILY
     record.networkName == solanaManifest.displayName -> SOLANA_FAMILY
     record.networkName in ALGORAND_NETWORK_NAMES -> ALGORAND_FAMILY
     else -> listOfNotNull(record.address, record.to, record.tokenContract).firstNotNullOfOrNull(::chainOfAddress)

@@ -25,13 +25,12 @@ class HomeChartTest {
     private fun record(
         atMs: Long,
         outcome: ReviewOutcome = ReviewOutcome.SIGNED,
-        chainId: Long? = 1L,
+        kind: ReviewKind = ReviewKind.TRANSACTION,
         networkName: String? = "Ethereum",
     ): ReviewRecord = ReviewRecord(
         atMs = atMs,
         outcome = outcome,
-        kind = ReviewKind.TRANSACTION,
-        chainId = chainId,
+        kind = kind,
         networkName = networkName,
         accountIndex = 0,
         address = null,
@@ -95,31 +94,44 @@ class HomeChartTest {
 
     @Test
     fun appNamesTheThreeBusiestNetworksAndCountsTheRestAsOther() {
-        val records = List(4) { record(daysAgo(0), chainId = 1L, networkName = "Ethereum") } +
-            List(3) { record(daysAgo(0), chainId = 143L, networkName = "Monad") } +
-            List(2) { record(daysAgo(0), chainId = 56L, networkName = "BNB Chain") } +
+        val records = List(4) { record(daysAgo(0), networkName = "Ethereum") } +
+            List(3) { record(daysAgo(0), networkName = "Monad") } +
+            List(2) { record(daysAgo(0), networkName = "BNB Chain") } +
             // Base ties with BNB Chain and sorts after it, so it is the one that becomes Other.
-            List(2) { record(daysAgo(1), chainId = 8453L, networkName = "Base") } +
-            // A record with no chain is Other too.
-            listOf(record(daysAgo(0), chainId = null, networkName = null))
+            List(2) { record(daysAgo(1), networkName = "Base") } +
+            List(2) { record(daysAgo(1), kind = ReviewKind.BITCOIN_TRANSACTION, networkName = "Bitcoin Testnet4") } +
+            // A record with no network is Other too.
+            listOf(record(daysAgo(0), networkName = null))
 
         val chart = activityChart(records, nowMs, ChartWindow.MONTH, ChartBreakdown.APP, utc)
 
-        assertEquals(listOf("Ethereum", "Monad", "BNB Chain", "Other"), chart.segments.map { it.label })
-        assertEquals(listOf(4, 3, 2, 3), chart.segments.map { it.count })
-        assertEquals(12, chart.total)
-        // Today's Other is the chainless record; yesterday's is the Base pair.
-        assertEquals(listOf(4, 3, 2, 1), chart.days.last().counts)
-        assertEquals(listOf(0, 0, 0, 2), chart.days[28].counts)
+        assertEquals(listOf("Ethereum", "Monad", "BNB Chain", "Bitcoin", "Other"), chart.segments.map { it.label })
+        assertEquals(listOf(4, 3, 2, 2, 3), chart.segments.map { it.count })
+        assertEquals(14, chart.total)
+        // Today's Other is the network-less record; yesterday's is the Base pair. Yesterday's Bitcoin pair is in the Bitcoin column.
+        assertEquals(listOf(4, 3, 2, 0, 1), chart.days.last().counts)
+        assertEquals(listOf(0, 0, 0, 2, 2), chart.days[28].counts)
     }
 
     @Test
     fun appLeavesOutTheOtherSegmentWhenNoRecordIsLeftForIt() {
-        val records = listOf(record(daysAgo(0), chainId = 1L, networkName = "Ethereum"))
+        val records = listOf(record(daysAgo(0), networkName = "Ethereum"))
 
         val chart = activityChart(records, nowMs, ChartWindow.WEEK, ChartBreakdown.APP, utc)
 
         assertEquals(listOf("Ethereum"), chart.segments.map { it.label })
+        assertEquals(1, chart.total)
+    }
+
+    @Test
+    fun appShowsABitcoinWindowWithNoOtherRecord() {
+        // Only Bitcoin records: the Bitcoin column holds them, and no Other segment is listed.
+        val records = listOf(record(daysAgo(0), kind = ReviewKind.BITCOIN_TRANSACTION, networkName = "Bitcoin Testnet4"))
+
+        val chart = activityChart(records, nowMs, ChartWindow.WEEK, ChartBreakdown.APP, utc)
+
+        assertEquals(listOf("Bitcoin"), chart.segments.map { it.label })
+        assertEquals(listOf(1), chart.days.last().counts)
         assertEquals(1, chart.total)
     }
 

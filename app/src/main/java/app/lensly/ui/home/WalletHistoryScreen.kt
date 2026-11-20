@@ -53,11 +53,11 @@ import app.lensly.app.sign.recordChainOf
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.wallet.toHex
 import app.lensly.ui.components.BitcoinIcon
-import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.EmptyState
 import app.lensly.ui.components.LenslyIcons
 import app.lensly.ui.components.LumioIsland
+import app.lensly.ui.components.NetworkLogo
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.profile.ProfileAvatar
 import app.lensly.ui.sign.FactRow
@@ -88,8 +88,9 @@ private const val BITCOIN_LABEL = "Bitcoin Transaction"
 /**
  * The Review Records of one wallet, newest first, under the day each was made. A row shows the outcome, the network, what the
  * request did, its amount and the time. A tap opens every recorded fact, with each address in full. With no record yet, the screen
- * says what will be listed here. [networkOf] names the network of a chain, for its logo.
+ * says what will be listed here.
  *
+ * [networks] is the registry. A row's logo is the logo of the network its record names, looked up there by name.
  * [addressBook] is read for the notes of each address the sheet shows. A tap on an address calls [onOpenAddress] with the address and its
  * chain, so the Address Book can open its entry, or a new one for it.
  */
@@ -97,7 +98,7 @@ private const val BITCOIN_LABEL = "Bitcoin Transaction"
 fun WalletHistoryScreen(
     walletName: String,
     records: List<ReviewRecord>,
-    networkOf: (Long) -> NetworkEntry?,
+    networks: List<NetworkEntry>,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     addressBook: List<AddressBookEntry> = emptyList(),
@@ -121,7 +122,7 @@ fun WalletHistoryScreen(
                 records.groupBy { dayOf(it.atMs) }.forEach { (day, dayRecords) ->
                     item(key = day.toString()) { DayHeader(day) }
                     items(dayRecords) { record ->
-                        HistoryRow(record = record, network = record.chainId?.let(networkOf), onClick = { open = record })
+                        HistoryRow(record = record, networks = networks, onClick = { open = record })
                     }
                 }
             }
@@ -147,13 +148,13 @@ internal fun DayHeader(day: LocalDate) {
 }
 
 /**
- * One record: its outcome, its network, what the request did with its amount, and the time. A row on the all-wallet Activity
+ * One record: its outcome, its logo, what the request did with its amount, and the time. A row on the all-wallet Activity
  * screen also names its wallet, through [walletName], with that wallet's Visual Identity, through [walletIdentity].
  */
 @Composable
 internal fun HistoryRow(
     record: ReviewRecord,
-    network: NetworkEntry?,
+    networks: List<NetworkEntry>,
     onClick: () -> Unit,
     walletName: String? = null,
     walletIdentity: VisualIdentity? = null,
@@ -175,7 +176,7 @@ internal fun HistoryRow(
         if (record.kind == ReviewKind.BITCOIN_TRANSACTION) {
             BitcoinIcon(size = 24.dp)
         } else {
-            ChainIcon(network = network, size = 24.dp)
+            NetworkLogo(name = record.networkName, networks = networks, size = 24.dp)
         }
         Spacer(Modifier.width(LenslySpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
@@ -466,12 +467,7 @@ private fun kindLabel(kind: ReviewKind): String = when (kind) {
     ReviewKind.BITCOIN_TRANSACTION -> BITCOIN_LABEL
 }
 
-private fun networkLine(record: ReviewRecord): String = when {
-    record.networkName != null && record.chainId != null -> "${record.networkName} · chain ${record.chainId}"
-    record.networkName != null -> record.networkName
-    record.chainId != null -> "chain ${record.chainId}"
-    else -> "The request named no network"
-}
+private fun networkLine(record: ReviewRecord): String = record.networkName ?: "The request named no network"
 
 private fun zoned(atMs: Long) = Instant.ofEpochMilli(atMs).atZone(ZoneId.systemDefault())
 

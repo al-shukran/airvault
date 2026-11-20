@@ -61,7 +61,7 @@ import app.lensly.app.sign.bitcoinReviewRecordOf
 import app.lensly.app.sign.counterpartiesOf
 import app.lensly.app.sign.evmCounterparties
 import app.lensly.app.visualIdentity
-import app.lensly.chains.installedSigners
+import app.lensly.chains.installedSignerOf
 import app.lensly.ui.sign.bitcoinReviewOf
 import app.lensly.ui.sign.shownName
 import app.airvault.chains.algorand.signer.AlgorandRequestCheck
@@ -419,9 +419,6 @@ internal class VaultSignPorts(
         val settings = SettingsStore(session).load()
         return BitcoinSigner(settings.bitcoinInputPolicy, settings.bitcoinSigningSource(), settings.bitcoinFeeThresholds)
     }
-
-    /** The installed signer of app [app], or null when no installed app has that id. */
-    private fun installedSignerOf(app: AppId): SignerApp? = installedSigners.firstOrNull { it.manifest.id == app }
 
     /**
      * The key access that signs [ready], over [keys]. A Solana key must be the public key the wallet stores for the reviewed account, or nothing

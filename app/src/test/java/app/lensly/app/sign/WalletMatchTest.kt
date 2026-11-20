@@ -35,62 +35,65 @@ private fun request(fingerprint: Int?, address: ByteArray? = null) = EthSignRequ
     origin = null,
 )
 
+/** The wallets of [wallets] that [request] is for, routed as the sign flow routes it. */
+private fun routed(request: EthSignRequest, wallets: List<WalletView>): WalletMatch = routeScan(appRequestOf(request), wallets)
+
 class WalletMatchTest {
 
     @Test
     fun aRequestWithTheFingerprintOfOneWalletMatchesThatWallet() {
         val wallets = listOf(mnemonic("first", FINGERPRINT), mnemonic("second", FINGERPRINT xor 1))
 
-        assertEquals(WalletMatch.One("first"), matchWallet(request(FINGERPRINT), wallets))
-        assertEquals(WalletMatch.One("second"), matchWallet(request(FINGERPRINT xor 1), wallets))
+        assertEquals(WalletMatch.One("first"), routed(request(FINGERPRINT), wallets))
+        assertEquals(WalletMatch.One("second"), routed(request(FINGERPRINT xor 1), wallets))
     }
 
     @Test
     fun aRequestWithNoMatchingFingerprintMatchesNoWallet() {
         val wallets = listOf(mnemonic("first", FINGERPRINT))
 
-        assertEquals(WalletMatch.None, matchWallet(request(FINGERPRINT xor 1), wallets))
+        assertEquals(WalletMatch.None, routed(request(FINGERPRINT xor 1), wallets))
     }
 
     @Test
     fun aRequestThatNamesNoFingerprintMatchesNoMnemonicWallet() {
         val wallets = listOf(mnemonic("first", FINGERPRINT))
 
-        assertEquals(WalletMatch.None, matchWallet(request(fingerprint = null), wallets))
+        assertEquals(WalletMatch.None, routed(request(fingerprint = null), wallets))
     }
 
     @Test
     fun aRequestForTwoWalletsWithTheSameFingerprintMatchesSeveral() {
         val wallets = listOf(mnemonic("first", FINGERPRINT), mnemonic("copy", FINGERPRINT), mnemonic("other", 7))
 
-        assertEquals(WalletMatch.Several(2), matchWallet(request(FINGERPRINT), wallets))
+        assertEquals(WalletMatch.Several(2), routed(request(FINGERPRINT), wallets))
     }
 
     @Test
     fun anEmptyVaultMatchesNoWallet() {
-        assertEquals(WalletMatch.None, matchWallet(request(FINGERPRINT), emptyList()))
+        assertEquals(WalletMatch.None, routed(request(FINGERPRINT), emptyList()))
     }
 
     @Test
     fun aSingleKeyMatchesByItsAddressWhenTheRequestNamesIt() {
         val key = WalletView.singleKey(id = "key", address = SINGLE_ADDRESS, autoNameBase = "Imported")
 
-        assertEquals(WalletMatch.One("key"), matchWallet(request(fingerprint = null, address = SINGLE_ADDRESS_BYTES), listOf(key)))
+        assertEquals(WalletMatch.One("key"), routed(request(fingerprint = null, address = SINGLE_ADDRESS_BYTES), listOf(key)))
     }
 
     @Test
     fun aSingleKeyIsNotMatchedByAFingerprintOrByNoAddress() {
         val key = WalletView.singleKey(id = "key", address = SINGLE_ADDRESS, autoNameBase = "Imported")
 
-        assertEquals(WalletMatch.None, matchWallet(request(fingerprint = null), listOf(key)))
-        assertEquals(WalletMatch.None, matchWallet(request(FINGERPRINT), listOf(key)))
+        assertEquals(WalletMatch.None, routed(request(fingerprint = null), listOf(key)))
+        assertEquals(WalletMatch.None, routed(request(FINGERPRINT), listOf(key)))
     }
 
     @Test
     fun aMnemonicWalletIsNotMatchedByAnAddressAlone() {
         val wallets = listOf(mnemonic("first", FINGERPRINT))
 
-        assertEquals(WalletMatch.None, matchWallet(request(fingerprint = null, address = SINGLE_ADDRESS_BYTES), wallets))
+        assertEquals(WalletMatch.None, routed(request(fingerprint = null, address = SINGLE_ADDRESS_BYTES), wallets))
     }
 
     @Test
@@ -100,7 +103,7 @@ class WalletMatchTest {
             WalletView.singleKey(id = "key", address = SINGLE_ADDRESS, autoNameBase = "Imported"),
         )
 
-        assertEquals(WalletMatch.One("first"), matchWallet(request(FINGERPRINT), wallets))
-        assertEquals(WalletMatch.One("key"), matchWallet(request(fingerprint = null, address = SINGLE_ADDRESS_BYTES), wallets))
+        assertEquals(WalletMatch.One("first"), routed(request(FINGERPRINT), wallets))
+        assertEquals(WalletMatch.One("key"), routed(request(fingerprint = null, address = SINGLE_ADDRESS_BYTES), wallets))
     }
 }

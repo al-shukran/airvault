@@ -40,7 +40,7 @@ fun signFramesOf(ready: Prepared.Ready, key: ByteArray): List<String> {
 }
 
 /** [request] as the EVM app sends it to the sign flow: its header names the signer and path, and its body is the parsed request. */
-private fun appRequestOf(request: EthSignRequest): AppRequest {
+fun appRequestOf(request: EthSignRequest): AppRequest {
     val kind = when (request.dataType) {
         DataType.TRANSACTION, DataType.TYPED_TRANSACTION -> RequestKind.TRANSACTION
         DataType.TYPED_DATA -> RequestKind.TYPED_DATA
