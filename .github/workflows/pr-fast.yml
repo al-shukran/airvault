@@ -87,7 +87,8 @@ jobs:
     name: shard ${{ matrix.shard }}
     needs: deps
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    # The cap covers cache restore and save: master shards ran 190-295 s, and a slow save cancelled two passing shards.
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -107,6 +108,15 @@ jobs:
           cache-disabled: true
 
       - name: Restore the Gradle dependency cache
+        id: deps
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DEPS_CACHE_PATHS }}
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+
+      # A stalled download only warns, so one more try runs before the lane fails on a miss or an error.
+      - name: Restore the Gradle dependency cache again when it was not restored
+        if: steps.deps.outputs.cache-hit != 'true'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.DEPS_CACHE_PATHS }}
