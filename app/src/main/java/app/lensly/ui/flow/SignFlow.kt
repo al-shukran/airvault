@@ -520,8 +520,12 @@ class SignFlow(
     }
 
     private companion object {
-        /** The most characters one part of a UR adds beyond its payload: its `ur:` prefix, type and sequence, and its fragment header. */
-        const val PART_OVERHEAD_CHARS = 64
+        /**
+         * The most characters one part of a UR adds beyond its payload: its `ur:` prefix, type and sequence, and the CBOR header of its
+         * fragment, at two characters per byte. A part of the largest request measures about 80. The rest is room for fountain parts
+         * beyond the declared count, which a decoder may need.
+         */
+        const val PART_OVERHEAD_CHARS = 96
 
         /**
          * The most scanned text the flow accepts, in characters: the largest CBOR payload a request may carry, at two characters per byte
