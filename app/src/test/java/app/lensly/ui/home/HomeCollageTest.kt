@@ -1,10 +1,10 @@
 package app.lensly.ui.home
 
+import app.lensly.ui.components.LogoTone
 import app.lensly.ui.components.chainIconDrawables
+import app.lensly.ui.components.logoTone
 import app.lensly.ui.components.tokenIconDrawables
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 import org.junit.Test
 
 /** The collage's logos: chains and tokens alternate, and the longer list keeps its tail. */
@@ -16,14 +16,19 @@ class HomeCollageTest {
     }
 
     @Test
-    fun aLogoTooDarkForTheDarkTileSitsOnALightDisc() {
-        assertTrue(logoOnLightDisc(chainIconDrawables.getValue("chain_base")))
-        assertTrue(logoOnLightDisc(tokenIconDrawables.getValue("token_bal")))
+    fun aLogoTooDarkForADarkTileIsToneDark() {
+        assertEquals(LogoTone.DARK, logoTone(chainIconDrawables.getValue("chain_base")))
+        assertEquals(LogoTone.DARK, logoTone(tokenIconDrawables.getValue("token_bal")))
     }
 
     @Test
-    fun aBrightLogoSitsOnTheDarkTile() {
-        assertFalse(logoOnLightDisc(chainIconDrawables.getValue("chain_arbitrum_one")))
-        assertFalse(logoOnLightDisc(tokenIconDrawables.getValue("token_aero")))
+    fun aBrightLogoIsNeutral() {
+        assertEquals(LogoTone.NEUTRAL, logoTone(chainIconDrawables.getValue("chain_arbitrum_one")))
+        assertEquals(LogoTone.NEUTRAL, logoTone(tokenIconDrawables.getValue("token_aero")))
+    }
+
+    @Test
+    fun aLogoTooPaleForALightTileIsTonePale() {
+        assertEquals(LogoTone.PALE, logoTone(tokenIconDrawables.getValue("token_wbtc")))
     }
 }

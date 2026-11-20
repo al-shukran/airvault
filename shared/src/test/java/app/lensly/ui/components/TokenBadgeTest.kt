@@ -76,7 +76,7 @@ class TokenBadgeTest {
         const val USDC_ETHEREUM = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
         const val USDC_E_OPTIMISM = "0x7f5c764cbc14f9669b88837ca1490cca17c31607"
 
-        val bnbBadge = ChainLogo(R.drawable.chain_binance_smart_chain, backdrop = false)
-        val avalancheBadge = ChainLogo(R.drawable.chain_avalanche, backdrop = false)
+        val bnbBadge = R.drawable.chain_binance_smart_chain
+        val avalancheBadge = R.drawable.chain_avalanche
     }
 }

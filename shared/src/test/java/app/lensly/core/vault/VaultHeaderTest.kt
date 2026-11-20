@@ -37,7 +37,7 @@ class VaultHeaderTest {
 
     @Test
     fun anOlderVersionIsRefusedAsAFormatChange() {
-        // Version 1 is the header of every vault made before the slot key. It is refused, and nothing is migrated from it.
+        // Version 1 is refused, and nothing is migrated from it.
         val bytes = header().encode()
         bytes[4] = 1
         assertFailsWith<VaultFormatChangedException> { VaultHeader.decode(bytes) }
