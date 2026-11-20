@@ -1,91 +1,46 @@
+
 package app.lensly.app.export
 
+import app.airvault.chains.evm.evmAddressOf
+import app.airvault.core.model.AddressKind
+import app.airvault.core.model.ChainId
+import app.airvault.core.model.Curve
+import app.airvault.core.signer.AccountExport
+import app.airvault.core.signer.PublicKey
+import app.airvault.core.signer.SignerRef
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.autoAccountName
-import app.airvault.chains.evm.evmAddressOf
-import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.parse.DecodeBudget
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.ur.Cbor
+import app.lensly.core.ur.PathStep
 import app.lensly.core.ur.framesOf
 import com.sparrowwallet.hummingbird.UR
 import java.nio.ByteBuffer
 import java.util.UUID
 
 /**
- * One account's key, as the pairing carries it. [path] is the BIP32 path of the key: m/purpose'/coin'/account'/suffix, where the account
- * index is the third component and the suffix (if any) is not hardened. [material] is what the App derives the account's address from: the
- * 20-byte address of an Ethereum account, the 33-byte compressed public key of a Bitcoin account, or the 32-byte Ed25519 public key of a
- * Solana or Algorand account. [chainCode] is the 32-byte chain code of a Bitcoin key, which derives its receive and change addresses, and
- * null for the other Apps. Public data only.
- */
-data class PairingKey(
-    val path: List<Long>,
-    val material: ByteArray,
-    val chainCode: ByteArray? = null,
-) {
-    companion object {
-        private const val HARDENED = 0x80000000L
-
-        /**
-         * The key of Ethereum account [account], m/44'/60'/[account]'/0/0. [address] is the account's address, which is what the pairing carries
-         * of it: Lumio shows the address and sends it in a request, and no Lumio path derives a child or signs with the key.
-         * @throws IllegalArgumentException when [address] is not an Ethereum address.
-         */
-        fun ethereumAddress(account: Int, address: String): PairingKey {
-            val canonical = requireNotNull(evmAddressOf(address)) { "An Ethereum account's address is 0x and 40 hex digits." }
-            return PairingKey(
-                path = listOf(HARDENED + 44, HARDENED + 60, HARDENED + account, 0, 0),
-                material = ByteArray(20) { i -> canonical.substring(2 + 2 * i, 4 + 2 * i).toInt(16).toByte() },
-            )
-        }
-
-        /** The key of Solana account [account], m/44'/501'/[account]'. [publicKey] is the 32-byte Ed25519 key, which is the address. */
-        fun solanaAccount(account: Int, publicKey: ByteArray): PairingKey {
-            require(publicKey.size == 32) { "An Ed25519 public key is 32 bytes." }
-            return PairingKey(path = listOf(HARDENED + 44, HARDENED + 501, HARDENED + account), material = publicKey)
-        }
-
-        /** The key of Algorand account [account], m/44'/283'/[account]'/0/0. [publicKey] is the 32-byte Ed25519 key, which is the address. */
-        fun algorandAccount(account: Int, publicKey: ByteArray): PairingKey {
-            require(publicKey.size == 32) { "An Ed25519 public key is 32 bytes." }
-            return PairingKey(path = listOf(HARDENED + 44, HARDENED + 283, HARDENED + account, 0, 0), material = publicKey)
-        }
-
-        /** The key of a Bitcoin account: its path, its compressed public key and its chain code. */
-        fun bitcoinAccount(account: BtcWatchOnlyAccount): PairingKey = PairingKey(
-            path = account.path.path,
-            material = account.xpub.publickeybytes.toByteArray(),
-            chainCode = account.xpub.chaincode.toByteArray(),
-        )
-    }
-}
-
-/**
- * One account of an App. [key] is the position of the account's key in its App's keys, so the account at position N describes the key at
- * position N. [name] is the Display Name, or the Auto-Name when the owner gave the account none. [label] and [group] are null when there is none.
+ * One account of the pairing: its [export] (spec 7.5), and the names Lensly shows for it. [name] is the Display Name, or the Auto-Name when the
+ * owner gave the account none. [label] and [group] are null when there is none.
  */
 data class PairingAccount(
-    val key: Int,
+    val export: AccountExport,
     val name: String,
     val label: String?,
     val group: String?,
 )
 
-/** One App of a wallet, as the pairing carries it: its route id, which is its name on the wire, with the keys and accounts it holds. */
-data class PairingApp(val app: String, val keys: List<PairingKey>, val accounts: List<PairingAccount>)
-
 /**
- * The pairing of one wallet: its master fingerprint, its name, the base of the Auto-Name of its accounts, the keys and accounts of every App
- * it holds, and the Address Book that Lensly sends with it. [autoNameBase] is the base of the Auto-Name that [autoAccountName] builds for an
- * account, so an account named by its Auto-Name is sent with no name, and the reader builds the name from the base and the index. [addressBook]
- * is empty when the owner saved no entries, and a code without entries carries no book.
+ * The pairing of one wallet: its master fingerprint, its name, the base of the Auto-Name of its accounts, the accounts of every chain it holds,
+ * and the Address Book that Lensly sends with it. [autoNameBase] is the base of the Auto-Name that [autoAccountName] builds for an account, so an
+ * account named by its Auto-Name is sent with no name, and the reader builds the name from the base and the index. [addressBook] is empty when
+ * the owner saved no entries, and a code without entries carries no book.
  */
 data class PairingPayload(
     val fingerprint: Long,
     val name: String,
     val autoNameBase: String,
-    val apps: List<PairingApp>,
+    val accounts: List<PairingAccount>,
     val addressBook: List<AddressBookEntry> = emptyList(),
 )
 
@@ -103,22 +58,22 @@ fun interface BrotliDecompressor {
 }
 
 /**
- * The AirVault pairing: the code Lensly shows for a wallet, one for all of its Apps, so the online companion imports every account and its
- * names at once. The code is a `ur:x-airvault-pairing`, animated when it is long. Its CBOR is versioned: a reader refuses a version it does
- * not know, so it never reads a newer layout as its own, and it does not read an older one. The payload holds public data only: keys, chain
- * codes, paths, addresses and names.
+ * The AirVault pairing: the code Lensly shows for a wallet, one for all of its accounts on every chain, so the online companion imports every
+ * account and its names at once. The code is a `ur:x-airvault-pairing`, animated when it is long. Its CBOR is versioned: a reader refuses a
+ * version it does not know, so it never reads a newer layout as its own, and it does not read an older one. The payload holds public data
+ * only: keys, chain codes, paths, chains and names. The codec does not know the chains: each account is its [AccountExport].
  *
  * The layout, with integer keys. The code's CBOR is an envelope:
- *  - envelope: { 1: version (6), 6: encoding, 7: body (bytes) }. Encoding 0 keeps the body as it is, and encoding 2 holds it Brotli-compressed.
- *  - body, once it is decompressed: { 2: fingerprint (uint32), 3: name, 4: auto-name base (may be empty), 5: [app],
+ *  - envelope: { 1: version (7), 6: encoding, 7: body (bytes) }. Encoding 0 keeps the body as it is, and encoding 2 holds it Brotli-compressed.
+ *  - body, once it is decompressed: { 2: fingerprint (uint32), 3: name, 4: auto-name base (may be empty), 5: [run],
  *    6: [label or group] (optional: absent when no account has a label or group), 7: [address] (optional: absent when the Address Book is empty) }
- *  - app: { 1: app id, 2: [run] }
- *  - run: a block of consecutive accounts of one App, whose keys have one path shape and one key length, and whose indices are consecutive:
- *    { 1: purpose, 2: coin type, 3: first account index, 4: count, 5: [suffix] (the path after the index), 6: keys (bytes, count × key length),
- *    7: chain codes (bytes, count × 32, optional), 8: [name] (optional: absent when every account is named by its Auto-Name),
- *    9: [label index] (optional), 10: [group index] (optional) }. The key of account i of a run is at m/purpose'/coin'/i'/suffix. A name of ""
- *    is the Auto-Name: the auto-name base, a space and the account index. A label or group index of 0 is none, and n is entry n-1 of key 6.
- *  - key length: 20 bytes (an Ethereum address), 33 bytes (a compressed secp256k1 key), or 32 bytes (an Ed25519 key, with no prefix).
+ *  - run: a block of consecutive accounts of one chain, whose keys have one curve, one kind, one path shape and one key length, and whose
+ *    indices are consecutive: { 1: chain (CAIP-2 text), 2: curve (0 secp256k1, 1 Ed25519 SLIP-10, 2 Ed25519 BIP32), 3: kind (0 default),
+ *    4: purpose, 5: coin type, 6: first account index, 7: count, 8: [suffix] (the path after the index, not hardened), 9: keys (bytes,
+ *    count × key length), 10: chain codes (bytes, count × 32, optional), 11: [name] (optional: absent when every account is named by its
+ *    Auto-Name), 12: [label index] (optional), 13: [group index] (optional) }. The path of account i of a run is m/purpose'/coin'/i'/suffix.
+ *    A name of "" is the Auto-Name: the auto-name base, a space and the account index. A label or group index of 0 is none, and n is entry n-1 of key 6.
+ *  - key length: 33 bytes for a secp256k1 key (compressed), or 32 bytes for an Ed25519 key, with no prefix.
  *  - address: { 1: id, 2: address, 3: name, 4: label (optional) }, one Address Book entry. An id that is a lower-case UUID is 16 bytes, and an
  *    address that is an EVM address in checksum form is 20 bytes. Any other id or address is text.
  *
@@ -132,7 +87,7 @@ object PairingCodec {
      * The layout version of this build, which it writes and reads. A code of any other version is refused with a message that says why. There is
      * no reader for an older version: an older code must be paired again.
      */
-    const val VERSION = 6L
+    const val VERSION = 7L
 
     /**
      * The largest CBOR fragment of one animated frame, in bytes. It is the only frame size of the pairing, so a change of it is one edit here.
@@ -143,9 +98,8 @@ object PairingCodec {
     /** The largest body in bytes, compressed or not. A reader refuses a larger body, so a body it decompresses is bounded by this. */
     const val MAX_BODY_BYTES = 512 * 1024
 
-    /** The most Apps one pairing carries, and the most keys (and accounts) one App carries. */
-    const val MAX_APPS = 8
-    const val MAX_KEYS = 512
+    /** The most accounts one pairing carries, on all chains together. */
+    const val MAX_ACCOUNTS = 512
 
     /** The most components a key's path has after its account index. */
     const val MAX_SUFFIX = 8
@@ -170,15 +124,19 @@ object PairingCodec {
 
     private const val NOT_A_PAIRING = "This is not a pairing code from Lensly."
     private const val UINT32_MAX = 0xFFFFFFFFL
-    private const val HARDENED = 0x80000000L
     private const val INDEX_MASK = 0x7FFFFFFFL
     private const val CHAIN_CODE_BYTES = 32
     private const val UUID_BYTES = 16
     private const val EVM_ADDRESS_BYTES = 20
-    private val KEY_BYTES = setOf(20, 32, 33)
+    private const val COMPRESSED_KEY_BYTES = 33
+    private const val ED25519_KEY_BYTES = 32
+    private const val MAX_CHAIN_BYTES = 64
     private const val ENCODING_RAW = 0L
     private const val ENCODING_BROTLI = 2L
-    private val APP_ID = Regex("[a-z0-9-]{1,32}")
+    private const val SECP256K1_CODE = 0L
+    private const val ED25519_SLIP10_CODE = 1L
+    private const val ED25519_BIP32_CODE = 2L
+    private const val DEFAULT_KIND_CODE = 0L
 
     /**
      * The frames of the pairing [payload]: one code when it fits, otherwise the uncoded parts of an animated code. [brotli] compresses
@@ -264,13 +222,14 @@ object PairingCodec {
 
     /** The pairing of the fields 2 to 7 of a body. */
     private fun payloadOf(fields: Map<Long, Cbor>): PairingPayload {
+        val fingerprint = uintValue(required(fields, 2L), UINT32_MAX)
         val autoNameBase = textOf(required(fields, 4L), 0, MAX_NAME_BYTES)
         val dictionary = fields[6L]?.let { items(it, MAX_DICTIONARY).map { item -> textOf(item, 1, MAX_LABEL_BYTES) } } ?: emptyList()
         val payload = PairingPayload(
-            fingerprint = uintValue(required(fields, 2L), UINT32_MAX),
+            fingerprint = fingerprint,
             name = textOf(required(fields, 3L), 1, MAX_NAME_BYTES),
             autoNameBase = autoNameBase,
-            apps = items(required(fields, 5L), MAX_APPS).map { decodeApp(it, autoNameBase, dictionary) },
+            accounts = items(required(fields, 5L), MAX_ACCOUNTS).flatMap { decodeRun(it, fingerprint, autoNameBase, dictionary) },
             addressBook = fields[7L]?.let { book -> items(book, MAX_ADDRESS_BOOK).map { decodeAddress(it) } } ?: emptyList(),
         )
         validate(payload)
@@ -279,13 +238,13 @@ object PairingCodec {
 
     /** The fields of a body, in key order. A body carries no version of its own: the envelope does. */
     private fun bodyFields(payload: PairingPayload): List<Pair<Cbor, Cbor>> {
-        val dictionary = payload.apps.flatMap { app -> app.accounts.flatMap { listOfNotNull(it.label, it.group) } }.distinct()
+        val dictionary = payload.accounts.flatMap { listOfNotNull(it.label, it.group) }.distinct()
         val indexes = dictionary.withIndex().associate { (index, text) -> text to index + 1 }
         val fields = mutableListOf(
             uint(2) to uint(payload.fingerprint),
             uint(3) to Cbor.Text(payload.name),
             uint(4) to Cbor.Text(payload.autoNameBase),
-            uint(5) to Cbor.Arr(payload.apps.map { app -> encodeApp(app, payload.autoNameBase, indexes) }),
+            uint(5) to Cbor.Arr(runsOf(payload.accounts).map { encodeRun(it, payload.autoNameBase, indexes) }),
         )
         // Each of these is left out when it is empty, so a code that has none of them carries no key 6 or 7.
         if (dictionary.isNotEmpty()) fields += uint(6) to Cbor.Arr(dictionary.map { Cbor.Text(it) })
@@ -293,116 +252,99 @@ object PairingCodec {
         return fields
     }
 
-    /** A block of accounts of one App that [encodeApp] writes as one run. */
-    private class Run(
-        val purpose: Long,
-        val coin: Long,
-        val first: Long,
-        val suffix: List<Long>,
-        val keys: MutableList<PairingKey> = mutableListOf(),
-        val accounts: MutableList<PairingAccount> = mutableListOf(),
-    )
-
-    private fun encodeApp(app: PairingApp, autoNameBase: String, indexes: Map<String, Int>): Cbor {
-        val runs = mutableListOf<Run>()
-        app.keys.forEachIndexed { position, key ->
-            val purpose = key.path[0] and INDEX_MASK
-            val coin = key.path[1] and INDEX_MASK
-            val index = key.path[2] and INDEX_MASK
-            val suffix = key.path.drop(3)
+    /** The accounts of [accounts] in runs: each run is consecutive accounts that [continues] one another. */
+    private fun runsOf(accounts: List<PairingAccount>): List<List<PairingAccount>> {
+        val runs = mutableListOf<MutableList<PairingAccount>>()
+        for (account in accounts) {
             val last = runs.lastOrNull()
-            if (last != null && last.purpose == purpose && last.coin == coin && last.suffix == suffix &&
-                index == last.first + last.keys.size &&
-                last.keys[0].material.size == key.material.size &&
-                (last.keys[0].chainCode == null) == (key.chainCode == null)
-            ) {
-                last.keys += key
-                last.accounts += app.accounts[position]
-            } else {
-                runs += Run(purpose, coin, index, suffix).also {
-                    it.keys += key
-                    it.accounts += app.accounts[position]
-                }
-            }
+            if (last != null && continues(last, account)) last += account else runs += mutableListOf(account)
         }
-        return Cbor.Dict(
-            listOf(uint(1) to Cbor.Text(app.app), uint(2) to Cbor.Arr(runs.map { encodeRun(it, autoNameBase, indexes) })),
-        )
+        return runs
     }
 
-    private fun encodeRun(run: Run, autoNameBase: String, indexes: Map<String, Int>): Cbor {
+    /**
+     * True when [account] extends [run]: it is the next account index of the same chain, with the same curve, kind, path shape, key length and
+     * chain-code shape, so the run can state each of them once.
+     */
+    private fun continues(run: List<PairingAccount>, account: PairingAccount): Boolean {
+        val head = run[0].export
+        val next = account.export
+        return next.chain == head.chain &&
+            next.publicKey.curve == head.publicKey.curve &&
+            next.kind == head.kind &&
+            purposeOf(next) == purposeOf(head) &&
+            coinOf(next) == coinOf(head) &&
+            suffixOf(next) == suffixOf(head) &&
+            next.publicKey.bytes.size == head.publicKey.bytes.size &&
+            (next.chainCode == null) == (head.chainCode == null) &&
+            indexOf(next) == indexOf(head) + run.size
+    }
+
+    private fun encodeRun(run: List<PairingAccount>, autoNameBase: String, indexes: Map<String, Int>): Cbor {
+        val head = run[0].export
+        val first = indexOf(head)
         val fields = mutableListOf(
-            uint(1) to uint(run.purpose),
-            uint(2) to uint(run.coin),
-            uint(3) to uint(run.first),
-            uint(4) to uint(run.keys.size.toLong()),
-            uint(5) to Cbor.Arr(run.suffix.map { uint(it) }),
-            uint(6) to Cbor.Bytes(concat(run.keys.map { it.material })),
+            uint(1) to Cbor.Text(head.chain.caip2),
+            uint(2) to uint(curveCode(head.publicKey.curve)),
+            uint(3) to uint(kindCode(head.kind)),
+            uint(4) to uint(purposeOf(head)),
+            uint(5) to uint(coinOf(head)),
+            uint(6) to uint(first),
+            uint(7) to uint(run.size.toLong()),
+            uint(8) to Cbor.Arr(suffixOf(head).map { uint(it.toLong()) }),
+            uint(9) to Cbor.Bytes(concat(run.map { it.export.publicKey.bytes })),
         )
-        if (run.keys[0].chainCode != null) fields += uint(7) to Cbor.Bytes(concat(run.keys.map { it.chainCode!! }))
-        val names = run.accounts.mapIndexed { position, account ->
-            if (account.name == autoAccountName(autoNameBase, (run.first + position).toInt())) "" else account.name
+        if (head.chainCode != null) fields += uint(10) to Cbor.Bytes(concat(run.map { it.export.chainCode!! }))
+        val names = run.mapIndexed { position, account ->
+            if (account.name == autoAccountName(autoNameBase, (first + position).toInt())) "" else account.name
         }
         // The names are left out when every account is named by its Auto-Name, and the labels and groups when none has one.
-        if (names.any { it.isNotEmpty() }) fields += uint(8) to Cbor.Arr(names.map { Cbor.Text(it) })
-        if (run.accounts.any { it.label != null }) fields += uint(9) to Cbor.Arr(run.accounts.map { uint(indexOf(it.label, indexes)) })
-        if (run.accounts.any { it.group != null }) fields += uint(10) to Cbor.Arr(run.accounts.map { uint(indexOf(it.group, indexes)) })
+        if (names.any { it.isNotEmpty() }) fields += uint(11) to Cbor.Arr(names.map { Cbor.Text(it) })
+        if (run.any { it.label != null }) fields += uint(12) to Cbor.Arr(run.map { uint(indexOf(it.label, indexes)) })
+        if (run.any { it.group != null }) fields += uint(13) to Cbor.Arr(run.map { uint(indexOf(it.group, indexes)) })
         return Cbor.Dict(fields)
     }
 
-    private fun decodeApp(item: Cbor, autoNameBase: String, dictionary: List<String>): PairingApp {
-        val fields = fieldsOf(item as? Cbor.Dict ?: refuse(), 1L..2L)
-        val keys = mutableListOf<PairingKey>()
-        val accounts = mutableListOf<PairingAccount>()
-        for (run in items(required(fields, 2L), MAX_KEYS)) {
-            decodeRun(run, autoNameBase, dictionary, keys, accounts)
-        }
-        return PairingApp(
-            app = textOf(required(fields, 1L), 1, 32),
-            keys = keys,
-            accounts = accounts,
-        )
-    }
-
-    /** Appends the keys and accounts of one run to [keys] and [accounts], with each account's index counted from the run's first index. */
-    private fun decodeRun(
-        item: Cbor,
-        autoNameBase: String,
-        dictionary: List<String>,
-        keys: MutableList<PairingKey>,
-        accounts: MutableList<PairingAccount>,
-    ) {
-        val fields = fieldsOf(item as? Cbor.Dict ?: refuse(), 1L..10L)
-        val purpose = uintValue(required(fields, 1L), INDEX_MASK)
-        val coin = uintValue(required(fields, 2L), INDEX_MASK)
-        val first = uintValue(required(fields, 3L), INDEX_MASK)
-        val count = uintValue(required(fields, 4L), MAX_KEYS.toLong()).toInt()
+    /** The accounts of one run, whose accounts are numbered from the run's first index. */
+    private fun decodeRun(item: Cbor, fingerprint: Long, autoNameBase: String, dictionary: List<String>): List<PairingAccount> {
+        val fields = fieldsOf(item as? Cbor.Dict ?: refuse(), 1L..13L)
+        val chain = ChainId(textOf(required(fields, 1L), 1, MAX_CHAIN_BYTES))
+        val curve = curveOf(uintValue(required(fields, 2L), ED25519_BIP32_CODE))
+        val kind = kindOf(uintValue(required(fields, 3L), DEFAULT_KIND_CODE))
+        val purpose = uintValue(required(fields, 4L), INDEX_MASK).toInt()
+        val coin = uintValue(required(fields, 5L), INDEX_MASK).toInt()
+        val first = uintValue(required(fields, 6L), INDEX_MASK)
+        val count = uintValue(required(fields, 7L), MAX_ACCOUNTS.toLong()).toInt()
         if (count < 1 || first + count - 1 > INDEX_MASK) refuse()
-        val suffix = items(required(fields, 5L), MAX_SUFFIX).map { uintValue(it, INDEX_MASK) }
-        val material = (required(fields, 6L) as? Cbor.Bytes)?.value ?: refuse()
-        val length = material.size / count
-        if (material.size % count != 0 || length !in KEY_BYTES) refuse()
-        val chainCodes = fields[7L]?.let { value ->
+        val suffix = items(required(fields, 8L), MAX_SUFFIX).map { uintValue(it, INDEX_MASK).toInt() }
+        val material = (required(fields, 9L) as? Cbor.Bytes)?.value ?: refuse()
+        if (material.size % count != 0 || material.size / count != keyBytesOf(curve)) refuse()
+        val length = keyBytesOf(curve)
+        val chainCodes = fields[10L]?.let { value ->
             val bytes = (value as? Cbor.Bytes)?.value ?: refuse()
             if (bytes.size != count * CHAIN_CODE_BYTES) refuse()
             bytes
         }
-        val names = fields[8L]?.let { value -> column(value, count).map { textOf(it, 0, MAX_NAME_BYTES) } }
-        val labels = fields[9L]?.let { value -> column(value, count).map { labelOf(it, dictionary) } }
-        val groups = fields[10L]?.let { value -> column(value, count).map { labelOf(it, dictionary) } }
-        for (position in 0 until count) {
+        val names = fields[11L]?.let { value -> column(value, count).map { textOf(it, 0, MAX_NAME_BYTES) } }
+        val labels = fields[12L]?.let { value -> column(value, count).map { labelOf(it, dictionary) } }
+        val groups = fields[13L]?.let { value -> column(value, count).map { labelOf(it, dictionary) } }
+        return List(count) { position ->
             val index = (first + position).toInt()
             // An empty name is the Auto-Name, and so is every name of a run that has no names column.
             val explicit = names?.get(position).orEmpty()
-            val name = if (explicit.isEmpty()) autoAccountName(autoNameBase, index) else explicit
-            keys += PairingKey(
-                path = listOf(HARDENED or purpose, HARDENED or coin, HARDENED or index.toLong()) + suffix,
-                material = material.copyOfRange(position * length, (position + 1) * length),
-                chainCode = chainCodes?.copyOfRange(position * CHAIN_CODE_BYTES, (position + 1) * CHAIN_CODE_BYTES),
-            )
-            accounts += PairingAccount(
-                key = keys.size - 1,
-                name = name,
+            PairingAccount(
+                export = AccountExport(
+                    chain = chain,
+                    signer = SignerRef(
+                        fingerprint = fingerprint.toInt(),
+                        path = listOf(PathStep(purpose, true), PathStep(coin, true), PathStep(index, true)) +
+                            suffix.map { PathStep(it, false) },
+                    ),
+                    publicKey = PublicKey(curve, material.copyOfRange(position * length, (position + 1) * length)),
+                    chainCode = chainCodes?.copyOfRange(position * CHAIN_CODE_BYTES, (position + 1) * CHAIN_CODE_BYTES),
+                    kind = kind,
+                ),
+                name = if (explicit.isEmpty()) autoAccountName(autoNameBase, index) else explicit,
                 label = labels?.get(position),
                 group = groups?.get(position),
             )
@@ -420,6 +362,41 @@ object PairingCodec {
 
     /** The items of a run's column, which holds exactly [count] items: one for each account of the run. */
     private fun column(item: Cbor, count: Int): List<Cbor> = items(item, count).also { if (it.size != count) refuse() }
+
+    /** The purpose, coin type and account index of an account's path, with the hardened bit left out. */
+    private fun purposeOf(export: AccountExport): Long = export.signer.path[0].index.toLong()
+
+    private fun coinOf(export: AccountExport): Long = export.signer.path[1].index.toLong()
+
+    private fun indexOf(export: AccountExport): Long = export.signer.path[2].index.toLong()
+
+    /** The path after the account index, which the run states once. */
+    private fun suffixOf(export: AccountExport): List<Int> = export.signer.path.drop(3).map { it.index }
+
+    private fun curveCode(curve: Curve): Long = when (curve) {
+        Curve.SECP256K1 -> SECP256K1_CODE
+        Curve.ED25519_SLIP10 -> ED25519_SLIP10_CODE
+        Curve.ED25519_BIP32 -> ED25519_BIP32_CODE
+    }
+
+    private fun curveOf(code: Long): Curve = when (code) {
+        SECP256K1_CODE -> Curve.SECP256K1
+        ED25519_SLIP10_CODE -> Curve.ED25519_SLIP10
+        ED25519_BIP32_CODE -> Curve.ED25519_BIP32
+        else -> refuse()
+    }
+
+    /** The length of a key on [curve]: a compressed secp256k1 key, or an Ed25519 key with no prefix. */
+    private fun keyBytesOf(curve: Curve): Int = if (curve == Curve.SECP256K1) COMPRESSED_KEY_BYTES else ED25519_KEY_BYTES
+
+    private fun kindCode(kind: AddressKind): Long = when (kind) {
+        AddressKind.DEFAULT -> DEFAULT_KIND_CODE
+    }
+
+    private fun kindOf(code: Long): AddressKind = when (code) {
+        DEFAULT_KIND_CODE -> AddressKind.DEFAULT
+        else -> refuse()
+    }
 
     /** The Address Book entry of one address item: { 1: id, 2: address, 3: name, 4: label (optional) }. */
     private fun encodeAddress(entry: AddressBookEntry): Cbor {
@@ -477,26 +454,25 @@ object PairingCodec {
         require(payload.fingerprint in 0..UINT32_MAX) { "The fingerprint is a uint32." }
         require(isPlain(payload.name, 1, MAX_NAME_BYTES)) { "A name is 1 to $MAX_NAME_BYTES bytes of plain text." }
         require(isPlain(payload.autoNameBase, 0, MAX_NAME_BYTES)) { "The auto-name base is up to $MAX_NAME_BYTES bytes of plain text." }
-        require(payload.apps.size <= MAX_APPS) { "A pairing carries at most $MAX_APPS Apps." }
-        require(payload.apps.map { it.app }.distinct().size == payload.apps.size) { "An App is listed once." }
-        for (app in payload.apps) {
-            require(APP_ID.matches(app.app)) { "An App id is 1 to 32 characters of a-z, 0-9 and hyphen." }
-            require(app.keys.size <= MAX_KEYS && app.accounts.size == app.keys.size) { "An App holds too many keys, or its accounts and keys differ." }
-            for ((position, key) in app.keys.withIndex()) {
-                require(key.path.size in 3..3 + MAX_SUFFIX && key.path.take(3).all { it in HARDENED..(HARDENED + INDEX_MASK) }) {
-                    "A key path is m/purpose'/coin'/account' with up to $MAX_SUFFIX components after it."
-                }
-                require(key.path.drop(3).all { it in 0..INDEX_MASK }) { "A key path's suffix is not hardened." }
-                require(key.material.size in KEY_BYTES) { "A key is 20 bytes (an Ethereum address), 32 bytes (Ed25519) or 33 bytes (compressed)." }
-                require(key.chainCode == null || key.chainCode.size == CHAIN_CODE_BYTES) { "A key's chain code is 32 bytes." }
-                val account = app.accounts[position]
-                require(account.key == position) { "An account names the key at its own position." }
-                require(isPlain(account.name, 1, MAX_NAME_BYTES)) { "An account name is 1 to $MAX_NAME_BYTES bytes." }
-                account.label?.let { require(isPlain(it, 1, MAX_LABEL_BYTES)) { "A label is 1 to $MAX_LABEL_BYTES bytes." } }
-                account.group?.let { require(isPlain(it, 1, MAX_LABEL_BYTES)) { "A group is 1 to $MAX_LABEL_BYTES bytes." } }
+        require(payload.accounts.size <= MAX_ACCOUNTS) { "A pairing carries at most $MAX_ACCOUNTS accounts." }
+        for (account in payload.accounts) {
+            val export = account.export
+            require(export.signer.fingerprint == payload.fingerprint.toInt()) { "An account's key is the wallet's master key." }
+            val path = export.signer.path
+            require(path.size in 3..3 + MAX_SUFFIX && path.take(3).all { it.hardened && it.index >= 0 }) {
+                "A key path is m/purpose'/coin'/account' with up to $MAX_SUFFIX components after it."
             }
+            require(path.drop(3).all { !it.hardened && it.index >= 0 }) { "A key path's suffix is not hardened." }
+            require(export.publicKey.bytes.size == keyBytesOf(export.publicKey.curve)) {
+                "A key is 33 bytes (compressed secp256k1) or 32 bytes (Ed25519)."
+            }
+            val chainCode = export.chainCode
+            require(chainCode == null || chainCode.size == CHAIN_CODE_BYTES) { "A key's chain code is 32 bytes." }
+            require(isPlain(account.name, 1, MAX_NAME_BYTES)) { "An account name is 1 to $MAX_NAME_BYTES bytes." }
+            account.label?.let { require(isPlain(it, 1, MAX_LABEL_BYTES)) { "A label is 1 to $MAX_LABEL_BYTES bytes." } }
+            account.group?.let { require(isPlain(it, 1, MAX_LABEL_BYTES)) { "A group is 1 to $MAX_LABEL_BYTES bytes." } }
         }
-        val distinct = payload.apps.flatMap { app -> app.accounts.flatMap { listOfNotNull(it.label, it.group) } }.distinct()
+        val distinct = payload.accounts.flatMap { listOfNotNull(it.label, it.group) }.distinct()
         require(distinct.size <= MAX_DICTIONARY) { "A pairing carries at most $MAX_DICTIONARY distinct labels and groups." }
         require(payload.addressBook.size <= MAX_ADDRESS_BOOK) { "A pairing carries at most $MAX_ADDRESS_BOOK Address Book entries." }
         for (entry in payload.addressBook) {

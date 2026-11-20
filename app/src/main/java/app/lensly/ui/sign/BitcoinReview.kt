@@ -1,7 +1,7 @@
 package app.lensly.ui.sign
 
 import app.airvault.chains.bitcoin.signer.BtcReview
-import app.airvault.chains.bitcoin.signer.bitcoinManifest
+import app.airvault.chains.bitcoin.bitcoinManifest
 import app.airvault.chains.bitcoin.signer.toReview
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.NetworkLabel

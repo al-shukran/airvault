@@ -95,7 +95,7 @@ class AlgorandWalletTest {
         curve: Curve = Curve.ED25519_BIP32,
     ): AccountExport {
         val signerPath = if (path == null) AlgorandWallet.pathOf(index) else parsePath(path)
-        return AccountExport(chain, SignerRef(FINGERPRINT, signerPath), PublicKey(curve, key), AddressKind.DEFAULT)
+        return AccountExport(chain, SignerRef(FINGERPRINT, signerPath), PublicKey(curve, key), null, AddressKind.DEFAULT)
     }
 
     /** A path written as m/44'/60'/0'/0/0, for the refusals. Hardened levels carry a trailing apostrophe. */

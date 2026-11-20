@@ -87,7 +87,7 @@ class BitcoinWalletTest {
         path: List<PathStep>,
         key: ByteArray = receiveKey,
         curve: Curve = Curve.SECP256K1,
-    ): AccountExport = AccountExport(chain, SignerRef(fingerprint, path), PublicKey(curve, key), AddressKind.DEFAULT)
+    ): AccountExport = AccountExport(chain, SignerRef(fingerprint, path), PublicKey(curve, key), null, AddressKind.DEFAULT)
 
     private fun hex(text: String): ByteArray = ByteArray(text.length / 2) { text.substring(2 * it, 2 * it + 2).toInt(16).toByte() }
 }

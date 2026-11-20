@@ -1,6 +1,6 @@
 package app.lensly.app.sign
 
-import app.airvault.chains.bitcoin.signer.bitcoinManifest
+import app.airvault.chains.bitcoin.bitcoinManifest
 import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.core.model.AppId
 import app.airvault.core.signer.RequestHeader

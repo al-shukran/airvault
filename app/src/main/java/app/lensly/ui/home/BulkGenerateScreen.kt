@@ -9,7 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.airvault.chains.algorand.algorandManifest
-import app.airvault.chains.bitcoin.signer.bitcoinManifest
+import app.airvault.chains.bitcoin.bitcoinManifest
 import app.airvault.chains.evm.evmManifest
 import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.model.ChainManifest

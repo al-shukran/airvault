@@ -4,7 +4,7 @@ import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.BtcRefusal
 import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
 import app.airvault.chains.bitcoin.signer.UNVERIFIED_CHECK
-import app.airvault.chains.bitcoin.signer.bitcoinManifest
+import app.airvault.chains.bitcoin.bitcoinManifest
 import app.airvault.core.model.Approval
 import app.airvault.core.signer.AppRequest
 import app.lensly.app.BITCOIN_FAMILY

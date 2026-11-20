@@ -21,6 +21,7 @@ import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.LenslySpacing
+import app.lumio.data.net.Networks
 import app.lumio.pair.PairChain
 import app.lumio.pair.PairImport
 import app.lumio.ui.kit.LumioPrimaryButton
@@ -54,9 +55,9 @@ fun PairReviewScreen(
     onSave: () -> Unit,
     onCancel: () -> Unit,
 ) {
-    val accounts = pairing.apps.firstOrNull { it.app == PairImport.ETHEREUM }?.accounts.orEmpty()
+    val accounts = PairImport.accountsOf(pairing, Networks.EIP155)
     val bitcoin = PairImport.bitcoinAccountsOf(pairing)
-    val bitcoinNames = pairing.apps.firstOrNull { it.app == PairImport.BITCOIN }?.accounts.orEmpty().associateBy { it.key }
+    val bitcoinNames = PairImport.accountsOf(pairing, Networks.BIP122).withIndex().associate { (position, account) -> position to account }
     LenslyScreen(
         title = "Review Pairing",
         onBack = onCancel,
@@ -89,15 +90,14 @@ private fun EthereumReview(addresses: List<String>, accounts: List<PairingAccoun
     LumioTag(text = PairLabels.chainName(PairChain.EVM))
     ReviewField("Network", "All EVM Networks")
     ReviewField("Accounts", "${accounts.size}")
-    accounts.sortedBy { it.key }.forEach { account -> EthereumAccountReview(address = addresses[account.key], account = account) }
+    accounts.forEachIndexed { index, account -> EthereumAccountReview(address = addresses[index], index = index, account = account) }
 }
 
 @Composable
-private fun EthereumAccountReview(address: String, account: PairingAccount) {
-    val index = account.key
+private fun EthereumAccountReview(address: String, index: Int, account: PairingAccount) {
     Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.md)) {
         Text(
-            text = account.name ?: "Account $index",
+            text = account.name,
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurface,
         )
@@ -148,7 +148,7 @@ private fun BitcoinReview(accounts: List<BtcWatchOnlyAccount>, names: Map<Int, P
     Spacer(Modifier.height(LenslySpacing.md))
     LumioTag(text = PairLabels.chainName(PairChain.BITCOIN))
     ReviewField("Accounts", "${accounts.size}")
-    accounts.forEachIndexed { key, account -> BitcoinAccountReview(account, names[key]) }
+    accounts.forEachIndexed { position, account -> BitcoinAccountReview(account, names[position]) }
 }
 
 @Composable

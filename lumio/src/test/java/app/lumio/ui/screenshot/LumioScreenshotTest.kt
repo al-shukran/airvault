@@ -3,8 +3,6 @@ package app.lumio.ui.screenshot
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.app.export.PairingAccount
-import app.lensly.app.export.PairingApp
-import app.lensly.app.export.PairingKey
 import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnly
@@ -350,13 +348,7 @@ class LumioScreenshotTest {
                 fingerprint = 0x1a2b3c4dL,
                 name = "Demo",
                 autoNameBase = "Demo",
-                apps = listOf(
-                    PairingApp(
-                        app = PairImport.ETHEREUM,
-                        keys = listOf(PairingKey.ethereumAddress(0, PairFixtures.address(PairFixtures.seed, 0))),
-                        accounts = listOf(PairingAccount(key = 0, name = "Demo 0", label = null, group = null)),
-                    ),
-                ),
+                accounts = listOf(PairFixtures.ethereumAccount(0, "Demo 0")),
             ),
             alreadyPaired = false,
             error = null,

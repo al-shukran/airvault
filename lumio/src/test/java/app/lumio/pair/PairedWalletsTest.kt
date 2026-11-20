@@ -3,8 +3,6 @@ package app.lumio.pair
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.autoAccountName
 import app.lensly.app.export.PairingAccount
-import app.lensly.app.export.PairingApp
-import app.lensly.app.export.PairingKey
 import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnlyAccount
@@ -217,7 +215,7 @@ class PairedWalletsTest {
     }
 
     private fun account(index: Int, name: String, label: String? = null, group: String? = null) =
-        PairingAccount(key = index, name = name, label = label, group = group)
+        PairFixtures.ethereumAccount(index, name, label, group)
 
     @Test
     fun aPairingsAddressBookIsStoredWithItsWalletAndListedWithIt() {
@@ -294,28 +292,11 @@ class PairedWalletsTest {
         seed: ByteArray = PairFixtures.seed,
         addressBook: List<AddressBookEntry> = emptyList(),
     ): PairingPayload {
-        val wallet = HdWallet(seed)
-        val numbered = accounts.mapIndexed { index, account -> account.copy(key = index) }
-        val apps = mutableListOf(
-            PairingApp(
-                app = "ethereum",
-                keys = numbered.indices.map { PairingKey.ethereumAddress(it, PairFixtures.address(seed, it)) },
-                accounts = numbered,
-            ),
-        )
-        if (bitcoin.isNotEmpty()) {
-            apps += PairingApp(
-                app = "bitcoin",
-                keys = bitcoin.map { PairingKey.bitcoinAccount(it) },
-                accounts = bitcoin.indices.map { PairingAccount(key = it, name = autoAccountName(name, it), label = null, group = null) },
-            )
+        // Every account of a pairing is the key of its wallet, so each is derived from the seed the pairing is for.
+        val ethereum = accounts.mapIndexed { index, account ->
+            PairFixtures.ethereumAccount(index, account.name, account.label, account.group, seed)
         }
-        return PairingPayload(
-            fingerprint = wallet.masterFingerprint.toLong() and 0xFFFFFFFFL,
-            name = name,
-            autoNameBase = name,
-            apps = apps,
-            addressBook = addressBook,
-        )
+        val bitcoinAccounts = bitcoin.mapIndexed { index, account -> PairFixtures.bitcoinAccount(account, autoAccountName(name, index)) }
+        return PairFixtures.payloadOf(ethereum + bitcoinAccounts, seed = seed, name = name, base = name).copy(addressBook = addressBook)
     }
 }

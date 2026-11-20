@@ -1,17 +1,27 @@
 package app.lumio
 
 import android.content.Intent
+import app.airvault.chains.algorand.algorandMainnet
+import app.airvault.chains.bitcoin.bitcoinMainnet
+import app.airvault.chains.bitcoin.bitcoinTestnet4
+import app.airvault.chains.evm.ethereumMainnet
+import app.airvault.chains.solana.SOLANA_MAINNET
+import app.airvault.core.model.AddressKind
+import app.airvault.core.model.Curve
+import app.airvault.core.signer.AccountExport
+import app.airvault.core.signer.PublicKey
+import app.airvault.core.signer.SignerRef
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.autoAccountName
 import app.lensly.app.export.PairingAccount
-import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingCodec
-import app.lensly.app.export.PairingKey
 import app.lensly.app.export.PairingPayload
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnly
+import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.solana.SolanaAccount
+import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
@@ -50,40 +60,64 @@ internal object DebugPairFixture {
 
     private fun payload(): PairingPayload {
         val wallet = HdWallet(seed)
-        val ethereum = PairingApp(
-            app = "ethereum",
-            keys = (0..1).map { account ->
-                val address = AccountAddresses.addressOfKey(AccountAddresses.addressXpub(wallet.accountXpub(account), 0))
-                PairingKey.ethereumAddress(account, address)
-            },
-            accounts = listOf(
-                PairingAccount(key = 0, name = "DEMO 0", label = "Savings", group = null),
-                PairingAccount(key = 1, name = "DEMO 1", label = null, group = "Trading"),
-            ),
-        )
-        val bitcoin = BtcWatchOnly.accounts(seed, BtcNetwork.MAINNET) + BtcWatchOnly.accounts(seed, BtcNetwork.TESTNET4)
+        val fingerprint = wallet.masterFingerprint
+        val ethereum = (0..1).map { account ->
+            val key = AccountAddresses.addressXpub(wallet.accountXpub(account), 0)
+            PairingAccount(
+                export = AccountExport(
+                    chain = ethereumMainnet,
+                    signer = SignerRef(fingerprint, steps(44, 60, account, 0, 0)),
+                    publicKey = PublicKey(Curve.SECP256K1, key.publicKey),
+                    chainCode = null,
+                    kind = AddressKind.DEFAULT,
+                ),
+                name = "DEMO $account",
+                label = if (account == 0) "Savings" else null,
+                group = if (account == 1) "Trading" else null,
+            )
+        }
+        val bitcoin = (BtcWatchOnly.accounts(seed, BtcNetwork.MAINNET) + BtcWatchOnly.accounts(seed, BtcNetwork.TESTNET4))
+            .mapIndexed { index, account ->
+                PairingAccount(
+                    export = account.export(fingerprint),
+                    name = autoAccountName(AUTO_NAME_BASE, index),
+                    label = null,
+                    group = null,
+                )
+            }
+        val solana = (0..1).map { account ->
+            PairingAccount(
+                export = AccountExport(
+                    chain = SOLANA_MAINNET,
+                    signer = SignerRef(fingerprint, steps(44, 501, account)),
+                    publicKey = PublicKey(Curve.ED25519_SLIP10, SolanaAccount.publicKey(seed, account)),
+                    chainCode = null,
+                    kind = AddressKind.DEFAULT,
+                ),
+                name = "Solana $account",
+                label = null,
+                group = null,
+            )
+        }
+        val algorand = (0..1).map { account ->
+            PairingAccount(
+                export = AccountExport(
+                    chain = algorandMainnet,
+                    signer = SignerRef(fingerprint, steps(44, 283, account, 0, 0)),
+                    publicKey = PublicKey(Curve.ED25519_BIP32, AlgorandAccount.publicKey(seed, account)),
+                    chainCode = null,
+                    kind = AddressKind.DEFAULT,
+                ),
+                name = "Algorand $account",
+                label = null,
+                group = null,
+            )
+        }
         return PairingPayload(
             fingerprint = wallet.masterFingerprint.toLong() and UINT32_MASK,
             name = "Demo",
             autoNameBase = AUTO_NAME_BASE,
-            apps = listOf(
-                ethereum,
-                PairingApp(
-                    app = "bitcoin",
-                    keys = bitcoin.map { PairingKey.bitcoinAccount(it) },
-                    accounts = bitcoin.indices.map { PairingAccount(key = it, name = autoAccountName(AUTO_NAME_BASE, it), label = null, group = null) },
-                ),
-                PairingApp(
-                    app = "solana",
-                    keys = (0..1).map { account -> PairingKey.solanaAccount(account, SolanaAccount.publicKey(seed, account)) },
-                    accounts = (0..1).map { PairingAccount(key = it, name = "Solana $it", label = null, group = null) },
-                ),
-                PairingApp(
-                    app = "algorand",
-                    keys = (0..1).map { account -> PairingKey.algorandAccount(account, AlgorandAccount.publicKey(seed, account)) },
-                    accounts = (0..1).map { PairingAccount(key = it, name = "Algorand $it", label = null, group = null) },
-                ),
-            ),
+            accounts = ethereum + bitcoin + solana + algorand,
             // Public example addresses, one per chain form, so the Address Book screen has entries to show.
             addressBook = listOf(
                 AddressBookEntry("5f0c2a1e-0001", "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed", "Alice", "Savings"),
@@ -92,4 +126,20 @@ internal object DebugPairFixture {
             ),
         )
     }
+
+    /** The path m/purpose'/coin'/[account]' followed by [suffix], whose levels after the account are not hardened. */
+    private fun steps(purpose: Int, coin: Int, account: Int, vararg suffix: Int): List<PathStep> =
+        listOf(PathStep(purpose, true), PathStep(coin, true), PathStep(account, true)) + suffix.map { PathStep(it, false) }
+
+    /** The watch-only Bitcoin account as its export: its network's chain, the key and chain code of its path, and its path. */
+    private fun BtcWatchOnlyAccount.export(fingerprint: Int): AccountExport = AccountExport(
+        chain = if (network == BtcNetwork.MAINNET) bitcoinMainnet else bitcoinTestnet4,
+        signer = SignerRef(fingerprint, path.path.map { child -> PathStep((child and INDEX_BITS).toInt(), child and HARDENED_BIT != 0L) }),
+        publicKey = PublicKey(Curve.SECP256K1, xpub.publickeybytes.toByteArray()),
+        chainCode = xpub.chaincode.toByteArray(),
+        kind = AddressKind.DEFAULT,
+    )
+
+    private const val HARDENED_BIT = 0x8000_0000L
+    private const val INDEX_BITS = 0x7FFF_FFFFL
 }

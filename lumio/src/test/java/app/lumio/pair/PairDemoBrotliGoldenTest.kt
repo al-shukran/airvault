@@ -30,10 +30,6 @@ class PairDemoBrotliGoldenTest {
         assertEquals(expected.fingerprint, read.fingerprint)
         assertEquals(expected.name, read.name)
         assertEquals(expected.addressBook, read.addressBook)
-        assertEquals(expected.apps.map { it.accounts }, read.apps.map { it.accounts })
-        assertEquals(
-            expected.apps.map { app -> app.keys.map { it.material.toList() } },
-            read.apps.map { app -> app.keys.map { it.material.toList() } },
-        )
+        assertEquals(expected.accounts.map { it.shape() }, read.accounts.map { it.shape() })
     }
 }

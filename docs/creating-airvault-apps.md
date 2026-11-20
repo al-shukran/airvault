@@ -797,7 +797,7 @@ data class AccountExport(
 )
 ```
 
-`PairingCodec` encodes a list of these without knowing the chain. Its per-kind factory functions go away. `PairImport` hands each entry to `WalletApp.accountFrom`.
+`PairingCodec` encodes a list of these without knowing the chain. Its per-kind factory functions are gone: each chain's Lensly side builds its own entries. `PairImport` checks each entry against its chain's manifest (key scope, curve, chain code) and address rules, so the chain is found in the registry, not in the codec.
 
 ---
 
@@ -994,11 +994,11 @@ From the codebase research (master `fd05a9aa`; line numbers approximate):
 
 | Today | Where | Replace with |
 |---|---|---|
-| `AddressChain { EVM, BITCOIN, SOLANA, ALGORAND }` | `shared/.../app/AddressBookEntry.kt:4` | `ChainId` + `ChainRegistry` |
-| `AccountChain` enum with routes | `lumio/.../wallets/WalletAccounts.kt:23` | `WalletAccount.id` (CAIP-10) |
-| `Family { BTC, EVM, SOL, ALGO }`, `NetworkId` | `lumio/.../data/net/NetworkId.kt:7` | `ChainId`, namespaced `OpKey` |
-| `BulkChain` sealed | `app/.../ui/home/BulkGenerateScreen.kt:34` | registry networks + `KeyScope` |
-| `ChainIconSpec` sealed | `shared/.../ui/components/ChainIcon.kt:43` | icon resource declared by the app (vault only) |
+| `AddressChain` (removed) | `shared/.../app/AddressBookEntry.kt` | `AddressBookEntry.chain: ChainId?`, address rules from `ChainRegistry` |
+| `AccountChain` (removed) | `lumio/.../wallets/WalletAccounts.kt` | `WalletAccount.id` (CAIP-10) |
+| `Family` (removed), `NetworkId` | `lumio/.../data/net/NetworkId.kt` | `NetworkId` wraps `ChainId`; namespaced `OpKey` (open) |
+| `BulkChain` (removed) | `app/.../ui/home/BulkGenerateScreen.kt` | `BulkTarget(app: ChainManifest, network: NetworkSpec, scriptType)`: registry networks and manifest key scopes |
+| `ChainIconSpec` (removed) | `shared/.../ui/components/ChainIcon.kt` | `ChainLogo` and `chainLogo(network)`: the icon resource of a registry network (vault only) |
 | `ScannedRequest` + `routeScan` `when` | `app/.../sign/WalletMatch.kt:25,37` | `ChainRegistry.byRequestType` + `RequestHeader.signers` |
 | `ScanReply` per-chain branches, `replyOf` if-chain | `shared/.../core/parse/ParserSandbox.kt:40,109` | `ParseOutcome` |
 | `ParserWire` tagged union across chains | `shared/.../core/parse/ParserWire.kt` | chain-blind wire carrying app body bytes |
@@ -1010,8 +1010,8 @@ From the codebase research (master `fd05a9aa`; line numbers approximate):
 | `WalletStore` per-chain sign and derive methods | `app/.../app/WalletStore.kt` (`bitcoinSign`, `solanaSign`, `algorandSign`, bulk generate) | `KeyAccess` + `SignerApp.accountExport` |
 | `WalletView` per-chain fields | `app/.../sign/WalletView.kt` | list of `AccountExport` |
 | `canonicalAddressOn` `when`, `chainOfAddress` | `shared/.../app/CanonicalAddress.kt` | `AddressCodec` per app |
-| `PairingCodec` per-kind factories, `PairImport` per-chain checks | `shared/.../app/export/PairingCodec.kt`, `lumio/.../pair/PairImport.kt` | `AccountExport` list + `WalletApp.accountFrom` |
-| `SigningSourcePolicy.bitcoinSigningSource` | `SettingsStore.kt` | per-app setting declared by the app |
+| `PairingKey` per-kind factories, `PairImport` per-chain checks (removed) | `shared/.../app/export/PairingCodec.kt`, `lumio/.../pair/PairImport.kt` | `PairingPayload.accounts`: one list of `AccountExport` (spec 7.5); `PairImport` checks each entry against its chain's manifest and address rules |
+| `SigningSourcePolicy.bitcoinSigningSource` (removed) | `SettingsStore.kt` | per-app setting: `AppSettings.appSettings`, keyed by `SIGNING_SOURCE_SETTING`, which the Bitcoin app declares (`chains/bitcoin/signer/.../BtcPolicies.kt`) |
 | `Op` enum union of all chains | `lumio/.../data/provider/Provider.kt` | namespaced `OpKey` |
 | ~39 `Family` switches across ~26 Lumio files | `TxFeed`, `TxHistory`, `NativeBalances`, `PairScreens`, `Router`, ... | `ChainRegistry` lookups |
 | Derivation paths spelled in several files | `EvmSend.kt`, `AlgorandSend.kt`, `SignPipeline.kt`, `PairImport.kt`, `WalletStore.kt` | `KeyScope` in the manifest, one place |

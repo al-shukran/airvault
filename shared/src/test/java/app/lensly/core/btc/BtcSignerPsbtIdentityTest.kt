@@ -3,7 +3,7 @@ package app.lensly.core.btc
 import app.airvault.chains.bitcoin.signer.BitcoinSigner
 import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
-import app.airvault.chains.bitcoin.signer.bitcoinManifest
+import app.airvault.chains.bitcoin.bitcoinManifest
 import app.airvault.chains.bitcoin.signer.toReview
 import app.airvault.core.model.Approval
 import app.airvault.core.model.NetworkLabel

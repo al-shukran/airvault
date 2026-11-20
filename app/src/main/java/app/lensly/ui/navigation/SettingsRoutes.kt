@@ -142,7 +142,7 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
         onProxyPolicy = { navController.navigate(HiddenRoute.PROXY_POLICY) },
         hideDelay = settings?.hideDelay,
         bitcoinInputPolicy = settings?.bitcoinInputPolicy,
-        bitcoinSigningSource = settings?.bitcoinSigningSource,
+        bitcoinSigningSource = settings?.bitcoinSigningSource(),
         onBitcoinPolicy = { navController.navigate(HiddenRoute.BITCOIN_POLICY) },
         bitcoinFeeThresholds = settings?.bitcoinFeeThresholds,
         onBitcoinFeeWarnings = { navController.navigate(HiddenRoute.BITCOIN_FEE_WARNINGS) },
@@ -219,7 +219,7 @@ private fun BitcoinPolicyRoute(navController: NavHostController, holder: VaultHo
         whileUnlocked(navController, holder) {
             val saved = withContext(Dispatchers.IO) { SettingsStore(session).load() }
             inputPolicy = saved.bitcoinInputPolicy
-            signingSource = saved.bitcoinSigningSource
+            signingSource = saved.bitcoinSigningSource()
             ready = true
         }
     }
@@ -233,7 +233,7 @@ private fun BitcoinPolicyRoute(navController: NavHostController, holder: VaultHo
         },
         onSigningSource = { source ->
             signingSource = source
-            scope.launch { writeSettings(navController, holder, session) { it.copy(bitcoinSigningSource = source) } }
+            scope.launch { writeSettings(navController, holder, session) { it.withBitcoinSigningSource(source) } }
         },
         onBack = { navController.popBackStack() },
     )

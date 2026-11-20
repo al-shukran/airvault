@@ -1,7 +1,9 @@
 package app.lensly.app.export
 
 import app.lensly.app.AddressBookEntry
+import app.airvault.chains.evm.ethereumMainnet
 import app.airvault.chains.evm.evmAddressOf
+import app.airvault.core.model.Curve
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
@@ -31,41 +33,37 @@ object DemoPairingGolden {
     fun payload(): PairingPayload {
         val seed = Mnemonic.of(WORDS).use { it.deriveSeed("") }
         val wallet = HdWallet(seed)
+        val fingerprint = wallet.masterFingerprint
         // The Bitcoin accounts the owner stores: one Native Segwit and one Taproot on mainnet, and one Native Segwit on testnet4.
         val bitcoin = listOf(
             BtcAccount.fromSeed(seed, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT, 0).watchOnly(),
             BtcAccount.fromSeed(seed, BtcNetwork.MAINNET, ScriptType.TAPROOT, 0).watchOnly(),
             BtcAccount.fromSeed(seed, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0).watchOnly(),
         )
+        val bitcoinNames = listOf("Bitcoin main 1", "Bitcoin main 2", "Bitcoin test 1")
         val random = Random(20261116)
+        val ethereum = List(12) { account ->
+            PairingAccount(
+                export = keyExport(
+                    ethereumMainnet,
+                    fingerprint,
+                    accountSteps(44, 60, account, 0, 0),
+                    Curve.SECP256K1,
+                    AccountAddresses.addressXpub(wallet.accountXpub(account), 0).publicKey,
+                ),
+                name = if (account % 2 == 0) NAMES[account] else "Account ${account + 1}",
+                label = if (account % 4 == 0) "Cold" else null,
+                group = if (account % 3 == 0) GROUPS[account] else null,
+            )
+        }
+        val bitcoinAccounts = bitcoin.mapIndexed { i, account ->
+            PairingAccount(export = watchOnlyExportOf(account, fingerprint), name = bitcoinNames[i], label = null, group = null)
+        }
         return PairingPayload(
             fingerprint = wallet.masterFingerprint.toLong() and 0xFFFFFFFFL,
             name = "My AirVault wallet",
             autoNameBase = "My AirVault wallet",
-            apps = listOf(
-                PairingApp(
-                    app = "ethereum",
-                    keys = List(12) { account ->
-                        val address = AccountAddresses.addressOfKey(AccountAddresses.addressXpub(wallet.accountXpub(account), 0))
-                        PairingKey.ethereumAddress(account, address)
-                    },
-                    accounts = List(12) { i ->
-                        PairingAccount(
-                            key = i,
-                            name = if (i % 2 == 0) NAMES[i] else "Account ${i + 1}",
-                            label = if (i % 4 == 0) "Cold" else null,
-                            group = if (i % 3 == 0) GROUPS[i] else null,
-                        )
-                    },
-                ),
-                PairingApp(
-                    app = "bitcoin",
-                    keys = bitcoin.map { PairingKey.bitcoinAccount(it) },
-                    accounts = bitcoin.indices.map { i ->
-                        PairingAccount(key = i, name = listOf("Bitcoin main 1", "Bitcoin main 2", "Bitcoin test 1")[i], label = null, group = null)
-                    },
-                ),
-            ),
+            accounts = ethereum + bitcoinAccounts,
             addressBook = List(50) { i ->
                 val address = if (i % 5 != 4) {
                     checkNotNull(evmAddressOf("0x" + random.nextBytes(20).joinToString("") { "%02x".format(it) }))

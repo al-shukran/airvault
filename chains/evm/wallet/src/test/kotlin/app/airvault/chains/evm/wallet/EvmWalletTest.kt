@@ -72,8 +72,9 @@ class EvmWalletTest {
         assertFailsWith<IllegalArgumentException> { EvmWallet.accountFrom(export(mainnet, 0, generator, path = "m/44'/283'/0'/0/0")) }
         assertFailsWith<IllegalArgumentException> { EvmWallet.accountFrom(export(mainnet, 0, generator, path = "m/44'/60'/0'/0")) }
         assertFailsWith<IllegalArgumentException> { EvmWallet.accountFrom(export(mainnet, 0, generator, path = "m/44'/60'/0/0/0")) }
-        // The codec takes the uncompressed key, which an Ethereum address is derived from. The compressed form (02 and X) is refused.
-        assertFailsWith<IllegalArgumentException> { EvmWallet.accountFrom(export(mainnet, 0, byteArrayOf(0x02) + generator.copyOfRange(1, 33))) }
+        // The pairing carries the compressed key (02 and X), which derives the same account as the uncompressed key.
+        val compressed = byteArrayOf(0x02) + generator.copyOfRange(1, 33)
+        assertEquals(EvmWallet.accountFrom(export(mainnet, 0, generator)).map { it.id }, EvmWallet.accountFrom(export(mainnet, 0, compressed)).map { it.id })
     }
 
     @Test
@@ -99,7 +100,7 @@ class EvmWalletTest {
         curve: Curve = Curve.SECP256K1,
     ): AccountExport {
         val signerPath = if (path == null) EvmWallet.pathOf(index) else parsePath(path)
-        return AccountExport(chain, SignerRef(FINGERPRINT, signerPath), PublicKey(curve, key), AddressKind.DEFAULT)
+        return AccountExport(chain, SignerRef(FINGERPRINT, signerPath), PublicKey(curve, key), null, AddressKind.DEFAULT)
     }
 
     /** A path written as m/44'/60'/0'/0/0, for the refusals. Hardened levels carry a trailing apostrophe. */
