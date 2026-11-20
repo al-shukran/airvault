@@ -14,6 +14,7 @@ import app.airvault.core.model.Warning
 import app.airvault.core.model.checked
 import app.airvault.core.model.text
 import app.airvault.core.model.trimmedAmount
+import fr.acinq.bitcoin.OutPoint
 import java.math.BigInteger
 import java.time.Instant
 import java.time.ZoneOffset
@@ -28,9 +29,6 @@ const val UNVERIFIED_AMOUNTS_CODE = "bitcoin.unverified-amounts"
 
 /** The tick the owner gives before a request with unverified amounts can be signed. Set only when the review asks for it. */
 const val UNVERIFIED_CHECK = "I have checked the unverified input amounts"
-
-/** The check the owner ticks before a request that spends a marked input can be signed. */
-private const val RISK_CHECK = "I understand spending a marked input may burn any inscription or rune it carries."
 
 private const val UNKNOWN_FEE_NOTE = "Unknown until every input amount is verified or confirmed."
 private const val SIZE_NOTE = "Estimated from the unsigned request, so the signed size may differ by a few vbytes."
@@ -66,7 +64,7 @@ fun BtcReview.toReview(
     summary = listOf(sentence(from)),
     facts = facts(),
     sections = listOf(inputsSection(), outputsSection(chain), transactionSection(scriptType)),
-    warnings = warnings().map { warningOf(it, requiresConfirmation) },
+    warnings = warnings().map { warningOf(it, requiresConfirmation, riskCheck()) },
     coverage = Coverage(decoded = decodedFields(), excluded = emptyMap()),
 ).checked()
 
@@ -178,7 +176,20 @@ private fun BtcReview.decodedFields(): Set<FieldPath> = buildSet {
     add(LOCK_TIME)
 }
 
-private fun warningOf(warning: BtcWarning, confirmation: Boolean): Warning = when (warning) {
+/**
+ * The check the owner ticks before a request that spends marked inputs can be signed. It names the count and every marked outpoint, so one tick
+ * confirms exactly that set, and a request whose marked set changes asks for a new tick. Null when no input is marked.
+ */
+private fun BtcReview.riskCheck(): String? {
+    val marked = inputs.filter { it.riskMarked }.map { outPointText(it.outPoint) }
+    if (marked.isEmpty()) return null
+    return "I understand spending ${marked.size} marked input(s) may burn any inscription or rune they carry: ${marked.joinToString(", ")}."
+}
+
+/** The outpoint as the review names it: its transaction id, a colon, and the output index. */
+internal fun outPointText(outPoint: OutPoint): String = "${outPoint.txid}:${outPoint.index}"
+
+private fun warningOf(warning: BtcWarning, confirmation: Boolean, riskCheck: String?): Warning = when (warning) {
     // Under the relaxed policy the owner ticks nothing, so the warning is a CAUTION: a DANGER with no check would stop the review.
     is BtcWarning.UnverifiedAmounts -> Warning(
         if (confirmation) Danger.DANGER else Danger.CAUTION,
@@ -191,7 +202,7 @@ private fun warningOf(warning: BtcWarning, confirmation: Boolean): Warning = whe
         "bitcoin.risk-marked",
         warningText(warning),
         inputField(warning.index, "amount"),
-        acknowledge = RISK_CHECK,
+        acknowledge = riskCheck,
     )
     is BtcWarning.RiskUnchecked -> Warning(Danger.CAUTION, "bitcoin.risk-unchecked", warningText(warning))
     is BtcWarning.ExternalInputs -> Warning(Danger.CAUTION, "bitcoin.external-inputs", warningText(warning))
@@ -219,7 +230,8 @@ fun warningText(warning: BtcWarning): String = when (warning) {
     is BtcWarning.DustOutputs ->
         "${warning.count} output(s) pay less than $DUST_LIMIT_SATS sats, the dust limit. The network may not relay them."
     is BtcWarning.LockTime -> "The transaction cannot confirm before ${lockTimePoint(warning.lockTime)}."
-    is BtcWarning.RiskMarkedInput -> "Input ${warning.index} is marked as carrying an inscription or rune. Spending it may burn it."
+    is BtcWarning.RiskMarkedInput ->
+        "Input ${warning.index} (${outPointText(warning.outPoint)}) is marked as carrying an inscription or rune. Spending it may burn it."
     is BtcWarning.RiskUnchecked -> "Inputs were not checked for inscriptions or runes."
 }
 

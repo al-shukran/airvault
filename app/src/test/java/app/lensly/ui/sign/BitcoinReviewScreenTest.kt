@@ -29,8 +29,11 @@ import app.lensly.core.btc.ScriptType
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.sign.SAMPLE_SIGNER
 import app.lensly.ui.theme.LumenTheme
+import fr.acinq.bitcoin.ByteVector32
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.KeyPath
+import fr.acinq.bitcoin.OutPoint
+import fr.acinq.bitcoin.TxHash
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -136,8 +139,9 @@ class BitcoinReviewScreenTest {
         show(riskMarkedRequest())
 
         compose.onNodeWithText("1 warning — review before signing").assertExists()
-        compose.onNodeWithText("Input 0 is marked as carrying an inscription or rune. Spending it may burn it.").assertExists()
-        compose.onNodeWithText("I understand spending a marked input may burn any inscription or rune it carries.").assertExists()
+        val outPoint = outPointOf(0).txid
+        compose.onNodeWithText("Input 0 ($outPoint:0) is marked as carrying an inscription or rune. Spending it may burn it.").assertExists()
+        compose.onNodeWithText("I understand spending 1 marked input(s) may burn any inscription or rune they carry: $outPoint:0.").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
     }
 
@@ -197,6 +201,9 @@ class BitcoinReviewScreenTest {
     }
 }
 
+/** The output that input [index] of these requests spends: each input spends its own transaction's first output. */
+private fun outPointOf(index: Int): OutPoint = OutPoint(TxHash(ByteVector32(ByteArray(32) { (index + 1).toByte() })), 0L)
+
 /** The account's path at receive index [index] of account 0 on testnet4, Native Segwit. */
 private fun ownedPath(index: Long): KeyPath = KeyPath(
     listOf(
@@ -211,7 +218,7 @@ private fun ownedPath(index: Long): KeyPath = KeyPath(
 /** A request that spends one verified input of the account, pays a receiver, and returns the change to the account. */
 private fun cleanRequest() = BtcReview(
     inputPolicy = InputVerificationPolicy.STRICT,
-    inputs = listOf(BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = ownedPath(0), sequence = 0xFFFFFFFDL)),
+    inputs = listOf(BtcReviewInput(0, outPointOf(0), 100_000L, amountVerified = true, ownerPath = ownedPath(0), sequence = 0xFFFFFFFDL)),
     outputs = listOf(
         BtcReviewOutput(0, "tb1qexampleexampleexampleexampleexample0", 30_000L, isOwnChange = false, changeIndex = null),
         BtcReviewOutput(1, "tb1qexampleexampleexampleexampleexample1", 60_000L, isOwnChange = true, changeIndex = 0),
@@ -228,8 +235,8 @@ private fun cleanRequest() = BtcReview(
  */
 private fun externalInputRequest() = cleanRequest().copy(
     inputs = listOf(
-        BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = ownedPath(0), sequence = 0xFFFFFFFDL),
-        BtcReviewInput(1, 50_000L, amountVerified = true, ownerPath = null, sequence = 0xFFFFFFFDL),
+        BtcReviewInput(0, outPointOf(0), 100_000L, amountVerified = true, ownerPath = ownedPath(0), sequence = 0xFFFFFFFDL),
+        BtcReviewInput(1, outPointOf(1), 50_000L, amountVerified = true, ownerPath = null, sequence = 0xFFFFFFFDL),
     ),
     outputs = listOf(
         BtcReviewOutput(0, "tb1qexampleexampleexampleexampleexample0", 30_000L, isOwnChange = false, changeIndex = null),
@@ -239,7 +246,7 @@ private fun externalInputRequest() = cleanRequest().copy(
 
 /** The clean request with its input marked as carrying an inscription or a rune: a DANGER row that the owner must tick before it signs. */
 private fun riskMarkedRequest() = cleanRequest().copy(
-    inputs = listOf(BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = ownedPath(0), sequence = 0xFFFFFFFDL, riskMarked = true)),
+    inputs = listOf(BtcReviewInput(0, outPointOf(0), 100_000L, amountVerified = true, ownerPath = ownedPath(0), sequence = 0xFFFFFFFDL, riskMarked = true)),
 )
 
 /**
@@ -249,8 +256,8 @@ private fun riskMarkedRequest() = cleanRequest().copy(
 private fun unverifiedRequest() = BtcReview(
     inputPolicy = InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING,
     inputs = listOf(
-        BtcReviewInput(0, 100_000L, amountVerified = false, ownerPath = ownedPath(0), sequence = 0xFFFFFFFDL),
-        BtcReviewInput(1, 50_000L, amountVerified = true, ownerPath = null, sequence = 0xFFFFFFFDL),
+        BtcReviewInput(0, outPointOf(0), 100_000L, amountVerified = false, ownerPath = ownedPath(0), sequence = 0xFFFFFFFDL),
+        BtcReviewInput(1, outPointOf(1), 50_000L, amountVerified = true, ownerPath = null, sequence = 0xFFFFFFFDL),
     ),
     outputs = listOf(
         BtcReviewOutput(0, "tb1qexampleexampleexampleexampleexample2", 120_000L, isOwnChange = false, changeIndex = null),

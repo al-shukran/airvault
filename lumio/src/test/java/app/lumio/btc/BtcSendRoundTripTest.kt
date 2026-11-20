@@ -5,6 +5,13 @@ import app.lensly.core.btc.BtcCoin
 import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
 import app.airvault.chains.bitcoin.signer.BtcPsbt
+import app.airvault.chains.bitcoin.signer.BtcReview
+import app.airvault.chains.bitcoin.signer.toReview
+import app.airvault.core.model.Approval
+import app.airvault.core.model.ChainId
+import app.airvault.core.model.Danger
+import app.airvault.core.model.NetworkLabel
+import app.airvault.core.model.Review
 import app.lensly.core.btc.ScriptType
 import app.lumio.pair.PairFixtures
 import com.sparrowwallet.hummingbird.UR
@@ -14,6 +21,7 @@ import fr.acinq.bitcoin.Satoshi
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Test
 
@@ -62,6 +70,40 @@ class BtcSendRoundTripTest {
             val tampered = tx.copy(txOut = tx.txOut.mapIndexed { i, out -> if (i == 0) out.copy(amount = Satoshi(out.amount.sat + 1)) else out })
             assertFalse(BtcFixtures.verifies(tampered, prevouts), "${type.name}: a changed output still verifies")
         }
+    }
+
+    /** Lensly's review of [request] as the app shows it: testnet4, Native Segwit, and the account's first receive address as the sender. */
+    private fun reviewOf(request: BtcReview, account: BtcAccount): Review = request.toReview(
+        chain = ChainId("bip122:00000000da84f2bafbbc53dee25a72ae"),
+        network = NetworkLabel(name = "Bitcoin Testnet4", testnet = true, detail = null),
+        scriptType = "Native Segwit P2WPKH",
+        from = account.receiveAddress(0),
+    )
+
+    @Test
+    fun aMarkedInputIsMarkedInTheRequestKeptBySigningAndReachesLenslyAsADanger() {
+        val (account, coin) = funded(ScriptType.NATIVE_SEGWIT)
+        val plan = planOf(account, BtcCoin(coin.previous, 0, 0, 0, riskMarked = true))
+        assertEquals(listOf(BtcPsbt.RISK_MARK), plan.psbt.inputs.single().unknown)
+
+        val signer = BtcFixtures.signerOf(account, PairFixtures.seed)
+        val review = reviewOf(signer.review(plan.psbt), account)
+        assertEquals(Danger.DANGER, review.warnings.single { it.code == "bitcoin.risk-marked" }.level)
+        assertNull(Approval.of(review, emptySet()), "the owner ticks the mark before the request signs")
+
+        val answer = URDecoder.decode(signer.sign(plan.psbt).ur)
+        assertEquals(listOf(BtcPsbt.RISK_MARK), BtcPsbt.fromUr(answer).inputs.single().unknown)
+        assertTrue(BtcFixtures.verifies(BtcSend.signed(plan, answer), listOf(coin.previous.txOut[0])))
+    }
+
+    @Test
+    fun anUnmarkedInputIsOnlyACautionForLensly() {
+        val (account, coin) = funded(ScriptType.NATIVE_SEGWIT)
+        val plan = planOf(account, coin)
+        assertEquals(emptyList(), plan.psbt.inputs.single().unknown)
+        val review = reviewOf(BtcFixtures.signerOf(account, PairFixtures.seed).review(plan.psbt), account)
+        assertTrue(review.warnings.none { it.level == Danger.DANGER })
+        assertTrue(review.warnings.any { it.code == "bitcoin.risk-unchecked" && it.level == Danger.CAUTION })
     }
 
     @Test

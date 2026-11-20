@@ -16,8 +16,11 @@ import app.lensly.ui.settings.FeeWarningScreen
 import app.lensly.ui.sign.ReviewScreen
 import app.lensly.ui.sign.SAMPLE_SIGNER
 import app.lensly.ui.sign.bitcoinReviewOf
+import fr.acinq.bitcoin.ByteVector32
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.KeyPath
+import fr.acinq.bitcoin.OutPoint
+import fr.acinq.bitcoin.TxHash
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -125,10 +128,13 @@ private fun ownPath(index: Long): KeyPath = KeyPath(
     ),
 )
 
+/** The output that input [index] of these requests spends: each input spends its own transaction's first output. */
+private fun outPointOf(index: Int): OutPoint = OutPoint(TxHash(ByteVector32(ByteArray(32) { (index + 1).toByte() })), 0L)
+
 /** A request that spends one verified input of the account, pays a receiver and returns the change to the account. */
 private fun cleanReview() = BtcReview(
     inputPolicy = InputVerificationPolicy.STRICT,
-    inputs = listOf(BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = ownPath(0), sequence = 0xFFFFFFFDL)),
+    inputs = listOf(BtcReviewInput(0, outPointOf(0), 100_000L, amountVerified = true, ownerPath = ownPath(0), sequence = 0xFFFFFFFDL)),
     outputs = listOf(
         BtcReviewOutput(0, "tb1qexampleexampleexampleexampleexample0", 30_000L, isOwnChange = false, changeIndex = null),
         BtcReviewOutput(1, "tb1qexampleexampleexampleexampleexample1", 60_000L, isOwnChange = true, changeIndex = 0),
@@ -142,8 +148,8 @@ private fun cleanReview() = BtcReview(
 /** The clean request with a second input that another signer owns: a plain warning, which the owner reads in the details. */
 private fun externalInputReview() = cleanReview().copy(
     inputs = listOf(
-        BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = ownPath(0), sequence = 0xFFFFFFFDL),
-        BtcReviewInput(1, 50_000L, amountVerified = true, ownerPath = null, sequence = 0xFFFFFFFDL),
+        BtcReviewInput(0, outPointOf(0), 100_000L, amountVerified = true, ownerPath = ownPath(0), sequence = 0xFFFFFFFDL),
+        BtcReviewInput(1, outPointOf(1), 50_000L, amountVerified = true, ownerPath = null, sequence = 0xFFFFFFFDL),
     ),
     outputs = listOf(
         BtcReviewOutput(0, "tb1qexampleexampleexampleexampleexample0", 30_000L, isOwnChange = false, changeIndex = null),
@@ -157,8 +163,8 @@ private fun externalInputReview() = cleanReview().copy(
  */
 private fun riskMarkedReview() = cleanReview().copy(
     inputs = listOf(
-        BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = ownPath(0), sequence = 0xFFFFFFFDL, riskMarked = true),
-        BtcReviewInput(1, 50_000L, amountVerified = true, ownerPath = ownPath(1), sequence = 0xFFFFFFFDL),
+        BtcReviewInput(0, outPointOf(0), 100_000L, amountVerified = true, ownerPath = ownPath(0), sequence = 0xFFFFFFFDL, riskMarked = true),
+        BtcReviewInput(1, outPointOf(1), 50_000L, amountVerified = true, ownerPath = ownPath(1), sequence = 0xFFFFFFFDL),
     ),
     outputs = listOf(
         BtcReviewOutput(0, "tb1qexampleexampleexampleexampleexample0", 30_000L, isOwnChange = false, changeIndex = null),
@@ -174,8 +180,8 @@ private fun riskMarkedReview() = cleanReview().copy(
 private fun warnedReview() = BtcReview(
     inputPolicy = InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING,
     inputs = listOf(
-        BtcReviewInput(0, 100_000L, amountVerified = false, ownerPath = ownPath(0), sequence = 0xFFFFFFFDL),
-        BtcReviewInput(1, 50_000L, amountVerified = false, ownerPath = null, sequence = 0xFFFFFFFDL),
+        BtcReviewInput(0, outPointOf(0), 100_000L, amountVerified = false, ownerPath = ownPath(0), sequence = 0xFFFFFFFDL),
+        BtcReviewInput(1, outPointOf(1), 50_000L, amountVerified = false, ownerPath = null, sequence = 0xFFFFFFFDL),
     ),
     outputs = listOf(
         BtcReviewOutput(0, "tb1qexampleexampleexampleexampleexample2", 120_000L, isOwnChange = false, changeIndex = null),

@@ -10,7 +10,10 @@ import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.checkLabels
 import app.airvault.core.model.text
 import app.airvault.core.model.unaccounted
+import fr.acinq.bitcoin.ByteVector32
 import fr.acinq.bitcoin.KeyPath
+import fr.acinq.bitcoin.OutPoint
+import fr.acinq.bitcoin.TxHash
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -39,6 +42,10 @@ class BitcoinReviewTest {
 
     /** A key of the account, so an input is owned and raises no external-input warning. */
     private val owned = KeyPath(listOf(0L))
+
+    /** The outputs that two inputs spend, so each input names its own output. */
+    private val first = OutPoint(TxHash(ByteVector32(ByteArray(32) { 1.toByte() })), 0L)
+    private val second = OutPoint(TxHash(ByteVector32(ByteArray(32) { 2.toByte() })), 1L)
 
     /** The address of the account the requests spend from, which the summary names as the sender. */
     private val account = "tb1qaccount"
@@ -96,7 +103,7 @@ class BitcoinReviewTest {
 
     @Test
     fun aSequenceShowsItsHexAndItsReplaceByFeeState() {
-        val rbf = BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = null, sequence = 0xFFFFFFFDL)
+        val rbf = BtcReviewInput(0, first, 100_000L, amountVerified = true, ownerPath = null, sequence = 0xFFFFFFFDL)
         val final = rbf.copy(sequence = 0xFFFFFFFFL)
         assertEquals("0xFFFFFFFD, replace-by-fee on", sequenceText(rbf))
         assertEquals("0xFFFFFFFF, replace-by-fee off", sequenceText(final))
@@ -104,7 +111,7 @@ class BitcoinReviewTest {
 
     @Test
     fun aCleanRequestWarnsOnlyThatItsInputsWereNotChecked() {
-        val review = reviewOf(request(feeSats = 10_000L).copy(inputs = listOf(BtcReviewInput(0, 40_000L, true, owned, 0xFFFFFFFDL))))
+        val review = reviewOf(request(feeSats = 10_000L).copy(inputs = listOf(BtcReviewInput(0, first, 40_000L, true, owned, 0xFFFFFFFDL))))
         assertEquals(
             listOf(Danger.CAUTION to "Inputs were not checked for inscriptions or runes."),
             review.warnings.map { it.level to it.message },
@@ -117,7 +124,7 @@ class BitcoinReviewTest {
     @Test
     fun anUnverifiedAmountIsADangerWithTheCodeTheOwnerTicks() {
         val unverified = request(feeSats = null).copy(
-            inputs = listOf(BtcReviewInput(0, 40_000L, amountVerified = false, ownerPath = owned, sequence = 0xFFFFFFFDL)),
+            inputs = listOf(BtcReviewInput(0, first, 40_000L, amountVerified = false, ownerPath = owned, sequence = 0xFFFFFFFDL)),
             requiresConfirmation = true,
         )
         val warning = reviewOf(unverified).warnings.single { it.code == UNVERIFIED_AMOUNTS_CODE }
@@ -128,7 +135,7 @@ class BitcoinReviewTest {
     @Test
     fun anUnverifiedAmountUnderTheRelaxedPolicyIsACautionWithNoTickToOwe() {
         val relaxed = request(feeSats = null).copy(
-            inputs = listOf(BtcReviewInput(0, 40_000L, amountVerified = false, ownerPath = owned, sequence = 0xFFFFFFFDL)),
+            inputs = listOf(BtcReviewInput(0, first, 40_000L, amountVerified = false, ownerPath = owned, sequence = 0xFFFFFFFDL)),
             requiresConfirmation = false,
         )
         val review = reviewOf(relaxed)
@@ -166,7 +173,7 @@ class BitcoinReviewTest {
     @Test
     fun aLockTimeThatFinalInputsIgnoreIsNotAWarning() {
         val final = request(feeSats = 10_000L).copy(
-            inputs = listOf(BtcReviewInput(0, 40_000L, true, owned, 0xFFFFFFFFL)),
+            inputs = listOf(BtcReviewInput(0, first, 40_000L, true, owned, 0xFFFFFFFFL)),
             lockTime = 850_000L,
         )
         val review = reviewOf(final)
@@ -177,7 +184,7 @@ class BitcoinReviewTest {
     @Test
     fun aMarkedInputIsADangerOnItsAmountThatTheOwnerTicksBeforeSigning() {
         val marked = request(feeSats = 10_000L).copy(
-            inputs = listOf(BtcReviewInput(0, 40_000L, true, owned, 0xFFFFFFFDL, riskMarked = true)),
+            inputs = listOf(BtcReviewInput(0, first, 40_000L, true, owned, 0xFFFFFFFDL, riskMarked = true)),
         )
         val review = reviewOf(marked)
         val warning = review.warnings.single()
@@ -193,8 +200,8 @@ class BitcoinReviewTest {
     fun aMixedRequestGivesADangerForEachMarkedInputAndOneCautionForTheRest() {
         val mixed = request(feeSats = 10_000L).copy(
             inputs = listOf(
-                BtcReviewInput(0, 20_000L, true, owned, 0xFFFFFFFDL),
-                BtcReviewInput(1, 20_000L, true, owned, 0xFFFFFFFDL, riskMarked = true),
+                BtcReviewInput(0, first, 20_000L, true, owned, 0xFFFFFFFDL),
+                BtcReviewInput(1, second, 20_000L, true, owned, 0xFFFFFFFDL, riskMarked = true),
             ),
         )
         val review = reviewOf(mixed)
@@ -206,10 +213,41 @@ class BitcoinReviewTest {
     }
 
     @Test
+    fun everyMarkedInputIsListedWithItsOutPointAndOneTickNamesThemAll() {
+        val two = request(feeSats = 10_000L).copy(
+            inputs = listOf(
+                BtcReviewInput(0, first, 20_000L, true, owned, 0xFFFFFFFDL, riskMarked = true),
+                BtcReviewInput(1, second, 20_000L, true, owned, 0xFFFFFFFDL, riskMarked = true),
+            ),
+        )
+        val review = reviewOf(two)
+        val rows = review.warnings.filter { it.code == "bitcoin.risk-marked" }
+        assertTrue(rows[0].message.contains(outPointText(first)))
+        assertTrue(rows[1].message.contains(outPointText(second)))
+        val check = "I understand spending 2 marked input(s) may burn any inscription or rune they carry: " +
+            "${outPointText(first)}, ${outPointText(second)}."
+        assertEquals(listOf(check, check), rows.map { it.acknowledge })
+        assertEquals(listOf(check), review.checkLabels())
+        assertNull(Approval.of(review, emptySet()))
+        assertNotNull(Approval.of(review, setOf(check)))
+    }
+
+    @Test
+    fun aTickForOneMarkedSetDoesNotCoverAnotherSet() {
+        val one = request(feeSats = 10_000L).copy(
+            inputs = listOf(BtcReviewInput(0, first, 20_000L, true, owned, 0xFFFFFFFDL, riskMarked = true)),
+        )
+        val two = one.copy(inputs = one.inputs + BtcReviewInput(1, second, 20_000L, true, owned, 0xFFFFFFFDL, riskMarked = true))
+        val ticked = reviewOf(one).checkLabels().toSet()
+        assertNotNull(Approval.of(reviewOf(one), ticked))
+        assertNull(Approval.of(reviewOf(two), ticked))
+    }
+
+    @Test
     fun theRiskWarningsSayWhatTheMarkMeansAndWhatIsNotChecked() {
         assertEquals(
-            "Input 3 is marked as carrying an inscription or rune. Spending it may burn it.",
-            warningText(BtcWarning.RiskMarkedInput(3)),
+            "Input 3 (${outPointText(second)}) is marked as carrying an inscription or rune. Spending it may burn it.",
+            warningText(BtcWarning.RiskMarkedInput(3, second)),
         )
         assertEquals("Inputs were not checked for inscriptions or runes.", warningText(BtcWarning.RiskUnchecked))
     }
