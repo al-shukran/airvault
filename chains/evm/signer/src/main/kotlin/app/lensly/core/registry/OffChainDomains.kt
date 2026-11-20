@@ -47,9 +47,22 @@ data class OffChainDomain(
     val hashesAction: Boolean = false,
     /** The primary type that lets another key act for the account, or null. The review gives its message the DANGER of an ApproveAgent. */
     val agentApprovalType: String? = null,
+    /**
+     * The msg parameter that names the agent of an approval, or null when the primary type alone is the approval. AsterDex sends its
+     * parameters as one msg text joined by ampersands, so a message of [agentApprovalType] without this parameter is not an approval.
+     */
+    val agentApprovalParam: String? = null,
 ) {
     /** The title the review gives the signature. */
     val title: String get() = "Off-Chain Signature for $label"
+
+    /** True when a message with [primaryType] and [message] lets another key act for the account. */
+    fun isAgentApproval(primaryType: String, message: TypedValue.StructValue): Boolean {
+        if (primaryType != agentApprovalType) return false
+        val param = agentApprovalParam ?: return true
+        val text = (message.fields["msg"] as? TypedValue.TextValue)?.value ?: return false
+        return text.split("&").any { it.substringBefore('=') == param }
+    }
 }
 
 /**
@@ -65,8 +78,11 @@ val OFF_CHAIN_DOMAINS: List<OffChainDomain> = listOf(
         agentApprovalType = "HyperliquidTransaction:ApproveAgent",
     ),
     // AsterDex agent approval, registerAndApproveAgent, for an EVM user. github.com/asterdex/api-docs, V3 futures doc,
-    // "Register and Approve Agent"; its primaryType is Message.
-    OffChainDomain("AsterSignTransaction", "1", 56, ZERO_ADDRESS, "AsterDex", setOf("Message"), agentApprovalType = "Message"),
+    // "Register and Approve Agent"; its primaryType is Message, and its msg names the agent with agentAddress.
+    OffChainDomain(
+        "AsterSignTransaction", "1", 56, ZERO_ADDRESS, "AsterDex", setOf("Message"),
+        agentApprovalType = "Message", agentApprovalParam = "agentAddress",
+    ),
     // AsterDex master-account signature, such as sub-account creation. The same doc, "Supported Signing Algorithms" (chainId=1666).
     OffChainDomain("AsterSignTransaction", "1", 1666, ZERO_ADDRESS, "AsterDex", setOf("Message")),
 )
