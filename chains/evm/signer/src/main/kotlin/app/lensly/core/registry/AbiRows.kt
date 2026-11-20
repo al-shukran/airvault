@@ -89,7 +89,7 @@ object AbiRows {
 
     private fun dynamicText(type: String, hex: String): String {
         val bytes = hex.length / 2
-        if (type == "string") return "\"" + utf8TextOf(hexBytesOrNull(hex) ?: ByteArray(0)).orEmpty() + "\""
+        if (type == "string") return "\"" + checkNotNull(utf8TextOf(checkNotNull(hexBytesOrNull(hex)))) + "\""
         if (bytes == 0) return "0 bytes"
         val preview = hex.take(2 * PREVIEW_BYTES)
         val ellipsis = if (bytes > PREVIEW_BYTES) "…" else ""

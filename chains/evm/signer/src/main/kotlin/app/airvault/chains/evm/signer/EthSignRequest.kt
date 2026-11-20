@@ -115,6 +115,7 @@ class EthSignRequest(
             val fields = HashMap<Long, Cbor>()
             for ((key, value) in dict.entries) {
                 val number = uintOf(key, "map key")
+                if (number !in 1L..7L) malformed("unknown map key $number")
                 if (fields.put(number, value) != null) malformed("duplicate map key $number")
             }
             return fields

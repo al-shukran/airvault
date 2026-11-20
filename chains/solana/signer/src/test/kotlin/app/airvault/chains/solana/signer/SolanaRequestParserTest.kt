@@ -70,6 +70,16 @@ class SolanaRequestParserTest {
         assertEquals(RequestKind.TRANSACTION, assertNotNull(refused.request).header.kind)
     }
 
+    /** The codec reads the keys 1 to 7 and no other, so a key beside them refuses the request. */
+    @Test
+    fun aKeyOutsideTheSevenFieldsIsRefused() {
+        val fields = assertIs<Cbor.Dict>(Cbor.decode(requestCbor(legacyMessage(), 1L, null))).entries
+        for (key in listOf(0L, 8L)) {
+            val payload = Cbor.encode(Cbor.Dict(fields + (Cbor.Uint(key) to Cbor.Uint(1L))))
+            assertIs<ParseOutcome.Refused>(parse(payload), message = "key $key")
+        }
+    }
+
     @Test
     fun aUrOfAnotherTypeIsRefused() {
         assertIs<ParseOutcome.Refused>(SolanaRequestParser.parse("algo-sign-request", requestCbor(legacyMessage(), 1L, null), ParserLimits()))
