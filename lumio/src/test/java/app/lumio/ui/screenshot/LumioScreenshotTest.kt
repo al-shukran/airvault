@@ -211,8 +211,10 @@ class LumioScreenshotTest {
                 BitcoinServersSettings(
                     mainnet = "https://mempool.space/api",
                     testnet4 = "https://mempool.space/testnet4/api",
+                    indexer = "",
                     error = null,
                     onApply = { _, _ -> },
+                    onIndexer = {},
                     onReset = {},
                 )
             },

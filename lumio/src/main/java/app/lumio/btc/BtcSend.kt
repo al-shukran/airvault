@@ -158,13 +158,15 @@ object BtcSend {
     /**
      * The confirmed unspent outputs of [account], each with the derivation of its key, and the first change index that has never been used.
      * It reads the same chains as the scan, with the gap limit, and never a balance that the scan would not reach. Unconfirmed outputs are
-     * left out, so a send never spends an output that a node may not yet relay.
+     * left out, so a send never spends an output that a node may not yet relay. With an [indexer], each output that it marks is a coin with the risk
+     * mark (spec 5.5). Without one, no coin is marked.
      */
     suspend fun spendable(
         account: BtcWatchOnlyAccount,
         scheduler: Scheduler,
         memo: ConcurrentMap<String, MemoStats> = ConcurrentHashMap(),
         nowMs: Long = System.currentTimeMillis(),
+        indexer: OrdIndexer? = null,
     ): BtcSpendable {
         val net = account.network.networkId()
         val statsOf: suspend (String) -> EsploraAddressStats = { address ->
@@ -195,7 +197,10 @@ object BtcSend {
             require(tx.txid.toString() == txid) { "The server's transaction does not match the id it was asked for." }
             tx
         }
-        val coins = listed.map { (branch, index, utxo) -> BtcCoin(previous.getValue(utxo.txid), utxo.vout, branch, index) }
+        val marked = indexer?.markedOutputs(listed.map { it.third.txid to it.third.vout }).orEmpty()
+        val coins = listed.map { (branch, index, utxo) ->
+            BtcCoin(previous.getValue(utxo.txid), utxo.vout, branch, index, riskMarked = (utxo.txid to utxo.vout) in marked)
+        }
         val usedChange = change.used.map { it.index }.toSet()
         return BtcSpendable(coins, nextChangeIndex = generateSequence(0) { it + 1 }.first { it !in usedChange })
     }

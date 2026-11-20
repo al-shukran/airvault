@@ -18,7 +18,9 @@ import app.lumio.btc.BtcAccountRef
 import app.lumio.btc.BtcPortfolio
 import app.lumio.btc.BtcRow
 import app.lumio.btc.EsploraServers
+import app.lumio.btc.indexerUrlOf
 import app.lumio.btc.networkId
+import app.lumio.btc.withIndexerUrl
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.esplora.CustomEsploraProvider
 import app.lumio.data.net.NetworkId
@@ -48,9 +50,9 @@ internal fun bitcoinRefs(session: VaultSession): List<BtcAccountRef> = try {
 }
 
 /**
- * The Bitcoin part of the Networks page: the Esplora server of each Bitcoin network. Each valid server is saved as the owner sets it, and a save
- * that the vault refuses shows its reason under the fields. Saves run one after another under a lock, and each reads the configs it changes, so one
- * network's save never overwrites the other's.
+ * The Bitcoin part of the Networks page: the Esplora server of each Bitcoin network, and the Ordinals indexer, which is off until the owner sets one. Each
+ * valid address is saved as the owner sets it, and a save that the vault refuses shows its reason under the fields. Saves run one after another under
+ * a lock, and each reads the settings it changes, so one field's save never overwrites another's.
  */
 @Composable
 internal fun BitcoinSettingsRoute(navController: NavHostController, holder: VaultHolder) {
@@ -62,29 +64,24 @@ internal fun BitcoinSettingsRoute(navController: NavHostController, holder: Vaul
     val app = LocalContext.current.applicationContext as LumioApp
     val scope = rememberCoroutineScope()
     val saves = remember { Mutex() }
-    var overrides by remember { mutableStateOf<Map<BtcNetwork, String>?>(null) }
+    var configs by remember { mutableStateOf<Map<String, ProviderConfig>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(session) {
-        overrides = withContext(Dispatchers.IO) { app.lumioVault()?.let { serverOverrides(it.configs()) }.orEmpty() }
+        configs = withContext(Dispatchers.IO) { app.lumioVault()?.configs().orEmpty() }
     }
-    val current = overrides ?: return
+    val saved = configs ?: return
 
-    // Saves the overrides that [edit] makes of the ones saved now, and shows the result as the servers in use.
-    fun change(edit: (Map<BtcNetwork, String>) -> Map<BtcNetwork, String>) {
+    // Saves the settings that [edit] makes of the ones saved now, and shows the saved ones as the servers in use.
+    fun change(edit: (Map<String, ProviderConfig>) -> Map<String, ProviderConfig>) {
         scope.launch {
             val next = saves.withLock {
                 withContext(Dispatchers.IO) {
                     val vault = app.lumioVault() ?: return@withContext null
-                    runCatching {
-                        val configs = vault.configs()
-                        val next = edit(serverOverrides(configs))
-                        vault.saveConfigs(withOverrides(configs, next))
-                        next
-                    }.getOrNull()
+                    runCatching { edit(vault.configs()).also(vault::saveConfigs) }.getOrNull()
                 }
             }
             if (next != null) {
-                overrides = next
+                configs = next
                 error = null
             } else {
                 error = "The servers could not be saved. Try again."
@@ -92,12 +89,15 @@ internal fun BitcoinSettingsRoute(navController: NavHostController, holder: Vaul
         }
     }
 
+    val overrides = serverOverrides(saved)
     BitcoinServersSettings(
-        mainnet = EsploraServers.baseUrl(BtcNetwork.MAINNET, current),
-        testnet4 = EsploraServers.baseUrl(BtcNetwork.TESTNET4, current),
+        mainnet = EsploraServers.baseUrl(BtcNetwork.MAINNET, overrides),
+        testnet4 = EsploraServers.baseUrl(BtcNetwork.TESTNET4, overrides),
+        indexer = indexerUrlOf(saved).orEmpty(),
         error = error,
-        onApply = { network, url -> change { it.withServer(network, url) } },
-        onReset = { change { emptyMap() } },
+        onApply = { network, url -> change { withOverrides(it, serverOverrides(it).withServer(network, url)) } },
+        onIndexer = { url -> change { withIndexerUrl(it, url) } },
+        onReset = { change { withIndexerUrl(withOverrides(it, emptyMap()), null) } },
     )
 }
 

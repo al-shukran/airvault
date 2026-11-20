@@ -31,18 +31,24 @@ import kotlinx.coroutines.delay
 /** How long a server text must stay as it is before a valid server is applied, so a half-typed address is not applied while the owner types. */
 private const val SERVER_PAUSE_MS = 1_000L
 
+/** The test tag of the Ordinals indexer's field. */
+const val INDEXER_TAG = "server-indexer"
+
 /**
- * The Bitcoin section: the Esplora server that each Bitcoin network reads from, as the base URLs [mainnet] and [testnet4] that are in use. Each field
- * checks its text as the owner types. A valid server is applied when the owner pauses, leaves the field, or presses the keyboard's action. An address
- * that is not https is refused under its field, and nothing is applied. [error] shows a change that the vault refused. [onApply] takes the network and
- * its new server, or null for the public one. Reset puts both fields back on the public servers, and [onReset] saves that.
+ * The Bitcoin section: the Esplora server that each Bitcoin network reads from, as the base URLs [mainnet] and [testnet4] that are in use, and the
+ * Ordinals indexer that [indexer] names ("" while it is off). Each field checks its text as the owner types. A valid address is applied when the owner
+ * pauses, leaves the field, or presses the keyboard's action. An address that is not https is refused under its field, and nothing is applied. [error]
+ * shows a change that the vault refused. [onApply] takes the network and its new server, or null for the public one, and [onIndexer] takes the
+ * indexer's address, or null to turn it off. Reset puts every field back on its default, and [onReset] saves that.
  */
 @Composable
 fun BitcoinServersSettings(
     mainnet: String,
     testnet4: String,
+    indexer: String,
     error: String?,
     onApply: (BtcNetwork, String?) -> Unit,
+    onIndexer: (String?) -> Unit,
     onReset: () -> Unit,
 ) {
     var resets by remember { mutableIntStateOf(0) }
@@ -55,20 +61,32 @@ fun BitcoinServersSettings(
     Spacer(Modifier.height(LenslySpacing.md))
     ServerField(
         label = "Mainnet",
-        network = BtcNetwork.MAINNET,
+        tag = serverTag(BtcNetwork.MAINNET),
         current = mainnet,
+        rules = esploraRules(BtcNetwork.MAINNET),
         resets = resets,
         imeAction = ImeAction.Next,
-        onApply = onApply,
+        onApply = { onApply(BtcNetwork.MAINNET, it) },
     )
     Spacer(Modifier.height(LenslySpacing.sm))
     ServerField(
         label = "Testnet4",
-        network = BtcNetwork.TESTNET4,
+        tag = serverTag(BtcNetwork.TESTNET4),
         current = testnet4,
+        rules = esploraRules(BtcNetwork.TESTNET4),
+        resets = resets,
+        imeAction = ImeAction.Next,
+        onApply = { onApply(BtcNetwork.TESTNET4, it) },
+    )
+    Spacer(Modifier.height(LenslySpacing.sm))
+    ServerField(
+        label = "Ordinals Indexer",
+        tag = INDEXER_TAG,
+        current = indexer,
+        rules = INDEXER_RULES,
         resets = resets,
         imeAction = ImeAction.Done,
-        onApply = onApply,
+        onApply = onIndexer,
     )
     error?.let {
         Spacer(Modifier.height(LenslySpacing.md))
@@ -84,41 +102,68 @@ fun BitcoinServersSettings(
 }
 
 /**
- * One server field. [current] is the base URL the network reads from now. [resets] counts the Reset presses: each one puts the text back on the public
- * server, without a save of its own. An entry is applied only when it is valid and names a server other than the last one asked for.
+ * What one address field accepts and says. [default] is the address that Reset puts back, and "" for an indexer that is off. [edit] checks the text
+ * against the address last asked for. The words under the field are [defaultWords] while the address in use is the default, and [ownWords] otherwise.
+ */
+private class AddressRules(
+    val default: String,
+    val edit: (text: String, requested: String) -> ServerEdit,
+    val defaultWords: String,
+    val ownWords: String,
+)
+
+/** The rules of an Esplora field: its public server is the default, and its text is checked as [serverEdit] checks it. */
+private fun esploraRules(network: BtcNetwork) = AddressRules(
+    default = EsploraServers.defaultFor(network),
+    edit = { text, requested -> serverEdit(network, text, requested) },
+    defaultWords = "The public server.",
+    ownWords = "Your own server.",
+)
+
+/** The rules of the Ordinals indexer field: off is its default, and its text is checked as [indexerEdit] checks it. */
+private val INDEXER_RULES = AddressRules(
+    default = "",
+    edit = ::indexerEdit,
+    defaultWords = "Off. Lumio checks no output for inscriptions or runes.",
+    ownWords = "Your ord server. Lumio asks it about each output you spend.",
+)
+
+/**
+ * One address field. [current] is the address in use. [resets] counts the Reset presses: each one puts the text back on the default, without a save of its
+ * own. An entry is applied only when it is valid and names an address other than the last one asked for.
  */
 @Composable
 private fun ServerField(
     label: String,
-    network: BtcNetwork,
+    tag: String,
     current: String,
+    rules: AddressRules,
     resets: Int,
     imeAction: ImeAction,
-    onApply: (BtcNetwork, String?) -> Unit,
+    onApply: (String?) -> Unit,
 ) {
-    val defaultUrl = EsploraServers.defaultFor(network)
     var text by remember { mutableStateOf(current) }
-    // The server last asked for. It starts as the one in use, and is compared with the text.
+    // The address last asked for. It starts as the one in use, and is compared with the text.
     var requested by remember { mutableStateOf(current) }
     var focused by remember { mutableStateOf(false) }
-    val edit = serverEdit(network, text, requested)
+    val edit = rules.edit(text, requested)
 
     fun apply() {
-        val next = serverEdit(network, text, requested)
+        val next = rules.edit(text, requested)
         if (next is ServerEdit.Apply) {
-            requested = next.url ?: defaultUrl
-            onApply(network, next.url)
+            requested = next.url ?: rules.default
+            onApply(next.url)
         }
     }
 
     LaunchedEffect(resets) {
         if (resets > 0) {
-            text = defaultUrl
-            requested = defaultUrl
+            text = rules.default
+            requested = rules.default
         }
     }
     LaunchedEffect(text) {
-        if (serverEdit(network, text, requested) is ServerEdit.Apply) {
+        if (rules.edit(text, requested) is ServerEdit.Apply) {
             delay(SERVER_PAUSE_MS)
             apply()
         }
@@ -130,12 +175,12 @@ private fun ServerField(
         label = { Text(label) },
         singleLine = true,
         isError = edit is ServerEdit.Refused,
-        supportingText = { Text(supportText(edit, current, defaultUrl)) },
+        supportingText = { Text(supportText(edit, current, rules)) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = imeAction),
         keyboardActions = KeyboardActions(onNext = { apply() }, onDone = { apply() }),
         modifier = Modifier
             .fillMaxWidth()
-            .testTag(serverTag(network))
+            .testTag(tag)
             .onFocusChanged { state ->
                 if (focused && !state.isFocused) apply()
                 focused = state.isFocused
@@ -146,9 +191,9 @@ private fun ServerField(
 /** The test tag of the field of [network]. */
 fun serverTag(network: BtcNetwork): String = "server-${network.name.lowercase()}"
 
-/** The line under a server field: the refusal, the wait for the owner to finish, or which server is in use. */
-private fun supportText(edit: ServerEdit, current: String, defaultUrl: String): String = when (edit) {
+/** The line under a field: the refusal, the wait for the owner to finish, or which address is in use. */
+private fun supportText(edit: ServerEdit, current: String, rules: AddressRules): String = when (edit) {
     is ServerEdit.Refused -> edit.reason
     is ServerEdit.Apply -> "Applies when you finish typing."
-    ServerEdit.Unchanged -> if (current == defaultUrl) "The public server." else "Your own server."
+    ServerEdit.Unchanged -> if (current == rules.default) rules.defaultWords else rules.ownWords
 }

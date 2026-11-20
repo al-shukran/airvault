@@ -1,5 +1,6 @@
 package app.lumio.btc
 
+import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcCoin
 import app.lensly.core.btc.BtcFixtures
@@ -79,6 +80,10 @@ class BtcSendNetworkTest {
     private var answerToPost: (String) -> MockResponse = { MockResponse().setResponseCode(500) }
     private val server = MockWebServer()
 
+    /** The answer to each indexer lookup, given its path. A test sets it, so the default is a server error. */
+    private var ordAnswer: (String) -> MockResponse = { MockResponse().setResponseCode(500) }
+    private val ordAsked = CopyOnWriteArrayList<String>()
+
     @Before
     fun start() {
         server.dispatcher = object : Dispatcher() {
@@ -93,6 +98,10 @@ class BtcSendNetworkTest {
                     }
                     parts.size == 5 && parts[2] == "tx" && parts[4] == "hex" ->
                         raw[parts[3]]?.let { MockResponse().setBody(it) } ?: MockResponse().setResponseCode(404)
+                    path.startsWith("/ord/") -> {
+                        ordAsked += path
+                        ordAnswer(path)
+                    }
                     else -> fake.dispatch(request)
                 }
             }
@@ -250,5 +259,38 @@ class BtcSendNetworkTest {
         } finally {
             hung.shutdown()
         }
+    }
+
+    private fun ordIndexer(): OrdIndexer = OrdIndexer(Http(OkHttpClient()), server.url("/ord"), budgetMs = 2_000L)
+
+    @Test
+    fun aFailingIndexerMarksNothingAndTheSendStillPlansAndSigns() = runBlocking<Unit> {
+        val spend = fund()
+
+        val spendable = BtcSend.spendable(watch, scheduler(), indexer = ordIndexer())
+
+        assertEquals(listOf("/ord/output/${spend.funding.txid}:0"), ordAsked.toList())
+        assertEquals(listOf(false), spendable.coins.map { it.riskMarked })
+        val recipient = BtcAccount.fromSeed(PairFixtures.seed, testnet4, ScriptType.NATIVE_SEGWIT, accountIndex = 1).receiveAddress(5)
+        val plan = BtcSend.plan(watch, spendable, recipient, 30_000L, 2.0)
+        assertTrue(plan.psbt.inputs.single().unknown.isEmpty(), "an unmarked input carries no mark, so Lensly shows its caution")
+        val tx = BtcSend.signed(plan, URDecoder.decode(BtcFixtures.signerOf(account, PairFixtures.seed).sign(plan.psbt).ur))
+        assertEquals(plan.tx.txOut, tx.txOut)
+    }
+
+    @Test
+    fun aMarkedOutputIsMarkedAmongTheCoinsAndInTheRequest() = runBlocking<Unit> {
+        val spend = fund()
+        val inscribed = "/ord/output/${spend.funding.txid}:0"
+        ordAnswer = { path ->
+            MockResponse().setBody(if (path == inscribed) """{"inscriptions":["x"],"runes":{}}""" else """{"inscriptions":[],"runes":{}}""")
+        }
+
+        val spendable = BtcSend.spendable(watch, scheduler(), indexer = ordIndexer())
+
+        assertEquals(listOf(true), spendable.coins.map { it.riskMarked })
+        val recipient = BtcAccount.fromSeed(PairFixtures.seed, testnet4, ScriptType.NATIVE_SEGWIT, accountIndex = 1).receiveAddress(5)
+        val plan = BtcSend.plan(watch, spendable, recipient, 30_000L, 2.0)
+        assertEquals(listOf(BtcPsbt.RISK_MARK), plan.psbt.inputs.single().unknown)
     }
 }
