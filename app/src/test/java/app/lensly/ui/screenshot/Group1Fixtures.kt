@@ -178,7 +178,7 @@ internal val sampleMessageReview = Review(
 )
 
 /** The networks of the shipped registry, which give each address of an EVM review its network's logo, as the sign route does. */
-private val EVM_NETWORKS by lazy { shippedRegistry().networks() }
+internal val EVM_NETWORKS by lazy { shippedRegistry().networks() }
 
 /** The EVM review of [review] as the sign route draws it: the sample signer, and the Address Book names in [notes]. */
 @Composable

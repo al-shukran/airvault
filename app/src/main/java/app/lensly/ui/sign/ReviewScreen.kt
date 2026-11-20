@@ -92,6 +92,7 @@ fun ReviewScreen(
                     account = signer.name,
                     wallet = signer.walletName,
                     address = signer.address,
+                    addressLogo = addressLogo,
                     networkIcon = networkIcon,
                 )
                 Spacer(Modifier.height(LenslySpacing.md))
