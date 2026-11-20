@@ -1,7 +1,9 @@
 package app.airvault.chains.evm.signer
 
 import app.airvault.abi.AbiDecoder
+import app.airvault.core.model.ChainId
 import app.airvault.core.model.Danger
+import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.FieldPath
 import app.airvault.core.model.Review
 import app.airvault.core.model.ReviewRow
@@ -204,5 +206,31 @@ class EvmTypedReviewTest {
 
         val review = assertIs<EvmReviewResult.Ok>(result).review
         assertTrue((review.facts + review.sections.flatMap { it.rows }).any { it.label.startsWith("Signature for Chain 1 (") })
+    }
+
+    @Test
+    fun aTypedDomainOnAnotherChainThanTheRequestIsReadOnItsOwnChain() {
+        // The request names Arbitrum One, but the domain names Ethereum. The network, the addresses and the token come from Ethereum.
+        val registry = Registry(
+            networks = listOf(
+                NetworkEntry(1, "Ethereum", "ETH", 18, FeeModel.L1, "Etherscan", testnet = false),
+                NetworkEntry(42161, "Arbitrum One", "ETH", 18, FeeModel.L1, "Arbiscan", testnet = false),
+            ),
+            tokens = listOf(
+                TokenEntry(1, TYPED_USDC, "USDC", "USD Coin", 6),
+                TokenEntry(42161, TYPED_USDC, "USDC.e", "Bridged USDC", 6),
+            ),
+        )
+
+        val review = assertIs<EvmReviewResult.Ok>(
+            EvmReviewBuilder(registry, { calldata, params -> AbiDecoder.decode(calldata, params) })
+                .review(typedRequest(permitJson(chainId = 1), chainId = 42161), sender = OWNER),
+        ).review
+
+        assertEquals("Ethereum", review.network.name)
+        assertEquals(ChainId("eip155:1"), review.chain)
+        assertEquals(ChainId("eip155:1"), (rowOf(review, "Summary", "Spender").value as DisplayValue.Address).chain)
+        assertEquals("USD Coin (USDC) $TYPED_USDC_CHECKSUM", rowOf(review, "Summary", "Token").value.text())
+        assertEquals("1 USDC", rowOf(review, "Summary", "Amount").value.text())
     }
 }

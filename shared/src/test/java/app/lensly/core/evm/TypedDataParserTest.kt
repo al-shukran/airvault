@@ -132,6 +132,21 @@ class TypedDataParserTest {
     }
 
     @Test
+    fun aDeclaredDomainMemberOfAStructOrArrayTypeIsRefused() {
+        // The review shows a domain member as one value, so a member that holds a struct or an array is refused, not shown empty.
+        val struct = """{"EIP712Domain":[{"name":"chainId","type":"uint256"},{"name":"owner","type":"Owner"}],""" +
+            """"Owner":[{"name":"wallet","type":"address"}],"Mail":[{"name":"contents","type":"string"}]}"""
+        val array = """{"EIP712Domain":[{"name":"chainId","type":"uint256"},{"name":"salts","type":"bytes32[]"}],""" +
+            """"Mail":[{"name":"contents","type":"string"}]}"""
+
+        assertTrue(
+            refusal(doc(types = struct, domain = """{"chainId":1,"owner":{"wallet":"0x1111111111111111111111111111111111111111"}}"""))
+                .contains("domain member owner is not an atomic type"),
+        )
+        assertTrue(refusal(doc(types = array, domain = """{"chainId":1,"salts":[]}""")).contains("domain member salts is not an atomic type"))
+    }
+
+    @Test
     fun aPrimaryTypeThatIsNotDeclaredIsRefused() {
         assertTrue(refusal(doc(primary = "Nope")).contains("primaryType Nope is not one of the types"))
     }
