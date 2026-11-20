@@ -63,9 +63,6 @@ The lines balance the lanes. A test class with no line still runs, so adding a t
 - The configuration cache is encrypted with `GRADLE_ENCRYPTION_KEY`, a repository secret. Without it, each runner encrypts with its
   own keystore, a restored entry reads as absent ("no cached configuration is available"), and no lane reuses the configuration.
   Empty means no key, which is how a fork's pull request runs.
-- CI runs each test task in two JVM forks and writes no HTML test reports. `lanes.init.gradle` sets both, and `run-partition.sh`
-  passes it to every Gradle call of a lane. It applies only where `CI` is set, so a local build keeps one fork and every report.
-  It is not a `*.gradle.kts`, so changing it does not change the dependency-cache key.
 - `lintAnalyze*` tasks are cacheable (root `build.gradle.kts`). AGP leaves them uncacheable by default.
 - `setup-gradle` runs with `cache-disabled: true`: its own cache cleanup purged plugin marker POMs, which made later runs fail with
   "plugin not found".
