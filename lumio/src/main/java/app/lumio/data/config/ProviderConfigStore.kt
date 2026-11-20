@@ -32,7 +32,7 @@ class ProviderConfigStore(private val session: VaultSession) {
         /** The vault record that holds the settings. */
         const val RECORD = "lumio-providers"
 
-        private val json = Json { ignoreUnknownKeys = true }
+        private val json = Json
         private val serializer = MapSerializer(String.serializer(), ProviderConfig.serializer())
     }
 }

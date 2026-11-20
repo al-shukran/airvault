@@ -188,7 +188,7 @@ internal object ProfileIcons {
         )
     }
 
-    /** A hanging lantern with a lit flame, in the place the padlock used to hold. */
+    /** A hanging lantern with a lit flame. */
     val Lantern: ImageVector by lazy {
         outline(
             "Lantern",
