@@ -25,7 +25,9 @@ import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.Warning
 import app.lensly.app.AddressNotes
 import app.lensly.app.EVM_FAMILY
+import app.lensly.app.InternalAccount
 import app.lensly.app.SigningAccount
+import app.lensly.app.addressKeyOf
 import app.lensly.ui.shippedRegistry
 import app.lensly.ui.sign.ReviewScreen
 import app.lensly.ui.sign.unknownNetworkName
@@ -168,13 +170,16 @@ internal val sampleMessageReview = Review(
 /** The networks of the shipped registry, which give each address of an EVM review its network's logo, as the sign route does. */
 internal val EVM_NETWORKS by lazy { shippedRegistry().networks() }
 
-/** The EVM review of [review] as the sign route draws it: the sample signer, and the Address Book names in [notes]. */
+/** The device account of [SAMPLE_EVM_SIGNER]. A request is always signed by an account of this device, so its From row names it. */
+private val SAMPLE_SIGNER_ACCOUNT = InternalAccount(displayName = null, autoName = "Main account", label = null)
+
+/** The EVM review of [review] as the sign route draws it: the sample signer's own account, and the Address Book names in [notes]. */
 @Composable
 internal fun EvmReviewScreen(review: Review, notes: Map<String, AddressNotes> = emptyMap()) {
     ReviewScreen(
         review = review,
         signer = SAMPLE_EVM_SIGNER,
-        addressNotes = notes,
+        addressNotes = mapOf(addressKeyOf(SAMPLE_FROM) to AddressNotes(internal = SAMPLE_SIGNER_ACCOUNT, entry = null)) + notes,
         addressChain = EVM_FAMILY,
         onApprove = {},
         onReject = {},

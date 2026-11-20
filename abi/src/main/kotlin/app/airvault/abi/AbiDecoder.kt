@@ -1,5 +1,6 @@
 package app.airvault.abi
 
+import app.airvault.core.model.isSingleLinePrintable
 import app.lensly.core.parse.DecodeBudget
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.wallet.toHex
@@ -218,8 +219,8 @@ object AbiDecoder {
 }
 
 /**
- * The text of [bytes] when they are valid UTF-8 with no control or format character, so no spoofing mark can hide in a string the owner
- * reads. An empty string is text. Null when the bytes are not text Lensly shows.
+ * The text of [bytes] when they are valid UTF-8 whose every code point is printable on one line (see [isSingleLinePrintable]), so no spoofing
+ * mark can hide in a string the owner reads. An empty string is text. Null when the bytes are not text Lensly shows.
  */
 fun utf8TextOf(bytes: ByteArray): String? = try {
     StandardCharsets.UTF_8.newDecoder()
@@ -227,7 +228,7 @@ fun utf8TextOf(bytes: ByteArray): String? = try {
         .onUnmappableCharacter(CodingErrorAction.REPORT)
         .decode(ByteBuffer.wrap(bytes))
         .toString()
-        .takeIf { text -> text.none { it.category == CharCategory.CONTROL || it.category == CharCategory.FORMAT } }
+        .takeIf(::isSingleLinePrintable)
 } catch (e: CharacterCodingException) {
     null
 }
