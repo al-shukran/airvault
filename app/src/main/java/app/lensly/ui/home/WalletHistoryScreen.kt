@@ -280,7 +280,7 @@ internal fun HistoryDetailSheet(
                 if (record.params.isNotEmpty()) FactRow("Details") { LabelledRows(record.params, chain, addressBook, accounts, open, logo) }
                 record.origin?.let { origin -> FactRow("Claimed by Request (Not Verified)") { FactText(historyOrigin(origin)) } }
                 record.refusal?.let { reason -> FactRow("Refusal Reason") { FactText(reason) } }
-                FactRow("Data Hash, SHA-256") { MonoText(groupHex(record.dataHash)) }
+                FactRow("Sign Data Hash (SHA-256)") { MonoText(groupHex(record.dataHash)) }
             }
         }
     }

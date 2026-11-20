@@ -26,6 +26,7 @@ import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.OffChainDomain
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
@@ -105,7 +106,10 @@ class EvmReviewBuilder(
 
         init {
             header += ReviewRow(FROM_LABEL, DisplayValue.Address(chain, sender), null)
-            derivationPath?.let { header += ReviewRow("Derivation Path", DisplayValue.Text(it), null) }
+            derivationPath?.let { path ->
+                header += ReviewRow("Derivation Path", DisplayValue.Text(path), null)
+                if (BIP44_ADDRESS_PATH.matches(path)) warnings += Warning(Danger.CAUTION, CODE_BIP44_ADDRESS, BIP44_ADDRESS_WARNING)
+            }
             request.origin?.let { origin -> header += ReviewRow(CLAIMED_ORIGIN_LABEL, DisplayValue.Text(origin), decode("evm.origin")) }
         }
 
@@ -126,6 +130,8 @@ class EvmReviewBuilder(
                 ),
             )
             warnings += Warning(Danger.CAUTION, CODE_MESSAGE, PERSONAL_MESSAGE_WARNING)
+            // The request's chain names the header, but an EIP-191 signature commits to no chain, so it is valid on every one.
+            if (request.chainId != null) warnings += Warning(Danger.CAUTION, CODE_MESSAGE_CHAIN, PERSONAL_MESSAGE_CHAIN_WARNING)
             return assemble(SIGN_MESSAGE_FUNCTION, listOf(SummaryPart.Text("Signs a message with this account.")), heading = "Request")
         }
 
@@ -156,7 +162,7 @@ class EvmReviewBuilder(
                 warnings += Warning(Danger.CAUTION, CODE_OFF_CHAIN, offChainCautionText(offChain.label), acknowledge = offChainAck(offChain.label))
                 if (offChain.hashesAction) header += ReviewRow(HASHED_ACTION_LABEL, DisplayValue.Text(HASHED_ACTION_NOTE), null)
             }
-            actionWarning(typedData.primaryType)?.let { warnings += it }
+            actionWarning(typedData.primaryType, offChain)?.let { warnings += it }
             val domainNetworkName = domainChain?.let { networkNameOf(it) } ?: networkName
             val part = typedPart(typedData, registry, chainId, chain, networkName, domainNetworkName = domainNetworkName)
             decoded += part.decoded
@@ -735,7 +741,7 @@ class EvmReviewBuilder(
             add(ReviewRow("Selector", DisplayValue.Text("0x$selector", mono = true), null))
             proxy?.implementationAddress?.let { add(ReviewRow("Approved Implementation", DisplayValue.Address(chain, it), null)) }
             proxy?.implementationCodeHash?.let {
-                add(ReviewRow("Approved Code Hash", DisplayValue.Text(groupedHex(it.removePrefix("0x")), mono = true), null))
+                add(ReviewRow("Approved Code Hash", DisplayValue.Text("0x" + groupedHex(it.removePrefix("0x")), mono = true), null))
             }
             add(ReviewRow("Calldata", null, null))
             wordsOf(calldata).forEachIndexed { index, word ->
@@ -808,7 +814,7 @@ private sealed interface Gap {
 private fun unknownParams(calldata: ByteArray, selector: String): List<ParamRow> = listOf(
     ParamRow("Selector", DisplayValue.Text("0x$selector"), "selector"),
     calldataRow(calldata),
-    ParamRow(DATA_HASH_LABEL, DisplayValue.Text(hashText(Hash.sha3(calldata)), mono = true), null),
+    ParamRow(CALLDATA_HASH_LABEL, DisplayValue.Text(hashText(Hash.sha3(calldata)), mono = true), null),
 )
 
 /** The signed calldata in full, as its own row. A call whose arguments are shown carries this row, so no byte is only a preview. */
@@ -852,10 +858,15 @@ private fun offChainCautionText(label: String): String =
 /** The tick of an off-chain signature for [label]. */
 private fun offChainAck(label: String): String = "I understand this signature goes to $label, and Lensly cannot tell what it does."
 
-/** The DANGER of a message that lets a key act for the account or moves its funds, or null for any other primary type. */
-private fun actionWarning(primaryType: String): Warning? = when (primaryType.substringAfterLast(':')) {
-    "ApproveAgent" -> Warning(Danger.DANGER, CODE_TYPED_ACTION, APPROVE_AGENT_TEXT, acknowledge = ACK_APPROVE_AGENT)
-    "Withdraw", "withdraw3" -> Warning(Danger.DANGER, CODE_TYPED_ACTION, WITHDRAW_TEXT, acknowledge = ACK_WITHDRAW)
+/**
+ * The DANGER of a message that lets a key act for the account or moves its funds, or null for any other primary type. An agent approval is
+ * one whatever its domain: the primary type that the labelled product names as its approval, or ApproveAgent.
+ */
+private fun actionWarning(primaryType: String, offChain: OffChainDomain?): Warning? = when {
+    offChain?.agentApprovalType == primaryType || primaryType.substringAfterLast(':') == "ApproveAgent" ->
+        Warning(Danger.DANGER, CODE_TYPED_ACTION, APPROVE_AGENT_TEXT, acknowledge = ACK_APPROVE_AGENT)
+    primaryType.substringAfterLast(':') in setOf("Withdraw", "withdraw3") ->
+        Warning(Danger.DANGER, CODE_TYPED_ACTION, WITHDRAW_TEXT, acknowledge = ACK_WITHDRAW)
     else -> null
 }
 
@@ -957,8 +968,11 @@ internal const val FROM_LABEL = "From"
 internal const val DOMAIN_HASH_LABEL = "Domain Hash"
 internal const val MESSAGE_HASH_LABEL = "Message Hash"
 
-/** The label of the hash of an undecoded call's calldata. */
-internal const val DATA_HASH_LABEL = "Data Hash"
+/**
+ * The label of the hash of an undecoded call's calldata. It is not the Data Hash of a record, which is the SHA-256 of the whole payload, so the
+ * two never share a label.
+ */
+internal const val CALLDATA_HASH_LABEL = "Calldata Hash (Keccak-256)"
 
 /** The unit of an amount whose coin or token is not known. The amount is then shown as raw base units. */
 internal const val UNKNOWN_UNIT = "base units"
@@ -1009,6 +1023,8 @@ internal const val CODE_WHITELIST = "evm.whitelisted-call"
 internal const val CODE_PROXY = "evm.proxy"
 internal const val CODE_STEPS = "evm.steps"
 internal const val CODE_MESSAGE = "evm.personal-message"
+private const val CODE_MESSAGE_CHAIN = "evm.personal-message.chain"
+private const val CODE_BIP44_ADDRESS = "evm.bip44-address"
 
 private const val SIGN_DATA_TOO_LARGE = "The data to sign is larger than 64 KiB"
 internal const val NO_NETWORK = "The request does not name a network"
@@ -1023,6 +1039,11 @@ private const val NETWORK_UNREGISTERED = "This network is not in Lensly's regist
 private const val TOKEN_UNREGISTERED = "This contract is not in Lensly's token registry, so Lensly cannot check its name or decimals."
 private const val PERSONAL_MESSAGE_WARNING = "The signature proves you hold this account to whoever checks it, and a site can use it to " +
     "act for you. Sign only a message from a site you trust."
+private const val PERSONAL_MESSAGE_CHAIN_WARNING = "This signature is valid on every EVM chain, not only the chain the request names."
+
+/** The path of a BIP44 address key, m/44'/60'/0'/0/N (Rabby derives its keys so). N of 0 is account 0's own key, so it is not one. */
+private val BIP44_ADDRESS_PATH = Regex("""m/44'/60'/0'/0/[1-9][0-9]*""")
+private const val BIP44_ADDRESS_WARNING = "This key is a BIP44 address key, not one of this wallet's accounts. Check its address and path before you sign."
 private const val PERSONAL_MESSAGE_TYPE = "Personal Message"
 private const val TYPED_DATA_TYPE = "Typed data (EIP-712)"
 

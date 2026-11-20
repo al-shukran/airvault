@@ -107,6 +107,12 @@ class ProfilesTest {
     }
 
     @Test
+    fun aLabelOrGroupWithAHiddenFormatCharacterIsRefused() {
+        assertFalse(isValidProfileText("Rent‮"))
+        assertFailsWith<IllegalArgumentException> { profileTextOf("⁦Rent") }
+    }
+
+    @Test
     fun anAccountProfileRoundTripsEveryField() {
         val profile = AccountProfile(
             name = "Savings",

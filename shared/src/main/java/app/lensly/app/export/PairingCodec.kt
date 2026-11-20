@@ -497,7 +497,7 @@ object PairingCodec {
      * True when no code point of [text] is a control or a format character. A format character, such as a right-to-left override, changes how
      * the text reads without showing, so a name that holds one is refused. Code points are checked, so a character beyond the BMP counts too.
      */
-    private fun hasNoHiddenCharacter(text: String): Boolean = text.codePoints().allMatch { codePoint ->
+    fun hasNoHiddenCharacter(text: String): Boolean = text.codePoints().allMatch { codePoint ->
         !Character.isISOControl(codePoint) && Character.getType(codePoint) != Character.FORMAT.toInt()
     }
 

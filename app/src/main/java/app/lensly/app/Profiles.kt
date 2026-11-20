@@ -1,5 +1,7 @@
 package app.lensly.app
 
+import app.lensly.app.export.PairingCodec
+
 /**
  * The fixed palette of Visual Identity colours. Each one reads on black, so a dot or an avatar of it shows on the page.
  * A record stores [wire], which never changes, so a record written now still reads after the palette is reordered.
@@ -147,15 +149,15 @@ const val PROFILE_TEXT_MAX_LENGTH = 16
 /** The most groups one wallet sits in. A wallet's groups are listed on its screen, so the number stays small. */
 const val WALLET_MAX_GROUPS = 8
 
-/** True when [text] is a label or a group name: 1 to [PROFILE_TEXT_MAX_LENGTH] characters, with no control character. */
+/** True when [text] is a label or a group name: 1 to [PROFILE_TEXT_MAX_LENGTH] characters, with no control or hidden format character. */
 fun isValidProfileText(text: String): Boolean =
-    text.length in 1..PROFILE_TEXT_MAX_LENGTH && text.none { it.isISOControl() }
+    text.length in 1..PROFILE_TEXT_MAX_LENGTH && PairingCodec.hasNoHiddenCharacter(text)
 
 /** The label or group name [raw] gives once it is trimmed. @throws IllegalArgumentException if that is not a valid name. */
 fun profileTextOf(raw: String): String {
     val text = raw.trim()
     require(isValidProfileText(text)) {
-        "A label or group is 1 to $PROFILE_TEXT_MAX_LENGTH characters, with no control character."
+        "A label or group is 1 to $PROFILE_TEXT_MAX_LENGTH characters, with no control or hidden character."
     }
     return text
 }

@@ -79,6 +79,6 @@ class WalletHistoryScreenTest {
         compose.onNodeWithText("Monad Testnet").assertIsDisplayed()
         compose.onNodeWithText(groupAddress(SAMPLE_ACCOUNT)).assertIsDisplayed()
         compose.onAllNodesWithText(groupAddress(SAMPLE_RECIPIENT)).onFirst().assertIsDisplayed()
-        compose.onNodeWithText("Data Hash, SHA-256").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Sign Data Hash (SHA-256)").performScrollTo().assertIsDisplayed()
     }
 }
