@@ -84,12 +84,30 @@ class OrdIndexerTest {
             "[]",
             """{"inscriptions":"$txid","runes":{}}""",
             """{"inscriptions":[],"runes":"DOG"}""",
-            """{"inscriptions":null,"runes":{"DOG":{}}}""",
+            """{"inscriptions":null,"runes":null}""",
         )
         for (body in answers) {
             ord.enqueue(answer(body))
             assertEquals(emptySet(), indexer().markedOutputs(listOf(txid to 0)), body)
         }
+    }
+
+    @Test
+    fun aMalformedInscriptionsFieldDoesNotHideARune() = runBlocking<Unit> {
+        ord.enqueue(answer("""{"inscriptions":null,"runes":{"DOG":{}}}"""))
+        ord.enqueue(answer("""{"inscriptions":"$txid","runes":{"DOG":{}}}"""))
+
+        assertEquals(setOf(txid to 0), indexer().markedOutputs(listOf(txid to 0)))
+        assertEquals(setOf(txid to 1), indexer().markedOutputs(listOf(txid to 1)))
+    }
+
+    @Test
+    fun aMalformedRunesFieldDoesNotHideAnInscription() = runBlocking<Unit> {
+        ord.enqueue(answer("""{"inscriptions":["${txid}i0"],"runes":"DOG"}"""))
+        ord.enqueue(answer("""{"inscriptions":["${txid}i0"],"runes":null}"""))
+
+        assertEquals(setOf(txid to 0), indexer().markedOutputs(listOf(txid to 0)))
+        assertEquals(setOf(txid to 1), indexer().markedOutputs(listOf(txid to 1)))
     }
 
     @Test

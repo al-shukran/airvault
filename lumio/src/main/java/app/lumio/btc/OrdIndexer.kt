@@ -65,8 +65,8 @@ class OrdIndexer(http: Http, private val base: HttpUrl, private val budgetMs: Lo
 }
 
 /**
- * Whether an `ord` answer names an inscription or a rune on its output: a non-empty `inscriptions` array, or a non-empty `runes` map or array. An
- * answer of any other shape, or text that is not a JSON object, marks nothing.
+ * Whether an `ord` answer names an inscription or a rune on its output: a non-empty `inscriptions` array, or a non-empty `runes` map or array. Each
+ * field is judged on its own, so a field of another shape contributes nothing. Text that is not a JSON object marks nothing.
  */
 internal fun markedAnswer(text: String): Boolean {
     val root = try {
@@ -77,14 +77,9 @@ internal fun markedAnswer(text: String): Boolean {
         return false
     }
     val answer = root as? JsonObject ?: return false
-    val inscriptions = answer["inscriptions"]
-    val runes = answer["runes"]
-    val knownShape = (inscriptions == null || inscriptions is JsonArray) &&
-        (runes == null || runes is JsonObject || runes is JsonArray)
-    if (!knownShape) return false
-    return (inscriptions as? JsonArray)?.isNotEmpty() == true ||
-        (runes as? JsonObject)?.isNotEmpty() == true ||
-        (runes as? JsonArray)?.isNotEmpty() == true
+    return (answer["inscriptions"] as? JsonArray)?.isNotEmpty() == true ||
+        (answer["runes"] as? JsonObject)?.isNotEmpty() == true ||
+        (answer["runes"] as? JsonArray)?.isNotEmpty() == true
 }
 
 /** The indexer that [configs] keep, on [http], or null when the owner set none: a send then asks no server about its outputs. */
