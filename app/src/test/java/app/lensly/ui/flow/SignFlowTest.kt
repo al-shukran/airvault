@@ -4,6 +4,7 @@ import app.airvault.chains.evm.evmManifest
 import app.airvault.chains.evm.signer.EvmRequestBody
 import app.airvault.chains.evm.signer.EvmSigner
 import app.airvault.chains.evm.signer.UnsignedTx
+import app.airvault.core.model.AppId
 import app.airvault.core.model.Approval
 import app.airvault.core.model.text
 import app.airvault.core.signer.AppRequest
@@ -30,6 +31,7 @@ import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.SandboxedParser
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.ScriptedSandbox
+import app.lensly.core.parse.UNSUPPORTED_CODE
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
@@ -275,6 +277,15 @@ private fun scan(flow: SignFlow, frames: Sequence<String>, limit: Int = 2000): I
     fed
 }
 
+/** A sandbox that reads every request as one of an app this build does not have, for the wallet its fingerprint names. */
+private object UninstalledAppParser : RequestParser by inProcessSandboxParser {
+    override fun scan(parts: List<String>): ScanReply {
+        val reply = inProcessSandboxParser.scan(parts)
+        if (reply !is ScanReply.App) return reply
+        return ScanReply.App(reply.request.copy(header = reply.request.header.copy(app = AppId("not-installed"))))
+    }
+}
+
 /** A sandbox that adds one wei to the value of the transaction it decodes, as a compromised sandbox could. */
 private class ValueChangingParser : RequestParser by inProcessSandboxParser {
     override fun scan(parts: List<String>): ScanReply {
@@ -339,6 +350,22 @@ class SignFlowTest {
 
         scan(flow, frames.drop(1))
         assertIs<SignStep.AppReview>(flow.state.value)
+    }
+
+    /**
+     * A request of an app this build does not have is unsupported. It is refused before any wallet is looked for, so the fingerprint match
+     * routes nothing and no refusal is recorded under the vault's wallet.
+     */
+    @Test
+    fun aRequestOfAnUninstalledAppIsRefusedAsUnsupportedWithoutRoutingToAWallet() {
+        val ports = FakePorts(parser = UninstalledAppParser)
+        val flow = SignFlow(ports, walletId = null)
+
+        scan(flow, framesOf(messageRequest(), FRAGMENT))
+
+        assertEquals(SignStep.Refused(UNSUPPORTED_CODE), flow.state.value)
+        assertTrue(ports.records.isEmpty(), "No wallet is recorded for an unsupported request")
+        assertEquals(0, ports.signCalls)
     }
 
     @Test

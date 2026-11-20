@@ -50,6 +50,23 @@ class AlgorandSignerTest {
         assertContentEquals(bytesToSign(TXN), keys.signed.single())
     }
 
+    /**
+     * A transaction that rekeys the sender is refused at sign, as its review refuses it. The approval is the one for [TXN], which no review
+     * would give for a rekey, so this shows the signer checks the bytes it signs rather than trusting the approval alone.
+     */
+    @Test
+    fun aRekeyIsRefusedAtSignEvenWhenTheApprovalIsForAnotherTransaction() {
+        val keys = FakeKeys(derived = SENDER)
+        val rekey = assertIs<ParseOutcome.Parsed>(
+            AlgorandRequestParser.parse(AlgoSignRequest.UR_TYPE, requestCbor(REKEY_TXN), ParserLimits()),
+        ).request
+
+        val refused = assertFailsWith<IllegalArgumentException> { AlgorandSigner.sign(rekey, approval, keys) }
+
+        assertEquals(AlgorandRequestCheck.REKEY_REFUSED, refused.message)
+        assertTrue(keys.signed.isEmpty(), "A refused request signs nothing")
+    }
+
     /** The request as the parser reads it, for the transaction [TXN] on account 0 of [PATH]. */
     private val request: AppRequest = assertIs<ParseOutcome.Parsed>(
         AlgorandRequestParser.parse(AlgoSignRequest.UR_TYPE, requestCbor(), ParserLimits()),
@@ -81,7 +98,7 @@ class AlgorandSignerTest {
     }
 
     /** An algo-sign-request for [TXN] on the path [PATH] of [FINGERPRINT], with the codec's fields as a wallet sends them. */
-    private fun requestCbor(): ByteArray {
+    private fun requestCbor(txn: ByteArray = TXN): ByteArray {
         val components = PATH.flatMap { listOf(Cbor.Uint(it.index.toLong()), Cbor.Bool(it.hardened)) }
         val keypath = Cbor.Tagged(
             304,
@@ -91,7 +108,7 @@ class AlgorandSignerTest {
             Cbor.Dict(
                 listOf(
                     Cbor.Uint(1L) to Cbor.Tagged(37, Cbor.Bytes(REQUEST_ID)),
-                    Cbor.Uint(2L) to Cbor.Bytes(TXN),
+                    Cbor.Uint(2L) to Cbor.Bytes(txn),
                     Cbor.Uint(3L) to keypath,
                     Cbor.Uint(4L) to Cbor.Text(""),
                     Cbor.Uint(5L) to Cbor.Text("lumio"),
@@ -113,6 +130,15 @@ class AlgorandSignerTest {
                 "18a4b3c84ec810f22d4f1081cb0f71f059a7ac20dec62f7f70e5093a22a26c76ce02faf468a3726376c420c11dff7e914904" +
                 "1e8555aa0fccb8226f48731d74ec4507c43213e1b705f5615da3736e64c4207491ae7345271b581e36e46aba59dd0179b9bd" +
                 "1467c72e3c660fc8c2bd2c6538a474797065a3706179",
+        )
+
+        /** The SDK's `pay_rekey` vector: a payment from [SENDER] that rekeys the sender to another address. */
+        val REKEY_TXN: ByteArray = hex(
+            "89a3666565cd03e8a26676ce02faf080a367656eac746573746e65742d76312e30a26768c4204863b518a4b3c84ec810f22d" +
+            "4f1081cb0f71f059a7ac20dec62f7f70e5093a22a26c76ce02faf468a3726376c4207491ae7345271b581e36e46aba59dd01" +
+            "79b9bd1467c72e3c660fc8c2bd2c6538a572656b6579c4208d3ed18cb82bd72eab9a1bc21a77eeb097b7fd68f973f706036d" +
+            "219a165d006da3736e64c4207491ae7345271b581e36e46aba59dd0179b9bd1467c72e3c660fc8c2bd2c6538a474797065a3" +
+            "706179",
         )
 
         /** The public key the vector names as its sender. */

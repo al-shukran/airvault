@@ -167,6 +167,21 @@ class EvmReviewTest {
         assertEquals("Blocked collection.", refused.reason)
     }
 
+    /** A BLOCK match on a call Lensly cannot decode, under the Warn policy, keeps the call's rows: the refusal shows its raw data. */
+    @Test
+    fun aBlockDenylistMatchOnAnUndecodedCallKeepsItsRows() {
+        val blocked = REGISTRY.withDenylist(
+            listOf(DenylistEntry(chainId = 1, contract = NFT, severity = DenylistSeverity.BLOCK, reason = "Blocked collection.")),
+        )
+        val calldata = Numeric.hexStringToByteArray("0xdeadbeef") + ByteArray(32) { 1 }
+
+        val refused = refusalOf(txParsed(NFT, calldata), builder(blocked, unknownCalls = UnknownCallPolicy.WARN))
+
+        assertEquals("Blocked collection.", refused.reason)
+        assertEquals(listOf("Selector", "Calldata", "Data Hash"), refused.rows.map { it.label })
+        assertEquals("0xdeadbeef", refused.rows.single { it.label == "Selector" }.value.text())
+    }
+
     @Test
     fun aWarnDenylistMatchIsDangerAndNeedsItsCheck() {
         val warned = REGISTRY.withDenylist(
