@@ -196,9 +196,9 @@ class VaultTest {
             bytes[10] = (bytes[10].toInt() xor 1).toByte()
             failures.writeBytes(bytes)
 
-            // The tampering is detected on this attempt, and the cap applies from now.
+            // The tampering is detected on this attempt. The one failure is kept, and the wait restarts at the owner's full cap.
             assertRejected(vault.unlock(PASSWORD.toCharArray()))
-            clock.advance(FailureDelay.LEARNING_CAP_MS - 1)
+            clock.advance(FailureDelay.DEFAULT_CAP_MS - 1)
             assertRejected(vault.unlock(PASSWORD.toCharArray()))
             clock.advance(1)
             unlocked(vault.unlock(PASSWORD.toCharArray())).close()
@@ -216,8 +216,9 @@ class VaultTest {
 
             failures.writeBytes(olderPrimary)
             failuresBackup.writeBytes(olderBackup)
+            // Neither older copy verifies, so the lockout is the strictest cap, one hour.
             assertRejected(vault.unlock(PASSWORD.toCharArray()))
-            clock.advance(FailureDelay.LEARNING_CAP_MS - 1)
+            clock.advance(FailureDelay.MAX_CAP_MS - 1)
             assertRejected(vault.unlock(PASSWORD.toCharArray()))
             clock.advance(1)
             unlocked(vault.unlock(PASSWORD.toCharArray())).close()

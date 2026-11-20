@@ -12,50 +12,45 @@ class FailureDelayTest {
 
     @Test
     fun noFailuresMeansNoDelay() {
-        assertEquals(0L, FailureDelay(created).delayFor(0, afterLearning))
+        assertEquals(0L, FailureDelay(created).delayFor(0, learningWeek = false))
     }
 
     @Test
-    fun everyFailureCostsTheLearningCapDuringTheFirstSevenDays() {
+    fun everyFailureCostsTheLearningCapWhileTheLearningWeekRuns() {
         val delay = FailureDelay(created)
-        assertEquals(10_000L, delay.delayFor(1, created))
-        assertEquals(10_000L, delay.delayFor(2, created))
-        assertEquals(10_000L, delay.delayFor(9, created + 1))
+        assertEquals(10_000L, delay.delayFor(1, learningWeek = true))
+        assertEquals(10_000L, delay.delayFor(2, learningWeek = true))
+        assertEquals(10_000L, delay.delayFor(9, learningWeek = true))
     }
 
     @Test
     fun doublesFromTheBaseThenStopsAtTheDefaultCap() {
         val delay = FailureDelay(created)
-        assertEquals(10_000L, delay.delayFor(1, afterLearning))
-        assertEquals(20_000L, delay.delayFor(2, afterLearning))
-        assertEquals(40_000L, delay.delayFor(3, afterLearning))
-        assertEquals(60_000L, delay.delayFor(4, afterLearning))
-        assertEquals(60_000L, delay.delayFor(50, afterLearning))
+        assertEquals(10_000L, delay.delayFor(1, learningWeek = false))
+        assertEquals(20_000L, delay.delayFor(2, learningWeek = false))
+        assertEquals(40_000L, delay.delayFor(3, learningWeek = false))
+        assertEquals(60_000L, delay.delayFor(4, learningWeek = false))
+        assertEquals(60_000L, delay.delayFor(50, learningWeek = false))
     }
 
     @Test
     fun hugeFailureCountsDoNotOverflow() {
-        assertEquals(60_000L, FailureDelay(created).delayFor(Int.MAX_VALUE, afterLearning))
-        assertEquals(10_000L, FailureDelay(created, configuredCapMs = 10_000L).delayFor(Int.MAX_VALUE, created))
-    }
-
-    @Test
-    fun learningPeriodEndsExactlyAtSevenDays() {
-        val delay = FailureDelay(created)
-        assertEquals(FailureDelay.LEARNING_CAP_MS, delay.capMs(afterLearning - 1))
-        assertEquals(FailureDelay.DEFAULT_CAP_MS, delay.capMs(afterLearning))
+        assertEquals(60_000L, FailureDelay(created).delayFor(Int.MAX_VALUE, learningWeek = false))
+        assertEquals(10_000L, FailureDelay(created, configuredCapMs = 10_000L).delayFor(Int.MAX_VALUE, learningWeek = false))
     }
 
     @Test
     fun configuredCapBoundsBothPeriods() {
         val tenSecondCap = FailureDelay(created, configuredCapMs = 10_000L)
-        assertEquals(10_000L, tenSecondCap.delayFor(1, created))
-        assertEquals(10_000L, tenSecondCap.delayFor(5, afterLearning))
+        assertEquals(10_000L, tenSecondCap.delayFor(1, learningWeek = true))
+        assertEquals(10_000L, tenSecondCap.delayFor(5, learningWeek = false))
 
         val oneHourCap = FailureDelay(created, configuredCapMs = FailureDelay.MAX_CAP_MS)
-        assertEquals(10_000L, oneHourCap.delayFor(1, afterLearning))
+        assertEquals(FailureDelay.LEARNING_CAP_MS, oneHourCap.capMs(learningWeek = true))
+        assertEquals(FailureDelay.MAX_CAP_MS, oneHourCap.capMs(learningWeek = false))
+        assertEquals(10_000L, oneHourCap.delayFor(1, learningWeek = false))
         // 10 s * 2^9 = 5120 s, which is above the one-hour cap.
-        assertEquals(3_600_000L, oneHourCap.delayFor(10, afterLearning))
+        assertEquals(3_600_000L, oneHourCap.delayFor(10, learningWeek = false))
     }
 
     @Test
@@ -238,20 +233,67 @@ class FailureDelayTest {
     }
 
     @Test
+    fun theLearningWeekIsSevenDaysOfTimeSinceCreationInTheSameBoot() {
+        val delay = FailureDelay(created, configuredCapMs = FailureDelay.MAX_CAP_MS)
+        val state = learningState(createdElapsedMs = 0L, createdBootCount = 7)
+        val clock = FakeClock(wall = created, elapsed = FailureDelay.LEARNING_PERIOD_MS - 1)
+        // Four failures under the owner's one-hour cap wait 80 s. The learning cap waits 10 s.
+        assertEquals(10_000L, delay.waitFor(state, clock, bootCount = 7))
+        clock.elapsed = FailureDelay.LEARNING_PERIOD_MS
+        assertEquals(80_000L, delay.waitFor(state, clock, bootCount = 7))
+    }
+
+    @Test
+    fun aBootCountThatDiffersOrIsUnreadableEndsTheLearningWeek() {
+        val delay = FailureDelay(created, configuredCapMs = FailureDelay.MAX_CAP_MS)
+        val state = learningState(createdElapsedMs = 0L, createdBootCount = 7)
+        val clock = FakeClock(wall = created, elapsed = 1_000L)
+        assertEquals(10_000L, delay.waitFor(state, clock, bootCount = 7))
+        assertEquals(80_000L, delay.waitFor(state, clock, bootCount = 8))
+        assertEquals(80_000L, delay.waitFor(state, clock, bootCount = null))
+    }
+
+    @Test
+    fun aVaultWithoutItsCreationReadingsNeverGetsTheLearningCap() {
+        val delay = FailureDelay(created, configuredCapMs = FailureDelay.MAX_CAP_MS)
+        val clock = FakeClock(wall = created, elapsed = 1_000L)
+        assertEquals(80_000L, delay.waitFor(learningState(createdElapsedMs = null, createdBootCount = 7), clock, bootCount = 7))
+        assertEquals(80_000L, delay.waitFor(learningState(createdElapsedMs = 0L, createdBootCount = null), clock, bootCount = null))
+    }
+
+    @Test
+    fun aClockBeforeTheVaultWasMadeIsPastTheLearningWeek() {
+        val delay = FailureDelay(created, configuredCapMs = FailureDelay.MAX_CAP_MS)
+        val state = learningState(createdElapsedMs = 0L, createdBootCount = 7)
+        val clock = FakeClock(wall = created - 1, elapsed = 1_000L)
+        assertEquals(80_000L, delay.waitFor(state, clock, bootCount = 7))
+    }
+
+    @Test
+    fun aWaitRestartedByAClockAnomalyIsTheFullCapWhateverTheCount() {
+        val delay = FailureDelay(created, configuredCapMs = FailureDelay.MAX_CAP_MS)
+        val clock = FakeClock(wall = created, elapsed = 1_000L)
+        val anomaly = learningState(createdElapsedMs = 0L, createdBootCount = 7).copy(fullCapWait = true)
+        assertEquals(FailureDelay.MAX_CAP_MS, delay.waitFor(anomaly.copy(failures = 1), clock, bootCount = 7))
+        // A lockout before any wrong try still waits the full cap, as a tampered copy always has.
+        assertEquals(FailureDelay.MAX_CAP_MS, delay.waitFor(anomaly.copy(failures = 0), clock, bootCount = 7))
+    }
+
+    @Test
     fun ownerCapFromTheStateAppliesToEveryWait() {
         val capped = stateWithCap(10_000L, failures = 3)
         val delay = FailureDelay(created, FailureDelay.configuredCapFor(capped))
         // The spec delay after three failures is 40 s, and the owner's 10 s cap is the smaller one.
-        assertEquals(10_000L, delay.delayFor(capped.failures, afterLearning))
-        assertEquals(10_000L, delay.delayFor(1, created))
+        assertEquals(10_000L, delay.delayFor(capped.failures, learningWeek = false))
+        assertEquals(10_000L, delay.delayFor(1, learningWeek = true))
     }
 
     @Test
     fun theFloorCapHoldsAfterTheLearningPeriod() {
         val delay = FailureDelay(created, configuredCapMs = FailureDelay.MIN_CAP_MS)
-        assertEquals(10_000L, delay.delayFor(1, created))
-        assertEquals(10_000L, delay.delayFor(1, afterLearning))
-        assertEquals(10_000L, delay.delayFor(9, afterLearning))
+        assertEquals(10_000L, delay.delayFor(1, learningWeek = true))
+        assertEquals(10_000L, delay.delayFor(1, learningWeek = false))
+        assertEquals(10_000L, delay.delayFor(9, learningWeek = false))
     }
 
     @Test
@@ -259,9 +301,18 @@ class FailureDelayTest {
         val default = stateWithCap(null, failures = 1)
         assertEquals(FailureDelay.DEFAULT_CAP_MS, FailureDelay.configuredCapFor(default))
         val delay = FailureDelay(created, FailureDelay.configuredCapFor(default))
-        assertEquals(10_000L, delay.delayFor(1, created))
-        assertEquals(60_000L, delay.delayFor(4, afterLearning))
+        assertEquals(10_000L, delay.delayFor(1, learningWeek = true))
+        assertEquals(60_000L, delay.delayFor(4, learningWeek = false))
     }
+
+    private fun learningState(createdElapsedMs: Long?, createdBootCount: Int?) = FailureState(
+        seq = 2,
+        failures = 4,
+        lastFailureWallMs = created,
+        lastFailureElapsedMs = 0L,
+        createdElapsedMs = createdElapsedMs,
+        createdBootCount = createdBootCount,
+    )
 
     private fun stateWithCap(capMs: Long?, failures: Int) = FailureState(
         seq = 2,
