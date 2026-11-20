@@ -85,10 +85,11 @@ class EvmSignerTest {
     fun aKeyThatIsNotTheReviewedSenderSignsNothing() {
         val keys = FakeKeys(KEY)
 
-        assertFailsWith<IllegalArgumentException> {
+        val refusal = assertFailsWith<IllegalArgumentException> {
             EvmSigner.sign(requestOf(legacyPayload(), MONAD), approvalOf(MONAD, senderOf(OTHER_KEY)), keys)
         }
 
+        assertEquals("Key does not match account", refusal.message)
         assertTrue(keys.signedPaths.isEmpty(), "A refused request signs nothing")
     }
 

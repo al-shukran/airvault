@@ -32,7 +32,7 @@ private const val NO_REQUEST_ID = "The request has no requestId to echo."
 private const val NO_SENDER = "The approved review names no sender."
 
 /** The reason for a key that is not the sender the review shows, so nothing is signed for the request. */
-private const val SENDER_MISMATCH = "The key at the request's path is not the sender the review shows."
+private const val SENDER_MISMATCH = "Key does not match account"
 
 /**
  * The Lensly (signer) side of the EVM chain app: its manifest, its request parser, its address codec, and the signing of an approved request.

@@ -3,6 +3,8 @@ package app.lensly.ui.flow
 import android.content.Context
 import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
+import app.airvault.chains.evm.signer.EvmRequestParser
+import app.airvault.chains.evm.signer.UnsignedTx
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.signer.SolanaRequestParser
 import app.airvault.core.model.Approval
@@ -10,14 +12,20 @@ import app.airvault.chains.bitcoin.signer.BitcoinSigner
 import app.airvault.chains.bitcoin.signer.BtcRefusal
 import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
 import app.airvault.chains.bitcoin.signer.bitcoinManifest
+import app.airvault.core.signer.KeyScopeViolation
 import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
 import app.airvault.core.signer.SignerRef
 import app.lensly.app.export.partsOf
+import app.lensly.core.evm.TxSigner
 import app.lensly.core.parse.ScanReply
+import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
+import app.lensly.core.ur.EthSignatureEncoder
 import app.lensly.core.ur.PathStep
 import app.lensly.core.ur.framesOf
+import app.lensly.core.wallet.AccountAddresses
+import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.WalletKeyAccess
 import com.sparrowwallet.hummingbird.UR
 import app.airvault.core.model.checkLabels
@@ -34,7 +42,7 @@ import app.airvault.core.signer.ParseOutcome
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletStore
 import app.lensly.app.sign.AppPrepared
-import app.lensly.app.sign.ReviewEntry
+import app.lensly.app.sign.AppReviewEntry
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.solana.SolanaAccount
@@ -60,7 +68,11 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.web3j.crypto.RawTransaction
+import org.web3j.crypto.TransactionEncoder
+import org.web3j.utils.Numeric
 import java.io.File
+import java.math.BigInteger
 import java.security.GeneralSecurityException
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -111,8 +123,15 @@ class VaultSignPortsTest {
 
             assertFailsWith<ReviewNotSaved> {
                 runBlocking {
-                    ports.record(
-                        ReviewEntry(wallet, ReviewOutcome.REFUSED, request(), ready = null, refusal = "Refused"),
+                    ports.recordApp(
+                        AppReviewEntry(
+                            wallet,
+                            ReviewOutcome.REFUSED,
+                            evmRequest(byteArrayOf(1, 2, 3), MONAD, dataType = DataType.PERSONAL_MESSAGE),
+                            reviewed = null,
+                            acknowledged = emptyList(),
+                            refusal = "Refused",
+                        ),
                     )
                 }
             }
@@ -380,6 +399,79 @@ class VaultSignPortsTest {
     }
 
     /**
+     * A transaction that account 0 of a Mnemonic wallet sends is reviewed and signed through the one sign flow, with that account's key. The answer
+     * is byte for byte the one the sign path gave before the flow moved to the chain app.
+     */
+    @Test
+    fun anEthereumTransactionIsSignedWithTheKeyOfItsAccountAsBefore() {
+        val (session, id) = sessionWithWallet()
+        try {
+            val ports = VaultSignPorts(context, holderOf(session))
+            val signData = transfer(MONAD)
+            val request = evmRequest(signData, MONAD, fingerprint = fingerprintOf(ports))
+
+            assertEquals(expectedEvmFrames(signData, walletKey(0)), signedFrames(ports, id, request))
+        } finally {
+            session.close()
+        }
+    }
+
+    /**
+     * A Single Key wallet holds one key. Its review does not read the path a request names, so the request is signed with that key as before, even
+     * when the path names another account.
+     */
+    @Test
+    fun aSingleKeyWalletSignsAnEthereumTransactionWithItsOnlyKey() {
+        val key = walletKey(3)
+        val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it + 5).toByte() })
+        try {
+            val id = WalletStore(session).createSingleKey("KEY", key.copyOf(), nowMs = 1L)
+            val ports = VaultSignPorts(context, holderOf(session))
+            val signData = transfer(MONAD)
+            val request = evmRequest(signData, MONAD, account = 5L, address = Numeric.hexStringToByteArray(AccountAddresses.addressOfPrivateKey(key)))
+
+            assertEquals(expectedEvmFrames(signData, key), signedFrames(ports, id, request))
+        } finally {
+            session.close()
+        }
+    }
+
+    /** A transaction on a chain outside the manifest is reviewed with a warning, and signed as well, as the sign flow always signed such a request. */
+    @Test
+    fun aTransactionOnAChainOutsideTheManifestIsSignedToo() {
+        val (session, id) = sessionWithWallet()
+        try {
+            val ports = VaultSignPorts(context, holderOf(session))
+            val signData = transfer(POLYGON)
+            val request = evmRequest(signData, POLYGON, fingerprint = fingerprintOf(ports))
+
+            assertEquals(expectedEvmFrames(signData, walletKey(0)), signedFrames(ports, id, request))
+        } finally {
+            session.close()
+        }
+    }
+
+    /** A request for a key outside the scope of the EVM app is refused by the key access when it is signed. */
+    @Test
+    fun aRequestForAKeyOutsideTheEvmScopeIsRefusedWhenItIsSigned() {
+        val (session, id) = sessionWithWallet()
+        try {
+            val ports = VaultSignPorts(context, holderOf(session))
+            val fingerprint = fingerprintOf(ports)
+            val request = evmRequest(transfer(MONAD), MONAD, fingerprint = fingerprint)
+            val ready = reviewed(ports, id, request)
+            // The review stays the one the owner saw. Only the path the header names changes, to m/44'/60'/0'/1/0: the EVM scope holds branch 0 only.
+            val outsidePath = listOf(PathStep(44, hardened = true), PathStep(60, hardened = true), PathStep(0, hardened = true), PathStep(1, hardened = false), PathStep(0, hardened = false))
+            val forged = ready.copy(request = request.copy(header = request.header.copy(signers = listOf(SignerRef(fingerprint, outsidePath)))))
+            val approval = assertNotNull(Approval.of(ready.review, ready.review.checkLabels().toSet()))
+
+            assertFailsWith<KeyScopeViolation> { runBlocking { ports.appSign(forged, approval) } }
+        } finally {
+            session.close()
+        }
+    }
+
+    /**
      * The Bitcoin request of [psbt] that names an account of each fingerprint in [fingerprints], at account 0 of native segwit on testnet4: the
      * header the parser makes for those inputs, with the PSBT's own bytes as its body. The parser is not run here, since Robolectric cannot decode
      * the `crypto-psbt` CBOR (hummingbird needs a newer cbor than the Robolectric classpath has).
@@ -442,19 +534,69 @@ class VaultSignPortsTest {
     private fun reviewed(ports: VaultSignPorts, id: String, request: AppRequest): AppPrepared.Ready =
         assertIs<AppPrepared.Ready>(runBlocking { ports.appPrepare(id, request) })
 
-    private fun request() = EthSignRequest(
-        requestId = ByteArray(16) { 7 },
-        signData = byteArrayOf(1, 2, 3),
-        dataType = DataType.PERSONAL_MESSAGE,
-        chainId = null,
-        derivationPath = emptyList(),
-        sourceFingerprint = null,
-        address = null,
-        origin = null,
+    /** The frames [ports] answers [request] with, once it is reviewed and every check of its review is ticked. */
+    private fun signedFrames(ports: VaultSignPorts, id: String, request: AppRequest): List<String> {
+        val ready = reviewed(ports, id, request)
+        val approval = assertNotNull(Approval.of(ready.review, ready.review.checkLabels().toSet()))
+        return runBlocking { ports.appSign(ready, approval) }
+    }
+
+    /** The frames the sign path gave for the transaction [signData] under [key], before the sign flow moved to the chain app. */
+    private fun expectedEvmFrames(signData: ByteArray, key: ByteArray): List<String> {
+        val tx = assertIs<UnsignedTx.Result.Ok>(UnsignedTx.decode(signData, DataType.TRANSACTION)).tx
+        return partsOf(EthSignatureEncoder.encode(EVM_REQUEST_ID, TxSigner.sign(signData, tx, key)))
+    }
+
+    /** The private key of account [index] of the test wallet. */
+    private fun walletKey(index: Int): ByteArray = HdWallet(seed()).privateKey(index)
+
+    /** A legacy transfer of one wei on [chainId], encoded as a wallet sends it for signing. */
+    private fun transfer(chainId: Long): ByteArray = TransactionEncoder.encode(
+        RawTransaction.createTransaction(
+            BigInteger.valueOf(3),
+            BigInteger.valueOf(20_000_000_000L),
+            BigInteger.valueOf(60_000),
+            RECIPIENT,
+            BigInteger.ONE,
+            "0x",
+        ),
+        chainId,
     )
+
+    /**
+     * The eth-sign-request a wallet sends for [signData] on chain [chainId], parsed as the Parser Sandbox parses it. Its path is account [account]
+     * m/44'/60'/[account]'/0/0. It names the master [fingerprint] of a Mnemonic wallet, or, for a Single Key, only its [address].
+     */
+    private fun evmRequest(
+        signData: ByteArray,
+        chainId: Long,
+        fingerprint: Int? = null,
+        account: Long = 0L,
+        address: ByteArray? = null,
+        dataType: DataType = DataType.TRANSACTION,
+    ): AppRequest {
+        val steps = listOf(44L to true, 60L to true, account to true, 0L to false, 0L to false)
+        val keypath = buildList<Pair<Cbor, Cbor>> {
+            add(Cbor.Uint(1) to Cbor.Arr(steps.flatMap { (index, hardened) -> listOf(Cbor.Uint(index), Cbor.Bool(hardened)) }))
+            fingerprint?.let { add(Cbor.Uint(2) to Cbor.Uint(it.toLong() and 0xFFFF_FFFFL)) }
+        }
+        val fields = buildList<Pair<Cbor, Cbor>> {
+            add(Cbor.Uint(1) to Cbor.Tagged(37, Cbor.Bytes(EVM_REQUEST_ID)))
+            add(Cbor.Uint(2) to Cbor.Bytes(signData))
+            add(Cbor.Uint(3) to Cbor.Uint(dataType.wire.toLong()))
+            add(Cbor.Uint(4) to Cbor.Uint(chainId))
+            add(Cbor.Uint(5) to Cbor.Tagged(304, Cbor.Dict(keypath)))
+            address?.let { add(Cbor.Uint(6) to Cbor.Bytes(it)) }
+        }
+        return assertIs<ParseOutcome.Parsed>(EvmRequestParser.parse(EthSignRequest.UR_TYPE, Cbor.encode(Cbor.Dict(fields)), ParserLimits())).request
+    }
 
     private companion object {
         const val APP = "q7Vn!2Lx#Rb9Tm4Wc8Zp"
         const val DURESS = "Gh5%Rt8!Yu2#Pk6@Ws3Fn"
+        const val MONAD = 10143L
+        const val POLYGON = 137L
+        const val RECIPIENT = "0x9858EfFD232B4033E47d90003D41EC34EcaEda94"
+        val EVM_REQUEST_ID = ByteArray(16) { 0x33 }
     }
 }

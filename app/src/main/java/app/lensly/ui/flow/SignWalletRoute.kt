@@ -19,10 +19,8 @@ import app.airvault.core.model.ChainId
 import app.lensly.DebugBtcFixture
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressNotes
-import app.lensly.app.EVM_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
-import app.lensly.app.sign.evmCounterparties
 import app.lensly.ui.camera.FrameSource
 import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.gate.eraseWarning
@@ -92,18 +90,6 @@ internal fun SignWalletRoute(
             frameSource = frameSource,
         )
         is SignStep.Refused -> SignRefusedScreen(reason = shown.reason, call = shown.call, onDone = flow::leave)
-        is SignStep.Review -> ReviewScreen(
-            review = shown.ready.review,
-            signer = shown.ready.signer,
-            addressNotes = notesNow(shown.ready.addressNotes, evmCounterparties(shown.ready.review), EVM_FAMILY, book),
-            addressChain = EVM_FAMILY,
-            ticked = ticked,
-            onTick = flow::tick,
-            onApprove = flow::approve,
-            onReject = flow::leave,
-            onOpenAddress = openAddress,
-        )
-        is SignStep.Confirming -> ConfirmPasswordRoute(busy = shown.busy, holder = holder, onConfirm = flow::confirm)
         is SignStep.AppReview -> ReviewScreen(
             review = shown.ready.review,
             signer = shown.ready.signer,
