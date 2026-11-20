@@ -98,8 +98,8 @@ class InternalAccountsTest {
 
         val accounts = internalAccountsOf(store, signingWalletId = id)
 
-        assertEquals(InternalAccount(null, "Savings 1", null), accounts[addressKeyOf(SolanaAccount.addressOf(solana[1]))])
-        assertNull(accounts[addressKeyOf(SolanaAccount.addressOf(solana[1])).lowercase()])
+        assertEquals(InternalAccount(null, "Savings 1", null), accounts[addressKeyOf(SolanaAccount.addressOf(solana[0]))])
+        assertNull(accounts[addressKeyOf(SolanaAccount.addressOf(solana[0])).lowercase()])
     }
 
     @Test
@@ -109,7 +109,7 @@ class InternalAccountsTest {
 
         val accounts = internalAccountsOf(store, signingWalletId = id)
 
-        assertEquals(InternalAccount(null, "Savings 1", null), accounts[addressKeyOf(AlgorandAccount.addressOf(algorand[1]))])
+        assertEquals(InternalAccount(null, "Savings 1", null), accounts[addressKeyOf(AlgorandAccount.addressOf(algorand[0]))])
     }
 
     @Test
@@ -122,7 +122,8 @@ class InternalAccountsTest {
         val accounts = internalAccountsOf(store, signingWalletId = id)
 
         val held = store.bitcoinAccounts(id)
-        assertEquals(ScriptType.entries.size * 2, held.size)
+        // The wallet's own Native Segwit account 0 on mainnet comes first, with the two accounts of each Script Type on testnet.
+        assertEquals(ScriptType.entries.size * 2 + 1, held.size)
         held.forEach { record ->
             assertEquals(
                 InternalAccount(null, autoAccountName("Savings", record.index), null),
@@ -136,8 +137,7 @@ class InternalAccountsTest {
     fun aBitcoinAccountOfAnotherWalletNamesThatWallet() {
         val id = wallet("Savings")
         val other = wallet("Trading", otherWords)
-        assertNotNull(store.addBitcoinAccounts(other, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, cap))
-        val record = store.bitcoinAccounts(other).single()
+        val record = assertNotNull(store.addBitcoinAccounts(other, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, cap)).single()
 
         val accounts = internalAccountsOf(store, signingWalletId = id)
 

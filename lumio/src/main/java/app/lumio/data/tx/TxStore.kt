@@ -232,7 +232,7 @@ class TxStore(private val dao: TxDao, private val keys: TxKeys) {
         private val COMMENT_KEY = ByteArray(32)
         private val ROW_AAD = "lumio-tx-row-v1".toByteArray(Charsets.UTF_8)
         private val COMMENT_AAD = "lumio-tx-comment-v1".toByteArray(Charsets.UTF_8)
-        private val json = Json { ignoreUnknownKeys = true }
+        private val json = Json
 
         /** The confirmations at which a transaction on [net] is final: 6 on Bitcoin, and 64 on an EVM network, as the design sets them. */
         internal fun finalityOf(net: NetworkId): Long = if (net.isBtc) 6L else 64L

@@ -54,8 +54,10 @@ class WalletStoreSolanaTest {
     private fun seed(): ByteArray = Mnemonic.of(words).use { it.deriveSeed("") }
 
     @Test
-    fun aNewWalletHasNoSolanaAccounts() {
-        assertEquals(emptyList(), store.solanaKeys(newWallet()))
+    fun aNewWalletHasOneSolanaAccountAtIndexZero() {
+        val id = newWallet()
+
+        assertContentEquals(SolanaAccount.publicKey(seed(), 0), store.solanaKeys(id).single())
     }
 
     @Test
@@ -65,9 +67,9 @@ class WalletStoreSolanaTest {
 
         val added = store.addSolanaAccounts(id, 3, cap)
 
-        val expected = (0..2).map { SolanaAccount.publicKey(seed, it) }
+        val expected = (1..3).map { SolanaAccount.publicKey(seed, it) }
         assertEquals(expected.map { it.toList() }, added?.map { it.toList() })
-        assertEquals(expected.map { it.toList() }, store.solanaKeys(id).map { it.toList() })
+        assertEquals((0..3).map { SolanaAccount.publicKey(seed, it).toList() }, store.solanaKeys(id).map { it.toList() })
     }
 
     @Test
@@ -79,7 +81,7 @@ class WalletStoreSolanaTest {
         store.addSolanaAccounts(id, 2, cap)
 
         val keys = store.solanaKeys(id)
-        assertEquals(4, keys.size)
+        assertEquals(5, keys.size)
         assertEquals(SolanaAccount.addressOf(SolanaAccount.publicKey(seed, 3)), SolanaAccount.addressOf(keys[3]))
     }
 
@@ -88,7 +90,7 @@ class WalletStoreSolanaTest {
         val id = newWallet()
 
         assertFailsWith<IllegalArgumentException> { store.addSolanaAccounts(id, 3, cap = 2) }
-        assertEquals(emptyList(), store.solanaKeys(id))
+        assertEquals(listOf(SolanaAccount.publicKey(seed(), 0).toList()), store.solanaKeys(id).map { it.toList() })
     }
 
     @Test
@@ -108,7 +110,7 @@ class WalletStoreSolanaTest {
         val accounts = SolanaPairingKeys.paired(store, id, seed, HdWallet(seed).masterFingerprint)
 
         assertEquals(
-            listOf(listOf(hardened(44), hardened(501), hardened(0)), listOf(hardened(44), hardened(501), hardened(1))),
+            (0..2).map { index -> listOf(hardened(44), hardened(501), hardened(index.toLong())) },
             accounts.map { account -> account.export.signer.path.map { step -> if (step.hardened) hardened(step.index.toLong()) else step.index.toLong() } },
         )
         accounts.forEachIndexed { index, account ->

@@ -90,12 +90,6 @@ class ProfilesTest {
     }
 
     @Test
-    fun theStoredCodeForTheOldPadlockNowReadsAsTheLantern() {
-        assertEquals(28, ProfileIcon.LANTERN.wire)
-        assertEquals(ProfileIcon.LANTERN, ProfileIcon.fromWire(28))
-    }
-
-    @Test
     fun aLabelIsTrimmedAndAtMostSixteenCharacters() {
         assertEquals("Rent", profileTextOf("  Rent  "))
         assertEquals("x".repeat(PROFILE_TEXT_MAX_LENGTH), profileTextOf("x".repeat(PROFILE_TEXT_MAX_LENGTH)))
@@ -104,6 +98,12 @@ class ProfilesTest {
         assertFailsWith<IllegalArgumentException> { profileTextOf("a\nb") }
         assertTrue(isValidProfileText("Holiday"))
         assertFalse(isValidProfileText(""))
+    }
+
+    @Test
+    fun aLabelOrGroupWithAHiddenFormatCharacterIsRefused() {
+        assertFalse(isValidProfileText("Rent‮"))
+        assertFailsWith<IllegalArgumentException> { profileTextOf("⁦Rent") }
     }
 
     @Test

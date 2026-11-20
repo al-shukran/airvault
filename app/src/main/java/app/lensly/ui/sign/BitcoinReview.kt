@@ -14,8 +14,8 @@ internal fun bitcoinChainId(network: BtcNetwork): ChainId =
     bitcoinManifest.networks.single { it.testnet == (network == BtcNetwork.TESTNET4) }.chainId
 
 /**
- * The review the owner reads for a Bitcoin request on [network] from an account of [scriptType], which spends from the address [from]. The
- * app adds the names and the Android words; the core builds the rest.
+ * The review the owner reads for a Bitcoin request on [network] from an account of [scriptType]. [from] is the account's first receive
+ * address, which the summary names as the sender. The app adds the names and the Android words; the core builds the rest.
  */
 internal fun bitcoinReviewOf(review: BtcReview, network: BtcNetwork, scriptType: ScriptType, from: String): Review = review.toReview(
     chain = bitcoinChainId(network),

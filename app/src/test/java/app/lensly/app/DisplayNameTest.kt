@@ -33,6 +33,16 @@ class DisplayNameTest {
     }
 
     @Test
+    fun aHiddenFormatCharacterIsNotValid() {
+        assertFalse(isValidDisplayName("evil‮gnp.exe"))
+        assertFalse(isValidDisplayName("a⁦b⁩"))
+        assertFalse(isValidDisplayName("a​b"))
+        assertFalse(isValidDisplayName("a󠀁b"))
+        assertFailsWith<IllegalArgumentException> { displayNameOf("Savings‮") }
+        assertFalse(isValidBatchBase("Trip‮", listOf(0)))
+    }
+
+    @Test
     fun spacesInsideAName() {
         assertTrue(isValidDisplayName("Main  savings"))
     }
