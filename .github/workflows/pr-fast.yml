@@ -267,9 +267,10 @@ jobs:
             .gradle/configuration-cache
           key: bc-fuzz-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
 
-  # Compiles the androidTest and benchmark sources, which no test lane runs, and assembles the Lumio debug APK.
+  # Assembles the Lumio debug APK. The androidTest and benchmark sources compile on master and in the merge queue only: no test lane
+  # runs them, and on a cold build cache they cost a pull request about two minutes.
   android:
-    name: compile androidTest and benchmark
+    name: lumio apk
     needs: deps
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -305,8 +306,12 @@ jobs:
             bc-android-${{ env.BUILD_CACHE_SCOPE }}-
             bc-android-master-
 
-      - name: Compile androidTest, benchmark and the Lumio APK
-        run: ./scripts/ci/run-partition.sh android
+      - name: Assemble the Lumio debug APK
+        run: ./scripts/ci/run-partition.sh apk
+
+      - name: Compile androidTest and benchmark
+        if: github.event_name != 'pull_request'
+        run: ./scripts/ci/run-partition.sh android-tests
 
       - name: Stop the Gradle daemon before the cache is saved
         if: always()
@@ -322,9 +327,9 @@ jobs:
           key: bc-android-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
 
   # Android lint, one leg per module (scripts/ci/run-partition.sh lint-<module>). A leg compiles its module and the modules it
-  # depends on, then lints it, and the legs run on their own runners side by side, so no leg waits for another module's compile
-  # or analysis. The lumio leg lints its main sources only (see run-partition.sh run_lint). pr-ok reads this job's result, which
-  # is success only when every leg succeeds.
+  # depends on, then lints its main sources, and the legs run on their own runners side by side, so no leg waits for another
+  # module's compile or analysis. The unit-test and androidTest analyses run nightly (run_lint). pr-ok reads this job's result,
+  # which is success only when every leg succeeds.
   lint:
     name: lint ${{ matrix.module }}
     needs: deps

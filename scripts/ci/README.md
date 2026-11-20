@@ -15,9 +15,9 @@ fails it, except dependency review, which is skipped until `DEPENDENCY_GRAPH_ENA
 | `shard-1` … `shard-6` | the unit tests listed under the lane in `shards.txt`; `shard-6` also runs every unlisted unit; pure JVM modules run whole | `shard` (matrix) |
 | `verify` | the Roborazzi pixel tests of `:app` and `:lumio` (listed, or unlisted and named `*ScreenshotTest`), with `verifyRoborazziDebug` | `roborazzi` |
 | `fuzz` | the Jazzer seed replays, `app.lensly.fuzz.*`, with `-PfuzzLane` | `fuzz` |
-| `android` | androidTest and benchmark compile of `:app` and `:lumio`, and the Lumio debug APK | `android` |
-| `lint-app`, `lint-shared` | `lintDebug` of one module each; a leg compiles its module and the modules it depends on | `lint` (matrix) |
-| `lint-lumio` | `lintReportDebug` of `:lumio` without the unit-test, androidTest and test-fixture analyses: lumio's main sources only | `lint` (matrix) |
+| `apk` | the Lumio debug APK, `:lumio:assembleDebug` | `android` |
+| `android-tests` | androidTest and benchmark compile of `:app` and `:lumio`; master and merge queue only (a step of `android`) | `android` |
+| `lint-app`, `lint-shared`, `lint-lumio` | `lintReportDebug` of one module's main sources; the unit-test, androidTest and test-fixture analyses run in nightly `lintDebug`; a leg compiles its module and the modules it depends on | `lint` (matrix) |
 | `manifest` | merged manifests (no INTERNET in `:app`, Lumio's allow-list), no OkHttp on `:app`'s release classpath | `manifest` |
 | `ci` | `bash -n` on every script, `check-partitions.sh`, `check-test-network.sh` (no Gradle) | `ci` |
 
