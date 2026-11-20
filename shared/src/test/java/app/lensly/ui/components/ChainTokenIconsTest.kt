@@ -58,6 +58,28 @@ class ChainTokenIconsTest {
     }
 
     @Test
+    fun aRecordsNetworkShowsTheLogoOfTheRegistryNetworkOfThatName() {
+        assertEquals(logo(R.drawable.chain_monad), networkLogoOf("Monad Testnet", registry.networks()))
+        assertEquals(logo(R.drawable.chain_monad), networkLogoOf("Monad", registry.networks()))
+        assertEquals(logo(R.drawable.chain_base, backdrop = true), networkLogoOf("Base", registry.networks()))
+    }
+
+    @Test
+    fun aNameNoRegistryNetworkHasNoLogoAndIsNeverTheEthereumLogo() {
+        assertNull(networkLogoOf("Unknown network (chain id 999999)", registry.networks()))
+        assertNull(networkLogoOf("Solana", registry.networks()))
+        assertNull(networkLogoOf("Algorand", registry.networks()))
+        assertNull(networkLogoOf(null, registry.networks()))
+    }
+
+    @Test
+    fun aNameWithNoLogoShowsItsLetterAndAnUnnamedNetworkShowsAQuestionMark() {
+        assertEquals("U", monogramOf("Unknown network (chain id 999999)"))
+        assertEquals("S", monogramOf("Solana"))
+        assertEquals("?", monogramOf(""))
+    }
+
+    @Test
     fun aNullNetworkShowsTheEthereumLogo() {
         assertEquals(logo(R.drawable.chain_ethereum), chainLogo(null))
     }

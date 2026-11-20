@@ -48,7 +48,6 @@ class HistoryDetailSheetTest {
     private val algorandCreator = "YEO767URJECB5BKVVIH4ZOBCN5EHGHLU5RCQPRBSCPQ3OBPVMFOYGSM47U"
 
     private fun evmRecord() = record(
-        chainId = 10143L,
         networkName = "Monad testnet",
         address = sender,
         to = recipient,
@@ -57,7 +56,6 @@ class HistoryDetailSheetTest {
 
     private fun record(
         kind: ReviewKind = ReviewKind.TRANSACTION,
-        chainId: Long? = null,
         networkName: String? = null,
         address: String? = null,
         to: String? = null,
@@ -68,7 +66,6 @@ class HistoryDetailSheetTest {
         atMs = 1_700_000_000_000L,
         outcome = ReviewOutcome.SIGNED,
         kind = kind,
-        chainId = chainId,
         networkName = networkName,
         accountIndex = 0,
         address = address,

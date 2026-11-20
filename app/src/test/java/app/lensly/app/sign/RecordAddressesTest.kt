@@ -28,7 +28,6 @@ class RecordAddressesTest {
 
     private fun record(
         kind: ReviewKind = ReviewKind.TRANSACTION,
-        chainId: Long? = null,
         networkName: String? = null,
         address: String? = null,
         to: String? = null,
@@ -40,7 +39,6 @@ class RecordAddressesTest {
         atMs = 1_700_000_000_000L,
         outcome = ReviewOutcome.SIGNED,
         kind = kind,
-        chainId = chainId,
         networkName = networkName,
         accountIndex = 0,
         address = address,
@@ -84,7 +82,6 @@ class RecordAddressesTest {
     @Test
     fun anEvmRecordListsAccountRecipientContractAndEachAddressParameter() {
         val rec = record(
-            chainId = 10143L,
             networkName = "Monad testnet",
             address = evmSender,
             to = evmRecipient,

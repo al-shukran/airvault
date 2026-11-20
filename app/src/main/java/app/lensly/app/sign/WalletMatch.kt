@@ -1,10 +1,10 @@
 package app.lensly.app.sign
 
 import app.airvault.chains.bitcoin.bitcoinManifest
-import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.core.model.AppId
-import app.airvault.core.signer.RequestHeader
+import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.SignerRef
+import app.lensly.chains.installedSignerOf
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.toHex
 
@@ -21,32 +21,25 @@ sealed interface WalletMatch {
 }
 
 /**
- * A complete scanned request, read by the Parser Sandbox. Its UR type names the chain, and the fields it names pick the wallet.
+ * The wallets of [wallets] that [request] is for. A Mnemonic wallet is for a request that names its master fingerprint as one of its signers
+ * ([namesWallet]). A Single Key wallet has no master key, so it is for a request that its app says is for its address, as the app's
+ * isForSingleKey answers.
  */
-sealed interface ScannedRequest {
-    data class Ethereum(val request: EthSignRequest) : ScannedRequest
-
-    /** A request an installed chain app parsed. [header] names the keys it asks for, one signer per key. */
-    data class App(val header: RequestHeader) : ScannedRequest
-}
-
-/**
- * The wallets of [wallets] that a scanned [request] is for. An Ethereum request goes by [matchWallet]. An app request is for each wallet that one
- * of its signers names, as [namesWallet] says. A Single Key wallet has no master key, so it is never for an app request.
- */
-fun routeScan(request: ScannedRequest, wallets: List<WalletView>): WalletMatch = when (request) {
-    is ScannedRequest.Ethereum -> matchWallet(request.request, wallets)
-    is ScannedRequest.App -> matchesOf(
-        wallets.filter { wallet -> request.header.signers.any { namesWallet(request.header.app, it, wallet) } },
+fun routeScan(request: AppRequest, wallets: List<WalletView>): WalletMatch {
+    val app = installedSignerOf(request.header.app)
+    return matchesOf(
+        wallets.filter { wallet ->
+            if (wallet.masterFingerprint != null) {
+                request.header.signers.any { namesWallet(request.header.app, it, wallet) }
+            } else {
+                app?.isForSingleKey(request, wallet.addressAt(0, 0)) == true
+            }
+        },
     )
 }
 
-/**
- * The wallets of [wallets] that [request] is for, by the rule [SignPipeline] checks. A Mnemonic wallet is for a request that
- * names its master fingerprint. A Single Key wallet is for a request that names its address, and its fingerprint is not read.
- */
-fun matchWallet(request: EthSignRequest, wallets: List<WalletView>): WalletMatch =
-    matchesOf(wallets.filter { isFor(request, it) })
+/** The refusal that the app of [request] makes of it before any wallet is looked for, or null when it makes none. */
+fun routingRefusalOf(request: AppRequest): String? = installedSignerOf(request.header.app)?.refusalBeforeRouting(request)
 
 /**
  * True when [signer], a key an app request asks for, is one of [wallet]'s keys: the wallet's master fingerprint is the signer's. A Bitcoin request
@@ -74,13 +67,6 @@ private fun matchesOf(matches: List<WalletView>): WalletMatch = when (matches.si
     0 -> WalletMatch.None
     1 -> WalletMatch.One(matches.single().id)
     else -> WalletMatch.Several(matches.size)
-}
-
-private fun isFor(request: EthSignRequest, wallet: WalletView): Boolean {
-    val fingerprint = wallet.masterFingerprint
-    if (fingerprint != null) return request.sourceFingerprint == fingerprint
-    val requested = request.address ?: return false
-    return sameAddress(requested, wallet.addressAt(0, 0))
 }
 
 /** True when the 20 bytes [address] are the hexadecimal address [expected], in either letter case. */

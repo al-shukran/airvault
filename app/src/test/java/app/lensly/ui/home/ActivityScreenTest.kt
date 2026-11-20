@@ -49,7 +49,7 @@ class ActivityScreenTest {
                     records = records,
                     wallets = sampleWallets(),
                     profiles = sampleActivityProfiles(),
-                    networkOf = sampleNetworks,
+                    networks = sampleNetworks,
                     onBack = {},
                 )
             }
@@ -102,7 +102,7 @@ class ActivityScreenTest {
         compose.waitForIdle()
 
         compose.onAllNodesWithText("Signed").assertCountEquals(2)
-        compose.onNodeWithText("Monad Testnet · chain 10143").assertIsDisplayed()
+        compose.onNodeWithText("Monad Testnet").assertIsDisplayed()
         compose.onNodeWithText(groupAddress(SAMPLE_ACCOUNT)).assertIsDisplayed()
         compose.onAllNodesWithText(groupAddress(SAMPLE_RECIPIENT)).onFirst().assertIsDisplayed()
     }

@@ -70,7 +70,7 @@ class ReviewHistory(private val session: VaultSession) {
  * warnings shown.
  */
 internal object ReviewRecordCodec {
-    private const val VERSION = 4
+    private const val VERSION = 5
     private const val MAX_TEXT_BYTES = 1 shl 20
     private const val MAX_ROWS = 256
     private const val MAX_OUTPUTS = 4096
@@ -83,7 +83,6 @@ internal object ReviewRecordCodec {
         out.writeByte(record.outcome.wire)
         out.writeByte(record.kind.wire)
         out.writeLong(record.atMs)
-        out.writeOptional(record.chainId) { writeLong(it) }
         out.writeOptional(record.networkName) { writeText(it) }
         out.writeOptional(record.accountIndex) { writeInt(it) }
         out.writeOptional(record.address) { writeText(it) }
@@ -107,7 +106,6 @@ internal object ReviewRecordCodec {
         val outcome = ReviewOutcome.fromWire(input.readUnsignedByte())
         val kind = ReviewKind.fromWire(input.readUnsignedByte())
         val atMs = input.readLong()
-        val chainId = input.readOptional { readLong() }
         val networkName = input.readOptional { readText() }
         val accountIndex = input.readOptional { readInt() }
         val address = input.readOptional { readText() }
@@ -127,7 +125,6 @@ internal object ReviewRecordCodec {
             atMs = atMs,
             outcome = outcome,
             kind = kind,
-            chainId = chainId,
             networkName = networkName,
             accountIndex = accountIndex,
             address = address,

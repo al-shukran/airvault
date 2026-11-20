@@ -75,7 +75,6 @@ class HomeFormatTest {
         atMs = NOW,
         outcome = outcome,
         kind = kind,
-        chainId = 1L,
         networkName = "Ethereum",
         accountIndex = 0,
         address = null,

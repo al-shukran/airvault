@@ -4,6 +4,7 @@ import app.airvault.chains.algorand.signer.AlgorandSigner
 import app.airvault.chains.bitcoin.signer.BitcoinSigner
 import app.airvault.chains.evm.signer.EvmSigner
 import app.airvault.chains.solana.signer.SolanaSigner
+import app.airvault.core.model.AppId
 import app.airvault.core.model.ChainRegistry
 import app.airvault.core.signer.SignerApp
 
@@ -15,3 +16,6 @@ val installedSigners: List<SignerApp> = listOf(AlgorandSigner, BitcoinSigner(), 
 
 /** The registry of [installedSigners], which the Parser Sandbox asks which app parses a scanned request's UR type. */
 val signerRegistry: ChainRegistry<SignerApp> = ChainRegistry(installedSigners)
+
+/** The installed chain app whose id is [app], or null when no installed app has that id. */
+fun installedSignerOf(app: AppId): SignerApp? = installedSigners.firstOrNull { it.manifest.id == app }

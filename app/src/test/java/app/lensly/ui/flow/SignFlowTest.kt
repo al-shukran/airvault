@@ -68,7 +68,11 @@ private const val ART_ADDRESS = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb"
 private const val RECIPIENT = "0x9858EfFD232B4033E47d90003D41EC34EcaEda94"
 private const val WALLET_ID = "wallet-mnemonic"
 private const val OTHER_ID = "wallet-other"
+private const val KEY_ID = "wallet-key"
 private const val FRAGMENT = 200
+
+/** The address of the imported Single Key of the routing tests. The key has no seed, and it has never held funds. */
+private const val SINGLE_ADDRESS = "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
 
 /** The smallest fragment that keeps a request of the largest data to sign within [ParserLimits.MAX_UR_PARTS]: the most parts it can have. */
 private const val FRAGMENT_MOST_PARTS = 65
@@ -184,6 +188,24 @@ private fun messageRequest(
     signData: ByteArray = "Sign in to Lensly".toByteArray(),
     requestId: ByteArray? = REQUEST_ID,
 ): UR = UR("eth-sign-request", requestCbor(signData, requestId, dataType = 3))
+
+/** A ur:eth-sign-request of a personal message from a Single Key, as a wallet sends it: no master fingerprint, and the address of its key. */
+private fun singleKeyRequest(address: ByteArray): UR {
+    val steps = listOf(44L to true, 60L to true, 0L to true, 0L to false, 0L to false)
+    val keypath = Cbor.Tagged(
+        304,
+        Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Arr(steps.flatMap { (index, hardened) -> listOf(Cbor.Uint(index), Cbor.Bool(hardened)) }))),
+    )
+    val fields = listOf(
+        Cbor.Uint(1) to Cbor.Tagged(37, Cbor.Bytes(REQUEST_ID)),
+        Cbor.Uint(2) to Cbor.Bytes("Sign in to Lensly".toByteArray()),
+        Cbor.Uint(3) to Cbor.Uint(3),
+        Cbor.Uint(4) to Cbor.Uint(MONAD_TESTNET),
+        Cbor.Uint(5) to keypath,
+        Cbor.Uint(6) to Cbor.Bytes(address),
+    )
+    return UR("eth-sign-request", Cbor.encode(Cbor.Dict(fields)))
+}
 
 /** A ur:eth-sign-request for a typed transaction on account 0, the way a wallet sends it. */
 private fun transactionRequest(data: String): UR {
@@ -591,6 +613,26 @@ class SignFlowTest {
         val flow = SignFlow(FakePorts(wallets = listOf(other)), walletId = null)
 
         scan(flow, framesOf(messageRequest(), FRAGMENT))
+
+        assertEquals(SignStep.Refused("No wallet in this vault can sign this request"), flow.state.value)
+    }
+
+    @Test
+    fun aGlobalScanRoutesASingleKeyRequestToTheKeyWhoseAddressItNames() {
+        val key = WalletView.singleKey(id = KEY_ID, address = SINGLE_ADDRESS, autoNameBase = "Imported")
+        val flow = SignFlow(FakePorts(wallets = listOf(VIEW, key)), walletId = null)
+
+        scan(flow, framesOf(singleKeyRequest(Numeric.hexStringToByteArray(SINGLE_ADDRESS)), FRAGMENT))
+
+        assertEquals(KEY_ID, assertIs<SignStep.AppReview>(flow.state.value).ready.walletId)
+    }
+
+    @Test
+    fun aGlobalScanRefusesASingleKeyRequestForAnAddressNoWalletHolds() {
+        val key = WalletView.singleKey(id = KEY_ID, address = SINGLE_ADDRESS, autoNameBase = "Imported")
+        val flow = SignFlow(FakePorts(wallets = listOf(VIEW, key)), walletId = null)
+
+        scan(flow, framesOf(singleKeyRequest(Numeric.hexStringToByteArray(ART_ADDRESS)), FRAGMENT))
 
         assertEquals(SignStep.Refused("No wallet in this vault can sign this request"), flow.state.value)
     }
