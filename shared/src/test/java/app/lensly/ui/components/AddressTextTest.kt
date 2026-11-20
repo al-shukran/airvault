@@ -3,8 +3,6 @@ package app.lensly.ui.components
 import android.content.ClipData
 import android.content.ClipDescription
 import android.content.ClipboardManager
-import androidx.compose.ui.test.assertDoesNotExist
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
