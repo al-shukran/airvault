@@ -4,7 +4,10 @@ import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.NOT_A_PSBT
 import app.lensly.core.parse.InProcessParser
 import app.lensly.core.parse.ScanReply
+import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
 import app.lensly.core.ur.UrScanner
+import app.lensly.core.ur.framesOf
+import com.sparrowwallet.hummingbird.UR
 import com.sparrowwallet.hummingbird.UREncoder
 import com.sparrowwallet.hummingbird.registry.CryptoPSBT
 import fr.acinq.bitcoin.psbt.Psbt
@@ -41,7 +44,18 @@ class BtcPsbtUrTest {
     fun theSandboxReturnsTheSerializedPsbtOfAScannedPsbtUr() {
         val psbt = largePsbt()
         val reply = InProcessParser.scan(BtcPsbt.encodeUrParts(psbt))
-        assertContentEquals(Psbt.write(psbt).toByteArray(), assertIs<ScanReply.App>(reply).request.body)
+        assertContentEquals(Psbt.write(psbt).toByteArray(), BtcPsbt.requestPsbt(assertIs<ScanReply.App>(reply).request.body))
+    }
+
+    /** The same frames under the registry's `psbt` name scan to the same PSBT, and the request keeps that name. */
+    @Test
+    fun aPsbtUnderTheRegistryNameScansAsARequestUnderThatName() {
+        val psbt = largePsbt()
+        val count = BtcPsbt.encodeUrParts(psbt).size
+        val parts = framesOf(UR(BtcPsbt.PSBT_UR_TYPE, BtcPsbt.cborOf(psbt)), DEFAULT_MAX_FRAGMENT).take(count).toList()
+        val request = assertIs<ScanReply.App>(InProcessParser.scan(parts)).request
+        assertEquals(BtcPsbt.PSBT_UR_TYPE, BtcPsbt.requestUrType(request.body))
+        assertContentEquals(Psbt.write(psbt).toByteArray(), BtcPsbt.requestPsbt(request.body))
     }
 
     @Test

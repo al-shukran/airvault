@@ -1,5 +1,6 @@
 package app.lensly.app.sign
 
+import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.btcText
 import app.airvault.core.model.Danger
 import app.airvault.core.model.Review
@@ -164,7 +165,7 @@ fun bitcoinReviewRecordOf(entry: AppReviewEntry, atMs: Long): ReviewRecord {
         params = emptyList(),
         origin = null,
         refusal = entry.refusal,
-        dataHash = bitcoinDataHash(entry.request.body),
+        dataHash = bitcoinDataHash(BtcPsbt.requestPsbt(entry.request.body)),
         bitcoin = facts?.let { shown -> shown.copy(notices = shown.notices + listOfNotNull(block?.let { BitcoinRecordNotice(NoticeLevel.BLOCK, it) })) },
         // The checks the owner ticked: on a signed request, the approval's checks, which are the review's checkLabels.
         acknowledged = entry.acknowledged,

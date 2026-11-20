@@ -44,7 +44,7 @@ class ShippedRegistryDataTest {
         val bundled = RegistryUpdate.verify(bytes, releaseOnly, registry).getOrThrow()
 
         assertEquals(1L, bundled.sequence)
-        assertEquals(VERIFIED_CALLS, bundled.whitelist.map { "${it.chainId} ${it.contract} ${it.selector}" }.sorted())
+        assertEquals(VERIFIED_CALLS, checkNotNull(bundled.whitelist).map { "${it.chainId} ${it.contract} ${it.selector}" }.sorted())
     }
 
     @Test

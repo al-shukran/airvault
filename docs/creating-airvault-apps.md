@@ -746,7 +746,7 @@ Today's types and owners:
 | Type | Direction | Owner after 2.9 | Defined by |
 |---|---|---|---|
 | `x-airvault-pairing` | pairing | core | AirVault (`PairingCodec.kt`) |
-| `crypto-psbt` | request and response | `bitcoin` app | BCR-2020-006 registry: the current name is `psbt` (tag 40310); `crypto-psbt` is the retired name. Kept for Bitcoin wire compatibility with existing pairing (section 12.1, item 6). The Kotlin code in Lensly and Lumio uses only `crypto-psbt` (`BtcPsbt.UR_TYPE`); no `psbt` UR string exists. <https://github.com/BlockchainCommons/Research/blob/master/papers/bcr-2020-006-urtypes.md> |
+| `psbt`, `crypto-psbt` | request; the response uses the name the request used | `bitcoin` app | BCR-2020-006 registry: the current name is `psbt` (tag 40310); `crypto-psbt` is the retired name. Lensly reads both (`BtcPsbt.REQUEST_UR_TYPES`) and answers under the name its request used. Lumio writes requests as `crypto-psbt` (`BtcPsbt.UR_TYPE`), which keeps existing pairing working (section 12.1, item 6). <https://github.com/BlockchainCommons/Research/blob/master/papers/bcr-2020-006-urtypes.md> |
 | `eth-sign-request`, `eth-signature` | request, response | `evm` app | not in BCR-2020-006; Keystone-style |
 | `sol-sign-request`, `sol-signature` | request, response | `solana` app | Keystone ur-registry types `SOL_SIGN_REQUEST` (sign type 1 or 2) and `SOL_SIGNATURE` <https://github.com/KeystoneHQ/keystone-sdk-rust/blob/master/libs/ur-registry/src/solana/sol_sign_request.rs> |
 | `algo-sign-request`, `algo-signature` | request, response | `algorand` app | AirVault |
@@ -1049,7 +1049,7 @@ These decisions close the open questions raised by the fact check of this docume
 3. **Litecoin MWEB.** Lensly refuses PSBT inputs that use MWEB in 2.9. MWEB support is out of scope (section 10.1).
 4. **Memo and tag requirements.** No global rule for Stellar, Solana or Algorand. Required fields are set per address-book entry (section 6.3).
 5. **OP_RETURN.** Follow the Core v30 default for relay. Lensly warns above 80 bytes of data (section 6.1).
-6. **`crypto-psbt` wire name.** Existing chains keep their current UR types, so Bitcoin keeps `crypto-psbt` (section 7.2). `psbt` is the current registry name, and AirVault does not adopt it for now.
+6. **PSBT wire names.** Existing chains keep their current UR types. Lumio keeps writing `crypto-psbt` (section 7.2), and Lensly also reads the registry's current name `psbt`, answering under the name each request used.
 7. **ERC-7730 version.** Keep the v1 descriptor decision, pinned to 2.1.0 (Active). Do not adopt 3.0.0-next (Draft).
 8. **Monad testnet.** Chain ID 10143 stays the default testnet, as the owner uses it.
 

@@ -197,11 +197,11 @@ internal object PackageFormat {
             requirePrintable("token ${token.contract} name", token.name)
             token.icon?.let { requirePrintable("token ${token.contract} icon", it) }
         }
-        val approvals = dto.whitelist.map { Triple(it.chainId, it.contract, it.selector) }
+        val approvals = dto.whitelist.orEmpty().map { Triple(it.chainId, it.contract, it.selector) }
         if (approvals.toSet().size != approvals.size) {
             throw RegistryUpdateException.Conflict("a whitelist entry appears more than once in the package")
         }
-        for (entry in dto.whitelist) {
+        for (entry in dto.whitelist.orEmpty()) {
             requirePrintable("whitelist ${entry.signature} meaning", entry.meaning, MAX_MEANING)
         }
         val denylist = dto.denylist?.mapIndexed { index, record ->
@@ -239,7 +239,7 @@ internal object PackageFormat {
             TokenEntry(it.chainId, it.contract, it.symbol, it.name, it.decimals, icon = it.icon)
         }
         // A package's whitelist replaces the build's, so its own entries are only checked against each other.
-        val whitelist = dto.whitelist.map { record ->
+        val whitelist = dto.whitelist?.map { record ->
             try {
                 WhitelistEntry(
                     chainId = record.chainId,
@@ -255,7 +255,7 @@ internal object PackageFormat {
                 throw RegistryUpdateException.InvalidEntry("whitelist ${record.signature}: ${e.message}")
             }
         }
-        if (whitelist.any { entry -> entry.params.any { AbiTypes.parse(it.type) !is AtomicType || it.components != null } } &&
+        if (whitelist.orEmpty().any { entry -> entry.params.any { AbiTypes.parse(it.type) !is AtomicType || it.components != null } } &&
             dto.minSchemaVersion < ARGUMENTS_SCHEMA
         ) {
             throw RegistryUpdateException.Malformed("a whitelist entry with dynamic, array or tuple arguments needs minSchemaVersion 3")
@@ -363,8 +363,8 @@ internal object PackageFormat {
         val createdAt: String,
         val networks: List<NetworkRecord>,
         val tokens: List<TokenRecord>,
-        /** Optional. Packages signed before the whitelist existed omit it, and their whitelist is empty. */
-        val whitelist: List<WhitelistRecord> = emptyList(),
+        /** Optional. Omitted, the build's whitelist stays in force. An empty list clears it. */
+        val whitelist: List<WhitelistRecord>? = null,
         /** Optional. Omitted, the build's denylist stays in force. An empty list clears it. */
         val denylist: List<DenylistRecord>? = null,
         /** Optional. Omitted, the build's wallets stay in force. An empty list clears them. */

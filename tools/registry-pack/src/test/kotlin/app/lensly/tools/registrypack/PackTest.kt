@@ -210,7 +210,7 @@ class PackTest {
 
         assertEquals(whitelistSource, content)
         assertEquals(whitelistSource, Pack.verify(bytes, publicKey))
-        assertEquals(2, whitelistSource.whitelist.size)
+        assertEquals(2, whitelistSource.whitelist?.size)
     }
 
     @Test
@@ -218,6 +218,13 @@ class PackTest {
         val payload = String(Pack.canonicalPayload(source), StandardCharsets.UTF_8)
 
         assertFalse(payload.contains("whitelist"))
+    }
+
+    @Test
+    fun anEmptyWhitelistIsWrittenSoThatItClearsTheBuildsWhitelist() {
+        val payload = String(Pack.canonicalPayload(source.copy(whitelist = emptyList())), StandardCharsets.UTF_8)
+
+        assertTrue(payload.contains("\"whitelist\":[]"))
     }
 
     @Test
@@ -231,8 +238,8 @@ class PackTest {
 
     @Test
     fun invalidWhitelistEntriesAreRefused() {
-        val entry = whitelistSource.whitelist.first()
-        val proxy = whitelistSource.whitelist.last()
+        val entry = checkNotNull(whitelistSource.whitelist).first()
+        val proxy = checkNotNull(whitelistSource.whitelist).last()
         val cases = mapOf(
             "selector of another signature" to whitelistSource.copy(whitelist = listOf(entry.copy(selector = "0x095ea7b3"))),
             "uppercase whitelist contract" to whitelistSource.copy(

@@ -8,6 +8,9 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import org.junit.Test
 
+/** The key ID of the offline backup release key, as the release list pins it. */
+private const val BACKUP_KEY_ID = "8f0627c7e94d8174"
+
 /**
  * The pinned release signing key and the bundled package it signs. Paths are relative to :shared, the working directory for
  * unit tests. The release configuration reads only the release list, as a release build does; the debug list is read only in
@@ -23,16 +26,24 @@ class RegistryReleaseKeyTest {
     fun theBundledPackageVerifiesWithThePinnedReleaseKey() {
         val pkg = RegistryUpdate.verify(bundled, releaseKeys, baked).getOrThrow()
 
-        assertEquals(11, pkg.whitelist.size)
+        assertEquals(11, pkg.whitelist?.size)
     }
 
     @Test
-    fun theBundledPackageNamesTheOnlyPinnedReleaseKeyInItsHeader() {
+    fun theBundledPackageNamesAnActivePinnedReleaseKeyInItsHeader() {
         val named = bundled.copyOfRange(KEY_ID_OFFSET, KEY_ID_OFFSET + TrustedKey.ID_BYTES)
-        val pinned = releaseKeys.single()
+        val pinned = releaseKeys.single { it.id == TrustedKey.hex(named) }
 
         assertEquals(KeyStatus.ACTIVE, pinned.status)
-        assertEquals(pinned.id, TrustedKey.hex(named))
+    }
+
+    /** The offline backup key, pinned beside the release key so that losing the release key does not end catalog updates. */
+    @Test
+    fun aBackupKeyIsPinnedAsASecondActiveReleaseKey() {
+        val backup = releaseKeys.single { it.id == BACKUP_KEY_ID }
+
+        assertEquals(KeyStatus.ACTIVE, backup.status)
+        assertEquals(2, releaseKeys.count { it.status == KeyStatus.ACTIVE })
     }
 
     @Test

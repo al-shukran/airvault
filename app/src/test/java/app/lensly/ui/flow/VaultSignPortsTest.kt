@@ -11,6 +11,7 @@ import app.airvault.chains.solana.signer.SolanaRequestParser
 import app.airvault.core.model.Approval
 import app.airvault.core.model.ChainId
 import app.airvault.chains.bitcoin.signer.BitcoinSigner
+import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.BtcRefusal
 import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
 import app.airvault.chains.bitcoin.bitcoinManifest
@@ -304,6 +305,28 @@ class VaultSignPortsTest {
         }
     }
 
+    /** A request under the registry's `psbt` name is answered under that name, with the signer's own frames. */
+    @Test
+    fun aPsbtRequestIsAnsweredUnderThePsbtName() {
+        val (session, id) = sessionWithWallet()
+        try {
+            WalletStore(session).addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, BulkCap.DEFAULT.accounts)
+            val ports = VaultSignPorts(context, holderOf(session))
+            val account = BtcAccount.fromSeed(seed(), BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0)
+            val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+            val psbt = BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, paid = 30_000L, change = 60_000L))
+            val ready = reviewed(ports, id, bitcoinRequest(psbt, account.masterFingerprint.toInt(), urType = "psbt"))
+            val approval = assertNotNull(Approval.of(ready.review, ready.review.checkLabels().toSet()))
+
+            val frames = runBlocking { ports.appSign(ready, approval) }
+
+            assertEquals(expectedFrames(ready.request, approval), frames)
+            assertTrue(frames.all { it.startsWith("ur:psbt/", ignoreCase = true) }, frames.first())
+        } finally {
+            session.close()
+        }
+    }
+
     /** A request that also claims an input of a key outside the vault names the routed wallet's account alone, and signs only that input. */
     @Test
     fun aBitcoinRequestWithAnOutsideInputSignsOnlyTheAccountOfTheRoutedWallet() {
@@ -591,7 +614,7 @@ class VaultSignPortsTest {
      * header the parser makes for those inputs, with the PSBT's own bytes as its body. The parser is not run here, since Robolectric cannot decode
      * the `crypto-psbt` CBOR (hummingbird needs a newer cbor than the Robolectric classpath has).
      */
-    private fun bitcoinRequest(psbt: Psbt, vararg fingerprints: Int): AppRequest = AppRequest(
+    private fun bitcoinRequest(psbt: Psbt, vararg fingerprints: Int, urType: String = "crypto-psbt"): AppRequest = AppRequest(
         RequestHeader(
             app = bitcoinManifest.id,
             chain = bitcoinManifest.networks.single { it.testnet }.chainId,
@@ -599,7 +622,7 @@ class VaultSignPortsTest {
             signers = fingerprints.map { SignerRef(it, listOf(PathStep(84, hardened = true), PathStep(1, hardened = true), PathStep(0, hardened = true))) },
             requestId = null,
         ),
-        Psbt.write(psbt).toByteArray(),
+        BtcPsbt.requestBody(urType, Psbt.write(psbt).toByteArray()),
     )
 
     /** The frames of the response [BitcoinSigner] makes for [request] under [approval], signed with the test wallet's keys. */

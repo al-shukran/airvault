@@ -40,6 +40,17 @@ class WhitelistPackageTest {
     private val keys = TestPackages.TRUSTED
     private val baked: Registry = RegistryLoader.load { path -> File(MAIN, path).takeIf(File::isFile)?.readText() }
 
+    /** An approved call of the build, on chain 1, which a package that omits its whitelist must keep. */
+    private val approvedInBuild = WhitelistEntry(
+        chainId = 1L,
+        contract = TEST_CONTRACT,
+        selector = APPROVE_SELECTOR,
+        signature = "approve(address,uint256)",
+        meaning = "Build approval",
+        params = listOf(WhitelistParam("spender", "address"), WhitelistParam("value", "uint256")),
+        upgradeable = false,
+    )
+
     private fun dir(): File = folder.root.resolve("registry")
 
     private fun signed(sequence: Long = 1, whitelist: String? = TestPackages.LINEA_SWAP): ByteArray =
@@ -60,15 +71,6 @@ class WhitelistPackageTest {
 
     @Test
     fun aPackageReplacesTheWhitelistOfTheBuildAsAWhole() {
-        val approvedInBuild = WhitelistEntry(
-            chainId = 1L,
-            contract = TEST_CONTRACT,
-            selector = APPROVE_SELECTOR,
-            signature = "approve(address,uint256)",
-            meaning = "Build approval",
-            params = listOf(WhitelistParam("spender", "address"), WhitelistParam("value", "uint256")),
-            upgradeable = false,
-        )
         val build = baked.withWhitelist(listOf(approvedInBuild))
         val dir = dir()
 
@@ -80,22 +82,37 @@ class WhitelistPackageTest {
     }
 
     @Test
-    fun aPackageWithoutAWhitelistLeavesNoApprovedCallsButStillAddsItsNetwork() {
+    fun aPackageWithoutAWhitelistKeepsTheApprovedCallsOfTheBuildAndStillAddsItsNetwork() {
+        val build = baked.withWhitelist(listOf(approvedInBuild))
         val dir = dir()
-        RegistryUpdate.install(signed(sequence = 1), keys, baked, dir).getOrThrow()
+        RegistryUpdate.install(signed(sequence = 1, whitelist = null), keys, build, dir).getOrThrow()
 
-        RegistryUpdate.install(signed(sequence = 2, whitelist = null), keys, baked, dir).getOrThrow()
-
-        val merged = RegistryUpdate.withInstalled(baked, dir, keys)
-        assertTrue(merged.whitelistEntries().isEmpty())
+        val merged = RegistryUpdate.withInstalled(build, dir, keys)
+        assertNotNull(merged.whitelist(1L, TEST_CONTRACT, APPROVE_SELECTOR))
         assertNotNull(merged.network(4242L))
     }
 
     @Test
-    fun aPackageWithoutAWhitelistReadsAsAnEmptyOne() {
+    fun aPackageWithAnEmptyWhitelistClearsTheApprovedCallsOfTheBuild() {
+        val build = baked.withWhitelist(listOf(approvedInBuild))
+        val dir = dir()
+        RegistryUpdate.install(signed(sequence = 1, whitelist = ""), keys, build, dir).getOrThrow()
+
+        assertTrue(RegistryUpdate.withInstalled(build, dir, keys).whitelistEntries().isEmpty())
+    }
+
+    @Test
+    fun aPackageWithoutAWhitelistReadsAsNoWhitelist() {
         val result = RegistryUpdate.verify(TestPackages.signed(TestPackages.payload()), keys, baked)
 
-        assertTrue(result.getOrThrow().whitelist.isEmpty())
+        assertNull(result.getOrThrow().whitelist)
+    }
+
+    @Test
+    fun aPackageWithAnEmptyWhitelistReadsAsAnEmptyOne() {
+        val result = RegistryUpdate.verify(signed(whitelist = ""), keys, baked)
+
+        assertEquals(emptyList(), result.getOrThrow().whitelist)
     }
 
     @Test
@@ -104,7 +121,7 @@ class WhitelistPackageTest {
 
         assertEquals(
             ProxyBinding(implementationAddress = "0x7777777777777777777777777777777777777777"),
-            parsed.whitelist.single().proxy,
+            checkNotNull(parsed.whitelist).single().proxy,
         )
     }
 
@@ -187,8 +204,8 @@ class WhitelistPackageTest {
 
         val asSchemaThree = TestPackages.payload(minSchemaVersion = 3, whitelist = DYNAMIC_ENTRY)
         val parsed = RegistryUpdate.verify(TestPackages.signed(asSchemaThree), keys, baked).getOrThrow()
-        assertEquals(EXECUTE_SELECTOR, parsed.whitelist.single().selector)
-        assertEquals("bytes", parsed.whitelist.single().params.single().type)
+        assertEquals(EXECUTE_SELECTOR, checkNotNull(parsed.whitelist).single().selector)
+        assertEquals("bytes", checkNotNull(parsed.whitelist).single().params.single().type)
     }
 
     @Test
@@ -197,7 +214,7 @@ class WhitelistPackageTest {
 
         val parsed = RegistryUpdate.verify(TestPackages.signed(payload), keys, baked).getOrThrow()
 
-        val hop = parsed.whitelist.single()
+        val hop = checkNotNull(parsed.whitelist).single()
         assertEquals(HOP_SELECTOR, hop.selector)
         assertEquals(listOf("token", "fee"), hop.params.single().components?.map { it.name })
     }
@@ -215,6 +232,6 @@ class WhitelistPackageTest {
 
         val parsed = RegistryUpdate.verify(TestPackages.signed(payload), keys, baked).getOrThrow()
 
-        assertEquals(SWAP_SELECTOR, parsed.whitelist.single().selector)
+        assertEquals(SWAP_SELECTOR, checkNotNull(parsed.whitelist).single().selector)
     }
 }
