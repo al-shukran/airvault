@@ -39,6 +39,8 @@ private val logoTones: Map<Int, LogoTone> = buildMap {
     tokenIconsNeedingDarkBackdrop.forEach { name -> tokenIconDrawables[name]?.let { put(it, LogoTone.PALE) } }
     // The unknown-token icon is white, and it stands in for every token without a logo.
     put(R.drawable.ic_unknown_token, LogoTone.PALE)
+    // The Algorand mark is black, so it vanishes on a dark page. Solana is bright on both pages and needs no disc.
+    put(R.drawable.ic_algorand, LogoTone.DARK)
 }
 
 /**

@@ -179,11 +179,11 @@ fun BitcoinIcon(size: Dp, modifier: Modifier = Modifier) {
 /** The Solana logo beside a Solana account. It is decorative: the text beside it names the account. */
 @Composable
 fun SolanaIcon(size: Dp, modifier: Modifier = Modifier) {
-    BackdropLogo(painter = painterResource(R.drawable.ic_solana), size = size, backdrop = false, modifier = modifier)
+    BackdropLogo(painter = painterResource(R.drawable.ic_solana), size = size, tone = logoTone(R.drawable.ic_solana), modifier = modifier)
 }
 
 /** The Algorand logo beside an Algorand account. It is decorative: the text beside it names the account. */
 @Composable
 fun AlgorandIcon(size: Dp, modifier: Modifier = Modifier) {
-    BackdropLogo(painter = painterResource(R.drawable.ic_algorand), size = size, backdrop = true, modifier = modifier)
+    BackdropLogo(painter = painterResource(R.drawable.ic_algorand), size = size, tone = logoTone(R.drawable.ic_algorand), modifier = modifier)
 }

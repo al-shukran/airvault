@@ -146,9 +146,17 @@ class ChainTokenIconsTest {
     }
 
     @Test
+    fun theAlgorandMarkSitsOnALightDiscOnlyOnADarkPage() {
+        assertEquals(LogoTone.DARK, logoTone(R.drawable.ic_algorand))
+        assertEquals(LenslyLogoBackdrop, backdropColor(LogoTone.DARK, onDarkPage = true))
+        assertNull(backdropColor(LogoTone.DARK, onDarkPage = false))
+    }
+
+    @Test
     fun aBrightLogoIsNeutralAndNeedsNoDiscOnEitherPage() {
         assertEquals(LogoTone.NEUTRAL, logoTone(R.drawable.chain_arbitrum_one))
         assertEquals(LogoTone.NEUTRAL, logoTone(R.drawable.chain_ethereum))
+        assertEquals(LogoTone.NEUTRAL, logoTone(R.drawable.ic_solana))
         assertNull(backdropColor(LogoTone.NEUTRAL, onDarkPage = true))
         assertNull(backdropColor(LogoTone.NEUTRAL, onDarkPage = false))
     }
