@@ -11,6 +11,7 @@ import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
 import app.airvault.core.signer.SignerRef
+import app.lensly.core.btc.BtcFixtures.withInputEntries
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.WalletKeyAccess
 import com.sparrowwallet.hummingbird.UR
@@ -18,6 +19,7 @@ import fr.acinq.bitcoin.SigHash
 import fr.acinq.bitcoin.psbt.Psbt
 import fr.acinq.bitcoin.utils.Either
 import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.Test
@@ -83,6 +85,25 @@ class BtcSignerPsbtIdentityTest {
             Psbt.write(signed).toByteArray(),
         )
         assertTrue(signed.inputs[1].partialSigs.isEmpty(), "the foreign input must stay unsigned")
+    }
+
+    /** A marked input signs as Psbt.sign signs it: the signature is the same, and the mark stays in the signed PSBT, as BIP174 requires. */
+    @Test
+    fun aMarkedInputSignsAsPsbtSignDoesAndKeepsTheMark() {
+        val account = BtcAccount.fromSeed(seed, testnet4, ScriptType.NATIVE_SEGWIT)
+        val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+        val plain = BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, paid = 30_000L, change = 60_000L))
+        val marked = plain.withInputEntries(0, listOf(BtcPsbt.RISK_MARK))
+
+        val signer = BtcFixtures.signerOf(account, seed)
+        val signed = signer.sign(marked).psbt
+
+        assertContentEquals(
+            Psbt.write(oracle(marked, listOf(0 to spend))).toByteArray(),
+            Psbt.write(signed).toByteArray(),
+        )
+        assertEquals(signer.sign(plain).psbt.inputs[0].partialSigs, signed.inputs[0].partialSigs)
+        assertEquals(listOf(BtcPsbt.RISK_MARK), signed.inputs[0].unknown)
     }
 
     /**

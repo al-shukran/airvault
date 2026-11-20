@@ -137,6 +137,22 @@ object AlgorandRequestCheck {
     ): Result {
         val index = accountIndexOf(derivationPath) ?: return Result.Refused(PATH_REFUSED)
         val signer = accountKeys.getOrNull(index) ?: return Result.Refused(UNKNOWN_ACCOUNT)
+        return checkSigner(signData, index, signer, requestId, assets, origin)
+    }
+
+    /**
+     * The rules of [check] that apply once the account is known: [signData] must read, must not rekey or clawback, must be sent by [signer]
+     * (the key of account [index]), and must be for a network Lensly signs for, with its genesis hash. The signer runs these again on the
+     * bytes it signs, so a request is refused at signing for what the review refused it for.
+     */
+    fun checkSigner(
+        signData: ByteArray,
+        index: Int,
+        signer: ByteArray,
+        requestId: ByteArray? = null,
+        assets: AsaCatalog = AsaCatalog.EMPTY,
+        origin: String? = null,
+    ): Result {
         val txn = try {
             AlgoTxnDecoder.decode(signData)
         } catch (e: AlgoTxnException) {

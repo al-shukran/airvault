@@ -3,6 +3,7 @@ package app.airvault.chains.bitcoin.signer
 import app.airvault.core.model.Approval
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.Danger
+import app.airvault.core.model.FieldPath
 import app.airvault.core.model.NetworkLabel
 import app.airvault.core.model.Review
 import app.airvault.core.model.SummaryPart
@@ -102,9 +103,12 @@ class BitcoinReviewTest {
     }
 
     @Test
-    fun aCleanRequestHasNoWarningAndEveryDecodedFieldIsShown() {
+    fun aCleanRequestWarnsOnlyThatItsInputsWereNotChecked() {
         val review = reviewOf(request(feeSats = 10_000L).copy(inputs = listOf(BtcReviewInput(0, 40_000L, true, owned, 0xFFFFFFFDL))))
-        assertEquals(emptyList(), review.warnings)
+        assertEquals(
+            listOf(Danger.CAUTION to "Inputs were not checked for inscriptions or runes."),
+            review.warnings.map { it.level to it.message },
+        )
         assertEquals(emptySet(), review.unaccounted())
         assertEquals("Send 0.0003 BTC from tb1qaccount to tb1qreceiver?", review.summary.text())
         assertEquals(listOf("Network Fee", "Fee Rate", "Total", "Change Back"), review.facts.map { it.label })
@@ -116,9 +120,8 @@ class BitcoinReviewTest {
             inputs = listOf(BtcReviewInput(0, 40_000L, amountVerified = false, ownerPath = owned, sequence = 0xFFFFFFFDL)),
             requiresConfirmation = true,
         )
-        val warning = reviewOf(unverified).warnings.single()
+        val warning = reviewOf(unverified).warnings.single { it.code == UNVERIFIED_AMOUNTS_CODE }
         assertEquals(Danger.DANGER, warning.level)
-        assertEquals(UNVERIFIED_AMOUNTS_CODE, warning.code)
         assertEquals("1 input amount(s) come from a witness UTXO only. They are not verified, so the fee is unknown until they are confirmed.", warning.message)
     }
 
@@ -129,7 +132,7 @@ class BitcoinReviewTest {
             requiresConfirmation = false,
         )
         val review = reviewOf(relaxed)
-        val warning = review.warnings.single()
+        val warning = review.warnings.single { it.code == UNVERIFIED_AMOUNTS_CODE }
         assertEquals(Danger.CAUTION, warning.level)
         assertEquals(emptyList(), review.checkLabels())
         assertNotNull(Approval.of(review, emptySet()))
@@ -167,7 +170,47 @@ class BitcoinReviewTest {
             lockTime = 850_000L,
         )
         val review = reviewOf(final)
-        assertTrue(review.warnings.isEmpty())
+        assertTrue(review.warnings.none { it.code == "bitcoin.lock-time" })
         assertFalse(review.sections.single { it.heading == "Transaction" }.rows.single { it.label == "Locktime" }.notes.isEmpty())
+    }
+
+    @Test
+    fun aMarkedInputIsADangerOnItsAmountThatTheOwnerTicksBeforeSigning() {
+        val marked = request(feeSats = 10_000L).copy(
+            inputs = listOf(BtcReviewInput(0, 40_000L, true, owned, 0xFFFFFFFDL, riskMarked = true)),
+        )
+        val review = reviewOf(marked)
+        val warning = review.warnings.single()
+        assertEquals(Danger.DANGER, warning.level)
+        assertEquals("bitcoin.risk-marked", warning.code)
+        assertEquals(FieldPath("bitcoin.input.0.amount"), warning.field)
+        assertEquals(listOf(warning.acknowledge), review.checkLabels())
+        assertNull(Approval.of(review, emptySet()))
+        assertNotNull(Approval.of(review, setOf(checkNotNull(warning.acknowledge))))
+    }
+
+    @Test
+    fun aMixedRequestGivesADangerForEachMarkedInputAndOneCautionForTheRest() {
+        val mixed = request(feeSats = 10_000L).copy(
+            inputs = listOf(
+                BtcReviewInput(0, 20_000L, true, owned, 0xFFFFFFFDL),
+                BtcReviewInput(1, 20_000L, true, owned, 0xFFFFFFFDL, riskMarked = true),
+            ),
+        )
+        val review = reviewOf(mixed)
+        assertEquals(
+            listOf(Danger.DANGER to "bitcoin.risk-marked", Danger.CAUTION to "bitcoin.risk-unchecked"),
+            review.warnings.map { it.level to it.code },
+        )
+        assertEquals(FieldPath("bitcoin.input.1.amount"), review.warnings.first().field)
+    }
+
+    @Test
+    fun theRiskWarningsSayWhatTheMarkMeansAndWhatIsNotChecked() {
+        assertEquals(
+            "Input 3 is marked as carrying an inscription or rune. Spending it may burn it.",
+            warningText(BtcWarning.RiskMarkedInput(3)),
+        )
+        assertEquals("Inputs were not checked for inscriptions or runes.", warningText(BtcWarning.RiskUnchecked))
     }
 }

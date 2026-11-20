@@ -12,9 +12,11 @@ import app.lensly.app.sign.WalletMatch
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.routeScan
 import app.lensly.app.sign.routingRefusalOf
+import app.lensly.chains.installedSignerOf
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.parse.ScanReply
+import app.lensly.core.parse.UNSUPPORTED_CODE
 import app.lensly.core.parse.WireException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -222,11 +224,13 @@ class SignFlow(
     }
 
     /**
-     * Reviews a complete request of a chain app on the one sign flow, for the wallet it is for. A request its app refuses before any wallet is
-     * looked for is refused under this flow's wallet, with no other wallet chosen for it. Any other request is routed to its wallet, and a refusal
-     * of it is recorded under that wallet.
+     * Reviews a complete request of a chain app on the one sign flow, for the wallet it is for. A request of an app this build does not have is
+     * unsupported, and is refused before any wallet is looked for, so nothing is recorded under a wallet. A request its app refuses before any
+     * wallet is looked for is refused under this flow's wallet, with no other wallet chosen for it. Any other request is routed to its wallet,
+     * and a refusal of it is recorded under that wallet.
      */
     private suspend fun decideApp(started: Int, request: AppRequest): SignStep {
+        if (installedSignerOf(request.header.app) == null) return SignStep.Refused(UNSUPPORTED_CODE)
         val refusal = try {
             routingRefusalOf(request)
         } catch (e: WireException) {
