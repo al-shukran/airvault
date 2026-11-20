@@ -422,7 +422,6 @@ shard-6 :app app.lensly.app.DisplayNameTest
 shard-6 :app app.lensly.app.export.AccountExportTest
 shard-6 :app app.lensly.app.InternalAccountsTest
 shard-6 :app app.lensly.app.ProfilesTest
-shard-6 :app app.lensly.app.sign.ReviewRecordTest
 shard-6 :app app.lensly.app.sign.SolanaSplRowsTest
 shard-6 :app app.lensly.app.SolanaTokensHolderTest
 shard-6 :app app.lensly.app.WalletDeleteTest

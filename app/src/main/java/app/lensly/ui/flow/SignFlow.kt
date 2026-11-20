@@ -68,9 +68,6 @@ interface SignFlowPorts {
      */
     suspend fun scan(parts: List<String>): ScanReply
 
-    /** The 32-byte private key of account [accountIndex] of wallet [walletId]. The caller zeroes it. Throws [WalletUnavailable]. */
-    suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray
-
     /** Checks the App Password. The caller keeps ownership of [password] and zeroes it afterwards. */
     suspend fun checkPassword(password: CharArray): PasswordCheck
 

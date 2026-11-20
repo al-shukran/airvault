@@ -82,7 +82,7 @@ class EvmSendTest {
 
     /** The frames of Lensly's answer to [requestId] for [send], signed with [signingKey]. */
     private fun answerParts(send: PreparedSend, requestId: ByteArray, signingKey: ByteArray): List<String> =
-        partsOf(EthSignatureEncoder.encode(requestId, TxSigner.sign(send.payload, send.tx, signingKey)))
+        partsOf(EthSignatureEncoder.encode(requestId, TxSigner.signatureOf(send.payload, send.tx, EvmFixtures.singleKeySigner(signingKey))))
 
     @Test
     fun aChecksummedRecipientIsKeptAndTheSpaceAroundItIsTrimmed() {
@@ -183,7 +183,7 @@ class EvmSendTest {
     fun aSignatureFromTheSendingAccountBecomesTheSignedTransaction() {
         val send = sendOf()
         val requestId = ByteArray(16) { 0x33 }
-        val signature = TxSigner.sign(send.payload, send.tx, key)
+        val signature = TxSigner.signatureOf(send.payload, send.tx, EvmFixtures.singleKeySigner(key))
 
         val raw = EvmSend.signed(send, requestId, scannedSignature(answerParts(send, requestId, key)))
 
@@ -210,7 +210,7 @@ class EvmSendTest {
             tokenBalance = BigInteger.TEN.pow(9),
         )
         val requestId = ByteArray(16) { 0x77 }
-        val signature = TxSigner.sign(send.payload, send.tx, key)
+        val signature = TxSigner.signatureOf(send.payload, send.tx, EvmFixtures.singleKeySigner(key))
 
         val raw = EvmSend.signed(send, requestId, scannedSignature(answerParts(send, requestId, key)))
 
@@ -249,7 +249,7 @@ class EvmSendTest {
     fun aSignatureWithARecoveryIdThatIsNotForATypedTransactionIsRefused() {
         val send = sendOf()
         val requestId = ByteArray(16) { 0x66 }
-        val signature = TxSigner.sign(send.payload, send.tx, key)
+        val signature = TxSigner.signatureOf(send.payload, send.tx, EvmFixtures.singleKeySigner(key))
         val legacyStyle = EthSignatureEncoder.encode(requestId, signature.copyOf(64) + byteArrayOf(27))
 
         assertEquals(

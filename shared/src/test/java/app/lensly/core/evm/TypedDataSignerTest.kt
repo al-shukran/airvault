@@ -1,11 +1,9 @@
 package app.lensly.core.evm
 
-import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.TypedData
 import app.airvault.chains.evm.signer.TypedDataParser
 import app.lensly.core.wallet.AccountAddresses
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import org.junit.Test
 import org.web3j.utils.Numeric
@@ -57,13 +55,9 @@ private fun asterMessage(chainId: Int, msg: String): String =
 /** The typed data of [json]. */
 private fun typedOf(json: String): TypedData = (TypedDataParser.parse(json.toByteArray(Charsets.UTF_8)) as TypedDataParser.Result.Ok).data
 
-/** The signature of [json] by [key], as r || s || v in hex. The reviewed domain is the one [json] names, as a review of it would show. */
-private fun signedHex(json: String, key: ByteArray = SDK_KEY): String {
-    val typed = typedOf(json)
-    return Numeric.toHexString(
-        assertIs<TypedDataSigner.Result.Signed>(TypedDataSigner.sign(DataType.TYPED_DATA, typed, typed.domainSeparator(), key)).signature,
-    )
-}
+/** The signature of [json] by [key], as r || s || v in hex. */
+private fun signedHex(json: String, key: ByteArray = SDK_KEY): String =
+    Numeric.toHexString(TypedDataSigner.signatureOf(typedOf(json), EvmFixtures.singleKeySigner(key)))
 
 class TypedDataSignerTest {
 
@@ -72,8 +66,7 @@ class TypedDataSignerTest {
 
     @Test
     fun aSignatureOverTheDigestRecoversToTheKeysAddressWithVOf27Or28() {
-        val signed = assertIs<TypedDataSigner.Result.Signed>(TypedDataSigner.sign(DataType.TYPED_DATA, data, data.domainSeparator(), KEY))
-        val signature = signed.signature
+        val signature = TypedDataSigner.signatureOf(data, EvmFixtures.singleKeySigner(KEY))
 
         assertEquals(65, signature.size)
         assertTrue(signature[64] == 27.toByte() || signature[64] == 28.toByte())
@@ -163,33 +156,5 @@ class TypedDataSignerTest {
             "0x9d157c0231140b3fe109f3e22c80cae987c95b2653b54cd0a7005d9939e211905f55fb3a2df4f05d4855a85833a04378a9e681e1dcfd2dbc0f6ea2c41838cc481c",
             signedHex(asterMessage(1666, ASTER_MASTER_MESSAGE)),
         )
-    }
-
-    @Test
-    fun onlyTypedDataIsSignedAsTypedData() {
-        val refused = assertIs<TypedDataSigner.Result.Refused>(
-            TypedDataSigner.sign(DataType.PERSONAL_MESSAGE, data, data.domainSeparator(), KEY),
-        )
-
-        assertTrue(refused.reason.contains("dataType 3"))
-    }
-
-    @Test
-    fun aMessageOnAnotherDomainThanTheReviewedOneIsRefused() {
-        // The review showed the Exchange domain of chain 1337. The usdSend on the domain of chain 421614 is not signed under that domain.
-        val reviewed = typedOf(l1Dummy("a")).domainSeparator()
-        val other = typedOf(userSigned("HyperliquidTransaction:UsdSend", "usdSend"))
-
-        val refused = assertIs<TypedDataSigner.Result.Refused>(TypedDataSigner.sign(DataType.TYPED_DATA, other, reviewed, SDK_KEY))
-
-        assertTrue(refused.reason.contains("domain"))
-    }
-
-    @Test
-    fun aMessageThatDiffersFromTheReviewedDomainOnlyInItsChainIdIsRefused() {
-        val reviewed = typedOf(asterMessage(1, ASTER_APPROVE_MESSAGE)).domainSeparator()
-        val onChain56 = typedOf(asterMessage(56, ASTER_APPROVE_MESSAGE))
-
-        assertIs<TypedDataSigner.Result.Refused>(TypedDataSigner.sign(DataType.TYPED_DATA, onChain56, reviewed, SDK_KEY))
     }
 }

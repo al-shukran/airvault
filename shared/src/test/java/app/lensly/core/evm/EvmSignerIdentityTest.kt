@@ -130,12 +130,8 @@ class EvmSignerIdentityTest {
     private fun signedByTheSigner(key: ByteArray, dataType: DataType, signData: ByteArray): ByteArray = when (dataType) {
         DataType.TRANSACTION, DataType.TYPED_TRANSACTION ->
             assertIs<TxSignResult.Signed>(TxSigner.sign(signData, dataType, key)).signature
-        DataType.PERSONAL_MESSAGE ->
-            assertIs<MessageSigner.Result.Signed>(MessageSigner.sign(dataType, signData, key)).signature
-        DataType.TYPED_DATA -> {
-            val typed = typedOf(signData)
-            assertIs<TypedDataSigner.Result.Signed>(TypedDataSigner.sign(dataType, typed, typed.domainSeparator(), key)).signature
-        }
+        DataType.PERSONAL_MESSAGE -> MessageSigner.signatureOf(signData, EvmFixtures.singleKeySigner(key))
+        DataType.TYPED_DATA -> TypedDataSigner.signatureOf(typedOf(signData), EvmFixtures.singleKeySigner(key))
     }
 
     /**

@@ -20,7 +20,6 @@ import app.airvault.core.signer.RequestKind
 import app.airvault.core.signer.SignerRef
 import app.lensly.app.export.partsOf
 import app.lensly.core.evm.EvmFixtures
-import app.lensly.core.evm.Secp256k1
 import app.lensly.core.evm.TxSigner
 import app.lensly.core.evm.TypedDataSigner
 import app.lensly.core.parse.ScanReply
@@ -671,7 +670,7 @@ class VaultSignPortsTest {
     /** The frames the sign path gives for the typed message [json] under [key]: its digest, signed once, as the chain app signs it. */
     private fun expectedTypedFrames(json: String, key: ByteArray): List<String> {
         val typed = assertIs<TypedDataParser.Result.Ok>(TypedDataParser.parse(json.toByteArray(Charsets.UTF_8))).data
-        val signature = TypedDataSigner.signatureOf(typed) { digest -> Secp256k1.sign(digest, key) }
+        val signature = TypedDataSigner.signatureOf(typed, EvmFixtures.singleKeySigner(key))
         return partsOf(EthSignatureEncoder.encode(EVM_REQUEST_ID, signature))
     }
 
@@ -692,7 +691,7 @@ class VaultSignPortsTest {
     /** The frames the sign path gave for the transaction [signData] under [key], before the sign flow moved to the chain app. */
     private fun expectedEvmFrames(signData: ByteArray, key: ByteArray): List<String> {
         val tx = assertIs<UnsignedTx.Result.Ok>(UnsignedTx.decode(signData, DataType.TRANSACTION)).tx
-        return partsOf(EthSignatureEncoder.encode(EVM_REQUEST_ID, TxSigner.sign(signData, tx, key)))
+        return partsOf(EthSignatureEncoder.encode(EVM_REQUEST_ID, TxSigner.signatureOf(signData, tx, EvmFixtures.singleKeySigner(key))))
     }
 
     /** The private key of account [index] of the test wallet. */
