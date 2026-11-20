@@ -6,6 +6,7 @@ import app.airvault.chains.bitcoin.signer.BitcoinSigner
 import app.airvault.chains.evm.evmManifest
 import app.airvault.chains.evm.signer.EvmSigner
 import app.airvault.chains.solana.signer.SolanaSigner
+import app.airvault.chains.template.signer.TemplateSigner
 import app.airvault.core.model.AIRVAULT_API_VERSION
 import app.airvault.core.model.AddressCodec
 import app.airvault.core.model.ChainApp
@@ -27,6 +28,7 @@ import app.airvault.core.signer.ScopedKeyAccess
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class ConformanceKitTest {
@@ -64,6 +66,15 @@ class ConformanceKitTest {
 
         assertEquals(1, failures.size)
         assertContains(failures.single().message, "was refused")
+    }
+
+    @Test
+    fun theTemplateFailsTheKitOnlyAtItsTodoStubs() {
+        // The template's manifest is a TODO, so the manifest check stops there and the key-scope check stops on the same read.
+        val manifest = assertFailsWith<NotImplementedError> { checkManifest(TemplateSigner) }
+        assertContains(manifest.message.orEmpty(), "template:")
+        val keys = assertFailsWith<NotImplementedError> { checkKeyScopes(TemplateSigner, DerivingKeys) }
+        assertContains(keys.message.orEmpty(), "template:")
     }
 
     @Test

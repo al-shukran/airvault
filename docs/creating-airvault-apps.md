@@ -177,7 +177,7 @@ There is no runtime plugin loading. Lensly must not load code from storage or th
 
 A vendor builds a chain app the same way the core team does:
 
-1. Fork the template at `chains/_template/` (to be added in 2.9).
+1. Fork the template at `chains/_template/` (see its README).
 2. Fill in the manifest and the interfaces in section 3.
 3. Pass the conformance kit (section 9).
 4. Open a PR that adds the modules and one line to each `Installed*.kt`.
