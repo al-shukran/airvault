@@ -54,7 +54,7 @@ class HistoryScreenshotTest {
             WalletHistoryScreen(
                 walletName = "Seed wallet",
                 records = emptyList(),
-                networkOf = sampleNetworks,
+                networks = sampleNetworks,
                 onBack = {},
             )
         }
@@ -66,7 +66,7 @@ class HistoryScreenshotTest {
             WalletHistoryScreen(
                 walletName = "Seed wallet",
                 records = sampleHistory(),
-                networkOf = sampleNetworks,
+                networks = sampleNetworks,
                 onBack = {},
             )
         }
@@ -79,7 +79,7 @@ class HistoryScreenshotTest {
                 records = sampleActivity(),
                 wallets = sampleWallets(),
                 profiles = sampleActivityProfiles(),
-                networkOf = sampleNetworks,
+                networks = sampleNetworks,
                 onBack = {},
             )
         }

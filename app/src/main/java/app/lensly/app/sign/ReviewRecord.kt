@@ -78,7 +78,7 @@ data class BitcoinRecordFacts(
  * The device's own record of one review: what the owner was shown, what was decided, and when. It holds no key material. The
  * record is sealed under the wallet's Per-Wallet Key, and [dataHash] is the SHA-256 of the reviewed data.
  *
- * The facts are the ones the owner saw. A refusal before any review keeps what the request named: its chain, its origin and the
+ * The facts are the ones the owner saw. A refusal before any review keeps what the request named: its network, its origin and the
  * reason. Every address is kept in full, and so is the text of a message or the decoded arguments of a call, in [params]. [fee]
  * and [params] are label and value rows, in the order they were shown.
  */
@@ -86,8 +86,6 @@ data class ReviewRecord(
     val atMs: Long,
     val outcome: ReviewOutcome,
     val kind: ReviewKind,
-    /** The chain the request named, or null when it named none. */
-    val chainId: Long?,
     /** The network's name, or the unknown-chain name for a chain outside the registry. Null when the request named no chain. */
     val networkName: String?,
     /** The index of the account that signs, or null when no account was chosen. */
@@ -146,7 +144,6 @@ fun bitcoinReviewRecordOf(entry: AppReviewEntry, atMs: Long): ReviewRecord {
         atMs = atMs,
         outcome = entry.outcome,
         kind = ReviewKind.BITCOIN_TRANSACTION,
-        chainId = null,
         networkName = reviewed?.review?.network?.name,
         accountIndex = reviewed?.accountIndex,
         address = null,

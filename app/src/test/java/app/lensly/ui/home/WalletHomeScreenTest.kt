@@ -471,7 +471,6 @@ class WalletHomeScreenTest {
             atMs = NOW_MS - hoursAgo * HOUR_MS,
             outcome = ReviewOutcome.SIGNED,
             kind = ReviewKind.TRANSACTION,
-            chainId = 1L,
             networkName = "Ethereum",
             accountIndex = 0,
             address = "0x00000000000000000000000000000000000000AA",

@@ -1,7 +1,5 @@
 package app.lensly.ui.flow
 
-import app.airvault.chains.evm.evmManifest
-import app.airvault.chains.evm.signer.EvmRequestBody
 import app.airvault.chains.evm.signer.UndecodedCall
 import app.airvault.core.model.Approval
 import app.airvault.core.model.Review as CoreReview
@@ -10,10 +8,10 @@ import app.airvault.core.signer.KeyScopeViolation
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
 import app.lensly.app.sign.ReviewOutcome
-import app.lensly.app.sign.ScannedRequest
 import app.lensly.app.sign.WalletMatch
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.routeScan
+import app.lensly.app.sign.routingRefusalOf
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.parse.ScanReply
@@ -224,20 +222,20 @@ class SignFlow(
     }
 
     /**
-     * Reviews a complete request of a chain app on the one sign flow, for the wallet it is for. A refusal is recorded under that wallet. An Ethereum
-     * request is routed by its own fields, since a Single Key has no master fingerprint to match. It must name the requestId its response echoes,
-     * and one that names none is refused under this flow's wallet, with no other wallet chosen for it.
+     * Reviews a complete request of a chain app on the one sign flow, for the wallet it is for. A request its app refuses before any wallet is
+     * looked for is refused under this flow's wallet, with no other wallet chosen for it. Any other request is routed to its wallet, and a refusal
+     * of it is recorded under that wallet.
      */
     private suspend fun decideApp(started: Int, request: AppRequest): SignStep {
-        val scanned = try {
-            scannedOf(request)
+        val refusal = try {
+            routingRefusalOf(request)
         } catch (e: WireException) {
             return SignStep.Refused(CANNOT_BE_READ)
         }
-        if (scanned is ScannedRequest.Ethereum && scanned.request.requestId == null) {
-            return walletId?.let { appRefusal(started, it, request, NO_REQUEST_ID, ready = null) } ?: SignStep.Refused(NO_REQUEST_ID)
+        if (refusal != null) {
+            return walletId?.let { appRefusal(started, it, request, refusal, ready = null) } ?: SignStep.Refused(refusal)
         }
-        return routed(scanned) { target ->
+        return routed(request) { target ->
             try {
                 when (val prepared = ports.appPrepare(target, request)) {
                     is AppPrepared.Ready -> SignStep.AppReview(prepared)
@@ -249,18 +247,12 @@ class SignFlow(
         }
     }
 
-    /** The request as the wallet routing reads it: an Ethereum request by its own fields, and any other app's request by its header. */
-    private fun scannedOf(request: AppRequest): ScannedRequest = when (request.header.app) {
-        evmManifest.id -> ScannedRequest.Ethereum(EvmRequestBody.decode(request.body).request)
-        else -> ScannedRequest.App(request.header)
-    }
-
     /**
      * The step for a request that an app refused while it parsed it, on a rule of its own. The refusal is recorded under the wallet the request
      * is for, as a refusal after parsing is. Nothing is signed for it.
      */
     private suspend fun refusedApp(started: Int, request: AppRequest, reason: String): SignStep =
-        routed(ScannedRequest.App(request.header)) { target -> appRefusal(started, target, request, reason, ready = null) }
+        routed(request) { target -> appRefusal(started, target, request, reason, ready = null) }
 
     /** Checks the App Password for an approved request of a chain app, then signs it. The caller zeroes [password]. */
     private suspend fun confirmApp(waiting: SignStep.AppConfirming, password: CharArray) {
@@ -338,7 +330,7 @@ class SignFlow(
      * wallet decides for the one wallet of the vault the request is for, and refuses in plain words when none, or several, are. Nothing
      * is recorded for a request that no wallet is for.
      */
-    private suspend fun routed(request: ScannedRequest, decide: suspend (String) -> SignStep): SignStep {
+    private suspend fun routed(request: AppRequest, decide: suspend (String) -> SignStep): SignStep {
         val target = walletId ?: try {
             when (val match = routeScan(request, ports.wallets())) {
                 is WalletMatch.One -> match.walletId
@@ -347,6 +339,9 @@ class SignFlow(
             }
         } catch (e: WalletUnavailable) {
             return SignStep.Refused(WALLET_UNREADABLE)
+        } catch (e: WireException) {
+            // A body its app cannot read has no address to route by, so it is refused as unreadable.
+            return SignStep.Refused(CANNOT_BE_READ)
         }
         return decide(target)
     }
@@ -385,7 +380,6 @@ class SignFlow(
         const val READING = "Reading the request. Keep the code in view."
         const val NOT_PART = "That code is not part of this request."
         val TOO_LARGE = "The request is larger than ${MAX_SCAN_CHARS / 1024} KiB."
-        const val NO_REQUEST_ID = "Request has no ID"
         const val WALLET_UNREADABLE = "The wallet could not be read. Nothing was signed."
         const val VAULT_UNCHECKED = "The Application Password could not be checked. Nothing was signed."
         const val NOT_SAVED = "The review could not be saved, so the signature is not shown."

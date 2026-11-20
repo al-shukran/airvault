@@ -25,10 +25,11 @@ import app.lensly.core.evm.TxSigner
 import app.lensly.core.evm.TypedDataSigner
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.ur.PathStep
+import app.lensly.core.wallet.toHex
 import org.web3j.crypto.Sign
 
-/** The reason for a request that names no requestId, which the response must echo. */
-private const val NO_REQUEST_ID = "The request has no requestId to echo."
+/** The reason for a request that names no requestId, which the response must echo. The sign flow shows it before any wallet is looked for. */
+private const val NO_REQUEST_ID = "Request has no ID"
 
 /** The reason for an approved review that names no sender, which the signing key must match. */
 private const val NO_SENDER = "The approved review names no sender."
@@ -48,6 +49,22 @@ object EvmSigner : SignerApp {
     override val parser: RequestParser = EvmRequestParser
 
     override val addresses: AddressCodec = EvmAddressCodec
+
+    /**
+     * A request that names no requestId is refused before any wallet is looked for, since its response must echo one (spec 7.3). The requestId is
+     * the one the body names, the one the sign reads, and not the header's copy.
+     */
+    override fun refusalBeforeRouting(request: AppRequest): String? =
+        if (EvmRequestBody.decode(request.body).request.requestId == null) NO_REQUEST_ID else null
+
+    /**
+     * A Single Key request names no master fingerprint, and its body names the address of its key. It is for the Single Key at [address], as the
+     * wallet shows it. The letter case of the two addresses does not matter.
+     */
+    override fun isForSingleKey(request: AppRequest, address: String): Boolean {
+        val requested = EvmRequestBody.decode(request.body).request.address ?: return false
+        return ("0x" + requested.toHex()).equals(address, ignoreCase = true)
+    }
 
     /**
      * The path of the one account a Single Key wallet holds: m/44'/60'/0'/0/0, the address of account 0. A request that names no path is signed

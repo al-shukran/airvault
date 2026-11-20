@@ -64,20 +64,23 @@ internal enum class ChartWindow(val days: Int, val label: String) {
     MONTH(30, "30 days"),
 }
 
-/** What the chart's bars are stacked by: the outcome of each record, or the network it was signed on. */
+/** What the chart's bars are stacked by: the outcome of each record, or whether it is a Bitcoin record. */
 internal enum class ChartBreakdown(val label: String) {
     STATUS("Status"),
     APP("App"),
 }
 
-/** The most networks the App breakdown names. Every other network, and a record with no chain, counts as Other. */
-internal const val CHART_NETWORK_LIMIT = 3
-
-/** The key of the Other segment. A network's key is its chain id, so the two cannot collide. */
+/** The key of the Other segment. */
 private const val OTHER_KEY = "other"
 
-/** The key of the Bitcoin segment, which counts the Bitcoin records that have no chain. */
+/** The key of the Bitcoin segment. */
 private const val BITCOIN_KEY = "bitcoin"
+
+/** The most networks the App breakdown names. Every other network, and a record that names none, counts as Other. */
+internal const val CHART_NETWORK_LIMIT = 3
+
+/** The key of the segment of the network named [name]. The prefix keeps a network name from matching the Bitcoin or Other key. */
+private fun networkKey(name: String): String = "network:$name"
 
 /** One stacked segment: its key, its legend label, and how many records it counts over the window. */
 internal data class ChartSegment(val key: String, val label: String, val count: Int)
@@ -96,8 +99,8 @@ internal data class ActivityChart(val days: List<ChartDay>, val segments: List<C
  * segment for [breakdown]. A record outside the window, or after today, is left out.
  *
  * Status has a segment for each outcome, in the order signed, refused, cancelled, and each is listed even at zero. App names the
- * [CHART_NETWORK_LIMIT] networks with the most records in the window, the most first and ties by name, and counts the rest as Other,
- * which is listed only when it holds a record.
+ * [CHART_NETWORK_LIMIT] networks with the most records, then has a Bitcoin segment for the Bitcoin records, and counts every other record as
+ * Other, which is listed only when it holds a record.
  */
 internal fun activityChart(
     records: List<ReviewRecord>,
@@ -123,9 +126,13 @@ internal fun activityChart(
     inWindow.forEach { record ->
         val key = when (breakdown) {
             ChartBreakdown.STATUS -> record.outcome.name
-            ChartBreakdown.APP -> record.chainId?.toString() ?: OTHER_KEY
+            ChartBreakdown.APP -> when {
+                record.kind == ReviewKind.BITCOIN_TRANSACTION -> BITCOIN_KEY
+                record.networkName != null -> networkKey(record.networkName)
+                else -> OTHER_KEY
+            }
         }
-        // A network that is not named counts as Other. Other is listed whenever such a record exists, so the lookup always finds it.
+        // A record outside the named networks counts as Other. Other is listed whenever such a record exists, so the lookup always finds it.
         val index = column[key] ?: column.getValue(OTHER_KEY)
         counts[ChronoUnit.DAYS.between(first, dayOf(record.atMs, zone)).toInt()][index]++
     }
@@ -136,20 +143,16 @@ internal fun activityChart(
 }
 
 /**
- * The App segments of [records]: the networks with the most records, then Bitcoin for the Bitcoin records, then Other when any record
- * is left for it.
+ * The App segments of [records]: the networks with the most records, the most first and ties by name, then Bitcoin for the Bitcoin records, then
+ * Other when any record is left for it.
  */
 private fun appSegments(records: List<ReviewRecord>): List<ChartSegment> {
     val named = records
-        .filter { it.chainId != null }
-        .groupBy { it.chainId }
-        .map { (chainId, group) ->
-            ChartSegment(
-                key = chainId.toString(),
-                label = group.firstNotNullOfOrNull { it.networkName } ?: "Chain $chainId",
-                count = group.size,
-            )
-        }
+        .filter { it.kind != ReviewKind.BITCOIN_TRANSACTION }
+        .mapNotNull { it.networkName }
+        .groupingBy { it }
+        .eachCount()
+        .map { (name, count) -> ChartSegment(key = networkKey(name), label = name, count = count) }
         .sortedWith(compareByDescending<ChartSegment> { it.count }.thenBy { it.label })
         .take(CHART_NETWORK_LIMIT)
     val bitcoinCount = records.count { it.kind == ReviewKind.BITCOIN_TRANSACTION }
@@ -181,7 +184,7 @@ private fun statusColour(key: String): Color = when (key) {
     else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
-/** The colour of an App segment: the first three networks in turn, and Other in grey. */
+/** The colour of an App segment: the first three in turn, and Other in grey. */
 @Composable
 private fun networkColours(): List<Color> = listOf(LocalLumenPalette.current.positive, LenslyProfileBlue, LocalLumenPalette.current.warning)
 

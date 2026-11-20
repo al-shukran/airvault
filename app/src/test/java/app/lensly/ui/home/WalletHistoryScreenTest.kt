@@ -35,7 +35,7 @@ class WalletHistoryScreenTest {
                 WalletHistoryScreen(
                     walletName = "Seed wallet",
                     records = records,
-                    networkOf = sampleNetworks,
+                    networks = sampleNetworks,
                     onBack = {},
                 )
             }
@@ -76,7 +76,7 @@ class WalletHistoryScreenTest {
         compose.waitForIdle()
 
         compose.onNodeWithText("Signed").assertIsDisplayed()
-        compose.onNodeWithText("Monad Testnet · chain 10143").assertIsDisplayed()
+        compose.onNodeWithText("Monad Testnet").assertIsDisplayed()
         compose.onNodeWithText(groupAddress(SAMPLE_ACCOUNT)).assertIsDisplayed()
         compose.onAllNodesWithText(groupAddress(SAMPLE_RECIPIENT)).onFirst().assertIsDisplayed()
         compose.onNodeWithText("Data Hash, SHA-256").performScrollTo().assertIsDisplayed()

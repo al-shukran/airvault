@@ -22,22 +22,19 @@ internal const val SAMPLE_RECIPIENT = "0x9858EfFD232B4033E47d90003D41EC34EcaEda9
 private const val SAMPLE_CONTRACT = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 private const val MONAD_TESTNET = 10143L
 
-/** The network of the sample records. Any other chain is not in the sample registry. */
-internal val sampleNetworks: (Long) -> NetworkEntry? = { chainId ->
-    if (chainId == MONAD_TESTNET) {
-        NetworkEntry(
-            chainId = MONAD_TESTNET,
-            name = "Monad Testnet",
-            nativeSymbol = "MON",
-            nativeDecimals = 18,
-            feeModel = FeeModel.L1,
-            explorerName = "MonadVision",
-            testnet = true,
-        )
-    } else {
-        null
-    }
-}
+/** The registry networks the sample records name. Monad Testnet's logo is the Monad logo, as the registry names it. */
+internal val sampleNetworks: List<NetworkEntry> = listOf(
+    NetworkEntry(
+        chainId = MONAD_TESTNET,
+        name = "Monad Testnet",
+        nativeSymbol = "MON",
+        nativeDecimals = 18,
+        feeModel = FeeModel.L1,
+        explorerName = "MonadVision",
+        testnet = true,
+        icon = "chain_monad",
+    ),
+)
 
 /**
  * Review Records for the History screen: a signed token transfer and a refused call on 11 November, and a cancelled message on the
@@ -51,7 +48,6 @@ internal fun sampleHistory(): List<ReviewRecord> {
             atMs = noon,
             outcome = ReviewOutcome.SIGNED,
             kind = ReviewKind.TRANSACTION,
-            chainId = MONAD_TESTNET,
             networkName = "Monad Testnet",
             accountIndex = 0,
             address = SAMPLE_ACCOUNT,
@@ -69,7 +65,6 @@ internal fun sampleHistory(): List<ReviewRecord> {
             atMs = noon - hour,
             outcome = ReviewOutcome.REFUSED,
             kind = ReviewKind.TRANSACTION,
-            chainId = MONAD_TESTNET,
             networkName = "Monad Testnet",
             accountIndex = null,
             address = null,
@@ -87,7 +82,6 @@ internal fun sampleHistory(): List<ReviewRecord> {
             atMs = noon - 24 * hour,
             outcome = ReviewOutcome.CANCELLED,
             kind = ReviewKind.MESSAGE,
-            chainId = MONAD_TESTNET,
             networkName = "Monad Testnet",
             accountIndex = 0,
             address = SAMPLE_ACCOUNT,

@@ -403,22 +403,21 @@ class HomeScreensScreenshotTest {
     }
 
     /**
-     * Records over the last thirty days, with all three outcomes and five networks, so both chart modes have something to stack. The
-     * networks past the three busiest fall into Other.
+     * Records over the last thirty days, with all three outcomes and five networks, so the status mode has something to stack. A record names
+     * no network for the App mode, so every one of them falls into Other there.
      */
     private fun chartActivity(): List<WalletReviewRecord> {
-        val networks = listOf(1L to "Ethereum", 143L to "Monad", 56L to "BNB Chain", 8453L to "Base", 42161L to "Arbitrum One")
+        val networks = listOf("Ethereum", "Monad", "BNB Chain", "Base", "Arbitrum One")
         return (0 until 60).map { index ->
             val outcome = when {
                 index % 9 == 0 -> ReviewOutcome.REFUSED
                 index % 13 == 0 -> ReviewOutcome.CANCELLED
                 else -> ReviewOutcome.SIGNED
             }
-            val (chainId, network) = networks[index % networks.size]
             val atMs = FIXED_NOW_MS - (index * 7 % 30) * DAY_MS - (index % 20) * HOUR_MS
             WalletReviewRecord(
                 walletId = if (index % 2 == 0) "w1" else "w2",
-                record = sampleRecord(atMs, outcome, chainId = chainId, networkName = network),
+                record = sampleRecord(atMs, outcome, networkName = networks[index % networks.size]),
             )
         }
     }
@@ -455,13 +454,11 @@ class HomeScreensScreenshotTest {
         function: String? = null,
         amount: String? = null,
         refusal: String? = null,
-        chainId: Long = 1L,
         networkName: String = "Ethereum",
     ): ReviewRecord = ReviewRecord(
         atMs = atMs,
         outcome = outcome,
         kind = kind,
-        chainId = chainId,
         networkName = networkName,
         accountIndex = 0,
         address = "0x00000000000000000000000000000000000000AA",

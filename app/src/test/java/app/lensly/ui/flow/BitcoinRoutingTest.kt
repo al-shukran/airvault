@@ -2,12 +2,12 @@ package app.lensly.ui.flow
 
 import android.content.Context
 import app.airvault.chains.bitcoin.bitcoinManifest
+import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
 import app.airvault.core.signer.SignerRef
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletStore
-import app.lensly.app.sign.ScannedRequest
 import app.lensly.app.sign.WalletMatch
 import app.lensly.app.sign.routeScan
 import app.lensly.core.ur.PathStep
@@ -69,14 +69,15 @@ class BitcoinRoutingTest {
 
             for (type in ScriptType.entries) {
                 val path = listOf(PathStep(type.purpose, hardened = true), PathStep(1, hardened = true), PathStep(0, hardened = true))
-                val request = ScannedRequest.App(
-                    RequestHeader(
+                val request = AppRequest(
+                    header = RequestHeader(
                         app = bitcoinManifest.id,
                         chain = bitcoinManifest.networks.single { it.testnet }.chainId,
                         kind = RequestKind.TRANSACTION,
                         signers = listOf(SignerRef(fingerprint, path)),
                         requestId = null,
                     ),
+                    body = ByteArray(0),
                 )
                 val expected = if (type == ScriptType.NATIVE_SEGWIT) WalletMatch.One(wallet) else WalletMatch.None
                 assertEquals(expected, routeScan(request, wallets), type.name)

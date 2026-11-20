@@ -69,14 +69,14 @@ internal enum class ActivityFilter(val label: String, val outcome: ReviewOutcome
  * screen says what will be listed here.
  *
  * [wallets] is the session's wallets in their usual order, which sets the generated look of a wallet with no profile of its own.
- * [networkOf] names the network of a chain, for its logo.
+ * [networks] is the registry, which gives the logo of each network a row's record names.
  */
 @Composable
 fun ActivityScreen(
     records: List<WalletReviewRecord>,
     wallets: List<WalletMeta>,
     profiles: Map<String, WalletProfile>,
-    networkOf: (Long) -> NetworkEntry?,
+    networks: List<NetworkEntry>,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     /** The Address Book, read for the notes of each address a record's sheet shows. */
@@ -123,7 +123,7 @@ fun ActivityScreen(
                         val wallet = walletById[item.walletId]
                         HistoryRow(
                             record = item.record,
-                            network = item.record.chainId?.let(networkOf),
+                            networks = networks,
                             onClick = { open = item.record },
                             walletName = wallet?.name,
                             walletIdentity = wallet?.let { meta ->

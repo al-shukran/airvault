@@ -79,7 +79,6 @@ internal fun ReviewHeader(
     wallet: String,
     address: String,
     modifier: Modifier = Modifier,
-    bitcoin: Boolean = false,
     networkIcon: (@Composable () -> Unit)? = null,
     networkFact: ReviewFact? = null,
 ) {
@@ -109,7 +108,7 @@ internal fun ReviewHeader(
         ReviewFactRow(label = "Wallet", value = wallet, mono = false)
         Spacer(Modifier.height(LenslySpacing.xxs))
         Text(text = "Address", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        AddressText(address = address, bitcoin = bitcoin, modifier = Modifier.fillMaxWidth())
+        AddressText(address = address, modifier = Modifier.fillMaxWidth())
     }
 }
 
@@ -202,7 +201,7 @@ internal fun addressTapOn(chain: ChainId, onOpenAddress: ((String, ChainId) -> U
 /**
  * One argument or field of a review: its label above, and its value below. An address is shown with its names, and with whether the
  * Address Book holds it, through [ReviewAddress]. Any other value is in mono, since it is data. [isAddress] says the value is an address,
- * and [bitcoin] picks the Bitcoin icon for it. [lines] are the notes of the row, in sans under the value.
+ * [lines] are the notes of the row, in sans under the value.
  */
 @Composable
 internal fun ReviewField(
@@ -212,7 +211,6 @@ internal fun ReviewField(
     modifier: Modifier = Modifier,
     onOpen: ((String) -> Unit)? = null,
     isAddress: Boolean = isAddressValue(value),
-    bitcoin: Boolean = false,
     lines: List<String> = emptyList(),
 ) {
     Column(modifier = modifier
@@ -226,7 +224,7 @@ internal fun ReviewField(
         )
         Spacer(Modifier.height(LenslySpacing.xxs))
         if (isAddress) {
-            ReviewAddress(address = value, notes = notes, bitcoin = bitcoin, onClick = onOpen?.let { open -> { open(value) } })
+            ReviewAddress(address = value, notes = notes, onClick = onOpen?.let { open -> { open(value) } })
         } else {
             Text(
                 text = value,

@@ -6,6 +6,7 @@ import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.chains.solana.SOLANA_MAINNET
 import app.airvault.chains.solana.solanaManifest
+import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
 import app.airvault.core.signer.SignerRef
@@ -38,7 +39,10 @@ private fun mnemonic(id: String, fingerprint: Int, bitcoinPaths: List<KeyPath> =
 
 private fun singleKey(id: String) = WalletView.singleKey(id = id, address = ADDRESS, autoNameBase = id)
 
-private fun ethereum(fingerprint: Int?) = ScannedRequest.Ethereum(
+/** An app request with [header] and no body, which routing reads only through the header of a request that is not Ethereum. */
+private fun appRequest(header: RequestHeader) = AppRequest(header, ByteArray(0))
+
+private fun ethereum(fingerprint: Int?) = appRequestOf(
     EthSignRequest(
         requestId = ByteArray(16) { 1 },
         signData = byteArrayOf(1),
@@ -51,7 +55,7 @@ private fun ethereum(fingerprint: Int?) = ScannedRequest.Ethereum(
     ),
 )
 
-private fun solana(fingerprint: Int?) = ScannedRequest.App(
+private fun solana(fingerprint: Int?) = appRequest(
     RequestHeader(
         app = solanaManifest.id,
         chain = SOLANA_MAINNET,
@@ -61,7 +65,7 @@ private fun solana(fingerprint: Int?) = ScannedRequest.App(
     ),
 )
 
-private fun algorand(fingerprint: Int?) = ScannedRequest.App(
+private fun algorand(fingerprint: Int?) = appRequest(
     RequestHeader(
         app = algorandManifest.id,
         chain = algorandManifest.networks.first { !it.testnet }.chainId,
@@ -76,7 +80,7 @@ private fun testnetAccount(fingerprint: Int = TESTNET.masterFingerprint.toInt())
     SignerRef(fingerprint, listOf(PathStep(84, true), PathStep(1, true), PathStep(0, true)))
 
 /** A Bitcoin request whose inputs name [signers], one reference per account. The default names the first testnet4 native segwit account. */
-private fun bitcoin(signers: List<SignerRef> = listOf(testnetAccount())): ScannedRequest.App = ScannedRequest.App(
+private fun bitcoin(signers: List<SignerRef> = listOf(testnetAccount())): AppRequest = appRequest(
     RequestHeader(
         app = bitcoinManifest.id,
         chain = bitcoinManifest.networks.single { it.testnet }.chainId,
