@@ -12,7 +12,9 @@ import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.app.EVM_FAMILY
+import app.lensly.app.InternalAccount
 import app.lensly.app.SOLANA_FAMILY
+import app.lensly.app.addressKeyOf
 import app.lensly.app.addressNotesOf
 import app.lensly.app.addressesIn
 import app.lensly.app.chainOfAddress
@@ -70,6 +72,13 @@ class CounterpartyLookupTest {
     fun evmSavedRecipientIsAHitWhateverItsLetterCase() {
         val notes = addressNotesOf(evmCounterparties(evmReview()), EVM_FAMILY, emptyMap(), listOf(entry(recipient.lowercase(), "Alice")))
         assertEquals("Alice", notes.notesOf(recipient)?.entry?.name)
+    }
+
+    @Test
+    fun evmSignersOwnAddressInTheFromRowShowsItsAccount() {
+        val own = InternalAccount(displayName = null, autoName = "Main account", label = null)
+        val notes = addressNotesOf(evmCounterparties(evmReview()), EVM_FAMILY, mapOf(addressKeyOf(fromAddress) to own), emptyList())
+        assertEquals(own, notes.notesOf(fromAddress)?.internal)
     }
 
     @Test
