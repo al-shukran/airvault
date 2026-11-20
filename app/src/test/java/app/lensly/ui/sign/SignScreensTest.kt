@@ -727,7 +727,8 @@ class EvmReviewScreenTest {
 
 /**
  * The rows a refusal of an undecodable call shows, laid out as the EVM review builds them: the contract, the network with its chain, the native
- * value and the selector, the implementation a bound proxy is bound to, and each calldata word under the Calldata heading.
+ * value and the selector, the implementation a bound proxy is bound to with the code hash it is approved under, and each calldata word under
+ * the Calldata heading. The review builder's own rows are pinned in EvmReviewTest, so this copy keeps to that layout.
  */
 internal fun undecodedCallRows(
     target: String,
@@ -745,6 +746,9 @@ internal fun undecodedCallRows(
         add(ReviewRow("Value", DisplayValue.Text(value, mono = true), null))
         add(ReviewRow("Selector", DisplayValue.Text("0x$selector", mono = true), null))
         proxy?.implementationAddress?.let { add(ReviewRow("Approved Implementation", DisplayValue.Address(chain, it), null)) }
+        proxy?.implementationCodeHash?.let {
+            add(ReviewRow("Approved Code Hash", DisplayValue.Text("0x" + groupHex(it.removePrefix("0x")), mono = true), null))
+        }
         add(ReviewRow("Calldata", null, null))
         words.forEachIndexed { index, word ->
             add(ReviewRow("WORD ${index + 1}", DisplayValue.Text("0x" + groupHex(word), mono = true), null, depth = 1))
@@ -813,5 +817,26 @@ class RefusalScreensTest {
 
         compose.onNodeWithText("Approved Implementation").assertExists()
         compose.onNodeWithText(groupAddress(IMPLEMENTATION)).assertExists()
+    }
+
+    @Test
+    fun aRefusedProxyShowsTheCodeHashItIsApprovedUnder() {
+        val rows = undecodedCallRows(
+            target = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
+            networkName = "Ethereum",
+            chainId = 1L,
+            value = "0 ETH",
+            selector = "7acb7757",
+            words = words,
+            proxy = ProxyBinding(implementationAddress = IMPLEMENTATION, implementationCodeHash = "0x" + "ab".repeat(32)),
+        )
+        compose.setContent {
+            LumenTheme {
+                SignRefusedScreen(reason = "This contract is an upgradeable proxy.", onDone = {}, rows = rows)
+            }
+        }
+
+        compose.onNodeWithText("Approved Code Hash").assertExists()
+        compose.onNodeWithText("0x" + groupHex("ab".repeat(32))).assertExists()
     }
 }

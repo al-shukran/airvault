@@ -20,7 +20,6 @@ import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
 import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
 import app.lensly.core.solana.SolanaAccount
-import app.lensly.core.ur.PathStep
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WalletRecordNames
@@ -46,6 +45,9 @@ private const val UINT32_MASK = 0xFFFFFFFFL
 
 /** The name a pairing carries for a wallet that has none. */
 private const val DEFAULT_PAIRING_NAME = "Lensly"
+
+/** A Bitcoin Bulk Run refused because the wallet would keep more Bitcoin accounts than [PairingCodec.MAX_BITCOIN_ACCOUNTS]. Nothing is saved. */
+class BitcoinCapReached : IllegalArgumentException("A wallet keeps at most ${PairingCodec.MAX_BITCOIN_ACCOUNTS} Bitcoin accounts.")
 
 /**
  * What a wallet's secret is. A Mnemonic wallet holds a 24-word Mnemonic and an optional Passphrase, and every account
@@ -347,15 +349,7 @@ class WalletStore(private val session: VaultSession) {
      * The derivation path m/purpose'/coin'/account' of each Bitcoin account of wallet [id], in the order they were added. A request names the account
      * it spends from by such a path, so the sign flow matches requests against these.
      */
-    fun storedAccountPaths(id: String): List<Path> = bitcoinAccounts(id).map { account ->
-        Path(
-            listOf(
-                PathStep(account.scriptType.purpose, hardened = true),
-                PathStep(account.network.coinType, hardened = true),
-                PathStep(account.index, hardened = true),
-            ),
-        )
-    }
+    fun storedAccountPaths(id: String): List<Path> = bitcoinAccounts(id).map { it.storedPath }
 
     /**
      * A Bitcoin Bulk Run: adds [count] accounts of [scriptType] on [network] to wallet [id], numbered after the ones it already has
@@ -363,8 +357,9 @@ class WalletStore(private val session: VaultSession) {
      * run with nothing written. The record is written under the session's lock. If the wallet's Bitcoin accounts changed while the run
      * was deriving, nothing is saved and the result is null. [onProgress] receives the number of accounts derived so far.
      *
-     * @throws IllegalArgumentException if [count] is outside 1 to [cap], the wallet is missing, it is a Single Key wallet, which has no
-     * seed, or it would keep more than [PairingCodec.MAX_BITCOIN_ACCOUNTS] Bitcoin accounts. Nothing is saved then.
+     * @throws IllegalArgumentException if [count] is outside 1 to [cap], the wallet is missing, or it is a Single Key wallet, which has no
+     * seed.
+     * @throws BitcoinCapReached if it would keep more than [PairingCodec.MAX_BITCOIN_ACCOUNTS] Bitcoin accounts. Nothing is saved then.
      */
     fun addBitcoinAccounts(
         id: String,
@@ -380,9 +375,7 @@ class WalletStore(private val session: VaultSession) {
         val current = requireNotNull(meta(id)) { "No wallet $id." }
         require(current.kind == WalletKind.MNEMONIC) { SINGLE_KEY_NO_BITCOIN }
         val existing = bitcoinAccounts(id)
-        require(existing.size + count <= PairingCodec.MAX_BITCOIN_ACCOUNTS) {
-            "A wallet keeps at most ${PairingCodec.MAX_BITCOIN_ACCOUNTS} Bitcoin accounts."
-        }
+        if (existing.size + count > PairingCodec.MAX_BITCOIN_ACCOUNTS) throw BitcoinCapReached()
         val indices = BulkPolicy.indexRange(nextBitcoinIndex(existing, scriptType, network), count)
         val secret = mnemonicSecret(id)
         val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }

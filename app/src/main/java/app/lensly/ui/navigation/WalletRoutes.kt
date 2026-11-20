@@ -27,6 +27,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import app.lensly.BuildConfig
 import app.lensly.app.BitcoinAccountRecord
+import app.lensly.app.BitcoinCapReached
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.app.RegistryHolder
 import app.lensly.app.ReviewHistory
@@ -1054,6 +1055,11 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
                     } catch (e: IllegalStateException) {
                         // A closed session or a damaged vault. whileUnlocked returns the owner to the camera.
                         throw e
+                    } catch (e: BitcoinCapReached) {
+                        // The owner is told the cap, and nothing is saved.
+                        running = false
+                        failure = e.message
+                        return@whileUnlocked
                     } catch (e: Exception) {
                         running = false
                         failure = "Run failed. Nothing was saved"

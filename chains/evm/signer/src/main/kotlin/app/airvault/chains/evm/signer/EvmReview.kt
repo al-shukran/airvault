@@ -96,6 +96,12 @@ class EvmReviewBuilder(
         private val request = parsed.request
         private val network: NetworkEntry? = registry.network(chainId)
         private val networkName = network?.name ?: "Unknown network (chain id $chainId)"
+        // A personal message that names no chain is read on Ethereum mainnet, but it is bound to no network, so the header names none.
+        private val headerNetwork = if (request.chainId == null && request.dataType == DataType.PERSONAL_MESSAGE) {
+            NetworkLabel(name = ANY_CHAIN_NAME, testnet = false, detail = null)
+        } else {
+            NetworkLabel(name = networkName, testnet = network?.testnet == true, detail = network?.let { "Chain ID $chainId" })
+        }
         private val chain = ChainId("eip155:$chainId")
         private val header = ArrayList<ReviewRow>()
         private val sections = ArrayList<ReviewSection>()
@@ -130,8 +136,9 @@ class EvmReviewBuilder(
                 ),
             )
             warnings += Warning(Danger.CAUTION, CODE_MESSAGE, PERSONAL_MESSAGE_WARNING)
-            // The request's chain names the header, but an EIP-191 signature commits to no chain, so it is valid on every one.
-            if (request.chainId != null) warnings += Warning(Danger.CAUTION, CODE_MESSAGE_CHAIN, PERSONAL_MESSAGE_CHAIN_WARNING)
+            // An EIP-191 signature commits to no chain, so it is valid on every one, whichever chain the request names or none.
+            val chainWarning = if (request.chainId == null) PERSONAL_MESSAGE_NO_CHAIN_WARNING else PERSONAL_MESSAGE_CHAIN_WARNING
+            warnings += Warning(Danger.CAUTION, CODE_MESSAGE_CHAIN, chainWarning)
             return assemble(SIGN_MESSAGE_FUNCTION, listOf(SummaryPart.Text("Signs a message with this account.")), heading = "Request")
         }
 
@@ -760,11 +767,7 @@ class EvmReviewBuilder(
             return Review(
                 title = title,
                 chain = chain,
-                network = NetworkLabel(
-                    name = networkName,
-                    testnet = network?.testnet == true,
-                    detail = network?.let { "Chain ID $chainId" },
-                ),
+                network = headerNetwork,
                 summary = summary,
                 facts = facts,
                 sections = sections,
@@ -1040,6 +1043,8 @@ private const val TOKEN_UNREGISTERED = "This contract is not in Lensly's token r
 private const val PERSONAL_MESSAGE_WARNING = "The signature proves you hold this account to whoever checks it, and a site can use it to " +
     "act for you. Sign only a message from a site you trust."
 private const val PERSONAL_MESSAGE_CHAIN_WARNING = "This signature is valid on every EVM chain, not only the chain the request names."
+private const val PERSONAL_MESSAGE_NO_CHAIN_WARNING = "This message names no chain, so its signature is not bound to a network. " +
+    "It is valid on every EVM chain."
 
 /** The path of a BIP44 address key, m/44'/60'/0'/0/N (Rabby derives its keys so). N of 0 is account 0's own key, so it is not one. */
 private val BIP44_ADDRESS_PATH = Regex("""m/44'/60'/0'/0/[1-9][0-9]*""")
@@ -1052,6 +1057,7 @@ private const val UNKNOWN_NETWORK = "Unknown Network"
 
 /** The title and note of a typed-data signature whose domain names no chain. */
 private const val ANY_CHAIN_LABEL = "Signature for Any Chain"
+private const val ANY_CHAIN_NAME = "Any Chain"
 private const val ANY_CHAIN_NOTE = "The domain names no chain ID, so this signature is valid on any chain."
 
 /** The note under a member that a message adds beside its typed fields. The signature does not cover it. */

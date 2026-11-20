@@ -1,6 +1,7 @@
 package app.airvault.chains.evm.wallet
 
 import app.airvault.chains.evm.EVM_COIN_TYPE
+import app.airvault.chains.evm.EvmAccountPath
 import app.airvault.chains.evm.EvmAddressCodec
 import app.airvault.chains.evm.evmManifest
 import app.airvault.core.model.AccountId
@@ -38,7 +39,7 @@ object EvmWallet : WalletApp {
         require(export.chain in manifest.networks.map { it.chainId }) { "${export.chain} is not an EVM network" }
         require(export.kind == AddressKind.DEFAULT) { "EVM accounts have one address kind" }
         require(export.publicKey.curve == Curve.SECP256K1) { "an EVM key is a ${Curve.SECP256K1} key" }
-        require(isAccountPath(export.signer.path)) { "${export.signer.path} is not an EVM account key, m/44'/60'/N'/0/0" }
+        require(EvmAccountPath.accountOf(export.signer.path) != null) { "${export.signer.path} is not an EVM account key, m/44'/60'/N'/0/0" }
         val address = addresses.fromPublicKey(export.chain, export.publicKey.bytes, export.kind)
         return listOf(WalletAccount(AccountId.of(export.chain, address), export.signer, export.publicKey, export.kind))
     }
@@ -48,13 +49,4 @@ object EvmWallet : WalletApp {
         listOf(PathStep(PURPOSE, true), PathStep(EVM_COIN_TYPE, true), PathStep(index, true), PathStep(0, false), PathStep(0, false))
 
     private const val PURPOSE = 44
-
-    private fun isAccountPath(steps: List<PathStep>): Boolean {
-        return steps.size == 5 &&
-            steps[0] == PathStep(PURPOSE, true) &&
-            steps[1] == PathStep(EVM_COIN_TYPE, true) &&
-            steps[2].hardened &&
-            steps[3] == PathStep(0, false) &&
-            steps[4] == PathStep(0, false)
-    }
 }

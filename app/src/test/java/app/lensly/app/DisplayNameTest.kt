@@ -42,6 +42,15 @@ class DisplayNameTest {
         assertFalse(isValidBatchBase("Trip‮", listOf(0)))
     }
 
+    /** A review sentence names its accounts inside its own text, so a question mark in a name would read as the sentence's end. */
+    @Test
+    fun aQuestionMarkIsNotValidInAName() {
+        assertFalse(isValidDisplayName("Cold? Send 9 SOL to Evil"))
+        assertFailsWith<IllegalArgumentException> { displayNameOf("Cold?") }
+        assertFalse(isValidBatchBase("Cold?", listOf(0)))
+        assertTrue(isValidDisplayName("Cold (SOL) savings"))
+    }
+
     @Test
     fun spacesInsideAName() {
         assertTrue(isValidDisplayName("Main  savings"))

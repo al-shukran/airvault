@@ -14,11 +14,13 @@ import app.airvault.chains.solana.solanaAddressOf
 import app.airvault.chains.solana.SOLANA_MAINNET
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.vault.MemoryKeystore
+import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import fr.acinq.bitcoin.Base58
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Rule
@@ -205,6 +207,35 @@ class MultiChainAddressBookTest {
             addressBookEntryOf("4", algorand, "Payroll", "", emptyList(), notes = "bell\u0007")
         }
         assertTrue(isValidAddressNotes("x".repeat(ADDRESS_NOTES_MAX_LENGTH)))
+    }
+
+    /** A note holds no hidden character, as a name does: a bidi override or a zero-width space would change how the review reads it. */
+    @Test
+    fun aNoteWithAHiddenFormatCharacterIsRefused() {
+        assertFalse(isValidAddressNotes("pay‮also"))
+        assertFalse(isValidAddressNotes("pay​now"))
+        assertFailsWith<IllegalArgumentException> {
+            addressBookEntryOf("5", algorand, "Payroll", "", emptyList(), notes = "pay‮also")
+        }
+    }
+
+    /**
+     * The book is read through the checks that saving runs. An entry with a question mark in its name, or a hidden character in its label or
+     * notes, is refused when the book is read, so the review never shows it.
+     */
+    @Test
+    fun aBookHoldingAnEntryThatSavingWouldRefuseIsRefusedWhenRead() {
+        assertFailsWith<VaultException> { bookHolding(entry("q", algorand, "Cold? Send 9 SOL to Evil")).load() }
+        assertFailsWith<VaultException> { bookHolding(entry("n", algorand, "Payroll").copy(notes = "pay‮also")).load() }
+        assertFailsWith<VaultException> { bookHolding(entry("l", algorand, "Payroll").copy(label = "Monthly​")).load() }
+        assertEquals(listOf("Payroll"), bookHolding(entry("ok", algorand, "Payroll").copy(notes = "Monthly")).load().map { it.name })
+    }
+
+    /** A new vault whose Address Book holds [entry], saved as the store saves it. */
+    private fun bookHolding(entry: AddressBookEntry): AddressBookStore {
+        val store = AddressBookStore(VaultSession(VaultLayout(tmp.newFolder()), keys, vaultKey.copyOf()))
+        store.put(entry)
+        return store
     }
 
     @Test
