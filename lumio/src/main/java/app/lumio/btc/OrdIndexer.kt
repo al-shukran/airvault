@@ -27,7 +27,8 @@ const val INDEXER_BUDGET_MS = 5_000L
 private val TXID = Regex("[0-9a-fA-F]{64}")
 
 /**
- * The owner's Ordinals indexer: an `ord` server that the owner set in Lumio's Bitcoin settings. Lumio asks it about each output of a send with
+ * The owner's Ordinals indexer: an `ord` server that the owner set in Lumio's Bitcoin settings. Lumio asks it about each confirmed output of the
+ * account, not only the outputs a send spends, because the marks steer which coins a send picks. Each is asked with
  * `GET <base>/output/<txid>:<vout>`, and an output whose answer names an inscription or a rune is marked (spec 5.5). Nothing is asked without a
  * server, so the owner's outputs reach no server by default. A lookup that fails, times out or does not parse leaves its output unmarked, and
  * Lensly then shows its caution.
@@ -82,9 +83,12 @@ internal fun markedAnswer(text: String): Boolean {
         (answer["runes"] as? JsonArray)?.isNotEmpty() == true
 }
 
-/** The indexer that [configs] keep, on [http], or null when the owner set none: a send then asks no server about its outputs. */
+/**
+ * The indexer that [configs] keep, on [http], or null when the owner set none or its address is not https: a send then asks no server about its
+ * outputs.
+ */
 fun indexerOf(configs: Map<String, ProviderConfig>, http: Http): OrdIndexer? =
-    indexerUrlOf(configs)?.toHttpUrlOrNull()?.let { OrdIndexer(http, it) }
+    indexerUrlOf(configs)?.toHttpUrlOrNull()?.takeIf { it.scheme == "https" }?.let { OrdIndexer(http, it) }
 
 /** The indexer's base URL that [configs] keep, or null when the owner set none. */
 fun indexerUrlOf(configs: Map<String, ProviderConfig>): String? = configs[ORD_INDEXER_ID]?.baseUrl

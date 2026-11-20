@@ -67,13 +67,20 @@ private fun permitWithMemoJson(value: String): String =
         """"primaryType":"Permit","domain":{"name":"USD Coin","version":"2","chainId":1,"verifyingContract":"$TYPED_USDC"},""" +
         """"message":{"owner":"$OWNER","spender":"$TYPED_SPENDER","value":"$value","nonce":"0","deadline":"1900000000","memo":"hi"}}"""
 
+/** An ERC-2612 Permit of USDC for [OWNER] whose domain names no chain, so the signature is valid on every chain. */
+private fun chainlessPermitJson(): String =
+    """{"types":{"Permit":[{"name":"owner","type":"address"},{"name":"spender","type":"address"},{"name":"value","type":"uint256"},""" +
+        """{"name":"nonce","type":"uint256"},{"name":"deadline","type":"uint256"}]},"primaryType":"Permit",""" +
+        """"domain":{"name":"USD Coin","version":"2","verifyingContract":"$TYPED_USDC"},""" +
+        """"message":{"owner":"$OWNER","spender":"$TYPED_SPENDER","value":"1000000","nonce":"0","deadline":"1900000000"}}"""
+
 /** A typed message that is not a permit: a Mail struct under a domain with no verifying contract. */
 private fun mailJson(contents: String = "Hello"): String =
     """{"types":{"Mail":[{"name":"from","type":"address"},{"name":"contents","type":"string"},{"name":"amount","type":"uint256"}]},""" +
         """"primaryType":"Mail","domain":{"name":"Mailer","chainId":1},""" +
         """"message":{"from":"$OWNER","contents":"$contents","amount":"42"}}"""
 
-private fun typedRequest(json: String, chainId: Long = 1): ParsedRequest = EvmRequestParser.parsedOf(
+private fun typedRequest(json: String, chainId: Long? = 1): ParsedRequest = EvmRequestParser.parsedOf(
     EthSignRequest(
         requestId = null,
         signData = json.toByteArray(Charsets.UTF_8),
@@ -205,6 +212,19 @@ class EvmTypedReviewTest {
             .review(typedRequest(permitJson()), sender = OWNER)
 
         assertEquals("Blocked permit.", assertIs<EvmReviewResult.Refused>(result).reason)
+    }
+
+    @Test
+    fun chainlessTypedDataIsCheckedAgainstTheDenylistEntryOfAnotherChain() {
+        val registry = TYPED_REGISTRY.withDenylist(
+            listOf(DenylistEntry(chainId = 137, primaryType = "Permit", severity = DenylistSeverity.WARN, reason = PERMIT_WARNING)),
+        )
+
+        val result = EvmReviewBuilder(registry, { calldata, params -> AbiDecoder.decode(calldata, params) })
+            .review(typedRequest(chainlessPermitJson(), chainId = null), sender = OWNER)
+
+        val denylist = assertIs<EvmReviewResult.Ok>(result).review.warnings.single { it.message == PERMIT_WARNING }
+        assertEquals(Danger.DANGER, denylist.level)
     }
 
     @Test
