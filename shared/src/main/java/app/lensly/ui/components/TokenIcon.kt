@@ -16,11 +16,11 @@ import app.lensly.core.registry.TokenEntry
 import app.lensly.shared.R
 
 /**
- * Token logos that are too dark to see on black, so they draw on a light backdrop. Each one averages under 0.15 relative
- * luminance against black, over every fill and gradient stop of its drawable. The brand colours are not changed.
- * Every name here must be a key of [tokenIconDrawables]: ChainTokenIconsTest checks that. Re-measure when a logo changes.
+ * Token logos too dark for a dark page, which sit on a light disc there. Each averages under 0.15 relative luminance against black, over every
+ * fill and gradient stop of its drawable. The brand colours are not changed. Every name here must be a key of [tokenIconDrawables]:
+ * ChainTokenIconsTest checks that. Re-measure when a logo changes.
  */
-val tokenIconsNeedingBackdrop: Set<String> = setOf(
+val tokenIconsNeedingLightBackdrop: Set<String> = setOf(
     "token_bal",
     "token_cbbtc",
     "token_cbeth",
@@ -31,6 +31,24 @@ val tokenIconsNeedingBackdrop: Set<String> = setOf(
     "token_snx",
     "token_tbtc",
     "token_tusd",
+)
+
+/**
+ * Token logos too pale for a light page, which sit on a dark disc there. Measured on the emulator, the average colour of each logo's artwork
+ * is within 1.25:1 contrast of the light page, so the logo vanishes on it. The next logo up measured 1.44:1. The brand colours are not changed.
+ * Every name here must be a key of [tokenIconDrawables]: ChainTokenIconsTest checks that. Re-measure when a logo changes.
+ */
+val tokenIconsNeedingDarkBackdrop: Set<String> = setOf(
+    "token_arb",
+    "token_doge",
+    "token_dydx",
+    "token_frax",
+    "token_fxs",
+    "token_gala",
+    "token_imx",
+    "token_rsr",
+    "token_sfrxeth",
+    "token_wbtc",
 )
 
 /** The name of a Binance-Peg token on BNB Chain, such as "Binance Pegged USDT". Written by tools/registry-data. */
@@ -75,11 +93,11 @@ internal fun tokenIconRes(token: TokenEntry?): Int {
 }
 
 /**
- * The chain logo drawn as a badge on [token], or null. Only a pegged or bridged copy has one. The badge is the logo of the
- * chain the copy is on, which is the chain that issued it. [chain] must be that chain. A null [chain] (not in the
- * registry), a chain without a logo, and any other token have no badge.
+ * The drawable of the chain logo drawn as a badge on [token], or null. Only a pegged or bridged copy has one. The badge is the logo of the
+ * chain the copy is on, which is the chain that issued it. [chain] must be that chain. A null [chain] (not in the registry), a chain without a
+ * logo, and any other token have no badge.
  */
-internal fun tokenBadgeLogo(token: TokenEntry?, chain: NetworkEntry?): ChainLogo? {
+internal fun tokenBadgeLogo(token: TokenEntry?, chain: NetworkEntry?): Int? {
     if (token == null || chain == null || chain.chainId != token.chainId) return null
     if (copiedSymbolOf(token) == null) return null
     return chainLogo(chain)
@@ -87,28 +105,27 @@ internal fun tokenBadgeLogo(token: TokenEntry?, chain: NetworkEntry?): ChainLogo
 
 /**
  * A token logo at [size]. It is decorative: the text beside it names the token. A null [token] shows the unknown-token
- * icon. The native coin of a network is not a token: show [ChainIcon] for it. A logo in [tokenIconsNeedingBackdrop]
- * sits on a light backdrop. A pegged or bridged copy shows the logo of its own [chain] as a badge at the bottom right.
+ * icon. The native coin of a network is not a token: show [ChainIcon] for it. A logo that would vanish on the page sits on a
+ * disc (see [BackdropLogo]). A pegged or bridged copy shows the logo of its own [chain] as a badge at the bottom right.
  */
 @Composable
 fun TokenIcon(token: TokenEntry?, size: Dp, modifier: Modifier = Modifier, chain: NetworkEntry? = null) {
-    val icon = token?.icon
-    val backdrop = icon != null && icon in tokenIconsNeedingBackdrop
+    val logo = tokenIconRes(token)
     val badge = tokenBadgeLogo(token, chain)
     if (badge == null) {
         BackdropLogo(
-            painter = painterResource(tokenIconRes(token)),
+            painter = painterResource(logo),
             size = size,
-            backdrop = backdrop,
+            tone = logoTone(logo),
             modifier = modifier,
         )
         return
     }
     Box(modifier = modifier.size(size)) {
         BackdropLogo(
-            painter = painterResource(tokenIconRes(token)),
+            painter = painterResource(logo),
             size = size,
-            backdrop = backdrop,
+            tone = logoTone(logo),
         )
         Box(
             modifier = Modifier
@@ -119,9 +136,9 @@ fun TokenIcon(token: TokenEntry?, size: Dp, modifier: Modifier = Modifier, chain
             contentAlignment = Alignment.Center,
         ) {
             BackdropLogo(
-                painter = painterResource(badge.res),
+                painter = painterResource(badge),
                 size = size * BADGE_SHARE * BADGE_LOGO_SHARE,
-                backdrop = badge.backdrop,
+                tone = logoTone(badge),
             )
         }
     }

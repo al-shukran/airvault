@@ -5,6 +5,8 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.registry.TokenEntry
 import app.lensly.shared.R
+import app.lensly.ui.theme.LenslyLogoBackdrop
+import app.lensly.ui.theme.LenslyLogoDarkBackdrop
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -29,13 +31,15 @@ class ChainTokenIconsTest {
     }
 
     @Test
-    fun everyChainLogoOnABackdropIsInTheIconMap() {
-        assertEquals(emptySet<String>(), chainIconsNeedingBackdrop - chainIconDrawables.keys)
+    fun everyLogoInAToneSetIsInTheIconMap() {
+        assertEquals(emptySet<String>(), (chainIconsNeedingLightBackdrop + chainIconsNeedingDarkBackdrop) - chainIconDrawables.keys)
+        assertEquals(emptySet<String>(), (tokenIconsNeedingLightBackdrop + tokenIconsNeedingDarkBackdrop) - tokenIconDrawables.keys)
     }
 
     @Test
-    fun everyTokenLogoOnABackdropIsInTheIconMap() {
-        assertEquals(emptySet<String>(), tokenIconsNeedingBackdrop - tokenIconDrawables.keys)
+    fun noLogoIsInBothToneSets() {
+        assertEquals(emptySet<String>(), chainIconsNeedingLightBackdrop intersect chainIconsNeedingDarkBackdrop)
+        assertEquals(emptySet<String>(), tokenIconsNeedingLightBackdrop intersect tokenIconsNeedingDarkBackdrop)
     }
 
     @Test
@@ -45,23 +49,23 @@ class ChainTokenIconsTest {
     }
 
     @Test
-    fun aNetworkWithALogoShowsItsLogoOnABackdropWhenNeeded() {
-        assertEquals(logo(R.drawable.chain_base, backdrop = true), chainLogo(registry.network(8453L)))
-        assertEquals(logo(R.drawable.chain_polygon, backdrop = true), chainLogo(registry.network(137L)))
-        assertEquals(logo(R.drawable.chain_arbitrum_one), chainLogo(registry.network(42161L)))
+    fun aNetworkWithALogoShowsItsLogo() {
+        assertEquals(R.drawable.chain_base, chainLogo(registry.network(8453L)))
+        assertEquals(R.drawable.chain_polygon, chainLogo(registry.network(137L)))
+        assertEquals(R.drawable.chain_arbitrum_one, chainLogo(registry.network(42161L)))
     }
 
     @Test
     fun monadMainnetAndTestnetShowTheMonadLogo() {
-        assertEquals(logo(R.drawable.chain_monad), chainLogo(registry.network(143L)))
-        assertEquals(logo(R.drawable.chain_monad), chainLogo(registry.network(10143L)))
+        assertEquals(R.drawable.chain_monad, chainLogo(registry.network(143L)))
+        assertEquals(R.drawable.chain_monad, chainLogo(registry.network(10143L)))
     }
 
     @Test
     fun aRecordsNetworkShowsTheLogoOfTheRegistryNetworkOfThatName() {
-        assertEquals(logo(R.drawable.chain_monad), networkLogoOf("Monad Testnet", registry.networks()))
-        assertEquals(logo(R.drawable.chain_monad), networkLogoOf("Monad", registry.networks()))
-        assertEquals(logo(R.drawable.chain_base, backdrop = true), networkLogoOf("Base", registry.networks()))
+        assertEquals(R.drawable.chain_monad, networkLogoOf("Monad Testnet", registry.networks()))
+        assertEquals(R.drawable.chain_monad, networkLogoOf("Monad", registry.networks()))
+        assertEquals(R.drawable.chain_base, networkLogoOf("Base", registry.networks()))
     }
 
     @Test
@@ -81,7 +85,7 @@ class ChainTokenIconsTest {
 
     @Test
     fun aNullNetworkShowsTheEthereumLogo() {
-        assertEquals(logo(R.drawable.chain_ethereum), chainLogo(null))
+        assertEquals(R.drawable.chain_ethereum, chainLogo(null))
     }
 
     @Test
@@ -122,7 +126,32 @@ class ChainTokenIconsTest {
         assertEquals(R.drawable.ic_unknown_token, tokenIconRes(token(icon = "token_not_shipped")))
     }
 
-    private fun logo(res: Int, backdrop: Boolean = false) = ChainLogo(res, backdrop)
+    @Test
+    fun aDarkLogoSitsOnALightDiscOnlyOnADarkPage() {
+        assertEquals(LogoTone.DARK, logoTone(R.drawable.chain_base))
+        assertEquals(LenslyLogoBackdrop, backdropColor(LogoTone.DARK, onDarkPage = true))
+        assertNull(backdropColor(LogoTone.DARK, onDarkPage = false))
+    }
+
+    @Test
+    fun aPaleLogoSitsOnADarkDiscOnlyOnALightPage() {
+        assertEquals(LogoTone.PALE, logoTone(R.drawable.token_wbtc))
+        assertEquals(LenslyLogoDarkBackdrop, backdropColor(LogoTone.PALE, onDarkPage = false))
+        assertNull(backdropColor(LogoTone.PALE, onDarkPage = true))
+    }
+
+    @Test
+    fun theUnknownTokenIconIsPaleSoItShowsOnALightPage() {
+        assertEquals(LogoTone.PALE, logoTone(R.drawable.ic_unknown_token))
+    }
+
+    @Test
+    fun aBrightLogoIsNeutralAndNeedsNoDiscOnEitherPage() {
+        assertEquals(LogoTone.NEUTRAL, logoTone(R.drawable.chain_arbitrum_one))
+        assertEquals(LogoTone.NEUTRAL, logoTone(R.drawable.chain_ethereum))
+        assertNull(backdropColor(LogoTone.NEUTRAL, onDarkPage = true))
+        assertNull(backdropColor(LogoTone.NEUTRAL, onDarkPage = false))
+    }
 
     private fun network(icon: String?, name: String = "Base") = NetworkEntry(
         chainId = 8453L,
