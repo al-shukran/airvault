@@ -157,6 +157,43 @@ class EvmSignerTest {
         assertTrue(keys.signedPaths.isEmpty())
     }
 
+    /** The signer of a request is the one its header names. A request that names no single signer signs nothing, and says why. */
+    @Test
+    fun aRequestThatDoesNotNameOneSignerIsRefusedWithItsReason() {
+        val keys = FakeKeys(KEY)
+        val request = requestOf(legacyPayload(), MONAD)
+        val signers = request.header.signers
+
+        for (named in listOf(emptyList<SignerRef>(), signers + signers)) {
+            val refusal = assertFailsWith<IllegalArgumentException> {
+                EvmSigner.sign(request.copy(header = request.header.copy(signers = named)), approvalOf(MONAD, senderOf(KEY)), keys)
+            }
+            assertEquals("The request does not name exactly one signer.", refusal.message)
+        }
+        assertTrue(keys.signedPaths.isEmpty(), "A refused request signs nothing")
+    }
+
+    /**
+     * A body whose typed data is other than the data signData reads to is refused, even when its review shows the body's own hashes. The signature
+     * covers signData, so signData is read again at sign time, and the review must show the hashes of that read.
+     */
+    @Test
+    fun aTypedRequestIsRefusedWhenItsBodyHoldsOtherTypedDataThanItsSignData() {
+        val other = typedDataOf(requestOf(agentJson(HYPERLIQUID_CHAIN), ARBITRUM, dataType = DataType.TYPED_DATA))
+        val body = EvmRequestBody.encode(
+            ParsedRequest(
+                EthSignRequest(REQUEST_ID, agentJson(MONAD), DataType.TYPED_DATA, MONAD, emptyList(), null, null, null),
+                tx = null,
+                call = null,
+                typed = TypedDataParser.Result.Ok(other),
+            ),
+        )
+        val request = AppRequest(requestOf(agentJson(MONAD), MONAD, dataType = DataType.TYPED_DATA).header, body)
+        val review = assertIs<EvmReviewResult.Ok>(REVIEWS.review(EvmRequestBody.decode(body), senderOf(KEY))).review
+
+        assertRefusedWithoutSigning(request, tickedApproval(review))
+    }
+
     /** A typed request signs when the approved review shows the domain separator and the message hash that it signs, each in full. */
     @Test
     fun aTypedRequestSignsWhenTheReviewShowsTheHashesItSigns() {

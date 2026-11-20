@@ -31,7 +31,7 @@ internal fun readChainId(parsed: ParsedRequest): Long? {
     request.chainId?.let { return it }
     return when (request.dataType) {
         DataType.PERSONAL_MESSAGE -> DEFAULT_CHAIN_ID
-        DataType.TYPED_DATA -> (parsed.typed as? TypedDataParser.Result.Ok)?.data?.domainChainId?.toLong() ?: DEFAULT_CHAIN_ID
+        DataType.TYPED_DATA -> (parsed.typed as? TypedDataParser.Result.Ok)?.data?.domainChainId?.longValueExact() ?: DEFAULT_CHAIN_ID
         DataType.TRANSACTION, DataType.TYPED_TRANSACTION -> null
     }
 }
@@ -41,7 +41,7 @@ internal fun readChainId(parsed: ParsedRequest): Long? {
  * ([readChainId]). The review and the sign-time check of the approval both read it here, so they agree. Null when no chain is named.
  */
 internal fun reviewChainId(parsed: ParsedRequest): Long? =
-    (parsed.typed as? TypedDataParser.Result.Ok)?.data?.domainChainId?.toLong() ?: readChainId(parsed)
+    (parsed.typed as? TypedDataParser.Result.Ok)?.data?.domainChainId?.longValueExact() ?: readChainId(parsed)
 
 /**
  * The parser of eth-sign-request (spec 3.2). It reads the request and parses its data: a transaction as RLP, typed data as EIP-712 and a

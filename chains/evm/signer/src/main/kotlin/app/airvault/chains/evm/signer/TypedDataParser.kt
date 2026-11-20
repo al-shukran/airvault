@@ -270,19 +270,13 @@ private class Document(text: String) {
         val primaryType = textOf(required(root.members, "primaryType", "the document"), "primaryType")
         val domainJson = objectOf(required(root.members, "domain", "the document"), "domain")
         val types = withDomainType(declared, domainJson)
-        // The review shows each domain member as one value, so a member of a struct or array type is refused.
-        for (member in types.getValue(EIP712_DOMAIN)) {
-            require(member.type in TypedData.ATOMIC_TYPES) { "domain member ${member.name.take(MAX_NAME_SHOWN)} is not an atomic type" }
-        }
+        checkDomainMembersAtomic(types)
         // The schema is checked before any value is read, so a struct that contains itself cannot recurse.
         TypedData.checkSchema(types)
         require(primaryType in types) { "primaryType ${primaryType.take(MAX_NAME_SHOWN)} is not one of the types" }
         val domain = structOf(EIP712_DOMAIN, domainJson, types, "domain")
         checkDomainChainId(types, domain)
-        // A colon in a type name, as Hyperliquid names its actions, is read only in a domain that has a product label.
-        require(offChainDomainOf(domain) != null || types.keys.none { ':' in it }) {
-            "a type name with a colon is read only in a labelled off-chain domain"
-        }
+        checkColonTypeNames(types, domain)
         val messageJson = objectOf(required(root.members, "message", "the document"), "message")
         val message = structOf(primaryType, messageJson, types, "message", unsignedScalars = true)
         unsigned = unsignedIn(messageJson, types.getValue(primaryType))
@@ -323,19 +317,6 @@ private class Document(text: String) {
             }
         }
         return declared + (EIP712_DOMAIN to DOMAIN_MEMBERS.filter { it.name in domain.members })
-    }
-
-    private fun checkDomainChainId(types: Map<String, List<TypedField>>, domain: TypedValue.StructValue) {
-        val members = types.getValue(EIP712_DOMAIN)
-        // A domain may name no chain. Its signature is then valid on any chain, and the review says so.
-        members.firstOrNull { it.name == "chainId" }?.let { chainId ->
-            require(chainId.type == "uint256") { "The domain chain ID must be a uint256" }
-            val value = (domain.fields.getValue("chainId") as TypedValue.IntValue).value
-            require(value.signum() > 0 && value.bitLength() < 63) { "The domain chain ID is outside the range Lensly reads" }
-        }
-        members.firstOrNull { it.name == "verifyingContract" }?.let {
-            require(it.type == "address") { "The domain verifying contract must be an address" }
-        }
     }
 
     private fun structOf(
@@ -455,4 +436,40 @@ private fun integerOf(json: Json, path: String, signed: Boolean): BigInteger {
     }
     require(signed || value.signum() >= 0) { "$path must not be negative" }
     return value
+}
+
+/**
+ * The members of a domain are atomic values, since the review shows each one as a single row, so a member of a struct or array type is refused.
+ * The parser and the wire decode of a request body both check it.
+ */
+internal fun checkDomainMembersAtomic(types: Map<String, List<TypedField>>) {
+    for (member in types.getValue(EIP712_DOMAIN)) {
+        require(member.type in TypedData.ATOMIC_TYPES) { "domain member ${member.name.take(MAX_NAME_SHOWN)} is not an atomic type" }
+    }
+}
+
+/**
+ * A domain may name no chain, and its signature is then valid on any chain, which the review says. One that names a chain names it as a uint256
+ * that Lensly reads in full, so a chain ID is never cut down to a shorter one. The parser and the wire decode of a request body both check it.
+ */
+internal fun checkDomainChainId(types: Map<String, List<TypedField>>, domain: TypedValue.StructValue) {
+    val members = types.getValue(EIP712_DOMAIN)
+    members.firstOrNull { it.name == "chainId" }?.let { chainId ->
+        require(chainId.type == "uint256") { "The domain chain ID must be a uint256" }
+        val value = (domain.fields.getValue("chainId") as TypedValue.IntValue).value
+        require(value.signum() > 0 && value.bitLength() < 63) { "The domain chain ID is outside the range Lensly reads" }
+    }
+    members.firstOrNull { it.name == "verifyingContract" }?.let {
+        require(it.type == "address") { "The domain verifying contract must be an address" }
+    }
+}
+
+/**
+ * A colon in a type name, as Hyperliquid names its actions, is read only in a domain that has a product label. The parser and the wire decode of a
+ * request body both check it.
+ */
+internal fun checkColonTypeNames(types: Map<String, List<TypedField>>, domain: TypedValue.StructValue) {
+    require(offChainDomainOf(domain) != null || types.keys.none { ':' in it }) {
+        "a type name with a colon is read only in a labelled off-chain domain"
+    }
 }
