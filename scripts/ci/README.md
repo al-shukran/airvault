@@ -12,7 +12,7 @@ fails it, except dependency review, which is skipped until `DEPENDENCY_GRAPH_ENA
 | Lane | Runs | Job |
 |---|---|---|
 | `resolve` | `./gradlew resolveAll`, the only online step; retried when a repository is unreachable | `deps`, on a cache miss |
-| `shard-1` … `shard-6` | the unit tests listed under the lane in `shards.txt`; `shard-6` also runs every unlisted unit; pure JVM modules run whole | `shard` (matrix) |
+| `shard-1` … `shard-8` | the unit tests listed under the lane in `shards.txt`, and the unlisted units hashed to it; pure JVM modules run whole | `shard` (matrix) |
 | `verify` | the Roborazzi pixel tests of `:app` and `:lumio` (listed, or unlisted and named `*ScreenshotTest`), with `verifyRoborazziDebug` | `roborazzi` |
 | `fuzz` | the Jazzer seed replays, `app.lensly.fuzz.*`, with `-PfuzzLane` | `fuzz` |
 | `apk` | the Lumio debug APK, `:lumio:assembleDebug` | `android` |
@@ -31,13 +31,16 @@ Every Gradle call runs with `--offline`, except `resolve`. A missing artifact th
 One line per test class: `<lane> <gradle module> <fully qualified class>`. A pure JVM module is one line, with the class `*`.
 The lines balance the lanes. A test class with no line still runs, so adding a test never needs an edit here:
 
-- `shard-6` runs every unlisted unit, except the two cases below. Its log names each one (`run-partition: shard-6 runs the unlisted ...`).
+- An unlisted unit runs in `shard-2` … `shard-8`, picked by a hash of its class name, except the two cases below, so new tests
+  spread over the shards. The lane's log names each one (`run-partition: shard-N runs the unlisted ...`). `shard-1` holds
+  `BtcScanTest` alone.
 - `verify` takes an unlisted `*ScreenshotTest` of `:app` or `:lumio`, so its golden is checked. `fuzz` takes an unlisted
   `app.lensly.fuzz` target, because the shard runs leave that package out (`shared/build.gradle.kts`).
 - `scripts/ci/test-units.sh` lists every unit. `check-partitions.sh` (the `ci` lane) fails when a class is listed twice or is
   listed but no longer exists. Remove or rename such a line.
-- Keep the six shards balanced. Each test lane uploads its JUnit XML as `junit-shard-N` (kept 3 days). Sum the `time` attribute of
-  each class, and move classes between lanes until the shard totals are close.
+- Rebalance when the lane budget reports a slow shard: `gh run download <pr-fast run> --dir DIR`, then
+  `python3 -I scripts/ci/balance-shards.py scripts/ci/shards.txt DIR > new.txt` and replace `shards.txt` with it. A shard runs its
+  `:app`, `:lumio` and `:shared` test tasks side by side, so the script spreads each module's classes on their own.
 - `verify` passes its `--tests` filter to the test task before `verifyRoborazziDebug`. The verify task depends on the whole
   `testDebugUnitTest` of its module, so without the filter every unit test would run twice. Roborazzi switches verify mode on from
   the requested tasks, so the filtered test task runs the pixel tests in verify mode.

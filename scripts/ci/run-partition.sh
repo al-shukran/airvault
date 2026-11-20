@@ -47,7 +47,7 @@ usage: scripts/ci/run-partition.sh <lane>
 
 lanes:
   resolve      the one online step: ./gradlew resolveAll, retried only on network errors
-  shard-1..6   the unit tests shards.txt lists under the lane; shard-6 also runs the unlisted ones; pure JVM modules run whole
+  shard-1..8   the unit tests shards.txt lists under the lane, and the unlisted ones hashed to it; pure JVM modules run whole
   verify       the Roborazzi pixel tests of :app and :lumio, with verifyRoborazziDebug
   fuzz         the Jazzer seed replays (app.lensly.fuzz.*), with -PfuzzLane
   apk          the Lumio debug APK (:lumio:assembleDebug)
@@ -67,7 +67,8 @@ fi
 lane="$1"
 
 # Prints "<lane> <module> <class>" for every test unit that shards.txt does not list. A Jazzer target runs in fuzz, a screenshot
-# test of :app or :lumio in verify, and every other unit in shard-6, the catch-all lane.
+# test of :app or :lumio in verify, and every other unit in shard-2..8, picked by a hash of its name, so new tests spread over the
+# shards instead of piling up in one catch-all lane. shard-1 is left out: BtcScanTest fills it.
 unlisted_units() {
     "$ROOT/scripts/ci/test-units.sh" | awk -v lanes="$SHARDS" '
         BEGIN {
@@ -82,7 +83,7 @@ unlisted_units() {
         case "$module:$class" in
             ':shared:app.lensly.fuzz.'*) echo "fuzz $module $class" ;;
             ':app:'*ScreenshotTest | ':lumio:'*ScreenshotTest) echo "verify $module $class" ;;
-            *) echo "shard-6 $module $class" ;;
+            *) echo "shard-$((2 + $(printf '%s' "$class" | cksum | cut -d ' ' -f 1) % 7)) $module $class" ;;
         esac
     done
 }
@@ -262,7 +263,7 @@ run_ci() {
 
 case "$lane" in
     resolve) run_resolve ;;
-    shard-[1-6]) run_shard "$lane" ;;
+    shard-[1-8]) run_shard "$lane" ;;
     verify) run_verify ;;
     fuzz) run_fuzz ;;
     apk) run_apk ;;
