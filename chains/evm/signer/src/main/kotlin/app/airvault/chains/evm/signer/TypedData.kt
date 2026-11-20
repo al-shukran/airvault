@@ -122,7 +122,7 @@ class TypedData(
         /** A struct type name: an identifier, or two identifiers joined by one colon, as Hyperliquid names its actions (HyperliquidTransaction:UsdSend). */
         private val TYPE_NAME = Regex("[A-Za-z_][A-Za-z0-9_]{0,63}(:[A-Za-z_][A-Za-z0-9_]{0,63})?")
         private val ARRAY_SUFFIXES = Regex("(?:\\[\\]|\\[[1-9][0-9]{0,3}\\])*")
-        private val ATOMIC_TYPES: Set<String> = setOf("address", "bool", "string", "bytes") +
+        internal val ATOMIC_TYPES: Set<String> = setOf("address", "bool", "string", "bytes") +
             (1..32).map { "bytes$it" } + (8..256 step 8).flatMap { listOf("uint$it", "int$it") }
         private val TWO_256: BigInteger = BigInteger.ONE.shiftLeft(256)
 

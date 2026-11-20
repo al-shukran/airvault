@@ -59,6 +59,9 @@ private const val WALLET_ID = "wallet-mnemonic"
 private const val OTHER_ID = "wallet-other"
 private const val FRAGMENT = 200
 
+/** The smallest fragment that keeps a request of the largest data to sign within [ParserLimits.MAX_UR_PARTS]: the most parts it can have. */
+private const val FRAGMENT_MOST_PARTS = 65
+
 /** Bounds a silent sandbox in a test, so a missing timeout fails the test instead of hanging it. */
 private const val SILENCE_BOUND_SECONDS = 10L
 private val REQUEST_ID = Numeric.hexStringToByteArray("9b1deb4d3b7d4bad9bdd2b0d7b3dcb6d")
@@ -341,11 +344,24 @@ class SignFlowTest {
     }
 
     @Test
-    fun aRequestLargerThan128KiBIsRefusedBeforeItCompletes() {
+    fun aRequestOverTheScanLimitIsRefused() {
         val flow = SignFlow(FakePorts(), WALLET_ID)
-        val read = scan(flow, framesOf(messageRequest(signData = ByteArray(100 * 1024) { 1 }), FRAGMENT))
-        assertEquals("The request is larger than 128 KiB.", assertIs<SignStep.Refused>(flow.state.value).reason)
-        assertTrue(read < 400, "refused only after $read frames, so the scan did not stop early")
+        scan(flow, framesOf(messageRequest(signData = ByteArray(120 * 1024) { 1 }), FRAGMENT))
+        assertEquals("The request is larger than 232 KiB.", assertIs<SignStep.Refused>(flow.state.value).reason)
+    }
+
+    @Test
+    fun aRequestOfTheLargestSizeTheParserReadsIsNotRefusedAsTooLarge() {
+        val flow = SignFlow(FakePorts(), WALLET_ID)
+        scan(flow, framesOf(messageRequest(signData = ByteArray(ParserLimits.MAX_SIGN_DATA_BYTES) { 1 }), FRAGMENT))
+        assertIs<SignStep.Review>(flow.state.value)
+    }
+
+    @Test
+    fun aMaximumSizeRequestInTheMostPartsAUrMayDeclareIsNotRefusedAsTooLarge() {
+        val flow = SignFlow(FakePorts(), WALLET_ID)
+        scan(flow, framesOf(messageRequest(signData = ByteArray(ParserLimits.MAX_SIGN_DATA_BYTES) { 1 }), FRAGMENT_MOST_PARTS))
+        assertIs<SignStep.Review>(flow.state.value)
     }
 
     @Test

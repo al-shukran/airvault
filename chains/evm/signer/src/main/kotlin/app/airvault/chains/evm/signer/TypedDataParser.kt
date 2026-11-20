@@ -270,6 +270,10 @@ private class Document(text: String) {
         val primaryType = textOf(required(root.members, "primaryType", "the document"), "primaryType")
         val domainJson = objectOf(required(root.members, "domain", "the document"), "domain")
         val types = withDomainType(declared, domainJson)
+        // The review shows each domain member as one value, so a member of a struct or array type is refused.
+        for (member in types.getValue(EIP712_DOMAIN)) {
+            require(member.type in TypedData.ATOMIC_TYPES) { "domain member ${member.name.take(MAX_NAME_SHOWN)} is not an atomic type" }
+        }
         // The schema is checked before any value is read, so a struct that contains itself cannot recurse.
         TypedData.checkSchema(types)
         require(primaryType in types) { "primaryType ${primaryType.take(MAX_NAME_SHOWN)} is not one of the types" }

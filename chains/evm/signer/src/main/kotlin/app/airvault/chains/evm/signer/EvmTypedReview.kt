@@ -123,7 +123,7 @@ private fun valueText(type: String, value: TypedValue): String = when (value) {
     is TypedValue.BytesValue -> if (type == "address") checksumOf(value.bytes) else "0x" + value.bytes.toHex()
     is TypedValue.FlagValue -> value.value.toString()
     is TypedValue.TextValue -> if (value.value.isEmpty()) "(empty)" else printableOrHex(value.value)
-    is TypedValue.StructValue, is TypedValue.ArrayValue -> ""
+    is TypedValue.StructValue, is TypedValue.ArrayValue -> error("the parser reads only atomic values here")
 }
 
 /** [text] as a review shows it: the text itself when every character is printable, otherwise its UTF-8 bytes in hex. */
