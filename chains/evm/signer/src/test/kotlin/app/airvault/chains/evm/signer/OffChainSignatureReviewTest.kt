@@ -287,6 +287,18 @@ class OffChainSignatureReviewTest {
     }
 
     @Test
+    fun anAsterDexMessageWithoutTheAgentOnChain56IsNotAnAgentApprovalAndShowsItsWholeText() {
+        // The domain is the approval's, but a message that names no agentAddress parameter is not an approval.
+        for (msg in listOf("hello", ASTER_MASTER_MESSAGE)) {
+            val review = reviewed(asterMessage(56, msg), BNB)
+
+            assertShownWhole(review, msg)
+            assertTrue(dangersOf(review).isEmpty(), "a message without the agent is a DANGER: $msg")
+            assertNoStoppingWarning(review)
+        }
+    }
+
+    @Test
     fun asterDexMasterAccountSignatureOnItsOwnDomainShowsTheWholeMessageText() {
         val review = reviewed(asterMessage(1666, ASTER_MASTER_MESSAGE), BNB)
 

@@ -175,7 +175,7 @@ class EvmReviewBuilder(
                 warnings += Warning(Danger.CAUTION, CODE_OFF_CHAIN, offChainCautionText(offChain.label), acknowledge = offChainAck(offChain.label))
                 if (offChain.hashesAction) header += ReviewRow(HASHED_ACTION_LABEL, DisplayValue.Text(HASHED_ACTION_NOTE), null)
             }
-            actionWarning(typedData.primaryType, offChain)?.let { warnings += it }
+            actionWarning(typedData.primaryType, typedData.message, offChain)?.let { warnings += it }
             val domainNetworkName = domainChain?.let { networkNameOf(it) } ?: networkName
             val part = typedPart(typedData, registry, chainId, chain, networkName, domainNetworkName = domainNetworkName)
             decoded += part.decoded
@@ -869,10 +869,10 @@ private fun offChainAck(label: String): String = "I understand this signature go
 
 /**
  * The DANGER of a message that lets a key act for the account or moves its funds, or null for any other primary type. An agent approval is
- * one whatever its domain: the primary type that the labelled product names as its approval, or ApproveAgent.
+ * an ApproveAgent on any domain, or a message that the labelled product names as its approval and that carries the agent.
  */
-private fun actionWarning(primaryType: String, offChain: OffChainDomain?): Warning? = when {
-    offChain?.agentApprovalType == primaryType || primaryType.substringAfterLast(':') == "ApproveAgent" ->
+private fun actionWarning(primaryType: String, message: TypedValue.StructValue, offChain: OffChainDomain?): Warning? = when {
+    offChain?.isAgentApproval(primaryType, message) == true || primaryType.substringAfterLast(':') == "ApproveAgent" ->
         Warning(Danger.DANGER, CODE_TYPED_ACTION, APPROVE_AGENT_TEXT, acknowledge = ACK_APPROVE_AGENT)
     primaryType.substringAfterLast(':') in setOf("Withdraw", "withdraw3") ->
         Warning(Danger.DANGER, CODE_TYPED_ACTION, WITHDRAW_TEXT, acknowledge = ACK_WITHDRAW)
