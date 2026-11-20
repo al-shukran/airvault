@@ -70,7 +70,7 @@ class ReviewHistory(private val session: VaultSession) {
  * warnings shown.
  */
 internal object ReviewRecordCodec {
-    private const val VERSION = 5
+    private const val VERSION = 6
     private const val MAX_TEXT_BYTES = 1 shl 20
     private const val MAX_ROWS = 256
     private const val MAX_OUTPUTS = 4096
@@ -171,6 +171,7 @@ internal object ReviewRecordCodec {
             writeLong(output.amountSats)
             writeBoolean(output.isOwnChange)
         }
+        writeInt(facts.outputsNotKept)
         writeOptional(facts.feeSats) { writeLong(it) }
         writeOptional(facts.feeRateSatPerVb) { writeDouble(it) }
         writeInt(facts.notices.size)
@@ -187,6 +188,8 @@ internal object ReviewRecordCodec {
         val outputs = List(outputCount) {
             BitcoinRecordOutput(address = readOptional { readText() }, amountSats = readLong(), isOwnChange = readBoolean())
         }
+        val outputsNotKept = readInt()
+        require(outputsNotKept in 0..MAX_OUTPUTS) { "Too many outputs." }
         val feeSats = readOptional { readLong() }
         val feeRateSatPerVb = readOptional { readDouble() }
         val noticeCount = readInt()
@@ -194,7 +197,7 @@ internal object ReviewRecordCodec {
         val notices = List(noticeCount) {
             BitcoinRecordNotice(level = NoticeLevel.fromWire(readUnsignedByte()), text = readText())
         }
-        return BitcoinRecordFacts(scriptType, outputs, feeSats, feeRateSatPerVb, notices)
+        return BitcoinRecordFacts(scriptType, outputs, feeSats, feeRateSatPerVb, notices, outputsNotKept)
     }
 
     private fun DataOutputStream.writeRows(rows: List<Pair<String, String>>) {

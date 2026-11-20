@@ -16,6 +16,7 @@ import app.airvault.core.model.Warning
 import app.airvault.core.model.checked
 import app.airvault.core.model.printableText
 import app.airvault.core.model.text
+import app.airvault.core.model.trimmedAmount
 import app.airvault.chains.algorand.AlgoAddress
 import java.math.BigInteger
 import java.util.Base64
@@ -73,7 +74,7 @@ fun AlgorandRequestReview.toReview(): Review {
         title = if ((txn as? AssetTransfer)?.isOptIn == true) "Opt In to Asset" else "Review",
         chain = chain,
         network = NetworkLabel(name = network.displayName, testnet = network.testnet, detail = "Genesis ID ${network.genesisId}"),
-        summary = listOf(SummaryPart.Text(sentence())),
+        summary = listOf(sentence()),
         // The fee is a row of the Transaction section. The Review Record keeps the rows, so the fee is recorded once, there.
         facts = emptyList(),
         sections = listOf(ReviewSection("Transaction", rows(chain))),
@@ -106,27 +107,48 @@ private fun AlgorandRequestReview.warningOf(warning: AlgorandWarning): Warning =
     AlgorandWarning.LEASE -> Warning(Danger.CAUTION, "algorand.lease", warningText(warning), Fields.lease)
 }
 
-/** The sentence at the top of the review: a payment names its amount in ALGO and its receiver; an asset transfer names its amount and asset. */
-private fun AlgorandRequestReview.sentence(): String = when (val t = txn) {
-    is Payment -> "Sends ${algoAmount(t.amount).text()} to ${AlgoAddress.encode(t.receiver)}."
-    is AssetTransfer -> assetSentence(t, asset)
+/**
+ * The summary at the top of the review. A payment or an asset transfer to one receiver is a [SummaryPart.Send] of its amount, from the
+ * signing account, or from the holding a clawback takes. One that also closes the account or holding, and an opt-in or an opt-out, keep
+ * their sentence, since the rest of the balance goes elsewhere.
+ */
+private fun AlgorandRequestReview.sentence(): SummaryPart = when (val t = txn) {
+    is Payment -> when {
+        t.closeTo != null -> SummaryPart.Text("Sends ${algoAmount(t.amount).text()} to ${AlgoAddress.encode(t.receiver)}.")
+        else -> SummaryPart.Send(
+            trimmedAmount(t.amount.toBig(), MICRO_ALGO_DECIMALS),
+            "ALGO",
+            signerAddress,
+            AlgoAddress.encode(t.receiver),
+        )
+    }
+    is AssetTransfer -> assetSummary(t, asset)
 }
 
 /**
- * The sentence for an asset transfer. An opt-in adds the asset to the account. An opt-out removes it and sends what it holds to the
+ * The summary of an asset transfer. An opt-in adds the asset to the account. An opt-out removes it and sends what it holds to the
  * close-to address. Any other transfer that also closes the holding says where the rest goes. An asset the catalog does not name is
  * called by its ID, and its amount is in base units.
  */
-private fun assetSentence(txn: AssetTransfer, asset: Asa?): String {
+private fun AlgorandRequestReview.assetSummary(txn: AssetTransfer, asset: Asa?): SummaryPart {
     val name = asset?.unitName ?: "asset ${txn.assetId}"
-    val amount = if (asset == null) "${txn.amount} base units of asset ${txn.assetId}" else assetAmount(txn.amount, asset).text()
     val receiver = AlgoAddress.encode(txn.receiver)
     val closeTo = txn.closeTo?.let { AlgoAddress.encode(it) }
     return when {
-        txn.isOptIn -> "Opt in to $name."
-        txn.isOptOut && closeTo != null -> "Opt out of $name, remaining balance goes to $closeTo."
-        closeTo != null -> "Sends $amount to $receiver. The rest goes to $closeTo, and the asset is removed."
-        else -> "Sends $amount to $receiver."
+        txn.isOptIn -> SummaryPart.Text("Opt in to $name.")
+        txn.isOptOut && closeTo != null -> SummaryPart.Text("Opt out of $name, remaining balance goes to $closeTo.")
+        closeTo != null -> {
+            val amount = if (asset == null) "${txn.amount} base units of asset ${txn.assetId}" else assetAmount(txn.amount, asset).text()
+            SummaryPart.Text("Sends $amount to $receiver. The rest goes to $closeTo, and the asset is removed.")
+        }
+        else -> {
+            val from = txn.assetSender?.let { AlgoAddress.encode(it) } ?: signerAddress
+            if (asset == null) {
+                SummaryPart.Send(txn.amount.toString(), "base units of asset ${txn.assetId}", from, receiver)
+            } else {
+                SummaryPart.Send(trimmedAmount(txn.amount.toBig(), asset.decimals), asset.unitName, from, receiver)
+            }
+        }
     }
 }
 

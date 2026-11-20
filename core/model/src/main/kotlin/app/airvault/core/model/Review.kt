@@ -29,8 +29,9 @@ data class Review(
 )
 
 /**
- * One piece of the summary sentence, in order. A [Counterparty] is named from the Address Book or this device when either holds its address,
- * and shown short otherwise. The names are the app's to add, so the core only says which address is a counterparty.
+ * One piece of the summary sentence, in order, or a [Send] that is the whole summary. A [Counterparty] is named from the Address Book or
+ * this device when either holds its address, and shown short otherwise. The names are the app's to add, so the core only says which address
+ * is a counterparty.
  */
 sealed interface SummaryPart {
     data class Text(val text: String) : SummaryPart
@@ -39,6 +40,13 @@ sealed interface SummaryPart {
     data class Mono(val text: String) : SummaryPart
 
     data class Counterparty(val address: String) : SummaryPart
+
+    /**
+     * A send of one amount to one recipient, and the whole summary of it. [amount] is in whole units with no trailing zeros, [asset] names
+     * its unit, and [from] and [to] are the addresses. The app writes it as a question and names each address from this device and the
+     * Address Book, so the core says only what is sent and between which addresses.
+     */
+    data class Send(val amount: String, val asset: String, val from: String, val to: String) : SummaryPart
 }
 
 /** The summary as plain text, with each counterparty written as its address. Records and tests read a summary this way. */
@@ -47,8 +55,16 @@ fun List<SummaryPart>.text(): String = joinToString("") { part ->
         is SummaryPart.Text -> part.text
         is SummaryPart.Mono -> part.text
         is SummaryPart.Counterparty -> part.address
+        is SummaryPart.Send -> "Send ${part.amount} ${part.asset} from ${part.from} to ${part.to}?"
     }
 }
+
+/**
+ * An amount in base units with [decimals] places, as whole units with no trailing zeros. It is exact: 400000 at six places is "0.4", and
+ * 1000000 at six places is "1".
+ */
+fun trimmedAmount(baseUnits: BigInteger, decimals: Int): String =
+    BigDecimal(baseUnits).movePointLeft(decimals).stripTrailingZeros().toPlainString()
 
 /**
  * The network a review is for: its name, whether it is a testnet, and its raw detail under the name, such as the genesis ID. [row] is a row the

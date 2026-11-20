@@ -33,6 +33,7 @@ class LumioColorsTest {
             "positive" to palette.positive,
             "negative" to scheme.error,
             "warning" to palette.warning,
+            "info" to palette.info,
         )
         for ((textName, text) in texts) {
             for ((surfaceName, surface) in surfacesOf(scheme)) {

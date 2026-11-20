@@ -258,13 +258,7 @@ class AccessibilityTest {
             title = "Native Transfer",
             chain = ChainId("eip155:10143"),
             network = NetworkLabel(name = "Unknown network (chain id 10143)", testnet = false, detail = null),
-            summary = listOf(
-                SummaryPart.Text("Sends "),
-                SummaryPart.Mono("10000000000000000 base units"),
-                SummaryPart.Text(" to "),
-                SummaryPart.Counterparty(TO),
-                SummaryPart.Text("."),
-            ),
+            summary = listOf(SummaryPart.Send("10000000000000000", "base units", FROM, TO)),
             facts = listOf(
                 ReviewRow("Gas Limit", DisplayValue.Number(BigInteger.valueOf(21000)), null),
                 ReviewRow("Max Fee", DisplayValue.Text("630000000000000 base units"), null),

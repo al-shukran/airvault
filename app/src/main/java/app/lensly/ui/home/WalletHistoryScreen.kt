@@ -414,6 +414,7 @@ private fun BitcoinFacts(
             if (output.isOwnChange) MutedText("Your change")
         }
     }
+    if (facts.outputsNotKept > 0) FactRow("More") { FactText("${facts.outputsNotKept} outputs not kept") }
     FactRow("Fee") {
         MonoText(facts.feeSats?.let { "$it sat (${btcText(it)})" } ?: "Unknown")
     }
