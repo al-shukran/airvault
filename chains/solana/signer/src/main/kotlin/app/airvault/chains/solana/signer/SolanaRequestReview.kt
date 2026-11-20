@@ -30,6 +30,13 @@ enum class SolanaWarning {
 
     /** A plain SPL Transfer names no mint, so its decimals are not known. Lensly shows its amount in base units. */
     DECIMALS_UNKNOWN,
+
+    /**
+     * A token transfer runs under Token-2022. Its mint may carry extensions that Lensly cannot read offline: a transfer fee, which can make
+     * the recipient receive less than the amount shown, a transfer hook, which runs another program, or a permanent delegate, which can move
+     * the tokens later. The review shows this at CAUTION.
+     */
+    TOKEN_2022,
 }
 
 /**
@@ -130,6 +137,7 @@ class SolanaRequestReview internal constructor(
             if (instructions.any { it is SolanaInstruction.TokenTransfer }) add(SolanaWarning.DECIMALS_UNKNOWN)
             if (mints.any { tokenOf(it) == null }) add(SolanaWarning.UNKNOWN_TOKEN)
             if (lookups.isNotEmpty()) add(SolanaWarning.LOOKUP_TABLE)
+            if (instructions.any { it.isToken2022Transfer }) add(SolanaWarning.TOKEN_2022)
         }
 
     /**
@@ -185,6 +193,11 @@ private fun defaultUnitsOf(program: SolanaMessageAccount): UInt =
         COMPUTE_BUDGET_PROGRAM -> 0u
         else -> DEFAULT_UNITS_PER_INSTRUCTION
     }
+
+/** Whether this instruction is a token transfer that the Token-2022 program runs. */
+private val SolanaInstruction.isToken2022Transfer: Boolean
+    get() = (this is SolanaInstruction.TokenTransfer || this is SolanaInstruction.TokenTransferChecked) &&
+        (programId as? SolanaMessageAccount.Static)?.address == TOKEN_2022_PROGRAM
 
 /**
  * Checks a sol-sign-request against the Solana accounts of its wallet, and builds the review the owner reads. Nothing here signs, and

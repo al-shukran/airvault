@@ -107,6 +107,9 @@ fun solanaWarningText(warning: SolanaWarning): String = when (warning) {
         "Unknown token. This mint is not in Lensly's token list, so Lensly shows its address and cannot name the token."
     SolanaWarning.DECIMALS_UNKNOWN ->
         "Decimals unknown. A plain token Transfer does not name its mint, so its amount is shown in base units."
+    SolanaWarning.TOKEN_2022 ->
+        "Token-2022 token. Its mint may carry extensions that Lensly cannot read offline. A transfer fee means the recipient can get " +
+            "less than the amount shown. A transfer hook runs another program on each transfer. A permanent delegate can move the tokens later."
 }
 
 /** The chain a cluster is: mainnet-beta when the request states none, as Lensly's Solana family is. */
@@ -338,6 +341,7 @@ private fun warningOf(warning: SolanaWarning): Warning = when (warning) {
     SolanaWarning.LOOKUP_TABLE -> Warning(Danger.CAUTION, "solana.lookup-table", solanaWarningText(warning))
     SolanaWarning.UNKNOWN_TOKEN -> Warning(Danger.CAUTION, "solana.unknown-token", solanaWarningText(warning))
     SolanaWarning.DECIMALS_UNKNOWN -> Warning(Danger.CAUTION, "solana.decimals-unknown", solanaWarningText(warning))
+    SolanaWarning.TOKEN_2022 -> Warning(Danger.CAUTION, "solana.token-2022", solanaWarningText(warning))
 }
 
 /** The signers of an off-chain message other than the signing account, in the order the message gives them. */
