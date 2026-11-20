@@ -244,6 +244,8 @@ internal fun PairWizard(
     val password = remember { PasswordBuffer() }
     var passwordLength by remember { mutableIntStateOf(0) }
     var checking by remember { mutableStateOf(false) }
+    // Counts the stops. A check that began before a stop must not unlock, even when the app is started again before it ends.
+    var stops by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
@@ -251,6 +253,7 @@ internal fun PairWizard(
                 password.clear()
                 passwordLength = 0
                 codeUnlocked = false
+                stops++
             }
         }
         lifecycle.addObserver(observer)
@@ -280,6 +283,7 @@ internal fun PairWizard(
         password.clear()
         passwordLength = 0
         checking = true
+        val stopsAtSubmit = stops
         scope.launch {
             val check = try {
                 checkPassword(entered)
@@ -289,7 +293,8 @@ internal fun PairWizard(
             checking = false
             when (check) {
                 // A check that ends after the app left the foreground does not unlock the code, as the lock on leaving has already run.
-                PasswordCheck.Accepted -> if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) codeUnlocked = true
+                PasswordCheck.Accepted ->
+                    if (stops == stopsAtSubmit && lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) codeUnlocked = true
                 PasswordCheck.Rejected -> Unit
                 PasswordCheck.Unavailable -> onUnavailable()
             }

@@ -92,7 +92,7 @@ fun appReviewRecordOf(entry: AppReviewEntry, atMs: Long, origin: String?, dataHa
         amount = null,
         tokenContract = null,
         fee = emptyList(),
-        params = keptRows(facts?.rows.orEmpty()),
+        params = keptRows(facts?.let { it.facts + it.rows }.orEmpty()),
         origin = origin,
         refusal = entry.refusal,
         dataHash = dataHash,
@@ -128,7 +128,10 @@ private fun evmFactsOf(request: AppRequest): Pair<String?, String> = try {
 
 private fun sha256Hex(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).toHex()
 
-/** The rows a record keeps: all of them up to [MAX_RECORD_ROWS], otherwise the first rows and a note of how many were left out. */
+/**
+ * The rows a record keeps: the facts, such as the network's cluster and the fees, then the rows the owner read. All of them up to
+ * [MAX_RECORD_ROWS]; otherwise the first rows and a note of how many were left out.
+ */
 private fun keptRows(rows: List<Pair<String, String>>): List<Pair<String, String>> =
     if (rows.size > MAX_RECORD_ROWS) {
         rows.take(MAX_RECORD_ROWS - 1) + ("More" to "${rows.size - MAX_RECORD_ROWS + 1} rows not kept")

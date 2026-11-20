@@ -319,9 +319,9 @@ object SolanaSend {
         return SolanaOutcome.PENDING
     }
 
-    /** The explorer page of [signature] on [network]: devnet names its cluster, and mainnet-beta is the default cluster, so it names none. */
+    /** The explorer page of [signature] on [network]: a test cluster names its cluster, and mainnet-beta is the default cluster, so it names none. */
     fun explorerTxUrl(network: NetworkId, signature: String): String =
-        "https://explorer.solana.com/tx/$signature" + if (network == SOLANA_MAINNET) "" else "?cluster=devnet"
+        "https://explorer.solana.com/tx/$signature" + if (network == SOLANA_MAINNET) "" else "?cluster=${network.name}"
 
     private const val REQUEST_ID_BYTES = 16
 }
