@@ -125,7 +125,7 @@ private val INDEXER_RULES = AddressRules(
     default = "",
     edit = ::indexerEdit,
     defaultWords = "Off. Lumio checks no output for inscriptions or runes.",
-    ownWords = "Your ord server. All confirmed outputs of this account are sent to it.",
+    ownWords = "Your ord server. Lumio asks it about each output you spend.",
 )
 
 /**
