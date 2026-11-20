@@ -32,6 +32,25 @@ fun serverEdit(network: BtcNetwork, text: String, current: String): ServerEdit {
     return ServerEdit.Apply(url.takeIf { it != EsploraServers.defaultFor(network) })
 }
 
+/**
+ * What the Ordinals indexer [text] does, given the [requested] address last asked for ("" while it is off). Blank text turns the indexer off, which is
+ * applied as null. An address that is not https is refused, as an Esplora server's is, and a valid address that was already asked for changes nothing.
+ */
+fun indexerEdit(text: String, requested: String): ServerEdit {
+    val trimmed = text.trim()
+    val url = if (trimmed.isEmpty()) {
+        null
+    } else {
+        try {
+            EsploraServers.normalize(trimmed)
+        } catch (e: IllegalArgumentException) {
+            return ServerEdit.Refused("Ordinals Indexer: ${e.message}")
+        }
+    }
+    if (url.orEmpty() == requested) return ServerEdit.Unchanged
+    return ServerEdit.Apply(url)
+}
+
 /** The overrides with [network] set to [url], or back on its public server when [url] is null. The other network keeps its own. */
 fun Map<BtcNetwork, String>.withServer(network: BtcNetwork, url: String?): Map<BtcNetwork, String> =
     if (url == null) this - network else this + (network to url)

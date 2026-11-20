@@ -345,10 +345,10 @@ internal fun SolanaSendRoute(
         }
     }
 
-    /** Leaves a submit that did not send. A setup refused for its blockhash is shown again from its review, with the words why. */
+    /** Leaves a submit that did not send. A refusal for its blockhash or nonce goes to a step that makes a fresh one, with the words why. */
     fun leaveSubmit(current: SolanaSendStep.Submit) {
         val next = unsentExit(current)
-        notice = if (next is SolanaSendStep.SetupReview) SETUP_EXPIRED else null
+        notice = if (next is SolanaSendStep.Request) null else (current.machine.state.value as? SubmitState.Failed)?.message
         step = next
     }
 
@@ -484,15 +484,16 @@ internal fun SolanaSendRoute(
 }
 
 /**
- * The step that leaves a submit which did not send. For a setup, a failure that is not retryable is the blockhash that aged out (see [solanaFailure]),
- * and its request names that blockhash, so the setup goes back to its review for a fresh one. Every other failure returns to the request, as before.
+ * The step that leaves a submit which did not send. A failure that is not retryable is a blockhash or nonce that the network refuses (see
+ * [solanaFailure]). The request that names it is never shown again: a setup goes back to its review for a fresh blockhash, and a send goes back
+ * to its form, whose review reads the nonce that the network holds now. Every other failure returns to the request, as before.
  */
 internal fun unsentExit(current: SolanaSendStep.Submit): SolanaSendStep {
-    val expired = (current.machine.state.value as? SubmitState.Failed)?.retryable == false
-    return if (current.setup && expired) {
-        SolanaSendStep.SetupReview(current.plan.recipientAddress, current.plan.lamports)
-    } else {
-        SolanaSendStep.Request(current.plan, current.parts, current.setup)
+    val refused = (current.machine.state.value as? SubmitState.Failed)?.retryable == false
+    return when {
+        !refused -> SolanaSendStep.Request(current.plan, current.parts, current.setup)
+        current.setup -> SolanaSendStep.SetupReview(current.plan.recipientAddress, current.plan.lamports)
+        else -> SolanaSendStep.Form
     }
 }
 

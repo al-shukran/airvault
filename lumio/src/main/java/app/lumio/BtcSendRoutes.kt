@@ -28,6 +28,7 @@ import app.lumio.btc.BtcSendInput
 import app.lumio.btc.BtcSendPlan
 import app.lumio.btc.BtcSpendable
 import app.lumio.btc.FALLBACK_FEE_RATE_SAT_PER_VB
+import app.lumio.btc.indexerOf
 import app.lumio.btc.networkId
 import app.lumio.data.provider.FeeEstimates
 import app.lumio.data.provider.ProviderError
@@ -169,8 +170,11 @@ internal fun BtcSendRoute(navController: NavHostController, holder: VaultHolder,
                     val to = BtcSendInput.recipient(recipient, ref.account.network)
                     val sats = BtcSendInput.amountSats(amount)
                     val rate = BtcSendInput.feeRate(feeRate.ifBlank { BtcSend.formatFeeRate(suggestedRate ?: FALLBACK_FEE_RATE_SAT_PER_VB) })
+                    // The owner's Ordinals indexer, when one is set, marks each output it finds an inscription or a rune on (spec 5.5).
+                    val indexer = app.lumioVault()?.let { indexerOf(it.configs(), app.http) }
                     // Debug builds only: the pairing fixture's testnet4 coins, which no server holds. Release builds always read the network.
-                    val pool = DebugSpendFixture.spendable(ref.account) ?: BtcSend.spendable(ref.account, app.scheduler, app.addressStats.forNetwork(network.networkId()))
+                    val pool = DebugSpendFixture.spendable(ref.account)
+                        ?: BtcSend.spendable(ref.account, app.scheduler, app.addressStats.forNetwork(network.networkId()), indexer = indexer)
                     pool to BtcSend.plan(ref.account, pool, to, sats, rate)
                 }
             }

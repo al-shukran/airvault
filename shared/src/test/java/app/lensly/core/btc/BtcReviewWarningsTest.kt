@@ -1,7 +1,10 @@
 package app.lensly.core.btc
 
 import fr.acinq.bitcoin.ByteVector
+import fr.acinq.bitcoin.ByteVector32
 import fr.acinq.bitcoin.KeyPath
+import fr.acinq.bitcoin.OutPoint
+import fr.acinq.bitcoin.TxHash
 import fr.acinq.bitcoin.psbt.DataEntry
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -22,6 +25,9 @@ import org.junit.Test
 class BtcReviewWarningsTest {
     private val seed = BitcoinVectors.seed()
     private val account = BtcAccount.fromSeed(seed, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT)
+
+    /** The output that the hand-built reviews of this file spend. Their inputs need one, and no warning here reads it. */
+    private val someOutPoint = OutPoint(TxHash(ByteVector32(ByteArray(32) { 1.toByte() })), 0L)
 
     @Test
     fun aCleanReviewWarnsOnlyThatItsInputsWereNotChecked() {
@@ -61,7 +67,7 @@ class BtcReviewWarningsTest {
         val review = BtcReview(
             inputPolicy = InputVerificationPolicy.STRICT,
             inputs = listOf(
-                BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = KeyPath(listOf(0L)), sequence = 0xFFFFFFFDL),
+                BtcReviewInput(0, someOutPoint, 100_000L, amountVerified = true, ownerPath = KeyPath(listOf(0L)), sequence = 0xFFFFFFFDL),
             ),
             outputs = listOf(
                 BtcReviewOutput(0, "tb1q-example", 50_000L, isOwnChange = false, changeIndex = null, claimsOwnKey = true),
@@ -80,7 +86,7 @@ class BtcReviewWarningsTest {
         val review = BtcReview(
             inputPolicy = InputVerificationPolicy.STRICT,
             inputs = listOf(
-                BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = KeyPath(listOf(0L)), sequence = 0xFFFFFFFDL),
+                BtcReviewInput(0, someOutPoint, 100_000L, amountVerified = true, ownerPath = KeyPath(listOf(0L)), sequence = 0xFFFFFFFDL),
             ),
             outputs = listOf(
                 BtcReviewOutput(0, "tb1q-example", 545L, isOwnChange = false, changeIndex = null),
@@ -169,7 +175,7 @@ class BtcReviewWarningsTest {
             .withInputEntries(0, listOf(BtcPsbt.RISK_MARK))
         val review = BtcFixtures.signerOf(account, seed).review(psbt)
         // Every input is marked, so no unchecked-input note is left.
-        assertEquals(listOf(BtcWarning.RiskMarkedInput(0)), review.warnings())
+        assertEquals(listOf(BtcWarning.RiskMarkedInput(0, OutPoint(spend.funding.hash, 0L))), review.warnings())
     }
 
     @Test
@@ -181,7 +187,10 @@ class BtcReviewWarningsTest {
         val psbt = BtcFixtures.psbt(spends, BtcFixtures.paying(account, 120_000L, 29_000L))
             .withInputEntries(1, listOf(BtcPsbt.RISK_MARK))
         val review = BtcFixtures.signerOf(account, seed).review(psbt)
-        assertEquals(listOf(BtcWarning.RiskMarkedInput(1), BtcWarning.RiskUnchecked), review.warnings())
+        assertEquals(
+            listOf(BtcWarning.RiskMarkedInput(1, OutPoint(spends[1].funding.hash, 0L)), BtcWarning.RiskUnchecked),
+            review.warnings(),
+        )
     }
 
     @Test
@@ -211,6 +220,6 @@ class BtcReviewWarningsTest {
         val psbt = BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, 60_000L, 39_000L))
             .withInputEntries(0, listOf(BtcPsbt.RISK_MARK, BtcPsbt.RISK_MARK))
         val review = BtcFixtures.signerOf(account, seed).review(psbt)
-        assertEquals(listOf(BtcWarning.RiskMarkedInput(0)), review.warnings())
+        assertEquals(listOf(BtcWarning.RiskMarkedInput(0, OutPoint(spend.funding.hash, 0L))), review.warnings())
     }
 }
