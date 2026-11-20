@@ -96,10 +96,10 @@ class EvmReviewBuilder(
         private val request = parsed.request
         private val network: NetworkEntry? = registry.network(chainId)
         private val networkName = network?.name ?: "Unknown network (chain id $chainId)"
-        // A message, or typed data whose domain names no chain, that the request names no chain for is read on Ethereum mainnet, but it is
-        // bound to no network, so the header names none.
-        private val bindsNoChain = request.chainId == null && when (request.dataType) {
-            DataType.PERSONAL_MESSAGE -> true
+        // A message that the request names no chain for is read on Ethereum mainnet, but it is bound to no network, so the header
+        // names none. Typed data is bound to the chain its domain names, so only a domain that names no chain makes the header name none.
+        private val bindsNoChain = when (request.dataType) {
+            DataType.PERSONAL_MESSAGE -> request.chainId == null
             DataType.TYPED_DATA -> (parsed.typed as? TypedDataParser.Result.Ok)?.data?.domainChainId == null
             else -> false
         }

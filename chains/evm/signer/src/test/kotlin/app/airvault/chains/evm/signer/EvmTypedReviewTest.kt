@@ -5,6 +5,7 @@ import app.airvault.core.model.ChainId
 import app.airvault.core.model.Danger
 import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.FieldPath
+import app.airvault.core.model.NetworkLabel
 import app.airvault.core.model.Review
 import app.airvault.core.model.ReviewRow
 import app.airvault.core.model.text
@@ -225,6 +226,15 @@ class EvmTypedReviewTest {
 
         val denylist = assertIs<EvmReviewResult.Ok>(result).review.warnings.single { it.message == PERMIT_WARNING }
         assertEquals(Danger.DANGER, denylist.level)
+    }
+
+    @Test
+    fun aChainlessDomainUnderAnotherRequestChainShowsAnyChainAndIsReadOnTheRequestChain() {
+        val review = typedReview(chainlessPermitJson(), chainId = 1)
+
+        assertEquals(NetworkLabel("Any Chain", testnet = false, detail = null), review.network)
+        assertEquals(ChainId("eip155:1"), review.chain)
+        assertTrue(review.warnings.any { it.code == "evm.typed.chain" && it.level == Danger.CAUTION })
     }
 
     @Test
