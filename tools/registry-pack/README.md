@@ -44,7 +44,7 @@ The release key in use is pinned in `shared/src/main/assets/registry/trusted-key
 `shared/src/main/assets/registry/bundled.lrp` is the signed package the application ships with its approved contracts. Build it with:
 
 ```
-tools/registry-pack/sign-candidate.sh --sequence <N> [--created yyyy-mm-dd]
+tools/registry-pack/sign-candidate.sh --sequence <N> --key <dir>/release.key [--created yyyy-mm-dd]
 ```
 
 The script keeps only the entries listed in `tools/registry-data/approved-contracts/verified-selectors.txt` from
