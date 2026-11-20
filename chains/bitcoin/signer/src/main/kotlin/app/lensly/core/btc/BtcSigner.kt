@@ -90,7 +90,7 @@ class BtcSigner(
                 refuse(BtcRefusal.SegwitWithoutWitness(index))
             }
             if (owner != null && !sighashIsAll(input)) refuse(BtcRefusal.SighashNotAll(index))
-            BtcReviewInput(index, spent.amountSats, spent.verified, owner, txIn.sequence)
+            BtcReviewInput(index, spent.amountSats, spent.verified, owner, txIn.sequence, riskMarked = BtcPsbt.isRiskMarked(input))
         }
         // The user's own Change Output is a change-path address of this Account within the known index range. Any other
         // path or index, including every receive address, is an outside Address.

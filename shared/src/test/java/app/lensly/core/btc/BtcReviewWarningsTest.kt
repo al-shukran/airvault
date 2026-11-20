@@ -1,11 +1,14 @@
 package app.lensly.core.btc
 
+import fr.acinq.bitcoin.ByteVector
 import fr.acinq.bitcoin.KeyPath
+import fr.acinq.bitcoin.psbt.DataEntry
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import app.airvault.chains.bitcoin.signer.BtcFeeThresholds
+import app.airvault.chains.bitcoin.signer.BtcPsbt
 import app.airvault.chains.bitcoin.signer.BtcReview
 import app.airvault.chains.bitcoin.signer.BtcReviewInput
 import app.airvault.chains.bitcoin.signer.BtcReviewOutput
@@ -13,6 +16,7 @@ import app.airvault.chains.bitcoin.signer.BtcWarning
 import app.airvault.chains.bitcoin.signer.FINAL_SEQUENCE
 import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
 import app.airvault.chains.bitcoin.signer.warnings
+import app.lensly.core.btc.BtcFixtures.withInputEntries
 import org.junit.Test
 
 class BtcReviewWarningsTest {
@@ -20,11 +24,11 @@ class BtcReviewWarningsTest {
     private val account = BtcAccount.fromSeed(seed, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT)
 
     @Test
-    fun aCleanReviewHasNoWarnings() {
+    fun aCleanReviewWarnsOnlyThatItsInputsWereNotChecked() {
         // A 1,000 sat fee on 60,000 sat sent is under the default share limit, and its rate is under the default rate limit.
         val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
         val review = BtcFixtures.signerOf(account, seed).review(BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, 60_000L, 39_000L)))
-        assertEquals(emptyList(), review.warnings())
+        assertEquals(listOf(BtcWarning.RiskUnchecked), review.warnings())
     }
 
     @Test
@@ -35,7 +39,7 @@ class BtcReviewWarningsTest {
             BtcFixtures.Spend(BtcFixtures.funding(foreign, 0, 0, 50_000L, salt = 2), foreign, 0, 0),
         )
         val review = BtcFixtures.signerOf(account, seed).review(BtcFixtures.psbt(spends, BtcFixtures.paying(account, 120_000L, 20_000L)))
-        assertEquals(listOf(BtcWarning.ExternalInputs(1)), review.warnings())
+        assertEquals(listOf(BtcWarning.RiskUnchecked, BtcWarning.ExternalInputs(1)), review.warnings())
     }
 
     @Test
@@ -49,7 +53,7 @@ class BtcReviewWarningsTest {
         val review = BtcFixtures.signerOf(account, seed, InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING).review(psbt)
         assertTrue(review.requiresConfirmation)
         assertNull(review.feeSats)
-        assertEquals(listOf(BtcWarning.UnverifiedAmounts(1)), review.warnings())
+        assertEquals(listOf(BtcWarning.RiskUnchecked, BtcWarning.UnverifiedAmounts(1)), review.warnings())
     }
 
     @Test
@@ -67,7 +71,7 @@ class BtcReviewWarningsTest {
             estimatedVsize = 100L,
             lockTime = 0L,
         )
-        assertEquals(listOf(BtcWarning.UnknownChange(1)), review.warnings())
+        assertEquals(listOf(BtcWarning.RiskUnchecked, BtcWarning.UnknownChange(1)), review.warnings())
         assertEquals(500.0, review.feeRateSatPerVb)
     }
 
@@ -89,7 +93,7 @@ class BtcReviewWarningsTest {
             estimatedVsize = 100L,
             lockTime = 0L,
         )
-        assertEquals(listOf(BtcWarning.DustOutputs(1)), review.warnings())
+        assertEquals(listOf(BtcWarning.RiskUnchecked, BtcWarning.DustOutputs(1)), review.warnings())
     }
 
     @Test
@@ -102,7 +106,7 @@ class BtcReviewWarningsTest {
         // The default sequence signals replace-by-fee, and that is what the review shows for the input.
         assertTrue(review.inputs.single().replaceableByFee)
         assertTrue(review.lockTimeEnforced)
-        assertEquals(listOf(BtcWarning.LockTime(850_000L)), review.warnings())
+        assertEquals(listOf(BtcWarning.RiskUnchecked, BtcWarning.LockTime(850_000L)), review.warnings())
     }
 
     @Test
@@ -118,7 +122,7 @@ class BtcReviewWarningsTest {
         assertEquals(850_000L, review.lockTime)
         assertFalse(review.inputs.single().replaceableByFee)
         assertFalse(review.lockTimeEnforced)
-        assertEquals(emptyList(), review.warnings())
+        assertEquals(listOf(BtcWarning.RiskUnchecked), review.warnings())
     }
 
     @Test
@@ -156,5 +160,49 @@ class BtcReviewWarningsTest {
             feeThresholds = BtcFeeThresholds(highFeeRateSatPerVb = 1, feeSharePercent = 1),
         ).review(psbt)
         assertEquals(emptyList(), review.feeWarnings)
+    }
+
+    @Test
+    fun aMarkedInputIsADangerWarningOfItsOwn() {
+        val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+        val psbt = BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, 60_000L, 39_000L))
+            .withInputEntries(0, listOf(BtcPsbt.RISK_MARK))
+        val review = BtcFixtures.signerOf(account, seed).review(psbt)
+        // Every input is marked, so no unchecked-input note is left.
+        assertEquals(listOf(BtcWarning.RiskMarkedInput(0)), review.warnings())
+    }
+
+    @Test
+    fun aMarkedInputIsADangerRowAndTheOtherInputsGetOneCaution() {
+        val spends = listOf(
+            BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0),
+            BtcFixtures.Spend(BtcFixtures.funding(account, 0, 1, 50_000L, salt = 2), account, 0, 1),
+        )
+        val psbt = BtcFixtures.psbt(spends, BtcFixtures.paying(account, 120_000L, 29_000L))
+            .withInputEntries(1, listOf(BtcPsbt.RISK_MARK))
+        val review = BtcFixtures.signerOf(account, seed).review(psbt)
+        assertEquals(listOf(BtcWarning.RiskMarkedInput(1), BtcWarning.RiskUnchecked), review.warnings())
+    }
+
+    @Test
+    fun aPsbtWithAMalformedOversizeOrRepeatedMarkIsUnmarkedAndShowsTheCaution() {
+        val spend = BtcFixtures.Spend(BtcFixtures.funding(account, 0, 0, 100_000L), account, 0, 0)
+        val base = BtcFixtures.psbt(listOf(spend), BtcFixtures.paying(account, 60_000L, 39_000L))
+        val mark = BtcPsbt.RISK_MARK
+        val key = mark.key
+        val cases = listOf(
+            "a value of another byte" to listOf(DataEntry(key, ByteVector(byteArrayOf(0x02)))),
+            "an empty value" to listOf(DataEntry(key, ByteVector.empty)),
+            "a value of two bytes" to listOf(DataEntry(key, ByteVector(byteArrayOf(0x01, 0x00)))),
+            "an oversize value" to listOf(DataEntry(key, ByteVector(ByteArray(64 * 1024) { 0x01 }))),
+            "another subtype" to listOf(DataEntry(ByteVector(byteArrayOf(0xFC.toByte(), 0x08) + "airvault".encodeToByteArray() + byteArrayOf(0x02)), mark.value)),
+            "key data after the subtype" to listOf(DataEntry(ByteVector(key.toByteArray() + byteArrayOf(0x00)), mark.value)),
+            "an oversize key" to listOf(DataEntry(ByteVector(key.toByteArray() + ByteArray(4096)), mark.value)),
+            "a repeated mark" to listOf(mark, mark),
+        )
+        for ((label, entries) in cases) {
+            val review = BtcFixtures.signerOf(account, seed).review(base.withInputEntries(0, entries))
+            assertEquals(listOf(BtcWarning.RiskUnchecked), review.warnings(), label)
+        }
     }
 }
