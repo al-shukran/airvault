@@ -5,6 +5,7 @@ import app.airvault.core.model.ReviewRow
 import app.airvault.core.model.Review as CoreReview
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.KeyScopeViolation
+import app.airvault.core.signer.UNKNOWN_REQUEST
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
 import app.lensly.app.sign.ReviewOutcome
@@ -16,7 +17,6 @@ import app.lensly.chains.installedSignerOf
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.parse.ScanReply
-import app.lensly.core.parse.UNSUPPORTED_CODE
 import app.lensly.core.parse.WireException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -230,7 +230,7 @@ class SignFlow(
      * and a refusal of it is recorded under that wallet.
      */
     private suspend fun decideApp(started: Int, request: AppRequest): SignStep {
-        if (installedSignerOf(request.header.app) == null) return SignStep.Refused(UNSUPPORTED_CODE)
+        if (installedSignerOf(request.header.app) == null) return SignStep.Refused(UNKNOWN_REQUEST)
         val refusal = try {
             routingRefusalOf(request)
         } catch (e: WireException) {

@@ -5,6 +5,7 @@ package app.airvault.chains.algorand
 // 1101 and 1102, the number names the type in the registry and is not written into the payload, which is a plain CBOR map.
 
 import app.airvault.core.model.isPrintableCodePoint
+import app.airvault.core.signer.UNKNOWN_REQUEST
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.MalformedPayloadException
@@ -133,7 +134,7 @@ class AlgoSignRequest(
             for ((key, value) in dict.entries) {
                 val number = uintOf(key, "map key")
                 // A key Lensly does not read is refused, not ignored: the owner must not sign a request with a field the review does not show.
-                if (number !in 1L..6L) malformed("unknown map key $number")
+                if (number !in 1L..6L) malformed(UNKNOWN_REQUEST)
                 if (fields.put(number, value) != null) malformed("duplicate map key $number")
             }
             return fields

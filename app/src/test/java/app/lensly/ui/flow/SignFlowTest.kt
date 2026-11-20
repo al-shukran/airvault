@@ -12,6 +12,7 @@ import app.airvault.core.signer.EcdsaSignature
 import app.airvault.core.signer.KeyAccess
 import app.airvault.core.signer.Path
 import app.airvault.core.signer.ScopedKeyAccess
+import app.airvault.core.signer.UNKNOWN_REQUEST
 import app.lensly.app.EVM_FAMILY
 import app.lensly.app.export.PairingExport
 import app.lensly.app.export.partsOf
@@ -31,7 +32,6 @@ import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.SandboxedParser
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.ScriptedSandbox
-import app.lensly.core.parse.UNSUPPORTED_CODE
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
@@ -363,7 +363,7 @@ class SignFlowTest {
 
         scan(flow, framesOf(messageRequest(), FRAGMENT))
 
-        assertEquals(SignStep.Refused(UNSUPPORTED_CODE), flow.state.value)
+        assertEquals(SignStep.Refused(UNKNOWN_REQUEST), flow.state.value)
         assertTrue(ports.records.isEmpty(), "No wallet is recorded for an unsupported request")
         assertEquals(0, ports.signCalls)
     }
@@ -373,7 +373,12 @@ class SignFlowTest {
         val flow = SignFlow(FakePorts(), WALLET_ID)
         val otherCode = PairingExport.urParts(listOf(XPUB), WALLET.masterFingerprint, "Lensly")
         scan(flow, otherCode.asSequence())
-        assertEquals(SignStep.Refused("Unsupported code"), flow.state.value)
+        assertEquals(
+            SignStep.Refused(
+                "This request uses something this Lensly does not know. It may come from a newer Lumio. Nothing was signed.",
+            ),
+            flow.state.value,
+        )
     }
 
     @Test
@@ -882,7 +887,12 @@ class SignFlowTest {
 
         scan(flow, otherCode.asSequence())
 
-        assertEquals(SignStep.Refused("Unsupported code"), flow.state.value)
+        assertEquals(
+            SignStep.Refused(
+                "This request uses something this Lensly does not know. It may come from a newer Lumio. Nothing was signed.",
+            ),
+            flow.state.value,
+        )
         assertTrue(ports.records.isEmpty())
     }
 

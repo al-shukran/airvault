@@ -123,7 +123,10 @@ class AlgoSignRequestTest {
 
     @Test
     fun aKeyLenslyDoesNotReadIsRefusedNotIgnored() {
-        assertTrue(rejectedReason(payload(7L to Cbor.Uint(0))).contains("unknown map key 7"))
+        assertEquals(
+            "This request uses something this Lensly does not know. It may come from a newer Lumio. Nothing was signed.",
+            rejectedReason(payload(7L to Cbor.Uint(0))),
+        )
     }
 
     @Test

@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.ReviewRow
 import app.airvault.core.model.text
+import app.airvault.core.signer.UNKNOWN_REQUEST
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
@@ -83,7 +84,11 @@ fun SignRefusedScreen(
             Spacer(Modifier.height(LenslySpacing.md))
         }
         Text(
-            text = "Check the request on your online wallet, then start SIGN again.",
+            text = if (reason == UNKNOWN_REQUEST) {
+                "Update Lumio's request to a format this Lensly knows, then start SIGN again."
+            } else {
+                "Check the request on your online wallet, then start SIGN again."
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
