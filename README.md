@@ -17,7 +17,11 @@ Both apps come from one code base.
 - **Lensly** (`app/`) is the offline vault and signer. It holds the seed, parses requests, shows the review, and signs. It never touches a network.
 - **Lumio** (`lumio/`) is the online companion wallet. It tracks accounts and balances, builds transactions, and broadcasts them. It never sees a private key.
 
-The apps talk only through QR codes.
+## How the Apps Relate
+
+AirVault is the project name. Lensly and Lumio are the two Android apps in it, and they work as a pair. Lensly is the offline half, and Lumio is the online half.
+
+Lumio builds transactions and passes each request to Lensly as QR codes. Lensly reviews the request, signs it, and returns the result the same way. The two apps exchange data only through QR codes, so no network connection links them. Both apps share code from `shared/` and `core/`.
 
 ## Supported Chains
 
