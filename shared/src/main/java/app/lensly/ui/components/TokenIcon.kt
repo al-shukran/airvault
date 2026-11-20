@@ -79,10 +79,10 @@ internal fun tokenIconRes(token: TokenEntry?): Int {
  * chain the copy is on, which is the chain that issued it. [chain] must be that chain. A null [chain] (not in the
  * registry), a chain without a logo, and any other token have no badge.
  */
-internal fun tokenBadgeSpec(token: TokenEntry?, chain: NetworkEntry?): ChainIconSpec.Logo? {
+internal fun tokenBadgeLogo(token: TokenEntry?, chain: NetworkEntry?): ChainLogo? {
     if (token == null || chain == null || chain.chainId != token.chainId) return null
     if (copiedSymbolOf(token) == null) return null
-    return chainIconSpec(chain) as? ChainIconSpec.Logo
+    return chainLogo(chain)
 }
 
 /**
@@ -94,7 +94,7 @@ internal fun tokenBadgeSpec(token: TokenEntry?, chain: NetworkEntry?): ChainIcon
 fun TokenIcon(token: TokenEntry?, size: Dp, modifier: Modifier = Modifier, chain: NetworkEntry? = null) {
     val icon = token?.icon
     val backdrop = icon != null && icon in tokenIconsNeedingBackdrop
-    val badge = tokenBadgeSpec(token, chain)
+    val badge = tokenBadgeLogo(token, chain)
     if (badge == null) {
         BackdropLogo(
             painter = painterResource(tokenIconRes(token)),

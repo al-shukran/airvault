@@ -63,9 +63,12 @@ import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.home.ActivityScreen
 import app.lensly.ui.home.AlgorandAccountsScreen
 import app.lensly.ui.home.BitcoinAccountsScreen
-import app.lensly.ui.home.BulkChain
 import app.lensly.ui.home.BulkGenerateScreen
+import app.lensly.ui.home.BulkTarget
+import app.lensly.ui.home.DEFAULT_ALGORAND
 import app.lensly.ui.home.DEFAULT_BITCOIN
+import app.lensly.ui.home.DEFAULT_EVM
+import app.lensly.ui.home.DEFAULT_SOLANA
 import app.lensly.ui.home.EthereumAccountsScreen
 import app.lensly.ui.home.HomeReadiness
 import app.lensly.ui.home.ImportState
@@ -973,12 +976,12 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
     var failure by remember { mutableStateOf<String?>(null) }
     // The run starts on the chain of its App: Ethereum on EVM, Bitcoin on the default Bitcoin account.
     var chain by remember(walletId, app) {
-        mutableStateOf<BulkChain>(
+        mutableStateOf<BulkTarget>(
             when (app) {
                 WalletApp.BITCOIN -> DEFAULT_BITCOIN
-                WalletApp.SOLANA -> BulkChain.Solana
-                WalletApp.ALGORAND -> BulkChain.Algorand
-                WalletApp.ETHEREUM -> BulkChain.Evm
+                WalletApp.SOLANA -> DEFAULT_SOLANA
+                WalletApp.ALGORAND -> DEFAULT_ALGORAND
+                WalletApp.ETHEREUM -> DEFAULT_EVM
             },
         )
     }
@@ -1038,8 +1041,8 @@ private fun BulkRoute(navController: NavHostController, holder: VaultHolder, wal
             val check = BulkPolicy.checkTyped(digits, cap.accounts)
             val count = (check as? BulkPolicy.CountCheck.Valid)?.count
             val chosenRun = chain
-            // A Bitcoin run needs a seed. The screen disables GENERATE for a Single Key, and this refuses it too.
-            if (running || count == null || (chosenRun !is BulkChain.Evm && shown.kind != WalletKind.MNEMONIC)) {
+            // Every run but Ethereum's needs a seed. The screen disables GENERATE for a Single Key, and this refuses it too.
+            if (running || count == null || (chosenRun.needsSeed && shown.kind != WalletKind.MNEMONIC)) {
                 return@generate
             }
             running = true
