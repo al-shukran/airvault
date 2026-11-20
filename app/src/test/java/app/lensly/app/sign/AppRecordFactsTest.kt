@@ -15,10 +15,10 @@ import app.airvault.core.signer.SignerRef
 import app.lensly.app.ReviewRecordCodec
 import app.lensly.app.SigningAccount
 import app.lensly.core.ur.PathStep
-import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.junit.Test
 
 /** The Review Record of an installed chain app keeps the facts of its review, and of a Bitcoin review its capped outputs. */
 class AppRecordFactsTest {
