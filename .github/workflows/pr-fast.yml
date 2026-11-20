@@ -135,7 +135,7 @@ jobs:
           key: bc-shard-${{ matrix.shard }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
           restore-keys: |
             bc-shard-${{ matrix.shard }}-${{ env.BUILD_CACHE_SCOPE }}-
-            bc-shard-${{ matrix.shard }}-master-
+            bc-shard-${{ matrix.shard }}-master-a0133c587a809f03a3e94a97dc9df4cdd0fe8a38
 
       - name: Run shard-${{ matrix.shard }}
         run: ./scripts/ci/run-partition.sh shard-${{ matrix.shard }}
@@ -198,7 +198,7 @@ jobs:
           key: bc-verify-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
           restore-keys: |
             bc-verify-${{ env.BUILD_CACHE_SCOPE }}-
-            bc-verify-master-
+            bc-verify-master-a0133c587a809f03a3e94a97dc9df4cdd0fe8a38
 
       - name: Verify screenshots
         run: ./scripts/ci/run-partition.sh verify
@@ -261,7 +261,7 @@ jobs:
           key: bc-fuzz-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
           restore-keys: |
             bc-fuzz-${{ env.BUILD_CACHE_SCOPE }}-
-            bc-fuzz-master-
+            bc-fuzz-master-a0133c587a809f03a3e94a97dc9df4cdd0fe8a38
 
       - name: Replay the fuzz seeds
         run: ./scripts/ci/run-partition.sh fuzz
@@ -316,7 +316,7 @@ jobs:
           key: bc-android-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
           restore-keys: |
             bc-android-${{ env.BUILD_CACHE_SCOPE }}-
-            bc-android-master-
+            bc-android-master-a0133c587a809f03a3e94a97dc9df4cdd0fe8a38
 
       - name: Assemble the Lumio debug APK
         run: ./scripts/ci/run-partition.sh apk
@@ -380,7 +380,7 @@ jobs:
             .gradle/configuration-cache
           key: bc-lint-${{ matrix.module }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
           restore-keys: |
-            bc-lint-${{ matrix.module }}-master-
+            bc-lint-${{ matrix.module }}-master-a0133c587a809f03a3e94a97dc9df4cdd0fe8a38
 
       - name: Lint :${{ matrix.module }}
         run: ./scripts/ci/run-partition.sh lint-${{ matrix.module }}
