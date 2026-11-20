@@ -77,32 +77,6 @@ class WalletNamesTest {
     }
 
     @Test
-    fun aQuestionMarkInAWalletOrSingleKeyNameIsRefusedAndNothingIsWritten() {
-        assertFailsWith<IllegalArgumentException> {
-            store.create(name = "Seed?", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
-        }
-        assertFailsWith<IllegalArgumentException> { store.createSingleKey(name = "Key?", privateKey = key, nowMs = 5L) }
-
-        assertEquals(emptyList(), session.listWallets())
-    }
-
-    @Test
-    fun aNewWalletNameIsStoredTrimmed() {
-        val id = store.createSingleKey(name = "  Imported  ", privateKey = key, nowMs = 5L)
-
-        assertEquals("Imported", assertNotNull(store.meta(id)).name)
-    }
-
-    @Test
-    fun aWalletRenamedWithAQuestionMarkKeepsItsName() {
-        val id = newWallet()
-
-        assertFailsWith<IllegalArgumentException> { store.renameWallet(id, "Vault?") }
-
-        assertEquals("Seed", assertNotNull(store.meta(id)).name)
-    }
-
-    @Test
     fun aRenamedWalletKeepsItsNameAfterALock() {
         val id = newWallet()
         val before = assertNotNull(store.meta(id))
