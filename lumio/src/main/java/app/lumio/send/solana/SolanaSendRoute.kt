@@ -23,7 +23,6 @@ import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.LumioApp
 import app.lumio.chains.ChainHoldings
-import app.lumio.data.MonotonicClock
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.RentExemptMinimum
@@ -59,7 +58,7 @@ import kotlinx.coroutines.withContext
 
 
 /** The screens of a Solana send, in the order the owner goes through them. */
-private sealed interface SolanaSendStep {
+internal sealed interface SolanaSendStep {
     data object Form : SolanaSendStep
 
     /** The camera reads a recipient: an address, or a `solana:` link that holds one. */
@@ -70,7 +69,10 @@ private sealed interface SolanaSendStep {
     /** The one-time setup of offline signing: the nonce account to create, and the rent paid into it. Shown before Lensly signs the setup. */
     class SetupReview(val nonceAccount: String, val rentLamports: Long) : SolanaSendStep
 
-    /** A request for Lensly to sign. [setup] is true for the one-time setup, which is not a send. */
+    /**
+     * A request for Lensly to sign, as shown. [plan] and [parts] stay as they are while it is on screen: Lensly's answer is checked against the request ID
+     * of [plan], so a request that changed under the owner would refuse the answer to the one they scanned. [setup] is true for the one-time setup.
+     */
     class Request(val plan: SolanaSendPlan, val parts: List<String>, val setup: Boolean = false) : SolanaSendStep
 
     class Scanning(val plan: SolanaSendPlan, val parts: List<String>, val setup: Boolean = false) : SolanaSendStep
@@ -248,7 +250,7 @@ internal fun SolanaSendRoute(
         notice = null
         scope.launch {
             val outcome = withContext(Dispatchers.IO) {
-                runCatching { SolanaSend.setupAt(scheduler, network, from, current.rentLamports, MonotonicClock) }
+                runCatching { SolanaSend.setupAt(scheduler, network, from, current.rentLamports) }
             }
             busy = false
             outcome.fold(
@@ -256,23 +258,6 @@ internal fun SolanaSendRoute(
                 onFailure = { error -> notice = ownerWords(error, PREPARE_FAILED) },
             )
         }
-    }
-
-    // A setup that stays on the screen unscanned for SETUP_REFRESH_MS is rebuilt at a fresh blockhash, with no tap. Leaving the request for the
-    // scanner cancels the wait, and coming back to it waits only for the rest of the time since the fetch.
-    val pendingSetup = (step as? SolanaSendStep.Request)?.takeIf { it.setup }
-    LaunchedEffect(pendingSetup) {
-        val request = pendingSetup ?: return@LaunchedEffect
-        val from = account ?: return@LaunchedEffect
-        val fetchedAtMs = request.plan.window?.fetchedAtMs ?: return@LaunchedEffect
-        SolanaSend.awaitRefresh(fetchedAtMs, MonotonicClock)
-        val rebuilt = withContext(Dispatchers.IO) {
-            runCatching { SolanaSend.setupAt(scheduler, network, from, request.plan.lamports, MonotonicClock) }
-        }
-        rebuilt.fold(
-            onSuccess = { plan -> confirm(plan, setup = true) },
-            onFailure = { error -> notice = ownerWords(error, PREPARE_FAILED) },
-        )
     }
 
     /** A scanned recipient fills the form. A code that is refused keeps the camera on, with the words why. */
@@ -360,6 +345,13 @@ internal fun SolanaSendRoute(
         }
     }
 
+    /** Leaves a submit that did not send. A setup refused for its blockhash is shown again from its review, with the words why. */
+    fun leaveSubmit(current: SolanaSendStep.Submit) {
+        val next = unsentExit(current)
+        notice = if (next is SolanaSendStep.SetupReview) SETUP_EXPIRED else null
+        step = next
+    }
+
     /**
      * Done on a setup's submit screen. The form comes back with the outcome, and the balance is read again, since the rent has left the account.
      */
@@ -398,10 +390,7 @@ internal fun SolanaSendRoute(
             is SolanaSendStep.Submit -> when (current.machine.state.value) {
                 SubmitState.Submitting -> Unit
                 is SubmitState.Sent -> if (current.setup) finishSetup() else navController.popBackStack()
-                else -> {
-                    notice = null
-                    step = SolanaSendStep.Request(current.plan, current.parts, current.setup)
-                }
+                else -> leaveSubmit(current)
             }
         }
     }
@@ -488,12 +477,22 @@ internal fun SolanaSendRoute(
                 notice = null
                 step = SolanaSendStep.Form
             },
-            onBack = {
-                notice = null
-                step = SolanaSendStep.Request(current.plan, current.parts, current.setup)
-            },
+            onBack = { leaveSubmit(current) },
             onDone = { if (current.setup) finishSetup() else navController.popBackStack() },
         )
+    }
+}
+
+/**
+ * The step that leaves a submit which did not send. For a setup, a failure that is not retryable is the blockhash that aged out (see [solanaFailure]),
+ * and its request names that blockhash, so the setup goes back to its review for a fresh one. Every other failure returns to the request, as before.
+ */
+internal fun unsentExit(current: SolanaSendStep.Submit): SolanaSendStep {
+    val expired = (current.machine.state.value as? SubmitState.Failed)?.retryable == false
+    return if (current.setup && expired) {
+        SolanaSendStep.SetupReview(current.plan.recipientAddress, current.plan.lamports)
+    } else {
+        SolanaSendStep.Request(current.plan, current.parts, current.setup)
     }
 }
 

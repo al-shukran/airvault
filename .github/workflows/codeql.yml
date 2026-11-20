@@ -227,6 +227,7 @@ jobs:
     permissions:
       issues: write
       checks: write
+      security-events: read
     steps:
       - name: Download the findings
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -236,12 +237,28 @@ jobs:
         # run as broken instead of reporting nothing at all.
         continue-on-error: true
 
+      # The daily issue counts the open alerts. A dismissed alert is a decision, not a finding, so the SARIF results of
+      # the scan (which keep dismissed alerts) are not counted there. A request keeps its per-language results.
+      - name: Count the open alerts
+        id: alerts
+        if: inputs.request_number == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          open=$(gh api --paginate "repos/$REPO/code-scanning/alerts?state=open&per_page=100" --jq 'length' \
+            | awk '{ total += $1 } END { print total + 0 }')
+          echo "open=$open" >> "$GITHUB_OUTPUT"
+
       - name: Build the result body
         id: body
         shell: bash
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           EVENT_SHA: ${{ github.sha }}
+          REQUEST: ${{ inputs.request_number }}
+          OPEN: ${{ steps.alerts.outputs.open }}
         run: |
           set -euo pipefail
           languages="actions javascript-typescript python java-kotlin"
@@ -278,6 +295,9 @@ jobs:
             fi
           done
           [ -n "$sha" ] || sha="$EVENT_SHA"
+          if [ -z "$REQUEST" ]; then
+            total="$OPEN"
+          fi
           if [ -n "$broken" ]; then
             state=broken
           elif [ "$total" -gt 0 ]; then
@@ -290,8 +310,12 @@ jobs:
             printf 'Run: %s\n\n' "$RUN_URL"
             printf 'Commit: %s\n\n' "$sha"
             printf 'State: %s\n\n' "$state"
-            printf 'Results per language:\n\n| Language | Results |\n| --- | --- |\n'
-            cat "$counts"
+            if [ -n "$REQUEST" ]; then
+              printf 'Results per language:\n\n| Language | Results |\n| --- | --- |\n'
+              cat "$counts"
+            else
+              printf 'Open code-scanning alerts: %s\n' "$total"
+            fi
           } > "$body"
           if [ -n "$broken" ]; then
             {
@@ -300,7 +324,7 @@ jobs:
               printf '\nRun log: %s\n' "$RUN_URL"
             } >> "$body"
           fi
-          if [ "$total" -gt 0 ]; then
+          if [ -n "$REQUEST" ] && [ "$total" -gt 0 ]; then
             {
               printf '\nFindings (up to 200 rows):\n\n'
               printf '| Language | Severity | Rule | Location | Message |\n'

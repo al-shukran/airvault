@@ -58,7 +58,7 @@ private fun readyOf(request: AppRequest, policy: InputVerificationPolicy = Input
     val record = BitcoinAccountRecord(BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0, BTC_ACCOUNT.receiveAddress(0))
     val review = BtcFixtures.signerOf(BTC_ACCOUNT, BTC_SEED, policy).review(psbt)
     val reviewed = BitcoinReviewed(record, review, SAMPLE_SIGNER)
-    val core = bitcoinReviewOf(review, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT)
+    val core = bitcoinReviewOf(review, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, SAMPLE_SIGNER.address)
     return AppPrepared.Ready(
         walletId = BTC_WALLET_ID,
         request = request,

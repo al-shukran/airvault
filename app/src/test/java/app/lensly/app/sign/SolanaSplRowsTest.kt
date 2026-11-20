@@ -51,7 +51,7 @@ class SolanaSplRowsTest {
     fun aTransferCheckedWithAKnownTokenSaysItsSymbolInTheSentence() {
         val review = review("spl-compute-transfer-checked", usdcTokens)
 
-        assertEquals("Sends 2 USDC to token account ${SolanaSplFixtures.DESTINATION}.", solanaSentence(review))
+        assertEquals("Send 2 USDC from $payer to ${SolanaSplFixtures.DESTINATION}?", solanaSentence(review))
     }
 
     @Test
@@ -108,7 +108,7 @@ class SolanaSplRowsTest {
     fun anAssociatedTokenCreateThenATransferCheckedSaysSoInTheSentenceAndFacts() {
         val review = review("spl-usdc-first-transfer", usdcTokens)
 
-        assertEquals("Sends 1.234567 USDC to token account ${SolanaSplFixtures.USDC_ATA}.", solanaSentence(review))
+        assertEquals("Send 1.234567 USDC from $payer to ${SolanaSplFixtures.USDC_ATA}?", solanaSentence(review))
         assertEquals(
             listOf(
                 "Instructions" to "4",
@@ -126,7 +126,7 @@ class SolanaSplRowsTest {
     fun aPlainTransferSaysItsDecimalsAreUnknownAndNamesNoMint() {
         val review = review("spl-transfer-plain", usdcTokens)
 
-        assertEquals("Sends 7 base units to token account ${SolanaSplFixtures.DESTINATION}.", solanaSentence(review))
+        assertEquals("Send 7 base units from $payer to ${SolanaSplFixtures.DESTINATION}?", solanaSentence(review))
         assertEquals(
             listOf(
                 "Signer" to payer,

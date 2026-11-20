@@ -114,13 +114,7 @@ private fun plainTransfer(warnings: List<Warning> = emptyList()) = Review(
     title = "Native Transfer",
     chain = BASE_CHAIN,
     network = BASE_NETWORK,
-    summary = listOf(
-        SummaryPart.Text("Sends "),
-        SummaryPart.Mono("0.01 ETH"),
-        SummaryPart.Text(" to "),
-        SummaryPart.Counterparty(TO),
-        SummaryPart.Text("."),
-    ),
+    summary = listOf(SummaryPart.Send("0.01", "ETH", FROM, TO)),
     facts = listOf(
         ReviewRow("Gas Limit", DisplayValue.Number(BigInteger.valueOf(21_000)), null),
         ReviewRow("Max Fee", DisplayValue.Text("0.00063 ETH"), null),
