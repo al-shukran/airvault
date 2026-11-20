@@ -446,6 +446,27 @@ class EvmReviewTest {
     }
 
     @Test
+    fun typedDataWhoseDomainAndRequestNameNoChainShowsAnyChainNotEthereum() {
+        val json = """{"types":{"Note":[{"name":"text","type":"string"}],"EIP712Domain":[{"name":"name","type":"string"}]},""" +
+            """"primaryType":"Note","domain":{"name":"Lensly"},"message":{"text":"hi"}}"""
+        val request = EthSignRequest(
+            requestId = null,
+            signData = json.toByteArray(Charsets.UTF_8),
+            dataType = DataType.TYPED_DATA,
+            chainId = null,
+            derivationPath = PATH,
+            sourceFingerprint = null,
+            address = null,
+            origin = "dapp.example",
+        )
+
+        val review = reviewOf(EvmRequestParser.parsedOf(request))
+
+        assertEquals(NetworkLabel("Any Chain", testnet = false, detail = null), review.network)
+        assertTrue(review.sections.single { it.heading == "Request" }.rows.any { it.label == "Signature for Any Chain" })
+    }
+
+    @Test
     fun aTransactionThatNamesNoChainIsStillRefused() {
         val request = EthSignRequest(
             requestId = null,
