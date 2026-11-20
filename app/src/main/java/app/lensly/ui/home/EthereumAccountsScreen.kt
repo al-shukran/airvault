@@ -232,6 +232,7 @@ fun EthereumAccountsScreen(
                                     address = addresses[index],
                                     shown = groupedAddress(addresses[index]),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    icon = true,
                                     onClick = if (selecting) toggle else openAccount,
                                 )
                             }

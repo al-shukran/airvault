@@ -3,6 +3,8 @@ package app.lensly.ui.components
 import android.content.ClipData
 import android.content.ClipDescription
 import android.content.ClipboardManager
+import androidx.compose.ui.test.assertDoesNotExist
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -88,10 +90,24 @@ class AddressTextTest {
         assertEquals("unchanged", clipboardText())
     }
 
-    private fun setAddress(onClick: (() -> Unit)? = null) {
+    @Test
+    fun aRowShowsNoEthereumLogoUnlessItAsksForOne() {
+        setAddress()
+
+        compose.onNodeWithTag(ADDRESS_ICON_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun anEvmRowShowsTheEthereumLogoWhenItAsksForIt() {
+        setAddress(icon = true)
+
+        compose.onNodeWithTag(ADDRESS_ICON_TAG).assertExists()
+    }
+
+    private fun setAddress(icon: Boolean = false, onClick: (() -> Unit)? = null) {
         compose.setContent {
             LumenTheme {
-                AddressText(address = ADDRESS, shown = SHORT, icon = false, onClick = onClick)
+                AddressText(address = ADDRESS, shown = SHORT, icon = icon, onClick = onClick)
             }
         }
     }

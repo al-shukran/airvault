@@ -12,7 +12,7 @@ import app.lensly.ui.components.AddressText
 internal fun ProxyFacts(proxy: ProxyBinding) {
     proxy.implementationAddress?.let { address ->
         FactRow(label = "Approved Implementation") {
-            AddressText(address = address)
+            AddressText(address = address, icon = true)
         }
     }
     proxy.implementationCodeHash?.let { hash ->
