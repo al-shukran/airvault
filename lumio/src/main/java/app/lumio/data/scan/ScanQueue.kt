@@ -103,7 +103,7 @@ class ScanQueue(private val rows: () -> ScanRows?) {
 
     private companion object {
         val AAD = "lumio-scan-job-v1".toByteArray(Charsets.UTF_8)
-        val json = Json { ignoreUnknownKeys = true }
+        val json = Json
         const val EVENT_BUFFER = 64
     }
 }

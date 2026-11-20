@@ -8,6 +8,9 @@ import androidx.compose.ui.graphics.Color
 /** The light disc behind a dark logo that would vanish on black. Neutral grey, so it adds no hue to the brand colour. */
 val LenslyLogoBackdrop = Color(0xFFE6E6E6)
 
+/** The dark disc behind a pale logo that would vanish on a light page. Neutral, like [LenslyLogoBackdrop]. */
+val LenslyLogoDarkBackdrop = Color(0xFF1C1C1C)
+
 // The palette of account and wallet colours. Each one is light enough that a black icon reads on it, and each one stands
 // out on black. The names match ProfileColour in the app package.
 val LenslyProfileRed = Color(0xFFFF5C5C)

@@ -44,7 +44,7 @@ data class EvmSettings(
 
 /** Reads and writes [EvmSettings] as the vault record [EvmSettings.RECORD]. */
 object EvmSettingsStore {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json
 
     /** The settings stored in [session], or the defaults when none are stored or the record does not parse. */
     fun read(session: VaultSession): EvmSettings {

@@ -1,6 +1,5 @@
 package app.lensly.ui.components
 
-import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
@@ -20,11 +19,11 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.shared.R
 
 /**
- * Chain logos that are too dark to see on black, so they draw on a light backdrop. Each one averages under 0.15 relative
- * luminance against black, over every fill and gradient stop of its drawable. The brand colours are not changed.
- * Every name here must be a key of [chainIconDrawables]: ChainTokenIconsTest checks that. Re-measure when a logo changes.
+ * Chain logos too dark for a dark page, which sit on a light disc there. Each averages under 0.15 relative luminance against black, over
+ * every fill and gradient stop of its drawable. The brand colours are not changed. Every name here must be a key of [chainIconDrawables]:
+ * ChainTokenIconsTest checks that. Re-measure when a logo changes.
  */
-val chainIconsNeedingBackdrop: Set<String> = setOf(
+val chainIconsNeedingLightBackdrop: Set<String> = setOf(
     "chain_abstract",
     "chain_apechain",
     "chain_base",
@@ -38,27 +37,49 @@ val chainIconsNeedingBackdrop: Set<String> = setOf(
     "chain_sei_network",
 )
 
-/** A chain logo: its drawable, and whether it sits on a light disc ([backdrop]). [ChainIcon] and token badges draw it. */
-internal data class ChainLogo(@DrawableRes val res: Int, val backdrop: Boolean)
+/**
+ * Chain logos too pale for a light page, which sit on a dark disc there. Measured on the emulator, the average colour of each logo's artwork
+ * is within 1.25:1 contrast of the light page, so the logo vanishes on it. The next logo up measured 1.44:1. The brand colours are not
+ * changed. Every name here must be a key of [chainIconDrawables]: ChainTokenIconsTest checks that. Re-measure when a logo changes.
+ */
+val chainIconsNeedingDarkBackdrop: Set<String> = setOf(
+    "chain_blast",
+    "chain_celo",
+    "chain_fraxtal",
+    "chain_fuse",
+    "chain_immutable",
+    "chain_kaia",
+    "chain_katana",
+    "chain_lens",
+    "chain_linea",
+    "chain_mantle",
+    "chain_mode",
+    "chain_okex",
+    "chain_plasma",
+    "chain_soneium",
+    "chain_sonic",
+    "chain_world",
+    "chain_x_layer",
+    "chain_zksync",
+)
 
 /**
- * The logo [network] shows, or null when it has none, and then [ChainIcon] shows a monogram of its name. A null network is not in the
- * registry, so it shows the Ethereum logo, which unknown chains share. Otherwise the logo is the drawable that the network's icon names.
- * A name that is not in [chainIconDrawables] is a logo this build does not ship, so the network has none. A network never shows the
- * Ethereum logo for itself.
+ * The drawable of the logo [network] shows, or null when it has none, and then [ChainIcon] shows a monogram of its name. A null network is not
+ * in the registry, so it shows the Ethereum logo, which unknown chains share. Otherwise the logo is the drawable that the network's icon names.
+ * A name that is not in [chainIconDrawables] is a logo this build does not ship, so the network has none. A network never shows the Ethereum
+ * logo for itself.
  */
-internal fun chainLogo(network: NetworkEntry?): ChainLogo? {
-    if (network == null) return ChainLogo(R.drawable.chain_ethereum, backdrop = false)
+internal fun chainLogo(network: NetworkEntry?): Int? {
+    if (network == null) return R.drawable.chain_ethereum
     val icon = network.icon ?: return null
-    val res = chainIconDrawables[icon] ?: return null
-    return ChainLogo(res, backdrop = icon in chainIconsNeedingBackdrop)
+    return chainIconDrawables[icon]
 }
 
 /**
- * The logo of the network of [networks] that a record names by [name], or null when no network has that name, or that network has no logo. A name
- * the registry does not list has no logo: [NetworkLogo] shows a letter for it, never the Ethereum logo.
+ * The drawable of the logo a record shows for the network it names by [name], looked up in [networks] (see [chainLogo]). A name the registry
+ * does not list has no logo: [NetworkLogo] shows a letter for it, never the Ethereum logo.
  */
-internal fun networkLogoOf(name: String?, networks: List<NetworkEntry>): ChainLogo? {
+internal fun networkLogoOf(name: String?, networks: List<NetworkEntry>): Int? {
     val network = networks.firstOrNull { it.name == name } ?: return null
     return chainLogo(network)
 }
@@ -69,17 +90,17 @@ internal fun monogramOf(name: String): String =
 
 /**
  * A chain logo at [size]. It is decorative: the text beside it names the network. A null [network] shows the Ethereum
- * logo. A registry network with no logo shows a monogram of its name, in the same [size]. A logo in
- * [chainIconsNeedingBackdrop] sits on a light backdrop.
+ * logo. A registry network with no logo shows a monogram of its name, in the same [size]. A logo that would vanish on the
+ * page sits on a disc (see [BackdropLogo]).
  */
 @Composable
 fun ChainIcon(network: NetworkEntry?, size: Dp, modifier: Modifier = Modifier) {
     val logo = chainLogo(network)
     when {
         logo != null -> BackdropLogo(
-            painter = painterResource(logo.res),
+            painter = painterResource(logo),
             size = size,
-            backdrop = logo.backdrop,
+            tone = logoTone(logo),
             modifier = modifier,
         )
         network != null -> LetterMonogram(letter = monogramOf(network.name), size = size, modifier = modifier)
@@ -94,7 +115,7 @@ fun ChainIcon(network: NetworkEntry?, size: Dp, modifier: Modifier = Modifier) {
 fun NetworkLogo(name: String?, networks: List<NetworkEntry>, size: Dp, modifier: Modifier = Modifier) {
     val logo = networkLogoOf(name, networks)
     if (logo != null) {
-        BackdropLogo(painter = painterResource(logo.res), size = size, backdrop = logo.backdrop, modifier = modifier)
+        BackdropLogo(painter = painterResource(logo), size = size, tone = logoTone(logo), modifier = modifier)
     } else {
         LetterMonogram(letter = monogramOf(name.orEmpty()), size = size, modifier = modifier)
     }
@@ -152,17 +173,17 @@ fun AddressIcon(size: Dp, modifier: Modifier = Modifier) {
 /** The Bitcoin logo beside a Bitcoin account. It is decorative: the text beside it names the account. */
 @Composable
 fun BitcoinIcon(size: Dp, modifier: Modifier = Modifier) {
-    BackdropLogo(painter = painterResource(R.drawable.chain_bitcoin), size = size, backdrop = false, modifier = modifier)
+    BackdropLogo(painter = painterResource(R.drawable.chain_bitcoin), size = size, tone = logoTone(R.drawable.chain_bitcoin), modifier = modifier)
 }
 
 /** The Solana logo beside a Solana account. It is decorative: the text beside it names the account. */
 @Composable
 fun SolanaIcon(size: Dp, modifier: Modifier = Modifier) {
-    BackdropLogo(painter = painterResource(R.drawable.ic_solana), size = size, backdrop = false, modifier = modifier)
+    BackdropLogo(painter = painterResource(R.drawable.ic_solana), size = size, tone = logoTone(R.drawable.ic_solana), modifier = modifier)
 }
 
 /** The Algorand logo beside an Algorand account. It is decorative: the text beside it names the account. */
 @Composable
 fun AlgorandIcon(size: Dp, modifier: Modifier = Modifier) {
-    BackdropLogo(painter = painterResource(R.drawable.ic_algorand), size = size, backdrop = true, modifier = modifier)
+    BackdropLogo(painter = painterResource(R.drawable.ic_algorand), size = size, tone = logoTone(R.drawable.ic_algorand), modifier = modifier)
 }
