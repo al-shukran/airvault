@@ -17,13 +17,13 @@ on:
 permissions:
   contents: read
 
-# The build cache has a scope per run. A pull request restores master's entries and saves none. A pull request's own entries were
-# restored ahead of master's, and its lint entries lacked the compile outputs master's entries hold, so the next run of the same
-# pull request compiled cold. Pull requests also used to save the other lanes' entries (about 450 MB each), which evicted master's
-# shard entries under GitHub's 10 GB per repository limit. A push to master and a queue entry use `master` and save every lane's
-# entry, even when it fails or is cancelled, so the next run can restore what this run built. `cache-prune` deletes the caches a
-# push supersedes once its lanes have saved (scripts/ci/prune-caches.sh), so the repository keeps one master generation of build
-# caches and one dependency cache, instead of one generation per push.
+# Build state. Each Gradle lane restores the newest master entry of its own state (.github/actions/gradle-lane): the project's
+# build directories and Gradle's execution history (.gradle), which also holds the configuration cache. Gradle then reruns only
+# the tasks whose inputs the change touched, and Kotlin compiles those incrementally. A restored build cache gave outputs but no
+# incremental state, so any change in a low module (chains, core, shared) recompiled every module above it from scratch, in
+# every lane, for 2 to 3 minutes. A pull request restores master's state and saves none, so each run of a pull request starts
+# from master's last verified state. A push to master and a queue entry save every lane's state, even when it fails or is
+# cancelled. `cache-prune` keeps the newest entry of each cache (scripts/ci/prune-caches.sh).
 env:
   BUILD_CACHE_SCOPE: ${{ github.event_name == 'pull_request' && format('pr{0}', github.event.pull_request.number) || 'master' }}
   # Gradle encrypts configuration-cache entries with this key. Without a shared key, each runner's own keystore encrypts them, so
@@ -41,6 +41,10 @@ env:
     ~/.gradle/caches/9.7.0/scripts
     ~/.gradle/caches/9.7.0/transforms
     ~/.gradle/caches/jars-9
+  # The project-side state of a lane: every module's build directory and the project's .gradle directory.
+  BUILD_STATE_PATHS: |
+    .gradle
+    **/build
 
 # A pull request supersedes its own earlier run. A master push or a queue entry always finishes: each commit that lands is
 # verified.
@@ -101,7 +105,7 @@ jobs:
     name: shard ${{ matrix.shard }}
     needs: deps
     runs-on: ubuntu-24.04
-    # The cap covers cache restore and save: master shards ran 190-295 s, and a slow save cancelled two passing shards.
+    # A lane whose build state is missing builds cold, which takes up to about 6 minutes. The lane budget (pr-ok) reports it.
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -112,58 +116,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+      - uses: ./.github/actions/gradle-lane
         with:
-          distribution: temurin
-          java-version: '21.0.13+9'
-
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-disabled: true
-
-      - name: Restore the Gradle dependency cache
-        id: deps
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.DEPS_CACHE_PATHS }}
-          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
-
-      # A stalled download only warns, so one more try runs before the lane fails on a miss or an error.
-      - name: Restore the Gradle dependency cache again when it was not restored
-        if: steps.deps.outputs.cache-hit != 'true'
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.DEPS_CACHE_PATHS }}
-          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
-          fail-on-cache-miss: true
-
-      # The build cache and the configuration cache of this lane: this run's scope first, then master's.
-      - name: Restore the Gradle build cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
-          key: bc-shard-${{ matrix.shard }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
-          restore-keys: |
-            bc-shard-${{ matrix.shard }}-${{ env.BUILD_CACHE_SCOPE }}-
-            bc-shard-${{ matrix.shard }}-master-
-
-      - name: Run shard-${{ matrix.shard }}
-        run: ./scripts/ci/run-partition.sh shard-${{ matrix.shard }}
-
-      - name: Stop the Gradle daemon before the cache is saved
-        if: always()
-        run: ./gradlew --stop
-
-      - name: Save the Gradle build cache
-        if: always() && github.event_name != 'pull_request'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
-          key: bc-shard-${{ matrix.shard }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
+          lanes: shard-${{ matrix.shard }}
+          state: shard-${{ matrix.shard }}
 
       - name: Upload the JUnit results
         if: always()
@@ -179,54 +135,16 @@ jobs:
     name: verify screenshots
     needs: deps
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+      - uses: ./.github/actions/gradle-lane
         with:
-          distribution: temurin
-          java-version: '21.0.13+9'
-
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-disabled: true
-
-      - name: Restore the Gradle dependency cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.DEPS_CACHE_PATHS }}
-          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
-          fail-on-cache-miss: true
-
-      - name: Restore the Gradle build cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
-          key: bc-verify-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
-          restore-keys: |
-            bc-verify-${{ env.BUILD_CACHE_SCOPE }}-
-            bc-verify-master-
-
-      - name: Verify screenshots
-        run: ./scripts/ci/run-partition.sh verify
-
-      - name: Stop the Gradle daemon before the cache is saved
-        if: always()
-        run: ./gradlew --stop
-
-      - name: Save the Gradle build cache
-        if: always() && github.event_name != 'pull_request'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
-          key: bc-verify-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
+          lanes: verify
+          state: verify
 
       - name: Upload the JUnit results
         if: always()
@@ -242,113 +160,33 @@ jobs:
     name: fuzz replay
     needs: deps
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+      - uses: ./.github/actions/gradle-lane
         with:
-          distribution: temurin
-          java-version: '21.0.13+9'
-
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-disabled: true
-
-      - name: Restore the Gradle dependency cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.DEPS_CACHE_PATHS }}
-          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
-          fail-on-cache-miss: true
-
-      - name: Restore the Gradle build cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
-          key: bc-fuzz-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
-          restore-keys: |
-            bc-fuzz-${{ env.BUILD_CACHE_SCOPE }}-
-            bc-fuzz-master-
-
-      - name: Replay the fuzz seeds
-        run: ./scripts/ci/run-partition.sh fuzz
-
-      - name: Stop the Gradle daemon before the cache is saved
-        if: always()
-        run: ./gradlew --stop
-
-      - name: Save the Gradle build cache
-        if: always() && github.event_name != 'pull_request'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
-          key: bc-fuzz-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
+          lanes: fuzz
+          state: fuzz
 
   # Assembles the Lumio debug APK. The androidTest and benchmark sources compile on master and in the merge queue only: no test lane
-  # runs them, and on a cold build cache they cost a pull request about two minutes.
+  # runs them, and they would add about two minutes to a pull request.
   android:
     name: lumio apk
     needs: deps
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+      - uses: ./.github/actions/gradle-lane
         with:
-          distribution: temurin
-          java-version: '21.0.13+9'
-
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-disabled: true
-
-      - name: Restore the Gradle dependency cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.DEPS_CACHE_PATHS }}
-          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
-          fail-on-cache-miss: true
-
-      - name: Restore the Gradle build cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
-          key: bc-android-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
-          restore-keys: |
-            bc-android-${{ env.BUILD_CACHE_SCOPE }}-
-            bc-android-master-
-
-      - name: Assemble the Lumio debug APK
-        run: ./scripts/ci/run-partition.sh apk
-
-      - name: Compile androidTest and benchmark
-        if: github.event_name != 'pull_request'
-        run: ./scripts/ci/run-partition.sh android-tests
-
-      - name: Stop the Gradle daemon before the cache is saved
-        if: always()
-        run: ./gradlew --stop
-
-      - name: Save the Gradle build cache
-        if: always() && github.event_name != 'pull_request'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
-          key: bc-android-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
+          lanes: ${{ github.event_name == 'pull_request' && 'apk' || 'apk android-tests' }}
+          state: android
 
   # Android lint, one leg per module (scripts/ci/run-partition.sh lint-<module>). A leg compiles its module and the modules it
   # depends on, then lints its main sources, and the legs run on their own runners side by side, so no leg waits for another
@@ -358,7 +196,7 @@ jobs:
     name: lint ${{ matrix.module }}
     needs: deps
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -368,47 +206,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+      - uses: ./.github/actions/gradle-lane
         with:
-          distribution: temurin
-          java-version: '21.0.13+9'
-
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-disabled: true
-
-      - name: Restore the Gradle dependency cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.DEPS_CACHE_PATHS }}
-          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
-          fail-on-cache-miss: true
-
-      - name: Restore the Gradle build cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
-          key: bc-lint-${{ matrix.module }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
-          restore-keys: |
-            bc-lint-${{ matrix.module }}-master-
-
-      - name: Lint :${{ matrix.module }}
-        run: ./scripts/ci/run-partition.sh lint-${{ matrix.module }}
-
-      - name: Stop the Gradle daemon before the cache is saved
-        if: always()
-        run: ./gradlew --stop
-
-      - name: Save the Gradle build cache
-        if: always() && github.event_name != 'pull_request'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
-          key: bc-lint-${{ matrix.module }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
+          lanes: lint-${{ matrix.module }}
+          state: lint-${{ matrix.module }}
 
   # Guideline 1.8 and R56. The merged manifests and the OkHttp check (scripts/ci/run-partition.sh manifest).
   manifest:
@@ -421,24 +222,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+      - uses: ./.github/actions/gradle-lane
         with:
-          distribution: temurin
-          java-version: '21.0.13+9'
-
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-disabled: true
-
-      - name: Restore the Gradle dependency cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.DEPS_CACHE_PATHS }}
-          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
-          fail-on-cache-miss: true
-
-      - name: Check the merged manifests
-        run: ./scripts/ci/run-partition.sh manifest
+          lanes: manifest
 
   # No Gradle: every script's syntax, the test-class coverage of the lanes, and the test-network guard (guideline 3).
   ci:
@@ -512,9 +298,9 @@ jobs:
         with:
           fail-on-severity: high
 
-  # Deletes the caches this push supersedes. It runs after every lane, so the previous master's caches stay restorable until this
-  # push has saved its own: a pull request that starts meanwhile restores them. Pull requests save no caches, so nothing here
-  # touches a pull request's entries.
+  # Deletes superseded master caches after every lane of this push has saved, so the previous master's state stays restorable
+  # until then. Each cache keeps its newest entry and no entry newer than this run is deleted, so two pushes close together never
+  # delete each other's fresh state. No concurrency group: a queued group member is cancelled, which marks the master run.
   cache-prune:
     name: prune superseded caches
     if: always() && github.event_name == 'push'
@@ -529,11 +315,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Delete the caches this push supersedes
+      - name: Delete superseded caches
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          DEPS_KEY: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
         run: scripts/ci/prune-caches.sh
 
   pr-ok: # the single required check
@@ -541,6 +326,10 @@ jobs:
     needs: [deps, shard, roborazzi, fuzz, android, lint, manifest, ci, secrets, dependency_review]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      actions: read # the lane times of this run
+      contents: read
+      issues: write # the ci-budget issue, on a push to master
     env:
       DEPS: ${{ needs.deps.result }}
       SHARD: ${{ needs.shard.result }}
@@ -554,6 +343,21 @@ jobs:
       DEPENDENCY_REVIEW: ${{ needs.dependency_review.result }}
       DEPENDENCY_GRAPH_ENABLED: ${{ vars.DEPENDENCY_GRAPH_ENABLED }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/ci
+
+      # The machine-enforced budget (scripts/ci/lane-budget.sh). It reports and files an issue; it never fails the gate, so a
+      # slow lane is fixed in a pull request, not rerun to green.
+      - name: Check the lane budget
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          FILE_ISSUE: ${{ github.event_name == 'push' }}
+        run: scripts/ci/lane-budget.sh
+
       - name: Aggregate results
         run: |
           failed=0
