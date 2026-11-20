@@ -7,6 +7,7 @@ import app.airvault.chains.evm.evmManifest
 import app.airvault.core.model.AddressCodec
 import app.airvault.core.model.AddressKind
 import app.airvault.core.model.Approval
+import app.airvault.core.model.ChainId
 import app.airvault.core.model.ChainManifest
 import app.airvault.core.model.Curve
 import app.airvault.core.model.DisplayValue
@@ -65,7 +66,10 @@ object EvmSigner : SignerApp {
      */
     override fun sign(request: AppRequest, approval: Approval, keys: KeyAccess): SignResponse {
         val parsed = EvmRequestBody.decode(request.body)
-        require(approval.review.chain == request.header.chain) { "The approval is for another chain." }
+        // The approval must be of the review this body gets, on the chain reviewChainId names. For typed data that is the
+        // domain's chain, not the header's.
+        val reviewChain = reviewChainId(parsed) ?: throw IllegalArgumentException(NO_NETWORK)
+        require(approval.review.chain == ChainId("eip155:$reviewChain")) { "The approval is for another chain." }
         val requestId = requireNotNull(parsed.request.requestId) { NO_REQUEST_ID }
         val path = Path(request.header.signers.single().path.ifEmpty { singleKeyPath.steps })
         val sender = addressOf(keys.publicKey(Curve.SECP256K1, path).bytes)

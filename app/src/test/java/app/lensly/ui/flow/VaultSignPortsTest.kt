@@ -4,10 +4,12 @@ import android.content.Context
 import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.chains.evm.signer.EvmRequestParser
+import app.airvault.chains.evm.signer.TypedDataParser
 import app.airvault.chains.evm.signer.UnsignedTx
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.signer.SolanaRequestParser
 import app.airvault.core.model.Approval
+import app.airvault.core.model.ChainId
 import app.airvault.chains.bitcoin.signer.BitcoinSigner
 import app.airvault.chains.bitcoin.signer.BtcRefusal
 import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
@@ -17,7 +19,9 @@ import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
 import app.airvault.core.signer.SignerRef
 import app.lensly.app.export.partsOf
+import app.lensly.core.evm.Secp256k1
 import app.lensly.core.evm.TxSigner
+import app.lensly.core.evm.TypedDataSigner
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
@@ -451,6 +455,43 @@ class VaultSignPortsTest {
         }
     }
 
+    /**
+     * A Hyperliquid L1 Agent message names chain 1337 in its domain, and an Arbitrum request asks to sign it. The review is built on the domain's chain,
+     * so the approval names 1337, and the one sign flow signs the message under the account's key, as the message's own signature.
+     */
+    @Test
+    fun aHyperliquidTypedMessageIsSignedOnItsDomainChainThroughTheOneSignFlow() {
+        val (session, id) = sessionWithWallet()
+        try {
+            val ports = VaultSignPorts(context, holderOf(session))
+            val ready = reviewed(ports, id, hyperliquidRequest(fingerprintOf(ports)))
+            val approval = assertNotNull(Approval.of(ready.review, ready.review.checkLabels().toSet()))
+
+            assertEquals(ChainId("eip155:1337"), ready.review.chain)
+            assertEquals(expectedTypedFrames(HYPERLIQUID_AGENT, walletKey(0)), runBlocking { ports.appSign(ready, approval) })
+        } finally {
+            session.close()
+        }
+    }
+
+    /** An approval whose review names the request's chain, not the chain of the typed message's domain, is refused at sign time, and nothing is signed. */
+    @Test
+    fun aHyperliquidApprovalOfTheRequestsChainIsRefusedAtSignTime() {
+        val (session, id) = sessionWithWallet()
+        try {
+            val ports = VaultSignPorts(context, holderOf(session))
+            val ready = reviewed(ports, id, hyperliquidRequest(fingerprintOf(ports)))
+            val tampered = ready.review.copy(chain = ChainId("eip155:$ARBITRUM"))
+            val approval = assertNotNull(Approval.of(tampered, tampered.checkLabels().toSet()))
+
+            val refused = assertFailsWith<IllegalArgumentException> { runBlocking { ports.appSign(ready, approval) } }
+
+            assertEquals("The approval is for another chain.", refused.message)
+        } finally {
+            session.close()
+        }
+    }
+
     /** A request for a key outside the scope of the EVM app is refused by the key access when it is signed. */
     @Test
     fun aRequestForAKeyOutsideTheEvmScopeIsRefusedWhenItIsSigned() {
@@ -541,6 +582,17 @@ class VaultSignPortsTest {
         return runBlocking { ports.appSign(ready, approval) }
     }
 
+    /** The request an Arbitrum wallet sends for the Hyperliquid L1 Agent message, which names the master [fingerprint]. */
+    private fun hyperliquidRequest(fingerprint: Int): AppRequest =
+        evmRequest(HYPERLIQUID_AGENT.toByteArray(Charsets.UTF_8), ARBITRUM, fingerprint = fingerprint, dataType = DataType.TYPED_DATA)
+
+    /** The frames the sign path gives for the typed message [json] under [key]: its digest, signed once, as the chain app signs it. */
+    private fun expectedTypedFrames(json: String, key: ByteArray): List<String> {
+        val typed = assertIs<TypedDataParser.Result.Ok>(TypedDataParser.parse(json.toByteArray(Charsets.UTF_8))).data
+        val signature = TypedDataSigner.signatureOf(typed) { digest -> Secp256k1.sign(digest, key) }
+        return partsOf(EthSignatureEncoder.encode(EVM_REQUEST_ID, signature))
+    }
+
     /** The frames the sign path gave for the transaction [signData] under [key], before the sign flow moved to the chain app. */
     private fun expectedEvmFrames(signData: ByteArray, key: ByteArray): List<String> {
         val tx = assertIs<UnsignedTx.Result.Ok>(UnsignedTx.decode(signData, DataType.TRANSACTION)).tx
@@ -596,7 +648,15 @@ class VaultSignPortsTest {
         const val DURESS = "Gh5%Rt8!Yu2#Pk6@Ws3Fn"
         const val MONAD = 10143L
         const val POLYGON = 137L
+        const val ARBITRUM = 42161L
         const val RECIPIENT = "0x9858EfFD232B4033E47d90003D41EC34EcaEda94"
         val EVM_REQUEST_ID = ByteArray(16) { 0x33 }
+
+        /** A Hyperliquid L1 Agent message: its domain names chain 1337, and its connection ID is the dummy one of the Hyperliquid SDK's signing tests. */
+        const val HYPERLIQUID_AGENT = """{"types":{"Agent":[{"name":"source","type":"string"},{"name":"connectionId","type":"bytes32"}],""" +
+            """"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},{"name":"chainId","type":"uint256"},""" +
+            """{"name":"verifyingContract","type":"address"}]},"primaryType":"Agent","domain":{"chainId":1337,"name":"Exchange",""" +
+            """"verifyingContract":"0x0000000000000000000000000000000000000000","version":"1"},"message":{"source":"a",""" +
+            """"connectionId":"0xf528daee6a0bd11407b483cfcd9a48c56884180b70ee86f124053e5fc1bf4d57"}}"""
     }
 }

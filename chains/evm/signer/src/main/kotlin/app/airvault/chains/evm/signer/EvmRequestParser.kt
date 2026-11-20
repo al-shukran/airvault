@@ -37,6 +37,13 @@ internal fun readChainId(parsed: ParsedRequest): Long? {
 }
 
 /**
+ * The chain a review of [parsed] is built on: the chain its typed-data domain names, when it names one, or else the chain it is read on
+ * ([readChainId]). The review and the sign-time check of the approval both read it here, so they agree. Null when no chain is named.
+ */
+internal fun reviewChainId(parsed: ParsedRequest): Long? =
+    (parsed.typed as? TypedDataParser.Result.Ok)?.data?.domainChainId?.toLong() ?: readChainId(parsed)
+
+/**
  * The parser of eth-sign-request (spec 3.2). It reads the request and parses its data: a transaction as RLP, typed data as EIP-712 and a
  * call or multicall inside the transaction. The result is kept as the body, which the app reads back with [EvmRequestBody.decode]. A request
  * that a parse refuses still carries the refusal in its body, so the review shows it.

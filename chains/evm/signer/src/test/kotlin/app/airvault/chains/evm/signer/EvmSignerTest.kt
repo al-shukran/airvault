@@ -113,6 +113,19 @@ class EvmSignerTest {
         assertTrue(keys.signedPaths.isEmpty())
     }
 
+    /** The approval must be of the chain the request is for. An approval of another chain signs nothing, even one whose sender is the right key. */
+    @Test
+    fun anApprovalOfAnotherChainSignsNothing() {
+        val keys = FakeKeys(KEY)
+
+        val refusal = assertFailsWith<IllegalArgumentException> {
+            EvmSigner.sign(requestOf(legacyPayload(), MONAD), approvalOf(1L, senderOf(KEY)), keys)
+        }
+
+        assertEquals("The approval is for another chain.", refusal.message)
+        assertTrue(keys.signedPaths.isEmpty(), "A refused request signs nothing")
+    }
+
     @Test
     fun aRequestWithNoRequestIdIsRefused() {
         val keys = FakeKeys(KEY)

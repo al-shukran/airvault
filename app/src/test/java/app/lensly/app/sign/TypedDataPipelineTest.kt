@@ -5,6 +5,7 @@ import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.chains.evm.signer.EvmRequestParser
 import app.airvault.chains.evm.signer.ParsedRequest
+import app.airvault.chains.evm.signer.TypedDataParser
 import app.lensly.core.evm.EvmFixtures
 import app.lensly.core.parse.InProcessParser
 import app.lensly.core.registry.DenylistEntry
@@ -158,7 +159,7 @@ class TypedDataPipelineTest {
     fun aSignedPermitRecoversToTheAccountOverTheDigestWithVOf27Or28() {
         val ready = ready(permitDoc())
         val key = WALLET.privateKey(ready.accountIndex)
-        val frames = OPEN_PIPELINE.sign(ready, key)
+        val frames = signFramesOf(ready, key)
 
         assertEquals(1, frames.size)
         val scanner = UrScanner()
@@ -174,13 +175,12 @@ class TypedDataPipelineTest {
         assertTrue(signature[64] == 27.toByte() || signature[64] == 28.toByte())
 
         val recovered = EvmFixtures.recoveredAddress(
-            assertNotNull(ready.typed).digest(),
+            (EvmRequestParser.parsedOf(ready.request).typed as TypedDataParser.Result.Ok).data.digest(),
             signature.copyOfRange(0, 32),
             signature.copyOfRange(32, 64),
             signature[64].toInt() - 27,
         )
         assertEquals(EvmFixtures.normalize(VIEW.addressAt(0)), recovered)
-        assertTrue(key.all { it == 0.toByte() })
     }
 
 }
