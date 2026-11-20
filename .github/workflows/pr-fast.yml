@@ -49,9 +49,11 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # The one job that may use the network for dependencies. A cache hit on the key skips it. The key covers the files that decide
-  # what Gradle resolves, so a dependency change always makes a new key. A miss can take three attempts of resolveAll
-  # (scripts/ci/run-partition.sh online), so this job has 10 minutes where the other lanes have 5.
+  # The one job that may use the network for dependencies. The key covers the files that decide what Gradle resolves, so a
+  # dependency change always makes a new key. On a hit this job only looks the key up: every lane restores the entry itself, so
+  # a hit downloads nothing here, and no lane waits on a second 1.2 GB restore. On a miss it resolves online and saves the entry.
+  # A miss can take three attempts of resolveAll (scripts/ci/run-partition.sh online), so this job has 10 minutes where the other
+  # lanes have 5.
   deps:
     name: resolve dependencies
     runs-on: ubuntu-24.04
@@ -61,7 +63,17 @@ jobs:
         with:
           persist-credentials: false
 
+      # The paths are DEPS_CACHE_PATHS (top of this file). Every job saves and restores that one list.
+      - name: Look up the Gradle dependency cache
+        id: deps
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DEPS_CACHE_PATHS }}
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          lookup-only: true
+
       - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        if: steps.deps.outputs.cache-hit != 'true'
         with:
           distribution: temurin
           java-version: '21.0.13+9'
@@ -69,20 +81,20 @@ jobs:
       # cache-disabled: setup-gradle's own cache entries were the poisoned ones (its cleanup purged plugin marker POMs). The
       # dependency and build caches below replace them.
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        if: steps.deps.outputs.cache-hit != 'true'
         with:
           cache-disabled: true
-
-      # The paths are DEPS_CACHE_PATHS (top of this file). Every job saves and restores that one list.
-      - name: Restore the Gradle dependency cache
-        id: deps
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.DEPS_CACHE_PATHS }}
-          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
 
       - name: Resolve every configuration (online, on a cache miss only)
         if: steps.deps.outputs.cache-hit != 'true'
         run: ./scripts/ci/run-partition.sh resolve
+
+      - name: Save the Gradle dependency cache (on a cache miss only)
+        if: steps.deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DEPS_CACHE_PATHS }}
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
 
   # The unit tests of :app, :lumio, :shared and the pure JVM modules, in six balanced lanes (scripts/ci/shards.txt).
   shard:

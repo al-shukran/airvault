@@ -48,7 +48,8 @@ The lines balance the lanes. A test class with no line still runs, so adding a t
 - `deps-v3-<os>-<hash>` restores the directories in `DEPS_CACHE_PATHS` (`pr-fast.yml`): `modules-2`, the wrapper distributions,
   and the generated directories the configuration cache names as inputs (`dependencies-accessors`, `transforms`, `kotlin-dsl`,
   `scripts`, `generated-gradle-jars`, `jars-9`). The hash covers the version catalog, `verification-metadata.xml`, the wrapper
-  properties, every `*.gradle.kts`, `settings.gradle.kts` and `gradle.properties`. The `deps` job saves it on a miss only.
+  properties, every `*.gradle.kts`, `settings.gradle.kts` and `gradle.properties`. The `deps` job looks the key up with
+  `lookup-only`, so a hit downloads nothing there; it resolves and saves the entry on a miss only.
 - `bc-<lane>-<scope>-<sha>` holds `~/.gradle/caches/build-cache-1` and `.gradle/configuration-cache`. The lint legs name their
   module in the lane (`bc-lint-app-<scope>-<sha>`). The scope is `master` on a push or a queue entry, and `pr<number>` in a pull
   request, which saves nothing. A push to master and a queue entry save every lane's entry, even when it fails or is cancelled.
@@ -62,6 +63,8 @@ The lines balance the lanes. A test class with no line still runs, so adding a t
 - The configuration cache is encrypted with `GRADLE_ENCRYPTION_KEY`, a repository secret. Without it, each runner encrypts with its
   own keystore, a restored entry reads as absent ("no cached configuration is available"), and no lane reuses the configuration.
   Empty means no key, which is how a fork's pull request runs.
+- CI runs each test task in two JVM forks and writes no HTML test reports (root `build.gradle.kts`, from the `CI` variable).
+  A local run keeps one fork and every report.
 - `lintAnalyze*` tasks are cacheable (root `build.gradle.kts`). AGP leaves them uncacheable by default.
 - `setup-gradle` runs with `cache-disabled: true`: its own cache cleanup purged plugin marker POMs, which made later runs fail with
   "plugin not found".
