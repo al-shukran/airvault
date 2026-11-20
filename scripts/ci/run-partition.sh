@@ -13,6 +13,8 @@ fi
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 SHARDS="$ROOT/scripts/ci/shards.txt"
+# Every Gradle call of a lane takes the lane settings, which apply only where CI is set (scripts/ci/lanes.init.gradle).
+GRADLEW=(./gradlew --init-script "$ROOT/scripts/ci/lanes.init.gradle")
 
 # Watchdog, kept on purpose. If this lane is still running after 240 s, the job log gets the JVM thread dumps (every Gradle
 # daemon, worker and wrapper JVM) and the open sockets. The watchdog only dumps: the job's own timeout still ends a stalled
@@ -138,8 +140,8 @@ prime_tasks=(
 )
 
 run_resolve() {
-    online ./gradlew --no-configuration-cache resolveAll
-    online ./gradlew --dry-run --configuration-cache "${prime_tasks[@]}"
+    online "${GRADLEW[@]}" --no-configuration-cache resolveAll
+    online "${GRADLEW[@]}" --dry-run --configuration-cache "${prime_tasks[@]}"
 }
 
 run_shard() {
@@ -166,7 +168,7 @@ run_shard() {
                 ;;
         esac
     done < <(printf '%s\n' "$units" | awk '!seen[$1]++ { print $1 }')
-    ./gradlew --offline "${tasks[@]}"
+    "${GRADLEW[@]}" --offline "${tasks[@]}"
 }
 
 run_verify() {
@@ -185,7 +187,7 @@ run_verify() {
     done < <(lane_units verify "$unlisted")
     # The filtered test task runs the pixel tests in verify mode (Roborazzi switches it on when the verify task is requested), so
     # each pixel test runs once. Without the filter, verifyRoborazziDebug would run every unit test of the module again.
-    ./gradlew --offline :app:testDebugUnitTest "${app[@]}" :app:verifyRoborazziDebug \
+    "${GRADLEW[@]}" --offline :app:testDebugUnitTest "${app[@]}" :app:verifyRoborazziDebug \
         :lumio:testDebugUnitTest "${lumio[@]}" :lumio:verifyRoborazziDebug
 }
 
@@ -197,15 +199,15 @@ run_fuzz() {
         tests+=(--tests "$c")
     done < <(lane_units fuzz "$unlisted" | awk '$1 == ":shared" { print $2 }')
     # The fuzz targets read -PfuzzLane and run in their own JVM: Jazzer and Robolectric cannot share one.
-    ./gradlew --offline :shared:testDebugUnitTest "${tests[@]}" -PfuzzLane
+    "${GRADLEW[@]}" --offline :shared:testDebugUnitTest "${tests[@]}" -PfuzzLane
 }
 
 run_apk() {
-    ./gradlew --offline :lumio:assembleDebug
+    "${GRADLEW[@]}" --offline :lumio:assembleDebug
 }
 
 run_android_tests() {
-    ./gradlew --offline :app:compileDebugAndroidTestKotlin :app:compileBenchmarkKotlin :app:compileBenchmarkAndroidTestKotlin \
+    "${GRADLEW[@]}" --offline :app:compileDebugAndroidTestKotlin :app:compileBenchmarkKotlin :app:compileBenchmarkAndroidTestKotlin \
         :lumio:compileDebugAndroidTestKotlin :lumio:compileBenchmarkKotlin
 }
 
@@ -220,14 +222,14 @@ lint_test_analyses_off=(
 
 run_lint() {
     # $1 is the module: app, lumio or shared.
-    ./gradlew --offline ":$1:lintReportDebug" "${lint_test_analyses_off[@]}"
+    "${GRADLEW[@]}" --offline ":$1:lintReportDebug" "${lint_test_analyses_off[@]}"
 }
 
 run_manifest() {
     # The merged debug manifests of :app and :lumio (check-manifest.sh runs its own Gradle task, offline).
     scripts/ci/check-manifest.sh
     # Lensly (:app) is offline in release too. check-manifest.sh reads only the debug merge, so the release merge is read here.
-    ./gradlew --offline :app:processReleaseMainManifest
+    "${GRADLEW[@]}" --offline :app:processReleaseMainManifest
     local merged
     merged="$(find app/build/intermediates -path '*merged_manifest*/release/*' -name AndroidManifest.xml | head -n 1)"
     if [ -z "$merged" ]; then
@@ -241,7 +243,7 @@ run_manifest() {
     echo "ok: the merged release manifest of :app has no android.permission.INTERNET"
     # R56: web3j brings OkHttp, the HTTP client, and shared excludes it from web3j. :app never calls it.
     local deps
-    deps="$(./gradlew --offline :app:dependencies --configuration releaseRuntimeClasspath -q)"
+    deps="$("${GRADLEW[@]}" --offline :app:dependencies --configuration releaseRuntimeClasspath -q)"
     if printf '%s\n' "$deps" | grep -q 'com\.squareup\.okhttp3'; then
         echo "error: OkHttp is on the release runtime classpath of :app; Lensly is offline by design (see shared/build.gradle.kts)" >&2
         exit 1

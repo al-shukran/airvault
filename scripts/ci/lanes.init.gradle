@@ -1,0 +1,13 @@
+// Gradle settings of the PR lanes. scripts/ci/run-partition.sh passes this file to every Gradle call of a lane, and it applies
+// only where GitHub Actions sets CI, so a local build is unchanged. A test task runs in two JVM forks, because a lane's classes
+// would otherwise run one after another on a four-vCPU runner. It writes no HTML test report: the JUnit XML is uploaded, and the
+// HTML files are most of a test task's cached output. The file is not a *.gradle.kts, so editing it leaves the dependency-cache
+// key of pr-fast.yml unchanged.
+if (System.getenv('CI') == 'true') {
+    gradle.allprojects {
+        tasks.withType(org.gradle.api.tasks.testing.Test).configureEach {
+            maxParallelForks = 2
+            reports.html.required = false
+        }
+    }
+}

@@ -102,17 +102,6 @@ listOf("app", "lumio", "shared").forEach { module ->
     }
 }
 
-// CI runs a test task in two JVM forks, because a lane's classes otherwise run one after another on a four-vCPU runner. CI also
-// writes no HTML test reports: the JUnit XML is uploaded, and the HTML is most of a test task's cached output. A local run keeps
-// one fork and every report.
-val ciRunner = providers.environmentVariable("CI").isPresent
-subprojects {
-    tasks.withType<Test>().configureEach {
-        maxParallelForks = if (ciRunner) 2 else 1
-        reports.html.required.set(!ciRunner)
-    }
-}
-
 // Lint analysis is cacheable. AGP leaves lintAnalyze tasks uncacheable, so every lint lane re-analyzed the Android modules
 // (about four minutes) with no source change. The analysis reads only the module's inputs, and the lint report task still
 // fails the build on an error, so this only skips re-analysis. The outputs keep absolute paths, so an entry is valid on the
