@@ -50,10 +50,11 @@ lanes:
   shard-1..6   the unit tests shards.txt lists under the lane; shard-6 also runs the unlisted ones; pure JVM modules run whole
   verify       the Roborazzi pixel tests of :app and :lumio, with verifyRoborazziDebug
   fuzz         the Jazzer seed replays (app.lensly.fuzz.*), with -PfuzzLane
-  android      androidTest and benchmark compile of :app and :lumio, and the Lumio debug APK
-  lint-app, lint-shared
-               lintDebug of one module, the legs of the lint job
-  lint-lumio   the lumio leg: lints its main sources only (no test-variant analyses), see run_lint
+  apk          the Lumio debug APK (:lumio:assembleDebug)
+  android-tests
+               androidTest and benchmark compile of :app and :lumio (master and merge queue only)
+  lint-app, lint-shared, lint-lumio
+               lintReportDebug of one module's main sources, the legs of the lint job (see run_lint)
   manifest    merged manifests: no INTERNET in :app, Lumio's allow-list, OkHttp off the release classpath of :app
   ci           bash -n on every script, check-partitions.sh and check-test-network.sh (no Gradle)
 USAGE_END
@@ -199,23 +200,27 @@ run_fuzz() {
     ./gradlew --offline :shared:testDebugUnitTest "${tests[@]}" -PfuzzLane
 }
 
-run_android() {
-    ./gradlew --offline :app:compileDebugAndroidTestKotlin :app:compileBenchmarkKotlin :app:compileBenchmarkAndroidTestKotlin \
-        :lumio:compileDebugAndroidTestKotlin :lumio:compileBenchmarkKotlin :lumio:assembleDebug
+run_apk() {
+    ./gradlew --offline :lumio:assembleDebug
 }
 
+run_android_tests() {
+    ./gradlew --offline :app:compileDebugAndroidTestKotlin :app:compileBenchmarkKotlin :app:compileBenchmarkAndroidTestKotlin \
+        :lumio:compileDebugAndroidTestKotlin :lumio:compileBenchmarkKotlin
+}
+
+# The lint legs analyse the main sources of one module each. The unit-test, androidTest and test-fixture analyses of every module
+# are excluded: nightly runs the full lintDebug, and on a pull request they add about a minute to the leg. A leg still compiles its
+# module and the modules it depends on, because lint analyses the compiled classes.
+lint_test_analyses_off=(
+    -x :app:lintAnalyzeDebugUnitTest -x :app:lintAnalyzeDebugAndroidTest
+    -x :lumio:lintAnalyzeDebugUnitTest -x :lumio:lintAnalyzeDebugAndroidTest
+    -x :shared:lintAnalyzeDebugUnitTest -x :shared:lintAnalyzeDebugAndroidTest -x :shared:lintAnalyzeDebugTestFixtures
+)
+
 run_lint() {
-    # $1 is the module: app, lumio or shared. Its lintDebug covers the main, unit-test, androidTest and test-fixture sources.
-    if [ "$1" = lumio ]; then
-        # Lumio's leg lints its main (debug) sources only. lintReportDebug depends on every analysis, so the lumio and shared
-        # unit-test, androidTest and test-fixture analyses are excluded: lumio's test variants are not linted in this leg, and
-        # shared's test sources are still linted by the shared leg. The report reads the main analyses alone.
-        ./gradlew --offline :lumio:lintReportDebug \
-            -x :lumio:lintAnalyzeDebugUnitTest -x :lumio:lintAnalyzeDebugAndroidTest \
-            -x :shared:lintAnalyzeDebugUnitTest -x :shared:lintAnalyzeDebugAndroidTest -x :shared:lintAnalyzeDebugTestFixtures
-        return
-    fi
-    ./gradlew --offline ":$1:lintDebug"
+    # $1 is the module: app, lumio or shared.
+    ./gradlew --offline ":$1:lintReportDebug" "${lint_test_analyses_off[@]}"
 }
 
 run_manifest() {
@@ -260,7 +265,8 @@ case "$lane" in
     shard-[1-6]) run_shard "$lane" ;;
     verify) run_verify ;;
     fuzz) run_fuzz ;;
-    android) run_android ;;
+    apk) run_apk ;;
+    android-tests) run_android_tests ;;
     lint-app | lint-lumio | lint-shared) run_lint "${lane#lint-}" ;;
     manifest) run_manifest ;;
     ci) run_ci ;;
