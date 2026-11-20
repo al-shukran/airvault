@@ -865,7 +865,7 @@ class WalletStore(private val session: VaultSession) {
         val accounts = selectedAccounts(indices)
         val clean = base.trim()
         require(isValidBatchBase(clean, accounts)) {
-            "A batch name is 1 to ${batchBaseMaxLength(accounts)} characters, with no control character."
+            "A batch name is 1 to ${batchBaseMaxLength(accounts)} characters, with no control or hidden character."
         }
         synchronized(session) {
             requireAccounts(id, accounts)

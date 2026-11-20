@@ -53,10 +53,11 @@ object BtcPsbt {
     )
 
     /**
-     * True when [input] carries [RISK_MARK] exactly once. Any other entry is not a mark, and neither is a repeated one, so the input is unmarked
-     * and its review says so. A mark can only add a warning.
+     * True when [input] carries [RISK_MARK], once or more. Any other entry is not a mark. A repeated mark is still a mark: the input is then
+     * marked, so a malformed PSBT can only add a warning, never hide one. Refusing the PSBT instead would also be safe, but it would change the
+     * parse for no gain in what the owner sees.
      */
-    fun isRiskMarked(input: Input): Boolean = input.unknown.count { it == RISK_MARK } == 1
+    fun isRiskMarked(input: Input): Boolean = input.unknown.any { it == RISK_MARK }
 
     /**
      * Decodes a PSBT from its `ur:crypto-psbt` form or from base64.

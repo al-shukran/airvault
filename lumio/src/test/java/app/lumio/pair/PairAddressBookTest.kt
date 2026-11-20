@@ -45,7 +45,7 @@ class PairAddressBookTest {
     }
 
     @Test
-    fun anAddressThatIsNotAnEthereumOrBitcoinAddressRefusesTheCode() {
+    fun anAddressOfNoSupportedChainRefusesTheCode() {
         val text = ADDRESS_BOOK_COLD.copy(address = "not an address")
 
         assertEquals(BAD_ADDRESS, refusalOf(pairing(listOf(text))))
@@ -73,6 +73,6 @@ class PairAddressBookTest {
     private fun refusalOf(payload: PairingPayload): String = assertFailsWith<PairingRefusal> { PairImport.of(codeOf(payload)) }.message.orEmpty()
 
     private companion object {
-        const val BAD_ADDRESS = "The code's Address Book holds an address that is not a valid Ethereum or Bitcoin address."
+        const val BAD_ADDRESS = "The code's Address Book holds an address that is not a valid address of a supported chain."
     }
 }

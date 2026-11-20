@@ -84,6 +84,7 @@ internal fun ReviewHeader(
     modifier: Modifier = Modifier,
     networkIcon: (@Composable () -> Unit)? = null,
     networkFact: ReviewFact? = null,
+    accountLabel: String = "Account",
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -107,7 +108,7 @@ internal fun ReviewHeader(
         }
         Spacer(Modifier.height(LenslySpacing.sm))
         networkFact?.let { ReviewFactRow(label = it.label, value = it.value, mono = it.mono) }
-        ReviewFactRow(label = "Account", value = account, mono = false)
+        ReviewFactRow(label = accountLabel, value = account, mono = false)
         ReviewFactRow(label = "Wallet", value = wallet, mono = false)
         Spacer(Modifier.height(LenslySpacing.xxs))
         Text(text = "Address", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
