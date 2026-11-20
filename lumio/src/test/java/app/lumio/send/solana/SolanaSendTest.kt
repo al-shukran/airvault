@@ -268,7 +268,7 @@ class SolanaSendTest {
 
     @Test
     fun theOneTimeSetupSaysWhatToDoAndHowSoon() {
-        assertEquals("One-time setup. Scan with Lensly and sign within about 20 seconds.", SETUP_SIGN_TEXT)
+        assertEquals("One-time setup. Sign and scan back within about a minute.", SETUP_SIGN_TEXT)
     }
 
     @Test

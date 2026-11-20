@@ -215,7 +215,7 @@ internal fun SolanaSetupReviewScreen(
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             "Offline signing lets this account send SOL without a blockhash that could expire while Lensly reviews the send. " +
-                "Lensly signs this setup within about 20 seconds, because the request names a recent blockhash that expires. " +
+                "Sign and scan back within about a minute, because the request names a recent blockhash that expires." +
                 "If it expires, start the setup again.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -228,7 +228,7 @@ internal fun SolanaSetupReviewScreen(
 }
 
 /** What the one-time setup's request screen says: what the owner does, and how soon the blockhash in the code runs out. */
-internal const val SETUP_SIGN_TEXT = "One-time setup. Scan with Lensly and sign within about 20 seconds."
+internal const val SETUP_SIGN_TEXT = "One-time setup. Sign and scan back within about a minute."
 
 /**
  * The request as an animated code for Lensly to scan, on a white card so that the code reads on either palette. [notice] is why the last signature did not

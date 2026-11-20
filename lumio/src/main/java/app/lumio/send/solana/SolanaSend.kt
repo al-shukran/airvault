@@ -95,7 +95,7 @@ sealed interface SolanaNoncePath {
 }
 
 /** What the owner reads when the one-time setup is refused because its blockhash has aged out. Nothing was created, so the setup is started again. */
-internal const val SETUP_EXPIRED = "The setup is too old for the network, so no nonce account was made. Start the setup again and sign it within about 20 seconds."
+internal const val SETUP_EXPIRED = "The setup is too old for the network, so no nonce account was made. Start the setup again. Sign and scan back within about a minute."
 
 /** What the owner reads when a send is refused because the nonce it names has moved since the send was prepared. */
 internal const val NONCE_MOVED = "The network refused the send: this account's nonce changed after the send was prepared. Make the send again."
