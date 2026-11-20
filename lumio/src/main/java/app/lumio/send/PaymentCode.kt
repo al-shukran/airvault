@@ -19,6 +19,10 @@ object EvmPaymentCode {
     private const val SCHEME = "ethereum:"
     private val WEI = Regex("\\d+(\\.\\d+)?(e\\d+)?", RegexOption.IGNORE_CASE)
 
+    /** The most decimal digits of a uint256, the largest amount an Ethereum transfer holds: a value with more is refused. */
+    private const val MAX_WEI_DIGITS = 78
+    private const val TOO_LARGE = "The value in this code is too large for an amount."
+
     fun read(text: String, chain: EvmChain): ScannedPayment {
         val code = text.trim()
         return when {
@@ -49,8 +53,15 @@ object EvmPaymentCode {
     /** The value of an EIP-681 request, in wei, as the amount of [chain]. A value of zero names no amount. */
     private fun amountOf(text: String, chain: EvmChain): String? {
         if (!WEI.matches(text)) throw IllegalArgumentException("The value in this code is not an amount.")
+        val value = try {
+            BigDecimal(text)
+        } catch (e: NumberFormatException) {
+            throw IllegalArgumentException(TOO_LARGE, e)
+        }
+        // The digits are counted before the value is expanded: an exponent of millions would otherwise take seconds to expand.
+        if (value.precision() - value.scale() > MAX_WEI_DIGITS) throw IllegalArgumentException(TOO_LARGE)
         val wei = try {
-            BigDecimal(text).toBigIntegerExact()
+            value.toBigIntegerExact()
         } catch (e: ArithmeticException) {
             throw IllegalArgumentException("The value in this code is not a whole number of wei.", e)
         }

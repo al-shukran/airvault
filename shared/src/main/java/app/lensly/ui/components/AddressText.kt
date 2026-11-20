@@ -29,6 +29,9 @@ import app.lensly.ui.theme.LocalMonoFamily
 /** The test tag of the address text, so a test can long-press it. */
 internal const val ADDRESS_TEXT_TAG = "address-text"
 
+/** The test tag of the Ethereum logo before the address, so a test can find it. */
+internal const val ADDRESS_ICON_TAG = "address-icon"
+
 /** What a long press and the copy button are called for assistive technology. */
 internal const val COPY_ADDRESS_LABEL = "Copy Address"
 
@@ -38,8 +41,9 @@ internal const val ADDRESS_COPIED = "Address copied"
 /**
  * An address the owner can copy. [address] is the full address and it is what gets copied, so a copy is whole even when [shown] prints
  * the address shortened or grouped. The copy button and a long press on the text copy it to the clipboard, and a short toast confirms
- * it. [icon] puts the Ethereum logo before the address, which every EVM chain shares. [onClick], when set, runs on a tap of the text, for an address that sits in a
- * row which is itself tapped. The clip is marked sensitive and cleared after a minute, as every copy in Lensly is.
+ * it. [icon] puts the Ethereum logo before the address, which every EVM chain shares; it is off by default, so no other chain shows that
+ * logo. [onClick], when set, runs on a tap of the text, for an address that sits in a row which is itself tapped. The clip is marked
+ * sensitive and cleared after a minute, as every copy in Lensly is.
  */
 @Composable
 fun AddressText(
@@ -48,7 +52,7 @@ fun AddressText(
     shown: String = groupAddress(address),
     style: TextStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = LocalMonoFamily.current),
     color: Color = MaterialTheme.colorScheme.onSurface,
-    icon: Boolean = true,
+    icon: Boolean = false,
     textAlign: TextAlign = TextAlign.Start,
     onClick: (() -> Unit)? = null,
 ) {
@@ -56,7 +60,7 @@ fun AddressText(
     val haptic = LocalHapticFeedback.current
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         if (icon) {
-            AddressIcon(size = 16.dp)
+            AddressIcon(size = 16.dp, modifier = Modifier.testTag(ADDRESS_ICON_TAG))
             Spacer(Modifier.width(LenslySpacing.xs))
         }
         Text(
