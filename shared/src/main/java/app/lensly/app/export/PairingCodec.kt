@@ -487,10 +487,18 @@ object PairingCodec {
         }
     }
 
-    /** True when [text] is [minBytes] to [maxBytes] UTF-8 bytes with no control character. */
+    /** True when [text] is [minBytes] to [maxBytes] UTF-8 bytes, with no control or format character. */
     private fun isPlain(text: String, minBytes: Int, maxBytes: Int): Boolean {
         val size = text.toByteArray(Charsets.UTF_8).size
-        return size in minBytes..maxBytes && text.none { it.isISOControl() }
+        return size in minBytes..maxBytes && hasNoHiddenCharacter(text)
+    }
+
+    /**
+     * True when no code point of [text] is a control or a format character. A format character, such as a right-to-left override, changes how
+     * the text reads without showing, so a name that holds one is refused. Code points are checked, so a character beyond the BMP counts too.
+     */
+    private fun hasNoHiddenCharacter(text: String): Boolean = text.codePoints().allMatch { codePoint ->
+        !Character.isISOControl(codePoint) && Character.getType(codePoint) != Character.FORMAT.toInt()
     }
 
     private fun uint(value: Long): Cbor = Cbor.Uint(value)
@@ -534,11 +542,14 @@ object PairingCodec {
         return value
     }
 
-    /** A text of [minBytes] to [maxBytes] UTF-8 bytes with no control character, which an empty text may be when [minBytes] is 0. */
+    /**
+     * A text of [minBytes] to [maxBytes] UTF-8 bytes with no control or format character (see [hasNoHiddenCharacter]), which an empty text may be
+     * when [minBytes] is 0.
+     */
     private fun textOf(item: Cbor, minBytes: Int, maxBytes: Int): String {
         val value = (item as? Cbor.Text)?.value ?: refuse()
         val size = value.toByteArray(Charsets.UTF_8).size
-        if (size !in minBytes..maxBytes || value.any { it.isISOControl() }) refuse()
+        if (size !in minBytes..maxBytes || !hasNoHiddenCharacter(value)) refuse()
         return value
     }
 }
