@@ -12,6 +12,7 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 
 class SolanaRequestParserTest {
 
@@ -47,6 +48,26 @@ class SolanaRequestParserTest {
     @Test
     fun aTransactionThatDoesNotParseIsRefused() {
         assertIs<ParseOutcome.Refused>(parse(requestCbor(signData = byteArrayOf(0x7f, 1, 2), signType = 1L, cluster = null)))
+    }
+
+    @Test
+    fun aTransactionThatDoesNotParseIsRefusedWithTheRequestItReadAndItsKind() {
+        val refused = assertIs<ParseOutcome.Refused>(parse(requestCbor(signData = byteArrayOf(0x7f, 1, 2), signType = 1L, cluster = "devnet")))
+        assertEquals(SOLANA_DEVNET, assertNotNull(refused.request).header.chain)
+        assertEquals(RequestKind.TRANSACTION, refused.request?.header?.kind)
+    }
+
+    @Test
+    fun aMessageThatDoesNotParseIsRefusedWithTheRequestItReadAndItsKind() {
+        val refused = assertIs<ParseOutcome.Refused>(parse(requestCbor(signData = byteArrayOf(1, 2, 3), signType = 2L, cluster = null)))
+        assertEquals(RequestKind.MESSAGE, assertNotNull(refused.request).header.kind)
+    }
+
+    @Test
+    fun signDataOverTheLimitIsRefusedWithTheRequestItReadAndItsKind() {
+        val payload = requestCbor(signData = legacyMessage(), signType = 1L, cluster = null)
+        val refused = assertIs<ParseOutcome.Refused>(SolanaRequestParser.parse(SolSignRequest.UR_TYPE, payload, ParserLimits(maxSignDataBytes = 10)))
+        assertEquals(RequestKind.TRANSACTION, assertNotNull(refused.request).header.kind)
     }
 
     @Test

@@ -96,12 +96,14 @@ fun AlgorandRequestReview.warningText(warning: AlgorandWarning): String = when (
         is Payment -> "Lensly does not know this asset."
     }
     AlgorandWarning.GROUP -> "Part of a group: other transactions in the group are not shown"
+    AlgorandWarning.LEASE -> "This transaction carries a lease: it can be submitted once until round ${txn.lastValid}."
 }
 
 private fun AlgorandRequestReview.warningOf(warning: AlgorandWarning): Warning = when (warning) {
     AlgorandWarning.CLOSE_TO -> Warning(Danger.DANGER, "algorand.close-to", warningText(warning), Fields.closeTo, acknowledge = ACK_CLOSE_TO)
     AlgorandWarning.UNKNOWN_ASSET -> Warning(Danger.CAUTION, "algorand.unknown-asset", warningText(warning), Fields.assetId)
     AlgorandWarning.GROUP -> Warning(Danger.CAUTION, "algorand.group", warningText(warning), Fields.group)
+    AlgorandWarning.LEASE -> Warning(Danger.CAUTION, "algorand.lease", warningText(warning), Fields.lease)
 }
 
 /** The sentence at the top of the review: a payment names its amount in ALGO and its receiver; an asset transfer names its amount and asset. */
