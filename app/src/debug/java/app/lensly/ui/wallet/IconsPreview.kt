@@ -36,9 +36,8 @@ import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.components.BackdropLogo
 import app.lensly.ui.components.TokenIcon
 import app.lensly.ui.components.chainIconDrawables
-import app.lensly.ui.components.chainIconsNeedingBackdrop
+import app.lensly.ui.components.logoTone
 import app.lensly.ui.components.tokenIconDrawables
-import app.lensly.ui.components.tokenIconsNeedingBackdrop
 
 /**
  * Debug-only grid of every icon: each chain logo, each token logo, the unknown-token icon, the Lensly logo and the
@@ -57,11 +56,11 @@ internal fun IconsPreview() {
     ) {
         section("CHAINS")
         items(chainIconDrawables.entries.sortedBy { it.key }) { entry ->
-            IconCell(resource = entry.value, label = entry.key, backdrop = entry.key in chainIconsNeedingBackdrop)
+            IconCell(resource = entry.value, label = entry.key)
         }
         section("TOKENS")
         items(tokenIconDrawables.entries.sortedBy { it.key }) { entry ->
-            IconCell(resource = entry.value, label = entry.key, backdrop = entry.key in tokenIconsNeedingBackdrop)
+            IconCell(resource = entry.value, label = entry.key)
         }
         section("PEGGED AND BRIDGED: TOKEN LOGO WITH CHAIN BADGE")
         items(stackedSamples) { sample -> StackedCell(sample) }
@@ -163,7 +162,7 @@ private fun LazyGridScope.section(title: String) {
 }
 
 @Composable
-private fun IconCell(resource: Int, label: String, backdrop: Boolean = false) {
+private fun IconCell(resource: Int, label: String) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -171,7 +170,7 @@ private fun IconCell(resource: Int, label: String, backdrop: Boolean = false) {
         BackdropLogo(
             painter = painterResource(resource),
             size = 48.dp,
-            backdrop = backdrop,
+            tone = logoTone(resource),
         )
         Spacer(Modifier.height(6.dp))
         Text(
