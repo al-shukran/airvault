@@ -298,8 +298,9 @@ object BtcSend {
 class FeeSuggestion(val satPerVb: Double, val fromEstimate: Boolean)
 
 /**
- * Largest first. Coins are added in order of value until they cover the amount and the fee, which is the fee rate times the estimated vsize of
- * the request, rounded up. Change is paid out only when it is at least [DUST_SATS]. A smaller remainder goes to the fee.
+ * Unmarked coins first, largest first, so a coin the indexer marked is spent only when the unmarked ones do not cover the amount and the fee.
+ * Coins are added in that order until they cover the amount and the fee, which is the fee rate times the estimated vsize of the request,
+ * rounded up. Change is paid out only when it is at least [DUST_SATS]. A smaller remainder goes to the fee.
  * [vsizeOf] gives the vsize of a request that spends the coins it is given, with or without its change output.
  */
 internal fun chooseCoins(
@@ -311,7 +312,7 @@ internal fun chooseCoins(
     require(coins.isNotEmpty()) { "This account has no confirmed balance to send." }
     val chosen = mutableListOf<BtcCoin>()
     var total = 0L
-    for (coin in coins.sortedByDescending { it.valueSats }) {
+    for (coin in coins.sortedWith(compareBy<BtcCoin> { it.riskMarked }.thenByDescending { it.valueSats })) {
         chosen += coin
         total += coin.valueSats
         val feeWithChange = feeFor(vsizeOf(chosen, true), feeRateSatPerVb)

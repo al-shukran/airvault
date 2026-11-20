@@ -1,6 +1,7 @@
 package app.airvault.chains.bitcoin.signer
 
 import fr.acinq.bitcoin.KeyPath
+import fr.acinq.bitcoin.OutPoint
 
 /**
  * What the owner sees before a Bitcoin request is signed: every input and every output, the fee, and which output is the
@@ -50,12 +51,13 @@ const val FINAL_SEQUENCE = 0xFFFFFFFFL
 private const val NO_RBF_SEQUENCE = 0xFFFFFFFEL
 
 /**
- * One input of the request. [ownerPath] is the full path of the key that signs it, or null for an input this Account does not own.
- * [sequence] is the input's nSequence, which says whether it signals replace-by-fee and whether the locktime holds it back. [riskMarked]
- * is true when the online side marked the input as carrying an inscription or a rune (see [BtcPsbt.RISK_MARK]).
+ * One input of the request. [outPoint] is the output it spends. [ownerPath] is the full path of the key that signs it, or null for an input
+ * this Account does not own. [sequence] is the input's nSequence, which says whether it signals replace-by-fee and whether the locktime holds
+ * it back. [riskMarked] is true when the online side marked the input as carrying an inscription or a rune (see [BtcPsbt.RISK_MARK]).
  */
 data class BtcReviewInput(
     val index: Int,
+    val outPoint: OutPoint,
     val amountSats: Long,
     val amountVerified: Boolean,
     val ownerPath: KeyPath?,
