@@ -10,18 +10,22 @@ AirVault is a crypto wallet split across two Android apps. Lensly keeps the keys
 
 AirVault is created by [alshukran.com](https://alshukran.com).
 
+## The Names
+
+AirVault is the air gap plus a vault. It is the project and system name, and it is never an app on the phone.
+
+Lensly is the AirVault vault. It sees the outside world only through its camera lens, by scanning QR codes, and never through a network. It holds the keys and signs.
+
+Lumio comes from *lumen*, the Latin word for light. It is the online side of AirVault. It shows accounts and balances, and it carries signed results out to the network. It never sees a private key.
+
+Lensly and Lumio work as a pair over QR codes in both directions. Lumio sends requests to Lensly as QR codes, and Lensly returns signed results to Lumio as QR codes.
+
 ## Apps
 
 Both apps come from one code base.
 
-- **Lensly** (`app/`) is the offline vault and signer. It holds the seed, parses requests, shows the review, and signs. It never touches a network.
-- **Lumio** (`lumio/`) is the online companion wallet. It tracks accounts and balances, builds transactions, and broadcasts them. It never sees a private key.
-
-## How the Apps Relate
-
-AirVault is the project name. Lensly and Lumio are the two Android apps in it, and they work as a pair. Lensly is the offline half, and Lumio is the online half.
-
-Lumio builds transactions and passes each request to Lensly as QR codes. Lensly reviews the request, signs it, and returns the result the same way. The two apps exchange data only through QR codes, so no network connection links them. Both apps share code from `shared/` and `core/`.
+- **Lensly** (`app/`) is the offline vault and signer. It holds the seed, parses requests, shows the review, and signs.
+- **Lumio** (`lumio/`) is the online companion wallet. It tracks accounts and balances, builds transactions, and broadcasts them.
 
 ## Supported Chains
 
