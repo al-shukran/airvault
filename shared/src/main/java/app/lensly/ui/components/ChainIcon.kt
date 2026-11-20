@@ -164,5 +164,5 @@ fun SolanaIcon(size: Dp, modifier: Modifier = Modifier) {
 /** The Algorand logo beside an Algorand account. It is decorative: the text beside it names the account. */
 @Composable
 fun AlgorandIcon(size: Dp, modifier: Modifier = Modifier) {
-    BackdropLogo(painter = painterResource(R.drawable.ic_algorand), size = size, backdrop = false, modifier = modifier)
+    BackdropLogo(painter = painterResource(R.drawable.ic_algorand), size = size, backdrop = true, modifier = modifier)
 }
