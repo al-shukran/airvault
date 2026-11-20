@@ -158,14 +158,16 @@ class WalletStore(private val session: VaultSession) {
     /**
      * Removes every wallet whose META record says it is not complete, or has no META record: one a crash left before its first accounts
      * were written. Called when a vault opens. Only the META record decides, so a wallet whose META is complete is never removed because
-     * another record cannot be read. A META record that cannot be decoded is kept, since it is unreadable and not incomplete. A wallet
-     * that cannot be read or deleted now is kept for the next open, so an unreadable folder never stops the vault opening.
+     * another record cannot be read. A META record that is present but cannot be read or decoded is kept, since it is unreadable and not
+     * incomplete. A wallet that cannot be read or deleted now is kept for the next open, so an unreadable folder never stops the vault
+     * opening.
      */
     fun dropIncomplete() {
         for (id in session.listWallets()) {
             try {
                 val bytes = session.getRecord(id, WalletRecords.META)
-                if (bytes == null || decodesAsIncomplete(id, bytes)) session.deleteWallet(id)
+                val incomplete = if (bytes != null) decodesAsIncomplete(id, bytes) else !session.hasRecord(id, WalletRecords.META)
+                if (incomplete) session.deleteWallet(id)
             } catch (e: IOException) {
                 continue
             } catch (e: VaultException) {
