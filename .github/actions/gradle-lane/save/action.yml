@@ -9,7 +9,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - if: true # TEMP #567
+    - if: github.event_name == 'push'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ env.BUILD_STATE_PATHS }}
