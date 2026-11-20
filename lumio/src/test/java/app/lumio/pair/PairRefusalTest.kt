@@ -10,6 +10,7 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.PathStep
+import app.lumio.data.net.Networks
 import com.sparrowwallet.hummingbird.UR
 import com.sparrowwallet.hummingbird.UREncoder
 import kotlin.test.assertEquals
@@ -154,13 +155,15 @@ class PairRefusalTest {
     }
 
     @Test
-    fun moreBitcoinKeysThanLumioKeepsAreRefused() {
-        val template = PairFixtures.account(PairFixtures.seed, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT)
-        val keys = (0..PairImport.MAX_BITCOIN_KEYS).map { index ->
-            withPath(PairFixtures.bitcoinAccount(template, "Bitcoin $index"), accountSteps(84, 0, index))
-        }
+    fun aWalletOfTheMostBitcoinAccountsIsPaired() {
+        val payload = PairImport.of(codeOf(pairing(listOf(account(0)) + bitcoinKeys(PairImport.MAX_BITCOIN_KEYS))))
 
-        val reason = refusalOf(codeOf(pairing(listOf(account(0)) + keys)))
+        assertEquals(PairImport.MAX_BITCOIN_KEYS, PairImport.accountsOf(payload, Networks.BIP122).size)
+    }
+
+    @Test
+    fun moreBitcoinKeysThanLumioKeepsAreRefused() {
+        val reason = refusalOf(codeOf(pairing(listOf(account(0)) + bitcoinKeys(PairImport.MAX_BITCOIN_KEYS + 1))))
 
         assertTrue(reason, reason.contains("Lumio pairs up to ${PairImport.MAX_BITCOIN_KEYS}"))
     }
@@ -185,6 +188,12 @@ class PairRefusalTest {
     private fun pairing(accounts: List<PairingAccount>): PairingPayload = PairFixtures.payloadOf(accounts)
 
     private fun account(index: Int): PairingAccount = PairFixtures.ethereumAccount(index, "Demo $index")
+
+    /** The first [count] Bitcoin accounts of the demo seed, each at its own index on the Native SegWit path. */
+    private fun bitcoinKeys(count: Int): List<PairingAccount> {
+        val template = PairFixtures.account(PairFixtures.seed, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT)
+        return (0 until count).map { index -> withPath(PairFixtures.bitcoinAccount(template, "Bitcoin $index"), accountSteps(84, 0, index)) }
+    }
 
     /** The account [account] with its path replaced by [path], which is the path a pairing of another key would carry. */
     private fun withPath(account: PairingAccount, path: List<PathStep>): PairingAccount = account.copy(

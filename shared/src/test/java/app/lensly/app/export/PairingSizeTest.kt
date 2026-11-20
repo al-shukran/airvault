@@ -40,7 +40,7 @@ class PairingSizeTest {
         assertTrue("the demo is $frames frames", frames <= DEMO_FRAMES_LIMIT)
     }
 
-    /** The largest wallet the UI allows: 100 accounts per chain, and 96 stored Bitcoin accounts, which is what Lumio keeps. */
+    /** The largest wallet the UI allows: 100 accounts per chain, and the most Bitcoin accounts a wallet keeps. */
     @Test
     fun worstCaseWalletSize() {
         val (bytes, frames) = measure("worst case", worstCase())
@@ -124,7 +124,7 @@ class PairingSizeTest {
 
     private companion object {
         const val WORST_SEED = 20261118
-        const val WORST_BITCOIN = 96
+        const val WORST_BITCOIN = PairingCodec.MAX_BITCOIN_ACCOUNTS
 
         // Measured with this build, body stored as it is (limits are the measured value plus about 5%).
         const val REALISTIC_STORED_BYTES_LIMIT = 1_900

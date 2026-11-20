@@ -41,8 +41,8 @@ object PairImport {
     /** The most Ethereum accounts a wallet keeps in Lumio: one account record each, and the folder holds this many. */
     const val MAX_ETHEREUM_ACCOUNTS = 100
 
-    /** The most Bitcoin keys a wallet keeps in Lumio: its Bitcoin record holds this many. */
-    const val MAX_BITCOIN_KEYS = 96
+    /** The most Bitcoin keys a wallet keeps in Lumio: the same cap Lensly enforces, and its Bitcoin record holds this many. */
+    const val MAX_BITCOIN_KEYS = PairingCodec.MAX_BITCOIN_ACCOUNTS
 
     /** The most Solana accounts a wallet keeps in Lumio: its Solana record holds this many. */
     const val MAX_SOLANA_ACCOUNTS = 100
