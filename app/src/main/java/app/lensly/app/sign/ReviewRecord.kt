@@ -62,9 +62,13 @@ data class BitcoinRecordNotice(val level: NoticeLevel, val text: String)
 /** One output of a Bitcoin request, as the review showed it. [address] is null for a script with no address. */
 data class BitcoinRecordOutput(val address: String?, val amountSats: Long, val isOwnChange: Boolean)
 
+/** The most outputs a Bitcoin record keeps. A PSBT with more keeps its first outputs and counts the rest in [BitcoinRecordFacts.outputsNotKept]. */
+const val MAX_RECORD_OUTPUTS = 200
+
 /**
  * What a Bitcoin review showed of its PSBT. A record of any other request has none. [scriptType] is the Script Type of the account, as
- * shown. The fee is null while an input amount is unverified, and so is its rate.
+ * shown. The fee is null while an input amount is unverified, and so is its rate. [outputsNotKept] counts the outputs past
+ * [MAX_RECORD_OUTPUTS] that [outputs] leaves out.
  */
 data class BitcoinRecordFacts(
     val scriptType: String,
@@ -72,6 +76,7 @@ data class BitcoinRecordFacts(
     val feeSats: Long?,
     val feeRateSatPerVb: Double?,
     val notices: List<BitcoinRecordNotice>,
+    val outputsNotKept: Int = 0,
 )
 
 /**
@@ -123,13 +128,17 @@ data class ReviewRecord(
  * What the Bitcoin review [reviewed] showed of its PSBT, as the record keeps it: the Script Type, each output, the fee and its rate, and a WARN
  * notice for each warning of [review], the review the owner read.
  */
-fun bitcoinRecordFactsOf(reviewed: BitcoinReviewed, review: Review): BitcoinRecordFacts = BitcoinRecordFacts(
-    scriptType = scriptTypeName(reviewed.account.scriptType),
-    outputs = reviewed.review.outputs.map { BitcoinRecordOutput(it.address, it.amountSats, it.isOwnChange) },
-    feeSats = reviewed.review.feeSats,
-    feeRateSatPerVb = reviewed.review.feeRateSatPerVb,
-    notices = review.warnings.map { BitcoinRecordNotice(NoticeLevel.WARN, it.message) },
-)
+fun bitcoinRecordFactsOf(reviewed: BitcoinReviewed, review: Review): BitcoinRecordFacts {
+    val outputs = reviewed.review.outputs
+    return BitcoinRecordFacts(
+        scriptType = scriptTypeName(reviewed.account.scriptType),
+        outputs = outputs.take(MAX_RECORD_OUTPUTS).map { BitcoinRecordOutput(it.address, it.amountSats, it.isOwnChange) },
+        feeSats = reviewed.review.feeSats,
+        feeRateSatPerVb = reviewed.review.feeRateSatPerVb,
+        notices = review.warnings.map { BitcoinRecordNotice(NoticeLevel.WARN, it.message) },
+        outputsNotKept = (outputs.size - MAX_RECORD_OUTPUTS).coerceAtLeast(0),
+    )
+}
 
 /**
  * The Review Record of the Bitcoin request [entry], written at [atMs]. The record keeps the account, its Script Type and network, each output, the

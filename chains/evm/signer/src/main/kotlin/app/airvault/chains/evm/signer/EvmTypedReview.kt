@@ -126,9 +126,16 @@ private fun valueText(type: String, value: TypedValue): String = when (value) {
     is TypedValue.StructValue, is TypedValue.ArrayValue -> error("the parser reads only atomic values here")
 }
 
-/** [text] as a review shows it: the text itself when every character is printable, otherwise its UTF-8 bytes in hex. */
+/**
+ * [text] as a review shows it: the text itself when every character is printable, with line breaks and tabs escaped so the value stays on one
+ * line, otherwise its UTF-8 bytes in hex.
+ */
 internal fun printableOrHex(text: String): String =
-    if (text.codePoints().allMatch(::isPrintableCodePoint)) text else "0x" + text.toByteArray(StandardCharsets.UTF_8).toHex() + " (not printable)"
+    if (text.codePoints().allMatch(::isPrintableCodePoint)) {
+        text.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+    } else {
+        "0x" + text.toByteArray(StandardCharsets.UTF_8).toHex() + " (not printable)"
+    }
 
 private fun checksumOf(bytes: ByteArray): String = Keys.toChecksumAddress("0x" + bytes.toHex())
 
