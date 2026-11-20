@@ -62,3 +62,7 @@ include(":chains:solana:common")
 include(":abi")
 include(":chains:solana:signer")
 include(":chains:solana:wallet")
+// The template is copied, never registered: it builds so that it stays compiling (docs/creating-airvault-apps.md, 2.5).
+include(":chains:_template:common")
+include(":chains:_template:signer")
+include(":chains:_template:wallet")
