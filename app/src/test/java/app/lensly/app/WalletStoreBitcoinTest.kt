@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.airvault.core.signer.Path
 import app.lensly.app.export.LabelledPairingGolden
 import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingCodec
@@ -15,6 +16,7 @@ import app.lensly.core.btc.BtcUnsignedPsbt
 import app.airvault.chains.bitcoin.signer.InputVerificationPolicy.STRICT
 import app.lensly.core.btc.ScriptType
 import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
+import app.lensly.core.ur.PathStep
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
@@ -105,6 +107,22 @@ class WalletStoreBitcoinTest {
             .receiveAddress(0)
         assertEquals(expected, added.single().firstReceiveAddress)
         assertEquals(added, store.bitcoinAccounts(id))
+    }
+
+    @Test
+    fun aStoredAccountIsNamedByItsPathOfPurposeCoinAndAccountInTheOrderItWasAdded() {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, cap)
+        store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.MAINNET, 2, cap)
+
+        assertEquals(
+            listOf(
+                Path(listOf(PathStep(84, true), PathStep(1, true), PathStep(0, true))),
+                Path(listOf(PathStep(86, true), PathStep(0, true), PathStep(0, true))),
+                Path(listOf(PathStep(86, true), PathStep(0, true), PathStep(1, true))),
+            ),
+            store.storedAccountPaths(id),
+        )
     }
 
     @Test
