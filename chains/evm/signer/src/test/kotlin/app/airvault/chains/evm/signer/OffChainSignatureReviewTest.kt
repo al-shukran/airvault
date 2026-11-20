@@ -299,6 +299,18 @@ class OffChainSignatureReviewTest {
     }
 
     @Test
+    fun anAsterDexMessageWithoutAMsgIsAnAgentApprovalAndADanger() {
+        // A labelled Message type that declares no msg has no agent to read, so the message counts as the approval, failing closed.
+        val json = """{"types":{"EIP712Domain":[$DOMAIN_TYPES],"Message":[{"name":"note","type":"string"}]},"primaryType":"Message",""" +
+            """"domain":{"name":"AsterSignTransaction","version":"1","chainId":56,"verifyingContract":"$ZERO"},""" +
+            """"message":{"note":"hi"}}"""
+
+        val review = reviewed(json, BNB)
+
+        assertEquals(listOf(APPROVE_TEXT), dangersOf(review).map { it.message })
+    }
+
+    @Test
     fun anAsterDexMessageWithoutTheAgentOnChain56IsNotAnAgentApprovalAndShowsItsWholeText() {
         // The domain is the approval's, but a message that names no agentAddress parameter is not an approval.
         for (msg in listOf("hello", ASTER_MASTER_MESSAGE)) {
