@@ -1,5 +1,6 @@
 package app.airvault.chains.bitcoin.signer
 
+import app.airvault.chains.bitcoin.bitcoinManifest
 import app.airvault.core.model.AddressKind
 import app.airvault.core.model.AddressResult
 import kotlin.test.assertEquals

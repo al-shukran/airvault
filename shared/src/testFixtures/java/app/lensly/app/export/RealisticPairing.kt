@@ -1,5 +1,9 @@
 package app.lensly.app.export
 
+import app.airvault.chains.algorand.algorandMainnet
+import app.airvault.chains.evm.ethereumMainnet
+import app.airvault.chains.solana.SOLANA_MAINNET
+import app.airvault.core.model.Curve
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.autoAccountName
 import app.airvault.chains.evm.evmAddressOf
@@ -34,37 +38,49 @@ object RealisticPairing {
         Stored(BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0, null),
     )
 
-    /** The pairing of the vault: the Apps in their order, and the Address Book. */
+    /** The pairing of the vault: its accounts on every chain, in the order of the chains, and the Address Book. */
     fun payload(): PairingPayload {
         val seed = Mnemonic.of(WORDS).use { it.deriveSeed("") }
         val wallet = HdWallet(seed)
+        val fingerprint = wallet.masterFingerprint
         fun auto(index: Int) = autoAccountName(WALLET, index)
+        fun ethereumKey(account: Int): ByteArray = AccountAddresses.addressXpub(wallet.accountXpub(account), 0).publicKey
         fun ethereumAddress(account: Int): String = AccountAddresses.addressOfKey(AccountAddresses.addressXpub(wallet.accountXpub(account), 0))
 
         val ethereumNames = listOf("Main", null, "Savings", null, null)
-        val ethereum = PairingApp(
-            app = "ethereum",
-            keys = ethereumNames.indices.map { PairingKey.ethereumAddress(it, ethereumAddress(it)) },
-            accounts = ethereumNames.mapIndexed { i, name ->
-                PairingAccount(key = i, name = name ?: auto(i), label = if (i == 0) "Cold" else null, group = if (i == 2) "Savings" else null)
-            },
-        )
+        val ethereum = ethereumNames.mapIndexed { i, name ->
+            PairingAccount(
+                export = keyExport(ethereumMainnet, fingerprint, accountSteps(44, 60, i, 0, 0), Curve.SECP256K1, ethereumKey(i)),
+                name = name ?: auto(i),
+                label = if (i == 0) "Cold" else null,
+                group = if (i == 2) "Savings" else null,
+            )
+        }
         val stored = STORED.sortedWith(compareBy({ it.scriptType.purpose }, { it.network.coinType }, { it.index }))
-        val bitcoin = PairingApp(
-            app = "bitcoin",
-            keys = stored.map { PairingKey.bitcoinAccount(BtcAccount.fromSeed(seed, it.network, it.scriptType, it.index).watchOnly()) },
-            accounts = stored.mapIndexed { i, record -> PairingAccount(key = i, name = record.name ?: auto(record.index), label = null, group = null) },
-        )
-        val solana = PairingApp(
-            app = "solana",
-            keys = (0 until 3).map { PairingKey.solanaAccount(it, SolanaAccount.publicKey(seed, it)) },
-            accounts = (0 until 3).map { PairingAccount(key = it, name = auto(it), label = null, group = null) },
-        )
-        val algorand = PairingApp(
-            app = "algorand",
-            keys = (0 until 2).map { PairingKey.algorandAccount(it, AlgorandAccount.publicKey(seed, it)) },
-            accounts = (0 until 2).map { PairingAccount(key = it, name = auto(it), label = null, group = null) },
-        )
+        val bitcoin = stored.map { record ->
+            PairingAccount(
+                export = watchOnlyExportOf(BtcAccount.fromSeed(seed, record.network, record.scriptType, record.index).watchOnly(), fingerprint),
+                name = record.name ?: auto(record.index),
+                label = null,
+                group = null,
+            )
+        }
+        val solana = (0 until 3).map {
+            PairingAccount(
+                export = keyExport(SOLANA_MAINNET, fingerprint, accountSteps(44, 501, it), Curve.ED25519_SLIP10, SolanaAccount.publicKey(seed, it)),
+                name = auto(it),
+                label = null,
+                group = null,
+            )
+        }
+        val algorand = (0 until 2).map {
+            PairingAccount(
+                export = keyExport(algorandMainnet, fingerprint, accountSteps(44, 283, it, 0, 0), Curve.ED25519_BIP32, AlgorandAccount.publicKey(seed, it)),
+                name = auto(it),
+                label = null,
+                group = null,
+            )
+        }
 
         val random = Random(20261118)
         fun evm(): String = checkNotNull(evmAddressOf("0x" + random.nextBytes(20).joinToString("") { "%02x".format(it) }))
@@ -95,7 +111,7 @@ object RealisticPairing {
             fingerprint = wallet.masterFingerprint.toLong() and 0xFFFFFFFFL,
             name = WALLET,
             autoNameBase = WALLET,
-            apps = listOf(ethereum, bitcoin, solana, algorand),
+            accounts = ethereum + bitcoin + solana + algorand,
             addressBook = book,
         )
     }

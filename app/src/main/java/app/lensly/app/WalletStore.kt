@@ -512,8 +512,8 @@ class WalletStore(private val session: VaultSession) {
     }
 
     /**
-     * The frames of the AirVault pairing of wallet [id]: one `ur:x-airvault-pairing` that holds the keys and accounts of every App in
-     * [WalletApp] that the pairing carries, in its order, with the names, labels and groups Lensly shows for them. Lumio replaces what it holds for the wallet with
+     * The frames of the AirVault pairing of wallet [id]: one `ur:x-airvault-pairing` that holds the accounts of every App in
+     * [WalletApp], in its order, with the names, labels and groups Lensly shows for them. Lumio replaces what it holds for the wallet with
      * it, so Lensly is the source of truth. The Address Book goes with it, the first [PairingCodec.MAX_ADDRESS_BOOK] entries in the order they
      * were added. A book that cannot be read fails the pairing, so Lumio never replaces its book with an empty one. The seed is derived for
      * the pairing and zeroed after it. [brotli] compresses the body of the code: Lensly passes its encoder, and null stores the body as it is,
@@ -528,11 +528,11 @@ class WalletStore(private val session: VaultSession) {
         val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
         try {
             val fingerprint = HdWallet(seed).masterFingerprint.toLong() and UINT32_MASK
-            val apps = WalletApp.entries.mapNotNull { app -> app.pairedApp(this, id, seed) }
+            val accounts = WalletApp.entries.flatMap { app -> app.pairedAccounts(this, id, seed, fingerprint.toInt()) }
             val name = fitBytes(meta.name.ifBlank { DEFAULT_PAIRING_NAME }, PairingCodec.MAX_NAME_BYTES)
             val autoNameBase = fitBytes(meta.autoNameBase, PairingCodec.MAX_NAME_BYTES)
             val book = AddressBookStore(session).load().take(PairingCodec.MAX_ADDRESS_BOOK)
-            val payload = PairingPayload(fingerprint = fingerprint, name = name, autoNameBase = autoNameBase, apps = apps, addressBook = book)
+            val payload = PairingPayload(fingerprint = fingerprint, name = name, autoNameBase = autoNameBase, accounts = accounts, addressBook = book)
             return PairingCodec.urParts(payload, brotli)
         } finally {
             seed.fill(0)

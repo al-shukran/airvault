@@ -1,15 +1,15 @@
 package app.lumio.pair
 
-import app.lensly.app.autoAccountName
+import app.airvault.core.signer.AccountExport
+import app.airvault.core.signer.SignerRef
 import app.lensly.app.export.PairingAccount
-import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingCodec
-import app.lensly.app.export.PairingKey
 import app.lensly.app.export.PairingPayload
+import app.lensly.app.export.accountSteps
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.ur.Cbor
-import app.lensly.core.wallet.HdWallet
+import app.lensly.core.ur.PathStep
 import com.sparrowwallet.hummingbird.UR
 import com.sparrowwallet.hummingbird.UREncoder
 import kotlin.test.assertEquals
@@ -33,7 +33,7 @@ class PairRefusalTest {
 
     @Test
     fun theOldPairingNameIsRefusedEvenWhenItsCodeIsWhole() {
-        val code = PairingCodec.encode(pairing(ethereumApp()), brotli = null)
+        val code = PairingCodec.encode(pairing(listOf(account(0))), brotli = null)
 
         assertEquals(
             "This is not a pairing code from Lensly. ur:x-lensly-pairing is not supported.",
@@ -43,7 +43,7 @@ class PairRefusalTest {
 
     @Test
     fun aScannedOldPairingNameEndsTheScanAsRefused() {
-        val code = PairingCodec.encode(pairing(ethereumApp()), brotli = null)
+        val code = PairingCodec.encode(pairing(listOf(account(0))), brotli = null)
 
         val step = scanToEnd(listOf(UREncoder.encode(UR("x-lensly-pairing", code))))
 
@@ -65,12 +65,12 @@ class PairRefusalTest {
     @Test
     fun aNewerVersionOfThePairingIsRefusedByItsVersion() {
         val newer = Cbor.encode(
-            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(7), Cbor.Uint(9) to Cbor.Text("a field of a later format"))),
+            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(8), Cbor.Uint(9) to Cbor.Text("a field of a later format"))),
         )
 
         val reason = refusalOf(UR(PairingCodec.UR_TYPE, newer))
 
-        assertTrue(reason, reason.contains("format 7"))
+        assertTrue(reason, reason.contains("format 8"))
         assertTrue(reason, reason.contains("Update the app"))
     }
 
@@ -98,68 +98,69 @@ class PairRefusalTest {
         assertEquals("This is not a pairing code from Lensly.", refusalOf(UR(PairingCodec.UR_TYPE, name)))
     }
 
+
     @Test
     fun aPairingWithoutAnEthereumAppIsRefused() {
-        val reason = refusalOf(codeOf(pairing(bitcoinApp(emptyList()))))
+        val reason = refusalOf(codeOf(pairing(PairFixtures.bitcoinAccounts())))
 
         assertTrue(reason, reason.contains("no Ethereum account key"))
     }
 
     @Test
     fun anEthereumKeyOffTheAccountPathIsRefusedBecauseOnlyTheAccountKeyPairs() {
-        val address = PairingKey.ethereumAddress(0, PairFixtures.address(PairFixtures.seed, 0)).copy(
-            path = listOf(0x8000002CL, 0x8000003CL, 0x80000000L),
-        )
+        // m/44'/60'/0' is an account level, not the address key m/44'/60'/N'/0/0, so no key scope of Ethereum covers it.
+        val atAccount = withPath(account(0), listOf(PathStep(44, true), PathStep(60, true), PathStep(0, true)))
 
-        val reason = refusalOf(codeOf(pairing(ethereumApp(key = address, accounts = listOf(account(0))))))
+        val reason = refusalOf(codeOf(pairing(listOf(atAccount))))
 
-        assertTrue(reason, reason.contains("m/44'/60'/N'"))
+        assertTrue(reason, reason.contains("outside the key scopes"))
     }
 
     @Test
     fun anEthereumKeyOfAnotherAccountIsRefused() {
-        val otherAccount = PairingKey.ethereumAddress(1, PairFixtures.address(PairFixtures.seed, 1))
+        // The key of account 1 at the first position: an account's index must be its position among the accounts of its chain.
+        val reason = refusalOf(codeOf(pairing(listOf(account(1)))))
 
-        val reason = refusalOf(codeOf(pairing(ethereumApp(key = otherAccount, accounts = listOf(account(0))))))
-
-        assertTrue(reason, reason.contains("the address of its account"))
+        assertTrue(reason, reason.contains("numbered 0 to n-1"))
     }
 
     @Test
     fun moreEthereumAccountsThanLumioKeepsAreRefused() {
         val accounts = (0..PairImport.MAX_ETHEREUM_ACCOUNTS).map { account(it) }
 
-        val reason = refusalOf(codeOf(pairing(ethereumApp(accounts = accounts))))
+        val reason = refusalOf(codeOf(pairing(accounts)))
 
         assertTrue(reason, reason.contains("Lumio pairs up to ${PairImport.MAX_ETHEREUM_ACCOUNTS}"))
     }
 
     @Test
     fun aBitcoinKeyOnAPathThatIsNotAnAccountIsRefused() {
-        val key = PairingKey.bitcoinAccount(PairFixtures.account(PairFixtures.seed, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT))
-            .copy(path = listOf(0x8000002CL, 0x80000000L, 0x80000000L, 0L))
+        // A watch-only key is the key of an account, at m/purpose'/coin'/N'. A fourth level is a key of an address, which Lumio does not pair.
+        val key = PairFixtures.bitcoinAccount(PairFixtures.account(PairFixtures.seed, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT), "Bitcoin 0")
+        val notAnAccount = withPath(key, listOf(PathStep(44, true), PathStep(0, true), PathStep(0, true), PathStep(0, false)))
 
-        val reason = refusalOf(codeOf(pairing(ethereumApp(), bitcoinKeys(listOf(key)))))
+        val reason = refusalOf(codeOf(pairing(listOf(account(0), notAnAccount))))
 
-        assertTrue(reason, reason.contains("Bitcoin account path"))
+        assertTrue(reason, reason.contains("is not the key of an account"))
     }
 
     @Test
     fun aBitcoinAccountListedTwiceIsRefused() {
-        val account = PairFixtures.account(PairFixtures.seed, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT)
-        val key = PairingKey.bitcoinAccount(account)
+        val key = PairFixtures.bitcoinAccount(PairFixtures.account(PairFixtures.seed, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT), "Bitcoin 0")
 
-        val reason = refusalOf(codeOf(pairing(ethereumApp(), bitcoinKeys(listOf(key, key)))))
+        val reason = refusalOf(codeOf(pairing(listOf(account(0), key, key))))
 
         assertTrue(reason, reason.contains("more than once"))
     }
 
     @Test
     fun moreBitcoinKeysThanLumioKeepsAreRefused() {
-        val key = PairingKey.bitcoinAccount(PairFixtures.account(PairFixtures.seed, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT))
-        val keys = (0..PairImport.MAX_BITCOIN_KEYS).map { index -> key.copy(path = listOf(0x80000054L, 0x80000000L, 0x80000000L + index)) }
+        val template = PairFixtures.account(PairFixtures.seed, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT)
+        val keys = (0..PairImport.MAX_BITCOIN_KEYS).map { index ->
+            withPath(PairFixtures.bitcoinAccount(template, "Bitcoin $index"), accountSteps(84, 0, index))
+        }
 
-        val reason = refusalOf(codeOf(pairing(ethereumApp(), bitcoinKeys(keys))))
+        val reason = refusalOf(codeOf(pairing(listOf(account(0)) + keys)))
 
         assertTrue(reason, reason.contains("Lumio pairs up to ${PairImport.MAX_BITCOIN_KEYS}"))
     }
@@ -181,29 +182,18 @@ class PairRefusalTest {
 
     private fun codeOf(payload: PairingPayload): UR = UR(PairingCodec.UR_TYPE, PairingCodec.encode(payload, brotli = null))
 
-    private fun pairing(vararg apps: PairingApp) = PairingPayload(
-        fingerprint = HdWallet(PairFixtures.seed).masterFingerprint.toLong() and 0xFFFFFFFFL,
-        name = "Demo",
-        autoNameBase = "Demo",
-        apps = apps.toList(),
+    private fun pairing(accounts: List<PairingAccount>): PairingPayload = PairFixtures.payloadOf(accounts)
+
+    private fun account(index: Int): PairingAccount = PairFixtures.ethereumAccount(index, "Demo $index")
+
+    /** The account [account] with its path replaced by [path], which is the path a pairing of another key would carry. */
+    private fun withPath(account: PairingAccount, path: List<PathStep>): PairingAccount = account.copy(
+        export = AccountExport(
+            account.export.chain,
+            SignerRef(account.export.signer.fingerprint, path),
+            account.export.publicKey,
+            account.export.chainCode,
+            account.export.kind,
+        ),
     )
-
-    private fun ethereumApp(
-        key: PairingKey? = null,
-        accounts: List<PairingAccount> = listOf(account(0)),
-    ) = PairingApp(
-        app = "ethereum",
-        keys = key?.let { listOf(it) } ?: accounts.indices.map { PairingKey.ethereumAddress(it, PairFixtures.address(PairFixtures.seed, it)) },
-        accounts = accounts,
-    )
-
-    private fun bitcoinApp(accounts: List<PairingAccount>) = PairingApp(app = "bitcoin", keys = emptyList(), accounts = accounts)
-
-    private fun bitcoinKeys(keys: List<PairingKey>) = PairingApp(
-        app = "bitcoin",
-        keys = keys,
-        accounts = keys.indices.map { PairingAccount(key = it, name = autoAccountName("Demo", it), label = null, group = null) },
-    )
-
-    private fun account(index: Int) = PairingAccount(key = index, name = "Demo $index", label = null, group = null)
 }

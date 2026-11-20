@@ -1,11 +1,11 @@
 package app.lumio.pair
 
 import app.lensly.app.export.LabelledPairingGolden
-import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.ur.UrScanner
+import app.lumio.data.net.Networks
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.DeterministicWallet
 import org.junit.Assert.assertEquals
@@ -31,34 +31,25 @@ class LensllyPairingGoldenTest {
 
         assertEquals("Savings", payload.name)
         assertEquals(
-            listOf(
-                PairingAccount(key = 0, name = "Cold", label = "vault", group = "Long term"),
-                PairingAccount(key = 1, name = "Savings 1", label = null, group = null),
-            ),
-            payload.apps.single { it.app == PairImport.ETHEREUM }.accounts,
+            listOf(Triple("Cold", "vault", "Long term"), Triple("Savings 1", null, null)),
+            PairImport.accountsOf(payload, Networks.EIP155).map { Triple(it.name, it.label, it.group) },
         )
     }
 
     @Test
     fun lumioReadsTheBitcoinNamesLabelsAndGroupsOfEachKeyLensliesSent() {
         val payload = imported()
-        val bitcoin = payload.apps.single { it.app == PairImport.BITCOIN }
+        val named = PairImport.accountsOf(payload, Networks.BIP122)
         val accounts = PairImport.bitcoinAccountsOf(payload)
 
         // The pairing carries the two Bitcoin accounts the owner stores, and no other Script Type.
-        assertEquals(2, bitcoin.keys.size)
-        assertEquals(bitcoin.keys.size, bitcoin.accounts.size)
-        val named = keyOf(accounts, ScriptType.NATIVE_SEGWIT, index = 0)
-        assertEquals(
-            PairingAccount(key = named, name = "Cold BTC", label = "vault", group = "Long term"),
-            bitcoin.accounts.single { it.key == named },
-        )
+        assertEquals(2, named.size)
+        assertEquals(named.size, accounts.size)
+        val cold = keyOf(accounts, ScriptType.NATIVE_SEGWIT, index = 0)
+        assertEquals(Triple("Cold BTC", "vault", "Long term"), named[cold].let { Triple(it.name, it.label, it.group) })
         // An account the owner never labelled carries its Auto-Name.
         val unnamed = keyOf(accounts, ScriptType.NATIVE_SEGWIT, index = 1)
-        assertEquals(
-            PairingAccount(key = unnamed, name = "Savings 1", label = null, group = null),
-            bitcoin.accounts.single { it.key == unnamed },
-        )
+        assertEquals(Triple("Savings 1", null, null), named[unnamed].let { Triple(it.name, it.label, it.group) })
     }
 
     /** The place, among the Bitcoin accounts of [payload], of the mainnet account on [scriptType] at account [index]. */

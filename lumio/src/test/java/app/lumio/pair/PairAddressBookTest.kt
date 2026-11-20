@@ -2,10 +2,7 @@ package app.lumio.pair
 
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.canonicalAddressOf
-import app.lensly.app.export.PairingAccount
-import app.lensly.app.export.PairingApp
 import app.lensly.app.export.PairingCodec
-import app.lensly.app.export.PairingKey
 import app.lensly.app.export.PairingPayload
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
@@ -68,21 +65,8 @@ class PairAddressBookTest {
     }
 
     /** The pairing of the test seed's Ethereum account, carrying [book]. */
-    private fun pairing(book: List<AddressBookEntry>): PairingPayload {
-        val wallet = HdWallet(PairFixtures.seed)
-        val ethereum = PairingApp(
-            app = "ethereum",
-            keys = listOf(PairingKey.ethereumAddress(0, PairFixtures.address(PairFixtures.seed, 0))),
-            accounts = listOf(PairingAccount(key = 0, name = "Savings", label = null, group = null)),
-        )
-        return PairingPayload(
-            fingerprint = wallet.masterFingerprint.toLong() and 0xFFFFFFFFL,
-            name = "Demo",
-            autoNameBase = "Demo",
-            apps = listOf(ethereum),
-            addressBook = book,
-        )
-    }
+    private fun pairing(book: List<AddressBookEntry>): PairingPayload =
+        PairFixtures.payloadOf(listOf(PairFixtures.ethereumAccount(0, "Savings"))).copy(addressBook = book)
 
     private fun codeOf(payload: PairingPayload): UR = UR(PairingCodec.UR_TYPE, PairingCodec.encode(payload, brotli = null))
 

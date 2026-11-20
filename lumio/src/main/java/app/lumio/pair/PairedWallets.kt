@@ -9,6 +9,7 @@ import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WalletRecordNames
+import app.lumio.data.net.Networks
 
 /** The chain families a paired wallet can hold. */
 enum class PairChain { EVM, BITCOIN, SOLANA, ALGORAND }
@@ -123,7 +124,6 @@ object PairedWallets {
 
     /** The records that hold [pairing], written in one step: the META record, an account record for each Ethereum account, and the Bitcoin record. */
     private fun recordsFor(pairing: PairingPayload, createdAtMs: Long): Map<String, ByteArray> {
-        val ethereum = requireNotNull(pairing.apps.firstOrNull { it.app == PairImport.ETHEREUM }) { "A validated pairing holds Ethereum." }
         val meta = PairRecords.Meta(
             fingerprint = pairing.fingerprint,
             createdAtMs = createdAtMs,
@@ -131,7 +131,7 @@ object PairedWallets {
             addresses = PairImport.ethereumAddressesOf(pairing),
         )
         val records = mutableMapOf(WalletRecordNames.META to PairRecords.encodeMeta(meta))
-        for ((index, account) in ethereum.accounts.withIndex()) {
+        for ((index, account) in PairImport.accountsOf(pairing, Networks.EIP155).withIndex()) {
             records[WalletRecordNames.account(index)] = PairRecords.encodeAccount(
                 PairRecords.Account(name = account.name, label = account.label, group = account.group),
             )
@@ -150,7 +150,7 @@ object PairedWallets {
      * Algorand records when the pairing holds none of those accounts.
      */
     private fun deletesFor(pairing: PairingPayload): List<String> {
-        val count = pairing.apps.first { it.app == PairImport.ETHEREUM }.accounts.size
+        val count = PairImport.accountsOf(pairing, Networks.EIP155).size
         val accounts = (count until PairImport.MAX_ETHEREUM_ACCOUNTS).map { WalletRecordNames.account(it) }
         val bitcoin = if (PairImport.bitcoinAccountsOf(pairing).isEmpty()) listOf(WalletRecordNames.BITCOIN) else emptyList()
         val solana = if (PairImport.solanaPublicKeysOf(pairing).isEmpty()) listOf(WalletRecordNames.SOLANA) else emptyList()

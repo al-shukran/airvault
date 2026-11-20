@@ -24,8 +24,6 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import app.lensly.app.export.PairingAccount
-import app.lensly.app.export.PairingApp
-import app.lensly.app.export.PairingKey
 import app.lensly.app.export.PairingPayload
 import app.lensly.app.export.partsOf
 import app.lensly.core.btc.BtcAccount
@@ -427,22 +425,12 @@ class LumioCoverageScreenshotTest {
     }
 
     private fun pairing(withBitcoin: Boolean): PairingPayload {
-        val apps = mutableListOf(
-            PairingApp(
-                app = PairImport.ETHEREUM,
-                keys = listOf(PairingKey.ethereumAddress(0, AccountAddresses.addressOfKey(AccountAddresses.addressXpub(wallet.accountXpub(0), 0)))),
-                accounts = listOf(PairingAccount(key = 0, name = "Demo 0", label = null, group = null)),
-            ),
-        )
+        val accounts = mutableListOf(PairFixtures.ethereumAccount(0, "Demo 0"))
         if (withBitcoin) {
             val account = BtcWatchOnly.accounts(PairFixtures.seed, BtcNetwork.MAINNET).first { it.scriptType == ScriptType.NATIVE_SEGWIT }
-            apps += PairingApp(
-                app = PairImport.BITCOIN,
-                keys = listOf(PairingKey.bitcoinAccount(account)),
-                accounts = listOf(PairingAccount(key = 0, name = "Demo 0", label = null, group = null)),
-            )
+            accounts += PairFixtures.bitcoinAccount(account, "Demo 0")
         }
-        return PairingPayload(fingerprint = 0x1a2b3c4dL, name = "Demo", autoNameBase = "Demo", apps = apps)
+        return PairingPayload(fingerprint = 0x1a2b3c4dL, name = "Demo", autoNameBase = "Demo", accounts = accounts)
     }
 
     /** The provider row of a fake provider. [enabled] is the owner's switch, and the other fields are as in [LumioScreenshotTest]. */

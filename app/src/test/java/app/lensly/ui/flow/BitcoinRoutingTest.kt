@@ -1,7 +1,7 @@
 package app.lensly.ui.flow
 
 import android.content.Context
-import app.airvault.chains.bitcoin.signer.bitcoinManifest
+import app.airvault.chains.bitcoin.bitcoinManifest
 import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
 import app.airvault.core.signer.SignerRef

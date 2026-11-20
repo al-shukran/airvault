@@ -1,6 +1,17 @@
 package app.lumio.pair
 
+import app.airvault.chains.algorand.algorandMainnet
+import app.airvault.chains.evm.ethereumMainnet
+import app.airvault.chains.solana.SOLANA_MAINNET
+import app.airvault.core.model.Curve
+import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingPayload
+import app.lensly.app.export.accountSteps
+import app.lensly.app.export.keyExport
+import app.lensly.app.export.watchOnlyExportOf
+import app.lensly.app.autoAccountName
+import app.lensly.core.algorand.AlgorandAccount
+import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnlyAccount
@@ -37,6 +48,40 @@ internal object PairFixtures {
         ScriptType.entries.map { scriptType -> account(seed, network, scriptType) }
     }
 
+    /** The master fingerprint of [seed], which a pairing names for each of its accounts. */
+    fun fingerprint(seed: ByteArray): Int = HdWallet(seed).masterFingerprint
+
+    /** The compressed key of Ethereum account [account] of [seed], m/44'/60'/[account]'/0/0, as a pairing carries it. */
+    fun ethereumKey(seed: ByteArray, account: Int): ByteArray = AccountAddresses.addressXpub(HdWallet(seed).accountXpub(account), 0).publicKey
+
+    /** Ethereum account [index] of [seed], named [name], with its label and group, as Lensly exports it. */
+    fun ethereumAccount(index: Int, name: String, label: String? = null, group: String? = null, seed: ByteArray = PairFixtures.seed): PairingAccount =
+        PairingAccount(keyExport(ethereumMainnet, fingerprint(seed), accountSteps(44, 60, index, 0, 0), Curve.SECP256K1, ethereumKey(seed, index)), name, label, group)
+
+    /** Solana account [index] of [seed], named [name]. */
+    fun solanaAccount(index: Int, name: String, seed: ByteArray = PairFixtures.seed): PairingAccount = PairingAccount(
+        keyExport(SOLANA_MAINNET, fingerprint(seed), accountSteps(44, 501, index), Curve.ED25519_SLIP10, SolanaAccount.publicKey(seed, index)),
+        name, null, null,
+    )
+
+    /** Algorand account [index] of [seed], named [name]. */
+    fun algorandAccount(index: Int, name: String, seed: ByteArray = PairFixtures.seed): PairingAccount = PairingAccount(
+        keyExport(algorandMainnet, fingerprint(seed), accountSteps(44, 283, index, 0, 0), Curve.ED25519_BIP32, AlgorandAccount.publicKey(seed, index)),
+        name, null, null,
+    )
+
+    /** The Bitcoin [account] as Lensly exports it, named [name], with its label and group. */
+    fun bitcoinAccount(account: BtcWatchOnlyAccount, name: String, label: String? = null, group: String? = null): PairingAccount =
+        PairingAccount(watchOnlyExportOf(account, account.masterFingerprint.toInt()), name, label, group)
+
+    /** The Bitcoin accounts of [seed] (all eight), each named by its Auto-Name of the position it has in the pairing, under [base]. */
+    fun bitcoinAccounts(seed: ByteArray = PairFixtures.seed, base: String = "Demo"): List<PairingAccount> =
+        allAccounts(seed).mapIndexed { position, account -> bitcoinAccount(account, autoAccountName(base, position)) }
+
+    /** A pairing of [accounts] for the wallet of [seed], named [name], whose Auto-Name base is [base]. */
+    fun payloadOf(accounts: List<PairingAccount>, seed: ByteArray = PairFixtures.seed, name: String = "Demo", base: String = "Demo"): PairingPayload =
+        PairingPayload(fingerprint = fingerprint(seed).toLong() and 0xFFFFFFFFL, name = name, autoNameBase = base, accounts = accounts)
+
     private fun seedOf(phrase: String): ByteArray = Mnemonic.of(phrase.split(" ")).use { it.deriveSeed("") }
 }
 
@@ -58,3 +103,15 @@ internal fun scanToEnd(parts: List<String>): ScanStep {
 /** The pairing that [parts] complete. Fails the test when they refuse or do not complete. */
 internal fun pairingOf(parts: List<String>): PairingPayload = (scanToEnd(parts) as? ScanStep.Complete)?.pairing
     ?: error("The code was refused: ${scanToEnd(parts)}")
+
+/** What a pairing account carries: its chain, path, key, chain code, and names. The payload has no equality for keys, so tests compare these. */
+internal fun PairingAccount.shape(): List<Any?> = listOf(
+    export.chain,
+    export.signer.path,
+    export.publicKey.curve,
+    export.publicKey.bytes.toHex(),
+    export.chainCode?.toHex(),
+    name,
+    label,
+    group,
+)

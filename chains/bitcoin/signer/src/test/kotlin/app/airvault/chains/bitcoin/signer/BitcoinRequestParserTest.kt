@@ -1,5 +1,6 @@
 package app.airvault.chains.bitcoin.signer
 
+import app.airvault.chains.bitcoin.bitcoinManifest
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.ChainRegistry
 import app.airvault.core.signer.ParseOutcome

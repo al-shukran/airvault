@@ -1,11 +1,17 @@
 package app.lensly.app.export
 
+import app.airvault.chains.evm.ethereumMainnet
+import app.airvault.chains.evm.evmAddressOf
+import app.airvault.core.model.Curve
+import app.airvault.core.signer.AccountExport
+import app.airvault.core.signer.PublicKey
+import app.airvault.core.signer.SignerRef
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.autoAccountName
-import app.airvault.chains.evm.evmAddressOf
 import app.lensly.core.parse.DecodeBudget
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.ur.Cbor
+import app.lensly.core.ur.PathStep
 import app.lensly.core.ur.UrScanner
 import com.sparrowwallet.hummingbird.UR
 import java.util.UUID
@@ -16,44 +22,39 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 
-/** The version-6 pairing: the layout round-trips, a code of another version is refused by its version, and an encoder never writes a code a reader refuses. */
+/** The version-7 pairing: the accounts of every chain round-trip, a code of another version is refused by its version, and an encoder never writes a code a reader refuses. */
 class PairingCodecTest {
 
     @Test
-    fun everyChainRoundTripsAsItIsEncoded() {
+    fun accountsOfAllFourChainsRoundTripAsTheyAreEncoded() {
         val payload = RealisticPairing.payload()
-        assertSamePayload(payload, PairingCodec.decode(PairingCodec.encode(payload, null), null))
+        assertEquals(setOf("eip155", "bip122", "solana", "algorand"), payload.accounts.map { it.export.chain.namespace }.toSet())
+        assertSamePayload(payload, roundTrip(payload))
     }
 
     @Test
     fun aPairingWithNoAddressBookOrLabelsRoundTrips() {
-        val payload = withAccounts(RealisticPairing.payload()) { _, account -> account.copy(label = null, group = null) }
-            .copy(addressBook = emptyList())
+        val payload = withAccounts(RealisticPairing.payload()) { it.copy(label = null, group = null) }.copy(addressBook = emptyList())
         assertSamePayload(payload, roundTrip(payload))
     }
 
     @Test
     fun anAccountNamedByItsAutoNameIsSentWithNoName() {
         val vault = RealisticPairing.payload()
+        // An account's Auto-Name counts its index in the path, which for Bitcoin is not its position in the pairing.
         val payload = vault.copy(
-            apps = vault.apps.map { app ->
-                app.copy(
-                    accounts = app.accounts.mapIndexed { position, account ->
-                        // An account's Auto-Name counts its index in the path, which for Bitcoin is not its position in the App.
-                        val index = (app.keys[position].path[2] and 0x7FFFFFFFL).toInt()
-                        account.copy(name = autoAccountName("Family vault", index))
-                    },
-                )
+            accounts = vault.accounts.map { account ->
+                account.copy(name = autoAccountName("Family vault", account.export.signer.path[2].index))
             },
         )
         val text = String(PairingCodec.encode(payload, null), Charsets.ISO_8859_1)
         assertFalse("an Auto-Name is not in the code", text.contains("Family vault 0"))
-        assertEquals(payload.apps.map { app -> app.accounts.map { it.name } }, roundTrip(payload).apps.map { app -> app.accounts.map { it.name } })
+        assertEquals(payload.accounts.map { it.name }, roundTrip(payload).accounts.map { it.name })
     }
 
     @Test
     fun aLabelOrGroupIsSentOnceInTheDictionary() {
-        val payload = withAccounts(RealisticPairing.payload()) { _, account -> account.copy(label = "Hodl vault") }
+        val payload = withAccounts(RealisticPairing.payload()) { it.copy(label = "Hodl vault") }
         val text = String(PairingCodec.encode(payload, null), Charsets.ISO_8859_1)
         assertEquals(1, Regex("Hodl vault").findAll(text).count())
         assertSamePayload(payload, roundTrip(payload))
@@ -61,21 +62,24 @@ class PairingCodecTest {
 
     @Test
     fun aRunBreaksWhereTheIndexSkipsAndAccountsStillRoundTrip() {
-        val ethereum = PairingApp(
-            app = "ethereum",
-            keys = listOf(0, 1, 3, 4).map { PairingKey.ethereumAddress(it, address(it)) },
-            accounts = listOf(0, 1, 2, 3).map { PairingAccount(key = it, name = "Account $it", label = null, group = null) },
-        )
-        val payload = PairingPayload(fingerprint = 0x1234L, name = "Skips", autoNameBase = "Skips", apps = listOf(ethereum))
+        val accounts = listOf(0, 1, 3, 4).mapIndexed { position, index ->
+            PairingAccount(
+                export = keyExport(ethereumMainnet, FINGERPRINT, accountSteps(44, 60, index, 0, 0), Curve.SECP256K1, key(position)),
+                name = "Account $index",
+                label = null,
+                group = null,
+            )
+        }
+        val payload = PairingPayload(fingerprint = FINGERPRINT.toLong(), name = "Skips", autoNameBase = "Skips", accounts = accounts)
         assertSamePayload(payload, roundTrip(payload))
     }
 
     @Test
-    fun aMinimalBodyWithNoAppsRoundTrips() {
+    fun aMinimalBodyWithNoAccountsRoundTrips() {
         val body = Cbor.encode(Cbor.Dict(listOf(uint(2) to uint(7), uint(3) to Cbor.Text("Vault"), uint(4) to Cbor.Text(""), uint(5) to Cbor.Arr(emptyList()))))
         val payload = PairingCodec.decode(envelope(VERSION, body), null)
         assertEquals("Vault", payload.name)
-        assertTrue(payload.apps.isEmpty())
+        assertTrue(payload.accounts.isEmpty())
     }
 
     @Test
@@ -88,14 +92,14 @@ class PairingCodecTest {
 
     @Test
     fun anOlderVersionIsRefusedByItsVersion() {
-        val message = refusalOf { PairingCodec.decode(envelope(5L, byteArrayOf()), null) }
-        assertEquals("This pairing uses format 5, and this app reads format 6. Update the app, then pair again.", message)
+        val message = refusalOf { PairingCodec.decode(envelope(6L, byteArrayOf()), null) }
+        assertEquals("This pairing uses format 6, and this app reads format 7. Update the app, then pair again.", message)
     }
 
     @Test
     fun aNewerVersionIsRefusedByItsVersionEvenWithFieldsItDoesNotKnow() {
-        val message = refusalOf { PairingCodec.decode(envelope(7L, byteArrayOf()), null) }
-        assertEquals("This pairing uses format 7, and this app reads format 6. Update the app, then pair again.", message)
+        val message = refusalOf { PairingCodec.decode(envelope(8L, byteArrayOf()), null) }
+        assertEquals("This pairing uses format 8, and this app reads format 7. Update the app, then pair again.", message)
     }
 
     @Test
@@ -118,22 +122,32 @@ class PairingCodecTest {
     }
 
     @Test
-    fun anEncoderRefusesAnAccountThatNamesAnotherKey() {
-        val payload = withAccounts(RealisticPairing.payload()) { _, account -> account.copy(key = account.key + 1) }
-        refusalOf { PairingCodec.encode(payload, null) }
+    fun anEncoderRefusesAnAccountOfAnotherWallet() {
+        val payload = RealisticPairing.payload()
+        assertTrue(refusalOf { PairingCodec.encode(payload.copy(fingerprint = FINGERPRINT.toLong() + 1), null) }.isNotEmpty())
+    }
+
+    @Test
+    fun anEncoderRefusesAKeyOfTheWrongLengthForItsCurve() {
+        val payload = withAccounts(RealisticPairing.payload()) { account ->
+            if (account.export.chain == ethereumMainnet) account.copy(export = withKey(account.export, ByteArray(32))) else account
+        }
+        assertTrue(refusalOf { PairingCodec.encode(payload, null) }.contains("33 bytes"))
     }
 
     @Test
     fun anEncoderRefusesAKeyPathThatIsNotHardenedAtItsAccount() {
         val payload = RealisticPairing.payload()
-        val ethereum = payload.apps.first()
-        val broken = ethereum.copy(keys = listOf(ethereum.keys[0].copy(path = listOf(0x80000000L + 44, 0x80000000L + 60, 3, 0, 0))) + ethereum.keys.drop(1))
-        assertTrue(refusalOf { PairingCodec.encode(payload.copy(apps = listOf(broken)), null) }.isNotEmpty())
+        val broken = payload.accounts.first().let { first ->
+            val path = listOf(PathStep(44, true), PathStep(60, true), PathStep(3, false), PathStep(0, false), PathStep(0, false))
+            first.copy(export = withPath(first.export, path))
+        }
+        assertTrue(refusalOf { PairingCodec.encode(payload.copy(accounts = listOf(broken) + payload.accounts.drop(1)), null) }.isNotEmpty())
     }
 
     @Test
     fun aNameWithAControlCharacterIsRefused() {
-        val payload = withAccounts(RealisticPairing.payload()) { _, account -> account.copy(name = "Bad\u0007") }
+        val payload = withAccounts(RealisticPairing.payload()) { it.copy(name = "Bad\u0007") }
         assertTrue(refusalOf { PairingCodec.encode(payload, null) }.contains("1 to 96 bytes"))
     }
 
@@ -183,21 +197,29 @@ class PairingCodecTest {
 
     private fun roundTrip(payload: PairingPayload): PairingPayload = PairingCodec.decode(PairingCodec.encode(payload, null), null)
 
-    /** The payload with every account of every App replaced by [transform], which is given the App's id and the account. */
-    private fun withAccounts(payload: PairingPayload, transform: (String, PairingAccount) -> PairingAccount): PairingPayload =
-        payload.copy(apps = payload.apps.map { app -> app.copy(accounts = app.accounts.map { transform(app.app, it) }) })
+    /** The payload with every account replaced by [transform]. */
+    private fun withAccounts(payload: PairingPayload, transform: (PairingAccount) -> PairingAccount): PairingPayload =
+        payload.copy(accounts = payload.accounts.map(transform))
+
+    private fun withKey(export: AccountExport, publicKey: ByteArray): AccountExport =
+        AccountExport(export.chain, export.signer, PublicKey(export.publicKey.curve, publicKey), export.chainCode, export.kind)
+
+    private fun withPath(export: AccountExport, path: List<PathStep>): AccountExport =
+        AccountExport(export.chain, SignerRef(export.signer.fingerprint, path), export.publicKey, export.chainCode, export.kind)
 
     private fun assertSamePayload(expected: PairingPayload, actual: PairingPayload) {
         assertEquals(expected.fingerprint, actual.fingerprint)
         assertEquals(expected.name, actual.name)
         assertEquals(expected.autoNameBase, actual.autoNameBase)
-        assertEquals(expected.apps.map { it.app }, actual.apps.map { it.app })
-        for ((want, got) in expected.apps.zip(actual.apps)) {
-            assertEquals(want.accounts, got.accounts)
-            assertEquals(want.keys.map { it.path }, got.keys.map { it.path })
-            assertEquals(want.keys.map { it.material.toList() }, got.keys.map { it.material.toList() })
-            assertEquals(want.keys.map { it.chainCode?.toList() }, got.keys.map { it.chainCode?.toList() })
-        }
+        assertEquals(expected.accounts.map { it.name }, actual.accounts.map { it.name })
+        assertEquals(expected.accounts.map { it.label }, actual.accounts.map { it.label })
+        assertEquals(expected.accounts.map { it.group }, actual.accounts.map { it.group })
+        assertEquals(expected.accounts.map { it.export.chain }, actual.accounts.map { it.export.chain })
+        assertEquals(expected.accounts.map { it.export.signer }, actual.accounts.map { it.export.signer })
+        assertEquals(expected.accounts.map { it.export.kind }, actual.accounts.map { it.export.kind })
+        assertEquals(expected.accounts.map { it.export.publicKey.curve }, actual.accounts.map { it.export.publicKey.curve })
+        assertEquals(expected.accounts.map { it.export.publicKey.bytes.toList() }, actual.accounts.map { it.export.publicKey.bytes.toList() })
+        assertEquals(expected.accounts.map { it.export.chainCode?.toList() }, actual.accounts.map { it.export.chainCode?.toList() })
         assertEquals(expected.addressBook, actual.addressBook)
     }
 
@@ -223,6 +245,9 @@ class PairingCodecTest {
 
     private fun address(seed: Int): String = checkNotNull(evmAddressOf("0x" + Random(seed).nextBytes(20).joinToString("") { "%02x".format(it) }))
 
+    /** A compressed secp256k1 key for the codec: its prefix and 32 bytes, which the codec does not check beyond their length. */
+    private fun key(seed: Int): ByteArray = byteArrayOf(0x02) + Random(seed).nextBytes(32)
+
     private fun entry(index: Int): AddressBookEntry {
         val random = Random(index)
         return AddressBookEntry(
@@ -236,6 +261,7 @@ class PairingCodecTest {
     private fun uint(value: Long): Cbor = Cbor.Uint(value)
 
     private companion object {
-        const val VERSION = 6L
+        const val VERSION = 7L
+        const val FINGERPRINT = 0x1234
     }
 }

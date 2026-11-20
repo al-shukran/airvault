@@ -2,6 +2,7 @@ package app.lensly.app
 
 import app.airvault.chains.bitcoin.signer.BtcFeeThresholds
 import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
+import app.airvault.chains.bitcoin.signer.SIGNING_SOURCE_SETTING
 import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.UnknownCallPolicy
@@ -43,13 +44,16 @@ class SettingsStoreTest {
     ): ByteArray {
         val buffer = ByteArrayOutputStream()
         DataOutputStream(buffer).use { out ->
-            out.writeByte(6) // The version the store writes; the companion's constant is private.
+            out.writeByte(7) // The version the store writes; the companion's constant is private.
             out.writeInt(accounts)
             out.writeByte(policyCode)
             out.writeInt(shortestMs)
             out.writeInt(longestMs)
             out.writeByte(inputCode)
-            out.writeByte(sourceCode)
+            // The app settings: one count, then the Bitcoin signing source under the key the Bitcoin app declares.
+            out.writeByte(1)
+            out.writeUTF(SIGNING_SOURCE_SETTING)
+            out.writeInt(sourceCode)
             out.writeInt(rate)
             out.writeInt(share)
             out.writeByte(UnknownCallPolicy.DEFAULT.code)
@@ -199,7 +203,7 @@ class SettingsStoreTest {
     @Test
     fun anUnknownSettingsVersionReadsAsTheDefault() {
         val session = open()
-        session.putVaultRecord("settings", record(version = 7, accounts = 1_000))
+        session.putVaultRecord("settings", record(version = 8, accounts = 1_000))
 
         assertEquals(BulkCap.DEFAULT, SettingsStore(session).load().bulkCap)
         session.close()
@@ -293,17 +297,15 @@ class SettingsStoreTest {
     fun aSavedBitcoinPolicyIsReadBackAfterTheVaultReopens() {
         val first = open()
         SettingsStore(first).save(
-            AppSettings(
-                bitcoinInputPolicy = InputVerificationPolicy.LEGACY_STRICT_SEGWIT_RELAXED,
-                bitcoinSigningSource = SigningSourcePolicy.COMPANION_ONLY,
-            ),
+            AppSettings(bitcoinInputPolicy = InputVerificationPolicy.LEGACY_STRICT_SEGWIT_RELAXED)
+                .withBitcoinSigningSource(SigningSourcePolicy.COMPANION_ONLY),
         )
         first.close()
 
         val reopened = open()
         val loaded = SettingsStore(reopened).load()
         assertEquals(InputVerificationPolicy.LEGACY_STRICT_SEGWIT_RELAXED, loaded.bitcoinInputPolicy)
-        assertEquals(SigningSourcePolicy.COMPANION_ONLY, loaded.bitcoinSigningSource)
+        assertEquals(SigningSourcePolicy.COMPANION_ONLY, loaded.bitcoinSigningSource())
         reopened.close()
     }
 
@@ -312,10 +314,10 @@ class SettingsStoreTest {
         val session = open()
         for (input in InputVerificationPolicy.entries) {
             for (source in SigningSourcePolicy.entries) {
-                SettingsStore(session).save(AppSettings(bitcoinInputPolicy = input, bitcoinSigningSource = source))
+                SettingsStore(session).save(AppSettings(bitcoinInputPolicy = input).withBitcoinSigningSource(source))
                 val loaded = SettingsStore(session).load()
                 assertEquals(input, loaded.bitcoinInputPolicy)
-                assertEquals(source, loaded.bitcoinSigningSource)
+                assertEquals(source, loaded.bitcoinSigningSource())
             }
         }
         session.close()
@@ -331,7 +333,7 @@ class SettingsStoreTest {
 
         val loaded = SettingsStore(session).load()
         assertEquals(InputVerificationPolicy.STRICT, loaded.bitcoinInputPolicy)
-        assertEquals(SigningSourcePolicy.COMPANION_ONLY, loaded.bitcoinSigningSource)
+        assertEquals(SigningSourcePolicy.COMPANION_ONLY, loaded.bitcoinSigningSource())
         assertEquals(HideDelay(250, 4_000), loaded.hideDelay)
         session.close()
     }
@@ -373,8 +375,7 @@ class SettingsStoreTest {
             bulkCap = BulkCap.TWENTY,
             proxyPolicy = ProxyPolicy.WARN_AND_CONFIRM,
             bitcoinInputPolicy = InputVerificationPolicy.LEGACY_STRICT_SEGWIT_RELAXED,
-            bitcoinSigningSource = SigningSourcePolicy.COMPANION_ONLY,
-        )
+        ).withBitcoinSigningSource(SigningSourcePolicy.COMPANION_ONLY)
         withVault { session -> SettingsStore(session).save(saved) }
         withVault { session ->
             SettingsStore(session).let { store ->
