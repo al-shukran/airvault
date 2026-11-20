@@ -10,7 +10,6 @@ import app.lensly.core.solana.SolanaTransaction
 import app.lensly.core.ur.SolSignRequestEncoder
 import app.lensly.core.ur.SolSignature
 import app.lensly.core.wallet.Ed25519Signer
-import app.lumio.data.Clock
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.NativeBalance
@@ -49,10 +48,10 @@ class SolanaSendAccount(val index: Int, val key: ByteArray, val sourceFingerprin
 }
 
 /**
- * When a setup's blockhash stops being valid: the last block height at which it is accepted, and the [MonotonicClock][app.lumio.data.MonotonicClock]
- * milliseconds at which Lumio fetched it. A setup is refused once the chain's block height passes [lastValidBlockHeight].
+ * When a setup's blockhash stops being valid: the last block height at which it is accepted. A setup is refused once the chain's block height passes
+ * [lastValidBlockHeight].
  */
-class SetupWindow(val lastValidBlockHeight: Long, val fetchedAtMs: Long)
+class SetupWindow(val lastValidBlockHeight: Long)
 
 /** Thrown before a signed setup is sent, when the chain has passed its blockhash's last valid height. The network would refuse it, so it is not sent. */
 class BlockhashExpired : Exception(SETUP_EXPIRED)
@@ -204,12 +203,8 @@ object SolanaSend {
         )
     }
 
-    /**
-     * The one-time setup of [account] at the latest blockhash of [network], as the chain confirms it. The fetch time is read before the calls, so a
-     * slow answer never makes the window look longer than it is.
-     */
-    suspend fun setupAt(scheduler: Scheduler, network: NetworkId, account: SolanaSendAccount, rentLamports: Long, clock: Clock): SolanaSendPlan {
-        val fetchedAtMs = clock.nowMs()
+    /** The one-time setup of [account] at the latest blockhash of [network], as the chain confirms it. */
+    suspend fun setupAt(scheduler: Scheduler, network: NetworkId, account: SolanaSendAccount, rentLamports: Long): SolanaSendPlan {
         val latest = scheduler.run(RecentBlockhash(network), Priority.FOREGROUND)
         val available = scheduler.run(NativeBalance(network, account.address), Priority.FOREGROUND)
         return setupPlan(
@@ -219,7 +214,7 @@ object SolanaSend {
             balance = available,
             blockhash = Base58.decode(latest.blockhash),
             requestId = newRequestId(),
-            window = SetupWindow(latest.lastValidBlockHeight, fetchedAtMs),
+            window = SetupWindow(latest.lastValidBlockHeight),
         )
     }
 
@@ -233,17 +228,6 @@ object SolanaSend {
     suspend fun requireUnexpired(scheduler: Scheduler, network: NetworkId, window: SetupWindow) {
         val height = scheduler.run(SolanaBlockHeight(network), Priority.FOREGROUND)
         if (expired(height, window.lastValidBlockHeight)) throw BlockhashExpired()
-    }
-
-    /** How long a one-time setup may stay on the screen unscanned, counted from its fetch, before Lumio rebuilds it at a fresh blockhash. */
-    const val SETUP_REFRESH_MS = 20_000L
-
-    /** The wait until a setup fetched at [fetchedAtMs] is due for a rebuild, when the clock reads [nowMs]. Zero once it is due. */
-    fun refreshWait(fetchedAtMs: Long, nowMs: Long): Long = (fetchedAtMs + SETUP_REFRESH_MS - nowMs).coerceAtLeast(0L)
-
-    /** Waits on [pause] until a setup fetched at [fetchedAtMs] is due for a rebuild. It returns at once when it already is. */
-    suspend fun awaitRefresh(fetchedAtMs: Long, clock: Clock, pause: suspend (Long) -> Unit = { delay(it) }) {
-        pause(refreshWait(fetchedAtMs, clock.nowMs()))
     }
 
     /**

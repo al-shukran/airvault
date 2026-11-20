@@ -23,7 +23,6 @@ import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.LumioApp
 import app.lumio.chains.ChainHoldings
-import app.lumio.data.MonotonicClock
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.RentExemptMinimum
@@ -70,7 +69,10 @@ private sealed interface SolanaSendStep {
     /** The one-time setup of offline signing: the nonce account to create, and the rent paid into it. Shown before Lensly signs the setup. */
     class SetupReview(val nonceAccount: String, val rentLamports: Long) : SolanaSendStep
 
-    /** A request for Lensly to sign. [setup] is true for the one-time setup, which is not a send. */
+    /**
+     * A request for Lensly to sign, as shown. [plan] and [parts] stay as they are while it is on screen: Lensly's answer is checked against the request ID
+     * of [plan], so a request that changed under the owner would refuse the answer to the one they scanned. [setup] is true for the one-time setup.
+     */
     class Request(val plan: SolanaSendPlan, val parts: List<String>, val setup: Boolean = false) : SolanaSendStep
 
     class Scanning(val plan: SolanaSendPlan, val parts: List<String>, val setup: Boolean = false) : SolanaSendStep
@@ -248,7 +250,7 @@ internal fun SolanaSendRoute(
         notice = null
         scope.launch {
             val outcome = withContext(Dispatchers.IO) {
-                runCatching { SolanaSend.setupAt(scheduler, network, from, current.rentLamports, MonotonicClock) }
+                runCatching { SolanaSend.setupAt(scheduler, network, from, current.rentLamports) }
             }
             busy = false
             outcome.fold(
@@ -256,23 +258,6 @@ internal fun SolanaSendRoute(
                 onFailure = { error -> notice = ownerWords(error, PREPARE_FAILED) },
             )
         }
-    }
-
-    // A setup that stays on the screen unscanned for SETUP_REFRESH_MS is rebuilt at a fresh blockhash, with no tap. Leaving the request for the
-    // scanner cancels the wait, and coming back to it waits only for the rest of the time since the fetch.
-    val pendingSetup = (step as? SolanaSendStep.Request)?.takeIf { it.setup }
-    LaunchedEffect(pendingSetup) {
-        val request = pendingSetup ?: return@LaunchedEffect
-        val from = account ?: return@LaunchedEffect
-        val fetchedAtMs = request.plan.window?.fetchedAtMs ?: return@LaunchedEffect
-        SolanaSend.awaitRefresh(fetchedAtMs, MonotonicClock)
-        val rebuilt = withContext(Dispatchers.IO) {
-            runCatching { SolanaSend.setupAt(scheduler, network, from, request.plan.lamports, MonotonicClock) }
-        }
-        rebuilt.fold(
-            onSuccess = { plan -> confirm(plan, setup = true) },
-            onFailure = { error -> notice = ownerWords(error, PREPARE_FAILED) },
-        )
     }
 
     /** A scanned recipient fills the form. A code that is refused keeps the camera on, with the words why. */
