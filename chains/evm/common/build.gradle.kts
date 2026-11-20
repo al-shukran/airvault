@@ -18,6 +18,8 @@ kotlin {
 
 dependencies {
     api(project(":core:model"))
+    // The key paths are read as the signer API's path steps.
+    api(project(":core:signer-api"))
     // The EIP-55 checksum is Keccak-256, from the same bouncycastle that :shared already ships.
     implementation(libs.bouncycastle.bcprov.jdk18on)
 

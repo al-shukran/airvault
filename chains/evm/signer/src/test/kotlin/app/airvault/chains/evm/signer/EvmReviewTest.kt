@@ -419,7 +419,7 @@ class EvmReviewTest {
     }
 
     @Test
-    fun aPersonalMessageThatNamesNoChainIsReadOnEthereumMainnet() {
+    fun aPersonalMessageThatNamesNoChainShowsNoNetworkAndSaysItIsNotBoundToOne() {
         val request = EthSignRequest(
             requestId = null,
             signData = "hello".toByteArray(),
@@ -435,8 +435,14 @@ class EvmReviewTest {
 
         assertEquals("Sign Message", review.title)
         assertEquals(ChainId("eip155:1"), review.chain)
-        assertEquals(NetworkLabel("Ethereum", testnet = false, detail = "Chain ID 1"), review.network)
+        assertEquals(NetworkLabel("Any Chain", testnet = false, detail = null), review.network)
         assertEquals("hello", review.sections.single { it.heading == "Message" }.rows.single { it.label == "Message" }.value.text())
+        val chainWarning = review.warnings.single { it.code == "evm.personal-message.chain" }
+        assertEquals(Danger.CAUTION, chainWarning.level)
+        assertEquals(
+            "This message names no chain, so its signature is not bound to a network. It is valid on every EVM chain.",
+            chainWarning.message,
+        )
     }
 
     @Test
@@ -659,6 +665,11 @@ class EvmReviewTest {
         val refused = refusalOf(txParsed(NFT, fooCalldata()), builder(REGISTRY.withWhitelist(listOf(proxy))))
 
         assertEquals("0x" + List(8) { "abababab" }.joinToString(" "), refused.rows.single { it.label == "Approved Code Hash" }.value.text())
+        // The rows of a refused call, in the order its screen shows them: the call's own rows, then the proxy's binding, then the calldata.
+        assertEquals(
+            listOf("Contract", "Network", "Value", "Selector", "Approved Implementation", "Approved Code Hash", "Calldata"),
+            refused.rows.take(7).map { it.label },
+        )
     }
 
     /** The CAUTIONs a personal message of [path] gets, as their texts: none when [path] is null. */
