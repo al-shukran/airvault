@@ -69,7 +69,8 @@ internal data class RiskItem(val text: String, val tone: BannerTone, val check: 
 /**
  * The header of a review: the network, named in full and large, with its raw [chainDetail] under it and the testnet badge in the warning
  * colour when [testnet] is set. Under it come the [networkFact] row, when a review has one, then the account that signs and its wallet, and
- * the address of that account in full, beside [addressLogo], the logo the review's other addresses show. [networkIcon] is the logo of the network, when it has one.
+ * the address of that account in full, beside [addressLogo], the logo the review's other addresses show. [networkIcon] is the logo of
+ * the network, when it has one.
  */
 @Composable
 internal fun ReviewHeader(

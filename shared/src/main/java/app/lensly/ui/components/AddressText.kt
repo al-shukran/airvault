@@ -41,8 +41,9 @@ internal const val ADDRESS_COPIED = "Address copied"
 /**
  * An address the owner can copy. [address] is the full address and it is what gets copied, so a copy is whole even when [shown] prints
  * the address shortened or grouped. The copy button and a long press on the text copy it to the clipboard, and a short toast confirms
- * it. [icon] puts the Ethereum logo before the address, which every EVM chain shares, and it is off by default, so no other chain shows the Ethereum logo. [onClick], when set, runs on a tap of the text, for an address that sits in a
- * row which is itself tapped. The clip is marked sensitive and cleared after a minute, as every copy in Lensly is.
+ * it. [icon] puts the Ethereum logo before the address, which every EVM chain shares; it is off by default, so no other chain shows that
+ * logo. [onClick], when set, runs on a tap of the text, for an address that sits in a row which is itself tapped. The clip is marked
+ * sensitive and cleared after a minute, as every copy in Lensly is.
  */
 @Composable
 fun AddressText(
