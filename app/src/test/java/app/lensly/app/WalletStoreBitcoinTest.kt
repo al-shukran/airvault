@@ -510,7 +510,7 @@ class WalletStoreBitcoinTest {
     @Test
     fun aWalletWithNoBitcoinAccountRefusesEveryRequest() {
         val id = newWallet()
-        // A wallet made before the first accounts were generated has no Bitcoin record.
+        // The wallet's Bitcoin record is missing, so every request is refused.
         session.deleteRecord(id, WalletRecords.BITCOIN)
         val refused = assertFailsWith<BtcRefusedException> {
             store.bitcoinReview(id, requestFrom(walletAccount(BtcNetwork.MAINNET, 0)), STRICT, SigningSourcePolicy.ANY)
