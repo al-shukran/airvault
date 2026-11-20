@@ -84,7 +84,7 @@ class VaultKeyFileTest {
 
     @Test
     fun anOlderVersionIsRefusedAsAFormatChange() {
-        // Version 2 is the file before the slot key. It is refused, and nothing is migrated from it.
+        // Version 2 is refused, and nothing is migrated from it.
         val file = VaultKeyFile.encode(listOf(randomSlot(), randomSlot()), random)
         file[4] = 2
 

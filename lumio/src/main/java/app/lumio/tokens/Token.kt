@@ -39,7 +39,7 @@ object CustomTokenStore {
     /** The vault record that holds the owner's tokens. */
     const val RECORD = "lumio-custom-tokens"
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json
 
     @Serializable
     private class StoreFile(val tokens: List<Token> = emptyList())
