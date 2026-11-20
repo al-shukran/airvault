@@ -5,7 +5,10 @@ import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.chains.evm.signer.EvmRequestBody
 import app.airvault.chains.evm.signer.EvmRequestParser
+import app.airvault.chains.evm.signer.EvmReviewBuilder
+import app.airvault.chains.evm.signer.EvmReviewResult
 import app.airvault.chains.evm.signer.EvmSigner
+import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.chains.evm.signer.Rlp
 import app.airvault.chains.evm.signer.TypedData
 import app.airvault.chains.evm.signer.TypedDataParser
@@ -17,11 +20,13 @@ import app.airvault.core.model.NetworkLabel
 import app.airvault.core.model.Review
 import app.airvault.core.model.ReviewRow
 import app.airvault.core.model.ReviewSection
+import app.airvault.core.model.checkLabels
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
 import app.airvault.core.signer.ScopedKeyAccess
 import app.airvault.core.signer.SignerRef
+import app.lensly.core.registry.Registry
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.AccountAddresses
@@ -153,8 +158,11 @@ class EvmSignerIdentityTest {
             signers = listOf(SignerRef(null, derivationPath)),
             requestId = REQUEST_ID,
         )
-        val body = EvmRequestBody.encode(EvmRequestParser.parsedOf(request))
-        val approval = requireNotNull(Approval.of(reviewOf(chain, AccountAddresses.addressOfPrivateKey(key)), emptySet()))
+        val parsed = EvmRequestParser.parsedOf(request)
+        val sender = AccountAddresses.addressOfPrivateKey(key)
+        val review = if (dataType == DataType.TYPED_DATA) typedReviewOf(parsed, sender) else reviewOf(chain, sender)
+        val approval = requireNotNull(Approval.of(review, review.checkLabels().toSet()))
+        val body = EvmRequestBody.encode(parsed)
         val keys = ScopedKeyAccess(evmManifest.keys, SingleKeyAccess(key, EvmSigner.singleKeyPath))
         return signatureOf(EvmSigner.sign(AppRequest(header, body), approval, keys).cbor)
     }
@@ -163,6 +171,12 @@ class EvmSignerIdentityTest {
     private fun signatureOf(cbor: ByteArray): ByteArray {
         val fields = assertIs<Cbor.Dict>(Cbor.decode(cbor)).entries
         return (fields[1].second as Cbor.Bytes).value
+    }
+
+    /** The review the builder gives typed data [parsed] from [sender], which shows the hashes the signature covers. */
+    private fun typedReviewOf(parsed: ParsedRequest, sender: String): Review {
+        val builder = EvmReviewBuilder(Registry(networks = emptyList(), tokens = emptyList()), { _, _ -> error("typed data decodes no call") })
+        return assertIs<EvmReviewResult.Ok>(builder.review(parsed, sender)).review
     }
 
     /** A review that names [sender] as its From and warns about nothing, which the sign path needs to approve a request. */
