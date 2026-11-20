@@ -54,7 +54,10 @@ The lines balance the lanes. A test class with no line still runs, so adding a t
   request, which saves nothing. A push to master and a queue entry save every lane's entry, even when it fails or is cancelled.
   A pull request restores master's entries (`bc-<lane>-master-`) only. Its own entries would be restored ahead of master's, and a
   lint entry a pull request saved lacked the compile outputs master's entries hold, so the next run of that pull request compiled
-  cold. Entries are about 450 MB each, and GitHub evicts least recently used entries past 10 GB per repository, which evicted
+  cold. Each lane's entry is 0.1 to 0.7 GB, so one push to master saves about 5.5 GB. `cache-prune` (`pr-fast.yml`, running
+  `prune-caches.sh`) deletes, after the lanes of each push, the other master build caches, the other dependency caches and every
+  setup-gradle `gradle-*` cache. The repository then holds one master generation (about 5.5 GB) and one dependency cache (about
+  1.2 GB), under GitHub's 10 GB per repository limit. Before that prune, GitHub evicted least recently used entries and evicted
   master's shard entries (run 44727796023). A pull request cannot change what master restores.
 - The configuration cache is encrypted with `GRADLE_ENCRYPTION_KEY`, a repository secret. Without it, each runner encrypts with its
   own keystore, a restored entry reads as absent ("no cached configuration is available"), and no lane reuses the configuration.
