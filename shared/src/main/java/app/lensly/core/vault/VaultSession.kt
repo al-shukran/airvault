@@ -385,16 +385,6 @@ class VaultSession constructor(
     }
 
     /**
-     * True when wallet [walletId] has a file for record [name], whether or not the record reads. [getRecord] gives null both for an absent
-     * record and for one that cannot be read, so a caller that must tell them apart asks here.
-     */
-    fun hasRecord(walletId: String, name: String): Boolean = synchronized(this) {
-        requireOpen()
-        requireWalletId(walletId)
-        WalletFolder.holds(name) && recordFile(walletId, name).isFile
-    }
-
-    /**
      * The bytes of each record in [names] of wallet [walletId] that exists, by name. A record that is absent, or a name no wallet folder
      * holds, is left out, as [getRecord] gives null for it. The Per-Wallet Key is unwrapped once for all of them, so reading many records
      * costs one Keystore call, not one per record.

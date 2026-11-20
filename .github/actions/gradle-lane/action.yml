@@ -61,6 +61,6 @@ runs:
 
     # Only a push saves the state, and a running daemon could still be writing to it.
     - name: Stop the Gradle daemon so the state can be saved
-      if: always() && github.event_name == 'push'
+      if: always() # TEMP #567
       shell: bash
       run: ./gradlew --stop
