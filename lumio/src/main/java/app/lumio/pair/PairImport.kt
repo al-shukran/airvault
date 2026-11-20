@@ -22,6 +22,7 @@ import app.lumio.data.net.Networks
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.KeyPath
+import fr.acinq.bitcoin.PublicKey
 import fr.acinq.bitcoin.byteVector
 import fr.acinq.bitcoin.byteVector32
 
@@ -63,6 +64,8 @@ object PairImport {
     private const val NOT_IN_SCOPE = "The code's key is not a key of its chain: its path is outside the key scopes of the chain."
     private const val NOT_WATCH_ONLY = "The code's key does not match its chain: a chain code is for watch-only extended keys only."
     private const val NOT_ACCOUNT_KEY = "The code's watch-only key is not the key of an account: its path is m/purpose'/coin'/N'."
+    private const val WRONG_COIN = "The code's key is on another network: its coin type is not the coin type of its chain."
+    private const val NOT_CHAIN_ACCOUNT = "The code's key is not an account key of its chain: its path is not the chain's account path."
     private const val OUT_OF_ORDER = "The code's accounts on one chain are not numbered 0 to n-1 in order."
     private const val DUPLICATE = "The code lists one account more than once."
     private const val BAD_KEY = "The code's public key is not valid."
@@ -129,23 +132,34 @@ object PairImport {
     }
 
     /**
-     * Checks one exported account against its chain's manifest: its path is in a key scope of the chain on the key's curve, its key has the size of
-     * that curve, a chain code is present exactly when the chain exports watch-only extended keys, and the chain's address rules accept the key, so a
-     * key that is not on its curve is refused here.
+     * Checks one exported account against its chain's manifest and wallet: its path is in a key scope of the chain on the key's curve and names the
+     * coin type of the chain's network, its key has the size of that curve and, on secp256k1, is a point of the curve, and a chain code is present
+     * exactly when the chain exports watch-only extended keys. A watch-only key must have the chain's address rules; a single key must be an account
+     * key of its chain, which the wallet's [WalletApp.accountFrom] states for each chain.
      */
     private fun checkAccount(export: AccountExport) {
         val wallet = requireNotNull(walletRegistry.byChain(export.chain)) { "A checked account has an installed chain." }
         val manifest = wallet.manifest
+        val network = requireNotNull(manifest.networks.firstOrNull { it.chainId == export.chain }) { "A checked account has an installed network." }
         val curve = export.publicKey.curve
         val key = export.publicKey.bytes
         if (!manifest.keys.allows(curve, Path(export.signer.path))) throw PairingRefusal(NOT_IN_SCOPE)
+        if (export.signer.path[COIN_LEVEL].index != network.slip44) throw PairingRefusal(WRONG_COIN)
         if (key.size != keyBytesOf(curve)) throw PairingRefusal(BAD_KEY)
+        if (curve == Curve.SECP256K1 && !PublicKey(key).isValid()) throw PairingRefusal(BAD_KEY)
         val watchOnly = Capability.WATCH_ONLY_EXPORT in manifest.capabilities
         val chainCode = export.chainCode
         if (watchOnly != (chainCode != null)) throw PairingRefusal(NOT_WATCH_ONLY)
         if (chainCode != null && chainCode.size != CHAIN_CODE_BYTES) throw PairingRefusal(BAD_KEY)
         if (chainCode != null && export.signer.path.size != ACCOUNT_DEPTH) throw PairingRefusal(NOT_ACCOUNT_KEY)
         checkKey { wallet.addresses.fromPublicKey(export.chain, key, export.kind) }
+        if (chainCode == null) {
+            try {
+                wallet.accountFrom(export)
+            } catch (e: IllegalArgumentException) {
+                throw PairingRefusal(NOT_CHAIN_ACCOUNT)
+            }
+        }
     }
 
     /** The length of a key on [curve]: a compressed secp256k1 key, or an Ed25519 key with no prefix. */
@@ -220,6 +234,9 @@ object PairImport {
 
     /** A wallet's path step as the BIP32 child number it names: each step's index, with the hardened bit set on a hardened step. */
     private fun PathStep.toKeyPathChild(): Long = if (hardened) DeterministicWallet.hardened(index.toLong()) else index.toLong()
+
+    /** The coin type level of a path, m/purpose'/coin'/account'. It names the network of a key. */
+    private const val COIN_LEVEL = 1
 
     /** The account level of a path, m/purpose'/coin'/account'. */
     private const val ACCOUNT_LEVEL = 2

@@ -1,0 +1,18 @@
+<!--
+    The Solana mark: three slanted bars. Drawn by hand, not generated (tools/icons/convert.mjs only writes chain_ and token_ files).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="18.8dp"
+    android:viewportWidth="397"
+    android:viewportHeight="311">
+    <path
+        android:fillColor="#FF9945FF"
+        android:pathData="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z"/>
+    <path
+        android:fillColor="#FF14F195"
+        android:pathData="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z"/>
+    <path
+        android:fillColor="#FF5FD6C2"
+        android:pathData="M333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z"/>
+</vector>

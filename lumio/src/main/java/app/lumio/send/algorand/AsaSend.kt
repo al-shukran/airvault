@@ -71,16 +71,20 @@ object AsaSend {
         require(amount.signum() > 0 && amount.bitLength() < Long.SIZE_BITS) { "Enter an amount above zero." }
         require(held >= amount) { NOT_HELD }
         require(recipientOptedIn) { NOT_OPTED_IN }
-        return build(network, funds, fingerprint, accountIndex, signer, to, assetId, amount, keep = AlgorandSend.MIN_BALANCE)
+        return build(network, funds, fingerprint, accountIndex, signer, to, assetId, amount, keep = funds.minimum)
     }
 
     /**
      * The opt-in of [signer] to [assetId]: zero units from the signer to the signer. Holding a new asset raises the minimum balance by
-     * [ASSET_MIN_BALANCE], so the ALGO balance must cover that as well as the fee.
+     * [ASSET_MIN_BALANCE] on top of the minimum the account already has for its held assets, so the ALGO balance must cover that as well as the fee.
      */
     fun optIn(network: NetworkId, funds: AlgorandFunds, fingerprint: Long, accountIndex: Int, signer: ByteArray, assetId: ULong): AsaSendPlan =
-        build(network, funds, fingerprint, accountIndex, signer, signer, assetId, BigInteger.ZERO, keep = AlgorandSend.MIN_BALANCE + ASSET_MIN_BALANCE)
+        build(
+            network, funds, fingerprint, accountIndex, signer, signer, assetId, BigInteger.ZERO,
+            keep = funds.minimum + BigInteger.valueOf(ASSET_MIN_BALANCE),
+        )
 
+    /** The plan of a transfer or an opt-in, which must leave [keep] of ALGO in the account besides the fee. */
     private fun build(
         network: NetworkId,
         funds: AlgorandFunds,
@@ -90,12 +94,12 @@ object AsaSend {
         to: ByteArray,
         assetId: ULong,
         amount: BigInteger,
-        keep: Long,
+        keep: BigInteger,
     ): AsaSendPlan {
         require(assetId > 0UL) { "An asset ID is more than 0." }
         val fee = feeOf(template(funds.params, signer, to, assetId, amount, fee = 0UL), funds.params)
         val txn = template(funds.params, signer, to, assetId, amount, fee)
-        require(funds.balance >= fee.toBigInteger() + BigInteger.valueOf(keep)) { NOT_ENOUGH_ALGO }
+        require(funds.balance >= fee.toBigInteger() + keep) { NOT_ENOUGH_ALGO }
         return AsaSendPlan(
             network = network,
             signer = signer,

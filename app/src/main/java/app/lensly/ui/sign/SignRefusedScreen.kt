@@ -3,16 +3,19 @@ package app.lensly.ui.sign
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.heading
@@ -21,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.ReviewRow
 import app.airvault.core.model.text
+import app.lensly.core.registry.NetworkEntry
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
@@ -37,7 +41,7 @@ private val BLOCK_MAX_HEIGHT = 320.dp
  * WALLET leaves the flow.
  *
  * A refusal that passes [rows] shows all of them, in order, so nothing is cut short: the whole call of a contract call Lensly
- * cannot decode.
+ * cannot decode. [networks] give each address row the logo of the network it is on.
  */
 @Composable
 fun SignRefusedScreen(
@@ -45,6 +49,7 @@ fun SignRefusedScreen(
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
     rows: List<ReviewRow> = emptyList(),
+    networks: List<NetworkEntry> = emptyList(),
 ) {
     LenslyScreen(
         title = "Sign Request",
@@ -74,7 +79,7 @@ fun SignRefusedScreen(
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(LenslySpacing.xs))
-            RefusedRows(rows)
+            RefusedRows(rows, networks)
             Spacer(Modifier.height(LenslySpacing.md))
         }
         Text(
@@ -90,24 +95,24 @@ fun SignRefusedScreen(
  * under it, which form one block, drawn in a box that scrolls within [BLOCK_MAX_HEIGHT].
  */
 @Composable
-private fun RefusedRows(rows: List<ReviewRow>) {
+private fun RefusedRows(rows: List<ReviewRow>, networks: List<NetworkEntry>) {
     var next = 0
     while (next < rows.size) {
         val row = rows[next++]
         if (row.value != null) {
-            FactRow(label = row.label) { RowValue(row) }
+            FactRow(label = row.label) { RowValue(row, networks) }
             continue
         }
         val start = next
         while (next < rows.size && rows[next].depth > 0) next++
         val block = rows.subList(start, next)
-        FactRow(label = row.label) { RefusedBlock(block) }
+        FactRow(label = row.label) { RefusedBlock(block, networks) }
     }
 }
 
 /** The rows of one block: each one's label above its value. The block scrolls within its own height. */
 @Composable
-private fun RefusedBlock(rows: List<ReviewRow>) {
+private fun RefusedBlock(rows: List<ReviewRow>, networks: List<NetworkEntry>) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -120,16 +125,28 @@ private fun RefusedBlock(rows: List<ReviewRow>) {
     ) {
         rows.forEach { row ->
             MutedText(row.label)
-            RowValue(row)
+            RowValue(row, networks)
         }
     }
 }
 
-/** The value of a row, then its notes under it. An address is shown in full, text in sans unless it is mono, and any other value in mono. */
+/**
+ * The value of a row, then its notes under it. An address is shown in full, with the logo of the network it is on, text in sans unless it
+ * is mono, and any other value in mono.
+ */
 @Composable
-private fun RowValue(row: ReviewRow) {
+private fun RowValue(row: ReviewRow, networks: List<NetworkEntry>) {
     when (val value = row.value) {
-        is DisplayValue.Address -> AddressText(address = value.address)
+        is DisplayValue.Address -> Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            ChainNetworkLogo(
+                chain = value.chain,
+                networkName = networkOf(value.chain, networks)?.name,
+                networks = networks,
+                size = 16.dp,
+            )
+            Spacer(Modifier.width(LenslySpacing.xs))
+            AddressText(address = value.address, icon = false, modifier = Modifier.weight(1f))
+        }
         is DisplayValue.Text -> if (value.mono) {
             MonoText(text = value.text)
         } else {

@@ -88,10 +88,24 @@ class AddressTextTest {
         assertEquals("unchanged", clipboardText())
     }
 
-    private fun setAddress(onClick: (() -> Unit)? = null) {
+    @Test
+    fun aRowShowsNoEthereumLogoUnlessItAsksForOne() {
+        setAddress()
+
+        compose.onNodeWithTag(ADDRESS_ICON_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun anEvmRowShowsTheEthereumLogoWhenItAsksForIt() {
+        setAddress(icon = true)
+
+        compose.onNodeWithTag(ADDRESS_ICON_TAG).assertExists()
+    }
+
+    private fun setAddress(icon: Boolean = false, onClick: (() -> Unit)? = null) {
         compose.setContent {
             LumenTheme {
-                AddressText(address = ADDRESS, shown = SHORT, icon = false, onClick = onClick)
+                AddressText(address = ADDRESS, shown = SHORT, icon = icon, onClick = onClick)
             }
         }
     }

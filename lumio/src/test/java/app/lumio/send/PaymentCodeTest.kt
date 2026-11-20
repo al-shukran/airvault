@@ -53,6 +53,13 @@ class PaymentCodeTest {
     }
 
     @Test
+    fun anEip681ValueWithAnExponentOfMillionsIsRefusedWithoutBeingExpanded() {
+        assertEquals(TOO_LARGE_WORDS, refusal { evm("ethereum:$RECIPIENT?value=1e99999999") })
+        assertEquals(TOO_LARGE_WORDS, refusal { evm("ethereum:$RECIPIENT?value=1e99999999999") })
+        assertEquals(TOO_LARGE_WORDS, refusal { evm("ethereum:$RECIPIENT?value=1e78") })
+    }
+
+    @Test
     fun anEip681RequestForAnotherChainIsRefusedWithTheChainItIsFor() {
         assertEquals(
             "This code is for chain 1, but Sepolia is selected. Choose that network to scan it.",
@@ -163,6 +170,7 @@ class PaymentCodeTest {
     }
 
     private companion object {
+        const val TOO_LARGE_WORDS = "The value in this code is too large for an amount."
         const val RECIPIENT = "0x52908400098527886E0F7030069857D2E4169EE7"
     }
 }
