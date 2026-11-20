@@ -86,11 +86,8 @@ class EvmReviewBuilder(
         if (request.signData.size > EthSignRequest.MAX_SIGN_DATA_BYTES) throw Refusal(SIGN_DATA_TOO_LARGE)
         val origin = request.origin
         if (origin != null && !origin.all(::isPrintable)) throw Refusal(UNREADABLE_ORIGIN)
-        // Typed data is reviewed on the chain its domain names, when it names one: its network, addresses and tokens are that chain's.
-        // Otherwise the chain is the one the request names, or the one the parser reads it on: a personal message. Any other request must
-        // name its network.
-        val domainChain = (parsed.typed as? TypedDataParser.Result.Ok)?.data?.domainChainId?.toLong()
-        val chainId = domainChain ?: readChainId(parsed) ?: throw Refusal(NO_NETWORK)
+        // Typed data is reviewed on the chain its domain names (see reviewChainId). A request that names no chain is refused.
+        val chainId = reviewChainId(parsed) ?: throw Refusal(NO_NETWORK)
         EvmReviewResult.Ok(Build(parsed, sender, chainId).build().checked())
     } catch (refusal: Refusal) {
         EvmReviewResult.Refused(refusal.reason, refusal.call)
@@ -985,7 +982,7 @@ internal const val CODE_STEPS = "evm.steps"
 internal const val CODE_MESSAGE = "evm.personal-message"
 
 private const val SIGN_DATA_TOO_LARGE = "The data to sign is larger than 64 KiB"
-private const val NO_NETWORK = "The request does not name a network"
+internal const val NO_NETWORK = "The request does not name a network"
 private const val UNREADABLE_ORIGIN = "The request names an origin with a character Lensly cannot show."
 private const val UNKNOWN_CALL_REFUSAL = "Unknown Contract Call"
 private const val BOUND_PROXY_REFUSAL = "This contract is an upgradeable proxy. Lensly cannot confirm offline that its code is still the " +

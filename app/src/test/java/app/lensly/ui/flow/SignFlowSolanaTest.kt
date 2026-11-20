@@ -1,6 +1,5 @@
 package app.lensly.ui.flow
 
-import app.airvault.chains.evm.signer.ParsedRequest
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.signer.SolanaInstruction
 import app.airvault.chains.solana.signer.SolanaRequestCheck
@@ -15,8 +14,6 @@ import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.export.partsOf
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
-import app.lensly.app.sign.Prepared
-import app.lensly.app.sign.ReviewEntry
 import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.WalletView
 import app.lensly.app.sign.counterpartiesOf
@@ -195,18 +192,10 @@ class SignFlowSolanaTest {
 
         override suspend fun scan(parts: List<String>): ScanReply = parser.scan(parts)
 
-        override suspend fun prepare(walletId: String, parsed: ParsedRequest): Prepared =
-            error("an EVM request is not expected in the Solana tests")
-
         override suspend fun privateKey(walletId: String, accountIndex: Int): ByteArray =
             error("an EVM key is not read in the Solana tests")
 
         override suspend fun checkPassword(password: CharArray): PasswordCheck = this.password
-
-        override suspend fun sign(ready: Prepared.Ready, privateKey: ByteArray): List<String> =
-            error("an EVM request is not expected in the Solana tests")
-
-        override suspend fun record(entry: ReviewEntry): Unit = error("an EVM request is not expected in the Solana tests")
 
         override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared {
             prepareCalls++
