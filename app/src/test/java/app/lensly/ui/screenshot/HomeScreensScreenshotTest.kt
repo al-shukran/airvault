@@ -26,6 +26,7 @@ import app.lensly.core.btc.ScriptType
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
+import app.lensly.core.registry.update.RegistryUpdateException
 import app.lensly.core.wallet.BulkCap
 import app.lensly.ui.home.AlgorandAccountsScreen
 import app.lensly.ui.home.BitcoinAccountsScreen
@@ -42,6 +43,7 @@ import app.lensly.ui.home.SolanaAccountsScreen
 import app.lensly.ui.home.WalletDetailScreen
 import app.lensly.ui.home.WalletHomeScreen
 import app.lensly.ui.home.WalletsScreen
+import app.lensly.ui.home.refusalReason
 import app.lensly.ui.settings.FailureCapChoice
 import java.util.TimeZone
 import org.junit.After
@@ -360,6 +362,18 @@ class HomeScreensScreenshotTest {
                 "Signature check failed. The file was altered, or it was not signed with the release key.",
             ),
         )
+    }
+
+    /** A package that needs a newer schema, refused with the reason the import flow shows for it. */
+    @Test
+    fun registryImportRefusedForANewerLensly() = compose.snapshot("registry_import_refused_newer_lensly") {
+        registry(ImportState.Refused(refusalReason(RegistryUpdateException.Incompatible(required = 4, supported = 3))))
+    }
+
+    @Test
+    @Config(qualifiers = NIGHT_QUALIFIERS)
+    fun registryImportRefusedForANewerLenslyNight() = compose.snapshot("registry_import_refused_newer_lensly_night") {
+        registry(ImportState.Refused(refusalReason(RegistryUpdateException.Incompatible(required = 4, supported = 3))))
     }
 
     @Composable

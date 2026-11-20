@@ -1,5 +1,6 @@
 package app.airvault.chains.evm.signer
 
+import app.airvault.core.signer.UNKNOWN_REQUEST
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.MalformedPayloadException
@@ -115,7 +116,7 @@ class EthSignRequest(
             val fields = HashMap<Long, Cbor>()
             for ((key, value) in dict.entries) {
                 val number = uintOf(key, "map key")
-                if (number !in 1L..7L) malformed("unknown map key $number")
+                if (number !in 1L..7L) malformed(UNKNOWN_REQUEST)
                 if (fields.put(number, value) != null) malformed("duplicate map key $number")
             }
             return fields

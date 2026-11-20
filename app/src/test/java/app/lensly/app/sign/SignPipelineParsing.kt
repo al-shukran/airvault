@@ -15,9 +15,9 @@ import app.airvault.core.signer.Path
 import app.airvault.core.signer.RequestHeader
 import app.airvault.core.signer.RequestKind
 import app.airvault.core.signer.SignerRef
+import app.airvault.core.signer.UNKNOWN_REQUEST
 import app.lensly.app.export.partsOf
 import app.lensly.core.parse.ScanReply
-import app.lensly.core.parse.UNSUPPORTED_CODE
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
 import app.lensly.core.ur.framesOf
@@ -67,7 +67,7 @@ fun SignPipeline.prepare(urCbor: ByteArray, wallet: WalletView): Prepared =
 fun SignPipeline.prepare(ur: UR, wallet: WalletView): Prepared =
     when (val reply = inProcessSandboxParser.scan(listOf(framesOf(ur, ONE_FRAME).first()))) {
         is ScanReply.Refused -> Prepared.Refused(reply.reason)
-        is ScanReply.App -> evmParsedOf(reply)?.let { prepare(it, wallet) } ?: Prepared.Refused(UNSUPPORTED_CODE)
+        is ScanReply.App -> evmParsedOf(reply)?.let { prepare(it, wallet) } ?: Prepared.Refused(UNKNOWN_REQUEST)
         ScanReply.NotPart, is ScanReply.Incomplete -> error("A single frame is a whole request or a refusal")
     }
 

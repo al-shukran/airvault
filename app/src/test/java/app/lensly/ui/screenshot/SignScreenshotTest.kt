@@ -27,6 +27,7 @@ import app.airvault.chains.solana.signer.SolanaTokenList
 import app.airvault.chains.solana.signer.SolanaWarning
 import app.airvault.chains.solana.signer.solanaWarningText
 import app.airvault.chains.solana.signer.toReview
+import app.airvault.core.model.Approval
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.Danger
 import app.airvault.core.model.DisplayValue
@@ -37,8 +38,15 @@ import app.airvault.core.model.ReviewSection
 import app.airvault.core.model.SectionStyle
 import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.Warning
+import app.airvault.core.signer.AppRequest
+import app.airvault.core.signer.UNKNOWN_REQUEST
 import app.lensly.app.SOLANA_FAMILY
+import app.lensly.app.sign.AppPrepared
+import app.lensly.app.sign.AppReviewEntry
 import app.lensly.app.sign.SolanaSplFixtures
+import app.lensly.app.sign.WalletView
+import app.lensly.core.parse.ScanReply
+import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.registry.AbiRows
 import app.lensly.core.registry.CallSteps
 import app.lensly.core.registry.FeeModel
@@ -46,14 +54,23 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
+import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
 import app.lensly.core.ur.PathStep
+import app.lensly.core.ur.framesOf
+import app.lensly.ui.flow.PasswordCheck
+import app.lensly.ui.flow.SignFlow
+import app.lensly.ui.flow.SignFlowPorts
+import app.lensly.ui.flow.SignStep
 import app.lensly.ui.sign.SAMPLE_SIGNER
 import app.lensly.ui.sign.SignRefusedScreen
 import app.lensly.ui.sign.ReviewScreen
 import app.lensly.ui.sign.undecodedCallRows
 import app.lensly.ui.theme.LumenTheme
 import com.github.takahirom.roborazzi.captureRoboImage
+import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Base58
+import kotlin.test.assertIs
+import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -481,4 +498,38 @@ class SignScreenshotTest {
             onDone = {},
         )
     }
+
+    /** A request of a type no installed app reads, as a newer Lumio sends one. The sign flow shows its plain sentence. */
+    @Test
+    fun refusedUnknownRequest() = compose.snapshotUnknownRequestRefusal("sign_refused_unknown_request")
+
+    @Test
+    @Config(qualifiers = SCREENSHOT_NIGHT_QUALIFIERS)
+    fun refusedUnknownRequestNight() = compose.snapshotUnknownRequestRefusal("sign_refused_unknown_request_night")
+}
+
+/** A UR type that no app of this build reads, as a request from a newer Lumio carries. */
+private const val FUTURE_UR_TYPE = "future-sign-request"
+
+/** The reason the sign flow refuses a scanned request of [FUTURE_UR_TYPE]: the flow reads the scan as it reads a scanned code. */
+private fun unknownRequestRefusal(): String = runBlocking {
+    val flow = SignFlow(ScanOnlyPorts, walletId = null)
+    flow.onScanned(framesOf(UR(FUTURE_UR_TYPE, byteArrayOf(0xA0.toByte())), DEFAULT_MAX_FRAGMENT).first())
+    assertIs<SignStep.Refused>(flow.state.value).reason
+}
+
+/** Renders the refusal screen of [unknownRequestRefusal], with the reason the flow gave. */
+private fun ComposeContentTestRule.snapshotUnknownRequestRefusal(name: String) {
+    val reason = unknownRequestRefusal()
+    snapshot(name) { SignRefusedScreen(reason = reason, onDone = {}) }
+}
+
+/** The sign flow's ports for a request refused on its scan. The Parser Sandbox reads the scan, and a refused scan reaches no other call. */
+private object ScanOnlyPorts : SignFlowPorts {
+    override suspend fun wallets(): List<WalletView> = error("A refused scan reads no wallet")
+    override suspend fun scan(parts: List<String>): ScanReply = inProcessSandboxParser.scan(parts)
+    override suspend fun checkPassword(password: CharArray): PasswordCheck = error("A refused scan checks no password")
+    override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared = error("A refused scan is not reviewed")
+    override suspend fun appSign(ready: AppPrepared.Ready, approval: Approval): List<String> = error("A refused scan signs nothing")
+    override suspend fun recordApp(entry: AppReviewEntry): Unit = error("A refused scan records nothing")
 }

@@ -131,7 +131,10 @@ class EthSignRequestTest {
     fun refusesAKeyOutsideTheSevenFields() {
         for (key in listOf(0L, 8L, 100L)) {
             val rejected = assertIs<EthSignRequest.Result.Rejected>(EthSignRequest.decode(payloadWithKey(key)), message = "key $key")
-            assertEquals("unknown map key $key", rejected.reason)
+            assertEquals(
+                "This request uses something this Lensly does not know. It may come from a newer Lumio. Nothing was signed.",
+                rejected.reason,
+            )
         }
     }
 

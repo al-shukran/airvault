@@ -47,6 +47,14 @@ class RegistryImportStateTest {
     }
 
     @Test
+    fun aPackageForANewerCatalogSchemaSaysThisPhoneCannotReadIt() {
+        assertEquals(
+            "This phone cannot read this package. It was made for a newer Lensly.",
+            refusalReason(RegistryUpdateException.Incompatible(required = 3, supported = 2)),
+        )
+    }
+
+    @Test
     fun aFileThatCannotBeReadGetsAGenericReason() {
         assertEquals("The package could not be read or stored.", refusalReason(IOException("gone")))
     }
