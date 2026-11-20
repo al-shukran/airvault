@@ -1,14 +1,10 @@
 package app.lensly.app.sign
 
-import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
 import app.airvault.chains.evm.signer.EvmReviewBuilder
 import app.airvault.chains.evm.signer.EvmReviewResult
 import app.airvault.chains.evm.signer.ParsedRequest
-import app.airvault.chains.evm.signer.TypedData
-import app.airvault.chains.evm.signer.TypedDataParser
 import app.airvault.chains.evm.signer.UndecodedCall
-import app.airvault.chains.evm.signer.UnsignedTx
 import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.Review
 import app.airvault.core.model.SummaryPart
@@ -16,16 +12,10 @@ import app.airvault.core.model.isPrintable
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
 import app.lensly.app.autoAccountName
-import app.lensly.app.export.partsOf
-import app.lensly.core.evm.MessageSigner
-import app.lensly.core.evm.TxSigner
-import app.lensly.core.evm.TypedDataSigner
-import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.UnknownCallPolicy
-import app.lensly.core.ur.EthSignatureEncoder
 import app.lensly.core.ur.PathStep
 
 /** The outcome of [SignPipeline.prepare]: a review for the user to confirm, or a refusal that says why. */
@@ -33,7 +23,7 @@ sealed interface Prepared {
     /**
      * The review the owner reads, built by [EvmReviewBuilder] from the request that gets signed. [signer] is the account that signs, and
      * [addressNotes] are the notes of the review's addresses, which the port reads. [accountIndex] is N in m/44'/60'/N'/0/0, and [walletId] is
-     * the wallet that holds that account. Nothing is signed until [SignPipeline.sign] runs.
+     * the wallet that holds that account. Nothing is signed here: the sign flow signs the approved request through the chain app.
      */
     data class Ready(
         val review: Review,
@@ -41,12 +31,6 @@ sealed interface Prepared {
         val request: EthSignRequest,
         val accountIndex: Int,
         val walletId: String,
-        /** The transaction the Parser Sandbox decoded from the request's data. Null for a request that is not a transaction. */
-        val tx: UnsignedTx? = null,
-        /** The typed message the Parser Sandbox parsed, which is what gets signed. Null for a request that is not typed data. */
-        val typed: TypedData? = null,
-        /** The domain separator of [typed] as the review showed it. Signing refuses a message whose domain is not this one. */
-        val typedDomainSeparator: ByteArray? = null,
         val addressNotes: Map<String, AddressNotes> = emptyMap(),
     ) : Prepared
 
@@ -55,8 +39,8 @@ sealed interface Prepared {
 }
 
 /**
- * Checks a scanned eth-sign-request, as the Parser Sandbox parsed it, against the wallet and the registry, and signs only after the owner
- * confirms the review. A failed check returns [Prepared.Refused] with a plain reason and nothing is signed.
+ * Checks a scanned eth-sign-request, as the Parser Sandbox parsed it, against the wallet and the registry, and builds the review the owner
+ * confirms. A failed check returns [Prepared.Refused] with a plain reason. Signing is the chain app's, in `EvmSigner`, not this class's.
  *
  * The review is built by [EvmReviewBuilder]. It refuses a BLOCK denylist match and a call it cannot decode, unless the signed whitelist
  * approves the contract and selector or [unknownCalls] is WARN. A chain outside the registry is not refused: its review shows it as unknown,
@@ -114,7 +98,6 @@ class SignPipeline(
         }
 
         val label = wallet.accountNames[index] ?: autoAccountName(wallet.autoNameBase, index)
-        val typed = (parsed.typed as? TypedDataParser.Result.Ok)?.data
         return when (val result = reviews.review(parsed, address)) {
             is EvmReviewResult.Ok -> Prepared.Ready(
                 review = result.review,
@@ -122,43 +105,8 @@ class SignPipeline(
                 request = request,
                 accountIndex = index,
                 walletId = wallet.id,
-                tx = (parsed.tx as? UnsignedTx.Result.Ok)?.tx,
-                typed = typed,
-                typedDomainSeparator = typed?.domainSeparator(),
             )
             is EvmReviewResult.Refused -> Prepared.Refused(result.reason, result.call)
-        }
-    }
-
-    /**
-     * Signs the reviewed [ready] with [privateKey] and returns the ur:eth-signature parts that answer its request.
-     * Takes ownership of [privateKey] and zeroes it before returning, on success and on refusal alike. Throws
-     * [IllegalArgumentException] when the request has no requestId to echo or the signer refuses the data.
-     */
-    fun sign(ready: Prepared.Ready, privateKey: ByteArray): List<String> {
-        try {
-            val request = ready.request
-            val requestId = requireNotNull(request.requestId) { "The request has no requestId to echo" }
-            val signature = when (request.dataType) {
-                DataType.TRANSACTION, DataType.TYPED_TRANSACTION ->
-                    TxSigner.sign(request.signData, requireNotNull(ready.tx) { CANNOT_BE_READ }, privateKey)
-                DataType.PERSONAL_MESSAGE ->
-                    when (val result = MessageSigner.sign(request.dataType, request.signData, privateKey)) {
-                        is MessageSigner.Result.Signed -> result.signature
-                        is MessageSigner.Result.Refused -> throw IllegalArgumentException(result.reason)
-                    }
-                DataType.TYPED_DATA -> {
-                    val typed = requireNotNull(ready.typed) { CANNOT_BE_READ }
-                    val reviewed = requireNotNull(ready.typedDomainSeparator) { CANNOT_BE_READ }
-                    when (val result = TypedDataSigner.sign(request.dataType, typed, reviewed, privateKey)) {
-                        is TypedDataSigner.Result.Signed -> result.signature
-                        is TypedDataSigner.Result.Refused -> throw IllegalArgumentException(result.reason)
-                    }
-                }
-            }
-            return partsOf(EthSignatureEncoder.encode(requestId, signature))
-        } finally {
-            privateKey.fill(0)
         }
     }
 

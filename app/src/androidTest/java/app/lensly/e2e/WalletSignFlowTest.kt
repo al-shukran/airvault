@@ -68,7 +68,7 @@ class WalletSignFlowTest : SignFlowE2eBase() {
 
         val driver = driverFor(wallet, request.parts)
         driver.open()
-        val ready = (driver.awaitReview { it is SignStep.Review } as SignStep.Review).ready
+        val ready = (driver.awaitReview { it is SignStep.AppReview } as SignStep.AppReview).ready
         val review = ready.review
 
         assertEquals(ChainId("eip155:$UNKNOWN_CHAIN_ID"), review.chain)
@@ -92,7 +92,7 @@ class WalletSignFlowTest : SignFlowE2eBase() {
         compose.onNodeWithText("I have checked the chain ID and the contract.").performScrollTo().performClick()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
 
-        val parts = driver.approveAndSign { it is SignStep.Confirming }
+        val parts = driver.approveAndSign { it is SignStep.AppConfirming }
         assertSignatureEchoes(request, parts, address)
     }
 

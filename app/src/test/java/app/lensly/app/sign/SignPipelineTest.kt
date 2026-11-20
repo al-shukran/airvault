@@ -11,6 +11,7 @@ import app.airvault.chains.evm.signer.AccessListEntry
 import app.airvault.chains.evm.signer.ContractCall
 import app.airvault.chains.evm.signer.DataType
 import app.airvault.chains.evm.signer.EthSignRequest
+import app.airvault.chains.evm.signer.EvmRequestParser
 import app.airvault.chains.evm.signer.InnerCall
 import app.airvault.chains.evm.signer.Multicall
 import app.airvault.chains.evm.signer.ParsedRequest
@@ -466,15 +467,6 @@ class SignPipelineTest {
     }
 
     @Test
-    fun signRefusesARequestWithoutAnIdAndStillZeroesTheKey() {
-        val signable = ready(requestCbor(eip1559Tx(), requestId = null))
-        val key = WALLET.privateKey(0)
-
-        assertFailsWith<IllegalArgumentException> { pipeline.sign(signable, key) }
-        assertTrue(key.all { it == 0.toByte() }, "the private key must be zeroed even when signing fails")
-    }
-
-    @Test
     fun typedDataThatDoesNotParseIsRefusedWithTheParsersReason() {
         val typed = "{\"types\":{},\"message\":{}}".toByteArray(Charsets.UTF_8)
         assertEquals("the document is missing primaryType", refusal(requestCbor(typed, dataType = 2)))
@@ -823,15 +815,6 @@ class SignPipelineTest {
         assertEquals(CANNOT_BE_READ, refused.reason)
     }
 
-    @Test
-    fun aSignatureIsNeverMadeOverFieldsThatDifferFromTheReviewedTransaction() {
-        val ready = ready(requestCbor(eip1559Tx()))
-        val tx = assertNotNull(ready.tx)
-        val changed = ready.copy(tx = tx.copy(value = tx.value + BigInteger.ONE))
-
-        assertFailsWith<IllegalArgumentException> { pipeline.sign(changed, WALLET.privateKey(0)) }
-    }
-
     /** Every personal message carries a warning, and a message needs no tick, since it is not a transaction. */
     /** A batch that sends no native currency has no amount to state, so its headline names its calls, not a zero send. */
     // A multicall is read level by level, and each of its calls is decided where it sits.
@@ -1040,7 +1023,7 @@ class SignPipelineTest {
     @Test
     fun theReviewNamesTheAccountThatSignsAndTheTransactionThatIsSigned() {
         val ready = ready(requestCbor(eip1559Tx()))
-        val tx = assertNotNull(ready.tx)
+        val tx = assertIs<UnsignedTx.Result.Ok>(EvmRequestParser.parsedOf(ready.request).tx).tx
         // The signed bytes are the transaction the review reads, so the owner reads exactly what gets signed.
         assertTrue(tx.encode()?.contentEquals(ready.request.signData) == true)
         val header = assertNotNull(ready.review.sections.firstOrNull()).rows
@@ -1204,8 +1187,7 @@ class SignPipelineTest {
      * frame.
      */
     private fun signResponse(ready: Prepared.Ready, key: ByteArray = WALLET.privateKey(ready.accountIndex)): Response {
-        val frames = pipeline.sign(ready, key)
-        assertTrue(key.all { it == 0.toByte() }, "the private key must be zeroed after signing")
+        val frames = signFramesOf(ready, key)
 
         assertEquals(1, frames.size)
         val scanner = UrScanner()

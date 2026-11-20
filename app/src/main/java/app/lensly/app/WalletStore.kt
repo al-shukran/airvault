@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.airvault.chains.evm.signer.EvmSigner
 import app.airvault.core.signer.KeyAccess
 import app.lensly.app.export.BrotliCompressor
 import app.lensly.app.export.BrotliEncoder
@@ -22,6 +23,7 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WalletRecordNames
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.AccountXpub
+import app.lensly.core.wallet.SingleKeyAccess
 import app.lensly.core.wallet.WalletKeyAccess
 import app.lensly.core.wallet.BulkPolicy
 import app.lensly.core.wallet.BulkRun
@@ -604,14 +606,22 @@ class WalletStore(private val session: VaultSession) {
 
     /**
      * Runs [use] with the key access of wallet [id] (spec 3.2). Each call derives the key it asks for from the wallet's seed. The seed is derived
-     * here and zeroed before this returns, on every path. A Single Key wallet has no seed, so it throws.
+     * here and zeroed before this returns, on every path. A Single Key wallet has no seed: its one key is the account of [EvmSigner.singleKeyPath],
+     * so [use] gets a [SingleKeyAccess] of that key, and the key is zeroed before this returns.
      */
-    fun <T> withKeys(id: String, use: (KeyAccess) -> T): T {
-        val seed = seedOf(id)
-        try {
-            return use(WalletKeyAccess(seed))
+    fun <T> withKeys(id: String, use: (KeyAccess) -> T): T = when (val secret = requireNotNull(secret(id)) { "No wallet $id." }) {
+        is WalletSecret.Mnemonic -> {
+            val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
+            try {
+                use(WalletKeyAccess(seed))
+            } finally {
+                seed.fill(0)
+            }
+        }
+        is WalletSecret.SingleKey -> try {
+            use(SingleKeyAccess(secret.privateKey, EvmSigner.singleKeyPath))
         } finally {
-            seed.fill(0)
+            secret.privateKey.fill(0)
         }
     }
 
