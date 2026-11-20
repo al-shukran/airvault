@@ -174,9 +174,12 @@ internal fun ReviewSummary(
     }
 }
 
-/** One fact: its label in sans on the left, and its value on the right, in mono when [mono] is set. */
+/**
+ * One fact: its label in sans on the left, and its value on the right, in mono when [mono] is set. [valueColor] colours the value, such
+ * as a name, and null keeps the text colour.
+ */
 @Composable
-internal fun ReviewFactRow(label: String, value: String, mono: Boolean = true, modifier: Modifier = Modifier) {
+internal fun ReviewFactRow(label: String, value: String, mono: Boolean = true, modifier: Modifier = Modifier, valueColor: Color? = null) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -192,7 +195,7 @@ internal fun ReviewFactRow(label: String, value: String, mono: Boolean = true, m
         Text(
             text = value,
             style = if (mono) MaterialTheme.typography.bodyMedium.copy(fontFamily = LocalMonoFamily.current) else MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = valueColor ?: MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.End,
         )
     }
@@ -431,10 +434,11 @@ internal fun ReviewActions(
 }
 
 /**
- * An address with what the Address Book and the vault's accounts say of it. The bold line above the address is [headline]: an account of this
- * device takes it, and the full address follows. Under it: the wallet of an account of another wallet, the Address Book name when an account
- * holds the headline, the address-book label and notes, or "Not in address book" when the Address Book holds no entry for it. The Address
- * Book is read for every counterparty, so a miss is shown, and it is not a warning.
+ * An address with what the Address Book and the vault's accounts say of it. The bold line above the address is [headline]: an account of
+ * this device takes it, and the full address follows. The line is coloured by the role of its name, see [nameRoleOf]. Under it: the wallet
+ * of an account of another wallet, the Address Book name when an account holds the headline, the address-book label and notes, or "Not in
+ * address book" when the Address Book holds no entry for it. The Address Book is read for every counterparty, so a miss is shown, and it
+ * is not a warning.
  *
  * With [onClick] the address is a list row: a tap opens it, and a chevron shows that it does. It is the one address component every review
  * and the Activity detail share.
@@ -452,7 +456,7 @@ internal fun ReviewAddress(
             Text(
                 text = line,
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface,
+                color = nameRoleOf(notes)?.colourIn(LocalLumenPalette.current) ?: MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(LenslySpacing.xxs))
         }
@@ -478,7 +482,14 @@ internal fun AddressNoteLines(notes: AddressNotes?, modifier: Modifier = Modifie
         if (entry == null) {
             NoteText(NOT_IN_ADDRESS_BOOK)
         } else {
-            if (notes?.internal != null) ReviewFactRow(label = "Address Name", value = entry.name, mono = false)
+            if (notes.internal != null) {
+                ReviewFactRow(
+                    label = "Address Name",
+                    value = entry.name,
+                    mono = false,
+                    valueColor = NameRole.ACCOUNT.colourIn(LocalLumenPalette.current),
+                )
+            }
             entry.label?.let { ReviewFactRow(label = "Address Label", value = it, mono = false) }
             entry.notes?.let { ReviewFactRow(label = "Address Notes", value = it, mono = false) }
         }

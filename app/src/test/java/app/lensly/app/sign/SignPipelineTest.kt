@@ -976,9 +976,10 @@ class SignPipelineTest {
 
     @Test
     fun layer2NetworkAddsTheL1FeeNote() {
-        val review = ready(requestCbor(eip1559Tx(chainId = BASE), chainId = BASE)).review
+        val prepared = ready(requestCbor(eip1559Tx(chainId = BASE), chainId = BASE))
+        val review = prepared.review
 
-        assertEquals("Sends 0.01 ETH to $RECIPIENT.", review.summary.text())
+        assertEquals("Send 0.01 ETH from ${prepared.signer.address} to $RECIPIENT?", review.summary.text())
         assertEquals(L2_NOTE, review.fact("Fee Note"))
     }
 
@@ -986,10 +987,11 @@ class SignPipelineTest {
     fun erc20UsdcTransferUsesTokenDecimals() {
         val data = erc20Call(SELECTOR_TRANSFER, RECIPIENT, BigInteger.valueOf(1_500_000))
         val tx = eip1559Tx(chainId = ETHEREUM, to = USDC_ETHEREUM, value = BigInteger.ZERO, data = data)
-        val review = ready(requestCbor(tx, chainId = ETHEREUM)).review
+        val prepared = ready(requestCbor(tx, chainId = ETHEREUM))
+        val review = prepared.review
 
         assertEquals("transfer", review.title)
-        assertEquals("Sends 1.5 USDC to $RECIPIENT.", review.summary.text())
+        assertEquals("Send 1.5 USDC from ${prepared.signer.address} to $RECIPIENT?", review.summary.text())
         assertEquals(
             listOf("to" to RECIPIENT, "value" to "1500000 (1.5 USDC)"),
             review.sections.single { it.heading == "Arguments" }.rows.map { it.label to it.value.text() },

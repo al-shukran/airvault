@@ -41,10 +41,10 @@ class AlgorandSignFlowTest : SignFlowE2eBase() {
 
         val driver = driverFor(wallet, partsOf(framesOf(UR("algo-sign-request", request), DEFAULT_MAX_FRAGMENT)))
         driver.open()
-        driver.awaitReview { it is SignStep.AppReview }
+        val ready = (driver.awaitReview { it is SignStep.AppReview } as SignStep.AppReview).ready
 
-        // 1,500,000 microAlgos is 1.5 ALGO, sent to the receiver of the vector.
-        compose.onNodeWithText("Sends 1.500000 ALGO to ${AlgoAddress.encode(RECEIVER)}.").assertExists()
+        // 1,500,000 microAlgos is 1.5 ALGO, sent from the signing account to the receiver of the vector.
+        compose.onNodeWithText("Send 1.5 ALGO from ${ready.signer.address} to ${AlgoAddress.encode(RECEIVER)}?").assertExists()
         driver.readToTheEnd()
         assertTrue(driver.approvable())
 

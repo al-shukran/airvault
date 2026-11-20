@@ -52,6 +52,7 @@ class BitcoinSignTest {
             chain = chain,
             network = NetworkLabel(name = "Bitcoin Testnet4", testnet = true, detail = null),
             scriptType = "Native segwit",
+            from = native.receiveAddress(0),
         )
         return checkNotNull(Approval.of(review, emptySet()))
     }

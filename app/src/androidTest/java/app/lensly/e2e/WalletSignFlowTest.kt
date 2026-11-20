@@ -81,7 +81,7 @@ class WalletSignFlowTest : SignFlowE2eBase() {
         compose.onNode(hasText("not in Lensly's registry", substring = true)).assertExists()
         compose.onNode(hasText("Unknown network (chain id $UNKNOWN_CHAIN_ID)", substring = true)).assertExists()
         // An unknown chain has no decimals, so its amount is the raw wei, in base units: one cent is 10^16.
-        compose.onNode(hasText("Sends $ONE_CENT_WEI base units", substring = true)).assertExists()
+        compose.onNode(hasText("Send $ONE_CENT_WEI base units", substring = true)).assertExists()
         // The header and the account row both name the account now, so the label is looked for among them.
         compose.onAllNodesWithText(ACCOUNT_LABEL).onFirst().assertExists()
 
