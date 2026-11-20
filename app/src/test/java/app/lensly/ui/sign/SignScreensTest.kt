@@ -36,6 +36,7 @@ import app.airvault.core.model.ReviewRow
 import app.airvault.core.model.ReviewSection
 import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.Warning
+import app.airvault.core.signer.UNKNOWN_REQUEST
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressNotes
 import app.lensly.app.EVM_FAMILY
@@ -838,5 +839,20 @@ class RefusalScreensTest {
 
         compose.onNodeWithText("Approved Code Hash").assertExists()
         compose.onNodeWithText("0x" + groupHex("ab".repeat(32))).assertExists()
+    }
+
+    @Test
+    fun anUnknownRequestAsksForAnUpdateInsteadOfACheck() {
+        compose.setContent { LumenTheme { SignRefusedScreen(reason = UNKNOWN_REQUEST, onDone = {}) } }
+
+        compose.onNodeWithText("Update Lumio's request to a format this Lensly knows, then start SIGN again.").assertExists()
+        compose.onAllNodesWithText("Check the request on your online wallet, then start SIGN again.").assertCountEquals(0)
+    }
+
+    @Test
+    fun otherRefusalsAskToCheckTheRequestOnTheOnlineWallet() {
+        compose.setContent { LumenTheme { SignRefusedScreen(reason = "Chain ID mismatch.", onDone = {}) } }
+
+        compose.onNodeWithText("Check the request on your online wallet, then start SIGN again.").assertExists()
     }
 }
