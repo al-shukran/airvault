@@ -37,7 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.airvault.core.model.ChainId
-import app.airvault.core.model.isPrintable
+import app.airvault.core.model.isPrintableCodePoint
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.app.InternalAccount
@@ -386,7 +386,7 @@ private fun FactText(text: String) {
  * show, so a right-to-left override in the claim cannot reorder the line.
  */
 internal fun historyOrigin(origin: String): String =
-    if (origin.all(::isPrintable)) origin else origin.toByteArray(Charsets.UTF_8).toHex()
+    if (origin.codePoints().allMatch(::isPrintableCodePoint)) origin else origin.toByteArray(Charsets.UTF_8).toHex()
 
 /**
  * What a Bitcoin review showed: the account and its Script Type, each output with its address and amount, the fee and its rate, and every

@@ -16,7 +16,7 @@ import app.airvault.core.model.SectionStyle
 import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.Warning
 import app.airvault.core.model.checked
-import app.airvault.core.model.isPrintable
+import app.airvault.core.model.isPrintableCodePoint
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.registry.AbiRows
@@ -77,7 +77,7 @@ class EvmReviewBuilder(
         // The size and origin checks come first, in the order the sign pipeline runs them, so a request is refused for the same reason.
         if (request.signData.size > EthSignRequest.MAX_SIGN_DATA_BYTES) throw Refusal(SIGN_DATA_TOO_LARGE)
         val origin = request.origin
-        if (origin != null && !origin.all(::isPrintable)) throw Refusal(UNREADABLE_ORIGIN)
+        if (origin != null && !origin.codePoints().allMatch(::isPrintableCodePoint)) throw Refusal(UNREADABLE_ORIGIN)
         // Typed data is reviewed on the chain its domain names (see reviewChainId). A request that names no chain is refused.
         val chainId = reviewChainId(parsed) ?: throw Refusal(NO_NETWORK)
         EvmReviewResult.Ok(Build(parsed, sender, derivationPath, chainId).build().checked())
@@ -240,7 +240,8 @@ class EvmReviewBuilder(
             }
             // The denylist is checked after the call, as the sign pipeline checks it: a BLOCK match refuses, and a WARN match needs the owner's check.
             val denied = registry.denylistMatches(chainId, to, calldata)
-            denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { throw Refusal(it.reason) }
+            // The refusal keeps the call's rows built so far, so a call Lensly cannot decode still shows its raw data.
+            denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { throw Refusal(it.reason, sections.flatMap { s -> s.rows }) }
             denied.forEach { warnings += denylistWarning(it, FieldPath("evm.to")) }
             header += ReviewRow("Transaction Type", DisplayValue.Text(txTypeText(tx.type)), decode("evm.type"))
             header += ReviewRow("Nonce", DisplayValue.Number(tx.nonce), decode("evm.nonce"))
@@ -357,7 +358,7 @@ class EvmReviewBuilder(
                 val prefix = "$parent.call[$index]"
                 // Every call of the batch meets the denylist, as the request does: a BLOCK match refuses it, and a WARN match stays on its row.
                 val denied = registry.denylistMatches(chainId, contract, inner.calldata)
-                denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { throw Refusal(it.reason) }
+                denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { throw Refusal(it.reason, rows.toList()) }
                 denied.forEach { warnings += denylistWarning(it, FieldPath("$prefix.function")) }
                 val target = inner.target?.let(::checksum)
                 val flags = flagsOf(shape, inner)
@@ -922,7 +923,8 @@ private fun messageValue(bytes: ByteArray): DisplayValue =
     printableMessage(bytes)?.let { DisplayValue.Message(it) } ?: DisplayValue.Bytes(bytes)
 
 /** The message as UTF-8 text, when every character is one a reader can see. Otherwise null. */
-private fun printableMessage(bytes: ByteArray): String? = utf8OrNull(bytes)?.takeIf { text -> text.all(::isPrintable) }
+private fun printableMessage(bytes: ByteArray): String? =
+    utf8OrNull(bytes)?.takeIf { text -> text.codePoints().allMatch(::isPrintableCodePoint) }
 
 private fun utf8OrNull(bytes: ByteArray): String? = try {
     StandardCharsets.UTF_8.newDecoder()
