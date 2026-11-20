@@ -17,10 +17,11 @@ on:
 permissions:
   contents: read
 
-# The build cache has a scope per run. A pull request saves and restores `pr<number>` entries, which GitHub keeps out of master
-# and out of every other pull request, so no pull request can change what master restores. A push to master and a queue entry
-# use `master`, the entries that pull requests fall back to. Every lane saves its entry, even when it fails or is cancelled, so
-# the next run can restore what this run built.
+# The build cache has a scope per run. A pull request restores its own `pr<number>` entries, then master's, and saves only the lint
+# entries (about 40 MB each). The other lanes' entries are about 450 MB each, and GitHub keeps 10 GB per repository, evicting the
+# least recently used entries past that. Pull requests used to save those lanes too, which evicted master's shard entries, so
+# master's shards ran cold and timed out. A push to master and a queue entry use `master` and save every lane's entry, even when
+# it fails or is cancelled, so the next run can restore what this run built.
 env:
   BUILD_CACHE_SCOPE: ${{ github.event_name == 'pull_request' && format('pr{0}', github.event.pull_request.number) || 'master' }}
   # Gradle encrypts configuration-cache entries with this key. Without a shared key, each runner's own keystore encrypts them, so
@@ -132,7 +133,7 @@ jobs:
         run: ./gradlew --stop
 
       - name: Save the Gradle build cache
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -195,7 +196,7 @@ jobs:
         run: ./gradlew --stop
 
       - name: Save the Gradle build cache
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -258,7 +259,7 @@ jobs:
         run: ./gradlew --stop
 
       - name: Save the Gradle build cache
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -312,7 +313,7 @@ jobs:
         run: ./gradlew --stop
 
       - name: Save the Gradle build cache
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -322,7 +323,8 @@ jobs:
 
   # Android lint, one leg per module (scripts/ci/run-partition.sh lint-<module>). A leg compiles its module and the modules it
   # depends on, then lints it, and the legs run on their own runners side by side, so no leg waits for another module's compile
-  # or analysis. pr-ok reads this job's result, which is success only when every leg succeeds.
+  # or analysis. The lumio leg lints its main sources only (see run-partition.sh run_lint). pr-ok reads this job's result, which
+  # is success only when every leg succeeds.
   lint:
     name: lint ${{ matrix.module }}
     needs: deps
