@@ -69,9 +69,9 @@ class Registry constructor(
 
     /**
      * The denylist entries that typed data of [primaryType] matches. Its domain names [chainId], and [verifyingContract] when the domain
-     * names one.
+     * names one. A null [chainId] is typed data that names no chain, which matches the entries of every chain.
      */
-    fun typedDenylistMatches(chainId: Long, verifyingContract: String?, primaryType: String): List<DenylistEntry> =
+    fun typedDenylistMatches(chainId: Long?, verifyingContract: String?, primaryType: String): List<DenylistEntry> =
         matchingTypedDenylist(denylistList, chainId, verifyingContract, primaryType)
 
     fun networks(): List<NetworkEntry> = networkList

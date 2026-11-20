@@ -136,6 +136,11 @@ class OrdIndexerTest {
     }
 
     @Test
+    fun anIndexerThatIsNotHttpsIsNeverUsed() {
+        assertNull(indexerOf(withIndexerUrl(emptyMap(), "http://ord.example.org"), Http(OkHttpClient())))
+    }
+
+    @Test
     fun savingTheEsploraServersKeepsTheIndexer() {
         val set = withIndexerUrl(emptyMap(), "https://ord.example.org")
 
