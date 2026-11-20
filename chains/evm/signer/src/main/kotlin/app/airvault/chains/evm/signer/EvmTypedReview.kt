@@ -6,7 +6,7 @@ import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.FieldPath
 import app.airvault.core.model.ReviewRow
 import app.airvault.core.model.Warning
-import app.airvault.core.model.isPrintable
+import app.airvault.core.model.isPrintableCodePoint
 import app.lensly.core.registry.Amounts
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
@@ -128,7 +128,7 @@ private fun valueText(type: String, value: TypedValue): String = when (value) {
 
 /** [text] as a review shows it: the text itself when every character is printable, otherwise its UTF-8 bytes in hex. */
 internal fun printableOrHex(text: String): String =
-    if (text.all(::isPrintable)) text else "0x" + text.toByteArray(StandardCharsets.UTF_8).toHex() + " (not printable)"
+    if (text.codePoints().allMatch(::isPrintableCodePoint)) text else "0x" + text.toByteArray(StandardCharsets.UTF_8).toHex() + " (not printable)"
 
 private fun checksumOf(bytes: ByteArray): String = Keys.toChecksumAddress("0x" + bytes.toHex())
 

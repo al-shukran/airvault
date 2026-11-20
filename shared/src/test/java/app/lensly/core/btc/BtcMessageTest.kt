@@ -33,9 +33,9 @@ class BtcMessageTest {
         val legacy = BtcAccount.fromSeed(seed, BtcNetwork.MAINNET, ScriptType.LEGACY)
         val nested = BtcAccount.fromSeed(seed, BtcNetwork.MAINNET, ScriptType.NESTED_SEGWIT)
         val native = BtcAccount.fromSeed(seed, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT)
-        assertEquals(BitcoinVectors["message.hello.legacy.signature"], BtcMessage.sign(legacy, text))
-        assertEquals(BitcoinVectors["message.hello.nested.signature"], BtcMessage.sign(nested, text))
-        assertEquals(BitcoinVectors["message.hello.native.signature"], BtcMessage.sign(native, text))
+        assertEquals(BitcoinVectors["message.hello.legacy.signature"], signOf(legacy, text))
+        assertEquals(BitcoinVectors["message.hello.nested.signature"], signOf(nested, text))
+        assertEquals(BitcoinVectors["message.hello.native.signature"], signOf(native, text))
     }
 
     @Test
@@ -44,9 +44,9 @@ class BtcMessageTest {
         for (network in BtcNetwork.entries) {
             for (type in listOf(ScriptType.LEGACY, ScriptType.NESTED_SEGWIT, ScriptType.NATIVE_SEGWIT)) {
                 val account = BtcAccount.fromSeed(seed, network, type)
-                val signature = BtcMessage.sign(account, text)
+                val signature = signOf(account, text)
                 assertEquals(account.receiveAddress(0), recoverAddress(network, text, signature), "${network.name} $type")
-                val change = BtcMessage.sign(account, text, change = true, index = 2)
+                val change = signOf(account, text, change = true, index = 2)
                 assertEquals(account.changeAddress(2), recoverAddress(network, text, change), "${network.name} $type change")
             }
         }
@@ -56,13 +56,29 @@ class BtcMessageTest {
     fun longMessagesUseTheWiderCompactSize() {
         val text = "a".repeat(300)
         val account = BtcAccount.fromSeed(seed, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT)
-        assertEquals(account.receiveAddress(0), recoverAddress(BtcNetwork.TESTNET4, text, BtcMessage.sign(account, text)))
+        assertEquals(account.receiveAddress(0), recoverAddress(BtcNetwork.TESTNET4, text, signOf(account, text)))
     }
 
     @Test
     fun taprootHasNoBip137Header() {
         val account = BtcAccount.fromSeed(seed, BtcNetwork.MAINNET, ScriptType.TAPROOT)
-        assertFailsWith<IllegalArgumentException> { BtcMessage.sign(account, "hello") }
+        assertFailsWith<IllegalArgumentException> { signOf(account, "hello") }
+    }
+
+    /**
+     * The BIP137 signature of [text] by the key at [change]/[index] of [account], with the header of the account's script type. The signing key is
+     * read from the Account here, so the production code signs only with a key it is given.
+     */
+    private fun signOf(account: BtcAccount, text: String, change: Boolean = false, index: Int = 0): String {
+        val branch = if (change) BtcAccount.CHANGE else BtcAccount.RECEIVE
+        return BtcMessage.signWith(account.privateKey(branch, index), headerBaseOf(account.scriptType), text)
+    }
+
+    private fun headerBaseOf(scriptType: ScriptType): Int = when (scriptType) {
+        ScriptType.LEGACY -> 31
+        ScriptType.NESTED_SEGWIT -> 35
+        ScriptType.NATIVE_SEGWIT -> 39
+        ScriptType.TAPROOT -> throw IllegalArgumentException("BIP137 has no header for taproot messages")
     }
 
     /**

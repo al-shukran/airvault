@@ -59,7 +59,8 @@ fun AddressBookScreen(
             )
         }
         if (entries.size > PairingCodec.MAX_ADDRESS_BOOK) {
-            MutedText("Lumio pairs the first ${PairingCodec.MAX_ADDRESS_BOOK} entries, in the order they were added. The rest are not sent.")
+            val left = entries.size - PairingCodec.MAX_ADDRESS_BOOK
+            MutedText("Lumio pairs the first ${PairingCodec.MAX_ADDRESS_BOOK} entries, in the order they were added. The other $left are not sent.")
             Spacer(Modifier.height(LenslySpacing.md))
         }
         if (entries.isNotEmpty()) {

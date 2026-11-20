@@ -44,6 +44,21 @@ object BtcPsbt {
         psbt.global.unknown.any { it.key == COMPANION_KEY && it.value == COMPANION_VALUE }
 
     /**
+     * The input-map entry that the online side writes on an input its indexer flags as carrying an inscription or a rune (spec 5.5). It is a
+     * BIP174 proprietary key (type 0xFC) with the prefix "airvault", subtype 1 and no key data, and its value is the one byte 0x01.
+     */
+    val RISK_MARK = DataEntry(
+        ByteVector(byteArrayOf(0xFC.toByte(), 0x08) + "airvault".encodeToByteArray() + byteArrayOf(0x01)),
+        ByteVector(byteArrayOf(0x01)),
+    )
+
+    /**
+     * True when [input] carries [RISK_MARK] exactly once. Any other entry is not a mark, and neither is a repeated one, so the input is unmarked
+     * and its review says so. A mark can only add a warning.
+     */
+    fun isRiskMarked(input: Input): Boolean = input.unknown.count { it == RISK_MARK } == 1
+
+    /**
      * Decodes a PSBT from its `ur:crypto-psbt` form or from base64.
      *
      * @throws IllegalArgumentException when [text] is neither form, or does not parse as a PSBT

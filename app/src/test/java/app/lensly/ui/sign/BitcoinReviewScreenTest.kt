@@ -78,7 +78,7 @@ class BitcoinReviewScreenTest {
     fun theUnverifiedAmountsAskForAStandardCheckboxInsideTheBanner() {
         show(unverifiedRequest())
 
-        compose.onNodeWithText("2 warnings — review before signing").assertExists()
+        compose.onNodeWithText("3 warnings — review before signing").assertExists()
         compose.onNodeWithText("I have checked the unverified input amounts").assertExists()
         compose.onNode(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Checkbox)).assertExists()
     }
@@ -101,10 +101,10 @@ class BitcoinReviewScreenTest {
 
     @Test
     fun aShortRequestWithAWarningShowsItsDetailsAndCanBeSignedOnceItFits() {
-        // The request fits on screen, and its one warning has no check, so the fit is the whole read.
+        // The request fits on screen, and its warnings have no check, so the fit is the whole read.
         show(externalInputRequest())
 
-        compose.onNodeWithText("1 warning — review before signing").assertExists()
+        compose.onNodeWithText("2 warnings — review before signing").assertExists()
         compose.onNodeWithText("Inputs").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
     }
@@ -122,16 +122,27 @@ class BitcoinReviewScreenTest {
     }
 
     @Test
-    fun aRequestWithNoWarningsSaysSoAndShowsEveryInputAtOnce() {
+    fun aRequestWithNoMarkedInputSaysItsInputsWereNotCheckedAndShowsEveryInputAtOnce() {
         show(cleanRequest())
 
-        compose.onNodeWithText("No warnings").assertExists()
+        compose.onNodeWithText("1 warning — review before signing").assertExists()
+        compose.onNodeWithText("Inputs were not checked for inscriptions or runes.").assertExists()
         compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsEnabled()
         compose.onNodeWithText("Input 0").assertExists()
     }
 
     @Test
-    fun aLongRequestWithNoWarningsStillNeedsItsEndReadBeforeItSigns() {
+    fun aMarkedInputIsADangerRowThatTheOwnerTicksBeforeItSigns() {
+        show(riskMarkedRequest())
+
+        compose.onNodeWithText("1 warning — review before signing").assertExists()
+        compose.onNodeWithText("Input 0 is marked as carrying an inscription or rune. Spending it may burn it.").assertExists()
+        compose.onNodeWithText("I understand spending a marked input may burn any inscription or rune it carries.").assertExists()
+        compose.onNodeWithTag(HOLD_TO_SIGN_TAG).assertIsNotEnabled()
+    }
+
+    @Test
+    fun aLongRequestWithOnlyUncheckedInputsStillNeedsItsEndReadBeforeItSigns() {
         // The request is long enough to scroll, so signing waits for the scroll, as it always has.
         show(cleanRequest(), small = true)
 
@@ -176,13 +187,13 @@ class BitcoinReviewScreenTest {
     }
 
     @Test
-    fun aLockTimeThatFinalInputsIgnoreIsShownWithNoWarning() {
+    fun aLockTimeThatFinalInputsIgnoreIsShownWithNoLockWarning() {
         val finalInput = cleanRequest().inputs.single().copy(sequence = 0xFFFFFFFFL)
         show(cleanRequest().copy(inputs = listOf(finalInput), lockTime = 850_000L))
 
         compose.onNodeWithText("Block 850000").assertExists()
         compose.onNodeWithText("Not enforced, because every input is final.").assertExists()
-        compose.onNodeWithText("No warnings").assertExists()
+        compose.onNodeWithText("The transaction cannot confirm before block 850000.").assertDoesNotExist()
     }
 }
 
@@ -212,8 +223,8 @@ private fun cleanRequest() = BtcReview(
 )
 
 /**
- * The clean request with a second input that another signer owns. Its one warning is a plain one, with no check to tick, so the owner
- * reads it in the details alone.
+ * The clean request with a second input that another signer owns. Its warnings are plain ones, with no check to tick, so the owner reads
+ * them in the details alone.
  */
 private fun externalInputRequest() = cleanRequest().copy(
     inputs = listOf(
@@ -226,9 +237,14 @@ private fun externalInputRequest() = cleanRequest().copy(
     ),
 )
 
+/** The clean request with its input marked as carrying an inscription or a rune: a DANGER row that the owner must tick before it signs. */
+private fun riskMarkedRequest() = cleanRequest().copy(
+    inputs = listOf(BtcReviewInput(0, 100_000L, amountVerified = true, ownerPath = ownedPath(0), sequence = 0xFFFFFFFDL, riskMarked = true)),
+)
+
 /**
- * A request with an unverified amount of its own and an input of another signer. It holds two warnings, and the owner must check the
- * unverified amount before the review can be signed.
+ * A request with an unverified amount of its own and an input of another signer. It holds three warnings: the unverified amount, which the
+ * owner must check before the review can be signed, the input of another signer, and the note that no input was checked for inscriptions.
  */
 private fun unverifiedRequest() = BtcReview(
     inputPolicy = InputVerificationPolicy.SEGWIT_WITNESS_UTXO_WITH_WARNING,

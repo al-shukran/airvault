@@ -19,7 +19,6 @@ kotlin {
 dependencies {
     api(project(":core:wallet-api"))
     implementation(project(":chains:bitcoin:common"))
-    implementation(project(":chains:bitcoin:signer"))
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
