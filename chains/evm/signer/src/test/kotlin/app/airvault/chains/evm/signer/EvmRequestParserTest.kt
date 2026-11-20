@@ -41,6 +41,22 @@ class EvmRequestParserTest {
     }
 
     @Test
+    fun aRequestIdOfOtherThanSixteenBytesIsRefusedWhenItIsWritten() {
+        val withShortId = EthSignRequest(
+            requestId = ByteArray(5),
+            signData = request.signData,
+            dataType = request.dataType,
+            chainId = null,
+            derivationPath = request.derivationPath,
+            sourceFingerprint = request.sourceFingerprint,
+            address = null,
+            origin = request.origin,
+        )
+
+        assertFailsWith<WireException> { EvmRequestBody.encode(ParsedRequest(withShortId, tx = null, call = null)) }
+    }
+
+    @Test
     fun aUrOfAnotherTypeIsRefused() {
         val outcome = EvmRequestParser.parse("crypto-psbt", ByteArray(1), ParserLimits())
 
