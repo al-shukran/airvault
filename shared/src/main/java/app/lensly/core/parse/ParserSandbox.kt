@@ -6,6 +6,7 @@ import app.airvault.abi.WhitelistParam
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.ParseOutcome
 import app.airvault.core.signer.SignerApp
+import app.airvault.core.signer.UNKNOWN_REQUEST
 import app.lensly.chains.signerRegistry
 import app.lensly.core.ur.UrScanner
 import com.sparrowwallet.hummingbird.UR
@@ -14,9 +15,6 @@ import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
-
-/** The refusal of a code that is a UR of a type other than eth-sign-request. */
-const val UNSUPPORTED_CODE = "Unsupported code"
 
 /** What the sandbox says about the scanned parts of a request. */
 sealed interface ScanReply {
@@ -64,7 +62,7 @@ object InProcessParser : RequestParser {
     /** The reply for a complete [ur]: the request it carries, parsed, or the reason it is refused. */
     internal fun replyOf(ur: UR): ScanReply {
         signerRegistry.byRequestType(ur.type)?.let { return appReply(it, ur) }
-        return ScanReply.Refused(UNSUPPORTED_CODE)
+        return ScanReply.Refused(UNKNOWN_REQUEST)
     }
 
     /**

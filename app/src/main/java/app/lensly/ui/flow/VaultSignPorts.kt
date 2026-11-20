@@ -25,6 +25,7 @@ import app.airvault.core.signer.Path
 import app.airvault.core.signer.SignerRef
 import app.airvault.core.signer.ScopedKeyAccess
 import app.airvault.core.signer.SignerApp
+import app.airvault.core.signer.UNKNOWN_REQUEST
 import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.AddressBookStore
 import app.lensly.app.AddressNotes
@@ -65,7 +66,6 @@ import app.lensly.ui.sign.bitcoinReviewOf
 import app.airvault.chains.algorand.signer.AlgorandRequestCheck
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.RequestParser
-import app.lensly.core.parse.UNSUPPORTED_CODE
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.WireException
 import app.lensly.core.registry.UnknownCallPolicy
@@ -185,7 +185,7 @@ internal class VaultSignPorts(
         solanaManifest.id -> solanaPrepare(walletId, request)
         bitcoinManifest.id -> bitcoinPrepare(walletId, request)
         evmManifest.id -> evmPrepare(walletId, request)
-        else -> AppPrepared.Refused(UNSUPPORTED_CODE)
+        else -> AppPrepared.Refused(UNKNOWN_REQUEST)
     }
 
     /**
@@ -389,7 +389,7 @@ internal class VaultSignPorts(
     override suspend fun appSign(ready: AppPrepared.Ready, approval: Approval): List<String> = withContext(Dispatchers.Default) {
         val session = holder.openSession() ?: throw WalletUnavailable()
         try {
-            val signer = signerOfApp(session, ready.request.header.app) ?: throw IllegalArgumentException(UNSUPPORTED_CODE)
+            val signer = signerOfApp(session, ready.request.header.app) ?: throw IllegalArgumentException(UNKNOWN_REQUEST)
             val response = WalletStore(session).withKeys(ready.walletId) { keys ->
                 signer.sign(ready.request, approval, reviewedKeys(session, ready, ScopedKeyAccess(signer.manifest.keys, keys)))
             }

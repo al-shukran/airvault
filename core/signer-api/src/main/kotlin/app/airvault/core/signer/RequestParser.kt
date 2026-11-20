@@ -5,6 +5,11 @@ import app.airvault.core.model.ChainId
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.ur.PathStep
 
+/** The reason shown for a request that uses a UR type, a code or a CBOR map key this Lensly does not know. */
+const val UNKNOWN_REQUEST =
+    "This request uses something this Lensly does not know. " +
+    "It may come from a newer Lumio. Nothing was signed."
+
 /**
  * Parses the requests of one chain app (spec 3.2). It runs inside the Parser Sandbox with no key access, as a pure function of its
  * bytes. It must not throw: a request it cannot read is [ParseOutcome.Refused] with the reason.
