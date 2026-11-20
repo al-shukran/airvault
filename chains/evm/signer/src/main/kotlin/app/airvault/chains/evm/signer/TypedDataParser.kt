@@ -17,6 +17,9 @@ import org.web3j.crypto.Keys
  * chain ID; the review then says that the signature is valid on any chain.
  *
  * The parser runs in the Parser Sandbox. It never throws: every failure comes back as [Result.Rejected].
+ *
+ * One exception: at sign time `EvmSigner` parses the same document again in the app process, so the signature covers the data the owner
+ * reviewed. That re-parse fails closed: a document it rejects throws instead of being signed.
  */
 object TypedDataParser {
     /** The outcome of [parse]: the typed data, or the reason it is refused. */
