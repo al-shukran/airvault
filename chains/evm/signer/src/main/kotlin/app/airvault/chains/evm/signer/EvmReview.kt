@@ -240,7 +240,8 @@ class EvmReviewBuilder(
             }
             // The denylist is checked after the call, as the sign pipeline checks it: a BLOCK match refuses, and a WARN match needs the owner's check.
             val denied = registry.denylistMatches(chainId, to, calldata)
-            denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { throw Refusal(it.reason) }
+            // The refusal keeps the call's rows built so far, so a call Lensly cannot decode still shows its raw data.
+            denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { throw Refusal(it.reason, sections.flatMap { s -> s.rows }) }
             denied.forEach { warnings += denylistWarning(it, FieldPath("evm.to")) }
             header += ReviewRow("Transaction Type", DisplayValue.Text(txTypeText(tx.type)), decode("evm.type"))
             header += ReviewRow("Nonce", DisplayValue.Number(tx.nonce), decode("evm.nonce"))
@@ -357,7 +358,7 @@ class EvmReviewBuilder(
                 val prefix = "$parent.call[$index]"
                 // Every call of the batch meets the denylist, as the request does: a BLOCK match refuses it, and a WARN match stays on its row.
                 val denied = registry.denylistMatches(chainId, contract, inner.calldata)
-                denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { throw Refusal(it.reason) }
+                denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { throw Refusal(it.reason, rows.toList()) }
                 denied.forEach { warnings += denylistWarning(it, FieldPath("$prefix.function")) }
                 val target = inner.target?.let(::checksum)
                 val flags = flagsOf(shape, inner)
