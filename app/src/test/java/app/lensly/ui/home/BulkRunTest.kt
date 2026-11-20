@@ -59,7 +59,7 @@ class BulkRunTest {
         val saved = runBulk(store, id, DEFAULT_BITCOIN.copy(scriptType = ScriptType.TAPROOT), 3, cap) {}
 
         assertTrue(saved)
-        val held = store.bitcoinAccounts(id)
+        val held = store.bitcoinAccounts(id).filter { it.scriptType == ScriptType.TAPROOT }
         assertEquals(listOf(0, 1, 2), held.map { it.index })
         val seed = Mnemonic.toSeed(words)
         for (account in held) {
@@ -82,7 +82,8 @@ class BulkRunTest {
         runBulk(store, id, mainnet(ScriptType.NATIVE_SEGWIT), 1, cap) {}
 
         val held = store.bitcoinAccounts(id)
-        assertEquals(listOf(0, 1, 2), held.filter { it.scriptType == ScriptType.NATIVE_SEGWIT }.map { it.index })
+        // The wallet's own account 0 comes first, then the runs number on from it.
+        assertEquals(listOf(0, 1, 2, 3), held.filter { it.scriptType == ScriptType.NATIVE_SEGWIT }.map { it.index })
         assertEquals(listOf(0, 1), held.filter { it.scriptType == ScriptType.TAPROOT }.map { it.index })
     }
 
@@ -111,6 +112,7 @@ class BulkRunTest {
         assertTrue(runBulk(store, id, DEFAULT_EVM, 2, cap) {})
 
         assertEquals(3, store.meta(id)?.accountCount)
-        assertTrue(store.bitcoinAccounts(id).isEmpty())
+        // Only the Bitcoin account the wallet was created with: an Ethereum run adds none.
+        assertEquals(listOf(0), store.bitcoinAccounts(id).map { it.index })
     }
 }

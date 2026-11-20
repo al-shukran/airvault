@@ -6,20 +6,44 @@ import app.lensly.app.export.EthereumPairingKeys
 import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingKeys
 import app.lensly.app.export.SolanaPairingKeys
+import app.lensly.core.btc.BtcNetwork
+import app.lensly.core.btc.ScriptType
 
 /**
  * An App of a Wallet: the software inside it that manages its accounts and signs, as the apps of a hardware wallet do. [label] is
  * the name the owner reads, and [routeId] is the App's name in a route. [pairing] gives the App's accounts for the AirVault pairing.
+ * [firstAccount] adds the App's account at index 0 to a new wallet, with the same derivation the App's own bulk run starts on.
  */
 enum class WalletApp(
     val label: String,
     val routeId: String,
     private val pairing: PairingKeys,
+    val firstAccount: (WalletStore, String) -> Unit,
 ) {
-    BITCOIN(label = "Bitcoin", routeId = "bitcoin", pairing = BitcoinPairingKeys),
-    ETHEREUM(label = "Ethereum", routeId = "ethereum", pairing = EthereumPairingKeys),
-    SOLANA(label = "Solana", routeId = "solana", pairing = SolanaPairingKeys),
-    ALGORAND(label = "Algorand", routeId = "algorand", pairing = AlgorandPairingKeys);
+    BITCOIN(
+        label = "Bitcoin",
+        routeId = "bitcoin",
+        pairing = BitcoinPairingKeys,
+        firstAccount = { store, id -> store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, count = 1, cap = 1) },
+    ),
+    ETHEREUM(
+        label = "Ethereum",
+        routeId = "ethereum",
+        pairing = EthereumPairingKeys,
+        firstAccount = { store, id -> store.addAccounts(id, count = 1, cap = 1) },
+    ),
+    SOLANA(
+        label = "Solana",
+        routeId = "solana",
+        pairing = SolanaPairingKeys,
+        firstAccount = { store, id -> store.addSolanaAccounts(id, count = 1, cap = 1) },
+    ),
+    ALGORAND(
+        label = "Algorand",
+        routeId = "algorand",
+        pairing = AlgorandPairingKeys,
+        firstAccount = { store, id -> store.addAlgorandAccounts(id, count = 1, cap = 1) },
+    );
 
     /** The accounts this App contributes to the AirVault pairing of wallet [id], whose seed is [seed] and master fingerprint is [fingerprint]. */
     fun pairedAccounts(store: WalletStore, id: String, seed: ByteArray, fingerprint: Int): List<PairingAccount> =
