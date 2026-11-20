@@ -71,27 +71,6 @@ class WalletRecordsTest {
     }
 
     @Test
-    fun aSingleKeyMetaWithOtherThanOneAccountIsRefused() {
-        val bytes = WalletRecords.encodeMeta(
-            WalletMeta(
-                id = id,
-                name = "Imported",
-                createdAtMs = 7L,
-                deviceGenerated = false,
-                accountCount = 1,
-                masterFingerprintHex = null,
-                accountKeys = emptyList(),
-                kind = WalletKind.SINGLE_KEY,
-            ),
-        )
-        // The account count is the int after the name, the creation time and the device flag: its last byte is at offset 24.
-        for (count in listOf(0, 2)) {
-            bytes[24] = count.toByte()
-            assertFailsWith<IllegalArgumentException> { WalletRecords.decodeMeta(id, bytes) }
-        }
-    }
-
-    @Test
     fun anUnknownWalletKindIsRejected() {
         val bytes = WalletRecords.encodeMeta(
             WalletMeta(

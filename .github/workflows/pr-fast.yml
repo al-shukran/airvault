@@ -25,7 +25,7 @@ permissions:
 # from master's last verified state. A push to master saves every lane's state, even when it fails or is
 # cancelled; a queue entry saves none. `cache-prune` keeps the newest entry of each cache (scripts/ci/prune-caches.sh).
 env:
-  BUILD_CACHE_SCOPE: ${{ github.event_name == 'pull_request' && format('pr{0}', github.event.pull_request.number) || 'master' }}
+  BUILD_CACHE_SCOPE: master # TEMP #567 experiment: this run saves state as if master
   # Gradle encrypts configuration-cache entries with this key. Without a shared key, each runner's own keystore encrypts them, so
   # no lane can read an entry another lane saved. The repository secret must exist for this to take effect (see the PR body).
   GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}

@@ -233,11 +233,9 @@ private fun EditWalletRoute(navController: NavHostController, holder: VaultHolde
     val current = editor ?: return
     var draft by remember(walletId) { mutableStateOf(current.draft) }
     var saving by remember(walletId) { mutableStateOf(false) }
-    var refusal by remember(walletId) { mutableStateOf<String?>(null) }
 
     WalletProfileScreen(
         draft = draft,
-        error = refusal,
         onFocus = { field -> draft = draft.focusOn(field) },
         onKey = { c -> if (!saving) draft = draft.typing(c) },
         onBackspace = { if (!saving) draft = draft.backspace() },
@@ -248,22 +246,16 @@ private fun EditWalletRoute(navController: NavHostController, holder: VaultHolde
         onSave = {
             if (!saving) {
                 saving = true
-                refusal = null
                 val name = draft.nameToSave(current.currentName)
                 val profile = draft.toProfile(generatedIdentity(current.position))
                 scope.launch {
                     whileUnlocked(navController, holder) {
-                        try {
-                            withContext(Dispatchers.IO) {
-                                val store = WalletStore(session)
-                                if (name != current.currentName) store.renameWallet(walletId, name)
-                                store.saveWalletProfile(walletId, profile)
-                            }
-                            navController.popBackStack()
-                        } catch (e: IllegalArgumentException) {
-                            refusal = e.message
-                            saving = false
+                        withContext(Dispatchers.IO) {
+                            val store = WalletStore(session)
+                            if (name != current.currentName) store.renameWallet(walletId, name)
+                            store.saveWalletProfile(walletId, profile)
                         }
+                        navController.popBackStack()
                     }
                 }
             }

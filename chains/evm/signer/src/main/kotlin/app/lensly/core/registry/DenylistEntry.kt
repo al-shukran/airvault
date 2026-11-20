@@ -76,17 +76,16 @@ fun matchingDenylist(
 
 /**
  * The entries that typed data of [primaryType] matches: a message whose domain names [chainId] and, when the domain names one,
- * [verifyingContract]. An entry matches only when it names that primary type, and its chain and contract when it names them. A null [chainId]
- * is a message that names no chain, so it matches the entries of every chain.
+ * [verifyingContract]. An entry matches only when it names that primary type, and its chain and contract when it names them.
  */
 fun matchingTypedDenylist(
     entries: List<DenylistEntry>,
-    chainId: Long?,
+    chainId: Long,
     verifyingContract: String?,
     primaryType: String,
 ): List<DenylistEntry> = entries.filter { entry ->
     entry.primaryType != null && entry.primaryType == primaryType &&
-        (chainId == null || entry.chainId == null || entry.chainId == chainId) &&
+        (entry.chainId == null || entry.chainId == chainId) &&
         (entry.contract == null || (verifyingContract != null && entry.contract.equals(verifyingContract, ignoreCase = true)))
 }
 

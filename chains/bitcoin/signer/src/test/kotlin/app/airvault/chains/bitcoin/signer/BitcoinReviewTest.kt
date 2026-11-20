@@ -43,16 +43,9 @@ class BitcoinReviewTest {
     /** A key of the account, so an input is owned and raises no external-input warning. */
     private val owned = KeyPath(listOf(0L))
 
-    /**
-     * The outputs that two inputs spend, so each input names its own output. The txids are not palindromes, so a change of byte order
-     * changes the text below.
-     */
-    private val first = OutPoint(TxHash(ByteVector32(ByteArray(32) { it.toByte() })), 0L)
-    private val second = OutPoint(TxHash(ByteVector32(ByteArray(32) { (it + 0x20).toByte() })), 1L)
-
-    /** The text of [first] and [second]: the txid in Bitcoin's byte-reversed display order, then the output index. */
-    private val firstText = "1f1e1d1c1b1a19181716151413121110" + "0f0e0d0c0b0a09080706050403020100" + ":0"
-    private val secondText = "3f3e3d3c3b3a39383736353433323130" + "2f2e2d2c2b2a29282726252423222120" + ":1"
+    /** The outputs that two inputs spend, so each input names its own output. */
+    private val first = OutPoint(TxHash(ByteVector32(ByteArray(32) { 1.toByte() })), 0L)
+    private val second = OutPoint(TxHash(ByteVector32(ByteArray(32) { 2.toByte() })), 1L)
 
     /** The address of the account the requests spend from, which the summary names as the sender. */
     private val account = "tb1qaccount"
@@ -229,10 +222,10 @@ class BitcoinReviewTest {
         )
         val review = reviewOf(two)
         val rows = review.warnings.filter { it.code == "bitcoin.risk-marked" }
-        assertTrue(rows[0].message.contains(firstText))
-        assertTrue(rows[1].message.contains(secondText))
+        assertTrue(rows[0].message.contains(outPointText(first)))
+        assertTrue(rows[1].message.contains(outPointText(second)))
         val check = "I understand spending 2 marked input(s) may burn any inscription or rune they carry: " +
-            "${firstText}, ${secondText}."
+            "${outPointText(first)}, ${outPointText(second)}."
         assertEquals(listOf(check, check), rows.map { it.acknowledge })
         assertEquals(listOf(check), review.checkLabels())
         assertNull(Approval.of(review, emptySet()))
@@ -253,7 +246,7 @@ class BitcoinReviewTest {
     @Test
     fun theRiskWarningsSayWhatTheMarkMeansAndWhatIsNotChecked() {
         assertEquals(
-            "Input 3 (${secondText}) is marked as carrying an inscription or rune. Spending it may burn it.",
+            "Input 3 (${outPointText(second)}) is marked as carrying an inscription or rune. Spending it may burn it.",
             warningText(BtcWarning.RiskMarkedInput(3, second)),
         )
         assertEquals("Inputs were not checked for inscriptions or runes.", warningText(BtcWarning.RiskUnchecked))

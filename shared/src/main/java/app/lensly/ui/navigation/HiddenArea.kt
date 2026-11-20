@@ -43,7 +43,6 @@ import app.lensly.ui.gate.UnavailableScreen
 import app.lensly.ui.gate.UnlockScreen
 import app.lensly.ui.gate.eraseWarning
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -398,12 +397,8 @@ private suspend fun unlockWith(holder: VaultHolder, password: CharArray, context
     val epoch = holder.unlockEpoch()
     return try {
         when (val result = holder.vault.unlock(password)) {
-            is UnlockResult.Unlocked -> {
-                // Adopting attaches the session, which removes the wallets a crash left unfinished: file and Keystore work, so it runs off
-                // Main. It runs under NonCancellable, so an opened session is always adopted, or closed if the vault was locked meanwhile.
-                val kept = withContext(Dispatchers.IO + NonCancellable) { holder.adopt(result.session, epoch) }
-                if (kept) GateOutcome.Opened else GateOutcome.Rejected
-            }
+            is UnlockResult.Unlocked ->
+                if (holder.adopt(result.session, epoch)) GateOutcome.Opened else GateOutcome.Rejected
             UnlockResult.Rejected -> GateOutcome.Rejected
             UnlockResult.Erased -> GateOutcome.Erased
         }
