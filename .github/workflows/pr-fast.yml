@@ -21,7 +21,9 @@ permissions:
 # restored ahead of master's, and its lint entries lacked the compile outputs master's entries hold, so the next run of the same
 # pull request compiled cold. Pull requests also used to save the other lanes' entries (about 450 MB each), which evicted master's
 # shard entries under GitHub's 10 GB per repository limit. A push to master and a queue entry use `master` and save every lane's
-# entry, even when it fails or is cancelled, so the next run can restore what this run built.
+# entry, even when it fails or is cancelled, so the next run can restore what this run built. `cache-prune` deletes the caches a
+# push supersedes once its lanes have saved (scripts/ci/prune-caches.sh), so the repository keeps one master generation of build
+# caches and one dependency cache, instead of one generation per push.
 env:
   BUILD_CACHE_SCOPE: ${{ github.event_name == 'pull_request' && format('pr{0}', github.event.pull_request.number) || 'master' }}
   # Gradle encrypts configuration-cache entries with this key. Without a shared key, each runner's own keystore encrypts them, so
@@ -497,6 +499,30 @@ jobs:
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
+
+  # Deletes the caches this push supersedes. It runs after every lane, so the previous master's caches stay restorable until this
+  # push has saved its own: a pull request that starts meanwhile restores them. Pull requests save no caches, so nothing here
+  # touches a pull request's entries.
+  cache-prune:
+    name: prune superseded caches
+    if: always() && github.event_name == 'push'
+    needs: [deps, shard, roborazzi, fuzz, android, lint]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Delete the caches this push supersedes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          DEPS_KEY: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+        run: scripts/ci/prune-caches.sh
 
   pr-ok: # the single required check
     if: always()
