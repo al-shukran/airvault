@@ -15,9 +15,9 @@ fails it, except dependency review, which is skipped until `DEPENDENCY_GRAPH_ENA
 | `shard-1` … `shard-6` | the unit tests listed under the lane in `shards.txt`; `shard-6` also runs every unlisted unit; pure JVM modules run whole | `shard` (matrix) |
 | `verify` | the Roborazzi pixel tests of `:app` and `:lumio` (listed, or unlisted and named `*ScreenshotTest`), with `verifyRoborazziDebug` | `roborazzi` |
 | `fuzz` | the Jazzer seed replays, `app.lensly.fuzz.*`, with `-PfuzzLane` | `fuzz` |
-| `android` | androidTest and benchmark compile of `:app` and `:lumio`, and the Lumio debug APK | `android` |
-| `lint-app`, `lint-shared` | `lintDebug` of one module each; a leg compiles its module and the modules it depends on | `lint` (matrix) |
-| `lint-lumio` | `lintReportDebug` of `:lumio` without the unit-test, androidTest and test-fixture analyses: lumio's main sources only | `lint` (matrix) |
+| `apk` | the Lumio debug APK, `:lumio:assembleDebug` | `android` |
+| `android-tests` | androidTest and benchmark compile of `:app` and `:lumio`; master and merge queue only (a step of `android`) | `android` |
+| `lint-app`, `lint-shared`, `lint-lumio` | `lintReportDebug` of one module's main sources; the unit-test, androidTest and test-fixture analyses run in nightly `lintDebug`; a leg compiles its module and the modules it depends on | `lint` (matrix) |
 | `manifest` | merged manifests (no INTERNET in `:app`, Lumio's allow-list), no OkHttp on `:app`'s release classpath | `manifest` |
 | `ci` | `bash -n` on every script, `check-partitions.sh`, `check-test-network.sh` (no Gradle) | `ci` |
 
@@ -50,12 +50,12 @@ The lines balance the lanes. A test class with no line still runs, so adding a t
   `scripts`, `generated-gradle-jars`, `jars-9`). The hash covers the version catalog, `verification-metadata.xml`, the wrapper
   properties, every `*.gradle.kts`, `settings.gradle.kts` and `gradle.properties`. The `deps` job saves it on a miss only.
 - `bc-<lane>-<scope>-<sha>` holds `~/.gradle/caches/build-cache-1` and `.gradle/configuration-cache`. The lint legs name their
-  module in the lane (`bc-lint-app-<scope>-<sha>`). The scope is `pr<number>` in a pull request and `master` on a push or a queue
-  entry. A run restores its own scope first (`bc-<lane>-<scope>-`), then master's (`bc-<lane>-master-`). A push to master and a
-  queue entry save every lane's entry, even when it fails or is cancelled. A pull request saves only its lint entries: the other
-  lanes' entries are about 450 MB each, and GitHub evicts least recently used entries past 10 GB per repository, which evicted
-  master's shard entries (run 44727796023). GitHub keeps a pull request's entries out of master and out of other pull requests,
-  so a pull request cannot change what master restores.
+  module in the lane (`bc-lint-app-<scope>-<sha>`). The scope is `master` on a push or a queue entry, and `pr<number>` in a pull
+  request, which saves nothing. A push to master and a queue entry save every lane's entry, even when it fails or is cancelled.
+  A pull request restores master's entries (`bc-<lane>-master-`) only. Its own entries would be restored ahead of master's, and a
+  lint entry a pull request saved lacked the compile outputs master's entries hold, so the next run of that pull request compiled
+  cold. Entries are about 450 MB each, and GitHub evicts least recently used entries past 10 GB per repository, which evicted
+  master's shard entries (run 44727796023). A pull request cannot change what master restores.
 - The configuration cache is encrypted with `GRADLE_ENCRYPTION_KEY`, a repository secret. Without it, each runner encrypts with its
   own keystore, a restored entry reads as absent ("no cached configuration is available"), and no lane reuses the configuration.
   Empty means no key, which is how a fork's pull request runs.
