@@ -320,11 +320,18 @@ jobs:
             .gradle/configuration-cache
           key: bc-android-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
 
+  # Android lint, one leg per module (scripts/ci/run-partition.sh lint-<module>). A leg compiles its module and the modules it
+  # depends on, then lints it, and the legs run on their own runners side by side, so no leg waits for another module's compile
+  # or analysis. pr-ok reads this job's result, which is success only when every leg succeeds.
   lint:
-    name: lint
+    name: lint ${{ matrix.module }}
     needs: deps
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [app, lumio, shared]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -352,13 +359,13 @@ jobs:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-lint-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
+          key: bc-lint-${{ matrix.module }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
           restore-keys: |
-            bc-lint-${{ env.BUILD_CACHE_SCOPE }}-
-            bc-lint-master-
+            bc-lint-${{ matrix.module }}-${{ env.BUILD_CACHE_SCOPE }}-
+            bc-lint-${{ matrix.module }}-master-
 
-      - name: Lint every module
-        run: ./scripts/ci/run-partition.sh lint
+      - name: Lint :${{ matrix.module }}
+        run: ./scripts/ci/run-partition.sh lint-${{ matrix.module }}
 
       - name: Stop the Gradle daemon before the cache is saved
         if: always()
@@ -371,7 +378,7 @@ jobs:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-lint-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
+          key: bc-lint-${{ matrix.module }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
 
   # Guideline 1.8 and R56. The merged manifests and the OkHttp check (scripts/ci/run-partition.sh manifest).
   manifest:
