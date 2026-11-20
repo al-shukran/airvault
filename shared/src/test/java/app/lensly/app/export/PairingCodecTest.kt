@@ -152,6 +152,13 @@ class PairingCodecTest {
     }
 
     @Test
+    fun aNameWithAFormatCharacterIsRefusedWhoeverItIs() {
+        // U+202E is a right-to-left override; U+E0041 is a tag character, which is beyond the BMP and so counts as one code point.
+        assertTrue(refusalOf { PairingCodec.encode(withAccounts(RealisticPairing.payload()) { it.copy(name = "De\u202Emo") }, null) }.contains("1 to 96 bytes"))
+        assertTrue(refusalOf { PairingCodec.encode(withAccounts(RealisticPairing.payload()) { it.copy(name = "Demo\uDB40\uDC41") }, null) }.contains("1 to 96 bytes"))
+    }
+
+    @Test
     fun anAddressBookRoundTripsWithPackedIdsAndAddresses() {
         val payload = RealisticPairing.payload()
         assertEquals(12, payload.addressBook.size)

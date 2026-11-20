@@ -4,6 +4,7 @@ import app.airvault.chains.algorand.AssetTransfer
 import app.airvault.chains.algorand.signer.AlgoTxnDecoder
 import app.lensly.core.algorand.AlgoTxnEncoder
 import app.lumio.data.provider.AlgorandSuggestedParams
+import app.lumio.data.provider.AsaHolding
 import app.lumio.data.provider.algorand.ALGORAND_TESTNET
 import java.math.BigInteger
 import kotlin.test.assertContentEquals
@@ -114,6 +115,28 @@ class AsaSendTest {
         assertEquals(AsaSend.NOT_ENOUGH_ALGO, assertFailsWith<IllegalArgumentException> {
             AsaSend.optIn(ALGORAND_TESTNET, short, fingerprint = 1L, accountIndex = 0, signer = signer, assetId = usdc)
         }.message)
+    }
+
+    @Test
+    fun aTransferKeepsTheMinimumBalanceOfEveryAssetTheAccountHolds() {
+        val held = listOf(AsaHolding(usdc, BigInteger("3000000"), frozen = false), AsaHolding(7UL, BigInteger.ONE, frozen = false))
+        val short = AlgorandFunds(BigInteger.valueOf(1_000L + 3 * AlgorandSend.MIN_BALANCE - 1), params, held)
+        val enough = AlgorandFunds(BigInteger.valueOf(1_000L + 3 * AlgorandSend.MIN_BALANCE), params, held)
+
+        assertEquals(AsaSend.NOT_ENOUGH_ALGO, assertFailsWith<IllegalArgumentException> { transfer(funds = short) }.message)
+        assertTrue(transfer(funds = enough).txnBytes.isNotEmpty())
+    }
+
+    @Test
+    fun anOptInKeepsTheMinimumBalanceOfEveryAssetTheAccountHoldsAndTheNewOne() {
+        val held = listOf(AsaHolding(usdc, BigInteger("3000000"), frozen = false), AsaHolding(7UL, BigInteger.ONE, frozen = false))
+        val short = AlgorandFunds(BigInteger.valueOf(1_000L + 4 * AlgorandSend.MIN_BALANCE - 1), params, held)
+        val enough = AlgorandFunds(BigInteger.valueOf(1_000L + 4 * AlgorandSend.MIN_BALANCE), params, held)
+
+        assertEquals(AsaSend.NOT_ENOUGH_ALGO, assertFailsWith<IllegalArgumentException> {
+            AsaSend.optIn(ALGORAND_TESTNET, short, fingerprint = 1L, accountIndex = 0, signer = signer, assetId = 9UL)
+        }.message)
+        assertTrue(AsaSend.optIn(ALGORAND_TESTNET, enough, fingerprint = 1L, accountIndex = 0, signer = signer, assetId = 9UL).isOptIn)
     }
 
     @Test
