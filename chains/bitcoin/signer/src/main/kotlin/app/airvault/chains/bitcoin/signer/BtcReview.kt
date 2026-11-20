@@ -51,7 +51,8 @@ private const val NO_RBF_SEQUENCE = 0xFFFFFFFEL
 
 /**
  * One input of the request. [ownerPath] is the full path of the key that signs it, or null for an input this Account does not own.
- * [sequence] is the input's nSequence, which says whether it signals replace-by-fee and whether the locktime holds it back.
+ * [sequence] is the input's nSequence, which says whether it signals replace-by-fee and whether the locktime holds it back. [riskMarked]
+ * is true when the online side marked the input as carrying an inscription or a rune (see [BtcPsbt.RISK_MARK]).
  */
 data class BtcReviewInput(
     val index: Int,
@@ -59,6 +60,7 @@ data class BtcReviewInput(
     val amountVerified: Boolean,
     val ownerPath: KeyPath?,
     val sequence: Long,
+    val riskMarked: Boolean = false,
 ) {
     /** True when the sequence signals replace-by-fee, so the owner can bump the fee of the request after it is sent. */
     val replaceableByFee: Boolean
