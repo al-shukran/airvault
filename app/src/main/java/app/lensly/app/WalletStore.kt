@@ -2,6 +2,7 @@ package app.lensly.app
 
 import app.airvault.chains.evm.signer.EvmSigner
 import app.airvault.core.signer.KeyAccess
+import app.airvault.core.signer.Path
 import app.lensly.app.export.BrotliCompressor
 import app.lensly.app.export.BrotliEncoder
 import app.lensly.app.export.PairingCodec
@@ -19,6 +20,7 @@ import app.airvault.chains.bitcoin.signer.InputVerificationPolicy
 import app.lensly.core.btc.ScriptType
 import app.airvault.chains.bitcoin.signer.SigningSourcePolicy
 import app.lensly.core.solana.SolanaAccount
+import app.lensly.core.ur.PathStep
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WalletRecordNames
 import app.lensly.core.wallet.AccountAddresses
@@ -309,6 +311,20 @@ class WalletStore(private val session: VaultSession) {
         } catch (e: IllegalArgumentException) {
             emptyList()
         }
+    }
+
+    /**
+     * The derivation path m/purpose'/coin'/account' of each Bitcoin account of wallet [id], in the order they were added. A request names the account
+     * it spends from by such a path, so the sign flow matches requests against these.
+     */
+    fun storedAccountPaths(id: String): List<Path> = bitcoinAccounts(id).map { account ->
+        Path(
+            listOf(
+                PathStep(account.scriptType.purpose, hardened = true),
+                PathStep(account.network.coinType, hardened = true),
+                PathStep(account.index, hardened = true),
+            ),
+        )
     }
 
     /**

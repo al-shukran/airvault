@@ -7,6 +7,7 @@ import app.airvault.chains.bitcoin.signer.UNVERIFIED_CHECK
 import app.airvault.chains.bitcoin.bitcoinManifest
 import app.airvault.core.model.Approval
 import app.airvault.core.signer.AppRequest
+import app.airvault.core.signer.Path
 import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.BitcoinReviewed
@@ -21,6 +22,7 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.inProcessSandboxParser
+import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.ui.sign.SAMPLE_SIGNER
 import app.lensly.ui.sign.bitcoinReviewOf
@@ -116,7 +118,7 @@ class SignFlowBitcoinTest {
             accountCount = 1,
             autoNameBase = "Bitcoin",
             addressAt = { _, _ -> BTC_ACCOUNT.receiveAddress(0) },
-            bitcoinAccountPaths = listOf(BTC_ACCOUNT.path),
+            storedAccountPaths = listOf(Path(listOf(PathStep(ScriptType.NATIVE_SEGWIT.purpose, true), PathStep(BtcNetwork.TESTNET4.coinType, true), PathStep(0, true)))),
         )
         val flow = SignFlow(BitcoinPorts(prepared = { readyOf(it) }, wallets = listOf(view)), walletId = null)
 
