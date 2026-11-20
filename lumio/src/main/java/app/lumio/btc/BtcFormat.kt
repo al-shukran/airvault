@@ -7,3 +7,5 @@ import java.math.BigInteger
 fun btcText(sats: Long): String = (if (sats < 0) "-" else "") + Amounts.format(BigInteger.valueOf(sats).abs(), BTC_DECIMALS) + " BTC"
 
 private const val BTC_DECIMALS = 8
+
+internal fun ci567Probe(): Int = 567
