@@ -44,8 +44,8 @@ sealed interface UnlockResult {
     data class Unlocked(val session: VaultSession) : UnlockResult
 
     /**
-     * The password was wrong, or a failure delay is running. Both cases return this same value, and it carries
-     * no timing or remaining-delay information.
+     * The password was wrong, a failure delay is running, or the try could not be counted. Every case returns this same value, and it
+     * carries no timing or remaining-delay information.
      */
     data object Rejected : UnlockResult
 
@@ -144,6 +144,8 @@ class VaultFormatChangedException : VaultException(VAULT_FORMAT_CHANGED)
  * erases the vault after the owner's number of wrong tries in a row, with the same wipe as [wipe]. The erasing try returns
  * [UnlockResult.Erased], and both vaults go, since the wrong tries do not say which one was meant. When no copy of the failure state
  * verifies, the next attempt erases the vault before the password is checked, since the count is unknown (see [FailureDelay]).
+ * Each try is counted before its password is checked, and a try whose count cannot be saved is refused without a verdict (see
+ * [checkPasswordLocked]).
  *
  * Argon2 runs on [Dispatchers.Default]. File and Keystore work runs on [Dispatchers.IO]. The password arrays passed to
  * [create], [unlock], [rekey], [setDuress] and [setFailureLimits] are zeroed before those calls return.
@@ -239,6 +241,7 @@ class Vault constructor(
      * Returns [UnlockResult.Rejected] for a password that opens neither, and for any attempt made during a failure delay.
      * A delay attempt does not check the password and does not add to the failure count, but it spends the same Argon2
      * time as a real check. A wrong try that is the owner's last allowed one erases the vault and returns [UnlockResult.Erased].
+     * A try whose count cannot be saved is refused the same way, before its password is checked.
      *
      * @throws VaultException if the password is correct but the stored state is damaged or the hardware key is gone.
      */
@@ -554,7 +557,7 @@ class Vault constructor(
         /** The password opened [slot]. The caller closes it. */
         class Opened(val slot: OpenedSlot) : Checked
 
-        /** The password opened neither slot, or a Failure Delay refused it. Nothing was erased. */
+        /** The password opened neither slot, a Failure Delay refused it, or the try could not be counted. Nothing was erased. */
         data object Refused : Checked
 
         /** The wrong try erased the vault. Nothing is left to open. */
@@ -578,10 +581,12 @@ class Vault constructor(
 
     /**
      * Checks [password] against the Failure Delay and against both slots. The result is [Checked.Refused] when the attempt is refused:
-     * during a delay, which is not checked and not counted, or for a password that opens neither slot, which is counted. A counted
-     * wrong try that is the owner's last allowed one erases the vault instead, and the result is [Checked.Erased]. Otherwise the
-     * result holds the slot the password opened, and the caller closes it. Both slots are tried with the one derivation, so the
-     * decoy costs what the real vault costs, and a refused password costs the same as either.
+     * during a delay, which is not checked and not counted, or when the try cannot be counted, which is found before the password is
+     * checked. Otherwise the try is counted first, so a try that a restart or an error cuts short still counts. A password that opens
+     * neither slot is a wrong try, and it is [Checked.Refused] too, unless it is the owner's last allowed wrong try: that erases the
+     * vault instead, and the result is [Checked.Erased]. Otherwise the result holds the slot the password opened, and the caller closes
+     * it. Both slots are tried with the one derivation, so the decoy costs what the real vault costs, and a refused password costs the
+     * same as either.
      */
     private suspend fun checkPasswordLocked(password: CharArray): Checked {
         if (!layout.exists()) return Checked.Refused
@@ -602,7 +607,17 @@ class Vault constructor(
             spendKdfTime(header)
             return Checked.Refused
         }
-        val state = check.state
+        // The try is counted before the KDF and the verdict, so a try that a restart or an error cuts short still counts (FailureDelay
+        // threat 15). A count that cannot be saved gives no verdict: the password is not checked, and the try is refused (threat 11).
+        val counted = try {
+            store.recordFailure(check.state, clock)
+        } catch (e: VaultException) {
+            spendKdfTime(header)
+            return Checked.Refused
+        } catch (e: IOException) {
+            spendKdfTime(header)
+            return Checked.Refused
+        }
 
         val softKey = withContext(Dispatchers.Default) { deriveSoftKey(password, header.salt, header.kdf) }
         var handedOver = false
@@ -615,16 +630,15 @@ class Vault constructor(
                 throw VaultException("The vault key file is damaged: two slots open with one password.")
             }
             if (opened.isEmpty()) {
-                // A wrong password that cannot be saved locks instead of throwing, so the attempt is blocked and nothing escapes.
-                val failed = store.recordFailureOrLock(state, clock)
-                if (FailureDelay.erases(failed)) {
+                // The wrong try is counted already. The owner's last allowed one erases the vault.
+                if (FailureDelay.erases(counted)) {
                     eraseLocked()
                     return Checked.Erased
                 }
                 return Checked.Refused
             }
             // The software layer authenticated, so the password is right. Reset the count before the hardware step.
-            val reset = store.recordSuccess(state, clock)
+            val reset = store.recordSuccess(counted, clock)
             val (vaultKey, role) = withHardwareAuth {
                 val key = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
                 val (unwrapped, unwrappedRole) = unwrapOpened(key, opened.single().second)

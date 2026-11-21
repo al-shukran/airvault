@@ -126,7 +126,7 @@ class EraseRuleTest {
     private fun wrongTry(store: FailureStore): Attempt {
         val check = store.checkDelay(clock, FakeClock.START_WALL)
         assertFalse(check.blocked)
-        val failed = store.recordFailureOrLock(check.state, clock)
+        val failed = store.recordFailure(check.state, clock)
         return Attempt(failed, FailureDelay.erases(failed))
     }
 
