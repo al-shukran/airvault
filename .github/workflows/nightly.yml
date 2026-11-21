@@ -176,6 +176,17 @@ jobs:
             ./gradlew :app:connectedDebugAndroidTest
             -Pandroid.testInstrumentationRunnerArguments.notPackage=app.lensly.benchmark
 
+      - name: Upload connected test results on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: instrumented-test-results
+          path: |
+            **/build/outputs/androidTest-results/**
+            **/build/reports/androidTests/**
+          retention-days: 7
+          if-no-files-found: ignore
+
   e2e:
     # Guideline 1.6: the wallet sign flow on an emulator, separate from `instrumented` so one
     # error report names the layer.
@@ -213,6 +224,17 @@ jobs:
           script: >-
             ./gradlew :app:connectedDebugAndroidTest
             -Pandroid.testInstrumentationRunnerArguments.class=app.lensly.e2e.WalletSignFlowTest
+
+      - name: Upload e2e test results on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-test-results
+          path: |
+            **/build/outputs/androidTest-results/**
+            **/build/reports/androidTests/**
+          retention-days: 7
+          if-no-files-found: ignore
 
   benchmark:
     # Guideline 1.7: emulator numbers are trend data only. The 10% gate needs the reference
@@ -258,6 +280,17 @@ jobs:
             ./gradlew :app:connectedBenchmarkAndroidTest
             -Pandroid.testInstrumentationRunnerArguments.package=app.lensly.benchmark
             -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.suppressErrors=EMULATOR,NOT-AOT-COMPILED
+
+      - name: Upload benchmark test results on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: benchmark-test-results
+          path: |
+            **/build/outputs/androidTest-results/**
+            **/build/reports/androidTests/**
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Confirm trend-only
         run: echo "Emulator results are trend data; the 10% gate runs on the reference device only."
