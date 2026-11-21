@@ -29,10 +29,12 @@ import app.lensly.BuildConfig
 import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.BitcoinCapReached
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
+import app.lensly.app.EthereumCapReached
 import app.lensly.app.RegistryHolder
 import app.lensly.app.ReviewHistory
 import app.lensly.app.SaveState
 import app.lensly.app.SettingsStore
+import app.lensly.app.SolanaCapReached
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletApp
 import app.lensly.app.WalletDraftViewModel
@@ -747,6 +749,8 @@ private fun AppRoute(navController: NavHostController, holder: VaultHolder, wall
     var bitcoin by remember(walletId) { mutableStateOf<List<BitcoinAccountRecord>?>(null) }
     var solana by remember(walletId) { mutableStateOf<List<ByteArray>?>(null) }
     var algorand by remember(walletId) { mutableStateOf<List<ByteArray>?>(null) }
+    // Why the last single add was refused at the account cap, shown on the account list. Null when the last add saved.
+    var addRefusal by remember(walletId) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(walletId, app) {
         whileUnlocked(navController, holder) {
@@ -774,15 +778,22 @@ private fun AppRoute(navController: NavHostController, holder: VaultHolder, wall
             wallet = shown,
             addresses = ethereum?.addresses,
             accountProfiles = ethereum?.profiles.orEmpty(),
+            refusal = addRefusal,
             onBack = { navController.popBackStack() },
             onAddAccount = {
                 scope.launch {
                     whileUnlocked(navController, holder) {
-                        // The write moves the session's write count, so the view is read again with the new account.
-                        ethereum = withContext(Dispatchers.IO) {
-                            WalletStore(session).addAccount(walletId)
-                            reads.ethereumAccounts(walletId)
+                        // At the cap the add is refused and nothing is saved: the refusal is shown on the list. The write moves the
+                        // session's write count, so the view is read again with the new account.
+                        addRefusal = withContext(Dispatchers.IO) {
+                            try {
+                                WalletStore(session).addAccount(walletId)
+                                null
+                            } catch (e: EthereumCapReached) {
+                                e.message
+                            }
                         }
+                        ethereum = withContext(Dispatchers.IO) { reads.ethereumAccounts(walletId) }
                     }
                 }
             },
@@ -810,16 +821,23 @@ private fun AppRoute(navController: NavHostController, holder: VaultHolder, wall
             SolanaAccountsScreen(
                 wallet = shown,
                 addresses = keys.map { SolanaAccount.addressOf(it) },
+                refusal = addRefusal,
                 onBack = { navController.popBackStack() },
                 onAddAccount = {
                     scope.launch {
                         whileUnlocked(navController, holder) {
-                            // The write moves the Solana record, so the list is read again and shows the new account.
-                            solana = withContext(Dispatchers.IO) {
-                                val cap = SettingsStore(session).load().bulkCap.accounts
-                                WalletStore(session).addSolanaAccounts(walletId, 1, cap)
-                                WalletStore(session).solanaKeys(walletId)
+                            // At the cap the add is refused and nothing is saved: the refusal is shown on the list. The write moves
+                            // the Solana record, so the list is read again and shows the new account.
+                            addRefusal = withContext(Dispatchers.IO) {
+                                try {
+                                    val cap = SettingsStore(session).load().bulkCap.accounts
+                                    WalletStore(session).addSolanaAccounts(walletId, 1, cap)
+                                    null
+                                } catch (e: SolanaCapReached) {
+                                    e.message
+                                }
                             }
+                            solana = withContext(Dispatchers.IO) { WalletStore(session).solanaKeys(walletId) }
                         }
                     }
                 },

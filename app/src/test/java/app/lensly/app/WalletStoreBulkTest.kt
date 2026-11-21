@@ -108,14 +108,29 @@ class WalletStoreBulkTest {
     }
 
     @Test
-    fun aRunOfAHundredIsSavedUnderTheHundredCap() {
+    fun aRunThatFillsTheWalletToTheHundredCapIsSaved() {
         val id = newWallet()
 
-        val updated = assertNotNull(store.addAccounts(id, 100, cap = BulkCap.HUNDRED.accounts))
+        val updated = assertNotNull(store.addAccounts(id, 99, cap = BulkCap.HUNDRED.accounts))
 
-        assertEquals(101, updated.accountCount)
+        assertEquals(100, updated.accountCount)
         val single = HdWallet(Mnemonic.toSeed(words))
-        assertEquals((0..100).map { single.address(it) }, store.addresses(id, 101))
+        assertEquals((0..99).map { single.address(it) }, store.addresses(id, 100))
+    }
+
+    @Test
+    fun anEthereumWalletKeepsAtMostOneHundredAccounts() {
+        val id = newWallet()
+
+        // One account from creation and 100 more would be 101, past the cap of 100. The refusal comes before derivation.
+        val refusal = assertFailsWith<EthereumCapReached> { store.addAccounts(id, 100, cap = BulkCap.HUNDRED.accounts) }
+        assertEquals("A wallet keeps at most 100 Ethereum accounts.", refusal.message)
+        assertEquals(1, store.meta(id)?.accountCount)
+
+        assertNotNull(store.addAccounts(id, 99, cap = BulkCap.HUNDRED.accounts))
+        assertFailsWith<EthereumCapReached> { store.addAccount(id) }
+        assertFailsWith<EthereumCapReached> { store.addAccounts(id, 1, cap = BulkCap.HUNDRED.accounts) }
+        assertEquals(100, store.meta(id)?.accountCount)
     }
 
     @Test

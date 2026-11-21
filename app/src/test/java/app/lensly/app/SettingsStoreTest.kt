@@ -289,7 +289,7 @@ class SettingsStoreTest {
 
         SettingsStore(session).save(AppSettings(BulkCap.HUNDRED))
         val hundred = SettingsStore(session).load().bulkCap.accounts
-        assertEquals(101, assertNotNull(wallets.addAccounts(id, 100, hundred)).accountCount)
+        assertEquals(100, assertNotNull(wallets.addAccounts(id, 99, hundred)).accountCount)
         session.close()
     }
 

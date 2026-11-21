@@ -79,6 +79,7 @@ fun EthereumAccountsScreen(
     onRenameAccounts: (List<Int>) -> Unit,
     onStyleAccounts: (List<Int>) -> Unit,
     onResetAccountNames: (List<Int>) -> Unit,
+    refusal: String? = null,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
 ) {
@@ -162,6 +163,7 @@ fun EthereumAccountsScreen(
                     )
                 }
             } else {
+                refusal?.let { InlineBanner(message = it, tone = BannerTone.Error) }
                 if (singleKey) {
                     // A Single Key has one account, so there is nothing to add and nothing to generate.
                     InlineBanner(message = SINGLE_KEY_ONE_ACCOUNT, tone = BannerTone.Info)

@@ -39,9 +39,6 @@ object PairImport {
     /** The refusal of a code that is not a public key, such as a seed or a private key. */
     const val PRIVATE_KEY_REFUSAL = "The code holds private key material. Only public exports can be paired."
 
-    /** The most Ethereum accounts a wallet keeps in Lumio: one account record each, and the folder holds this many. */
-    const val MAX_ETHEREUM_ACCOUNTS = 100
-
     /** The most Bitcoin keys a wallet keeps in Lumio: the same cap Lensly enforces, and its Bitcoin record holds this many. */
     const val MAX_BITCOIN_KEYS = PairingCodec.MAX_BITCOIN_ACCOUNTS
 
@@ -53,7 +50,7 @@ object PairImport {
 
     /** The most accounts a wallet keeps in Lumio, by the CAIP-2 namespace of their chain. */
     private val ACCOUNT_LIMITS = mapOf(
-        Networks.EIP155 to MAX_ETHEREUM_ACCOUNTS,
+        Networks.EIP155 to PairingCodec.MAX_ETHEREUM_ACCOUNTS,
         Networks.BIP122 to MAX_BITCOIN_KEYS,
         Networks.SOLANA to MAX_SOLANA_ACCOUNTS,
         Networks.ALGORAND to MAX_ALGORAND_ACCOUNTS,

@@ -17,6 +17,11 @@
 -dontwarn org.web3j.**
 -dontwarn fr.acinq.bitcoin.**
 
+# hummingbird, the UR library, which ships no keep rules. Version 1.7.6 makes no reflective call: its UR types are reached through class
+# literals (RegistryType) and getClass() comparisons, which R8 follows. The rule keeps the package, 64 classes, so a later R8 change or
+# a reflective use cannot strip a UR type that a sign request needs.
+-keep class com.sparrowwallet.hummingbird.** { *; }
+
 # Logging. A release build writes nothing to logcat, so the Log calls are removed. The debug harness logs decoded QR text, and that
 # code is not in release.
 -assumenosideeffects class android.util.Log {

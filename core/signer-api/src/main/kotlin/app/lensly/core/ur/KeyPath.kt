@@ -1,5 +1,7 @@
 package app.lensly.core.ur
 
+import app.airvault.core.signer.UNKNOWN_REQUEST
+
 /** The CBOR tag of a keypath, as the eth-sign, sol-sign and algo-sign requests carry it. */
 const val KEYPATH_TAG = 304L
 
@@ -12,7 +14,8 @@ data class PathStep(val index: Int, val hardened: Boolean)
 
 /**
  * Reads a tag 304 keypath and returns its steps with the source fingerprint, which is null when the wallet left it out.
- * The request decoders share it, and SolSignRequest adds its own hardened-only rule.
+ * The request decoders share it, and SolSignRequest adds its own hardened-only rule. Its map is strict like the request map: a key from
+ * RESERVED_KEYS_FROM is ignored, and any other key but 1, 2 and 3 is refused. A depth (key 3) must count the steps.
  */
 fun keyPathOf(item: Cbor): Pair<List<PathStep>, Int?> {
     val tagged = item as? Cbor.Tagged
@@ -31,6 +34,11 @@ fun keyPathOf(item: Cbor): Pair<List<PathStep>, Int?> {
         PathStep(number.toInt(), isHardened)
     }
 
+    // The depth is optional (BCR-2020-007). When a wallet sends it, it must count the steps.
+    fields[3L]?.let { depth ->
+        if (uintOf(depth, "keypath depth") != steps.size.toLong()) malformed("keypath depth does not match its components")
+    }
+
     val sourceFingerprint = fields[2L]?.let {
         val number = uintOf(it, "source fingerprint")
         if (number > MAX_FINGERPRINT) malformed("source fingerprint exceeds 32 bits")
@@ -44,6 +52,8 @@ private fun fieldsOf(root: Cbor): Map<Long, Cbor> {
     val fields = HashMap<Long, Cbor>()
     for ((key, value) in dict.entries) {
         val number = uintOf(key, "map key")
+        if (number >= RESERVED_KEYS_FROM) continue
+        if (number !in 1L..3L) malformed(UNKNOWN_REQUEST)
         if (fields.put(number, value) != null) malformed("duplicate map key $number")
     }
     return fields
