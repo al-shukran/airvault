@@ -199,6 +199,14 @@ class BitcoinReviewTest {
     }
 
     @Test
+    fun anOpReturnWithOtherOpcodesOrMorePushesShowsAllItsBytes() {
+        // OP_RETURN OP_13 <push "hello">: a Runes tag before the data, so the data form would hide the tag.
+        assertEquals("6a5d0568656c6c6f", scriptRowOf("6a5d0568656c6c6f"))
+        // OP_RETURN with two pushes, "hello" and "world": the data form would merge them into one text.
+        assertEquals("6a0568656c6c6f05776f726c64", scriptRowOf("6a0568656c6c6f05776f726c64"))
+    }
+
+    @Test
     fun aRequestThatPaysNothingOutsideTheWalletSaysSo() {
         val allChange = request(feeSats = 10_000L).copy(
             outputs = listOf(BtcReviewOutput(0, "tb1qchange", 60_000L, isOwnChange = true, changeIndex = 0)),

@@ -188,26 +188,30 @@ private fun BtcReview.decodedFields(): Set<FieldPath> = buildSet {
 }
 
 /**
- * The script of an output with no address, as the review shows it. An OP_RETURN shows the data it pushes: as hex, and with the text in
- * brackets when every byte is printable ASCII. Any other script shows all of its bytes as hex. An OP_RETURN that pushes nothing
- * shows its bytes.
+ * The script of an output with no address, as the review shows it. A script that is exactly OP_RETURN followed by one push shows that
+ * push's data: as hex, and with the text in brackets when every byte is printable ASCII. Any other script shows all of its bytes as hex,
+ * so two different scripts never show the same text. That includes an OP_RETURN with a second push or a non-push opcode such as a Runes
+ * tag, and an OP_RETURN whose push is empty or cut short.
  */
 internal fun scriptText(script: ByteArray): String {
-    val pushed = if (script.firstOrNull() == OP_RETURN_OPCODE) opReturnPayload(script) else ByteArray(0)
-    if (pushed.isEmpty()) return script.toHex()
+    val pushed = singlePushData(script)
+    if (pushed == null || pushed.isEmpty()) return script.toHex()
     val hex = pushed.toHex()
     return if (pushed.all { it.toInt() in ASCII_PRINTABLE }) "$hex (${String(pushed, Charsets.US_ASCII)})" else hex
 }
 
 /**
- * The data the pushes after an OP_RETURN carry, in order. A truncated push does not parse, and then the payload is empty, so the script
- * shows its own bytes instead of failing the review.
+ * The data of a script that is exactly OP_RETURN followed by one push, or null for any other script. A script that does not parse, such
+ * as one with a truncated push, is null too, so it shows its own bytes instead of failing the review.
  */
-private fun opReturnPayload(script: ByteArray): ByteArray = runCatching {
-    Script.parse(ByteVector(script)).drop(1).filterIsInstance<OP_PUSHDATA>().fold(ByteArray(0)) { payload, push ->
-        payload + push.data.toByteArray()
-    }
-}.getOrDefault(ByteArray(0))
+private fun singlePushData(script: ByteArray): ByteArray? {
+    if (script.firstOrNull() != OP_RETURN_OPCODE) return null
+    return runCatching {
+        val elements = Script.parse(ByteVector(script))
+        val push = elements.getOrNull(1) as? OP_PUSHDATA
+        if (elements.size == 2 && push != null) push.data.toByteArray() else null
+    }.getOrNull()
+}
 
 /**
  * The check the owner ticks before a request that spends marked inputs can be signed. It names the count and every marked outpoint, so one tick

@@ -7,8 +7,11 @@ Each file holds UR frames, one per line, in the form the wire carries them. Anim
 
 - `pairing-v7-raw.txt` and `pairing-v7-brotli.txt` are the pairing of the realistic test vault, version 7, with its body stored raw and
   Brotli-compressed.
-- `request-*.txt` are one sign request for each request type a Lumio builder writes: Bitcoin `psbt` and `crypto-psbt`, Ethereum transaction
-  and typed data, Solana, and Algorand.
+- `request-*.txt`, apart from the three named below, are one sign request for each request type a Lumio builder writes: Bitcoin `psbt` and
+  `crypto-psbt`, Ethereum transaction and typed data, Solana, and Algorand.
+- `request-eth-personal-message.txt` and `request-sol-off-chain-message.txt` are an Ethereum personal message and a Solana off-chain
+  message, which Lumio does not send today. `request-eth-reserved-key.txt` is the Ethereum transaction fixture with a reserved key
+  (1000) added, which Lensly must ignore.
 - `response-*.txt` are the signed answers to the Bitcoin, Ethereum, Solana and Algorand requests. Each answer uses the name of its request.
 
 Every file was written once from the public BIP39 test wallet, by a one-off generator that was then removed. There is no regeneration helper,
