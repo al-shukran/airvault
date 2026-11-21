@@ -34,6 +34,7 @@ import app.lumio.transactions.TxSyncPlan
 import app.lumio.receive.ReceiveAnswers
 import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.receive.ReceiveFlowSheet
+import app.lumio.ui.receive.receiveNativeStartOf
 import app.lumio.ui.receive.receiveStartOf
 import app.lumio.ui.settings.WalletsSettings
 import app.lumio.ui.shell.LumioPageScreen
@@ -249,8 +250,9 @@ internal fun AccountRoute(
                 onRefresh = { board.refresh() },
                 onSend = { navController.navigate(sendRoute(account, mode)) },
                 onReceive = {
-                    assetRows.firstOrNull { it.isNative }?.let { native ->
-                        receive = receiveStartOf(native, account, view.wallets)
+                    account.coin?.let { coin ->
+                        val icon = AssetRows.nativeIcon(coin.network, coin.symbol, app.registry::network)
+                        receive = receiveNativeStartOf(account, coin, icon, view.wallets)
                         receiveOpening++
                         receiveOpen = true
                     }

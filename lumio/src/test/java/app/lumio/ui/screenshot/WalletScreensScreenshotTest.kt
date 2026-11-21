@@ -35,6 +35,7 @@ import app.lumio.ui.wallets.AssetScreen
 import app.lumio.ui.wallets.WalletRow
 import app.lumio.ui.wallets.WalletScreen
 import app.lumio.ui.wallets.WalletsScreen
+import app.lumio.wallets.AccountCoin
 import app.lumio.wallets.WalletAccount
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -75,6 +76,7 @@ class WalletScreensScreenshotTest {
         id = AccountId.of(Networks.BTC_TESTNET4, "tb1qk3z8f0d6c2m9a7v4w5x1y2z3q4r5s6t7u8v9w0"),
         index = 0,
         networkName = "Bitcoin Testnet4",
+        coin = AccountCoin("BTC", "Bitcoin Testnet4", BtcNetwork.TESTNET4.networkId()),
         balance = NativeAsset("BTC-testnet4", "BTC", "Bitcoin Testnet4", BtcNetwork.TESTNET4.networkId(), BigDecimal("0.0012")),
         script = "Native SegWit",
     )
@@ -83,6 +85,7 @@ class WalletScreensScreenshotTest {
         id = AccountId.of(Networks.evm(10143), "0x" + "a1b2c3d4".repeat(5)),
         index = 0,
         networkName = "Monad testnet",
+        coin = AccountCoin("MON", "Monad testnet", NetworkId(Networks.evm(10143), testnet = true)),
         balance = NativeAsset("EVM-10143", "MON", "Monad testnet", NetworkId(Networks.evm(10143), testnet = true), BigDecimal("12.5")),
     )
     private val solana = WalletAccount(
@@ -90,6 +93,7 @@ class WalletScreensScreenshotTest {
         id = AccountId.of(Networks.SOL_DEVNET, "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"),
         index = 0,
         networkName = "Solana Devnet",
+        coin = AccountCoin("SOL", "Solana Devnet", SOLANA_DEVNET),
         balance = NativeAsset("SOL-devnet", "SOL", "Solana Devnet", SOLANA_DEVNET, BigDecimal("0.4")),
     )
     private val algorand = WalletAccount(
@@ -97,6 +101,7 @@ class WalletScreensScreenshotTest {
         id = AccountId.of(Networks.ALGO_TESTNET, "ALGOADDRESSEXAMPLEFORSCREENSHOTONLY0000000000000000000000000"),
         index = 0,
         networkName = "Algorand Testnet",
+        coin = null,
         balance = null,
     )
     private val zeroEthereum = ethereum.copy(

@@ -18,6 +18,7 @@ class SendRouteTest {
         id = AccountId.of(chain, "address"),
         index = 2,
         networkName = "network",
+        coin = null,
         balance = null,
     )
 

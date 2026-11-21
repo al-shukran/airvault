@@ -21,6 +21,7 @@ class WalletRowsTest {
         id = AccountId.of(chain, "0x" + "a1b2c3d4".repeat(5)),
         index = index,
         networkName = "network",
+        coin = null,
         balance = balance,
     )
 
