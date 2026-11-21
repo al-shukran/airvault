@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
@@ -13,14 +14,18 @@ import app.lensly.app.addressKeyOf
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import app.lumio.portfolio.ChainFamily
+import app.lumio.portfolio.PortfolioBoard
 import app.lumio.portfolio.PortfolioFilter
 import app.lumio.transactions.ActivityFilter
+import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.portfolio.PortfolioScreen
 import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.shell.LumioPageScreen
 import app.lumio.ui.transactions.ActivityList
 import app.lumio.ui.transactions.AddOnLenslyScreen
 import java.time.ZoneId
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 /** The most recent rows that the Portfolio tab shows under its balances. The activity page shows the rest. */
 private const val RECENT_ROWS = 3
@@ -36,6 +41,7 @@ internal fun PortfolioTab(navController: NavHostController, holder: VaultHolder,
     val mode = selection.mode
     val wallets = pairedWallets(navController, holder, listVersion)
     val display = rememberDisplay(app)
+    val scope = rememberCoroutineScope()
     var filter by remember { mutableStateOf(PortfolioFilter()) }
     LaunchedEffect(board, mode, listVersion) {
         board?.readHoldings(mode)
@@ -54,7 +60,7 @@ internal fun PortfolioTab(navController: NavHostController, holder: VaultHolder,
             names = board?.activity?.names.orEmpty(),
             zone = ZoneId.systemDefault(),
             onOpenActivity = { navController.navigate(LumioRoute.ACTIVITY) },
-            onOpenRow = { item -> navController.navigate(LumioRoute.transaction(walletIdOf(wallets, item.tx.account), item.tx.account, item.tx.id)) },
+            onOpenRow = { item -> openTransaction(scope, navController, board, wallets, item) },
         )
     }
 }
@@ -67,6 +73,7 @@ internal fun ActivityRoute(navController: NavHostController, holder: VaultHolder
     val mode = selection.mode
     val wallets = pairedWallets(navController, holder, listVersion)
     val display = rememberDisplay(app)
+    val scope = rememberCoroutineScope()
     var filter by remember { mutableStateOf(ActivityFilter()) }
     var showSpam by remember { mutableStateOf(false) }
     LaunchedEffect(board, mode, filter, showSpam) { board?.readActivity(mode, filter, showSpam) }
@@ -93,7 +100,7 @@ internal fun ActivityRoute(navController: NavHostController, holder: VaultHolder
             showBalance = display.showAssets,
             zone = ZoneId.systemDefault(),
             nowMs = System.currentTimeMillis(),
-            onOpen = { item -> navController.navigate(LumioRoute.transaction(walletIdOf(wallets, item.tx.account), item.tx.account, item.tx.id)) },
+            onOpen = { item -> openTransaction(scope, navController, board, wallets, item) },
         )
     }
 }
@@ -109,6 +116,20 @@ internal fun AddOnLenslyRoute(navController: NavHostController, address: String,
         onLock = onLock,
         onDone = { navController.popBackStack() },
     )
+}
+
+/**
+ * Opens the page of [item]. The transaction is read before the page is pushed, so the page has it on its first frame. A second tap while the read runs
+ * does not push the page twice.
+ */
+private fun openTransaction(scope: CoroutineScope, navController: NavHostController, board: PortfolioBoard?, wallets: List<PairedWallet>, item: TxFeedItem) {
+    val account = item.tx.account
+    val txId = item.tx.id
+    val walletId = walletIdOf(wallets, account)
+    scope.launch {
+        board?.readTransaction(walletId, account, txId)
+        navController.navigate(LumioRoute.transaction(walletId, account, txId)) { launchSingleTop = true }
+    }
 }
 
 /** The number of accounts of each chain family across the wallets, for the chain choices. */

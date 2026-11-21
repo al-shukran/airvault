@@ -19,8 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.NavHostController
-import app.lensly.app.AddressBookEntry
-import app.lensly.app.InternalAccount
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressBookEntryFor
 import app.lensly.app.chainOfAddress
@@ -32,11 +30,7 @@ import app.lumio.data.tx.CommentImportException
 import app.lumio.data.tx.TxCommentTransfer
 import app.lumio.data.tx.TxKeys
 import app.lumio.data.tx.TxQuery
-import app.lumio.pair.PairedWallet
-import app.lumio.pair.PairedWallets
-import app.lumio.pair.ownAccountsOf
-import app.lumio.transactions.TxDetail
-import app.lumio.transactions.txDetailOf
+import app.lumio.portfolio.TransactionPage
 import app.lumio.ui.settings.CommentBackupRows
 import app.lumio.ui.transactions.AddressInfoSheet
 import app.lumio.ui.transactions.TransactionDetailScreen
@@ -46,7 +40,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 
-/** The page of one transaction, with the address sheet of an address opened over it. A transaction the store does not hold leaves the screen. */
+/**
+ * The page of one transaction, with the address sheet of an address opened over it. The row that opens the page has read the transaction already, so the
+ * first frame has it. A transaction the store does not hold leaves the screen.
+ */
 @Composable
 internal fun TransactionDetailRoute(navController: NavHostController, holder: VaultHolder, walletId: String, account: String, txId: String, onLock: () -> Unit) {
     val app = LocalContext.current.applicationContext as LumioApp
@@ -57,19 +54,16 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
     }
     if (session == null) return
     val vault = app.lumioVault()
+    val board = vault?.portfolio
     val display = rememberDisplay(app)
-    val load by produceState<DetailLoad?>(null, walletId, account, txId) {
-        val open = vault
-        value = if (open == null) {
-            DetailLoad.Missing
-        } else {
-            withContext(Dispatchers.IO) {
-                txDetailOf(app, open, account, txId)?.let { detail ->
-                    val wallets = PairedWallets.list(session)
-                    val wallet = wallets.firstOrNull { it.id == walletId }
-                    DetailLoad.Ready(detail, ownAccountsOf(wallets), wallet, wallet?.addressBook.orEmpty())
-                }
-            } ?: DetailLoad.Missing
+    val load by produceState<DetailLoad?>(
+        initialValue = board?.transactionOf(account, txId)?.let { DetailLoad.Ready(it) },
+        walletId,
+        account,
+        txId,
+    ) {
+        if (value == null) {
+            value = board?.readTransaction(walletId, account, txId)?.let { DetailLoad.Ready(it) } ?: DetailLoad.Missing
         }
     }
     when (val current = load) {
@@ -79,20 +73,21 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
             return
         }
         is DetailLoad.Ready -> {
+            val page = current.page
             var sheet by remember { mutableStateOf<String?>(null) }
             TransactionDetailScreen(
-                detail = current.detail,
-                accountNames = current.accounts.mapValues { (_, own) -> own.displayName ?: own.autoName },
-                book = current.book,
+                detail = page.detail,
+                accountNames = page.accounts.mapValues { (_, own) -> own.displayName ?: own.autoName },
+                book = page.book,
                 backLabel = navController.backLabel(),
                 showBalance = display.showAssets,
                 onAddress = { sheet = it },
-                onExplorer = { current.detail.explorerUrl?.let { openExplorer(context, it) } },
+                onExplorer = { page.detail.explorerUrl?.let { openExplorer(context, it) } },
                 onBack = { navController.popBackStack() },
                 onLock = onLock,
             )
             sheet?.let { address ->
-                val wallet = current.wallet
+                val wallet = page.wallet
                 val seenIn by produceState<Int?>(null, address) {
                     value = withContext(Dispatchers.IO) {
                         vault?.txs?.count(TxQuery(accounts = wallet?.evmAddresses.orEmpty().toSet(), text = address, includeSpam = true))
@@ -100,7 +95,7 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
                 }
                 AddressInfoSheet(
                     address = address,
-                    entry = chainOfAddress(address)?.let { addressBookEntryFor(address, it, current.book) },
+                    entry = chainOfAddress(address)?.let { addressBookEntryFor(address, it, page.book) },
                     walletName = wallet?.name,
                     seenIn = seenIn,
                     onEdit = {
@@ -118,16 +113,11 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
     }
 }
 
-/** The state of [TransactionDetailRoute]: the transaction and its wallet's address book, or missing when the store does not hold it. */
+/** The state of [TransactionDetailRoute]: the transaction page, or missing when the store does not hold the transaction. */
 private sealed interface DetailLoad {
     data object Missing : DetailLoad
 
-    class Ready(
-        val detail: TxDetail,
-        val accounts: Map<String, InternalAccount>,
-        val wallet: PairedWallet?,
-        val book: List<AddressBookEntry>,
-    ) : DetailLoad
+    class Ready(val page: TransactionPage) : DetailLoad
 }
 
 /**

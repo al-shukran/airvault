@@ -37,6 +37,7 @@ import app.lumio.transactions.ActivityFilter
 import app.lumio.transactions.ActivitySort
 import app.lumio.transactions.TxFeedItem
 import app.lumio.transactions.assetIdOf
+import app.lumio.transactions.txDetailOf
 import app.lumio.transactions.chainLabel
 import app.lumio.transactions.evmNetwork
 import app.lumio.transactions.vaultChains
@@ -64,6 +65,22 @@ internal class PortfolioBoard(private val app: LumioApp, private val vault: Lumi
     var activity by mutableStateOf<ActivityPage?>(null)
         private set
 
+    /** The transaction that was read last, for the transaction page that opens it. */
+    private val transactions = LastTransaction()
+
+    /**
+     * Reads the transaction [txId] of [account] as its page shows it, and keeps it for that page. The row that opens the page calls this before it pushes
+     * the page, so the first frame of the page has the transaction. Returns null when the store does not hold it.
+     */
+    suspend fun readTransaction(walletId: String, account: String, txId: String): TransactionPage? {
+        val read = PortfolioReads.transaction(app, vault, walletId, account, txId) ?: return null
+        transactions.put(read)
+        return read
+    }
+
+    /** The transaction that [readTransaction] read last for [account] and [txId], or null when it was not read. */
+    fun transactionOf(account: String, txId: String): TransactionPage? = transactions.get(account, txId)
+
     /** Reads the holdings of [mode]'s side. A change of side clears the holdings of the side before it first. */
     suspend fun readHoldings(mode: NetworkMode) {
         if (mode != side) reset(mode)
@@ -83,6 +100,7 @@ internal class PortfolioBoard(private val app: LumioApp, private val vault: Lumi
         side = null
         holdings = null
         activity = null
+        transactions.clear()
     }
 
     private fun reset(mode: NetworkMode) {
@@ -166,6 +184,15 @@ internal object PortfolioReads {
             }
             val hidden = if (includeSpam) 0 else store.count(query.copy(includeSpam = true)) - store.count(query)
             ActivityPage(items, hidden, names)
+        }
+
+    /** The transaction [txId] of [account] with the wallet's own accounts and address book, or null when the store does not hold it. */
+    suspend fun transaction(app: LumioApp, vault: LumioVault, walletId: String, account: String, txId: String): TransactionPage? =
+        withContext(Dispatchers.IO) {
+            val detail = txDetailOf(app, vault, account, txId) ?: return@withContext null
+            val wallets = PairedWallets.list(vault.session)
+            val wallet = wallets.firstOrNull { it.id == walletId }
+            TransactionPage(detail, ownAccountsOf(wallets), wallet, wallet?.addressBook.orEmpty())
         }
 
     /** The EVM chains of [mode]'s side that the owner has turned on. */
