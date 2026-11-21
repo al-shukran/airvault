@@ -10,10 +10,23 @@ import org.junit.Test
 class TxFormatTest {
 
     @Test
-    fun groupsAddressIntoFourCharacterChunks() {
+    fun groupsEvmAddressIntoFourCharacterChunksAfterThePrefix() {
         assertEquals(
-            "0x12 3456 7890 abcd ef12 3456 7890 ABCD EF12 3456 78",
+            "0x1234 5678 90ab cdef 1234 5678 90AB CDEF 1234 5678",
             groupAddress("0x1234567890abcdef1234567890ABCDEF12345678"),
+        )
+    }
+
+    @Test
+    fun aShorterLastGroupIsKept() {
+        assertEquals("0x1234 567", groupAddress("0x1234567"))
+    }
+
+    @Test
+    fun aNonEvmAddressIsGroupedFromItsFirstCharacter() {
+        assertEquals(
+            "bc1q xy2k gdyg jrsq tzq2 n0yr f249 3p83 kkfj hx0w lh",
+            groupAddress("bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"),
         )
     }
 
