@@ -133,13 +133,15 @@ internal object VaultKeystore {
         .filter { it.startsWith("$FAILURE_MAC_PREFIX.") }
         .mapNotNull { it.removePrefix("$FAILURE_MAC_PREFIX.").toLongOrNull() }
 
-    /** Removes every key the vault uses on this device. */
+    /** Removes every key the vault uses on this device. A Keystore error becomes a [VaultException]. */
     fun deleteAll() {
-        delete(HARDWARE_KEY_ALIAS)
-        delete(SLOT_KEY_ALIAS)
-        deleteFailureMacKeysExcept(keepSeq = null)
-        folderKeyIds().forEach { deleteFolderKey(it) }
-        delete(PROBE_ALIAS)
+        keystoreCall {
+            delete(HARDWARE_KEY_ALIAS)
+            delete(SLOT_KEY_ALIAS)
+            deleteFailureMacKeysExcept(keepSeq = null)
+            folderKeyIds().forEach { deleteFolderKey(it) }
+            delete(PROBE_ALIAS)
+        }
     }
 
     /** The `KeyInfo.securityLevel` that the Keystore reports for [key]. */
