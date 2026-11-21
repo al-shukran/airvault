@@ -141,9 +141,21 @@ class WalletRowsTest {
     @Test
     fun foldSummaryNamesOnlyTheKindsThatAreThere() {
         val empty = account(Networks.evm(10143L), index = 0, balance = coins("0"))
-        assertEquals("1 empty", foldSummary(foldAccounts(listOf(empty)) { null }))
+        assertEquals("1 empty", foldSummary(foldAccounts(listOf(empty), usdOf = { null })))
         val small = account(Networks.evm(10143L), index = 1, balance = coins("1"))
-        assertEquals("1 under \$13K", foldSummary(foldAccounts(listOf(small)) { 2.5 }))
+        assertEquals("1 under \$13K", foldSummary(foldAccounts(listOf(small), usdOf = { 2.5 })))
+    }
+
+    @Test
+    fun foldCountsTheTokensAnAccountHoldsWithItsCoin() {
+        val empty = account(Networks.evm(10143L), index = 0, balance = coins("0"))
+        val holdsTokens = account(Networks.evm(10143L), index = 1, balance = coins("0"))
+        val tokenWorth = { account: WalletAccount -> if (account === holdsTokens) 20_000.0 else null }
+        val fold = foldAccounts(listOf(empty, holdsTokens), usdOf = { null }, tokenUsdOf = tokenWorth)
+        assertEquals(listOf(holdsTokens), fold.shown, "an empty coin with tokens worth the threshold stays in view")
+        assertEquals(listOf(empty), fold.folded)
+        val smallTokens = { _: WalletAccount -> 5_000.0 }
+        assertEquals(emptyList(), foldAccounts(listOf(holdsTokens), usdOf = { null }, tokenUsdOf = smallTokens).shown)
     }
 
     @Test

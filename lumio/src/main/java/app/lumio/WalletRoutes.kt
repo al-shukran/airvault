@@ -162,6 +162,7 @@ internal fun WalletRoute(
                 mode = selection.mode,
                 accounts = view.accountsOf(walletId),
                 tokenCounts = board.tokenCounts,
+                tokenUsd = board.tokenUsd,
                 totalUsd = view.usd(walletId),
                 usdOf = view::usd,
                 showTotal = display.showTotal,

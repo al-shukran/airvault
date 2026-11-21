@@ -53,7 +53,7 @@ private val DETAIL_EMBLEM = 24.dp
  * it holds in how many Lensly apps. Each chain family is an island under its own eyebrow and its total. An account opens its own page. A family's
  * accounts that hold nothing, or are worth under [FOLD_BELOW_USD], fold into one "More Accounts" row that opens them in place. Pulling down reads the
  * balances again. The page's top bar is the shell's, so this has none. [tokenCounts] holds the tokens each Ethereum account holds, and [usdOf] gives an
- * account's value in dollars. [notice] names a read that did not answer.
+ * account's value in dollars. [tokenUsd] gives the dollars of the tokens an account holds, which count toward its fold. [notice] names a read that did not answer.
  */
 @Composable
 fun WalletScreen(
@@ -70,6 +70,7 @@ fun WalletScreen(
     onAccount: (WalletAccount) -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
+    tokenUsd: Map<WalletAccount, Double> = emptyMap(),
     refreshByPull: Boolean = false,
     pairedAtMs: Long? = null,
     clock: Clock = WallClock,
@@ -109,6 +110,7 @@ fun WalletScreen(
                         group = group,
                         tokenCounts = tokenCounts,
                         usdOf = usdOf,
+                        tokenUsd = tokenUsd,
                         showTotal = showTotal,
                         showBalances = showBalances,
                         onAccount = onAccount,
@@ -153,11 +155,12 @@ private fun ChainIsland(
     group: List<WalletAccount>,
     tokenCounts: Map<WalletAccount, Int>,
     usdOf: (WalletAccount) -> Double?,
+    tokenUsd: Map<WalletAccount, Double>,
     showTotal: Boolean,
     showBalances: Boolean,
     onAccount: (WalletAccount) -> Unit,
 ) {
-    val fold = foldAccounts(group, usdOf)
+    val fold = foldAccounts(group, usdOf, tokenUsdOf = { tokenUsd[it] })
     var expanded by rememberSaveable(family) { mutableStateOf(false) }
     val rows = if (expanded) group else fold.shown
     Column(modifier = Modifier.fillMaxWidth().padding(bottom = ClearAirSpacing.sm)) {

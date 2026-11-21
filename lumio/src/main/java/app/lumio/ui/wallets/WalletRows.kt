@@ -104,13 +104,20 @@ internal class AccountFold(val shown: List<WalletAccount>, val folded: List<Wall
 }
 
 /**
- * Splits a family's [accounts]: one that holds nothing, or whose value [usdOf] gives under [FOLD_BELOW_USD], folds away. An account that no read has
- * reached always shows, so its bar keeps its place until its balance lands.
+ * Splits a family's [accounts]: one whose value folds away when it is under [FOLD_BELOW_USD]. The value is its native coin's dollars from [usdOf]
+ * plus its tokens' dollars from [tokenUsdOf], so an account that holds nothing but tokens worth the threshold stays. An account that no read has
+ * reached always shows, so its bar keeps its place until its balance lands, and so does one whose coin has no price while it holds a coin.
  */
-internal fun foldAccounts(accounts: List<WalletAccount>, usdOf: (WalletAccount) -> Double?): AccountFold {
+internal fun foldAccounts(
+    accounts: List<WalletAccount>,
+    usdOf: (WalletAccount) -> Double?,
+    tokenUsdOf: (WalletAccount) -> Double? = { null },
+): AccountFold {
     val (folded, shown) = accounts.partition { account ->
         val balance = account.balance ?: return@partition false
-        balance.balance.signum() == 0 || (usdOf(account)?.let { it < FOLD_BELOW_USD } ?: false)
+        val coin = usdOf(account)
+        if (coin == null && balance.balance.signum() != 0) return@partition false
+        (coin ?: 0.0) + (tokenUsdOf(account) ?: 0.0) < FOLD_BELOW_USD
     }
     return AccountFold(shown = shown, folded = folded)
 }
