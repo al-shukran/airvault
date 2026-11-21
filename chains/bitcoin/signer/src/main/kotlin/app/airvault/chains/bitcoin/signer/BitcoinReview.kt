@@ -14,7 +14,11 @@ import app.airvault.core.model.Warning
 import app.airvault.core.model.checked
 import app.airvault.core.model.text
 import app.airvault.core.model.trimmedAmount
+import app.lensly.core.wallet.toHex
+import fr.acinq.bitcoin.ByteVector
+import fr.acinq.bitcoin.OP_PUSHDATA
 import fr.acinq.bitcoin.OutPoint
+import fr.acinq.bitcoin.Script
 import java.math.BigInteger
 import java.time.Instant
 import java.time.ZoneOffset
@@ -34,6 +38,8 @@ private const val UNKNOWN_FEE_NOTE = "Unknown until every input amount is verifi
 private const val SIZE_NOTE = "Estimated from the unsigned request, so the signed size may differ by a few vbytes."
 private const val NOT_ENFORCED_NOTE = "Not enforced, because every input is final."
 private const val NO_ADDRESS_NOTE = "No address. The script is not paid to an address."
+private const val OP_RETURN_OPCODE: Byte = 0x6a
+private val ASCII_PRINTABLE = 0x20..0x7e
 
 private val FEE = FieldPath("bitcoin.fee")
 private val FEE_RATE = FieldPath("bitcoin.fee-rate")
@@ -132,6 +138,8 @@ private fun BtcReview.outputsSection(chain: ChainId): ReviewSection = ReviewSect
             if (address != null) {
                 val change = if (output.isOwnChange) listOf("Your change, at change index ${output.changeIndex}") else emptyList()
                 add(ReviewRow("Address", DisplayValue.Address(chain, address), outputField(output.index, "address"), notes = change))
+            } else {
+                add(ReviewRow("Script", DisplayValue.Text(scriptText(output.script)), outputField(output.index, "script")))
             }
         }
     },
@@ -166,15 +174,40 @@ private fun inputNotes(input: BtcReviewInput): List<String> = buildList {
     if (!input.amountVerified) add("Amount not verified against its previous transaction")
 }
 
-/** The fields the parser read from this request: each input's amount and sequence, each output's amount and address, and the locktime. */
+/**
+ * The fields the parser read from this request: each input's amount and sequence, each output's amount and its address or, with no
+ * address, its script, and the locktime.
+ */
 private fun BtcReview.decodedFields(): Set<FieldPath> = buildSet {
     inputs.forEach { add(inputField(it.index, "amount")); add(inputField(it.index, "sequence")) }
     outputs.forEach { output ->
         add(outputField(output.index, "amount"))
-        if (output.address != null) add(outputField(output.index, "address"))
+        add(outputField(output.index, if (output.address != null) "address" else "script"))
     }
     add(LOCK_TIME)
 }
+
+/**
+ * The script of an output with no address, as the review shows it. An OP_RETURN shows the data it pushes: as hex, and with the text in
+ * brackets when every byte is printable ASCII. Any other script shows all of its bytes as hex. An OP_RETURN that pushes nothing
+ * shows its bytes.
+ */
+internal fun scriptText(script: ByteArray): String {
+    val pushed = if (script.firstOrNull() == OP_RETURN_OPCODE) opReturnPayload(script) else ByteArray(0)
+    if (pushed.isEmpty()) return script.toHex()
+    val hex = pushed.toHex()
+    return if (pushed.all { it.toInt() in ASCII_PRINTABLE }) "$hex (${String(pushed, Charsets.US_ASCII)})" else hex
+}
+
+/**
+ * The data the pushes after an OP_RETURN carry, in order. A truncated push does not parse, and then the payload is empty, so the script
+ * shows its own bytes instead of failing the review.
+ */
+private fun opReturnPayload(script: ByteArray): ByteArray = runCatching {
+    Script.parse(ByteVector(script)).drop(1).filterIsInstance<OP_PUSHDATA>().fold(ByteArray(0)) { payload, push ->
+        payload + push.data.toByteArray()
+    }
+}.getOrDefault(ByteArray(0))
 
 /**
  * The check the owner ticks before a request that spends marked inputs can be signed. It names the count and every marked outpoint, so one tick

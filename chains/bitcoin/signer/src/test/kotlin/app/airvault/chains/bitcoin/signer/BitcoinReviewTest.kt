@@ -169,6 +169,35 @@ class BitcoinReviewTest {
         assertEquals(listOf(SummaryPart.Text("Send 0.0003 BTC to a script with no address")), reviewOf(scriptOnly).summary)
     }
 
+    /** The script row of the one output with no address in a request, given that output's script in hex. */
+    private fun scriptRowOf(scriptHex: String): String? {
+        val script = ByteArray(scriptHex.length / 2) { scriptHex.substring(2 * it, 2 * it + 2).toInt(16).toByte() }
+        val review = reviewOf(
+            request(feeSats = 10_000L).copy(
+                outputs = listOf(
+                    BtcReviewOutput(0, null, 0L, isOwnChange = false, changeIndex = null, script = script),
+                    BtcReviewOutput(1, "tb1qchange", 60_000L, isOwnChange = true, changeIndex = 0),
+                ),
+            ),
+        )
+        return review.sections.single { it.heading == "Outputs" }.rows.single { it.label == "Script" }.value?.text()
+    }
+
+    @Test
+    fun anOutputWithNoAddressShowsItsScript() {
+        // OP_RETURN pushing "hello": the payload as hex and as text.
+        assertEquals("68656c6c6f (hello)", scriptRowOf("6a0568656c6c6f"))
+        // OP_RETURN pushing bytes that are not printable ASCII: hex only.
+        assertEquals("00ff0102", scriptRowOf("6a0400ff0102"))
+        // OP_RETURN that pushes nothing: its own bytes.
+        assertEquals("6a", scriptRowOf("6a"))
+        // A non-standard script, OP_1 OP_2 OP_ADD: all of its bytes as hex, with no text.
+        assertEquals("515293", scriptRowOf("515293"))
+        // OP_RETURN whose push is cut short: the script's own bytes, and the review still builds.
+        assertEquals("6a4c", scriptRowOf("6a4c"))
+        assertEquals("6a05aa", scriptRowOf("6a05aa"))
+    }
+
     @Test
     fun aRequestThatPaysNothingOutsideTheWalletSaysSo() {
         val allChange = request(feeSats = 10_000L).copy(
