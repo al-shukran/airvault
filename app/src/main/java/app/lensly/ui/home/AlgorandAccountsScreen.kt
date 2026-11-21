@@ -47,6 +47,7 @@ fun AlgorandAccountsScreen(
     onBulkGenerate: () -> Unit,
     onPair: () -> Unit,
     onScan: () -> Unit,
+    refusal: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberKeyHaptics()
@@ -64,6 +65,7 @@ fun AlgorandAccountsScreen(
         listState = listState,
         modifier = modifier,
         footer = {
+            refusal?.let { InlineBanner(message = it, tone = BannerTone.Error) }
             if (singleKey) {
                 InlineBanner(message = SINGLE_KEY_NO_ALGORAND, tone = BannerTone.Info)
             } else {

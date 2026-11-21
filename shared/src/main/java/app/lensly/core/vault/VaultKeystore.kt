@@ -133,14 +133,15 @@ internal object VaultKeystore {
         .filter { it.startsWith("$FAILURE_MAC_PREFIX.") }
         .mapNotNull { it.removePrefix("$FAILURE_MAC_PREFIX.").toLongOrNull() }
 
-    /** Removes every key the vault uses on this device. A Keystore error becomes a [VaultException]. */
+    /**
+     * Removes every key the vault uses on this device. Each one is tried even after another is refused, and the first refusal is rethrown
+     * at the end, so the erase still sees that it failed. A Keystore error becomes a [VaultException].
+     */
     fun deleteAll() {
         keystoreCall {
-            delete(HARDWARE_KEY_ALIAS)
-            delete(SLOT_KEY_ALIAS)
-            deleteFailureMacKeysExcept(keepSeq = null)
-            folderKeyIds().forEach { deleteFolderKey(it) }
-            delete(PROBE_ALIAS)
+            val store = keyStore()
+            val vaultAliases = Collections.list(store.aliases()).filter { isVaultAlias(it) }
+            forEachKeepingFirstFailure(vaultAliases) { store.deleteEntry(it) }
         }
     }
 
@@ -173,6 +174,11 @@ internal object VaultKeystore {
             delete(PROBE_ALIAS)
         }
     }
+
+    /** True for every alias the vault uses: the hardware key, the slot key, the probe, and every Delay State and wallet folder key. */
+    private fun isVaultAlias(alias: String): Boolean =
+        alias == HARDWARE_KEY_ALIAS || alias == SLOT_KEY_ALIAS || alias == PROBE_ALIAS ||
+            alias.startsWith(FAILURE_MAC_PREFIX) || alias.startsWith(FOLDER_KEY_PREFIX)
 
     private fun failureMacAlias(seq: Long): String = "$FAILURE_MAC_PREFIX.$seq"
 
@@ -258,4 +264,21 @@ internal object VaultKeystore {
             .apply { init(spec) }
             .generateKey()
     }
+}
+
+/**
+ * Runs [action] on every item, even after one of them throws. The first exception is rethrown at the end, and later ones are added to it
+ * as suppressed.
+ */
+internal fun <T> forEachKeepingFirstFailure(items: Iterable<T>, action: (T) -> Unit) {
+    var first: Exception? = null
+    for (item in items) {
+        try {
+            action(item)
+        } catch (e: Exception) {
+            val earlier = first
+            if (earlier == null) first = e else earlier.addSuppressed(e)
+        }
+    }
+    first?.let { throw it }
 }

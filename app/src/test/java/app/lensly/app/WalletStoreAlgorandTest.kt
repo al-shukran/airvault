@@ -14,6 +14,7 @@ import app.lensly.core.wallet.Mnemonic
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.junit.After
 import org.junit.Before
@@ -102,6 +103,17 @@ class WalletStoreAlgorandTest {
 
         assertFailsWith<IllegalArgumentException> { store.addAlgorandAccounts(id, 3, cap = 2) }
         assertEquals(listOf(AlgorandAccount.publicKey(seed(), 0).toList()), store.algorandKeys(id).map { it.toList() })
+    }
+
+    @Test
+    fun aWalletKeepsAtMostOneHundredAlgorandAccounts() {
+        // The wallet starts with one Algorand account, so a run of 99 reaches the cap of 100.
+        val id = newWallet()
+        assertNotNull(store.addAlgorandAccounts(id, 99, cap = BulkCap.HUNDRED.accounts))
+
+        val refusal = assertFailsWith<AlgorandCapReached> { store.addAlgorandAccounts(id, 1, cap = BulkCap.HUNDRED.accounts) }
+        assertEquals("A wallet keeps at most 100 Algorand accounts.", refusal.message)
+        assertEquals(100, store.algorandKeys(id).size)
     }
 
     @Test

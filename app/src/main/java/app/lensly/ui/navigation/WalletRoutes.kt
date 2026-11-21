@@ -26,6 +26,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import app.lensly.BuildConfig
+import app.lensly.app.AlgorandCapReached
 import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.BitcoinCapReached
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
@@ -851,16 +852,23 @@ private fun AppRoute(navController: NavHostController, holder: VaultHolder, wall
             AlgorandAccountsScreen(
                 wallet = shown,
                 addresses = keys.map { AlgorandAccount.addressOf(it) },
+                refusal = addRefusal,
                 onBack = { navController.popBackStack() },
                 onAddAccount = {
                     scope.launch {
                         whileUnlocked(navController, holder) {
-                            // The write moves the Algorand record, so the list is read again and shows the new account.
-                            algorand = withContext(Dispatchers.IO) {
-                                val cap = SettingsStore(session).load().bulkCap.accounts
-                                WalletStore(session).addAlgorandAccounts(walletId, 1, cap)
-                                WalletStore(session).algorandKeys(walletId)
+                            // At the cap the add is refused and nothing is saved: the refusal is shown on the list. The write moves
+                            // the Algorand record, so the list is read again and shows the new account.
+                            addRefusal = withContext(Dispatchers.IO) {
+                                try {
+                                    val cap = SettingsStore(session).load().bulkCap.accounts
+                                    WalletStore(session).addAlgorandAccounts(walletId, 1, cap)
+                                    null
+                                } catch (e: AlgorandCapReached) {
+                                    e.message
+                                }
                             }
+                            algorand = withContext(Dispatchers.IO) { WalletStore(session).algorandKeys(walletId) }
                         }
                     }
                 },
