@@ -15,7 +15,7 @@ import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.toHex
 
 /**
- * The wire format between the app and the Parser Sandbox. A payload is a version, a tag, then the fields of its value. Every
+ * The wire format between the app and the Parser Sandbox. A payload is a tag, then the fields of its value. Every
  * length is prefixed and bounded, and every decoded value is checked against its schema, so a malformed or oversized reply is
  * refused rather than trusted. The encoder applies the same bounds, so an oversized value is never sent.
  */
@@ -28,8 +28,6 @@ object ParserWire {
 
     /** The largest reply the app accepts. It carries the data to sign, the calldata and an access list, each within its limit. */
     const val MAX_REPLY_BYTES = 256 * 1024
-
-    private const val VERSION = 1
 
     /** The tag that both kinds of reply share for a refusal. It carries the reason. */
     private const val REFUSED = 0
@@ -62,7 +60,6 @@ object ParserWire {
 
     /** The reply both calls share when the sandbox cannot answer: a refusal with its reason. */
     fun encodeRefusal(reason: String): ByteArray = WireWriter().apply {
-        int(VERSION)
         int(REFUSED)
         text(reason)
     }.bytes()
@@ -75,7 +72,6 @@ object ParserWire {
 
     /** Encodes one call of scan [session] that adds [parts] after the [base] parts the sandbox holds. */
     fun encodeScanRequest(session: Long, base: Int, parts: List<String>): ByteArray = WireWriter().apply {
-        int(VERSION)
         int(SCAN)
         long(session)
         count(base, MAX_PARTS)
@@ -93,7 +89,6 @@ object ParserWire {
     }
 
     fun encodeScanReply(reply: ScanReply): ByteArray = WireWriter().apply {
-        int(VERSION)
         when (reply) {
             is ScanReply.Refused -> {
                 val request = reply.request
@@ -120,7 +115,6 @@ object ParserWire {
 
     /** Decodes and checks a scan reply. Throws [WireException] for anything the schema or a limit refuses. */
     fun decodeScanReply(payload: ByteArray): ScanReply = WireReader(payload).run {
-        version()
         val reply = when (int()) {
             REFUSED -> ScanReply.Refused(text())
             REFUSED_REQUEST -> ScanReply.Refused(text(), appRequestOf())
@@ -134,7 +128,6 @@ object ParserWire {
     }
 
     fun encodeCallRequest(calldata: ByteArray, params: List<WhitelistParam>): ByteArray = WireWriter().apply {
-        int(VERSION)
         int(DECODE_CALL)
         blob(calldata, MAX_CALLDATA)
         count(params.size, MAX_CALL_PARAMS)
@@ -150,7 +143,6 @@ object ParserWire {
     }
 
     fun encodeCallReply(decoded: CallDecode): ByteArray = WireWriter().apply {
-        int(VERSION)
         when (decoded) {
             is CallDecode.Refused -> {
                 int(REFUSED)
@@ -169,7 +161,6 @@ object ParserWire {
 
     /** Decodes and checks a call reply. Throws [WireException] for anything the schema or a limit refuses. */
     fun decodeCallReply(payload: ByteArray): CallDecode = WireReader(payload).run {
-        version()
         val budget = DecodeBudget("ABI", ParserLimits.MAX_ABI_VALUES)
         val reply = when (int()) {
             REFUSED -> CallDecode.Refused(text())
@@ -283,12 +274,7 @@ object ParserWire {
         }
     }
 
-    private fun WireReader.version() {
-        if (int() != VERSION) throw WireException("unsupported wire version")
-    }
-
     private fun WireReader.method(expected: Int) {
-        version()
         if (int() != expected) throw WireException("unexpected method")
     }
 }

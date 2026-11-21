@@ -97,6 +97,7 @@ class SettingsStore(private val session: VaultSession) {
 
         fun decode(bytes: ByteArray): AppSettings = try {
             DataInputStream(ByteArrayInputStream(bytes)).use { input ->
+                // A record of another version is not read. It resets to the defaults, as a damaged record does.
                 if (input.readUnsignedByte() != VERSION) return@use AppSettings()
                 // A count the app does not offer reads as the largest cap offered.
                 val bulkCap = BulkCap.fromAccounts(input.readInt()) ?: BulkCap.HUNDRED

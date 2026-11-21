@@ -131,9 +131,9 @@ class AlgoSignRequestTest {
     }
 
     @Test
-    fun aKeyFromTheReservedRangeIsIgnoredAndAnyOtherUnknownKeyIsRefused() {
-        assertIs<AlgoSignRequest.Result.Ok>(AlgoSignRequest.decode(payload(1000L to Cbor.Uint(0))))
+    fun aKeyOutsideTheSixFieldsIsRefusedIncludingOneFromTheFormerReservedRange() {
         assertEquals(UNKNOWN_REQUEST, rejectedReason(payload(999L to Cbor.Uint(0))))
+        assertEquals(UNKNOWN_REQUEST, rejectedReason(payload(1000L to Cbor.Uint(0))))
     }
 
     @Test

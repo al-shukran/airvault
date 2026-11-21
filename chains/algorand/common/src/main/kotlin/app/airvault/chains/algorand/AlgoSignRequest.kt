@@ -10,7 +10,6 @@ import app.lensly.core.parse.ParserLimits
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.MalformedPayloadException
 import app.lensly.core.ur.PathStep
-import app.lensly.core.ur.RESERVED_KEYS_FROM
 import app.lensly.core.ur.UUID_TAG
 import app.lensly.core.ur.keyPathOf
 import app.lensly.core.ur.malformed
@@ -134,9 +133,7 @@ class AlgoSignRequest(
             val fields = HashMap<Long, Cbor>()
             for ((key, value) in dict.entries) {
                 val number = uintOf(key, "map key")
-                // Reserved keys are ignored: they never change the signed bytes or the review. Any other key Lensly does not read is refused,
-                // not ignored: the owner must not sign a request with a field the review does not show.
-                if (number >= RESERVED_KEYS_FROM) continue
+                // Refused, not ignored: the owner must not sign a request with a field the review does not show.
                 if (number !in 1L..6L) malformed(UNKNOWN_REQUEST)
                 if (fields.put(number, value) != null) malformed("duplicate map key $number")
             }
