@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The AirVault mark, converted from alshukran.com's brand asset mark.svg (viewBox 0 0 96 96). Same shapes, same colours, in the same order. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <!-- The lower cube: top, left and right faces. -->
+    <path android:pathData="M48 25.6L82.64 45.6L48 65.6L13.36 45.6Z" android:fillColor="#FF8DBBFF" />
+    <path android:pathData="M13.36 45.6L48 65.6L48 88L13.36 68Z" android:fillColor="#FF3F7BE0" />
+    <path android:pathData="M82.64 45.6L48 65.6L48 88L82.64 68Z" android:fillColor="#FF2A56A8" />
+    <!-- The QR pixels on the lower faces. -->
+    <path android:pathData="M20.29 55.2L27.91 59.6L27.91 68.4L20.29 64Z" android:fillColor="#FF8DBBFF" />
+    <path android:pathData="M33.45 62.8L41.07 67.2L41.07 76L33.45 71.6Z" android:fillColor="#FF8DBBFF" />
+    <path android:pathData="M20.29 66.4L27.91 70.8L27.91 73.2L20.29 68.8Z" android:fillColor="#FF8DBBFF" />
+    <path android:pathData="M75.71 55.2L68.09 59.6L68.09 68.4L75.71 64Z" android:fillColor="#FF8DBBFF" android:fillAlpha="0.55" />
+    <!-- The upper cube: the vault's lid, with the air gap above the lower cube. -->
+    <path android:pathData="M48 8L82.64 28L48 48L13.36 28Z" android:fillColor="#FF8DBBFF" />
+    <path android:pathData="M13.36 28L48 48L48 56L13.36 36Z" android:fillColor="#FF3F7BE0" />
+    <path android:pathData="M82.64 28L48 48L48 56L82.64 36Z" android:fillColor="#FF2A56A8" />
+    <!-- The air gap: the amber diamond. -->
+    <path android:pathData="M48 47L50.88 51.5L48 56L45.12 51.5Z" android:fillColor="#FFF2A14A" />
+</vector>
