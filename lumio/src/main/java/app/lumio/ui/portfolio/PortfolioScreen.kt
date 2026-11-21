@@ -201,7 +201,11 @@ private fun RowValue(row: PortfolioRow, shown: Boolean) {
             Text(
                 text = PortfolioFormat.change(change),
                 style = ClearAirType.body,
-                color = if (change < 0) palette.rose else palette.vaultBlue,
+                color = when {
+                    change < 0 -> palette.rose
+                    change > 0 -> palette.vaultBlue
+                    else -> palette.ink2
+                },
                 textAlign = TextAlign.End,
             )
         }

@@ -150,7 +150,7 @@ internal fun ChainChoices() {
             ChoiceGroup(
                 null,
                 listOf(
-                    ChoiceRow("All Chains", {}, detail = "Grouped by asset", trailing = "\$142,025.60", selected = true),
+                    ChoiceRow("All Chains", {}, detail = "Grouped by asset", trailing = "\$141,025.60", selected = true),
                     ChoiceRow("Ethereum", {}, detail = "Ethereum and its L2s", trailing = "\$94,471.11"),
                     ChoiceRow("Bitcoin", {}, detail = "2 accounts", trailing = "\$22,811.64"),
                 ),
