@@ -32,7 +32,6 @@ import app.lensly.ui.components.ChainIcon
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.TokenIcon
 import app.lensly.ui.components.settingsIslandItems
-import app.lensly.ui.home.groupedAddress
 import app.lensly.ui.theme.LenslySpacing
 
 /** One line of the Tokens island: a network's header, or one token under it. [key] names the line for the list. */
@@ -181,7 +180,6 @@ private fun TokenRow(token: TokenEntry, network: NetworkEntry?) {
         }
         AddressText(
             address = token.contract,
-            shown = groupedAddress(token.contract),
             icon = false,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(top = LenslySpacing.sm),
