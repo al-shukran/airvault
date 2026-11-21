@@ -206,7 +206,7 @@ class VaultTest {
     }
 
     @Test
-    fun rollingBackTheFailureFilesIsDetectedWhileTheProcessIsAlive() {
+    fun rollingBackTheFailureFilesErasesTheVaultWhileTheProcessIsAlive() {
         runBlocking {
             vault.create(PASSWORD.toCharArray())
             val olderPrimary = failures.readBytes()
@@ -216,12 +216,10 @@ class VaultTest {
 
             failures.writeBytes(olderPrimary)
             failuresBackup.writeBytes(olderBackup)
-            // Neither older copy verifies, so the lockout is the strictest cap, one hour.
-            assertRejected(vault.unlock(PASSWORD.toCharArray()))
-            clock.advance(FailureDelay.MAX_CAP_MS - 1)
-            assertRejected(vault.unlock(PASSWORD.toCharArray()))
-            clock.advance(1)
-            unlocked(vault.unlock(PASSWORD.toCharArray())).close()
+            // Neither older copy verifies, so the count is unknown and the threshold counts as reached: the next attempt erases the vault,
+            // even with the right password.
+            assertEquals(UnlockResult.Erased, vault.unlock(PASSWORD.toCharArray()))
+            assertFalse(vault.exists())
         }
     }
 
