@@ -33,15 +33,16 @@ import app.lensly.ui.theme.LocalClearAirPalette
 private val ROW_HEIGHT = 62.dp
 
 /**
- * A row of a list: a [title], a [description] under it when given, an optional [trailing] value, and a chevron when the row opens something
- * ([onClick]). It is full-bleed with the page gutter on each side, and it scales to 0.98 while pressed. A long title truncates; the trailing value
- * never does.
+ * A row of a list: an optional [leading] logo or monogram, a [title], a [description] under it when given, an optional [trailing] value, and a chevron
+ * when the row opens something ([onClick]). It is full-bleed with the page gutter on each side, and it scales to 0.98 while pressed. A long title
+ * truncates; the trailing value never does.
  */
 @Composable
 fun ClearAirRow(
     title: String,
     modifier: Modifier = Modifier,
     description: String? = null,
+    leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
@@ -60,6 +61,10 @@ fun ClearAirRow(
             .padding(horizontal = ClearAirSpacing.gutter),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (leading != null) {
+            leading()
+            Spacer(Modifier.width(ClearAirSpacing.sm))
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,

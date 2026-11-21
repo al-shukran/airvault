@@ -195,12 +195,6 @@ internal object LumioRoute {
     /** The route of a send from [account] of [walletId] on the network [chainId]. */
     fun send(walletId: String, account: AccountId, chainId: Long): String = "send/$walletId/${account.caip10}?$SEND_CHAIN_ARG=$chainId"
 
-    /** The receive page of one account, with the wallet's ID and the account's CAIP-10 id as its arguments. */
-    const val RECEIVE = "receive/{$WALLET_ARG}/{$ACCOUNT_ARG}"
-
-    /** The route of the receive page of [account] in [walletId]. */
-    fun receive(walletId: String, account: AccountId): String = "receive/$walletId/${account.caip10}"
-
     /** The arguments of a transaction's page: the account that the row is for, and the transaction's id. */
     const val TX_ACCOUNT_ARG = "account"
     const val TX_ID_ARG = "txId"
@@ -593,25 +587,6 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                         account = account,
                         mode = selection.mode,
                         chainId = chain,
-                    )
-                }
-            }
-            lumioComposable(
-                route = LumioRoute.RECEIVE,
-                arguments = listOf(
-                    navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
-                    navArgument(LumioRoute.ACCOUNT_ARG) { type = NavType.StringType },
-                ),
-            ) { entry ->
-                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
-                val account = entry.accountId()
-                LumioBackdrop(selection) {
-                    ReceiveRoute(
-                        navController = navController,
-                        holder = holder,
-                        walletId = walletId,
-                        accountId = account,
-                        mode = selection.mode,
                     )
                 }
             }

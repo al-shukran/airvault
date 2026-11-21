@@ -31,6 +31,7 @@ enum class ClearAirGlyph(private val data: List<String>) {
     BACK(listOf("M19.5 12H5M11 6l-6 6 6 6")),
     DOWN(listOf("M6 9.5l6 6 6-6")),
     CLOSE(listOf("M6 6l12 12M18 6L6 18")),
+    ALERT(listOf("M12 4l8.5 15H3.5z", "M12 10v4M12 16.8v.1")),
     ;
 
     /** The glyph's paths on the 24 unit grid, parsed once. */
