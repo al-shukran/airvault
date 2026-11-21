@@ -99,4 +99,44 @@ class RegistryWhitelistSourceTest {
         assertNull(merged.whitelist(4242L, TEST_CONTRACT, SWAP_SELECTOR))
         assertFalse(merged.installedUpdateUnverified)
     }
+
+    @Test
+    fun aPackageThatOmitsItsWhitelistKeepsTheInstalledOne() {
+        val built = built(sequence = 1)
+        val dir = dir()
+        RegistryUpdate.install(
+            TestPackages.signed(TestPackages.payload(sequence = 2, whitelist = TestPackages.LINEA_SWAP)),
+            keys,
+            built,
+            dir,
+        ).getOrThrow()
+        RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 3)), keys, built, dir).getOrThrow()
+
+        val merged = RegistryUpdate.withInstalled(built, dir, keys)
+
+        assertNotNull(merged.whitelist(4242L, TEST_CONTRACT, SWAP_SELECTOR))
+        assertNotNull(merged.network(4242L))
+        assertFalse(merged.installedUpdateUnverified)
+    }
+
+    @Test
+    fun aKeptWhitelistOlderThanTheBuildIsNotInEffect() {
+        val dir = dir()
+        RegistryUpdate.install(
+            TestPackages.signed(TestPackages.payload(sequence = 2, whitelist = TestPackages.LINEA_SWAP)),
+            keys,
+            built(sequence = 1),
+            dir,
+        ).getOrThrow()
+        RegistryUpdate.install(
+            TestPackages.signed(TestPackages.payload(sequence = 6)),
+            keys,
+            built(sequence = 1),
+            dir,
+        ).getOrThrow()
+
+        val merged = RegistryUpdate.withInstalled(built(sequence = 5), dir, keys)
+
+        assertNull(merged.whitelist(4242L, TEST_CONTRACT, SWAP_SELECTOR))
+    }
 }
