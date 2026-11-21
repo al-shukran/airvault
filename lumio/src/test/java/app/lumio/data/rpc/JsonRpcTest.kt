@@ -3,8 +3,8 @@ package app.lumio.data.rpc
 import app.lumio.data.provider.ProviderError
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -25,7 +25,7 @@ class JsonRpcTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     private fun call(vararg responses: MockResponse): JsonElement {
@@ -36,7 +36,7 @@ class JsonRpcTest {
     private fun refusal(vararg responses: MockResponse): ProviderError =
         assertThrows(ProviderError::class.java) { call(*responses) }
 
-    private fun answer(result: String) = MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":$result}""")
+    private fun answer(result: String) = MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":$result}""").build()
 
     @Test
     fun aResultIsReturnedFromTheAnswer() {
@@ -49,46 +49,46 @@ class JsonRpcTest {
 
         val request = server.takeRequest()
         assertEquals("POST", request.method)
-        assertEquals("/", request.path)
-        val body = request.body.readUtf8()
+        assertEquals("/", request.target)
+        val body = request.body?.utf8().orEmpty()
         assertTrue(body.contains("\"method\":\"eth_chainId\""))
         assertTrue(body.contains("\"params\":[]"))
     }
 
     @Test
     fun aTooManyRequestsAnswerIsRateLimitedWithItsRetryAfter() {
-        val failure = refusal(MockResponse().setResponseCode(429).addHeader("Retry-After", "7"))
+        val failure = refusal(MockResponse.Builder().code(429).addHeader("Retry-After", "7").build())
 
         assertEquals(7_000L, (failure as ProviderError.RateLimited).retryAfterMs)
     }
 
     @Test
     fun aJsonRpcLimitErrorIsRateLimited() {
-        val failure = refusal(MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"error":{"code":-32005,"message":"limit"}}"""))
+        val failure = refusal(MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"error":{"code":-32005,"message":"limit"}}""").build())
 
         assertTrue(failure is ProviderError.RateLimited)
     }
 
     @Test
     fun aJsonRpcErrorThatNamesARateLimitIsRateLimited() {
-        val failure = refusal(MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"error":{"code":30,"message":"You reached rate limit"}}"""))
+        val failure = refusal(MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"error":{"code":30,"message":"You reached rate limit"}}""").build())
 
         assertTrue(failure is ProviderError.RateLimited)
     }
 
     @Test
     fun aServerErrorIsTransient() {
-        assertTrue(refusal(MockResponse().setResponseCode(503)) is ProviderError.Transient)
+        assertTrue(refusal(MockResponse.Builder().code(503).build()) is ProviderError.Transient)
     }
 
     @Test
     fun aRefusedKeyIsFatal() {
-        assertTrue(refusal(MockResponse().setResponseCode(401)) is ProviderError.Fatal)
+        assertTrue(refusal(MockResponse.Builder().code(401).build()) is ProviderError.Fatal)
     }
 
     @Test
     fun aRedirectIsNotFollowed() {
-        server.enqueue(MockResponse().setResponseCode(302).addHeader("Location", server.url("/moved").toString()))
+        server.enqueue(MockResponse.Builder().code(302).addHeader("Location", server.url("/moved").toString()).build())
         server.enqueue(answer("\"0x1\""))
 
         val failure = assertThrows(ProviderError::class.java) {
@@ -101,13 +101,13 @@ class JsonRpcTest {
 
     @Test
     fun aJsonRpcErrorIsFatal() {
-        assertTrue(refusal(MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"nope"}}""")) is ProviderError.Fatal)
+        assertTrue(refusal(MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"nope"}}""").build()) is ProviderError.Fatal)
     }
 
     @Test
     fun aRefusalForTheBalanceSaysSo() {
         for (message in listOf("insufficient funds for gas * price + value: balance 0", "Signer had insufficient balance")) {
-            val failure = refusal(MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"$message"}}"""))
+            val failure = refusal(MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"$message"}}""").build())
             assertTrue(failure is ProviderError.Fatal)
             assertEquals(JsonRpc.INSUFFICIENT_FUNDS_MESSAGE, failure.message)
         }
@@ -115,25 +115,25 @@ class JsonRpcTest {
 
     @Test
     fun anAnswerThatIsNotJsonIsFatal() {
-        assertTrue(refusal(MockResponse().setBody("<html>")) is ProviderError.Fatal)
+        assertTrue(refusal(MockResponse.Builder().body("<html>").build()) is ProviderError.Fatal)
     }
 
     @Test
     fun aMissingOrNullResultIsFatal() {
-        assertTrue(refusal(MockResponse().setBody("""{"jsonrpc":"2.0","id":1}""")) is ProviderError.Fatal)
-        assertTrue(refusal(MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":null}""")) is ProviderError.Fatal)
+        assertTrue(refusal(MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1}""").build()) is ProviderError.Fatal)
+        assertTrue(refusal(MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":null}""").build()) is ProviderError.Fatal)
     }
 
     @Test
     fun anAnswerLargerThanTheLimitIsFatal() {
         val large = "{\"result\":\"" + "a".repeat(65_600) + "\"}"
 
-        assertTrue(refusal(MockResponse().setBody(large)) is ProviderError.Fatal)
+        assertTrue(refusal(MockResponse.Builder().body(large).build()) is ProviderError.Fatal)
     }
 
     @Test
     fun anEndpointThatDoesNotAnswerIsTransient() {
-        server.shutdown()
+        server.close()
 
         assertTrue(refusal() is ProviderError.Transient)
     }
@@ -169,7 +169,7 @@ class JsonRpcTest {
 
     @Test
     fun aRetryAfterIsCappedAtTheOneCapEveryProviderShares() {
-        val failure = refusal(MockResponse().setResponseCode(429).addHeader("Retry-After", "7200"))
+        val failure = refusal(MockResponse.Builder().code(429).addHeader("Retry-After", "7200").build())
 
         assertEquals(3_600_000L, (failure as ProviderError.RateLimited).retryAfterMs)
     }
@@ -179,8 +179,8 @@ class JsonRpcTest {
         val planRefusal = """{"jsonrpc":"2.0","id":1,"error":{"code":35,"message":"chain is not available on free plan, please upgrade to paid plan"}}"""
         val noSuchMethod = """{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"the method does not exist"}}"""
 
-        assertTrue(refusal(MockResponse().setBody(planRefusal)) is ProviderError.Unsupported)
-        assertTrue(refusal(MockResponse().setBody(noSuchMethod)) is ProviderError.Unsupported)
-        assertTrue(refusal(MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"nope"}}""")) is ProviderError.Fatal)
+        assertTrue(refusal(MockResponse.Builder().body(planRefusal).build()) is ProviderError.Unsupported)
+        assertTrue(refusal(MockResponse.Builder().body(noSuchMethod).build()) is ProviderError.Unsupported)
+        assertTrue(refusal(MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"nope"}}""").build()) is ProviderError.Fatal)
     }
 }

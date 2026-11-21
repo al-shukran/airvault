@@ -20,8 +20,8 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -44,7 +44,7 @@ class BlockscoutTxHistoryTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     private fun provider() = BlockscoutProvider(bases = mapOf("1" to server.url("/").toString()))
@@ -55,15 +55,15 @@ class BlockscoutTxHistoryTest {
 
     @Test
     fun theHistoryIsTheNormalListThenTheTokenListOfTheInstance() {
-        server.enqueue(MockResponse().setBody(explorerAnswer("1", "OK", "[${normalRow(hash, account, other)}]")))
-        server.enqueue(MockResponse().setBody(explorerAnswer("1", "OK", "[${tokenRow(hash, other, account)}]")))
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("1", "OK", "[${normalRow(hash, account, other)}]")).build())
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("1", "OK", "[${tokenRow(hash, other, account)}]")).build())
 
         val rows = history(page = 2, offset = 25)
 
         assertEquals(2, rows.size)
         assertIs<ExplorerTx.Normal>(rows[0])
         assertIs<ExplorerTx.Token>(rows[1])
-        val normal = server.takeRequest().requestUrl!!
+        val normal = server.takeRequest().url
         assertEquals("/api", normal.encodedPath)
         assertEquals("account", normal.queryParameter("module"))
         assertEquals("txlist", normal.queryParameter("action"))
@@ -71,14 +71,14 @@ class BlockscoutTxHistoryTest {
         assertEquals("2", normal.queryParameter("page"))
         assertEquals("25", normal.queryParameter("offset"))
         assertEquals("desc", normal.queryParameter("sort"))
-        assertEquals("tokentx", server.takeRequest().requestUrl!!.queryParameter("action"))
+        assertEquals("tokentx", server.takeRequest().url.queryParameter("action"))
         assertEquals(2, server.requestCount)
     }
 
     @Test
     fun theSecondListIsChargedToTheCallsRateBudgetBeforeItIsSent() {
-        server.enqueue(MockResponse().setBody(explorerAnswer("0", "No transactions found", "[]")))
-        server.enqueue(MockResponse().setBody(explorerAnswer("0", "No transactions found", "[]")))
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("0", "No transactions found", "[]")).build())
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("0", "No transactions found", "[]")).build())
 
         history()
 
@@ -87,27 +87,27 @@ class BlockscoutTxHistoryTest {
 
     @Test
     fun theKeyGoesInTheApikeyParameterOfBothLists() {
-        server.enqueue(MockResponse().setBody(explorerAnswer("0", "No transactions found", "[]")))
-        server.enqueue(MockResponse().setBody(explorerAnswer("0", "No transactions found", "[]")))
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("0", "No transactions found", "[]")).build())
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("0", "No transactions found", "[]")).build())
 
         history(ProviderConfig(apiKey = "proapi_test"))
 
-        assertEquals("proapi_test", server.takeRequest().requestUrl!!.queryParameter("apikey"))
-        assertEquals("proapi_test", server.takeRequest().requestUrl!!.queryParameter("apikey"))
+        assertEquals("proapi_test", server.takeRequest().url.queryParameter("apikey"))
+        assertEquals("proapi_test", server.takeRequest().url.queryParameter("apikey"))
     }
 
     @Test
     fun anAccountWithNoMatchesHasAnEmptyHistory() {
-        server.enqueue(MockResponse().setBody(explorerAnswer("0", "No transactions found", "[]")))
-        server.enqueue(MockResponse().setBody(explorerAnswer("0", "No transactions found", "[]")))
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("0", "No transactions found", "[]")).build())
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("0", "No transactions found", "[]")).build())
 
         assertEquals(emptyList(), history())
     }
 
     @Test
     fun aRateLimitOnTheTokenListRefusesTheWholeCallWithItsRetryAfter() {
-        server.enqueue(MockResponse().setBody(explorerAnswer("1", "OK", "[${normalRow(hash, account, other)}]")))
-        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "30"))
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("1", "OK", "[${normalRow(hash, account, other)}]")).build())
+        server.enqueue(MockResponse.Builder().code(429).setHeader("Retry-After", "30").build())
 
         val error = assertFailsWith<ProviderError.RateLimited> { history() }
 
@@ -117,8 +117,8 @@ class BlockscoutTxHistoryTest {
     @Test
     fun aRowThatDoesNotNameTheAccountFailsTheCall() {
         val stranger = "0x" + "ef".repeat(20)
-        server.enqueue(MockResponse().setBody(explorerAnswer("1", "OK", "[${normalRow(hash, other, stranger)}]")))
-        server.enqueue(MockResponse().setBody(explorerAnswer("0", "No transactions found", "[]")))
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("1", "OK", "[${normalRow(hash, other, stranger)}]")).build())
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("0", "No transactions found", "[]")).build())
 
         assertFailsWith<ProviderError.Fatal> { history() }
     }

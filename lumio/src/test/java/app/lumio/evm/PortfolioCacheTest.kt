@@ -6,10 +6,10 @@ import app.lensly.core.vault.VaultSession
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairedWallet
 import kotlinx.coroutines.runBlocking
-import okhttp3.mockwebserver.Dispatcher
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.RecordedRequest
+import mockwebserver3.Dispatcher
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+import mockwebserver3.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -31,20 +31,20 @@ class PortfolioCacheTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     /** Answers the two reads from a fake endpoint: one ETH and three transactions on chain 1. */
     private fun answerWithOneEther() {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
-                val body = request.body.readUtf8()
+                val body = request.body?.utf8().orEmpty()
                 val result = when {
                     body.contains("eth_getBalance") -> "0xde0b6b3a7640000"
                     body.contains("eth_getTransactionCount") -> "0x3"
-                    else -> return MockResponse().setResponseCode(400)
+                    else -> return MockResponse.Builder().code(400).build()
                 }
-                return MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":"$result"}""")
+                return MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":"$result"}""").build()
             }
         }
         server.start()
@@ -75,7 +75,7 @@ class PortfolioCacheTest {
         assertEquals(2, stored.size)
         assertTrue(stored.all { it.wei == "1000000000000000000" && it.nonce == 3L && it.atMs == 1_000L })
 
-        server.shutdown()
+        server.close()
         val offline = runBlocking {
             Portfolio.refresh(session, listOf(wallet), settings, listOf(mainnet), reads, nowMs = { 2_000L })
         }

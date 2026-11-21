@@ -14,10 +14,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
-import okhttp3.mockwebserver.Dispatcher
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.RecordedRequest
+import mockwebserver3.Dispatcher
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+import mockwebserver3.RecordedRequest
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -43,21 +43,21 @@ class EvmBalanceFallbackTest {
     @After
     fun stop() {
         scope.cancel()
-        data.shutdown()
-        rpc.shutdown()
+        data.close()
+        rpc.close()
     }
 
     /** Answers the calls in order, then 500 for any call that has no answer left. */
     private fun answers(vararg responses: MockResponse): Dispatcher {
         val queue = ArrayDeque(responses.toList())
         return object : Dispatcher() {
-            override fun dispatch(request: RecordedRequest): MockResponse = queue.removeFirstOrNull() ?: MockResponse().setResponseCode(500)
+            override fun dispatch(request: RecordedRequest): MockResponse = queue.removeFirstOrNull() ?: MockResponse.Builder().code(500).build()
         }
     }
 
-    private fun dataBalance(wei: String) = MockResponse().setBody("""{"status":"1","message":"OK","result":"$wei"}""")
+    private fun dataBalance(wei: String) = MockResponse.Builder().body("""{"status":"1","message":"OK","result":"$wei"}""").build()
 
-    private fun rpcBalance(wei: Int) = MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":"0x${wei.toString(16)}"}""")
+    private fun rpcBalance(wei: Int) = MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":"0x${wei.toString(16)}"}""").build()
 
     /**
      * The EVM reads with Routescan as the DATA provider and the owner's Ethereum RPC address as the RPC provider. With [preferRpc], balance reads
@@ -90,7 +90,7 @@ class EvmBalanceFallbackTest {
 
     @Test
     fun aRateLimitedDataProviderIsCooledAndTheRpcProviderAnswersInItsPlace() = runBlocking {
-        data.dispatcher = answers(MockResponse().setResponseCode(429).setHeader("Retry-After", "60"))
+        data.dispatcher = answers(MockResponse.Builder().code(429).setHeader("Retry-After", "60").build())
         rpc.dispatcher = answers(rpcBalance(42), rpcBalance(42))
         val reads = reads()
 
@@ -103,7 +103,7 @@ class EvmBalanceFallbackTest {
     @Test
     fun theDataProviderIsTriedAgainOnceItsCooldownHasPassed() = runBlocking {
         data.dispatcher = answers(
-            MockResponse().setResponseCode(429).setHeader("Retry-After", "60"),
+            MockResponse.Builder().code(429).setHeader("Retry-After", "60").build(),
             dataBalance("9"),
         )
         rpc.dispatcher = answers(rpcBalance(42))

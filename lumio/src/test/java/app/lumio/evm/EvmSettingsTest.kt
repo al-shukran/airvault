@@ -3,8 +3,8 @@ package app.lumio.evm
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -37,12 +37,12 @@ class EvmSettingsTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     private val url: String get() = server.url("/").toString()
 
-    private fun answer(result: String) = MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":"$result"}""")
+    private fun answer(result: String) = MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":"$result"}""").build()
 
     @Test
     fun theDefaultsShowMainnetAndSepolia() {

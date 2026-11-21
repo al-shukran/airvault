@@ -20,8 +20,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -47,7 +47,7 @@ class PriceChartRepositoryTest {
     @After
     fun stop() {
         scope.cancel()
-        server.shutdown()
+        server.close()
     }
 
     /** A repository whose only price provider is DefiLlama, on the local server. */
@@ -59,9 +59,9 @@ class PriceChartRepositoryTest {
         return PriceRepository(scheduler) { null }
     }
 
-    private fun answer(vararg points: String): MockResponse = MockResponse().setBody(
+    private fun answer(vararg points: String): MockResponse = MockResponse.Builder().body(
         """{"coins":{"coingecko:ethereum":{"symbol":"ETH","confidence":0.99,"prices":[${points.joinToString(",")}]}}}""",
-    )
+    ).build()
 
     private fun point(timestamp: Long, price: String) = """{"timestamp":$timestamp,"price":$price}"""
 
@@ -109,8 +109,8 @@ class PriceChartRepositoryTest {
         chart(repository, ChartRange.H24)
 
         assertEquals(2, server.requestCount)
-        assertEquals("/chart/coingecko:ethereum?start=1799913600&span=25&period=1h", server.takeRequest().path)
-        assertEquals("/chart/coingecko:ethereum?start=1799395200&span=43&period=4h", server.takeRequest().path)
+        assertEquals("/chart/coingecko:ethereum?start=1799913600&span=25&period=1h", server.takeRequest().target)
+        assertEquals("/chart/coingecko:ethereum?start=1799395200&span=43&period=4h", server.takeRequest().target)
     }
 
     @Test
@@ -126,7 +126,7 @@ class PriceChartRepositoryTest {
 
     @Test
     fun aSourceThatPricesNoneOfTheCoinGivesNoChart() {
-        server.enqueue(MockResponse().setBody("""{"coins":{}}"""))
+        server.enqueue(MockResponse.Builder().body("""{"coins":{}}""").build())
 
         assertNull(chart(repository(), ChartRange.H24))
     }

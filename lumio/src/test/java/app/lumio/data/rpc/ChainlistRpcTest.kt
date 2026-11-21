@@ -9,10 +9,10 @@ import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Trait
 import java.math.BigInteger
 import kotlinx.coroutines.runBlocking
-import okhttp3.mockwebserver.Dispatcher
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.RecordedRequest
+import mockwebserver3.Dispatcher
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+import mockwebserver3.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -32,7 +32,7 @@ class ChainlistRpcTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     @Test
@@ -73,10 +73,10 @@ class ChainlistRpcTest {
     @Test
     fun aRateLimitOnTheFirstAddressMovesTheCallToTheSecond() {
         server.dispatcher = object : Dispatcher() {
-            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
-                "/first" -> MockResponse().setResponseCode(429)
-                "/second" -> MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":"0x2a"}""")
-                else -> MockResponse().setResponseCode(404)
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.target) {
+                "/first" -> MockResponse.Builder().code(429).build()
+                "/second" -> MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":"0x2a"}""").build()
+                else -> MockResponse.Builder().code(404).build()
             }
         }
         server.start()
@@ -87,15 +87,15 @@ class ChainlistRpcTest {
         val balance = runBlocking { chainlist.execute(NativeBalance(net, address), ProviderConfig(), JsonRpc.newHttp(2_000L)) }
 
         assertEquals(BigInteger.valueOf(42), balance)
-        assertEquals("/first", server.takeRequest().path)
-        assertEquals("/second", server.takeRequest().path)
+        assertEquals("/first", server.takeRequest().target)
+        assertEquals("/second", server.takeRequest().target)
     }
 
     @Test
     fun aFatalAnswerFromTheFirstAddressEndsTheCallWithoutTryingTheSecond() {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse =
-                MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"no"}}""")
+                MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"no"}}""").build()
         }
         server.start()
         val net = NetworkId(Networks.evm(1), testnet = false)
@@ -113,7 +113,7 @@ class ChainlistRpcTest {
     @Test
     fun whenEveryAddressFailsTransientlyTheLastFailureIsThrown() {
         server.dispatcher = object : Dispatcher() {
-            override fun dispatch(request: RecordedRequest): MockResponse = MockResponse().setResponseCode(500)
+            override fun dispatch(request: RecordedRequest): MockResponse = MockResponse.Builder().code(500).build()
         }
         server.start()
         val net = NetworkId(Networks.evm(1), testnet = false)
