@@ -55,6 +55,9 @@ class EthereumCapReached : IllegalArgumentException("A wallet keeps at most ${Pa
 /** A Solana account refused because the wallet would keep more than [WalletRecords.SOLANA_MAX_ACCOUNTS]. Nothing is saved. */
 class SolanaCapReached : IllegalArgumentException("A wallet keeps at most ${WalletRecords.SOLANA_MAX_ACCOUNTS} Solana accounts.")
 
+/** An Algorand account refused because the wallet would keep more than [WalletRecords.ALGORAND_MAX_ACCOUNTS]. Nothing is saved. */
+class AlgorandCapReached : IllegalArgumentException("A wallet keeps at most ${WalletRecords.ALGORAND_MAX_ACCOUNTS} Algorand accounts.")
+
 /**
  * What a wallet's secret is. A Mnemonic wallet holds a 24-word Mnemonic and an optional Passphrase, and every account
  * derives from them. A Single Key wallet holds one imported private key. It has exactly one account, and no derivation
@@ -506,8 +509,8 @@ class WalletStore(private val session: VaultSession) {
      * wallet's Algorand accounts changed while the run derived, nothing is saved and the result is null. [onProgress] receives the number of
      * accounts derived so far.
      *
-     * @throws IllegalArgumentException if [count] is outside 1 to [cap], the wallet is missing, it is a Single Key wallet, which has no seed, or
-     * it would keep more than [WalletRecords.ALGORAND_MAX_ACCOUNTS] Algorand accounts. Nothing is saved then.
+     * @throws IllegalArgumentException if [count] is outside 1 to [cap], the wallet is missing, or it is a Single Key wallet, which has no seed.
+     * @throws AlgorandCapReached if it would keep more than [WalletRecords.ALGORAND_MAX_ACCOUNTS] Algorand accounts. Nothing is saved then.
      */
     fun addAlgorandAccounts(id: String, count: Int, cap: Int, onProgress: (Int) -> Unit = {}): List<ByteArray>? {
         require(BulkPolicy.checkCount(count, cap) is BulkPolicy.CountCheck.Valid) {
@@ -516,9 +519,7 @@ class WalletStore(private val session: VaultSession) {
         val current = requireNotNull(meta(id)) { "No wallet $id." }
         require(current.kind == WalletKind.MNEMONIC) { SINGLE_KEY_NO_ALGORAND }
         val start = algorandKeys(id).size
-        require(start + count <= WalletRecords.ALGORAND_MAX_ACCOUNTS) {
-            "A wallet keeps at most ${WalletRecords.ALGORAND_MAX_ACCOUNTS} Algorand accounts."
-        }
+        if (start + count > WalletRecords.ALGORAND_MAX_ACCOUNTS) throw AlgorandCapReached()
         val seed = seedOf(id)
         val derived = try {
             (start until start + count).mapIndexed { done, index ->
