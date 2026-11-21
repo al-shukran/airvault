@@ -113,11 +113,27 @@ class ReceiveModelTest {
     }
 
     @Test
-    fun shareSentenceNamesTheCoinTheShortAddressAndTheNetwork() {
+    fun shareSentenceNamesTheCoinTheFullAddressAndTheNetwork() {
         assertEquals(
-            "Send MON on 0x1020…122b on the Monad Testnet network. Assets sent on other networks may be lost.",
+            "Send MON on $ADDRESS on the Monad Testnet network. Assets sent on other networks may be lost.",
             receiveShareText("MON", ADDRESS, "Monad Testnet"),
         )
+    }
+
+    @Test
+    fun shareSentenceCarriesTheFullAddressOfEachChain() {
+        val addresses = listOf(
+            ADDRESS, // EVM
+            "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq", // Bitcoin
+            "So11111111111111111111111111111111111111112", // Solana
+            "GD64YIY3TWGDMCNPP553DZPPR6LDUSFQOIJVFDPPXWEG3FVOJCCDBBHU5A", // Algorand
+        )
+        for (address in addresses) {
+            assertEquals(
+                "Send ALGO on $address on the Network network. Assets sent on other networks may be lost.",
+                receiveShareText("ALGO", address, "Network"),
+            )
+        }
     }
 
     @Test

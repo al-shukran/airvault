@@ -88,7 +88,7 @@ internal class ReceiveFlow(val assets: List<ReceiveCoin>, start: ReceiveAnswers)
     }
 }
 
-/** The address as the share sentence and the account rows show it: its first six characters, an ellipsis, and its last four, as in 0x1020…122b. */
+/** The address as the account rows show it: its first six characters, an ellipsis, and its last four, as in 0x1020…122b. The shared words never use it. */
 internal fun shortAddress(address: String): String =
     if (address.length <= SHORT_HEAD + SHORT_TAIL) address else address.take(SHORT_HEAD) + "…" + address.takeLast(SHORT_TAIL)
 
@@ -98,9 +98,12 @@ private const val SHORT_TAIL = 4
 /** The warning under the address of a Receive on [network]. */
 internal fun receiveNote(network: String): String = "Send only $network assets here. Assets sent on other networks may be lost."
 
-/** The sentence that Share sends with the QR code: what to send, to which address, on which network, and the same warning. It has no names. */
+/**
+ * The sentence that Share sends with the QR code: what to send, to the full [address], on which network, and the same warning. It has no names, and the
+ * address is never shortened, since the owner may paste it from the message.
+ */
 internal fun receiveShareText(symbol: String, address: String, network: String): String =
-    "Send $symbol on ${shortAddress(address)} on the $network network. Assets sent on other networks may be lost."
+    "Send $symbol on $address on the $network network. Assets sent on other networks may be lost."
 
 /** The initials of an account's monogram: the capitals of its [name], at most two, or its first letter when it has none. */
 internal fun monogramOf(name: String): String =
