@@ -480,10 +480,10 @@ jobs:
   dependency_review:
     # Snapshot comes from dependency-graph.yml, which submits on pushes to master and phase-1-5.
     #
-    # The repository's Dependency graph is off, and only an admin can turn it on (Settings -> Code security). While it is off
-    # the action cannot diff anything and fails with "Dependency review is not supported on this repository". To enable: turn on
-    # Dependency graph, then set the repository variable DEPENDENCY_GRAPH_ENABLED=true. Until both are done the job skips, which
-    # counts as a pass in pr-ok. The action reads pull requests only, so the merge queue and master skip it too.
+    # Enabling it takes two steps: turn on Dependency graph (Settings -> Code security, admin only), then set the repository
+    # variable DEPENDENCY_GRAPH_ENABLED=true. Without the graph the action cannot diff anything and fails with "Dependency review
+    # is not supported on this repository". Until the variable is true the job skips, which counts as a pass in pr-ok. The
+    # action reads pull requests only, so the merge queue and master skip it too.
     #
     # No continue-on-error on purpose: a genuine high-severity finding must fail the check once the graph is on.
     if: github.event_name == 'pull_request' && vars.DEPENDENCY_GRAPH_ENABLED == 'true'
