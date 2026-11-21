@@ -5,7 +5,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.airvault.chains.algorand.AlgoSignType
 import app.airvault.chains.algorand.bytesToSign
 import app.lensly.app.export.partsOf
-import app.airvault.chains.algorand.AlgoAddress
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.ur.AlgoSignature
 import app.lensly.core.ur.Cbor
@@ -43,8 +42,9 @@ class AlgorandSignFlowTest : SignFlowE2eBase() {
         driver.open()
         val ready = (driver.awaitReview { it is SignStep.AppReview } as SignStep.AppReview).ready
 
-        // 1,500,000 microAlgos is 1.5 ALGO, sent from the signing account to the receiver of the vector.
-        compose.onNodeWithText("Send 1.5 ALGO from ${ready.signer.address} to ${AlgoAddress.encode(RECEIVER)}?").assertExists()
+        // 1,500,000 microAlgos is 1.5 ALGO, sent from the signing account to the receiver of the vector. The receiver is an account of this
+        // device, so the sentence names it, as it names the signer.
+        compose.onNodeWithText("Send 1.5 ALGO from ${ready.signer.name} to E2E Wallet 1?").assertExists()
         driver.readToTheEnd()
         assertTrue(driver.approvable())
 
