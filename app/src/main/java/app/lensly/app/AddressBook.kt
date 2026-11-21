@@ -12,6 +12,9 @@ import java.io.IOException
 /** The most characters an entry's notes take. */
 const val ADDRESS_NOTES_MAX_LENGTH = 200
 
+/** The reason an address the owner gives, typed or scanned, is refused. */
+const val ADDRESS_NOT_VALID_MESSAGE = "Enter a valid Ethereum, Bitcoin, Solana or Algorand address."
+
 /**
  * True when [notes] is an entry's notes: up to [ADDRESS_NOTES_MAX_LENGTH] characters, with no control or hidden format character. A bidi
  * override or a zero-width character would change how the review reads them, so they are refused as in a name.
@@ -34,7 +37,7 @@ fun addressBookEntryOf(
     book: List<AddressBookEntry>,
     notes: String = "",
 ): AddressBookEntry {
-    val canonical = requireNotNull(canonicalAddressOf(address)) { "Enter a valid Ethereum, Bitcoin, Solana or Algorand address." }
+    val canonical = requireNotNull(canonicalAddressOf(address)) { ADDRESS_NOT_VALID_MESSAGE }
     val chain = chainOfAddress(canonical)
     require(book.none { it.id != id && it.chain == chain && addressKeyOf(it.address) == addressKeyOf(canonical) }) {
         "That address is already in the Address Book."

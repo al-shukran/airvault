@@ -79,6 +79,8 @@ internal object HiddenRoute {
     const val ADDRESS_BOOK = "settings/address-book"
     const val ADDRESS_BOOK_ADD = "settings/address-book/add?address={address}"
     const val ADDRESS_BOOK_EDIT = "settings/address-book/entry/{entryId}"
+    // Add by Scanning: the camera reads an address that Lumio shows, and the entry for it opens.
+    const val ADDRESS_BOOK_SCAN = "settings/address-book/scan"
     const val ADDRESS_ARG = "address"
     const val ENTRY_ID_ARG = "entryId"
     // Proxy policy: a choice of how whitelisted proxies are handled, then the App Password. Reached from Settings.
