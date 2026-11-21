@@ -2,8 +2,10 @@ package app.lensly.core.vault
 
 import java.io.File
 import java.security.GeneralSecurityException
+import java.security.ProviderException
 import javax.crypto.SecretKey
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
@@ -84,22 +86,26 @@ class VaultRollbackTest {
     }
 
     @Test
-    fun aCorrectPasswordUnlocksWhenTheKeystoreWillNotMakeANewDelayStateKey() {
+    fun aCorrectPasswordIsRefusedWithoutAVerdictWhileTheKeystoreWillNotMakeANewDelayStateKey() {
         createVault()
         clock.advance(FailureDelay.LEARNING_PERIOD_MS)
         assertRejected(attempt(WRONG))
         // Past the 10 s wait, so the next attempt is checked.
         clock.advance(FailureDelay.LEARNING_CAP_MS)
 
-        // From here the Keystore refuses to make the key that a reset would rotate in. The right password must still open.
+        // From here the Keystore refuses to make the key that a count rotates in. The try cannot be counted, so the password is not
+        // checked, and the right password is refused with no verdict. The count stays as it was.
         val refusing = object : KeystoreBackend by keys {
             override fun createFailureMacKey(seq: Long): SecretKey = throw GeneralSecurityException("no new key")
         }
         FailureStore.forget(layout.root)
         vault = Vault(layout, refusing, clock, KDF, readBootCount = { bootCount })
+        assertRejected(attempt(APP))
+        assertEquals(1, vault.failureCountForTesting())
 
+        // Once the Keystore makes keys again, the right password opens the vault and clears the count.
+        restart()
         unlocked(attempt(APP)).close()
-        // The reset was written under the key already on disk, so the count is cleared and the state still reads.
         assertEquals(0, vault.failureCountForTesting())
     }
 
@@ -163,7 +169,7 @@ class VaultRollbackTest {
     }
 
     @Test
-    fun aStorageErrorOnAWrongTryErasesTheVaultWithoutThrowing() {
+    fun aTryWhoseCountCannotBeSavedIsRefusedWithoutAVerdictAcrossARestart() {
         createVault()
         clock.advance(FailureDelay.LEARNING_PERIOD_MS)
         // Every write of the Delay State fails, as on a full disk: the vault folder takes no new file, so no temp file
@@ -172,11 +178,40 @@ class VaultRollbackTest {
         try {
             assumeFalse(layout.root.canWrite())
 
-            // A wrong password whose failure cannot be saved leaves no copy that verifies, so the try is at the erase threshold.
-            assertEquals(UnlockResult.Erased, attempt(WRONG))
+            // The try is counted before its password is checked. With the count unsaved, no verdict is given, so a wrong password
+            // is refused, and so is the right one. Nothing is counted, and nothing is erased.
+            assertRejected(attempt(WRONG))
+            assertRejected(attempt(APP))
+
+            // A new process reads the same copies, and the storage still refuses the count, so no guess gets a verdict.
+            restart()
+            assertRejected(attempt(APP))
+            assertRejected(attempt(WRONG))
+            assertEquals(0, vault.failureCountForTesting())
+            assertTrue(vault.exists())
         } finally {
             layout.root.setWritable(true)
         }
+
+        // Once the folder takes writes again, the right password opens the vault. The refused tries were neither counted nor checked.
+        unlocked(attempt(APP)).close()
+    }
+
+    @Test
+    fun aTryThatFailsBeforeItsVerdictStillCounts() {
+        createVault()
+        clock.advance(FailureDelay.LEARNING_PERIOD_MS)
+        // The Keystore fails when the slot key is used. That is after the try is counted and before its password is checked, so the
+        // try ends with an error and no verdict.
+        val failingSlot = object : KeystoreBackend by keys {
+            override fun slotMac(message: ByteArray): ByteArray = throw ProviderException("the slot key is gone")
+        }
+        vault = Vault(layout, failingSlot, clock, KDF, readBootCount = { bootCount })
+        assertFailsWith<VaultException> { attempt(WRONG) }
+
+        // A new process reads the stored count, which includes the try that ended without a verdict.
+        restart()
+        assertEquals(1, vault.failureCountForTesting())
     }
 
     private fun createVault() {

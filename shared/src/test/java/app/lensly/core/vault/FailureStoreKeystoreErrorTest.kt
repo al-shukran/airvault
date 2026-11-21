@@ -6,6 +6,7 @@ import java.security.GeneralSecurityException
 import java.security.ProviderException
 import javax.crypto.SecretKey
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
@@ -155,33 +156,48 @@ class FailureStoreKeystoreErrorTest {
 
         clock.advance(FailureDelay.LEARNING_PERIOD_MS)
         io.failing = true
-        // Every call returns: the check blocks the attempt, a failure that cannot be saved locks at the strictest cap, and a reset that
-        // cannot be saved is kept in memory. Nothing is thrown.
+        // Every call returns: the check blocks the attempt, and a lock that cannot be saved is held in memory. A try whose count cannot
+        // be saved throws, and the vault refuses that try. A reset that cannot be saved is kept in memory. Nothing else is thrown.
         val check = FailureStore(dir, io).checkDelay(clock, FakeClock.START_WALL)
         assertTrue(check.blocked)
-        assertEquals(FailureStore.TAMPER_FAILURES, FailureStore(dir, io).recordFailureOrLock(check.state, clock).failures)
         assertTrue(FailureStore(dir, io).checkDelay(clock, FakeClock.START_WALL).blocked)
 
         clock.advance(FailureDelay.MAX_CAP_MS)
         val passed = FailureStore(dir, io).checkDelay(clock, FakeClock.START_WALL)
         assertFalse(passed.blocked)
+        assertFailsWith<VaultException> { FailureStore(dir, io).recordFailure(passed.state, clock) }
         assertEquals(0, FailureStore(dir, io).recordSuccess(passed.state, clock).failures)
     }
 
     @Test
     fun aCorrectPasswordUnlocksWhenTheKeystoreFailsDuringTheSuccessSave() {
         val layout = VaultLayout(File(tmp.root, "vault"))
-        val vault = Vault(layout, flaky, clock, KDF, readBootCount = { 7 })
+        // Armed only for the right password: the Keystore accepts the key for its try's count, then refuses the key for the reset that
+        // follows, and then cannot read the key it has.
+        var armed = false
+        val refusingTheReset = object : KeystoreBackend by flaky {
+            override fun slotMac(message: ByteArray): ByteArray {
+                if (armed) flaky.refuseNewKeys = true
+                return flaky.slotMac(message)
+            }
+        }
+        val vault = Vault(layout, refusingTheReset, clock, KDF, readBootCount = { 7 })
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })
         clock.advance(FailureDelay.LEARNING_PERIOD_MS)
         assertEquals(UnlockResult.Rejected, runBlocking { vault.unlock(WRONG.toCharArray()) })
 
-        // Past the 10 s wait for one failure. The Keystore refuses the key for the reset, and then cannot read the key it has.
+        // Past the 10 s wait for one failure.
         clock.advance(FailureDelay.LEARNING_CAP_MS)
-        flaky.refuseNewKeys = true
+        armed = true
         val result = runBlocking { vault.unlock(APP.toCharArray()) }
         assertTrue(result is UnlockResult.Unlocked, "Expected Unlocked but was $result")
         (result as UnlockResult.Unlocked).session.close()
+
+        // The reset was held in memory, so a new process reads the count that the right password's try saved.
+        flaky.refuseNewKeys = false
+        flaky.failReads = false
+        FailureStore.forget(layout.root)
+        assertEquals(2, Vault(layout, flaky, clock, KDF, readBootCount = { 7 }).failureCountForTesting())
     }
 
     @Test
