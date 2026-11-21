@@ -466,6 +466,10 @@ jobs:
       - name: Check CI scripts, test coverage and the network guard
         run: ./scripts/ci/run-partition.sh ci
 
+      # No BIP39 mnemonic outside the published vectors (scripts/ci/check-mnemonics.sh, scripts/ci/README.md).
+      - name: Check for private mnemonics
+        run: scripts/ci/check-mnemonics.sh
+
   secrets:
     name: secrets
     runs-on: ubuntu-24.04

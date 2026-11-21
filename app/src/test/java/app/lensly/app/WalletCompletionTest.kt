@@ -135,9 +135,6 @@ class WalletCompletionTest {
     }
 
     private companion object {
-        val DEMO_WORDS = (
-            "supply excess unit online visa snow include grief sketch " +
-                "grace rural near leaf finish jewel embark elite make venture enroll vacuum worth over pioneer"
-            ).split(" ")
+        val DEMO_WORDS = List(23) { "abandon" } + "art"
     }
 }

@@ -44,10 +44,7 @@ class BitcoinRoutingTest {
     val tmp = TemporaryFolder()
 
     private val context: Context = RuntimeEnvironment.getApplication()
-    private val words = (
-        "supply excess unit online visa snow include grief sketch " +
-            "grace rural near leaf finish jewel embark elite make venture enroll vacuum worth over pioneer"
-        ).split(" ")
+    private val words = List(23) { "abandon" } + "art"
 
     @Test
     fun aRequestFromTheStoredScriptTypeRoutesToTheWalletAndAnotherScriptTypeDoesNot() {
