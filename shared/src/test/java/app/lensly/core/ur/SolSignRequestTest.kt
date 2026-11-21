@@ -176,10 +176,11 @@ class SolSignRequestTest {
     }
 
     @Test
-    fun aKeyFromTheReservedRangeIsIgnoredAndAnyOtherUnknownKeyIsRefused() {
+    fun aKeyOutsideTheSevenFieldsIsRefusedIncludingOneFromTheFormerReservedRange() {
         val fields = assertIs<Cbor.Dict>(Cbor.decode(payload())).entries
-        assertIs<SolSignRequest.Result.Ok>(SolSignRequest.decode(Cbor.encode(Cbor.Dict(fields + (Cbor.Uint(1000L) to Cbor.Uint(1L))))))
-        assertEquals(UNKNOWN_REQUEST, rejectedReason(Cbor.encode(Cbor.Dict(fields + (Cbor.Uint(8L) to Cbor.Uint(1L))))))
+        for (key in listOf(8L, 1000L)) {
+            assertEquals(UNKNOWN_REQUEST, rejectedReason(Cbor.encode(Cbor.Dict(fields + (Cbor.Uint(key) to Cbor.Uint(1L))))), "key $key")
+        }
     }
 
     private fun okOf(result: SolSignRequest.Result): SolSignRequest = assertIs<SolSignRequest.Result.Ok>(result).request

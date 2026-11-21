@@ -6,14 +6,11 @@ import app.lumio.data.FakeProvider
 import app.lumio.data.MonotonicClock
 import app.lumio.data.cache.Cache
 import app.lumio.data.cache.CacheKeys
-import app.lumio.data.cache.CachePolicy
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Ops
 import app.lumio.data.sched.Scheduler
-import java.io.ByteArrayOutputStream
-import java.io.DataOutputStream
 import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlinx.coroutines.CoroutineScope
@@ -102,35 +99,6 @@ class BtcJobsTest {
         utxos = emptyList(),
         transactions = emptyList(),
     )
-
-    /** A scan stored in the format before the addresses were kept reads as absent, so its account is scanned again. */
-    @Test
-    fun aScanStoredInTheOlderFormatReadsAsAbsent() = runBlocking {
-        val cache = cache()
-        cache.put(CachePolicy.LastKnown, "btc-scan/wallet-1_TESTNET4_NATIVE_SEGWIT", olderFormatScan("wallet-1_TESTNET4_NATIVE_SEGWIT"))
-
-        assertEquals(null, BtcStore(cache).snapshot("wallet-1_TESTNET4_NATIVE_SEGWIT"))
-    }
-
-    /** One scan in the format of version 2: a record with no address list after its transactions. */
-    private fun olderFormatScan(key: String): ByteArray {
-        val bytes = ByteArrayOutputStream()
-        DataOutputStream(bytes).use { out ->
-            out.writeByte(2)
-            out.writeInt(1)
-            out.writeUTF(key)
-            out.writeUTF("tb1qidentity")
-            out.writeLong(1L)
-            out.writeLong(1L)
-            out.writeLong(5L)
-            out.writeLong(0L)
-            out.writeInt(0)
-            out.writeUTF("tb1qnext")
-            out.writeInt(0)
-            out.writeInt(0)
-        }
-        return bytes.toByteArray()
-    }
 
     @Test
     fun aBlockIsCachedForGood() = runBlocking {

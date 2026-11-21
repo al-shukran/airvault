@@ -201,7 +201,7 @@ class SettingsStoreTest {
     }
 
     @Test
-    fun anUnknownSettingsVersionReadsAsTheDefault() {
+    fun aRecordOfAnotherVersionResetsToTheDefaults() {
         val session = open()
         session.putVaultRecord("settings", record(version = 8, accounts = 1_000))
 

@@ -31,7 +31,7 @@ private val BITCOIN_PURPOSES = listOf(44, 49, 84, 86)
 
 /**
  * The Bitcoin chain app's manifest (spec 2.1, 11.1), the one declaration both Lensly and Lumio read. A PSBT request is `psbt`, the registry's
- * current name, or `crypto-psbt`, the retired name that Lumio still writes. The response is the signed PSBT under the name its request used,
+ * current name, or `crypto-psbt`, the retired name that Lumio writes. The response is the signed PSBT under the name its request used,
  * so the response declares none: the registry keeps each UR type to one entry. Watch-only export is the extended-key pairing that Lumio
  * reads (spec 7.5).
  */

@@ -746,7 +746,7 @@ Today's types and owners:
 | Type | Direction | Owner after 2.9 | Defined by |
 |---|---|---|---|
 | `x-airvault-pairing` | pairing | core | AirVault (`PairingCodec.kt`) |
-| `psbt`, `crypto-psbt` | request; the response uses the name the request used | `bitcoin` app | BCR-2020-006 registry: the current name is `psbt` (tag 40310); `crypto-psbt` is the retired name. Lensly reads both (`BtcPsbt.REQUEST_UR_TYPES`) and answers under the name its request used. Lumio writes requests as `crypto-psbt` (`BtcPsbt.UR_TYPE`), which keeps existing pairing working (section 12.1, item 6). <https://github.com/BlockchainCommons/Research/blob/master/papers/bcr-2020-006-urtypes.md> |
+| `psbt`, `crypto-psbt` | request; the response uses the name the request used | `bitcoin` app | BCR-2020-006 registry: the current name is `psbt` (tag 40310); `crypto-psbt` is the retired name. Lensly reads both (`BtcPsbt.REQUEST_UR_TYPES`) and answers under the name its request used. Lumio writes requests as `crypto-psbt` (`BtcPsbt.UR_TYPE`); see section 12.1, item 6. <https://github.com/BlockchainCommons/Research/blob/master/papers/bcr-2020-006-urtypes.md> |
 | `eth-sign-request`, `eth-signature` | request, response | `evm` app | not in BCR-2020-006; Keystone-style |
 | `sol-sign-request`, `sol-signature` | request, response | `solana` app | Keystone ur-registry types `SOL_SIGN_REQUEST` (sign type 1 or 2) and `SOL_SIGNATURE` <https://github.com/KeystoneHQ/keystone-sdk-rust/blob/master/libs/ur-registry/src/solana/sol_sign_request.rs> |
 | `algo-sign-request`, `algo-signature` | request, response | `algorand` app | AirVault |
@@ -782,8 +782,8 @@ The pairing type is renamed to `x-airvault-pairing` to follow the `x-` rule. Thi
 ### 7.4 Versioning
 
 - Envelope version and app payload version are separate. The core rejects an unknown envelope version. The app rejects an unknown payload version.
-- A new payload version is added, never edited. Old versions keep a parser until the minimum supported Lumio release no longer emits them.
-- Since #376, Lensly and Lumio ship together and no backward-compatibility code is kept between them, except for the frozen Lensly contract in 7.6. Version fields still exist so that a mismatch fails clearly instead of misparsing.
+- A new payload version is added, never edited. An old version is refused, not read.
+- No backward-compatibility code is kept between app versions. Version fields still exist so that a mismatch fails clearly instead of misparsing.
 
 ### 7.5 Pairing export
 
@@ -800,15 +800,6 @@ data class AccountExport(
 ```
 
 `PairingCodec` encodes a list of these without knowing the chain. Its per-kind factory functions are gone: each chain's Lensly side builds its own entries. `PairImport` checks each entry against its chain's manifest (key scope, curve, chain code) and address rules, so the chain is found in the registry, not in the codec.
-
-### 7.6 Frozen Lensly contract
-
-A frozen Lensly is a signer that is never updated, so Lumio must keep to the wire it reads and keep reading the pairing it writes. This is the one exception to the rule in 7.4, and it covers only the wire below.
-
-- **Reserved keys.** A sign request may carry map keys from 1000 (`RESERVED_KEYS_FROM` in `app.lensly.core.ur`). Lensly ignores them, since they never change the signed bytes or the review. Every other unknown key is still refused, as are unknown data types, transaction types and message versions.
-- **Lumio's table.** `FrozenLensly` in `app.lumio.pair` lists the request types a frozen Lensly reads, with the map keys of each, and is keyed on pairing version 7. Lumio never sends a frozen Lensly anything outside it. A test drives each encoder Lumio uses with every optional field set and checks the output against the table.
-- **Pairing version 7.** Lumio reads version 7 for as long as a frozen Lensly exists. A later pairing format adds a reader; it does not replace this one.
-- **Frozen fixtures.** `shared/src/testFixtures/resources/frozen-lensly` holds the version 7 pairing, raw and Brotli-compressed, one sign request for each chain and Bitcoin request type, and the signed answer to each. Lensly's tests parse every frozen request, and Lumio's tests decode every frozen answer and pairing. The fixtures are never re-recorded. A fixture that no longer parses or decodes means a change broke a frozen Lensly: fix the code, not the fixture.
 
 ---
 
