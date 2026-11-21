@@ -21,6 +21,7 @@ import androidx.core.net.toUri
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressBookEntryFor
+import app.lensly.app.canonicalAddressOn
 import app.lensly.app.chainOfAddress
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
@@ -30,6 +31,8 @@ import app.lumio.data.tx.CommentImportException
 import app.lumio.data.tx.TxCommentTransfer
 import app.lumio.data.tx.TxKeys
 import app.lumio.data.tx.TxQuery
+import app.lumio.data.tx.TxStore
+import app.lumio.pair.PairedWallet
 import app.lumio.portfolio.TransactionPage
 import app.lumio.ui.settings.CommentBackupRows
 import app.lumio.ui.transactions.AddressInfoSheet
@@ -89,9 +92,7 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
             sheet?.let { address ->
                 val wallet = page.wallet
                 val seenIn by produceState<Int?>(null, address) {
-                    value = withContext(Dispatchers.IO) {
-                        vault?.txs?.count(TxQuery(accounts = wallet?.evmAddresses.orEmpty().toSet(), text = address, includeSpam = true))
-                    }
+                    value = withContext(Dispatchers.IO) { vault?.txs?.let { seenInCount(it, wallet, address) } }
                 }
                 AddressInfoSheet(
                     address = address,
@@ -118,6 +119,25 @@ private sealed interface DetailLoad {
     data object Missing : DetailLoad
 
     class Ready(val page: TransactionPage) : DetailLoad
+}
+
+/**
+ * The transactions of [wallet] whose counterparty is [address], spam included, or null when there is no wallet. The store finds the rows that hold the
+ * address's words across the wallet's accounts on every chain, and the counterparty of each row is then compared with the address (see [isSameAddress]).
+ */
+internal suspend fun seenInCount(txs: TxStore, wallet: PairedWallet?, address: String): Int? {
+    if (wallet == null) return null
+    val query = TxQuery(accounts = ownedAddressesOf(wallet).toSet(), text = address, includeSpam = true)
+    return txs.page(query, 0, Int.MAX_VALUE).count { isSameAddress(it.counterparty, address) }
+}
+
+/**
+ * Whether [counterparty] is [address], compared in the canonical form of the chain that [address] is on: Ethereum addresses case-insensitively, the
+ * other chains exactly. A counterparty that is no address of that chain, or none, is not [address].
+ */
+internal fun isSameAddress(counterparty: String?, address: String): Boolean {
+    val chain = chainOfAddress(address) ?: return false
+    return counterparty != null && canonicalAddressOn(counterparty, chain) == canonicalAddressOn(address, chain)
 }
 
 /**

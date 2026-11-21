@@ -11,6 +11,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressKeyOf
+import app.lumio.chains.NativeBalances
+import app.lumio.data.provider.algorand.ALGORAND_MAINNET
+import app.lumio.data.provider.solana.SOLANA_MAINNET
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import app.lumio.portfolio.ChainFamily
@@ -140,8 +143,16 @@ private fun accountCounts(wallets: List<PairedWallet>): Map<ChainFamily, Int> = 
     ChainFamily.ALGO to wallets.sumOf { it.algorand.size },
 )
 
-/** The wallet that holds [account], or the first wallet when none of the Ethereum accounts is it. */
-private fun walletIdOf(wallets: List<PairedWallet>, account: String): String {
+/** The wallet that holds [account], the address a transaction is on, or the first wallet when none of the wallets holds it. */
+internal fun walletIdOf(wallets: List<PairedWallet>, account: String): String {
     val key = addressKeyOf(account)
-    return wallets.firstOrNull { wallet -> wallet.evmAddresses.any { addressKeyOf(it) == key } }?.id ?: wallets.firstOrNull()?.id.orEmpty()
+    return wallets.firstOrNull { wallet -> ownedAddressesOf(wallet).any { addressKeyOf(it) == key } }?.id ?: wallets.firstOrNull()?.id.orEmpty()
 }
+
+/**
+ * The address of each account of [wallet] on each chain, as the activity reads them: each Ethereum address, the receive address 0 of each Bitcoin
+ * account (the address the activity feed queries), and each Solana and Algorand address.
+ */
+internal fun ownedAddressesOf(wallet: PairedWallet): List<String> =
+    wallet.evmAddresses + wallet.bitcoin.map { it.receiveAddress(0) } +
+        NativeBalances.addresses(wallet, SOLANA_MAINNET) + NativeBalances.addresses(wallet, ALGORAND_MAINNET)
