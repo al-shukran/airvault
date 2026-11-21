@@ -39,6 +39,8 @@ private const val SIZE_NOTE = "Estimated from the unsigned request, so the signe
 private const val NOT_ENFORCED_NOTE = "Not enforced, because every input is final."
 private const val NO_ADDRESS_NOTE = "No address. The script is not paid to an address."
 private const val OP_RETURN_OPCODE: Byte = 0x6a
+private const val OP_PUSHDATA1_OPCODE: Byte = 0x4c
+private const val OP_PUSHDATA2_OPCODE: Byte = 0x4d
 private val ASCII_PRINTABLE = 0x20..0x7e
 
 private val FEE = FieldPath("bitcoin.fee")
@@ -188,10 +190,10 @@ private fun BtcReview.decodedFields(): Set<FieldPath> = buildSet {
 }
 
 /**
- * The script of an output with no address, as the review shows it. A script that is exactly OP_RETURN followed by one push shows that
- * push's data: as hex, and with the text in brackets when every byte is printable ASCII. Any other script shows all of its bytes as hex,
- * so two different scripts never show the same text. That includes an OP_RETURN with a second push or a non-push opcode such as a Runes
- * tag, and an OP_RETURN whose push is empty or cut short.
+ * The script of an output with no address, as the review shows it. A script that is exactly OP_RETURN followed by one canonical push shows
+ * that push's data: as hex, and with the text in brackets when every byte is printable ASCII. Any other script shows all of its bytes as
+ * hex, so two different scripts never show the same text. That includes an OP_RETURN with a second push or a non-push opcode such as a
+ * Runes tag, an OP_RETURN whose push is empty, cut short or encoded longer than it needs to be.
  */
 internal fun scriptText(script: ByteArray): String {
     val pushed = singlePushData(script)
@@ -201,16 +203,24 @@ internal fun scriptText(script: ByteArray): String {
 }
 
 /**
- * The data of a script that is exactly OP_RETURN followed by one push, or null for any other script. A script that does not parse, such
- * as one with a truncated push, is null too, so it shows its own bytes instead of failing the review.
+ * The data of a script that is exactly OP_RETURN followed by one canonical push, or null for any other script. A script that does not
+ * parse, such as one with a truncated push, is null too, so it shows its own bytes instead of failing the review.
  */
 private fun singlePushData(script: ByteArray): ByteArray? {
     if (script.firstOrNull() != OP_RETURN_OPCODE) return null
     return runCatching {
         val elements = Script.parse(ByteVector(script))
         val push = elements.getOrNull(1) as? OP_PUSHDATA
-        if (elements.size == 2 && push != null) push.data.toByteArray() else null
+        val data = if (elements.size == 2 && push != null) push.data.toByteArray() else null
+        data?.takeIf { script.contentEquals(byteArrayOf(OP_RETURN_OPCODE) + canonicalPushPrefix(it.size) + it) }
     }.getOrNull()
+}
+
+/** The bytes that start a canonical push of [size] data bytes: a direct length byte, then OP_PUSHDATA1 or OP_PUSHDATA2 for longer data. */
+private fun canonicalPushPrefix(size: Int): ByteArray = when {
+    size <= 75 -> byteArrayOf(size.toByte())
+    size <= 0xff -> byteArrayOf(OP_PUSHDATA1_OPCODE, size.toByte())
+    else -> byteArrayOf(OP_PUSHDATA2_OPCODE, size.toByte(), (size shr 8).toByte())
 }
 
 /**
