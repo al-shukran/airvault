@@ -44,7 +44,7 @@ internal object DebugPairFixture {
 
     /** The 24-word BIP39 test vector of 256 zero bits. */
     private val WORDS = ("abandon ".repeat(23) + "art").split(" ")
-    private val seed: ByteArray by lazy { Mnemonic.of(WORDS).use { it.deriveSeed("") } }
+    private val testVectorSeed: ByteArray by lazy { Mnemonic.of(WORDS).use { it.deriveSeed("") } }
 
     /**
      * The frames a scan reads, in order, or null when [intent] names none: the named fixture, or the space-separated frames of [PARTS_EXTRA].
@@ -53,12 +53,16 @@ internal object DebugPairFixture {
     fun partsFor(intent: Intent?): List<String>? {
         intent?.getStringExtra(PARTS_EXTRA)?.let { parts -> return parts.trim().split(' ').filter { it.isNotEmpty() } }
         return when (intent?.getStringExtra(EXTRA)) {
-            "lensly" -> PairingCodec.urParts(payload(), brotli = null)
+            "lensly" -> PairingCodec.urParts(payloadOf(testVectorSeed), brotli = null)
             else -> null
         }
     }
 
-    private fun payload(): PairingPayload {
+    /**
+     * The pairing that Lensly exports for the wallet of [seed], named "Demo": its accounts on each chain and an Address Book. [DebugDemoSeed] pairs
+     * the same export for its own mnemonic.
+     */
+    internal fun payloadOf(seed: ByteArray): PairingPayload {
         val wallet = HdWallet(seed)
         val fingerprint = wallet.masterFingerprint
         val ethereum = (0..1).map { account ->
