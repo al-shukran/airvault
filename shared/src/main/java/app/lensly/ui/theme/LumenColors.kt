@@ -45,7 +45,7 @@ internal val NightPalette = LumenPalette(
     testnet = Color(0xFF6FD6E8),
     positive = Color(0xFF4CD69B),
     warning = Color(0xFFFF8A4C),
-    info = Color(0xFF7DB8FF),
+    info = Color(0xFF8DBBFF),
     chipEdge = Color(0xFF66727F),
     glowCore = Color(0xFFF4C46A).copy(alpha = 0.28f),
     glowEdge = Color(0xFFFF8F70).copy(alpha = 0.12f),
@@ -57,7 +57,7 @@ internal val DayPalette = LumenPalette(
     testnet = Color(0xFF006C7C),
     positive = Color(0xFF107144),
     warning = Color(0xFF9C4C00),
-    info = Color(0xFF1A56B0),
+    info = Color(0xFF2A56A8),
     chipEdge = Color(0xFF8A8478),
     glowCore = Color(0xFFF4C46A).copy(alpha = 0.35f),
     glowEdge = Color(0xFFFF8F70).copy(alpha = 0.14f),
@@ -73,11 +73,11 @@ private val NightHairline = Color(0xFF262C36)
 private val NightControlEdge = Color(0xFF66727F)
 private val NightOnSurface = Color(0xFFF2F4F7)
 private val NightOnSurfaceVariant = Color(0xFF9AA4B2)
-private val NightGold = Color(0xFFF4C46A)
+private val NightGold = Color(0xFFF2A14A)
 private val NightOnGold = Color(0xFF1C1405)
 private val NightNegative = Color(0xFFFF6B7A)
 
-private val DayBackground = Color(0xFFF6F4EF)
+private val DayBackground = Color(0xFFFBF6EC)
 private val DaySurface = Color(0xFFFBFAF7)
 private val DaySurfaceLow = Color(0xFFF1EEE7)
 private val DaySurfaceContainer = Color(0xFFFFFFFF)
@@ -85,9 +85,9 @@ private val DaySurfaceHigh = Color(0xFFECE8DF)
 private val DaySurfaceHighest = Color(0xFFE3DED3)
 private val DayHairline = Color(0xFFE2DDD2)
 private val DayControlEdge = Color(0xFF8A8478)
-private val DayOnSurface = Color(0xFF15171C)
+private val DayOnSurface = Color(0xFF2B2530)
 private val DayOnSurfaceVariant = Color(0xFF5D626E)
-private val DayGold = Color(0xFFF0B54D)
+private val DayGold = Color(0xFFF2A14A)
 private val DayOnGold = Color(0xFF1C1405)
 private val DayNegative = Color(0xFFBC2637)
 

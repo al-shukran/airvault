@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.LocalLumenPalette
 import app.lensly.ui.theme.LocalReducedMotion
 
-// The Lumen ring's geometry, the same as the mark's (WP7a). It is drawn in a 24-unit box, so at 24 dp one unit is one dp.
+// The Lumen ring's geometry, defined here. It is drawn in a 24-unit box, so at 24 dp one unit is one dp.
 
 /** The side of the box that the ring is drawn in, in units. */
 internal const val BOX = 24f
