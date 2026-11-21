@@ -386,12 +386,9 @@ class VaultTest {
     }
 
     @Test
-    fun bothTamperedCopiesLockForTheStrictestCap() {
+    fun bothTamperedCopiesEraseTheVaultAtTheNextAttempt() {
         runBlocking {
             vault.create(PASSWORD.toCharArray())
-            assertEquals(FailureCapResult.Saved, vault.setFailureLimits(PASSWORD.toCharArray(), 10_000L))
-            // Past the learning period, so the cap is what sets the lockout, not the 10 s learning cap.
-            clock.advance(FailureDelay.LEARNING_PERIOD_MS)
 
             for (file in listOf(failures, failuresBackup)) {
                 val bytes = file.readBytes()
@@ -399,12 +396,10 @@ class VaultTest {
                 file.writeBytes(bytes)
             }
 
-            assertRejected(vault.unlock(PASSWORD.toCharArray()))
-            assertEquals(FailureDelay.MAX_CAP_MS, vault.failureDelayCapMs())
-            clock.advance(FailureDelay.MAX_CAP_MS - 1)
-            assertRejected(vault.unlock(PASSWORD.toCharArray()))
-            clock.advance(1)
-            unlocked(vault.unlock(PASSWORD.toCharArray())).close()
+            // No copy verifies, so the count is unknown and the threshold counts as reached: the next attempt erases the vault,
+            // even with the right password.
+            assertEquals(UnlockResult.Erased, vault.unlock(PASSWORD.toCharArray()))
+            assertFalse(vault.exists())
         }
     }
 
