@@ -68,14 +68,15 @@ private const val TOKEN_SYSTEM = "0x20000000000000000000000000000000000000c8"
 private const val HYPE_NEAR_MISS = "0x2222222222222222222222222222222222222223"
 private const val TOKEN_NEAR_MISS = "0x21000000000000000000000000000000000000c8"
 private const val HYPEREVM_TOKEN = "0x1111111111111111111111111111111111111111"
+private const val HYPEREVM_UNLINKED = "0x3333333333333333333333333333333333333333"
 
-/** HyperEVM mainnet (999) and testnet (998), as the registry names them. */
+/** HyperEVM mainnet (999) and testnet (998), as the registry names them. HYPEREVM_TOKEN is the one registered token. */
 private val HYPEREVM_REGISTRY = Registry(
     networks = listOf(
         NetworkEntry(999, "HyperEVM", "HYPE", 18, FeeModel.L1, null, testnet = false),
         NetworkEntry(998, "HyperEVM Testnet", "HYPE", 18, FeeModel.L1, null, testnet = true),
     ),
-    tokens = emptyList(),
+    tokens = listOf(TokenEntry(999, HYPEREVM_TOKEN, "HYT", "HyperEVM Test Token", 18)),
 )
 
 /** Monad testnet (10143), as the debug catalog names it, and Ethereum with USDC. */
@@ -514,6 +515,14 @@ class EvmReviewTest {
         assertEquals("Move to HyperCore", review.title)
         // The label adds to the review: the call's function and its recipient are still shown.
         assertTrue(review.sections.flatMap { it.rows }.any { it.label == "to" }, "the recipient row is still shown")
+    }
+
+    @Test
+    fun anErc20TransferByAnUnlinkedContractToATokenSystemAddressKeepsItsFunctionTitle() {
+        val call = ContractCall.Transfer(TOKEN_SYSTEM, BigInteger.valueOf(1_000_000)).encode()!!
+        val review = reviewOf(txParsed(HYPEREVM_UNLINKED, call, chainId = 999), builder(HYPEREVM_REGISTRY))
+
+        assertEquals("transfer", review.title)
     }
 
     @Test
