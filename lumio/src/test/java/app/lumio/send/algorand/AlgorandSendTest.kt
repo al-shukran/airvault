@@ -31,10 +31,10 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.Dispatcher
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.RecordedRequest
+import mockwebserver3.Dispatcher
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+import mockwebserver3.RecordedRequest
 import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
 import org.bouncycastle.crypto.signers.Ed25519Signer
 import org.junit.After
@@ -68,7 +68,7 @@ class AlgorandSendTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     private fun plan(amount: BigInteger = BigInteger.valueOf(1_000_000L), at: AlgorandFunds = funds): AlgorandSendPlan =
@@ -290,19 +290,19 @@ class AlgorandSendTest {
     fun theBroadcastReturnsTheIdTheNetworkReportsForThePlanTransaction() = runBlocking {
         val plan = plan()
         val signed = AlgoSignedTxn.assemble(plan.txnBytes, ByteArray(64) { 1 })
-        server.enqueue(MockResponse().setBody("""{"txId":"${AlgoSignedTxn.txid(plan.txnBytes)}"}"""))
+        server.enqueue(MockResponse.Builder().body("""{"txId":"${AlgoSignedTxn.txid(plan.txnBytes)}"}""").build())
 
         val txid = AlgorandSend.broadcast(scheduler(this), plan, signed)
 
         assertEquals(AlgoSignedTxn.txid(plan.txnBytes), txid)
-        assertContentEquals(signed, server.takeRequest().body.readByteArray())
+        assertContentEquals(signed, server.takeRequest().body?.toByteArray() ?: ByteArray(0))
     }
 
     @Test
     fun theBroadcastIsRefusedWhenTheNetworkReportsAnotherTransaction() = runBlocking {
         val plan = plan()
         val signed = AlgoSignedTxn.assemble(plan.txnBytes, ByteArray(64) { 1 })
-        server.enqueue(MockResponse().setBody("""{"txId":"${AlgoSignedTxn.txid(plan(BigInteger.TEN).txnBytes)}"}"""))
+        server.enqueue(MockResponse.Builder().body("""{"txId":"${AlgoSignedTxn.txid(plan(BigInteger.TEN).txnBytes)}"}""").build())
 
         val error = assertFailsWith<IllegalArgumentException> { AlgorandSend.broadcast(scheduler(this), plan, signed) }
 
@@ -331,12 +331,12 @@ class AlgorandSendTest {
     private fun algodAt(balance: () -> Long, round: () -> Long) {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse = when {
-                request.path?.startsWith("/v2/accounts/") == true -> MockResponse().setBody("""{"amount":${balance()},"assets":[]}""")
-                request.path == "/v2/transactions/params" -> MockResponse().setBody(
+                request.target.startsWith("/v2/accounts/") -> MockResponse.Builder().body("""{"amount":${balance()},"assets":[]}""").build()
+                request.target == "/v2/transactions/params" -> MockResponse.Builder().body(
                     """{"genesis-id":"testnet-v1.0","genesis-hash":"SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=","last-round":${round()},""" +
                         """"fee":0,"min-fee":1000}""",
-                )
-                else -> MockResponse().setResponseCode(404)
+                ).build()
+                else -> MockResponse.Builder().code(404).build()
             }
         }
     }

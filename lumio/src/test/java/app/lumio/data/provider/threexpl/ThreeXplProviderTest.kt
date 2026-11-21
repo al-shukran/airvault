@@ -21,8 +21,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -49,7 +49,7 @@ class ThreeXplProviderTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     private fun cfg(key: String? = null) = ProviderConfig(baseUrl = server.url("/").toString(), apiKey = key)
@@ -67,41 +67,41 @@ class ThreeXplProviderTest {
 
     @Test
     fun theNativeBalanceIsReadFromTheEthereumMainnetModuleAsWei() {
-        server.enqueue(MockResponse().setBody(recordedBalance))
+        server.enqueue(MockResponse.Builder().body(recordedBalance).build())
 
         assertEquals(BigInteger("5798969845714110716"), call(NativeBalance(ETH, ethAddress)))
         val request = server.takeRequest()
-        assertEquals("/ethereum/address/$ethAddress", request.requestUrl!!.encodedPath)
-        assertEquals("balances", request.requestUrl!!.queryParameter("data"))
-        assertEquals("ethereum-main", request.requestUrl!!.queryParameter("from"))
-        assertNull(request.getHeader("Authorization"))
+        assertEquals("/ethereum/address/$ethAddress", request.url.encodedPath)
+        assertEquals("balances", request.url.queryParameter("data"))
+        assertEquals("ethereum-main", request.url.queryParameter("from"))
+        assertNull(request.headers["Authorization"])
     }
 
     @Test
     fun aKeyGoesInTheAuthorizationHeaderAndNeverInTheQuery() {
-        server.enqueue(MockResponse().setBody(recordedBalance))
+        server.enqueue(MockResponse.Builder().body(recordedBalance).build())
 
         call(NativeBalance(ETH, ethAddress), cfg(key = "KEY-123"))
 
         val request = server.takeRequest()
-        assertEquals("Bearer KEY-123", request.getHeader("Authorization"))
-        assertNull(request.requestUrl!!.queryParameter("token"))
-        assertNull(request.requestUrl!!.queryParameter("key"))
+        assertEquals("Bearer KEY-123", request.headers["Authorization"])
+        assertNull(request.url.queryParameter("token"))
+        assertNull(request.url.queryParameter("key"))
     }
 
     @Test
     fun aBalanceThatIsNotAPlainIntegerIsRefusedNotRounded() {
-        server.enqueue(MockResponse().setBody(balanceBody("1.5")))
-        server.enqueue(MockResponse().setBody(balanceBody("1e18")))
-        server.enqueue(MockResponse().setBody(balanceBody("-1")))
+        server.enqueue(MockResponse.Builder().body(balanceBody("1.5")).build())
+        server.enqueue(MockResponse.Builder().body(balanceBody("1e18")).build())
+        server.enqueue(MockResponse.Builder().body(balanceBody("-1")).build())
 
         repeat(3) { assertFailsWith<ProviderError.Fatal> { call(NativeBalance(ETH, ethAddress)) } }
     }
 
     @Test
     fun aPaymentRequiredOrQuotaAnswerIsARateLimitWithNoFixedCooldown() {
-        server.enqueue(MockResponse().setResponseCode(402))
-        server.enqueue(MockResponse().setResponseCode(430))
+        server.enqueue(MockResponse.Builder().code(402).build())
+        server.enqueue(MockResponse.Builder().code(430).build())
 
         assertNull(assertFailsWith<ProviderError.RateLimited> { call(NativeBalance(ETH, ethAddress)) }.retryAfterMs)
         assertNull(assertFailsWith<ProviderError.RateLimited> { call(NativeBalance(ETH, ethAddress)) }.retryAfterMs)
@@ -109,14 +109,14 @@ class ThreeXplProviderTest {
 
     @Test
     fun aRetryAfterHeaderIsTheCooldownInMilliseconds() {
-        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "30"))
+        server.enqueue(MockResponse.Builder().code(429).setHeader("Retry-After", "30").build())
 
         assertEquals(30_000L, assertFailsWith<ProviderError.RateLimited> { call(NativeBalance(ETH, ethAddress)) }.retryAfterMs)
     }
 
     @Test
     fun aRejectedKeyIsFatalAndTheMessageHoldsNoKey() {
-        server.enqueue(MockResponse().setResponseCode(401))
+        server.enqueue(MockResponse.Builder().code(401).build())
 
         val e = assertFailsWith<ProviderError.Fatal> { call(NativeBalance(ETH, ethAddress), cfg(key = "KEY-123")) }
         assertFalse(e.message.orEmpty().contains("KEY-123"))
