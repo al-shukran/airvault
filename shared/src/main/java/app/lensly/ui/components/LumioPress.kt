@@ -1,5 +1,6 @@
 package app.lensly.ui.components
 
+import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -28,7 +29,8 @@ import app.lensly.ui.theme.LumenMotion
  * The press and the tap of every tappable Lensly and Lumio surface (section 3.4). The surface shrinks to [scale] and the ripple starts on the frame of
  * the touch-down, and both let go on the release, or when a scroll takes the touch. A long press calls [onLongClick] when it is set. Compose's
  * clickable waits about 40 ms inside a scrollable before it shows a press, so this modifier reads the touch itself and feeds the press to the ripple at
- * once. [shape] clips the ripple to the surface. It is the only press feedback of a tappable surface, and it gives the button role.
+ * once. [shape] clips the ripple to the surface. [releaseSpring] brings the surface back to full size after a release. It is the only press feedback
+ * of a tappable surface, and it gives the button role.
  */
 fun Modifier.lumioPress(
     scale: Float,
@@ -36,6 +38,7 @@ fun Modifier.lumioPress(
     onLongClick: (() -> Unit)? = null,
     enabled: Boolean = true,
     shape: Shape? = null,
+    releaseSpring: AnimationSpec<Float> = LumenMotion.spatialFast,
 ): Modifier = composed {
     val interaction = remember { MutableInteractionSource() }
     val press = remember { Animatable(1f) }
@@ -50,7 +53,7 @@ fun Modifier.lumioPress(
         }
         .then(if (shape != null) Modifier.clip(shape) else Modifier)
         .indication(interaction, LocalIndication.current)
-        .pointerInput(enabled, scale, reduced, hasLongClick) {
+        .pointerInput(enabled, scale, reduced, hasLongClick, releaseSpring) {
             if (enabled) {
                 detectTapGestures(
                     onPress = { position ->
@@ -59,7 +62,7 @@ fun Modifier.lumioPress(
                         interaction.emit(pressed)
                         val released = tryAwaitRelease()
                         interaction.emit(if (released) PressInteraction.Release(pressed) else PressInteraction.Cancel(pressed))
-                        if (reduced) press.snapTo(1f) else press.animateTo(1f, LumenMotion.spatialFast)
+                        if (reduced) press.snapTo(1f) else press.animateTo(1f, releaseSpring)
                     },
                     onLongPress = if (hasLongClick) {
                         { _ -> currentOnLongClick?.invoke() }
