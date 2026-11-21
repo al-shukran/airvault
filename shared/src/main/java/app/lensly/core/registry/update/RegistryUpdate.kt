@@ -1,6 +1,7 @@
 package app.lensly.core.registry.update
 
 import app.lensly.core.registry.Registry
+import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.vault.writeAtomically
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -9,7 +10,8 @@ import java.io.InputStream
 /**
  * Offline catalog updates. A registry package adds networks and tokens to the baked-in catalog. It can never
  * change or remove a baked entry. Its whitelist, denylist and wallets are the effective ones only when the package is newer by
- * sequence than the build's catalog; otherwise the build's lists stay. A list the package does not carry keeps the build's too.
+ * sequence than the build's catalog; otherwise the build's lists stay. A list the package does not carry keeps the one in effect:
+ * the whitelist keeps the last installed one that carried it, and the denylist and wallets keep the build's.
  * A package is accepted only when a key the build trusts signed it (see [TrustedKeys]), and only when its sequence is higher than
  * every sequence accepted before.
  *
@@ -25,6 +27,12 @@ object RegistryUpdate {
      * working when the installed package itself can no longer be read.
      */
     const val SEQUENCE_FILE = "accepted-sequence"
+
+    /**
+     * The last accepted package that carried a whitelist, stored beside [INSTALLED_FILE]. A later package that omits its whitelist
+     * keeps this one's, so the installed whitelist survives an update that does not restate it.
+     */
+    const val WHITELIST_FILE = "whitelist.lrp"
 
     private val installLock = Any()
 
@@ -82,6 +90,7 @@ object RegistryUpdate {
             check(dir.isDirectory || dir.mkdirs()) { "cannot create ${dir.path}" }
             // The package goes first: if the record write is lost, the package still gives its own sequence.
             writeAtomically(File(dir, INSTALLED_FILE), bytes)
+            if (incoming.whitelist != null) writeAtomically(File(dir, WHITELIST_FILE), bytes)
             writeAtomically(File(dir, SEQUENCE_FILE), incoming.sequence.toString().toByteArray())
             incoming
         }
@@ -91,7 +100,8 @@ object RegistryUpdate {
      * The [registry] with the installed package in [dir] merged in. Installed networks and tokens are only added. The effective
      * whitelist, denylist and wallets come from one source only: the installed package's when its sequence is higher than the
      * build's [Registry.catalogSequence], otherwise the build's (a tie keeps the build's). A list the package does not carry keeps
-     * the build's. When there is no installed package, or it no longer verifies against [registry] (for
+     * the one in effect: the whitelist keeps the last installed one that carried it, see [keptWhitelist]. The denylist and wallets
+     * keep the build's. When there is no installed package, or it no longer verifies against [registry] (for
      * example because an app update bakes one of its chain IDs), [registry] is returned unchanged; a failed verification is
      * flagged on the result so Settings can say the built-in catalog is in use.
      */
@@ -100,9 +110,21 @@ object RegistryUpdate {
         val installed = installedPackage(registry, dir, trustedKeys) ?: return registry.withInstalledUpdateUnverified()
         val merged = registry.withAdditions(installed.networks, installed.tokens)
         if (installed.sequence <= registry.catalogSequence) return merged
-        return merged.withWhitelist(installed.whitelist ?: registry.whitelistEntries())
+        return merged.withWhitelist(installed.whitelist ?: keptWhitelist(registry, dir, trustedKeys) ?: registry.whitelistEntries())
             .withDenylist(installed.denylist ?: registry.denylistEntries())
             .withWallets(installed.wallets ?: registry.walletEntries())
+    }
+
+    /**
+     * The whitelist of the last installed package that carried one, when it verifies against [registry] and is newer than its
+     * catalog, as the whitelist rule requires. Null when there is none in effect.
+     */
+    private fun keptWhitelist(registry: Registry, dir: File, trustedKeys: List<TrustedKey>): List<WhitelistEntry>? {
+        val file = File(dir, WHITELIST_FILE)
+        if (!file.isFile) return null
+        val kept = verify(file.readBytes(), trustedKeys, registry).getOrNull() ?: return null
+        if (kept.sequence <= registry.catalogSequence) return null
+        return kept.whitelist
     }
 
     /**

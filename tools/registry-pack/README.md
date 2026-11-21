@@ -72,7 +72,7 @@ The entries file is the source a package is built from. Entries may appear in an
 | `createdAt` | ISO date, `yyyy-mm-dd`. |
 | `networks` | Networks the package adds. A package cannot add a testnet. |
 | `tokens` | Tokens the package adds. Each token's chain must be baked into the application or added by this package. |
-| `whitelist` | Optional. The contract calls that may be signed despite a Decode Gap (see below). Omitted, the application keeps its built-in list; `[]` clears it. |
+| `whitelist` | Optional. The contract calls that may be signed despite a Decode Gap (see below). Omitted, the application keeps the whitelist it has installed, or its built-in list when none is installed; `[]` clears it. |
 | `denylist` | Optional. Known-dangerous requests that get a warning or a refusal (see below). Omitted, the application keeps its built-in list; `[]` clears it. |
 | `wallets` | Optional. The Wallet Compatibility Registry: online wallets and their code formats (see below). Omitted, the application keeps its built-in list; `[]` clears it. |
 
