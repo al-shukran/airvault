@@ -4,6 +4,7 @@ import android.provider.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import app.lensly.ui.screenshot.snapshot
+import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.theme.LumenTheme
 import org.robolectric.RuntimeEnvironment
 
@@ -23,6 +24,16 @@ fun ComposeContentTestRule.lumioSnapshot(
     beforeCapture: ComposeContentTestRule.() -> Unit = {},
     content: @Composable () -> Unit,
 ) {
-    Settings.Global.putFloat(RuntimeEnvironment.getApplication().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
+    reduceMotion()
     snapshot(name = name, settleMs = settleMs, beforeCapture = beforeCapture, theme = { LumenTheme(content = it) }, content = content)
+}
+
+/** Renders [content] in the Clear Air theme at the goldens' frame, with reduced motion on, as [lumioSnapshot] does for Lumen. */
+fun ComposeContentTestRule.clearAirSnapshot(name: String, content: @Composable () -> Unit) {
+    reduceMotion()
+    snapshot(name = name, theme = { ClearAirTheme(content = it) }, content = content)
+}
+
+private fun reduceMotion() {
+    Settings.Global.putFloat(RuntimeEnvironment.getApplication().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
 }
