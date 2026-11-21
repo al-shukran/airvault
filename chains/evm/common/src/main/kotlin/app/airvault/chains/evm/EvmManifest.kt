@@ -50,8 +50,8 @@ val evmManifest: ChainManifest = ChainManifest(
         ),
     ),
     capabilities = setOf(Capability.MESSAGE_SIGNING, Capability.TYPED_DATA_SIGNING),
-    requestTypes = listOf(UrTypeSpec("eth-sign-request", Direction.REQUEST, 1..1)),
-    responseTypes = listOf(UrTypeSpec("eth-signature", Direction.RESPONSE, 1..1)),
+    requestTypes = listOf(UrTypeSpec("eth-sign-request", Direction.REQUEST)),
+    responseTypes = listOf(UrTypeSpec("eth-signature", Direction.RESPONSE)),
     fields = emptyList(),
     requiresPrimary = true,
 )

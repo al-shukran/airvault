@@ -3,6 +3,7 @@ package app.lensly.core.ur
 import app.airvault.chains.algorand.AlgoSignRequest
 import app.airvault.chains.algorand.AlgoSignRequestEncoder
 import app.airvault.chains.algorand.AlgoSignType
+import app.airvault.core.signer.UNKNOWN_REQUEST
 import app.lensly.app.export.partsOf
 import com.sparrowwallet.hummingbird.UR
 import kotlin.test.assertContentEquals
@@ -127,6 +128,12 @@ class AlgoSignRequestTest {
             "This request uses something this Lensly does not know. It may come from a newer Lumio. Nothing was signed.",
             rejectedReason(payload(7L to Cbor.Uint(0))),
         )
+    }
+
+    @Test
+    fun aKeyFromTheReservedRangeIsIgnoredAndAnyOtherUnknownKeyIsRefused() {
+        assertIs<AlgoSignRequest.Result.Ok>(AlgoSignRequest.decode(payload(1000L to Cbor.Uint(0))))
+        assertEquals(UNKNOWN_REQUEST, rejectedReason(payload(999L to Cbor.Uint(0))))
     }
 
     @Test

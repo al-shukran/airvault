@@ -129,13 +129,19 @@ class EthSignRequestTest {
 
     @Test
     fun refusesAKeyOutsideTheSevenFields() {
-        for (key in listOf(0L, 8L, 100L)) {
+        for (key in listOf(0L, 8L, 100L, 999L)) {
             val rejected = assertIs<EthSignRequest.Result.Rejected>(EthSignRequest.decode(payloadWithKey(key)), message = "key $key")
             assertEquals(
                 "This request uses something this Lensly does not know. It may come from a newer Lumio. Nothing was signed.",
                 rejected.reason,
             )
         }
+    }
+
+    /** Keys from 1000 are reserved for Lumio labels, which never change the signed bytes or the review, so the codec ignores them. */
+    @Test
+    fun ignoresAKeyFromTheReservedRange() {
+        assertIs<EthSignRequest.Result.Ok>(EthSignRequest.decode(payloadWithKey(1000L)))
     }
 
     @Test

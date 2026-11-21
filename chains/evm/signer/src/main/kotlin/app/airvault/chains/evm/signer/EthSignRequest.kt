@@ -5,6 +5,7 @@ import app.lensly.core.parse.ParserLimits
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.MalformedPayloadException
 import app.lensly.core.ur.PathStep
+import app.lensly.core.ur.RESERVED_KEYS_FROM
 import app.lensly.core.ur.UUID_TAG
 import app.lensly.core.ur.keyPathOf
 import app.lensly.core.ur.malformed
@@ -116,6 +117,7 @@ class EthSignRequest(
             val fields = HashMap<Long, Cbor>()
             for ((key, value) in dict.entries) {
                 val number = uintOf(key, "map key")
+                if (number >= RESERVED_KEYS_FROM) continue
                 if (number !in 1L..7L) malformed(UNKNOWN_REQUEST)
                 if (fields.put(number, value) != null) malformed("duplicate map key $number")
             }

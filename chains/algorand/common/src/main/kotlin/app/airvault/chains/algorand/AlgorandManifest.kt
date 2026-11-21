@@ -46,8 +46,8 @@ val algorandManifest: ChainManifest = ChainManifest(
         ),
     ),
     capabilities = emptySet(),
-    requestTypes = listOf(UrTypeSpec("algo-sign-request", Direction.REQUEST, 1..1)),
-    responseTypes = listOf(UrTypeSpec("algo-signature", Direction.RESPONSE, 1..1)),
+    requestTypes = listOf(UrTypeSpec("algo-sign-request", Direction.REQUEST)),
+    responseTypes = listOf(UrTypeSpec("algo-signature", Direction.RESPONSE)),
     fields = listOf(
         FieldSpec(FieldKey("algorand.note"), FieldKind.MemoBytes(maxBytes = 1024), label = "Note"),
         FieldSpec(
