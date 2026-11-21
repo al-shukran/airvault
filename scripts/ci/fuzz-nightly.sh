@@ -112,11 +112,12 @@ for target in "${targets[@]}"; do
     # Each target is its own Gradle invocation: Jazzer only fuzzes one @FuzzTest per run.
     # -PfuzzLane selects the fuzz package, which the shared unit-test JVM skips: Jazzer and Robolectric
     # cannot share a JVM (see the note in shared/build.gradle.kts).
+    # --no-build-cache: JAZZER_FUZZ is not a task input, so a cache hit restores old outputs and runs no fuzzing.
     if [ -n "$seconds" ]; then
-        JAZZER_FUZZ=1 ./gradlew :shared:cleanTestDebugUnitTest :shared:testDebugUnitTest \
+        JAZZER_FUZZ=1 ./gradlew --no-build-cache :shared:cleanTestDebugUnitTest :shared:testDebugUnitTest \
             --tests "$target" -PfuzzLane "-PfuzzMaxSeconds=$seconds" || status=1
     else
-        JAZZER_FUZZ=1 ./gradlew :shared:cleanTestDebugUnitTest :shared:testDebugUnitTest \
+        JAZZER_FUZZ=1 ./gradlew --no-build-cache :shared:cleanTestDebugUnitTest :shared:testDebugUnitTest \
             --tests "$target" -PfuzzLane || status=1
     fi
 done

@@ -55,7 +55,7 @@ lanes:
                androidTest and benchmark compile of :app and :lumio (master and merge queue only)
   lint-app, lint-shared, lint-lumio
                lintReportDebug of one module's main sources, the legs of the lint job (see run_lint)
-  manifest    merged manifests: no INTERNET in :app, Lumio's allow-list, OkHttp off the release classpath of :app
+  manifest    merged manifests: no INTERNET or ACCESS_NETWORK_STATE in :app, Lumio's allow-list, OkHttp off the release classpath of :app
   ci           bash -n on every script, check-partitions.sh and check-test-network.sh (no Gradle)
 USAGE_END
 }
@@ -234,11 +234,13 @@ run_manifest() {
         echo "error: merged release manifest of :app not found under app/build/intermediates" >&2
         exit 1
     fi
-    if grep -q '"android.permission.INTERNET"' "$merged"; then
-        echo "error: android.permission.INTERNET is in the merged release manifest of :app; Lensly is offline by design" >&2
-        exit 1
-    fi
-    echo "ok: the merged release manifest of :app has no android.permission.INTERNET"
+    for permission in android.permission.INTERNET android.permission.ACCESS_NETWORK_STATE; do
+        if grep -q "\"$permission\"" "$merged"; then
+            echo "error: $permission is in the merged release manifest of :app; Lensly is offline by design" >&2
+            exit 1
+        fi
+    done
+    echo "ok: the merged release manifest of :app has no INTERNET and no ACCESS_NETWORK_STATE permission"
     # R56: web3j brings OkHttp, the HTTP client, and shared excludes it from web3j. :app never calls it.
     local deps
     deps="$(./gradlew --offline :app:dependencies --configuration releaseRuntimeClasspath -q)"

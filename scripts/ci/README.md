@@ -18,7 +18,7 @@ fails it, except dependency review, which is skipped until `DEPENDENCY_GRAPH_ENA
 | `apk` | the Lumio debug APK, `:lumio:assembleDebug` | `android` |
 | `android-tests` | androidTest and benchmark compile of `:app` and `:lumio`; master and merge queue only (a step of `android`) | `android` |
 | `lint-app`, `lint-shared`, `lint-lumio` | `lintReportDebug` of one module's main sources; the unit-test, androidTest and test-fixture analyses run in nightly `lintDebug`; a leg compiles its module and the modules it depends on | `lint` (matrix) |
-| `manifest` | merged manifests (no INTERNET in `:app`, Lumio's allow-list), no OkHttp on `:app`'s release classpath | `manifest` |
+| `manifest` | merged manifests (no INTERNET or ACCESS_NETWORK_STATE in `:app`, Lumio's allow-list), no OkHttp on `:app`'s release classpath | `manifest` |
 | `ci` | `bash -n` on every script, `check-partitions.sh`, `check-test-network.sh` (no Gradle) | `ci` |
 
 `secrets` (gitleaks) and `dependency_review` run beside them and need no Gradle.
@@ -75,7 +75,7 @@ The lines balance the lanes. A test class with no line still runs, so adding a t
 
 Builds the merged debug manifests of `:app` and `:lumio` (offline), then checks them. `:app` (Lensly) must declare no
 `INTERNET` and no `ACCESS_NETWORK_STATE`. `:lumio` may request only the permissions on its allow-list. `android:allowBackup`
-must be `"false"` in both. The `manifest` lane also checks the release manifest of `:app` for `INTERNET`, and the release runtime
+must be `"false"` in both. The `manifest` lane also checks the release manifest of `:app` for `INTERNET` and `ACCESS_NETWORK_STATE`, and the release runtime
 classpath for OkHttp.
 
 ## Extended kinds — `run-extended.sh <kind>`
