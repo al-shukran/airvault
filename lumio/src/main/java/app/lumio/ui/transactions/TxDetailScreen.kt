@@ -137,7 +137,7 @@ fun TransactionDetailScreen(
             if (detail.flags.isNotEmpty()) {
                 Spacer(Modifier.height(ClearAirSpacing.lg))
                 Text(
-                    text = "Flagged by the spam check",
+                    text = "Flagged by the Spam Check",
                     style = ClearAirType.label,
                     color = palette.ink2,
                     modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter),

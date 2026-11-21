@@ -204,7 +204,11 @@ private fun sampleTx(
     account = "0x" + "a1".repeat(20),
     hash = "0x" + id.hashCode().toUInt().toString(16).padStart(64, '0'),
     timestampMs = timestampMs,
-    asset = TxAsset(contract = null, symbol = if (network == SampleBase) "USDC" else "ETH", name = "Ether", decimals = 18),
+    asset = if (network == SampleBase) {
+        TxAsset(contract = "0x" + "ab".repeat(20), symbol = "USDC", name = "USD Coin", decimals = 6)
+    } else {
+        TxAsset(contract = null, symbol = "ETH", name = "Ether", decimals = 18)
+    },
     amount = BigInteger(amountWei),
     direction = direction,
     fee = BigInteger.valueOf(42_000),
