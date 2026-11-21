@@ -4,6 +4,7 @@ import java.io.File
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
@@ -83,24 +84,23 @@ class WalletPadTest {
     }
 
     @Test
-    fun anOlderStoreIsPaddedOnItsFirstUnlockAndItsWalletsStillOpen() {
+    fun aMissingOrDamagedRecordOfAWalletIsFilledOnUnlockAndTheWalletStillOpens() {
         create()
         val real = unlock()
-        val first = real.createWallet()
-        val second = real.createWallet()
-        real.putRecord(first, "secret", byteArrayOf(1, 2, 3))
+        val wallet = real.createWallet()
+        real.putRecord(wallet, "secret", byteArrayOf(1, 2, 3))
         real.close()
 
-        // An older store had one folder per wallet and no unused-slot list.
-        val owned = setOf(first, second)
-        layout.wallets.listFiles()?.filter { it.isDirectory && it.name !in owned }?.forEach { it.deleteRecursively() }
-        File(layout.root, WALLET_PAD_FILE_NAME).delete()
-        assertEquals(2, folderCount())
+        // A record the wallet lacks, and one of the wrong size, must not show in the folder shape.
+        val dir = layout.walletDir(wallet)
+        val shape = fileSet(dir)
+        File(dir, "bitcoin.bin").delete()
+        File(dir, "solana.bin").writeBytes(ByteArray(10))
+        assertNotEquals(shape, fileSet(dir))
 
         val reopened = unlock()
-        assertEquals(WALLET_SLOT_STEP, folderCount())
-        assertEquals(owned, reopened.listWallets().toSet())
-        assertContentEquals(byteArrayOf(1, 2, 3), reopened.getRecord(first, "secret"))
+        assertEquals(shape, fileSet(dir))
+        assertContentEquals(byteArrayOf(1, 2, 3), reopened.getRecord(wallet, "secret"))
         reopened.close()
     }
 

@@ -14,8 +14,8 @@ data class PathStep(val index: Int, val hardened: Boolean)
 
 /**
  * Reads a tag 304 keypath and returns its steps with the source fingerprint, which is null when the wallet left it out.
- * The request decoders share it, and SolSignRequest adds its own hardened-only rule. Its map is strict like the request map: a key from
- * RESERVED_KEYS_FROM is ignored, and any other key but 1, 2 and 3 is refused. A depth (key 3) must count the steps.
+ * The request decoders share it, and SolSignRequest adds its own hardened-only rule. Its map is strict like the request map: any key but
+ * 1, 2 and 3 is refused. A depth (key 3) must count the steps.
  */
 fun keyPathOf(item: Cbor): Pair<List<PathStep>, Int?> {
     val tagged = item as? Cbor.Tagged
@@ -52,7 +52,6 @@ private fun fieldsOf(root: Cbor): Map<Long, Cbor> {
     val fields = HashMap<Long, Cbor>()
     for ((key, value) in dict.entries) {
         val number = uintOf(key, "map key")
-        if (number >= RESERVED_KEYS_FROM) continue
         if (number !in 1L..3L) malformed(UNKNOWN_REQUEST)
         if (fields.put(number, value) != null) malformed("duplicate map key $number")
     }

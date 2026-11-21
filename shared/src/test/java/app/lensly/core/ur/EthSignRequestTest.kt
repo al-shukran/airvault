@@ -129,7 +129,7 @@ class EthSignRequestTest {
 
     @Test
     fun refusesAKeyOutsideTheSevenFields() {
-        for (key in listOf(0L, 8L, 100L, 999L)) {
+        for (key in listOf(0L, 8L, 100L, 999L, 1000L)) {
             val rejected = assertIs<EthSignRequest.Result.Rejected>(EthSignRequest.decode(payloadWithKey(key)), message = "key $key")
             assertEquals(
                 "This request uses something this Lensly does not know. It may come from a newer Lumio. Nothing was signed.",
@@ -138,21 +138,16 @@ class EthSignRequestTest {
         }
     }
 
-    /** Keys from 1000 are reserved for Lumio labels, which never change the signed bytes or the review, so the codec ignores them. */
+    /** The keypath map is strict like the request map: any key but 1, 2 and 3 is refused, including one from 1000. */
     @Test
-    fun ignoresAKeyFromTheReservedRange() {
-        assertIs<EthSignRequest.Result.Ok>(EthSignRequest.decode(payloadWithKey(1000L)))
-    }
-
-    /** The keypath map is strict like the request map: a reserved key is ignored, and any other key but 1, 2 and 3 is refused. */
-    @Test
-    fun aKeypathKeyFromTheReservedRangeIsIgnoredAndAnyOtherUnknownKeyIsRefused() {
-        assertIs<EthSignRequest.Result.Ok>(EthSignRequest.decode(payload(path = keypathWithField(1000L, Cbor.Uint(1L)))))
-        val rejected = assertIs<EthSignRequest.Result.Rejected>(EthSignRequest.decode(payload(path = keypathWithField(7L, Cbor.Uint(1L)))))
-        assertEquals(
-            "This request uses something this Lensly does not know. It may come from a newer Lumio. Nothing was signed.",
-            rejected.reason,
-        )
+    fun aKeypathKeyOutsideTheThreeFieldsIsRefused() {
+        for (key in listOf(7L, 1000L)) {
+            val rejected = assertIs<EthSignRequest.Result.Rejected>(EthSignRequest.decode(payload(path = keypathWithField(key, Cbor.Uint(1L)))))
+            assertEquals(
+                "This request uses something this Lensly does not know. It may come from a newer Lumio. Nothing was signed.",
+                rejected.reason,
+            )
+        }
     }
 
     /** The depth (key 3) is read when it is present: it must count the five steps of the path, and any other depth is refused. */

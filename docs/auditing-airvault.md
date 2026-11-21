@@ -189,8 +189,6 @@ The release APKs are unsigned by design: the tag workflow signs them. `apksigner
 | Entry gesture | Opens the hidden area from the cover screen; kept outside the vault | `shared/src/main/java/app/lensly/app/EntryGestureStore.kt`, `shared/src/main/java/app/lensly/ui/camera/EntryGesture.kt` |
 | Cover screen, hidden area | The front UI, and the routes behind the gesture | `shared/src/main/java/app/lensly/ui/CoverActivity.kt`, `shared/src/main/java/app/lensly/ui/navigation/HiddenArea.kt` |
 | Shown equals signed | The review text matches the signed bytes | Per-chain review files (5.3, F) |
-| Reserved keys | UR map keys from 1000 that Lensly ignores | `core/signer-api/src/main/kotlin/app/lensly/core/ur/ReservedKeys.kt` |
-| Frozen Lensly | A signer that never updates; Lumio keeps its wire format | `docs/creating-airvault-apps.md`, section 7.6 |
 
 ### 5.3 Seed High-Value Targets
 
@@ -204,7 +202,7 @@ rg -o '[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+\.(kt|kts|xml|yml|sh|pro|c|txt|aidl|tom
 - B. Failure counter, decoy, erase: `FailureDelay.kt` (its header lists threat items 1 to 17; each is a claim to test), `FailureStore.kt` (two copies, per-sequence HMAC keys, key deletion, residual risks), `PasswordPolicy.kt`, `app/src/main/java/app/lensly/app/DecoyVault.kt`, `app/src/main/java/app/lensly/ui/settings/FailureCapScreen.kt`, `shared/src/main/java/app/lensly/ui/gate/PasswordBuffer.kt`, `UnlockScreen.kt`, `CreatePasswordScreen.kt`, `shared/src/main/java/app/lensly/ui/flow/AppPasswordCheck.kt`.
 - C. Gate, cover screen, gesture: `shared/src/main/java/app/lensly/ui/SecureWindow.kt`, `shared/src/main/java/app/lensly/ui/navigation/CoverNavHost.kt`, `GalleryGate.kt`, `LockPolicy.kt`, `shared/src/main/java/app/lensly/ui/flow/EntryGestureChangeFlow.kt`, `EntryGestureChangePorts.kt`, `shared/src/main/java/app/lensly/ui/camera/PhotoStore.kt`, `CameraController.kt`, `lumio/src/main/java/app/lumio/EntryGestureRoutes.kt`, `lumio/src/main/java/app/lumio/LumioVault.kt`.
 - D. Mnemonic and keys: `shared/src/main/java/app/lensly/core/wallet/Mnemonic.kt` (words are a `CharArray`; each `get` yields a short-lived `String`; `text()` returns `CharArray`; `deriveSeed(passphrase: String)`), `EntropyMixer.kt` (dice input), `HdWallet.kt`, `Slip10Ed25519.kt`, `EvmKey.kt`, `Ed25519Signer.kt`, `PrivateKey.kt`, `LedgerPassphrase.kt`, `WalletKeyAccess.kt`, `SingleKeyAccess.kt`, `core/signer-api/src/main/kotlin/app/airvault/core/signer/KeyAccess.kt`, `ScopedKeyAccess.kt`. Screens and flows: `app/src/main/java/app/lensly/ui/wallet/DiceEntryScreen.kt`, `ShowSecretScreen.kt`, `MnemonicQuiz.kt`, `PassphraseGate.kt`, `ShredScreen.kt`; `app/src/main/java/app/lensly/ui/flow/RevealFlow.kt`, `ShredFlow.kt`, `AccountExportScreen.kt`; `docs/recover-with-ledger.md`.
-- E. Transport and sandboxes: `shared/src/main/java/app/lensly/core/parse/ParserSandbox.kt` (the trusted side re-checks every result), `ParserSandboxService.kt`, `ParserWire.kt`, `shared/src/main/aidl/app/lensly/core/parse/IParserSandbox.aidl`, `shared/src/main/aidl/app/lensly/core/qr/IQrDecoder.aidl`, `core/signer-api/src/main/kotlin/app/lensly/core/parse/ParserLimits.kt`, `shared/src/main/java/app/lensly/core/qr/QrDecodeService.kt`, `QrDecodeClient.kt`, `BinderQrDecodeTransport.kt`, `QrDecodeLimits.kt`, `LumaFrames.kt`, `shared/src/main/java/app/lensly/core/ur/UrScanner.kt`, `core/signer-api/src/main/kotlin/app/lensly/core/ur/Cbor.kt`, `core/signer-api/src/main/kotlin/app/lensly/core/ur/ReservedKeys.kt`.
+- E. Transport and sandboxes: `shared/src/main/java/app/lensly/core/parse/ParserSandbox.kt` (the trusted side re-checks every result), `ParserSandboxService.kt`, `ParserWire.kt`, `shared/src/main/aidl/app/lensly/core/parse/IParserSandbox.aidl`, `shared/src/main/aidl/app/lensly/core/qr/IQrDecoder.aidl`, `core/signer-api/src/main/kotlin/app/lensly/core/parse/ParserLimits.kt`, `shared/src/main/java/app/lensly/core/qr/QrDecodeService.kt`, `QrDecodeClient.kt`, `BinderQrDecodeTransport.kt`, `QrDecodeLimits.kt`, `LumaFrames.kt`, `shared/src/main/java/app/lensly/core/ur/UrScanner.kt`, `core/signer-api/src/main/kotlin/app/lensly/core/ur/Cbor.kt`.
 - F. Chain parsers and review:
   - Bitcoin: `chains/bitcoin/signer/src/main/kotlin/app/airvault/chains/bitcoin/signer/BtcPsbt.kt`, `BitcoinRequestParser.kt`, `BtcReview.kt`, `BtcReviewWarnings.kt`; `shared/src/main/java/app/lensly/core/btc/BtcUnsignedPsbt.kt`.
   - EVM: `chains/evm/signer/src/main/kotlin/app/airvault/chains/evm/signer/UnsignedTx.kt`, `EvmRequestParser.kt`, `EvmReview.kt`, `EvmTypedReview.kt`, `TypedData.kt`, `TypedDataParser.kt`; `chains/evm/signer/src/main/kotlin/app/lensly/core/evm/TxSigner.kt`, `MessageSigner.kt`, `TypedDataSigner.kt`; `abi/` (pure JVM ABI decoder).
@@ -216,11 +214,11 @@ rg -o '[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+\.(kt|kts|xml|yml|sh|pro|c|txt|aidl|tom
   - Manifests (coverage and unknown-call policy): `chains/evm/common/src/main/kotlin/app/airvault/chains/evm/EvmManifest.kt`, `chains/bitcoin/common/src/main/kotlin/app/airvault/chains/bitcoin/BitcoinManifest.kt`, `chains/solana/common/src/main/kotlin/app/airvault/chains/solana/SolanaManifest.kt`, `chains/algorand/common/src/main/kotlin/app/airvault/chains/algorand/AlgorandManifest.kt`, `core/signer-api/src/main/kotlin/app/lensly/core/registry/UnknownCallPolicy.kt`, `chains/evm/signer/src/main/kotlin/app/lensly/core/registry/ProxyPolicy.kt`.
   - Bulk signing: `shared/src/main/java/app/lensly/core/wallet/BulkCap.kt`, `BulkPolicy.kt`, `BulkRun.kt`; `app/src/main/java/app/lensly/app/SettingsStore.kt` holds the saved cap.
 - G. Registry and updates: `shared/src/main/java/app/lensly/core/registry/update/RegistryUpdate.kt`, `PackageFormat.kt`, `RegistryPackage.kt`, `RegistryCatalog.kt`, `TrustedKey.kt`; `shared/src/main/java/app/lensly/core/registry/RegistryLoader.kt`; `app/src/main/java/app/lensly/app/RegistryHolder.kt`; `shared/src/main/assets/registry/` (bundled registry); `tools/registry-pack/` (package builder); `tools/registry-data/` (source data).
-- H. Lumio: `lumio/src/main/AndroidManifest.xml`, `lumio/src/main/java/app/lumio/pair/FrozenLensly.kt` (frozen request table), `lumio/src/main/java/app/lumio/pair/PairedWallets.kt`, `shared/src/main/java/app/lensly/app/export/PairingCodec.kt`, `PairingExport.kt`, `app/src/main/java/app/lensly/app/export/AccountExport.kt`, `BrotliEncoder.kt`, `lumio/src/main/java/app/lumio/pair/PairAddressBooks.kt`, `lumio/src/main/java/app/lumio/send/PaymentCode.kt`, `lumio/src/main/java/app/lumio/send/solana/SolanaSend.kt`, `lumio/src/main/java/app/lumio/send/algorand/AlgorandSendRoute.kt`, `lumio/src/main/java/app/lumio/data/rpc/RpcPlugins.kt`, `lumio/src/main/java/app/lumio/ui/scan/LumioScanScreen.kt`.
+- H. Lumio: `lumio/src/main/AndroidManifest.xml`, `lumio/src/main/java/app/lumio/pair/PairedWallets.kt`, `shared/src/main/java/app/lensly/app/export/PairingCodec.kt`, `PairingExport.kt`, `app/src/main/java/app/lensly/app/export/AccountExport.kt`, `BrotliEncoder.kt`, `lumio/src/main/java/app/lumio/pair/PairAddressBooks.kt`, `lumio/src/main/java/app/lumio/send/PaymentCode.kt`, `lumio/src/main/java/app/lumio/send/solana/SolanaSend.kt`, `lumio/src/main/java/app/lumio/send/algorand/AlgorandSendRoute.kt`, `lumio/src/main/java/app/lumio/data/rpc/RpcPlugins.kt`, `lumio/src/main/java/app/lumio/ui/scan/LumioScanScreen.kt`.
 - I. Native: `app/src/main/cpp/brotli_jni.c`, `app/src/main/cpp/CMakeLists.txt` (pins the upstream Brotli SHA-256), `app/src/main/cpp/brotli/` (vendored copy), and every `.so` in the APK.
 - J. Manifests, build, release, CI: `app/src/main/AndroidManifest.xml`, `app/src/main/res/xml/data_extraction_rules.xml`, `shared/src/main/AndroidManifest.xml`, `app/build.gradle.kts` (release R8; `benchmark` is debug-signed, not minified, and profileable), `lumio/build.gradle.kts`, `app/proguard-rules.pro`, `lumio/proguard-rules.pro`, `gradle/verification-metadata.xml`, `gradle/libs.versions.toml`, `gradle/wrapper/gradle-wrapper.properties`, `.github/workflows/release.yml` (tag signing, attestation), `pr-fast.yml`, `nightly.yml`, `comment-run.yml` and `codeql-command.yml` (`issue_comment` triggers), `master-red.yml` (`workflow_run` trigger), the rest of `.github/workflows/` (`cache-cleanup.yml`, `codeql.yml`, `dependency-graph.yml`, `record-goldens.yml`), `scripts/ci/check-manifest.sh` (guards merged debug manifests only), `scripts/ci/fuzz-nightly.sh`, `scripts/ci/shards.txt`, `docs/releasing.md`.
 - K. Debug surfaces (must be absent from release): `app/src/debug/AndroidManifest.xml`, `app/src/debug/java/app/lensly/ui/gate/GatePreviewActivity.kt`, `app/src/debug/java/app/lensly/ui/wallet/WalletPreviewActivity.kt`, `app/src/debug/java/app/lensly/ui/qr/QrPreviewActivity.kt`, `shared/src/debug/java/app/lensly/DebugLaunch.kt` (`debugHidden` extra), `lumio/src/debug/AndroidManifest.xml`, `lumio/src/debug/java/app/lumio/DebugPairFixture.kt`, `lumio/src/debug/res/xml/network_security_config.xml`.
-- L. Claims to test: `docs/creating-airvault-apps.md` sections 7.6, 8.1 to 8.7, and 12 (treat every `[UNVERIFIED]` marker as a hypothesis to resolve); `README.md` (the offline claim); the header comments of `FailureDelay.kt` and `FailureStore.kt`.
+- L. Claims to test: `docs/creating-airvault-apps.md` sections 8.1 to 8.7, and 12 (treat every `[UNVERIFIED]` marker as a hypothesis to resolve); `README.md` (the offline claim); the header comments of `FailureDelay.kt` and `FailureStore.kt`.
 
 ### 5.4 Known Checks to Run First
 
@@ -237,7 +235,7 @@ These are checks, not findings. Close each one as Held, Confirmed (with a findin
 - [ ] Password result signature: item 12 says a passing try saves once more than a failing try. Measure whether an observer can tell right from wrong, or real from decoy.
 - [ ] Mnemonic strings: measure how long `String` copies of words and the passphrase survive after `wipe()`. Use a heap dump on a debuggable test build and a memory scan on a rooted test device.
 - [ ] Biometric and credential changes: `VaultKeystore.kt` disables biometric invalidation. Test what enrollment, a lock-screen change, or credential removal does, and whether it reaches the erase path (item 15).
-- [ ] Reserved keys from 1000 change neither the review nor the signed bytes.
+- [ ] Map keys from 1000 are refused like any other unknown key, so they cannot change the review or the signed bytes.
 - [ ] Algorand: `rekeyTo` and `assetSender` (clawback) are refused; `closeTo` warns; a group warns that the other transactions in it are not shown.
 - [ ] EVM transaction types `0x03` (blob) and `0x04` (EIP-7702 authorization list) are fully shown or refused.
 - [ ] Bitcoin: legacy inputs are checked against the full previous transaction, and sighash types other than `SIGHASH_ALL` are refused or labeled.
@@ -379,7 +377,7 @@ Existing harness: Jazzer targets in `shared/src/test/java/app/lensly/fuzz/` (`Ur
 - [ ] Every allocation driven by a length field is checked against the remaining input before it happens.
 - [ ] Every error path returns a refusal. No partial parse reaches the review.
 - [ ] Duplicate map keys are refused, not last-wins. Canonical key order is enforced where the chain requires it.
-- [ ] Unknown fields are refused, except reserved keys from 1000. Those keys must not change the signed bytes or the review.
+- [ ] Unknown fields are refused, including map keys from 1000.
 - [ ] Every number is range-checked before use. Every displayed string is valid UTF-8, and control and bidirectional characters are shown or refused.
 
 Attack ideas:
@@ -417,7 +415,7 @@ Checklist:
 
 Attack ideas:
 
-1. Reserved-key smuggling: add keys from 1000 whose values look like a recipient or an amount. The review must not present them as facts, and the signed bytes must not change.
+1. Key smuggling: add map keys from 1000 whose values look like a recipient or an amount. The request must be refused.
 2. Label spoofing: labels that disagree with the binary content. The review must show the binary content.
 3. Batch hiding: a benign call first and a drain second, in an Algorand group or an EVM multicall. The review must show every call, and an Algorand group must say that the other transactions are not shown.
 4. Unit and chain confusion: wei against gwei, lamports against SOL, satoshis against BTC, and legacy transactions without a chain ID.
@@ -503,7 +501,7 @@ Goal: assume Lumio is fully hostile. It runs attacker code, shows any UI, sends 
 - [ ] Registry packages are trusted only after verification by a trusted key and a higher sequence (S3); Lensly never takes one from Lumio. Lumio derives each account address from the exported public key, but Address Book entries in a pairing are only format-checked, so their names are unverified.
 - [ ] The review never depends on Lumio's text. RPC endpoints are the owner's configuration (`RpcPlugins.kt`). Release has no cleartext allowance and no added user CA trust.
 
-Attack ideas: write a hostile Lumio build in the scratch area (never published) and send crafted requests to a test Lensly; replace the pairing with one for an unknown account; send a sign request whose reserved keys and labels name a different recipient.
+Attack ideas: write a hostile Lumio build in the scratch area (never published) and send crafted requests to a test Lensly; replace the pairing with one for an unknown account; send a sign request with extra map keys from 1000 that name a different recipient.
 
 Evidence: the hostile build's source, a screen recording of the Lensly review, and the signed output compared with the reviewed request.
 
