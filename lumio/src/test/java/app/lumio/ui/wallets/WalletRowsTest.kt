@@ -2,40 +2,49 @@ package app.lumio.ui.wallets
 
 import app.airvault.core.model.AccountId
 import app.airvault.core.model.ChainId
-import app.lensly.core.btc.BtcNetwork
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.home.NativeAsset
-import app.lumio.ui.home.AssetIconSpec
 import app.lumio.wallets.WalletAccount
 import java.math.BigDecimal
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import org.junit.Test
 
-/** The wallet screens' state and text: the line under a wallet, the freshness of a total, the cents of a total, the stagger and the account rows. */
+/** The wallet screens' state and text: the line under a wallet, the freshness of a total, the monograms, and the fold of a family's accounts. */
 class WalletRowsTest {
-    private val fingerprint = 0x1a2b3c4dL
 
-    private fun account(chain: ChainId, index: Int = 0, balance: NativeAsset? = null) = WalletAccount(
+    private fun account(
+        chain: ChainId,
+        index: Int = 0,
+        balance: NativeAsset? = null,
+        name: String? = null,
+        script: String? = null,
+    ) = WalletAccount(
         walletId = "wallet-demo",
-        id = AccountId.of(chain, "0x" + "a1b2c3d4".repeat(5)),
+        id = AccountId.of(chain, "0x" + "%040x".format(index + 1)),
         index = index,
         networkName = "network",
         balance = balance,
+        script = script,
+        name = name,
     )
 
+    private fun coins(amount: String, network: NetworkId = NetworkId(Networks.evm(10143), testnet = true)) =
+        NativeAsset("EVM-10143", "MON", "Monad testnet", network, BigDecimal(amount))
+
     @Test
-    fun summaryCountsChainsAndAccounts() {
+    fun summaryCountsAccountsAndTheAppsThatHoldThem() {
         assertEquals("No accounts", summaryLine(emptyList()))
-        assertEquals("1 chain · 1 account", summaryLine(listOf(account(Networks.evm(1L)))))
-        assertEquals("1 chain · 2 accounts", summaryLine(listOf(account(Networks.evm(1L)), account(Networks.evm(1L), index = 1))))
-        val fourChains = listOf(
+        assertEquals("1 account · 1 app", summaryLine(listOf(account(Networks.evm(1L)))))
+        assertEquals("2 accounts · 1 app", summaryLine(listOf(account(Networks.evm(1L)), account(Networks.evm(1L), index = 1))))
+        val fourApps = listOf(
             account(Networks.BTC_MAINNET),
             account(Networks.evm(1L)),
             account(Networks.SOL_MAINNET),
             account(Networks.ALGO_MAINNET),
         )
-        assertEquals("4 chains · 4 accounts", summaryLine(fourChains))
+        assertEquals("4 accounts · 4 apps", summaryLine(fourApps))
     }
 
     @Test
@@ -51,27 +60,11 @@ class WalletRowsTest {
     }
 
     @Test
-    fun freshnessLineIsRefreshingThenTheAge() {
-        assertEquals("Refreshing…", freshnessLine(refreshing = true, updatedAtMs = 0L, nowMs = 0L))
-        assertEquals("Refreshing…", freshnessLine(refreshing = true, updatedAtMs = null, nowMs = 0L))
+    fun freshnessLineIsUpdatingThenTheAge() {
+        assertEquals("Updating…", freshnessLine(refreshing = true, updatedAtMs = 0L, nowMs = 0L))
+        assertEquals("Updating…", freshnessLine(refreshing = true, updatedAtMs = null, nowMs = 0L))
         assertEquals("Not updated yet", freshnessLine(refreshing = false, updatedAtMs = null, nowMs = 5_000_000L))
         assertEquals("Updated 3 min ago", freshnessLine(refreshing = false, updatedAtMs = 1_000_000L, nowMs = 1_000_000L + 3 * 60_000L))
-    }
-
-    @Test
-    fun splitCentsKeepsTheDecimalWithTheCents() {
-        assertEquals("\$12,480" to ".20", splitCents("\$12,480.20"))
-        assertEquals("\$0" to ".05", splitCents("\$0.05"))
-        assertEquals("\$1,234" to "", splitCents("\$1,234"))
-    }
-
-    @Test
-    fun staggerDelayStepsThirtyMillisecondsAndStopsAtTheEighth() {
-        assertEquals(0L, staggerDelayMs(0))
-        assertEquals(30L, staggerDelayMs(1))
-        assertEquals(210L, staggerDelayMs(7))
-        assertEquals(210L, staggerDelayMs(8), "items from the eighth share the eighth's timing")
-        assertEquals(210L, staggerDelayMs(40))
     }
 
     @Test
@@ -88,19 +81,77 @@ class WalletRowsTest {
     }
 
     @Test
-    fun tokenLineShowsTheCountOnlyWhenThereAreTokens() {
-        assertEquals(null, tokenLine(0))
-        assertEquals("+1 token", tokenLine(1))
-        assertEquals("+2 tokens", tokenLine(2))
+    fun accountTitleIsTheNameInLenslyOrItsPlaceInTheWallet() {
+        assertEquals("PulsarNova", accountTitle(account(Networks.evm(10143L), name = "PulsarNova")))
+        assertEquals("Account 2", accountTitle(account(Networks.evm(10143L), index = 1)))
     }
 
     @Test
-    fun accountIconsFollowTheChain() {
-        val monad = NetworkId(Networks.evm(10143), testnet = true)
-        assertEquals(AssetIconSpec.Bitcoin, accountIconSpec(account(Networks.BTC_MAINNET), evmChainId = 10143L) { null })
-        assertEquals(AssetIconSpec.Chain(null), accountIconSpec(account(Networks.evm(1L)), evmChainId = 10143L) { null })
-        val solanaBalance = NativeAsset("SOL-devnet", "SOL", "Solana devnet", monad, BigDecimal("0.4"))
-        assertEquals(AssetIconSpec.Letter("S"), accountIconSpec(account(Networks.SOL_MAINNET, balance = solanaBalance), evmChainId = 10143L) { null })
-        assertEquals(AssetIconSpec.Letter("A"), accountIconSpec(account(Networks.ALGO_MAINNET), evmChainId = 10143L) { null })
+    fun monogramTakesTheCapitalsOfTheNameOrItsFirstLetters() {
+        assertEquals("PN", monogramOf(account(Networks.evm(10143L), name = "PulsarNova")))
+        assertEquals("CS", monogramOf(account(Networks.evm(10143L), name = "Cold Storage")))
+        assertEquals("TR", monogramOf(account(Networks.evm(10143L), name = "Trading")))
+        assertEquals("E2", monogramOf(account(Networks.evm(10143L), index = 1)), "an unnamed account is its chain's letter and its place")
+        assertEquals("B1", monogramOf(account(Networks.BTC_TESTNET4)), "a Bitcoin account with no name is B and its place")
+    }
+
+    @Test
+    fun accountLineShowsTheAddressWithItsScriptOrItsAssetCount() {
+        val held = account(Networks.evm(10143L), balance = coins("12.5"))
+        assertEquals(shortAddress(held.address), accountLine(held, tokens = 0).substringBefore(" · "))
+        assertEquals("1 asset", accountLine(held, tokens = 0).substringAfter(" · "))
+        assertEquals("3 assets", accountLine(held, tokens = 2).substringAfter(" · "), "the coin and two tokens")
+        val bitcoin = account(Networks.BTC_TESTNET4, script = "Native SegWit")
+        assertEquals("Native SegWit", accountLine(bitcoin, tokens = 0).substringAfter(" · "))
+    }
+
+    @Test
+    fun accountLineShowsOnlyTheAddressWhileNoReadHasLanded() {
+        val unread = account(Networks.evm(10143L), balance = null)
+        assertEquals(shortAddress(unread.address), accountLine(unread, tokens = 0))
+    }
+
+    @Test
+    fun foldKeepsAccountsWorthMoreThanTheThresholdAndAnyWithoutARead() {
+        val big = account(Networks.evm(10143L), index = 0, balance = coins("10000"))
+        val unread = account(Networks.evm(10143L), index = 1, balance = null)
+        val priced = { _: WalletAccount -> 25_000.0 }
+        val fold = foldAccounts(listOf(big, unread), priced)
+        assertEquals(listOf(big, unread), fold.shown)
+        assertEquals(emptyList(), fold.folded)
+    }
+
+    @Test
+    fun foldTakesEmptyAccountsAndAccountsUnderTheThreshold() {
+        val empty = account(Networks.evm(10143L), index = 0, balance = coins("0"))
+        val small = account(Networks.evm(10143L), index = 1, balance = coins("4000"))
+        val unpriced = account(Networks.evm(10143L), index = 2, balance = coins("3"))
+        val big = account(Networks.evm(10143L), index = 3, balance = coins("9000"))
+        val usdOf: (WalletAccount) -> Double? = { account -> if (account === big) 22_500.0 else if (account === small) 10_000.0 else null }
+        val fold = foldAccounts(listOf(empty, small, unpriced, big), usdOf)
+        assertEquals(listOf(unpriced, big), fold.shown, "shown accounts keep their order in the wallet")
+        assertEquals(listOf(empty, small), fold.folded)
+        assertEquals(1, fold.empty)
+        assertEquals(1, fold.under)
+        assertEquals("1 empty, 1 under \$13K", foldSummary(fold))
+        assertEquals("2 More Accounts", moreAccountsTitle(2))
+        assertEquals("1 More Account", moreAccountsTitle(1))
+    }
+
+    @Test
+    fun foldSummaryNamesOnlyTheKindsThatAreThere() {
+        val empty = account(Networks.evm(10143L), index = 0, balance = coins("0"))
+        assertEquals("1 empty", foldSummary(foldAccounts(listOf(empty)) { null }))
+        val small = account(Networks.evm(10143L), index = 1, balance = coins("1"))
+        assertEquals("1 under \$13K", foldSummary(foldAccounts(listOf(small)) { 2.5 }))
+    }
+
+    @Test
+    fun groupUsdIsNullWhenNoAccountHasAPrice() {
+        val priced = account(Networks.evm(10143L), index = 0, balance = coins("1"))
+        val unpriced = account(Networks.BTC_TESTNET4, index = 0, balance = null)
+        val usdOf: (WalletAccount) -> Double? = { account -> if (account === priced) 25.0 else null }
+        assertEquals(25.0, groupUsd(listOf(priced, unpriced), usdOf))
+        assertNull(groupUsd(listOf(unpriced), usdOf))
     }
 }

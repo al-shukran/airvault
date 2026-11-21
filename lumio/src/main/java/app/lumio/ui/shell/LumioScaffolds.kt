@@ -11,10 +11,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -23,7 +20,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.network.NetworkMode
 import app.lumio.ui.kit.ClearAirPageTopBar
 import app.lumio.ui.kit.ClearAirRootTopBar
@@ -116,27 +112,6 @@ fun LumioPageScreen(
         ClearAirPageTopBar(title = title, backLabel = backLabel, onBack = onBack, onLock = onLock)
         offline?.let { ClearAirStatusBand(text = it) }
         Column(modifier = Modifier.weight(1f).fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars), content = content)
-    }
-}
-
-/**
- * The body of a page that scrolls: its [content], with the page's one action held at the foot, in [bottomAction], under the content. It sits in the
- * page's own area, so the action is above the navigation bar and the content scrolls beneath it.
- */
-@Composable
-fun LumioPageFrame(modifier: Modifier = Modifier, bottomAction: (@Composable () -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.sm),
-            content = content,
-        )
-        bottomAction?.let {
-            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.sm)) { it() }
-        }
     }
 }
 
