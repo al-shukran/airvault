@@ -151,9 +151,11 @@ jobs:
             || { echo "::error::$APK is not signed with the v2 scheme."; exit 1; }
           grep -Eq '^Verified using v3 scheme .*: true$' <<<"$verify" \
             || { echo "::error::$APK is not signed with the v3 scheme."; exit 1; }
-          cert=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' <<<"$verify")
-          if [ -z "$cert" ]; then
-            echo "::error::apksigner printed no signing certificate digest for $APK."
+          # Older apksigner prints "Signer #1 certificate ...", newer prints one "V<scheme> Signer: certificate ..." line per scheme.
+          # Every scheme must name the same single certificate.
+          cert=$(sed -n -E 's/^(Signer #1|V[0-9.]+ Signer:) certificate SHA-256 digest: //p' <<<"$verify" | sort -u)
+          if [ -z "$cert" ] || [ "$(wc -l <<<"$cert")" -ne 1 ]; then
+            echo "::error::apksigner printed no single signing certificate digest for $APK."
             exit 1
           fi
           echo "CERT_SHA256=$cert" >> "$GITHUB_ENV"

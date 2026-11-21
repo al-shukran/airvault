@@ -20,7 +20,7 @@ Run these in the folder that holds the APK. Replace `<apk>` with the APK file na
    gh attestation verify <apk> --repo <owner/repo>
    ```
 
-3. Check the signing certificate. The `Signer #1 certificate SHA-256 digest` line must match the signing certificate SHA-256 under Build below:
+3. Check the signing certificate. The `certificate SHA-256 digest` line (`Signer #1` or `V3.0 Signer`, depending on the apksigner version) must match the signing certificate SHA-256 under Build below:
 
    ```sh
    apksigner verify --print-certs <apk>
