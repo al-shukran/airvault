@@ -19,8 +19,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -44,7 +44,7 @@ class DefiLlamaChartTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     private fun cfg() = ProviderConfig(baseUrl = server.url("/").toString())
@@ -53,9 +53,9 @@ class DefiLlamaChartTest {
         DefiLlamaProvider().execute(PriceChart(asset, range, now), cfg(), http)
     }
 
-    private fun answerFor(coin: String, prices: String) = MockResponse().setBody(
+    private fun answerFor(coin: String, prices: String) = MockResponse.Builder().body(
         """{"coins":{"$coin":{"symbol":"X","confidence":0.99,"prices":[$prices]}}}""",
-    )
+    ).build()
 
     @Test
     fun theChartAsksTheRangeWindowAndSpacingAndKeepsTheTimeOrder() {
@@ -72,7 +72,7 @@ class DefiLlamaChartTest {
             listOf(PricePoint(1_799_995_200_000L, 1_831.25), PricePoint(1_799_998_800_000L, 1_840.5)),
             series.points,
         )
-        assertEquals("/chart/coingecko:ethereum?start=1799913600&span=25&period=1h", server.takeRequest().path)
+        assertEquals("/chart/coingecko:ethereum?start=1799913600&span=25&period=1h", server.takeRequest().target)
     }
 
     @Test
@@ -81,7 +81,7 @@ class DefiLlamaChartTest {
 
         chart(AssetId.Native(ETH), ChartRange.D30)
 
-        assertEquals("/chart/coingecko:ethereum?start=1797408000&span=31&period=1d", server.takeRequest().path)
+        assertEquals("/chart/coingecko:ethereum?start=1797408000&span=31&period=1d", server.takeRequest().target)
     }
 
     @Test
@@ -105,7 +105,7 @@ class DefiLlamaChartTest {
 
     @Test
     fun aCoinTheSourceDoesNotKnowIsUnsupported() {
-        server.enqueue(MockResponse().setBody("""{"coins":{}}"""))
+        server.enqueue(MockResponse.Builder().body("""{"coins":{}}""").build())
 
         assertFailsWith<ProviderError.Unsupported> { chart(AssetId.Native(ETH), ChartRange.H24) }
     }
@@ -117,7 +117,7 @@ class DefiLlamaChartTest {
         val series = chart(AssetId.Erc20(ETH, usdc), ChartRange.D30)
 
         assertEquals(listOf(PricePoint(1_799_998_800_000L, 1.0)), series.points)
-        assertEquals("/chart/ethereum:$usdc?start=1797408000&span=31&period=1d", server.takeRequest().path)
+        assertEquals("/chart/ethereum:$usdc?start=1797408000&span=31&period=1d", server.takeRequest().target)
     }
 
     @Test

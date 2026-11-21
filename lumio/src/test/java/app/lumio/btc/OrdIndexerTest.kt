@@ -9,8 +9,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -27,12 +27,12 @@ class OrdIndexerTest {
 
     @After
     fun stop() {
-        ord.shutdown()
+        ord.close()
     }
 
     private fun indexer(budgetMs: Long = INDEXER_BUDGET_MS): OrdIndexer = OrdIndexer(Http(OkHttpClient()), ord.url("/ord"), budgetMs)
 
-    private fun answer(body: String): MockResponse = MockResponse().setBody(body).setHeader("Content-Type", "application/json")
+    private fun answer(body: String): MockResponse = MockResponse.Builder().body(body).setHeader("Content-Type", "application/json").build()
 
     @Test
     fun anInscriptionOrARuneOnTheOutputMarksIt() = runBlocking<Unit> {
@@ -52,8 +52,8 @@ class OrdIndexerTest {
         indexer().markedOutputs(listOf(txid to 3))
 
         val asked = ord.takeRequest()
-        assertEquals("/ord/output/$txid:3", asked.path)
-        assertEquals("application/json", asked.getHeader("Accept"))
+        assertEquals("/ord/output/$txid:3", asked.target)
+        assertEquals("application/json", asked.headers["Accept"])
     }
 
     @Test
@@ -69,7 +69,7 @@ class OrdIndexerTest {
     fun aLookupThatRunsPastTheBudgetLeavesItsOutputUnmarked() = runBlocking<Unit> {
         // The headers arrive at once and the body only after 2 seconds, so the lookup is still waiting when the 300 ms budget ends. The delay stays
         // short, so the mock server can shut down in its teardown.
-        ord.enqueue(answer("""{"inscriptions":["${txid}i0"],"runes":{}}""").setBodyDelay(2, TimeUnit.SECONDS))
+        ord.enqueue(answer("""{"inscriptions":["${txid}i0"],"runes":{}}""").newBuilder().bodyDelay(2, TimeUnit.SECONDS).build())
         val started = System.nanoTime()
 
         assertEquals(emptySet(), indexer(budgetMs = 300L).markedOutputs(listOf(txid to 0)))
@@ -126,8 +126,8 @@ class OrdIndexerTest {
 
     @Test
     fun aServerErrorLeavesItsOutputUnmarked() = runBlocking<Unit> {
-        ord.enqueue(MockResponse().setResponseCode(500))
-        ord.enqueue(MockResponse().setResponseCode(404))
+        ord.enqueue(MockResponse.Builder().code(500).build())
+        ord.enqueue(MockResponse.Builder().code(404).build())
 
         assertEquals(emptySet(), indexer().markedOutputs(listOf(txid to 0)))
         assertEquals(emptySet(), indexer().markedOutputs(listOf(txid to 1)))

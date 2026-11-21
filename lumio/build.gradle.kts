@@ -17,7 +17,8 @@ val gitCommitCount = providers.exec {
 // navigation and Home. It holds no key material. The network permission is its own: check-manifest.sh holds its manifest to an allow-list.
 android {
     namespace = "app.lumio"
-    compileSdk = 36
+    // okhttp-android 5.5.1 requires libraries and applications that depend on it to compile against API 37. targetSdk stays 36.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "app.lumio"
@@ -116,7 +117,7 @@ dependencies {
     // The Esplora client reads JSON with the kotlinx.serialization library that :shared already ships in the APK.
     implementation(libs.kotlinx.serialization.json)
 
-    // Balances and nonces come from a public JSON-RPC endpoint over HTTPS. OkHttp is the client web3j already ships, at the same version.
+    // Balances and nonces come from a public JSON-RPC endpoint over HTTPS. :shared excludes web3j's OkHttp, so this declaration is the only one in the APK.
     implementation(libs.okhttp)
 
     // The cache and the scan queue are one Room database in the app's private storage. Room's processor runs through KSP.
@@ -140,7 +141,7 @@ dependencies {
     testImplementation(libs.kotlin.test)
 
     // The Esplora tests answer from a local MockWebServer, never from the network.
-    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.okhttp.mockwebserver3)
     // The Algorand send tests sign with a test key, the Ed25519 that :shared uses (its own classpath stays as it is).
     testImplementation(libs.bouncycastle.bcprov.jdk18on)
     // The scheduler and cache tests run in virtual time.

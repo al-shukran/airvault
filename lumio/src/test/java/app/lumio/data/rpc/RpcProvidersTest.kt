@@ -11,10 +11,10 @@ import app.lumio.data.route.ProviderState
 import app.lumio.data.route.Router
 import java.math.BigInteger
 import kotlinx.coroutines.runBlocking
-import okhttp3.mockwebserver.Dispatcher
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.RecordedRequest
+import mockwebserver3.Dispatcher
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+import mockwebserver3.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -31,7 +31,7 @@ class RpcProvidersTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     @Test
@@ -159,11 +159,11 @@ class RpcProvidersTest {
     fun theOwnerAddressAnswersTheBalanceReadOverMockWebServer() {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
-                val body = request.body.readUtf8()
+                val body = request.body?.utf8().orEmpty()
                 return if (body.contains("eth_getBalance")) {
-                    MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":"0x2a"}""")
+                    MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":"0x2a"}""").build()
                 } else {
-                    MockResponse().setResponseCode(400)
+                    MockResponse.Builder().code(400).build()
                 }
             }
         }

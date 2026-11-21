@@ -10,10 +10,10 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import okhttp3.mockwebserver.Dispatcher
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.RecordedRequest
+import mockwebserver3.Dispatcher
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+import mockwebserver3.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -38,12 +38,12 @@ class EvmSendRpcTest {
     fun start() {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
-                val body = request.body.readUtf8()
+                val body = request.body?.utf8().orEmpty()
                 bodies += body
                 val method = Regex("\"method\":\"([^\"]+)\"").find(body)?.groupValues?.get(1).orEmpty()
-                if (method in failing) return MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"nope"}}""")
-                val result = answers[method] ?: return MockResponse().setResponseCode(400)
-                return MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":$result}""")
+                if (method in failing) return MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"nope"}}""").build()
+                val result = answers[method] ?: return MockResponse.Builder().code(400).build()
+                return MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":$result}""").build()
             }
         }
         server.start()
@@ -56,7 +56,7 @@ class EvmSendRpcTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     private fun reads(): EvmReads = testReads(EvmSettings(rpc = mapOf(1L to server.url("/").toString())))
