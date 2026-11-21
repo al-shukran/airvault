@@ -68,8 +68,8 @@ private const val PAIRED_AT_MS = 1_731_000_000_000L
 /** A small phone, 360 by 640 dp, which the wallet goldens also draw at font scale 2.0. */
 private val SMALL_PHONE = DpSize(360.dp, 640.dp)
 
-/** How long the paused clock runs after a tap, so the press and its release have settled before the frame is drawn. */
-private const val FOLD_SETTLE_MS = 1_000L
+/** How long the paused clock runs after a tap, so the frames that show the tapped state are drawn before the capture. */
+private const val SETTLE_MS = 1_000L
 
 /** A landscape phone, 640 by 360 dp. */
 private val LANDSCAPE = DpSize(640.dp, 360.dp)
@@ -303,7 +303,7 @@ class WalletScreensScreenshotTest {
         beforeCapture = {
             onNodeWithText(moreAccountsTitle(FOLDED_COUNT)).performTouchInput { click() }
             // The press settles on the clock, which is paused, so the tap is let through before the frame is drawn.
-            mainClock.advanceTimeBy(FOLD_SETTLE_MS)
+            mainClock.advanceTimeBy(SETTLE_MS)
         },
         content = foldedWallet,
     )
@@ -476,7 +476,10 @@ class WalletScreensScreenshotTest {
     @Test
     fun accountEthereumActivityTab() = compose.lumioSnapshot(
         name = "account_ethereum_activity_tab",
-        beforeCapture = { onNodeWithText("Activity").performClick() },
+        beforeCapture = {
+            onNodeWithText("Activity").performClick()
+            mainClock.advanceTimeBy(SETTLE_MS)
+        },
         content = accountEthereumScreen,
     )
 
@@ -568,7 +571,10 @@ class WalletScreensScreenshotTest {
     @Test
     fun accountEmptyActivity() = compose.lumioSnapshot(
         name = "account_empty_activity",
-        beforeCapture = { onNodeWithText("Activity").performClick() },
+        beforeCapture = {
+            onNodeWithText("Activity").performClick()
+            mainClock.advanceTimeBy(SETTLE_MS)
+        },
     ) {
         AccountScreen(
             walletName = "Demo",
