@@ -177,6 +177,8 @@ gh pr list --label area:security --state merged --limit 200
 
 For each APK in `VARIANTS`, run `apkanalyzer manifest print`, `apkanalyzer dex packages`, `apkanalyzer files list`, `aapt2 dump badging`, `apksigner verify --print-certs`, and `shasum -a 256`. Check `exported`, `debuggable`, `allowBackup`, the permission list, and the native libraries.
 
+The release APKs are unsigned by design: the tag workflow signs them. `apksigner verify` on the unsigned artifact fails with `Missing META-INF/MANIFEST.MF`, which is correct, not a finding. Sign a copy with a throwaway key in the scratch area and verify that copy with `--min-sdk-version 24` (the command the tag workflow uses), and check the unsigned artifact with `zipalign -c` and `apkanalyzer`. `apkanalyzer` runs from the SDK's `cmdline-tools`, so set `ANDROID_HOME` first.
+
 ### 5.2 Terms the Code Uses
 
 | Term | Meaning | Look At |
@@ -224,10 +226,12 @@ rg -o '[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+\.(kt|kts|xml|yml|sh|pro|c|txt|aidl|tom
 
 These are checks, not findings. Close each one as Held, Confirmed (with a finding), or Gap.
 
-- [ ] Release merged manifest and DEX: no debug-only component, `debugHidden` handler, or preview activity. `check-manifest.sh` guards only the debug merges.
-- [ ] Fuzz coverage: `shards.txt` lists `AlgorandRequestFuzzTest`, but the nightly matrix in `nightly.yml` and the list in `fuzz-nightly.sh` have four targets without it. Record which targets the nightly run fuzzes.
+- [ ] Release merged manifest and DEX: no debug-only component, `debugHidden` handler, or preview activity. `check-manifest.sh` guards only the debug merges. The release merge is checked by the `manifest` lane of `run-partition.sh` and by the signed-APK check in `release.yml`; both must reject `android.permission.INTERNET` and `android.permission.ACCESS_NETWORK_STATE`. Test each by adding the permission to a copy of the merged release manifest and confirming the lane's check fails on the copy.
+- [ ] Fuzz coverage: `shards.txt` lists `AlgorandRequestFuzzTest`, but the nightly matrix in `nightly.yml` and the list in `fuzz-nightly.sh` have four targets without it. Run `scripts/ci/fuzz-nightly.sh --list` and `scripts/ci/fuzz-nightly.sh --seconds 1 app.lensly.fuzz.AlgorandRequestFuzzTest`. The second prints `fuzz-nightly: unknown target: ...` and exits 2. Record the four targets the nightly run does fuzz, and treat the Algorand request parser as seed-replay-only until that changes.
+- [ ] Fuzz cache: `fuzz-nightly.sh` must pass `--no-build-cache` to both Gradle calls. With the build cache on (`org.gradle.caching=true`), a cached fuzz test task is served `FROM-CACHE`, counts as a pass, and fuzzes nothing. Check every nightly log for a `Done N runs` line per target before reporting fuzz coverage. To test a regression, run `JAZZER_FUZZ=1 ./gradlew :shared:cleanTestDebugUnitTest :shared:testDebugUnitTest --tests app.lensly.fuzz.CborFuzzTest -PfuzzLane -PfuzzMaxSeconds=20` twice with no cache flag. The second run prints `FROM-CACHE` in about 2 seconds, with no `Done N runs` line.
 - [ ] Stale path: the `app/build.gradle.kts` comment cites a chains file under `app/src/main/java/app/lensly/`. The signer list is in `shared/src/main/java/app/lensly/chains/InstalledSigners.kt`. Log it as Low or Info, and as a Proposed Change.
 - [ ] On-disk names: `VaultLayout.kt` names photo directories and key files `real` and `decoy`. Check whether a file-system image shows which vault exists, and whether the decoy's footprint matches the real vault's.
+- [ ] Photo capture with no vault and with a vault: the outcome and the message must match in both states. Photos taken before setup are kept in a pending pair (`PendingPhotoKey.kt`). Take a photo before creating a vault and after, and compare the result and the message, because any difference shows whether a vault exists.
 - [ ] Backup exclusion: an APK whose merged manifest allows backup refuses to create a vault (`BackupExclusion.kt`, `Vault.refusal()`).
 - [ ] Header binding: flip each `VaultHeader.kt` field (KDF parameters, salt, flags) and record the failure mode and the counter.
 - [ ] Clock and boot count: items 4 to 10 and 16, each with a root-level clock or boot-count test on a test device.
@@ -286,7 +290,7 @@ Goal: find a working path from the phone (each variant in 3.2) to the mnemonic, 
 
 #### Stage 5: Process Memory, Logs, and Dumps (P6)
 
-- [ ] Debuggable test build only: take a heap dump while the vault is open, while a mnemonic is on screen, and after `wipe()`. Search for mnemonic words and seed bytes, and record each surviving copy and how long it lives. A debuggable release build is a finding in its own right.
+- [ ] Debuggable test build only: take a heap dump while the vault is open, while a mnemonic is on screen, and after `wipe()`. Search for mnemonic words and seed bytes, and record each surviving copy and how long it lives. A debuggable release build is a finding in its own right. `am dumpheap` needs `<profileable android:shell="true">` or `debuggable`; the `benchmark` APK has `profileable shell="true"` and the release APK has neither, so the dump comes from `benchmark` or a debug build, and installing `benchmark` on a phone is itself a finding (6.3). Prove the search method on a JVM heap dump first: `HotSpotDiagnostic.dumpHeap` keeps a dead local `byte[]` in the file, so a zeroed buffer is not proof of absence.
 - [ ] Rooted test device, release build: scan process memory at the same moments.
 - [ ] Crash the reveal, sign, import, and unlock flows. Read logcat, tombstones, `dumpsys dropbox --print`, and the bug report. Any secret found is a finding.
 - [ ] Release output contains no `Log` calls (R8 `assumenosideeffects`), and no debug logging can be switched on in release.
@@ -344,7 +348,7 @@ Goal: test the platform controls the attacker meets before any app code runs.
 - [ ] Release merged manifest (not the debug merge): `exported` on every component; `isolatedProcess` and `process` on both sandboxes; no providers or receivers unless intended; no `android:debuggable="true"`; `allowBackup="false"` in both apps.
 - [ ] `data_extraction_rules.xml` excludes everything. Lumio declares no extraction rules: record what that means at each target API level.
 - [ ] Expected release permissions: Lensly holds CAMERA and USE_BIOMETRIC, and no INTERNET or ACCESS_NETWORK_STATE. Lumio's merged permissions match the allow-list in `check-manifest.sh`.
-- [ ] Every exported activity and every extra it reads. `run-as` on the release build must fail. Assess what a `profileable` benchmark build exposes when it is installed.
+- [ ] Every exported activity and every extra it reads. `run-as` on the release build must fail. Assess what a `profileable` benchmark build exposes when it is installed. That build is signed with the debug key, so it cannot replace a release install, and `<profileable android:shell="true">` lets `adb shell am dumpheap` read the app's heap. Its merged manifest has an exported `androidx.benchmark.IsolationActivity` and permissions that `androidx.benchmark:benchmark-common` adds (`INTERNET`, `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE`). Record whether any lane publishes that APK.
 - [ ] `adb backup`, `bmgr`, and device-to-device transfer carry no vault data. Vault files live only in private directories, and no external storage holds secrets.
 - [ ] Keystore: `KeyInfo.securityLevel` per device, StrongBox use, aliases, key deletion on reset, and behavior after an OS update.
 - [ ] `FLAG_SECURE` covers every vault screen, dialog, and popup, including Compose windows.
@@ -372,6 +376,7 @@ Targets: camera frames (`QrDecodeService.kt`, `LumaFrames.kt`, `QrDecodeLimits.k
 Existing harness: Jazzer targets in `shared/src/test/java/app/lensly/fuzz/` (`UrScannerFuzzTest`, `CborFuzzTest`, `EthSignRequestFuzzTest`, `UnsignedTxFuzzTest`, `AlgorandRequestFuzzTest`), with seeds in `FuzzSeeds.kt`. The PR lane replays the committed seeds. `scripts/ci/fuzz-nightly.sh` fuzzes each target for a fixed time, and its header says where crash inputs are written.
 
 - [ ] Each parser has size, depth, and time limits. Record the values, from `ParserLimits.kt` or from local constants.
+- [ ] A Jazzer crash file goes to the `<Class>Inputs/<method>/` directory under the test resources. In the run-2 environment it landed in build output, under `shared/build/intermediates/java_res/debugUnitTest/`, so check both `shared/src/test/resources/app/lensly/fuzz/` and that build path. Copy the file to the scratch area, record its name and SHA-256, and replay it twice: once through the Gradle task, and once through a small JVM harness that calls the parser directly. A file that replays clean is not a crash: record it as unexplained and do not claim a finding from it. To make a crash permanent, copy it into `shared/src/test/resources/fuzz-seeds/<target>/` and list it in that directory's `index.txt`, because `FuzzSeeds.kt` reads only that path.
 - [ ] Every allocation driven by a length field is checked against the remaining input before it happens.
 - [ ] Every error path returns a refusal. No partial parse reaches the review.
 - [ ] Duplicate map keys are refused, not last-wins. Canonical key order is enforced where the chain requires it.
@@ -438,7 +443,7 @@ Attack ideas: race the unlock through every reachable path and count the recorde
 
 Goal: the APK the owner installs is the APK built from the reviewed commit, with the reviewed toolchain, and no path changes it unseen.
 
-- [ ] `gradle/verification-metadata.xml` covers every artifact the release uses, including plugins. Record any unverified artifact.
+- [ ] `gradle/verification-metadata.xml` covers every artifact the release uses, including plugins. Record any unverified artifact. Reproduce coverage with `./gradlew --offline --dependency-verification=strict :app:assembleRelease --rerun-tasks`; a missing checksum fails the build. `verify-signatures` is `false`, so the file pins bytes, not publishers.
 - [ ] The wrapper JAR matches the official checksum (`distributionSha256Sum`). `gradle/libs.versions.toml` pins every version. `ndkVersion` matches the CI image.
 - [ ] `CMakeLists.txt` pins the upstream Brotli SHA-256. Check whether the build downloads that tarball or uses the vendored tree, and whether the two match.
 - [ ] Every `uses:` in `.github/workflows/` is pinned to a full commit SHA. At this commit every workflow is; check each on every run. Permissions are least-privilege, and checkouts use `persist-credentials: false`.
@@ -446,6 +451,7 @@ Goal: the APK the owner installs is the APK built from the reviewed commit, with
 - [ ] Rebuild from `COMMIT` in a clean environment and compare the signing-independent content (DEX, resources, native libraries). Record every difference.
 - [ ] `comment-run.yml` and `codeql-command.yml` (`issue_comment`): the commenter gate, the code that runs (pull request head or default branch), token permissions, and readable secrets. `master-red.yml` (`workflow_run`) must never run pull-request code with a write token.
 - [ ] No pull request can read or poison a cache that release builds use. No workflow publishes a debug or benchmark artifact.
+- [ ] Dependency graph and SBOM: the workflow `if:` is `vars.DEPENDENCY_GRAPH_ENABLED == 'true'`. Read the variable with `gh variable list`, read the live document with `gh api repos/:owner/:repo/dependency-graph/sbom`, and record whether the workflow comment still claims the graph is off. The SBOM is branch-pinned (`pkg:github/<owner>/<repo>@master`), so it cannot be tied to a commit; record that as Low and check the package count against the release classpath.
 
 Attack ideas: replace one dependency with a same-version artifact from another source, and verify that verification fails; test the release tag guard locally with `act`, using a tag on a commit off the default branch, and never push tags to the owner's repository; test the comment-triggered workflows only in a fork the test team owns, with the owner's approval; compare `versionCode` on a shallow clone (code 1, per the comment in `app/build.gradle.kts`), and log it unless an update path accepts it.
 
@@ -458,6 +464,7 @@ Goal: nothing reachable without the gesture reveals what the app is for (docs 8.
 - [ ] Before unlock, the app label, icons, package name, activity labels, and every `strings.xml` value in every locale reveal nothing about crypto. The same holds for notifications, shortcuts, widgets, share targets, launcher aliases, and app links.
 - [ ] Cover-screen banners, errors, and toasts for QR scans: an unknown request reads like any unreadable code.
 - [ ] Photo storage (`MediaEnvelope.kt`, `PhotoStore.kt`): the names and sizes a file-system observer sees, and whether padding hides the photo count.
+- [ ] Gallery strings: compare every string the gallery's unlock screen shows with no vault and with a vault. The gallery opens from the camera screen before any password is entered, so a string that differs between the two states shows whether a vault exists.
 - [ ] `GalleryGate.kt`: the media folder looks the same after the App Password and after the Duress Password.
 - [ ] Gesture reaction timing for the hidden area and for the normal screen (6.9). Lumio's label, icons, and scan banners before unlock.
 
@@ -651,3 +658,4 @@ The seed list (5.3) names where to look, not what is broken. Add no claim that a
 |---|---|---|---|
 | 1 | 2026-11-21 | AirVault maintainers | First playbook. Seed paths checked at the repository state of 2026-11-21. |
 | 2 | 2026-11-21 | AirVault maintainers | Corrected Algorand, Solana, Mnemonic, erase-count, workflow, and review claims; added Address Book, payment code, wallet backup flag, lock policy, and backup exclusion checks. |
+| 3 | 2026-11-21 | AirVault maintainers | Added commands for the release APK signature check, the Algorand fuzz gap, the build-cache trap that can skip a nightly fuzz run, the release-manifest network-permission gap, the fuzz crash-file location, verification-metadata coverage, SBOM pinning, and the benchmark APK's profileable and permission surface. |
