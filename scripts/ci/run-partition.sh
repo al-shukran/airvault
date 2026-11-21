@@ -14,6 +14,17 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 SHARDS="$ROOT/scripts/ci/shards.txt"
 
+# The build-cache lanes keep the entries they used (trim-build-cache.sh), and the log names them: the debug flag makes Gradle print a
+# "Build cache key" line for each cacheable task it loads or stores. The marker dates the start of the job, which marks the entries
+# the job created. Both files stay in .gradle/, which the caches never hold.
+state="$ROOT/.gradle"
+mkdir -p "$state"
+[ -e "$state/build-cache-start" ] || touch "$state/build-cache-start"
+
+gradle() {
+    ./gradlew -Dorg.gradle.caching.debug=true "$@" 2>&1 | tee -a "$state/build-cache-keys.log"
+}
+
 # Watchdog, kept on purpose. If this lane is still running after 240 s, the job log gets the JVM thread dumps (every Gradle
 # daemon, worker and wrapper JVM) and the open sockets. The watchdog only dumps: the job's own timeout still ends a stalled
 # run, and nothing is retried.
@@ -166,7 +177,7 @@ run_shard() {
                 ;;
         esac
     done < <(printf '%s\n' "$units" | awk '!seen[$1]++ { print $1 }')
-    ./gradlew --offline "${tasks[@]}"
+    gradle --offline "${tasks[@]}"
 }
 
 run_verify() {
@@ -185,7 +196,7 @@ run_verify() {
     done < <(lane_units verify "$unlisted")
     # The filtered test task runs the pixel tests in verify mode (Roborazzi switches it on when the verify task is requested), so
     # each pixel test runs once. Without the filter, verifyRoborazziDebug would run every unit test of the module again.
-    ./gradlew --offline :app:testDebugUnitTest "${app[@]}" :app:verifyRoborazziDebug \
+    gradle --offline :app:testDebugUnitTest "${app[@]}" :app:verifyRoborazziDebug \
         :lumio:testDebugUnitTest "${lumio[@]}" :lumio:verifyRoborazziDebug
 }
 
@@ -197,15 +208,15 @@ run_fuzz() {
         tests+=(--tests "$c")
     done < <(lane_units fuzz "$unlisted" | awk '$1 == ":shared" { print $2 }')
     # The fuzz targets read -PfuzzLane and run in their own JVM: Jazzer and Robolectric cannot share one.
-    ./gradlew --offline :shared:testDebugUnitTest "${tests[@]}" -PfuzzLane
+    gradle --offline :shared:testDebugUnitTest "${tests[@]}" -PfuzzLane
 }
 
 run_apk() {
-    ./gradlew --offline :lumio:assembleDebug
+    gradle --offline :lumio:assembleDebug
 }
 
 run_android_tests() {
-    ./gradlew --offline :app:compileDebugAndroidTestKotlin :app:compileBenchmarkKotlin :app:compileBenchmarkAndroidTestKotlin \
+    gradle --offline :app:compileDebugAndroidTestKotlin :app:compileBenchmarkKotlin :app:compileBenchmarkAndroidTestKotlin \
         :lumio:compileDebugAndroidTestKotlin :lumio:compileBenchmarkKotlin
 }
 
@@ -220,7 +231,7 @@ lint_test_analyses_off=(
 
 run_lint() {
     # $1 is the module: app, lumio or shared.
-    ./gradlew --offline ":$1:lintReportDebug" "${lint_test_analyses_off[@]}"
+    gradle --offline ":$1:lintReportDebug" "${lint_test_analyses_off[@]}"
 }
 
 run_manifest() {
@@ -260,6 +271,11 @@ run_ci() {
     echo "run-partition: bash -n passed for $scripts script(s)"
     "$ROOT/scripts/ci/check-partitions.sh"
     "$ROOT/scripts/ci/check-test-network.sh"
+    # The build-cache budgets (build-cache-budgets.txt) with the dependency cache must stay within 7 GB (scripts/ci/README.md).
+    local budget_total
+    budget_total="$(awk '!/^#/ && NF { sum += $2 } END { print sum + 0 }' "$ROOT/scripts/ci/build-cache-budgets.txt")"
+    [ "$budget_total" -le 5300 ] || { echo "run-partition: the build-cache budgets sum to $budget_total MB, over 5300 MB" >&2; exit 1; }
+    echo "run-partition: the build-cache budgets sum to $budget_total MB"
 }
 
 case "$lane" in

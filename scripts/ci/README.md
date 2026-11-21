@@ -54,13 +54,28 @@ The lines balance the lanes. A test class with no line still runs, so adding a t
   request, which saves nothing. A push to master and a queue entry save every lane's entry, even when it fails or is cancelled.
   A pull request restores master's entries (`bc-<lane>-master-`) only. Its own entries would be restored ahead of master's, and a
   lint entry a pull request saved lacked the compile outputs master's entries hold, so the next run of that pull request compiled
-  cold. Each lane's entry is 0.1 to 0.7 GB, so one push to master saves about 5.5 GB. `cache-prune` (`pr-fast.yml`, running
+  cold. `cache-prune` (`pr-fast.yml`, running
   `prune-caches.sh`, one at a time in `master-cache-prune`) runs after the lanes of each push. On master a cache's group is its key
   without the trailing hash, and each group keeps its newest entry; no entry newer than the prune's own run and no entry of master's
   current head (its commit, and the dependency key of its tree) is deleted. So neither two pushes close together, a late prune, nor
   a rerun of an older push can delete the newest caches, and the setup-gradle `gradle-*` caches of nightly and other workflows keep
   their newest entry. Merge-queue caches (`gh-readonly-queue/...`), which no other run can restore, are deleted. The listing pages
   through every cache. GitHub evicts least recently used entries over 10 GB per repository (run 44727796023).
+- Trim: `trim-build-cache.sh <lane>` runs before each save and keeps only the build-cache entries that run used. Gradle does not
+  update an entry's mtime on a cache hit (checked on 9.7.0 with aged entries), so the trim reads the keys from the log instead.
+  Every Gradle call of a build-cache lane runs with `org.gradle.caching.debug=true` (`run-partition.sh`), which prints
+  `Build cache key for ... is <key>` for each cacheable task and transform it loads or stores. The trim keeps those keys and the
+  files the job created, and deletes the rest, so each saved entry is one run's working set. A Gradle upgrade must recheck the
+  trim: it fails loudly when no key is found.
+- Budgets: `build-cache-budgets.txt` gives each lane's budget in MB (its entries plus the configuration cache). A master or queue
+  lane above its budget fails before its save, which is skipped; a pull request only warns. `run-partition.sh ci` fails when the
+  budgets sum above 5.3 GB, which with the dependency cache (about 1.25 GB) and other caches keeps the repository within 7 GB.
+- Guard: `check-cache-usage.sh` reads the repository's active cache size. A pull request warns above 8 GB; `cache-prune` fails
+  master above 8 GB after the prune.
+- Cold lanes: a lane with no entry compiles from scratch and is not capped in time. Measured cold on a 10-core Mac: shard-1 225 s,
+  shard-6 177 s, verify 224 s (two pixel tests fail on macOS), fuzz 107 s, android 180 s, lint-app 159 s, lint-lumio 168 s. A CI
+  runner is likely slower, so a cold pull request lane can exceed the 5-minute cap, and `lane-budget.sh` reports it on master.
+  Cold lanes come from eviction; the trim keeps the total under the guard so master's entries survive.
 - Lane budget: `pr-ok` runs `lane-budget.sh` after every lane. Each job's time (start to end, without a `Save ...` cache upload)
   goes to the step summary, and a job over 5 minutes gets a warning. On a push to master it opens, or comments on, the open
   `ci-budget` issue. It never fails the gate: fix a slow lane in a pull request, never rerun a run to make it green.
