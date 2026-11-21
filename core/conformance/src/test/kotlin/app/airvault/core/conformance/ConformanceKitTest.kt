@@ -100,10 +100,10 @@ class ConformanceKitTest {
                 fields = listOf(FieldSpec(FieldKey("algorand.note"), FieldKind.MemoBytes(maxBytes = 4), " ")),
             ),
             "duplicate UR type" to base.copy(
-                responseTypes = base.responseTypes + UrTypeSpec("algo-sign-request", Direction.RESPONSE, 1..1),
+                responseTypes = base.responseTypes + UrTypeSpec("algo-sign-request", Direction.RESPONSE),
             ),
             "malformed UR type" to base.copy(
-                requestTypes = listOf(UrTypeSpec("algo sign", Direction.REQUEST, 1..1)),
+                requestTypes = listOf(UrTypeSpec("algo sign", Direction.REQUEST)),
             ),
         )
         val expected = mapOf(
