@@ -44,9 +44,9 @@ class SolanaSignFlowTest : SignFlowE2eBase() {
         val ready = (driver.awaitReview { it is SignStep.AppReview } as SignStep.AppReview).ready
 
         assertEquals(SolanaAccount.addressOf(signer), ready.signer.address)
-        // One SOL transfer of 1,000 lamports, which is 0.000001 SOL, to the recipient.
-        compose.onNodeWithText("Send 0.000001 SOL from ${SolanaAccount.addressOf(signer)} to ${SolanaAccount.addressOf(recipient)}?")
-            .assertExists()
+        // One SOL transfer of 1,000 lamports, which is 0.000001 SOL, to the recipient. The signer is an account of this device, so the
+        // sentence names it.
+        compose.onNodeWithText("Send 0.000001 SOL from ${ready.signer.name} to ${SolanaAccount.addressOf(recipient)}?").assertExists()
         driver.readToTheEnd()
         assertTrue(driver.approvable())
 

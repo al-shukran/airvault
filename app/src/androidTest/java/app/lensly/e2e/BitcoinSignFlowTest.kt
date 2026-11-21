@@ -53,7 +53,7 @@ class BitcoinSignFlowTest : SignFlowE2eBase() {
         assertTrue(facts.outputs[1].isOwnChange)
 
         // The summary sentence names the amount sent and the recipient's full address: a shortened one could pass a look-alike (R26).
-        compose.onNodeWithText("Send 0.0015 BTC to $recipient").assertExists()
+        compose.onNodeWithText("Send 0.0015 BTC from ${ready.signer.name} to $recipient?").assertExists()
         compose.onNodeWithText("Bitcoin Testnet4").assertExists()
         driver.readToTheEnd()
         assertTrue(driver.approvable())
