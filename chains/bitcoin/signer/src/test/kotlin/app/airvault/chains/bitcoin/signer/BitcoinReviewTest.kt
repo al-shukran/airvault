@@ -207,6 +207,20 @@ class BitcoinReviewTest {
     }
 
     @Test
+    fun aPushOfOneByteAndANonPushOpcodeShowDifferentScripts() {
+        // OP_RETURN pushing the one byte 0xff: its data.
+        assertEquals("ff", scriptRowOf("6a01ff"))
+        // OP_RETURN followed by 0xff, which is not a push: all of its bytes, so it does not read as the data above.
+        assertEquals("6aff", scriptRowOf("6aff"))
+    }
+
+    @Test
+    fun anOpReturnWithANonMinimalPushShowsAllItsBytes() {
+        // OP_PUSHDATA1 for one byte, where a direct push of the byte is the canonical encoding.
+        assertEquals("6a4c01ff", scriptRowOf("6a4c01ff"))
+    }
+
+    @Test
     fun aRequestThatPaysNothingOutsideTheWalletSaysSo() {
         val allChange = request(feeSats = 10_000L).copy(
             outputs = listOf(BtcReviewOutput(0, "tb1qchange", 60_000L, isOwnChange = true, changeIndex = 0)),
