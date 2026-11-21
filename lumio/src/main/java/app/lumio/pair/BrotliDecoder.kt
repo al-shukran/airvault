@@ -7,9 +7,9 @@ import java.io.IOException
 import org.brotli.dec.BrotliInputStream
 
 /**
- * Brotli decompression for the AirVault pairing, with org.brotli:dec: Google's pure-Java decoder, under the MIT licence. The output is read
- * in chunks and stops at the bound, so a stream that inflates past it is refused before it can fill memory (a decompression bomb). Lumio
- * ships no encoder.
+ * Brotli decompression for the AirVault pairing, with Google's pure-Java decoder (org.brotli.dec, vendored in :shared under the MIT
+ * licence). The output is read in chunks and stops at the bound, so a stream that inflates past it is refused before it can fill memory
+ * (a decompression bomb). Lumio ships no encoder.
  */
 object BrotliDecoder : BrotliDecompressor {
     private const val CHUNK_BYTES = 4096

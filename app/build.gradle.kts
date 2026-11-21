@@ -236,8 +236,6 @@ dependencies {
     androidTestImplementation(libs.zxing.core)
     androidTestImplementation(libs.zxing.cpp.android)
     androidTestImplementation(libs.sparrowwallet.hummingbird)
-    // The Brotli round trip of BrotliEncoder reads its streams back with the decoder Lumio ships.
-    androidTestImplementation(libs.brotli.dec)
     // The demo pairing and its golden frames are shared with :shared's tests.
     androidTestImplementation(testFixtures(project(":shared")))
 
