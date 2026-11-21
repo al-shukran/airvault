@@ -132,9 +132,6 @@ dependencies {
     implementation(libs.sparrowwallet.hummingbird)
     implementation(libs.bitcoin.kmp)
 
-    // Lumio reads a version-2 pairing's Brotli body with Google's pure-Java decoder. The encoder is Lensly's alone.
-    implementation(libs.brotli.dec)
-
     // Unit tests on Robolectric. The JUnit 4 tests run on the Vintage engine, as they do in :app.
     testImplementation(testFixtures(project(":shared")))
     // Keys on the JVM need the native secp256k1 that :shared's own unit tests load.
