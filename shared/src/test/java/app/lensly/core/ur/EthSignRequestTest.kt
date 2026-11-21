@@ -144,6 +144,25 @@ class EthSignRequestTest {
         assertIs<EthSignRequest.Result.Ok>(EthSignRequest.decode(payloadWithKey(1000L)))
     }
 
+    /** The keypath map is strict like the request map: a reserved key is ignored, and any other key but 1, 2 and 3 is refused. */
+    @Test
+    fun aKeypathKeyFromTheReservedRangeIsIgnoredAndAnyOtherUnknownKeyIsRefused() {
+        assertIs<EthSignRequest.Result.Ok>(EthSignRequest.decode(payload(path = keypathWithField(1000L, Cbor.Uint(1L)))))
+        val rejected = assertIs<EthSignRequest.Result.Rejected>(EthSignRequest.decode(payload(path = keypathWithField(7L, Cbor.Uint(1L)))))
+        assertEquals(
+            "This request uses something this Lensly does not know. It may come from a newer Lumio. Nothing was signed.",
+            rejected.reason,
+        )
+    }
+
+    /** The depth (key 3) is read when it is present: it must count the five steps of the path, and any other depth is refused. */
+    @Test
+    fun aKeypathDepthIsAcceptedWhenItCountsTheStepsAndRefusedOtherwise() {
+        assertIs<EthSignRequest.Result.Ok>(EthSignRequest.decode(payload(path = keypathWithField(3L, Cbor.Uint(5L)))))
+        val rejected = assertIs<EthSignRequest.Result.Rejected>(EthSignRequest.decode(payload(path = keypathWithField(3L, Cbor.Uint(4L)))))
+        assertEquals("keypath depth does not match its components", rejected.reason)
+    }
+
     @Test
     fun refusesUrOfAnotherType() {
         val ur = UR("eth-signature", payload())
@@ -229,6 +248,13 @@ class EthSignRequestTest {
 
     private fun dictOf(vararg fields: Pair<Long, Cbor?>): Cbor.Dict =
         Cbor.Dict(fields.mapNotNull { (key, value) -> value?.let { Cbor.Uint(key) to it } })
+
+    /** The keypath of a valid request with one more map key, [key], set to [value]. */
+    private fun keypathWithField(key: Long, value: Cbor): Cbor {
+        val tagged = assertIs<Cbor.Tagged>(keypath())
+        val fields = assertIs<Cbor.Dict>(tagged.value).entries
+        return Cbor.Tagged(tagged.tag, Cbor.Dict(fields + (Cbor.Uint(key) to value)))
+    }
 
     /** A valid request with one more map key, [key], which the codec does not read. */
     private fun payloadWithKey(key: Long): ByteArray {

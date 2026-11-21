@@ -104,6 +104,9 @@ object PairingCodec {
     /** The most Bitcoin accounts a wallet keeps, in Lensly and in Lumio: the largest Bulk Cap, which the Bitcoin record is sized for. */
     const val MAX_BITCOIN_ACCOUNTS = 100
 
+    /** The most Ethereum accounts a wallet keeps, in Lensly and in Lumio: one account record each, and the Lumio folder holds this many. */
+    const val MAX_ETHEREUM_ACCOUNTS = 100
+
     /** The most components a key's path has after its account index. */
     const val MAX_SUFFIX = 8
 

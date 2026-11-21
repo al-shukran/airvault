@@ -4,6 +4,7 @@ import app.lensly.app.AddressBookEntry
 import app.lensly.app.InternalAccount
 import app.lensly.app.addressKeyOf
 import app.lensly.app.autoAccountName
+import app.lensly.app.export.PairingCodec
 import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.vault.VaultException
@@ -151,7 +152,7 @@ object PairedWallets {
      */
     private fun deletesFor(pairing: PairingPayload): List<String> {
         val count = PairImport.accountsOf(pairing, Networks.EIP155).size
-        val accounts = (count until PairImport.MAX_ETHEREUM_ACCOUNTS).map { WalletRecordNames.account(it) }
+        val accounts = (count until PairingCodec.MAX_ETHEREUM_ACCOUNTS).map { WalletRecordNames.account(it) }
         val bitcoin = if (PairImport.bitcoinAccountsOf(pairing).isEmpty()) listOf(WalletRecordNames.BITCOIN) else emptyList()
         val solana = if (PairImport.solanaPublicKeysOf(pairing).isEmpty()) listOf(WalletRecordNames.SOLANA) else emptyList()
         val algorand = if (PairImport.algorandPublicKeysOf(pairing).isEmpty()) listOf(WalletRecordNames.ALGORAND) else emptyList()

@@ -11,6 +11,7 @@ import app.lensly.core.wallet.Mnemonic
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -91,6 +92,17 @@ class WalletStoreSolanaTest {
 
         assertFailsWith<IllegalArgumentException> { store.addSolanaAccounts(id, 3, cap = 2) }
         assertEquals(listOf(SolanaAccount.publicKey(seed(), 0).toList()), store.solanaKeys(id).map { it.toList() })
+    }
+
+    @Test
+    fun aSolanaWalletKeepsAtMostOneHundredAccounts() {
+        // The wallet starts with one Solana account, so a run of 99 reaches the cap of 100.
+        val id = newWallet()
+        assertNotNull(store.addSolanaAccounts(id, 99, cap = BulkCap.HUNDRED.accounts))
+
+        val refusal = assertFailsWith<SolanaCapReached> { store.addSolanaAccounts(id, 1, cap = BulkCap.HUNDRED.accounts) }
+        assertEquals("A wallet keeps at most 100 Solana accounts.", refusal.message)
+        assertEquals(100, store.solanaKeys(id).size)
     }
 
     @Test
