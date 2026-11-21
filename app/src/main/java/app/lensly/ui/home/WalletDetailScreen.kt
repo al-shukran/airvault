@@ -363,7 +363,6 @@ internal fun SheetHeader(name: String, identity: VisualIdentity, address: String
                 Spacer(Modifier.height(LenslySpacing.xxs))
                 AddressText(
                     address = address,
-                    shown = groupedAddress(address),
                     icon = false,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -398,20 +397,4 @@ internal fun SheetOption(
         Spacer(Modifier.width(LenslySpacing.md))
         Text(text = label, style = MaterialTheme.typography.bodyLarge, color = tint)
     }
-}
-
-/** The full address in groups of four hex digits, five groups to a line. */
-internal fun groupedAddress(address: String): String = groupedInFours(address.removePrefix("0x"), prefix = "0x")
-
-/**
- * [text] in groups of four characters, five groups to a line, with [prefix] before the first line. A Bitcoin address has no prefix,
- * so it passes none.
- */
-internal fun groupedInFours(text: String, prefix: String = ""): String {
-    val groups = text.chunked(4)
-    return groups.chunked(5)
-        .mapIndexed { line, groupsOnLine ->
-            (if (line == 0) prefix else "") + groupsOnLine.joinToString(" ")
-        }
-        .joinToString("\n")
 }

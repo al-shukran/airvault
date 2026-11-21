@@ -232,7 +232,6 @@ fun EthereumAccountsScreen(
                                 // Every address shows the Ethereum logo, and the whole address is shown; it wraps at the spaces between groups.
                                 AddressText(
                                     address = addresses[index],
-                                    shown = groupedAddress(addresses[index]),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     icon = true,
                                     onClick = if (selecting) toggle else openAccount,

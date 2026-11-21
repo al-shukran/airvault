@@ -186,7 +186,6 @@ fun BitcoinAccountsScreen(
                             Spacer(Modifier.height(LenslySpacing.xxs))
                             AddressText(
                                 address = account.firstReceiveAddress,
-                                shown = groupedInFours(account.firstReceiveAddress),
                                 icon = false,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 onClick = openAccount,
