@@ -32,6 +32,8 @@ import javax.crypto.SecretKeyFactory
  *   with that sequence number. The keys of earlier writes are deleted, so an older state no longer verifies (see [FailureStore]).
  * - `lensly.vault.folder.<id>`: AES-256-GCM, one for each wallet folder, wallet or unused slot alike. The id is random and kept in
  *   the folder's key file (see [WalletFolder]). Deleting the key makes that folder's key file unreadable, even with the Vault Key.
+ * - `lensly.vault.pending-photo`: AES-256-GCM. It wraps the private photo key of photos taken before the first setup
+ *   (see [PendingPhotoKey]). The vault takes that key over when it is created, and the key is deleted with it.
  */
 internal object VaultKeystore {
     const val HARDWARE_KEY_ALIAS = "lensly.vault.hw"
@@ -46,6 +48,7 @@ internal object VaultKeystore {
     private const val FOLDER_KEY_PREFIX = "lensly.vault.folder."
 
     private const val SLOT_KEY_ALIAS = "lensly.vault.slot-mac"
+    private const val PENDING_PHOTO_ALIAS = "lensly.vault.pending-photo"
     private const val PROBE_ALIAS = "lensly.vault.probe"
     private const val PROVIDER = "AndroidKeyStore"
 
@@ -66,17 +69,7 @@ internal object VaultKeystore {
      * a key, and StrongBox holds few keys and is slow. As for the other keys, a key that is not hardware-backed is refused in a
      * release build.
      */
-    fun createFolderKey(keyId: String): SecretKey {
-        val alias = folderAlias(keyId)
-        delete(alias)
-        val key = generateAes(alias, strongBox = false)
-        val verdict = KeystorePolicy.verdict(isHardwareBacked(securityLevel(key)), BuildConfig.DEBUG, deviceIsEmulator())
-        if (verdict == KeystoreVerdict.Refused) {
-            delete(alias)
-            throw GeneralSecurityException("The wallet folder key is not hardware-backed.")
-        }
-        return key
-    }
+    fun createFolderKey(keyId: String): SecretKey = createAesKey(folderAlias(keyId), "wallet folder key")
 
     /** The key of wallet folder [keyId], or null once it has been deleted. */
     fun folderKey(keyId: String): SecretKey? = get(folderAlias(keyId))
@@ -88,6 +81,15 @@ internal object VaultKeystore {
     fun folderKeyIds(): List<String> = Collections.list(keyStore().aliases())
         .filter { it.startsWith(FOLDER_KEY_PREFIX) }
         .map { it.removePrefix(FOLDER_KEY_PREFIX) }
+
+    /** Creates the key that wraps the private photo key of photos taken before the first setup, replacing any key there. */
+    fun createPendingPhotoKey(): SecretKey = createAesKey(PENDING_PHOTO_ALIAS, "pending photo key")
+
+    /** The key that wraps the private photo key of photos taken before the first setup, or null once it has been deleted. */
+    fun pendingPhotoKey(): SecretKey? = get(PENDING_PHOTO_ALIAS)
+
+    /** Deletes the key that wraps the private photo key of photos taken before the first setup, if the Keystore holds one. */
+    fun deletePendingPhotoKey() = delete(PENDING_PHOTO_ALIAS)
 
     /** The existing hardware wrapping key. Throws if it has been removed. */
     fun hardwareKey(): SecretKey =
@@ -175,9 +177,24 @@ internal object VaultKeystore {
         }
     }
 
-    /** True for every alias the vault uses: the hardware key, the slot key, the probe, and every Delay State and wallet folder key. */
+    /**
+     * Creates an AES key under [alias], replacing any key there. It is TEE-backed and not StrongBox: StrongBox holds few keys and is slow.
+     * A key that is not hardware-backed is refused in a release build, and [what] names it in that error.
+     */
+    private fun createAesKey(alias: String, what: String): SecretKey {
+        delete(alias)
+        val key = generateAes(alias, strongBox = false)
+        val verdict = KeystorePolicy.verdict(isHardwareBacked(securityLevel(key)), BuildConfig.DEBUG, deviceIsEmulator())
+        if (verdict == KeystoreVerdict.Refused) {
+            delete(alias)
+            throw GeneralSecurityException("The $what is not hardware-backed.")
+        }
+        return key
+    }
+
+    /** True for every alias the vault uses: the hardware key, the slot key, the probe, the pending photo key, and every other folder or MAC key. */
     private fun isVaultAlias(alias: String): Boolean =
-        alias == HARDWARE_KEY_ALIAS || alias == SLOT_KEY_ALIAS || alias == PROBE_ALIAS ||
+        alias == HARDWARE_KEY_ALIAS || alias == SLOT_KEY_ALIAS || alias == PROBE_ALIAS || alias == PENDING_PHOTO_ALIAS ||
             alias.startsWith(FAILURE_MAC_PREFIX) || alias.startsWith(FOLDER_KEY_PREFIX)
 
     private fun failureMacAlias(seq: Long): String = "$FAILURE_MAC_PREFIX.$seq"
