@@ -23,7 +23,7 @@ fun ClearAirAmount(
     text: String,
     modifier: Modifier = Modifier,
     hidden: Boolean = false,
-    style: TextStyle = ClearAirType.hero,
+    style: TextStyle = ClearAirType.total,
     color: Color = LocalClearAirPalette.current.ink,
 ) {
     Text(

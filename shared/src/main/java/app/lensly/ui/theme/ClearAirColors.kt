@@ -18,7 +18,7 @@ data class ClearAirPalette(
     val background: Color,
     /** The first sheet over the page: Sheet in the light theme, and layer 1 in the dark one. */
     val sheet: Color,
-    /** Fields and logo discs in the light theme, and the second sheet (layer 2) in the dark one. */
+    /** Fields and logo discs in the light theme, and the raised surface (layer 2) in the dark one. */
     val raised: Color,
     /** Dividers only. */
     val hairline: Color,

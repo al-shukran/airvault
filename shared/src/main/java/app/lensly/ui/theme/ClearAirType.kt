@@ -39,21 +39,24 @@ private class ClearAirStep(val size: Float, val line: Float)
 
 /**
  * Every size of the Clear Air type scale, in sp, in one place. [ClearAirType] builds each style from one of these steps, so a revised scale is a
- * change to these lines and nothing else. The hero and heading sizes are provisional: they come down from the proposal's first values until the
- * designer's revision arrives.
+ * change to these lines and nothing else. The sizes are the designer's revision 2, except the hero: it stays at 40 sp, provisionally, until the
+ * designer confirms the size of the tab heroes.
  */
 private object ClearAirScale {
-    /** The hero numeral of an overview. */
+    /** The hero numeral of an overview, Home and Portfolio. Provisional: revision 2 has 50 sp. */
     val hero = ClearAirStep(size = 40f, line = 46f)
 
+    /** A page total, of a wallet or an account. It is left-aligned, under a small label. */
+    val total = ClearAirStep(size = 28f, line = 34f)
+
     /** An amount in a flow, "Amount L". */
-    val amountLarge = ClearAirStep(size = 30f, line = 36f)
+    val amountLarge = ClearAirStep(size = 38f, line = 44f)
 
     /** The question of a screen. */
-    val titleXL = ClearAirStep(size = 24f, line = 28f)
+    val titleXL = ClearAirStep(size = 26f, line = 30f)
 
     /** The title of a sheet or a pushed screen. */
-    val titleL = ClearAirStep(size = 19f, line = 24f)
+    val titleL = ClearAirStep(size = 20f, line = 25f)
 
     /** A row's title, and the label of a button. */
     val rowTitle = ClearAirStep(size = 15f, line = 20f)
@@ -88,6 +91,9 @@ private fun clearAirStyle(family: FontFamily, weight: FontWeight, step: ClearAir
 object ClearAirType {
     /** The hero numeral of an overview: JetBrains Mono Light. */
     val hero = clearAirStyle(NumberFamily, FontWeight.Light, ClearAirScale.hero)
+
+    /** A page total, left-aligned: JetBrains Mono Light. */
+    val total = clearAirStyle(NumberFamily, FontWeight.Light, ClearAirScale.total)
 
     /** An amount in a flow: JetBrains Mono Light. */
     val amountLarge = clearAirStyle(NumberFamily, FontWeight.Light, ClearAirScale.amountLarge)
@@ -132,7 +138,7 @@ object ClearAirType {
 val ClearAirTypography = Typography(
     displayLarge = ClearAirType.hero,
     displayMedium = ClearAirType.amountLarge,
-    displaySmall = ClearAirType.amountLarge,
+    displaySmall = ClearAirType.total,
     headlineLarge = ClearAirType.titleXL,
     headlineMedium = ClearAirType.titleL,
     headlineSmall = ClearAirType.titleL,
