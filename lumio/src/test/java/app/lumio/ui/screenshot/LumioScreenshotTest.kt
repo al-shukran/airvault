@@ -30,7 +30,6 @@ import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettings
 import app.lumio.evm.SendAsset
 import app.lumio.home.TokenAsset
-import app.lumio.network.NetworkMode
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairImport
 import app.lumio.pair.PairedWallet
@@ -178,9 +177,6 @@ class LumioScreenshotTest {
                 version = "0.1.0",
             ),
             onOpen = {},
-            network = NetworkMode.MAINNET,
-            onNetwork = {},
-            onBack = {},
         )
     }
 

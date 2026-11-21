@@ -60,7 +60,6 @@ shard-1 :lumio app.lumio.ui.settings.DataProvidersScreenTest
 shard-1 :lumio app.lumio.ui.settings.LumioSettingsScreenTest
 shard-1 :lumio app.lumio.ui.settings.ProviderStatusTest
 shard-1 :lumio app.lumio.ui.settings.SettingsPagesTest
-shard-1 :lumio app.lumio.ui.wallets.WalletSheetsTest
 shard-1 :lumio app.lumio.wallets.WalletAccountsTest
 shard-1 :shared app.lensly.core.algorand.AlgoAddressTest
 shard-1 :shared app.lensly.core.algorand.AlgorandSignatureTest

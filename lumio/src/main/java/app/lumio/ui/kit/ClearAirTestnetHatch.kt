@@ -12,19 +12,26 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 
-/** The height of the testnet band. */
-private val BAND_HEIGHT = 32.dp
+/** The height of the testnet band, from the proposal. */
+private val BAND_HEIGHT = 24.dp
+
+/** The test tag of the testnet band, so a screen test can find it. */
+const val TESTNET_HATCH_TAG = "testnet-hatch"
 
 /** The distance between two hatch lines, measured along the band. */
 private val HATCH_STEP = 8.dp
 
 /**
- * The testnet band: diagonal hatch lines across the full width, with [text] set over them. The hatch is a texture, not another colour, so the band
- * marks a testnet without a colour signal.
+ * The testnet band: diagonal hatch lines across the full width, with [text] set over them in small mono capitals. The hatch is a texture, not
+ * another colour, so the band marks a test side without a colour signal.
  */
 @Composable
 fun ClearAirTestnetHatch(text: String, modifier: Modifier = Modifier) {
@@ -33,11 +40,17 @@ fun ClearAirTestnetHatch(text: String, modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxWidth()
             .height(BAND_HEIGHT)
+            .testTag(TESTNET_HATCH_TAG)
             .clipToBounds()
             .drawBehind { drawHatch(palette.testHatch) },
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = text, style = ClearAirType.label, color = palette.ink, maxLines = 1)
+        Text(
+            text = text,
+            style = ClearAirType.address.copy(fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.1.em),
+            color = palette.ink,
+            maxLines = 1,
+        )
     }
 }
 

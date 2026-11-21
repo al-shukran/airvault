@@ -10,11 +10,13 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.theme.LumenTheme
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettings
 import app.lumio.network.NetworkMode
-import app.lumio.ui.network.NetworkSwitch
+import app.lumio.ui.kit.ClearAirSegmented
+import app.lumio.ui.network.label
 import app.lumio.ui.settings.DataProvidersScreen
 import app.lumio.ui.settings.EvmSettingsSection
 import app.lumio.ui.settings.ProviderRow
@@ -37,8 +39,8 @@ class LumioControlsTest {
     @Test
     fun theSideChoiceIsOneRadioGroupNotTwoButtons() {
         compose.setContent {
-            LumenTheme {
-                NetworkSwitch(mode = NetworkMode.MAINNET, onChange = {})
+            ClearAirTheme {
+                ClearAirSegmented(options = NetworkMode.entries, selected = NetworkMode.MAINNET, label = { it.label() }, onSelect = {})
             }
         }
 

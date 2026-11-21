@@ -3,7 +3,7 @@ package app.lumio.ui.kit
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -14,89 +14,78 @@ import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
-import app.lensly.ui.navigation.NavMotion
 import app.lensly.ui.navigation.NavReducedMotion
-import app.lensly.ui.navigation.cutWhenReduced
-import app.lensly.ui.navigation.enterOf
-import app.lensly.ui.navigation.exitTowards
-import app.lensly.ui.navigation.popEnterFrom
-import app.lensly.ui.navigation.popExitOf
+import app.lensly.ui.theme.ClearAirMotion
 import app.lumio.LumioRoute
 
-/**
- * The class of the route pattern [route] (section 2): Settings is the Cover, the send and pairing sheets are the Rises, and every other Lumio screen is a
- * Push. The asset page drills in instead (see [isDrill]). The Wallets root has no class of its own (ROOT). Null when there is no route.
- */
-internal fun navMotionOf(route: String?): NavMotion? = when (route) {
-    null -> null
-    LumioRoute.WALLETS -> NavMotion.ROOT
-    LumioRoute.SETTINGS -> NavMotion.COVER
-    LumioRoute.RECEIVE, LumioRoute.SEND, LumioRoute.SOLANA_SEND, LumioRoute.ALGORAND_SEND, LumioRoute.BTC_SEND,
-    LumioRoute.PAIR_SCAN, LumioRoute.PAIR_REVIEW -> NavMotion.RISE
-    else -> NavMotion.PUSH
-}
+/** The cross-fade between two tab roots: 120 ms, so a tab switch reads as one step without a slide. */
+private const val TAB_FADE_MS = 120
+
+/** Whether [route] is the root of a tab, one of the five places of the tab bar. */
+internal fun isTabRoot(route: String?): Boolean = route in LumioRoute.TAB_ROOTS
 
 /**
- * Whether [route] is the asset page. It drills in over the Wallets home: the screen beneath holds its place under a scrim, and the page slides in and out
- * on a critically damped spring (the Phase 2.8 push targets). Every other route moves by its class. The Wallet and the Account are sheets, see
- * [app.lumio.ui.wallets.WalletSheets].
- */
-private fun isDrill(route: String?): Boolean = route == LumioRoute.ASSET
-
-/**
- * A Lumio screen of the NavHost, with the transitions of its class (section 3.2). A screen's own class sets how it comes in and how it goes out.
- * The screen it meets sets the other half of the move: a Rise makes the screen beneath it scale back, and a screen that comes back takes the
- * shape of the one it leaves. The class comes from [navMotionOf], so one route has one class wherever it is reached.
+ * A Lumio screen of the NavHost, with the motion that Clear Air sets for it. A tab root cross-fades with the tab it meets. Every other screen is a
+ * place: it pushes in from a twelfth of the width on the push curve, while the screen beneath stays still, and it pops out the same way. Reduced
+ * motion cross-fades in [ClearAirMotion.CROSS_FADE_MS] instead of moving.
  */
 internal fun NavGraphBuilder.lumioComposable(
     route: String,
     arguments: List<NamedNavArgument> = emptyList(),
     content: @Composable AnimatedVisibilityScope.(NavBackStackEntry) -> Unit,
 ) {
-    val own = navMotionOf(route) ?: NavMotion.PUSH
-    val drill = isDrill(route)
     composable(
         route = route,
         arguments = arguments,
         enterTransition = {
-            cutWhenReduced(NavReducedMotion.reduced, EnterTransition.None) { if (drill) drillEnter() else enterOf(own) }
+            when {
+                NavReducedMotion.reduced -> crossFadeIn()
+                isTabRoot(route) -> tabFadeIn()
+                else -> pushIn()
+            }
         },
         exitTransition = {
-            cutWhenReduced(NavReducedMotion.reduced, ExitTransition.None) {
-                if (isDrill(targetState.destination.route)) drillScrim() else exitTowards(navMotionOf(targetState.destination.route))
+            when {
+                NavReducedMotion.reduced -> crossFadeOut()
+                isTabRoot(targetState.destination.route) -> tabFadeOut()
+                // The screen beneath a push holds its place until the push lands, so nothing shows through it.
+                else -> ExitTransition.KeepUntilTransitionsFinished
             }
         },
         popEnterTransition = {
-            cutWhenReduced(NavReducedMotion.reduced, EnterTransition.None) {
-                if (isDrill(initialState.destination.route)) drillScrimLift() else popEnterFrom(navMotionOf(initialState.destination.route))
+            when {
+                NavReducedMotion.reduced -> crossFadeIn()
+                isTabRoot(initialState.destination.route) -> tabFadeIn()
+                // A page that a pop reveals was already in place beneath the page that leaves.
+                else -> EnterTransition.None
             }
         },
         popExitTransition = {
-            cutWhenReduced(NavReducedMotion.reduced, ExitTransition.None) { if (drill) drillBackExit() else popExitOf(own) }
+            when {
+                NavReducedMotion.reduced -> crossFadeOut()
+                isTabRoot(route) -> tabFadeOut()
+                else -> pushOut()
+            }
         },
     ) { entry -> content(entry) }
 }
 
-/**
- * The spring of the wallet pages' drill. It is critically damped, so a page settles within about 300 ms and does not overshoot, and the alpha and the
- * position share it so they land together.
- */
-private val drillSpring = spring<Float>(dampingRatio = 1f, stiffness = 400f)
+/** The push curve's timing for the fade of a place. */
+private val pushFade = tween<Float>(durationMillis = ClearAirMotion.PUSH_MS, easing = ClearAirMotion.pushEasing)
 
-/** The same spring for positions: the offsets of the drill's slides. */
-private val drillOffset = spring<IntOffset>(dampingRatio = 1f, stiffness = 400f)
+/** The same curve for the slide's offset. */
+private val pushSlide = tween<IntOffset>(durationMillis = ClearAirMotion.PUSH_MS, easing = ClearAirMotion.pushEasing)
 
-/** The alpha a screen keeps under the scrim of a pushed wallet page: the scrim takes the other 40%. */
-private const val DRILL_SCRIM_ALPHA = 0.6f
+/** A place comes in from a twelfth of the width, fading in on the push curve. */
+private fun pushIn(): EnterTransition = fadeIn(pushFade) + slideInHorizontally(pushSlide) { it / 12 }
 
-/** A wallet page slides in from the right edge. It is in place on its first frame, and nothing fades in over the screen beneath it. */
-private fun drillEnter(): EnterTransition = slideInHorizontally(drillOffset) { it }
+/** A place goes out to the right, a twelfth of the width, fading as it goes. */
+private fun pushOut(): ExitTransition = fadeOut(pushFade) + slideOutHorizontally(pushSlide) { it / 12 }
 
-/** The screen beneath a pushed wallet page holds its place and dims under the scrim. It neither moves nor scales. */
-private fun drillScrim(): ExitTransition = fadeOut(drillSpring, targetAlpha = DRILL_SCRIM_ALPHA)
+private fun tabFadeIn(): EnterTransition = fadeIn(tween(TAB_FADE_MS))
 
-/** A popped wallet page slides out to the right edge. */
-private fun drillBackExit(): ExitTransition = slideOutHorizontally(drillOffset) { it }
+private fun tabFadeOut(): ExitTransition = fadeOut(tween(TAB_FADE_MS))
 
-/** The screen that a pop reveals lifts its scrim: it is in place on its first frame, and its alpha rises to full. */
-private fun drillScrimLift(): EnterTransition = fadeIn(drillSpring, initialAlpha = DRILL_SCRIM_ALPHA)
+private fun crossFadeIn(): EnterTransition = fadeIn(tween(ClearAirMotion.CROSS_FADE_MS))
+
+private fun crossFadeOut(): ExitTransition = fadeOut(tween(ClearAirMotion.CROSS_FADE_MS))

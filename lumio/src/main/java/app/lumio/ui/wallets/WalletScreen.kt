@@ -19,7 +19,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.LumioIsland
@@ -35,14 +34,13 @@ import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
 
 /**
- * One paired wallet (section 2.1, Wallet): its name in the top bar, then its orb and total under a glow, the side and the summary of its accounts, and
- * the freshness line. Each chain of the wallet is an island of its accounts, with the address and the token count of each. An account opens it. The
- * wallet is a sheet over the Wallets home, where a drag down closes it, so it does not pull to refresh. [tokenCounts] holds the tokens each Ethereum
- * account holds, and [network] looks up the logo of its network. [notice] names a read that did not answer.
+ * One paired wallet (section 2.1, Wallet), as the body of its page: the orb and total under a glow, the side and the summary of its accounts, and the
+ * freshness line. Each chain of the wallet is an island of its accounts, with the address and the token count of each. An account opens its own page.
+ * The page's top bar is the shell's, so this has none, and the page does not pull to refresh. [tokenCounts] holds the tokens each Ethereum account
+ * holds, and [network] looks up the logo of its network. [notice] names a read that did not answer.
  */
 @Composable
 fun WalletScreen(
-    walletName: String,
     fingerprint: Int,
     mode: NetworkMode,
     accounts: List<WalletAccount>,
@@ -55,15 +53,13 @@ fun WalletScreen(
     updatedAtMs: Long?,
     notice: String?,
     onAccount: (WalletAccount) -> Unit,
-    onBack: () -> Unit,
     modifier: Modifier = Modifier,
     clock: Clock = WallClock,
 ) {
     // A pushed wallet is populated on its first frame, so its rows do not stagger in. The Wallets home alone staggers its list.
     val running = false
     val evmChainId = WalletAccounts.primaryEvmChainId(mode)
-    Column(modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-        DetailTopBar(title = walletName, onBack = onBack)
+    Column(modifier = modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxWidth().weight(1f),
             contentPadding = PaddingValues(horizontal = LumioGutter, vertical = LenslySpacing.sm),

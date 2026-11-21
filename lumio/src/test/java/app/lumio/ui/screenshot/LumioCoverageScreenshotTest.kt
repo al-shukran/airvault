@@ -56,8 +56,6 @@ import app.lumio.tokens.Token
 import app.lumio.ui.btc.BtcAdvancedFields
 import app.lumio.ui.btc.BtcSendReviewScreen
 import app.lumio.ui.btc.BtcSignRequestScreen
-import app.lumio.ui.network.NetworkSwitch
-import app.lumio.ui.network.TestnetStrip
 import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.pair.PairScanScreen
 import app.lumio.ui.send.AdvancedSendFields
@@ -208,25 +206,6 @@ class LumioCoverageScreenshotTest {
     @Test
     fun licencesLoading() = compose.lumioSnapshot("licences_loading") {
         ThirdPartyLicencesScreen(blocks = null, onBack = {})
-    }
-
-    // Network controls
-
-    @Test
-    fun networkSwitchOnMainnet() = compose.lumioSnapshot("network_switch_mainnet") {
-        Column(Modifier.padding(LenslySpacing.md)) {
-            NetworkSwitch(mode = NetworkMode.MAINNET, onChange = {})
-        }
-    }
-
-    @Test
-    fun networkSwitchOnTestnetWithBanner() = compose.lumioSnapshot("network_switch_testnet_banner") {
-        Column {
-            TestnetStrip(onOpen = {})
-            Column(Modifier.padding(LenslySpacing.md)) {
-                NetworkSwitch(mode = NetworkMode.TESTNET, onChange = {})
-            }
-        }
     }
 
     // Bitcoin send: review, sign request, and the broadcast states

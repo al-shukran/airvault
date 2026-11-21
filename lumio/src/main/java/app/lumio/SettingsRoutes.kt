@@ -1,21 +1,11 @@
 package app.lumio
 
-import androidx.compose.animation.EnterExitState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
@@ -28,6 +18,7 @@ import app.lensly.ui.navigation.openHidden
 import app.lumio.data.config.DisplaySettingsStore
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.pair.PairedWallets
+import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.kit.lumioComposable
 import app.lumio.ui.settings.AboutSettingsPage
 import app.lumio.ui.settings.AddressBookRows
@@ -46,42 +37,22 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
 
-/**
- * The Settings route: the list over the screen it was opened from. It slides in on the push spring while that screen stays still and dims under
- * [SETTINGS_SCRIM], and on Back it slides out the same way.
- */
-internal fun NavGraphBuilder.settingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, selection: NetworkSelection) {
+/** The Settings tab's route: the root of the tab, with the list of pages in it. */
+internal fun NavGraphBuilder.settingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, selection: NetworkSelection, onLock: () -> Unit) {
     lumioComposable(LumioRoute.SETTINGS) {
-        val dim by transition.animateFloat(transitionSpec = { settleSpring() }, label = "settingsScrim") { state ->
-            if (state == EnterExitState.Visible) SETTINGS_SCRIM else 0f
-        }
-        // The scrim is drawn to the left of the list, over the part of the screen beneath that the slide still shows.
-        Box(
-            modifier = Modifier.fillMaxSize().drawBehind {
-                drawRect(Color.Black, topLeft = Offset(-size.width, 0f), size = size, alpha = dim)
-            },
-        ) {
-            LumioBackdrop(selection) {
-                SettingsRoute(navController = navController, holder = holder, listVersion = listVersion, selection = selection)
-            }
+        LumioBackdrop(selection) {
+            SettingsRoute(navController = navController, holder = holder, listVersion = listVersion, selection = selection, onLock = onLock)
         }
     }
 }
 
-/** How dark the screen beneath Settings gets once the list is in. */
-private const val SETTINGS_SCRIM = 0.4f
-
-/** The critically damped spring of a push: no overshoot, settled in about 290 ms. */
-private fun <T> settleSpring() = spring<T>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 400f)
-
 /**
- * The Settings tab: the network side at its top, then one row per page, each with its state under its title. The state comes from the open vault's
- * [SettingsFactsHolder], read when the vault opened, so the list is whole on its first frame. It is read again off the main thread each time the
- * list comes to the top or the paired wallets change, so a change made on a page shows here when the owner comes back to it. The side applies as
- * the owner picks it.
+ * The Settings tab: one row per page, each with its state under its title. The state comes from the open vault's [SettingsFactsHolder], read when the
+ * vault opened, so the list is whole on its first frame. It is read again off the main thread each time the list comes to the top or the paired
+ * wallets change, so a change made on a page shows here when the owner comes back to it.
  */
 @Composable
-private fun SettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, selection: NetworkSelection) {
+private fun SettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, selection: NetworkSelection, onLock: () -> Unit) {
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
     LaunchedEffect(session == null) {
@@ -97,13 +68,12 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder,
     // The vault's own read has not finished yet: read here once, so the list never comes in blank.
     val current = cached ?: remember(store) { store.refresh(); store.facts.value } ?: return
     val gesture = LocalContext.current.entryGestureHolder().current
-    LumioSettingsScreen(
-        rows = settingsRows(current, gesture, BuildConfig.VERSION_NAME),
-        onOpen = { page -> navController.navigate(LumioRoute.settingsPage(page)) },
-        network = selection.mode,
-        onNetwork = selection::choose,
-        onBack = { navController.popBackStack() },
-    )
+    TabRoute(tab = LumioTab.SETTINGS, navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = onLock) {
+        LumioSettingsScreen(
+            rows = settingsRows(current, gesture, BuildConfig.VERSION_NAME),
+            onOpen = { page -> navController.navigate(LumioRoute.settingsPage(page)) },
+        )
+    }
 }
 
 /** The facts of the Settings list for one open vault. [LumioVault] keeps one, so the list has them before it is first shown. */
