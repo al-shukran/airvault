@@ -106,12 +106,9 @@ class WalletStoreFirstAccountsTest {
     }
 
     private companion object {
-        val DEMO_WORDS = (
-            "REDACTED-TEST-MNEMONIC REDACTED sketch " +
-                "REDACTED REDACTED-TEST-MNEMONIC"
-            ).split(" ")
+        val DEMO_WORDS = List(23) { "abandon" } + "art"
 
         /** The Ledger Live address of account 0 for [DEMO_WORDS], as HdWalletTest pins it. */
-        const val LEDGER_LIVE_ETHEREUM_0 = "0x7F96216EF57Ff291cB334238779Eeb3B73866755"
+        const val LEDGER_LIVE_ETHEREUM_0 = "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb"
     }
 }

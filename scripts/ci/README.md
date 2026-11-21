@@ -93,6 +93,21 @@ Builds the merged debug manifests of `:app` and `:lumio` (offline), then checks 
 must be `"false"` in both. The `manifest` lane also checks the release manifest of `:app` for `INTERNET` and `ACCESS_NETWORK_STATE`, and the release runtime
 classpath for OkHttp.
 
+## Mnemonic guard — `check-mnemonics.sh`
+
+Runs in the `ci` job of `pr-fast.yml`, with no Gradle and no build. It fails when a tracked text file holds 12 or more consecutive
+English BIP39 words, including words split across lines by a Kotlin string concatenation (`" +` and `"`). A run passes only when it
+equals a line of `mnemonic-allowlist.txt`, which holds the standard published vectors of `shared/src/test/resources/vectors/bip39`.
+The vendored wordlist `bip39-english.txt` is the official English list (SHA-256 `2f5eed53…dbda`) and is not scanned. The report names
+the file and line only, never the words, because CI logs of this repository are public.
+
+Tests use the published vectors, or the words of the test's own wallet. A new vector goes in the allowlist with its source, and
+nothing else is allowed.
+
+```bash
+scripts/ci/check-mnemonics.sh   # prints the count of files checked, or each file:line hit and exits 1
+```
+
 ## Extended kinds — `run-extended.sh <kind>`
 
 `instrumented`, `e2e`, `screenshot-testing`, `perf`, `security`, `fuzz`. Layers that have not landed yet print "not configured yet"

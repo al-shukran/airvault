@@ -46,25 +46,23 @@ class HdWalletTest {
     }
 
     @Test
-    fun throwawayMnemonicPinsTheEvmAddressesOfAccountsZeroToFour() {
-        // A public throwaway mnemonic that has never held funds. Account N is the Ledger Live address m/44'/60'/N'/0/0, which must stay
+    fun publishedMnemonicPinsTheEvmAddressesOfAccountsZeroToFour() {
+        // The published "abandon ... art" vector, which artWallet holds. Account N is the Ledger Live address m/44'/60'/N'/0/0, which must stay
         // byte-identical. The BIP44 address m/44'/60'/0'/0/N is the one Rabby derives from the account 0 key.
-        val words = "REDACTED-TEST-MNEMONIC near REDACTED-TEST-MNEMONIC " +
-            "REDACTED-TEST-MNEMONIC"
-        val wallet = HdWallet(Mnemonic.toSeed(words.split(" ")))
+        val wallet = artWallet
         val ledgerLive = listOf(
-            "0x7F96216EF57Ff291cB334238779Eeb3B73866755",
-            "0xBc085967d1CBaDB173a5ea92567e78eec79e7893",
-            "0x1029CedC4d45275d9200C80201cdc33196640C13",
-            "0x3E71905898D74e3cfceE458ed8850D19dA7397Fc",
-            "0x55F0a1C5Eb48e00C601AA82C0a7dd2BFde9E79Bf",
+            "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
+            "0x94142B4f665316D3304C3a595ec83aC9C8046598",
+            "0xe93E76dFCc3Bb3A6A3A36Bcd9df68cb7C0AD46AA",
+            "0x71C2332fc061939f415271D52D24b32f3D4A9173",
+            "0x290C2D6fa111595Df8A636d36763bFe4cD8D9e6F",
         )
         val bip44 = listOf(
-            "0x7F96216EF57Ff291cB334238779Eeb3B73866755",
-            "0xfC9bbE74dB0C69dd4C6E82692720A3F001bF3DA0",
-            "0x179744CCfFC6D78BCfFA1eB46709740E5bFCA71C",
-            "0x5F71cDd479a173B0Cb38e187BD70293de978c6e8",
-            "0xf072c362Dc386A932194AED3e25493a2b3C1d8D8",
+            "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
+            "0xf785bD075874b8423D3583728a981399f31e95aA",
+            "0x60Af1c6A5D03F9f1B1b74931499bC99E72fF8DA9",
+            "0xDF7F9c4b9B9b9580B265DCD892173e9bD90e067F",
+            "0xC1080BB846F3B862d04e72EAd4B92A4D47233D98",
         )
         for (account in 0..4) {
             assertEquals(ledgerLive[account], wallet.address(account), "Ledger Live account $account")
