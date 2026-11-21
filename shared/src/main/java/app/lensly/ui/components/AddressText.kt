@@ -92,8 +92,15 @@ fun AddressText(
     }
 }
 
-/** [address] in groups of four characters separated by spaces. The full address is kept, and text wraps only at the spaces. */
-fun groupAddress(address: String): String = address.chunked(4).joinToString(" ")
+/**
+ * [address] in groups of four characters separated by spaces. A `0x` prefix stays in front of the first group and is not counted in
+ * the groups, so an EVM address reads `0x1a2B 3c4D …`. Only the display changes: the full address is kept, and text wraps only at the
+ * spaces.
+ */
+fun groupAddress(address: String): String {
+    val prefix = if (address.startsWith("0x")) "0x" else ""
+    return prefix + address.removePrefix(prefix).chunked(4).joinToString(" ")
+}
 
 /** Copies [address] through [copyToClipboard], then confirms with a short toast. */
 internal fun copyAddress(context: Context, address: String) {

@@ -34,7 +34,6 @@ import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.gate.PasswordBuffer
-import app.lensly.ui.home.groupedAddress
 import app.lensly.ui.qr.AnimatedQr
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalMonoFamily
@@ -219,7 +218,7 @@ private fun AccountFields(account: AccountExportView, modifier: Modifier = Modif
         Spacer(Modifier.height(LenslySpacing.sm))
         WalletEyebrow("Address")
         Spacer(Modifier.height(LenslySpacing.xxs))
-        AddressText(address = account.address, shown = groupedAddress(account.address), icon = false, color = MaterialTheme.colorScheme.onSurface)
+        AddressText(address = account.address, icon = false, color = MaterialTheme.colorScheme.onSurface)
         account.fields.forEach { (label, value) -> FieldText(label = label, value = value) }
     }
 }
@@ -245,7 +244,6 @@ private fun AccountAddressDetails(address: String, derivationPath: String?) {
     ) {
         AddressText(
             address = address,
-            shown = groupedAddress(address),
             icon = false,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,

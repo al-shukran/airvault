@@ -23,6 +23,7 @@ import app.lensly.app.AccountProfile
 import app.lensly.app.ProfileColour
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
+import app.lensly.ui.components.groupAddress
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LumenTheme
 import org.junit.Assert.assertEquals
@@ -104,8 +105,8 @@ class EthereumAccountsScreenTest {
 
     @Test
     fun addingAnAccountKeepsTheScrollPositionAndAppendsTheRow() {
-        // Twelve accounts, with the list scrolled to its last rows. The list has no room for a thirteenth row until it scrolls down to it.
-        val route = Route(accounts = 12)
+        // Thirty accounts, the list scrolled to its last rows. A thirty-first row has no room until the list scrolls down to it.
+        val route = Route(accounts = 30)
         lateinit var listState: LazyListState
         compose.setContent {
             LumenTheme {
@@ -121,18 +122,18 @@ class EthereumAccountsScreenTest {
         compose.onNodeWithText("Add Account").performClick()
         compose.waitForIdle()
         // The new account is counted, and the rows already shown stay where they were.
-        assertEquals(13, route.count)
+        assertEquals(31, route.count)
         assertEquals(before, compose.runOnIdle { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset })
 
         // Its row waits for its address, and it is in view once the list scrolls down to it.
-        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(12)
+        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(30)
         compose.waitForIdle()
         compose.onAllNodesWithText("DERIVING ADDRESS").assertCountEquals(1)
-        compose.onAllNodesWithText(groupedAddress(addressAt(12))).assertCountEquals(0)
+        compose.onAllNodesWithText(groupAddress(addressAt(30))).assertCountEquals(0)
 
         compose.runOnIdle { route.deriveNext() }
         compose.waitForIdle()
-        compose.onAllNodesWithText(groupedAddress(addressAt(12))).assertCountEquals(1)
+        compose.onAllNodesWithText(groupAddress(addressAt(30))).assertCountEquals(1)
         compose.onAllNodesWithText("DERIVING ADDRESS").assertCountEquals(0)
     }
 
@@ -146,7 +147,7 @@ class EthereumAccountsScreenTest {
         }
 
         route.addresses.forEach { address ->
-            compose.onNodeWithText(groupedAddress(address)).assertExists()
+            compose.onNodeWithText(groupAddress(address)).assertExists()
         }
         compose.onAllNodesWithText("…", substring = true).assertCountEquals(0)
     }
@@ -179,9 +180,9 @@ class EthereumAccountsScreenTest {
 
         compose.onNodeWithContentDescription("App options").performClick()
         compose.onNodeWithText("Select Accounts").performClick()
-        compose.onNodeWithText(groupedAddress(addressAt(4))).performClick()
-        compose.onNodeWithText(groupedAddress(addressAt(1))).performClick()
-        compose.onNodeWithText(groupedAddress(addressAt(3))).performClick()
+        compose.onNodeWithText(groupAddress(addressAt(4))).performClick()
+        compose.onNodeWithText(groupAddress(addressAt(1))).performClick()
+        compose.onNodeWithText(groupAddress(addressAt(3))).performClick()
         compose.onNodeWithText("3 SELECTED").assertIsDisplayed()
 
         compose.onNodeWithText("Export").performClick()

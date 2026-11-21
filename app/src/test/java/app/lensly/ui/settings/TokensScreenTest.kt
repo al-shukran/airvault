@@ -11,7 +11,7 @@ import androidx.compose.ui.test.performScrollToNode
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
-import app.lensly.ui.home.groupedAddress
+import app.lensly.ui.components.groupAddress
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.shippedRegistry
 import app.lensly.ui.theme.LumenTheme
@@ -52,7 +52,7 @@ class TokensScreenTest {
     @Test
     fun theCatalogIsALazyListThatComposesOnlyWhatShows() {
         val registry = shippedRegistry()
-        val last = groupedAddress(registry.tokens().last().contract)
+        val last = groupAddress(registry.tokens().last().contract)
         compose.setContent {
             LumenTheme {
                 TokensScreen(networks = registry.networks(), tokens = registry.tokens(), onBack = {})
@@ -85,9 +85,9 @@ class TokensScreenTest {
     fun eachTokenShowsItsFullContractInGroupsOfFour() {
         show()
 
-        compose.onNodeWithText(groupedAddress(alphaOne.contract)).assertIsDisplayed()
-        compose.onNodeWithText(groupedAddress(betaOne.contract)).assertIsDisplayed()
-        assertEquals("0x1111 1111 1111 1111 1111\n1111 1111 1111 1111 1111", groupedAddress(alphaOne.contract))
+        compose.onNodeWithText(groupAddress(alphaOne.contract)).assertIsDisplayed()
+        compose.onNodeWithText(groupAddress(betaOne.contract)).assertIsDisplayed()
+        assertEquals("0x1111 1111 1111 1111 1111 1111 1111 1111 1111 1111", groupAddress(alphaOne.contract))
     }
 
     @Test
