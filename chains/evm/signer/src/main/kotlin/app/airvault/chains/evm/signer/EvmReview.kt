@@ -33,6 +33,10 @@ import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.registry.WhitelistEntry
+import app.lensly.core.registry.isHypeSystemAddress
+import app.lensly.core.registry.isHyperEvm
+import app.lensly.core.registry.isSystemAddress
+import app.lensly.core.registry.isTokenSystemAddress
 import app.lensly.core.registry.offChainLabelOf
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger
@@ -200,7 +204,8 @@ class EvmReviewBuilder(
                 )
             }
             val summary = listOf(SummaryPart.Text("Signs typed data of type ${typedData.primaryType}."))
-            return assemble(typedData.primaryType, summary, heading = "Request")
+            val title = hyperEvmMoveTitle(typedData.primaryType, typedData.message, offChain) ?: typedData.primaryType
+            return assemble(title, summary, heading = "Request")
         }
 
         /**
@@ -275,7 +280,8 @@ class EvmReviewBuilder(
         private fun nativeTransaction(tx: UnsignedTx, to: String): Pair<String, List<SummaryPart>> {
             targetRow("To", to)
             valueRow(tx.value, always = true)
-            return "Native Transfer" to listOf(sendOf(tx.value, network?.nativeDecimals, network?.nativeSymbol, sender, to))
+            val title = if (isHyperEvm(chainId) && isHypeSystemAddress(to)) MOVE_TO_HYPERCORE else "Native Transfer"
+            return title to listOf(sendOf(tx.value, network?.nativeDecimals, network?.nativeSymbol, sender, to))
         }
 
         /** A decoded contract call on [to]. A token call sends no native currency, so the request is refused when it does. */
@@ -291,7 +297,8 @@ class EvmReviewBuilder(
             sections += ReviewSection("Arguments", rowsOf(part.params, "evm.data", 0) + noteRows(part.note))
             part.warnings.forEach { warnings += it.toWarning("evm.data") }
             if (part.unregistered) warnings += registryWarning(TOKEN_UNREGISTERED, FieldPath("evm.to"))
-            return part.function to part.sentence
+            val moves = call is ContractCall.Transfer && isHyperEvm(chainId) && isTokenSystemAddress(call.to)
+            return (if (moves) MOVE_TO_HYPERCORE else part.function) to part.sentence
         }
 
         /**
@@ -867,6 +874,25 @@ private fun offChainCautionText(label: String): String =
 
 /** The tick of an off-chain signature for [label]. */
 private fun offChainAck(label: String): String = "I understand this signature goes to $label, and Lensly cannot tell what it does."
+
+/** The top label of a transfer that moves an asset from HyperCore to HyperEVM. */
+private const val MOVE_TO_HYPEREVM = "Move to HyperEVM"
+
+/** The top label of a transfer that moves an asset from HyperEVM to HyperCore. */
+private const val MOVE_TO_HYPERCORE = "Move to HyperCore"
+
+/** The Hyperliquid actions that send an asset from HyperCore to HyperEVM. */
+private val HYPEREVM_MOVE_TYPES = setOf("HyperliquidTransaction:SpotSend", "HyperliquidTransaction:SendAsset")
+
+/**
+ * The top label of a SpotSend or SendAsset whose destination is a system address, which moves the asset to HyperEVM, or null for any
+ * other message. The label adds to the review. Every field of the message is still shown, and nothing is refused or changed.
+ */
+private fun hyperEvmMoveTitle(primaryType: String, message: TypedValue.StructValue, offChain: OffChainDomain?): String? {
+    if (offChain == null || primaryType !in HYPEREVM_MOVE_TYPES) return null
+    val destination = (message.fields["destination"] as? TypedValue.TextValue)?.value ?: return null
+    return MOVE_TO_HYPEREVM.takeIf { isSystemAddress(destination) }
+}
 
 /**
  * The DANGER of a message that lets a key act for the account or moves its funds, or null for any other primary type. An agent approval is
