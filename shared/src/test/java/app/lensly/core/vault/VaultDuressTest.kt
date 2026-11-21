@@ -463,7 +463,8 @@ class VaultDuressTest {
         val decoy = unlocked(attempt(DURESS))
         assertTrue(decoy.isDecoy)
         decoy.close()
-        assertEquals(0, vault.failureCountForTesting())
+        // The decoy open keeps the real vault's count of one, so it does not clear the streak.
+        assertEquals(1, vault.failureCountForTesting())
     }
 
     @Test
@@ -561,6 +562,53 @@ class VaultDuressTest {
         assertFalse(decoyPhoto.exists())
     }
 
+    @Test
+    fun aDecoyOpenKeepsTheRealVaultsWrongTryCount() {
+        createVault()
+        val real = unlocked(attempt(APP))
+        assertEquals(DuressResult.Enabled, setDuress(real))
+        real.close()
+        assertRejected(afterTheFullWait(WRONG))
+        assertRejected(afterTheFullWait(WRONG))
+
+        val decoy = unlocked(afterTheFullWait(DURESS))
+
+        assertTrue(decoy.isDecoy)
+        decoy.close()
+        assertEquals(2, vault.failureCountForTesting())
+    }
+
+    @Test
+    fun theTriesLeftWarningIsHiddenAfterADecoyOpenAndReturnsAtTheNextWrongTry() {
+        createVault()
+        val real = unlocked(attempt(APP))
+        assertEquals(DuressResult.Enabled, setDuress(real))
+        real.close()
+        assertEquals(FailureCapResult.Saved, runBlocking { vault.setFailureLimits(APP.toCharArray(), null, wipeAfter = 4) })
+        assertRejected(afterTheFullWait(WRONG))
+        assertRejected(afterTheFullWait(WRONG))
+        assertEquals(2, triesLeft())
+
+        unlocked(afterTheFullWait(DURESS)).close()
+        assertNull(triesLeft())
+
+        assertRejected(afterTheFullWait(WRONG))
+        assertEquals(3, vault.failureCountForTesting())
+        assertEquals(1, triesLeft())
+    }
+
+    @Test
+    fun aRealOpenClearsTheWrongTryCountAndHidesTheWarning() {
+        createVault()
+        assertRejected(afterTheFullWait(WRONG))
+        assertRejected(afterTheFullWait(WRONG))
+
+        unlocked(afterTheFullWait(APP)).close()
+
+        assertEquals(0, vault.failureCountForTesting())
+        assertNull(triesLeft())
+    }
+
     /** A photo in the real vault's or the Decoy Vault's folder, as the camera or the gallery would keep it. */
     private fun savePhoto(decoy: Boolean): File =
         File(layout.photoDir(decoy).apply { mkdirs() }, "IMG_1.jpg").apply { writeBytes(ByteArray(1)) }
@@ -570,6 +618,14 @@ class VaultDuressTest {
     }
 
     private fun attempt(password: String): UnlockResult = runBlocking { vault.unlock(password.toCharArray()) }
+
+    /** Moves the clock past the longest wait the default cap allows, then tries [password]. */
+    private fun afterTheFullWait(password: String): UnlockResult {
+        clock.advance(FailureDelay.DEFAULT_CAP_MS)
+        return attempt(password)
+    }
+
+    private fun triesLeft(): Int? = runBlocking { vault.triesBeforeErase() }
 
     /** Moves the clock past any failure delay, then tries [password]. */
     private fun unlockAfterDelay(password: String): UnlockResult {

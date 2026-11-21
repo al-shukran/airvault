@@ -285,7 +285,8 @@ class Vault constructor(
 
     /**
      * The tries left before this vault is erased, when that is [FailureDelay.WARN_TRIES_LEFT] or fewer, and null otherwise. It
-     * counts the wrong tries of both passwords, so it says nothing about which vault a password opens. Null when no vault exists.
+     * counts the wrong tries of both passwords, so it says nothing about which vault a password opens. Null when no vault exists, and
+     * after a right password until the next wrong try.
      */
     suspend fun triesBeforeErase(): Int? =
         withContext(Dispatchers.IO) {
@@ -637,15 +638,22 @@ class Vault constructor(
                 }
                 return Checked.Refused
             }
-            // The software layer authenticated, so the password is right. Reset the count before the hardware step.
-            val reset = store.recordSuccess(counted, clock)
+            // The software layer authenticated, so the password is right. Which vault it opened is known only from the hardware step, so the
+            // success is recorded after that step. A real password clears the count. A decoy password keeps the count from before this try,
+            // so opening the decoy never lowers the real vault's streak. A right password whose hardware step is cut short keeps its counted
+            // try (FailureDelay threat 15).
             val (vaultKey, role) = withHardwareAuth {
                 val key = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
                 val (unwrapped, unwrappedRole) = unwrapOpened(key, opened.single().second)
                 Pair(unwrapped, unwrappedRole)
             }
+            val success = if (role == VaultRole.DECOY) {
+                store.recordDecoySuccess(counted, check.state, clock)
+            } else {
+                store.recordSuccess(counted, clock)
+            }
             handedOver = true
-            return Checked.Opened(OpenedSlot(softKey, vaultKey, role, store, reset))
+            return Checked.Opened(OpenedSlot(softKey, vaultKey, role, store, success))
         } finally {
             if (!handedOver) Arrays.fill(softKey, 0)
         }

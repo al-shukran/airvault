@@ -31,7 +31,7 @@ class FailureStoreTest {
     private val capOffset = 33
 
     /** The MAC-covered part of a record: everything before the 32-byte MAC. */
-    private val payloadBytes = 70
+    private val payloadBytes = 71
 
     /** The magic that opens every record. */
     private val magic = "LNFS".toByteArray(Charsets.US_ASCII)
@@ -880,5 +880,124 @@ class FailureStoreTest {
 
         // Nothing was written, so the copies still hold the state from before the check.
         assertEquals(failed, open(dir).load(clock))
+    }
+
+    @Test
+    fun aDecoySuccessWritesBackTheCountFromBeforeItsTry() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir)
+        store.initialize(clock)
+        store.recordFailure(store.load(clock), clock)
+        store.recordFailure(store.load(clock), clock)
+        val before = store.load(clock)
+        val counted = store.recordFailure(before, clock)
+
+        val opened = store.recordDecoySuccess(counted, before, clock)
+
+        assertEquals(2, opened.failures)
+        assertTrue(opened.succeededSinceFailure)
+        assertEquals(opened, open(dir).load(clock))
+    }
+
+    @Test
+    fun aWrongTryAfterADecoySuccessCountsOnAndClearsTheMark() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir)
+        store.initialize(clock)
+        store.recordFailure(store.load(clock), clock)
+        store.recordFailure(store.load(clock), clock)
+        val before = store.load(clock)
+        val opened = store.recordDecoySuccess(store.recordFailure(before, clock), before, clock)
+
+        val wrong = store.recordFailure(opened, clock)
+
+        assertEquals(3, wrong.failures)
+        assertFalse(wrong.succeededSinceFailure)
+        assertEquals(wrong, open(dir).load(clock))
+    }
+
+    @Test
+    fun aDecoySuccessDoesNotRestartTheRealVaultsWait() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir)
+        store.initialize(clock)
+        store.recordFailure(store.load(clock), clock)
+        store.recordFailure(store.load(clock), clock)
+        // The wait for two failures has run out, so the next attempt is not held.
+        clock.advance(FailureDelay.DEFAULT_CAP_MS)
+        val check = store.checkDelay(clock, FakeClock.START_WALL)
+        assertFalse(check.blocked)
+
+        store.recordDecoySuccess(store.recordFailure(check.state, clock), check.state, clock)
+
+        // The try the decoy counted does not start a new wait: the time already served is kept.
+        assertFalse(open(dir).checkDelay(clock, FakeClock.START_WALL).blocked)
+    }
+
+    @Test
+    fun anEditedSucceededFlagInThePrimaryCopyKeepsTheCountAndRestartsTheWaitAtTheFullCap() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir)
+        store.initialize(clock)
+        store.recordFailure(store.load(clock), clock)
+        val before = store.load(clock)
+        store.recordDecoySuccess(store.recordFailure(before, clock), before, clock)
+        assertTrue(open(dir).load(clock).succeededSinceFailure)
+
+        // The flag is the last byte of the payload. Flipping it breaks the MAC, as an edit to any other field does.
+        val bytes = dir.primary().readBytes()
+        bytes[payloadBytes - 1] = (bytes[payloadBytes - 1].toInt() xor 0x01).toByte()
+        dir.primary().writeBytes(bytes)
+
+        // The backup still verifies, so the one failure and its success mark are kept, and the wait restarts at the owner's full cap.
+        val delay = FailureDelay(FakeClock.START_WALL)
+        val locked = open(dir).load(clock)
+        assertEquals(1, locked.failures)
+        assertTrue(locked.succeededSinceFailure)
+        assertTrue(delay.isBlocked(locked, clock))
+        clock.advance(FailureDelay.DEFAULT_CAP_MS - 1)
+        assertTrue(delay.isBlocked(locked, clock))
+        clock.advance(1)
+        assertFalse(delay.isBlocked(locked, clock))
+    }
+
+    @Test
+    fun anEditedSucceededFlagInBothCopiesIsUnverifiedAndErasesAtTheNextAttempt() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir)
+        store.initialize(clock)
+        store.recordSuccess(store.load(clock), clock)
+        for (file in listOf(dir.primary(), dir.backup())) {
+            val bytes = file.readBytes()
+            bytes[payloadBytes - 1] = (bytes[payloadBytes - 1].toInt() xor 0x01).toByte()
+            file.writeBytes(bytes)
+        }
+
+        val loaded = open(dir).load(clock)
+        assertTrue(FailureDelay.unverified(loaded))
+        assertTrue(FailureDelay.erases(loaded))
+    }
+
+    @Test
+    fun aCopyInTheVersionFiveLayoutIsNotACopy() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        open(dir).initialize(clock)
+        // Version 5 had the same fields without the succeeded flag. This copy has that layout under version 5, and its MAC verifies
+        // under its own key, so only the version and the length keep it from being read.
+        val payload = dir.primary().readBytes().copyOfRange(0, payloadBytes - 1)
+        payload[magic.size] = 5
+        val seq = ByteBuffer.wrap(payload).getLong(magic.size + 1)
+        val old = payload + macOf(keys.failureMacKey(seq)!!, payload)
+        dir.primary().writeBytes(old)
+        dir.backup().writeBytes(old)
+        FailureStore.forget(dir)
+
+        assertTrue(FailureDelay.unverified(open(dir).load(clock)))
     }
 }

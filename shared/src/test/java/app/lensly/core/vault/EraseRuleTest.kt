@@ -57,6 +57,14 @@ class EraseRuleTest {
     }
 
     @Test
+    fun aRightPasswordHidesTheWarningUntilTheNextWrongTry() {
+        // A decoy open and a real open both mark the success, so neither shows the warning that the other would not.
+        val marked = state(2, wipeAfter = 5).copy(succeededSinceFailure = true)
+        assertNull(FailureDelay.triesLeftToWarn(marked))
+        assertEquals(3, FailureDelay.triesLeftToWarn(state(2, wipeAfter = 5)))
+    }
+
+    @Test
     fun aStateWithNoVerifiedCopyIsAtTheEraseThresholdAndShowsNoWarning() {
         // The count of a state no copy verifies is the tamper count, which is above every erase count (3 to 20).
         val unverified = state(FailureStore.TAMPER_FAILURES, wipeAfter = 3)
