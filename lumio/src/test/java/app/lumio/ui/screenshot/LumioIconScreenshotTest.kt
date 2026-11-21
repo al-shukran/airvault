@@ -26,7 +26,7 @@ import org.robolectric.annotation.GraphicsMode
 
 /**
  * The launcher icon of Lumio, drawn the way the launcher stacks it: the background, then the glyph, and beside it the
- * monochrome layer that themed icons tint. The golden keeps the logo checked against lumio/design/lumio.svg.
+ * monochrome layer that themed icons tint.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)

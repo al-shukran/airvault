@@ -16,7 +16,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * The Lumen ring at 240 dp, so the goldens show the geometry that LumenRing reuses: gold on ink in Night, ink on paper in Day.
+ * The AirVault mark at 240 dp, in its own colours on both themes.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = LUMIO_DARK_QUALIFIERS)

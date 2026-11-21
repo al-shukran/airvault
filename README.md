@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/brand/airvault-mark.svg" width="96" alt="AirVault mark"></p>
+
 # AirVault
 
 ## Scam Warning
