@@ -15,6 +15,7 @@ import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
+import app.lensly.ui.components.groupAddress
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LumenTheme
 import org.junit.Assert.assertEquals
@@ -78,10 +79,10 @@ class BitcoinAccountsScreenTest {
         }
 
         compose.onNodeWithText("All").assertIsDisplayed()
-        compose.onNodeWithText(groupedInFours(legacy.firstReceiveAddress)).assertIsDisplayed()
-        compose.onNodeWithText(groupedInFours(nativeMainnet.firstReceiveAddress)).assertIsDisplayed()
-        compose.onNodeWithText(groupedInFours(nativeTestnet.firstReceiveAddress)).assertIsDisplayed()
-        compose.onNodeWithText(groupedInFours(taproot.firstReceiveAddress)).assertIsDisplayed()
+        compose.onNodeWithText(groupAddress(legacy.firstReceiveAddress)).assertIsDisplayed()
+        compose.onNodeWithText(groupAddress(nativeMainnet.firstReceiveAddress)).assertIsDisplayed()
+        compose.onNodeWithText(groupAddress(nativeTestnet.firstReceiveAddress)).assertIsDisplayed()
+        compose.onNodeWithText(groupAddress(taproot.firstReceiveAddress)).assertIsDisplayed()
     }
 
     @Test
@@ -93,26 +94,26 @@ class BitcoinAccountsScreenTest {
         }
 
         compose.onNodeWithText("Native SegWit BIP84").performClick()
-        compose.onNodeWithText(groupedInFours(nativeMainnet.firstReceiveAddress)).assertIsDisplayed()
-        compose.onNodeWithText(groupedInFours(nativeTestnet.firstReceiveAddress)).assertIsDisplayed()
-        compose.onNodeWithText(groupedInFours(legacy.firstReceiveAddress)).assertDoesNotExist()
-        compose.onNodeWithText(groupedInFours(taproot.firstReceiveAddress)).assertDoesNotExist()
+        compose.onNodeWithText(groupAddress(nativeMainnet.firstReceiveAddress)).assertIsDisplayed()
+        compose.onNodeWithText(groupAddress(nativeTestnet.firstReceiveAddress)).assertIsDisplayed()
+        compose.onNodeWithText(groupAddress(legacy.firstReceiveAddress)).assertDoesNotExist()
+        compose.onNodeWithText(groupAddress(taproot.firstReceiveAddress)).assertDoesNotExist()
         // Each row names its network: one account on mainnet and one on testnet4, which shows as Testnet.
         compose.onNodeWithText("Mainnet").assertIsDisplayed()
         compose.onNodeWithText("Testnet").assertIsDisplayed()
 
         compose.onNodeWithText("Taproot BIP86").performClick()
-        compose.onNodeWithText(groupedInFours(taproot.firstReceiveAddress)).assertIsDisplayed()
-        compose.onNodeWithText(groupedInFours(nativeMainnet.firstReceiveAddress)).assertDoesNotExist()
-        compose.onNodeWithText(groupedInFours(nativeTestnet.firstReceiveAddress)).assertDoesNotExist()
+        compose.onNodeWithText(groupAddress(taproot.firstReceiveAddress)).assertIsDisplayed()
+        compose.onNodeWithText(groupAddress(nativeMainnet.firstReceiveAddress)).assertDoesNotExist()
+        compose.onNodeWithText(groupAddress(nativeTestnet.firstReceiveAddress)).assertDoesNotExist()
 
         compose.onNodeWithText("Legacy BIP44").performClick()
-        compose.onNodeWithText(groupedInFours(legacy.firstReceiveAddress)).assertIsDisplayed()
-        compose.onNodeWithText(groupedInFours(taproot.firstReceiveAddress)).assertDoesNotExist()
+        compose.onNodeWithText(groupAddress(legacy.firstReceiveAddress)).assertIsDisplayed()
+        compose.onNodeWithText(groupAddress(taproot.firstReceiveAddress)).assertDoesNotExist()
 
         compose.onNodeWithText("All").performClick()
-        compose.onNodeWithText(groupedInFours(legacy.firstReceiveAddress)).assertIsDisplayed()
-        compose.onNodeWithText(groupedInFours(nativeMainnet.firstReceiveAddress)).assertIsDisplayed()
+        compose.onNodeWithText(groupAddress(legacy.firstReceiveAddress)).assertIsDisplayed()
+        compose.onNodeWithText(groupAddress(nativeMainnet.firstReceiveAddress)).assertIsDisplayed()
     }
 
     @Test
@@ -200,7 +201,7 @@ class BitcoinAccountsScreenTest {
             }
         }
 
-        compose.onNodeWithText(groupedInFours(taproot.firstReceiveAddress)).performClick()
+        compose.onNodeWithText(groupAddress(taproot.firstReceiveAddress)).performClick()
         compose.onNodeWithText("Edit Profile").performClick()
         // The taproot account is the fourth one the wallet made, so its place is 3.
         assertEquals(3, route.edited)

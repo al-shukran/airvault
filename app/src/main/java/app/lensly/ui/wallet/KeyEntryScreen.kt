@@ -29,7 +29,6 @@ import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.PillChip
 import app.lensly.ui.components.SecureHexKeyboard
 import app.lensly.ui.gate.PasswordField
-import app.lensly.ui.home.groupedAddress
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalMonoFamily
 
@@ -166,7 +165,6 @@ fun KeyAddressScreen(
             }
             AddressText(
                 address = address,
-                shown = groupedAddress(address),
                 style = MaterialTheme.typography.bodyLarge.copy(fontFamily = LocalMonoFamily.current),
                 icon = false,
             )

@@ -89,7 +89,6 @@ fun AlgorandAccountsScreen(
                         Spacer(Modifier.height(LenslySpacing.xxs))
                         AddressText(
                             address = addresses[index],
-                            shown = addresses[index].chunked(6).joinToString(" "),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             icon = false,
                         )

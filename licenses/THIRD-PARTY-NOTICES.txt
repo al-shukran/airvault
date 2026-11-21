@@ -58,7 +58,7 @@ libsecp256k1 (bitcoin-core/secp256k1), built into libsecp256k1-jni.so and shippe
 
 Brotli 1.2.1 (google/brotli), the encoder that Lensly's libbrotlienc_jni library is built from. Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors.
 
-org.brotli:dec 0.1.2 (Google's Brotli project), the Java decoder that Lumio reads pairing codes with. Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors.
+Brotli 1.2.1 Java decoder (google/brotli, package org.brotli.dec), vendored in :shared from commit db24a98aed38a16de78cc05ca15cdd8dc2a0d92d, the decoder that Lumio reads pairing codes with. Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors.
 
 zxcvbn4j 1.9.0 (com.nulab-inc:zxcvbn), the password strength estimator. Copyright (c) 2014 Nulab Inc.
 
