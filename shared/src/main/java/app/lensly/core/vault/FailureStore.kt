@@ -21,7 +21,7 @@ import javax.crypto.SecretKey
  * lists is tampered. A deletion that the Keystore refuses does not fail the save, because the new pair is already on disk. The next
  * load or save deletes the keys that are left.
  *
- * The cap, the boot count, the time the wait had already run, the reading and boot count at creation, and the full-cap flag are in
+ * The cap, the boot count, the time the wait had already run, the reading and boot count at creation, and the two flags are in
  * the MAC-protected payload. Each check made while a wait runs saves the time served so far (see [checkDelay]), so a reboot
  * continues the wait.
  *
@@ -140,28 +140,43 @@ internal class FailureStore(
                 elapsedAtSave = 0L,
                 // A new wait is the normal one, not the full cap of a clock anomaly.
                 fullCapWait = false,
+                // A wrong try ends the run of right passwords, so the tries-left warning comes back.
+                succeededSinceFailure = false,
             ),
             clock,
         )
 
     /**
-     * Clears the failure count after a passing check. The state is written even when there was nothing to clear, so the reset costs the
-     * same two writes and fsyncs as a failed check's save and cannot be told apart by its storage work. The vault saves the count before
-     * the password is checked (see [recordFailure]), so a right password makes this save as well.
-     *
-     * The count is already saved, so a Keystore that refuses this key does not refuse the password. The save is tried twice. When both
-     * fail, the reset is kept in memory for this process, and nothing is written: a reset is never written under a key that is already on
-     * disk, because two payloads would then verify under it, and an older one would bring the failures back. A new process sees the stored
-     * count, which is the stricter one. This never throws.
+     * Clears the failure count after a right password that opened the real vault, and marks the success (see
+     * [FailureState.succeededSinceFailure]). The vault saves the count before the password is checked (see [recordFailure]), so a right
+     * password makes this save as well. The state is written even when there was nothing to clear, so the reset costs the same two writes
+     * and fsyncs as a failed check's save. Which vault opened is known only after the hardware step, so the vault calls this, or
+     * [recordDecoySuccess], after that step.
      */
-    fun recordSuccess(previous: FailureState, clock: Clock): FailureState {
-        // The sequence number always moves on, so every save makes a key of its own and never replaces the key of the pair on disk.
-        val reset = previous.copy(seq = previous.seq + 1, failures = 0, fullCapWait = false)
-        trySave(reset, clock)?.let { return it }
-        trySave(reset, clock)?.let { return it }
-        val cleared = previous.copy(failures = 0, fullCapWait = false)
-        PENDING[seenKey] = cleared
-        return cleared
+    fun recordSuccess(counted: FailureState, clock: Clock): FailureState =
+        saveSuccess(counted.copy(seq = counted.seq + 1, failures = 0), clock)
+
+    /**
+     * Records a right password that opened the Decoy Vault, and marks the success. It writes back [before], the state as it was before
+     * the try, so the decoy open leaves the real vault's count, wait and caps as they were: it can neither clear the count nor add to it.
+     * [counted] is the state the try was counted into, and the save follows it in sequence.
+     */
+    fun recordDecoySuccess(counted: FailureState, before: FailureState, clock: Clock): FailureState =
+        saveSuccess(before.copy(seq = counted.seq + 1), clock)
+
+    /**
+     * Saves a state after a right password. The count is already saved, so a Keystore that refuses this key does not refuse the password.
+     * The save is tried twice. When both fail, the state is kept in memory for this process, and nothing is written: a state is never
+     * written under a key that is already on disk, because two payloads would then verify under it, and an older one would bring the
+     * failures back. A new process sees the stored count, which is the stricter one. This never throws.
+     */
+    private fun saveSuccess(state: FailureState, clock: Clock): FailureState {
+        // The caller has moved the sequence number on, so every save makes a key of its own and never replaces the key of the pair on disk.
+        val success = state.copy(fullCapWait = false, succeededSinceFailure = true)
+        trySave(success, clock)?.let { return it }
+        trySave(success, clock)?.let { return it }
+        PENDING[seenKey] = success
+        return success
     }
 
     /**
@@ -233,6 +248,8 @@ internal class FailureStore(
             createdElapsedMs = kept?.createdElapsedMs,
             createdBootCount = kept?.createdBootCount,
             fullCapWait = true,
+            // The success mark of the kept copy stays with its count, so a lock does not bring back a warning that a success hid.
+            succeededSinceFailure = kept?.succeededSinceFailure == true,
         )
         return trySave(locked, clock) ?: locked.also { PENDING[seenKey] = it }
     }
@@ -379,9 +396,14 @@ internal class FailureStore(
             TRUE_ON_DISK -> true
             else -> return null
         }
+        val succeededSinceFailure = when (buffer.get()) {
+            FALSE_ON_DISK -> false
+            TRUE_ON_DISK -> true
+            else -> return null
+        }
         return FailureState(
             seq, failures, lastFailureWallMs, lastFailureElapsedMs, capMs, bootCount, elapsedAtSave, wipeAfter,
-            createdElapsedMs, createdBootCount, fullCapWait,
+            createdElapsedMs, createdBootCount, fullCapWait, succeededSinceFailure,
         )
     }
 
@@ -400,6 +422,7 @@ internal class FailureStore(
             .putLong(state.createdElapsedMs ?: NO_CREATED_ON_DISK)
             .putInt(state.createdBootCount ?: NO_BOOT_COUNT)
             .put(if (state.fullCapWait) TRUE_ON_DISK else FALSE_ON_DISK)
+            .put(if (state.succeededSinceFailure) TRUE_ON_DISK else FALSE_ON_DISK)
             .array()
         return payload + keystore(STATE_UNAVAILABLE) { macOf(key, payload) }
     }
@@ -426,8 +449,8 @@ internal class FailureStore(
         private const val MAC_ALGORITHM = "HmacSHA256"
         private val MAGIC = "LNFS".toByteArray(Charsets.US_ASCII)
 
-        /** The layout of a copy that this build writes and reads. A copy of any other version is not a copy. */
-        private const val VERSION: Byte = 5
+        /** The layout of a copy that this build writes and reads. A copy of any other version is not a copy, and no older layout is read. */
+        private const val VERSION: Byte = 6
 
         /** The cap on disk when the owner chose Default. Zero is outside the offered range, so it cannot be a real cap. */
         private const val NO_CAP_ON_DISK = 0L
@@ -438,15 +461,15 @@ internal class FailureStore(
         /** The creation reading on disk when it was not known. The monotonic clock never reads below zero. */
         private const val NO_CREATED_ON_DISK = -1L
 
-        /** The full-cap flag on disk. */
+        /** The flags on disk, one byte each: the full-cap flag, then the succeeded flag. */
         private const val FALSE_ON_DISK: Byte = 0
         private const val TRUE_ON_DISK: Byte = 1
 
         /**
          * magic (4), version (1), seq (8), failures (4), wall (8), elapsed (8), cap (8), boot count (4), time served (8), erase count (4),
-         * creation reading (8), creation boot count (4), full-cap flag (1).
+         * creation reading (8), creation boot count (4), full-cap flag (1), succeeded flag (1).
          */
-        private const val PAYLOAD_SIZE = 4 + 1 + 8 + 4 + 8 + 8 + 8 + 4 + 8 + 4 + 8 + 4 + 1
+        private const val PAYLOAD_SIZE = 4 + 1 + 8 + 4 + 8 + 8 + 8 + 4 + 8 + 4 + 8 + 4 + 1 + 1
         private const val MAC_SIZE = 32
 
         private const val STATE_UNAVAILABLE = "The Failure Delay state could not be read or written through the Keystore."
