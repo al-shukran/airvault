@@ -7,7 +7,7 @@ Repeatable playbook for an owner-run offensive assessment of AirVault. Paste the
 AirVault has two Android apps in one repository:
 
 - **Lensly** (`app.lensly`, module `:app`) is the offline vault and signer. It holds the BIP39 mnemonic and signs. It requests no INTERNET permission.
-- **Lumio** (`app.lumio`, module `:lumio`) is the online companion. It is watch-only, builds requests, and broadcasts. It never holds key material.
+- **Lumio** (`app.lumio`, module `:lumio`) is the online companion. It is watch-only, builds requests, and broadcasts. It never holds a wallet key.
 
 The question this run answers first: **can an attacker who holds the phone get the mnemonic?** Rank every finding by how much it moves that answer, and by its effect on funds.
 
@@ -89,7 +89,7 @@ Assumptions the team does not control. Test each one on every device model in sc
 
 | ID | Scenario | Capability | Goal |
 |---|---|---|---|
-| S1 | Hostile or compromised Lumio | Sends any request, label, pairing, or registry input | Get a signature the owner did not review; cause erase or lockout; expose addresses |
+| S1 | Hostile or compromised Lumio | Sends any request, label, or pairing | Get a signature the owner did not review; cause erase or lockout; expose addresses |
 | S2 | Hostile QR | Presents any code to the camera | Crash or hang a decoder; reach parser bugs in the sandbox; trigger erase |
 | S3 | Malicious registry or update package | Supplies a package through any update input | Change names, decimals, or networks; roll back; block signing |
 | S4 | Supply chain and build | Compromises a dependency, action, tool, or the release path | Ship a modified APK that the owner installs |
@@ -184,7 +184,7 @@ For each APK in `VARIANTS`, run `apkanalyzer manifest print`, `apkanalyzer dex p
 | App Password | Password of the real vault | `shared/src/main/java/app/lensly/ui/gate/`, `shared/src/main/java/app/lensly/core/vault/Vault.kt` |
 | Duress Password, Decoy Vault | Password and vault for the decoy | `shared/src/main/java/app/lensly/ui/navigation/GalleryGate.kt`, `app/src/main/java/app/lensly/app/DecoyVault.kt` |
 | Failure Delay, erase count | Wait after wrong tries; erase after N wrong tries | `shared/src/main/java/app/lensly/core/vault/FailureDelay.kt`, `shared/src/main/java/app/lensly/core/vault/FailureStore.kt` |
-| Entry gesture | Opens the hidden area from the cover screen; kept outside the vault | `shared/src/main/java/app/lensly/app/CoverApplication.kt` |
+| Entry gesture | Opens the hidden area from the cover screen; kept outside the vault | `shared/src/main/java/app/lensly/app/EntryGestureStore.kt`, `shared/src/main/java/app/lensly/ui/camera/EntryGesture.kt` |
 | Cover screen, hidden area | The front UI, and the routes behind the gesture | `shared/src/main/java/app/lensly/ui/CoverActivity.kt`, `shared/src/main/java/app/lensly/ui/navigation/HiddenArea.kt` |
 | Shown equals signed | The review text matches the signed bytes | Per-chain review files (5.3, F) |
 | Reserved keys | UR map keys from 1000 that Lensly ignores | `core/signer-api/src/main/kotlin/app/lensly/core/ur/ReservedKeys.kt` |
@@ -198,10 +198,10 @@ Paths are repository-relative. Check them with the seed check, then extend the l
 rg -o '[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+\.(kt|kts|xml|yml|sh|pro|c|txt|aidl|toml|md|properties)\b' docs/auditing-airvault.md | sort -u | while read -r p; do [ -e "$p" ] || echo "MISSING: $p"; done
 ```
 
-- A. Vault and KDF: `shared/src/main/java/app/lensly/core/vault/Vault.kt` (create, unlock, erase), `VaultLayout.kt` (format version 3, two slots, photo directories, slot MAC), `VaultHeader.kt` (fields, KDF parameters, flags), `VaultKeystore.kt` (hardware wrap key, user authentication, biometric invalidation, StrongBox fallback, `lensly.vault.slot-mac`), `KeystorePolicy.kt`, `KeystoreBackend.kt`, `Aead.kt` (AES-256-GCM), `Argon2Kdf.kt`, `KdfCalibration.kt`, `VaultSession.kt`, `WalletFolder.kt`, `MediaEnvelope.kt`. Test double: `shared/src/testFixtures/java/app/lensly/core/vault/MemoryKeystore.kt`.
-- B. Failure counter, decoy, erase: `FailureDelay.kt` (its header lists threat items 1 to 17; each is a claim to test), `FailureStore.kt` (two copies, per-sequence HMAC keys, key deletion, residual risks), `PasswordPolicy.kt`, `app/src/main/java/app/lensly/app/DecoyVault.kt`, `app/src/main/java/app/lensly/ui/settings/FailureCapScreen.kt`, `shared/src/main/java/app/lensly/ui/gate/PasswordBuffer.kt`, `UnlockScreen.kt`, `CreatePasswordScreen.kt`, `shared/src/main/java/app/lensly/ui/flow/AppPasswordCheck.kt`, `app/src/main/java/app/lensly/app/SettingsStore.kt`.
-- C. Gate, cover screen, gesture: `shared/src/main/java/app/lensly/ui/SecureWindow.kt`, `shared/src/main/java/app/lensly/ui/navigation/CoverNavHost.kt`, `GalleryGate.kt`, `shared/src/main/java/app/lensly/ui/flow/EntryGestureChangeFlow.kt`, `EntryGestureChangePorts.kt`, `shared/src/main/java/app/lensly/ui/camera/PhotoStore.kt`, `CameraController.kt`, `lumio/src/main/java/app/lumio/EntryGestureRoutes.kt`, `lumio/src/main/java/app/lumio/LumioVault.kt`.
-- D. Mnemonic and keys: `shared/src/main/java/app/lensly/core/wallet/Mnemonic.kt` (words are `String`; `text()` returns `CharArray`; `deriveSeed(passphrase: String)`), `EntropyMixer.kt` (dice input), `HdWallet.kt`, `Slip10Ed25519.kt`, `EvmKey.kt`, `Ed25519Signer.kt`, `PrivateKey.kt`, `LedgerPassphrase.kt`, `WalletKeyAccess.kt`, `SingleKeyAccess.kt`, `core/signer-api/src/main/kotlin/app/airvault/core/signer/KeyAccess.kt`, `ScopedKeyAccess.kt`. Screens and flows: `app/src/main/java/app/lensly/ui/wallet/DiceEntryScreen.kt`, `ShowSecretScreen.kt`, `MnemonicQuiz.kt`, `PassphraseGate.kt`, `ShredScreen.kt`; `app/src/main/java/app/lensly/ui/flow/RevealFlow.kt`, `ShredFlow.kt`, `AccountExportScreen.kt`; `docs/recover-with-ledger.md`.
+- A. Vault and KDF: `shared/src/main/java/app/lensly/core/vault/Vault.kt` (create, unlock, erase), `VaultLayout.kt` (format version 3, two slots, photo directories, slot MAC), `VaultHeader.kt` (fields, KDF parameters, flags), `VaultKeystore.kt` (hardware wrap key, user authentication, biometric invalidation, StrongBox fallback, `lensly.vault.slot-mac`), `KeystorePolicy.kt`, `KeystoreBackend.kt`, `Aead.kt` (AES-256-GCM), `Argon2Kdf.kt`, `KdfCalibration.kt`, `VaultSession.kt`, `WalletFolder.kt`, `MediaEnvelope.kt`, `BackupExclusion.kt`. Test double: `shared/src/testFixtures/java/app/lensly/core/vault/MemoryKeystore.kt`.
+- B. Failure counter, decoy, erase: `FailureDelay.kt` (its header lists threat items 1 to 17; each is a claim to test), `FailureStore.kt` (two copies, per-sequence HMAC keys, key deletion, residual risks), `PasswordPolicy.kt`, `app/src/main/java/app/lensly/app/DecoyVault.kt`, `app/src/main/java/app/lensly/ui/settings/FailureCapScreen.kt`, `shared/src/main/java/app/lensly/ui/gate/PasswordBuffer.kt`, `UnlockScreen.kt`, `CreatePasswordScreen.kt`, `shared/src/main/java/app/lensly/ui/flow/AppPasswordCheck.kt`.
+- C. Gate, cover screen, gesture: `shared/src/main/java/app/lensly/ui/SecureWindow.kt`, `shared/src/main/java/app/lensly/ui/navigation/CoverNavHost.kt`, `GalleryGate.kt`, `LockPolicy.kt`, `shared/src/main/java/app/lensly/ui/flow/EntryGestureChangeFlow.kt`, `EntryGestureChangePorts.kt`, `shared/src/main/java/app/lensly/ui/camera/PhotoStore.kt`, `CameraController.kt`, `lumio/src/main/java/app/lumio/EntryGestureRoutes.kt`, `lumio/src/main/java/app/lumio/LumioVault.kt`.
+- D. Mnemonic and keys: `shared/src/main/java/app/lensly/core/wallet/Mnemonic.kt` (words are a `CharArray`; each `get` yields a short-lived `String`; `text()` returns `CharArray`; `deriveSeed(passphrase: String)`), `EntropyMixer.kt` (dice input), `HdWallet.kt`, `Slip10Ed25519.kt`, `EvmKey.kt`, `Ed25519Signer.kt`, `PrivateKey.kt`, `LedgerPassphrase.kt`, `WalletKeyAccess.kt`, `SingleKeyAccess.kt`, `core/signer-api/src/main/kotlin/app/airvault/core/signer/KeyAccess.kt`, `ScopedKeyAccess.kt`. Screens and flows: `app/src/main/java/app/lensly/ui/wallet/DiceEntryScreen.kt`, `ShowSecretScreen.kt`, `MnemonicQuiz.kt`, `PassphraseGate.kt`, `ShredScreen.kt`; `app/src/main/java/app/lensly/ui/flow/RevealFlow.kt`, `ShredFlow.kt`, `AccountExportScreen.kt`; `docs/recover-with-ledger.md`.
 - E. Transport and sandboxes: `shared/src/main/java/app/lensly/core/parse/ParserSandbox.kt` (the trusted side re-checks every result), `ParserSandboxService.kt`, `ParserWire.kt`, `shared/src/main/aidl/app/lensly/core/parse/IParserSandbox.aidl`, `shared/src/main/aidl/app/lensly/core/qr/IQrDecoder.aidl`, `core/signer-api/src/main/kotlin/app/lensly/core/parse/ParserLimits.kt`, `shared/src/main/java/app/lensly/core/qr/QrDecodeService.kt`, `QrDecodeClient.kt`, `BinderQrDecodeTransport.kt`, `QrDecodeLimits.kt`, `LumaFrames.kt`, `shared/src/main/java/app/lensly/core/ur/UrScanner.kt`, `core/signer-api/src/main/kotlin/app/lensly/core/ur/Cbor.kt`, `core/signer-api/src/main/kotlin/app/lensly/core/ur/ReservedKeys.kt`.
 - F. Chain parsers and review:
   - Bitcoin: `chains/bitcoin/signer/src/main/kotlin/app/airvault/chains/bitcoin/signer/BtcPsbt.kt`, `BitcoinRequestParser.kt`, `BtcReview.kt`, `BtcReviewWarnings.kt`; `shared/src/main/java/app/lensly/core/btc/BtcUnsignedPsbt.kt`.
@@ -210,12 +210,13 @@ rg -o '[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+\.(kt|kts|xml|yml|sh|pro|c|txt|aidl|tom
   - Solana: `chains/solana/signer/src/main/kotlin/app/airvault/chains/solana/signer/SolanaMessageParser.kt`, `SolanaRequestParser.kt`, `SolanaReview.kt`; `shared/src/main/java/app/lensly/core/solana/SolanaTransaction.kt`.
   - Algorand: `chains/algorand/signer/src/main/kotlin/app/airvault/chains/algorand/signer/AlgorandRequestParser.kt`, `AlgorandRequestReview.kt`; `shared/src/main/java/app/lensly/core/algorand/AlgoSignedTxn.kt`.
   - Review and signing: `app/src/main/java/app/lensly/app/sign/SignPipeline.kt`, `ReviewRecord.kt`; `app/src/main/java/app/lensly/ui/sign/ReviewScreen.kt`, `HoldToSign.kt`; `shared/src/main/java/app/lensly/core/vault/ReviewPool.kt`; `core/model/src/main/kotlin/app/airvault/core/model/Review.kt`.
-  - Manifests (coverage and unknown-call policy): `chains/evm/common/src/main/kotlin/app/airvault/chains/evm/EvmManifest.kt`, `chains/bitcoin/common/src/main/kotlin/app/airvault/chains/bitcoin/BitcoinManifest.kt`, `chains/solana/common/src/main/kotlin/app/airvault/chains/solana/SolanaManifest.kt`, `chains/algorand/common/src/main/kotlin/app/airvault/chains/algorand/AlgorandManifest.kt`, `core/signer-api/src/main/kotlin/app/lensly/core/registry/UnknownCallPolicy.kt`.
-  - Bulk signing: `shared/src/main/java/app/lensly/core/wallet/BulkCap.kt`, `BulkPolicy.kt`, `BulkRun.kt`.
+  - Address Book: `app/src/main/java/app/lensly/app/AddressBook.kt` (a sealed vault record), and the names the review shows from it (`app/src/main/java/app/lensly/ui/sign/ReviewNames.kt`).
+  - Manifests (coverage and unknown-call policy): `chains/evm/common/src/main/kotlin/app/airvault/chains/evm/EvmManifest.kt`, `chains/bitcoin/common/src/main/kotlin/app/airvault/chains/bitcoin/BitcoinManifest.kt`, `chains/solana/common/src/main/kotlin/app/airvault/chains/solana/SolanaManifest.kt`, `chains/algorand/common/src/main/kotlin/app/airvault/chains/algorand/AlgorandManifest.kt`, `core/signer-api/src/main/kotlin/app/lensly/core/registry/UnknownCallPolicy.kt`, `chains/evm/signer/src/main/kotlin/app/lensly/core/registry/ProxyPolicy.kt`.
+  - Bulk signing: `shared/src/main/java/app/lensly/core/wallet/BulkCap.kt`, `BulkPolicy.kt`, `BulkRun.kt`; `app/src/main/java/app/lensly/app/SettingsStore.kt` holds the saved cap.
 - G. Registry and updates: `shared/src/main/java/app/lensly/core/registry/update/RegistryUpdate.kt`, `PackageFormat.kt`, `RegistryPackage.kt`, `RegistryCatalog.kt`, `TrustedKey.kt`; `shared/src/main/java/app/lensly/core/registry/RegistryLoader.kt`; `app/src/main/java/app/lensly/app/RegistryHolder.kt`; `shared/src/main/assets/registry/` (bundled registry); `tools/registry-pack/` (package builder); `tools/registry-data/` (source data).
-- H. Lumio: `lumio/src/main/AndroidManifest.xml`, `lumio/src/main/java/app/lumio/pair/FrozenLensly.kt` (frozen request table), `lumio/src/main/java/app/lumio/pair/PairedWallets.kt`, `shared/src/main/java/app/lensly/app/export/PairingCodec.kt`, `PairingExport.kt`, `app/src/main/java/app/lensly/app/export/AccountExport.kt`, `BrotliEncoder.kt`, `lumio/src/main/java/app/lumio/send/solana/SolanaSend.kt`, `lumio/src/main/java/app/lumio/send/algorand/AlgorandSendRoute.kt`, `lumio/src/main/java/app/lumio/data/rpc/RpcPlugins.kt`, `lumio/src/main/java/app/lumio/ui/scan/LumioScanScreen.kt`.
+- H. Lumio: `lumio/src/main/AndroidManifest.xml`, `lumio/src/main/java/app/lumio/pair/FrozenLensly.kt` (frozen request table), `lumio/src/main/java/app/lumio/pair/PairedWallets.kt`, `shared/src/main/java/app/lensly/app/export/PairingCodec.kt`, `PairingExport.kt`, `app/src/main/java/app/lensly/app/export/AccountExport.kt`, `BrotliEncoder.kt`, `lumio/src/main/java/app/lumio/pair/PairAddressBooks.kt`, `lumio/src/main/java/app/lumio/send/PaymentCode.kt`, `lumio/src/main/java/app/lumio/send/solana/SolanaSend.kt`, `lumio/src/main/java/app/lumio/send/algorand/AlgorandSendRoute.kt`, `lumio/src/main/java/app/lumio/data/rpc/RpcPlugins.kt`, `lumio/src/main/java/app/lumio/ui/scan/LumioScanScreen.kt`.
 - I. Native: `app/src/main/cpp/brotli_jni.c`, `app/src/main/cpp/CMakeLists.txt` (pins the upstream Brotli SHA-256), `app/src/main/cpp/brotli/` (vendored copy), and every `.so` in the APK.
-- J. Manifests, build, release, CI: `app/src/main/AndroidManifest.xml`, `app/src/main/res/xml/data_extraction_rules.xml`, `shared/src/main/AndroidManifest.xml`, `app/build.gradle.kts` (release R8; `benchmark` is debug-signed, not minified, and profileable), `lumio/build.gradle.kts`, `app/proguard-rules.pro`, `lumio/proguard-rules.pro`, `gradle/verification-metadata.xml`, `gradle/libs.versions.toml`, `gradle/wrapper/gradle-wrapper.properties`, `.github/workflows/release.yml` (tag signing, attestation), `pr-fast.yml`, `nightly.yml`, `comment-run.yml` and `codeql-command.yml` (`issue_comment` triggers), `master-red.yml` (`workflow_run` trigger), `scripts/ci/check-manifest.sh` (guards merged debug manifests only), `scripts/ci/fuzz-nightly.sh`, `scripts/ci/shards.txt`, `docs/releasing.md`.
+- J. Manifests, build, release, CI: `app/src/main/AndroidManifest.xml`, `app/src/main/res/xml/data_extraction_rules.xml`, `shared/src/main/AndroidManifest.xml`, `app/build.gradle.kts` (release R8; `benchmark` is debug-signed, not minified, and profileable), `lumio/build.gradle.kts`, `app/proguard-rules.pro`, `lumio/proguard-rules.pro`, `gradle/verification-metadata.xml`, `gradle/libs.versions.toml`, `gradle/wrapper/gradle-wrapper.properties`, `.github/workflows/release.yml` (tag signing, attestation), `pr-fast.yml`, `nightly.yml`, `comment-run.yml` and `codeql-command.yml` (`issue_comment` triggers), `master-red.yml` (`workflow_run` trigger), the rest of `.github/workflows/` (`cache-cleanup.yml`, `codeql.yml`, `dependency-graph.yml`, `record-goldens.yml`), `scripts/ci/check-manifest.sh` (guards merged debug manifests only), `scripts/ci/fuzz-nightly.sh`, `scripts/ci/shards.txt`, `docs/releasing.md`.
 - K. Debug surfaces (must be absent from release): `app/src/debug/AndroidManifest.xml`, `app/src/debug/java/app/lensly/ui/gate/GatePreviewActivity.kt`, `app/src/debug/java/app/lensly/ui/wallet/WalletPreviewActivity.kt`, `app/src/debug/java/app/lensly/ui/qr/QrPreviewActivity.kt`, `shared/src/debug/java/app/lensly/DebugLaunch.kt` (`debugHidden` extra), `lumio/src/debug/AndroidManifest.xml`, `lumio/src/debug/java/app/lumio/DebugPairFixture.kt`, `lumio/src/debug/res/xml/network_security_config.xml`.
 - L. Claims to test: `docs/creating-airvault-apps.md` sections 7.6, 8.1 to 8.7, and 12 (treat every `[UNVERIFIED]` marker as a hypothesis to resolve); `README.md` (the offline claim); the header comments of `FailureDelay.kt` and `FailureStore.kt`.
 
@@ -224,19 +225,20 @@ rg -o '[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+\.(kt|kts|xml|yml|sh|pro|c|txt|aidl|tom
 These are checks, not findings. Close each one as Held, Confirmed (with a finding), or Gap.
 
 - [ ] Release merged manifest and DEX: no debug-only component, `debugHidden` handler, or preview activity. `check-manifest.sh` guards only the debug merges.
-- [ ] Fuzz coverage: `shards.txt` lists `AlgorandRequestFuzzTest`, but the nightly matrix in `nightly.yml` lists four targets without it. Record which targets the nightly run fuzzes.
+- [ ] Fuzz coverage: `shards.txt` lists `AlgorandRequestFuzzTest`, but the nightly matrix in `nightly.yml` and the list in `fuzz-nightly.sh` have four targets without it. Record which targets the nightly run fuzzes.
 - [ ] Stale path: the `app/build.gradle.kts` comment cites a chains file under `app/src/main/java/app/lensly/`. The signer list is in `shared/src/main/java/app/lensly/chains/InstalledSigners.kt`. Log it as Low or Info, and as a Proposed Change.
 - [ ] On-disk names: `VaultLayout.kt` names photo directories and key files `real` and `decoy`. Check whether a file-system image shows which vault exists, and whether the decoy's footprint matches the real vault's.
+- [ ] Backup exclusion: an APK whose merged manifest allows backup refuses to create a vault (`BackupExclusion.kt`, `Vault.refusal()`).
 - [ ] Header binding: flip each `VaultHeader.kt` field (KDF parameters, salt, flags) and record the failure mode and the counter.
 - [ ] Clock and boot count: items 4 to 10 and 16, each with a root-level clock or boot-count test on a test device.
 - [ ] Password result signature: item 12 says a passing try saves once more than a failing try. Measure whether an observer can tell right from wrong, or real from decoy.
 - [ ] Mnemonic strings: measure how long `String` copies of words and the passphrase survive after `wipe()`. Use a heap dump on a debuggable test build and a memory scan on a rooted test device.
 - [ ] Biometric and credential changes: `VaultKeystore.kt` disables biometric invalidation. Test what enrollment, a lock-screen change, or credential removal does, and whether it reaches the erase path (item 15).
 - [ ] Reserved keys from 1000 change neither the review nor the signed bytes.
-- [ ] Algorand: the review shows `rekey-to`, `close-to`, `asset-close-to`, and group membership for every transaction in a group.
+- [ ] Algorand: `rekeyTo` and `assetSender` (clawback) are refused; `closeTo` warns; a group warns that the other transactions in it are not shown.
 - [ ] EVM transaction types `0x03` (blob) and `0x04` (EIP-7702 authorization list) are fully shown or refused.
 - [ ] Bitcoin: legacy inputs are checked against the full previous transaction, and sighash types other than `SIGHASH_ALL` are refused or labeled.
-- [ ] Solana: accounts resolved through address lookup tables appear in the review.
+- [ ] Solana: accounts from address lookup tables appear with the table and index, and the review warns that they cannot be checked offline.
 - [ ] Emulator checks in `KeystorePolicy.kt` and `SecureWindow.kt` never relax a control in a release build, including on a rooted device with spoofed build fields.
 - [ ] `comment-run.yml` and `codeql-command.yml`: what they execute, with which token, and which secrets they can read.
 - [ ] `release.yml`: the master-reachability guard runs before the keystore secrets are read.
@@ -300,7 +302,7 @@ Goal: find a working path from the phone (each variant in 3.2) to the mnemonic, 
 Write these numbers into the report.
 
 - Per-try cost: Argon2id at the stored parameters. `KdfCalibration.kt` targets about 900 ms per derivation, with 64 MiB or 32 MiB of memory, plus one Keystore operation.
-- Tries before erase: the owner's erase count (default 10, allowed 3 to 20). The count resets only through rollback.
+- Tries before erase: the owner's erase count (default 10, allowed 3 to 20). A right password resets the count; rolling the counter back is the attacker's route to more tries.
 - Expected time to find the password, starting from the policy floor of 40 estimated bits, for three cases: (a) an honest counter; (b) a counter rolled back after each try; (c) header KDF parameters lowered, if the header is not authenticated.
 - Name the assumption that each case depends on.
 
@@ -311,13 +313,13 @@ Goal: trace each key, nonce, tag, derivation, and comparison from its origin to 
 - [ ] Vault key: generated with `SecureRandom`, wrapped by the hardware key and by the Argon2id output. No path where one factor alone opens a sealed blob.
 - [ ] Domain separation: every derived key and every MAC has its own label.
 - [ ] `Aead.kt`: 12-byte random IV; count encryptions per key; IV reuse after a restore; behavior on tag mismatch.
-- [ ] `VaultLayout.kt`: each length (nonce, tag, sealed part, padding); constant-time comparison (`MessageDigest.isEqual`) on every MAC check; `ownerIndex` has no early exit that reveals the owner's slot.
+- [ ] `VaultLayout.kt`: each length (nonce, tag, sealed part) and the fixed slot size; constant-time comparison (`MessageDigest.isEqual`) on every MAC check; `ownerIndex` uses `indexOfFirst`, so measure its first-match loop (6.9).
 - [ ] `VaultHeader.kt`: every field used before a password check (KDF parameters, salt, creation time, flags) is authenticated.
 - [ ] `KdfCalibration.kt`: floors and ceilings are enforced on values read from a file.
 - [ ] `Argon2Kdf.kt`: BouncyCastle `ARGON2_id`, version 1.3; output and salt lengths; UTF-8 of code points, not UTF-16 code units; password bytes wiped after use.
 - [ ] `VaultKeystore.kt` and `KeystorePolicy.kt`: key purposes, key size 256, user-authentication timeout, StrongBox fallback. No release path accepts a software key.
 - [ ] No `kotlin.random.Random` or `java.util.Random` on any key, nonce, salt, or mnemonic path, including inside the sandbox.
-- [ ] BIP39: wordlist, checksum on import, NFKD normalization of the mnemonic and of the passphrase, PBKDF2-HMAC-SHA512 with 2048 rounds, empty passphrase. Test with the official vectors.
+- [ ] BIP39: wordlist, lowercase words, checksum on import, NFKD normalization of the passphrase, PBKDF2-HMAC-SHA512 with 2048 rounds, empty passphrase. Test with the official vectors.
 - [ ] SLIP-10 and BIP32 (`Slip10Ed25519.kt`, `HdWallet.kt`): hardened-only derivation for Ed25519, strict path parsing, official vectors.
 - [ ] secp256k1: deterministic nonces, low-S normalization (EIP-2, BIP-146), recovery ID, public key form. Identify which code signs: native libsecp256k1 or Kotlin.
 - [ ] Each chain's signing domain: the Algorand transaction prefix; Solana message bytes exactly as reviewed; EIP-191 and EIP-712 prefixes, domain separators, and nested type hashing.
@@ -365,7 +367,7 @@ Evidence: `apkanalyzer` and `aapt2` transcripts, the test app and its logcat, an
 
 Goal: every parser of attacker-controlled bytes is bounded or sandboxed. None may corrupt the trusted side, or produce a review that differs from the signed bytes.
 
-Targets: camera frames (`QrDecodeService.kt`, `LumaFrames.kt`, `QrDecodeLimits.kt`); UR parts (`UrScanner.kt` and the hummingbird library); CBOR (`Cbor.kt`); request framing (`RequestParser.kt`, `ParserSandbox.kt`); PSBT (`BtcPsbt.kt`); EVM transactions (`UnsignedTx.kt`, `EvmRequestParser.kt`); EIP-712 (`TypedDataParser.kt`); ABI (`abi/`); Solana messages (`SolanaMessageParser.kt`); Algorand msgpack (`AlgorandRequestParser.kt`); the pairing that Lumio reads (`lumio/src/main/java/app/lumio/pair/`); Brotli (`brotli_jni.c` and Lumio's decoder); registry packages (`PackageFormat.kt`).
+Targets: camera frames (`QrDecodeService.kt`, `LumaFrames.kt`, `QrDecodeLimits.kt`); UR parts (`UrScanner.kt` and the hummingbird library); CBOR (`Cbor.kt`); request framing (`RequestParser.kt`, `ParserSandbox.kt`); PSBT (`BtcPsbt.kt`); EVM transactions (`UnsignedTx.kt`, `EvmRequestParser.kt`); EIP-712 (`TypedDataParser.kt`); ABI (`abi/`); Solana messages (`SolanaMessageParser.kt`); Algorand msgpack (`AlgorandRequestParser.kt`); the pairing that Lumio reads (`lumio/src/main/java/app/lumio/pair/`); Lumio payment codes (`lumio/src/main/java/app/lumio/send/PaymentCode.kt`); Brotli (`brotli_jni.c` and Lumio's decoder); registry packages (`PackageFormat.kt`).
 
 Existing harness: Jazzer targets in `shared/src/test/java/app/lensly/fuzz/` (`UrScannerFuzzTest`, `CborFuzzTest`, `EthSignRequestFuzzTest`, `UnsignedTxFuzzTest`, `AlgorandRequestFuzzTest`), with seeds in `FuzzSeeds.kt`. The PR lane replays the committed seeds. `scripts/ci/fuzz-nightly.sh` fuzzes each target for a fixed time, and its header says where crash inputs are written.
 
@@ -401,9 +403,10 @@ Method:
 Checklist:
 
 - [ ] Amounts, full addresses, chain, fee, nonce, and network name appear for every request.
-- [ ] Dangerous fields are rows that warn: approvals (including `setApprovalForAll`), permit signatures, transfers from another account, Algorand `rekey-to` and close-to fields, EIP-7702 authorizations, Bitcoin change to foreign scripts, and Solana authority changes.
+- [ ] Dangerous fields are rows that warn: approvals (including `setApprovalForAll`), permit signatures, transfers from another account, Algorand close-to fields (rekey and clawback are refused), off-chain venue agent approvals, Bitcoin change to foreign scripts, and Solana authority changes.
 - [ ] Token decimals come from the chain or a verified source. A registry change to decimals or labels is visible to the owner.
-- [ ] Off-chain venue typed data: domain, version, chain ID, action type, and the destination and amount of any withdrawal or transfer, checked against the venue's published spec.
+- [ ] Off-chain venue typed data: domain, version, chain ID, action type, and the destination and amount of any withdrawal or transfer, checked against the venue's published spec. Agent approvals warn as danger; a domain that signs only an action hash says that the action is not shown.
+- [ ] Address Book names never replace the full address in a row, and a name cannot make a foreign address read as the owner's own.
 - [ ] PSBT: input values come from the UTXO data, the fee equals inputs minus outputs, and change belongs to the wallet's own derivation paths.
 - [ ] Hold-to-sign and the final confirmation show the same hash as the signed request.
 - [ ] `ReviewPool.kt`: a review built for request A cannot be shown or signed for request B.
@@ -412,7 +415,7 @@ Attack ideas:
 
 1. Reserved-key smuggling: add keys from 1000 whose values look like a recipient or an amount. The review must not present them as facts, and the signed bytes must not change.
 2. Label spoofing: labels that disagree with the binary content. The review must show the binary content.
-3. Batch hiding: a benign call first and a drain second, in an Algorand group or an EVM multicall. The review must show every call.
+3. Batch hiding: a benign call first and a drain second, in an Algorand group or an EVM multicall. The review must show every call, and an Algorand group must say that the other transactions are not shown.
 4. Unit and chain confusion: wei against gwei, lamports against SOL, satoshis against BTC, and legacy transactions without a chain ID.
 5. Swap during review: a second UR part arrives while the review is open. The signed request must equal the reviewed one.
 
@@ -422,9 +425,10 @@ Evidence: one table per chain, with the request, the decoded fields, the rows sh
 
 Goal: every flow reaches only the states its designers intended, and no transition skips a guard.
 
-Model each machine as a table (state, event, guard, next state) before testing it: vault lifecycle (partial, locked, unlocked, decoy-unlocked, erased); the failure counter; the cover screen and gate; signing (received, parsed, reviewed, held, signed, recorded); pairing; bulk signing (`BulkRun.kt`, `BulkPolicy.kt`, `BulkCap.kt`); the registry (verify, install, roll back); key access (scope checks at load time and at each call); and wallet folders (key replacement by ID).
+Model each machine as a table (state, event, guard, next state) before testing it: vault lifecycle (partial, locked, unlocked, decoy-unlocked, erased); the failure counter; the cover screen and gate; signing (received, parsed, reviewed, held, signed, recorded); pairing; bulk signing (`BulkRun.kt`, `BulkPolicy.kt`, `BulkCap.kt`); the registry (verify, install, roll back); key access (scope checks at load time and at each call); wallet folders (key replacement by ID); and the wallet backup flag (`seedBackedUp`, `WalletStore.kt`).
 
 - [ ] Every transition that spends a try, writes state, or deletes a key has a written guard.
+- [ ] Every path that sets `seedBackedUp` (`WalletStore.kt`) is backed by a completed backup or a recoverable copy, because `HomeBackup.kt` trusts the flag.
 - [ ] Shared mutable state (session, failure store, registry, review pool) is locked or confined.
 - [ ] No re-entrancy from the UI into `unlock` or `sign`. No session object survives a lock, an erase, or a restart.
 
@@ -437,7 +441,7 @@ Goal: the APK the owner installs is the APK built from the reviewed commit, with
 - [ ] `gradle/verification-metadata.xml` covers every artifact the release uses, including plugins. Record any unverified artifact.
 - [ ] The wrapper JAR matches the official checksum (`distributionSha256Sum`). `gradle/libs.versions.toml` pins every version. `ndkVersion` matches the CI image.
 - [ ] `CMakeLists.txt` pins the upstream Brotli SHA-256. Check whether the build downloads that tarball or uses the vendored tree, and whether the two match.
-- [ ] Every `uses:` in `.github/workflows/` is pinned to a full commit SHA. At this commit, `release.yml` and `nightly.yml` are; check every workflow on every run. Permissions are least-privilege, and checkouts use `persist-credentials: false`.
+- [ ] Every `uses:` in `.github/workflows/` is pinned to a full commit SHA. At this commit every workflow is; check each on every run. Permissions are least-privilege, and checkouts use `persist-credentials: false`.
 - [ ] Release path: tags `lensly-v*` and `lumio-v*`; the master guard runs before keystore secrets are read; `fetch-depth: 0`; v2 and v3 signature checks; provenance. Verify the released artifact with `gh attestation verify`.
 - [ ] Rebuild from `COMMIT` in a clean environment and compare the signing-independent content (DEX, resources, native libraries). Record every difference.
 - [ ] `comment-run.yml` and `codeql-command.yml` (`issue_comment`): the commenter gate, the code that runs (pull request head or default branch), token permissions, and readable secrets. `master-red.yml` (`workflow_run`) must never run pull-request code with a write token.
@@ -447,9 +451,9 @@ Attack ideas: replace one dependency with a same-version artifact from another s
 
 Any step that pushes, tags, or runs workflows on the owner's repository needs the owner's explicit approval for that step.
 
-### 6.8 Privacy and Cover-Story Leaks
+### 6.8 Privacy Leaks Before Unlock
 
-Goal: nothing reachable without the gesture hints at a wallet or crypto (docs 8.5). Test every observer's view of the device before unlock.
+Goal: nothing reachable without the gesture reveals what the app is for (docs 8.5). Test every observer's view of the device before unlock.
 
 - [ ] Before unlock, the app label, icons, package name, activity labels, and every `strings.xml` value in every locale reveal nothing about crypto. The same holds for notifications, shortcuts, widgets, share targets, launcher aliases, and app links.
 - [ ] Cover-screen banners, errors, and toasts for QR scans: an unknown request reads like any unreadable code.
@@ -487,10 +491,10 @@ Evidence: the exact trigger, the observed erase or lockout, and whether an attac
 
 Goal: assume Lumio is fully hostile. It runs attacker code, shows any UI, sends any QR code, and reads all watch-only data. Determine what that gains the attacker.
 
-- [ ] Lumio holds no key material. Verify by code inspection and by a memory scan of the Lumio process.
-- [ ] Record what the watch-only data reveals (xpubs, addresses, balances, history, address book, pairings). This is privacy, not funds.
+- [ ] Lumio holds no wallet key material (its own vault key seals watch-only data). Verify by code inspection and by a memory scan of the Lumio process.
+- [ ] Record what the watch-only data reveals (xpubs, addresses, balances, history, address book, pairings, provider API keys). This is privacy, not funds.
 - [ ] Every request type Lensly accepts from Lumio is reviewed on Lensly before signing (6.5). Lumio cannot make Lensly sign again for a request the owner did not review.
-- [ ] Registry data from Lumio is trusted only after verification by a trusted key (S3). Lensly re-derives each address from its path and key, and never trusts a pairing's address.
+- [ ] Registry packages are trusted only after verification by a trusted key and a higher sequence (S3); Lensly never takes one from Lumio. Lumio derives each account address from the exported public key, but Address Book entries in a pairing are only format-checked, so their names are unverified.
 - [ ] The review never depends on Lumio's text. RPC endpoints are the owner's configuration (`RpcPlugins.kt`). Release has no cleartext allowance and no added user CA trust.
 
 Attack ideas: write a hostile Lumio build in the scratch area (never published) and send crafted requests to a test Lensly; replace the pairing with one for an unknown account; send a sign request whose reserved keys and labels name a different recipient.
@@ -646,3 +650,4 @@ The seed list (5.3) names where to look, not what is broken. Add no claim that a
 | Revision | Date | Author | Summary |
 |---|---|---|---|
 | 1 | 2026-11-21 | AirVault maintainers | First playbook. Seed paths checked at the repository state of 2026-11-21. |
+| 2 | 2026-11-21 | AirVault maintainers | Corrected Algorand, Solana, Mnemonic, erase-count, workflow, and review claims; added Address Book, payment code, wallet backup flag, lock policy, and backup exclusion checks. |
