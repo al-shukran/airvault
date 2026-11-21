@@ -29,6 +29,7 @@ import app.airvault.chains.solana.signer.solanaWarningText
 import app.airvault.chains.solana.signer.toReview
 import app.airvault.core.model.Approval
 import app.airvault.core.model.ChainId
+import app.airvault.core.model.Coverage
 import app.airvault.core.model.Danger
 import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.NetworkLabel
@@ -112,6 +113,69 @@ private val SWAP_DECODED = (AbiDecoder.decode(SWAP_CALLDATA, SWAP_PARAMS) as Cal
 private val SWAP_ROWS = SWAP_DECODED.flatMap { AbiRows.of(it) }.map { (label, value) -> ReviewRow(label, DisplayValue.Text(value), null) }
 
 /** A call Lensly cannot decode that the whitelist approves, on the sample network. [proxy] is set for a proxy under Warn and confirm. */
+private const val HYPE_SYSTEM = "0x2222222222222222222222222222222222222222"
+private val HYPEREVM_CHAIN = ChainId("eip155:999")
+private val ARBITRUM_CHAIN = ChainId("eip155:42161")
+
+/** A HyperEVM native transfer of HYPE to HyperCore: its top label names the move, and its rows show the system address as the recipient. */
+private val hyperCoreMoveSample = Review(
+    title = "Move to HyperCore",
+    chain = HYPEREVM_CHAIN,
+    network = NetworkLabel(name = "HyperEVM", testnet = false, detail = "Chain ID 999"),
+    summary = listOf(SummaryPart.Send("1", "HYPE", SAMPLE_FROM, HYPE_SYSTEM)),
+    facts = listOf(ReviewRow("Nonce", DisplayValue.Number(BigInteger.valueOf(7)), null)),
+    sections = listOf(
+        ReviewSection(
+            "Transaction",
+            listOf(
+                ReviewRow("From", DisplayValue.Address(HYPEREVM_CHAIN, SAMPLE_FROM), null),
+                ReviewRow("To", DisplayValue.Address(HYPEREVM_CHAIN, HYPE_SYSTEM), null),
+                ReviewRow("Value", DisplayValue.Text("1 HYPE"), null),
+            ),
+        ),
+    ),
+    warnings = emptyList(),
+    coverage = Coverage(decoded = emptySet(), excluded = emptyMap()),
+)
+
+/** A SpotSend of HYPE from HyperCore to HyperEVM, signed on the Hyperliquid domain: its top label names the move, and every field is shown. */
+private val hyperEvmMoveSample = Review(
+    title = "Move to HyperEVM",
+    chain = ARBITRUM_CHAIN,
+    network = NetworkLabel(name = "Arbitrum One", testnet = false, detail = "Chain ID 42161"),
+    summary = listOf(SummaryPart.Text("Signs typed data of type HyperliquidTransaction:SpotSend.")),
+    facts = emptyList(),
+    sections = listOf(
+        ReviewSection(
+            "Request",
+            listOf(
+                ReviewRow(
+                    "Off-Chain Signature for Hyperliquid",
+                    DisplayValue.Text("The domain matches Hyperliquid's published message format. Lensly cannot tell what the requester does with the signature."),
+                    null,
+                ),
+            ),
+        ),
+        ReviewSection(
+            "Message",
+            listOf(
+                ReviewRow("destination (string)", DisplayValue.Text(HYPE_SYSTEM), null),
+                ReviewRow("token (string)", DisplayValue.Text("HYPE:0x0d01dc56dcaaca66ad901c959b4011ec"), null),
+                ReviewRow("amount (string)", DisplayValue.Text("1"), null),
+            ),
+        ),
+    ),
+    warnings = listOf(
+        Warning(
+            Danger.CAUTION,
+            "evm.offchain",
+            "This signature is for Hyperliquid. It can authorize actions in your Hyperliquid account. Check the message before you sign.",
+            acknowledge = "I understand this signature goes to Hyperliquid, and Lensly cannot tell what it does.",
+        ),
+    ),
+    coverage = Coverage(decoded = emptySet(), excluded = emptyMap()),
+)
+
 private fun whitelistedSample(proxy: ProxyBinding? = null): Review = sampleNativeReview.copy(
     title = "swapExactTokensForTokens",
     summary = listOf(
@@ -402,6 +466,16 @@ class SignScreenshotTest {
     @Test
     fun reviewNativeTransfer() = compose.snapshotSettled("tx_review_native") {
         EvmReviewScreen(review = sampleNativeReview)
+    }
+
+    @Test
+    fun reviewMoveToHyperCore() = compose.snapshotSettled("tx_review_move_to_hypercore") {
+        EvmReviewScreen(review = hyperCoreMoveSample)
+    }
+
+    @Test
+    fun reviewMoveToHyperEvm() = compose.snapshotSettled("tx_review_move_to_hyperevm") {
+        EvmReviewScreen(review = hyperEvmMoveSample)
     }
 
     @Test

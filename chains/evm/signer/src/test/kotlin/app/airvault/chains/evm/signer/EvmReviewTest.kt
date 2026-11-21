@@ -63,6 +63,21 @@ private val PATH = listOf(
     PathStep(0, false),
 )
 
+private const val HYPE_SYSTEM = "0x2222222222222222222222222222222222222222"
+private const val TOKEN_SYSTEM = "0x20000000000000000000000000000000000000c8"
+private const val HYPE_NEAR_MISS = "0x2222222222222222222222222222222222222223"
+private const val TOKEN_NEAR_MISS = "0x21000000000000000000000000000000000000c8"
+private const val HYPEREVM_TOKEN = "0x1111111111111111111111111111111111111111"
+
+/** HyperEVM mainnet (999) and testnet (998), as the registry names them. */
+private val HYPEREVM_REGISTRY = Registry(
+    networks = listOf(
+        NetworkEntry(999, "HyperEVM", "HYPE", 18, FeeModel.L1, null, testnet = false),
+        NetworkEntry(998, "HyperEVM Testnet", "HYPE", 18, FeeModel.L1, null, testnet = true),
+    ),
+    tokens = emptyList(),
+)
+
 /** Monad testnet (10143), as the debug catalog names it, and Ethereum with USDC. */
 private val REGISTRY = Registry(
     networks = listOf(
@@ -480,6 +495,38 @@ class EvmReviewTest {
         )
 
         assertEquals("The request does not name a network", refusalOf(EvmRequestParser.parsedOf(request)).reason)
+    }
+
+    @Test
+    fun aNativeTransferOfHypeToTheHypeSystemAddressOnHyperEvmIsLabelledMoveToHyperCore() {
+        for (chainId in listOf(999L, 998L)) {
+            val review = reviewOf(txParsed(HYPE_SYSTEM, ByteArray(0), BigInteger.TEN.pow(18), chainId), builder(HYPEREVM_REGISTRY))
+
+            assertEquals("Move to HyperCore", review.title)
+        }
+    }
+
+    @Test
+    fun anErc20TransferToATokenSystemAddressOnHyperEvmIsLabelledMoveToHyperCore() {
+        val call = ContractCall.Transfer(TOKEN_SYSTEM, BigInteger.valueOf(1_000_000)).encode()!!
+        val review = reviewOf(txParsed(HYPEREVM_TOKEN, call, chainId = 999), builder(HYPEREVM_REGISTRY))
+
+        assertEquals("Move to HyperCore", review.title)
+        // The label adds to the review: the call's function and its recipient are still shown.
+        assertTrue(review.sections.flatMap { it.rows }.any { it.label == "to" }, "the recipient row is still shown")
+    }
+
+    @Test
+    fun aSystemAddressTransferOutsideHyperEvmOrAtANearMissAddressIsNotLabelled() {
+        assertEquals("Native Transfer", reviewOf(txParsed(HYPE_SYSTEM, ByteArray(0), BigInteger.TEN.pow(18), chainId = 1)).title)
+        val tokenCall = ContractCall.Transfer(TOKEN_SYSTEM, BigInteger.valueOf(1_000_000)).encode()!!
+        assertEquals("transfer", reviewOf(txParsed(USDC, tokenCall, chainId = 1)).title)
+        assertEquals(
+            "Native Transfer",
+            reviewOf(txParsed(HYPE_NEAR_MISS, ByteArray(0), BigInteger.TEN.pow(18), chainId = 999), builder(HYPEREVM_REGISTRY)).title,
+        )
+        val nearMissCall = ContractCall.Transfer(TOKEN_NEAR_MISS, BigInteger.valueOf(1_000_000)).encode()!!
+        assertEquals("transfer", reviewOf(txParsed(HYPEREVM_TOKEN, nearMissCall, chainId = 999), builder(HYPEREVM_REGISTRY)).title)
     }
 
     @Test

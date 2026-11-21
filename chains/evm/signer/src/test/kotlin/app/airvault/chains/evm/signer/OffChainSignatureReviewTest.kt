@@ -92,6 +92,34 @@ private fun asterMessage(chainId: Int, msg: String) =
         """"domain":{"name":"AsterSignTransaction","version":"1","chainId":$chainId,"verifyingContract":"$ZERO"},""" +
         """"message":{"msg":"$msg"}}"""
 
+private const val HYPE_SYSTEM = "0x2222222222222222222222222222222222222222"
+private const val TOKEN_SYSTEM = "0x20000000000000000000000000000000000000c8"
+private const val HYPE_NEAR_MISS = "0x2222222222222222222222222222222222222223"
+private const val TOKEN_NEAR_MISS = "0x21000000000000000000000000000000000000c8"
+
+private const val SPOT_SEND_FIELDS = """{"name":"hyperliquidChain","type":"string"},{"name":"destination","type":"string"},""" +
+    """{"name":"token","type":"string"},{"name":"amount","type":"string"},{"name":"time","type":"uint64"}"""
+
+private const val SEND_ASSET_FIELDS = """{"name":"hyperliquidChain","type":"string"},{"name":"destination","type":"string"},""" +
+    """{"name":"sourceDex","type":"string"},{"name":"destinationDex","type":"string"},{"name":"token","type":"string"},""" +
+    """{"name":"amount","type":"string"},{"name":"fromSubAccount","type":"string"},{"name":"nonce","type":"uint64"}"""
+
+/** A SpotSend of HYPE to [destination] on the HyperliquidSignTransaction domain, as the SDK builds it. */
+private fun spotSend(destination: String) = userSigned(
+    "HyperliquidTransaction:SpotSend",
+    SPOT_SEND_FIELDS,
+    """"type":"spotSend","destination":"$destination","token":"HYPE:0x0d01dc56dcaaca66ad901c959b4011ec","amount":"1",""" +
+        """"time":1687816341423,"signatureChainId":"0x66eee","hyperliquidChain":"Mainnet"""",
+)
+
+/** A SendAsset of HYPE to [destination] on the HyperliquidSignTransaction domain, as the SDK builds it. */
+private fun sendAsset(destination: String) = userSigned(
+    "HyperliquidTransaction:SendAsset",
+    SEND_ASSET_FIELDS,
+    """"type":"sendAsset","destination":"$destination","sourceDex":"spot","destinationDex":"","token":"HYPE:0x0d01dc56dcaaca66ad901c959b4011ec",""" +
+        """"amount":"1","fromSubAccount":"","nonce":1687816341423,"signatureChainId":"0x66eee","hyperliquidChain":"Mainnet"""",
+)
+
 private const val USDC_MAINNET = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 
 /** An EIP-2612 Permit of USD Coin on the domain of chain 1, which a request for Arbitrum asks to sign. The token is not in the test registry. */
@@ -410,6 +438,41 @@ class OffChainSignatureReviewTest {
         assertTrue(rowsOf(review).none { it.label == HYPERLIQUID_L1_LABEL || it.label == HASHED_LABEL })
         assertTrue(cautionTexts(review).isEmpty(), "an unlabelled signature on the request's chain has no CAUTION")
         assertNoStoppingWarning(review)
+    }
+
+    @Test
+    fun hyperCoreSpotSendToHypeSystemAddressIsLabelledMoveToHyperEvm() {
+        val review = reviewed(spotSend(HYPE_SYSTEM), ARBITRUM)
+
+        assertEquals("Move to HyperEVM", review.title)
+        noteOf(review, HYPERLIQUID_L1_LABEL, HL_NOTE)
+        // The label adds to the review: every field of the message is still shown, and the signature still carries its CAUTION.
+        val message = review.sections.single { it.heading == "Message" }.rows.associate { it.label to it.value.text() }
+        assertEquals(HYPE_SYSTEM, message["destination (string)"])
+        assertEquals("HYPE:0x0d01dc56dcaaca66ad901c959b4011ec", message["token (string)"])
+        assertEquals("1", message["amount (string)"])
+        assertTrue(HL_CAUTION in cautionTexts(review))
+        assertNoStoppingWarning(review)
+    }
+
+    @Test
+    fun hyperCoreSendAssetToATokenSystemAddressIsLabelledMoveToHyperEvm() {
+        val review = reviewed(sendAsset(TOKEN_SYSTEM), ARBITRUM)
+
+        assertEquals("Move to HyperEVM", review.title)
+        val message = review.sections.single { it.heading == "Message" }.rows.associate { it.label to it.value.text() }
+        assertEquals(TOKEN_SYSTEM, message["destination (string)"])
+        assertEquals("spot", message["sourceDex (string)"])
+        assertTrue(HL_CAUTION in cautionTexts(review))
+        assertNoStoppingWarning(review)
+    }
+
+    @Test
+    fun aNearMissAddressOrAnotherHyperliquidActionIsNotLabelledAsAMoveToHyperEvm() {
+        assertEquals("HyperliquidTransaction:SendAsset", reviewed(sendAsset(HYPE_NEAR_MISS), ARBITRUM).title)
+        assertEquals("HyperliquidTransaction:SpotSend", reviewed(spotSend(TOKEN_NEAR_MISS), ARBITRUM).title)
+        // A usdSend to a system address is not a move from HyperCore to HyperEVM.
+        assertEquals("HyperliquidTransaction:UsdSend", reviewed(USD_SEND.replace(AGENT, HYPE_SYSTEM), ARBITRUM).title)
     }
 
     @Test
