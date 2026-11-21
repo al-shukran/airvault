@@ -109,6 +109,7 @@ class BtcSigner(
                 isOwnChange = changeIndex != null,
                 changeIndex = changeIndex,
                 claimsOwnKey = psbt.outputs.getOrNull(index)?.let { claimsFingerprint(it, masterFingerprint) } ?: false,
+                script = txOut.publicKeyScript.toByteArray(),
             )
         }
         val allVerified = inputs.all { it.amountVerified }

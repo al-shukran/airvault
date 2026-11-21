@@ -80,6 +80,8 @@ data class BtcReviewOutput(
     val changeIndex: Int?,
     /** True when the output's derivation names a key of this wallet, so the PSBT claims it as this wallet's own output. */
     val claimsOwnKey: Boolean = false,
+    /** The output's locking script. The review shows it for an output with no address. */
+    val script: ByteArray = ByteArray(0),
 )
 
 /** Why a Bitcoin request was refused. Each reason names the input it concerns, where one does. */
