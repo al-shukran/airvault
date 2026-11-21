@@ -47,6 +47,7 @@ fun SolanaAccountsScreen(
     onBulkGenerate: () -> Unit,
     onPair: () -> Unit,
     onScan: () -> Unit,
+    refusal: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberKeyHaptics()
@@ -64,6 +65,7 @@ fun SolanaAccountsScreen(
         listState = listState,
         modifier = modifier,
         footer = {
+            refusal?.let { InlineBanner(message = it, tone = BannerTone.Error) }
             if (singleKey) {
                 InlineBanner(message = SINGLE_KEY_NO_SOLANA, tone = BannerTone.Info)
             } else {

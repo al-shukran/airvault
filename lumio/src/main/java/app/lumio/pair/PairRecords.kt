@@ -57,7 +57,9 @@ internal object PairRecords {
     fun encodeMeta(meta: Meta): ByteArray {
         val name = meta.name.toByteArray(Charsets.UTF_8)
         require(name.size in 1..PairingCodec.MAX_NAME_BYTES) { "A wallet name holds 1 to ${PairingCodec.MAX_NAME_BYTES} bytes." }
-        require(meta.addresses.size in 1..PairImport.MAX_ETHEREUM_ACCOUNTS) { "A wallet holds 1 to ${PairImport.MAX_ETHEREUM_ACCOUNTS} accounts." }
+        require(meta.addresses.size in 1..PairingCodec.MAX_ETHEREUM_ACCOUNTS) {
+            "A wallet holds 1 to ${PairingCodec.MAX_ETHEREUM_ACCOUNTS} accounts."
+        }
         require(meta.addresses.all { evmAddressOf(it) == it }) { "An account's address is an Ethereum address in EIP-55 form." }
         val buffer = ByteBuffer.allocate(META_HEADER_BYTES + name.size + META_COUNT_BYTES + meta.addresses.size * ADDRESS_CHARS)
             .put(VERSION)
@@ -81,7 +83,7 @@ internal object PairRecords {
         val name = String(bytes, buffer.position(), length, Charsets.UTF_8)
         buffer.position(buffer.position() + length)
         val accountCount = buffer.get().toInt() and UNSIGNED_BYTE_MASK
-        require(accountCount in 1..PairImport.MAX_ETHEREUM_ACCOUNTS && buffer.remaining() == accountCount * ADDRESS_CHARS) {
+        require(accountCount in 1..PairingCodec.MAX_ETHEREUM_ACCOUNTS && buffer.remaining() == accountCount * ADDRESS_CHARS) {
             "Not a pairing record."
         }
         val addresses = List(accountCount) { index ->

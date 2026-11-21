@@ -49,6 +49,12 @@ private const val DEFAULT_PAIRING_NAME = "Lensly"
 /** A Bitcoin Bulk Run refused because the wallet would keep more Bitcoin accounts than [PairingCodec.MAX_BITCOIN_ACCOUNTS]. Nothing is saved. */
 class BitcoinCapReached : IllegalArgumentException("A wallet keeps at most ${PairingCodec.MAX_BITCOIN_ACCOUNTS} Bitcoin accounts.")
 
+/** An Ethereum account refused because the wallet would keep more than [PairingCodec.MAX_ETHEREUM_ACCOUNTS]. Nothing is saved. */
+class EthereumCapReached : IllegalArgumentException("A wallet keeps at most ${PairingCodec.MAX_ETHEREUM_ACCOUNTS} Ethereum accounts.")
+
+/** A Solana account refused because the wallet would keep more than [WalletRecords.SOLANA_MAX_ACCOUNTS]. Nothing is saved. */
+class SolanaCapReached : IllegalArgumentException("A wallet keeps at most ${WalletRecords.SOLANA_MAX_ACCOUNTS} Solana accounts.")
+
 /**
  * What a wallet's secret is. A Mnemonic wallet holds a 24-word Mnemonic and an optional Passphrase, and every account
  * derives from them. A Single Key wallet holds one imported private key. It has exactly one account, and no derivation
@@ -298,14 +304,12 @@ class WalletStore(private val session: VaultSession) {
     /**
      * Adds the next account of wallet [id] and returns the updated metadata. It runs under the session's lock,
      * so two quick taps cannot claim the same index. A Single Key wallet has one account and refuses this, and so does a wallet
-     * that already keeps [PairingCodec.MAX_ACCOUNTS] Ethereum accounts.
+     * that already keeps [PairingCodec.MAX_ETHEREUM_ACCOUNTS] Ethereum accounts.
      */
     fun addAccount(id: String): WalletMeta = synchronized(session) {
         val current = requireNotNull(meta(id)) { "No wallet $id." }
         require(current.kind == WalletKind.MNEMONIC) { SINGLE_KEY_ONE_ACCOUNT }
-        require(current.accountCount < PairingCodec.MAX_ACCOUNTS) {
-            "A wallet keeps at most ${PairingCodec.MAX_ACCOUNTS} Ethereum accounts."
-        }
+        if (current.accountCount >= PairingCodec.MAX_ETHEREUM_ACCOUNTS) throw EthereumCapReached()
         val key = accountKeyOf(id, current.accountCount)
         val updated = current.copy(accountCount = current.accountCount + 1, accountKeys = current.accountKeys + key)
         session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(updated))
@@ -322,7 +326,7 @@ class WalletStore(private val session: VaultSession) {
      * off the main thread. [cap] is the owner's configured Bulk Cap, which the caller reads from [SettingsStore].
      *
      * @throws IllegalArgumentException if [count] is outside 1 to [cap], the wallet is missing, it is a Single Key wallet, or it would keep
-     * more than [PairingCodec.MAX_ACCOUNTS] Ethereum accounts. Nothing is saved then.
+     * more than [PairingCodec.MAX_ETHEREUM_ACCOUNTS] Ethereum accounts. Nothing is saved then.
      */
     fun addAccounts(id: String, count: Int, cap: Int, onProgress: (Int) -> Unit = {}): WalletMeta? {
         require(BulkPolicy.checkCount(count, cap) is BulkPolicy.CountCheck.Valid) {
@@ -331,7 +335,7 @@ class WalletStore(private val session: VaultSession) {
         val before = requireNotNull(meta(id)) { "No wallet $id." }
         require(before.kind == WalletKind.MNEMONIC) { SINGLE_KEY_ONE_ACCOUNT }
         val start = before.accountCount
-        require(start + count <= PairingCodec.MAX_ACCOUNTS) { "A wallet keeps at most ${PairingCodec.MAX_ACCOUNTS} Ethereum accounts." }
+        if (start + count > PairingCodec.MAX_ETHEREUM_ACCOUNTS) throw EthereumCapReached()
         val indices = BulkPolicy.indexRange(start, count)
         val secret = mnemonicSecret(id)
         val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
@@ -450,9 +454,7 @@ class WalletStore(private val session: VaultSession) {
         val current = requireNotNull(meta(id)) { "No wallet $id." }
         require(current.kind == WalletKind.MNEMONIC) { SINGLE_KEY_NO_SOLANA }
         val start = solanaKeys(id).size
-        require(start + count <= WalletRecords.SOLANA_MAX_ACCOUNTS) {
-            "A wallet keeps at most ${WalletRecords.SOLANA_MAX_ACCOUNTS} Solana accounts."
-        }
+        if (start + count > WalletRecords.SOLANA_MAX_ACCOUNTS) throw SolanaCapReached()
         val seed = seedOf(id)
         val derived = try {
             (start until start + count).mapIndexed { done, index ->

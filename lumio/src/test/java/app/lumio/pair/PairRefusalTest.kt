@@ -179,11 +179,11 @@ class PairRefusalTest {
 
     @Test
     fun moreEthereumAccountsThanLumioKeepsAreRefused() {
-        val accounts = (0..PairImport.MAX_ETHEREUM_ACCOUNTS).map { account(it) }
+        val accounts = (0..PairingCodec.MAX_ETHEREUM_ACCOUNTS).map { account(it) }
 
         val reason = refusalOf(codeOf(pairing(accounts)))
 
-        assertTrue(reason, reason.contains("Lumio pairs up to ${PairImport.MAX_ETHEREUM_ACCOUNTS}"))
+        assertTrue(reason, reason.contains("Lumio pairs up to ${PairingCodec.MAX_ETHEREUM_ACCOUNTS}"))
     }
 
     @Test

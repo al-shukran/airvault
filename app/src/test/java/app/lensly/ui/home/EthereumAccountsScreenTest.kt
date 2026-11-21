@@ -62,7 +62,7 @@ class EthereumAccountsScreenTest {
     }
 
     @Composable
-    private fun Ethereum(route: Route, listState: LazyListState, kind: WalletKind = WalletKind.MNEMONIC) {
+    private fun Ethereum(route: Route, listState: LazyListState, kind: WalletKind = WalletKind.MNEMONIC, refusal: String? = null) {
         EthereumAccountsScreen(
             wallet = WalletMeta(
                 id = "w1",
@@ -87,8 +87,19 @@ class EthereumAccountsScreenTest {
             onRenameAccounts = {},
             onStyleAccounts = {},
             onResetAccountNames = {},
+            refusal = refusal,
             listState = listState,
         )
+    }
+
+    /** A refused add shows its reason under the list, where the Add Account action was. */
+    @Test
+    fun aRefusedAddShowsItsReason() {
+        val reason = "A wallet keeps at most 100 Ethereum accounts."
+        compose.setContent {
+            LumenTheme { Ethereum(Route(accounts = 1), rememberLazyListState(), refusal = reason) }
+        }
+        compose.onNodeWithText(reason).assertIsDisplayed()
     }
 
     @Test
