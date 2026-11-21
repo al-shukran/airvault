@@ -645,4 +645,4 @@ The seed list (5.3) names where to look, not what is broken. Add no claim that a
 
 | Revision | Date | Author | Summary |
 |---|---|---|---|
-| 1 | 2026-11-21 | Initial draft, pending owner review | First playbook. Seed paths checked at the repository state of 2026-11-21. |
+| 1 | 2026-11-21 | AirVault maintainers | First playbook. Seed paths checked at the repository state of 2026-11-21. |
