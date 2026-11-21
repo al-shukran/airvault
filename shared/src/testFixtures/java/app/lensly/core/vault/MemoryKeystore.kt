@@ -13,6 +13,7 @@ class MemoryKeystore : KeystoreBackend {
     private var slotKey: SecretKey? = null
     private val failureMacs = mutableMapOf<Long, SecretKey>()
     private val folderKeys = mutableMapOf<String, SecretKey>()
+    private var pendingPhoto: SecretKey? = null
 
     /** When true, deleting a folder key fails, as a Keystore error would. The key stays where it was. */
     var failFolderKeyDeletes = false
@@ -69,6 +70,14 @@ class MemoryKeystore : KeystoreBackend {
 
     override fun folderKeyIds(): List<String> = folderKeys.keys.toList()
 
+    override fun createPendingPhotoKey(): SecretKey = newAesKey().also { pendingPhoto = it }
+
+    override fun pendingPhotoKey(): SecretKey? = pendingPhoto
+
+    override fun deletePendingPhotoKey() {
+        pendingPhoto = null
+    }
+
     /** How many Delay State MAC keys exist. */
     fun failureMacKeyCount(): Int = failureMacs.size
 
@@ -83,6 +92,7 @@ class MemoryKeystore : KeystoreBackend {
         slotKey = null
         failureMacs.clear()
         folderKeys.clear()
+        pendingPhoto = null
     }
 
     override fun securityLevel(key: SecretKey): Int = TRUSTED_ENVIRONMENT

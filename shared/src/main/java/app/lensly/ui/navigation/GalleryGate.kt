@@ -2,6 +2,7 @@ package app.lensly.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -14,10 +15,12 @@ import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultRecordNames
+import app.lensly.core.vault.readPendingPhotoKey
 import app.lensly.ui.camera.GalleryScreen
 import app.lensly.ui.camera.PhotoStore
 import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.gate.UnlockScreen
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -54,18 +57,20 @@ suspend fun galleryStoreFor(vault: Vault, layout: VaultLayout, password: CharArr
     }
 
 /**
- * The gallery as the camera cover opens it. It asks for a vault password first, then shows the folder that the password opens. A wrong
+ * The gallery as the camera opens it. It asks for a vault password first, then shows the folder that the password opens. A wrong
  * password clears the field and says nothing, as the hidden area's gate does. Each visit asks again, and leaving the screen drops the
- * photos.
+ * photos. Before the first setup there is no password, so the photos taken so far open at once, as in any gallery.
  */
 @Composable
 fun GalleryGate(vault: Vault, onBack: () -> Unit, onErased: () -> Unit) {
-    val layout = VaultLayout.of(LocalContext.current)
+    val context = LocalContext.current
+    val layout = VaultLayout.of(context)
     val scope = rememberCoroutineScope()
     val buffer = remember { PasswordBuffer() }
     var length by remember { mutableIntStateOf(0) }
     var busy by remember { mutableStateOf(false) }
     var store by remember { mutableStateOf<PhotoStore?>(null) }
+    val beforeSetup = remember { vault.isBeforeSetup() }
 
     // Leaving the gallery zeroes its photo key, so no key outlives the screen that held it.
     DisposableEffect(Unit) {
@@ -75,10 +80,20 @@ fun GalleryGate(vault: Vault, onBack: () -> Unit, onErased: () -> Unit) {
         }
     }
 
+    LaunchedEffect(beforeSetup) {
+        if (beforeSetup) {
+            val loaded = withContext(NonCancellable + Dispatchers.IO) {
+                PhotoStore.of(layout, decoy = false, privateKey = readPendingPhotoKey(context))
+            }
+            // The screen may have been left while the key was read. Then no screen holds it, so it is zeroed here.
+            if (isActive) store = loaded else loaded.close()
+        }
+    }
+
     val opened = store
     if (opened != null) {
         GalleryScreen(store = opened, onBack = onBack)
-    } else {
+    } else if (!beforeSetup) {
         HiddenBackdrop {
             UnlockScreen(
                 length = length,

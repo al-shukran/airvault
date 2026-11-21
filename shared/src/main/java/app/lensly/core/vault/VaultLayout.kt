@@ -36,6 +36,12 @@ class VaultLayout(val root: File, val photos: File = File(root, "photos")) {
      */
     fun isPartial(): Boolean = !exists() && (header.exists() || vaultKey.exists() || wallets.exists())
 
+    /**
+     * True before the first setup: no vault, and no vault files left. Photos taken then are sealed to the pending key
+     * (see [PendingPhotoKey]).
+     */
+    fun isBeforeSetup(): Boolean = !exists() && !isPartial()
+
     fun walletDir(walletId: String): File = File(wallets, walletId)
 
     /** The media folder of the real vault, or of the Decoy Vault when [decoy] is true. The two are kept apart. */
@@ -47,6 +53,12 @@ class VaultLayout(val root: File, val photos: File = File(root, "photos")) {
      * folder shows the same files whether or not a decoy exists.
      */
     fun photoKeyFile(decoy: Boolean): File = File(photos, if (decoy) "decoy.pub" else "real.pub")
+
+    /**
+     * The private half of the photo key pair that photos taken before the first setup are sealed to, wrapped under a Keystore key (see
+     * [PendingPhotoKey]). It sits in the photo folder, so a wipe removes it with the photos.
+     */
+    val pendingKeyFile = File(photos, "pending.key")
 
     companion object {
         /** The app's layout: the vault under its no-backup files folder, and its photos under its files folder. */
