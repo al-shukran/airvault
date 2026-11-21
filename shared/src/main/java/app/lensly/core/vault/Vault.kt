@@ -195,6 +195,9 @@ class Vault constructor(
     /** True when vault files are left without a whole vault. The gate then shows [VAULT_DAMAGED], and [create] refuses. */
     fun isPartial(): Boolean = layout.isPartial()
 
+    /** True before the first setup, when there is no vault and no vault file. See [VaultLayout.isBeforeSetup]. */
+    fun isBeforeSetup(): Boolean = layout.isBeforeSetup()
+
     /**
      * True when the vault on disk is in another format than this build reads. [unlock] refuses such a vault before it checks any password,
      * and the gate shows [VAULT_FORMAT_CHANGED] instead of the password screen. It reads only `header.bin`.
@@ -452,6 +455,8 @@ class Vault constructor(
                             pad = WalletPad(layout, keys, vaultKey.copyOf(), REAL_SECTION),
                         )
                         try {
+                            // A photo key pair made before the first setup becomes this vault's own, so those photos open through it.
+                            session.adoptPendingPhotoKey()
                             session.ensurePhotoKey()
                         } finally {
                             session.close()

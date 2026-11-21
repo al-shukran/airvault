@@ -642,6 +642,26 @@ class VaultSession constructor(
         if (!isDecoy && !decoyFile.isFile) writeAtomically(decoyFile, placeholderPhotoKey())
     }
 
+    /**
+     * Makes the pending photo key pair (see [PendingPhotoKey]) this vault's photo key, when photos were taken before the first setup, and
+     * removes its pending copy. Called once, when the vault is created, before [ensurePhotoKey], which then keeps the pair. The pair is
+     * stored before its copy is removed. If it cannot be stored, the pair and its photos are erased, since nothing can open them.
+     */
+    internal fun adoptPendingPhotoKey(): Unit = synchronized(this) {
+        val privateKey = PendingPhotoKey.read(layout, keys) ?: return@synchronized
+        val stored = try {
+            putVaultRecord(VaultRecordNames.PHOTO_KEY, privateKey)
+            true
+        } catch (e: IOException) {
+            false
+        } catch (e: GeneralSecurityException) {
+            false
+        } finally {
+            privateKey.fill(0)
+        }
+        if (stored) PendingPhotoKey.discard(layout, keys) else PendingPhotoKey.erase(layout, keys)
+    }
+
     /** Zeroes the Vault Key and the pad key. Any later call on this session throws [IllegalStateException]. */
     fun close() {
         synchronized(this) {

@@ -49,6 +49,15 @@ interface KeystoreBackend {
     /** The ids of the wallet folder keys the Keystore holds. Throws if the Keystore cannot list them. */
     fun folderKeyIds(): List<String>
 
+    /** Creates the key that wraps the private photo key of photos taken before the first setup, replacing any key there, and returns it. */
+    fun createPendingPhotoKey(): SecretKey
+
+    /** The key that wraps the private photo key of photos taken before the first setup, or null once it has been deleted. */
+    fun pendingPhotoKey(): SecretKey?
+
+    /** Deletes the key that wraps the private photo key of photos taken before the first setup, if there is one. */
+    fun deletePendingPhotoKey()
+
     /** Removes every key the vault uses on this device. */
     fun deleteAll()
 
@@ -107,6 +116,12 @@ internal class AndroidKeystoreBackend(
     override fun deleteFolderKey(keyId: String) = VaultKeystore.deleteFolderKey(keyId)
 
     override fun folderKeyIds(): List<String> = VaultKeystore.folderKeyIds()
+
+    override fun createPendingPhotoKey(): SecretKey = VaultKeystore.createPendingPhotoKey()
+
+    override fun pendingPhotoKey(): SecretKey? = VaultKeystore.pendingPhotoKey()
+
+    override fun deletePendingPhotoKey() = VaultKeystore.deletePendingPhotoKey()
 
     override fun deleteAll() = VaultKeystore.deleteAll()
 

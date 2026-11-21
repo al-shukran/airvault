@@ -68,6 +68,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import app.lensly.core.vault.VaultLayout
+import app.lensly.core.vault.ensurePendingPhotoKey
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.ErrorState
 import app.lensly.ui.components.InlineBanner
@@ -264,6 +265,7 @@ private fun CameraViewfinder(
                 val main = ContextCompat.getMainExecutor(context)
                 PhotoStore.sealer.execute {
                     if (!saved) shredFile(scratch)
+                    ensurePendingPhotoKey(context)
                     val kept = saved && store.saveVideo(scratch)
                     if (!kept) main.execute { showFailure(VIDEO_NOT_SAVED) }
                 }
@@ -290,6 +292,7 @@ private fun CameraViewfinder(
                         }
                         val main = ContextCompat.getMainExecutor(context)
                         PhotoStore.sealer.execute {
+                            ensurePendingPhotoKey(context)
                             if (!store.savePhoto(jpeg)) main.execute { showFailure(PHOTO_NOT_SAVED) }
                         }
                     },
