@@ -142,7 +142,8 @@ class VaultFormatChangedException : VaultException(VAULT_FORMAT_CHANGED)
  * failure state, so it is the same for both. While a delay runs, [unlock] returns [UnlockResult.Rejected] without checking
  * the password. It still spends the same Argon2 time as a real check, so the delay cannot be seen from timing. The same count
  * erases the vault after the owner's number of wrong tries in a row, with the same wipe as [wipe]. The erasing try returns
- * [UnlockResult.Erased], and both vaults go, since the wrong tries do not say which one was meant.
+ * [UnlockResult.Erased], and both vaults go, since the wrong tries do not say which one was meant. When no copy of the failure state
+ * verifies, the next attempt erases the vault before the password is checked, since the count is unknown (see [FailureDelay]).
  *
  * Argon2 runs on [Dispatchers.Default]. File and Keystore work runs on [Dispatchers.IO]. The password arrays passed to
  * [create], [unlock], [rekey], [setDuress] and [setFailureLimits] are zeroed before those calls return.
@@ -588,6 +589,13 @@ class Vault constructor(
         val store = failureStore()
         // The Failure Delay check. While the wait runs, the time it has served is saved, so a reboot continues the wait.
         val check = store.checkDelay(clock, header.createdAtWallMs)
+        // No copy of the failure state verifies, so the count is unknown and the erase threshold counts as reached. The vault is
+        // erased before the password is checked (FailureDelay threat 15). A vault that does not exist returned above, so a fresh
+        // install is not erased.
+        if (FailureDelay.unverified(check.state)) {
+            eraseLocked()
+            return Checked.Erased
+        }
         // During a delay the password is not checked, so it counts as neither a pass nor a failure. The KDF still runs
         // once, on a fixed input, so a refused attempt takes as long as a real one.
         if (check.blocked) {

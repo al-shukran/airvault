@@ -305,6 +305,33 @@ class FailureDelayTest {
         assertEquals(60_000L, delay.delayFor(4, learningWeek = false))
     }
 
+    @Test
+    fun aStateWithNoVerifiedCopyWaitsTheFullCapAndIsAtTheEraseThreshold() {
+        val unverified = FailureState(
+            seq = 2,
+            failures = FailureStore.TAMPER_FAILURES,
+            lastFailureWallMs = created,
+            lastFailureElapsedMs = 0L,
+            capMs = FailureDelay.MAX_CAP_MS,
+            wipeAfter = FailureDelay.MIN_WIPE_AFTER,
+            fullCapWait = true,
+        )
+        val delay = FailureDelay(created, FailureDelay.MAX_CAP_MS)
+        assertTrue(FailureDelay.unverified(unverified))
+        assertTrue(FailureDelay.erases(unverified))
+        assertEquals(FailureDelay.MAX_CAP_MS, delay.waitFor(unverified, FakeClock()))
+    }
+
+    @Test
+    fun aVerifiedCountIsNotUnverifiedAndErasesOnlyAtItsOwnCount() {
+        val nine = stateWithCap(null, failures = 9).copy(wipeAfter = 10)
+        val ten = stateWithCap(null, failures = 10).copy(wipeAfter = 10)
+        assertFalse(FailureDelay.unverified(nine))
+        assertFalse(FailureDelay.erases(nine))
+        assertFalse(FailureDelay.unverified(ten))
+        assertTrue(FailureDelay.erases(ten))
+    }
+
     private fun learningState(createdElapsedMs: Long?, createdBootCount: Int?) = FailureState(
         seq = 2,
         failures = 4,

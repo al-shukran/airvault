@@ -4,6 +4,7 @@ import java.io.File
 import java.security.GeneralSecurityException
 import javax.crypto.SecretKey
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeFalse
@@ -34,9 +35,8 @@ class VaultRollbackTest {
     }
 
     @Test
-    fun aRestoredOlderDelayStateIsTamperedAfterARestartAndWaitsTheFullCap() {
+    fun aRestoredOlderDelayStateErasesTheVaultAtTheNextAttemptEvenWithTheRightPassword() {
         createVault()
-        // Past the learning period, so the owner's default cap applies and the tamper cap is the one-hour cap.
         clock.advance(FailureDelay.LEARNING_PERIOD_MS)
         val beforeTheGuesses = snapshotFailureFiles()
         assertRejected(attempt(WRONG))
@@ -46,12 +46,9 @@ class VaultRollbackTest {
         restoreFailureFiles(beforeTheGuesses)
         restart()
 
-        // The restored copies name keys that were deleted, so they are tampered: the right password waits the one-hour cap.
-        assertRejected(attempt(APP))
-        clock.advance(FailureDelay.MAX_CAP_MS - 1)
-        assertRejected(attempt(APP))
-        clock.advance(1)
-        unlocked(attempt(APP)).close()
+        // The restored copies name keys that were deleted, so no copy verifies: the count is unknown, and the attempt erases the vault.
+        assertEquals(UnlockResult.Erased, attempt(APP))
+        assertFalse(layout.root.exists())
     }
 
     @Test
@@ -147,7 +144,7 @@ class VaultRollbackTest {
     }
 
     @Test
-    fun aCorrectUnlockResetsTheCountWhenTheKeyOfTheStateIsGone() {
+    fun aLostDelayStateKeyErasesTheVaultAtTheNextAttemptEvenWithTheRightPassword() {
         createVault()
         clock.advance(FailureDelay.LEARNING_PERIOD_MS)
         assertRejected(attempt(WRONG))
@@ -160,17 +157,13 @@ class VaultRollbackTest {
         }
         vault = Vault(layout, refusing, clock, KDF, readBootCount = { bootCount })
 
-        // The unreadable state locks at the strictest cap, and that lock is held in memory.
-        assertRejected(attempt(APP))
-        clock.advance(FailureDelay.MAX_CAP_MS)
-        // After the wait, the right password opens the vault, and the count is cleared for this process, with no key for the state.
-        unlocked(attempt(APP)).close()
-        assertEquals(0, vault.failureCountForTesting())
-        unlocked(attempt(APP)).close()
+        // No copy verifies, so the count is unknown, and the attempt erases the vault before the password is checked.
+        assertEquals(UnlockResult.Erased, attempt(APP))
+        assertFalse(layout.root.exists())
     }
 
     @Test
-    fun aStorageErrorNeverThrowsFromUnlockAndTheCorrectPasswordOpensAfterTheWait() {
+    fun aStorageErrorOnAWrongTryErasesTheVaultWithoutThrowing() {
         createVault()
         clock.advance(FailureDelay.LEARNING_PERIOD_MS)
         // Every write of the Delay State fails, as on a full disk: the vault folder takes no new file, so no temp file
@@ -179,13 +172,8 @@ class VaultRollbackTest {
         try {
             assumeFalse(layout.root.canWrite())
 
-            // A wrong password whose failure cannot be saved locks at the strictest cap, and nothing is thrown.
-            assertRejected(attempt(WRONG))
-            assertRejected(attempt(APP))
-            clock.advance(FailureDelay.MAX_CAP_MS - 1)
-            assertRejected(attempt(APP))
-            clock.advance(1)
-            unlocked(attempt(APP)).close()
+            // A wrong password whose failure cannot be saved leaves no copy that verifies, so the try is at the erase threshold.
+            assertEquals(UnlockResult.Erased, attempt(WRONG))
         } finally {
             layout.root.setWritable(true)
         }

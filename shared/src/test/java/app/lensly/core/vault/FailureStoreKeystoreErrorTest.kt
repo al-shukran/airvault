@@ -185,17 +185,15 @@ class FailureStoreKeystoreErrorTest {
     }
 
     @Test
-    fun aKeyReadFailureOnTheLoadPathIsADelayNotAnError() {
+    fun aKeyReadFailureOnTheLoadPathErasesTheVaultWithoutAnError() {
         val layout = VaultLayout(File(tmp.root, "vault"))
         val vault = Vault(layout, flaky, clock, KDF, readBootCount = { 7 })
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })
         clock.advance(FailureDelay.LEARNING_PERIOD_MS)
 
-        // The state cannot be verified, so it locks at the one-hour cap. The right password waits, and gets no error.
+        // The state cannot be verified, so no copy counts and the attempt erases the vault. No error escapes.
         flaky.failReads = true
-        assertEquals(UnlockResult.Rejected, runBlocking { vault.unlock(APP.toCharArray()) })
-        flaky.failReads = false
-        assertEquals(FailureStore.TAMPER_FAILURES, vault.failureCountForTesting())
+        assertEquals(UnlockResult.Erased, runBlocking { vault.unlock(APP.toCharArray()) })
     }
 
     /** A keystore whose Delay State key calls throw an IOException, as a Keystore service that has died can. */

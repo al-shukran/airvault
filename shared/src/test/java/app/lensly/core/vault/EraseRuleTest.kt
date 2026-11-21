@@ -57,10 +57,23 @@ class EraseRuleTest {
     }
 
     @Test
-    fun aTamperedStateIsNeverErasedAndShowsNoWarning() {
-        val tampered = state(FailureStore.TAMPER_FAILURES + 1, wipeAfter = 5)
-        assertFalse(FailureDelay.erases(tampered))
-        assertNull(FailureDelay.triesLeftToWarn(tampered))
+    fun aStateWithNoVerifiedCopyIsAtTheEraseThresholdAndShowsNoWarning() {
+        // The count of a state no copy verifies is the tamper count, which is above every erase count (3 to 20).
+        val unverified = state(FailureStore.TAMPER_FAILURES, wipeAfter = 3)
+        assertTrue(FailureDelay.unverified(unverified))
+        assertTrue(FailureDelay.erases(unverified))
+        assertNull(FailureDelay.triesLeftToWarn(unverified))
+        assertFalse(FailureDelay.unverified(state(FailureDelay.MAX_WIPE_AFTER - 1)))
+    }
+
+    @Test
+    fun aFreshVaultIsNeitherUnverifiedNorErased() {
+        val store = FailureStore(tmp.newFolder("failures"), keys)
+        store.initialize(clock)
+        val fresh = store.load(clock)
+        assertFalse(FailureDelay.unverified(fresh))
+        assertFalse(FailureDelay.erases(fresh))
+        assertFalse(wrongTry(store).erased)
     }
 
     @Test

@@ -143,6 +143,34 @@ class VaultEraseTest {
         assertEquals(20, runBlocking { vault.failureEraseAfter() })
     }
 
+    @Test
+    fun aRestoredOlderPairErasesTheVaultAtTheNextAttemptEvenWithTheRightPassword() {
+        createVault()
+        setEraseAfter(5)
+        val primary = File(layout.root, FailureStore.PRIMARY_FILE_NAME)
+        val backup = File(layout.root, FailureStore.BACKUP_FILE_NAME)
+        val olderPrimary = primary.readBytes()
+        val olderBackup = backup.readBytes()
+        assertRejected(attempt(WRONG))
+
+        // Restoring both older copies leaves no copy that verifies. The count is unknown, so the threshold counts as reached.
+        primary.writeBytes(olderPrimary)
+        backup.writeBytes(olderBackup)
+        FailureStore.forget(layout.root)
+        vault = Vault(layout, keys, clock, KDF)
+
+        assertEquals(UnlockResult.Erased, attempt(APP))
+        assertFalse(layout.root.exists())
+        assertRejected(attempt(APP))
+    }
+
+    @Test
+    fun anAttemptWithNoVaultRefusesAndCreatesNothing() {
+        assertRejected(attempt(APP))
+        assertRejected(attempt(WRONG))
+        assertFalse(layout.root.exists())
+    }
+
     private fun createVault() {
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })
     }
