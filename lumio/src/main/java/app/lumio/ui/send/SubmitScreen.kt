@@ -30,14 +30,13 @@ import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LumioIsland
 import app.lensly.ui.components.LumioTextAction
+import app.lensly.ui.components.groupAddress
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalReducedMotion
 import app.lensly.ui.theme.LumenMotion
 import app.lumio.btc.BtcSendPlan
 import app.lumio.btc.btcText
 import app.lumio.data.provider.algorand.AlgorandFormat
-import app.lumio.evm.EvmFormat
-import app.lumio.evm.PreparedSend
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
 import app.lumio.send.algorand.AlgorandAssets
@@ -186,30 +185,11 @@ private fun ReviewLabel(text: String) {
     Text(text, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
-/** The rows of an EVM send: the sender, the recipient, the amount and the most the fee can be. */
-fun evmSummary(send: PreparedSend): List<SummaryRow> {
-    val token = send.token
-    val chain = send.chain
-    val network = if (chain.testnet) "${chain.name}, testnet" else chain.name
-    val amount = if (token == null) {
-        EvmFormat.amount(send.valueWei, chain.decimals, chain.symbol)
-    } else {
-        EvmFormat.amount(send.valueWei, token.decimals, token.symbol)
-    }
-    return listOf(
-        SummaryRow("Network", network),
-        SummaryRow("From", send.from),
-        SummaryRow("To", send.to),
-        SummaryRow("Amount", amount),
-        SummaryRow("Fee, at Most", EvmFormat.amount(send.maxFeeWei, chain.decimals, chain.symbol)),
-    )
-}
-
 /** The rows of a Bitcoin send: the account, the recipient, the amount and the fee. */
 fun btcSummary(plan: BtcSendPlan): List<SummaryRow> = listOf(
     SummaryRow("Network", if (plan.network == BtcNetwork.TESTNET4) "Bitcoin Testnet4" else "Bitcoin Mainnet"),
     SummaryRow("From", "${PairLabels.scriptType(plan.account.scriptType)}, ${plan.account.path.asString('\'')}"),
-    SummaryRow("To", plan.recipient),
+    SummaryRow("To", groupAddress(plan.recipient)),
     SummaryRow("Amount", btcText(plan.amountSats)),
     SummaryRow("Fee", btcText(plan.feeSats)),
 )
@@ -226,8 +206,8 @@ fun solanaSummary(plan: SolanaSendPlan, tokenSymbol: String = "SOL"): List<Summa
     }
     return listOf(
         SummaryRow("Network", if (plan.network.testnet) "Solana Devnet" else "Solana Mainnet-Beta"),
-        SummaryRow("From", plan.senderAddress),
-        SummaryRow("To", plan.recipientAddress),
+        SummaryRow("From", groupAddress(plan.senderAddress)),
+        SummaryRow("To", groupAddress(plan.recipientAddress)),
         SummaryRow("Amount", amount),
         SummaryRow("Fee", "${SolanaSendInput.format(BigInteger.valueOf(plan.feeLamports))} SOL"),
     )
@@ -239,10 +219,10 @@ fun solanaSummary(plan: SolanaSendPlan, tokenSymbol: String = "SOL"): List<Summa
  */
 fun algorandSummary(plan: AlgorandSendPlan, symbol: String = "ALGO", decimals: Int = 6): List<SummaryRow> {
     val network = SummaryRow("Network", if (plan.network.testnet) "Algorand Testnet" else "Algorand Mainnet")
-    val from = SummaryRow("From", plan.fromAddress)
+    val from = SummaryRow("From", groupAddress(plan.fromAddress))
     val fee = SummaryRow("Fee", AlgorandFormat.amount(plan.fee))
     if (plan is AsaSendPlan && plan.isOptIn) {
         return listOf(network, from, SummaryRow("Asset", symbol), SummaryRow("Action", "Opt in"), fee)
     }
-    return listOf(network, from, SummaryRow("To", plan.toAddress), SummaryRow("Amount", AlgorandAssets.amountText(plan, symbol, decimals)), fee)
+    return listOf(network, from, SummaryRow("To", groupAddress(plan.toAddress)),SummaryRow("Amount", AlgorandAssets.amountText(plan, symbol, decimals)), fee)
 }

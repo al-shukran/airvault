@@ -3,34 +3,48 @@ package app.lumio
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
-import app.lensly.DebugBtcFixture
 import app.airvault.core.model.AccountId
+import app.lensly.DebugBtcFixture
+import app.lensly.app.AddressBookEntry
+import app.lensly.app.AddressNotes
+import app.lensly.app.EVM_FAMILY
 import app.lensly.app.InternalAccount
 import app.lensly.app.VaultHolder
+import app.lensly.app.addressKeyOf
+import app.lensly.app.addressNotesOf
 import app.lensly.app.export.partsOf
+import app.lensly.core.registry.Amounts
 import app.lensly.core.ur.EthSignRequestEncoder
 import app.lensly.core.vault.VaultSession
+import app.lensly.ui.components.groupAddress
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
+import app.lumio.evm.EvmAdvanced
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmChain
+import app.lumio.evm.EvmFormat
 import app.lumio.evm.EvmSend
 import app.lumio.evm.EvmSettings
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.evm.PreparedSend
 import app.lumio.evm.RpcFailure
+import app.lumio.evm.SendAsset
 import app.lumio.evm.SendAssets
 import app.lumio.evm.SendInput
 import app.lumio.evm.SignatureScan
@@ -46,21 +60,33 @@ import app.lumio.send.SubmitState
 import app.lumio.tokens.TokenBalanceCache
 import app.lumio.tokens.TokenHolding
 import app.lumio.tokens.TokenPortfolio
-import app.lumio.wallets.WalletAccounts
+import app.lumio.ui.kit.rememberLumioHaptics
+import app.lumio.ui.send.LAST_CHANCE_SECONDS
 import app.lumio.ui.send.RECIPIENT_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
-import app.lumio.ui.send.SendFormScreen
-import app.lumio.ui.send.SendReviewScreen
-import app.lumio.ui.send.SignRequestScreen
+import app.lumio.ui.send.SendAmountPage
+import app.lumio.ui.send.recipientError
+import app.lumio.ui.send.SendChangeRecipientDialog
+import app.lumio.ui.send.SendChoice
+import app.lumio.ui.send.SendFeeSheet
+import app.lumio.ui.send.SendLastChancePage
+import app.lumio.ui.send.SendOnItsWayPage
+import app.lumio.ui.send.SendOption
+import app.lumio.ui.send.SendOptionSheet
+import app.lumio.ui.send.SendOutcomePage
+import app.lumio.ui.send.SendRecipientPage
+import app.lumio.ui.send.SendReviewPage
+import app.lumio.ui.send.SendShowPage
 import app.lumio.ui.send.SignatureScanScreen
-import app.lumio.ui.send.SubmitScreen
-import app.lumio.ui.send.evmSummary
+import app.lumio.ui.send.SummaryRow
+import app.lumio.wallets.WalletAccounts
 import com.sparrowwallet.hummingbird.UR
+import java.math.BigInteger
 import java.security.SecureRandom
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
 
 /**
  * What a send reads from the open vault: the wallet, the address that sends, the settings, the chains that are on, and the tokens that the sending
@@ -74,7 +100,7 @@ private class SendContext(
     val settings: EvmSettings,
     val chains: List<EvmChain>,
     val held: List<TokenHolding>,
-    /** The Ethereum accounts of every paired wallet, which the review names. */
+    /** The Ethereum accounts of every paired wallet, which the send names. */
     val accounts: Map<String, InternalAccount>,
 )
 
@@ -85,37 +111,55 @@ private sealed interface SendLoad {
     class Ready(val context: SendContext) : SendLoad
 }
 
-/** The screens of a send, in the order the owner goes through them. */
+/**
+ * The pages of a send, in the order the owner goes through them: Recipient, Amount, Review, Show to Lensly, the scan of Lensly's reply, and then the
+ * signed transaction, which is Last Chance, On Its Way or a failure. The branches are Lensly Didn't Sign, the signature for another send, and the
+ * change of recipient.
+ */
 private sealed interface SendStep {
-    data object Form : SendStep
+    data object Recipient : SendStep
 
     /** The camera reads a recipient: an address, or a payment code that fills the form. */
     data object ScanRecipient : SendStep
 
+    data object Amount : SendStep
+
     class Review(val send: PreparedSend) : SendStep
 
-    class Request(val send: PreparedSend, val requestId: ByteArray, val parts: List<String>) : SendStep
+    class Show(val send: PreparedSend, val requestId: ByteArray, val parts: List<String>) : SendStep
 
     class Scanning(val send: PreparedSend, val requestId: ByteArray, val parts: List<String>) : SendStep
 
-    /** The signed transaction, held in memory until the owner submits it. Leaving the screen discards it. */
-    class Submit(val send: PreparedSend, val requestId: ByteArray, val parts: List<String>, val machine: SubmitMachine<ByteArray, String>) : SendStep
+    /** Lensly's reply answers another send, so it is refused, and it is never sent. */
+    class Mismatch(val send: PreparedSend, val requestId: ByteArray, val parts: List<String>) : SendStep
+
+    /** Lensly's signature is held in memory, and the transaction waits for Last Chance. Leaving the page discards it. */
+    class Signed(val send: PreparedSend, val machine: SubmitMachine<ByteArray, String>) : SendStep
+
+    /** The owner ended the send before Lensly's signature was scanned, so nothing reached Lumio. */
+    class Declined(val send: PreparedSend) : SendStep
 }
 
 private const val SCAN_HINT = "Point the camera at the signature that Lensly shows."
 private const val SCAN_READING = "Reading the signature. Keep the camera on it."
-private const val SCAN_READ = "Signature read. Check the transaction, then submit it."
+private const val SCAN_READ = "Signature read. Check the transaction, then send it."
 private const val PREPARE_FAILED = "The send could not be prepared. Try again."
 private const val REQUEST_FAILED = "The sign request could not be made. Try again."
 private const val SIGNATURE_FAILED = "That code could not be used. Scan the signature again."
 private const val BROADCAST_FAILED = "The transaction could not be sent. Check the balance, then try again."
 private const val NO_BROWSER = "No browser can open the explorer."
 private const val REQUEST_ID_BYTES = 16
+private const val PAUSE_BEFORE_PREPARE_MS = 350L
+private const val SETTLE_MS = 700L
+private const val COUNT_STEP_MS = 1_000L
+private const val BITCOIN_PREFIX_MAIN = "bc1"
+private const val BITCOIN_PREFIX_TEST = "tb1"
 
 /**
- * A send from one address of a paired wallet, on the network [chainId]: the form, the review, the request that Lensly signs, the scan of its
- * signature, and the transaction that is sent. The network is fixed, so the form offers no other. Lumio holds no key. It builds the transaction
- * from public reads, and it broadcasts only a signature that answers its own request from the account that sends. The form starts on the native coin.
+ * A send from one address of a paired wallet, on the network [chainId]: the recipient, the amount and the fee, the sentence that Lensly signs, the
+ * request as a code, the scan of Lensly's reply, Last Chance, and the transaction that is sent. The network is fixed by the account, so the send offers
+ * no other. Lumio holds no key. It builds the transaction from public reads, and it sends only a signature that answers its own request from the account
+ * that sends.
  */
 @Composable
 internal fun SendRoute(
@@ -125,6 +169,7 @@ internal fun SendRoute(
     account: AccountId,
     mode: NetworkMode,
     chainId: Long,
+    onLock: () -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
     val context = LocalContext.current
@@ -142,48 +187,64 @@ internal fun SendRoute(
     }
     val ready = (load as? SendLoad.Ready)?.context ?: return
 
-    var step by remember { mutableStateOf<SendStep>(SendStep.Form) }
+    var step by remember { mutableStateOf<SendStep>(SendStep.Recipient) }
     var recipient by rememberSaveable { mutableStateOf("") }
     var amount by rememberSaveable { mutableStateOf("") }
     // The contract of the token the send moves, or null for the native coin of the chain.
     var contract by remember { mutableStateOf<String?>(null) }
-    var busy by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
+    var recipientScanStatus by remember { mutableStateOf(RECIPIENT_SCAN_HINT) }
     var scan by remember { mutableStateOf(SignatureScan()) }
     var scanProgress by remember { mutableStateOf<Float?>(null) }
     var scanStatus by remember { mutableStateOf(SCAN_HINT) }
     var scanBusy by remember { mutableStateOf(false) }
-    var sentNotice by remember { mutableStateOf<String?>(null) }
-    // The send the network prepared. The review's Advanced sheet edits a copy of it, and the warnings compare against it.
+    var changeRecipient by remember { mutableStateOf(false) }
+    var assetSheet by remember { mutableStateOf(false) }
+    var feeSheet by remember { mutableStateOf(false) }
+    // The send the network prepared for the amount as typed, and the send with the owner's fee edits. Review and Lensly both take the edited one.
     var suggested by remember { mutableStateOf<PreparedSend?>(null) }
+    var edited by remember { mutableStateOf<PreparedSend?>(null) }
+    var preparing by remember { mutableStateOf(false) }
+    var amountError by remember { mutableStateOf<String?>(null) }
 
-    // The network the send is bound to. Null when that network is off, and the form then says so.
+    // The network the send is bound to. Null when that network is off, and the page then says so.
     val selectedChain = ready.chains.firstOrNull { it.chainId == chainId }
-    // The coins the chain offers: the native coin, the tokens held here, and the preferred token. The send moves the chosen one, native by default.
+    // The coins the chain offers: the native coin, and the tokens held here. The send moves the chosen one, native by default.
     val assets = selectedChain?.let { chain -> SendAssets.onChain(chain, ready.held) }.orEmpty()
     val asset = assets.firstOrNull { it.token?.contract == contract } ?: assets.firstOrNull()
+    val clipboard = LocalClipboardManager.current
+    val fromName = fromNameOf(ready)
 
-    fun review() {
-        val selected = asset ?: return
-        busy = true
-        notice = null
-        scope.launch {
-            val outcome = withContext(Dispatchers.IO) {
-                runCatching {
-                    val to = SendInput.recipient(recipient)
-                    val value = SendInput.amountWei(amount, selected.decimals, selected.symbol)
-                    EvmSend.prepare(app.evmReadsFor(checkNotNull(session)), selected.chain, ready.from, ready.index, to, value, selected.token)
-                }
-            }
-            busy = false
-            outcome.fold(
-                onSuccess = { send ->
-                    suggested = send
-                    step = SendStep.Review(send)
-                },
-                onFailure = { error -> notice = ownerWords(error, PREPARE_FAILED) },
-            )
+    // The amount is read again after the owner pauses typing. A send that cannot be prepared says why under the amount.
+    LaunchedEffect(step is SendStep.Amount, recipient, amount, contract) {
+        if (step !is SendStep.Amount) return@LaunchedEffect
+        val selected = asset ?: return@LaunchedEffect
+        suggested = null
+        edited = null
+        amountError = null
+        if (amount.isBlank()) return@LaunchedEffect
+        val problem = runCatching { SendInput.amountWei(amount, selected.decimals, selected.symbol) }.exceptionOrNull()
+        if (problem != null) {
+            amountError = problem.message ?: PREPARE_FAILED
+            return@LaunchedEffect
         }
+        delay(PAUSE_BEFORE_PREPARE_MS)
+        preparing = true
+        val outcome = withContext(Dispatchers.IO) {
+            runCatching {
+                val to = SendInput.recipient(recipient)
+                val value = SendInput.amountWei(amount, selected.decimals, selected.symbol)
+                EvmSend.prepare(app.evmReadsFor(checkNotNull(session)), selected.chain, ready.from, ready.index, to, value, selected.token)
+            }
+        }
+        preparing = false
+        outcome.fold(
+            onSuccess = { send ->
+                suggested = send
+                edited = send
+            },
+            onFailure = { error -> amountError = ownerWords(error, PREPARE_FAILED) },
+        )
     }
 
     /**
@@ -197,9 +258,9 @@ internal fun SendRoute(
                 recipient = payment.address
                 if (payment.amount != null && amount.isBlank() && asset?.token == null) amount = payment.amount
                 notice = null
-                step = SendStep.Form
+                step = SendStep.Recipient
             }
-            .onFailure { error -> scanStatus = ownerWords(error, RECIPIENT_SCAN_HINT) }
+            .onFailure { error -> recipientScanStatus = ownerWords(error, RECIPIENT_SCAN_HINT) }
     }
 
     fun confirm(send: PreparedSend) {
@@ -207,181 +268,440 @@ internal fun SendRoute(
         runCatching { partsOf(EthSignRequestEncoder.encode(EvmSend.request(send, ready.wallet.fingerprint, requestId))) }
             .onSuccess { parts ->
                 notice = null
-                step = SendStep.Request(send, requestId, parts)
+                step = SendStep.Show(send, requestId, parts)
             }
             .onFailure { notice = REQUEST_FAILED }
     }
 
-    fun startScan(current: SendStep.Request) {
+    fun startScan(send: PreparedSend, requestId: ByteArray, parts: List<String>) {
         scan = SignatureScan()
         scanProgress = null
         scanStatus = SCAN_HINT
         notice = null
-        step = SendStep.Scanning(current.send, current.requestId, current.parts)
+        step = SendStep.Scanning(send, requestId, parts)
     }
 
-    /** Checks Lensly's signature and holds the signed transaction. Nothing is sent until the owner submits it on the next screen. */
-    fun applySignature(current: SendStep.Scanning, ur: UR) {
+    /** Checks Lensly's signature and holds the signed transaction. Nothing is sent until Last Chance is over or the owner sends it now. */
+    fun applySignature(scanning: SendStep.Scanning, ur: UR) {
         scanBusy = true
         scanProgress = 1f
         scanStatus = SCAN_READ
         scope.launch {
-            val signed = withContext(Dispatchers.IO) { runCatching { EvmSend.signed(current.send, current.requestId, ur) } }
+            val signed = withContext(Dispatchers.IO) { runCatching { EvmSend.signed(scanning.send, scanning.requestId, ur) } }
             scanBusy = false
             signed.fold(
                 onFailure = { error ->
                     scan = SignatureScan()
                     scanProgress = null
-                    scanStatus = ownerWords(error, SIGNATURE_FAILED)
+                    if (error is EvmSend.SignatureForAnotherSend) {
+                        step = SendStep.Mismatch(scanning.send, scanning.requestId, scanning.parts)
+                    } else {
+                        scanStatus = ownerWords(error, SIGNATURE_FAILED)
+                    }
                 },
                 onSuccess = { raw ->
                     val reads = app.evmReadsFor(checkNotNull(session))
-                    val chain = current.send.chain
+                    val chain = scanning.send.chain
                     val machine = SubmitMachine(
                         signed = raw,
                         broadcast = { bytes -> withContext(Dispatchers.IO) { EvmSend.broadcast(reads, chain, bytes) } },
                         describe = { error -> SubmitFailure(ownerWords(error, BROADCAST_FAILED)) },
                     )
                     notice = null
-                    step = SendStep.Submit(current.send, current.requestId, current.parts, machine)
+                    step = SendStep.Signed(scanning.send, machine)
                 },
             )
         }
     }
 
-    /** Sends the signed transaction. A retry sends the same signed bytes again. */
-    fun submit(current: SendStep.Submit) {
-        scope.launch { current.machine.submit() }
-    }
-
-    fun onSignatureText(current: SendStep.Scanning, text: String) {
+    fun onSignatureText(scanning: SendStep.Scanning, text: String) {
         if (scanBusy) return
         when (val result = scan.onText(text)) {
             is SignatureStep.Reading -> {
                 scanProgress = result.fraction
                 scanStatus = SCAN_READING
             }
-            is SignatureStep.Complete -> applySignature(current, result.ur)
+            is SignatureStep.Complete -> applySignature(scanning, result.ur)
             SignatureStep.Ignored -> Unit
         }
     }
 
     // A debug build can read a fixture in place of the camera, so the signature can be shown without one. Release builds have no fixture.
     LaunchedEffect(step) {
-        val current = step
-        if (current is SendStep.Scanning) DebugBtcFixture.take()?.split(' ')?.forEach { onSignatureText(current, it) }
+        val now = step
+        if (now is SendStep.Scanning) DebugBtcFixture.take()?.split(' ')?.forEach { onSignatureText(now, it) }
     }
 
     fun openExplorer(url: String) {
         try {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         } catch (e: ActivityNotFoundException) {
-            sentNotice = NO_BROWSER
+            Toast.makeText(context, NO_BROWSER, Toast.LENGTH_SHORT).show()
         }
     }
 
+    val backLabel = navController.backLabel()
     BackHandler {
-        when (val current = step) {
-            SendStep.Form -> navController.popBackStack()
-            SendStep.ScanRecipient -> step = SendStep.Form
-            is SendStep.Review -> {
-                notice = null
-                step = SendStep.Form
-            }
-            is SendStep.Request -> {
-                notice = null
-                step = SendStep.Review(current.send)
-            }
-            is SendStep.Scanning -> step = SendStep.Request(current.send, current.requestId, current.parts)
-            is SendStep.Submit -> when (current.machine.state.value) {
-                SubmitState.Submitting -> Unit
-                is SubmitState.Sent -> navController.popBackStack()
-                else -> {
-                    notice = null
-                    step = SendStep.Request(current.send, current.requestId, current.parts)
-                }
-            }
+        when (val now = step) {
+            SendStep.Recipient -> navController.popBackStack()
+            SendStep.ScanRecipient -> step = SendStep.Recipient
+            SendStep.Amount -> step = SendStep.Recipient
+            is SendStep.Review -> step = SendStep.Amount
+            is SendStep.Show -> step = SendStep.Review(now.send)
+            is SendStep.Scanning -> step = SendStep.Show(now.send, now.requestId, now.parts)
+            is SendStep.Mismatch -> step = SendStep.Scanning(now.send, now.requestId, now.parts)
+            is SendStep.Signed, is SendStep.Declined -> navController.popBackStack()
         }
     }
 
-    when (val current = step) {
-        SendStep.Form -> SendFormScreen(
-            fromLabel = "Address ${ready.index + 1}",
-            fromAddress = ready.from,
-            chain = selectedChain,
-            assets = assets,
-            selectedAsset = asset,
-            onSelectAsset = { contract = it.token?.contract },
-            recipient = recipient,
-            onRecipient = { recipient = it },
-            onScan = {
-                scanStatus = RECIPIENT_SCAN_HINT
-                step = SendStep.ScanRecipient
-            },
-            amount = amount,
-            onAmount = { amount = it },
-            busy = busy,
-            notice = notice,
-            onReview = ::review,
-            onBack = { navController.popBackStack() },
-        )
+    when (val now = step) {
+        SendStep.Recipient -> {
+            val chain = selectedChain
+            // The error waits until the owner pauses, so it never shows while the first characters are typed.
+            var settled by remember { mutableStateOf("") }
+            LaunchedEffect(recipient) {
+                delay(SETTLE_MS)
+                settled = recipient
+            }
+            val invalid = settled.isNotBlank() && recipientError(settled) != null
+            SendRecipientPage(
+                value = recipient,
+                onValueChange = {
+                    recipient = it.trim()
+                    notice = null
+                },
+                error = if (invalid && chain != null) "This isn't a ${chain.name} address" else null,
+                hint = bitcoinHint(recipient),
+                canContinue = chain != null && recipient.isNotBlank() && recipientError(recipient) == null,
+                accounts = ready.accounts.filterKeys { it != addressKeyOf(ready.from) }.map { (address, account) ->
+                    SendChoice(title = accountName(account), detail = "Your account", address = address)
+                },
+                addressBook = ready.wallet.addressBook.map { entry ->
+                    SendChoice(title = entry.name, detail = entry.label ?: "Address Book", address = entry.address)
+                },
+                onPick = { choice -> recipient = choice.address },
+                onPaste = { clipboard.getText()?.text?.trim()?.let { recipient = it } },
+                onScan = {
+                    recipientScanStatus = RECIPIENT_SCAN_HINT
+                    step = SendStep.ScanRecipient
+                },
+                onContinue = { step = SendStep.Amount },
+                backLabel = backLabel,
+                onBack = { navController.popBackStack() },
+                onLock = onLock,
+            )
+        }
         SendStep.ScanRecipient -> RecipientScanScreen(
-            status = scanStatus,
+            status = recipientScanStatus,
             onText = ::onRecipientText,
-            onCancel = { step = SendStep.Form },
+            onCancel = { step = SendStep.Recipient },
         )
-        is SendStep.Review -> SendReviewScreen(
-            send = current.send,
-            suggested = suggested ?: current.send,
-            addressBook = ready.wallet.addressBook,
-            accounts = ready.accounts,
-            notice = notice,
-            onSave = { edited ->
-                notice = null
-                step = SendStep.Review(edited)
-            },
-            onConfirm = { confirm(current.send) },
-            onBack = {
-                notice = null
-                step = SendStep.Form
-            },
-        )
-        is SendStep.Request -> SignRequestScreen(
-            send = current.send,
-            parts = current.parts,
-            notice = notice,
-            onScan = { startScan(current) },
-            onBack = {
-                notice = null
-                step = SendStep.Review(current.send)
-            },
+        SendStep.Amount -> {
+            val chain = selectedChain
+            val send = edited
+            val notes = notesFor(recipient, ready.accounts, ready.wallet.addressBook)
+            val toName = notes?.let(::notesName) ?: groupAddress(recipient)
+            val leaves = send?.takeIf { asset?.token == null }?.let { s ->
+                val left = s.balanceWei - s.valueWei - s.maxFeeWei
+                if (left.signum() < 0) null else "Leaves ${EvmFormat.amount(left, s.chain.decimals, s.chain.symbol)} after the fee"
+            }
+            SendAmountPage(
+                symbol = asset?.symbol ?: chain?.symbol.orEmpty(),
+                toTitle = toName,
+                toDetail = notes?.let(::notesDetail).orEmpty(),
+                toAddress = recipient,
+                fromTitle = fromName,
+                fromDetail = send?.let { "${EvmFormat.amount(it.balanceWei, it.chain.decimals, it.chain.symbol)} available" } ?: "Your account",
+                asset = asset?.symbol?.takeIf { assets.size > 1 },
+                onAsset = if (assets.size > 1) { { assetSheet = true } } else null,
+                amount = amount,
+                onAmount = { amount = it },
+                amountError = amountError,
+                leaves = leaves,
+                onUseMax = send?.let { s ->
+                    {
+                        val maxSpend = if (s.token == null) s.balanceWei - s.maxFeeWei else s.tokenBalance ?: BigInteger.ZERO
+                        if (maxSpend.signum() > 0) amount = Amounts.format(maxSpend, asset?.decimals ?: 0)
+                    }
+                },
+                networkName = chain?.name.orEmpty(),
+                feeText = send?.let { "Up to ${EvmFormat.amount(it.maxFeeWei, it.chain.decimals, it.chain.symbol)}" },
+                onFee = { feeSheet = true },
+                note = if (assets.size > 1) null else chain?.let { "Chosen for you: ${it.name}, the network this account sends on." },
+                canReview = send != null && !preparing && amountError == null,
+                onReview = { send?.let { step = SendStep.Review(it) } },
+                onChangeRecipient = { changeRecipient = true },
+                backLabel = backLabel,
+                onBack = { step = SendStep.Recipient },
+                onLock = onLock,
+            )
+            if (assets.size > 1) {
+                SendOptionSheet(
+                    visible = assetSheet,
+                    heading = "Asset",
+                    options = assets.map { SendOption(title = it.symbol, detail = assetDetail(it)) },
+                    onPick = { index ->
+                        contract = assets[index].token?.contract
+                        assetSheet = false
+                    },
+                    onClose = { assetSheet = false },
+                )
+            }
+            val base = suggested
+            if (send != null && base != null) {
+                SendFeeSheet(
+                    visible = feeSheet,
+                    suggested = base,
+                    current = send,
+                    timing = "Arrives in about 1 second on ${send.chain.name}",
+                    onApply = { applied -> edited = applied },
+                    onClose = { feeSheet = false },
+                )
+            }
+            if (changeRecipient) {
+                SendChangeRecipientDialog(
+                    keepLabel = toName,
+                    onChange = {
+                        changeRecipient = false
+                        recipient = ""
+                        step = SendStep.Recipient
+                    },
+                    onKeep = { changeRecipient = false },
+                )
+            }
+        }
+        is SendStep.Review -> {
+            val notes = notesFor(now.send.to, ready.accounts, ready.wallet.addressBook)
+            val toName = notes?.let(::notesName) ?: groupAddress(now.send.to)
+            SendReviewPage(
+                heading = reviewHeading(now.send, fromName, toName),
+                toTitle = toName,
+                toDetail = notes?.let(::notesDetail).orEmpty(),
+                toAddress = now.send.to,
+                validLine = "Address is valid on ${now.send.chain.name}",
+                firstTime = if (notes == null) "First time sending here. Compare every group with where you got it." else null,
+                rows = reviewRows(now.send, fromName),
+                warnings = EvmAdvanced.warnings(suggested ?: now.send, now.send),
+                notice = notice,
+                onShow = { confirm(now.send) },
+                onEdit = {
+                    notice = null
+                    step = SendStep.Amount
+                },
+                backLabel = backLabel,
+                onBack = { step = SendStep.Amount },
+                onLock = onLock,
+            )
+        }
+        is SendStep.Show -> SendShowPage(
+            parts = now.parts,
+            onNext = { startScan(now.send, now.requestId, now.parts) },
+            onCancel = { step = SendStep.Declined(now.send) },
+            backLabel = backLabel,
+            onBack = { step = SendStep.Review(now.send) },
+            onLock = onLock,
         )
         is SendStep.Scanning -> SignatureScanScreen(
             progress = scanProgress,
             status = scanStatus,
-            onText = { text -> onSignatureText(current, text) },
-            onCancel = { step = SendStep.Request(current.send, current.requestId, current.parts) },
+            onText = { text -> onSignatureText(now, text) },
+            onCancel = { step = SendStep.Declined(now.send) },
         )
-        is SendStep.Submit -> SubmitScreen(
-            machine = current.machine,
-            rows = evmSummary(current.send),
-            explorerUrl = { hash -> EvmSend.explorerLink(current.send.chain, hash) },
-            status = null,
-            explorerNotice = sentNotice,
-            onSubmit = { submit(current) },
-            onOpenExplorer = { hash -> EvmSend.explorerLink(current.send.chain, hash)?.let(::openExplorer) },
-            onStartOver = {
-                notice = null
-                step = SendStep.Form
-            },
-            onBack = {
-                notice = null
-                step = SendStep.Request(current.send, current.requestId, current.parts)
-            },
+        is SendStep.Mismatch -> {
+            val toName = notesFor(now.send.to, ready.accounts, ready.wallet.addressBook)?.let(::notesName) ?: groupAddress(now.send.to)
+            SendOutcomePage(
+                title = "",
+                heading = "This Signature Is for a Different Send",
+                mark = "!",
+                body = "Lensly's reply doesn't match this send. Nothing was sent, and your ${amountText(now.send)} is still in $fromName.",
+                notes = listOf(
+                    "What Happened" to "Lensly's reply doesn't match this send. Lumio never sends a signature that doesn't match.",
+                    "What You Can Do" to "On Lensly, check that it shows ${amountText(now.send)} to $toName, then scan its reply again.",
+                ),
+                detail = null,
+                primary = "Scan Again",
+                onPrimary = { startScan(now.send, now.requestId, now.parts) },
+                secondary = "Cancel Send",
+                onSecondary = { step = SendStep.Declined(now.send) },
+                backLabel = backLabel,
+                onBack = { step = SendStep.Scanning(now.send, now.requestId, now.parts) },
+                onLock = onLock,
+            )
+        }
+        is SendStep.Declined -> SendOutcomePage(
+            title = "",
+            heading = "Lensly Didn't Sign, and That's Fine",
+            mark = "◆",
+            body = "Nothing was sent. Your ${amountText(now.send)} is still in $fromName.",
+            notes = listOf(
+                "What Happened" to "You cancelled before Lensly's reply was scanned, so no signature reached Lumio.",
+                "What You Can Do" to "Start a new send whenever you're ready. Lensly shows every detail again before it signs.",
+            ),
+            detail = null,
+            primary = "Back to $fromName",
+            onPrimary = { navController.popBackStack() },
+            secondary = null,
+            onSecondary = null,
+            backLabel = backLabel,
+            onBack = { navController.popBackStack() },
+            onLock = onLock,
+        )
+        is SendStep.Signed -> SignedSend(
+            send = now.send,
+            machine = now.machine,
+            ready = ready,
+            fromName = fromName,
+            backLabel = backLabel,
+            onStop = { navController.popBackStack() },
             onDone = { navController.popBackStack() },
+            onExplorer = { hash -> EvmSend.explorerLink(now.send.chain, hash)?.let(::openExplorer) },
+            onReview = { step = SendStep.Review(now.send) },
+            onLock = onLock,
         )
     }
 }
+
+/**
+ * The signed transaction, in three pages that follow its state: Last Chance while it waits and then sends, On Its Way once the network has it, and the
+ * failure page if the network refused it. The countdown runs only while the transaction is still in Last Chance, and "Send Now" skips the wait.
+ */
+@Composable
+private fun SignedSend(
+    send: PreparedSend,
+    machine: SubmitMachine<ByteArray, String>,
+    ready: SendContext,
+    fromName: String,
+    backLabel: String,
+    onStop: () -> Unit,
+    onDone: () -> Unit,
+    onExplorer: (String) -> Unit,
+    onReview: () -> Unit,
+    onLock: () -> Unit,
+) {
+    val state by machine.state.collectAsState()
+    val scope = rememberCoroutineScope()
+    val haptics = rememberLumioHaptics()
+    val recipientName = notesFor(send.to, ready.accounts, ready.wallet.addressBook)?.let(::notesName) ?: groupAddress(send.to)
+    val amount = amountText(send)
+    when (val now = state) {
+        SubmitState.Idle, SubmitState.Submitting -> {
+            var remaining by remember { mutableIntStateOf(LAST_CHANCE_SECONDS) }
+            LaunchedEffect(Unit) {
+                while (remaining > 0 && machine.state.value is SubmitState.Idle) {
+                    delay(COUNT_STEP_MS)
+                    if (machine.state.value is SubmitState.Idle) remaining -= 1
+                }
+                if (machine.state.value is SubmitState.Idle) machine.submit()
+            }
+            SendLastChancePage(
+                recipient = recipientName,
+                amount = amount,
+                remaining = remaining,
+                sending = now is SubmitState.Submitting,
+                onSendNow = { scope.launch { machine.submit() } },
+                onStop = onStop,
+                backLabel = backLabel,
+                onBack = onStop,
+                onLock = onLock,
+            )
+        }
+        is SubmitState.Sent -> {
+            LaunchedEffect(Unit) { haptics.success() }
+            SendOnItsWayPage(
+                headline = "Your ${send.chain.symbol} Is on Its Way",
+                summary = "$amount to $recipientName",
+                network = send.chain.name,
+                timing = "Usually about 1 second on ${send.chain.name}",
+                recipient = recipientName,
+                explorerLabel = EvmSend.explorerLink(send.chain, now.id)?.let { "View on Explorer" },
+                onExplorer = { onExplorer(now.id) },
+                onDone = onDone,
+                backLabel = backLabel,
+                onBack = onDone,
+                onLock = onLock,
+            )
+        }
+        is SubmitState.Failed -> {
+            LaunchedEffect(Unit) { haptics.failure() }
+            SendOutcomePage(
+                title = "",
+                heading = "Nothing Left Your Account",
+                mark = "!",
+                body = now.message,
+                notes = listOf(
+                    "What Happened" to now.message,
+                    "What You Can Do" to if (now.retryable) {
+                        "Try again sends the same signed transaction. Nothing was sent."
+                    } else {
+                        "This signed transaction can no longer be sent. Start the send again, and Lensly signs it afresh."
+                    },
+                ),
+                detail = null,
+                primary = "Try Again",
+                onPrimary = {
+                    if (now.retryable) scope.launch { machine.submit() } else onReview()
+                },
+                secondary = "Back to $fromName",
+                onSecondary = onDone,
+                backLabel = backLabel,
+                onBack = onDone,
+                onLock = onLock,
+            )
+        }
+    }
+}
+
+/** The notes of [address]: the device's own accounts first, then the Address Book. Null when neither knows the address. */
+private fun notesFor(address: String, accounts: Map<String, InternalAccount>, addressBook: List<AddressBookEntry>): AddressNotes? =
+    addressNotesOf(address, EVM_FAMILY, accounts, addressBook)
+
+/** The name an account goes by on the screens: its own name, else the name the app gave it. */
+private fun accountName(account: InternalAccount?): String = account?.let { it.displayName ?: it.autoName }.orEmpty()
+
+/** The name of the account the send is from, or "Account" with its place when the account has no name. */
+private fun fromNameOf(ready: SendContext): String = accountName(ready.accounts[addressKeyOf(ready.from)]).ifBlank { "Account ${ready.index + 1}" }
+
+internal fun notesName(notes: AddressNotes): String =notes.entry?.name ?: notes.internal?.let { it.displayName ?: it.autoName }.orEmpty()
+
+internal fun notesDetail(notes: AddressNotes): String {
+    if (notes.internal != null) return "Your account"
+    val entry = notes.entry ?: return ""
+    return entry.label ?: "Address Book"
+}
+
+private fun amountText(send: PreparedSend): String {
+    val token = send.token
+    return if (token == null) {
+        EvmFormat.amount(send.valueWei, send.chain.decimals, send.chain.symbol)
+    } else {
+        EvmFormat.amount(send.valueWei, token.decimals, token.symbol)
+    }
+}
+
+private fun reviewHeading(send: PreparedSend, fromName: String, toName: String): String =
+    "Send ${amountText(send)} from $fromName to $toName?"
+
+/** The rows under the recipient on the Review page, in the order Lensly shows them: the amount, the most the fee can be, the network and the sender. */
+private fun reviewRows(send: PreparedSend, fromName: String): List<SummaryRow> = buildList {
+    add(SummaryRow("Amount", amountText(send)))
+    add(SummaryRow("Max Fee", EvmFormat.amount(send.maxFeeWei, send.chain.decimals, send.chain.symbol)))
+    if (send.token == null) add(SummaryRow("Total at Most", EvmFormat.amount(send.maxCostWei, send.chain.decimals, send.chain.symbol)))
+    add(SummaryRow("Network", "${send.chain.name} · ID ${send.chain.chainId}"))
+    add(SummaryRow("From", fromName))
+}
+
+private fun assetDetail(asset: SendAsset): String {
+    val token = asset.token ?: return "Native Coin"
+    val balance = asset.balance ?: return "No balance on this address"
+    return "Balance " + EvmFormat.amount(balance, token.decimals, token.symbol)
+}
+
+private fun bitcoinHint(text: String): String? =
+    if (text.startsWith(BITCOIN_PREFIX_MAIN) || text.startsWith(BITCOIN_PREFIX_TEST)) {
+        "It looks like a Bitcoin address. To send BTC, start from a Bitcoin account."
+    } else {
+        null
+    }
 
 /**
  * Reads the send's wallet, address and chains from the open vault, with the tokens each chain lists and the tokens the address holds in the

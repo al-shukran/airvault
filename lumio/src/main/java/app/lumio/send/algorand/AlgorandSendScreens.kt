@@ -76,7 +76,7 @@ internal fun AlgorandSendFormScreen(
     ) {
         if (busy) StepLabel("Reading the network")
         StepLabel("From")
-        AddressText(address = fromAddress, shown = fromAddress, icon = false, style = MaterialTheme.typography.bodyMedium)
+        AddressText(address = fromAddress, icon = false, style = MaterialTheme.typography.bodyMedium)
 
         StepLabel("Network")
         NetworkLine(network)

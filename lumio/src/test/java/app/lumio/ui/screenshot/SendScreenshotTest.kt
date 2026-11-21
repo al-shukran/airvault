@@ -1,15 +1,23 @@
 package app.lumio.ui.screenshot
 
 import androidx.compose.ui.test.junit4.createComposeRule
-import app.lensly.app.AddressBookEntry
+import app.lensly.core.wallet.AccountAddresses
+import app.lensly.core.wallet.HdWallet
+import app.lensly.ui.components.groupAddress
 import app.lumio.evm.EvmChain
 import app.lumio.evm.PreparedSend
-import app.lumio.evm.SendAsset
+import app.lumio.pair.PairFixtures
 import app.lumio.tokens.Token
-import app.lumio.ui.send.SendFormScreen
-import app.lumio.ui.send.SendReviewScreen
-import app.lumio.ui.send.SignRequestScreen
-import app.lumio.ui.send.evmSummary
+import app.lumio.ui.send.SendAmountPage
+import app.lumio.ui.send.SendChoice
+import app.lumio.ui.send.SendFeeSheet
+import app.lumio.ui.send.SendLastChancePage
+import app.lumio.ui.send.SendOnItsWayPage
+import app.lumio.ui.send.SendOutcomePage
+import app.lumio.ui.send.SendRecipientPage
+import app.lumio.ui.send.SendReviewPage
+import app.lumio.ui.send.SendShowPage
+import app.lumio.ui.send.SummaryRow
 import java.math.BigInteger
 import org.junit.Rule
 import org.junit.Test
@@ -19,8 +27,9 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * The goldens of the Ethereum send, one per step (Details, Review, Sign, Send) and the edge states a send can be in: an invalid address, an
- * insufficient balance, an empty token balance and long names (Phase 2.8 WP6).
+ * The goldens of the send, one per page of the Crossing (Recipient, Amount, Review, Show to Lensly, Last Chance, On Its Way) and of the branches a send
+ * can take: an invalid address, a Bitcoin address typed into an EVM send, an amount above the balance, a token asset, a first-time address, long names,
+ * the fee sheet, Lensly Didn't Sign, the signature for another send, and a failed broadcast.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = LUMIO_DARK_QUALIFIERS)
@@ -30,142 +39,372 @@ class SendScreenshotTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private val ethereum = EvmChain(1L, "Ethereum", "ETH", 18, false, "https://etherscan.io")
-    private val from = "0x" + "a1".repeat(20)
+    private val monad = EvmChain(10143L, "Monad Testnet", "MON", 18, true, "https://testnet.monadexplorer.com")
+    private val from = AccountAddresses.addressAt(HdWallet(PairFixtures.seed).accountXpub(), 0)
     private val to = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"
     private val usdc = Token(1L, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "USDC", "USD Coin", 6)
-    private val nativeAssets = listOf(SendAsset(ethereum, null, null))
-    private val tokenAssets = listOf(SendAsset(ethereum, null, null), SendAsset(ethereum, usdc, BigInteger.valueOf(1_250_500_000L)))
     private val longName = "Savings for the house in the countryside and the boat"
-    private val txId = "0x" + "ab".repeat(32)
     private val signPart = "ur:eth-sign-request/golden"
+    private val accounts = listOf(SendChoice(title = "NothingLess", detail = "Your account", address = "0x" + "b2".repeat(20)))
+    private val book = listOf(SendChoice(title = "Lena Park", detail = "Friends", address = "0x4b1e" + "c3".repeat(16)))
 
+    /** 0.25 MON to a known recipient, from an account holding 12.5 MON, at a suggested fee cap of 161.9 gwei and a tip of 2 gwei. */
     private fun send(): PreparedSend = PreparedSend(
-        chain = ethereum,
+        chain = monad,
         index = 0,
         from = from,
         to = to,
-        valueWei = BigInteger.TEN.pow(16),
+        valueWei = BigInteger.valueOf(25).multiply(BigInteger.TEN.pow(16)),
         nonce = 7,
         gasLimit = BigInteger.valueOf(21_000),
-        maxFeePerGas = BigInteger.valueOf(30_000_000_000L),
-        maxPriorityFeePerGas = BigInteger.valueOf(1_500_000_000L),
-        balanceWei = BigInteger.TEN.pow(18),
+        maxFeePerGas = BigInteger.valueOf(161_900_000_000L),
+        maxPriorityFeePerGas = BigInteger.valueOf(2_000_000_000L),
+        balanceWei = BigInteger.valueOf(125).multiply(BigInteger.TEN.pow(17)),
     )
 
-    /** The recipient is in the Address Book under a name too long for one line, so the sentence and the address show it. */
     @Test
-    fun ethereumSendReviewLongNames() = compose.lumioSnapshot("ethereum_send_review_long_names") {
-        SendReviewScreen(
-            send = send(),
-            suggested = send(),
-            notice = null,
-            onSave = {},
-            onConfirm = {},
-            onBack = {},
-            addressBook = listOf(AddressBookEntry(id = "1", address = to, name = longName, label = null)),
-        )
-    }
-
-    @Test
-    fun ethereumSendSign() = compose.lumioSnapshot("ethereum_send_sign") {
-        SignRequestScreen(send = send(), parts = listOf(signPart), notice = null, onScan = {}, onBack = {})
-    }
-
-    @Test
-    fun ethereumSendSent() = compose.lumioSnapshot("ethereum_send_sent") {
-        SubmitFixture(
-            machine = sentSubmit(txId),
-            rows = evmSummary(send()),
-            explorerUrl = { "https://etherscan.io/tx/$it" },
-        )
-    }
-
-    /** The recipient is not an address, so the field says why under it and Review does not go through. */
-    @Test
-    fun ethereumSendFormInvalidAddress() = compose.lumioSnapshot("ethereum_send_form_invalid_address") {
-        SendFormScreen(
-            fromLabel = "Address 1",
-            fromAddress = from,
-            chain = ethereum,
-            assets = nativeAssets,
-            selectedAsset = nativeAssets.first(),
-            onSelectAsset = {},
-            recipient = "0x5aAeb6053F3E",
-            onRecipient = {},
+    fun ethereumSendRecipient() = compose.lumioSnapshot("ethereum_send_recipient") {
+        SendRecipientPage(
+            value = "",
+            onValueChange = {},
+            error = null,
+            hint = null,
+            canContinue = false,
+            accounts = accounts,
+            addressBook = book,
+            onPick = {},
+            onPaste = {},
             onScan = {},
-            amount = "0.01",
+            onContinue = {},
+            backLabel = "Account",
+            onBack = {},
+            onLock = {},
+        )
+    }
+
+    /** The recipient is not an address: the field says why under it, and Continue stays disabled. */
+    @Test
+    fun ethereumSendRecipientInvalidAddress() = compose.lumioSnapshot("ethereum_send_recipient_invalid_address") {
+        SendRecipientPage(
+            value = "0x5aAeb6053F3E",
+            onValueChange = {},
+            error = "This isn't a Monad Testnet address",
+            hint = null,
+            canContinue = false,
+            accounts = accounts,
+            addressBook = book,
+            onPick = {},
+            onPaste = {},
+            onScan = {},
+            onContinue = {},
+            backLabel = "Account",
+            onBack = {},
+            onLock = {},
+        )
+    }
+
+    /** A Bitcoin address in an EVM send: the field says it is not for this network, and the hint says where to send BTC from. */
+    @Test
+    fun ethereumSendRecipientBitcoinAddress() = compose.lumioSnapshot("ethereum_send_recipient_bitcoin_address") {
+        SendRecipientPage(
+            value = "bc1q9h7w3kx0g2lz8f5yt6v4r0d8qsm3p2a7kxw5e",
+            onValueChange = {},
+            error = "This isn't a Monad Testnet address",
+            hint = "It looks like a Bitcoin address. To send BTC, start from a Bitcoin account.",
+            canContinue = false,
+            accounts = accounts,
+            addressBook = book,
+            onPick = {},
+            onPaste = {},
+            onScan = {},
+            onContinue = {},
+            backLabel = "Account",
+            onBack = {},
+            onLock = {},
+        )
+    }
+
+    @Test
+    fun ethereumSendAmount() = compose.lumioSnapshot("ethereum_send_amount") {
+        SendAmountPage(
+            symbol = "MON",
+            toTitle = "FelixStone",
+            toDetail = "Your account",
+            toAddress = to,
+            fromTitle = "PulsarNova",
+            fromDetail = "12.5 MON available",
+            asset = null,
+            onAsset = null,
+            amount = "0.25",
             onAmount = {},
-            busy = false,
-            notice = null,
+            amountError = null,
+            leaves = "Leaves 12.2466001 MON after the fee",
+            onUseMax = {},
+            networkName = monad.name,
+            feeText = "Up to 0.0033999 MON",
+            onFee = {},
+            note = "Chosen for you: Monad Testnet, the network this account sends on.",
+            canReview = true,
             onReview = {},
+            onChangeRecipient = {},
+            backLabel = "Recipient",
             onBack = {},
+            onLock = {},
         )
     }
 
-    /** The amount is more than the token balance, so the send says so and stays on the Details step. */
+    /** The amount is more than the balance: the error takes the line under the amount, and Review is disabled. */
     @Test
-    fun ethereumSendFormInsufficientFunds() = compose.lumioSnapshot("ethereum_send_form_insufficient_funds") {
-        SendFormScreen(
-            fromLabel = "Address 1",
-            fromAddress = from,
-            chain = ethereum,
-            assets = tokenAssets,
-            selectedAsset = tokenAssets[1],
-            onSelectAsset = {},
-            recipient = to,
-            onRecipient = {},
-            onScan = {},
-            amount = "2000",
+    fun ethereumSendAmountInsufficientFunds() = compose.lumioSnapshot("ethereum_send_amount_insufficient_funds") {
+        SendAmountPage(
+            symbol = "MON",
+            toTitle = "FelixStone",
+            toDetail = "Your account",
+            toAddress = to,
+            fromTitle = "PulsarNova",
+            fromDetail = "12.5 MON available",
+            asset = null,
+            onAsset = null,
+            amount = "14",
             onAmount = {},
-            busy = false,
-            notice = "This account does not hold enough USDC for this amount.",
+            amountError = "More than your available 12.5 MON",
+            leaves = null,
+            onUseMax = {},
+            networkName = monad.name,
+            feeText = null,
+            onFee = {},
+            note = null,
+            canReview = false,
             onReview = {},
+            onChangeRecipient = {},
+            backLabel = "Recipient",
             onBack = {},
+            onLock = {},
         )
     }
 
-    /** The token is held by no balance on this address, so the picker says so under it. */
+    /** A send with a token: the coin is picked on its own row, so the note that says what was chosen is not needed. */
     @Test
-    fun ethereumSendFormEmptyBalance() = compose.lumioSnapshot("ethereum_send_form_empty_balance") {
-        SendFormScreen(
-            fromLabel = "Address 1",
-            fromAddress = from,
-            chain = ethereum,
-            assets = listOf(SendAsset(ethereum, null, null), SendAsset(ethereum, usdc, null)),
-            selectedAsset = SendAsset(ethereum, usdc, null),
-            onSelectAsset = {},
-            recipient = to,
-            onRecipient = {},
-            onScan = {},
-            amount = "",
-            onAmount = {},
-            busy = false,
-            notice = null,
-            onReview = {},
-            onBack = {},
-        )
-    }
-
-    /** The account has a name too long for one line, and the Details step wraps it rather than cut it. */
-    @Test
-    fun ethereumSendFormLongNames() = compose.lumioSnapshot("ethereum_send_form_long_names") {
-        SendFormScreen(
-            fromLabel = longName,
-            fromAddress = from,
-            chain = ethereum,
-            assets = tokenAssets,
-            selectedAsset = tokenAssets[1],
-            onSelectAsset = {},
-            recipient = to,
-            onRecipient = {},
-            onScan = {},
+    fun ethereumTokenSendAmount() = compose.lumioSnapshot("ethereum_token_send_amount") {
+        SendAmountPage(
+            symbol = usdc.symbol,
+            toTitle = "FelixStone",
+            toDetail = "Your account",
+            toAddress = to,
+            fromTitle = "PulsarNova",
+            fromDetail = "12.5 MON available",
+            asset = usdc.symbol,
+            onAsset = {},
             amount = "12.5",
             onAmount = {},
-            busy = false,
-            notice = null,
+            amountError = null,
+            leaves = null,
+            onUseMax = {},
+            networkName = monad.name,
+            feeText = "Up to 0.0033999 MON",
+            onFee = {},
+            note = null,
+            canReview = true,
             onReview = {},
+            onChangeRecipient = {},
+            backLabel = "Recipient",
             onBack = {},
+            onLock = {},
         )
     }
+
+    @Test
+    fun ethereumSendReview() = compose.lumioSnapshot("ethereum_send_review") {
+        SendReviewPage(
+            heading = "Send 0.25 MON from PulsarNova to FelixStone?",
+            toTitle = "FelixStone",
+            toDetail = "Your account",
+            toAddress = to,
+            validLine = "Address is valid on Monad Testnet",
+            firstTime = null,
+            rows = reviewRows(fromName = "PulsarNova"),
+            warnings = emptyList(),
+            notice = null,
+            onShow = {},
+            onEdit = {},
+            backLabel = "Amount",
+            onBack = {},
+            onLock = {},
+        )
+    }
+
+    /** A recipient nobody has named yet: the page says it is the first send there, and asks the owner to compare every group. */
+    @Test
+    fun ethereumSendReviewFirstTime() = compose.lumioSnapshot("ethereum_send_review_first_time") {
+        SendReviewPage(
+            heading = "Send 0.25 MON from PulsarNova to ${groupAddress(to)}?",
+            toTitle = "Not in address book",
+            toDetail = "",
+            toAddress = to,
+            validLine = "Address is valid on Monad Testnet",
+            firstTime = "First time sending here. Compare every group with where you got it.",
+            rows = reviewRows(fromName = "PulsarNova"),
+            warnings = emptyList(),
+            notice = null,
+            onShow = {},
+            onEdit = {},
+            backLabel = "Amount",
+            onBack = {},
+            onLock = {},
+        )
+    }
+
+    /** The recipient is in the Address Book under a name too long for one line, so the heading and the row both wrap it. */
+    @Test
+    fun ethereumSendReviewLongNames() = compose.lumioSnapshot("ethereum_send_review_long_names") {
+        SendReviewPage(
+            heading = "Send 0.25 MON from PulsarNova to $longName?",
+            toTitle = longName,
+            toDetail = "Address book",
+            toAddress = to,
+            validLine = "Address is valid on Monad Testnet",
+            firstTime = null,
+            rows = reviewRows(fromName = "PulsarNova"),
+            warnings = emptyList(),
+            notice = null,
+            onShow = {},
+            onEdit = {},
+            backLabel = "Amount",
+            onBack = {},
+            onLock = {},
+        )
+    }
+
+    @Test
+    fun ethereumSendShow() = compose.lumioSnapshot("ethereum_send_show") {
+        SendShowPage(
+            parts = listOf(signPart),
+            onNext = {},
+            onCancel = {},
+            backLabel = "Review",
+            onBack = {},
+            onLock = {},
+        )
+    }
+
+    /** The fee sheet on the Normal stop, with the fee cap and the tip in gwei under Advanced. */
+    @Test
+    fun ethereumSendFeeSheet() = compose.lumioSnapshot("ethereum_send_fee_sheet") {
+        SendFeeSheet(
+            visible = true,
+            suggested = send(),
+            current = send(),
+            timing = "Arrives in about 1 second on Monad Testnet",
+            onApply = {},
+            onClose = {},
+        )
+    }
+
+    @Test
+    fun ethereumSendLastChance() = compose.lumioSnapshot("ethereum_send_last_chance") {
+        SendLastChancePage(
+            recipient = "FelixStone",
+            amount = "0.25 MON",
+            remaining = 2,
+            sending = false,
+            onSendNow = {},
+            onStop = {},
+            backLabel = "Review",
+            onBack = {},
+            onLock = {},
+        )
+    }
+
+    @Test
+    fun ethereumSendOnItsWay() = compose.lumioSnapshot("ethereum_send_on_its_way") {
+        SendOnItsWayPage(
+            headline = "Your MON Is on Its Way",
+            summary = "0.25 MON to FelixStone",
+            network = monad.name,
+            timing = "Usually about 1 second on Monad Testnet",
+            recipient = "FelixStone",
+            explorerLabel = "View on Explorer",
+            onExplorer = {},
+            onDone = {},
+            backLabel = "",
+            onBack = {},
+            onLock = {},
+        )
+    }
+
+    /** The network refused the transaction and the same bytes can be sent again: Try Again is the one action. */
+    @Test
+    fun ethereumSendFailed() = compose.lumioSnapshot("ethereum_send_failed") {
+        SendOutcomePage(
+            title = "",
+            heading = "Nothing Left Your Account",
+            mark = "!",
+            body = "The transaction could not be sent. Check the balance, then try again.",
+            notes = listOf(
+                "What Happened" to "The transaction could not be sent. Check the balance, then try again.",
+                "What You Can Do" to "Try again sends the same signed transaction. Nothing was sent.",
+            ),
+            detail = "replacement transaction underpriced",
+            primary = "Try Again",
+            onPrimary = {},
+            secondary = "Back to PulsarNova",
+            onSecondary = {},
+            backLabel = "",
+            onBack = {},
+            onLock = {},
+        )
+    }
+
+    @Test
+    fun ethereumSendLenslyDidntSign() = compose.lumioSnapshot("ethereum_send_lensly_didnt_sign") {
+        SendOutcomePage(
+            title = "",
+            heading = "Lensly Didn't Sign, and That's Fine",
+            mark = "◆",
+            body = "Nothing was sent. Your 0.25 MON is still in PulsarNova.",
+            notes = listOf(
+                "What Happened" to "You cancelled before Lensly's reply was scanned, so no signature reached Lumio.",
+                "What You Can Do" to "Start a new send whenever you're ready. Lensly shows every detail again before it signs.",
+            ),
+            detail = null,
+            primary = "Back to PulsarNova",
+            onPrimary = {},
+            secondary = null,
+            onSecondary = null,
+            backLabel = "",
+            onBack = {},
+            onLock = {},
+        )
+    }
+
+    /** Lensly's reply answers another send, so the page says so and never broadcasts it. Scan Again is the one way on. */
+    @Test
+    fun ethereumSendSignatureMismatch() = compose.lumioSnapshot("ethereum_send_signature_mismatch") {
+        SendOutcomePage(
+            title = "",
+            heading = "This Signature Is for a Different Send",
+            mark = "!",
+            body = "Lensly's reply doesn't match this send. Nothing was sent, and your 0.25 MON is still in PulsarNova.",
+            notes = listOf(
+                "What Happened" to "Lensly's reply doesn't match this send. Lumio never sends a signature that doesn't match.",
+                "What You Can Do" to "On Lensly, check that it shows 0.25 MON to FelixStone, then scan its reply again.",
+            ),
+            detail = null,
+            primary = "Scan Again",
+            onPrimary = {},
+            secondary = "Cancel Send",
+            onSecondary = {},
+            backLabel = "",
+            onBack = {},
+            onLock = {},
+        )
+    }
+
+    private fun reviewRows(fromName: String): List<SummaryRow> = listOf(
+        SummaryRow("Amount", "0.25 MON"),
+        SummaryRow("Max Fee", "0.0033999 MON"),
+        SummaryRow("Total at Most", "0.2533999 MON"),
+        SummaryRow("Network", "Monad Testnet · ID 10143"),
+        SummaryRow("From", fromName),
+    )
 }

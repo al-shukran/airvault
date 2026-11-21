@@ -78,7 +78,7 @@ internal fun SolanaSendFormScreen(
     ) {
         if (busy) StepLabel("Reading the network")
         StepLabel("From")
-        AddressText(address = sender, shown = sender, icon = false, style = MaterialTheme.typography.bodyMedium)
+        AddressText(address = sender, icon = false, style = MaterialTheme.typography.bodyMedium)
 
         StepLabel("Network")
         NetworkLine(network)

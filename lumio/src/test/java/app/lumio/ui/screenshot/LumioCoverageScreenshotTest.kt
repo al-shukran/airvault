@@ -2,8 +2,6 @@ package app.lumio.ui.screenshot
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -20,57 +18,42 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingPayload
-import app.lensly.app.export.partsOf
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcCoin
 import app.lensly.core.btc.BtcFixtures
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnly
 import app.lensly.core.btc.ScriptType
-import app.lensly.core.ur.EthSignRequestEncoder
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.screenshot.SCREENSHOT_DIR
 import app.lensly.ui.settings.NoticeBlock
 import app.lensly.ui.settings.ThirdPartyLicencesScreen
-import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LumenTheme
 import app.lumio.btc.BtcSend
 import app.lumio.btc.BtcSendPlan
 import app.lumio.btc.BtcSpendable
 import app.lumio.evm.CustomChain
 import app.lumio.evm.EvmChain
-import app.lumio.evm.EvmSend
 import app.lumio.evm.EvmSettings
-import app.lumio.evm.PreparedSend
-import app.lumio.network.NetworkMode
 import app.lumio.pair.PairFixtures
-import app.lumio.pair.PairImport
-import app.lumio.tokens.Token
 import app.lumio.ui.btc.BtcAdvancedFields
 import app.lumio.ui.btc.BtcSendReviewScreen
 import app.lumio.ui.btc.BtcSignRequestScreen
 import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.pair.PairScanScreen
-import app.lumio.ui.send.AdvancedSendFields
-import app.lumio.ui.send.SendReviewScreen
-import app.lumio.ui.send.SignRequestScreen
 import app.lumio.ui.send.SignatureScanScreen
 import app.lumio.ui.send.btcSummary
-import app.lumio.ui.send.evmSummary
 import app.lumio.ui.settings.DataProvidersScreen
 import app.lumio.ui.settings.EvmSettingsSection
 import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.ProviderStatus
 import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
-import java.math.BigInteger
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -262,84 +245,7 @@ class LumioCoverageScreenshotTest {
         BtcSignRequestScreen(network = BtcNetwork.MAINNET, parts = btcPlan.parts(), notice = BROADCAST_FAILED, onScan = {}, onBack = {})
     }
 
-    // Ethereum send: review, sign request, and the broadcast states
-
-    private val ethSend: PreparedSend = PreparedSend(
-        chain = ethereum,
-        index = 0,
-        from = from,
-        to = RECIPIENT,
-        valueWei = BigInteger.TEN.pow(16),
-        nonce = 7,
-        gasLimit = BigInteger.valueOf(21_000),
-        maxFeePerGas = BigInteger.valueOf(30_000_000_000L),
-        maxPriorityFeePerGas = BigInteger.valueOf(1_500_000_000L),
-        balanceWei = BigInteger.TEN.pow(18),
-    )
-
-    private val ethParts: List<String> by lazy {
-        partsOf(EthSignRequestEncoder.encode(EvmSend.request(ethSend, PAIR_FINGERPRINT, REQUEST_ID)))
-    }
-
-    @Test
-    fun ethereumSendReview() = compose.lumioSnapshot("ethereum_send_review") {
-        SendReviewScreen(send = ethSend, suggested = ethSend, notice = null, onSave = {}, onConfirm = {}, onBack = {})
-    }
-
-    /** A token send of 12.5 USDC: the review's headline names the amount and the recipient, and the token contract is shown. */
-    private val usdcSend: PreparedSend = PreparedSend(
-        chain = ethereum,
-        index = 0,
-        from = from,
-        to = RECIPIENT,
-        valueWei = BigInteger.valueOf(12_500_000L),
-        nonce = 7,
-        gasLimit = BigInteger.valueOf(65_000),
-        maxFeePerGas = BigInteger.valueOf(30_000_000_000L),
-        maxPriorityFeePerGas = BigInteger.valueOf(1_500_000_000L),
-        balanceWei = BigInteger.TEN.pow(18),
-        token = Token(1L, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "USDC", "USD Coin", 6),
-        tokenBalance = BigInteger.valueOf(1_250_500_000L),
-    )
-
-    @Test
-    fun ethereumTokenSendReview() = compose.lumioSnapshot("ethereum_token_send_review") {
-        SendReviewScreen(send = usdcSend, suggested = usdcSend, notice = null, onSave = {}, onConfirm = {}, onBack = {})
-    }
-
-    @Test
-    fun ethereumSendReviewRequestFailed() = compose.lumioSnapshot("ethereum_send_review_error") {
-        SendReviewScreen(send = ethSend, suggested = ethSend, notice = REQUEST_FAILED, onSave = {}, onConfirm = {}, onBack = {})
-    }
-
-    /** The advanced sheet as the owner leaves it: a nonce below the pending one and a fee cap four times the suggested one, both warned. */
-    @Test
-    fun ethereumAdvancedSheet() = compose.lumioSnapshot("ethereum_advanced_sheet") {
-        val edited = ethSend.withFees(
-            nonce = 6,
-            gasLimit = BigInteger.valueOf(21_000),
-            maxFeePerGas = BigInteger.valueOf(120_000_000_000L),
-            maxPriorityFeePerGas = BigInteger.valueOf(1_500_000_000L),
-        )
-        AdvancedSendFields(suggested = ethSend, current = edited, onSave = {}, onCancel = {})
-    }
-
-    /** The advanced sheet with a gas limit below a transfer's: the field says why, and Save is off. */
-    @Test
-    fun ethereumAdvancedSheetRefused() = compose.lumioSnapshot(
-        name = "ethereum_advanced_sheet_error",
-        beforeCapture = {
-            onNodeWithText("21000").performTextReplacement("20000")
-            mainClock.advanceTimeBy(1_000)
-        },
-    ) {
-        AdvancedSendFields(suggested = ethSend, current = ethSend, onSave = {}, onCancel = {})
-    }
-
-    @Test
-    fun ethereumSignRequest() = compose.lumioSnapshot("ethereum_send_sign_request") {
-        SignRequestScreen(send = ethSend, parts = ethParts, notice = null, onScan = {}, onBack = {})
-    }
+    // Ethereum send: the broadcast states of the signature scan
 
     @Test
     fun ethereumBroadcastIdle() = compose.lumioSnapshot("ethereum_broadcast_idle") {
@@ -349,31 +255,6 @@ class LumioCoverageScreenshotTest {
     @Test
     fun ethereumBroadcastSending() = compose.lumioSnapshot("ethereum_broadcast_sending") {
         SignatureScanScreen(progress = 1f, status = SCAN_READ, onText = {}, onCancel = {})
-    }
-
-    @Test
-    fun ethereumBroadcastSuccess() = compose.lumioSnapshot("ethereum_broadcast_success") {
-        SubmitFixture(sentSubmit(TXHASH), evmSummary(ethSend), explorerUrl = { "https://etherscan.io/tx/$it" })
-    }
-
-    @Test
-    fun ethereumBroadcastSuccessOnAChainWithoutExplorer() = compose.lumioSnapshot("ethereum_broadcast_success_no_explorer") {
-        SubmitFixture(sentSubmit(TXHASH), evmSummary(ethSend))
-    }
-
-    @Test
-    fun ethereumSubmitIdle() = compose.lumioSnapshot("ethereum_submit_idle") {
-        SubmitFixture(idleSubmit(), evmSummary(ethSend))
-    }
-
-    @Test
-    fun ethereumSubmitRefused() = compose.lumioSnapshot("ethereum_submit_refused") {
-        SubmitFixture(refusedSubmit(BROADCAST_FAILED), evmSummary(ethSend))
-    }
-
-    @Test
-    fun ethereumBroadcastError() = compose.lumioSnapshot("ethereum_broadcast_error") {
-        SignRequestScreen(send = ethSend, parts = ethParts, notice = BROADCAST_FAILED, onScan = {}, onBack = {})
     }
 
     // Pairing: the scan, and the import result
@@ -489,12 +370,6 @@ class LumioCoverageScreenshotTest {
 
         /** The time of the cached Ethereum reads of the portfolio, fixed so the goldens do not change from day to day. */
         const val PORTFOLIO_READ = 1_800_000_000_000L
-        const val TXHASH = "0x9a8b7c6d5e4f30291817161514131211100f0e0d0c0b0a090807060504030201"
-
-        /** The request ID of the fake sign request, sixteen bytes. */
-        val REQUEST_ID = ByteArray(16) { it.toByte() }
-        val PAIR_FINGERPRINT = 0x1a2b3c4dL
-
         // The words the send and pairing routes show. They are copied from SendRoutes, BtcSendRoutes and PairRoutes.
         const val SCAN_HINT = "Point the camera at the signature that Lensly shows."
         const val SCAN_READ = "Signature read. Check the transaction, then submit it."

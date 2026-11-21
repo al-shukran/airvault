@@ -593,6 +593,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                         account = account,
                         mode = selection.mode,
                         chainId = chain,
+                        onLock = { lock() },
                     )
                 }
             }
