@@ -293,11 +293,13 @@ class EvmReviewBuilder(
             functionRow(call.signature)
             valueRow(tx.value, always = false)
             // A contract outside the registry is an unknown token. Its decimals are not known, so its amounts stay raw.
-            val part = callPart(call, to, registry.token(chainId, to))
+            val token = registry.token(chainId, to)
+            val part = callPart(call, to, token)
             sections += ReviewSection("Arguments", rowsOf(part.params, "evm.data", 0) + noteRows(part.note))
             part.warnings.forEach { warnings += it.toWarning("evm.data") }
             if (part.unregistered) warnings += registryWarning(TOKEN_UNREGISTERED, FieldPath("evm.to"))
-            val moves = call is ContractCall.Transfer && isHyperEvm(chainId) && isTokenSystemAddress(call.to)
+            // The bridge title needs a registered token: a transfer by any other contract moves nothing from HyperCore.
+            val moves = call is ContractCall.Transfer && isHyperEvm(chainId) && isTokenSystemAddress(call.to) && token != null
             return (if (moves) MOVE_TO_HYPERCORE else part.function) to part.sentence
         }
 

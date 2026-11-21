@@ -750,7 +750,7 @@ private fun AppRoute(navController: NavHostController, holder: VaultHolder, wall
     var solana by remember(walletId) { mutableStateOf<List<ByteArray>?>(null) }
     var algorand by remember(walletId) { mutableStateOf<List<ByteArray>?>(null) }
     // Why the last single add was refused at the account cap, shown on the account list. Null when the last add saved.
-    var addRefusal by remember(walletId) { mutableStateOf<String?>(null) }
+    var addRefusal by remember(walletId, app) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(walletId, app) {
         whileUnlocked(navController, holder) {
