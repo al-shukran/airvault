@@ -6,9 +6,9 @@ package app.lensly.core.vault
  * 1. Restore an older pair of copies: every save MACs under a new Keystore key and deletes the older keys, so the older pair does
  *    not verify. A pair older than the newest key the Keystore still lists is tampered too, because a deletion may have failed.
  *    Tampering keeps the count and the cap of the copies that verify, and restarts the wait at the full cap (item 6). With no copy
- *    verifying, it locks at the strictest cap (1 h) with the tamper count, which never erases (item 15).
+ *    verifying, the count is the tamper count, which erases the vault at the next unlock attempt (item 15).
  * 2. Delete one copy: the other still verifies, so its count and the owner's cap are kept, and the missing copy is rewritten.
- * 3. Delete both copies, or every key: nothing verifies, so the state locks at the strictest cap, and never erases (item 15).
+ * 3. Delete both copies, or every key: nothing verifies, so the vault is erased at the next unlock attempt (item 15).
  * 4. Reboot: the served time is saved at each check. A monotonic reading below the save time proves that the clock restarted, and
  *    the wait goes on from the served time plus the time since that boot, never from zero.
  * 5. Move the wall clock forward within one boot: the monotonic reading bounds the wait, so the jump cannot shorten it.
@@ -25,8 +25,9 @@ package app.lensly.core.vault
  * 10. Make BOOT_COUNT unreadable: the recorded count is not compared, and items 4, 5, 6 and 7 still hold. The learning week needs a
  *     readable count, so while it is unreadable the owner's cap applies (item 16).
  * 11. Make the Keystore or the storage fail: no error is thrown past FailureStore. A failed check that cannot be saved deletes the
- *    copies and locks at the strictest cap. A lock that cannot be saved is held in memory with the time it was first made, so
- *    repeated attempts cannot extend it: the owner waits at most one hour from that time. A correct password is never refused for good.
+ *    copies, which leaves no copy that verifies, so the vault is erased (item 15). A lock that cannot be saved is held in memory
+ *    with the time it was first made, so repeated attempts cannot extend it. A correct password is never refused for a wait, and a
+ *    Keystore or storage fault that leaves no verified copy erases the vault instead (item 15).
  * 12. Time the attempts: a blocked attempt saves once, as a failed or a passing attempt does, whether or not BOOT_COUNT is readable.
  * 13. Replay an older payload: a reset is never written under a key that is already on disk, because two payloads would then verify
  *    under it. While no new key can be made, the reset stays in memory for this process.
@@ -34,9 +35,11 @@ package app.lensly.core.vault
  *    next load recovers it.
  * 15. Count wrong tries: the owner's erase count is in the MAC-protected payload, so an edit cannot change it. When the last allowed
  *    try is wrong, the vault is erased. A clock or BOOT_COUNT change (items 6 and 9) keeps the count of the copies that verify, so it
- *    never stops the erase. A state with no verified copy keeps its cap and is never erased, because a copy that does not verify is a
- *    storage or Keystore fault, not a failed try, and erasing on it would destroy a vault the owner did not fail. Restoring both older
- *    copies (item 1) reaches this case too, which is a known limit: the older pair cannot be told apart from a fault.
+ *    never stops the erase. A state with no verified copy (items 1, 3 and 11, a crash between a key and its copies, or a power cut
+ *    that loses the last save) is at the erase threshold: its count is TAMPER_FAILURES, which is above every erase count, so the
+ *    next unlock attempt erases the vault before the password is checked. Lensly accepts data loss over keeping a vault it cannot
+ *    verify, so an accidental erase from a corrupted write or a Keystore read error is an accepted cost. A fresh vault is not in
+ *    this case: its state verifies from creation, and no vault means no attempt.
  * 16. Set the clock back into the first week: the learning cap needs proof that the vault is still in its first week. The proof is the
  *     monotonic time since the vault was made, read within the boot it was made in. The boot count recorded then must still be the
  *     current one, which shows no reboot since, so a reboot ends the week for good and an unreadable count ends it while it is
@@ -153,11 +156,16 @@ class FailureDelay(
         fun configuredCapFor(state: FailureState): Long = state.capMs ?: DEFAULT_CAP_MS
 
         /**
-         * True once [state] has had its last allowed wrong try, so the vault is erased. A state with no verified copy is never erased
-         * (threat 15).
+         * True once [state] has had its last allowed wrong try, so the vault is erased. A state with no verified copy counts as at the
+         * erase threshold, because [FailureStore.TAMPER_FAILURES] is above every erase count (threat 15).
          */
-        fun erases(state: FailureState): Boolean =
-            state.failures >= state.wipeAfter && state.failures < FailureStore.TAMPER_FAILURES
+        fun erases(state: FailureState): Boolean = state.failures >= state.wipeAfter
+
+        /**
+         * True for the state that no copy verifies, which [FailureStore] gives the tamper count. The unlock attempt erases the vault
+         * before it checks the password, so an unverified state is never used to open the vault (threat 15).
+         */
+        fun unverified(state: FailureState): Boolean = state.failures >= FailureStore.TAMPER_FAILURES
 
         /**
          * The tries left before the vault is erased, when that is [WARN_TRIES_LEFT] or fewer and a wrong try has been made. Null

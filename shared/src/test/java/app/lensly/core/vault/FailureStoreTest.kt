@@ -56,7 +56,10 @@ class FailureStoreTest {
         val dir = File(tmp.root, "vault")
         val clock = FakeClock()
         open(dir).initialize(clock)
-        assertEquals(0, open(dir).load(clock).failures)
+        val loaded = open(dir).load(clock)
+        assertEquals(0, loaded.failures)
+        assertFalse(FailureDelay.unverified(loaded))
+        assertFalse(FailureDelay.erases(loaded))
     }
 
     @Test
@@ -144,7 +147,49 @@ class FailureStoreTest {
 
         dir.primary().writeBytes(olderPrimary)
         dir.backup().writeBytes(olderBackup)
-        assertEquals(FailureStore.TAMPER_FAILURES, open(dir).load(clock).failures)
+        val restored = open(dir).load(clock)
+        assertEquals(FailureStore.TAMPER_FAILURES, restored.failures)
+        assertTrue(FailureDelay.unverified(restored))
+        assertTrue(FailureDelay.erases(restored))
+    }
+
+    @Test
+    fun rollingBackBothCopiesEraseAtTheNextAttemptAndTheEraseIsKeptAcrossReads() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir)
+        store.initialize(clock)
+        val olderPrimary = dir.primary().readBytes()
+        val olderBackup = dir.backup().readBytes()
+        store.recordFailure(store.load(clock), clock)
+
+        dir.primary().writeBytes(olderPrimary)
+        dir.backup().writeBytes(olderBackup)
+        FailureStore.forget(dir)
+        // The attempt sees the unverified state, and that is what erases the vault. A read that repairs the copies does not undo it.
+        assertTrue(FailureDelay.unverified(open(dir).checkDelay(clock, FakeClock.START_WALL).state))
+        assertTrue(FailureDelay.unverified(open(dir).load(clock)))
+        FailureStore.forget(dir)
+        assertTrue(FailureDelay.unverified(open(dir).load(clock)))
+    }
+
+    @Test
+    fun aRestoredPairErasesWhateverCapAndEraseCountTheOwnerChose() {
+        val dir = File(tmp.root, "vault")
+        val clock = FakeClock()
+        val store = open(dir)
+        store.initialize(clock)
+        store.recordLimits(store.load(clock), FailureDelay.MIN_CAP_MS, FailureDelay.MIN_WIPE_AFTER, clock)
+        val olderPrimary = dir.primary().readBytes()
+        val olderBackup = dir.backup().readBytes()
+        store.recordFailure(store.load(clock), clock)
+
+        dir.primary().writeBytes(olderPrimary)
+        dir.backup().writeBytes(olderBackup)
+        FailureStore.forget(dir)
+        val restored = open(dir).load(clock)
+        assertTrue(FailureDelay.erases(restored))
+        assertEquals(FailureDelay.MAX_CAP_MS, restored.capMs)
     }
 
     @Test
@@ -164,6 +209,7 @@ class FailureStoreTest {
         val locked = open(dir).load(clock)
         assertEquals(FailureStore.TAMPER_FAILURES, locked.failures)
         assertEquals(FailureDelay.MAX_CAP_MS, locked.capMs)
+        assertTrue(FailureDelay.unverified(locked))
     }
 
     @Test

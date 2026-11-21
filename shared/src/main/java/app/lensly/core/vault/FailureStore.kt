@@ -40,9 +40,9 @@ import javax.crypto.SecretKey
  * - A Keystore that cannot list its keys adds nothing to the newest-key check. A pair restored while the deletion of its newer key
  *   also failed then verifies once, until the next load that can list the keys.
  * - A crash between making a key and writing the copies leaves a key newer than the pair on disk. The next load reads the pair as
- *   tampered and locks at the strictest cap, which fails closed.
+ *   unverified, and the next unlock attempt erases the vault (FailureDelay item 15). This is an accepted cost.
  * - The directory is not fsynced after a rename. A power cut right after a save can leave the previous pair with its key already
- *   deleted, which reads as tampered: the owner's cap is kept when one copy verifies, and otherwise the strictest cap.
+ *   deleted, which reads as unverified: the owner's cap is kept when one copy verifies, and otherwise the vault is erased.
  * - A lock or reset that could not be saved lives in memory only. A new process reads the stored copies, which may be the stricter
  *   state, and makes a new lock from its first load if they cannot be read.
  */
@@ -144,8 +144,8 @@ internal class FailureStore(
         )
 
     /**
-     * [recordFailure], failing closed: when the failure cannot be saved, both copies are deleted, so a new process locks too instead
-     * of granting a guess the count never saw, and this process locks at the strictest cap from now.
+     * [recordFailure], failing closed: when the failure cannot be saved, both copies are deleted, so a new process finds no copy that
+     * verifies, and this try is at the erase threshold (see [FailureDelay.unverified]). A guess the count never saw is never granted.
      */
     fun recordFailureOrLock(previous: FailureState, clock: Clock): FailureState = try {
         recordFailure(previous, clock)
@@ -246,9 +246,9 @@ internal class FailureStore(
     /**
      * The lockout for a state that cannot be trusted as it stands: a clock or boot-count anomaly, or copies that do not verify. The count
      * of the copies that verify is kept, so erasing still counts the wrong tries, and the wait restarts at the full cap. With no copy
-     * verified the count is the tamper count, which never erases, because the true count is unknown. The lockout is saved, which
-     * repairs a damaged copy. When it cannot be saved it is held in memory, anchored at this first attempt, and [load] returns it until
-     * a save goes through. Later attempts do not move the end of the wait.
+     * verified the count is the tamper count, which is at the erase threshold, so the next unlock attempt erases the vault (see
+     * [FailureDelay.unverified]). The lockout is saved, which repairs a damaged copy. When it cannot be saved it is held in memory,
+     * anchored at this first attempt, and [load] returns it until a save goes through. Later attempts do not move the end of the wait.
      */
     private fun lockAsTampered(clock: Clock, highestSeq: Long, verified: List<FailureState>): FailureState {
         val kept = verified.firstOrNull()
@@ -443,7 +443,10 @@ internal class FailureStore(
         const val PRIMARY_FILE_NAME = "failures.bin"
         const val BACKUP_FILE_NAME = "failures.bak"
 
-        /** Failure count used when tampering is detected. Any count from 41 on gives the full cap. */
+        /**
+         * Failure count used when no copy verifies, so the true count is unknown. It is above every erase count (at most 20), so that
+         * state erases (see [FailureDelay.unverified]). Any count from 41 on gives the full cap.
+         */
         const val TAMPER_FAILURES = 64
 
         /** Upper bound on the stored failure count, so the count cannot overflow. */
