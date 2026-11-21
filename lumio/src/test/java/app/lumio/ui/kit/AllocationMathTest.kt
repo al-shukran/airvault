@@ -183,6 +183,6 @@ class AllocationMathTest {
     private companion object {
         /** The page colours of the Lumen themes (section 1.1): Night and Day backgrounds. */
         val NIGHT_PAGE = Color(0xFF0A0C10)
-        val DAY_PAGE = Color(0xFFF6F4EF)
+        val DAY_PAGE = Color(0xFFFBF6EC)
     }
 }
