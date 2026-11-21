@@ -182,7 +182,7 @@ dependencies {
     // camera and crypto dependencies. See shared/build.gradle.kts.
     implementation(project(":shared"))
 
-    // Chain apps compiled into Lensly; see app/src/main/java/app/lensly/chains/InstalledSigners.kt.
+    // Chain apps compiled into Lensly; see shared/src/main/java/app/lensly/chains/InstalledSigners.kt.
     implementation(project(":chains:algorand:signer"))
     implementation(project(":chains:bitcoin:signer"))
 

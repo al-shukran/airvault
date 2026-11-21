@@ -159,10 +159,12 @@ jobs:
           echo "CERT_SHA256=$cert" >> "$GITHUB_ENV"
           if [ "$APP" = lensly ]; then
             permissions=$("$BUILD_TOOLS/aapt2" dump permissions "$apk")
-            if grep -Fq "name='android.permission.INTERNET'" <<<"$permissions"; then
-              echo "::error::Lensly is an offline vault and must not request android.permission.INTERNET."
-              exit 1
-            fi
+            for permission in android.permission.INTERNET android.permission.ACCESS_NETWORK_STATE; do
+              if grep -Fq "name='$permission'" <<<"$permissions"; then
+                echo "::error::Lensly is an offline vault and must not request $permission."
+                exit 1
+              fi
+            done
           fi
 
       - name: Write SHA256SUMS

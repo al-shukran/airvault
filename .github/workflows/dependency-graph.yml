@@ -5,11 +5,10 @@ name: dependency-graph
 # every push to a long-lived branch. Without it, a PR that touches a dependency file fails
 # with "Dependency review is not supported on this repository".
 #
-# The repository's Dependency graph is currently off, and only an admin can turn it on
-# (Settings -> Code security). To enable dependency review:
+# Dependency review needs both steps below. An admin can do the first one (Settings -> Code security). Until both are
+# done this job skips, so it raises no annotation and no red run:
 #   1. Settings -> Code security: turn on Dependency graph.
 #   2. Settings -> Secrets and variables -> Actions -> Variables: add DEPENDENCY_GRAPH_ENABLED=true.
-# Until both are done this job skips, so it raises no annotation and no red run.
 on:
   push:
     branches: [master, phase-1-5]
