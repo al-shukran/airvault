@@ -28,10 +28,10 @@ import javax.crypto.SecretKey
  * A pair whose copies hold different sequence numbers, which a crash between the two writes leaves, is settled by saving it again
  * under a new sequence number. The pending delay is kept.
  *
- * No storage or Keystore error is thrown past [load], [checkDelay], [recordFailureOrLock] or [recordSuccess]. A lock or a reset that
- * this process could not save is held in memory (see [PENDING]), so the delay still applies to this process until a save goes through.
- * [recordFailure], [recordLimits] and [initialize] still throw when the state cannot be saved: a limits change and a vault creation report
- * that to their caller.
+ * No storage or Keystore error is thrown past [load], [checkDelay] or [recordSuccess]. A lock or a reset that this process could not
+ * save is held in memory (see [PENDING]), so the delay still applies to this process until a save goes through. [recordFailure] throws
+ * when the count cannot be saved, and the vault then refuses the try before it checks the password. [recordLimits] and [initialize]
+ * throw too: a limits change and a vault creation report that to their caller.
  *
  * Assumptions and residual risk:
  * - A deleted Keystore key cannot be brought back. This class cannot prove it. It rests on KeyMint: the StrongBox guarantee the owner
@@ -123,9 +123,10 @@ internal class FailureStore(
     }
 
     /**
-     * Records one more failed check, made at [clock]'s current time, and returns the new state.
+     * Records one more failed check, made at [clock]'s current time, and returns the new state. The vault makes this call before it
+     * checks the password, so a try is counted even when its check never finishes.
      *
-     * @throws VaultException or [IOException] when the state cannot be saved. [recordFailureOrLock] never throws.
+     * @throws VaultException or [IOException] when the state cannot be saved. The vault then refuses the try, with no verdict.
      */
     fun recordFailure(previous: FailureState, clock: Clock): FailureState =
         save(
@@ -144,44 +145,14 @@ internal class FailureStore(
         )
 
     /**
-     * [recordFailure], failing closed: when the failure cannot be saved, both copies are deleted, so a new process finds no copy that
-     * verifies, and this try is at the erase threshold (see [FailureDelay.unverified]). A guess the count never saw is never granted.
-     */
-    fun recordFailureOrLock(previous: FailureState, clock: Clock): FailureState = try {
-        recordFailure(previous, clock)
-    } catch (e: VaultException) {
-        lockAfterUnsavedFailure(previous, clock)
-    } catch (e: IOException) {
-        lockAfterUnsavedFailure(previous, clock)
-    }
-
-    private fun lockAfterUnsavedFailure(previous: FailureState, clock: Clock): FailureState {
-        primary.delete()
-        backup.delete()
-        // A new failure starts a new wait, so this lock is anchored now and replaces any earlier one.
-        val locked = FailureState(
-            seq = maxOf(previous.seq, WRITTEN[seenKey]?.state?.seq ?: 0L) + 1,
-            failures = TAMPER_FAILURES,
-            lastFailureWallMs = clock.wallMillis(),
-            lastFailureElapsedMs = clock.elapsedMillis(),
-            capMs = FailureDelay.MAX_CAP_MS,
-            wipeAfter = previous.wipeAfter,
-            createdElapsedMs = previous.createdElapsedMs,
-            createdBootCount = previous.createdBootCount,
-            fullCapWait = true,
-        )
-        PENDING[seenKey] = locked
-        return locked
-    }
-
-    /**
-     * Clears the failure count after a passing check. The state is written even when there was nothing to clear, so a passing check
-     * costs the same two writes and fsyncs as a failed one and cannot be told apart by its storage work.
+     * Clears the failure count after a passing check. The state is written even when there was nothing to clear, so the reset costs the
+     * same two writes and fsyncs as a failed check's save and cannot be told apart by its storage work. The vault saves the count before
+     * the password is checked (see [recordFailure]), so a right password makes this save as well.
      *
-     * A Keystore that will not make the new key may never refuse a correct password. The save is tried twice. When both fail, the reset
-     * is kept in memory for this process, and nothing is written: a reset is never written under a key that is already on disk, because
-     * two payloads would then verify under it, and an older one would bring the failures back. A new process sees the stored count, which
-     * is the stricter one. This never throws.
+     * The count is already saved, so a Keystore that refuses this key does not refuse the password. The save is tried twice. When both
+     * fail, the reset is kept in memory for this process, and nothing is written: a reset is never written under a key that is already on
+     * disk, because two payloads would then verify under it, and an older one would bring the failures back. A new process sees the stored
+     * count, which is the stricter one. This never throws.
      */
     fun recordSuccess(previous: FailureState, clock: Clock): FailureState {
         // The sequence number always moves on, so every save makes a key of its own and never replaces the key of the pair on disk.

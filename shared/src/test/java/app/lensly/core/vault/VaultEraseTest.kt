@@ -7,6 +7,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
+import org.junit.Assume.assumeFalse
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -162,6 +163,33 @@ class VaultEraseTest {
         assertEquals(UnlockResult.Erased, attempt(APP))
         assertFalse(layout.root.exists())
         assertRejected(attempt(APP))
+    }
+
+    @Test
+    fun aBlockedTryDoesNotAddAndAFullDiskAtTheEraseThresholdErasesNothing() {
+        createVault()
+        setEraseAfter(3)
+        assertRejected(attempt(WRONG))
+        assertRejected(attempt(WRONG))
+
+        // A try during the wait is refused and not counted, so the count stays at two.
+        assertRejected(runBlocking { vault.unlock(APP.toCharArray()) })
+        assertEquals(2, vault.failureCountForTesting())
+
+        // The next try is the owner's last allowed one, and the disk is full, so it cannot be counted. It gets no verdict, and nothing
+        // is erased.
+        layout.root.setWritable(false)
+        try {
+            assumeFalse(layout.root.canWrite())
+            assertRejected(attempt(WRONG))
+            assertRejected(attempt(APP))
+            assertTrue(vault.exists())
+        } finally {
+            layout.root.setWritable(true)
+        }
+
+        // With the disk writable again, the right password opens the vault.
+        unlocked(attempt(APP)).close()
     }
 
     @Test

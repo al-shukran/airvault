@@ -24,17 +24,20 @@ package app.lensly.core.vault
  *    the wait restarts at the full cap, and erasing still counts the wrong tries (item 15).
  * 10. Make BOOT_COUNT unreadable: the recorded count is not compared, and items 4, 5, 6 and 7 still hold. The learning week needs a
  *     readable count, so while it is unreadable the owner's cap applies (item 16).
- * 11. Make the Keystore or the storage fail: no error is thrown past FailureStore. A failed check that cannot be saved deletes the
- *    copies, which leaves no copy that verifies, so the vault is erased (item 15). A lock that cannot be saved is held in memory
- *    with the time it was first made, so repeated attempts cannot extend it. A correct password is never refused for a wait, and a
- *    Keystore or storage fault that leaves no verified copy erases the vault instead (item 15).
- * 12. Time the attempts: a blocked attempt saves once, as a failed or a passing attempt does, whether or not BOOT_COUNT is readable.
+ * 11. Make the Keystore or the storage fail: no error is thrown past FailureStore. Each try is counted before its password is
+ *    checked. A try whose count cannot be saved gets no verdict: the vault refuses it without checking the password. A lock that
+ *    cannot be saved is held in memory with the time it was first made, so repeated attempts cannot extend it. A right password is
+ *    refused while its count cannot be saved, and a Keystore or storage fault that leaves no verified copy erases the vault instead
+ *    (item 15).
+ * 12. Time the attempts: a blocked attempt saves once, as a failed attempt does, whether or not BOOT_COUNT is readable. A passing
+ *    attempt saves twice, the count and then the reset, so it makes one save more than a failed attempt does.
  * 13. Replay an older payload: a reset is never written under a key that is already on disk, because two payloads would then verify
  *    under it. While no new key can be made, the reset stays in memory for this process.
  * 14. Crash between the write of a save and the deletion of the old key: the deletion is repeated on every load and save, so the
  *    next load recovers it.
  * 15. Count wrong tries: the owner's erase count is in the MAC-protected payload, so an edit cannot change it. When the last allowed
- *    try is wrong, the vault is erased. A clock or BOOT_COUNT change (items 6 and 9) keeps the count of the copies that verify, so it
+ *    try is wrong, the vault is erased. A try is counted before its password is checked (item 11), so a try that a reboot or an
+ *    error cuts short still counts. A clock or BOOT_COUNT change (items 6 and 9) keeps the count of the copies that verify, so it
  *    never stops the erase. A state with no verified copy (items 1, 3 and 11, a crash between a key and its copies, or a power cut
  *    that loses the last save) is at the erase threshold: its count is TAMPER_FAILURES, which is above every erase count, so the
  *    next unlock attempt erases the vault before the password is checked. Lensly accepts data loss over keeping a vault it cannot
