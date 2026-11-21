@@ -119,6 +119,17 @@ class WalletStoreBulkTest {
     }
 
     @Test
+    fun aRunPastThePairingCapIsRefusedBeforeAnyAccountIsDerived() {
+        val id = newWallet()
+
+        // One account from creation and 512 more would be 513, past the cap of 512. The refusal comes before derivation.
+        val refusal = assertFailsWith<IllegalArgumentException> { store.addAccounts(id, 512, cap = 512) }
+
+        assertEquals("A wallet keeps at most 512 Ethereum accounts.", refusal.message)
+        assertEquals(1, store.meta(id)?.accountCount)
+    }
+
+    @Test
     fun aCountBelowOneSavesNothing() {
         val id = newWallet()
 

@@ -297,11 +297,15 @@ class WalletStore(private val session: VaultSession) {
 
     /**
      * Adds the next account of wallet [id] and returns the updated metadata. It runs under the session's lock,
-     * so two quick taps cannot claim the same index. A Single Key wallet has one account and refuses this.
+     * so two quick taps cannot claim the same index. A Single Key wallet has one account and refuses this, and so does a wallet
+     * that already keeps [PairingCodec.MAX_ACCOUNTS] Ethereum accounts.
      */
     fun addAccount(id: String): WalletMeta = synchronized(session) {
         val current = requireNotNull(meta(id)) { "No wallet $id." }
         require(current.kind == WalletKind.MNEMONIC) { SINGLE_KEY_ONE_ACCOUNT }
+        require(current.accountCount < PairingCodec.MAX_ACCOUNTS) {
+            "A wallet keeps at most ${PairingCodec.MAX_ACCOUNTS} Ethereum accounts."
+        }
         val key = accountKeyOf(id, current.accountCount)
         val updated = current.copy(accountCount = current.accountCount + 1, accountKeys = current.accountKeys + key)
         session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(updated))
@@ -317,7 +321,8 @@ class WalletStore(private val session: VaultSession) {
      * [onProgress] receives the number of accounts derived so far. Derivation is slow for large counts, so call this
      * off the main thread. [cap] is the owner's configured Bulk Cap, which the caller reads from [SettingsStore].
      *
-     * @throws IllegalArgumentException if [count] is outside 1 to [cap], the wallet is missing, or it is a Single Key wallet.
+     * @throws IllegalArgumentException if [count] is outside 1 to [cap], the wallet is missing, it is a Single Key wallet, or it would keep
+     * more than [PairingCodec.MAX_ACCOUNTS] Ethereum accounts. Nothing is saved then.
      */
     fun addAccounts(id: String, count: Int, cap: Int, onProgress: (Int) -> Unit = {}): WalletMeta? {
         require(BulkPolicy.checkCount(count, cap) is BulkPolicy.CountCheck.Valid) {
@@ -326,6 +331,7 @@ class WalletStore(private val session: VaultSession) {
         val before = requireNotNull(meta(id)) { "No wallet $id." }
         require(before.kind == WalletKind.MNEMONIC) { SINGLE_KEY_ONE_ACCOUNT }
         val start = before.accountCount
+        require(start + count <= PairingCodec.MAX_ACCOUNTS) { "A wallet keeps at most ${PairingCodec.MAX_ACCOUNTS} Ethereum accounts." }
         val indices = BulkPolicy.indexRange(start, count)
         val secret = mnemonicSecret(id)
         val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }

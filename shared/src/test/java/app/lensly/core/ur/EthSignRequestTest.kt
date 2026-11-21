@@ -144,6 +144,17 @@ class EthSignRequestTest {
         assertIs<EthSignRequest.Result.Ok>(EthSignRequest.decode(payloadWithKey(1000L)))
     }
 
+    /** The keypath map is strict like the request map: a reserved key is ignored, and any other key but 1 and 2 is refused. */
+    @Test
+    fun aKeypathKeyFromTheReservedRangeIsIgnoredAndAnyOtherUnknownKeyIsRefused() {
+        assertIs<EthSignRequest.Result.Ok>(EthSignRequest.decode(payload(path = keypathWithKey(1000L))))
+        val rejected = assertIs<EthSignRequest.Result.Rejected>(EthSignRequest.decode(payload(path = keypathWithKey(7L))))
+        assertEquals(
+            "This request uses something this Lensly does not know. It may come from a newer Lumio. Nothing was signed.",
+            rejected.reason,
+        )
+    }
+
     @Test
     fun refusesUrOfAnotherType() {
         val ur = UR("eth-signature", payload())
@@ -229,6 +240,13 @@ class EthSignRequestTest {
 
     private fun dictOf(vararg fields: Pair<Long, Cbor?>): Cbor.Dict =
         Cbor.Dict(fields.mapNotNull { (key, value) -> value?.let { Cbor.Uint(key) to it } })
+
+    /** The keypath of a valid request with one more map key, [key]. */
+    private fun keypathWithKey(key: Long): Cbor {
+        val tagged = assertIs<Cbor.Tagged>(keypath())
+        val fields = assertIs<Cbor.Dict>(tagged.value).entries
+        return Cbor.Tagged(tagged.tag, Cbor.Dict(fields + (Cbor.Uint(key) to Cbor.Uint(1L))))
+    }
 
     /** A valid request with one more map key, [key], which the codec does not read. */
     private fun payloadWithKey(key: Long): ByteArray {
