@@ -1,6 +1,7 @@
 package app.lensly.core.vault
 
 import java.io.File
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.Rule
@@ -55,6 +56,16 @@ class VaultWipeTest {
 
         assertFalse(layout.photoDir(decoy = false).exists())
         assertFalse(layout.photoDir(decoy = true).exists())
+        assertFalse(layout.photos.exists())
+    }
+
+    @Test
+    fun aKeyDeleteFailureStillRemovesEveryFileAndIsThrown() {
+        val layout = populated()
+
+        assertFailsWith<VaultException> { wipeVault(layout) { throw VaultException("The Keystore refused to delete the keys.") } }
+
+        assertFalse(layout.exists())
         assertFalse(layout.photos.exists())
     }
 

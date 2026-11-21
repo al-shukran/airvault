@@ -186,9 +186,9 @@ class BitcoinReviewTest {
     @Test
     fun anOutputWithNoAddressShowsItsScript() {
         // OP_RETURN pushing "hello": the payload as hex and as text.
-        assertEquals("68656c6c6f (hello)", scriptRowOf("6a0568656c6c6f"))
+        assertEquals("OP_RETURN 68656c6c6f (hello)", scriptRowOf("6a0568656c6c6f"))
         // OP_RETURN pushing bytes that are not printable ASCII: hex only.
-        assertEquals("00ff0102", scriptRowOf("6a0400ff0102"))
+        assertEquals("OP_RETURN 00ff0102", scriptRowOf("6a0400ff0102"))
         // OP_RETURN that pushes nothing: its own bytes.
         assertEquals("6a", scriptRowOf("6a"))
         // A non-standard script, OP_1 OP_2 OP_ADD: all of its bytes as hex, with no text.
@@ -209,9 +209,19 @@ class BitcoinReviewTest {
     @Test
     fun aPushOfOneByteAndANonPushOpcodeShowDifferentScripts() {
         // OP_RETURN pushing the one byte 0xff: its data.
-        assertEquals("ff", scriptRowOf("6a01ff"))
+        assertEquals("OP_RETURN ff", scriptRowOf("6a01ff"))
         // OP_RETURN followed by 0xff, which is not a push: all of its bytes, so it does not read as the data above.
         assertEquals("6aff", scriptRowOf("6aff"))
+    }
+
+    @Test
+    fun decodedDataNeverShowsTheSameTextAsAnotherScriptsBytes() {
+        // OP_RETURN pushing the bytes 6a 00: its data, not the script OP_RETURN OP_0 that the same text would name.
+        assertEquals("OP_RETURN 6a00", scriptRowOf("6a026a00"))
+        assertEquals("6a00", scriptRowOf("6a00"))
+        // OP_RETURN pushing the one byte 0xff, and the script of the one byte 0xff on its own.
+        assertEquals("OP_RETURN ff", scriptRowOf("6a01ff"))
+        assertEquals("ff", scriptRowOf("ff"))
     }
 
     @Test

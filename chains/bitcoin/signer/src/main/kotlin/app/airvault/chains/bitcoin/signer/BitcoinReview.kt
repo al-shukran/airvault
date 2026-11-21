@@ -191,14 +191,15 @@ private fun BtcReview.decodedFields(): Set<FieldPath> = buildSet {
 
 /**
  * The script of an output with no address, as the review shows it. A script that is exactly OP_RETURN followed by one canonical push shows
- * that push's data: as hex, and with the text in brackets when every byte is printable ASCII. Any other script shows all of its bytes as
- * hex, so two different scripts never show the same text. That includes an OP_RETURN with a second push or a non-push opcode such as a
- * Runes tag, an OP_RETURN whose push is empty, cut short or encoded longer than it needs to be.
+ * that push's data after "OP_RETURN": as hex, and with the text in brackets when every byte is printable ASCII. Any other script shows all
+ * of its bytes as hex, with no prefix. Decoded data always starts with "OP_RETURN " and raw bytes never contain a space, so no two different
+ * scripts show the same text. That includes an OP_RETURN with a second push or a non-push opcode such as a Runes tag, an OP_RETURN whose
+ * push is empty, cut short or encoded longer than it needs to be.
  */
 internal fun scriptText(script: ByteArray): String {
     val pushed = singlePushData(script)
     if (pushed == null || pushed.isEmpty()) return script.toHex()
-    val hex = pushed.toHex()
+    val hex = "OP_RETURN ${pushed.toHex()}"
     return if (pushed.all { it.toInt() in ASCII_PRINTABLE }) "$hex (${String(pushed, Charsets.US_ASCII)})" else hex
 }
 

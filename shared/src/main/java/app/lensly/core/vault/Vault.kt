@@ -660,14 +660,14 @@ class Vault constructor(
     }
 
     /**
-     * Erases the vault after the owner's last allowed wrong try: the same wipe as [wipe]. A file that cannot be removed is not
-     * an error here, because the keys went first and what is left cannot be opened.
+     * Erases the vault after the owner's last allowed wrong try: the same wipe as [wipe]. A failure is not reported here: the wipe
+     * has already tried the keys and every file, and the result is the erased outcome either way.
      */
     private fun eraseLocked() {
         try {
             wipe()
         } catch (e: VaultException) {
-            // The keys are gone, so the vault cannot open.
+            // The wipe went as far as it could. The files are removed even when a key is not.
         }
     }
 
@@ -1176,18 +1176,22 @@ internal fun deviceIsEmulator(): Boolean {
 /**
  * Deletes a vault: its Keystore keys first (through [deleteKeys]), then every file under its root and its photos folder, each overwritten
  * and synced before it is deleted. Without the keys the wrapped vault key and every wallet key are unrecoverable even if some file survives.
+ * The files go even when [deleteKeys] throws, so a key that cannot be deleted never leaves the vault on disk.
  *
- * @throws VaultException if some file could not be removed. The keys are already gone by then.
+ * @throws VaultException if some file could not be removed, or if [deleteKeys] threw.
  */
 fun wipeVault(layout: VaultLayout, deleteKeys: () -> Unit) {
-    deleteKeys()
-    // Each file is overwritten before it is deleted, so no record, key file, pool slot or photo survives in the storage.
-    overwriteFiles(layout.root)
-    overwriteFiles(layout.photos)
-    FailureStore.forget(layout.root)
-    val rootGone = layout.root.deleteRecursively()
-    val photosGone = layout.photos.deleteRecursively()
-    if (!rootGone || !photosGone) throw VaultException("Some vault files could not be deleted.")
+    try {
+        deleteKeys()
+    } finally {
+        // Each file is overwritten before it is deleted, so no record, key file, pool slot or photo survives in the storage.
+        overwriteFiles(layout.root)
+        overwriteFiles(layout.photos)
+        FailureStore.forget(layout.root)
+        val rootGone = layout.root.deleteRecursively()
+        val photosGone = layout.photos.deleteRecursively()
+        if (!rootGone || !photosGone) throw VaultException("Some vault files could not be deleted.")
+    }
 }
 
 /** Overwrites every file under [dir] in place. A file that cannot be overwritten is still deleted by the caller. */

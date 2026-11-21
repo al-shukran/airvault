@@ -48,6 +48,19 @@ class VaultEraseTest {
     }
 
     @Test
+    fun aKeyDeleteFailureStillErasesTheFilesOnTheLastWrongTry() {
+        createVault()
+        setEraseAfter(3)
+        keys.failDeleteAll = true
+
+        repeat(2) { assertRejected(attempt(WRONG)) }
+        assertEquals(UnlockResult.Erased, attempt(WRONG))
+
+        assertFalse(layout.root.exists())
+        assertFalse(vault.exists())
+    }
+
+    @Test
     fun theLowestEraseCountErasesOnTheThirdWrongTry() {
         createVault()
         setEraseAfter(3)
