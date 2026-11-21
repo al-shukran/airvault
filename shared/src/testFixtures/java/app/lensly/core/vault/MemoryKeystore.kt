@@ -17,6 +17,9 @@ class MemoryKeystore : KeystoreBackend {
     /** When true, deleting a folder key fails, as a Keystore error would. The key stays where it was. */
     var failFolderKeyDeletes = false
 
+    /** When true, [deleteAll] fails before it removes anything, as a Keystore error would. */
+    var failDeleteAll = false
+
     /** When true, using the hardware key needs a device authentication first, as a user-auth Keystore key does. */
     var hardwareAuthRequired = false
 
@@ -75,6 +78,7 @@ class MemoryKeystore : KeystoreBackend {
     }
 
     override fun deleteAll() {
+        if (failDeleteAll) throw VaultException("The Keystore refused to delete the keys.")
         hardware = null
         slotKey = null
         failureMacs.clear()

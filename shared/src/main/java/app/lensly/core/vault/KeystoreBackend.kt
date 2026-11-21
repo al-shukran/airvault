@@ -63,15 +63,15 @@ interface KeystoreBackend {
 }
 
 /**
- * Runs a Keystore call on a wallet folder's path. A Keystore error becomes a [VaultException], so a caller reports it and does
- * not crash, and it is never taken for a folder that holds no key.
+ * Runs a Keystore call. A Keystore error becomes a [VaultException], so a caller reports it and does not crash, and it is never
+ * taken for a key that does not exist.
  */
 internal inline fun <T> keystoreCall(block: () -> T): T = try {
     block()
 } catch (e: GeneralSecurityException) {
-    throw VaultException("The Keystore could not complete a wallet folder key operation.", e)
+    throw VaultException("The Keystore could not complete a key operation.", e)
 } catch (e: ProviderException) {
-    throw VaultException("The Keystore could not complete a wallet folder key operation.", e)
+    throw VaultException("The Keystore could not complete a key operation.", e)
 }
 
 /**
