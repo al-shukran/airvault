@@ -78,6 +78,17 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "BUILD_TOOLS=$build_tools" >> "$GITHUB_ENV"
 
+      # Only a commit that reached master may be signed. Any pushed lensly-v*/lumio-v* tag runs this workflow, so a tag on a
+      # commit off master must stop here, before the keystore secrets are read.
+      - name: Refuse a tag whose commit is not on master
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin '+refs/heads/master:refs/remotes/origin/master'
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
+            echo "::error::Tag $GITHUB_REF_NAME points at $GITHUB_SHA, which is not an ancestor of master. Only master commits are released."
+            exit 1
+          fi
+
       # The release build type has no signingConfig, so this APK is unsigned. The next step signs it.
       - name: Build the release APK with R8
         env:
