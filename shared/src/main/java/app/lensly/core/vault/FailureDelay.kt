@@ -48,6 +48,11 @@ package app.lensly.core.vault
  *     current one, which shows no reboot since, so a reboot ends the week for good and an unreadable count ends it while it is
  *     unreadable. A clock that reads before the vault was made ends it too. Without the proof the owner's cap applies, so the wall
  *     clock never opens the learning week.
+ * 17. Open the Decoy Vault: the right password is counted like any try (item 11), and its success writes back the count from before
+ *     the try (FailureStore.recordDecoySuccess). So the Decoy Vault never clears or adds to the real vault's count or wait. The success
+ *     is recorded after the hardware step, the first step that tells the two vaults apart, so a right password whose hardware step is
+ *     cut short keeps its counted try (item 15). Every success sets the succeeded flag, which hides the tries-left warning until the
+ *     next wrong try, so the warning does not tell a Decoy Vault open from a real one.
  */
 
 /**
@@ -63,6 +68,8 @@ package app.lensly.core.vault
  * [createdElapsedMs] is the monotonic reading when the vault was made, and [createdBootCount] the boot count then, or null when either
  * was not known. Together they prove the learning week (see [FailureDelay]).
  * [fullCapWait] is true after a clock or boot-count anomaly whose copies verified: the wait then runs the full cap, whatever the count.
+ * [succeededSinceFailure] is true once a right password has opened the vault, either vault, since the last wrong try. It hides the
+ * tries-left warning (see [triesLeftToWarn]).
  */
 data class FailureState(
     val seq: Long,
@@ -76,6 +83,7 @@ data class FailureState(
     val createdElapsedMs: Long? = null,
     val createdBootCount: Int? = null,
     val fullCapWait: Boolean = false,
+    val succeededSinceFailure: Boolean = false,
 )
 
 /**
@@ -173,9 +181,12 @@ class FailureDelay(
         /**
          * The tries left before the vault is erased, when that is [WARN_TRIES_LEFT] or fewer and a wrong try has been made. Null
          * otherwise: with the lowest erase count, [WARN_TRIES_LEFT] already covers a vault with no wrong tries, which must not warn.
+         * Null too after a right password, until the next wrong try, so the warning cannot tell a Decoy Vault open from a real one.
          */
         fun triesLeftToWarn(state: FailureState): Int? =
-            (state.wipeAfter - state.failures).takeIf { state.failures > 0 && it in 1..WARN_TRIES_LEFT }
+            (state.wipeAfter - state.failures).takeIf {
+                state.failures > 0 && !state.succeededSinceFailure && it in 1..WARN_TRIES_LEFT
+            }
 
         /** From this exponent on, `BASE_DELAY_MS shl exponent` exceeds every cap, so the cap applies. */
         private const val MAX_EXPONENT = 40
