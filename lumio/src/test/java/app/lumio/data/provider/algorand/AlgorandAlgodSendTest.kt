@@ -22,8 +22,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -45,7 +45,7 @@ class AlgorandAlgodSendTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     private fun localBase(): String = server.url("/").toString().trimEnd('/')
@@ -54,9 +54,9 @@ class AlgorandAlgodSendTest {
 
     private fun <T> call(req: Request<T>): T = runBlocking { provider().execute(req, cfg, http) }
 
-    private fun params(genesisId: String = "testnet-v1.0", genesisHash: String = GENESIS_HASH, minFee: String = "1000") = MockResponse().setBody(
+    private fun params(genesisId: String = "testnet-v1.0", genesisHash: String = GENESIS_HASH, minFee: String = "1000") = MockResponse.Builder().body(
         """{"consensus-version":"v41","fee":0,"genesis-hash":"$genesisHash","genesis-id":"$genesisId","last-round":61000000,"min-fee":$minFee}""",
-    )
+    ).build()
 
     @Test
     fun theSuggestedParamsComeFromTheParamsEndpoint() {
@@ -71,7 +71,7 @@ class AlgorandAlgodSendTest {
         assertEquals(1_000L, suggested.minFee)
         val request = server.takeRequest()
         assertEquals("GET", request.method)
-        assertEquals("/v2/transactions/params", request.path)
+        assertEquals("/v2/transactions/params", request.target)
     }
 
     @Test
@@ -79,7 +79,7 @@ class AlgorandAlgodSendTest {
         server.enqueue(params(genesisHash = "AAAA"))
         server.enqueue(params(genesisHash = "!!!!"))
         server.enqueue(params(minFee = "-1"))
-        server.enqueue(MockResponse().setBody("""{"genesis-id":"testnet-v1.0","genesis-hash":"$GENESIS_HASH","last-round":1}"""))
+        server.enqueue(MockResponse.Builder().body("""{"genesis-id":"testnet-v1.0","genesis-hash":"$GENESIS_HASH","last-round":1}""").build())
 
         repeat(4) { assertFailsWith<ProviderError.Fatal> { call(AlgorandParams(ALGORAND_TESTNET)) } }
     }
@@ -95,34 +95,34 @@ class AlgorandAlgodSendTest {
 
     @Test
     fun theBroadcastPostsTheSignedBytesAndReturnsTheTransactionId() {
-        server.enqueue(MockResponse().setBody("""{"txId":"$TXID"}"""))
+        server.enqueue(MockResponse.Builder().body("""{"txId":"$TXID"}""").build())
 
         assertEquals(TXID, call(Broadcast(ALGORAND_TESTNET, raw)))
 
         val request = server.takeRequest()
         assertEquals("POST", request.method)
-        assertEquals("/v2/transactions", request.path)
-        assertTrue(request.getHeader("Content-Type").orEmpty().startsWith("application/x-binary"))
-        assertContentEquals(raw, request.body.readByteArray())
+        assertEquals("/v2/transactions", request.target)
+        assertTrue(request.headers["Content-Type"].orEmpty().startsWith("application/x-binary"))
+        assertContentEquals(raw, request.body?.toByteArray() ?: ByteArray(0))
     }
 
     @Test
     fun aTransactionIdThatIsNotBase32IsMalformed() {
-        server.enqueue(MockResponse().setBody("""{"txId":"not-a-transaction-id"}"""))
+        server.enqueue(MockResponse.Builder().body("""{"txId":"not-a-transaction-id"}""").build())
 
         assertFailsWith<ProviderError.Fatal> { call(Broadcast(ALGORAND_TESTNET, raw)) }
     }
 
     @Test
     fun aBroadcastThatTheNodeRefusesIsFatal() {
-        server.enqueue(MockResponse().setResponseCode(400).setBody("""{"message":"overspend"}"""))
+        server.enqueue(MockResponse.Builder().code(400).body("""{"message":"overspend"}""").build())
 
         assertFailsWith<ProviderError.Fatal> { call(Broadcast(ALGORAND_TESTNET, raw)) }
     }
 
     @Test
     fun aBroadcastThatIsRateLimitedKeepsTheRetryAfter() {
-        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "7"))
+        server.enqueue(MockResponse.Builder().code(429).setHeader("Retry-After", "7").build())
 
         val error = assertFailsWith<ProviderError.RateLimited> { call(Broadcast(ALGORAND_TESTNET, raw)) }
 
@@ -131,8 +131,8 @@ class AlgorandAlgodSendTest {
 
     @Test
     fun aBroadcastRateLimitedByTheNodeIsSentAgainAfterItsRetryAfter() = runBlocking {
-        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "1"))
-        server.enqueue(MockResponse().setBody("""{"txId":"$TXID"}"""))
+        server.enqueue(MockResponse.Builder().code(429).setHeader("Retry-After", "1").build())
+        server.enqueue(MockResponse.Builder().body("""{"txId":"$TXID"}""").build())
         val scheduler = Scheduler(
             providers = listOf(provider()),
             configs = { ProviderCatalog.withDefaults(emptyMap()) },
@@ -149,37 +149,37 @@ class AlgorandAlgodSendTest {
         assertEquals(2, server.requestCount)
         assertTrue((System.nanoTime() - started) >= 900_000_000L, "the second send waits for the Retry-After")
         server.takeRequest()
-        assertContentEquals(raw, server.takeRequest().body.readByteArray())
+        assertContentEquals(raw, server.takeRequest().body?.toByteArray() ?: ByteArray(0))
     }
 
     @Test
     fun aPendingTransactionHasNoConfirmedRound() {
-        server.enqueue(MockResponse().setBody("""{"pool-error":"","txn":{"txn":{"type":"pay"}}}"""))
+        server.enqueue(MockResponse.Builder().body("""{"pool-error":"","txn":{"txn":{"type":"pay"}}}""").build())
 
         assertEquals(AlgorandPendingInfo(0L, ""), call(AlgorandPendingTx(ALGORAND_TESTNET, TXID)))
 
         val request = server.takeRequest()
         assertEquals("GET", request.method)
-        assertEquals("/v2/transactions/pending/$TXID", request.path)
+        assertEquals("/v2/transactions/pending/$TXID", request.target)
     }
 
     @Test
     fun aConfirmedTransactionReportsTheRoundThatConfirmedIt() {
-        server.enqueue(MockResponse().setBody("""{"confirmed-round":61000012,"pool-error":""}"""))
+        server.enqueue(MockResponse.Builder().body("""{"confirmed-round":61000012,"pool-error":""}""").build())
 
         assertEquals(AlgorandPendingInfo(61_000_012L, ""), call(AlgorandPendingTx(ALGORAND_TESTNET, TXID)))
     }
 
     @Test
     fun aTransactionTheNodeRefusedReportsWhatTheNodeSays() {
-        server.enqueue(MockResponse().setBody("""{"pool-error":"transaction fee too small"}"""))
+        server.enqueue(MockResponse.Builder().body("""{"pool-error":"transaction fee too small"}""").build())
 
         assertEquals(AlgorandPendingInfo(0L, "transaction fee too small"), call(AlgorandPendingTx(ALGORAND_TESTNET, TXID)))
     }
 
     @Test
     fun aTransactionThePoolDoesNotHoldIsNotFound() {
-        server.enqueue(MockResponse().setResponseCode(404))
+        server.enqueue(MockResponse.Builder().code(404).build())
 
         assertFailsWith<ProviderError.NotFound> { call(AlgorandPendingTx(ALGORAND_TESTNET, TXID)) }
     }

@@ -20,8 +20,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -41,23 +41,23 @@ class CoinGeckoProviderTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     private fun cfg(key: String? = null) = ProviderConfig(baseUrl = server.url("/api/v3/").toString(), apiKey = key)
 
     private fun call(req: NativePrice, key: String? = null): PriceQuote = runBlocking { CoinGeckoProvider().execute(req, cfg(key), http) }
 
-    private fun ethereumAnswer(change: String = "0.4118") = MockResponse().setBody(
+    private fun ethereumAnswer(change: String = "0.4118") = MockResponse.Builder().body(
         """{"ethereum":{"usd":1827.5,"usd_24h_change":$change,"last_updated_at":1794774853}}""",
-    )
+    ).build()
 
     @Test
     fun thePriceChangeAndTimeComeFromOneSimplePriceRequest() {
         server.enqueue(ethereumAnswer())
 
         assertEquals(PriceQuote(usd = 1827.5, change24hPct = 0.4118, asOfMs = 1_794_774_853_000L), call(NativePrice(ETH)))
-        val url = server.takeRequest().requestUrl!!
+        val url = server.takeRequest().url
         assertEquals("/api/v3/simple/price", url.encodedPath)
         assertEquals("ethereum", url.queryParameter("ids"))
         assertEquals("usd", url.queryParameter("vs_currencies"))
@@ -70,7 +70,7 @@ class CoinGeckoProviderTest {
         server.enqueue(ethereumAnswer())
 
         call(NativePrice(ETH))
-        assertNull(server.takeRequest().getHeader("x-cg-demo-api-key"))
+        assertNull(server.takeRequest().headers["x-cg-demo-api-key"])
     }
 
     @Test
@@ -79,8 +79,8 @@ class CoinGeckoProviderTest {
 
         call(NativePrice(ETH), key = "DEMO-KEY-123")
         val request = server.takeRequest()
-        assertEquals("DEMO-KEY-123", request.getHeader("x-cg-demo-api-key"))
-        assertFalse(request.requestUrl.toString().contains("DEMO-KEY-123"))
+        assertEquals("DEMO-KEY-123", request.headers["x-cg-demo-api-key"])
+        assertFalse(request.url.toString().contains("DEMO-KEY-123"))
     }
 
     @Test
@@ -92,14 +92,14 @@ class CoinGeckoProviderTest {
 
     @Test
     fun aCoinTheSourceDoesNotKnowIsUnsupported() {
-        server.enqueue(MockResponse().setBody("{}"))
+        server.enqueue(MockResponse.Builder().body("{}").build())
 
         assertFailsWith<ProviderError.Unsupported> { call(NativePrice(ETH)) }
     }
 
     @Test
     fun aRateLimitWithoutRetryAfterLeavesTheCooldownToTheScheduler() {
-        server.enqueue(MockResponse().setResponseCode(429))
+        server.enqueue(MockResponse.Builder().code(429).build())
 
         assertNull(assertFailsWith<ProviderError.RateLimited> { call(NativePrice(BTC)) }.retryAfterMs)
     }

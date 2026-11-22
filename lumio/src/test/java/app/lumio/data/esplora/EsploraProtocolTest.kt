@@ -25,8 +25,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -47,15 +47,15 @@ class EsploraProtocolTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     private fun base(): String = server.url("/api").toString()
 
     private fun reply(code: Int, body: String = "", vararg headers: Pair<String, String>) {
-        val response = MockResponse().setResponseCode(code).setBody(body)
+        val response = MockResponse.Builder().code(code).body(body)
         headers.forEach { (name, value) -> response.addHeader(name, value) }
-        server.enqueue(response)
+        server.enqueue(response.build())
     }
 
     @Test
@@ -66,7 +66,7 @@ class EsploraProtocolTest {
 
         assertEquals(150_000L, stats.balance)
         assertTrue(stats.used)
-        assertEquals("/api/address/$address", server.takeRequest().path)
+        assertEquals("/api/address/$address", server.takeRequest().target)
     }
 
     @Test
@@ -146,7 +146,7 @@ class EsploraProtocolTest {
         assertFailsWith<ProviderError.Fatal> { EsploraProtocol.execute(TipHeight(testnet4), base(), http) }
 
         assertEquals(1, server.requestCount)
-        assertEquals("/api/blocks/tip/height", server.takeRequest().path)
+        assertEquals("/api/blocks/tip/height", server.takeRequest().target)
     }
 
     @Test
@@ -168,12 +168,12 @@ class EsploraProtocolTest {
         reply(200, """{"id":"$blockHash","height":850000,"timestamp":1700000000}""")
         val block = EsploraProtocol.execute(Block(testnet4, blockHash), base(), http)
         assertEquals(850_000L, block.height)
-        assertEquals("/api/block/$blockHash", server.takeRequest().path)
+        assertEquals("/api/block/$blockHash", server.takeRequest().target)
 
         reply(200, """{"txid":"$txid","status":{"confirmed":true,"block_height":850000,"block_hash":"$blockHash","block_time":1700000000}}""")
         val status = EsploraProtocol.execute(Tx(testnet4, txid), base(), http)
         assertEquals(6L, status.confirmationsAt(tipHeight = 850_005L))
-        assertEquals("/api/tx/$txid", server.takeRequest().path)
+        assertEquals("/api/tx/$txid", server.takeRequest().target)
 
         reply(200, """{"txid":"$txid","status":{"confirmed":false}}""")
         val pending = EsploraProtocol.execute(Tx(testnet4, txid), base(), http)
@@ -213,7 +213,7 @@ class EsploraProtocolTest {
 
         assertEquals(850_002L, tip)
         val request = server.takeRequest()
-        assertEquals("/api/blocks/tip/height", request.path)
+        assertEquals("/api/blocks/tip/height", request.target)
         assertTrue(!request.headers.toString().contains("secret-key"), "the key must never be sent")
     }
 

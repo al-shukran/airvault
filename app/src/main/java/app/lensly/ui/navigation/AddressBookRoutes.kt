@@ -20,18 +20,22 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import app.airvault.core.model.ChainId
 import app.lensly.app.ADDRESS_NOTES_MAX_LENGTH
+import app.lensly.app.ADDRESS_NOT_VALID_MESSAGE
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressBookStore
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.app.InternalAccount
 import app.lensly.app.PROFILE_TEXT_MAX_LENGTH
+import app.lensly.app.ScanTarget
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletStore
 import app.lensly.app.addressBookEntryFor
 import app.lensly.app.addressBookEntryOf
 import app.lensly.app.chainOfAddress
 import app.lensly.app.internalAccountsOf
+import app.lensly.app.scanTargetOf
 import app.lensly.core.vault.VaultSession
+import app.lensly.ui.qr.ScanScreen
 import app.lensly.ui.settings.ADDRESS_BOOK_ADDRESS_MAX_LENGTH
 import app.lensly.ui.settings.AddressBookField
 import app.lensly.ui.settings.AddressBookFormScreen
@@ -44,6 +48,7 @@ import kotlinx.coroutines.withContext
 /** The Address Book in the hidden graph: the list, and the form that adds an entry or edits one. Reached from Settings and from a record. */
 internal fun NavGraphBuilder.addressBookRoutes(navController: NavHostController, holder: VaultHolder) {
     vaultComposable(HiddenRoute.ADDRESS_BOOK) { HiddenBackdrop { AddressBookRoute(navController, holder) } }
+    vaultComposable(HiddenRoute.ADDRESS_BOOK_SCAN) { HiddenBackdrop { AddressBookScanRoute(navController, holder) } }
     vaultComposable(
         HiddenRoute.ADDRESS_BOOK_ADD,
         arguments = listOf(navArgument(HiddenRoute.ADDRESS_ARG) { type = NavType.StringType; defaultValue = "" }),
@@ -113,7 +118,39 @@ private fun AddressBookRoute(navController: NavHostController, holder: VaultHold
         error = if (loaded.isFailure) "The Address Book could not be read." else null,
         onOpen = { navController.navigate(HiddenRoute.addressBookEdit(it.id)) },
         onAdd = { navController.navigate(HiddenRoute.addressBookAdd()) },
+        onScan = { navController.navigate(HiddenRoute.ADDRESS_BOOK_SCAN) },
         onBack = { navController.popBackStack() },
+    )
+}
+
+/** The hint under the scanner, until a code is read. */
+private const val SCAN_HINT = "Hold the camera over the code that Lumio shows."
+
+/**
+ * Add by Scanning: the camera reads an address that Lumio shows. Its entry opens to edit when the book holds the address, and otherwise a new
+ * entry opens with it, so the owner only names it. A code that names no address the book takes is refused in the status line, and the scan
+ * goes on. The entry replaces the scanner in the back stack, so Back from it returns to the list.
+ */
+@Composable
+private fun AddressBookScanRoute(navController: NavHostController, holder: VaultHolder) {
+    val session = rememberOpenSession(navController, holder) ?: return
+    val book = rememberAddressBook(navController, session) ?: return
+    var status by remember { mutableStateOf(SCAN_HINT) }
+    val openEntry: (String) -> Unit = { route ->
+        navController.navigate(route) { popUpTo(HiddenRoute.ADDRESS_BOOK_SCAN) { inclusive = true } }
+    }
+    ScanScreen(
+        title = "Add by Scanning",
+        progress = null,
+        statusText = status,
+        onText = { text ->
+            when (val target = scanTargetOf(text, book)) {
+                null -> status = ADDRESS_NOT_VALID_MESSAGE
+                is ScanTarget.Existing -> openEntry(HiddenRoute.addressBookEdit(target.entry.id))
+                is ScanTarget.New -> openEntry(HiddenRoute.addressBookAdd(target.address))
+            }
+        },
+        onCancel = { navController.popBackStack() },
     )
 }
 
