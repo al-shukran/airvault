@@ -376,6 +376,7 @@ shard-5 :lumio app.lumio.pair.PairImportRoundTripTest
 shard-5 :lumio app.lumio.pair.PairingNamesRoundTripTest
 shard-5 :lumio app.lumio.send.algorand.AsaSendTest
 shard-5 :lumio app.lumio.SendRouteTest
+shard-5 :lumio app.lumio.CoinRouteArgumentsTest
 shard-5 :lumio app.lumio.tokens.TokenBalancesOverRpcTest
 shard-5 :lumio app.lumio.tokens.TokenBalancesTest
 shard-5 :lumio app.lumio.ui.kit.AnimatedAmountTest

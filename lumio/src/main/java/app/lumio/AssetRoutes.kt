@@ -261,8 +261,11 @@ internal fun HoldingsRoute(
 }
 
 /** The navigation arguments of the coin routes, in the order [LumioRoute.coin] writes them. */
-internal fun coinArguments(): List<NamedNavArgument> = listOf(
-    navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
+internal fun coinArguments(): List<NamedNavArgument> =
+    listOf(navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType }) + coinAssetArguments()
+
+/** The navigation arguments of a coin with no wallet, as [LumioRoute.ACTIVITY_COIN] takes them. */
+internal fun coinAssetArguments(): List<NamedNavArgument> = listOf(
     navArgument(LumioRoute.COIN_CHAIN_ARG) { type = NavType.StringType },
     navArgument(LumioRoute.COIN_TESTNET_ARG) { type = NavType.StringType },
     navArgument(LumioRoute.COIN_CONTRACT_ARG) { type = NavType.StringType },
