@@ -55,13 +55,14 @@ The lines balance the lanes. A test class with no line still runs, so adding a t
   request, which saves nothing. A push to master and a queue entry save every lane's entry, even when it fails or is cancelled.
   A pull request restores master's entries (`bc-<lane>-master-`) only. Its own entries would be restored ahead of master's, and a
   lint entry a pull request saved lacked the compile outputs master's entries hold, so the next run of that pull request compiled
-  cold. `cache-prune` (`pr-fast.yml`, running
-  `prune-caches.sh`, one at a time in `master-cache-prune`) runs after the lanes of each push. On master a cache's group is its key
-  without the trailing hash, and each group keeps its newest entry; no entry newer than the prune's own run and no entry of master's
-  current head (its commit, and the dependency key of its tree) is deleted. So neither two pushes close together, a late prune, nor
-  a rerun of an older push can delete the newest caches, and the setup-gradle `gradle-*` caches of nightly and other workflows keep
-  their newest entry. Merge-queue caches (`gh-readonly-queue/...`), which no other run can restore, are deleted. The listing pages
-  through every cache. GitHub evicts least recently used entries over 10 GB per repository (run 44727796023).
+  cold. Master pushes queue in one `pr-fast-master` concurrency group, so no two of them save at once. `cache-prune` (`pr-fast.yml`,
+  running `prune-caches.sh`, one at a time in `master-cache-prune`) runs after the lanes of each push. It keeps the build-cache set of
+  master's current head and the newest set (its commit), and deletes every other `bc-*-master-<sha>` entry, including the sets of
+  lanes no workflow uses any more. Other master caches group by their key without the trailing hash, and each group keeps its newest
+  entry, so the dependency cache and the setup-gradle `gradle-*` caches of nightly and other workflows survive. No entry newer than
+  the prune's own run and no dependency key of master's current head is deleted. Merge-queue caches (`gh-readonly-queue/...`), which
+  no other run can restore, are deleted. The listing pages through every cache. GitHub evicts least recently used entries over 10 GB
+  per repository (run 44727796023).
 - Trim: `trim-build-cache.sh <lane>` runs before each save and keeps only the build-cache entries that run used. Gradle does not
   update an entry's mtime on a cache hit (checked on 9.7.0 with aged entries), so the trim reads the keys from the log instead.
   Every Gradle call of a build-cache lane runs with `org.gradle.caching.debug=true` (`run-partition.sh`), which prints
