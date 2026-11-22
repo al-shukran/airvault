@@ -15,7 +15,7 @@ import kotlinx.coroutines.withContext
  */
 // USE_BIOMETRIC is declared by the hosting apps (app and lumio manifests). This library's manifest cannot show lint that.
 @SuppressLint("MissingPermission")
-internal suspend fun confirmDeviceCredential(context: Context): Boolean = withContext(Dispatchers.Main) {
+suspend fun confirmDeviceCredential(context: Context): Boolean = withContext(Dispatchers.Main) {
     suspendCancellableCoroutine { continuation ->
         val signal = CancellationSignal()
         continuation.invokeOnCancellation { signal.cancel() }

@@ -79,17 +79,20 @@ private const val KEY_INVALIDATED_DETAIL =
 /**
  * The hidden area: a nested graph that opens on the gate. The gate sends the owner to [home], or to the screen that fits the
  * vault's state. [warmUp] runs when the owner submits the App Password, so an app can load what [home] shows while the key is derived.
- * [content] adds the app's own screens to the graph.
+ * [newVault] is where the gate sends an owner with no vault yet. It is the App Password screen unless the app shows screens first, as
+ * Lumio's first run does, and then that app's own App Password screen creates the vault with [createVault]. [content] adds the app's
+ * own screens to the graph.
  */
 fun NavGraphBuilder.hiddenArea(
     navController: NavHostController,
     holder: VaultHolder,
     home: String,
     warmUp: (Context) -> Unit = {},
+    newVault: String = GateRoutes.CREATE_PASSWORD,
     content: NavGraphBuilder.() -> Unit,
 ) {
     navigation(startDestination = GateRoutes.GATE, route = LenslyRoute.HIDDEN) {
-        composable(GateRoutes.GATE) { HiddenBackdrop { GateRoute(navController, holder, home) } }
+        composable(GateRoutes.GATE) { HiddenBackdrop { GateRoute(navController, holder, home, newVault) } }
         composable(GateRoutes.CREATE_PASSWORD) { HiddenBackdrop { CreatePasswordRoute(navController, holder, home) } }
         composable(GateRoutes.UNLOCK) { HiddenBackdrop { UnlockRoute(navController, holder, home, warmUp) } }
         composable(GateRoutes.UNAVAILABLE) {
@@ -214,15 +217,14 @@ fun NavHostController.openHidden(route: String) {
     }
 }
 
-/** The outcome of creating or unlocking the vault from a screen. */
 /**
  * The outcome of creating or unlocking the vault from a screen. [Cancelled] is a device check the owner did not pass; nothing
  * is opened or changed, and the owner can try again.
  */
-private enum class GateOutcome { Opened, Rejected, Erased, Unavailable, Cancelled, KeyInvalidated }
+enum class GateOutcome { Opened, Rejected, Erased, Unavailable, Cancelled, KeyInvalidated }
 
 @Composable
-private fun GateRoute(navController: NavHostController, holder: VaultHolder, home: String) {
+private fun GateRoute(navController: NavHostController, holder: VaultHolder, home: String, newVault: String) {
     val context = LocalContext.current.applicationContext
     LaunchedEffect(Unit) {
         val next = when {
@@ -232,7 +234,7 @@ private fun GateRoute(navController: NavHostController, holder: VaultHolder, hom
             withContext(Dispatchers.IO) { holder.vault.isPartial() } -> GateRoutes.DAMAGED
             // A device that may not hold a vault is told so before the owner types a password for nothing.
             withContext(Dispatchers.IO) { holder.vault.canCreate() } ->
-                if (VaultKeystore.isDeviceSecure(context)) GateRoutes.CREATE_PASSWORD else GateRoutes.NO_SCREEN_LOCK
+                if (VaultKeystore.isDeviceSecure(context)) newVault else GateRoutes.NO_SCREEN_LOCK
             else -> GateRoutes.UNAVAILABLE
         }
         navController.navigate(next) {
@@ -372,7 +374,7 @@ private fun UnlockRoute(navController: NavHostController, holder: VaultHolder, h
  * Creates the vault with [password], then opens it with the same password. [app.lensly.core.vault.Vault.create]
  * zeroes the array it is given, so it gets a copy. The original is zeroed here, on every path.
  */
-private suspend fun createVault(holder: VaultHolder, password: CharArray, context: Context): GateOutcome = try {
+suspend fun createVault(holder: VaultHolder, password: CharArray, context: Context): GateOutcome = try {
     if (holder.vault.create(password.copyOf()) != CreateResult.Created) {
         GateOutcome.Unavailable
     } else {
