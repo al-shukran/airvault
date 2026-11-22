@@ -21,6 +21,7 @@ import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.btc.BtcAdvanced
 import app.lumio.btc.BtcSend
 import app.lumio.btc.BtcSendInput
+import app.lumio.btc.FEE_RATE_RANGE_WORDS
 import app.lumio.ui.kit.ClearAirField
 import app.lumio.ui.kit.ClearAirSheet
 import app.lumio.ui.kit.ClearAirStatusMark
@@ -80,7 +81,7 @@ fun SendFeeRateSheet(
                 trailing = { Text(text = "sat/vB", style = ClearAirType.rowValue, color = palette.ink2) },
             )
             Text(
-                text = "Any whole number from 1 to 10,000",
+                text = "Any whole number from $FEE_RATE_RANGE_WORDS",
                 style = ClearAirType.body,
                 color = palette.ink2,
                 modifier = Modifier.padding(top = ClearAirSpacing.xxs),
