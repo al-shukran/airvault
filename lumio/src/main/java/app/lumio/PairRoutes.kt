@@ -126,6 +126,7 @@ internal fun PairReviewRoute(
     holder: VaultHolder,
     draft: PairDraft,
     onChanged: () -> Unit,
+    onLock: () -> Unit,
 ) {
     val session = holder.openSession()
     // The review keeps the pairing it opened with. Save clears the draft, and that must not send the review back to Wallets as it leaves for First sync.
@@ -165,6 +166,7 @@ internal fun PairReviewRoute(
             draft.clear()
             navController.popBackStack(LumioRoute.WALLETS, inclusive = false)
         },
+        onLock = onLock,
     )
 }
 
@@ -185,7 +187,7 @@ internal suspend fun <T> onVault(default: T, block: () -> T): T = withContext(Di
  * leaves. The wallet opens once every row settles, or at once from the back arrow, the system back or Open wallet now.
  */
 @Composable
-internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolder, walletId: String, mode: NetworkMode) {
+internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolder, walletId: String, mode: NetworkMode, onLock: () -> Unit) {
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
     val wallet by produceState<PairedWallet?>(null, session, walletId) {
@@ -204,7 +206,15 @@ internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolde
     val sync = remember(session, current, mode) { FirstSync(firstSyncSteps(app, session, mode, current)) }
     val rows by sync.rows.collectAsState()
     LaunchedEffect(sync) { app.runInAppScope { sync.run() } }
-    FirstSyncScreen(walletName = current.name, fingerprint = current.fingerprint.toInt(), rows = rows, onOpenWallet = ::openWallet)
+    val families = listOf<List<*>>(current.evmAddresses, current.bitcoin, current.solana, current.algorand)
+    FirstSyncScreen(
+        walletName = current.name,
+        accounts = families.sumOf { it.size },
+        chains = families.count { it.isNotEmpty() },
+        rows = rows,
+        onOpenWallet = ::openWallet,
+        onLock = onLock,
+    )
 }
 
 /**

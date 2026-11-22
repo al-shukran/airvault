@@ -653,6 +653,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                         holder = holder,
                         draft = draft,
                         onChanged = { listVersion++ },
+                        onLock = { lock() },
                     )
                 }
             }
@@ -662,7 +663,13 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 LumioBackdrop(selection) {
-                    FirstSyncRoute(navController = navController, holder = holder, walletId = walletId, mode = selection.mode)
+                    FirstSyncRoute(
+                        navController = navController,
+                        holder = holder,
+                        walletId = walletId,
+                        mode = selection.mode,
+                        onLock = { lock() },
+                    )
                 }
             }
         }

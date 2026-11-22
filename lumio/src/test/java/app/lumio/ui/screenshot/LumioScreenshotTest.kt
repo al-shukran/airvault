@@ -312,6 +312,7 @@ class LumioScreenshotTest {
             alreadyPaired = false,
             error = null,
             onSave = {},
+            onLock = {},
             onCancel = {},
         )
     }

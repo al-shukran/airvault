@@ -94,5 +94,5 @@ lumio	evm	Ethereum settings and custom chains	evm_settings_custom_chain evm_add_
 lumio	data_providers	Data providers	data_providers data_providers_statuses data_providers_prices
 lumio	licences	Third-party licences	licences licences_loading
 lumio	pair_scan	Pair scan	pair_scan_idle pair_scan_reading
-lumio	pair_review	Pair review	pair_review pair_review_already_paired pair_review_save_failed pair_review_bitcoin
+lumio	pair_review	Pair review	pair_review pair_review_already_paired pair_review_save_failed pair_review_bitcoin pair_review_bitcoin_light
 lumio	add_token	Add token	add_token
