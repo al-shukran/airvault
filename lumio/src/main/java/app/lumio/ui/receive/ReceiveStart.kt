@@ -2,6 +2,7 @@ package app.lumio.ui.receive
 
 import app.lensly.app.addressKeyOf
 import app.lensly.app.autoAccountName
+import app.lumio.data.net.NetworkId
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.ownAccountsOf
 import app.lumio.receive.ReceiveAccount
@@ -53,6 +54,27 @@ internal fun receiveNativeStartOf(
         networks = listOf(network),
     )
     return ReceiveAnswers(coin = receiveCoin, network = network, account = receiveAccount)
+}
+
+/**
+ * The answers that a Receive opened from the Asset page starts with: the coin named by [symbol] and [name], drawn by [icon], on the [network] of the
+ * coin, into [account]. The coin is preselected, so the Receive opens at its sheet. [held] says whether the wallet holds the coin, and [networkIcon]
+ * draws the network.
+ */
+internal fun receiveCoinStartOf(
+    account: WalletAccount,
+    network: NetworkId,
+    symbol: String,
+    name: String,
+    icon: AssetIconSpec,
+    networkIcon: AssetIconSpec,
+    held: Boolean,
+    wallets: List<PairedWallet>,
+): ReceiveAnswers {
+    val receiveAccount = receiveAccountOf(account, wallets)
+    val receiveNetwork = ReceiveNetwork(name = network.name, icon = networkIcon, accounts = listOf(receiveAccount))
+    val coin = ReceiveCoin(symbol = symbol, name = name, subtitle = "", held = held, icon = icon, networks = listOf(receiveNetwork))
+    return ReceiveAnswers(coin = coin, network = receiveNetwork, account = receiveAccount)
 }
 
 /** The account as Lensly names it, with the label and group that its pairing sent. */

@@ -3,9 +3,11 @@ package app.lumio.data.provider.coingecko
 import app.lumio.data.WallClock
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
+import app.lumio.data.net.Networks
 import app.lumio.data.net.NetworkId
 import app.lumio.data.price.NativeCoins
 import app.lumio.data.provider.GlobalMarket
+import app.lumio.data.provider.LogoImage
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
 import app.lumio.data.provider.MarketQuote
@@ -19,8 +21,10 @@ import app.lumio.data.provider.Request
 import app.lumio.data.provider.Trait
 import app.lumio.data.provider.TrendingCoin
 import app.lumio.data.provider.TrendingCoins
+import app.lumio.data.provider.TokenLogo
 import app.lumio.data.provider.TrendingList
 import app.lumio.data.provider.answerObject
+import app.lumio.data.provider.fetchBytes
 import app.lumio.data.provider.asArray
 import app.lumio.data.provider.asObject
 import app.lumio.data.provider.decimal
@@ -33,6 +37,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Request as HttpRequest
 
 /**
@@ -48,6 +53,10 @@ import okhttp3.Request as HttpRequest
  *   `{"data":{"total_market_cap":{"usd":n,..},"market_cap_change_percentage_24h_usd":n,"updated_at":seconds,..}}`.
  * - Trending. `GET https://api.coingecko.com/api/v3/search/trending` is in the same list. It answers `{"coins":[{"item":{"name","symbol",
  *   "market_cap_rank","data":{"price":n,"price_change_percentage_24h":{"usd":n},..}}},..],..}`. The source gives no time for it.
+ * - Logo. `GET https://api.coingecko.com/api/v3/coins/{id}/contract/{contract_address}` (Coin Data by Token Address, in the Demo / Keyless list at
+ *   https://docs.coingecko.com/demo/reference/coins-contract-address) answers the token's record, whose `image` object has `thumb`, `small` and `large`
+ *   URLs. The image is read from `small`, or `thumb`. Only the EVM mainnets in [PLATFORMS] have an id, and the ids other than `ethereum` are not
+ *   confirmed against the asset platforms list; a wrong id fails as a missing logo.
  * - Authentication: https://docs.coingecko.com/demo/reference/authentication names the demo header `x-cg-demo-api-key` on the demo host.
  * - Limits: https://docs.coingecko.com/docs/errors-and-rate-limits states 100 calls a minute on the demo plan, and IP-based limits without a key, with no
  *   figure. Every request counts, including the failed ones. A coin the source does not know is left out of the answer, which is
@@ -61,6 +70,7 @@ class CoinGeckoProvider : Provider {
     override fun supports(net: NetworkId, op: OpKey, cfg: ProviderConfig): Boolean = when (op) {
         Ops.PRICE_NATIVE -> keyOf(cfg) != null && NativeCoins.coinOf(net) != null && providerBase(cfg.baseUrl, BASE) != null
         Ops.MARKET_GLOBAL, Ops.MARKET_TRENDING -> providerBase(cfg.baseUrl, BASE) != null
+        Ops.LOGO_TOKEN -> platformOf(net) != null && providerBase(cfg.baseUrl, BASE) != null
         else -> false
     }
 
@@ -73,6 +83,7 @@ class CoinGeckoProvider : Provider {
             is NativePrice -> price(req, cfg, http) as T
             is GlobalMarket -> global(cfg, http) as T
             is TrendingCoins -> trending(cfg, http) as T
+            is TokenLogo -> logo(req, cfg, http) as T
             else -> throw ProviderError.Unsupported()
         }
     }
@@ -124,17 +135,51 @@ class CoinGeckoProvider : Provider {
         return TrendingList(coins = coins, asOfMs = WallClock.nowMs())
     }
 
+    /**
+     * The logo of the token that [req] names: the image that its record names, read from the image's own URL. The record and the image are read
+     * without the key, since the image is served from a host that takes none.
+     */
+    private suspend fun logo(req: TokenLogo, cfg: ProviderConfig, http: Http): LogoImage {
+        val platform = checkNotNull(platformOf(req.net))
+        val url = checkNotNull(providerBase(cfg.baseUrl, BASE)).newBuilder()
+            .addPathSegment("coins")
+            .addPathSegment(platform)
+            .addPathSegment("contract")
+            .addPathSegment(req.contract.lowercase())
+            .build()
+        val image = answerObject(fetchText(http.noRedirects(), request(cfg, url), banMs = null))["image"].asObject()
+        val imageUrl = (image["small"] ?: image["thumb"]).text().toHttpUrlOrNull() ?: throw ProviderError.Fatal("The logo URL is not a URL.")
+        return LogoImage(fetchBytes(http.noRedirects(), HttpRequest.Builder().url(imageUrl).get().build(), LOGO_LIMIT_BYTES))
+    }
+
     /** The request for [url], with the key in its header when a key is set. */
     private fun request(cfg: ProviderConfig, url: HttpUrl): HttpRequest =
         HttpRequest.Builder().url(url).get().apply { keyOf(cfg)?.let { header("x-cg-demo-api-key", it) } }.build()
 
     private fun keyOf(cfg: ProviderConfig): String? = cfg.apiKey?.trim()?.takeIf { it.isNotEmpty() }
 
+    /** The CoinGecko platform of the EVM mainnet [net], or null for a network that has none, such as a testnet. */
+    private fun platformOf(net: NetworkId): String? = if (net.testnet || !net.isEvm) null else PLATFORMS[Networks.evmIdOf(net.chain)]
+
     /** This element, or null when it is absent or JSON null. */
     private fun JsonElement?.present(): JsonElement? = this?.takeUnless { it is JsonNull }
 }
 
 private const val BASE = "https://api.coingecko.com/api/v3/"
+
+/** The CoinGecko platform of each EVM mainnet, by chain ID. */
+private val PLATFORMS: Map<Long, String> = mapOf(
+    1L to "ethereum",
+    10L to "optimistic-ethereum",
+    56L to "binance-smart-chain",
+    137L to "polygon-pos",
+    8453L to "base",
+    42161L to "arbitrum-one",
+    43114L to "avalanche",
+)
+
+/** The largest logo image that is read, in bytes. A larger image is a fatal answer. */
+private const val LOGO_LIMIT_BYTES = 512L * 1024L
 
 /** The largest time the source may give, in seconds. It is far in the future, so a value above it is a malformed answer. */
 private const val MAX_SECONDS = 4_000_000_000L

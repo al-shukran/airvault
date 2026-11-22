@@ -44,9 +44,9 @@ import app.lumio.network.NetworkModeStore
 import app.lumio.send.algorand.AlgorandAddAssetRoute
 import app.lumio.send.algorand.AlgorandSendRoute
 import app.lumio.send.solana.SolanaSendRoute
+import app.lumio.ui.firstrun.FirstRunStep
 import app.lumio.ui.kit.ClearAirTestnetHatch
 import app.lumio.ui.kit.LumioTab
-import app.lumio.ui.firstrun.FirstRunStep
 import app.lumio.ui.kit.lumioComposable
 import app.lumio.ui.settings.SettingsPage
 import app.lumio.ui.wallets.NATIVE_ASSET_KEY
@@ -71,6 +71,9 @@ internal object LumioRoute {
 
     /** The activity of every account on the side, pushed from the Portfolio tab and its "All" link. */
     const val ACTIVITY = "activity"
+
+    /** The route of the activity of [asset] on every account of the side, pushed from the Asset page's "All" link. */
+    fun activity(asset: WatchedAsset): String = "activity/${coinSegments(asset)}"
 
     /** The five tab roots, in the order of the tab bar. A screen in this set is a place of the tab bar, not a page pushed over one. */
     val TAB_ROOTS = setOf(HOME, WALLETS, PORTFOLIO, EXPLORE, SETTINGS)
@@ -144,6 +147,9 @@ internal object LumioRoute {
     const val COIN_TESTNET_ARG = "testnet"
     const val COIN_CONTRACT_ARG = "contract"
 
+    /** The activity of one coin on every account of the side, pushed from the Asset page's "All" link. It takes the coin's arguments. */
+    const val ACTIVITY_COIN = "activity/{$COIN_CHAIN_ARG}/{$COIN_TESTNET_ARG}/{$COIN_CONTRACT_ARG}"
+
     /** The Asset page (C4) of a coin across one wallet, opened from Home, Search and the watchlist. */
     const val COIN = "coin/{$WALLET_ARG}/{$COIN_CHAIN_ARG}/{$COIN_TESTNET_ARG}/{$COIN_CONTRACT_ARG}"
 
@@ -181,8 +187,11 @@ internal object LumioRoute {
     /** The argument of the send's route: the chain ID of the network the send is on. */
     const val SEND_CHAIN_ARG = "chain"
 
-    /** The Ethereum send from one account of the wallet in [WALLET_ARG], on the network [SEND_CHAIN_ARG]. */
-    const val SEND = "send/{$WALLET_ARG}/{$ACCOUNT_ARG}?$SEND_CHAIN_ARG={$SEND_CHAIN_ARG}"
+    /** The argument of the send's route: the contract of the token the send moves. Left out, the send moves the native coin of the chain. */
+    const val SEND_CONTRACT_ARG = "contract"
+
+    /** The Ethereum send from one account of the wallet in [WALLET_ARG], on the network [SEND_CHAIN_ARG], of the token [SEND_CONTRACT_ARG] when set. */
+    const val SEND = "send/{$WALLET_ARG}/{$ACCOUNT_ARG}?$SEND_CHAIN_ARG={$SEND_CHAIN_ARG}&$SEND_CONTRACT_ARG={$SEND_CONTRACT_ARG}"
 
     /** The Solana send from the account [ACCOUNT_ARG] of the wallet in [WALLET_ARG]. Its side (testnet or mainnet) is the selected side. */
     const val SOLANA_SEND = "solana-send/{$WALLET_ARG}/{$ACCOUNT_ARG}"
@@ -217,8 +226,9 @@ internal object LumioRoute {
     /** The route of the Bitcoin send from [account] of [walletId]. */
     fun btcSend(walletId: String, account: AccountId): String = "bitcoin-send/$walletId/${account.caip10}"
 
-    /** The route of a send from [account] of [walletId] on the network [chainId]. */
-    fun send(walletId: String, account: AccountId, chainId: Long): String = "send/$walletId/${account.caip10}?$SEND_CHAIN_ARG=$chainId"
+    /** The route of a send from [account] of [walletId] on the network [chainId], of the token at [contract] when one is given. */
+    fun send(walletId: String, account: AccountId, chainId: Long, contract: String? = null): String =
+        "send/$walletId/${account.caip10}?$SEND_CHAIN_ARG=$chainId" + contract?.let { "&$SEND_CONTRACT_ARG=$it" }.orEmpty()
 
     /** The arguments of a transaction's page: the account that the row is for, and the transaction's id. */
     const val TX_ACCOUNT_ARG = "account"
@@ -497,7 +507,19 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
             }
             lumioComposable(LumioRoute.ACTIVITY) {
                 LumioBackdrop(selection) {
-                    ActivityRoute(navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = { lock() })
+                    ActivityRoute(navController = navController, holder = holder, selection = selection, listVersion = listVersion, coin = null, onLock = { lock() })
+                }
+            }
+            lumioComposable(route = LumioRoute.ACTIVITY_COIN, arguments = coinArguments()) { entry ->
+                LumioBackdrop(selection) {
+                    ActivityRoute(
+                        navController = navController,
+                        holder = holder,
+                        selection = selection,
+                        listVersion = listVersion,
+                        coin = entry.coinAsset(),
+                        onLock = { lock() },
+                    )
                 }
             }
             lumioComposable(
@@ -663,6 +685,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                         assetKey = assetKey,
                         mode = selection.mode,
                         listVersion = listVersion,
+                        onLock = { lock() },
                     )
                 }
             }
@@ -672,11 +695,13 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
                     navArgument(LumioRoute.ACCOUNT_ARG) { type = NavType.StringType },
                     navArgument(LumioRoute.SEND_CHAIN_ARG) { type = NavType.LongType; defaultValue = NO_CHAIN },
+                    navArgument(LumioRoute.SEND_CONTRACT_ARG) { type = NavType.StringType; nullable = true; defaultValue = null },
                 ),
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 val account = entry.accountId()
                 val chain = entry.arguments?.getLong(LumioRoute.SEND_CHAIN_ARG) ?: NO_CHAIN
+                val contract = entry.arguments?.getString(LumioRoute.SEND_CONTRACT_ARG)
                 LumioBackdrop(selection) {
                     SendRoute(
                         navController = navController,
@@ -685,6 +710,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                         account = account,
                         mode = selection.mode,
                         chainId = chain,
+                        initialContract = contract,
                         onLock = { lock() },
                     )
                 }

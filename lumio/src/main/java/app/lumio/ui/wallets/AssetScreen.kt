@@ -1,40 +1,41 @@
 package app.lumio.ui.wallets
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.LumioIsland
-import app.lensly.ui.components.LumioTextAction
-import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.ClearAirSpacing
+import app.lensly.ui.theme.ClearAirType
+import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.data.price.PriceSeries
-import app.lumio.home.Masking
 import app.lumio.transactions.TxFeedItem
-import app.lumio.ui.asset.AssetChart
+import app.lumio.ui.asset.TickChart
 import app.lumio.ui.home.AssetIcon
-import app.lumio.ui.kit.AnimatedAmount
+import app.lumio.ui.kit.ClearAirAmount
+import app.lumio.ui.kit.ClearAirCapsuleSmall
+import app.lumio.ui.kit.ClearAirEyebrow
+import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.LumioAssetIcon
-import app.lumio.ui.kit.LumioPrimaryButton
-import app.lumio.ui.transactions.ActivityRow
+import app.lumio.ui.transactions.ActivityRowItem
 import java.time.ZoneId
 
+/** The logo of the asset at the head of its page. */
+private val ICON_SIZE = 48.dp
+
 /**
- * One asset of an account (section 2.1, Asset): its icon and name, its amount with its value in dollars, its price chart when it is priced, and the
- * activity of the asset. Send is the primary action, and Receive the text action beside it. An asset of nothing makes Receive the primary, and a
- * [notice] that the account cannot hold the asset yet replaces the actions.
+ * One asset of an account, on Clear Air: its logo and name, its amount with its value in dollars, its price chart when it is priced, Send and Receive,
+ * and the activity of the asset. Send is the capsule and Receive the text action, and an asset of nothing offers Receive alone. A [notice] that the
+ * account cannot hold the asset yet replaces the actions. The page around it is the route's.
  */
 @Composable
 internal fun AssetScreen(
@@ -42,81 +43,72 @@ internal fun AssetScreen(
     showBalance: Boolean,
     onSend: () -> Unit,
     onReceive: () -> Unit,
-    onBack: () -> Unit,
     modifier: Modifier = Modifier,
     chart: PriceSeries? = null,
     activity: List<TxFeedItem> = emptyList(),
+    names: Map<String, String> = emptyMap(),
     notice: String? = null,
     onOpenTransaction: (TxFeedItem) -> Unit = {},
     zone: ZoneId = ZoneId.systemDefault(),
 ) {
-    LenslyScreen(
-        title = asset.symbol,
-        modifier = modifier,
-        onBack = onBack,
-        bottomAction = {
-            when {
-                notice != null -> Unit
-                asset.zero -> LumioPrimaryButton(text = "Receive", onClick = onReceive)
-                else -> {
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        LumioTextAction(text = "Receive", onClick = onReceive)
-                    }
-                    Spacer(Modifier.height(LenslySpacing.xs))
-                    LumioPrimaryButton(text = "Send ${asset.symbol}", onClick = onSend)
-                }
-            }
-        },
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            LumioAssetIcon(testnet = asset.testnet) { AssetIcon(spec = asset.icon, size = 24.dp) }
-            Spacer(Modifier.width(LenslySpacing.sm))
+    val palette = LocalClearAirPalette.current
+    Column(modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = ClearAirSpacing.xxl)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LumioAssetIcon(testnet = asset.testnet) { AssetIcon(spec = asset.icon, size = ICON_SIZE) }
+            Spacer(Modifier.width(ClearAirSpacing.sm))
             Column {
-                Text(text = asset.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                Text(text = asset.network, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                ClearAirEyebrow(text = asset.name)
+                Text(text = asset.network, style = ClearAirType.body, color = palette.ink2)
             }
         }
-        Spacer(Modifier.height(LenslySpacing.lg))
-        AnimatedAmount(
-            text = "${asset.amountText} ${asset.symbol}",
-            hidden = !showBalance,
-            style = MaterialTheme.typography.displaySmall,
-        )
-        asset.fiatText?.let { fiat ->
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs)) {
+            ClearAirAmount(text = "${asset.amountText} ${asset.symbol}", hidden = !showBalance, style = ClearAirType.total)
+            asset.fiatText?.let { fiat ->
+                ClearAirAmount(text = fiat, hidden = !showBalance, style = ClearAirType.rowValue, color = palette.ink2)
+            }
+        }
+        chart?.let { series -> TickChart(series = series, modifier = Modifier.padding(top = ClearAirSpacing.md)) }
+        if (notice == null) {
+            AssetActions(asset = asset, onSend = onSend, onReceive = onReceive)
+        } else {
+            WalletNotice(message = notice, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md))
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ClearAirEyebrow(text = "Activity")
+        }
+        if (activity.isEmpty()) {
             Text(
-                text = Masking.amount(fiat, hidden = !showBalance),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = "No transactions yet.",
+                style = ClearAirType.body,
+                color = palette.ink2,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.sm),
             )
         }
-        chart?.let { series ->
-            Spacer(Modifier.height(LenslySpacing.md))
-            AssetChart(series = series)
+        activity.forEach { item ->
+            ActivityRowItem(item = item, names = names, zone = zone, shown = showBalance, onClick = { onOpenTransaction(item) })
         }
-        notice?.let { message ->
-            Spacer(Modifier.height(LenslySpacing.md))
-            InlineBanner(message = message, tone = BannerTone.Warning)
-        }
-        Spacer(Modifier.height(LenslySpacing.lg))
-        Text(
-            text = "Activity",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = LenslySpacing.xs),
-        )
-        LumioIsland {
-            if (activity.isEmpty()) {
-                Text(
-                    text = "No transactions yet.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.sm),
-                )
-            } else {
-                activity.forEach { item ->
-                    ActivityRow(item = item, zone = zone, shown = showBalance, onClick = { onOpenTransaction(item) })
-                }
-            }
+    }
+}
+
+/** Send and Receive under the amount. An asset of nothing offers Receive alone. */
+@Composable
+private fun AssetActions(asset: AssetRowModel, onSend: () -> Unit, onReceive: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (asset.zero) {
+            ClearAirCapsuleSmall(text = "Receive", onClick = onReceive)
+        } else {
+            ClearAirCapsuleSmall(text = "Send ${asset.symbol}", onClick = onSend)
+            Spacer(Modifier.width(ClearAirSpacing.md))
+            ClearAirTextAction(text = "Receive", onClick = onReceive)
         }
     }
 }

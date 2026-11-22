@@ -716,7 +716,6 @@ class WalletScreensScreenshotTest {
             ),
             onSend = {},
             onReceive = {},
-            onBack = {},
         )
     }
 
@@ -741,7 +740,6 @@ class WalletScreensScreenshotTest {
             notice = "This account can't hold USDC yet. Algorand needs a one-time opt-in; 0.1 ALGO stays reserved.",
             onSend = {},
             onReceive = {},
-            onBack = {},
         )
     }
 
