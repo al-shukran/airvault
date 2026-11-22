@@ -17,6 +17,7 @@ import app.lensly.ui.settings.ChangePasswordState
 import app.lensly.ui.settings.ChangeStep
 import app.lumio.btc.BtcAccountRef
 import app.lumio.data.config.DisplaySettings
+import app.lumio.data.config.FinishSetup
 import app.lumio.data.config.LockSettings
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
@@ -133,10 +134,13 @@ class LumioScreenshotTest {
                     providersTotal = 11,
                     wallets = 1,
                     addresses = 2,
+                    finish = FinishSetup(),
                 ),
                 gesture = EntryGesture.DOUBLE_TAP_HOLD,
                 version = "0.1.0",
             ),
+            finish = FinishSetup(),
+            onFinish = {},
             onOpen = {},
         )
     }

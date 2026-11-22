@@ -7,13 +7,15 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import app.lensly.ui.theme.ClearAirTheme
+import app.lumio.data.config.FinishItem
+import app.lumio.data.config.FinishSetup
 import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** The top-level list of Lumio's settings: one chevron row per page, each with its state under the title, a back arrow, and no Save. */
+/** The top-level list of Lumio's settings: the Finish Setting Up checklist while it is open, one chevron row per page, each with its state under the title, a back arrow, and no Save. */
 @RunWith(RobolectricTestRunner::class)
 class LumioSettingsScreenTest {
 
@@ -33,7 +35,7 @@ class LumioSettingsScreenTest {
 
     @Test
     fun theListShowsEachPageWithItsStateUnderItsTitle() {
-        compose.setContent { ClearAirTheme { LumioSettingsScreen(rows = rows, onOpen = {}) } }
+        compose.setContent { ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(), onFinish = {}, onOpen = {}) } }
 
         for (row in rows) {
             compose.onNodeWithText(row.page.title).assertExists()
@@ -43,7 +45,7 @@ class LumioSettingsScreenTest {
 
     @Test
     fun theListHasNoSaveAndNoDeveloperRowInRelease() {
-        compose.setContent { ClearAirTheme { LumioSettingsScreen(rows = rows, onOpen = {}) } }
+        compose.setContent { ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(), onFinish = {}, onOpen = {}) } }
 
         compose.onAllNodesWithText("Save", ignoreCase = true).assertCountEquals(0)
         compose.onNodeWithText("Developer").assertDoesNotExist()
@@ -52,7 +54,9 @@ class LumioSettingsScreenTest {
     @Test
     fun tappingARowOpensItsPage() {
         var opened: SettingsPage? = null
-        compose.setContent { ClearAirTheme { LumioSettingsScreen(rows = rows, onOpen = { opened = it }) } }
+        compose.setContent {
+            ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(), onFinish = {}, onOpen = { opened = it }) }
+        }
 
         compose.onNodeWithText("Security").performScrollTo().performClick()
 
@@ -62,10 +66,49 @@ class LumioSettingsScreenTest {
     @Test
     fun theWalletsRowOpensTheWalletsPage() {
         var opened: SettingsPage? = null
-        compose.setContent { ClearAirTheme { LumioSettingsScreen(rows = rows, onOpen = { opened = it }) } }
+        compose.setContent {
+            ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(), onFinish = {}, onOpen = { opened = it }) }
+        }
 
         compose.onNodeWithText("Wallets").performScrollTo().performClick()
 
         assertEquals(SettingsPage.WALLETS, opened)
+    }
+
+    @Test
+    fun theChecklistCountsTheTickedItemsAndListsTheOpenOnes() {
+        compose.setContent {
+            ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(setOf(FinishItem.PAIR)), onFinish = {}, onOpen = {}) }
+        }
+
+        compose.onNodeWithText("Finish Setting Up").assertExists()
+        compose.onNodeWithText("1 of 3").assertExists()
+        compose.onNodeWithText("Set a Duress Password").assertExists()
+        compose.onNodeWithText("Enable Device Protection").assertExists()
+        compose.onNodeWithText("Pair with Lensly").assertDoesNotExist()
+    }
+
+    @Test
+    fun tappingAnOpenChecklistItemOpensThePageWhereItIsDone() {
+        var opened: FinishItem? = null
+        compose.setContent {
+            ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(), onFinish = { opened = it }, onOpen = {}) }
+        }
+
+        compose.onNodeWithText("Enable Device Protection").performScrollTo().performClick()
+
+        assertEquals(FinishItem.DEVICE_PROTECTION, opened)
+    }
+
+    @Test
+    fun theChecklistIsGoneOnceEveryItemIsTicked() {
+        compose.setContent {
+            ClearAirTheme {
+                LumioSettingsScreen(rows = rows, finish = FinishSetup(FinishItem.entries.toSet()), onFinish = {}, onOpen = {})
+            }
+        }
+
+        compose.onNodeWithText("Finish Setting Up").assertDoesNotExist()
+        compose.onNodeWithText("Security").assertExists()
     }
 }

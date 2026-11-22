@@ -2,12 +2,10 @@ package app.lumio.ui.firstrun
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,7 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -41,6 +38,7 @@ import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.R
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirPrimaryButton
+import app.lumio.ui.kit.ClearAirSegments
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.pair.IntroStep
 
@@ -76,30 +74,10 @@ internal fun FirstRunPage(
     }
 }
 
-/** The three-segment chapter bar. Each segment is a hairline track, filled as [chapterFills] says for the step. */
+/** The three-segment chapter bar, filled as [chapterFills] says for the step. */
 @Composable
 private fun ChapterBar(step: FirstRunStep) {
-    val palette = LocalClearAirPalette.current
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ClearAirSpacing.xxs)) {
-        chapterFills(step).forEach { fill ->
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(palette.hairline),
-            ) {
-                val fraction = when (fill) {
-                    ChapterFill.Empty -> 0f
-                    ChapterFill.Half -> 0.5f
-                    ChapterFill.Full -> 1f
-                }
-                if (fraction > 0f) {
-                    Box(modifier = Modifier.fillMaxWidth(fraction).fillMaxHeight().background(palette.ink))
-                }
-            }
-        }
-    }
+    ClearAirSegments(fractions = chapterFills(step).map { it.fraction })
 }
 
 /** The AirVault mark, drawn at [size]. The first-run pages show it in place of per-step art. */
@@ -112,16 +90,16 @@ private fun AirVaultMark(size: Dp) {
     )
 }
 
-/** One fact per page, with the mark above it. [action] is "Get Started" on the first page and "Next" after it. */
+/** One fact per page, with its [art] above it. [action] is "Get Started" on the first page and "Next" after it. */
 @Composable
 private fun FactPage(
     step: FirstRunStep,
     eyebrow: String,
     title: String,
     body: String,
-    markSize: Dp,
     action: String,
     onNext: () -> Unit,
+    art: @Composable () -> Unit,
 ) {
     val palette = LocalClearAirPalette.current
     FirstRunPage(
@@ -131,7 +109,7 @@ private fun FactPage(
         footer = { ClearAirPrimaryButton(text = action, onClick = onNext) },
         art = {
             Box(modifier = Modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.md), contentAlignment = Alignment.Center) {
-                AirVaultMark(size = markSize)
+                art()
             }
         },
     ) {
@@ -147,45 +125,45 @@ fun WelcomeScreen(onNext: () -> Unit) = FactPage(
     title = "Welcome to AirVault",
     body = "Lumio is the online half of AirVault. It shows your balances and carries what Lensly signs to the network. " +
         "Your keys stay with Lensly.",
-    markSize = 132.dp,
     action = "Get Started",
     onNext = onNext,
+    art = { AirVaultMark(size = 132.dp) },
 )
 
-/** Step I2: one fact, with the mark above it. */
+/** Step I2: one fact, with its slab art above it. */
 @Composable
 fun KeysScreen(onNext: () -> Unit) = FactPage(
     step = FirstRunStep.Keys,
     eyebrow = "Understand · 2 of 5",
     title = "Your Keys Never Leave Your Phone",
     body = "Your keys stay on your Lensly phone. Lumio never holds them.",
-    markSize = 96.dp,
     action = "Next",
     onNext = onNext,
+    art = { KeysArt() },
 )
 
-/** Step I3: one fact, with the mark above it. */
+/** Step I3: one fact, with its slab art above it. */
 @Composable
 fun NeverShareScreen(onNext: () -> Unit) = FactPage(
     step = FirstRunStep.NeverShare,
     eyebrow = "Understand · 3 of 5",
     title = "Never Share Your Keys with Anyone",
     body = "AirVault has no support team, so anyone who asks for your keys is not from AirVault.",
-    markSize = 96.dp,
     action = "Next",
     onNext = onNext,
+    art = { NeverShareArt() },
 )
 
-/** Step I4: the software is provided as is, with the mark above it. */
+/** Step I4: the software is provided as is, with its slab art above it. */
 @Composable
 fun ProvidedAsIsScreen(onNext: () -> Unit) = FactPage(
     step = FirstRunStep.ProvidedAsIs,
     eyebrow = "Understand · 4 of 5",
     title = "Provided as Is",
     body = "The software is provided as is. You are responsible for safeguarding your own assets.",
-    markSize = 96.dp,
     action = "Next",
     onNext = onNext,
+    art = { ProvidedAsIsArt() },
 )
 
 /** Step I5: the three facts as ticks, and the owner's sentence behind a checkbox. Agree stays disabled until the box is ticked. */
@@ -279,7 +257,7 @@ fun DuressScreen(onMaybeLater: () -> Unit) {
         footer = { ClearAirTextAction(text = "Maybe Later", onClick = onMaybeLater) },
         art = {
             Box(modifier = Modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.md), contentAlignment = Alignment.Center) {
-                AirVaultMark(size = 96.dp)
+                DuressArt()
             }
         },
     ) {

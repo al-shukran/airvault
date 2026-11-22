@@ -23,15 +23,12 @@ import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.theme.LumenTheme
 import app.lumio.ui.firstrun.DeviceProtectionScreen
 import app.lumio.ui.firstrun.DuressScreen
+import app.lumio.ui.firstrun.FirstRunIntro
 import app.lumio.ui.firstrun.FirstRunPasswordScreen
 import app.lumio.ui.firstrun.FirstRunStep
-import app.lumio.ui.firstrun.KeysScreen
-import app.lumio.ui.firstrun.NeverShareScreen
 import app.lumio.ui.firstrun.NewPasswordProblem
 import app.lumio.ui.firstrun.NoticeScreen
 import app.lumio.ui.firstrun.PrepareScreen
-import app.lumio.ui.firstrun.ProvidedAsIsScreen
-import app.lumio.ui.firstrun.WelcomeScreen
 import app.lumio.ui.firstrun.newPasswordProblem
 import app.lumio.ui.kit.lumioComposable
 import kotlinx.coroutines.launch
@@ -42,17 +39,10 @@ import kotlinx.coroutines.launch
  */
 internal fun NavGraphBuilder.firstRunRoutes(navController: NavHostController, holder: VaultHolder, home: String) {
     firstRunScreen(FirstRunStep.Welcome) {
-        BackHandler { leaveHidden(navController, holder) }
-        WelcomeScreen(onNext = { navController.navigate(FirstRunStep.Keys.route) })
-    }
-    firstRunScreen(FirstRunStep.Keys) {
-        KeysScreen(onNext = { navController.navigate(FirstRunStep.NeverShare.route) })
-    }
-    firstRunScreen(FirstRunStep.NeverShare) {
-        NeverShareScreen(onNext = { navController.navigate(FirstRunStep.ProvidedAsIs.route) })
-    }
-    firstRunScreen(FirstRunStep.ProvidedAsIs) {
-        ProvidedAsIsScreen(onNext = { navController.navigate(FirstRunStep.Notice.route) })
+        FirstRunIntro(
+            onLeave = { leaveHidden(navController, holder) },
+            onNotice = { navController.navigate(FirstRunStep.Notice.route) },
+        )
     }
     firstRunScreen(FirstRunStep.Notice) {
         var agreed by remember { mutableStateOf(false) }
