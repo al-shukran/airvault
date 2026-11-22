@@ -12,24 +12,27 @@ class ChartRangeTest {
     private val now = 1_800_000_000_000L
 
     @Test
-    fun theSelectorOffersTheFourRangesInOrder() {
-        assertEquals(listOf("24h", "7d", "30d", "1y"), ChartRange.entries.map { it.label })
+    fun theSelectorOffersTheEightRangesInOrder() {
+        assertEquals(listOf("5m", "15m", "1h", "4h", "12h", "1d", "7d", "1m"), ChartRange.entries.map { it.label })
     }
 
     @Test
-    fun eachRangeWindowCoversItsSpan() {
-        assertEquals(86_400_000L, ChartRange.H24.windowMs)
+    fun eachRangeWindowCoversItsLabel() {
+        assertEquals(300_000L, ChartRange.M5.windowMs)
+        assertEquals(900_000L, ChartRange.M15.windowMs)
+        assertEquals(3_600_000L, ChartRange.H1.windowMs)
+        assertEquals(14_400_000L, ChartRange.H4.windowMs)
+        assertEquals(43_200_000L, ChartRange.H12.windowMs)
+        assertEquals(86_400_000L, ChartRange.D1.windowMs)
         assertEquals(604_800_000L, ChartRange.D7.windowMs)
         assertEquals(2_592_000_000L, ChartRange.D30.windowMs)
-        assertEquals(31_536_000_000L, ChartRange.Y1.windowMs)
     }
 
     @Test
     fun theQueryStartsTheWindowAtItsFirstPointInUnixSeconds() {
-        assertEquals(ChartQuery(startSec = 1_799_913_600L, span = 25, period = "1h"), ChartRange.H24.query(now))
+        assertEquals(ChartQuery(startSec = 1_799_913_600L, span = 25, period = "1h"), ChartRange.D1.query(now))
         assertEquals(ChartQuery(startSec = 1_799_395_200L, span = 43, period = "4h"), ChartRange.D7.query(now))
         assertEquals(ChartQuery(startSec = 1_797_408_000L, span = 31, period = "1d"), ChartRange.D30.query(now))
-        assertEquals(ChartQuery(startSec = 1_768_464_000L, span = 366, period = "1d"), ChartRange.Y1.query(now))
     }
 
     @Test

@@ -106,22 +106,6 @@ class LumioKitScreenshotTest {
     }
 
     @Test
-    fun orbs() = compose.lumioSnapshot("kit_orbs") {
-        KitColumn {
-            Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.md)) {
-                WalletOrb(fingerprint = 0x1a2b3c4d)
-                WalletOrb(fingerprint = 0x2f7e1d90)
-                WalletOrb(fingerprint = 0x5c3a9e11)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.md)) {
-                WalletOrb(fingerprint = 0x1a2b3c4d, diameter = 72.dp)
-                WalletOrb(fingerprint = 0x2f7e1d90, diameter = 72.dp)
-                WalletOrb(fingerprint = 0x5c3a9e11, diameter = 72.dp)
-            }
-        }
-    }
-
-    @Test
     fun assetIcons() = compose.lumioSnapshot("kit_asset_icons") {
         KitColumn {
             Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.md), verticalAlignment = Alignment.CenterVertically) {
@@ -135,29 +119,6 @@ class LumioKitScreenshotTest {
     fun stepThreadAtEachNode() = compose.lumioSnapshot("kit_step_thread") {
         KitColumn {
             for (node in 0..3) StepThread(current = node)
-        }
-    }
-
-    @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
-    @Test
-    fun ringAtZeroHalfAndFullLight() = compose.lumioSnapshot("kit_ring_light") {
-        KitColumn {
-            Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.lg)) {
-                LumenRing(progress = 0f, size = 72.dp)
-                LumenRing(progress = 0.5f, size = 72.dp)
-                LumenRing(progress = 1f, size = 72.dp)
-            }
-        }
-    }
-
-    @Test
-    fun ringAtZeroHalfAndFull() = compose.lumioSnapshot("kit_ring") {
-        KitColumn {
-            Row(horizontalArrangement = Arrangement.spacedBy(LenslySpacing.lg)) {
-                LumenRing(progress = 0f, size = 72.dp)
-                LumenRing(progress = 0.5f, size = 72.dp)
-                LumenRing(progress = 1f, size = 72.dp)
-            }
         }
     }
 

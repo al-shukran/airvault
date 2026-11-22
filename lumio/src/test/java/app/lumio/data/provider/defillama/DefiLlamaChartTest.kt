@@ -66,7 +66,7 @@ class DefiLlamaChartTest {
             ),
         )
 
-        val series = chart(AssetId.Native(ETH), ChartRange.H24)
+        val series = chart(AssetId.Native(ETH), ChartRange.D1)
 
         assertEquals(
             listOf(PricePoint(1_799_995_200_000L, 1_831.25), PricePoint(1_799_998_800_000L, 1_840.5)),
@@ -93,21 +93,21 @@ class DefiLlamaChartTest {
             ),
         )
 
-        assertEquals(listOf(PricePoint(1_799_998_800_000L, 1_840.5)), chart(AssetId.Native(ETH), ChartRange.H24).points)
+        assertEquals(listOf(PricePoint(1_799_998_800_000L, 1_840.5)), chart(AssetId.Native(ETH), ChartRange.D1).points)
     }
 
     @Test
     fun aWindowWithNoPricesIsAnEmptySeriesAndNotAFailure() {
         server.enqueue(answerFor("coingecko:ethereum", ""))
 
-        assertEquals(PriceSeries(emptyList()), chart(AssetId.Native(ETH), ChartRange.H24))
+        assertEquals(PriceSeries(emptyList()), chart(AssetId.Native(ETH), ChartRange.D1))
     }
 
     @Test
     fun aCoinTheSourceDoesNotKnowIsUnsupported() {
         server.enqueue(MockResponse.Builder().body("""{"coins":{}}""").build())
 
-        assertFailsWith<ProviderError.Unsupported> { chart(AssetId.Native(ETH), ChartRange.H24) }
+        assertFailsWith<ProviderError.Unsupported> { chart(AssetId.Native(ETH), ChartRange.D1) }
     }
 
     @Test
@@ -124,7 +124,7 @@ class DefiLlamaChartTest {
     fun aTestnetCoinIsUnsupportedAndNeverCalled() {
         val testnet = NetworkId(Networks.evm(1), testnet = true)
 
-        assertFailsWith<ProviderError.Unsupported> { chart(AssetId.Native(testnet), ChartRange.H24) }
+        assertFailsWith<ProviderError.Unsupported> { chart(AssetId.Native(testnet), ChartRange.D1) }
         assertEquals(0, server.requestCount)
     }
 

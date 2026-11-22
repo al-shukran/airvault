@@ -2,19 +2,25 @@ package app.lumio.data.price
 
 import app.lumio.data.asset.AssetId
 
+private const val MINUTE_MS = 60_000L
 private const val HOUR_MS = 3_600_000L
 private const val DAY_MS = 86_400_000L
 
 /**
  * The span of a price chart, as the range selector offers it. [label] is what the selector shows. The chart draws [points] points, [periodMs] apart,
- * and [period] is that same spacing in DefiLlama's candle notation, where `H` is an hour, `D` a day and `W` a week. The last point is the time asked
- * for, so the window runs from `points - 1` periods before it: 24 hourly points cover 24 hours, 7 four-hourly days cover 7 days, and so on.
+ * and [period] is that same spacing as the price endpoint takes it. The last point is the time asked for, so the window runs from `points - 1`
+ * periods before it. Each label is the window's length: `1m` is 30 days. The sub-hour periods are not in the endpoint's documentation, so the
+ * ranges that use them are unverified against the live source.
  */
 enum class ChartRange(val label: String, val period: String, val periodMs: Long, val points: Int) {
-    H24("24h", "1h", HOUR_MS, 25),
+    M5("5m", "1m", MINUTE_MS, 6),
+    M15("15m", "5m", 5 * MINUTE_MS, 4),
+    H1("1h", "5m", 5 * MINUTE_MS, 13),
+    H4("4h", "15m", 15 * MINUTE_MS, 17),
+    H12("12h", "1h", HOUR_MS, 13),
+    D1("1d", "1h", HOUR_MS, 25),
     D7("7d", "4h", 4 * HOUR_MS, 43),
-    D30("30d", "1d", DAY_MS, 31),
-    Y1("1y", "1d", DAY_MS, 366),
+    D30("1m", "1d", DAY_MS, 31),
     ;
 
     /** The time from the first point to the last one, in milliseconds. */

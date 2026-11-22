@@ -21,6 +21,7 @@ import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirTextAction
+import app.lumio.watchlist.WatchedAsset
 import app.lumio.watchlist.WatchlistSort
 import java.util.Locale
 import kotlin.math.abs
@@ -34,6 +35,7 @@ private val TICK_HEIGHT = 28.dp
  * its day's prices, oldest first. A null [priceUsd] or [change24hPct] is shown as absent, never as zero, and fewer than two [ticks] draw no chart.
  */
 data class WatchlistRow(
+    val asset: WatchedAsset,
     val name: String,
     val detail: String,
     val priceUsd: String?,
@@ -61,6 +63,7 @@ fun HomeScreen(
     onSend: () -> Unit,
     onReceive: () -> Unit,
     onSort: () -> Unit,
+    onOpen: (WatchedAsset) -> Unit,
 ) {
     val palette = LocalClearAirPalette.current
     Column(
@@ -104,6 +107,7 @@ fun HomeScreen(
             title = row.name,
             description = row.detail,
             trailing = { WatchlistPrice(row = row, testnet = testnet) },
+            onClick = { onOpen(row.asset) },
         )
     }
 }

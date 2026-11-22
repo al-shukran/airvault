@@ -106,6 +106,7 @@ internal fun HomeRoute(
                     onSend = { wallet?.let { navController.navigate(LumioRoute.wallet(it.id)) } },
                     onReceive = { wallet?.let { navController.navigate(LumioRoute.wallet(it.id)) } },
                     onSort = { sortOpen = true },
+                    onOpen = { asset -> wallet?.let { navController.navigate(LumioRoute.coin(it.id, asset)) } },
                 )
             }
             WatchlistSortSheet(
@@ -140,6 +141,7 @@ private fun rowOf(asset: WatchedAsset, view: WalletsView?, walletId: String?, pr
     val (symbol, name) = coinNames(asset)
     val held = if (view != null && walletId != null) heldOf(asset, view.accountsOf(walletId)) else null
     return WatchlistRow(
+        asset = asset,
         name = name,
         detail = if (held == null) symbol else "$symbol · ${held.stripTrailingZeros().toPlainString()} held",
         priceUsd = if (testnet || price == null) null else FIAT.format(price.usd),

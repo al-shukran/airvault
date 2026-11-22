@@ -128,7 +128,6 @@ shard-2 :lumio app.lumio.send.PaymentCodeTest
 shard-2 :lumio app.lumio.tokens.CustomTokenStoreTest
 shard-2 :lumio app.lumio.ui.controls.LumioControlsTest
 shard-2 :lumio app.lumio.ui.home.AssetIconSpecTest
-shard-2 :lumio app.lumio.ui.kit.LumenRingFrameScreenshotTest
 shard-2 :lumio app.lumio.ui.send.SendReviewAddressBookTest
 shard-2 :lumio app.lumio.ui.settings.SettingsEditsTest
 shard-2 :lumio app.lumio.ui.tokens.AddTokenScreenTest
@@ -215,7 +214,6 @@ shard-3 :lumio app.lumio.send.algorand.AlgorandAssetsTest
 shard-3 :lumio app.lumio.send.solana.SolanaAssetsTest
 shard-3 :lumio app.lumio.send.solana.SolanaSendTest
 shard-3 :lumio app.lumio.tokens.AbiTest
-shard-3 :lumio app.lumio.ui.kit.AllocationMathTest
 shard-3 :lumio app.lumio.ui.kit.LumioNavigationTest
 shard-3 :lumio app.lumio.ui.settings.SettingsSummariesTest
 shard-3 :lumio app.lumio.ui.wallets.AssetRowsTest
@@ -521,7 +519,6 @@ verify :app app.lensly.ui.screenshot.SettingControlsScreenshotTest
 verify :app app.lensly.ui.screenshot.SettingsScreenshotTest
 verify :app app.lensly.ui.screenshot.SignScreenshotTest
 verify :app app.lensly.ui.screenshot.WalletPartBScreenshotTest
-verify :lumio app.lumio.ui.kit.AllocationRingScreenshotTest
 verify :lumio app.lumio.ui.kit.LumioKitScreenshotTest
 # Runs in verify, not a shard: the wallet fold-open golden is recorded after it in the full-suite record job, so verify must run it too.
 verify :lumio app.lumio.ui.kit.LumioPressTest

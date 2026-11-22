@@ -276,7 +276,7 @@ internal class WalletsBoard(
         readOrNull { withContext(Dispatchers.IO) { repository.assetPrices(assets) } }?.let { prices = prices + it }
         val days = readOrNull {
             withContext(Dispatchers.IO) {
-                assets.mapNotNull { asset -> repository.chart(asset, ChartRange.H24)?.takeIf { it.points.isNotEmpty() }?.let { asset to it } }.toMap()
+                assets.mapNotNull { asset -> repository.chart(asset, ChartRange.D1)?.takeIf { it.points.isNotEmpty() }?.let { asset to it } }.toMap()
             }
         }
         days?.let { dayCharts.putAll(it) }
