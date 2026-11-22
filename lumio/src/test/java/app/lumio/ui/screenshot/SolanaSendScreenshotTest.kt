@@ -8,7 +8,6 @@ import app.lensly.core.wallet.Mnemonic
 import app.lumio.data.provider.SplBalance
 import app.lumio.data.provider.solana.SOLANA_DEVNET
 import app.lumio.send.solana.SolanaAssets
-import app.lumio.send.solana.SolanaOutcome
 import app.lumio.send.solana.SolanaSend
 import app.lumio.send.solana.SolanaSendAccount
 import app.lumio.send.solana.SolanaSendAsset

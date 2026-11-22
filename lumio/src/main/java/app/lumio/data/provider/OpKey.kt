@@ -66,6 +66,7 @@ object Ops {
     val ALGO_ASSET_INFO = OpKey("algo.assetInfo")
     val ALGO_SUGGESTED_PARAMS = OpKey("algo.suggestedParams")
     val ALGO_PENDING_TX = OpKey("algo.pendingTx")
+    val ALGO_INDEXED_TX = OpKey("algo.indexedTx")
     val ALGO_BROADCAST = OpKey("algo.broadcast")
 
     val PRICE_NATIVE = OpKey("price.native")

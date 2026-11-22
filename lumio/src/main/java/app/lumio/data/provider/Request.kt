@@ -209,3 +209,16 @@ class AlgorandPendingTx(net: NetworkId, val txid: String) : Request<AlgorandPend
  * node says when it refused the transaction, or an empty text.
  */
 data class AlgorandPendingInfo(val confirmedRound: Long, val poolError: String)
+
+/** The indexer's record of the transaction [txid] (see [ALGORAND_TXID]). The indexer keeps a confirmed transaction after the pool lets it go. */
+class AlgorandIndexedTx(net: NetworkId, val txid: String) : Request<AlgorandIndexed>(net, Ops.ALGO_INDEXED_TX) {
+    init {
+        require(ALGORAND_TXID.matches(txid)) { "Not an Algorand transaction id." }
+    }
+}
+
+/**
+ * What the indexer holds: [confirmedRound] is the round that confirmed the transaction, or null when the indexer does not hold it. [indexerRound] is the
+ * last round the indexer had read before it looked the transaction up, so a transaction it does not hold at that round was not confirmed by it.
+ */
+data class AlgorandIndexed(val confirmedRound: Long?, val indexerRound: Long)

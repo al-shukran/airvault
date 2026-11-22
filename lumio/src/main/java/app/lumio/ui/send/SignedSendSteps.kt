@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import app.lumio.send.ArrivalWatch
+import app.lumio.send.Landing
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
 import app.lumio.ui.kit.LumioHaptics
@@ -23,7 +24,8 @@ private const val COUNT_STEP_MS = 1_000L
  * The pages of a signed transaction, shared by every chain, in the order its state moves: Last Chance while it waits and then sends, On Its Way once
  * the network has it, and the failure page if the network refused it. The countdown runs only while the transaction is still idle, and "Send Now"
  * skips the wait. [headline] and [timing] say what the network is doing, and [onSent] is told the id the network reported.
- * [arrival] watches the sent transaction until it lands, and then the page says so; it is null for a send that moves no funds, which never says so.
+ * [arrival] watches the sent transaction until it lands, and then the page says so, or until the network refuses it, and then the page says that instead.
+ * Null watches nothing, and the page stays on its way.
  * [onStop] ends the send before anything is sent, [onDone] leaves the sent or failed transaction, and [onReview] is where a failure that cannot be
  * retried goes, so the owner can start the send again.
  */
@@ -79,22 +81,44 @@ internal fun SignedSendSteps(
                 onSent(now.id)
             }
             val summary = "$amount to $recipient"
-            val arrived by remember(now.id) { arrival?.arrivedFor(now.id, summary) ?: MutableStateFlow(false) }.collectAsState()
-            ArrivalHaptic(arrived = arrived, id = now.id, haptics = haptics)
-            SendOnItsWayPage(
-                headline = arrival?.takeIf { arrived }?.arrivedHeadline ?: headline,
-                summary = summary,
-                network = network,
-                timing = timing,
-                recipient = recipient,
-                arrived = arrived,
-                explorerLabel = explorerUrl(now.id)?.let { "View on Explorer" },
-                onExplorer = { onExplorer(now.id) },
-                onDone = onDone,
-                backLabel = backLabel,
-                onBack = onDone,
-                onLock = onLock,
-            )
+            val landing by remember(now.id) { arrival?.landingOf(now.id, summary) ?: MutableStateFlow(Landing.PENDING) }.collectAsState()
+            ArrivalHaptic(arrived = landing == Landing.LANDED, id = now.id, haptics = haptics)
+            if (landing == Landing.REFUSED) {
+                LaunchedEffect(now.id) { haptics.failure() }
+                SendOutcomePage(
+                    title = "",
+                    heading = "It Did Not Go Through",
+                    mark = "!",
+                    body = "The network did not complete this transaction, so the amount did not arrive.",
+                    notes = listOf(
+                        "What Happened" to "The network took the transaction, then did not complete it.",
+                        "What You Can Do" to "The explorer shows the reason. A new send shows every detail again before Lensly signs it.",
+                    ),
+                    detail = null,
+                    primary = "Back to $fromName",
+                    onPrimary = onDone,
+                    secondary = explorerUrl(now.id)?.let { "View on Explorer" },
+                    onSecondary = { onExplorer(now.id) },
+                    backLabel = backLabel,
+                    onBack = onDone,
+                    onLock = onLock,
+                )
+            } else {
+                SendOnItsWayPage(
+                    headline = arrival?.arrivedHeadline?.takeIf { landing == Landing.LANDED } ?: headline,
+                    summary = summary,
+                    network = network,
+                    timing = timing,
+                    recipient = recipient,
+                    arrived = landing == Landing.LANDED,
+                    explorerLabel = explorerUrl(now.id)?.let { "View on Explorer" },
+                    onExplorer = { onExplorer(now.id) },
+                    onDone = onDone,
+                    backLabel = backLabel,
+                    onBack = onDone,
+                    onLock = onLock,
+                )
+            }
         }
         is SubmitState.Failed -> {
             LaunchedEffect(Unit) { haptics.failure() }
