@@ -56,6 +56,7 @@ private class Loaded(
     val view: WalletsView,
     val tokenCounts: Map<WalletAccount, Int>,
     val tokenUsd: Map<WalletAccount, Double>,
+    val tokenHeld: Map<WalletAccount, List<TokenHolding>>,
     val watchlists: Map<String, WalletWatchlist>,
     val prices: Map<AssetId, Price>,
     val market: Kept<MarketQuote>?,
@@ -127,6 +128,10 @@ internal class WalletsBoard(
     var tokenUsd by mutableStateOf<Map<WalletAccount, Double>>(emptyMap())
         private set
 
+    /** The token balances each Ethereum account holds on the side, as the Asset page reads a token's holdings from them. */
+    var tokenHeld by mutableStateOf<Map<WalletAccount, List<TokenHolding>>>(emptyMap())
+        private set
+
     /** True while a read of the networks runs. The freshness line says "Refreshing…" then. */
     var refreshing by mutableStateOf(false)
         private set
@@ -188,6 +193,7 @@ internal class WalletsBoard(
             view = null
             tokenCounts = emptyMap()
             tokenUsd = emptyMap()
+            tokenHeld = emptyMap()
             refreshDue = true
         }
         side = mode
@@ -309,6 +315,7 @@ internal class WalletsBoard(
         view = null
         tokenCounts = emptyMap()
         tokenUsd = emptyMap()
+        tokenHeld = emptyMap()
         accountReads.clear()
         chartReads.clear()
         dayCharts.clear()
@@ -335,6 +342,7 @@ internal class WalletsBoard(
         view = loaded.view
         tokenCounts = loaded.tokenCounts
         tokenUsd = loaded.tokenUsd
+        tokenHeld = loaded.tokenHeld
         // A list or price read since the vault was read is newer than the vault, so it wins.
         watchlists = loaded.watchlists + watchlists
         prices = loaded.prices + prices
@@ -392,6 +400,7 @@ internal class WalletsBoard(
             view,
             tokenCounts = held.mapValues { (_, tokens) -> tokens.count { it.amount.signum() > 0 } },
             tokenUsd = held.mapNotNull { (account, tokens) -> AssetRows.tokensUsd(tokens, tokenPrices)?.let { account to it } }.toMap(),
+            tokenHeld = held,
             watchlists = watchlists,
             prices = prices,
             market = market,
