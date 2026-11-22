@@ -113,9 +113,14 @@ object SolanaSend {
      */
     fun sendPriorityFee(priority: Boolean): Long = if (priority) SolanaPriorityFee.lamports(2 * SolanaPriorityFee.SYSTEM_UNITS) else 0L
 
-    /** The most that can be sent from [balance]: the balance less the fee, the priority fee when [priority] is set, and the rent reserve. Null when the balance does not cover them. */
-    fun maxLamports(balance: BigInteger, priority: Boolean = false): Long? {
-        val spendable = balance - BigInteger.valueOf(SOLANA_FEE_LAMPORTS + sendPriorityFee(priority) + SOLANA_RENT_RESERVE_LAMPORTS)
+    /**
+     * The most that can be sent from [balance]: the balance less the fee, the priority fee when [priority] is set, and the rent reserve. While the one-time
+     * setup is pending, [setupRentLamports] is its rent, and the setup is paid from the same balance first, so it comes off too. Null when the balance
+     * does not cover them.
+     */
+    fun maxLamports(balance: BigInteger, priority: Boolean = false, setupRentLamports: Long? = null): Long? {
+        val setup = setupRentLamports?.let { setupLamports(it) } ?: 0L
+        val spendable = balance - BigInteger.valueOf(SOLANA_FEE_LAMPORTS + sendPriorityFee(priority) + SOLANA_RENT_RESERVE_LAMPORTS + setup)
         if (spendable.signum() <= 0) return null
         return spendable.min(BigInteger.valueOf(Long.MAX_VALUE)).toLong()
     }
@@ -175,9 +180,12 @@ object SolanaSend {
      * reserve. Throws IllegalArgumentException, with the owner's words, when it does not.
      */
     fun checkSetupFunds(balance: BigInteger, rentLamports: Long) {
-        val needed = BigInteger.valueOf(rentLamports) + BigInteger.valueOf(SOLANA_FEE_LAMPORTS + SOLANA_RENT_RESERVE_LAMPORTS)
+        val needed = BigInteger.valueOf(setupLamports(rentLamports) + SOLANA_RENT_RESERVE_LAMPORTS)
         require(balance >= needed) { "This account does not hold enough SOL for the nonce account, the fee and the rent reserve." }
     }
+
+    /** What the one-time setup takes from the balance before the reserve: its rent, which goes into the nonce account, and the setup's fee. */
+    private fun setupLamports(rentLamports: Long): Long = rentLamports + SOLANA_FEE_LAMPORTS
 
     /**
      * The one-time setup of [account]'s nonce account, at [blockhash], which is valid until [window] says. It pays [rentLamports] of rent into the
