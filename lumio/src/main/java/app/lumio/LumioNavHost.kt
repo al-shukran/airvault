@@ -385,7 +385,13 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
             draft.clear()
             leaveHidden(navController, holder)
         }
-        hiddenArea(navController, holder, home = LumioRoute.WALLETS, newVault = FirstRunStep.Welcome.route) {
+        hiddenArea(
+            navController,
+            holder,
+            home = LumioRoute.WALLETS,
+            newVault = FirstRunStep.Welcome.route,
+            biometric = app.biometricUnlock,
+        ) {
             firstRunRoutes(navController, holder, home = LumioRoute.WALLETS)
             lumioComposable(LumioRoute.WALLETS) {
                 // The Accounts tab is the start screen and has no back arrow. System back locks the vault first, so leaving the app never

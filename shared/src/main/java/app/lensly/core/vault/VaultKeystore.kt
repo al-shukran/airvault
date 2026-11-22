@@ -34,6 +34,8 @@ import javax.crypto.SecretKeyFactory
  *   the folder's key file (see [WalletFolder]). Deleting the key makes that folder's key file unreadable, even with the Vault Key.
  * - `lensly.vault.pending-photo`: AES-256-GCM. It wraps the private photo key of photos taken before the first setup
  *   (see [PendingPhotoKey]). The vault takes that key over when it is created, and the key is deleted with it.
+ * - `lensly.vault.biometric`: AES-256-GCM. It seals the Vault Key for Lumio's biometric unlock (see [BiometricUnlock]). Each use needs
+ *   a strong biometric, and a new enrollment invalidates the key.
  */
 internal object VaultKeystore {
     const val HARDWARE_KEY_ALIAS = "lensly.vault.hw"
@@ -50,6 +52,7 @@ internal object VaultKeystore {
     private const val SLOT_KEY_ALIAS = "lensly.vault.slot-mac"
     private const val PENDING_PHOTO_ALIAS = "lensly.vault.pending-photo"
     private const val PROBE_ALIAS = "lensly.vault.probe"
+    private const val BIOMETRIC_KEY_ALIAS = "lensly.vault.biometric"
     private const val PROVIDER = "AndroidKeyStore"
 
     /**
@@ -58,7 +61,7 @@ internal object VaultKeystore {
      */
     fun createHardwareKey(userAuth: Boolean): SecretKey {
         delete(HARDWARE_KEY_ALIAS)
-        return generateAes(HARDWARE_KEY_ALIAS, userAuth = userAuth)
+        return generateAes(HARDWARE_KEY_ALIAS) { if (userAuth) requireHardwareUserAuth() }
     }
 
     /** True when the device has a screen lock (a PIN, pattern or password). The hardware key cannot be made without one. */
@@ -94,6 +97,23 @@ internal object VaultKeystore {
     /** The existing hardware wrapping key. Throws if it has been removed. */
     fun hardwareKey(): SecretKey =
         get(HARDWARE_KEY_ALIAS) ?: throw VaultException("The vault's hardware key is missing from the Keystore.")
+
+    /**
+     * Creates the key that seals the Vault Key for biometric unlock, replacing any key there. Each use needs a strong biometric, and a new
+     * enrollment invalidates the key. It is TEE-backed, like the other keys that are not the hardware key.
+     */
+    fun createBiometricKey(): SecretKey = createAesKey(BIOMETRIC_KEY_ALIAS, "biometric unlock key") {
+        setUserAuthenticationRequired(true)
+        setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
+        setInvalidatedByBiometricEnrollment(true)
+    }
+
+    /** The key that seals the Vault Key for biometric unlock. Throws if it has been removed. */
+    fun biometricKey(): SecretKey =
+        get(BIOMETRIC_KEY_ALIAS) ?: throw VaultException("The biometric unlock key is missing from the Keystore.")
+
+    /** Deletes the biometric unlock key, if the Keystore holds one. */
+    fun deleteBiometricKey() = delete(BIOMETRIC_KEY_ALIAS)
 
     /**
      * Creates the Delay State MAC key for [seq], replacing any key under that number. It is StrongBox when the device has one,
@@ -181,9 +201,9 @@ internal object VaultKeystore {
      * Creates an AES key under [alias], replacing any key there. It is TEE-backed and not StrongBox: StrongBox holds few keys and is slow.
      * A key that is not hardware-backed is refused in a release build, and [what] names it in that error.
      */
-    private fun createAesKey(alias: String, what: String): SecretKey {
+    private fun createAesKey(alias: String, what: String, auth: KeyGenParameterSpec.Builder.() -> Unit = {}): SecretKey {
         delete(alias)
-        val key = generateAes(alias, strongBox = false)
+        val key = generateAes(alias, strongBox = false, auth = auth)
         val verdict = KeystorePolicy.verdict(isHardwareBacked(securityLevel(key)), BuildConfig.DEBUG, deviceIsEmulator())
         if (verdict == KeystoreVerdict.Refused) {
             delete(alias)
@@ -192,10 +212,13 @@ internal object VaultKeystore {
         return key
     }
 
-    /** True for every alias the vault uses: the hardware key, the slot key, the probe, the pending photo key, and every other folder or MAC key. */
+    /**
+     * True for every alias the vault uses: the hardware key, the slot key, the probe, the pending photo key, the biometric key, and
+     * every other folder or MAC key.
+     */
     private fun isVaultAlias(alias: String): Boolean =
         alias == HARDWARE_KEY_ALIAS || alias == SLOT_KEY_ALIAS || alias == PROBE_ALIAS || alias == PENDING_PHOTO_ALIAS ||
-            alias.startsWith(FAILURE_MAC_PREFIX) || alias.startsWith(FOLDER_KEY_PREFIX)
+            alias == BIOMETRIC_KEY_ALIAS || alias.startsWith(FAILURE_MAC_PREFIX) || alias.startsWith(FOLDER_KEY_PREFIX)
 
     private fun failureMacAlias(seq: Long): String = "$FAILURE_MAC_PREFIX.$seq"
 
@@ -217,38 +240,39 @@ internal object VaultKeystore {
         if (store.containsAlias(alias)) store.deleteEntry(alias)
     }
 
-    private fun generateAes(alias: String, userAuth: Boolean = false): SecretKey = try {
-        generateAes(alias, strongBox = true, userAuth = userAuth)
+    /** An AES key, in StrongBox when the device has one and in the TEE otherwise. [auth] sets the key's user-auth rules. */
+    private fun generateAes(alias: String, auth: KeyGenParameterSpec.Builder.() -> Unit = {}): SecretKey = try {
+        generateAes(alias, strongBox = true, auth = auth)
     } catch (e: StrongBoxUnavailableException) {
-        generateAes(alias, strongBox = false, userAuth = userAuth)
+        generateAes(alias, strongBox = false, auth = auth)
     } catch (e: ProviderException) {
-        if (e.cause is StrongBoxUnavailableException) generateAes(alias, strongBox = false, userAuth = userAuth) else throw e
+        if (e.cause is StrongBoxUnavailableException) generateAes(alias, strongBox = false, auth = auth) else throw e
     }
 
-    /**
-     * An AES key. With [userAuth], each use needs a device authentication within [HARDWARE_KEY_AUTH_SECONDS]. The key is not
-     * invalidated by a new fingerprint, so only removing or changing the screen lock costs the vault its key.
-     */
-    private fun generateAes(alias: String, strongBox: Boolean, userAuth: Boolean = false): SecretKey {
+    private fun generateAes(alias: String, strongBox: Boolean, auth: KeyGenParameterSpec.Builder.() -> Unit): SecretKey {
         val spec = KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
             .setKeySize(256)
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setIsStrongBoxBacked(strongBox)
-            .apply {
-                if (userAuth) {
-                    setUserAuthenticationRequired(true)
-                    setUserAuthenticationParameters(
-                        HARDWARE_KEY_AUTH_SECONDS,
-                        KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL,
-                    )
-                    setInvalidatedByBiometricEnrollment(false)
-                }
-            }
+            .apply(auth)
             .build()
         return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, PROVIDER)
             .apply { init(spec) }
             .generateKey()
+    }
+
+    /**
+     * The hardware key's user auth: each use needs a device authentication within [HARDWARE_KEY_AUTH_SECONDS]. The key is not
+     * invalidated by a new fingerprint, so only removing or changing the screen lock costs the vault its key.
+     */
+    private fun KeyGenParameterSpec.Builder.requireHardwareUserAuth() {
+        setUserAuthenticationRequired(true)
+        setUserAuthenticationParameters(
+            HARDWARE_KEY_AUTH_SECONDS,
+            KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL,
+        )
+        setInvalidatedByBiometricEnrollment(false)
     }
 
     /**

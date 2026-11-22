@@ -74,12 +74,19 @@ class FirstRunScreenshotTest {
     fun duress() = compose.lumioSnapshot("first_run_duress") { DuressScreen(onMaybeLater = {}) }
 
     @Test
-    fun deviceProtection() = compose.lumioSnapshot("first_run_device_protection") { DeviceProtectionScreen(onEnable = {}, onNotNow = {}) }
+    fun deviceProtection() = compose.lumioSnapshot("first_run_device_protection") {
+        DeviceProtectionScreen(available = true, onEnable = {}, onNotNow = {})
+    }
 
     @Test
     @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
     fun deviceProtectionLight() = compose.lumioSnapshot("first_run_device_protection_light") {
-        DeviceProtectionScreen(onEnable = {}, onNotNow = {})
+        DeviceProtectionScreen(available = true, onEnable = {}, onNotNow = {})
+    }
+
+    @Test
+    fun deviceProtectionUnavailable() = compose.lumioSnapshot("first_run_device_protection_unavailable") {
+        DeviceProtectionScreen(available = false, onEnable = {}, onNotNow = {})
     }
 
     @Composable

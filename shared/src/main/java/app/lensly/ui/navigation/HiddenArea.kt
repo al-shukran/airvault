@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -23,6 +24,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.navigation
 import app.lensly.app.VaultHolder
+import app.lensly.core.vault.BiometricOutcome
+import app.lensly.core.vault.BiometricUnlock
 import app.lensly.core.vault.CreateResult
 import app.lensly.core.vault.PasswordPolicy
 import app.lensly.core.vault.PolicyReason
@@ -76,12 +79,15 @@ private const val KEY_INVALIDATED_DETAIL =
     "The screen lock was removed or changed, so the vault can no longer be opened. Clear the app's data, " +
         "then restore your wallets from their backups."
 
+/** The one short line the unlock screen shows when biometric unlock fails and turns itself off. */
+private const val BIOMETRIC_OFF_NOTICE = "Biometric unlock is off. Type your password."
+
 /**
  * The hidden area: a nested graph that opens on the gate. The gate sends the owner to [home], or to the screen that fits the
  * vault's state. [warmUp] runs when the owner submits the App Password, so an app can load what [home] shows while the key is derived.
  * [newVault] is where the gate sends an owner with no vault yet. It is the App Password screen unless the app shows screens first, as
- * Lumio's first run does, and then that app's own App Password screen creates the vault with [createVault]. [content] adds the app's
- * own screens to the graph.
+ * Lumio's first run does, and then that app's own App Password screen creates the vault with [createVault]. [biometric] is the app's
+ * biometric unlock, which the unlock screen tries first while it is on. [content] adds the app's own screens to the graph.
  */
 fun NavGraphBuilder.hiddenArea(
     navController: NavHostController,
@@ -89,12 +95,13 @@ fun NavGraphBuilder.hiddenArea(
     home: String,
     warmUp: (Context) -> Unit = {},
     newVault: String = GateRoutes.CREATE_PASSWORD,
+    biometric: BiometricUnlock? = null,
     content: NavGraphBuilder.() -> Unit,
 ) {
     navigation(startDestination = GateRoutes.GATE, route = LenslyRoute.HIDDEN) {
         composable(GateRoutes.GATE) { HiddenBackdrop { GateRoute(navController, holder, home, newVault) } }
         composable(GateRoutes.CREATE_PASSWORD) { HiddenBackdrop { CreatePasswordRoute(navController, holder, home) } }
-        composable(GateRoutes.UNLOCK) { HiddenBackdrop { UnlockRoute(navController, holder, home, warmUp) } }
+        composable(GateRoutes.UNLOCK) { HiddenBackdrop { UnlockRoute(navController, holder, home, warmUp, biometric) } }
         composable(GateRoutes.UNAVAILABLE) {
             HiddenBackdrop {
                 UnavailableScreen(onClose = { leaveHidden(navController, holder) }, detail = holder.vault.refusal())
@@ -316,24 +323,49 @@ private fun CreatePasswordRoute(navController: NavHostController, holder: VaultH
 }
 
 @Composable
-private fun UnlockRoute(navController: NavHostController, holder: VaultHolder, home: String, warmUp: (Context) -> Unit) {
+private fun UnlockRoute(
+    navController: NavHostController,
+    holder: VaultHolder,
+    home: String,
+    warmUp: (Context) -> Unit,
+    biometric: BiometricUnlock?,
+) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current.applicationContext
     val buffer = remember { PasswordBuffer() }
     var length by remember { mutableIntStateOf(0) }
     var busy by remember { mutableStateOf(false) }
     var triesLeft by remember { mutableStateOf<Int?>(null) }
+    var biometricNotice by remember { mutableStateOf<String?>(null) }
+    var askedBiometric by rememberSaveable { mutableStateOf(false) }
 
     BackHandler { leaveHidden(navController, holder) }
     DisposableEffect(Unit) {
         onDispose { buffer.clear() }
     }
     LaunchedEffect(Unit) { triesLeft = holder.vault.triesBeforeErase() }
+    // With biometric unlock on, its prompt opens once, before the password is typed. A cancel leaves the password; a failure turns it off.
+    LaunchedEffect(Unit) {
+        if (biometric == null || askedBiometric || !biometric.isOn()) return@LaunchedEffect
+        askedBiometric = true
+        launch(Dispatchers.IO) { runCatching { warmUp(context) } }
+        val epoch = holder.unlockEpoch()
+        when (val outcome = biometric.unlock(holder.vault)) {
+            is BiometricOutcome.Unlocked -> {
+                val kept = withContext(Dispatchers.IO + NonCancellable) { holder.adopt(outcome.session, epoch) }
+                if (kept) navController.openHidden(home)
+            }
+            BiometricOutcome.Declined -> {}
+            BiometricOutcome.TurnedOff -> {
+                biometricNotice = BIOMETRIC_OFF_NOTICE
+            }
+        }
+    }
 
     UnlockScreen(
         length = length,
         busy = busy,
-        warning = triesLeft?.let(::eraseWarning),
+        warning = biometricNotice ?: triesLeft?.let(::eraseWarning),
         onKey = { c ->
             if (!busy && buffer.append(c)) length = buffer.length
         },
@@ -348,6 +380,7 @@ private fun UnlockRoute(navController: NavHostController, holder: VaultHolder, h
             val password = buffer.toCharArray()
             buffer.clear()
             length = 0
+            biometricNotice = null
             busy = true
             // The app's warm-up runs while the key is derived, so what Home shows is ready when it opens.
             scope.launch(Dispatchers.IO) { runCatching { warmUp(context) } }

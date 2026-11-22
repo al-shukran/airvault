@@ -41,6 +41,7 @@ import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirSegments
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.pair.IntroStep
+import app.lumio.ui.settings.BIOMETRIC_UNAVAILABLE_REASON
 
 /**
  * A first-run page: the chapter bar, the page's [art], its eyebrow and title, then [content]. The [footer] holds the page's actions and sits at
@@ -270,17 +271,18 @@ fun DuressScreen(onMaybeLater: () -> Unit) {
 }
 
 /**
- * Step I9: the device lock or a fingerprint. Enable runs the system prompt, which Lumio draws nothing over, and Not Now is a calm text action.
+ * Step I9: a fingerprint or face opens Lumio. Enable seals the vault key under the owner's biometric, and Not Now is a calm text
+ * action. Without a strong biometric on the phone, Enable is off and the page says why.
  */
 @Composable
-fun DeviceProtectionScreen(onEnable: () -> Unit, onNotNow: () -> Unit) {
+fun DeviceProtectionScreen(available: Boolean, onEnable: () -> Unit, onNotNow: () -> Unit) {
     val palette = LocalClearAirPalette.current
     FirstRunPage(
         step = FirstRunStep.DeviceProtection,
         eyebrow = "Protect · 3 of 3",
         title = "Enable Device Protection",
         footer = {
-            ClearAirPrimaryButton(text = "Enable", onClick = onEnable)
+            ClearAirPrimaryButton(text = "Enable", onClick = onEnable, enabled = available)
             ClearAirTextAction(text = "Not Now", onClick = onNotNow, modifier = Modifier.padding(top = ClearAirSpacing.xs))
         },
         art = {
@@ -294,12 +296,16 @@ fun DeviceProtectionScreen(onEnable: () -> Unit, onNotNow: () -> Unit) {
             }
         },
     ) {
-        Text(text = "Use your fingerprint or screen lock to open Lumio.", style = ClearAirType.body, color = palette.ink2)
+        Text(text = "Use your fingerprint or face to open Lumio.", style = ClearAirType.body, color = palette.ink2)
         Spacer(Modifier.height(ClearAirSpacing.xs))
         Text(
             text = "Your password still works whenever the sensor doesn't. You can change this later in Settings → Security.",
             style = ClearAirType.label,
             color = palette.ink2,
         )
+        if (!available) {
+            Spacer(Modifier.height(ClearAirSpacing.xs))
+            Text(text = BIOMETRIC_UNAVAILABLE_REASON, style = ClearAirType.label, color = palette.ink2)
+        }
     }
 }

@@ -252,6 +252,20 @@ class Vault constructor(
         withContext(Dispatchers.IO) { mutex.withLock { unlockLocked(password) } }
 
     /**
+     * Opens the real vault from its Vault Key, for Lumio's biometric unlock, which keeps that key sealed under a biometric key (see
+     * [BiometricUnlock]). The key must name a slot of this vault's key file, or nothing opens and the result is null. No password is
+     * checked, so no try is counted. The session takes its own copy of [vaultKey], and the caller zeroes its own.
+     */
+    suspend fun unlockWithVaultKey(vaultKey: ByteArray): VaultSession? =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                if (!layout.exists()) return@withLock null
+                if (VaultKeyFile.ownerIndex(VaultKeyFile.decode(readVaultFile(layout.vaultKey)), vaultKey) < 0) return@withLock null
+                openSessionLocked(vaultKey, isDecoy = false)
+            }
+        }
+
+    /**
      * Saves the Failure Delay cap, [capMs] in milliseconds within [FailureDelay.MIN_CAP_MS] to [FailureDelay.MAX_CAP_MS] or null
      * for Default, and the erase count [wipeAfter] (within [FailureDelay.MIN_WIPE_AFTER] to [FailureDelay.MAX_WIPE_AFTER]), or the
      * saved erase count when [wipeAfter] is null. The password is checked exactly as [unlock] checks it, so a running delay refuses
@@ -482,27 +496,34 @@ class Vault constructor(
                 Checked.Erased -> return UnlockResult.Erased
             }
             try {
-                val isDecoy = opened.role == VaultRole.DECOY
-                val session = VaultSession(
-                    layout,
-                    keys,
-                    opened.vaultKey.copyOf(),
-                    isDecoy = isDecoy,
-                    pad = WalletPad(layout, keys, opened.vaultKey, if (isDecoy) DECOY_SECTION else REAL_SECTION),
-                )
-                // The Review Record pool gets its first batch back when it is missing.
-                if (!session.isDecoy) bestEffort { session.ensureReviewPool() }
-                // The wallet folders and the free-slot list are brought to the layout on every unlock.
-                bestEffort { session.ensurePadded() }
-                // Each vault's photo key is made on its first unlock, so a vault from before photos were sealed gets one.
-                bestEffort { session.ensurePhotoKey() }
-                return UnlockResult.Unlocked(session)
+                return UnlockResult.Unlocked(openSessionLocked(opened.vaultKey, isDecoy = opened.role == VaultRole.DECOY))
             } finally {
                 opened.close()
             }
         } finally {
             Arrays.fill(password, '\u0000')
         }
+    }
+
+    /**
+     * The session of the vault under [vaultKey], which is the Decoy Vault when [isDecoy] is true. The session takes its own copy of the
+     * key. The steps that bring the files to the layout run here, and a step that fails is run again by the next unlock.
+     */
+    private fun openSessionLocked(vaultKey: ByteArray, isDecoy: Boolean): VaultSession {
+        val session = VaultSession(
+            layout,
+            keys,
+            vaultKey.copyOf(),
+            isDecoy = isDecoy,
+            pad = WalletPad(layout, keys, vaultKey, if (isDecoy) DECOY_SECTION else REAL_SECTION),
+        )
+        // The Review Record pool gets its first batch back when it is missing.
+        if (!session.isDecoy) bestEffort { session.ensureReviewPool() }
+        // The wallet folders and the free-slot list are brought to the layout on every unlock.
+        bestEffort { session.ensurePadded() }
+        // Each vault's photo key is made on its first unlock, so a vault from before photos were sealed gets one.
+        bestEffort { session.ensurePhotoKey() }
+        return session
     }
 
     /**

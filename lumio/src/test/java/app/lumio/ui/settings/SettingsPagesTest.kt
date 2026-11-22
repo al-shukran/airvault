@@ -111,8 +111,10 @@ class SettingsPagesTest {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
+                    biometric = null,
                     onEntryGesture = { opened = true },
                     onChangePassword = {},
+                    onBiometric = {},
                     onIdleMinutes = {},
                     onLockWhenSwitching = {},
                     onBack = {},
@@ -133,8 +135,10 @@ class SettingsPagesTest {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
+                    biometric = null,
                     onEntryGesture = {},
                     onChangePassword = { opened = true },
+                    onBiometric = {},
                     onIdleMinutes = {},
                     onLockWhenSwitching = {},
                     onBack = {},
@@ -147,6 +151,50 @@ class SettingsPagesTest {
     }
 
     @Test
+    fun theBiometricSwitchReportsTheOwnersChoice() {
+        var changed: Boolean? = null
+        compose.setContent {
+            LumenTheme {
+                SecuritySettingsPage(
+                    entryGesture = EntryGesture.DEFAULT,
+                    lock = LockSettings(),
+                    biometric = BiometricSwitch(on = false, canEnable = true),
+                    onEntryGesture = {},
+                    onChangePassword = {},
+                    onBiometric = { changed = it },
+                    onIdleMinutes = {},
+                    onLockWhenSwitching = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Biometric Unlock").performScrollTo().performClick()
+        assertEquals(true, changed)
+    }
+
+    @Test
+    fun theBiometricSwitchSaysWhyItCannotBeTurnedOn() {
+        compose.setContent {
+            LumenTheme {
+                SecuritySettingsPage(
+                    entryGesture = EntryGesture.DEFAULT,
+                    lock = LockSettings(),
+                    biometric = BiometricSwitch(on = false, canEnable = false),
+                    onEntryGesture = {},
+                    onChangePassword = {},
+                    onBiometric = {},
+                    onIdleMinutes = {},
+                    onLockWhenSwitching = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText(BIOMETRIC_UNAVAILABLE_REASON).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
     fun theSecurityLockSwitchAppliesAtOnceAndTheTimeoutShowsItsValue() {
         var switching: Boolean? = null
         compose.setContent {
@@ -154,8 +202,10 @@ class SettingsPagesTest {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
+                    biometric = null,
                     onEntryGesture = {},
                     onChangePassword = {},
+                    onBiometric = {},
                     onIdleMinutes = {},
                     onLockWhenSwitching = { switching = it },
                     onBack = {},

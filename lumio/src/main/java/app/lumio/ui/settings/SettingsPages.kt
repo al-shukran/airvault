@@ -61,17 +61,25 @@ fun AddressBookSettingsPage(onBack: () -> Unit, wallets: @Composable () -> Unit)
     }
 }
 
+/** The Biometric Unlock switch of the Security page: whether it is [on], and whether the phone has a strong biometric to enable it. */
+data class BiometricSwitch(val on: Boolean, val canEnable: Boolean)
+
+/** Why Biometric Unlock cannot be turned on: the phone has no strong biometric enrolled. I9 says the same. */
+const val BIOMETRIC_UNAVAILABLE_REASON = "Set up a fingerprint or face unlock on this phone first."
+
 /**
  * The Security page: the Hidden Entry Gesture, whose row opens the choice of another gesture (it asks for the App Password first), the
- * App Password, whose row opens its change, and the lock: the inactivity timeout, and the switch that locks when the app is switched away
- * from. Each control applies as the owner changes it.
+ * App Password, whose row opens its change, Biometric Unlock when [biometric] is given, and the lock: the inactivity timeout, and the
+ * switch that locks when the app is switched away from. Each control applies as the owner changes it.
  */
 @Composable
 fun SecuritySettingsPage(
     entryGesture: EntryGesture,
     lock: LockSettings,
+    biometric: BiometricSwitch?,
     onEntryGesture: () -> Unit,
     onChangePassword: () -> Unit,
+    onBiometric: (Boolean) -> Unit,
     onIdleMinutes: (Int) -> Unit,
     onLockWhenSwitching: (Boolean) -> Unit,
     onBack: () -> Unit,
@@ -92,6 +100,21 @@ fun SecuritySettingsPage(
                 description = "Opens Lumio. Lensly's password is separate.",
                 onClick = onChangePassword,
             )
+        }
+        if (biometric != null) {
+            SettingsSection(title = "Unlock") {
+                SettingsSwitchRow(
+                    title = "Biometric Unlock",
+                    description = if (biometric.on || biometric.canEnable) {
+                        "A fingerprint or face opens Lumio. Your password still works."
+                    } else {
+                        BIOMETRIC_UNAVAILABLE_REASON
+                    },
+                    checked = biometric.on,
+                    onCheckedChange = onBiometric,
+                    enabled = biometric.on || biometric.canEnable,
+                )
+            }
         }
         SettingsSection(title = "Lock") {
             SliderSetting(
