@@ -25,7 +25,26 @@ jobs:
           distribution: temurin
           java-version: '21.0.13+9'
 
+      # cache-disabled, as in pr-fast.yml: setup-gradle would save its own entries. This job only restores the dependency cache below.
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-disabled: true
+
+      # The same paths and key as pr-fast.yml's deps cache (DEPS_CACHE_PATHS), restored read-only. The Robolectric android-all jar
+      # resolves into modules-2 like any other module, so a hit keeps this job off Maven Central. A miss runs online, as before.
+      - name: Restore the Gradle dependency cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+            ~/.gradle/caches/9.7.0/dependencies-accessors
+            ~/.gradle/caches/9.7.0/generated-gradle-jars
+            ~/.gradle/caches/9.7.0/kotlin-dsl
+            ~/.gradle/caches/9.7.0/scripts
+            ~/.gradle/caches/9.7.0/transforms
+            ~/.gradle/caches/jars-9
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
 
       - name: Record goldens
         run: ./gradlew :app:recordRoborazziDebug :lumio:recordRoborazziDebug --continue
