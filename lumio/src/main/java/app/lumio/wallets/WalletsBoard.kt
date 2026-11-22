@@ -38,7 +38,7 @@ import kotlinx.coroutines.withContext
 private const val REFRESH_NOTICE = "Some balances could not be refreshed. The last known balances are shown."
 
 /** What a read of the vault gives the screens: the balances of one side, and the tokens of its Ethereum accounts. */
-private class Loaded(val view: WalletsView, val tokenCounts: Map<WalletAccount, Int>)
+private class Loaded(val view: WalletsView, val tokenCounts: Map<WalletAccount, Int>, val tokenUsd: Map<WalletAccount, Double>)
 
 /**
  * What an account's screen reads beyond its balance: its tokens, its holdings of other assets, the prices of its assets, the addresses its activity is read
@@ -97,6 +97,10 @@ internal class WalletsBoard(
     var tokenCounts by mutableStateOf<Map<WalletAccount, Int>>(emptyMap())
         private set
 
+    /** The dollars of the tokens each account holds on the side, for the accounts whose tokens have a price. */
+    var tokenUsd by mutableStateOf<Map<WalletAccount, Double>>(emptyMap())
+        private set
+
     /** True while a read of the networks runs. The freshness line says "Refreshing…" then. */
     var refreshing by mutableStateOf(false)
         private set
@@ -141,6 +145,7 @@ internal class WalletsBoard(
             endRefresh()
             view = null
             tokenCounts = emptyMap()
+            tokenUsd = emptyMap()
             refreshDue = true
         }
         side = mode
@@ -204,6 +209,7 @@ internal class WalletsBoard(
         side = null
         view = null
         tokenCounts = emptyMap()
+        tokenUsd = emptyMap()
         accountReads.clear()
         chartReads.clear()
         endRefresh()
@@ -222,6 +228,7 @@ internal class WalletsBoard(
         if (mode != side) return
         view = loaded.view
         tokenCounts = loaded.tokenCounts
+        tokenUsd = loaded.tokenUsd
         if (withAccounts) {
             accountsJob?.cancel()
             accountsJob = scope.launch { readAccounts(mode, loaded.view) }
@@ -258,19 +265,28 @@ internal class WalletsBoard(
             ?.let { reads.activity = it }
     }
 
-    /** The balances of [mode] from the vault's caches, and the tokens of its Ethereum accounts. It reads no balance from the network. */
+    /**
+     * The balances of [mode] from the vault's caches, and the tokens of its Ethereum accounts with the dollars of the ones that have a price. It reads
+     * no balance from the network.
+     */
     private suspend fun load(mode: NetworkMode): Loaded {
         val view = WalletsLoader.read(app, session, mode)
-        return Loaded(view, tokenCountsOf(view, mode))
+        val held = heldTokensOf(view, mode)
+        val prices = readPrices(held.values.flatMap { AssetRows.tokenIds(it) })
+        return Loaded(
+            view,
+            tokenCounts = held.mapValues { (_, tokens) -> tokens.count { it.amount.signum() > 0 } },
+            tokenUsd = held.mapNotNull { (account, tokens) -> AssetRows.tokensUsd(tokens, prices)?.let { account to it } }.toMap(),
+        )
     }
 
-    private suspend fun tokenCountsOf(view: WalletsView, mode: NetworkMode): Map<WalletAccount, Int> = withContext(Dispatchers.IO) {
+    private suspend fun heldTokensOf(view: WalletsView, mode: NetworkMode): Map<WalletAccount, List<TokenHolding>> = withContext(Dispatchers.IO) {
         val accounts = view.wallets.flatMap { view.accountsOf(it.id) }.filter { it.namespace == Networks.EIP155 }
         val settings = EvmSettingsStore.read(session)
         val chains = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
         val cache = TokenBalanceCache.read(session)
         accounts.associateWith { account ->
-            TokenPortfolio.holdingsAt(account.walletId, account.address, chains, app.tokensFor(session), cache).count { it.amount.signum() > 0 }
+            TokenPortfolio.holdingsAt(account.walletId, account.address, chains, app.tokensFor(session), cache)
         }
     }
 }

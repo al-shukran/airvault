@@ -7,10 +7,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -137,14 +135,6 @@ class LumioKitScreenshotTest {
     fun stepThreadAtEachNode() = compose.lumioSnapshot("kit_step_thread") {
         KitColumn {
             for (node in 0..3) StepThread(current = node)
-        }
-    }
-
-    @Test
-    fun skeleton() = compose.lumioSnapshot("kit_skeleton") {
-        KitColumn {
-            Skeleton(Modifier.width(180.dp).height(18.dp))
-            Skeleton(Modifier.width(120.dp).height(14.dp))
         }
     }
 
