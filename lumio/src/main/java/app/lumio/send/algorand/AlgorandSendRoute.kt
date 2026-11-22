@@ -48,6 +48,7 @@ import app.lumio.pair.PairedWallets
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
+import app.lumio.send.algorandOwnChoices
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendAmountPage
 import app.lumio.ui.send.SendChangeRecipientDialog
@@ -424,7 +425,7 @@ internal fun AlgorandSendRoute(
                 error = if (invalid) AlgorandSend.recipientError(settled) else null,
                 hint = null,
                 canContinue = recipient.isNotBlank() && AlgorandSend.recipientError(recipient) == null,
-                accounts = emptyList(),
+                accounts = algorandOwnChoices(wallet, address),
                 addressBook = wallet.addressBook
                     .filter { AlgorandSend.recipientError(it.address) == null }
                     .map { entry -> SendChoice(title = entry.name, detail = entry.label ?: "Address Book", address = entry.address) },
