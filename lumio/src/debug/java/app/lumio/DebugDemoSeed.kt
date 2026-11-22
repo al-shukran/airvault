@@ -15,14 +15,11 @@ import app.lumio.network.NetworkModeStore
 import app.lumio.pair.PairScan
 import app.lumio.pair.PairedWallets
 import app.lumio.pair.ScanStep
-import app.lumio.ui.wallets.WalletSheet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Debug-only: a demo vault with a fixed App Password and the pairing of a throwaway wallet, so Lumio's screens open on an emulator without a
@@ -40,12 +37,6 @@ internal object DebugDemoSeed {
     private const val EXTRA = "debugDemoSeed"
     private const val TAG = "DebugDemoSeed"
 
-    /** How long the wallet waits for the Wallets home to show it, before the seed gives up on opening it. */
-    private const val OPEN_WAIT_MS = 8_000L
-
-    /** How often the wait looks at the Wallets home. */
-    private const val POLL_MS = 50L
-
     /** The App Password of the demo vault. It is public, and it guards only the demo vault of an emulator. */
     private const val SEED_UNLOCK = "Vq7m-Lp2x-Tz9w-Kd4n"
 
@@ -53,13 +44,13 @@ internal object DebugDemoSeed {
     fun mnemonicOf(intent: Intent?): String? = intent?.getStringExtra(EXTRA)?.trim()?.takeIf { it.isNotEmpty() }
 
     /**
-     * Pairs the demo wallet in the demo vault, then calls [showHome] and opens the wallet over the Wallets home once the home shows it. Nothing
-     * opens on a device that is not an emulator, on a vault with another password, or on a failure, which is logged.
+     * Pairs the demo wallet in the demo vault, then calls [showHome], which opens the hidden area on the Accounts home. Nothing opens on a device
+     * that is not an emulator, on a vault with another password, or on a failure, which is logged.
      */
     suspend fun seed(app: LumioApp, mnemonic: String, showHome: () -> Unit) {
-        val walletId = withContext(Dispatchers.IO) { pairDemoWallet(app, mnemonic) } ?: return
+        withContext(Dispatchers.IO) { pairDemoWallet(app, mnemonic) } ?: return
         showHome()
-        openWallet(app, walletId)
+        Log.i(TAG, "The demo wallet is on the Accounts home.")
     }
 
     /** The demo vault, open, with its demo wallet paired and its balances read. Returns the wallet's id, or null when the vault is not open. */
@@ -101,22 +92,6 @@ internal object DebugDemoSeed {
             runCatching { HomeLoader.refreshNative(app, session, NetworkMode.TESTNET) }
                 .onFailure { Log.w(TAG, "The native balances did not read.", it) }
         }
-    }
-
-    /**
-     * Opens the wallet over the Wallets home once the home's board has the wallet, which it has once the home is on screen. A sheet opened before
-     * that closes at once, since it has no wallet to show. The wait ends after [OPEN_WAIT_MS].
-     */
-    private suspend fun openWallet(app: LumioApp, walletId: String) {
-        val shown = withTimeoutOrNull(OPEN_WAIT_MS) {
-            while (app.lumioVault()?.wallets?.view?.wallets?.any { it.id == walletId } != true) delay(POLL_MS)
-        }
-        if (shown == null) {
-            refused("the Wallets home did not show the wallet in time")
-            return
-        }
-        withContext(Dispatchers.Main) { app.lumioVault()?.sheets?.open(WalletSheet.Wallet(walletId)) }
-        Log.i(TAG, "The demo wallet is open on the Wallets home.")
     }
 
     /** Logs why the seed did nothing, so a launch that shows no wallet has a reason in logcat. Returns null, which is the seed's answer then. */

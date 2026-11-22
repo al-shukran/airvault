@@ -66,6 +66,15 @@ internal object AssetRows {
         return (listOfNotNull(native) + tokens.mapNotNull(::erc20IdOf)).distinct()
     }
 
+    /** The prices of the tokens [holdings] hold, which their dollar values need. */
+    fun tokenIds(holdings: List<TokenHolding>): List<AssetId> = holdings.mapNotNull(::erc20IdOf).distinct()
+
+    /** The dollar value of the [holdings] that [prices] gives a price, or null when none of them has one. */
+    fun tokensUsd(holdings: List<TokenHolding>, prices: Map<AssetId, Price>): Double? = holdings.mapNotNull { holding ->
+        val price = erc20IdOf(holding)?.let { prices[it] } ?: return@mapNotNull null
+        BigDecimal(holding.amount).movePointLeft(holding.token.decimals).toDouble() * price.usd
+    }.takeIf { it.isNotEmpty() }?.sum()
+
     /** The key of the asset that [tx] moves: its lowercase contract, or [NATIVE_ASSET_KEY] for the native coin. */
     fun assetKeyOf(tx: LumioTx): String = tx.asset.contract?.lowercase() ?: NATIVE_ASSET_KEY
 

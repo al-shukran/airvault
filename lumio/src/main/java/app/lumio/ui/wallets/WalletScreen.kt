@@ -2,73 +2,85 @@ package app.lumio.ui.wallets
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import app.lensly.core.registry.NetworkEntry
-import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.components.IslandDivider
-import app.lensly.ui.components.LumioIsland
-import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.ClearAirSpacing
+import app.lensly.ui.theme.ClearAirType
+import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.data.Clock
 import app.lumio.data.WallClock
+import app.lumio.home.HomeFormat
 import app.lumio.network.NetworkMode
-import app.lumio.ui.kit.GlowBackdrop
-import app.lumio.ui.kit.WalletOrb
+import app.lumio.ui.kit.ClearAirAmount
+import app.lumio.ui.kit.ClearAirEyebrow
+import app.lumio.ui.kit.ClearAirListRow
+import app.lumio.ui.kit.ClearAirMonogram
+import app.lumio.ui.kit.ClearAirRefreshBox
+import app.lumio.ui.kit.ClearAirSkeleton
+import app.lumio.ui.kit.ClearAirWalletEmblem
 import app.lumio.ui.network.label
-import app.lumio.ui.theme.LumioGutter
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+/** The width of the bar a never-read value takes, in the two lines of an account row. */
+private val VALUE_BAR_WIDTH = 76.dp
+private val COINS_BAR_WIDTH = 44.dp
+
+/** The emblem beside the wallet's detail line, as C6 draws it. */
+private val DETAIL_EMBLEM = 24.dp
 
 /**
- * One paired wallet (section 2.1, Wallet), as the body of its page: the orb and total under a glow, the side and the summary of its accounts, and the
- * freshness line. Each chain of the wallet is an island of its accounts, with the address and the token count of each. An account opens its own page.
- * The page's top bar is the shell's, so this has none, and the page does not pull to refresh. [tokenCounts] holds the tokens each Ethereum account
- * holds, and [network] looks up the logo of its network. [notice] names a read that did not answer.
+ * One paired wallet (C2), as the body of its page: its total under a "Total" eyebrow with the freshness line, and the line that says how many accounts
+ * it holds in how many Lensly apps. Each chain family is an island under its own eyebrow and its total. An account opens its own page. A family's
+ * accounts that hold nothing, or are worth under [FOLD_BELOW_USD], fold into one "More Accounts" row that opens them in place. Pulling down reads the
+ * balances again. The page's top bar is the shell's, so this has none. [tokenCounts] holds the tokens each Ethereum account holds, and [usdOf] gives an
+ * account's value in dollars. [tokenUsd] gives the dollars of the tokens an account holds, which count toward its fold. [notice] names a read that did not answer.
  */
 @Composable
 fun WalletScreen(
-    fingerprint: Int,
     mode: NetworkMode,
     accounts: List<WalletAccount>,
     tokenCounts: Map<WalletAccount, Int>,
-    network: (Long) -> NetworkEntry?,
     totalUsd: Double?,
+    usdOf: (WalletAccount) -> Double?,
     showTotal: Boolean,
     showBalances: Boolean,
     refreshing: Boolean,
     updatedAtMs: Long?,
     notice: String?,
     onAccount: (WalletAccount) -> Unit,
+    onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
+    tokenUsd: Map<WalletAccount, Double> = emptyMap(),
+    refreshByPull: Boolean = false,
+    pairedAtMs: Long? = null,
     clock: Clock = WallClock,
+    zone: ZoneId = ZoneId.systemDefault(),
 ) {
-    // A pushed wallet is populated on its first frame, so its rows do not stagger in. The Wallets home alone staggers its list.
-    val running = false
-    val evmChainId = WalletAccounts.primaryEvmChainId(mode)
-    Column(modifier = modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            contentPadding = PaddingValues(horizontal = LumioGutter, vertical = LenslySpacing.sm),
-        ) {
+    ClearAirRefreshBox(refreshByPull = refreshByPull, onRefresh = onRefresh, modifier = modifier.fillMaxSize()) {
+        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = ClearAirSpacing.md)) {
             item(key = "hero") {
                 WalletHero(
-                    fingerprint = fingerprint,
-                    mode = mode,
-                    accounts = accounts,
+                    detail = walletDetailLine(accounts, pairedAtMs, zone),
                     totalUsd = totalUsd,
                     showTotal = showTotal,
                     refreshing = refreshing,
@@ -78,16 +90,16 @@ fun WalletScreen(
             }
             notice?.let { message ->
                 item(key = "notice") {
-                    InlineBanner(message = message, tone = BannerTone.Warning, modifier = Modifier.padding(bottom = LenslySpacing.sm))
+                    WalletNotice(message = message, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
                 }
             }
             if (accounts.isEmpty()) {
                 item(key = "none") {
                     Text(
                         text = "This wallet has no accounts on ${mode.label().lowercase()} yet.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = LenslySpacing.md),
+                        modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md),
+                        style = ClearAirType.body,
+                        color = LocalClearAirPalette.current.ink2,
                     )
                 }
             }
@@ -96,13 +108,11 @@ fun WalletScreen(
                     ChainIsland(
                         family = family,
                         group = group,
-                        accounts = accounts,
-                        mode = mode,
-                        evmChainId = evmChainId,
-                        network = network,
                         tokenCounts = tokenCounts,
+                        usdOf = usdOf,
+                        tokenUsd = tokenUsd,
+                        showTotal = showTotal,
                         showBalances = showBalances,
-                        running = running,
                         onAccount = onAccount,
                     )
                 }
@@ -111,69 +121,140 @@ fun WalletScreen(
     }
 }
 
-/** The hero of a wallet: its orb at 72 dp and its total under a glow, then its side and summary, and the freshness line. */
+/**
+ * The hero of a wallet: "Total" over its total, the line that says what it holds, and the freshness line. A wallet with no price says so in place of
+ * its total.
+ */
 @Composable
-private fun WalletHero(
-    fingerprint: Int,
-    mode: NetworkMode,
-    accounts: List<WalletAccount>,
-    totalUsd: Double?,
-    showTotal: Boolean,
-    refreshing: Boolean,
-    updatedAtMs: Long?,
-    clock: Clock,
-) {
-    GlowBackdrop(breathing = refreshing, modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.md)) {
-        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            WalletOrb(fingerprint = fingerprint, diameter = 72.dp)
-            Spacer(Modifier.height(LenslySpacing.sm))
-            TotalAmount(usd = totalUsd, shown = showTotal)
-            Text(
-                text = "${mode.label()} · ${summaryLine(accounts)}",
-                modifier = Modifier.padding(top = LenslySpacing.xs),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            FreshnessLine(refreshing = refreshing, updatedAtMs = updatedAtMs, clock = clock, modifier = Modifier.padding(top = LenslySpacing.xs))
+private fun WalletHero(detail: String?, totalUsd: Double?, showTotal: Boolean, refreshing: Boolean, updatedAtMs: Long?, clock: Clock) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.sm)) {
+        if (detail != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ClearAirWalletEmblem(tile = DETAIL_EMBLEM)
+                Spacer(Modifier.width(ClearAirSpacing.xs))
+                Text(text = detail, style = ClearAirType.body, color = LocalClearAirPalette.current.ink2)
+            }
         }
+        ClearAirEyebrow(text = "Total")
+        if (totalUsd == null) {
+            Text(text = "No price yet", style = ClearAirType.rowTitle, color = LocalClearAirPalette.current.ink2)
+        } else {
+            ClearAirAmount(text = HomeFormat.usd(totalUsd), hidden = !showTotal, style = ClearAirType.total)
+        }
+        FreshnessLine(refreshing = refreshing, updatedAtMs = updatedAtMs, clock = clock, modifier = Modifier.padding(top = ClearAirSpacing.xxs))
     }
 }
 
-/** The accounts of one chain [family] as an island under the family's name. A row's place in [accounts] sets its delay in the enter stagger. */
+/**
+ * The accounts of one chain [family] as an island under its eyebrow: "Ethereum App · 10" with the family's total at the right. Its accounts that
+ * hold nothing, or are under the threshold, fold into one row. Opening that row shows them in place, and the island keeps its own state.
+ */
 @Composable
 private fun ChainIsland(
     family: String,
     group: List<WalletAccount>,
-    accounts: List<WalletAccount>,
-    mode: NetworkMode,
-    evmChainId: Long,
-    network: (Long) -> NetworkEntry?,
     tokenCounts: Map<WalletAccount, Int>,
+    usdOf: (WalletAccount) -> Double?,
+    tokenUsd: Map<WalletAccount, Double>,
+    showTotal: Boolean,
     showBalances: Boolean,
-    running: Boolean,
     onAccount: (WalletAccount) -> Unit,
 ) {
-    Column(modifier = Modifier.padding(bottom = LenslySpacing.md)) {
-        Text(
-            text = WalletAccounts.familyLabel(family),
-            modifier = Modifier.padding(bottom = LenslySpacing.xs),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        LumioIsland {
-            group.forEachIndexed { position, account ->
-                if (position > 0) IslandDivider()
-                AccountRowItem(
-                    account = account,
-                    icon = accountIconSpec(account, evmChainId, network),
-                    tokens = tokenCounts[account] ?: 0,
-                    mode = mode,
-                    showBalance = showBalances,
-                    running = running,
-                    index = accounts.indexOf(account),
-                    onClick = { onAccount(account) },
-                )
-            }
+    val fold = foldAccounts(group, usdOf, tokenUsdOf = { tokenUsd[it] })
+    var expanded by rememberSaveable(family) { mutableStateOf(false) }
+    val rows = if (expanded) group else fold.shown
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = ClearAirSpacing.sm)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ClearAirEyebrow(text = "${WalletAccounts.familyLabel(family)} App · ${group.size}", modifier = Modifier.weight(1f))
+            groupUsd(group, usdOf)?.let { usd -> ClearAirAmount(text = HomeFormat.usd(usd), hidden = !showTotal, style = ClearAirType.rowValue) }
+        }
+        rows.forEachIndexed { index, account ->
+            if (index > 0) RowDivider(indent = ROW_DIVIDER_INDENT)
+            AccountItem(
+                account = account,
+                tokens = tokenCounts[account] ?: 0,
+                usd = usdOf(account),
+                showTotal = showTotal,
+                showBalances = showBalances,
+                onClick = { onAccount(account) },
+            )
+        }
+        if (fold.folded.isNotEmpty()) {
+            if (rows.isNotEmpty()) RowDivider(indent = ROW_DIVIDER_INDENT)
+            FoldRow(
+                count = fold.folded.size,
+                summary = foldSummary(fold),
+                usd = groupUsd(fold.folded, usdOf),
+                showTotal = showTotal,
+                onClick = { expanded = !expanded },
+            )
         }
     }
 }
+
+/**
+ * One account of a wallet: its monogram, its title and its short address with its asset count, and its value at the right. The value is its dollars
+ * when it has a price, with its coins under it; a balance no read has reached is a bar of the value's size.
+ */
+@Composable
+private fun AccountItem(account: WalletAccount, tokens: Int, usd: Double?, showTotal: Boolean, showBalances: Boolean, onClick: () -> Unit) {
+    ClearAirListRow(
+        title = accountTitle(account),
+        description = accountLine(account, tokens),
+        leading = { ClearAirMonogram(text = monogramOf(account)) },
+        trailing = { AccountValue(account = account, usd = usd, showTotal = showTotal, showBalances = showBalances) },
+        onClick = onClick,
+    )
+}
+
+/** The value of an account at the right of its row: its dollars over its coins, or only its coins without a price, or two bars before a read. */
+@Composable
+private fun AccountValue(account: WalletAccount, usd: Double?, showTotal: Boolean, showBalances: Boolean) {
+    val balance = account.balance
+    Column(horizontalAlignment = Alignment.End) {
+        if (balance == null) {
+            ClearAirSkeleton(modifier = Modifier.width(VALUE_BAR_WIDTH).height(14.dp))
+            Spacer(Modifier.height(ClearAirSpacing.xxs))
+            ClearAirSkeleton(modifier = Modifier.width(COINS_BAR_WIDTH).height(9.dp))
+            return@Column
+        }
+        val coins = "${HomeFormat.coins(balance.balance)} ${balance.symbol}"
+        if (usd == null) {
+            ClearAirAmount(text = coins, hidden = !showBalances, style = ClearAirType.rowValue)
+        } else {
+            ClearAirAmount(text = HomeFormat.usd(usd), hidden = !showTotal, style = ClearAirType.rowValue)
+            ClearAirAmount(text = coins, hidden = !showBalances, style = ClearAirType.label, color = LocalClearAirPalette.current.ink2)
+        }
+    }
+}
+
+/** The row that holds an island's folded accounts: "+7" as its monogram, "7 More Accounts", what they hold, and their total. Opening it shows them. */
+@Composable
+private fun FoldRow(count: Int, summary: String, usd: Double?, showTotal: Boolean, onClick: () -> Unit) {
+    ClearAirListRow(
+        title = moreAccountsTitle(count),
+        description = summary,
+        leading = { ClearAirMonogram(text = "+$count") },
+        trailing = if (usd == null) null else ({ ClearAirAmount(text = HomeFormat.usd(usd), hidden = !showTotal, style = ClearAirType.rowValue) }),
+        onClick = onClick,
+    )
+}
+
+/**
+ * The line under a wallet's total: how many accounts it holds on the side and in how many Lensly apps, and the day it was paired, such as "30 accounts
+ * in 4 Lensly apps · paired 21 Nov". Null when it holds no account on the side.
+ */
+internal fun walletDetailLine(accounts: List<WalletAccount>, pairedAtMs: Long?, zone: ZoneId): String? {
+    if (accounts.isEmpty()) return null
+    val apps = accounts.map { it.namespace }.distinct().size
+    val appsText = if (apps == 1) "1 Lensly app" else "$apps Lensly apps"
+    val accountsText = if (accounts.size == 1) "1 account" else "${accounts.size} accounts"
+    val paired = pairedAtMs?.let { " · paired ${PAIRED_DATE.withZone(zone).format(Instant.ofEpochMilli(it))}" }.orEmpty()
+    return "$accountsText in $appsText$paired"
+}
+
+/** The day a wallet was paired, as "21 Nov". */
+private val PAIRED_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)

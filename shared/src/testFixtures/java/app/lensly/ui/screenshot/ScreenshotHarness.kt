@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.LocalVaultLock
 import app.lensly.ui.theme.CoverTheme
@@ -53,19 +54,19 @@ fun ComposeContentTestRule.snapshot(
     settleMs: Long = 0L,
     beforeCapture: ComposeContentTestRule.() -> Unit = {},
     theme: @Composable (content: @Composable () -> Unit) -> Unit = { LumenTheme(content = it) },
+    frame: DpSize? = null,
+    fontScale: Float = 1f,
     content: @Composable () -> Unit,
 ) {
+    val size = frame ?: DpSize((SCREEN_WIDTH_PX / SCREEN_DENSITY).dp, (SCREEN_HEIGHT_PX / SCREEN_DENSITY).dp)
     mainClock.autoAdvance = false
     setContent {
-        CompositionLocalProvider(LocalDensity provides Density(SCREEN_DENSITY)) {
+        CompositionLocalProvider(LocalDensity provides Density(SCREEN_DENSITY, fontScale)) {
             theme {
                 Box(
                     modifier = Modifier
                         .testTag(SCREEN_TAG)
-                        .requiredSize(
-                            width = (SCREEN_WIDTH_PX / SCREEN_DENSITY).dp,
-                            height = (SCREEN_HEIGHT_PX / SCREEN_DENSITY).dp,
-                        )
+                        .requiredSize(width = size.width, height = size.height)
                         .background(MaterialTheme.colorScheme.background),
                 ) {
                     // Every golden is of the unlocked vault, so a detail top bar shows its lock icon.
