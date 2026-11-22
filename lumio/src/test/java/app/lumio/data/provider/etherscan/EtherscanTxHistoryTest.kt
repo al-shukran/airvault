@@ -15,8 +15,8 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -38,7 +38,7 @@ class EtherscanTxHistoryTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     private fun cfg(key: String?) = ProviderConfig(baseUrl = server.url("/").toString(), apiKey = key)
@@ -53,12 +53,12 @@ class EtherscanTxHistoryTest {
 
     @Test
     fun theHistoryNamesTheChainAndSendsTheKeyAsTheApikeyParameter() {
-        server.enqueue(MockResponse().setBody(explorerAnswer("0", "No transactions found", "[]")))
-        server.enqueue(MockResponse().setBody(explorerAnswer("0", "No transactions found", "[]")))
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("0", "No transactions found", "[]")).build())
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("0", "No transactions found", "[]")).build())
 
         history(cfg("ek_test"))
 
-        val first = server.takeRequest().requestUrl!!
+        val first = server.takeRequest().url
         assertEquals("/v2/api", first.encodedPath)
         assertEquals("1", first.queryParameter("chainid"))
         assertEquals("account", first.queryParameter("module"))
@@ -66,7 +66,7 @@ class EtherscanTxHistoryTest {
         assertEquals(account, first.queryParameter("address"))
         assertEquals("desc", first.queryParameter("sort"))
         assertEquals("ek_test", first.queryParameter("apikey"))
-        val second = server.takeRequest().requestUrl!!
+        val second = server.takeRequest().url
         assertEquals("tokentx", second.queryParameter("action"))
         assertEquals("ek_test", second.queryParameter("apikey"))
         assertEquals(1, charges.size)
@@ -74,8 +74,8 @@ class EtherscanTxHistoryTest {
 
     @Test
     fun theHistoryIsTheNormalListThenTheTokenList() {
-        server.enqueue(MockResponse().setBody(explorerAnswer("1", "OK", "[${normalRow(hash, account, other)}]")))
-        server.enqueue(MockResponse().setBody(explorerAnswer("1", "OK", "[${tokenRow(hash, other, account)}]")))
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("1", "OK", "[${normalRow(hash, account, other)}]")).build())
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("1", "OK", "[${tokenRow(hash, other, account)}]")).build())
 
         val rows = history(cfg("ek_test"))
 

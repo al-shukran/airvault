@@ -18,8 +18,8 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -44,7 +44,7 @@ class RoutescanTxHistoryTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     private fun cfg(key: String? = null) = ProviderConfig(baseUrl = server.url("/").toString(), apiKey = key)
@@ -55,12 +55,12 @@ class RoutescanTxHistoryTest {
 
     @Test
     fun theHistoryUsesTheEtherscanCompatiblePathWithTheSameParameters() {
-        server.enqueue(MockResponse().setBody(explorerAnswer("0", "No transactions found", "[]")))
-        server.enqueue(MockResponse().setBody(explorerAnswer("0", "No transactions found", "[]")))
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("0", "No transactions found", "[]")).build())
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("0", "No transactions found", "[]")).build())
 
         history()
 
-        val first = server.takeRequest().requestUrl!!
+        val first = server.takeRequest().url
         assertEquals("/v2/network/mainnet/evm/1/etherscan/api", first.encodedPath)
         assertEquals("account", first.queryParameter("module"))
         assertEquals("txlist", first.queryParameter("action"))
@@ -69,14 +69,14 @@ class RoutescanTxHistoryTest {
         assertEquals("20", first.queryParameter("offset"))
         assertEquals("desc", first.queryParameter("sort"))
         assertNull(first.queryParameter("apikey"))
-        assertEquals("tokentx", server.takeRequest().requestUrl!!.queryParameter("action"))
+        assertEquals("tokentx", server.takeRequest().url.queryParameter("action"))
         assertEquals(1, charges.size)
     }
 
     @Test
     fun theHistoryIsTheNormalListThenTheTokenList() {
-        server.enqueue(MockResponse().setBody(explorerAnswer("1", "OK", "[${normalRow(hash, account, other)}]")))
-        server.enqueue(MockResponse().setBody(explorerAnswer("1", "OK", "[${tokenRow(hash, other, account)}]")))
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("1", "OK", "[${normalRow(hash, account, other)}]")).build())
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("1", "OK", "[${tokenRow(hash, other, account)}]")).build())
 
         val rows = history()
 
@@ -87,15 +87,15 @@ class RoutescanTxHistoryTest {
 
     @Test
     fun theKeyIsAHeaderOfBothListsAndNeverAQueryParameter() {
-        server.enqueue(MockResponse().setBody(explorerAnswer("0", "No transactions found", "[]")))
-        server.enqueue(MockResponse().setBody(explorerAnswer("0", "No transactions found", "[]")))
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("0", "No transactions found", "[]")).build())
+        server.enqueue(MockResponse.Builder().body(explorerAnswer("0", "No transactions found", "[]")).build())
 
         history(cfg("rs_test"))
 
         repeat(2) {
             val request = server.takeRequest()
-            assertEquals("rs_test", request.getHeader("apikey"))
-            assertNull(request.requestUrl!!.queryParameter("apikey"))
+            assertEquals("rs_test", request.headers["apikey"])
+            assertNull(request.url.queryParameter("apikey"))
         }
     }
 
@@ -107,7 +107,7 @@ class RoutescanTxHistoryTest {
 
     @Test
     fun aRateLimitOnAListIsRateLimitedWithItsRetryAfter() {
-        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "5"))
+        server.enqueue(MockResponse.Builder().code(429).setHeader("Retry-After", "5").build())
 
         assertEquals(5_000L, assertFailsWith<ProviderError.RateLimited> { history() }.retryAfterMs)
     }

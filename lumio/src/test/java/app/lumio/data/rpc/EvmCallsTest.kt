@@ -9,10 +9,10 @@ import app.lumio.data.provider.Nonce
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.TipHeight
 import java.math.BigInteger
-import okhttp3.mockwebserver.Dispatcher
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.RecordedRequest
+import mockwebserver3.Dispatcher
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+import mockwebserver3.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -31,11 +31,11 @@ class EvmCallsTest {
     fun start() {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
-                val body = request.body.readUtf8()
+                val body = request.body?.utf8().orEmpty()
                 bodies.add(body)
                 val method = Regex("\"method\":\"([^\"]+)\"").find(body)?.groupValues?.get(1).orEmpty()
-                val result = answers[method] ?: return MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"nope"}}""")
-                return MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":$result}""")
+                val result = answers[method] ?: return MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"nope"}}""").build()
+                return MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":$result}""").build()
             }
         }
         server.start()
@@ -45,7 +45,7 @@ class EvmCallsTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     private fun <T> run(req: app.lumio.data.provider.Request<T>): T =

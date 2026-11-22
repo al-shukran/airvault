@@ -19,8 +19,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -41,7 +41,7 @@ class BlockscoutProviderTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     /** The plugin with its Ethereum instance set to the local server. */
@@ -51,10 +51,10 @@ class BlockscoutProviderTest {
 
     @Test
     fun theNativeBalanceIsWeiFromTheInstanceAccountApi() {
-        server.enqueue(MockResponse().setBody("""{"message":"OK","result":"663046792267785498951364","status":"1"}"""))
+        server.enqueue(MockResponse.Builder().body("""{"message":"OK","result":"663046792267785498951364","status":"1"}""").build())
 
         assertEquals(BigInteger("663046792267785498951364"), call(NativeBalance(ETH, ethAddress)))
-        val url = server.takeRequest().requestUrl!!
+        val url = server.takeRequest().url
         assertEquals("/api", url.encodedPath)
         assertEquals("account", url.queryParameter("module"))
         assertEquals("balance", url.queryParameter("action"))
@@ -63,30 +63,30 @@ class BlockscoutProviderTest {
 
     @Test
     fun anInvalidAddressHashIsFatalSoAnotherProviderCanAnswer() {
-        server.enqueue(MockResponse().setBody("""{"message":"Invalid address hash","result":null,"status":"0"}"""))
+        server.enqueue(MockResponse.Builder().body("""{"message":"Invalid address hash","result":null,"status":"0"}""").build())
 
         assertFailsWith<ProviderError.Fatal> { call(NativeBalance(ETH, ethAddress)) }
     }
 
     @Test
     fun aRetryAfterHeaderIsTheCooldownInMilliseconds() {
-        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "30"))
+        server.enqueue(MockResponse.Builder().code(429).setHeader("Retry-After", "30").build())
 
         assertEquals(30_000L, assertFailsWith<ProviderError.RateLimited> { call(NativeBalance(ETH, ethAddress)) }.retryAfterMs)
     }
 
     @Test
     fun aServerErrorIsTransient() {
-        server.enqueue(MockResponse().setResponseCode(503))
+        server.enqueue(MockResponse.Builder().code(503).build())
 
         assertFailsWith<ProviderError.Transient> { call(NativeBalance(ETH, ethAddress)) }
     }
 
     @Test
     fun malformedAnswersAreTransientOrFatal() {
-        server.enqueue(MockResponse().setBody("<html>portal</html>"))
-        server.enqueue(MockResponse().setBody("""{"message":"OK","result":"1e18","status":"1"}"""))
-        server.enqueue(MockResponse().setBody("""{"message":"OK"}"""))
+        server.enqueue(MockResponse.Builder().body("<html>portal</html>").build())
+        server.enqueue(MockResponse.Builder().body("""{"message":"OK","result":"1e18","status":"1"}""").build())
+        server.enqueue(MockResponse.Builder().body("""{"message":"OK"}""").build())
 
         assertFailsWith<ProviderError.Transient> { call(NativeBalance(ETH, ethAddress)) }
         assertFailsWith<ProviderError.Fatal> { call(NativeBalance(ETH, ethAddress)) }
@@ -115,21 +115,21 @@ class BlockscoutProviderTest {
 
     @Test
     fun theApiKeyGoesInTheApikeyQueryParameter() {
-        server.enqueue(MockResponse().setBody("""{"message":"OK","result":"1","status":"1"}"""))
+        server.enqueue(MockResponse.Builder().body("""{"message":"OK","result":"1","status":"1"}""").build())
 
         call(NativeBalance(ETH, ethAddress), ProviderConfig(apiKey = "proapi_test"))
 
         val request = server.takeRequest()
-        assertEquals("proapi_test", request.requestUrl!!.queryParameter("apikey"))
-        assertNull(request.getHeader("apikey"))
+        assertEquals("proapi_test", request.url.queryParameter("apikey"))
+        assertNull(request.headers["apikey"])
     }
 
     @Test
     fun withoutAKeyNoApikeyParameterIsSent() {
-        server.enqueue(MockResponse().setBody("""{"message":"OK","result":"1","status":"1"}"""))
+        server.enqueue(MockResponse.Builder().body("""{"message":"OK","result":"1","status":"1"}""").build())
 
         call(NativeBalance(ETH, ethAddress))
 
-        assertNull(server.takeRequest().requestUrl!!.queryParameter("apikey"))
+        assertNull(server.takeRequest().url.queryParameter("apikey"))
     }
 }

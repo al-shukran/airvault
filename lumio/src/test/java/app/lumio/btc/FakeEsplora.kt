@@ -2,9 +2,9 @@ package app.lumio.btc
 
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CopyOnWriteArrayList
-import okhttp3.mockwebserver.Dispatcher
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.RecordedRequest
+import mockwebserver3.Dispatcher
+import mockwebserver3.MockResponse
+import mockwebserver3.RecordedRequest
 
 /** One side of an address's history as Esplora writes it: the funded and spent outputs, and the transactions. */
 internal fun side(
@@ -55,10 +55,10 @@ internal class FakeEsplora : Dispatcher() {
     fun askedFor(addresses: List<String>): List<String> = statsRequests().filter { it in addresses }
 
     override fun dispatch(request: RecordedRequest): MockResponse {
-        val path = request.path.orEmpty()
+        val path = request.target
         paths += path
         queued.poll()?.let { return it }
-        if (status != 200) return MockResponse().setResponseCode(status)
+        if (status != 200) return MockResponse.Builder().code(status).build()
         val parts = path.split("/")
         val body = when {
             path == "/api/blocks/tip/height" -> tip
@@ -66,9 +66,9 @@ internal class FakeEsplora : Dispatcher() {
             parts.size == 4 && parts[1] == "api" && parts[2] == "address" -> stats[parts[3]] ?: addressJson()
             parts.size == 5 && parts[2] == "address" && parts[4] == "txs" -> txs[parts[3]] ?: "[]"
             parts.size == 5 && parts[2] == "address" && parts[4] == "utxo" -> utxos[parts[3]] ?: "[]"
-            else -> return MockResponse().setResponseCode(404)
+            else -> return MockResponse.Builder().code(404).build()
         }
-        return MockResponse().setHeader("Content-Type", "application/json").setBody(body)
+        return MockResponse.Builder().setHeader("Content-Type", "application/json").body(body).build()
     }
 
     private companion object {

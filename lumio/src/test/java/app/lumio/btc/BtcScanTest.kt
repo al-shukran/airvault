@@ -18,8 +18,8 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -46,8 +46,8 @@ class BtcScanTest {
 
     @After
     fun stop() {
-        serverA.shutdown()
-        serverB.shutdown()
+        serverA.close()
+        serverB.close()
     }
 
     /** A scheduler over the two servers, as the mempool and blockstream plugins, both serving testnet4. */
@@ -93,7 +93,7 @@ class BtcScanTest {
     fun aRateLimitedServerIsServedByTheOtherWithoutAWait() = runBlocking {
         fund(sats = 5_000L)
         // Every answer of the first server is a 429 with a 600 s Retry-After. The scan must not wait for it.
-        repeat(10) { first.queued.add(MockResponse().setResponseCode(429).setHeader("Retry-After", "600")) }
+        repeat(10) { first.queued.add(MockResponse.Builder().code(429).setHeader("Retry-After", "600").build()) }
         val scheduler = this.scheduler()
         val started = System.nanoTime()
 
