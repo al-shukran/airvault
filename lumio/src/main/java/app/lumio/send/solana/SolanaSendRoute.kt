@@ -18,7 +18,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.NavHostController
 import app.airvault.core.model.AccountId
-import app.lensly.app.AddressBookEntry
 import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
@@ -46,10 +45,12 @@ import app.lumio.network.NetworkMode
 import app.lumio.notesDetail
 import app.lumio.notesName
 import app.lumio.onVault
+import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
+import app.lumio.send.solanaOwnChoices
 import app.lumio.ui.send.RECIPIENT_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendAmountPage
@@ -164,10 +165,11 @@ internal fun SolanaSendRoute(
             }
         }
     }
-    // The Address Book of the wallet, which the recipient page offers and the send names its recipients from.
-    val addressBook by produceState<List<AddressBookEntry>>(initialValue = emptyList(), session, walletId) {
-        value = onVault(emptyList()) { PairedWallets.list(session).firstOrNull { it.id == walletId }?.addressBook.orEmpty() }
+    // The paired wallet, whose accounts and Address Book the recipient page offers and whose Address Book the send names its recipients from.
+    val paired by produceState<PairedWallet?>(initialValue = null, session, walletId) {
+        value = onVault(null) { PairedWallets.list(session).firstOrNull { it.id == walletId } }
     }
+    val addressBook = paired?.addressBook.orEmpty()
 
     var step by remember { mutableStateOf<SolanaSendStep>(SolanaSendStep.Recipient) }
     var recipient by rememberSaveable { mutableStateOf("") }
@@ -443,7 +445,7 @@ internal fun SolanaSendRoute(
                 error = if (invalid) solanaRecipientError(settled) else null,
                 hint = null,
                 canContinue = recipient.isNotBlank() && solanaRecipientError(recipient) == null,
-                accounts = emptyList(),
+                accounts = paired?.let { solanaOwnChoices(it, from.address) }.orEmpty(),
                 addressBook = addressBook
                     .filter { solanaRecipientError(it.address) == null }
                     .map { entry -> SendChoice(title = entry.name, detail = entry.label ?: "Address Book", address = entry.address) },

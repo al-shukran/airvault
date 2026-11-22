@@ -50,6 +50,7 @@ import app.lumio.send.BtcPaymentCode
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
+import app.lumio.send.bitcoinOwnChoices
 import app.lumio.ui.pair.PairLabels
 import app.lumio.ui.send.RECIPIENT_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
@@ -181,7 +182,8 @@ internal fun BtcSendRoute(
     val network = selected.account.network
     val fromName = PairLabels.scriptType(selected.account.scriptType)
     val fromPath = selected.account.path.asString('\'')
-    val addressBook = wallets.firstOrNull { it.fingerprint == selected.account.masterFingerprint }?.addressBook.orEmpty()
+    val paired = wallets.firstOrNull { it.fingerprint == selected.account.masterFingerprint }
+    val addressBook = paired?.addressBook.orEmpty()
 
     // The coins the send may spend, read from the network, or from the pairing fixture in a debug build. A read failure keeps the page, with the words why.
     suspend fun readSpendable(): BtcSpendable = DebugSpendFixture.spendable(selected.account)
@@ -389,7 +391,7 @@ internal fun BtcSendRoute(
                 error = if (invalid) btcRecipientError(settled, network) else null,
                 hint = null,
                 canContinue = recipient.isNotBlank() && btcRecipientError(recipient, network) == null,
-                accounts = emptyList(),
+                accounts = paired?.let { bitcoinOwnChoices(it, network, selected.account.receiveAddress(0)) }.orEmpty(),
                 addressBook = addressBook
                     .filter { btcRecipientError(it.address, network) == null }
                     .map { entry -> SendChoice(title = entry.name, detail = entry.label ?: "Address Book", address = entry.address) },
