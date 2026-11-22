@@ -50,6 +50,7 @@ import app.lumio.network.NetworkModeStore
 import app.lumio.tokens.CustomTokenStore
 import app.lumio.tokens.Token
 import app.lumio.tokens.TokenCatalog
+import app.lumio.portfolio.PortfolioBoard
 import app.lumio.wallets.WalletsBoard
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -262,6 +263,7 @@ class LumioApp : Application(), CoverApplication {
         if (session.isDecoy) return null
         val vault = LumioVault(session, database())
         vault.wallets = WalletsBoard(this, vault)
+        vault.portfolio = PortfolioBoard(this, vault)
         // Read now, so Settings is whole on its first frame.
         scope.launch { vault.settingsFacts.refresh() }
         scope.launch {

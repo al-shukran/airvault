@@ -81,9 +81,14 @@ class TransactionDetailScreenshotTest {
                 explorerUrl = "https://etherscan.io/tx/" + hashOf(1),
                 flags = emptyList(),
             ),
+            accountNames = emptyMap(),
+            book = emptyList(),
+            backLabel = "Activity",
+            showBalance = true,
+            onAddress = {},
             onBack = {},
             onExplorer = {},
-            onSaveComment = {},
+            onLock = {},
             zone = ZoneOffset.UTC,
         )
     }
@@ -101,9 +106,14 @@ class TransactionDetailScreenshotTest {
                 explorerUrl = null,
                 flags = listOf("Moves no value", "Its name or symbol points to a link or a call to action"),
             ),
+            accountNames = emptyMap(),
+            book = emptyList(),
+            backLabel = "Activity",
+            showBalance = true,
+            onAddress = {},
             onBack = {},
             onExplorer = {},
-            onSaveComment = {},
+            onLock = {},
             zone = ZoneOffset.UTC,
         )
     }

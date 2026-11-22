@@ -464,9 +464,6 @@ shard-6 :lumio app.lumio.LumioBackdropTest
 shard-6 :lumio app.lumio.pair.LensllyPairingGoldenTest
 shard-6 :lumio app.lumio.send.algorand.AlgorandSendTest
 shard-6 :lumio app.lumio.ui.send.RecipientErrorTest
-shard-6 :lumio app.lumio.ui.transactions.AddressBookEditsTest
-shard-6 :lumio app.lumio.ui.transactions.TransactionDetailAddressBookTest
-shard-6 :lumio app.lumio.ui.transactions.TransactionDetailOwnAccountTest
 shard-6 :lumio app.lumio.ui.wallets.WalletRowsTest
 shard-6 :shared app.lensly.core.algorand.AlgoAssetTransferEncoderTest
 shard-6 :shared app.lensly.core.btc.BtcMessageTest

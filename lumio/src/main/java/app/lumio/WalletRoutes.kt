@@ -59,7 +59,7 @@ import kotlinx.coroutines.withContext
 
 /** The display settings of the open vault: whether totals and balances show. */
 @Composable
-private fun rememberDisplay(app: LumioApp): DisplaySettings {
+internal fun rememberDisplay(app: LumioApp): DisplaySettings {
     val fallback = remember { MutableStateFlow(DisplaySettings()) }
     val display by (app.lumioVault()?.display ?: fallback).collectAsState()
     return display
