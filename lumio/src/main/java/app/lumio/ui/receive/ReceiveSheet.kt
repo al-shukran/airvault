@@ -40,10 +40,10 @@ import app.lumio.receive.receiveShareText
 import app.lumio.ui.home.AssetIcon
 import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.kit.ClearAirAddressGrid
+import app.lumio.ui.kit.ClearAirAlertNote
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIconButton
-import app.lumio.ui.kit.ClearAirNote
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.rememberCopyAction
@@ -131,7 +131,7 @@ internal fun ReceiveSheetStep(step: ReceiveStep.Receive, onBack: (() -> Unit)?) 
         ClearAirEyebrow(text = "Your $symbol Address")
         ClearAirAddressGrid(address = address)
         Spacer(Modifier.height(ClearAirSpacing.md))
-        ClearAirNote(text = receiveNote(network))
+        ClearAirAlertNote(text = receiveNote(network))
     }
 }
 

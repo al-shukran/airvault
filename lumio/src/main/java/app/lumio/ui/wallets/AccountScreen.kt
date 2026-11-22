@@ -1,57 +1,77 @@
 package app.lumio.ui.wallets
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.components.LumioIsland
-import app.lensly.ui.components.LumioRow
-import app.lensly.ui.components.LumioTextAction
+import app.lensly.ui.components.groupAddress
+import app.lensly.ui.components.lumioPress
+import app.lensly.ui.theme.ClearAirMotion
+import app.lensly.ui.theme.ClearAirPalette
+import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
-import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalClearAirPalette
-import app.lensly.ui.theme.LumenMono
+import app.lumio.data.Clock
+import app.lumio.data.WallClock
 import app.lumio.data.net.Networks
 import app.lumio.home.HomeFormat
-import app.lumio.home.Masking
 import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.home.AssetIcon
-import app.lumio.ui.kit.AnimatedAmount
-import app.lumio.ui.kit.ClearAirPrimaryButton
+import app.lumio.ui.kit.ClearAirAmount
+import app.lumio.ui.kit.ClearAirCapsuleSmall
+import app.lumio.ui.kit.ClearAirEyebrow
+import app.lumio.ui.kit.ClearAirGlyph
+import app.lumio.ui.kit.ClearAirIcon
+import app.lumio.ui.kit.ClearAirListRow
+import app.lumio.ui.kit.ClearAirRefreshBox
+import app.lumio.ui.kit.ClearAirSkeleton
+import app.lumio.ui.kit.ClearAirTextAction
+import app.lumio.ui.kit.ClearAirTextTabs
 import app.lumio.ui.kit.LumioAssetIcon
-import app.lumio.ui.kit.LumioPrimaryButton
 import app.lumio.ui.kit.rememberCopyAction
-import app.lumio.ui.shell.LumioPageFrame
 import app.lumio.ui.transactions.ActivityRow
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
 import java.time.ZoneId
 
-/** The hero's text while no read of the account's balance is kept. */
+/** The bar a total takes while no read of the account's balance is kept. */
+private val TOTAL_BAR_WIDTH = 150.dp
+private val TOTAL_BAR_HEIGHT = 26.dp
+
+/** The text that an account's assets or activity show while nothing has been read for them. */
 private const val NOT_READ = "Not read yet"
 
+/** The sections of an account: its assets and its activity, as text tabs. */
+private enum class AccountTab(val label: String) {
+    ASSETS("Assets"),
+    ACTIVITY("Activity"),
+}
+
 /**
- * One account (section 2.1, Account): its balance as the hero with its value in dollars, then its network and address, which copy when tapped. Its
- * assets and its newest activity follow, each in an island. Send is the primary action, with Receive as the text action above it. An account that
- * holds nothing makes Receive the primary, and Send drops out.
+ * One account (C3): its name and its wallet's name as the identity line, its address in groups of four, and its total with the freshness line. Send
+ * is a compact capsule with Receive beside it as the text action, and the two swap places when the account holds nothing. Assets and Activity are text
+ * tabs under them. Pulling down reads the account again. A balance no read has reached is a bar, and the rows under it keep their places.
  */
 @Composable
 internal fun AccountScreen(
@@ -67,205 +87,243 @@ internal fun AccountScreen(
     onAddAsset: (() -> Unit)? = null,
     onOpenTransaction: (TxFeedItem) -> Unit = {},
     refreshing: Boolean = false,
+    refreshByPull: Boolean = false,
+    updatedAtMs: Long? = null,
     notice: String? = null,
-    onRefresh: (() -> Unit)? = null,
+    onRefresh: () -> Unit = {},
     loadingAssets: Boolean = false,
     loadingActivity: Boolean = false,
+    clock: Clock = WallClock,
     zone: ZoneId = ZoneId.systemDefault(),
     online: Boolean = true,
 ) {
     val balance = account.balance
     val empty = assets.isNotEmpty() && assets.all { it.zero }
     val heroText = balance?.let { "${HomeFormat.coins(it.balance)} ${it.symbol}" }
-    val native = assets.firstOrNull { it.isNative }
-    val heroFiat = native?.fiatText
-    // The balance starts after the 40 dp coin icon and its gap, so the network line under it starts at the same edge.
-    val balanceStart = if (native != null) 40.dp + LenslySpacing.xs else 0.dp
-    LumioPageFrame(
-        modifier = modifier,
-        bottomAction = {
-            if (empty) {
-                LumioPrimaryButton(text = "Receive", onClick = onReceive)
-            } else {
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    LumioTextAction(text = "Receive", onClick = onReceive)
-                }
-                Spacer(Modifier.height(LenslySpacing.xs))
-                // Offline, Send is disabled and says why right under it. Receive stays live: the address is already on the phone.
-                ClearAirPrimaryButton(text = "Send", onClick = onSend, enabled = online)
-                if (!online) {
-                    Text(text = "Sending needs a connection", style = ClearAirType.body, color = LocalClearAirPalette.current.ink2)
-                }
+    val fiat = assets.firstOrNull { it.isNative }?.fiatText
+    var tab by rememberSaveable { mutableStateOf(AccountTab.ASSETS) }
+    ClearAirRefreshBox(refreshByPull = refreshByPull, onRefresh = onRefresh, modifier = modifier.fillMaxSize()) {
+        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = ClearAirSpacing.md)) {
+            item(key = "identity") {
+                AccountIdentity(line = identityLine(account, walletName), address = account.address)
             }
-        },
-    ) {
-        Text(
-            text = listOfNotNull(walletName, account.script).joinToString(" · "),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(LenslySpacing.sm))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            native?.let { coin ->
-                LumioAssetIcon(testnet = coin.testnet) {
-                    AssetIcon(spec = coin.icon, size = 24.dp)
-                }
-                Spacer(Modifier.width(LenslySpacing.xs))
+            item(key = "total") {
+                AccountTotal(
+                    heroText = heroText,
+                    fiat = fiat,
+                    showBalance = showBalance,
+                    refreshing = refreshing,
+                    updatedAtMs = updatedAtMs,
+                    clock = clock,
+                )
             }
-            if (heroText == null) {
-                Text(text = NOT_READ, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                AnimatedAmount(text = heroText, hidden = !showBalance)
+            item(key = "actions") {
+                AccountActions(empty = empty, online = online, onSend = onSend, onReceive = onReceive)
             }
-        }
-        heroFiat?.let { fiat ->
-            Text(
-                text = Masking.amount(fiat, hidden = !showBalance),
-                modifier = Modifier.padding(start = balanceStart),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Spacer(Modifier.height(LenslySpacing.md))
-        AddressLine(network = account.networkName, address = account.address, indent = balanceStart)
-        notice?.let {
-            Spacer(Modifier.height(LenslySpacing.sm))
-            InlineBanner(message = it, tone = BannerTone.Warning)
-        }
-        if (refreshing) {
-            Text(
-                text = "Reading the network",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        onRefresh?.let { refresh ->
-            LumioTextAction(text = "Refresh", onClick = refresh, enabled = !refreshing)
-        }
-        Spacer(Modifier.height(LenslySpacing.lg))
-        SectionTitle("Assets")
-        LumioIsland {
-            // A read that has not landed yet keeps its row's place, so the rows that follow it do not jump when it does.
-            if (assets.isEmpty()) {
-                if (loadingAssets) LoadingRow() else EmptyLine(if (balance == null) NOT_READ else "No assets yet.")
-            } else {
-                assets.forEachIndexed { index, asset ->
-                    if (index > 0) Divider()
-                    AssetRow(asset = asset, shown = showBalance, onClick = { onAsset(asset) })
-                }
-                if (loadingAssets) {
-                    Divider()
-                    LoadingRow()
+            notice?.let { message ->
+                item(key = "notice") {
+                    WalletNotice(message = message, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
                 }
             }
-            onAddAsset?.let { addAsset ->
-                if (assets.isNotEmpty()) Divider()
-                LumioRow(title = "Add Asset", onClick = addAsset)
+            item(key = "tabs") {
+                ClearAirTextTabs(
+                    options = AccountTab.entries,
+                    selected = tab,
+                    label = { it.label },
+                    onSelect = { tab = it },
+                    modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter),
+                )
+            }
+            when (tab) {
+                AccountTab.ASSETS -> assetItems(
+                    account = account,
+                    assets = assets,
+                    loadingAssets = loadingAssets,
+                    showBalance = showBalance,
+                    onAsset = onAsset,
+                    onAddAsset = onAddAsset,
+                )
+                AccountTab.ACTIVITY -> activityItems(
+                    account = account,
+                    activity = activity,
+                    loadingActivity = loadingActivity,
+                    showBalance = showBalance,
+                    zone = zone,
+                    onOpenTransaction = onOpenTransaction,
+                )
             }
         }
-        Spacer(Modifier.height(LenslySpacing.lg))
-        SectionTitle("Activity")
-        LumioIsland {
-            when {
-                account.namespace == Networks.SOLANA || account.namespace == Networks.ALGORAND ->
-                    EmptyLine("Activity is not read for ${WalletAccounts.familyLabel(account.namespace)} yet.")
-                activity.isEmpty() && loadingActivity -> LoadingRow()
-                activity.isEmpty() -> EmptyLine("No transactions yet.")
-                else -> activity.forEachIndexed { index, item ->
-                    if (index > 0) Divider()
-                    ActivityRow(item = item, zone = zone, shown = showBalance, onClick = { onOpenTransaction(item) })
-                }
-            }
-        }
+    }
+}
+
+/** The identity line of an account: its label, its group and its wallet, or its script when it has one, such as "Trading · Group DeFi · Air 1". */
+internal fun identityLine(account: WalletAccount, walletName: String): String =
+    listOfNotNull(account.label, account.group, walletName, account.script).joinToString(" · ")
+
+/** The identity of an account: its line, and its address under it. */
+@Composable
+private fun AccountIdentity(line: String, address: String) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs)) {
+        Text(text = line, style = ClearAirType.body, color = LocalClearAirPalette.current.ink2)
+        AccountAddress(address = address)
     }
 }
 
 /**
- * The network and the address of the account, the address in mono. A tap copies the address, and the address reads "Copied" for 1.5 s. [indent]
- * moves its start to the balance's start edge above it.
+ * The address of an account in groups of four after its 0x, with the first and last groups in ink and the middle ones dimmed. A tap copies the whole
+ * address, and the line reads "Address copied" for 1.5 s in its place.
  */
 @Composable
-private fun AddressLine(network: String, address: String, indent: Dp) {
+private fun AccountAddress(address: String) {
+    val palette = LocalClearAirPalette.current
     val copy = rememberCopyAction(value = address, label = "Address")
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = indent)
-            .clickable(role = Role.Button, onClick = copy.copy),
+            .padding(top = ClearAirSpacing.xxs)
+            .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = copy.copy),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = "$network · ",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text = if (copy.copied) "Copied" else shortAddress(address),
-            style = LumenMono,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-        )
+        if (copy.copied) {
+            Text(text = "Address copied", style = ClearAirType.label, color = palette.ink2)
+        } else {
+            Text(text = addressText(address, palette), style = ClearAirType.address)
+            Spacer(Modifier.width(ClearAirSpacing.xs))
+            ClearAirIcon(glyph = ClearAirGlyph.COPY, color = palette.ink2)
+        }
     }
 }
 
-/** One asset row of the Assets island: its logo, its symbol and network, and its amount with its value in dollars. A tap opens the asset. */
+/** The grouped address with its ends in ink and its middle groups in secondary ink. The grouping is [groupAddress]'s, so the groups are the same everywhere. */
+private fun addressText(address: String, palette: ClearAirPalette): AnnotatedString {
+    val groups = groupAddress(address).split(' ')
+    return buildAnnotatedString {
+        groups.forEachIndexed { index, group ->
+            if (index > 0) append(' ')
+            val edge = index == 0 || index == groups.lastIndex
+            withStyle(SpanStyle(color = if (edge) palette.ink else palette.ink2)) { append(group) }
+        }
+    }
+}
+
+/** The total of the account: "Total" over its coins, the dollars under them, and the freshness line. A balance no read has reached is a bar. */
 @Composable
-private fun AssetRow(asset: AssetRowModel, shown: Boolean, onClick: () -> Unit) {
-    LumioRow(
-        title = asset.symbol,
-        description = asset.network,
-        leading = { LumioAssetIcon(testnet = asset.testnet) { AssetIcon(spec = asset.icon, size = 24.dp) } },
-        trailing = {
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = Masking.amount(asset.amountText, hidden = !shown),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.End,
-                )
-                asset.fiatText?.let { fiat ->
-                    Text(
-                        text = Masking.amount(fiat, hidden = !shown),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.End,
-                    )
-                }
+private fun AccountTotal(heroText: String?, fiat: String?, showBalance: Boolean, refreshing: Boolean, updatedAtMs: Long?, clock: Clock) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs)) {
+        ClearAirEyebrow(text = "Total")
+        if (heroText == null) {
+            ClearAirSkeleton(modifier = Modifier.width(TOTAL_BAR_WIDTH).height(TOTAL_BAR_HEIGHT))
+        } else {
+            ClearAirAmount(text = heroText, hidden = !showBalance, style = ClearAirType.total)
+        }
+        fiat?.let { value -> ClearAirAmount(text = value, hidden = !showBalance, style = ClearAirType.rowValue, color = LocalClearAirPalette.current.ink2) }
+        FreshnessLine(refreshing = refreshing, updatedAtMs = updatedAtMs, clock = clock, modifier = Modifier.padding(top = ClearAirSpacing.xxs))
+    }
+}
+
+/**
+ * Send and Receive, side by side under the total: Send is the compact capsule and Receive the text action. An account that holds nothing makes
+ * Receive the capsule and Send the text action. Offline, Send is disabled and says why under it, and Receive stays live.
+ */
+@Composable
+private fun AccountActions(empty: Boolean, online: Boolean, onSend: () -> Unit, onReceive: () -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (empty) {
+                ClearAirCapsuleSmall(text = "Receive", onClick = onReceive)
+                Spacer(Modifier.width(ClearAirSpacing.md))
+                ClearAirTextAction(text = "Send", onClick = onSend, enabled = online)
+            } else {
+                ClearAirCapsuleSmall(text = "Send", onClick = onSend, enabled = online)
+                Spacer(Modifier.width(ClearAirSpacing.md))
+                ClearAirTextAction(text = "Receive", onClick = onReceive)
             }
-        },
-        onClick = onClick,
-    )
+        }
+        if (!online) {
+            Text(text = "Sending needs a connection", style = ClearAirType.body, color = LocalClearAirPalette.current.ink2)
+        }
+    }
 }
 
-/** The label of an island, in the label face and sentence case. */
+/** The assets of the account: one row each, a bar for each row a read has not landed, and "Add Asset" for an Algorand account. */
+private fun LazyListScope.assetItems(
+    account: WalletAccount,
+    assets: List<AssetRowModel>,
+    loadingAssets: Boolean,
+    showBalance: Boolean,
+    onAsset: (AssetRowModel) -> Unit,
+    onAddAsset: (() -> Unit)?,
+) {
+    if (assets.isEmpty()) {
+        item(key = "assets-empty") {
+            if (loadingAssets) {
+                Column {
+                    LoadingRow()
+                    LoadingRow()
+                }
+            } else {
+                EmptyLine(if (account.balance == null) NOT_READ else "No assets yet.")
+            }
+        }
+    } else {
+        itemsIndexed(assets, key = { _, asset -> asset.assetKey }) { index, asset ->
+            if (index > 0) RowDivider(indent = ROW_DIVIDER_INDENT)
+            ClearAirListRow(
+                title = asset.symbol,
+                description = asset.network,
+                leading = { LumioAssetIcon(testnet = asset.testnet) { AssetIcon(spec = asset.icon, size = 24.dp) } },
+                trailing = { AssetValue(asset = asset, shown = showBalance) },
+                onClick = { onAsset(asset) },
+            )
+        }
+        if (loadingAssets) {
+            item(key = "assets-loading") { LoadingRow() }
+        }
+    }
+    onAddAsset?.let { addAsset ->
+        item(key = "add-asset") { ClearAirListRow(title = "Add Asset", onClick = addAsset) }
+    }
+}
+
+/** The activity of the account: its newest transactions, a bar while they are read, or the line that says there are none yet. */
+private fun LazyListScope.activityItems(
+    account: WalletAccount,
+    activity: List<TxFeedItem>,
+    loadingActivity: Boolean,
+    showBalance: Boolean,
+    zone: ZoneId,
+    onOpenTransaction: (TxFeedItem) -> Unit,
+) {
+    when {
+        account.namespace == Networks.SOLANA || account.namespace == Networks.ALGORAND ->
+            item(key = "activity-none") { EmptyLine("Activity is not read for ${WalletAccounts.familyLabel(account.namespace)} yet.") }
+        activity.isEmpty() && loadingActivity -> item(key = "activity-loading") { LoadingRow() }
+        activity.isEmpty() -> item(key = "activity-empty") { EmptyLine("No activity yet. Your first receive will appear here.") }
+        else -> itemsIndexed(activity, key = { _, entry -> entry.tx.id }) { index, entry ->
+            if (index > 0) RowDivider(indent = ROW_DIVIDER_INDENT)
+            ActivityRow(item = entry, zone = zone, shown = showBalance, onClick = { onOpenTransaction(entry) })
+        }
+    }
+}
+
+/** The amount and value of an asset at the right of its row. A hidden balance shows only the mask. */
 @Composable
-private fun SectionTitle(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(bottom = LenslySpacing.xs),
-    )
+private fun AssetValue(asset: AssetRowModel, shown: Boolean) {
+    Column(horizontalAlignment = Alignment.End) {
+        ClearAirAmount(text = asset.amountText, hidden = !shown, style = ClearAirType.rowValue)
+        asset.fiatText?.let { fiat ->
+            ClearAirAmount(text = fiat, hidden = !shown, style = ClearAirType.label, color = LocalClearAirPalette.current.ink2)
+        }
+    }
 }
 
-/** A line of an island that says there is nothing to list. */
+/** A line of a list that says there is nothing to show yet. */
 @Composable
 private fun EmptyLine(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.sm),
-    )
-}
-
-/** The hairline between two rows of an island. */
-@Composable
-private fun Divider() {
-    HorizontalDivider(
-        color = MaterialTheme.colorScheme.outlineVariant,
-        modifier = Modifier.padding(horizontal = LenslySpacing.md),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.sm),
+        style = ClearAirType.body,
+        color = LocalClearAirPalette.current.ink2,
     )
 }

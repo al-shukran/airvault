@@ -3,6 +3,7 @@ package app.lumio.ui.screenshot
 import android.provider.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import androidx.compose.ui.unit.DpSize
 import app.lensly.ui.screenshot.snapshot
 import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.theme.LumenTheme
@@ -22,10 +23,20 @@ fun ComposeContentTestRule.lumioSnapshot(
     name: String,
     settleMs: Long = 0L,
     beforeCapture: ComposeContentTestRule.() -> Unit = {},
+    frame: DpSize? = null,
+    fontScale: Float = 1f,
     content: @Composable () -> Unit,
 ) {
     reduceMotion()
-    snapshot(name = name, settleMs = settleMs, beforeCapture = beforeCapture, theme = { LumenTheme { ClearAirTheme(content = it) } }, content = content)
+    snapshot(
+        name = name,
+        settleMs = settleMs,
+        beforeCapture = beforeCapture,
+        theme = { LumenTheme { ClearAirTheme(content = it) } },
+        frame = frame,
+        fontScale = fontScale,
+        content = content,
+    )
 }
 
 /** Renders [content] in the Clear Air theme at the goldens' frame, with reduced motion on, as [lumioSnapshot] does for Lumen. */

@@ -33,7 +33,8 @@ data class AccountCoin(val symbol: String, val name: String, val network: Networ
  * One account of a paired wallet on one chain family, on the side the owner chose. [id] is its CAIP-10 id: the network that [balance] is read on,
  * and the account's address. [walletId] and [id] name the account in the routes, and [index] is its place in the wallet's list for its family.
  * [networkName] names that network. [coin] is its native coin, known without a read, and null when the side has no coin of its family. [balance] is
- * that coin's balance, or null while no read of it is kept. [script] is the script type of a Bitcoin account.
+ * that coin's balance, or null while no read of it is kept. [script] is the script type of a Bitcoin account. [name], [label] and [group] are the
+ * names the owner gave the account in Lensly, and each is null when the pairing carries none.
  */
 data class WalletAccount(
     val walletId: String,
@@ -43,6 +44,9 @@ data class WalletAccount(
     val coin: AccountCoin?,
     val balance: NativeAsset?,
     val script: String? = null,
+    val name: String? = null,
+    val label: String? = null,
+    val group: String? = null,
 ) {
     /** The address the account receives at: the address of [id]. */
     val address: String get() = id.address
@@ -163,6 +167,9 @@ object WalletAccounts {
                 networkName = primary.name,
                 coin = coin,
                 balance = balance,
+                name = account.name,
+                label = account.label,
+                group = account.group,
             )
         }
     }

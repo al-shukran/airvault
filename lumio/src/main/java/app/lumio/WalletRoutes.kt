@@ -49,6 +49,7 @@ import app.lumio.ui.wallets.WalletLoadingScreen
 import app.lumio.ui.wallets.WalletRow
 import app.lumio.ui.wallets.WalletScreen
 import app.lumio.ui.wallets.WalletsScreen
+import app.lumio.ui.wallets.accountTitle
 import app.lumio.ui.wallets.summaryLine
 import app.lumio.wallets.AccountReads
 import app.lumio.wallets.AccountReadsLoader
@@ -65,7 +66,7 @@ import kotlinx.coroutines.withContext
 
 /** The display settings of the open vault: whether totals and balances show. */
 @Composable
-private fun rememberDisplay(app: LumioApp): DisplaySettings {
+internal fun rememberDisplay(app: LumioApp): DisplaySettings {
     val fallback = remember { MutableStateFlow(DisplaySettings()) }
     val display by (app.lumioVault()?.display ?: fallback).collectAsState()
     return display
@@ -165,18 +166,21 @@ internal fun WalletRoute(
             WalletLoadingContent()
         } else {
             WalletScreen(
-                fingerprint = wallet.fingerprint.toInt(),
                 mode = selection.mode,
                 accounts = view.accountsOf(walletId),
                 tokenCounts = board.tokenCounts,
-                network = app.registry::network,
+                tokenUsd = board.tokenUsd,
                 totalUsd = view.usd(walletId),
+                usdOf = view::usd,
                 showTotal = display.showTotal,
                 showBalances = display.showAssets,
                 refreshing = board.refreshing,
+                refreshByPull = board.refreshByPull,
                 updatedAtMs = board.updatedAtMs,
                 notice = board.notice,
+                pairedAtMs = wallet.createdAtMs,
                 onAccount = { account -> navController.navigate(LumioRoute.account(walletId, account.id)) },
+                onRefresh = { board.refresh(pulled = true) },
             )
         }
     }
@@ -214,7 +218,7 @@ internal fun AccountRoute(
     val account = view?.accountsOf(walletId)?.firstOrNull { it.id == accountId }
     if (view != null && account == null) LaunchedEffect(Unit) { navController.popBackStack() }
     LumioPageScreen(
-        title = account?.let { WalletAccounts.familyLabel(it.namespace) }.orEmpty(),
+        title = account?.let(::accountTitle).orEmpty(),
         backLabel = navController.backLabel(),
         offline = if (online) null else offlineBand(board.updatedAtMs),
         onBack = { navController.popBackStack() },
@@ -246,8 +250,10 @@ internal fun AccountRoute(
                 activity = activity.orEmpty(),
                 loadingActivity = activity == null,
                 refreshing = board.refreshing,
+                refreshByPull = board.refreshByPull,
+                updatedAtMs = board.updatedAtMs,
                 notice = board.notice,
-                onRefresh = { board.refresh() },
+                onRefresh = { board.refresh(pulled = true) },
                 onSend = { navController.navigate(sendRoute(account, mode)) },
                 onReceive = {
                     account.coin?.let { coin ->
@@ -426,11 +432,10 @@ internal fun sendRoute(account: WalletAccount, mode: NetworkMode): String = when
     else -> error("Lumio sends from no account on ${account.namespace}")
 }
 
-/** One paired wallet as a row of the Wallets list: its name, the fingerprint its orb is drawn from, its summary line and its dollar total. */
+/** One paired wallet as a row of the Wallets list: its name, its summary line and its dollar total. */
 private fun walletRow(view: WalletsView, wallet: PairedWallet): WalletRow = WalletRow(
     id = wallet.id,
     name = wallet.name,
-    fingerprint = wallet.fingerprint.toInt(),
     summary = summaryLine(view.accountsOf(wallet.id)),
     usd = view.usd(wallet.id),
 )

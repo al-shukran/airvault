@@ -1,10 +1,12 @@
 package app.lumio.ui.kit
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -18,15 +20,32 @@ import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 
-/** The corner radius of a note, the proposal's 14 dp. */
+/** The corner radius of an alert note, the proposal's 14 dp. */
 private val NOTE_CORNER = 14.dp
 
 /**
- * A note: one line of fact on the raised layer, with an alert mark, for something the owner must read before acting, such as the networks an
- * address accepts. It is text only and never blocks an action.
+ * An inline note: a line of body text under a row or inside a group, with the spark in front of it. It says what did not happen and what happens next,
+ * and it never blocks the page around it.
  */
 @Composable
 fun ClearAirNote(text: String, modifier: Modifier = Modifier) {
+    val palette = LocalClearAirPalette.current
+    Row(
+        modifier = modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Canvas(Modifier.padding(top = 7.dp).size(8.dp)) { drawCircle(color = palette.spark) }
+        Spacer(Modifier.width(ClearAirSpacing.xs))
+        Text(text = text, style = ClearAirType.body, color = palette.ink2)
+    }
+}
+
+/**
+ * An alert note: one line of fact on the raised layer, with an alert mark, for something the owner must read before acting, such as the networks an
+ * address accepts. It is text only and never blocks an action.
+ */
+@Composable
+fun ClearAirAlertNote(text: String, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
     Row(
         modifier = modifier
