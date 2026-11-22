@@ -106,19 +106,25 @@ class SendArrivals(
     }
 }
 
-/** EVM: no receipt yet is pending, a receipt of a reverted transfer is refused, and a successful one has landed. */
-internal fun evmLanding(receipt: EvmReceipt?): Landing = when {
-    receipt == null -> Landing.PENDING
-    receipt.success -> Landing.LANDED
-    else -> Landing.REFUSED
+/**
+ * EVM: a receipt decides once it exists, so a successful one has landed and a reverted one is refused. Without a receipt, [nonceUsed] says whether the
+ * account's confirmed nonce has passed the transaction's: then another transaction took the nonce, and this one was dropped. Before that it is pending.
+ */
+internal fun evmLanding(receipt: EvmReceipt?, nonceUsed: Boolean): Landing = when {
+    receipt != null -> if (receipt.success) Landing.LANDED else Landing.REFUSED
+    nonceUsed -> Landing.REFUSED
+    else -> Landing.PENDING
 }
 
 /** Bitcoin: the first confirmation puts the coins in the recipient's wallet. */
 internal fun bitcoinLanding(status: EsploraTxStatus): Landing = if (status.confirmed) Landing.LANDED else Landing.PENDING
 
-/** Solana: a status that failed on chain is refused, and a confirmed status has landed. */
-internal fun solanaLanding(status: SolanaStatus?): Landing = when {
-    status == null -> Landing.PENDING
+/**
+ * Solana: a status that failed on chain is refused, and a confirmed status has landed. Without a status, [dropped] says whether the network can no
+ * longer include the transaction, which refuses it. Before that it is pending.
+ */
+internal fun solanaLanding(status: SolanaStatus?, dropped: Boolean): Landing = when {
+    status == null -> if (dropped) Landing.REFUSED else Landing.PENDING
     status.failed -> Landing.REFUSED
     status.confirmed -> Landing.LANDED
     else -> Landing.PENDING

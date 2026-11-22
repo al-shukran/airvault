@@ -24,12 +24,13 @@ import app.lensly.ui.theme.LocalClearAirPalette
 /** Where a [ClearAirTimelineStep] stands: done, the one happening now, or still to come. */
 enum class ClearAirStepState { Done, Now, Todo }
 
-/** One step of a [ClearAirTimeline]: its [title], a [detail] under it, and its [state]. */
-class ClearAirTimelineStep(val title: String, val detail: String, val state: ClearAirStepState)
+/** One step of a [ClearAirTimeline]: its [title], a [detail] under it, its [state], and the clock [time] at its right, when it has one. */
+class ClearAirTimelineStep(val title: String, val detail: String, val state: ClearAirStepState, val time: String? = null)
 
 /**
  * The steps of a transfer, top to bottom: a vault-blue check for a step done, a spark dot for the step now, and a hairline ring for the steps
- * still to come. Each step says its state in its mark and its words, so the marks alone never carry it.
+ * still to come. Each step says its state in its mark and its words, so the marks alone never carry it. A step's [ClearAirTimelineStep.time] sits
+ * at its right, in the step's colour.
  */
 @Composable
 fun ClearAirTimeline(steps: List<ClearAirTimelineStep>, modifier: Modifier = Modifier) {
@@ -63,6 +64,14 @@ fun ClearAirTimeline(steps: List<ClearAirTimelineStep>, modifier: Modifier = Mod
                         color = if (step.state == ClearAirStepState.Todo) palette.ink2 else palette.ink,
                     )
                     Text(text = step.detail, style = ClearAirType.body, color = palette.ink2)
+                }
+                step.time?.let { time ->
+                    Text(
+                        text = time,
+                        style = ClearAirType.time,
+                        color = if (step.state == ClearAirStepState.Now) palette.sparkText else palette.ink2,
+                        modifier = Modifier.padding(start = ClearAirSpacing.xs),
+                    )
                 }
             }
         }

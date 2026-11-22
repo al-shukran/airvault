@@ -334,6 +334,8 @@ class SendScreenshotTest {
             network = monad.name,
             timing = "Usually about 1 second on Monad Testnet",
             recipient = "FelixStone",
+            signedAtMs = GOLDEN_CLOCK_MS,
+            sentAtMs = GOLDEN_CLOCK_MS,
             arrived = false,
             explorerLabel = "View on Explorer",
             onExplorer = {},

@@ -110,6 +110,8 @@ internal fun SignedSendSteps(
                     network = network,
                     timing = timing,
                     recipient = recipient,
+                    signedAtMs = machine.signedAtMs,
+                    sentAtMs = now.sentAtMs,
                     arrived = landing == Landing.LANDED,
                     explorerLabel = explorerUrl(now.id)?.let { "View on Explorer" },
                     onExplorer = { onExplorer(now.id) },

@@ -73,6 +73,9 @@ private object ClearAirScale {
     /** A status in words, and the testnet band. */
     val label = ClearAirStep(size = 13f, line = 18f)
 
+    /** The clock time of a timeline step. */
+    val time = ClearAirStep(size = 12f, line = 17f)
+
     /** An eyebrow, which is the one ALL CAPS style. */
     val eyebrow = ClearAirStep(size = 11f, line = 14f)
 
@@ -118,6 +121,9 @@ object ClearAirType {
 
     /** A status in words, and the testnet band: Archivo 92 SemiBold. */
     val label = clearAirStyle(BodyFamily, FontWeight.SemiBold, ClearAirScale.label)
+
+    /** The clock time of a timeline step: JetBrains Mono Medium. */
+    val time = clearAirStyle(NumberFamily, FontWeight.Medium, ClearAirScale.time)
 
     /** An eyebrow, which is the one ALL CAPS style: Archivo 92 SemiBold. */
     val eyebrow = clearAirStyle(BodyFamily, FontWeight.SemiBold, ClearAirScale.eyebrow)

@@ -24,6 +24,7 @@ import app.lumio.data.provider.solana.SOLANA_DEVNET
 import app.lumio.data.provider.solana.SOLANA_MAINNET
 import app.lumio.data.rpc.JsonRpc
 import app.lumio.data.sched.Scheduler
+import app.lumio.send.Landing
 import app.lumio.send.SubmitMachine
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Base58
@@ -562,6 +563,74 @@ class SolanaSendTest {
         assertFailsWith<IllegalArgumentException> { SolanaSend.noncePath(byOtherOwner, sender) }
         assertFailsWith<IllegalArgumentException> { SolanaSend.noncePath(byOtherAuthority, sender) }
     }
+
+    /** A send whose nonce moved is refused only on the second poll in a row that finds it moved and the network without the transaction. */
+    @Test
+    fun aSendWhoseNonceMovedIsRefusedOnlyOnTheSecondPollThatSeesIt() = runBlocking {
+        val moved = ByteArray(32) { 9 }
+        val watch = SolanaSendLanding(scheduler(), plan())
+        server.enqueue(nonceAnswer(moved))
+        server.enqueue(noStatus)
+        assertEquals(Landing.PENDING, watch.landing(SIGNATURE))
+
+        server.enqueue(nonceAnswer(moved))
+        server.enqueue(noStatus)
+        server.enqueue(noStatus)
+        assertEquals(Landing.REFUSED, watch.landing(SIGNATURE))
+    }
+
+    /** One lagging status does not refuse a send: the second poll re-reads the status before it refuses, and here the network now has it. */
+    @Test
+    fun aLaggingStatusDoesNotRefuseASendThatLanded() = runBlocking {
+        val moved = ByteArray(32) { 9 }
+        val watch = SolanaSendLanding(scheduler(), plan())
+        server.enqueue(nonceAnswer(moved))
+        server.enqueue(noStatus)
+        assertEquals(Landing.PENDING, watch.landing(SIGNATURE))
+
+        server.enqueue(nonceAnswer(moved))
+        server.enqueue(noStatus)
+        server.enqueue(confirmed)
+        assertEquals(Landing.LANDED, watch.landing(SIGNATURE))
+    }
+
+    @Test
+    fun aSendWhoseNonceIsStillItsOwnIsPending() = runBlocking {
+        server.enqueue(nonceAnswer(blockhash))
+        server.enqueue(noStatus)
+        assertEquals(Landing.PENDING, SolanaSendLanding(scheduler(), plan()).landing(SIGNATURE))
+    }
+
+    /** A one-time setup is refused only on the second poll in a row that finds the block height past its window and the network without it. */
+    @Test
+    fun aSetupIsRefusedOnlyOnTheSecondPollAfterItsWindow() = runBlocking {
+        val watch = SolanaSendLanding(scheduler(), setupPlan(window))
+        server.enqueue(answer("101"))
+        server.enqueue(noStatus)
+        assertEquals(Landing.PENDING, watch.landing(SIGNATURE))
+
+        server.enqueue(answer("101"))
+        server.enqueue(noStatus)
+        server.enqueue(noStatus)
+        assertEquals(Landing.REFUSED, watch.landing(SIGNATURE))
+    }
+
+    @Test
+    fun aSetupAtItsLastValidHeightIsPending() = runBlocking {
+        server.enqueue(answer("100"))
+        server.enqueue(noStatus)
+        assertEquals(Landing.PENDING, SolanaSendLanding(scheduler(), setupPlan(window)).landing(SIGNATURE))
+    }
+
+    /** The `getAccountInfo` answer of this account's nonce account, which holds [nonce]. */
+    private fun nonceAnswer(nonce: ByteArray): MockResponse = answer(
+        """{"context":{"slot":1},"value":{"data":["${Base64.getEncoder().encodeToString(nonceAccount(sender, nonce))}","base64"],""" +
+            """"owner":"11111111111111111111111111111111","lamports":1,"executable":false,"rentEpoch":0,"space":80}}""",
+    )
+
+    private val noStatus = answer("""{"context":{"slot":1},"value":[null]}""")
+
+    private val confirmed = answer("""{"context":{"slot":1},"value":[{"slot":1,"confirmations":null,"err":null,"confirmationStatus":"confirmed"}]}""")
 
     /** An initialized nonce account's 80 bytes: version 1, state 1, the authority, the nonce value, then a fee of 5000 lamports per signature. */
     private fun nonceAccount(authority: ByteArray, nonce: ByteArray): ByteArray =

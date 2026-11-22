@@ -1,6 +1,7 @@
 package app.lumio.evm
 
 import app.lensly.core.wallet.toHex
+import app.lumio.send.Landing
 import app.lumio.tokens.Erc20
 import app.lumio.tokens.Token
 import java.math.BigInteger
@@ -28,6 +29,7 @@ class EvmSendRpcTest {
     private val chain = EvmChain(1L, "Ethereum", "ETH", 18, testnet = false, explorerUrl = null)
     private val from = "0x" + "11".repeat(20)
     private val to = "0x" + "22".repeat(20)
+    private val HASH = "0x" + "ab".repeat(32)
     private val oneCent = BigInteger.TEN.pow(16)
     private val answers = HashMap<String, String>()
     private var failing = HashSet<String>()
@@ -204,5 +206,62 @@ class EvmSendRpcTest {
 
         assertEquals(RpcFailure.Reason.MALFORMED, failure.reason)
         assertEquals("The token balance could not be read. Try again.", failure.message)
+    }
+
+    @Test
+    fun aSentTransactionIsPendingWhileItsNonceIsFree() {
+        val send = runBlocking { EvmSend.prepare(reads(), chain, from, 0, to, oneCent) }
+        answers["eth_getTransactionReceipt"] = "null"
+
+        assertEquals(Landing.PENDING, runBlocking { EvmSendLanding(reads(), send).landing(HASH) })
+    }
+
+    @Test
+    fun aDroppedTransactionIsRefusedOnlyOnTheSecondPollThatSeesIt() {
+        val send = runBlocking { EvmSend.prepare(reads(), chain, from, 0, to, oneCent) }
+        val watch = EvmSendLanding(reads(), send)
+        answers["eth_getTransactionReceipt"] = "null"
+        answers["eth_getTransactionCount"] = "\"0x8\""
+
+        assertEquals(Landing.PENDING, runBlocking { watch.landing(HASH) })
+        assertEquals(Landing.REFUSED, runBlocking { watch.landing(HASH) })
+    }
+
+    @Test
+    fun aLaggingReceiptDoesNotRefuseASentTransaction() {
+        val send = runBlocking { EvmSend.prepare(reads(), chain, from, 0, to, oneCent) }
+        val watch = EvmSendLanding(reads(), send)
+        answers["eth_getTransactionReceipt"] = "null"
+        answers["eth_getTransactionCount"] = "\"0x8\""
+
+        assertEquals(Landing.PENDING, runBlocking { watch.landing(HASH) })
+
+        answers["eth_getTransactionReceipt"] = "{\"status\":\"0x1\"}"
+        assertEquals(Landing.LANDED, runBlocking { watch.landing(HASH) })
+    }
+
+    @Test
+    fun aReceiptDecidesTheSentTransaction() {
+        val send = runBlocking { EvmSend.prepare(reads(), chain, from, 0, to, oneCent) }
+        val watch = EvmSendLanding(reads(), send)
+        answers["eth_getTransactionCount"] = "\"0x8\""
+
+        answers["eth_getTransactionReceipt"] = "{\"status\":\"0x1\"}"
+        assertEquals(Landing.LANDED, runBlocking { watch.landing(HASH) })
+
+        answers["eth_getTransactionReceipt"] = "{\"status\":\"0x0\"}"
+        assertEquals(Landing.REFUSED, runBlocking { watch.landing(HASH) })
+    }
+
+    @Test
+    fun theConfirmedNonceIsReadBeforeTheReceipt() {
+        val send = runBlocking { EvmSend.prepare(reads(), chain, from, 0, to, oneCent) }
+        answers["eth_getTransactionReceipt"] = "null"
+        bodies.clear()
+
+        runBlocking { EvmSendLanding(reads(), send).landing(HASH) }
+
+        assertEquals(listOf("eth_getTransactionCount", "eth_getTransactionReceipt"), methodsCalled())
+        assertEquals(true, bodies.first().contains("\"latest\""))
     }
 }

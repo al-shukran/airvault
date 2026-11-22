@@ -41,6 +41,7 @@ import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmFormat
 import app.lumio.evm.EvmSend
+import app.lumio.evm.EvmSendLanding
 import app.lumio.evm.EvmSettings
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.evm.PreparedSend
@@ -58,7 +59,6 @@ import app.lumio.send.ArrivalWatch
 import app.lumio.send.EvmPaymentCode
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
-import app.lumio.send.evmLanding
 import app.lumio.tokens.TokenBalanceCache
 import app.lumio.tokens.TokenHolding
 import app.lumio.tokens.TokenPortfolio
@@ -552,7 +552,7 @@ internal fun SendRoute(
                 arrivals = app.sendArrivals,
                 network = NetworkId(Networks.evm(now.send.chain.chainId), now.send.chain.testnet),
                 arrivedHeadline = "Your ${now.send.chain.symbol} Has Arrived",
-                read = { hash -> evmLanding(app.evmReadsFor(checkNotNull(session)).receipt(now.send.chain, hash)) },
+                read = EvmSendLanding(app.evmReadsFor(checkNotNull(session)), now.send)::landing,
             ),
             explorerUrl = { hash -> EvmSend.explorerLink(now.send.chain, hash) },
             onExplorer = { hash -> EvmSend.explorerLink(now.send.chain, hash)?.let(::openExplorer) },

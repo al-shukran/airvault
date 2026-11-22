@@ -16,6 +16,7 @@ import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.RecentBlockhash
+import app.lumio.data.provider.SolanaAccountRead
 import app.lumio.data.provider.SolanaAccountState
 import app.lumio.data.provider.SolanaBlockHeight
 import app.lumio.data.provider.solana.SOLANA_MAINNET
@@ -137,6 +138,20 @@ object SolanaSend {
         val nonceValue = state.takeIf { it.owner == SYSTEM_PROGRAM }?.let { SolanaNonce.nonceValue(it.data, account) }
             ?: throw IllegalArgumentException(NONCE_UNUSABLE)
         return SolanaNoncePath.Durable(nonceValue)
+    }
+
+    /**
+     * Whether the network can no longer include the transaction of [plan]. A one-time setup is dropped once the block height passes its window. A send
+     * that names a nonce is dropped once the nonce account no longer holds the nonce value that it names, since another transaction advanced it.
+     */
+    internal suspend fun dropped(scheduler: Scheduler, plan: SolanaSendPlan): Boolean {
+        plan.window?.let { window ->
+            return scheduler.run(SolanaBlockHeight(plan.network), Priority.BACKGROUND) > window.lastValidBlockHeight
+        }
+        val address = Base58.encode(SolanaNonce.accountOf(plan.account.key))
+        val state = scheduler.run(SolanaAccountRead(plan.network, address), Priority.BACKGROUND)
+        val nonceValue = state?.takeIf { it.owner == SYSTEM_PROGRAM }?.let { SolanaNonce.nonceValue(it.data, plan.account.key) }
+        return nonceValue == null || !nonceValue.contentEquals(plan.blockhash)
     }
 
     /** A fresh 16-byte request ID. Lensly's answer must echo it, so an old answer cannot be used for this send. */
