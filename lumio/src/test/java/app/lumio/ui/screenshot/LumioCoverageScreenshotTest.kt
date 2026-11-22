@@ -390,17 +390,24 @@ class LumioCoverageScreenshotTest {
 
     @Test
     fun pairReviewWhenAlreadyPaired() = compose.lumioSnapshot("pair_review_already_paired") {
-        PairReviewScreen(pairing = pairing(withBitcoin = false), alreadyPaired = true, error = null, onSave = {}, onCancel = {})
+        PairReviewScreen(pairing = pairing(withBitcoin = false), alreadyPaired = true, error = null, onSave = {}, onCancel = {}, onLock = {})
     }
 
     @Test
     fun pairReviewWhenSaveFails() = compose.lumioSnapshot("pair_review_save_failed") {
-        PairReviewScreen(pairing = pairing(withBitcoin = false), alreadyPaired = false, error = PAIR_SAVE_FAILED, onSave = {}, onCancel = {})
+        PairReviewScreen(
+            pairing = pairing(withBitcoin = false),
+            alreadyPaired = false,
+            error = PAIR_SAVE_FAILED,
+            onSave = {},
+            onCancel = {},
+            onLock = {},
+        )
     }
 
     @Test
     fun pairReviewWithBitcoinAccounts() = compose.lumioSnapshot("pair_review_bitcoin") {
-        PairReviewScreen(pairing = pairing(withBitcoin = true), alreadyPaired = false, error = null, onSave = {}, onCancel = {})
+        PairReviewScreen(pairing = pairing(withBitcoin = true), alreadyPaired = false, error = null, onSave = {}, onCancel = {}, onLock = {})
     }
 
     private fun pairing(withBitcoin: Boolean): PairingPayload {

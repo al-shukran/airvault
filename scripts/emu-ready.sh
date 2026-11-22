@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Puts Lumio's debug build on an emulator with its demo seed in place, so a motion gate can start at once. It builds and installs the
-# debug APK, launches it with the seed extra (no taps), waits until the seed has opened the demo wallet over the Wallets home, and then
-# checks on screen that the wallet's account list shows a balance.
+# debug APK, launches it with the seed extra (no taps), waits until the seed has the demo wallet on the Wallets home, and then checks on
+# screen that the wallet's account list shows a balance.
 #
 #   scripts/emu-ready.sh [serial]   the serial defaults to the first attached emulator
 #   FRESH=1        uninstall first, so the vault and its pairing are made anew
@@ -46,10 +46,10 @@ case "$output" in
     *Error*) echo "emu-ready: launch failed on $serial: $output" >&2; exit 1 ;;
 esac
 
-# The seed logs once the wallet is open over the Wallets home, or why it is not.
+# The seed logs once the wallet is on the Wallets home, or why it is not.
 while :; do
     seed="$(adb -s "$serial" logcat -d -s 'DebugDemoSeed:I' 2>/dev/null || true)"
-    if grep -q 'The demo wallet is open on the Wallets home' <<< "$seed"; then
+    if grep -q 'The demo wallet is on the Wallets home' <<< "$seed"; then
         break
     fi
     if grep -q 'was not seeded\|could not be seeded' <<< "$seed"; then
