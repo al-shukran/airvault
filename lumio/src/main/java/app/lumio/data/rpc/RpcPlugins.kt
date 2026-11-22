@@ -14,8 +14,8 @@ import app.lumio.data.provider.Trait
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** The operations an EVM RPC provider serves: balances, nonces, fees, gas estimates and broadcasts. */
-private val EVM_OPS = setOf(Ops.EVM_NATIVE_BALANCE, Ops.EVM_NONCE, Ops.EVM_CALL, Ops.EVM_GAS_FEES, Ops.EVM_BROADCAST)
+/** The operations an EVM RPC provider serves: balances, nonces, fees, gas estimates, broadcasts and receipts. */
+private val EVM_OPS = setOf(Ops.EVM_NATIVE_BALANCE, Ops.EVM_NONCE, Ops.EVM_CALL, Ops.EVM_GAS_FEES, Ops.EVM_BROADCAST, Ops.EVM_RECEIPT)
 
 /** A key as it goes into a URL path. Only letters, digits, '-' and '_' pass, so a key can never change the host or the path. */
 private val KEY = Regex("[A-Za-z0-9_-]{1,128}")

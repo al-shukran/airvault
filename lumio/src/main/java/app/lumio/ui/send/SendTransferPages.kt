@@ -167,7 +167,8 @@ private val RING_STROKE_DP = 3.dp
 
 /**
  * On Its Way, after the send: the steps of the transfer with the state of each, and the words that say the screen can be closed. [timing] is how
- * long the network usually takes, for the step that is confirming. Done goes back to the account; the explorer link is offered when the chain has one.
+ * long the network usually takes, for the step that is confirming. [arrived] says the transfer has landed: the last two steps are done, and the words about
+ * closing the screen go. Done goes back to the account; the explorer link is offered when the chain has one.
  */
 @Composable
 fun SendOnItsWayPage(
@@ -176,6 +177,7 @@ fun SendOnItsWayPage(
     network: String,
     timing: String,
     recipient: String,
+    arrived: Boolean,
     explorerLabel: String?,
     onExplorer: () -> Unit,
     onDone: () -> Unit,
@@ -208,12 +210,20 @@ fun SendOnItsWayPage(
             steps = listOf(
                 ClearAirTimelineStep("Signed on Lensly", "Your keys never left it.", ClearAirStepState.Done),
                 ClearAirTimelineStep("Sent to $network", "The network accepted it.", ClearAirStepState.Done),
-                ClearAirTimelineStep("Confirming", timing, ClearAirStepState.Now),
-                ClearAirTimelineStep("In $recipient", "Funds reach the recipient.", ClearAirStepState.Todo),
+                if (arrived) {
+                    ClearAirTimelineStep("Confirming", "Confirmed by the network.", ClearAirStepState.Done)
+                } else {
+                    ClearAirTimelineStep("Confirming", timing, ClearAirStepState.Now)
+                },
+                if (arrived) {
+                    ClearAirTimelineStep("In $recipient", "Funds reached the recipient.", ClearAirStepState.Done)
+                } else {
+                    ClearAirTimelineStep("In $recipient", "Funds reach the recipient.", ClearAirStepState.Todo)
+                },
             ),
         )
         Spacer(Modifier.height(ClearAirSpacing.md))
-        Text(text = "You can close this screen.", style = ClearAirType.body, color = palette.ink2)
+        if (!arrived) Text(text = "You can close this screen.", style = ClearAirType.body, color = palette.ink2)
     }
 }
 

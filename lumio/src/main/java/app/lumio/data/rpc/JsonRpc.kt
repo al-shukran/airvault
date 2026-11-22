@@ -97,7 +97,7 @@ object JsonRpc {
      * that says the endpoint does not serve the method or the chain is [ProviderError.Unsupported], so the caller moves on without a penalty;
      * anything else that fails is [ProviderError.Fatal].
      */
-    fun call(client: OkHttpClient, url: String, method: String, params: JsonArray, allowLocalHttp: Boolean): JsonElement {
+    fun call(client: OkHttpClient, url: String, method: String, params: JsonArray, allowLocalHttp: Boolean, nullIsAnswer: Boolean = false): JsonElement {
         val target = try {
             RpcUrl.validate(url, allowLocalHttp)
         } catch (e: IllegalArgumentException) {
@@ -121,11 +121,14 @@ object JsonRpc {
             throw ProviderError.Transient(e)
         }
         if (text.length > MAX_RESPONSE_BYTES) throw ProviderError.Fatal("The endpoint's answer is too large.")
-        return resultOf(text)
+        return resultOf(text, nullIsAnswer)
     }
 
-    /** The result member of a JSON-RPC answer. An error object that names a rate limit is rate limited, any other error object, a missing result or a null result is a failure. */
-    private fun resultOf(text: String): JsonElement {
+    /**
+     * The result member of a JSON-RPC answer. An error object that names a rate limit is rate limited, any other error object or a missing result is a
+     * failure, and so is a null result unless [nullIsAnswer] says null is the answer, as it is for a receipt the network does not hold yet.
+     */
+    private fun resultOf(text: String, nullIsAnswer: Boolean): JsonElement {
         val root = try {
             Json.parseToJsonElement(text) as? JsonObject
         } catch (e: Exception) {
@@ -142,8 +145,8 @@ object JsonRpc {
             if (BLOCKHASH_UNKNOWN.containsMatchIn(message)) throw ProviderError.Fatal(BLOCKHASH_REFUSED_MESSAGE)
             throw ProviderError.Fatal("The endpoint returned a JSON-RPC error.")
         }
-        val result = root["result"]
-        if (result == null || result is JsonNull) throw ProviderError.Fatal("The endpoint sent no result.")
+        val result = root["result"] ?: throw ProviderError.Fatal("The endpoint sent no result.")
+        if (result is JsonNull && !nullIsAnswer) throw ProviderError.Fatal("The endpoint sent no result.")
         return result
     }
 }

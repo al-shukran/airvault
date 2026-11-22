@@ -18,7 +18,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.NavHostController
 import app.airvault.core.model.AccountId
-import app.lensly.app.AddressBookEntry
 import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
@@ -35,6 +34,7 @@ import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.RentExemptMinimum
 import app.lumio.data.provider.SolanaAccountRead
+import app.lumio.data.provider.SolanaSignatureStatus
 import app.lumio.data.provider.SplTokenBalances
 import app.lumio.data.provider.solana.SOLANA_DEVNET
 import app.lumio.data.provider.solana.SOLANA_MAINNET
@@ -46,10 +46,14 @@ import app.lumio.network.NetworkMode
 import app.lumio.notesDetail
 import app.lumio.notesName
 import app.lumio.onVault
+import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
+import app.lumio.send.ArrivalWatch
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
+import app.lumio.send.solanaLanding
+import app.lumio.send.solanaOwnChoices
 import app.lumio.ui.send.RECIPIENT_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendAmountPage
@@ -63,6 +67,7 @@ import app.lumio.ui.send.SendReviewPage
 import app.lumio.ui.send.SendShowPage
 import app.lumio.ui.send.SignatureScanScreen
 import app.lumio.ui.send.SignedSendSteps
+import app.lumio.ui.send.SolanaFeeSheet
 import app.lumio.ui.send.SummaryRow
 import app.lumio.ui.send.rememberSendOffline
 import app.lumio.wallets.WalletAccounts
@@ -164,10 +169,11 @@ internal fun SolanaSendRoute(
             }
         }
     }
-    // The Address Book of the wallet, which the recipient page offers and the send names its recipients from.
-    val addressBook by produceState<List<AddressBookEntry>>(initialValue = emptyList(), session, walletId) {
-        value = onVault(emptyList()) { PairedWallets.list(session).firstOrNull { it.id == walletId }?.addressBook.orEmpty() }
+    // The paired wallet, whose accounts and Address Book the recipient page offers and whose Address Book the send names its recipients from.
+    val paired by produceState<PairedWallet?>(initialValue = null, session, walletId) {
+        value = onVault(null) { PairedWallets.list(session).firstOrNull { it.id == walletId } }
     }
+    val addressBook = paired?.addressBook.orEmpty()
 
     var step by remember { mutableStateOf<SolanaSendStep>(SolanaSendStep.Recipient) }
     var recipient by rememberSaveable { mutableStateOf("") }
@@ -187,6 +193,9 @@ internal fun SolanaSendRoute(
     var scanBusy by remember { mutableStateOf(false) }
     var sentOutcome by remember { mutableStateOf<SolanaOutcome?>(null) }
     var sentSignature by remember { mutableStateOf<String?>(null) }
+    // The Priority Fee switch of the fee sheet. It is saved, so that a rotation keeps the owner's choice.
+    var priorityFee by rememberSaveable { mutableStateOf(false) }
+    var feeSheet by remember { mutableStateOf(false) }
 
     val selected = assets.firstOrNull { it.key == selectedKey } ?: SolanaAssets.native
     val token = selected.token
@@ -196,7 +205,7 @@ internal fun SolanaSendRoute(
         "${SolanaAssets.text(token.amount, selected.decimals)} ${selected.symbol}"
     }
     val maxText: String? = if (token == null) {
-        balance?.let { SolanaSend.maxLamports(it) }?.let { SolanaSendInput.format(BigInteger.valueOf(it)) }
+        balance?.let { SolanaSend.maxLamports(it, priorityFee) }?.let { SolanaSendInput.format(BigInteger.valueOf(it)) }
     } else {
         SolanaAssets.text(token.amount, selected.decimals)
     }
@@ -230,6 +239,7 @@ internal fun SolanaSendRoute(
     fun review() {
         val from = account ?: return
         val asset = selected
+        val priority = priorityFee
         busy = true
         notice = null
         scope.launch {
@@ -257,7 +267,9 @@ internal fun SolanaSendRoute(
                             )
                             val rent = if (exists) 0L else scheduler.run(RentExemptMinimum(network, SolanaAssets.TOKEN_ACCOUNT_BYTES), Priority.FOREGROUND)
                             SolanaSendStep.Review(
-                                SolanaAssets.plan(network, asset, from, to, units, available, path.nonceValue, SolanaSend.newRequestId(), exists, rent),
+                                SolanaAssets.plan(
+                                    network, asset, from, to, units, available, path.nonceValue, SolanaSend.newRequestId(), exists, rent, priority,
+                                ),
                                 rent,
                             )
                         }
@@ -443,7 +455,7 @@ internal fun SolanaSendRoute(
                 error = if (invalid) solanaRecipientError(settled) else null,
                 hint = null,
                 canContinue = recipient.isNotBlank() && solanaRecipientError(recipient) == null,
-                accounts = emptyList(),
+                accounts = paired?.let { solanaOwnChoices(it, from.address) }.orEmpty(),
                 addressBook = addressBook
                     .filter { solanaRecipientError(it.address) == null }
                     .map { entry -> SendChoice(title = entry.name, detail = entry.label ?: "Address Book", address = entry.address) },
@@ -476,7 +488,7 @@ internal fun SolanaSendRoute(
             }
             val leaves = if (token == null && balance != null && amountError == null && amount.isNotBlank()) {
                 runCatching { SolanaSendInput.lamports(amount) }.getOrNull()?.let { lamports ->
-                    val left = balance!! - BigInteger.valueOf(lamports) - BigInteger.valueOf(SOLANA_FEE_LAMPORTS)
+                    val left = balance!! - BigInteger.valueOf(lamports) - BigInteger.valueOf(SOLANA_FEE_LAMPORTS + SolanaSend.sendPriorityFee(priorityFee))
                     if (left.signum() >= 0) "Leaves ${SolanaSendInput.format(left)} SOL after the fee" else null
                 }
             } else {
@@ -497,8 +509,8 @@ internal fun SolanaSendRoute(
                 leaves = leaves,
                 onUseMax = if (maxText != null) { { maxText.let { amount = it } } } else null,
                 networkName = networkLabel,
-                feeText = feeText,
-                onFee = null,
+                feeText = if (priorityFee) "$feeText and a priority fee" else feeText,
+                onFee = { feeSheet = true },
                 note = if (assets.size > 1) null else "Chosen for you: ${networkLabel}, the network this account sends on.",
                 canReview = !busy && recipient.isNotBlank() && solanaRecipientError(recipient) == null && amount.isNotBlank() && amountError == null,
                 onReview = ::review,
@@ -507,6 +519,14 @@ internal fun SolanaSendRoute(
                 offline = offline,
                 onBack = { step = SolanaSendStep.Recipient },
                 onLock = onLock,
+            )
+            SolanaFeeSheet(
+                visible = feeSheet,
+                networkFee = "${SolanaSendInput.format(BigInteger.valueOf(SOLANA_FEE_LAMPORTS))} SOL",
+                timing = "About 1 second on $networkLabel",
+                priority = priorityFee,
+                onApply = { priorityFee = it },
+                onClose = { feeSheet = false },
             )
             if (assets.size > 1) {
                 SendOptionSheet(
@@ -626,6 +646,12 @@ internal fun SolanaSendRoute(
             network = networkLabel,
             timing = sentOutcome?.let { solanaOutcomeText(network, it) } ?: "About 1 second on $networkLabel",
             fromName = fromName,
+            arrival = if (current.setup) null else ArrivalWatch(
+                arrivals = app.sendArrivals,
+                network = current.plan.network,
+                arrivedHeadline = "Your ${selected.symbol} Has Arrived",
+                read = { signature -> solanaLanding(scheduler.run(SolanaSignatureStatus(current.plan.network, signature), Priority.BACKGROUND)) },
+            ),
             explorerUrl = { signature -> SolanaSend.explorerTxUrl(current.plan.network, signature) },
             onExplorer = { signature -> openExplorer(SolanaSend.explorerTxUrl(current.plan.network, signature)) },
             onSent = { signature -> sentSignature = signature },
@@ -694,13 +720,19 @@ private fun solanaAmountText(plan: SolanaSendPlan, symbol: String): String {
     }
 }
 
-/** The rows under the recipient on the Review page: the amount, the network fee in SOL, the network and the sender. */
-private fun solanaRows(plan: SolanaSendPlan, symbol: String): List<SummaryRow> = listOf(
-    SummaryRow("Amount", solanaAmountText(plan, symbol)),
-    SummaryRow("Network Fee", "${SolanaSendInput.format(BigInteger.valueOf(plan.feeLamports))} SOL"),
-    SummaryRow("Network", solanaNetworkName(plan.network)),
-    SummaryRow("From", groupAddress(plan.senderAddress)),
-)
+/**
+ * The rows under the recipient on the Review page: the amount, the network fee in SOL, the priority fee when the switch set one (an upper bound, as
+ * Lensly shows it), the network and the sender.
+ */
+private fun solanaRows(plan: SolanaSendPlan, symbol: String): List<SummaryRow> = buildList {
+    add(SummaryRow("Amount", solanaAmountText(plan, symbol)))
+    add(SummaryRow("Network Fee", "${SolanaSendInput.format(BigInteger.valueOf(plan.feeLamports))} SOL"))
+    if (plan.priorityFeeLamports > 0) {
+        add(SummaryRow("Priority Fee", "up to ${SolanaSendInput.format(BigInteger.valueOf(plan.priorityFeeLamports))} SOL"))
+    }
+    add(SummaryRow("Network", solanaNetworkName(plan.network)))
+    add(SummaryRow("From", groupAddress(plan.senderAddress)))
+}
 
 /** A rent in lamports as SOL, rounded to a thousandth as the copy shows it. */
 private fun solAmountText(lamports: Long): String =

@@ -2,6 +2,8 @@ package app.lumio
 
 import android.app.Application
 import android.util.Log
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import app.lensly.app.CoverApplication
 import app.lensly.app.EntryGestureHolder
 import app.lensly.app.EntryGestureStore
@@ -51,6 +53,8 @@ import app.lumio.tokens.CustomTokenStore
 import app.lumio.tokens.Token
 import app.lumio.tokens.TokenCatalog
 import app.lumio.portfolio.PortfolioBoard
+import app.lumio.send.ArrivalNotifications
+import app.lumio.send.SendArrivals
 import app.lumio.wallets.WalletsBoard
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -129,6 +133,15 @@ class LumioApp : Application(), CoverApplication {
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /** The sent transactions that are watched until they land. One for the app, so a watch outlives the send page that started it. */
+    val sendArrivals: SendArrivals by lazy {
+        SendArrivals(
+            scope = scope,
+            notice = ArrivalNotifications(this),
+            foreground = { ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) },
+        )
+    }
 
     /**
      * The Esplora providers, then Blockchair as the last fallback: a FALLBACK_ONLY provider serves a Bitcoin read only when no other provider can

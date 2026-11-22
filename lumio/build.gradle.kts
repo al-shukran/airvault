@@ -120,6 +120,9 @@ dependencies {
     // Balances and nonces come from a public JSON-RPC endpoint over HTTPS. :shared excludes web3j's OkHttp, so this declaration is the only one in the APK.
     implementation(libs.okhttp)
 
+    // The arrival notice posts only while the app is in the background, which ProcessLifecycleOwner tells.
+    implementation(libs.androidx.lifecycle.process)
+
     // The cache and the scan queue are one Room database in the app's private storage. Room's processor runs through KSP.
     implementation(libs.androidx.room.runtime)
     ksp(libs.androidx.room.compiler)

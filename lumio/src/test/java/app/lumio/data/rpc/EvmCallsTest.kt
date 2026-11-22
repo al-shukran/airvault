@@ -3,11 +3,13 @@ package app.lumio.data.rpc
 import app.lumio.data.ETH
 import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.EstimateGas
+import app.lumio.data.provider.EvmReceipt
 import app.lumio.data.provider.GasFees
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.Nonce
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.TipHeight
+import app.lumio.data.provider.TxReceipt
 import java.math.BigInteger
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
@@ -15,6 +17,7 @@ import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -26,6 +29,7 @@ class EvmCallsTest {
     private val client = JsonRpc.newHttp(timeoutMs = 2_000L).client
     private val bodies = ArrayList<String>()
     private val address = "0x" + "ab".repeat(20)
+    private val hash = "0x" + "cd".repeat(32)
 
     @Before
     fun start() {
@@ -57,6 +61,30 @@ class EvmCallsTest {
 
         assertEquals(BigInteger.TEN.pow(18), run(NativeBalance(ETH, address)))
         assertTrue(bodies.single().contains("\"params\":[\"$address\",\"latest\"]"))
+    }
+
+    @Test
+    fun aReceiptIsNullUntilTheNetworkIncludesTheTransaction() {
+        answers["eth_getTransactionReceipt"] = "null"
+
+        assertNull(run(TxReceipt(ETH, hash)))
+        assertTrue(bodies.single().contains("\"params\":[\"$hash\"]"))
+    }
+
+    @Test
+    fun aReceiptReadsWhetherTheTransferSucceeded() {
+        answers["eth_getTransactionReceipt"] = "{\"status\":\"0x1\",\"blockNumber\":\"0x10\"}"
+        assertEquals(EvmReceipt(success = true), run(TxReceipt(ETH, hash)))
+
+        answers["eth_getTransactionReceipt"] = "{\"status\":\"0x0\",\"blockNumber\":\"0x10\"}"
+        assertEquals(EvmReceipt(success = false), run(TxReceipt(ETH, hash)))
+    }
+
+    @Test
+    fun aReceiptWithoutAStatusIsMalformed() {
+        answers["eth_getTransactionReceipt"] = "{}"
+
+        assertThrows(ProviderError.Fatal::class.java) { run(TxReceipt(ETH, hash)) }
     }
 
     @Test

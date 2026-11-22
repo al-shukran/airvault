@@ -2,6 +2,7 @@ package app.lumio.send.solana
 
 import app.airvault.chains.solana.signer.SolanaMessage
 import app.lensly.core.solana.SolanaNonce
+import app.lensly.core.solana.SolanaPriorityFee
 import app.lensly.core.solana.SolanaSplTransfer
 import app.lensly.core.solana.SolanaTokenAccounts
 import app.lumio.data.provider.SolanaAccountState
@@ -38,6 +39,7 @@ class SolanaSplSendTest {
         amount: ULong = 1_234_567UL,
         available: BigInteger = sol,
         recipientAccountExists: Boolean = true,
+        priority: Boolean = false,
     ): SolanaSendPlan = SolanaSplSend.plan(
         network = SOLANA_DEVNET,
         account = account,
@@ -49,7 +51,31 @@ class SolanaSplSendTest {
         requestId = requestId,
         recipientAccountExists = recipientAccountExists,
         rentLamports = RENT_165_BYTES,
+        priority = priority,
     )
+
+    /**
+     * The Priority Fee switch adds SetComputeUnitPrice after the advance. Its fee is the price times the default units of what the send pays for: the
+     * advance (3000) and the transfer (200000), and the token account (200000) when the send opens one. Lensly's review shows the same fee.
+     */
+    @Test
+    fun thePrioritySwitchChargesTheDefaultUnitsOfItsInstructions() {
+        val existing = plan(priority = true, available = sol + BigInteger.valueOf(SolanaPriorityFee.lamports(203_000L)))
+        assertEquals(20_300L, existing.priorityFeeLamports)
+        assertContentEquals(
+            SolanaSplTransfer.message(account.key, recipient, Base58.decode(mint), 1_234_567UL, 6, nonce, createRecipientAccount = false, priority = true),
+            existing.message,
+        )
+        assertEquals(20_300uL, reviewOf(existing, listOf(account.key)).priorityFeeLamports)
+
+        val opened = plan(
+            priority = true,
+            recipientAccountExists = false,
+            available = sol + BigInteger.valueOf(RENT_165_BYTES + SolanaPriorityFee.lamports(403_000L)),
+        )
+        assertEquals(40_300L, opened.priorityFeeLamports)
+        assertEquals(40_300uL, reviewOf(opened, listOf(account.key)).priorityFeeLamports)
+    }
 
     @Test
     fun aSendToAnExistingTokenAccountIsTheTransferOfTheNonceAndSpendsNoRent() {

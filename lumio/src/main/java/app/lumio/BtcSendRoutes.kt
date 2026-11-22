@@ -40,16 +40,20 @@ import app.lumio.btc.indexerOf
 import app.lumio.btc.networkId
 import app.lumio.data.provider.FeeEstimates
 import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.Tx
 import app.lumio.data.sched.Priority
 import app.lumio.evm.SignatureScan
 import app.lumio.evm.SignatureStep
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
+import app.lumio.send.ArrivalWatch
 import app.lumio.send.BtcPaymentCode
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
+import app.lumio.send.bitcoinLanding
+import app.lumio.send.bitcoinOwnChoices
 import app.lumio.ui.pair.PairLabels
 import app.lumio.ui.send.RECIPIENT_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
@@ -181,7 +185,8 @@ internal fun BtcSendRoute(
     val network = selected.account.network
     val fromName = PairLabels.scriptType(selected.account.scriptType)
     val fromPath = selected.account.path.asString('\'')
-    val addressBook = wallets.firstOrNull { it.fingerprint == selected.account.masterFingerprint }?.addressBook.orEmpty()
+    val paired = wallets.firstOrNull { it.fingerprint == selected.account.masterFingerprint }
+    val addressBook = paired?.addressBook.orEmpty()
 
     // The coins the send may spend, read from the network, or from the pairing fixture in a debug build. A read failure keeps the page, with the words why.
     suspend fun readSpendable(): BtcSpendable = DebugSpendFixture.spendable(selected.account)
@@ -246,6 +251,19 @@ internal fun BtcSendRoute(
                 onFailure = { error -> notice = ownerWords(error, PREPARE_FAILED) },
             )
         }
+    }
+
+    /** Use Max fills the amount with every coin less the fee at the rate in the field. The owner's amount is replaced, and a refusal shows its words. */
+    fun useMax() {
+        val pool = spendable ?: return
+        runCatching {
+            BtcSend.maxAmountSats(selected.account, pool, BtcSendInput.recipient(recipient, network), BtcSendInput.feeRate(feeRate))
+        }
+            .onSuccess {
+                amount = BtcSend.formatAmount(it)
+                notice = null
+            }
+            .onFailure { error -> notice = ownerWords(error, PREPARE_FAILED) }
     }
 
     /** A scanned recipient fills To, and the amount when the form has none. A code that is refused keeps the camera on, with the words why. */
@@ -376,7 +394,7 @@ internal fun BtcSendRoute(
                 error = if (invalid) btcRecipientError(settled, network) else null,
                 hint = null,
                 canContinue = recipient.isNotBlank() && btcRecipientError(recipient, network) == null,
-                accounts = emptyList(),
+                accounts = paired?.let { bitcoinOwnChoices(it, network, selected.account.receiveAddress(0)) }.orEmpty(),
                 addressBook = addressBook
                     .filter { btcRecipientError(it.address, network) == null }
                     .map { entry -> SendChoice(title = entry.name, detail = entry.label ?: "Address Book", address = entry.address) },
@@ -421,7 +439,7 @@ internal fun BtcSendRoute(
                 } else {
                     null
                 },
-                onUseMax = null,
+                onUseMax = if (total != null) ::useMax else null,
                 networkName = btcNetworkName(network),
                 feeText = sent?.let { btcText(it.feeSats) } ?: "Reading the network",
                 onFee = if (sent != null) { { feeSheet = true } } else null,
@@ -524,6 +542,12 @@ internal fun BtcSendRoute(
                 network = btcNetworkName(network),
                 timing = TIMING,
                 fromName = fromName,
+                arrival = ArrivalWatch(
+                    arrivals = app.sendArrivals,
+                    network = current.plan.network.networkId(),
+                    arrivedHeadline = "Your BTC Has Arrived",
+                    read = { txid -> bitcoinLanding(app.scheduler.run(Tx(current.plan.network.networkId(), txid), Priority.BACKGROUND)) },
+                ),
                 explorerUrl = { txid -> BtcPortfolio.explorerTxUrl(current.plan.network, txid) },
                 onExplorer = { txid -> openExplorer(BtcPortfolio.explorerTxUrl(current.plan.network, txid)) },
                 onSent = {},

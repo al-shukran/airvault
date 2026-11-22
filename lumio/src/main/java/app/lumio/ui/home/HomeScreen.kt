@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -25,9 +26,13 @@ import app.lumio.watchlist.WatchlistSort
 import java.util.Locale
 import kotlin.math.abs
 
+/** The width and height of a row's tick chart. */
+private val TICK_WIDTH = 56.dp
+private val TICK_HEIGHT = 28.dp
+
 /**
- * One watchlist row as Home shows it: its [name], the [detail] line under it such as "BTC · 0.2104 held", and its price and 24 h change. A null
- * [priceUsd] or [change24hPct] is shown as absent, never as zero. [asset] is the coin the row opens.
+ * One watchlist row as Home shows it: its [name], the [detail] line under it such as "BTC · 0.2104 held", its price and 24 h change, and the [ticks] of
+ * its day's prices, oldest first. A null [priceUsd] or [change24hPct] is shown as absent, never as zero, and fewer than two [ticks] draw no chart.
  */
 data class WatchlistRow(
     val asset: WatchedAsset,
@@ -35,16 +40,23 @@ data class WatchlistRow(
     val detail: String,
     val priceUsd: String?,
     val change24hPct: Double?,
+    val ticks: List<Double> = emptyList(),
 )
 
 /**
- * The Home tab's body: the total market cap, Send and Receive under it, and the wallet's watchlist with its sort control. [rows] are already in the
- * order the list shows them. A test network shows no prices, because test coins have no value. [onSend] and [onReceive] open the wallet's Send and
- * Receive, [onSort] opens the sort sheet, and [onOpen] opens a row's coin. The header parts keep the page gutter; the rows are full-bleed, as every
- * list row is.
+ * The whole market as the hero shows it: its total in dollars ([total], null when it is not read), its 24 h change, and the [freshness] line, such as
+ * "Live · updated 8 s ago".
+ */
+data class MarketHero(val total: String?, val change24hPct: Double?, val freshness: String?)
+
+/**
+ * The Home tab's body: the hero with the total market cap, Send and Receive under it, and the wallet's watchlist with its sort control. [rows] are already
+ * in the order the list shows them. A test network shows no prices, because test coins have no value. [onSend] and [onReceive] open the wallet's Send and
+ * Receive, and [onSort] opens the sort sheet. The header parts keep the page gutter; the rows are full-bleed, as every list row is.
  */
 @Composable
 fun HomeScreen(
+    hero: MarketHero,
     rows: List<WatchlistRow>,
     sort: WatchlistSort,
     testnet: Boolean,
@@ -60,8 +72,11 @@ fun HomeScreen(
     ) {
         ClearAirEyebrow(text = "Total Market Cap")
         Spacer(Modifier.height(ClearAirSpacing.xxs))
-        // The market cap has no source yet, so the hero says it is not read rather than showing a number.
-        Text(text = "—", style = ClearAirType.hero, color = palette.ink)
+        Text(text = hero.total ?: "—", style = ClearAirType.hero, color = palette.ink)
+        hero.change24hPct?.let { change ->
+            Text(text = "${changeText(change)} Today", style = ClearAirType.label, color = if (change >= 0) palette.vaultBlue else palette.rose)
+        }
+        hero.freshness?.let { Text(text = it, style = ClearAirType.label, color = palette.ink2) }
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
@@ -97,19 +112,22 @@ fun HomeScreen(
     }
 }
 
-/** The price and the 24 h change of a watchlist row, on the right. A test network shows nothing here. */
+/** The tick chart, price and 24 h change of a watchlist row, on the right. A test network shows nothing here. */
 @Composable
 private fun WatchlistPrice(row: WatchlistRow, testnet: Boolean) {
     if (testnet) return
     val palette = LocalClearAirPalette.current
-    Column(horizontalAlignment = Alignment.End) {
-        row.priceUsd?.let { ClearAirAmount(text = it, style = ClearAirType.rowValue) }
-        row.change24hPct?.let { change ->
-            Text(
-                text = changeText(change),
-                style = ClearAirType.label,
-                color = if (change >= 0) palette.vaultBlue else palette.rose,
-            )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (row.ticks.size >= 2) {
+            val up = row.change24hPct?.let { it >= 0 } ?: (row.ticks.last() >= row.ticks.first())
+            TickChart(values = row.ticks, up = up, modifier = Modifier.width(TICK_WIDTH).height(TICK_HEIGHT))
+            Spacer(Modifier.width(ClearAirSpacing.sm))
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            row.priceUsd?.let { ClearAirAmount(text = it, style = ClearAirType.rowValue) }
+            row.change24hPct?.let { change ->
+                Text(text = changeText(change), style = ClearAirType.label, color = if (change >= 0) palette.vaultBlue else palette.rose)
+            }
         }
     }
 }

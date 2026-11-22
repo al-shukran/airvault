@@ -4,15 +4,18 @@ import app.lensly.core.wallet.toHex
 import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.ContractCall
 import app.lumio.data.provider.EstimateGas
+import app.lumio.data.provider.EvmReceipt
 import app.lumio.data.provider.GasFees
 import app.lumio.data.provider.GasQuote
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.Nonce
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
+import app.lumio.data.provider.TxReceipt
 import java.math.BigInteger
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.OkHttpClient
@@ -37,10 +40,12 @@ internal object EvmCalls {
      */
     @Suppress("UNCHECKED_CAST")
     fun <T> execute(client: OkHttpClient, url: String, allowLocalHttp: Boolean, req: Request<T>): T {
-        fun call(method: String, params: JsonArray): JsonElement = JsonRpc.call(client, url, method, params, allowLocalHttp)
-        val result: Any = when (req) {
+        fun call(method: String, params: JsonArray, nullIsAnswer: Boolean = false): JsonElement =
+            JsonRpc.call(client, url, method, params, allowLocalHttp, nullIsAnswer)
+        val result: Any? = when (req) {
             is NativeBalance -> quantity(call("eth_getBalance", strings(address(req.address), LATEST)))
             is Nonce -> count(call("eth_getTransactionCount", strings(address(req.address), if (req.pending) PENDING else LATEST)))
+            is TxReceipt -> receipt(call("eth_getTransactionReceipt", strings(req.hash), nullIsAnswer = true))
             is EstimateGas -> {
                 address(req.from)
                 address(req.to)
@@ -93,6 +98,13 @@ internal object EvmCalls {
     private fun address(text: String): String {
         require(ADDRESS.matches(text)) { "Not an EVM address." }
         return text
+    }
+
+    /** The receipt, or null for a `null` answer: the network has not included the transaction. A receipt without a status is a malformed answer. */
+    private fun receipt(element: JsonElement): EvmReceipt? {
+        if (element is JsonNull) return null
+        val status = (element as? JsonObject)?.get("status") ?: throw ProviderError.Fatal("The endpoint sent no receipt status.")
+        return EvmReceipt(success = quantity(status) == BigInteger.ONE)
     }
 
     private fun count(element: JsonElement): Long {

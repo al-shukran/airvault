@@ -1,5 +1,6 @@
 package app.lumio.send.solana
 
+import app.lensly.core.solana.SolanaPriorityFee
 import app.lensly.core.solana.SolanaSplTransfer
 import app.lensly.core.solana.SolanaTokenAccounts
 import app.lumio.data.net.NetworkId
@@ -50,12 +51,16 @@ object SolanaSplSend {
         requestId: ByteArray,
         recipientAccountExists: Boolean,
         rentLamports: Long,
+        priority: Boolean = false,
     ): SolanaSendPlan {
         require(balance.program == SolanaTokenAccounts.TOKEN_PROGRAM) { SPL_2022_REFUSAL }
         require(amount > 0UL) { "The amount must be more than 0." }
         require(balance.amount >= BigInteger(amount.toString())) { "This account does not hold enough of this token." }
         val rent = if (recipientAccountExists) 0L else rentLamports
-        val needed = BigInteger.valueOf(SOLANA_FEE_LAMPORTS + SOLANA_RENT_RESERVE_LAMPORTS + rent)
+        // The units the priority fee pays for: the nonce advance, the token transfer, and the token account's creation when it is made.
+        val units = SolanaPriorityFee.SYSTEM_UNITS + SolanaPriorityFee.PROGRAM_UNITS + if (recipientAccountExists) 0L else SolanaPriorityFee.PROGRAM_UNITS
+        val priorityFee = if (priority) SolanaPriorityFee.lamports(units) else 0L
+        val needed = BigInteger.valueOf(SOLANA_FEE_LAMPORTS + priorityFee + SOLANA_RENT_RESERVE_LAMPORTS + rent)
         require(sol >= needed) { "This account does not hold enough SOL for the fee, the rent reserve and any new token account." }
         return SolanaSendPlan(
             network = network,
@@ -63,6 +68,7 @@ object SolanaSplSend {
             recipient = recipient,
             lamports = 0L,
             feeLamports = SOLANA_FEE_LAMPORTS,
+            priorityFeeLamports = priorityFee,
             blockhash = nonceValue,
             requestId = requestId,
             message = SolanaSplTransfer.message(
@@ -73,6 +79,7 @@ object SolanaSplSend {
                 decimals = balance.decimals,
                 nonceValue = nonceValue,
                 createRecipientAccount = !recipientAccountExists,
+                priority = priority,
             ),
             token = SplSendToken(balance.mint, balance.decimals, amount),
         )

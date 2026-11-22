@@ -6,6 +6,7 @@ import app.lumio.btc.EsploraTx
 import app.lumio.btc.EsploraTxStatus
 import app.lumio.data.asset.AssetId
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.price.ChartRange
 import app.lumio.data.price.PriceSeries
 import java.math.BigInteger
@@ -40,6 +41,12 @@ class NativeBalance(net: NetworkId, val address: String) : Request<BigInteger>(n
 
 /** The transaction count of [address]: the nonce of the next transaction when [pending] is true, else the count at the latest block. */
 class Nonce(net: NetworkId, val address: String, val pending: Boolean) : Request<Long>(net, Ops.EVM_NONCE)
+
+/** The receipt of the transaction [hash] on [net]: null while the network has not included it. */
+class TxReceipt(net: NetworkId, val hash: String) : Request<EvmReceipt?>(net, Ops.EVM_RECEIPT)
+
+/** How an EVM transaction ended: [success] is false when the network included it and the transfer reverted. */
+data class EvmReceipt(val success: Boolean)
 
 /**
  * The gas that a call of [to] with [valueWei] and [data] from [from] uses, as the endpoint estimates it. A native transfer has no data; an ERC-20
@@ -85,6 +92,36 @@ class TokenPrice(net: NetworkId, val contract: String) : Request<PriceQuote>(net
  * the window. It is kept in memory by the price repository for the session, and never written to the cache.
  */
 class PriceChart(val asset: AssetId, val range: ChartRange, val nowMs: Long) : Request<PriceSeries>(asset.net, Ops.PRICE_CHART)
+
+/**
+ * The network every market request names. The market is not one network's, so these requests name Bitcoin's mainnet, which only passes the router's
+ * network check. No provider reads a network from them.
+ */
+val MARKET_NET: NetworkId = NetworkId(Networks.BTC_MAINNET, testnet = false)
+
+/** The whole crypto market's figures in USD, from the source's global figures. */
+class GlobalMarket : Request<MarketQuote>(MARKET_NET, Ops.MARKET_GLOBAL)
+
+/** The coins the source lists as trending now, in the source's order. */
+class TrendingCoins : Request<TrendingList>(MARKET_NET, Ops.MARKET_TRENDING)
+
+/**
+ * The whole market in USD: [totalUsd] is the total market cap, [change24hPct] its change over the last 24 hours in percent (null when the source gives
+ * none), and [asOfMs] the time the source gives for it, in epoch milliseconds. It is stored in the cache, so it is serializable.
+ */
+@Serializable
+data class MarketQuote(val totalUsd: Double, val change24hPct: Double?, val asOfMs: Long)
+
+/**
+ * One trending coin: its [name] and [symbol], its [rank] by market cap (null when the source gives none), and its USD [priceUsd] and [change24hPct],
+ * each null when the source gives none.
+ */
+@Serializable
+data class TrendingCoin(val name: String, val symbol: String, val rank: Int?, val priceUsd: Double?, val change24hPct: Double?)
+
+/** The trending coins in the source's order, and [asOfMs], the time they were read in epoch milliseconds, since the source gives no time for them. */
+@Serializable
+data class TrendingList(val coins: List<TrendingCoin>, val asOfMs: Long)
 
 /**
  * A read-only contract call on an EVM network: [data] is the call's encoded input (a selector and its arguments) sent to [to], at the latest

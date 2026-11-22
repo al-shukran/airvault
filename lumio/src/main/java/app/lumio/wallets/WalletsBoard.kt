@@ -11,17 +11,28 @@ import app.lumio.chains.ChainHolding
 import app.lumio.data.WallClock
 import app.lumio.data.asset.AssetId
 import app.lumio.data.net.Networks
+import app.lumio.data.price.ChartRange
+import app.lumio.data.price.Kept
 import app.lumio.data.price.Price
+import app.lumio.data.price.PriceRepository
 import app.lumio.data.price.PriceSeries
+import app.lumio.data.provider.MarketQuote
+import app.lumio.data.provider.TrendingList
 import app.lumio.data.scan.ScanEvent
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.network.NetworkMode
+import app.lumio.pair.PairedWallet
+import app.lumio.pair.PairedWallets
 import app.lumio.tokens.TokenBalanceCache
 import app.lumio.tokens.TokenHolding
 import app.lumio.tokens.TokenPortfolio
 import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.wallets.AssetRows
+import app.lumio.watchlist.FIRST_RUN_ASSETS
+import app.lumio.watchlist.WalletWatchlist
+import app.lumio.watchlist.WatchedAsset
+import app.lumio.watchlist.WatchlistStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -37,8 +48,19 @@ import kotlinx.coroutines.withContext
 /** The notice a read that did not answer leaves on the wallet screens. The last known balances stay on them. */
 private const val REFRESH_NOTICE = "Some balances could not be refreshed. The last known balances are shown."
 
-/** What a read of the vault gives the screens: the balances of one side, and the tokens of its Ethereum accounts. */
-private class Loaded(val view: WalletsView, val tokenCounts: Map<WalletAccount, Int>, val tokenUsd: Map<WalletAccount, Double>)
+/**
+ * What a read of the vault gives the screens: the balances of one side, the tokens of its Ethereum accounts with their dollars, and the market figures
+ * the vault kept last: the watchlists of the shown wallets, the last prices of their assets, the whole market and the trending coins.
+ */
+private class Loaded(
+    val view: WalletsView,
+    val tokenCounts: Map<WalletAccount, Int>,
+    val tokenUsd: Map<WalletAccount, Double>,
+    val watchlists: Map<String, WalletWatchlist>,
+    val prices: Map<AssetId, Price>,
+    val market: Kept<MarketQuote>?,
+    val trending: Kept<TrendingList>?,
+)
 
 /**
  * What an account's screen reads beyond its balance: its tokens, its holdings of other assets, the prices of its assets, the addresses its activity is read
@@ -76,8 +98,10 @@ internal class AccountReads(namespace: String) {
 internal class WalletsBoard(
     private val app: LumioApp,
     private val vault: LumioVault,
+    /** The price source of the market figures, the watched prices and the day charts. Its cache is the open vault's; a test gives one over its own vault. */
+    private val repository: PriceRepository = app.prices,
     /** The prices of [ids] that have one. The board reads each account's asset prices through it; a test stands in for the price sources. */
-    private val readPrices: suspend (ids: Collection<AssetId>) -> Map<AssetId, Price> = { ids -> app.prices.assetPrices(ids) },
+    private val readPrices: suspend (ids: Collection<AssetId>) -> Map<AssetId, Price> = { ids -> repository.assetPrices(ids) },
 ) {
     private val session: VaultSession = vault.session
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -88,6 +112,8 @@ internal class WalletsBoard(
     private var accountsJob: Job? = null
     private val accountReads = HashMap<String, AccountReads>()
     private val chartReads = mutableStateMapOf<AssetId, PriceSeries>()
+    private val dayCharts = mutableStateMapOf<AssetId, PriceSeries>()
+    private var marketJob: Job? = null
 
     /** The balances of the side, or null until its first read lands. */
     var view by mutableStateOf<WalletsView?>(null)
@@ -119,6 +145,22 @@ internal class WalletsBoard(
 
     /** The time of the last complete read of the networks, or null before the first one. */
     var updatedAtMs by mutableStateOf<Long?>(null)
+        private set
+
+    /** The watchlist of each shown wallet, by wallet id. A wallet with no stored list has [FIRST_RUN_ASSETS]. */
+    var watchlists by mutableStateOf<Map<String, WalletWatchlist>>(emptyMap())
+        private set
+
+    /** The USD price of each watched asset: the last one kept, then the one a source answers now. */
+    var prices by mutableStateOf<Map<AssetId, Price>>(emptyMap())
+        private set
+
+    /** The whole market's figures, the last ones kept or the ones a source answered, or null before any. */
+    var market by mutableStateOf<Kept<MarketQuote>?>(null)
+        private set
+
+    /** The trending coins, the last list kept or the one a source answered, or null before any. */
+    var trending by mutableStateOf<Kept<TrendingList>?>(null)
         private set
 
     init {
@@ -170,6 +212,7 @@ internal class WalletsBoard(
         refreshing = true
         refreshByPull = pulled
         notice = null
+        refreshMarket()
         val run = scope.launch(start = CoroutineStart.LAZY) {
             try {
                 val failed = WalletsLoader.refresh(app, session, mode)
@@ -200,6 +243,62 @@ internal class WalletsBoard(
         chartReads[asset] = series
     }
 
+    /** The day's price points of [asset] that Home charts, once a read has landed. They are kept apart from [chartOf], which holds the asset page's range. */
+    fun dayChartOf(asset: AssetId): PriceSeries? = dayCharts[asset]
+
+    /**
+     * Reads the whole market's figures, the prices of the watched assets and their day charts from the sources. Each answer is kept by the price repository,
+     * so the board shows the last one when a read fails. A read that starts while another runs replaces it.
+     */
+    fun refreshMarket() {
+        marketJob?.cancel()
+        marketJob = scope.launch { readMarket() }
+    }
+
+    /** Reads the trending coins from the sources, for the search sheet's Trending tab. */
+    fun refreshTrending() {
+        scope.launch {
+            readOrNull { withContext(Dispatchers.IO) { repository.trending() } }?.let { trending = it }
+        }
+    }
+
+    /** Stores [watchlist] for [walletId] in the vault, shows it, and reads the prices of the assets it adds. */
+    fun putWatchlist(walletId: String, watchlist: WalletWatchlist) {
+        watchlists = watchlists + (walletId to watchlist)
+        scope.launch(Dispatchers.IO) { WatchlistStore.write(session, walletId, watchlist) }
+        refreshMarket()
+    }
+
+    /** One pass of [refreshMarket]: the market, the watched prices and their day charts. Each read runs off the main thread, and its answer lands here. */
+    private suspend fun readMarket() {
+        readOrNull { withContext(Dispatchers.IO) { repository.market() } }?.let { market = it }
+        val assets = watchedAssets()
+        readOrNull { withContext(Dispatchers.IO) { repository.assetPrices(assets) } }?.let { prices = prices + it }
+        val days = readOrNull {
+            withContext(Dispatchers.IO) {
+                assets.mapNotNull { asset -> repository.chart(asset, ChartRange.D1)?.takeIf { it.points.isNotEmpty() }?.let { asset to it } }.toMap()
+            }
+        }
+        days?.let { dayCharts.putAll(it) }
+    }
+
+    /**
+     * The assets the watchlists of every paired wallet watch, each once. The vault is read rather than the board's view, so a read that starts before the
+     * balances land still covers the lists.
+     */
+    private suspend fun watchedAssets(): List<AssetId> = withContext(Dispatchers.IO) {
+        assetsOf(watchlistsOf(PairedWallets.list(session)))
+    }
+
+    /** The watchlist of each of [wallets], as the vault keeps it, or the first-run list for a wallet that has none. It reads the vault, so run it off the main thread. */
+    private fun watchlistsOf(wallets: List<PairedWallet>): Map<String, WalletWatchlist> = wallets.associate { wallet ->
+        wallet.id to (WatchlistStore.read(session, wallet.id) ?: WalletWatchlist(assets = FIRST_RUN_ASSETS))
+    }
+
+    /** The assets that [watchlists] watch, each once. */
+    private fun assetsOf(watchlists: Map<String, WalletWatchlist>): List<AssetId> =
+        watchlists.values.flatMap { list -> list.assets.map(WatchedAsset::assetId) }.distinct()
+
     /** Stops the reads and drops the balances. [LumioVault] calls it when the vault locks. */
     fun close() {
         scope.cancel()
@@ -212,6 +311,13 @@ internal class WalletsBoard(
         tokenUsd = emptyMap()
         accountReads.clear()
         chartReads.clear()
+        dayCharts.clear()
+        marketJob?.cancel()
+        marketJob = null
+        watchlists = emptyMap()
+        prices = emptyMap()
+        market = null
+        trending = null
         endRefresh()
     }
 
@@ -229,6 +335,11 @@ internal class WalletsBoard(
         view = loaded.view
         tokenCounts = loaded.tokenCounts
         tokenUsd = loaded.tokenUsd
+        // A list or price read since the vault was read is newer than the vault, so it wins.
+        watchlists = loaded.watchlists + watchlists
+        prices = loaded.prices + prices
+        market = loaded.market ?: market
+        trending = loaded.trending ?: trending
         if (withAccounts) {
             accountsJob?.cancel()
             accountsJob = scope.launch { readAccounts(mode, loaded.view) }
@@ -272,11 +383,19 @@ internal class WalletsBoard(
     private suspend fun load(mode: NetworkMode): Loaded {
         val view = WalletsLoader.read(app, session, mode)
         val held = heldTokensOf(view, mode)
-        val prices = readPrices(held.values.flatMap { AssetRows.tokenIds(it) })
+        val tokenPrices = readPrices(held.values.flatMap { AssetRows.tokenIds(it) })
+        val watchlists = withContext(Dispatchers.IO) { watchlistsOf(view.wallets) }
+        val (prices, market, trending) = withContext(Dispatchers.IO) {
+            Triple(repository.lastPrices(assetsOf(watchlists)), repository.lastMarket(), repository.lastTrending())
+        }
         return Loaded(
             view,
             tokenCounts = held.mapValues { (_, tokens) -> tokens.count { it.amount.signum() > 0 } },
-            tokenUsd = held.mapNotNull { (account, tokens) -> AssetRows.tokensUsd(tokens, prices)?.let { account to it } }.toMap(),
+            tokenUsd = held.mapNotNull { (account, tokens) -> AssetRows.tokensUsd(tokens, tokenPrices)?.let { account to it } }.toMap(),
+            watchlists = watchlists,
+            prices = prices,
+            market = market,
+            trending = trending,
         )
     }
 

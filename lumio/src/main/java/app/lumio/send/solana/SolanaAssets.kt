@@ -52,10 +52,14 @@ object SolanaAssets {
         requestId: ByteArray,
         recipientAccountExists: Boolean,
         rentLamports: Long,
+        priority: Boolean = false,
     ): SolanaSendPlan {
         require(units.bitLength() < Long.SIZE_BITS) { "The amount is more than all of this coin there is." }
-        val token = asset.token ?: return SolanaSend.plan(network, account, recipient, units.toLong(), sol, nonceValue, requestId)
-        return SolanaSplSend.plan(network, account, recipient, token, units.toLong().toULong(), sol, nonceValue, requestId, recipientAccountExists, rentLamports)
+        val token = asset.token
+            ?: return SolanaSend.plan(network, account, recipient, units.toLong(), sol, nonceValue, requestId, priority)
+        return SolanaSplSend.plan(
+            network, account, recipient, token, units.toLong().toULong(), sol, nonceValue, requestId, recipientAccountExists, rentLamports, priority,
+        )
     }
 
     /** The amount in [units] of a coin with [decimals] places, with no trailing zeros, as the form and the review show it. */

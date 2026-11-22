@@ -12,7 +12,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -23,34 +22,38 @@ import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.chains.NATIVE_COINS
-import app.lumio.data.asset.AssetId
-import app.lumio.data.price.Price
+import app.lumio.data.WallClock
 import app.lumio.data.net.Networks
+import app.lumio.data.price.Kept
+import app.lumio.data.price.Price
+import app.lumio.data.price.PriceSeries
+import app.lumio.data.provider.MarketQuote
 import app.lumio.home.HomeAsset
 import app.lumio.network.NetworkMode
+import app.lumio.ui.home.FIAT
 import app.lumio.ui.home.HomeScreen
+import app.lumio.ui.home.MarketHero
 import app.lumio.ui.home.WatchlistRow
 import app.lumio.ui.home.WatchlistSortSheet
+import app.lumio.ui.home.compactUsd
+import app.lumio.ui.home.freshnessOf
 import app.lumio.ui.kit.LumioTab
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletsView
-import app.lumio.watchlist.FIRST_RUN_ASSETS
-import app.lumio.watchlist.WalletWatchlist
 import app.lumio.watchlist.WatchedAsset
 import app.lumio.watchlist.WatchlistSort
-import app.lumio.watchlist.WatchlistStore
 import app.lumio.watchlist.ordered
 import java.math.BigDecimal
-import java.text.NumberFormat
-import java.util.Locale
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
+
+/** How often the freshness line counts its age again, so "8 s ago" keeps counting while Home is open. */
+private const val FRESHNESS_TICK_MS = 15_000L
 
 /**
- * The Home tab: the watchlist of the active wallet, with the prices the price source reads and the native amounts its accounts hold. The active
- * wallet is the first paired wallet until the profile panel can choose one. The board is the Accounts tab's, so the rows show from its first read.
- * Send and Receive open the wallet's page, where each account has its own.
+ * The Home tab: the total market cap, and the watchlist of the active wallet with each asset's price, its 24 h change and its day's tick chart. The
+ * market figures, the prices and the charts come from the open vault's shared board, so Home shows the last ones kept on its first frame, and each visit
+ * asks the sources again. The active wallet is the first paired wallet until the profile panel can choose one. Send and Receive open the wallet's page,
+ * where each account has its own.
  */
 @Composable
 internal fun HomeRoute(
@@ -67,30 +70,23 @@ internal fun HomeRoute(
     }
     if (session == null) return
     val board = rememberWalletsBoard(app, selection.mode, listVersion) ?: return
+    LaunchedEffect(board) { board.refreshMarket() }
     val view = board.view
     val wallet = view?.wallets?.firstOrNull()
-    var stored by remember(wallet?.id) { mutableStateOf<WalletWatchlist?>(null) }
-    LaunchedEffect(wallet?.id) {
-        val walletId = wallet?.id ?: return@LaunchedEffect
-        stored = withContext(Dispatchers.IO) { WatchlistStore.read(session, walletId) } ?: WalletWatchlist(assets = FIRST_RUN_ASSETS)
-    }
-    val watchlist = stored
-    val prices by produceState(initialValue = emptyMap<AssetId, Price>(), watchlist?.assets) {
-        val assets = watchlist?.assets.orEmpty()
-        value = withContext(Dispatchers.IO) { app.prices.assetPrices(assets.map { it.assetId }) }
-    }
     val testnet = selection.mode == NetworkMode.TESTNET
-    val rows = watchlist?.ordered { prices[it.assetId]?.change24hPct }.orEmpty().map { asset ->
-        rowOf(asset, view, wallet?.id, prices[asset.assetId], testnet)
+    val watchlist = wallet?.let { board.watchlists[it.id] }
+    val sort = watchlist?.sort ?: WatchlistSort.MARKET_CAP
+    val nowMs by produceState(WallClock.nowMs()) {
+        while (true) {
+            delay(FRESHNESS_TICK_MS)
+            value = WallClock.nowMs()
+        }
+    }
+    val rows = watchlist?.ordered { board.prices[it.assetId]?.change24hPct }.orEmpty().map { asset ->
+        rowOf(asset, view, wallet?.id, board.prices[asset.assetId], board.dayChartOf(asset.assetId), testnet)
     }
     var sortOpen by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    fun choose(next: WalletWatchlist) {
-        val walletId = wallet?.id ?: return
-        stored = next
-        scope.launch(Dispatchers.IO) { WatchlistStore.write(session, walletId, next) }
-    }
-    val sort = watchlist?.sort ?: WatchlistSort.MARKET_CAP
+    val hero = heroOf(board.market, testnet, nowMs)
     TabRoute(
         tab = LumioTab.HOME,
         navController = navController,
@@ -103,6 +99,7 @@ internal fun HomeRoute(
         Box(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = ClearAirSpacing.md)) {
                 HomeScreen(
+                    hero = hero,
                     rows = rows,
                     sort = sort,
                     testnet = testnet,
@@ -117,7 +114,7 @@ internal fun HomeRoute(
                 selected = sort,
                 onSelect = { next ->
                     sortOpen = false
-                    watchlist?.let { choose(it.copy(sort = next)) }
+                    watchlist?.let { list -> wallet?.let { board.putWatchlist(it.id, list.copy(sort = next)) } }
                 },
                 onClose = { sortOpen = false },
             )
@@ -125,8 +122,22 @@ internal fun HomeRoute(
     }
 }
 
-/** One watched asset as its row: its name and symbol, what the wallet holds of it, and its price and change when the testnet side is not on. */
-private fun rowOf(asset: WatchedAsset, view: WalletsView?, walletId: String?, price: Price?, testnet: Boolean): WatchlistRow {
+/** The hero as Home shows it: the market's total in dollars, its 24 h change, and when the figure was read. A test network shows no market figure. */
+private fun heroOf(market: Kept<MarketQuote>?, testnet: Boolean, nowMs: Long): MarketHero {
+    if (testnet || market == null) return MarketHero(total = null, change24hPct = null, freshness = null)
+    val quote = market.value
+    return MarketHero(
+        total = compactUsd(quote.totalUsd),
+        change24hPct = quote.change24hPct,
+        freshness = freshnessOf(quote.asOfMs, market.stale, nowMs),
+    )
+}
+
+/**
+ * One watched asset as its row: its name and symbol, what the wallet holds of it, its price and change, and the ticks of its day's prices. A test network
+ * shows no price and no chart.
+ */
+private fun rowOf(asset: WatchedAsset, view: WalletsView?, walletId: String?, price: Price?, day: PriceSeries?, testnet: Boolean): WatchlistRow {
     val (symbol, name) = coinNames(asset)
     val held = if (view != null && walletId != null) heldOf(asset, view.accountsOf(walletId)) else null
     return WatchlistRow(
@@ -135,6 +146,7 @@ private fun rowOf(asset: WatchedAsset, view: WalletsView?, walletId: String?, pr
         detail = if (held == null) symbol else "$symbol · ${held.stripTrailingZeros().toPlainString()} held",
         priceUsd = if (testnet || price == null) null else FIAT.format(price.usd),
         change24hPct = if (testnet) null else price?.change24hPct,
+        ticks = if (testnet) emptyList() else day?.points?.map { it.usd }.orEmpty(),
     )
 }
 
@@ -156,6 +168,3 @@ internal fun coinNames(asset: WatchedAsset): Pair<String, String> {
         else -> asset.network.name to asset.network.name
     }
 }
-
-/** Dollars to the cent, as the watchlist writes a price. */
-private val FIAT: NumberFormat = NumberFormat.getCurrencyInstance(Locale.US)

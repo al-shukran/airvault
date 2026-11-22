@@ -26,6 +26,7 @@ import fr.acinq.bitcoin.TxOut
 import fr.acinq.bitcoin.psbt.Psbt
 import fr.acinq.bitcoin.utils.Either
 import java.math.BigDecimal
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import kotlin.math.ceil
@@ -37,6 +38,9 @@ import kotlinx.coroutines.withTimeout
 
 /** The smallest output Lumio builds. A node will not relay a smaller one, so a remainder below it goes to the fee instead of a change output. */
 internal const val DUST_SATS = 546L
+
+/** Satoshis per bitcoin, as decimal places: a BTC amount has at most this many. */
+private const val SAT_DECIMALS = 8
 
 /** The branch of a receive address, and of a change address, in a request's derivation. */
 private const val RECEIVE_BRANCH = 0
@@ -55,8 +59,11 @@ private const val LONGEST_SUGGESTED_TARGET_BLOCKS = 6
 const val FALLBACK_FEE_RATE_SAT_PER_VB = 2.0
 
 /** The lowest fee rate a request pays, in sat/vB, and the highest that the form accepts. */
-private const val MIN_FEE_RATE = 1.0
-private const val MAX_FEE_RATE = 1000.0
+internal const val MIN_FEE_RATE = 1.0
+internal const val MAX_FEE_RATE = 1000.0
+
+/** The range that the form accepts, in the words the owner reads: "1 to 1,000". The fee sheet's copy and the form's error both show it. */
+internal val FEE_RATE_RANGE_WORDS = String.format(Locale.ROOT, "%,d to %,d", MIN_FEE_RATE.toLong(), MAX_FEE_RATE.toLong())
 
 /** The network reads of a send, each named in the words that an error shows. */
 enum class BtcReadStep(val words: String) {
@@ -292,6 +299,23 @@ object BtcSend {
     /** The text the fee field shows: a whole number of sat/vB. */
     fun formatFeeRate(satPerVb: Double): String = satPerVb.toLong().toString()
 
+    /** The text the amount field shows for [sats]: BTC with no trailing zeros, which [BtcSendInput.amountSats] reads back. */
+    fun formatAmount(sats: Long): String = BigDecimal.valueOf(sats, SAT_DECIMALS).stripTrailingZeros().toPlainString()
+
+    /**
+     * The most a send of all of [spendable] to [recipient] at [feeRateSatPerVb] can pay: every coin, no change, less the fee of that request.
+     * Throws IllegalArgumentException, with the owner's words, when the fee takes all of it.
+     */
+    fun maxAmountSats(account: BtcWatchOnlyAccount, spendable: BtcSpendable, recipient: String, feeRateSatPerVb: Double): Long {
+        val total = spendable.coins.sumOf { it.valueSats }
+        val recipientScript = scriptOf(account.network, recipient)
+        val outputs = listOf(TxOut(Satoshi(total), recipientScript))
+        val vsize = BtcFeeRate.estimatedVsize(BtcUnsignedPsbt.transaction(spendable.coins, outputs), account.scriptType)
+        val max = total - feeFor(vsize, feeRateSatPerVb)
+        require(max >= DUST_SATS) { "The confirmed balance does not cover the fee." }
+        return max
+    }
+
     /**
      * What the fee field shows when a [suggestion] arrives. An owner's own text is never replaced, even when it is blank.
      */
@@ -342,7 +366,6 @@ internal fun scriptOf(network: BtcNetwork, address: String): ByteArray =
 /** The owner's inputs for a send, checked. Each check throws IllegalArgumentException with the words the form shows. */
 object BtcSendInput {
     private const val MAX_AMOUNT_CHARS = 20
-    private const val SAT_DECIMALS = 8
     private val MAX_BTC = BigDecimal("21000000")
     private val DECIMAL = Regex("\\d+(\\.\\d+)?")
 
@@ -375,7 +398,7 @@ object BtcSendInput {
         val rate = text.trim()
         require(rate.length <= 8 && DECIMAL.matches(rate)) { "Enter a fee rate in sat/vB, such as 2." }
         val value = rate.toDouble()
-        require(value >= MIN_FEE_RATE && value <= MAX_FEE_RATE) { "The fee rate must be from 1 to 1000 sat/vB." }
+        require(value >= MIN_FEE_RATE && value <= MAX_FEE_RATE) { "The fee rate must be from $FEE_RATE_RANGE_WORDS sat/vB." }
         return value
     }
 }

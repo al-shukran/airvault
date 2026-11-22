@@ -76,21 +76,25 @@ object SolanaNonce {
     /**
      * The transfer of [lamports] from [account] to [recipient], as Lumio sends it. AdvanceNonceAccount is the first instruction, on the nonce
      * account of [account] with [account] as its authority, and then the transfer follows. [nonceValue] is the recent blockhash. The accounts are
-     * the account (a writable signer), its nonce account and the recipient (writable), then the System Program and the RecentBlockhashes sysvar.
+     * the account (a writable signer), its nonce account and the recipient (writable), then the System Program and the RecentBlockhashes sysvar. When
+     * [priority] is set, the ComputeBudget program follows them as a read-only key, and SetComputeUnitPrice comes right after the advance.
      */
-    fun transferMessage(account: ByteArray, recipient: ByteArray, lamports: Long, nonceValue: ByteArray): ByteArray {
+    fun transferMessage(account: ByteArray, recipient: ByteArray, lamports: Long, nonceValue: ByteArray, priority: Boolean = false): ByteArray {
         require(recipient.size == KEY_BYTES) { "A Solana address is 32 bytes." }
         require(lamports >= 0) { "An amount is not negative." }
         val nonce = accountOf(account)
         require(!recipient.contentEquals(account) && !recipient.contentEquals(nonce)) { "The recipient is this account." }
         val transfer = ByteBuffer.allocate(4 + 8).order(ByteOrder.LITTLE_ENDIAN).putInt(TRANSFER).putLong(lamports).array()
+        val keys = listOf(account, nonce, recipient, Base58.decode(SYSTEM_PROGRAM), Base58.decode(RECENT_BLOCKHASHES))
         return compile(
-            keys = listOf(account, nonce, recipient, Base58.decode(SYSTEM_PROGRAM), Base58.decode(RECENT_BLOCKHASHES)),
-            readonlyUnsigned = 2,
+            keys = if (priority) keys + SolanaPriorityFee.programKey() else keys,
+            readonlyUnsigned = if (priority) 3 else 2,
             recentBlockhash = nonceValue,
-            instructions = listOf(
+            instructions = listOfNotNull(
                 // AdvanceNonceAccount: accounts [nonce account, RecentBlockhashes sysvar, authority]; data u32 LE 4.
                 Instruction(program = 3, accounts = listOf(1, 4, 0), data = u32(ADVANCE_NONCE_ACCOUNT)),
+                // SetComputeUnitPrice: the ComputeBudget program, key 5, with no accounts.
+                if (priority) Instruction(program = 5, accounts = emptyList(), data = SolanaPriorityFee.instructionData()) else null,
                 // Transfer: accounts [from, to]; data u32 LE 2, then the u64 LE lamports.
                 Instruction(program = 3, accounts = listOf(0, 2), data = transfer),
             ),

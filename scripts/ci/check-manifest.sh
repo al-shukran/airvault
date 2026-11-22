@@ -10,8 +10,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 # The permissions Lumio may request. Any other permission in its merged manifest fails the check. USE_BIOMETRIC is the device
-# credential prompt that the shared vault shows before its hardware key is used; it has no network access.
-LUMIO_ALLOWED_PERMISSIONS="android.permission.INTERNET android.permission.ACCESS_NETWORK_STATE android.permission.CAMERA android.permission.VIBRATE android.permission.USE_BIOMETRIC"
+# credential prompt that the shared vault shows before its hardware key is used; it has no network access. POST_NOTIFICATIONS
+# is the arrival notice of a send (#698); Lumio only posts it when the owner has allowed notifications.
+LUMIO_ALLOWED_PERMISSIONS="android.permission.INTERNET android.permission.ACCESS_NETWORK_STATE android.permission.CAMERA android.permission.VIBRATE android.permission.USE_BIOMETRIC android.permission.POST_NOTIFICATIONS"
 
 # Prints the merged debug manifest of one module, or nothing. AGP has moved this intermediate before, so a search is the fallback.
 merged_manifest() {

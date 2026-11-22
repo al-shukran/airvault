@@ -12,11 +12,15 @@ import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
+import app.lumio.data.provider.MARKET_NET
+import app.lumio.data.provider.MarketQuote
 import app.lumio.data.provider.Ops
 import app.lumio.data.provider.PriceQuote
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderCatalog
 import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.TrendingCoin
+import app.lumio.data.provider.TrendingList
 import app.lumio.data.sched.Scheduler
 import java.util.concurrent.TimeUnit
 import kotlin.random.Random
@@ -213,6 +217,84 @@ class PriceRepositoryTest {
         assertNull(repository.prices(listOf(ETH))[ETH])
     }
 
+    @Test
+    fun withNoKeyTheMarketIsAskedOfCoinGeckoAndNotOfDefiLlama() = runBlocking {
+        routes.on("global", MockResponse.Builder().body(
+            """{"data":{"total_market_cap":{"usd":2621040321355.0405},"market_cap_change_percentage_24h_usd":-1.6,"updated_at":1779878351}}""",
+        ).build())
+
+        assertEquals(Kept(MarketQuote(totalUsd = 2621040321355.0405, change24hPct = -1.6, asOfMs = 1_779_878_351_000L), stale = false), repository(live()).market())
+        assertEquals(1, routes.calls("global"))
+        assertEquals(0, routes.calls("prices"))
+    }
+
+    @Test
+    fun theMarketIsAskedOnceAndKeptForTheTtlThenAskedAgain() = runBlocking {
+        val source = FakeProvider(id = "coingecko", networks = setOf(MARKET_NET), ops = setOf(Ops.MARKET_GLOBAL))
+        source.outcomes.add(MarketQuote(totalUsd = 2.6e12, change24hPct = 2.14, asOfMs = 1_000L))
+        source.outcomes.add(MarketQuote(totalUsd = 2.7e12, change24hPct = 2.5, asOfMs = 2_000L))
+        val repository = repository(listOf(source))
+
+        assertEquals(Kept(MarketQuote(totalUsd = 2.6e12, change24hPct = 2.14, asOfMs = 1_000L), stale = false), repository.market())
+        clock.now += 30_000L
+        assertEquals(Kept(MarketQuote(totalUsd = 2.6e12, change24hPct = 2.14, asOfMs = 1_000L), stale = false), repository.market())
+        assertEquals(1, source.calls)
+
+        clock.now += 31_000L
+        assertEquals(Kept(MarketQuote(totalUsd = 2.7e12, change24hPct = 2.5, asOfMs = 2_000L), stale = false), repository.market())
+        assertEquals(2, source.calls)
+    }
+
+    @Test
+    fun whenNoSourceAnswersTheLastMarketKeptIsReturnedAsStale() = runBlocking {
+        val source = FakeProvider(id = "coingecko", networks = setOf(MARKET_NET), ops = setOf(Ops.MARKET_GLOBAL))
+        source.outcomes.add(MarketQuote(totalUsd = 2.6e12, change24hPct = 2.14, asOfMs = 1_000L))
+        source.outcomes.add(ProviderError.Fatal("The provider is down."))
+        val repository = repository(listOf(source))
+        repository.market()
+        clock.now += 10 * 60_000L
+
+        assertEquals(Kept(MarketQuote(totalUsd = 2.6e12, change24hPct = 2.14, asOfMs = 1_000L), stale = true), repository.market())
+    }
+
+    @Test
+    fun theLastMarketIsReadFromTheVaultWithNoSourceAsked() = runBlocking {
+        val source = FakeProvider(id = "coingecko", networks = setOf(MARKET_NET), ops = setOf(Ops.MARKET_GLOBAL))
+        source.outcomes.add(MarketQuote(totalUsd = 2.6e12, change24hPct = 2.14, asOfMs = 1_000L))
+        val repository = repository(listOf(source))
+        repository.market()
+
+        assertEquals(Kept(MarketQuote(totalUsd = 2.6e12, change24hPct = 2.14, asOfMs = 1_000L), stale = true), repository.lastMarket())
+        assertEquals(1, source.calls)
+    }
+
+    @Test
+    fun theTrendingListIsKeptAndReadBackFromTheVaultWhenNoSourceAnswers() = runBlocking {
+        val coin = TrendingCoin(name = "Bonk", symbol = "BONK", rank = 103, priceUsd = 0.00001, change24hPct = -3.2)
+        val source = FakeProvider(id = "coingecko", networks = setOf(MARKET_NET), ops = setOf(Ops.MARKET_TRENDING))
+        source.outcomes.add(TrendingList(coins = listOf(coin), asOfMs = 1_000L))
+        source.outcomes.add(ProviderError.Fatal("The provider is down."))
+        val repository = repository(listOf(source))
+
+        assertEquals(Kept(TrendingList(listOf(coin), asOfMs = 1_000L), stale = false), repository.trending())
+        clock.now += 10 * 60_000L
+        assertEquals(Kept(TrendingList(listOf(coin), asOfMs = 1_000L), stale = true), repository.trending())
+        assertEquals(Kept(TrendingList(listOf(coin), asOfMs = 1_000L), stale = true), repository.lastTrending())
+    }
+
+    @Test
+    fun theLastPricesAreReadFromTheVaultWithNoSourceAsked() = runBlocking {
+        val source = FakeProvider(id = "defillama", networks = setOf(ETH), ops = setOf(Ops.PRICE_NATIVE))
+        source.outcomes.add(PriceQuote(usd = 1831.25, change24hPct = 0.5, asOfMs = 1_000L))
+        val repository = repository(listOf(source))
+        repository.prices(listOf(ETH))
+
+        val unpriced = AssetId.Native(NetworkId(Networks.evm(250), testnet = false))
+        val expected: Map<AssetId, Price> = mapOf(AssetId.Native(ETH) to Price(usd = 1831.25, change24hPct = 0.5, asOfMs = 1_000L, stale = true))
+        assertEquals(expected, repository.lastPrices(listOf(AssetId.Native(ETH), unpriced)))
+        assertEquals(1, source.calls)
+    }
+
     /** Answers each route from its own queue. A route with no answer left gets 500, so an unexpected call fails the test. */
     private class Routes : Dispatcher() {
         private val queues = HashMap<String, ArrayDeque<MockResponse>>()
@@ -246,6 +328,7 @@ class PriceRepositoryTest {
             path.startsWith("/prices/current/") -> "prices"
             path.startsWith("/percentage/") -> "percentage"
             path.startsWith("/cg/api/v3/simple/price") -> "cg"
+            path.startsWith("/cg/api/v3/global") -> "global"
             else -> "other"
         }
     }

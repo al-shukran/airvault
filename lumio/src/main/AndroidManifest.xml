@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- The vault key needs the screen lock or a strong biometric again after 30 s (see confirmDeviceCredential). -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- An arrived send can post a notice, once the owner has allowed notifications. Lumio never asks for the permission itself. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />

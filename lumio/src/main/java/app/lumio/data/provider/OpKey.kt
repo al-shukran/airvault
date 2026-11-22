@@ -49,6 +49,7 @@ object Ops {
     val EVM_GAS_FEES = OpKey("evm.gasFees")
     val EVM_TX_HISTORY = OpKey("evm.txHistory")
     val EVM_BROADCAST = OpKey("evm.broadcast")
+    val EVM_RECEIPT = OpKey("evm.receipt")
 
     val SOL_NATIVE_BALANCE = OpKey("sol.nativeBalance")
     val SOL_BLOCKHASH = OpKey("sol.blockhash")
@@ -70,6 +71,9 @@ object Ops {
     val PRICE_NATIVE = OpKey("price.native")
     val PRICE_TOKEN = OpKey("price.token")
     val PRICE_CHART = OpKey("price.chart")
+
+    val MARKET_GLOBAL = OpKey("market.global")
+    val MARKET_TRENDING = OpKey("market.trending")
 
     /** The balance reads that DATA providers are tried before RPC providers for (router rule 5). */
     val BALANCE_READS = setOf(EVM_NATIVE_BALANCE, SOL_NATIVE_BALANCE, ALGO_NATIVE_BALANCE, SOL_TOKEN_BALANCES, ALGO_TOKEN_BALANCES)
