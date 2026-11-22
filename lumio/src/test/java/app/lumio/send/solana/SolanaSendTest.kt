@@ -564,33 +564,62 @@ class SolanaSendTest {
         assertFailsWith<IllegalArgumentException> { SolanaSend.noncePath(byOtherAuthority, sender) }
     }
 
-    /** A send that names its nonce is refused once the nonce account holds another nonce value, unless the network has the transaction. */
+    /** A send whose nonce moved is refused only on the second poll in a row that finds it moved and the network without the transaction. */
     @Test
-    fun aSendWhoseNonceMovedIsDroppedUnlessTheNetworkReportsIt() = runBlocking {
+    fun aSendWhoseNonceMovedIsRefusedOnlyOnTheSecondPollThatSeesIt() = runBlocking {
         val moved = ByteArray(32) { 9 }
+        val watch = SolanaSendLanding(scheduler(), plan())
         server.enqueue(nonceAnswer(moved))
         server.enqueue(noStatus)
-        assertEquals(Landing.REFUSED, SolanaSend.landing(scheduler(), plan(), SIGNATURE))
-
-        server.enqueue(nonceAnswer(blockhash))
-        server.enqueue(noStatus)
-        assertEquals(Landing.PENDING, SolanaSend.landing(scheduler(), plan(), SIGNATURE))
+        assertEquals(Landing.PENDING, watch.landing(SIGNATURE))
 
         server.enqueue(nonceAnswer(moved))
-        server.enqueue(confirmed)
-        assertEquals(Landing.LANDED, SolanaSend.landing(scheduler(), plan(), SIGNATURE))
+        server.enqueue(noStatus)
+        server.enqueue(noStatus)
+        assertEquals(Landing.REFUSED, watch.landing(SIGNATURE))
     }
 
-    /** A one-time setup is refused once the block height passes its window while the network does not have it. */
+    /** One lagging status does not refuse a send: the second poll re-reads the status before it refuses, and here the network now has it. */
     @Test
-    fun aSetupIsDroppedOnceTheBlockHeightPassesItsWindow() = runBlocking {
+    fun aLaggingStatusDoesNotRefuseASendThatLanded() = runBlocking {
+        val moved = ByteArray(32) { 9 }
+        val watch = SolanaSendLanding(scheduler(), plan())
+        server.enqueue(nonceAnswer(moved))
+        server.enqueue(noStatus)
+        assertEquals(Landing.PENDING, watch.landing(SIGNATURE))
+
+        server.enqueue(nonceAnswer(moved))
+        server.enqueue(noStatus)
+        server.enqueue(confirmed)
+        assertEquals(Landing.LANDED, watch.landing(SIGNATURE))
+    }
+
+    @Test
+    fun aSendWhoseNonceIsStillItsOwnIsPending() = runBlocking {
+        server.enqueue(nonceAnswer(blockhash))
+        server.enqueue(noStatus)
+        assertEquals(Landing.PENDING, SolanaSendLanding(scheduler(), plan()).landing(SIGNATURE))
+    }
+
+    /** A one-time setup is refused only on the second poll in a row that finds the block height past its window and the network without it. */
+    @Test
+    fun aSetupIsRefusedOnlyOnTheSecondPollAfterItsWindow() = runBlocking {
+        val watch = SolanaSendLanding(scheduler(), setupPlan(window))
         server.enqueue(answer("101"))
         server.enqueue(noStatus)
-        assertEquals(Landing.REFUSED, SolanaSend.landing(scheduler(), setupPlan(window), SIGNATURE))
+        assertEquals(Landing.PENDING, watch.landing(SIGNATURE))
 
+        server.enqueue(answer("101"))
+        server.enqueue(noStatus)
+        server.enqueue(noStatus)
+        assertEquals(Landing.REFUSED, watch.landing(SIGNATURE))
+    }
+
+    @Test
+    fun aSetupAtItsLastValidHeightIsPending() = runBlocking {
         server.enqueue(answer("100"))
         server.enqueue(noStatus)
-        assertEquals(Landing.PENDING, SolanaSend.landing(scheduler(), setupPlan(window), SIGNATURE))
+        assertEquals(Landing.PENDING, SolanaSendLanding(scheduler(), setupPlan(window)).landing(SIGNATURE))
     }
 
     /** The `getAccountInfo` answer of this account's nonce account, which holds [nonce]. */

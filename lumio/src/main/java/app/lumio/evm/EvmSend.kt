@@ -10,8 +10,6 @@ import app.lensly.core.ur.EthSignature
 import app.lensly.core.wallet.toHex
 import app.lumio.DebugEvmFunds
 import app.lumio.data.sched.Priority
-import app.lumio.send.Landing
-import app.lumio.send.evmLanding
 import app.lumio.tokens.Erc20
 import app.lumio.tokens.Token
 import app.lumio.tokens.TokenBalances
@@ -198,15 +196,6 @@ object EvmSend {
             throw RpcFailure(RpcFailure.Reason.MALFORMED, "The endpoint reported a different transaction hash. Check the explorer before you send again.")
         }
         return reported
-    }
-
-    /**
-     * Where [hash], the broadcast of [send], stands. The account's confirmed nonce is read before the receipt, so a transaction that is mined between
-     * the two reads is never taken for a dropped one.
-     */
-    suspend fun landing(reads: EvmReads, send: PreparedSend, hash: String): Landing {
-        val nonceUsed = reads.nonce(send.chain, send.from, pending = false, Priority.BACKGROUND) > send.nonce
-        return evmLanding(reads.receipt(send.chain, hash), nonceUsed)
     }
 
     /** The explorer page of [hash] on [chain], or null when no explorer is on file for it. */

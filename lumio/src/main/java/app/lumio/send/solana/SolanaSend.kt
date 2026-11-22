@@ -19,12 +19,9 @@ import app.lumio.data.provider.RecentBlockhash
 import app.lumio.data.provider.SolanaAccountRead
 import app.lumio.data.provider.SolanaAccountState
 import app.lumio.data.provider.SolanaBlockHeight
-import app.lumio.data.provider.SolanaSignatureStatus
 import app.lumio.data.provider.solana.SOLANA_MAINNET
 import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
-import app.lumio.send.Landing
-import app.lumio.send.solanaLanding
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Base58
 import java.math.BigDecimal
@@ -144,19 +141,10 @@ object SolanaSend {
     }
 
     /**
-     * Where the transaction of [plan], with [signature], stands. The drop check reads the chain before the status, so a transaction that lands in
-     * between is never taken for a dropped one.
-     */
-    suspend fun landing(scheduler: Scheduler, plan: SolanaSendPlan, signature: String): Landing {
-        val dropped = dropped(scheduler, plan)
-        return solanaLanding(scheduler.run(SolanaSignatureStatus(plan.network, signature), Priority.BACKGROUND), dropped)
-    }
-
-    /**
      * Whether the network can no longer include the transaction of [plan]. A one-time setup is dropped once the block height passes its window. A send
      * that names a nonce is dropped once the nonce account no longer holds the nonce value that it names, since another transaction advanced it.
      */
-    private suspend fun dropped(scheduler: Scheduler, plan: SolanaSendPlan): Boolean {
+    internal suspend fun dropped(scheduler: Scheduler, plan: SolanaSendPlan): Boolean {
         plan.window?.let { window ->
             return scheduler.run(SolanaBlockHeight(plan.network), Priority.BACKGROUND) > window.lastValidBlockHeight
         }

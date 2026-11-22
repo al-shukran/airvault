@@ -654,7 +654,7 @@ internal fun SolanaSendRoute(
                 arrivals = app.sendArrivals,
                 network = current.plan.network,
                 arrivedHeadline = if (current.setup) null else "Your ${selected.symbol} Has Arrived",
-                read = { signature -> SolanaSend.landing(scheduler, current.plan, signature) },
+                read = SolanaSendLanding(scheduler, current.plan)::landing,
             ),
             explorerUrl = { signature -> SolanaSend.explorerTxUrl(current.plan.network, signature) },
             onExplorer = { signature -> openExplorer(SolanaSend.explorerTxUrl(current.plan.network, signature)) },
