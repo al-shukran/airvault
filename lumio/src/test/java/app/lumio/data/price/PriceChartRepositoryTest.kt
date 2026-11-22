@@ -74,8 +74,8 @@ class PriceChartRepositoryTest {
         server.enqueue(answer(point(1_799_998_800L, "1840.5")))
         val repository = repository()
 
-        val first = chart(repository, ChartRange.H24)
-        val second = chart(repository, ChartRange.H24)
+        val first = chart(repository, ChartRange.D1)
+        val second = chart(repository, ChartRange.D1)
 
         assertEquals(1, server.requestCount)
         assertEquals(first, second)
@@ -88,9 +88,9 @@ class PriceChartRepositoryTest {
         server.enqueue(answer(point(1_799_998_800L, "1841.0")))
         val repository = repository()
 
-        val first = runBlocking { repository.chart(AssetId.Native(ETH), ChartRange.H24, nowMs = now) }
-        val justBefore = runBlocking { repository.chart(AssetId.Native(ETH), ChartRange.H24, nowMs = now + CHART_TTL_MS - 1) }
-        val afterTtl = runBlocking { repository.chart(AssetId.Native(ETH), ChartRange.H24, nowMs = now + CHART_TTL_MS) }
+        val first = runBlocking { repository.chart(AssetId.Native(ETH), ChartRange.D1, nowMs = now) }
+        val justBefore = runBlocking { repository.chart(AssetId.Native(ETH), ChartRange.D1, nowMs = now + CHART_TTL_MS - 1) }
+        val afterTtl = runBlocking { repository.chart(AssetId.Native(ETH), ChartRange.D1, nowMs = now + CHART_TTL_MS) }
 
         assertEquals(1_840.5, assertNotNull(first).points.single().usd)
         assertEquals(first, justBefore)
@@ -104,9 +104,9 @@ class PriceChartRepositoryTest {
         server.enqueue(answer(point(1_799_998_800L, "1841.0")))
         val repository = repository()
 
-        chart(repository, ChartRange.H24)
+        chart(repository, ChartRange.D1)
         chart(repository, ChartRange.D7)
-        chart(repository, ChartRange.H24)
+        chart(repository, ChartRange.D1)
 
         assertEquals(2, server.requestCount)
         assertEquals("/chart/coingecko:ethereum?start=1799913600&span=25&period=1h", server.takeRequest().target)
@@ -119,8 +119,8 @@ class PriceChartRepositoryTest {
         server.enqueue(answer(point(1_799_998_800L, "1840.5")))
         val repository = repository()
 
-        assertEquals(0, assertNotNull(chart(repository, ChartRange.H24)).points.size)
-        assertEquals(1, assertNotNull(chart(repository, ChartRange.H24)).points.size)
+        assertEquals(0, assertNotNull(chart(repository, ChartRange.D1)).points.size)
+        assertEquals(1, assertNotNull(chart(repository, ChartRange.D1)).points.size)
         assertEquals(2, server.requestCount)
     }
 
@@ -128,6 +128,6 @@ class PriceChartRepositoryTest {
     fun aSourceThatPricesNoneOfTheCoinGivesNoChart() {
         server.enqueue(MockResponse.Builder().body("""{"coins":{}}""").build())
 
-        assertNull(chart(repository(), ChartRange.H24))
+        assertNull(chart(repository(), ChartRange.D1))
     }
 }
