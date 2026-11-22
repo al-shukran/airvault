@@ -2,6 +2,8 @@ package app.lumio.data.provider.algorand
 
 import app.lumio.data.MonotonicClock
 import app.lumio.data.config.ProviderConfig
+import app.lumio.data.provider.AlgorandIndexed
+import app.lumio.data.provider.AlgorandIndexedTx
 import app.lumio.data.provider.AlgorandParams
 import app.lumio.data.provider.AlgorandPendingInfo
 import app.lumio.data.provider.AlgorandPendingTx
@@ -53,6 +55,11 @@ class AlgorandAlgodSendTest {
     private fun provider() = AlgorandAlgod(mapOf("testnet" to localBase()))
 
     private fun <T> call(req: Request<T>): T = runBlocking { provider().execute(req, cfg, http) }
+
+    /** The same, with the indexer set to the local server as well. */
+    private fun <T> callIndexer(req: Request<T>): T = runBlocking {
+        AlgorandAlgod(mapOf("testnet" to localBase()), mapOf("testnet" to localBase())).execute(req, cfg, http)
+    }
 
     private fun params(genesisId: String = "testnet-v1.0", genesisHash: String = GENESIS_HASH, minFee: String = "1000") = MockResponse.Builder().body(
         """{"consensus-version":"v41","fee":0,"genesis-hash":"$genesisHash","genesis-id":"$genesisId","last-round":61000000,"min-fee":$minFee}""",
@@ -188,6 +195,39 @@ class AlgorandAlgodSendTest {
     fun aPendingRequestForAMalformedTransactionIdIsNotSent() {
         assertFailsWith<IllegalArgumentException> { AlgorandPendingTx(ALGORAND_TESTNET, "../$TXID") }
         assertFailsWith<IllegalArgumentException> { AlgorandPendingTx(ALGORAND_TESTNET, TXID.lowercase()) }
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun anIndexedTransactionReportsTheRoundThatConfirmedItAndTheIndexersRound() {
+        server.enqueue(MockResponse.Builder().body("""{"db-available":true,"message":"OK","round":61000040}""").build())
+        server.enqueue(MockResponse.Builder().body("""{"current-round":61000040,"transaction":{"confirmed-round":61000012,"id":"$TXID"}}""").build())
+
+        assertEquals(AlgorandIndexed(61_000_012L, 61_000_040L), callIndexer(AlgorandIndexedTx(ALGORAND_TESTNET, TXID)))
+
+        assertEquals("/health", server.takeRequest().target)
+        assertEquals("/v2/transactions/$TXID", server.takeRequest().target)
+    }
+
+    @Test
+    fun aTransactionTheIndexerDoesNotHoldReadsOnlyTheIndexersRound() {
+        server.enqueue(MockResponse.Builder().body("""{"round":61000100}""").build())
+        server.enqueue(MockResponse.Builder().code(404).body("""{"message":"no transaction found"}""").build())
+
+        assertEquals(AlgorandIndexed(null, 61_000_100L), callIndexer(AlgorandIndexedTx(ALGORAND_TESTNET, TXID)))
+    }
+
+    @Test
+    fun anIndexedTransactionWithoutItsConfirmedRoundIsMalformed() {
+        server.enqueue(MockResponse.Builder().body("""{"round":61000100}""").build())
+        server.enqueue(MockResponse.Builder().body("""{"current-round":61000100}""").build())
+
+        assertFailsWith<ProviderError.Fatal> { callIndexer(AlgorandIndexedTx(ALGORAND_TESTNET, TXID)) }
+    }
+
+    @Test
+    fun anIndexedRequestForAMalformedTransactionIdIsNotSent() {
+        assertFailsWith<IllegalArgumentException> { AlgorandIndexedTx(ALGORAND_TESTNET, "../$TXID") }
         assertEquals(0, server.requestCount)
     }
 

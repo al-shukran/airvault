@@ -10,11 +10,10 @@ private const val DAY_MS = 86_400_000L
 /**
  * The span of a price chart, as the range selector offers it. [label] is what the selector shows. The chart draws [points] points, [periodMs] apart,
  * and [period] is that same spacing as the price endpoint takes it. The last point is the time asked for, so the window runs from `points - 1`
- * periods before it. Each label is the window's length: `1m` is 30 days. The sub-hour periods are not in the endpoint's documentation, so the
- * ranges that use them are unverified against the live source.
+ * periods before it. Each label is the window's length: `1m` is 30 days. There is no 5m range: the source answers a 1-minute period with no points or with
+ * irregular ones, so a 5-minute chart would come back empty.
  */
 enum class ChartRange(val label: String, val period: String, val periodMs: Long, val points: Int) {
-    M5("5m", "1m", MINUTE_MS, 6),
     M15("15m", "5m", 5 * MINUTE_MS, 4),
     H1("1h", "5m", 5 * MINUTE_MS, 13),
     H4("4h", "15m", 15 * MINUTE_MS, 17),

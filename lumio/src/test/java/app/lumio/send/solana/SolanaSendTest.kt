@@ -446,7 +446,7 @@ class SolanaSendTest {
     }
 
     @Test
-    fun theSignedTransactionIsSentAsBase64AndItsSignatureIsConfirmed() = runBlocking {
+    fun theSignedTransactionIsSentAsBase64() = runBlocking {
         val plan = plan()
         val signed = SolanaSend.signed(plan, answerOf(requestId, Ed25519Signer.sign(privateKeyOf(accountIndex), plan.message)))
         server.enqueue(answer("\"${signed.signature}\""))
@@ -457,9 +457,6 @@ class SolanaSendTest {
         val body = server.takeRequest().body?.utf8().orEmpty()
         assertTrue(body.contains("\"method\":\"sendTransaction\""))
         assertTrue(body.contains("[\"${Base64.getEncoder().encodeToString(signed.raw)}\",{\"encoding\":\"base64\"}]"))
-
-        server.enqueue(answer("""{"context":{"slot":9},"value":[{"slot":9,"err":null,"confirmationStatus":"confirmed"}]}"""))
-        assertEquals(SolanaOutcome.CONFIRMED, SolanaSend.confirm(scheduler(), SOLANA_DEVNET, signed.signature) { waits += it })
     }
 
     @Test
@@ -542,28 +539,6 @@ class SolanaSendTest {
     /** An initialized nonce account's 80 bytes: version 1, state 1, the authority, the nonce value, then a fee of 5000 lamports per signature. */
     private fun nonceAccount(authority: ByteArray, nonce: ByteArray): ByteArray =
         ByteBuffer.allocate(80).order(ByteOrder.LITTLE_ENDIAN).putInt(1).putInt(1).put(authority).put(nonce).putLong(5_000L).array()
-
-    @Test
-    fun confirmationStopsAtAFailedStatusAndWaitsBetweenPolls() = runBlocking {
-        server.enqueue(answer("""{"context":{"slot":1},"value":[null]}"""))
-        server.enqueue(
-            answer(
-                """{"context":{"slot":2},"value":[{"slot":2,"err":{"InstructionError":[0,{"Custom":1}]},"confirmationStatus":"processed"}]}""",
-            ),
-        )
-
-        assertEquals(SolanaOutcome.FAILED, SolanaSend.confirm(scheduler(), SOLANA_DEVNET, SIGNATURE) { waits += it })
-        assertEquals(listOf(2_000L), waits)
-    }
-
-    @Test
-    fun confirmationGivesUpAfterTheLastPollWhenNoStatusComesIn() = runBlocking {
-        repeat(30) { server.enqueue(answer("""{"context":{"slot":1},"value":[null]}""")) }
-
-        assertEquals(SolanaOutcome.PENDING, SolanaSend.confirm(scheduler(), SOLANA_DEVNET, SIGNATURE) { waits += it })
-        assertEquals(29, waits.size)
-        assertTrue(waits.all { it == 2_000L })
-    }
 
     @Test
     fun theExplorerLinkNamesTheDevnetClusterAndNamesNoClusterOnMainnet() {

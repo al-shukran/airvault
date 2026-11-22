@@ -223,7 +223,13 @@ fun SendOnItsWayPage(
             ),
         )
         Spacer(Modifier.height(ClearAirSpacing.md))
-        if (!arrived) Text(text = "You can close this screen.", style = ClearAirType.body, color = palette.ink2)
+        if (!arrived) {
+            Text(
+                text = "You can close this screen. Lumio keeps watching and will tell you when it lands.",
+                style = ClearAirType.body,
+                color = palette.ink2,
+            )
+        }
     }
 }
 

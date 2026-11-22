@@ -4,16 +4,31 @@ import app.airvault.core.model.AccountId
 import app.airvault.core.model.ChainId
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
+import app.lumio.evm.EvmChain
 import app.lumio.home.NativeAsset
+import app.lumio.tokens.Token
+import app.lumio.tokens.TokenHolding
+import app.lumio.wallets.AccountCoin
 import app.lumio.wallets.WalletAccount
+import app.lumio.watchlist.WatchedAsset
 import java.math.BigDecimal
+import java.math.BigInteger
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import org.junit.Test
 
-/** Holdings Breakdown's grouping and the asset page's text: a coin by chain, the largest account first, and the amounts and addresses as written. */
+/**
+ * Holdings Breakdown's grouping and the asset page's text: a coin by chain, the largest account first, the amounts and addresses as written, and the
+ * accounts that can hold a coin.
+ */
 class AssetHoldingsTest {
     private val ethereum = Networks.evm(1L)
     private val arbitrum = Networks.evm(42161L)
+    private val ethereumChain = EvmChain(chainId = 1L, name = "Ethereum", symbol = "ETH", decimals = 18, testnet = false, explorerUrl = null)
+    private val arbitrumChain = EvmChain(chainId = 42161L, name = "Arbitrum", symbol = "ETH", decimals = 18, testnet = false, explorerUrl = null)
+    private val nativeEth = WatchedAsset(NetworkId(ethereum, testnet = false))
+    private val usdc = WatchedAsset(NetworkId(ethereum, testnet = false), contract = "0xa0b8")
 
     private fun account(chain: ChainId, network: String, name: String?, held: NativeAsset?, index: Int = 0): WalletAccount = WalletAccount(
         walletId = "wallet",
@@ -41,7 +56,7 @@ class AssetHoldingsTest {
             account(arbitrum, "Arbitrum", "PulsarNova", eth(arbitrum, "10"), index = 5),
         )
 
-        val chains = chainHoldings(accounts, symbol = "ETH", walletName = "Air 1")
+        val chains = chainHoldings(holdingsOf(nativeEth, "ETH", accounts, emptyMap()), walletName = "Air 1")
 
         assertEquals(listOf("Arbitrum", "Ethereum"), chains.map { it.chain })
         assertEquals(listOf(BigDecimal("13.23"), BigDecimal("1")), chains.map { it.total })
@@ -58,9 +73,38 @@ class AssetHoldingsTest {
             account(ethereum, "Ethereum", "NoRead", held = null),
         )
 
-        val chains = chainHoldings(accounts, symbol = "ETH", walletName = "Air 1")
+        val chains = chainHoldings(holdingsOf(nativeEth, "ETH", accounts, emptyMap()), walletName = "Air 1")
 
         assertEquals(listOf("Holds"), chains.single().accounts.map { it.name })
+    }
+
+    @Test
+    fun aTokenIsReadFromItsOwnChainScaledByItsDecimals() {
+        val token = Token(chainId = 1L, contract = "0xa0b8", symbol = "USDC", name = "USD Coin", decimals = 6)
+        val holds = account(ethereum, "Ethereum", "Holds", held = null)
+        val otherChain = Token(chainId = 42161L, contract = "0xa0b8", symbol = "USDC", name = "USD Coin", decimals = 6)
+        val tokens = mapOf(
+            holds to listOf(
+                TokenHolding(ethereumChain, token, BigInteger("1500000"), atMs = 0L),
+                TokenHolding(arbitrumChain, otherChain, BigInteger("2000000"), atMs = 0L),
+                TokenHolding(ethereumChain, token.copy(contract = "0xdead"), BigInteger("9"), atMs = 0L),
+            ),
+        )
+
+        val held = holdingsOf(usdc, "USDC", listOf(holds), tokens)
+
+        assertEquals(listOf("Ethereum"), held.map { it.chain })
+        assertEquals(0, BigDecimal("1.5").compareTo(held.single().amount))
+    }
+
+    @Test
+    fun aNativeCoinIsHeldOnItsNetworkAndATokenByAnyEthereumAccount() {
+        val onEthereum = account(ethereum, "Ethereum", "A", held = null).copy(coin = AccountCoin("ETH", "Ethereum", NetworkId(ethereum, testnet = false)))
+        val onArbitrum = account(arbitrum, "Arbitrum", "B", held = null).copy(coin = AccountCoin("ETH", "Arbitrum", NetworkId(arbitrum, testnet = false)))
+
+        assertTrue(canHold(onEthereum, nativeEth))
+        assertFalse(canHold(onArbitrum, nativeEth))
+        assertTrue(canHold(onArbitrum, WatchedAsset(NetworkId(arbitrum, testnet = false), contract = "0xa0b8")))
     }
 
     @Test

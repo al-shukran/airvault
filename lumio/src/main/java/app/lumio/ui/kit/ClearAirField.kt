@@ -17,6 +17,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
@@ -25,7 +27,8 @@ import app.lensly.ui.theme.LocalClearAirPalette
 /**
  * A text field of a Clear Air form: its [label] above it, the value inside a hairline border, and an optional [trailing] action such as Paste or
  * Scan. Empty, it shows [placeholder] in secondary ink. With an [error] the border turns rose and the words sit under the field with a mark, so
- * colour is never the only signal. [monospace] sets an address in the address style, and a long value wraps inside the field.
+ * colour is never the only signal. [monospace] sets an address in the address style, and a long value wraps inside the field. [masked] shows
+ * the value as dots, for a password.
  */
 @Composable
 fun ClearAirField(
@@ -37,6 +40,7 @@ fun ClearAirField(
     error: String? = null,
     keyboard: KeyboardType = KeyboardType.Text,
     monospace: Boolean = false,
+    masked: Boolean = false,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val palette = LocalClearAirPalette.current
@@ -59,6 +63,7 @@ fun ClearAirField(
                 modifier = Modifier.weight(1f),
                 textStyle = style.copy(color = palette.ink),
                 keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+                visualTransformation = if (masked) PasswordVisualTransformation() else VisualTransformation.None,
                 cursorBrush = SolidColor(palette.ink),
                 decorationBox = { inner ->
                     if (value.isEmpty() && placeholder.isNotEmpty()) {

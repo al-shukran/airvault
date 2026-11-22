@@ -29,6 +29,8 @@ class AsaSendPlan(
     val txn: AssetTransfer,
     override val txnBytes: ByteArray,
 ) : AlgorandSendPlan {
+    override val lastValid: ULong get() = txn.lastValid
+
     /** An opt-in moves no units: it is a zero transfer to the signer, which holds the asset from then on. */
     val isOptIn: Boolean get() = amount.signum() == 0
 }

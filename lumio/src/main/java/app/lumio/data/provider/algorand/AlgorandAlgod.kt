@@ -8,6 +8,8 @@ import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.ALGORAND_TXID
+import app.lumio.data.provider.AlgorandIndexed
+import app.lumio.data.provider.AlgorandIndexedTx
 import app.lumio.data.provider.AlgorandParams
 import app.lumio.data.provider.AlgorandPendingInfo
 import app.lumio.data.provider.AlgorandPendingTx
@@ -59,11 +61,14 @@ private val ADDRESS = Regex("[A-Z2-7]{58}")
 /**
  * The algod endpoints that Algonode serves, keyless. `GET /v2/accounts/{address}` answers the account with its `amount` in microAlgos, the base unit,
  * as a JSON number. The provider sends no key and only public data: an account's public address, the suggested parameters of a transaction, a signed
- * transaction that is already public once it is sent, and the pool's state of a transaction. A 429 is a [ProviderError.RateLimited] with its
- * Retry-After, so the scheduler cools the provider for that long and then asks again. [endpoints] maps each chain name to its base address. Tests
- * replace it with a local server.
+ * transaction that is already public once it is sent, the pool's state of a transaction, and what the indexer holds of it. A 429 is a
+ * [ProviderError.RateLimited] with its Retry-After, so the scheduler cools the provider for that long and then asks again. [endpoints] maps each chain
+ * name to its algod base address and [indexers] to its indexer base address. Tests replace both with a local server.
  */
-class AlgorandAlgod(private val endpoints: Map<String, String> = ENDPOINTS) : Provider {
+class AlgorandAlgod(
+    private val endpoints: Map<String, String> = ENDPOINTS,
+    private val indexers: Map<String, String> = INDEXERS,
+) : Provider {
     override val id: String = "algorand"
     override val kind: Kind = Kind.DATA
     override val traits: Set<Trait> = setOf(Trait.KEYLESS)
@@ -79,6 +84,7 @@ class AlgorandAlgod(private val endpoints: Map<String, String> = ENDPOINTS) : Pr
             is NativeBalance -> balance(req, http) as T
             is AlgorandParams -> params(req, http) as T
             is AlgorandPendingTx -> pending(req, http) as T
+            is AlgorandIndexedTx -> indexed(req, http) as T
             is Broadcast -> broadcast(req, http) as T
             is AsaHoldings -> holdings(req, http) as T
             is AsaAssetInfo -> assetInfo(req, http) as T
@@ -162,6 +168,22 @@ class AlgorandAlgod(private val endpoints: Map<String, String> = ENDPOINTS) : Pr
     }
 
     /**
+     * What the indexer holds of a transaction. The indexer's round is read first: the indexer only moves forward, so a transaction it does not hold at
+     * that round, and which is looked up after it, was not confirmed by it. The lookup is `GET /v2/transactions/{txid}`, and a transaction it does not
+     * hold answers 404, which is [ProviderError.NotFound] and reads as no confirmed round.
+     */
+    private suspend fun indexed(req: AlgorandIndexedTx, http: Http): AlgorandIndexed {
+        val indexerRound = answerObject(send(http, get(indexerUrl(req.net, "health"))))["round"].whole(0L, Long.MAX_VALUE)
+        val confirmedRound = try {
+            val transaction = answerObject(send(http, get(indexerUrl(req.net, "v2", "transactions", req.txid)), notFoundIsAnswer = true))["transaction"]
+            (transaction as? JsonObject ?: throw ProviderError.Fatal(SHAPE))["confirmed-round"].whole(1L, Long.MAX_VALUE)
+        } catch (e: ProviderError.NotFound) {
+            null
+        }
+        return AlgorandIndexed(confirmedRound, indexerRound)
+    }
+
+    /**
      * Sends the signed transaction as msgpack, with `POST /v2/transactions`, and returns the transaction ID that algod answers with. A refusal by the
      * node is a 400, which is [ProviderError.Fatal].
      */
@@ -181,6 +203,10 @@ class AlgorandAlgod(private val endpoints: Map<String, String> = ENDPOINTS) : Pr
     /** The URL of [net]'s base address with [segments] added as path segments. Each segment is validated by the request that names it. */
     private fun urlOf(net: NetworkId, vararg segments: String): HttpUrl =
         checkNotNull(baseOf(net)).newBuilder().apply { segments.forEach { addPathSegment(it) } }.build()
+
+    /** The URL of [net]'s indexer with [segments] added as path segments. */
+    private fun indexerUrl(net: NetworkId, vararg segments: String): HttpUrl =
+        checkNotNull(if (net.isAlgo) providerBase(indexers[net.name], "") else null).newBuilder().apply { segments.forEach { addPathSegment(it) } }.build()
 
     private fun get(url: HttpUrl): HttpRequest = HttpRequest.Builder().url(url).get().build()
 
@@ -224,12 +250,19 @@ class AlgorandAlgod(private val endpoints: Map<String, String> = ENDPOINTS) : Pr
             "mainnet" to "https://mainnet-api.algonode.cloud",
         )
 
+        /** The public indexer of each Algorand network, by chain name. It keeps the confirmed transactions that the pool no longer holds. */
+        val INDEXERS: Map<String, String> = mapOf(
+            "testnet" to "https://testnet-idx.algonode.cloud",
+            "mainnet" to "https://mainnet-idx.algonode.cloud",
+        )
+
         /**
          * The operations this provider serves on an Algorand network: balances, asset holdings, asset parameters, suggested parameters, pending
-         * transactions and broadcasts.
+         * transactions, indexed transactions and broadcasts.
          */
         private val OPS = setOf(
-            Ops.ALGO_NATIVE_BALANCE, Ops.ALGO_TOKEN_BALANCES, Ops.ALGO_ASSET_INFO, Ops.ALGO_SUGGESTED_PARAMS, Ops.ALGO_PENDING_TX, Ops.ALGO_BROADCAST,
+            Ops.ALGO_NATIVE_BALANCE, Ops.ALGO_TOKEN_BALANCES, Ops.ALGO_ASSET_INFO, Ops.ALGO_SUGGESTED_PARAMS, Ops.ALGO_PENDING_TX,
+            Ops.ALGO_INDEXED_TX, Ops.ALGO_BROADCAST,
         )
 
         private const val SHAPE = "The answer does not have the documented shape."

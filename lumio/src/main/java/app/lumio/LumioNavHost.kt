@@ -46,6 +46,7 @@ import app.lumio.send.algorand.AlgorandSendRoute
 import app.lumio.send.solana.SolanaSendRoute
 import app.lumio.ui.kit.ClearAirTestnetHatch
 import app.lumio.ui.kit.LumioTab
+import app.lumio.ui.firstrun.FirstRunStep
 import app.lumio.ui.kit.lumioComposable
 import app.lumio.ui.settings.SettingsPage
 import app.lumio.ui.wallets.NATIVE_ASSET_KEY
@@ -374,7 +375,8 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
             draft.clear()
             leaveHidden(navController, holder)
         }
-        hiddenArea(navController, holder, home = LumioRoute.WALLETS) {
+        hiddenArea(navController, holder, home = LumioRoute.WALLETS, newVault = FirstRunStep.Welcome.route) {
+            firstRunRoutes(navController, holder, home = LumioRoute.WALLETS)
             lumioComposable(LumioRoute.WALLETS) {
                 // The Accounts tab is the start screen and has no back arrow. System back locks the vault first, so leaving the app never
                 // leaves the vault open, then closes the app as Android does at a root screen.
