@@ -19,7 +19,7 @@ fails it, except dependency review, which is skipped until `DEPENDENCY_GRAPH_ENA
 | `android-tests` | androidTest and benchmark compile of `:app` and `:lumio`; master and merge queue only (a step of `android`) | `android` |
 | `lint-app`, `lint-shared`, `lint-lumio` | `lintReportDebug` of one module's main sources; the unit-test, androidTest and test-fixture analyses run in nightly `lintDebug`; a leg compiles its module and the modules it depends on | `lint` (matrix) |
 | `manifest` | merged manifests (no INTERNET or ACCESS_NETWORK_STATE in `:app`, Lumio's allow-list), no OkHttp on `:app`'s release classpath | `manifest` |
-| `ci` | `bash -n` on every script, `check-partitions.sh`, `check-test-network.sh` (no Gradle) | `ci` |
+| `ci` | `bash -n` on every script, `check-partitions.sh`, `check-test-network.sh`, `check-trim-build-cache.sh` (no Gradle) | `ci` |
 
 `secrets` (gitleaks) and `dependency_review` run beside them and need no Gradle.
 
