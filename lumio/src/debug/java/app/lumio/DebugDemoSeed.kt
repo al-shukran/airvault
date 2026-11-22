@@ -15,7 +15,6 @@ import app.lumio.network.NetworkModeStore
 import app.lumio.pair.PairScan
 import app.lumio.pair.PairedWallets
 import app.lumio.pair.ScanStep
-import app.lumio.ui.wallets.WalletSheet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -104,8 +103,8 @@ internal object DebugDemoSeed {
     }
 
     /**
-     * Opens the wallet over the Wallets home once the home's board has the wallet, which it has once the home is on screen. A sheet opened before
-     * that closes at once, since it has no wallet to show. The wait ends after [OPEN_WAIT_MS].
+     * Waits until the Wallets home's board has the wallet, so the wallet can be opened from the home. Wallets are pages now, so the seed does not open
+     * one itself. The wait ends after [OPEN_WAIT_MS].
      */
     private suspend fun openWallet(app: LumioApp, walletId: String) {
         val shown = withTimeoutOrNull(OPEN_WAIT_MS) {
@@ -115,8 +114,7 @@ internal object DebugDemoSeed {
             refused("the Wallets home did not show the wallet in time")
             return
         }
-        withContext(Dispatchers.Main) { app.lumioVault()?.sheets?.open(WalletSheet.Wallet(walletId)) }
-        Log.i(TAG, "The demo wallet is open on the Wallets home.")
+        Log.i(TAG, "The demo wallet is on the Wallets home.")
     }
 
     /** Logs why the seed did nothing, so a launch that shows no wallet has a reason in logcat. Returns null, which is the seed's answer then. */
