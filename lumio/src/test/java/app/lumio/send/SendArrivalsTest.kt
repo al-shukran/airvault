@@ -221,9 +221,19 @@ class SendArrivalsTest {
 
     @Test
     fun evmArrivesWhenTheReceiptSucceeds() {
-        assertEquals(Landing.PENDING, evmLanding(null))
-        assertEquals(Landing.LANDED, evmLanding(EvmReceipt(success = true)))
-        assertEquals(Landing.REFUSED, evmLanding(EvmReceipt(success = false)))
+        assertEquals(Landing.LANDED, evmLanding(EvmReceipt(success = true), nonceUsed = false))
+        assertEquals(Landing.REFUSED, evmLanding(EvmReceipt(success = false), nonceUsed = false))
+    }
+
+    @Test
+    fun evmIsPendingUntilItsNonceIsUsedWithoutAReceipt() {
+        assertEquals(Landing.PENDING, evmLanding(null, nonceUsed = false))
+        assertEquals(Landing.REFUSED, evmLanding(null, nonceUsed = true))
+    }
+
+    @Test
+    fun aReceiptDecidesEvenWhenTheNonceHasMoved() {
+        assertEquals(Landing.LANDED, evmLanding(EvmReceipt(success = true), nonceUsed = true))
     }
 
     @Test
@@ -237,10 +247,21 @@ class SendArrivalsTest {
 
     @Test
     fun solanaArrivesWhenConfirmedAndRefusesAFailedStatus() {
-        assertEquals(Landing.PENDING, solanaLanding(null))
-        assertEquals(Landing.PENDING, solanaLanding(SolanaStatus(confirmed = false, failed = false)))
-        assertEquals(Landing.LANDED, solanaLanding(SolanaStatus(confirmed = true, failed = false)))
-        assertEquals(Landing.REFUSED, solanaLanding(SolanaStatus(confirmed = true, failed = true)))
+        assertEquals(Landing.PENDING, solanaLanding(SolanaStatus(confirmed = false, failed = false), dropped = false))
+        assertEquals(Landing.LANDED, solanaLanding(SolanaStatus(confirmed = true, failed = false), dropped = false))
+        assertEquals(Landing.REFUSED, solanaLanding(SolanaStatus(confirmed = true, failed = true), dropped = false))
+    }
+
+    @Test
+    fun solanaWithoutAStatusIsPendingUntilTheNetworkCanNoLongerIncludeIt() {
+        assertEquals(Landing.PENDING, solanaLanding(null, dropped = false))
+        assertEquals(Landing.REFUSED, solanaLanding(null, dropped = true))
+    }
+
+    @Test
+    fun aStatusDecidesEvenWhenTheTransactionCountsAsDropped() {
+        assertEquals(Landing.LANDED, solanaLanding(SolanaStatus(confirmed = true, failed = false), dropped = true))
+        assertEquals(Landing.PENDING, solanaLanding(SolanaStatus(confirmed = false, failed = false), dropped = true))
     }
 
     @Test

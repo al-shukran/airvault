@@ -4,11 +4,19 @@ import androidx.compose.runtime.Composable
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.ui.send.SignedSendSteps
+import java.time.Instant
 import kotlinx.coroutines.runBlocking
 
+/** The clock of a golden: 14:02 UTC on 22 November 2026, so the timeline shows the same times on every run. */
+internal val GOLDEN_CLOCK_MS = Instant.parse("2026-11-22T14:02:00Z").toEpochMilli()
+
 /** A submission that the network has accepted, so the screen shows the Sent state with the id [id]. */
-internal fun sentSubmit(id: String): SubmitMachine<Unit, String> =
-    SubmitMachine<Unit, String>(Unit, { id }, { SubmitFailure(it.message.orEmpty()) }).also { runBlocking { it.submit() } }
+internal fun sentSubmit(id: String): SubmitMachine<Unit, String> = SubmitMachine<Unit, String>(
+    Unit,
+    { id },
+    { SubmitFailure(it.message.orEmpty()) },
+    clock = { GOLDEN_CLOCK_MS },
+).also { runBlocking { it.submit() } }
 
 /** A submission that the network refused with [message], so the screen shows the Failed state. */
 internal fun refusedSubmit(message: String): SubmitMachine<Unit, String> =

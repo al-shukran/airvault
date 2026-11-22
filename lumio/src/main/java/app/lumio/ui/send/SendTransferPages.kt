@@ -40,6 +40,10 @@ import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.ClearAirTimeline
 import app.lumio.ui.kit.ClearAirTimelineStep
 import app.lumio.ui.kit.StepThread
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /** How long Last Chance counts down before the signed transaction is sent, in seconds. The default of the Settings delay. */
 const val LAST_CHANCE_SECONDS = 3
@@ -167,8 +171,9 @@ private val RING_STROKE_DP = 3.dp
 
 /**
  * On Its Way, after the send: the steps of the transfer with the state of each, and the words that say the screen can be closed. [timing] is how
- * long the network usually takes, for the step that is confirming. [arrived] says the transfer has landed: the last two steps are done, and the words about
- * closing the screen go. Done goes back to the account; the explorer link is offered when the chain has one.
+ * long the network usually takes, for the step that is confirming. [signedAtMs] and [sentAtMs] are the clock times of the first two steps, and the
+ * confirming step reads "now" while it waits. [arrived] says the transfer has landed: the last two steps are done, the words about
+ * closing the screen go, and no step shows a time, since the landing time is not kept. Done goes back to the account; the explorer link is offered when the chain has one.
  */
 @Composable
 fun SendOnItsWayPage(
@@ -177,6 +182,8 @@ fun SendOnItsWayPage(
     network: String,
     timing: String,
     recipient: String,
+    signedAtMs: Long,
+    sentAtMs: Long,
     arrived: Boolean,
     explorerLabel: String?,
     onExplorer: () -> Unit,
@@ -208,12 +215,12 @@ fun SendOnItsWayPage(
         Spacer(Modifier.height(ClearAirSpacing.lg))
         ClearAirTimeline(
             steps = listOf(
-                ClearAirTimelineStep("Signed on Lensly", "Your keys never left it.", ClearAirStepState.Done),
-                ClearAirTimelineStep("Sent to $network", "The network accepted it.", ClearAirStepState.Done),
+                ClearAirTimelineStep("Signed on Lensly", "Your keys never left it.", ClearAirStepState.Done, clockOf(signedAtMs)),
+                ClearAirTimelineStep("Sent to $network", "The network accepted it.", ClearAirStepState.Done, clockOf(sentAtMs)),
                 if (arrived) {
                     ClearAirTimelineStep("Confirming", "Confirmed by the network.", ClearAirStepState.Done)
                 } else {
-                    ClearAirTimelineStep("Confirming", timing, ClearAirStepState.Now)
+                    ClearAirTimelineStep("Confirming", timing, ClearAirStepState.Now, time = "now")
                 },
                 if (arrived) {
                     ClearAirTimelineStep("In $recipient", "Funds reached the recipient.", ClearAirStepState.Done)
@@ -232,6 +239,11 @@ fun SendOnItsWayPage(
         }
     }
 }
+
+private val CLOCK: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH)
+
+/** The clock time of [epochMs] in [zone], as the timeline shows it: 24 hours, hours and minutes. */
+internal fun clockOf(epochMs: Long, zone: ZoneId = ZoneId.systemDefault()): String = CLOCK.withZone(zone).format(Instant.ofEpochMilli(epochMs))
 
 /**
  * One outcome page of a send that did not go through: Lensly Didn't Sign, the signature for another send, or a failed broadcast. [mark] is the

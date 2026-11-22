@@ -101,4 +101,18 @@ class SubmitMachineTest {
         assertFailsWith<CancellationException> { machine.submit() }
         assertIs<SubmitState.Submitting>(machine.state.value)
     }
+
+    @Test
+    fun theSignedTimeIsTakenWhenTheMachineIsMadeAndTheSentTimeWhenTheNetworkAccepts() = runTest {
+        val moments = ArrayDeque(listOf(1_000L, 2_500L))
+        val machine = SubmitMachine<ByteArray, String>(
+            signed = byteArrayOf(7),
+            broadcast = { "txid" },
+            describe = { SubmitFailure(it.message.orEmpty()) },
+            clock = { moments.removeFirst() },
+        )
+        assertEquals(1_000L, machine.signedAtMs)
+        machine.submit()
+        assertEquals(2_500L, assertIs<SubmitState.Sent<String>>(machine.state.value).sentAtMs)
+    }
 }
