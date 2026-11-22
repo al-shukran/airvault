@@ -307,7 +307,8 @@ class WalletScreensScreenshotTest {
         name = "wallet_accounts_fold_open",
         beforeCapture = {
             onNodeWithText(moreAccountsTitle(FOLDED_COUNT)).performTouchInput { click() }
-            // The press settles on the clock, which is paused, so the tap is let through before the frame is drawn.
+            // Idle the looper before the paused clock moves: advancing the clock first left the fold row's ripple pressed at the capture (#720).
+            waitForIdle()
             mainClock.advanceTimeBy(SETTLE_MS)
         },
         content = foldedWallet,
