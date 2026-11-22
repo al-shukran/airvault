@@ -24,7 +24,6 @@ import app.lumio.data.provider.solana.SOLANA_MAINNET
 import app.lumio.data.rpc.JsonRpc
 import app.lumio.data.sched.Scheduler
 import app.lumio.send.SubmitMachine
-import app.lumio.ui.send.solana.SETUP_SIGN_TEXT
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Base58
 import kotlinx.coroutines.CoroutineScope
@@ -284,7 +283,7 @@ class SolanaSendTest {
      */
     @Test
     fun aSendRefusedForItsNonceLeavesToItsForm() {
-        assertIs<SolanaSendStep.Form>(
+        assertIs<SolanaSendStep.Amount>(
             unsentExit(failedSubmit(plan(), setup = false, failure = ProviderError.Fatal(JsonRpc.BLOCKHASH_REFUSED_MESSAGE))),
         )
     }

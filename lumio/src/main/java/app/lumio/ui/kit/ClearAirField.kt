@@ -47,6 +47,7 @@ fun ClearAirField(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .then(rejectOf(error))
                 .heightIn(min = ClearAirSpacing.touchTarget)
                 .border(1.dp, if (error != null) palette.rose else palette.hairline, RoundedCornerShape(ClearAirSpacing.sm))
                 .padding(horizontal = ClearAirSpacing.md, vertical = ClearAirSpacing.xs),

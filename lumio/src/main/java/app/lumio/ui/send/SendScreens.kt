@@ -1,21 +1,14 @@
 package app.lumio.ui.send
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import app.lensly.app.AddressNotes
 import app.lensly.app.headline
 import app.lensly.ui.components.AddressText
@@ -41,35 +34,6 @@ fun SignatureScanScreen(progress: Float?, status: String, onText: (String) -> Un
         statusText = status,
         onText = onText,
         onCancel = onCancel,
-    )
-}
-
-/**
- * The amount: the figure is set large where the owner reads it, and it is typed on the system's decimal keyboard. There is no keypad and no preset
- * amount.
- */
-@Composable
-internal fun AmountField(value: String, onValueChange: (String) -> Unit, enabled: Boolean) {
-    val figure = MaterialTheme.typography.displaySmall
-    BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = LenslySpacing.sm),
-        enabled = enabled,
-        singleLine = true,
-        textStyle = figure.copy(color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-        decorationBox = { field ->
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                if (value.isEmpty()) {
-                    Text("0", style = figure, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                field()
-            }
-        },
     )
 }
 

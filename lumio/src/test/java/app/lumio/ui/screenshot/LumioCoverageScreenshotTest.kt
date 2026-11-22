@@ -34,20 +34,22 @@ import app.lensly.ui.screenshot.SCREENSHOT_DIR
 import app.lensly.ui.settings.NoticeBlock
 import app.lensly.ui.settings.ThirdPartyLicencesScreen
 import app.lensly.ui.theme.LumenTheme
+import app.lensly.ui.components.groupAddress
 import app.lumio.btc.BtcSend
+import app.lumio.btc.btcText
 import app.lumio.btc.BtcSendPlan
 import app.lumio.btc.BtcSpendable
 import app.lumio.evm.CustomChain
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettings
 import app.lumio.pair.PairFixtures
-import app.lumio.ui.btc.BtcAdvancedFields
-import app.lumio.ui.btc.BtcSendReviewScreen
-import app.lumio.ui.btc.BtcSignRequestScreen
 import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.pair.PairScanScreen
 import app.lumio.ui.send.SignatureScanScreen
-import app.lumio.ui.send.btcSummary
+import app.lumio.ui.send.SendFeeRateSheet
+import app.lumio.ui.send.SendReviewPage
+import app.lumio.ui.send.SendShowPage
+import app.lumio.ui.send.SummaryRow
 import app.lumio.ui.settings.DataProvidersScreen
 import app.lumio.ui.settings.EvmSettingsSection
 import app.lumio.ui.settings.ProviderRow
@@ -202,22 +204,81 @@ class LumioCoverageScreenshotTest {
 
     @Test
     fun bitcoinSendReview() = compose.lumioSnapshot("bitcoin_send_review") {
-        BtcSendReviewScreen(plan = btcPlan, suggestedRate = 2.0, notice = null, onSave = {}, onConfirm = {}, onBack = {})
+        SendReviewPage(
+            heading = "Send ${btcText(btcPlan.amountSats)} from Native SegWit to ${groupAddress(btcPlan.recipient)}?",
+            toTitle = groupAddress(btcPlan.recipient),
+            toDetail = "",
+            toAddress = btcPlan.recipient,
+            validLine = "Address is valid on Bitcoin Mainnet",
+            firstTime = "First time sending here. Compare every group with where you got it.",
+            rows = listOf(
+                SummaryRow("Amount", btcText(btcPlan.amountSats)),
+                SummaryRow("Fee", btcText(btcPlan.feeSats)),
+                SummaryRow("Spends", "${btcPlan.coins.size} ${if (btcPlan.coins.size == 1) "Input" else "Inputs"}"),
+                SummaryRow("Network", "Bitcoin Mainnet"),
+                SummaryRow("From", "Native SegWit, m/84'/0'/0'"),
+            ),
+            warnings = emptyList(),
+            notice = null,
+            onShow = {},
+            onEdit = {},
+            backLabel = "Amount",
+            offline = null,
+            onBack = {},
+            onLock = {},
+        )
     }
 
     @Test
     fun bitcoinSendReviewRequestFailed() = compose.lumioSnapshot("bitcoin_send_review_error") {
-        BtcSendReviewScreen(plan = btcPlan, suggestedRate = 2.0, notice = REQUEST_FAILED, onSave = {}, onConfirm = {}, onBack = {})
+        SendReviewPage(
+            heading = "Send ${btcText(btcPlan.amountSats)} from Native SegWit to ${groupAddress(btcPlan.recipient)}?",
+            toTitle = groupAddress(btcPlan.recipient),
+            toDetail = "",
+            toAddress = btcPlan.recipient,
+            validLine = "Address is valid on Bitcoin Mainnet",
+            firstTime = null,
+            rows = listOf(
+                SummaryRow("Amount", btcText(btcPlan.amountSats)),
+                SummaryRow("Fee", btcText(btcPlan.feeSats)),
+                SummaryRow("Network", "Bitcoin Mainnet"),
+                SummaryRow("From", "Native SegWit, m/84'/0'/0'"),
+            ),
+            warnings = emptyList(),
+            notice = REQUEST_FAILED,
+            onShow = {},
+            onEdit = {},
+            backLabel = "Amount",
+            offline = null,
+            onBack = {},
+            onLock = {},
+        )
     }
 
     @Test
     fun bitcoinAdvancedSheet() = compose.lumioSnapshot("bitcoin_advanced_sheet") {
-        BtcAdvancedFields(suggestedRate = 2.0, rate = 9.0, onSave = {}, onCancel = {})
+        SendFeeRateSheet(
+            visible = true,
+            suggestedRate = 2.0,
+            rate = 9.0,
+            networkFee = btcText(btcPlan.feeSats),
+            timing = "Usually 10–60 minutes for the first confirmation",
+            onApply = {},
+            onClose = {},
+        )
     }
 
     @Test
     fun bitcoinSignRequest() = compose.lumioSnapshot("bitcoin_send_sign_request") {
-        BtcSignRequestScreen(network = BtcNetwork.MAINNET, parts = btcPlan.parts(), notice = null, onScan = {}, onBack = {})
+        SendShowPage(
+            parts = btcPlan.parts(),
+            onNext = {},
+            onCancel = {},
+            backLabel = "Review",
+            offline = null,
+            onBack = {},
+            onLock = {},
+        )
     }
 
     @Test
@@ -232,17 +293,27 @@ class LumioCoverageScreenshotTest {
 
     @Test
     fun bitcoinBroadcastSuccess() = compose.lumioSnapshot("bitcoin_broadcast_success") {
-        SubmitFixture(sentSubmit(TXID), btcSummary(btcPlan), explorerUrl = { "https://mempool.space/tx/$it" })
-    }
-
-    @Test
-    fun bitcoinBroadcastSuccessWithoutBrowser() = compose.lumioSnapshot("bitcoin_broadcast_success_no_browser") {
-        SubmitFixture(sentSubmit(TXID), btcSummary(btcPlan), explorerUrl = { "https://mempool.space/tx/$it" }, notice = NO_BROWSER)
+        SubmitFixture(
+            machine = sentSubmit(TXID),
+            headline = "Your BTC Is on Its Way",
+            amount = btcText(btcPlan.amountSats),
+            recipient = groupAddress(btcPlan.recipient),
+            network = "Bitcoin Mainnet",
+            timing = "Usually 10–60 minutes for the first confirmation",
+            explorerUrl = { "https://mempool.space/tx/$it" },
+        )
     }
 
     @Test
     fun bitcoinBroadcastError() = compose.lumioSnapshot("bitcoin_broadcast_error") {
-        BtcSignRequestScreen(network = BtcNetwork.MAINNET, parts = btcPlan.parts(), notice = BROADCAST_FAILED, onScan = {}, onBack = {})
+        SubmitFixture(
+            machine = refusedSubmit(BROADCAST_FAILED),
+            headline = "Your BTC Is on Its Way",
+            amount = btcText(btcPlan.amountSats),
+            recipient = groupAddress(btcPlan.recipient),
+            network = "Bitcoin Mainnet",
+            timing = "Usually 10–60 minutes for the first confirmation",
+        )
     }
 
     // Ethereum send: the broadcast states of the signature scan

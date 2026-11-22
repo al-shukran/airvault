@@ -9,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -56,21 +55,17 @@ import app.lumio.pair.ownAccountsOf
 import app.lumio.send.EvmPaymentCode
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
-import app.lumio.send.SubmitState
 import app.lumio.tokens.TokenBalanceCache
 import app.lumio.tokens.TokenHolding
 import app.lumio.tokens.TokenPortfolio
-import app.lumio.ui.kit.rememberLumioHaptics
-import app.lumio.ui.send.LAST_CHANCE_SECONDS
 import app.lumio.ui.send.RECIPIENT_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendAmountPage
 import app.lumio.ui.send.recipientError
 import app.lumio.ui.send.SendChangeRecipientDialog
 import app.lumio.ui.send.SendChoice
+import app.lumio.ui.send.SendDeclinedPage
 import app.lumio.ui.send.SendFeeSheet
-import app.lumio.ui.send.SendLastChancePage
-import app.lumio.ui.send.SendOnItsWayPage
 import app.lumio.ui.send.SendOption
 import app.lumio.ui.send.SendOptionSheet
 import app.lumio.ui.send.SendOutcomePage
@@ -78,7 +73,9 @@ import app.lumio.ui.send.SendRecipientPage
 import app.lumio.ui.send.SendReviewPage
 import app.lumio.ui.send.SendShowPage
 import app.lumio.ui.send.SignatureScanScreen
+import app.lumio.ui.send.SignedSendSteps
 import app.lumio.ui.send.SummaryRow
+import app.lumio.ui.send.rememberSendOffline
 import app.lumio.wallets.WalletAccounts
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
@@ -151,7 +148,6 @@ private const val NO_BROWSER = "No browser can open the explorer."
 private const val REQUEST_ID_BYTES = 16
 private const val PAUSE_BEFORE_PREPARE_MS = 350L
 private const val SETTLE_MS = 700L
-private const val COUNT_STEP_MS = 1_000L
 private const val BITCOIN_PREFIX_MAIN = "bc1"
 private const val BITCOIN_PREFIX_TEST = "tb1"
 
@@ -173,6 +169,7 @@ internal fun SendRoute(
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
     val context = LocalContext.current
+    val offline = rememberSendOffline(app)
     val session = holder.openSession()
     LaunchedEffect(session == null) {
         if (session == null) navController.openHidden(GateRoutes.GATE)
@@ -387,6 +384,7 @@ internal fun SendRoute(
                 },
                 onContinue = { step = SendStep.Amount },
                 backLabel = backLabel,
+                offline = offline,
                 onBack = { navController.popBackStack() },
                 onLock = onLock,
             )
@@ -432,6 +430,7 @@ internal fun SendRoute(
                 onReview = { send?.let { step = SendStep.Review(it) } },
                 onChangeRecipient = { changeRecipient = true },
                 backLabel = backLabel,
+                offline = offline,
                 onBack = { step = SendStep.Recipient },
                 onLock = onLock,
             )
@@ -489,6 +488,7 @@ internal fun SendRoute(
                     step = SendStep.Amount
                 },
                 backLabel = backLabel,
+                offline = offline,
                 onBack = { step = SendStep.Amount },
                 onLock = onLock,
             )
@@ -498,6 +498,7 @@ internal fun SendRoute(
             onNext = { startScan(now.send, now.requestId, now.parts) },
             onCancel = { step = SendStep.Declined(now.send) },
             backLabel = backLabel,
+            offline = offline,
             onBack = { step = SendStep.Review(now.send) },
             onLock = onLock,
         )
@@ -528,126 +529,31 @@ internal fun SendRoute(
                 onLock = onLock,
             )
         }
-        is SendStep.Declined -> SendOutcomePage(
-            title = "",
-            heading = "Lensly Didn't Sign, and That's Fine",
-            mark = "◆",
-            body = "Nothing was sent. Your ${amountText(now.send)} is still in $fromName.",
-            notes = listOf(
-                "What Happened" to "You cancelled before Lensly's reply was scanned, so no signature reached Lumio.",
-                "What You Can Do" to "Start a new send whenever you're ready. Lensly shows every detail again before it signs.",
-            ),
-            detail = null,
-            primary = "Back to $fromName",
-            onPrimary = { navController.popBackStack() },
-            secondary = null,
-            onSecondary = null,
+        is SendStep.Declined -> SendDeclinedPage(
+            amount = amountText(now.send),
+            fromName = fromName,
             backLabel = backLabel,
             onBack = { navController.popBackStack() },
             onLock = onLock,
         )
-        is SendStep.Signed -> SignedSend(
-            send = now.send,
+        is SendStep.Signed -> SignedSendSteps(
             machine = now.machine,
-            ready = ready,
+            headline = "Your ${now.send.chain.symbol} Is on Its Way",
+            amount = amountText(now.send),
+            recipient = notesFor(now.send.to, ready.accounts, ready.wallet.addressBook)?.let(::notesName) ?: groupAddress(now.send.to),
+            network = now.send.chain.name,
+            timing = "Usually about 1 second on ${now.send.chain.name}",
             fromName = fromName,
-            backLabel = backLabel,
+            explorerUrl = { hash -> EvmSend.explorerLink(now.send.chain, hash) },
+            onExplorer = { hash -> EvmSend.explorerLink(now.send.chain, hash)?.let(::openExplorer) },
+            onSent = {},
             onStop = { navController.popBackStack() },
             onDone = { navController.popBackStack() },
-            onExplorer = { hash -> EvmSend.explorerLink(now.send.chain, hash)?.let(::openExplorer) },
             onReview = { step = SendStep.Review(now.send) },
+            backLabel = backLabel,
+            offline = offline,
             onLock = onLock,
         )
-    }
-}
-
-/**
- * The signed transaction, in three pages that follow its state: Last Chance while it waits and then sends, On Its Way once the network has it, and the
- * failure page if the network refused it. The countdown runs only while the transaction is still in Last Chance, and "Send Now" skips the wait.
- */
-@Composable
-private fun SignedSend(
-    send: PreparedSend,
-    machine: SubmitMachine<ByteArray, String>,
-    ready: SendContext,
-    fromName: String,
-    backLabel: String,
-    onStop: () -> Unit,
-    onDone: () -> Unit,
-    onExplorer: (String) -> Unit,
-    onReview: () -> Unit,
-    onLock: () -> Unit,
-) {
-    val state by machine.state.collectAsState()
-    val scope = rememberCoroutineScope()
-    val haptics = rememberLumioHaptics()
-    val recipientName = notesFor(send.to, ready.accounts, ready.wallet.addressBook)?.let(::notesName) ?: groupAddress(send.to)
-    val amount = amountText(send)
-    when (val now = state) {
-        SubmitState.Idle, SubmitState.Submitting -> {
-            var remaining by remember { mutableIntStateOf(LAST_CHANCE_SECONDS) }
-            LaunchedEffect(Unit) {
-                while (remaining > 0 && machine.state.value is SubmitState.Idle) {
-                    delay(COUNT_STEP_MS)
-                    if (machine.state.value is SubmitState.Idle) remaining -= 1
-                }
-                if (machine.state.value is SubmitState.Idle) machine.submit()
-            }
-            SendLastChancePage(
-                recipient = recipientName,
-                amount = amount,
-                remaining = remaining,
-                sending = now is SubmitState.Submitting,
-                onSendNow = { scope.launch { machine.submit() } },
-                onStop = onStop,
-                backLabel = backLabel,
-                onBack = onStop,
-                onLock = onLock,
-            )
-        }
-        is SubmitState.Sent -> {
-            LaunchedEffect(Unit) { haptics.success() }
-            SendOnItsWayPage(
-                headline = "Your ${send.chain.symbol} Is on Its Way",
-                summary = "$amount to $recipientName",
-                network = send.chain.name,
-                timing = "Usually about 1 second on ${send.chain.name}",
-                recipient = recipientName,
-                explorerLabel = EvmSend.explorerLink(send.chain, now.id)?.let { "View on Explorer" },
-                onExplorer = { onExplorer(now.id) },
-                onDone = onDone,
-                backLabel = backLabel,
-                onBack = onDone,
-                onLock = onLock,
-            )
-        }
-        is SubmitState.Failed -> {
-            LaunchedEffect(Unit) { haptics.failure() }
-            SendOutcomePage(
-                title = "",
-                heading = "Nothing Left Your Account",
-                mark = "!",
-                body = now.message,
-                notes = listOf(
-                    "What Happened" to now.message,
-                    "What You Can Do" to if (now.retryable) {
-                        "Try again sends the same signed transaction. Nothing was sent."
-                    } else {
-                        "This signed transaction can no longer be sent. Start the send again, and Lensly signs it afresh."
-                    },
-                ),
-                detail = null,
-                primary = "Try Again",
-                onPrimary = {
-                    if (now.retryable) scope.launch { machine.submit() } else onReview()
-                },
-                secondary = "Back to $fromName",
-                onSecondary = onDone,
-                backLabel = backLabel,
-                onBack = onDone,
-                onLock = onLock,
-            )
-        }
     }
 }
 

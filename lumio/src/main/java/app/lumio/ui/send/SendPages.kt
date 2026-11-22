@@ -42,6 +42,7 @@ import app.lumio.ui.kit.ClearAirStatusMark
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.ClearAirTone
 import app.lumio.ui.kit.StepThread
+import app.lumio.ui.kit.rejectOf
 import app.lumio.ui.shell.LumioPageFrame
 import app.lumio.ui.shell.LumioPageScreen
 
@@ -54,6 +55,9 @@ internal const val STEP_SEND = 4
 
 /** An address the recipient can be picked from: its [title], its [detail] line and the [address] it sends to. */
 class SendChoice(val title: String, val detail: String, val address: String)
+
+/** One line of the Review page's facts, under the recipient: its [label] and its [value]. */
+class SummaryRow(val label: String, val value: String)
 
 /** One option of a choice sheet, such as a coin of the send: its [title] and what it says under it. */
 class SendOption(val title: String, val detail: String)
@@ -80,19 +84,21 @@ internal fun recipientError(text: String): String? = runCatching { SendInput.rec
     ?.let { it.message ?: "Enter a valid recipient address." }
 
 /**
- * The shell every send page shares: the page top bar with a back arrow to [backLabel], the page body, and the page's one action in [bottomAction].
- * A send page has no tab bar and no offline band of its own: the send is started online, from an account that is already on screen.
+ * The shell every send page shares: the page top bar with a back arrow to [backLabel], the offline band under it when [offline] is set, the page
+ * body, and the page's one action in [bottomAction]. The band says which balances are shown; a send needs a connection, so its action is disabled
+ * while the band shows (K2).
  */
 @Composable
 internal fun SendPage(
     title: String,
     backLabel: String,
+    offline: String?,
     onBack: () -> Unit,
     onLock: () -> Unit,
     bottomAction: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    LumioPageScreen(title = title, backLabel = backLabel, offline = null, onBack = onBack, onLock = onLock) {
+    LumioPageScreen(title = title, backLabel = backLabel, offline = offline, onBack = onBack, onLock = onLock) {
         LumioPageFrame(bottomAction = bottomAction, content = content)
     }
 }
@@ -116,6 +122,7 @@ fun SendRecipientPage(
     onScan: () -> Unit,
     onContinue: () -> Unit,
     backLabel: String,
+    offline: String?,
     onBack: () -> Unit,
     onLock: () -> Unit,
 ) {
@@ -123,6 +130,7 @@ fun SendRecipientPage(
     SendPage(
         title = "Send",
         backLabel = backLabel,
+        offline = offline,
         onBack = onBack,
         onLock = onLock,
         bottomAction = {
@@ -190,12 +198,14 @@ fun SendAmountPage(
     onUseMax: (() -> Unit)?,
     networkName: String,
     feeText: String?,
-    onFee: () -> Unit,
+    /** Opens the fee sheet. Null when the chain has no fee to choose, and the fee is then a plain line. */
+    onFee: (() -> Unit)?,
     note: String?,
     canReview: Boolean,
     onReview: () -> Unit,
     onChangeRecipient: () -> Unit,
     backLabel: String,
+    offline: String?,
     onBack: () -> Unit,
     onLock: () -> Unit,
 ) {
@@ -203,10 +213,12 @@ fun SendAmountPage(
     SendPage(
         title = "Send $symbol",
         backLabel = backLabel,
+        offline = offline,
         onBack = onBack,
         onLock = onLock,
         bottomAction = {
-            ClearAirPrimaryButton(text = "Review", onClick = onReview, enabled = canReview)
+            ClearAirPrimaryButton(text = "Review", onClick = onReview, enabled = canReview && offline == null)
+            if (offline != null) Text(text = "Sending needs a connection", style = ClearAirType.label, color = palette.ink2)
         },
     ) {
         StepThread(current = STEP_AMOUNT, steps = 5)
@@ -228,7 +240,7 @@ fun SendAmountPage(
             )
         }
         Spacer(Modifier.height(ClearAirSpacing.lg))
-        AmountInput(value = amount, onValueChange = onAmount, symbol = symbol)
+        AmountInput(value = amount, onValueChange = onAmount, symbol = symbol, error = amountError)
         amountError?.let {
             ClearAirStatusMark(glyph = "!", text = it, tone = ClearAirTone.Failed)
         } ?: leaves?.let {
@@ -260,9 +272,13 @@ fun SendAmountPage(
  * The amount as a large figure in the owner's chosen decimal keyboard, with its [symbol] after it. There is no keypad and no preset amount.
  */
 @Composable
-private fun AmountInput(value: String, onValueChange: (String) -> Unit, symbol: String) {
+private fun AmountInput(value: String, onValueChange: (String) -> Unit, symbol: String, error: String?) {
     val palette = LocalClearAirPalette.current
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.fillMaxWidth().then(rejectOf(error)),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
@@ -302,6 +318,7 @@ fun SendReviewPage(
     onShow: () -> Unit,
     onEdit: () -> Unit,
     backLabel: String,
+    offline: String?,
     onBack: () -> Unit,
     onLock: () -> Unit,
 ) {
@@ -309,6 +326,7 @@ fun SendReviewPage(
     SendPage(
         title = "Review",
         backLabel = backLabel,
+        offline = offline,
         onBack = onBack,
         onLock = onLock,
         bottomAction = {
@@ -395,6 +413,7 @@ fun SendShowPage(
     onNext: () -> Unit,
     onCancel: () -> Unit,
     backLabel: String,
+    offline: String?,
     onBack: () -> Unit,
     onLock: () -> Unit,
 ) {
@@ -402,6 +421,7 @@ fun SendShowPage(
     SendPage(
         title = "Lensly Signs",
         backLabel = backLabel,
+        offline = offline,
         onBack = onBack,
         onLock = onLock,
         bottomAction = {
@@ -437,3 +457,15 @@ fun SendShowPage(
 }
 
 private val QR_SIZE_DP = 236.dp
+
+/**
+ * The page an opt-in shows while its asset is read from the network, before its review opens. It holds no action; [notice] is why the read failed,
+ * and it is empty while the read runs.
+ */
+@Composable
+fun SendReadingPage(title: String, notice: String?, backLabel: String, onBack: () -> Unit, onLock: () -> Unit) {
+    val palette = LocalClearAirPalette.current
+    SendPage(title = title, backLabel = backLabel, offline = null, onBack = onBack, onLock = onLock) {
+        Text(text = notice ?: "Reading the network", style = ClearAirType.body, color = palette.ink2)
+    }
+}

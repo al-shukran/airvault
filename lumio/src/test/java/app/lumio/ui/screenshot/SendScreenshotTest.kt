@@ -77,6 +77,7 @@ class SendScreenshotTest {
             onScan = {},
             onContinue = {},
             backLabel = "Account",
+            offline = null,
             onBack = {},
             onLock = {},
         )
@@ -98,6 +99,7 @@ class SendScreenshotTest {
             onScan = {},
             onContinue = {},
             backLabel = "Account",
+            offline = null,
             onBack = {},
             onLock = {},
         )
@@ -119,6 +121,7 @@ class SendScreenshotTest {
             onScan = {},
             onContinue = {},
             backLabel = "Account",
+            offline = null,
             onBack = {},
             onLock = {},
         )
@@ -148,6 +151,7 @@ class SendScreenshotTest {
             onReview = {},
             onChangeRecipient = {},
             backLabel = "Recipient",
+            offline = null,
             onBack = {},
             onLock = {},
         )
@@ -178,6 +182,7 @@ class SendScreenshotTest {
             onReview = {},
             onChangeRecipient = {},
             backLabel = "Recipient",
+            offline = null,
             onBack = {},
             onLock = {},
         )
@@ -208,6 +213,7 @@ class SendScreenshotTest {
             onReview = {},
             onChangeRecipient = {},
             backLabel = "Recipient",
+            offline = null,
             onBack = {},
             onLock = {},
         )
@@ -228,6 +234,7 @@ class SendScreenshotTest {
             onShow = {},
             onEdit = {},
             backLabel = "Amount",
+            offline = null,
             onBack = {},
             onLock = {},
         )
@@ -249,6 +256,7 @@ class SendScreenshotTest {
             onShow = {},
             onEdit = {},
             backLabel = "Amount",
+            offline = null,
             onBack = {},
             onLock = {},
         )
@@ -270,6 +278,7 @@ class SendScreenshotTest {
             onShow = {},
             onEdit = {},
             backLabel = "Amount",
+            offline = null,
             onBack = {},
             onLock = {},
         )
@@ -282,6 +291,7 @@ class SendScreenshotTest {
             onNext = {},
             onCancel = {},
             backLabel = "Review",
+            offline = null,
             onBack = {},
             onLock = {},
         )
@@ -310,6 +320,7 @@ class SendScreenshotTest {
             onSendNow = {},
             onStop = {},
             backLabel = "Review",
+            offline = null,
             onBack = {},
             onLock = {},
         )

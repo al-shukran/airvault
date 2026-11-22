@@ -57,6 +57,7 @@ fun SendLastChancePage(
     onSendNow: () -> Unit,
     onStop: () -> Unit,
     backLabel: String,
+    offline: String?,
     onBack: () -> Unit,
     onLock: () -> Unit,
 ) {
@@ -64,10 +65,12 @@ fun SendLastChancePage(
     SendPage(
         title = "Send",
         backLabel = backLabel,
+        offline = offline,
         onBack = onBack,
         onLock = onLock,
         bottomAction = {
-            ClearAirPrimaryButton(text = "Send Now", onClick = onSendNow, enabled = !sending)
+            ClearAirPrimaryButton(text = "Send Now", onClick = onSendNow, enabled = !sending && offline == null)
+            if (offline != null) Text(text = "Sending needs a connection", style = ClearAirType.label, color = palette.ink2)
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 ClearAirTextAction(text = "Stop, Don't Send", onClick = onStop, enabled = !sending)
             }
@@ -99,6 +102,32 @@ fun SendLastChancePage(
             modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.sm),
         )
     }
+}
+
+/**
+ * Lensly Didn't Sign (F10): the owner cancelled before Lensly's reply was scanned, so nothing was sent and the [amount] is still in [fromName]. Its one
+ * action goes back to the account. It is the same page for every chain.
+ */
+@Composable
+fun SendDeclinedPage(amount: String, fromName: String, backLabel: String, onBack: () -> Unit, onLock: () -> Unit) {
+    SendOutcomePage(
+        title = "",
+        heading = "Lensly Didn't Sign, and That's Fine",
+        mark = "◆",
+        body = "Nothing was sent. Your $amount is still in $fromName.",
+        notes = listOf(
+            "What Happened" to "You cancelled before Lensly's reply was scanned, so no signature reached Lumio.",
+            "What You Can Do" to "Start a new send whenever you're ready. Lensly shows every detail again before it signs.",
+        ),
+        detail = null,
+        primary = "Back to $fromName",
+        onPrimary = onBack,
+        secondary = null,
+        onSecondary = null,
+        backLabel = backLabel,
+        onBack = onBack,
+        onLock = onLock,
+    )
 }
 
 /** The countdown as a ring that empties as the seconds pass, with the seconds left in the middle. */
@@ -158,6 +187,7 @@ fun SendOnItsWayPage(
     SendPage(
         title = "",
         backLabel = backLabel,
+        offline = null,
         onBack = onBack,
         onLock = onLock,
         bottomAction = {
@@ -212,6 +242,7 @@ fun SendOutcomePage(
     SendPage(
         title = title,
         backLabel = backLabel,
+        offline = null,
         onBack = onBack,
         onLock = onLock,
         bottomAction = {
