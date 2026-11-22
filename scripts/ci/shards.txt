@@ -216,6 +216,7 @@ shard-3 :lumio app.lumio.send.solana.SolanaAssetsTest
 shard-3 :lumio app.lumio.send.solana.SolanaSendTest
 shard-3 :lumio app.lumio.tokens.AbiTest
 shard-3 :lumio app.lumio.ui.kit.LumioNavigationTest
+shard-3 :lumio app.lumio.ui.kit.LumioPressTest
 shard-3 :lumio app.lumio.ui.settings.SettingsSummariesTest
 shard-3 :lumio app.lumio.ui.wallets.AssetRowsTest
 shard-3 :lumio app.lumio.wallets.WalletsBoardTest
@@ -521,8 +522,6 @@ verify-app :app app.lensly.ui.screenshot.SettingsScreenshotTest
 verify-app :app app.lensly.ui.screenshot.SignScreenshotTest
 verify-app :app app.lensly.ui.screenshot.WalletPartBScreenshotTest
 verify-lumio :lumio app.lumio.ui.kit.LumioKitScreenshotTest
-# Runs in verify, not a shard: the wallet fold-open golden is recorded after it in the full-suite record job, so verify must run it too.
-verify-lumio :lumio app.lumio.ui.kit.LumioPressTest
 verify-lumio :lumio app.lumio.ui.screenshot.AddressBookScreenshotTest
 verify-lumio :lumio app.lumio.ui.screenshot.AlgorandAddAssetScreenshotTest
 verify-lumio :lumio app.lumio.ui.screenshot.AlgorandSendScreenshotTest
