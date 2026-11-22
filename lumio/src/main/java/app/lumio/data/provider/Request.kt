@@ -70,6 +70,12 @@ data class GasQuote(val baseFee: BigInteger, val priorityFee: BigInteger)
  */
 class NativePrice(net: NetworkId) : Request<PriceQuote>(net, Ops.PRICE_NATIVE)
 
+/** The logo of the ERC-20 token at [contract] on [net], as the source serves its image. A token with no logo at the source is unsupported. */
+class TokenLogo(net: NetworkId, val contract: String) : Request<LogoImage>(net, Ops.LOGO_TOKEN)
+
+/** A token's logo: the bytes of the image file, as the source served them. */
+class LogoImage(val bytes: ByteArray)
+
 /**
  * A USD price for one coin: [usd] per coin, the change over the last 24 hours in percent ([change24hPct] is null when the source gives none), and
  * [asOfMs], the time the source gives for the price, in epoch milliseconds. It is stored in the cache, so it is serializable.

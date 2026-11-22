@@ -21,11 +21,12 @@ import app.lumio.portfolio.PortfolioBoard
 import app.lumio.portfolio.PortfolioFilter
 import app.lumio.transactions.ActivityFilter
 import app.lumio.transactions.TxFeedItem
-import app.lumio.ui.portfolio.PortfolioScreen
 import app.lumio.ui.kit.LumioTab
+import app.lumio.ui.portfolio.PortfolioScreen
 import app.lumio.ui.shell.LumioPageScreen
 import app.lumio.ui.transactions.ActivityList
 import app.lumio.ui.transactions.AddOnLenslyScreen
+import app.lumio.watchlist.WatchedAsset
 import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -68,16 +69,26 @@ internal fun PortfolioTab(navController: NavHostController, holder: VaultHolder,
     }
 }
 
-/** The activity of every account on the side, newest or largest first, with the spam it hides until the owner shows it. */
+/**
+ * The activity of every account on the side, newest or largest first, with the spam it hides until the owner shows it. A [coin] limits it to that coin,
+ * as the Asset page's All link opens it.
+ */
 @Composable
-internal fun ActivityRoute(navController: NavHostController, holder: VaultHolder, selection: NetworkSelection, listVersion: Int, onLock: () -> Unit) {
+internal fun ActivityRoute(
+    navController: NavHostController,
+    holder: VaultHolder,
+    selection: NetworkSelection,
+    listVersion: Int,
+    coin: WatchedAsset?,
+    onLock: () -> Unit,
+) {
     val app = LocalContext.current.applicationContext as LumioApp
     val board = app.lumioVault()?.portfolio
     val mode = selection.mode
     val wallets = pairedWallets(navController, holder, listVersion)
     val display = rememberDisplay(app)
     val scope = rememberCoroutineScope()
-    var filter by remember { mutableStateOf(ActivityFilter()) }
+    var filter by remember { mutableStateOf(ActivityFilter(coin = coin)) }
     var showSpam by remember { mutableStateOf(false) }
     LaunchedEffect(board, mode, filter, showSpam) { board?.readActivity(mode, filter, showSpam) }
     val page = board?.activity

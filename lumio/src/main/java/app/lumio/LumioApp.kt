@@ -30,6 +30,7 @@ import app.lumio.data.esplora.EsploraProtocol
 import app.lumio.data.esplora.MempoolProvider
 import app.lumio.data.net.NetworkId
 import app.lumio.data.price.PriceRepository
+import app.lumio.data.price.TokenLogos
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderCatalog
@@ -189,6 +190,7 @@ class LumioApp : Application(), CoverApplication {
 
     /** The USD prices of the native coins and their 24-hour change. Each screen that shows a price reads them from here. */
     val prices: PriceRepository by lazy { PriceRepository(priceScheduler) { lumioVault()?.cache } }
+    val logos: TokenLogos by lazy { TokenLogos(priceScheduler) }
 
     /** The one queue of Bitcoin scan jobs. It reads the open vault's rows, and nothing while the vault is locked. */
     val scanQueue: ScanQueue by lazy { ScanQueue { lumioVault()?.scanRows } }

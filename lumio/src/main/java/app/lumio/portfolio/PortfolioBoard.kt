@@ -10,9 +10,11 @@ import app.lumio.bitcoinRefs
 import app.lumio.btc.networkId
 import app.lumio.chains.NativeBalanceCache
 import app.lumio.chains.NativeBalances
+import app.lumio.coinNames
 import app.lumio.data.asset.AssetId
-import app.lumio.data.net.Networks
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
+import app.lumio.data.tx.TxAssetRef
 import app.lumio.data.tx.TxQuery
 import app.lumio.data.tx.TxSort
 import app.lumio.evm.BalanceCache
@@ -37,10 +39,11 @@ import app.lumio.transactions.ActivityFilter
 import app.lumio.transactions.ActivitySort
 import app.lumio.transactions.TxFeedItem
 import app.lumio.transactions.assetIdOf
-import app.lumio.transactions.txDetailOf
 import app.lumio.transactions.chainLabel
 import app.lumio.transactions.evmNetwork
+import app.lumio.transactions.txDetailOf
 import app.lumio.transactions.vaultChains
+import app.lumio.watchlist.WatchedAsset
 import app.lensly.app.addressKeyOf
 import java.math.BigDecimal
 import kotlinx.coroutines.Dispatchers
@@ -167,6 +170,7 @@ internal object PortfolioReads {
             val query = TxQuery(
                 accounts = accounts,
                 networks = networks,
+                assets = filter.coin?.let { coinRefsOf(it, networks) }.orEmpty(),
                 includeSpam = includeSpam,
                 sort = if (filter.sort == ActivitySort.NEWEST) TxSort.TIMESTAMP else TxSort.AMOUNT,
             )
@@ -186,6 +190,16 @@ internal object PortfolioReads {
             ActivityPage(items, hidden, names)
         }
 
+    /**
+     * The assets that [coin] names on [networks]. A token is its contract on its network. A native coin is the native coin of every network whose coin
+     * has its symbol, so the activity of ETH covers each chain's ETH, as the holdings of the coin do.
+     */
+    private fun coinRefsOf(coin: WatchedAsset, networks: Set<NetworkId>): Set<TxAssetRef> {
+        coin.contract?.let { return setOf(TxAssetRef(coin.network, it)) }
+        val symbol = coinNames(coin).first
+        return networks.filter { coinNames(WatchedAsset(it)).first == symbol }.map { TxAssetRef(it) }.toSet()
+    }
+
     /** The transaction [txId] of [account] with the wallet's own accounts and address book, or null when the store does not hold it. */
     suspend fun transaction(app: LumioApp, vault: LumioVault, walletId: String, account: String, txId: String): TransactionPage? =
         withContext(Dispatchers.IO) {
@@ -200,7 +214,7 @@ internal object PortfolioReads {
         EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
 
     /** The names of the parties that the address book and the wallets' own accounts name, by their key. */
-    private fun partyNames(wallets: List<PairedWallet>): Map<String, String> {
+    fun partyNames(wallets: List<PairedWallet>): Map<String, String> {
         val book = wallets.flatMap { it.addressBook }.associate { addressKeyOf(it.address) to it.name }
         val own = ownAccountsOf(wallets).mapValues { (_, account) -> account.displayName ?: account.autoName }
         return own + book

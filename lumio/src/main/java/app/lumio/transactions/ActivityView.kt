@@ -1,5 +1,6 @@
 package app.lumio.transactions
 
+import app.lumio.coinNames
 import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.TxDirection
 import app.lumio.data.tx.TxStatus
@@ -7,6 +8,7 @@ import app.lumio.portfolio.ChainFamily
 import app.lumio.portfolio.PortfolioFormat
 import app.lumio.portfolio.SentencePart
 import app.lumio.portfolio.SentencePicker
+import app.lumio.watchlist.WatchedAsset
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.ZoneId
@@ -16,13 +18,18 @@ import java.util.Locale
 /** The order of the activity: the newest rows first, or the largest amounts first. */
 enum class ActivitySort { NEWEST, LARGEST }
 
-/** The chain family the activity is for, or null for all chains, and its order. Every account is always shown. */
-data class ActivityFilter(val chain: ChainFamily? = null, val sort: ActivitySort = ActivitySort.NEWEST)
+/**
+ * The chain family the activity is for, or null for all chains, its order, and the [coin] it is for, or null for every coin. Every account is always
+ * shown. A coin names its own chains, so a chain choice does not apply to it.
+ */
+data class ActivityFilter(val chain: ChainFamily? = null, val sort: ActivitySort = ActivitySort.NEWEST, val coin: WatchedAsset? = null)
 
-/** The filter sentence of the activity: "Showing all chains, all accounts, newest first." */
+/**
+ * The filter sentence of the activity: "Showing all chains, all accounts, newest first.", or "Showing ETH, all accounts, newest first." for a coin.
+ */
 fun ActivityFilter.sentence(): List<SentencePart> = listOf(
     SentencePart.Text("Showing "),
-    SentencePart.Pick(chain?.label ?: "all chains", SentencePicker.CHAIN),
+    coin?.let { SentencePart.Text(coinNames(it).first) } ?: SentencePart.Pick(chain?.label ?: "all chains", SentencePicker.CHAIN),
     SentencePart.Text(", all accounts, "),
     SentencePart.Pick(if (sort == ActivitySort.NEWEST) "newest" else "largest", SentencePicker.SORT),
     SentencePart.Text(" first."),

@@ -1,5 +1,6 @@
 package app.lumio.transactions
 
+import app.lumio.data.ETH
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.tx.LumioTx
@@ -7,6 +8,7 @@ import app.lumio.data.tx.TxAsset
 import app.lumio.data.tx.TxDirection
 import app.lumio.data.tx.TxStatus
 import app.lumio.portfolio.plainText
+import app.lumio.watchlist.WatchedAsset
 import java.math.BigInteger
 import java.time.Instant
 import java.time.ZoneId
@@ -98,5 +100,6 @@ class ActivityViewTest {
     fun theFilterSentenceNamesItsChoices() {
         assertEquals("Showing all chains, all accounts, newest first.", ActivityFilter().sentence().plainText())
         assertEquals("Showing all chains, all accounts, largest first.", ActivityFilter(sort = ActivitySort.LARGEST).sentence().plainText())
+        assertEquals("Showing ETH, all accounts, newest first.", ActivityFilter(coin = WatchedAsset(ETH)).sentence().plainText())
     }
 }

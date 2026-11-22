@@ -13,21 +13,25 @@ import app.lumio.data.provider.OpKey
 import app.lumio.data.provider.Ops
 import app.lumio.data.provider.PriceQuote
 import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.LogoImage
 import app.lumio.data.provider.Request
 import app.lumio.data.provider.Trait
 import app.lumio.data.provider.TrendingCoin
 import app.lumio.data.provider.TrendingCoins
+import app.lumio.data.provider.TokenLogo
 import app.lumio.data.provider.TrendingList
 import java.util.concurrent.TimeUnit
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
-import okhttp3.OkHttpClient
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
+import okhttp3.OkHttpClient
+import okio.Buffer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -200,7 +204,34 @@ class CoinGeckoProviderTest {
         assertFalse(provider.defaultLimits(ProviderConfig()) == provider.defaultLimits(ProviderConfig(apiKey = DEMO_KEY)))
     }
 
+    @Test
+    fun aTokenLogoIsTheImageItsRecordNamesAndNeedsNoKey() {
+        val image = "logo-bytes".encodeToByteArray()
+        server.enqueue(
+            MockResponse.Builder().body(
+                """{"image":{"thumb":"${server.url("/img/thumb.png")}","small":"${server.url("/img/small.png")}"}}""",
+            ).build(),
+        )
+        server.enqueue(MockResponse.Builder().body(Buffer().write(image)).build())
+
+        val logo: LogoImage = call(TokenLogo(ETH, USDC))
+
+        assertContentEquals(image, logo.bytes)
+        val record = server.takeRequest()
+        assertEquals("/api/v3/coins/ethereum/contract/$USDC", record.target)
+        assertNull(record.headers["x-cg-demo-api-key"])
+        assertEquals("/img/small.png", server.takeRequest().target)
+    }
+
+    @Test
+    fun aTokenOffTheEvmMainnetsHasNoLogoAndIsNeverAsked() {
+        assertFalse(CoinGeckoProvider().supports(BTC, Ops.LOGO_TOKEN, ProviderConfig()))
+        assertFailsWith<ProviderError.Unsupported> { call(TokenLogo(NetworkId(Networks.evm(1), testnet = true), USDC)) }
+        assertEquals(0, server.requestCount)
+    }
+
     private companion object {
         const val DEMO_KEY = "demo-key"
+        const val USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
     }
 }

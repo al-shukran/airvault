@@ -1,11 +1,16 @@
 package app.lumio
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -13,6 +18,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NamedNavArgument
@@ -28,11 +36,17 @@ import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.price.ChartRange
 import app.lumio.data.price.Price
 import app.lumio.data.price.PriceSeries
 import app.lumio.home.Masking
-import app.lumio.transactions.TxFeedItem
+import app.lumio.network.NetworkMode
+import app.lumio.portfolio.ActivityPage
+import app.lumio.portfolio.PortfolioReads
+import app.lumio.receive.ReceiveAnswers
+import app.lumio.tokens.TokenHolding
+import app.lumio.transactions.ActivityFilter
 import app.lumio.ui.asset.AssetPage
 import app.lumio.ui.asset.CoinAccount
 import app.lumio.ui.asset.CoinHeld
@@ -47,11 +61,15 @@ import app.lumio.ui.asset.fiatText
 import app.lumio.ui.asset.holdingsOf
 import app.lumio.ui.asset.holdingsSummary
 import app.lumio.ui.home.AssetIcon
+import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.home.changeText
-import app.lumio.ui.kit.ClearAirMonogram
+import app.lumio.ui.home.tokenIcon
+import app.lumio.ui.receive.ReceiveFlowSheet
+import app.lumio.ui.receive.receiveCoinStartOf
 import app.lumio.ui.transactions.ActivityRowItem
 import app.lumio.ui.wallets.AssetRows
 import app.lumio.ui.wallets.NATIVE_ASSET_KEY
+import app.lumio.wallets.WalletAccount
 import app.lumio.watchlist.FIRST_RUN_ASSETS
 import app.lumio.watchlist.WalletWatchlist
 import app.lumio.watchlist.WatchedAsset
@@ -62,12 +80,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** The newest activity rows of the coin that the Asset page lists. The page's All link opens the whole activity. */
+
+/** The newest activity rows of the coin that the Asset page lists. The page's All link opens the whole activity of the coin. */
 private const val COIN_ACTIVITY_ROWS = 10
 
 /**
  * The Asset page (C4) of [asset] across the wallet [walletId]. The price, the watchlist and the holdings are read from the hoisted board and the
- * vault, so the page is populated on its first frame; the chart loads in its place when the price source answers.
+ * vault, so the page is populated on its first frame; the chart and the coin's activity load in their places when their reads answer. Send and
+ * Receive open on this coin, so a token is preselected.
  */
 @Composable
 internal fun AssetRoute(
@@ -93,7 +113,16 @@ internal fun AssetRoute(
         return
     }
     val display = rememberDisplay(app)
-    val (symbol, name) = coinNames(asset)
+    val (symbol, name) = namesOf(asset, app, board.tokenHeld.values)
+    val coinIcon = coinIconOf(asset, symbol, app)
+    val logo by produceState<ImageBitmap?>(initialValue = null, asset) {
+        val contract = asset.contract
+        value = if (contract == null || coinIcon !is AssetIconSpec.Letter) {
+            null
+        } else {
+            withContext(Dispatchers.IO) { app.logos.imageOf(asset.network, contract)?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() } }
+        }
+    }
     val assetId = asset.assetId
     var range by rememberSaveable { mutableStateOf(ChartRange.D1) }
     val series by produceState<PriceSeries?>(initialValue = null, assetId, range) {
@@ -125,24 +154,32 @@ internal fun AssetRoute(
             value = price?.let { Masking.amount(fiatText(sum.toDouble() * it.usd), hidden = !display.showAssets) },
         )
     }
+    var receive by remember { mutableStateOf<ReceiveAnswers?>(null) }
+    var receiveOpen by remember { mutableStateOf(false) }
+    var receiveOpening by remember { mutableIntStateOf(0) }
+    val networkIcon = AssetRows.nativeIcon(asset.network, symbol, app.registry::network)
     val coinAccounts = accounts.filter { canHold(it, asset) }.map { account ->
         val amount = holdings.firstOrNull { it.account == account }?.amount
         CoinAccount(
             title = accountName(account),
             detail = accountDetail(wallet.name, account),
             trailing = amount?.let { Masking.amount(amountText(it, symbol), hidden = !display.showAssets) },
-            onSend = { navController.navigate(sendRoute(account, selection.mode)) },
-            onReceive = { navController.navigate(LumioRoute.account(walletId, account.id)) },
+            onSend = { navController.navigate(coinSendRoute(account, asset, selection.mode)) },
+            onReceive = {
+                receive = receiveCoinStartOf(account, asset.network, symbol, name, coinIcon, networkIcon, held = total != null, wallets = view.wallets)
+                receiveOpening++
+                receiveOpen = true
+            },
         )
     }
-    val names = app.lumioVault()?.portfolio?.activity?.names.orEmpty()
-    val rows = app.lumioVault()?.portfolio?.activity?.items.orEmpty()
-        .filter { ownsCoin(it, asset, symbol) }
-        .take(COIN_ACTIVITY_ROWS)
+    val vault = app.lumioVault()
+    val coinActivity by produceState<ActivityPage?>(initialValue = null, vault, asset, selection.mode, listVersion) {
+        value = vault?.let { PortfolioReads.activity(app, it, selection.mode, ActivityFilter(coin = asset), includeSpam = false) }
+    }
     AssetPage(
         name = name,
         symbol = symbol,
-        icon = { CoinIcon(asset = asset, symbol = symbol, app = app) },
+        icon = { CoinLogo(logo = logo, spec = coinIcon) },
         priceText = price?.let { fiatText(it.usd) },
         change = price?.let { changeOf(it) },
         series = series,
@@ -155,27 +192,33 @@ internal fun AssetRoute(
         accounts = coinAccounts,
         onBack = { navController.popBackStack() },
         onLock = onLock,
-        onAllActivity = { navController.navigate(LumioRoute.ACTIVITY) },
+        onAllActivity = { navController.navigate(LumioRoute.activity(asset)) },
         activity = {
-            if (rows.isEmpty()) {
-                Text(
-                    text = "No activity yet. Your first receive will appear here.",
-                    style = ClearAirType.body,
-                    color = LocalClearAirPalette.current.ink2,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.sm),
-                )
-            }
-            rows.forEach { item ->
-                ActivityRowItem(
-                    item = item,
-                    names = names,
-                    zone = ZoneId.systemDefault(),
-                    shown = display.showAssets,
-                    onClick = { navController.navigate(LumioRoute.transaction(walletId, item.tx.account, item.tx.id)) },
-                )
+            coinActivity?.let { page ->
+                val rows = page.items.take(COIN_ACTIVITY_ROWS)
+                if (rows.isEmpty()) {
+                    Text(
+                        text = "No activity yet. Your first receive will appear here.",
+                        style = ClearAirType.body,
+                        color = LocalClearAirPalette.current.ink2,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.sm),
+                    )
+                }
+                rows.forEach { item ->
+                    ActivityRowItem(
+                        item = item,
+                        names = page.names,
+                        zone = ZoneId.systemDefault(),
+                        shown = display.showAssets,
+                        onClick = { navController.navigate(LumioRoute.transaction(walletId, item.tx.account, item.tx.id)) },
+                    )
+                }
             }
         },
     )
+    receive?.let { start ->
+        ReceiveFlowSheet(visible = receiveOpen, opening = receiveOpening, start = start, assets = emptyList(), onClose = { receiveOpen = false })
+    }
 }
 
 /**
@@ -236,12 +279,6 @@ internal fun NavBackStackEntry.coinAsset(): WatchedAsset {
     return WatchedAsset(network = NetworkId(chain = chain, testnet = testnet), contract = contract)
 }
 
-/** Whether [item] moves the coin of [asset]: the native coin of [symbol] on any chain, or the token of the watched contract. */
-private fun ownsCoin(item: TxFeedItem, asset: WatchedAsset, symbol: String): Boolean {
-    val contract = item.tx.asset.contract
-    return if (asset.contract == null) contract == null && item.tx.asset.symbol == symbol else contract.equals(asset.contract, ignoreCase = true)
-}
-
 /** The change of [price] over the chart's day, as the page writes it: the percent, then the dollars it moved. */
 private fun changeOf(price: Price): PriceChange? {
     val percent = price.change24hPct ?: return null
@@ -250,15 +287,43 @@ private fun changeOf(price: Price): PriceChange? {
     return PriceChange(text = "${changeText(percent)} · $sign${fiatText(abs(delta))} Today", rising = percent >= 0)
 }
 
-/** The coin's logo at 48 dp: the native coin's icon, or the ticker in a monogram for a token, whose logo is not read yet. */
-@Composable
-private fun CoinIcon(asset: WatchedAsset, symbol: String, app: LumioApp) {
-    if (asset.contract == null) {
-        AssetIcon(spec = AssetRows.nativeIcon(asset.network, symbol, app.registry::network), size = ICON_SIZE)
+/**
+ * The symbol and the name of [asset]. A token's come from the registry, else from the wallet's holdings of the token, else the address that
+ * [coinNames] gives.
+ */
+private fun namesOf(asset: WatchedAsset, app: LumioApp, held: Collection<List<TokenHolding>>): Pair<String, String> {
+    val contract = asset.contract ?: return coinNames(asset)
+    app.registry.token(Networks.evmIdOf(asset.network.chain), contract)?.let { return it.symbol to it.name }
+    val token = held.asSequence().flatten().firstOrNull { it.token.contract.equals(contract, ignoreCase = true) }?.token
+    return token?.let { it.symbol to it.name } ?: coinNames(asset)
+}
+
+/** The logo of [asset] at 48 dp: a native coin's icon, or a token's own logo when Lensly ships one, else the letter of its [symbol]. */
+private fun coinIconOf(asset: WatchedAsset, symbol: String, app: LumioApp): AssetIconSpec {
+    val contract = asset.contract ?: return AssetRows.nativeIcon(asset.network, symbol, app.registry::network)
+    val chainId = Networks.evmIdOf(asset.network.chain)
+    return tokenIcon(app.registry.token(chainId, contract), app.registry.network(chainId), symbol)
+}
+
+/**
+ * The Send of [asset] from [account]. An Ethereum account opens the send on the asset's network with its token chosen, and other accounts send their
+ * own coin.
+ */
+private fun coinSendRoute(account: WalletAccount, asset: WatchedAsset, mode: NetworkMode): String =
+    if (account.namespace == Networks.EIP155) {
+        LumioRoute.send(account.walletId, account.id, Networks.evmIdOf(asset.network.chain), asset.contract)
     } else {
-        ClearAirMonogram(text = symbol.take(MONOGRAM_LENGTH), tile = ICON_SIZE)
+        sendRoute(account, mode)
+    }
+
+/** The coin's logo at 48 dp: the image a source served when there is one, else the icon [spec] draws. */
+@Composable
+private fun CoinLogo(logo: ImageBitmap?, spec: AssetIconSpec) {
+    if (logo == null) {
+        AssetIcon(spec = spec, size = ICON_SIZE)
+    } else {
+        Image(bitmap = logo, contentDescription = null, modifier = Modifier.size(ICON_SIZE).clip(CircleShape))
     }
 }
 
 private val ICON_SIZE = 48.dp
-private const val MONOGRAM_LENGTH = 3

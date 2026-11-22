@@ -5,7 +5,9 @@ import java.math.BigInteger
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -57,6 +59,17 @@ internal fun Http.noRedirects(): OkHttpClient = client.newBuilder().followRedire
  * [failureFor] names. An IOException is left for the scheduler, which reads it as transient. Cancelling the coroutine cancels the call, so a
  * request that the scheduler has given up on stops at once. [notFoundIsAnswer] is set for a lookup whose 404 means "no such thing".
  */
+/**
+ * The body of a successful answer to [request], as bytes. An answer larger than [limit] bytes is a fatal answer, and a status that is not a success is
+ * read as [fetchText] reads it.
+ */
+internal suspend fun fetchBytes(client: OkHttpClient, request: okhttp3.Request, limit: Long): ByteArray = withContext(Dispatchers.IO) {
+    client.newCall(request).execute().use { answer ->
+        if (!answer.isSuccessful) throw failureFor(answer.code, answer.header("Retry-After"), banMs = null)
+        answer.body.bytes().also { if (it.size > limit) throw ProviderError.Fatal("The answer is larger than $limit bytes.") }
+    }
+}
+
 internal suspend fun fetchText(
     client: OkHttpClient,
     request: okhttp3.Request,

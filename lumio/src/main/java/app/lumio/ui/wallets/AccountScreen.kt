@@ -50,7 +50,7 @@ import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.ClearAirTextTabs
 import app.lumio.ui.kit.LumioAssetIcon
 import app.lumio.ui.kit.rememberCopyAction
-import app.lumio.ui.transactions.ActivityRow
+import app.lumio.ui.transactions.ActivityRowItem
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
 import java.time.ZoneId
@@ -83,6 +83,7 @@ internal fun AccountScreen(
     modifier: Modifier = Modifier,
     assets: List<AssetRowModel> = emptyList(),
     activity: List<TxFeedItem> = emptyList(),
+    names: Map<String, String> = emptyMap(),
     onAsset: (AssetRowModel) -> Unit = {},
     onAddAsset: (() -> Unit)? = null,
     onOpenTransaction: (TxFeedItem) -> Unit = {},
@@ -146,6 +147,7 @@ internal fun AccountScreen(
                 AccountTab.ACTIVITY -> activityItems(
                     account = account,
                     activity = activity,
+                    names = names,
                     loadingActivity = loadingActivity,
                     showBalance = showBalance,
                     zone = zone,
@@ -289,6 +291,7 @@ private fun LazyListScope.assetItems(
 private fun LazyListScope.activityItems(
     account: WalletAccount,
     activity: List<TxFeedItem>,
+    names: Map<String, String>,
     loadingActivity: Boolean,
     showBalance: Boolean,
     zone: ZoneId,
@@ -301,7 +304,7 @@ private fun LazyListScope.activityItems(
         activity.isEmpty() -> item(key = "activity-empty") { EmptyLine("No activity yet. Your first receive will appear here.") }
         else -> itemsIndexed(activity, key = { _, entry -> entry.tx.id }) { index, entry ->
             if (index > 0) RowDivider(indent = ROW_DIVIDER_INDENT)
-            ActivityRow(item = entry, zone = zone, shown = showBalance, onClick = { onOpenTransaction(entry) })
+            ActivityRowItem(item = entry, names = names, zone = zone, shown = showBalance, onClick = { onOpenTransaction(entry) })
         }
     }
 }

@@ -156,10 +156,10 @@ private const val BITCOIN_PREFIX_MAIN = "bc1"
 private const val BITCOIN_PREFIX_TEST = "tb1"
 
 /**
- * A send from one address of a paired wallet, on the network [chainId]: the recipient, the amount and the fee, the sentence that Lensly signs, the
- * request as a code, the scan of Lensly's reply, Last Chance, and the transaction that is sent. The network is fixed by the account, so the send offers
- * no other. Lumio holds no key. It builds the transaction from public reads, and it sends only a signature that answers its own request from the account
- * that sends.
+ * A send from one address of a paired wallet, on the network [chainId]. It opens on the token at [initialContract], or on the native coin when that is
+ * null. The page covers the recipient, the amount and the fee, the sentence that Lensly signs, the request as a code, the scan of Lensly's reply, Last
+ * Chance, and the transaction that is sent. The network is fixed by the account, so the send offers no other. Lumio holds no key. It builds the
+ * transaction from public reads, and it sends only a signature that answers its own request from the account that sends.
  */
 @Composable
 internal fun SendRoute(
@@ -169,6 +169,7 @@ internal fun SendRoute(
     account: AccountId,
     mode: NetworkMode,
     chainId: Long,
+    initialContract: String?,
     onLock: () -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
@@ -191,8 +192,8 @@ internal fun SendRoute(
     var step by remember { mutableStateOf<SendStep>(SendStep.Recipient) }
     var recipient by rememberSaveable { mutableStateOf("") }
     var amount by rememberSaveable { mutableStateOf("") }
-    // The contract of the token the send moves, or null for the native coin of the chain.
-    var contract by remember { mutableStateOf<String?>(null) }
+    // The contract of the token the send moves, or null for the native coin of the chain. The send opens on [initialContract].
+    var contract by remember { mutableStateOf(initialContract) }
     var notice by remember { mutableStateOf<String?>(null) }
     var recipientScanStatus by remember { mutableStateOf(RECIPIENT_SCAN_HINT) }
     var scan by remember { mutableStateOf(SignatureScan()) }
@@ -212,7 +213,7 @@ internal fun SendRoute(
     val selectedChain = ready.chains.firstOrNull { it.chainId == chainId }
     // The coins the chain offers: the native coin, and the tokens held here. The send moves the chosen one, native by default.
     val assets = selectedChain?.let { chain -> SendAssets.onChain(chain, ready.held) }.orEmpty()
-    val asset = assets.firstOrNull { it.token?.contract == contract } ?: assets.firstOrNull()
+    val asset = assets.firstOrNull { contract != null && it.token?.contract.equals(contract, ignoreCase = true) } ?: assets.firstOrNull()
     val clipboard = LocalClipboardManager.current
     val fromName = fromNameOf(ready)
 

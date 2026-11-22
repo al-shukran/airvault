@@ -1,6 +1,5 @@
 package app.lumio
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,6 +19,7 @@ import app.lensly.app.VaultHolder
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
+import app.lumio.data.asset.AssetId
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.net.Networks
 import app.lumio.data.price.ChartRange
@@ -28,10 +28,11 @@ import app.lumio.network.NetworkMode
 import app.lumio.network.NetworkModeStore
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
+import app.lumio.portfolio.PortfolioReads
+import app.lumio.receive.ReceiveAnswers
 import app.lumio.transactions.TxFeedItem
 import app.lumio.transactions.TxSync
 import app.lumio.transactions.TxSyncPlan
-import app.lumio.receive.ReceiveAnswers
 import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.receive.ReceiveFlowSheet
 import app.lumio.ui.receive.receiveNativeStartOf
@@ -241,6 +242,7 @@ internal fun AccountRoute(
             val reads = remember(board, account, mode) { board.readsOf(account, mode) }
             val activity = rememberAccountActivity(app, session, mode, account, reads)
             val assetRows = rememberAssetRows(app, account, reads)
+            val names = remember(view) { PortfolioReads.partyNames(view.wallets) }
             AccountScreen(
                 walletName = view.wallets.firstOrNull { it.id == walletId }?.name.orEmpty(),
                 account = account,
@@ -248,6 +250,7 @@ internal fun AccountRoute(
                 assets = assetRows,
                 loadingAssets = reads.tokens == null || reads.holdings == null,
                 activity = activity.orEmpty(),
+                names = names,
                 loadingActivity = activity == null,
                 refreshing = board.refreshing,
                 refreshByPull = board.refreshByPull,
@@ -290,6 +293,7 @@ internal fun AssetRoute(
     assetKey: String,
     mode: NetworkMode,
     listVersion: Int,
+    onLock: () -> Unit,
 ) {
     var receive by remember { mutableStateOf<ReceiveAnswers?>(null) }
     var receiveOpen by remember { mutableStateOf(false) }
@@ -333,30 +337,39 @@ internal fun AssetRoute(
         value = series
     }
     val activity = rememberAccountActivity(app, session, mode, account, reads)
-    Box(modifier = Modifier.fillMaxSize()) {
+    val names = remember(view) { PortfolioReads.partyNames(view.wallets) }
+    LumioPageScreen(
+        title = asset.symbol,
+        backLabel = navController.backLabel(),
+        offline = null,
+        onBack = { navController.popBackStack() },
+        onLock = onLock,
+        sheet = {
+            receive?.let { start ->
+                ReceiveFlowSheet(
+                    visible = receiveOpen,
+                    opening = receiveOpening,
+                    start = start,
+                    assets = emptyList(),
+                    onClose = { receiveOpen = false },
+                )
+            }
+        },
+    ) {
         AssetScreen(
             asset = asset,
             showBalance = display.showAssets,
             chart = chart,
             activity = activity.orEmpty().filter { AssetRows.assetKeyOf(it.tx) == assetKey },
-            onSend = { navController.navigate(sendRoute(account, mode)) },
+            names = names,
+            onSend = { navController.navigate(assetSendRoute(account, asset, mode)) },
             onReceive = {
                 receive = receiveStartOf(asset, account, view.wallets)
                 receiveOpening++
                 receiveOpen = true
             },
             onOpenTransaction = { item -> navController.navigate(LumioRoute.transaction(walletId, item.tx.account, item.tx.id)) },
-            onBack = { navController.popBackStack() },
         )
-        receive?.let { start ->
-            ReceiveFlowSheet(
-                visible = receiveOpen,
-                opening = receiveOpening,
-                start = start,
-                assets = emptyList(),
-                onClose = { receiveOpen = false },
-            )
-        }
     }
 }
 
@@ -424,6 +437,19 @@ private fun rememberAccountActivity(
  * The route of a Send from [account] on [mode]'s side. Every chain sends from its own account, with no picker: the send is bound to that account and
  * its network. An Ethereum send is on the side's primary network, the one the account shows.
  */
+/**
+ * The Send of the asset [asset] from [account]. An Ethereum asset opens the send on its own network, with its token chosen. Other accounts send from
+ * their own send route, whose coin is the native one.
+ */
+internal fun assetSendRoute(account: WalletAccount, asset: AssetRowModel, mode: NetworkMode): String {
+    val id = asset.assetId
+    return if (account.namespace == Networks.EIP155 && id != null) {
+        LumioRoute.send(account.walletId, account.id, Networks.evmIdOf(id.net.chain), (id as? AssetId.Erc20)?.contract)
+    } else {
+        sendRoute(account, mode)
+    }
+}
+
 internal fun sendRoute(account: WalletAccount, mode: NetworkMode): String = when (account.namespace) {
     Networks.EIP155 -> LumioRoute.send(account.walletId, account.id, WalletAccounts.primaryEvmChainId(mode))
     Networks.BIP122 -> LumioRoute.btcSend(account.walletId, account.id)
