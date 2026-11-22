@@ -77,7 +77,7 @@ internal fun rememberDisplay(app: LumioApp): DisplaySettings {
  * network reads start on the Wallets home alone. Null while the vault is locked. [ready] holds the showing back until the side the owner chose is read.
  */
 @Composable
-private fun rememberWalletsBoard(app: LumioApp, mode: NetworkMode, listVersion: Int, ready: Boolean = true): WalletsBoard? {
+internal fun rememberWalletsBoard(app: LumioApp, mode: NetworkMode, listVersion: Int, ready: Boolean = true): WalletsBoard? {
     val board = app.lumioVault()?.wallets
     LaunchedEffect(board, mode, listVersion, ready) {
         if (ready) board?.showSide(mode, listVersion)

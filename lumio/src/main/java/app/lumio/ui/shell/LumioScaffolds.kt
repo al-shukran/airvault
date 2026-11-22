@@ -28,7 +28,6 @@ import app.lumio.ui.kit.ClearAirTabBar
 import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.network.PanelWallet
 import app.lumio.ui.network.ProfilePanel
-import app.lumio.ui.search.SearchSheet
 import app.lumio.ui.kit.ClearAirSheet
 import java.util.Date
 
@@ -40,6 +39,7 @@ import java.util.Date
 @Composable
 fun LumioRootScreen(
     tab: LumioTab,
+    title: String = tab.label,
     mode: NetworkMode,
     onMode: (NetworkMode) -> Unit,
     panelWallets: List<PanelWallet>,
@@ -50,6 +50,7 @@ fun LumioRootScreen(
     onWallet: (String) -> Unit,
     onPair: () -> Unit,
     onLock: () -> Unit,
+    search: @Composable (onClose: () -> Unit) -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     var panelOpen by remember { mutableStateOf(false) }
@@ -57,7 +58,7 @@ fun LumioRootScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             ClearAirRootTopBar(
-                title = tab.label,
+                title = title,
                 onPanel = { panelOpen = true },
                 onSearch = { searchOpen = true },
                 onLock = onLock,
@@ -90,7 +91,7 @@ fun LumioRootScreen(
             onDismiss = { panelOpen = false },
         )
         ClearAirSheet(visible = searchOpen, onClose = { searchOpen = false }) {
-            SearchSheet(onClose = { searchOpen = false })
+            search { searchOpen = false }
         }
     }
 }
