@@ -3,6 +3,7 @@ package app.lumio.send.solana
 import app.airvault.chains.solana.signer.SolCluster
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.signer.SolSignType
+import app.airvault.chains.solana.signer.SolanaInstruction
 import app.airvault.chains.solana.signer.SolanaMessage
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.solana.SolanaNonce
@@ -200,6 +201,46 @@ class SolanaSendTest {
         assertEquals(SOLANA_FEE_LAMPORTS, exact.feeLamports)
         assertContentEquals(SolanaNonce.transferMessage(sender, recipient, lamports, blockhash), exact.message)
         assertIs<SolanaMessage.Result.Ok>(SolanaMessage.decode(exact.message))
+    }
+
+    /**
+     * The Priority Fee switch adds SetComputeUnitPrice right after the nonce advance, and the fee the plan charges is the fee Lensly's review shows for
+     * that message: the price of 100000 micro-lamports times the 6000 default units of the advance and the transfer, which is 600 lamports. Off, the
+     * message is the one the send always made.
+     */
+    @Test
+    fun thePrioritySwitchAddsASetComputeUnitPriceThatLensliReviewsAtTheSameFee() {
+        val priced = SolanaSend.plan(
+            SOLANA_DEVNET,
+            account,
+            recipient,
+            lamports,
+            BigInteger.valueOf(lamports + SOLANA_FEE_LAMPORTS + 600L + SOLANA_RENT_RESERVE_LAMPORTS),
+            blockhash,
+            requestId,
+            priority = true,
+        )
+        assertEquals(600L, priced.priorityFeeLamports)
+        assertContentEquals(SolanaNonce.transferMessage(sender, recipient, lamports, blockhash, priority = true), priced.message)
+
+        val review = reviewOf(priced, wallet)
+        assertIs<SolanaInstruction.AdvanceNonce>(review.instructions.first())
+        assertEquals(100_000uL, review.instructions.filterIsInstance<SolanaInstruction.SetComputeUnitPrice>().single().microLamports)
+        assertEquals(600uL, review.priorityFeeLamports)
+        assertTrue(review.priorityFeeIsBound)
+
+        val plain = plan()
+        assertEquals(0L, plain.priorityFeeLamports)
+        assertContentEquals(SolanaNonce.transferMessage(sender, recipient, lamports, blockhash), plain.message)
+        assertEquals(0uL, reviewOf(plain, wallet).priorityFeeLamports)
+    }
+
+    @Test
+    fun thePrioritySwitchTakesItsFeeFromTheMostThatCanBeSent() {
+        assertEquals(
+            1_000_000_000L - SOLANA_FEE_LAMPORTS - 600L - SOLANA_RENT_RESERVE_LAMPORTS,
+            SolanaSend.maxLamports(BigInteger.valueOf(1_000_000_000L), priority = true),
+        )
     }
 
     /**

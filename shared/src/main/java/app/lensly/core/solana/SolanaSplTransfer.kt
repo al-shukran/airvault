@@ -7,7 +7,7 @@ import java.nio.ByteOrder
 
 /**
  * The legacy message of one SPL token transfer from a nonce account, as Lumio builds it and Lensly signs it. It holds, in order: AdvanceNonceAccount
- * for the account's nonce account, which must come first; then, when the recipient has no token account for the mint, the Associated Token Account
+ * for the account's nonce account, which must come first; then, when [priority] is set, SetComputeUnitPrice; then, when the recipient has no token account for the mint, the Associated Token Account
  * program's CreateIdempotent for it, paid by the account; then Token TransferChecked from the account's token account to the recipient's. The
  * account is the only signer. It is the fee payer and the transfer's authority. The keys are in the order the Solana SDK compiles: the fee payer
  * first, then the writable keys and the read-only keys, each group in ascending byte order. Nothing here needs a key.
@@ -31,8 +31,8 @@ object SolanaSplTransfer {
      * The serialized message that moves [amount] base units of [mint] from the token account of [account] to that of [recipient], where the mint
      * has [decimals] decimals. [createRecipientAccount] adds the CreateIdempotent that opens the recipient's account, and it is set when that
      * account does not exist yet. [nonceValue] is the nonce that the account's nonce account holds, and the message names it as its recent
-     * blockhash. Throws IllegalArgumentException when a key is not 32 bytes, the recipient is the account, the amount is not positive or does not
-     * fit in 64 bits, or the decimals are outside 0 to 18.
+     * blockhash. [priority] adds SetComputeUnitPrice right after the nonce advance, see [SolanaPriorityFee]. Throws IllegalArgumentException when a
+     * key is not 32 bytes, the recipient is the account, the amount is not positive or does not fit in 64 bits, or the decimals are outside 0 to 18.
      */
     fun message(
         account: ByteArray,
@@ -42,6 +42,7 @@ object SolanaSplTransfer {
         decimals: Int,
         nonceValue: ByteArray,
         createRecipientAccount: Boolean,
+        priority: Boolean = false,
     ): ByteArray {
         require(account.size == KEY_BYTES && recipient.size == KEY_BYTES && mint.size == KEY_BYTES) { "A Solana address is 32 bytes." }
         require(!recipient.contentEquals(account)) { "The recipient is this account." }
@@ -74,6 +75,7 @@ object SolanaSplTransfer {
             use(recipient)
             use(ataProgram)
         }
+        if (priority) use(SolanaPriorityFee.programKey())
 
         val signers = entries.values.filter { it.signer }
         val writable = entries.values.filter { !it.signer && it.writable }.sortedWith(BYTE_ORDER)
@@ -88,6 +90,13 @@ object SolanaSplTransfer {
             accounts = listOf(at(nonce), at(sysvar), at(account)),
             data = littleEndian32(ADVANCE_NONCE_ACCOUNT),
         )
+        if (priority) {
+            instructions += SolanaNonce.Instruction(
+                program = at(SolanaPriorityFee.programKey()),
+                accounts = emptyList(),
+                data = SolanaPriorityFee.instructionData(),
+            )
+        }
         if (createRecipientAccount) {
             instructions += SolanaNonce.Instruction(
                 program = at(ataProgram),
