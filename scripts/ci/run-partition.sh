@@ -67,7 +67,7 @@ lanes:
   lint-app, lint-shared, lint-lumio
                lintReportDebug of one module's main sources, the legs of the lint job (see run_lint)
   manifest    merged manifests: no INTERNET or ACCESS_NETWORK_STATE in :app, Lumio's allow-list, OkHttp off the release classpath of :app
-  ci           bash -n on every script, check-partitions.sh and check-test-network.sh (no Gradle)
+  ci           bash -n on every script, check-partitions.sh, check-test-network.sh and check-trim-build-cache.sh (no Gradle)
 USAGE_END
 }
 
@@ -271,6 +271,7 @@ run_ci() {
     echo "run-partition: bash -n passed for $scripts script(s)"
     "$ROOT/scripts/ci/check-partitions.sh"
     "$ROOT/scripts/ci/check-test-network.sh"
+    "$ROOT/scripts/ci/check-trim-build-cache.sh"
     # The build-cache budgets (build-cache-budgets.txt) with the dependency cache must stay within 7 GB (scripts/ci/README.md).
     local budget_total
     budget_total="$(awk '!/^#/ && NF { sum += $2 } END { print sum + 0 }' "$ROOT/scripts/ci/build-cache-budgets.txt")"
