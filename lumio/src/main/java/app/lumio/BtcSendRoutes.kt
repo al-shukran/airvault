@@ -40,16 +40,19 @@ import app.lumio.btc.indexerOf
 import app.lumio.btc.networkId
 import app.lumio.data.provider.FeeEstimates
 import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.Tx
 import app.lumio.data.sched.Priority
 import app.lumio.evm.SignatureScan
 import app.lumio.evm.SignatureStep
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
+import app.lumio.send.ArrivalWatch
 import app.lumio.send.BtcPaymentCode
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
+import app.lumio.send.bitcoinLanding
 import app.lumio.send.bitcoinOwnChoices
 import app.lumio.ui.pair.PairLabels
 import app.lumio.ui.send.RECIPIENT_SCAN_HINT
@@ -539,6 +542,12 @@ internal fun BtcSendRoute(
                 network = btcNetworkName(network),
                 timing = TIMING,
                 fromName = fromName,
+                arrival = ArrivalWatch(
+                    arrivals = app.sendArrivals,
+                    network = current.plan.network.networkId(),
+                    arrivedHeadline = "Your BTC Has Arrived",
+                    read = { txid -> bitcoinLanding(app.scheduler.run(Tx(current.plan.network.networkId(), txid), Priority.BACKGROUND)) },
+                ),
                 explorerUrl = { txid -> BtcPortfolio.explorerTxUrl(current.plan.network, txid) },
                 onExplorer = { txid -> openExplorer(BtcPortfolio.explorerTxUrl(current.plan.network, txid)) },
                 onSent = {},

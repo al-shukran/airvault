@@ -36,6 +36,7 @@ internal fun SubmitFixture(
         network = network,
         timing = timing,
         fromName = "Account 1",
+        arrival = null,
         explorerUrl = explorerUrl,
         onExplorer = {},
         onSent = {},

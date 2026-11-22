@@ -11,6 +11,7 @@ import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.ContractCall
 import app.lumio.data.provider.DataPlugins
 import app.lumio.data.provider.EstimateGas
+import app.lumio.data.provider.EvmReceipt
 import app.lumio.data.provider.GasFees
 import app.lumio.data.provider.GasQuote
 import app.lumio.data.provider.Http
@@ -18,6 +19,7 @@ import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.Nonce
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
+import app.lumio.data.provider.TxReceipt
 import app.lumio.data.rpc.CustomRpc
 import app.lumio.data.rpc.RpcPlugins
 import app.lumio.data.sched.Priority
@@ -53,6 +55,10 @@ class EvmReads(
 
     suspend fun nonce(chain: EvmChain, address: String, pending: Boolean, priority: Priority = Priority.VISIBLE): Long =
         run(chain, priority, Nonce(net(chain), address, pending))
+
+    /** The receipt of [hash] on [chain], or null while the network has not included it. */
+    suspend fun receipt(chain: EvmChain, hash: String, priority: Priority = Priority.BACKGROUND): EvmReceipt? =
+        run(chain, priority, TxReceipt(net(chain), hash))
 
     suspend fun fees(chain: EvmChain, priority: Priority = Priority.VISIBLE): GasQuote = run(chain, priority, GasFees(net(chain)))
 

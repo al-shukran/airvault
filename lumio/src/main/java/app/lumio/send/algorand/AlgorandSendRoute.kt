@@ -45,9 +45,11 @@ import app.lumio.notesName
 import app.lumio.onVault
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
+import app.lumio.send.ArrivalWatch
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
+import app.lumio.send.algorandLanding
 import app.lumio.send.algorandOwnChoices
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendAmountPage
@@ -573,6 +575,12 @@ internal fun AlgorandSendRoute(
             network = networkLabel,
             timing = sentStatus,
             fromName = fromName,
+            arrival = if (current.plan is AsaSendPlan && current.plan.isOptIn) null else ArrivalWatch(
+                arrivals = app.sendArrivals,
+                network = current.plan.network,
+                arrivedHeadline = "Your ${selected.symbol} Has Arrived",
+                read = { txid -> algorandLanding(AlgorandSend.pendingState(scheduler, current.plan.network, txid)) },
+            ),
             explorerUrl = { txid -> AlgorandSend.explorerUrl(current.plan.network, txid) },
             onExplorer = { txid -> openExplorer(AlgorandSend.explorerUrl(current.plan.network, txid)) },
             onSent = { txid ->
