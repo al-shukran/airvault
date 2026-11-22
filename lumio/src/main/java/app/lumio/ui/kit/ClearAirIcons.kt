@@ -33,6 +33,7 @@ enum class ClearAirGlyph(private val data: List<String>) {
     CHEVRON(listOf("M9 6l6 6-6 6")),
     COPY(listOf("M9 9h10v10H9z", "M15 9V6.5A1.5 1.5 0 0 0 13.5 5h-8A1.5 1.5 0 0 0 4 6.5v8A1.5 1.5 0 0 0 5.5 16H8")),
     CLOSE(listOf("M6 6l12 12M18 6L6 18")),
+    ALERT(listOf("M12 4l8.5 15H3.5z", "M12 10v4M12 16.8v.1")),
     ;
 
     /** The glyph's paths on the 24 unit grid, parsed once. */

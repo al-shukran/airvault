@@ -19,22 +19,34 @@ object QrMatrix {
     const val MARGIN = 1
 
     /**
-     * Encodes [text] as a QR code with error correction L and a one-module margin.
+     * Encodes [text] as a QR code with error correction [level] (L unless asked for more) and a [margin] of modules.
      *
      * The text is uppercased first, unless [keepCase] is set. Uppercase input stays in ZXing's alphanumeric mode, which
      * uses about 30% fewer bits per character than byte mode, so each animated part carries more data. [keepCase] is
      * for text that must scan back as written, such as a checksummed address, whose letter case is its checksum.
      */
-    fun encode(text: String, keepCase: Boolean = false): BitMatrix = QRCodeWriter().encode(
+    fun encode(
+        text: String,
+        keepCase: Boolean = false,
+        level: ErrorCorrectionLevel = ErrorCorrectionLevel.L,
+        margin: Int = MARGIN,
+    ): BitMatrix = QRCodeWriter().encode(
         if (keepCase) text else text.uppercase(),
         BarcodeFormat.QR_CODE,
         0,
         0,
         mapOf(
-            EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.L,
-            EncodeHintType.MARGIN to MARGIN,
+            EncodeHintType.ERROR_CORRECTION to level,
+            EncodeHintType.MARGIN to margin,
         ),
     )
+
+    /**
+     * The pixels of [text] as a code whose centre holds a logo: error correction H, so the logo hides a share of the modules and the code still scans.
+     * [keepCase] is set, as for an address, whose letter case is its checksum. [margin] is in modules, and [targetPx] as for [toPixels].
+     */
+    fun pixelsForCentredLogo(text: String, margin: Int, targetPx: Int): QrPixels =
+        toPixels(encode(text, keepCase = true, level = ErrorCorrectionLevel.H, margin = margin), targetPx)
 
     /**
      * Renders [matrix] as black modules on white. Each module is an integer square of pixels, so

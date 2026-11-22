@@ -14,6 +14,7 @@ import app.lumio.btc.BtcRow
 import app.lumio.btc.networkId
 import app.lumio.chains.CachedNativeBalance
 import app.lumio.chains.NativeCoin
+import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.evm.CachedBalance
 import app.lumio.evm.EvmCatalog
@@ -25,17 +26,22 @@ import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import java.math.BigInteger
 
+/** A native coin known from its account: its [symbol], its [name] and the [network] it is on. It needs no balance read. */
+data class AccountCoin(val symbol: String, val name: String, val network: NetworkId)
+
 /**
  * One account of a paired wallet on one chain family, on the side the owner chose. [id] is its CAIP-10 id: the network that [balance] is read on,
  * and the account's address. [walletId] and [id] name the account in the routes, and [index] is its place in the wallet's list for its family.
- * [networkName] names that network, and [balance] is its native coin, or null while no read of it is kept. [script] is the script type of a Bitcoin
- * account. [name], [label] and [group] are the names the owner gave the account in Lensly, and each is null when the pairing carries none.
+ * [networkName] names that network. [coin] is its native coin, known without a read, and null when the side has no coin of its family. [balance] is
+ * that coin's balance, or null while no read of it is kept. [script] is the script type of a Bitcoin account. [name], [label] and [group] are the
+ * names the owner gave the account in Lensly, and each is null when the pairing carries none.
  */
 data class WalletAccount(
     val walletId: String,
     val id: AccountId,
     val index: Int,
     val networkName: String,
+    val coin: AccountCoin?,
     val balance: NativeAsset?,
     val script: String? = null,
     val name: String? = null,
@@ -120,11 +126,13 @@ object WalletAccounts {
     private fun bitcoinAccounts(wallet: PairedWallet, mode: NetworkMode, rows: List<BtcRow>): List<WalletAccount> =
         rows.filter { mode.holds(it.ref.account.network) }.map { row ->
             val account = row.ref.account
+            val name = if (account.network == BtcNetwork.TESTNET4) "Bitcoin Testnet4" else "Bitcoin"
             WalletAccount(
                 walletId = wallet.id,
                 id = AccountId.of(account.network.networkId().chain, account.receiveAddress(0)),
                 index = wallet.bitcoin.indexOfFirst { it.path.path == account.path.path },
-                networkName = if (account.network == BtcNetwork.TESTNET4) "Bitcoin Testnet4" else "Bitcoin",
+                networkName = name,
+                coin = AccountCoin(symbol = "BTC", name = name, network = account.network.networkId()),
                 balance = HomeBalances.bitcoin(listOf(row)).singleOrNull(),
                 script = scriptLabel(account.scriptType),
             )
@@ -143,6 +151,7 @@ object WalletAccounts {
     ): List<WalletAccount> {
         val chainId = primaryEvmChainId(mode)
         val primary = chains.firstOrNull { it.chainId == chainId } ?: return emptyList()
+        val coin = AccountCoin(primary.symbol, primary.name, NetworkId(Networks.evm(chainId), primary.testnet))
         return wallet.evmAccounts.take(addressCount).mapIndexed { index, account ->
             val address = account.address
             val read = cache.firstOrNull { it.walletId == wallet.id && it.chainId == chainId && it.address == address }
@@ -156,6 +165,7 @@ object WalletAccounts {
                 id = AccountId.of(Networks.evm(chainId), address),
                 index = index,
                 networkName = primary.name,
+                coin = coin,
                 balance = balance,
                 name = account.name,
                 label = account.label,
@@ -189,6 +199,7 @@ object WalletAccounts {
                 id = SolanaWallet.accountFrom(export).single().id,
                 index = index,
                 networkName = coin?.name ?: familyLabel(Networks.SOLANA),
+                coin = coin?.let { accountCoinOf(it) },
                 balance = nativeBalance(wallet.copy(solana = listOf(key), algorand = emptyList()), coin, cache),
             )
         }
@@ -219,10 +230,13 @@ object WalletAccounts {
                 id = AlgorandWallet.accountFrom(export).single().id,
                 index = index,
                 networkName = coin?.name ?: familyLabel(Networks.ALGORAND),
+                coin = coin?.let { accountCoinOf(it) },
                 balance = nativeBalance(wallet.copy(solana = emptyList(), algorand = listOf(key)), coin, cache),
             )
         }
     }
+
+    private fun accountCoinOf(coin: NativeCoin): AccountCoin = AccountCoin(coin.symbol, coin.name, coin.network)
 
     /** The native coin of [alone], the wallet that holds only this account's key, or null when the side has no [coin] for it. */
     private fun nativeBalance(alone: PairedWallet, coin: NativeCoin?, cache: List<CachedNativeBalance>): NativeAsset? =

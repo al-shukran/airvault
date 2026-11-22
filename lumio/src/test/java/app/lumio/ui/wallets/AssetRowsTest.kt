@@ -15,6 +15,7 @@ import app.lumio.home.NativeAsset
 import app.lumio.tokens.Token
 import app.lumio.tokens.TokenHolding
 import app.lumio.ui.home.AssetIconSpec
+import app.lumio.wallets.AccountCoin
 import app.lumio.wallets.WalletAccount
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -32,6 +33,7 @@ class AssetRowsTest {
         id = AccountId.of(Networks.evm(10143L), "0x" + "a1".repeat(20)),
         index = 0,
         networkName = "Monad testnet",
+        coin = AccountCoin("MON", "Monad testnet", native),
         balance = NativeAsset("EVM-10143", "MON", "Monad testnet", native, BigDecimal("12.5")),
     )
     private val prices = mapOf<AssetId, Price>(

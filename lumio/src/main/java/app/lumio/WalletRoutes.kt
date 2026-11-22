@@ -1,14 +1,18 @@
 package app.lumio
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import app.airvault.core.model.AccountId
@@ -27,8 +31,11 @@ import app.lumio.pair.PairedWallets
 import app.lumio.transactions.TxFeedItem
 import app.lumio.transactions.TxSync
 import app.lumio.transactions.TxSyncPlan
+import app.lumio.receive.ReceiveAnswers
 import app.lumio.ui.kit.LumioTab
-import app.lumio.ui.receive.ReceiveScreen
+import app.lumio.ui.receive.ReceiveFlowSheet
+import app.lumio.ui.receive.receiveNativeStartOf
+import app.lumio.ui.receive.receiveStartOf
 import app.lumio.ui.settings.WalletsSettings
 import app.lumio.ui.shell.LumioPageScreen
 import app.lumio.ui.shell.offlineBand
@@ -194,6 +201,9 @@ internal fun AccountRoute(
     listVersion: Int,
     onLock: () -> Unit,
 ) {
+    var receive by remember { mutableStateOf<ReceiveAnswers?>(null) }
+    var receiveOpen by remember { mutableStateOf(false) }
+    var receiveOpening by remember { mutableIntStateOf(0) }
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
     LaunchedEffect(session == null) {
@@ -213,17 +223,29 @@ internal fun AccountRoute(
         offline = if (online) null else offlineBand(board.updatedAtMs),
         onBack = { navController.popBackStack() },
         onLock = onLock,
+        sheet = {
+            receive?.let { start ->
+                ReceiveFlowSheet(
+                    visible = receiveOpen,
+                    opening = receiveOpening,
+                    start = start,
+                    assets = emptyList(),
+                    onClose = { receiveOpen = false },
+                )
+            }
+        },
     ) {
         if (view == null || account == null) {
             WalletLoadingContent()
         } else {
             val reads = remember(board, account, mode) { board.readsOf(account, mode) }
             val activity = rememberAccountActivity(app, session, mode, account, reads)
+            val assetRows = rememberAssetRows(app, account, reads)
             AccountScreen(
                 walletName = view.wallets.firstOrNull { it.id == walletId }?.name.orEmpty(),
                 account = account,
                 showBalance = display.showAssets,
-                assets = rememberAssetRows(app, account, reads),
+                assets = assetRows,
                 loadingAssets = reads.tokens == null || reads.holdings == null,
                 activity = activity.orEmpty(),
                 loadingActivity = activity == null,
@@ -233,7 +255,14 @@ internal fun AccountRoute(
                 notice = board.notice,
                 onRefresh = { board.refresh(pulled = true) },
                 onSend = { navController.navigate(sendRoute(account, mode)) },
-                onReceive = { navController.navigate(LumioRoute.receive(walletId, account.id)) },
+                onReceive = {
+                    account.coin?.let { coin ->
+                        val icon = AssetRows.nativeIcon(coin.network, coin.symbol, app.registry::network)
+                        receive = receiveNativeStartOf(account, coin, icon, view.wallets)
+                        receiveOpening++
+                        receiveOpen = true
+                    }
+                },
                 onAsset = { asset -> navController.navigate(LumioRoute.asset(walletId, account.id, asset.assetKey)) },
                 onAddAsset = if (account.namespace == Networks.ALGORAND) {
                     { navController.navigate(LumioRoute.algorandAddAsset(walletId, account.id)) }
@@ -262,6 +291,9 @@ internal fun AssetRoute(
     mode: NetworkMode,
     listVersion: Int,
 ) {
+    var receive by remember { mutableStateOf<ReceiveAnswers?>(null) }
+    var receiveOpen by remember { mutableStateOf(false) }
+    var receiveOpening by remember { mutableIntStateOf(0) }
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
     LaunchedEffect(session == null) {
@@ -301,16 +333,31 @@ internal fun AssetRoute(
         value = series
     }
     val activity = rememberAccountActivity(app, session, mode, account, reads)
-    AssetScreen(
-        asset = asset,
-        showBalance = display.showAssets,
-        chart = chart,
-        activity = activity.orEmpty().filter { AssetRows.assetKeyOf(it.tx) == assetKey },
-        onSend = { navController.navigate(sendRoute(account, mode)) },
-        onReceive = { navController.navigate(LumioRoute.receive(walletId, accountId)) },
-        onOpenTransaction = { item -> navController.navigate(LumioRoute.transaction(walletId, item.tx.account, item.tx.id)) },
-        onBack = { navController.popBackStack() },
-    )
+    Box(modifier = Modifier.fillMaxSize()) {
+        AssetScreen(
+            asset = asset,
+            showBalance = display.showAssets,
+            chart = chart,
+            activity = activity.orEmpty().filter { AssetRows.assetKeyOf(it.tx) == assetKey },
+            onSend = { navController.navigate(sendRoute(account, mode)) },
+            onReceive = {
+                receive = receiveStartOf(asset, account, view.wallets)
+                receiveOpening++
+                receiveOpen = true
+            },
+            onOpenTransaction = { item -> navController.navigate(LumioRoute.transaction(walletId, item.tx.account, item.tx.id)) },
+            onBack = { navController.popBackStack() },
+        )
+        receive?.let { start ->
+            ReceiveFlowSheet(
+                visible = receiveOpen,
+                opening = receiveOpening,
+                start = start,
+                assets = emptyList(),
+                onClose = { receiveOpen = false },
+            )
+        }
+    }
 }
 
 /**
@@ -371,59 +418,6 @@ private fun rememberAccountActivity(
         value = page
     }
     return items
-}
-
-/** The state of [ReceiveRoute]: the account with the name of its wallet, or missing when the vault has no such account. */
-private sealed interface ReceiveLoad {
-    data object Missing : ReceiveLoad
-
-    class Ready(val walletName: String, val account: WalletAccount) : ReceiveLoad
-}
-
-/** The page that receives to one account: its address as the owner can copy it, and the same address as a QR code. */
-@Composable
-internal fun ReceiveRoute(
-    navController: NavHostController,
-    holder: VaultHolder,
-    walletId: String,
-    accountId: AccountId,
-    mode: NetworkMode,
-) {
-    val app = LocalContext.current.applicationContext as LumioApp
-    val session = holder.openSession()
-    LaunchedEffect(session == null) {
-        if (session == null) navController.openHidden(GateRoutes.GATE)
-    }
-    if (session == null) return
-    val load by produceState<ReceiveLoad?>(initialValue = null, session, mode, walletId, accountId) {
-        val open = session
-        value = WalletsLoader.account(app, open, mode, walletId, accountId)
-            ?.let { (name, account) -> ReceiveLoad.Ready(name, account) }
-            ?: ReceiveLoad.Missing
-    }
-    when (val current = load) {
-        null -> return
-        ReceiveLoad.Missing -> {
-            LaunchedEffect(Unit) { navController.popBackStack() }
-            return
-        }
-        is ReceiveLoad.Ready -> ReceiveScreen(
-            walletName = current.walletName,
-            detail = receiveDetail(current.account),
-            address = current.account.address,
-            onlySend = "Only send ${current.account.networkName} assets here.",
-            title = "Receive ${current.account.balance?.symbol ?: WalletAccounts.familyLabel(current.account.namespace)}",
-            note = if (current.account.namespace == Networks.SOLANA) "Tokens arrive at this same address." else null,
-            onBack = { navController.popBackStack() },
-        )
-    }
-}
-
-/** The line under the name of a receive: what the address is, its chain and network, and for Ethereum the address number. */
-private fun receiveDetail(account: WalletAccount): String = when (account.namespace) {
-    Networks.EIP155 -> "Ethereum and every EVM network, address ${account.index + 1}"
-    Networks.BIP122 -> "${account.script.orEmpty()} on ${account.networkName}"
-    else -> account.networkName
 }
 
 /**
