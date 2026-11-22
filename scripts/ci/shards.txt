@@ -1,8 +1,9 @@
 # Test lanes for scripts/ci/run-partition.sh: one line per test class, "<lane> <gradle module> <fully qualified class>".
 # A pure JVM module runs whole, so its line names the class `*`. Lanes: shard-1..shard-6 run the unit tests (--offline);
-# verify runs the Roborazzi pixel tests with verifyRoborazziDebug; fuzz replays the Jazzer seeds with -PfuzzLane.
-# A test class with no line is not an error: it runs in its default lane (shard-6, or verify or fuzz by name), so a new test
-# needs no line here. scripts/ci/check-partitions.sh fails when a class is listed twice or no longer exists. The balance comes
+# verify-app and verify-lumio run the Roborazzi pixel tests of one module each, with verifyRoborazziDebug; fuzz replays the Jazzer
+# seeds with -PfuzzLane.
+# A test class with no line is not an error: it runs in its default lane (shard-6, verify-app or verify-lumio by name, or
+# fuzz), so a new test needs no line here. scripts/ci/check-partitions.sh fails when a class is listed twice or no longer exists. The balance comes
 # from measured durations (JUnit XML of the shard runs), see scripts/ci/README.md.
 fuzz :shared app.lensly.fuzz.AlgorandRequestFuzzTest
 fuzz :shared app.lensly.fuzz.CborFuzzTest
@@ -491,49 +492,49 @@ shard-6 :shared app.lensly.ui.camera.RecordingFileTest
 shard-6 :shared app.lensly.ui.components.ClipboardStaleCopyTest
 shard-6 :shared app.lensly.ui.components.SecureKeyboardTest
 shard-6 :shared app.lensly.ui.navigation.GalleryGateTest
-verify :app app.lensly.ui.screenshot.AccentNightScreenshotTest
-verify :app app.lensly.ui.screenshot.AddressBookScreenshotTest
-verify :app app.lensly.ui.screenshot.AlgorandReviewScreenshotTest
-verify :app app.lensly.ui.screenshot.ApprovedContractsScreenshotTest
-verify :app app.lensly.ui.screenshot.BitcoinScreenshotTest
-verify :app app.lensly.ui.screenshot.CameraScreenshotTest
-verify :app app.lensly.ui.screenshot.CatalogScreenshotTest
-verify :app app.lensly.ui.screenshot.CeremonyScreenshotTest
-verify :app app.lensly.ui.screenshot.ChangePasswordScreenshotTest
-verify :app app.lensly.ui.screenshot.ComponentsScreenshotTest
-verify :app app.lensly.ui.screenshot.CoverageScreenshotTest
-verify :app app.lensly.ui.screenshot.EntryGestureScreenshotTest
-verify :app app.lensly.ui.screenshot.ExistingScreensScreenshotTest
-verify :app app.lensly.ui.screenshot.FailureCapScreenshotTest
-verify :app app.lensly.ui.screenshot.FlowScreenshotTest
-verify :app app.lensly.ui.screenshot.GateScreensScreenshotTest
-verify :app app.lensly.ui.screenshot.HistoryScreenshotTest
-verify :app app.lensly.ui.screenshot.HomeScreensScreenshotTest
-verify :app app.lensly.ui.screenshot.KeyScreenshotTest
-verify :app app.lensly.ui.screenshot.MnemonicConfirmScreenshotTest
-verify :app app.lensly.ui.screenshot.ProfileScreensScreenshotTest
-verify :app app.lensly.ui.screenshot.ProxyPolicyScreenshotTest
-verify :app app.lensly.ui.screenshot.QrScreenshotTest
-verify :app app.lensly.ui.screenshot.SecureKeyboardScreenshotTest
-verify :app app.lensly.ui.screenshot.SettingControlsScreenshotTest
-verify :app app.lensly.ui.screenshot.SettingsScreenshotTest
-verify :app app.lensly.ui.screenshot.SignScreenshotTest
-verify :app app.lensly.ui.screenshot.WalletPartBScreenshotTest
-verify :lumio app.lumio.ui.kit.LumioKitScreenshotTest
+verify-app :app app.lensly.ui.screenshot.AccentNightScreenshotTest
+verify-app :app app.lensly.ui.screenshot.AddressBookScreenshotTest
+verify-app :app app.lensly.ui.screenshot.AlgorandReviewScreenshotTest
+verify-app :app app.lensly.ui.screenshot.ApprovedContractsScreenshotTest
+verify-app :app app.lensly.ui.screenshot.BitcoinScreenshotTest
+verify-app :app app.lensly.ui.screenshot.CameraScreenshotTest
+verify-app :app app.lensly.ui.screenshot.CatalogScreenshotTest
+verify-app :app app.lensly.ui.screenshot.CeremonyScreenshotTest
+verify-app :app app.lensly.ui.screenshot.ChangePasswordScreenshotTest
+verify-app :app app.lensly.ui.screenshot.ComponentsScreenshotTest
+verify-app :app app.lensly.ui.screenshot.CoverageScreenshotTest
+verify-app :app app.lensly.ui.screenshot.EntryGestureScreenshotTest
+verify-app :app app.lensly.ui.screenshot.ExistingScreensScreenshotTest
+verify-app :app app.lensly.ui.screenshot.FailureCapScreenshotTest
+verify-app :app app.lensly.ui.screenshot.FlowScreenshotTest
+verify-app :app app.lensly.ui.screenshot.GateScreensScreenshotTest
+verify-app :app app.lensly.ui.screenshot.HistoryScreenshotTest
+verify-app :app app.lensly.ui.screenshot.HomeScreensScreenshotTest
+verify-app :app app.lensly.ui.screenshot.KeyScreenshotTest
+verify-app :app app.lensly.ui.screenshot.MnemonicConfirmScreenshotTest
+verify-app :app app.lensly.ui.screenshot.ProfileScreensScreenshotTest
+verify-app :app app.lensly.ui.screenshot.ProxyPolicyScreenshotTest
+verify-app :app app.lensly.ui.screenshot.QrScreenshotTest
+verify-app :app app.lensly.ui.screenshot.SecureKeyboardScreenshotTest
+verify-app :app app.lensly.ui.screenshot.SettingControlsScreenshotTest
+verify-app :app app.lensly.ui.screenshot.SettingsScreenshotTest
+verify-app :app app.lensly.ui.screenshot.SignScreenshotTest
+verify-app :app app.lensly.ui.screenshot.WalletPartBScreenshotTest
+verify-lumio :lumio app.lumio.ui.kit.LumioKitScreenshotTest
 # Runs in verify, not a shard: the wallet fold-open golden is recorded after it in the full-suite record job, so verify must run it too.
-verify :lumio app.lumio.ui.kit.LumioPressTest
-verify :lumio app.lumio.ui.screenshot.AddressBookScreenshotTest
-verify :lumio app.lumio.ui.screenshot.AlgorandAddAssetScreenshotTest
-verify :lumio app.lumio.ui.screenshot.AlgorandSendScreenshotTest
-verify :lumio app.lumio.ui.screenshot.FirstSyncScreenshotTest
-verify :lumio app.lumio.ui.screenshot.LumioCoverageScreenshotTest
-verify :lumio app.lumio.ui.screenshot.LumioMarkScreenshotTest
-verify :lumio app.lumio.ui.screenshot.LumioScreenshotTest
-verify :lumio app.lumio.ui.screenshot.PairScreensScreenshotTest
-verify :lumio app.lumio.ui.screenshot.ReceiveScreenshotTest
-verify :lumio app.lumio.ui.screenshot.SendScreenshotTest
-verify :lumio app.lumio.ui.screenshot.SolanaSendScreenshotTest
-verify :lumio app.lumio.ui.screenshot.TransactionDetailScreenshotTest
-verify :lumio app.lumio.ui.screenshot.WalletScreensScreenshotTest
-verify :lumio app.lumio.ui.tokens.AddTokenScreenshotTest
+verify-lumio :lumio app.lumio.ui.kit.LumioPressTest
+verify-lumio :lumio app.lumio.ui.screenshot.AddressBookScreenshotTest
+verify-lumio :lumio app.lumio.ui.screenshot.AlgorandAddAssetScreenshotTest
+verify-lumio :lumio app.lumio.ui.screenshot.AlgorandSendScreenshotTest
+verify-lumio :lumio app.lumio.ui.screenshot.FirstSyncScreenshotTest
+verify-lumio :lumio app.lumio.ui.screenshot.LumioCoverageScreenshotTest
+verify-lumio :lumio app.lumio.ui.screenshot.LumioMarkScreenshotTest
+verify-lumio :lumio app.lumio.ui.screenshot.LumioScreenshotTest
+verify-lumio :lumio app.lumio.ui.screenshot.PairScreensScreenshotTest
+verify-lumio :lumio app.lumio.ui.screenshot.ReceiveScreenshotTest
+verify-lumio :lumio app.lumio.ui.screenshot.SendScreenshotTest
+verify-lumio :lumio app.lumio.ui.screenshot.SolanaSendScreenshotTest
+verify-lumio :lumio app.lumio.ui.screenshot.TransactionDetailScreenshotTest
+verify-lumio :lumio app.lumio.ui.screenshot.WalletScreensScreenshotTest
+verify-lumio :lumio app.lumio.ui.tokens.AddTokenScreenshotTest
 shard-1 :lumio app.lumio.ui.kit.CopyActionTest

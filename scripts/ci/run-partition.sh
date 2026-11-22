@@ -59,7 +59,8 @@ usage: scripts/ci/run-partition.sh <lane>
 lanes:
   resolve      the one online step: ./gradlew resolveAll, retried only on network errors
   shard-1..6   the unit tests shards.txt lists under the lane; shard-6 also runs the unlisted ones; pure JVM modules run whole
-  verify       the Roborazzi pixel tests of :app and :lumio, with verifyRoborazziDebug
+  verify-app, verify-lumio
+               the Roborazzi pixel tests of one module, with verifyRoborazziDebug (the legs of the roborazzi job)
   fuzz         the Jazzer seed replays (app.lensly.fuzz.*), with -PfuzzLane
   apk          the Lumio debug APK (:lumio:assembleDebug)
   android-tests
@@ -78,7 +79,7 @@ fi
 lane="$1"
 
 # Prints "<lane> <module> <class>" for every test unit that shards.txt does not list. A Jazzer target runs in fuzz, a screenshot
-# test of :app or :lumio in verify, and every other unit in shard-6, the catch-all lane.
+# test of :app or :lumio in its verify lane, and every other unit in shard-6, the catch-all lane.
 unlisted_units() {
     "$ROOT/scripts/ci/test-units.sh" | awk -v lanes="$SHARDS" '
         BEGIN {
@@ -92,7 +93,8 @@ unlisted_units() {
     ' | while read -r module class _; do
         case "$module:$class" in
             ':shared:app.lensly.fuzz.'*) echo "fuzz $module $class" ;;
-            ':app:'*ScreenshotTest | ':lumio:'*ScreenshotTest) echo "verify $module $class" ;;
+            ':app:'*ScreenshotTest) echo "verify-app $module $class" ;;
+            ':lumio:'*ScreenshotTest) echo "verify-lumio $module $class" ;;
             *) echo "shard-6 $module $class" ;;
         esac
     done
@@ -181,23 +183,25 @@ run_shard() {
 }
 
 run_verify() {
-    local -a app=() lumio=()
-    local unlisted m c
+    # $1 is the lane, verify-app or verify-lumio: the pixel tests of one module, so a leg compiles only that module.
+    local module=":${1#verify-}" unlisted m c
+    local -a tests=()
     unlisted=$(unlisted_units)
     while read -r m c; do
-        case "$m" in
-            :app) app+=(--tests "$c") ;;
-            :lumio) lumio+=(--tests "$c") ;;
-            *)
-                echo "run-partition: verify lists $m $c, and only :app and :lumio have Roborazzi tasks" >&2
-                exit 1
-                ;;
-        esac
-    done < <(lane_units verify "$unlisted")
+        if [ "$m" != "$module" ]; then
+            echo "run-partition: $1 lists $m $c, and it runs only the $module pixel tests" >&2
+            exit 1
+        fi
+        tests+=(--tests "$c")
+    done < <(lane_units "$1" "$unlisted")
+    # Without a filter the test task would run every unit test of the module, so an empty lane is an error.
+    if [ "${#tests[@]}" -eq 0 ]; then
+        echo "run-partition: lane $1 has no screenshot tests" >&2
+        exit 1
+    fi
     # The filtered test task runs the pixel tests in verify mode (Roborazzi switches it on when the verify task is requested), so
     # each pixel test runs once. Without the filter, verifyRoborazziDebug would run every unit test of the module again.
-    gradle --offline :app:testDebugUnitTest "${app[@]}" :app:verifyRoborazziDebug \
-        :lumio:testDebugUnitTest "${lumio[@]}" :lumio:verifyRoborazziDebug
+    gradle --offline "$module:testDebugUnitTest" "${tests[@]}" "$module:verifyRoborazziDebug"
 }
 
 run_fuzz() {
@@ -282,7 +286,7 @@ run_ci() {
 case "$lane" in
     resolve) run_resolve ;;
     shard-[1-6]) run_shard "$lane" ;;
-    verify) run_verify ;;
+    verify-app | verify-lumio) run_verify "$lane" ;;
     fuzz) run_fuzz ;;
     apk) run_apk ;;
     android-tests) run_android_tests ;;

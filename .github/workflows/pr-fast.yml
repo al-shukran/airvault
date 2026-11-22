@@ -167,12 +167,17 @@ jobs:
           retention-days: 3
           if-no-files-found: ignore
 
-  # Roborazzi pixel tests of :app and :lumio, verified against the committed PNGs (guideline 2.7).
+  # Roborazzi pixel tests, one module per leg, verified against the committed PNGs (guideline 2.7). The legs are the verify-app and
+  # verify-lumio lanes of scripts/ci/shards.txt: a leg compiles one app module, so the two run side by side within the cap.
   roborazzi:
-    name: verify screenshots
+    name: verify screenshots ${{ matrix.module }}
     needs: deps
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [app, lumio]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -200,13 +205,13 @@ jobs:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-verify-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
+          key: bc-verify-${{ matrix.module }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
           restore-keys: |
-            bc-verify-${{ env.BUILD_CACHE_SCOPE }}-
-            bc-verify-master-
+            bc-verify-${{ matrix.module }}-${{ env.BUILD_CACHE_SCOPE }}-
+            bc-verify-${{ matrix.module }}-master-
 
       - name: Verify screenshots
-        run: ./scripts/ci/run-partition.sh verify
+        run: ./scripts/ci/run-partition.sh verify-${{ matrix.module }}
 
       - name: Stop the Gradle daemon before the cache is saved
         if: always()
@@ -215,7 +220,7 @@ jobs:
       - name: Trim the Gradle build cache to this lane's entries
         id: trim
         if: always()
-        run: scripts/ci/trim-build-cache.sh verify
+        run: scripts/ci/trim-build-cache.sh verify-${{ matrix.module }}
 
       - name: Save the Gradle build cache
         if: always() && github.event_name != 'pull_request' && steps.trim.outcome == 'success'
@@ -224,13 +229,13 @@ jobs:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-verify-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
+          key: bc-verify-${{ matrix.module }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
 
       - name: Upload the JUnit results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: junit-verify
+          name: junit-verify-${{ matrix.module }}
           path: '**/build/test-results/**/*.xml'
           retention-days: 3
           if-no-files-found: ignore

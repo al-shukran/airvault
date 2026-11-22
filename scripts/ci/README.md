@@ -13,7 +13,7 @@ fails it, except dependency review, which is skipped until `DEPENDENCY_GRAPH_ENA
 |---|---|---|
 | `resolve` | `./gradlew resolveAll`, the only online step; retried when a repository is unreachable | `deps`, on a cache miss |
 | `shard-1` … `shard-6` | the unit tests listed under the lane in `shards.txt`; `shard-6` also runs every unlisted unit; pure JVM modules run whole | `shard` (matrix) |
-| `verify` | the Roborazzi pixel tests of `:app` and `:lumio` (listed, or unlisted and named `*ScreenshotTest`), with `verifyRoborazziDebug` | `roborazzi` |
+| `verify-app`, `verify-lumio` | the Roborazzi pixel tests of one module, `:app` or `:lumio` (listed, or unlisted and named `*ScreenshotTest`), with `verifyRoborazziDebug` | `roborazzi` (matrix) |
 | `fuzz` | the Jazzer seed replays, `app.lensly.fuzz.*`, with `-PfuzzLane` | `fuzz` |
 | `apk` | the Lumio debug APK, `:lumio:assembleDebug` | `android` |
 | `android-tests` | androidTest and benchmark compile of `:app` and `:lumio`; master and merge queue only (a step of `android`) | `android` |
@@ -32,16 +32,17 @@ One line per test class: `<lane> <gradle module> <fully qualified class>`. A pur
 The lines balance the lanes. A test class with no line still runs, so adding a test never needs an edit here:
 
 - `shard-6` runs every unlisted unit, except the two cases below. Its log names each one (`run-partition: shard-6 runs the unlisted ...`).
-- `verify` takes an unlisted `*ScreenshotTest` of `:app` or `:lumio`, so its golden is checked. `fuzz` takes an unlisted
+- `verify-app` and `verify-lumio` take an unlisted `*ScreenshotTest` of their module, so its golden is checked. A lane runs only its
+  own module's pixel tests, and `run-partition.sh` fails when a line names another module. `fuzz` takes an unlisted
   `app.lensly.fuzz` target, because the shard runs leave that package out (`shared/build.gradle.kts`).
 - `scripts/ci/test-units.sh` lists every unit. `check-partitions.sh` (the `ci` lane) fails when a class is listed twice or is
   listed but no longer exists. Remove or rename such a line.
 - Keep the six shards balanced. Each test lane uploads its JUnit XML as `junit-shard-N` (kept 3 days). Sum the `time` attribute of
   each class, and move classes between lanes until the shard totals are close.
-- `verify` passes its `--tests` filter to the test task before `verifyRoborazziDebug`. The verify task depends on the whole
+- A verify lane passes its `--tests` filter to the test task before `verifyRoborazziDebug`. The verify task depends on the whole
   `testDebugUnitTest` of its module, so without the filter every unit test would run twice. Roborazzi switches verify mode on from
   the requested tasks, so the filtered test task runs the pixel tests in verify mode.
-- Ui tests with the `prLane` property are no longer a separate partition: the pixel tests live in `verify`, and the rest in the shards.
+- Ui tests with the `prLane` property are no longer a separate partition: the pixel tests live in the verify lanes, and the rest in the shards.
 
 ## Dependencies and the build cache
 
@@ -49,8 +50,8 @@ The lines balance the lanes. A test class with no line still runs, so adding a t
   and the generated directories the configuration cache names as inputs (`dependencies-accessors`, `transforms`, `kotlin-dsl`,
   `scripts`, `generated-gradle-jars`, `jars-9`). The hash covers the version catalog, `verification-metadata.xml`, the wrapper
   properties, every `*.gradle.kts`, `settings.gradle.kts` and `gradle.properties`. The `deps` job saves it on a miss only.
-- `bc-<lane>-<scope>-<sha>` holds `~/.gradle/caches/build-cache-1` and `.gradle/configuration-cache`. The lint legs name their
-  module in the lane (`bc-lint-app-<scope>-<sha>`). The scope is `master` on a push or a queue entry, and `pr<number>` in a pull
+- `bc-<lane>-<scope>-<sha>` holds `~/.gradle/caches/build-cache-1` and `.gradle/configuration-cache`. The lint and verify legs name
+  their module in the lane (`bc-lint-app-<scope>-<sha>`, `bc-verify-app-<scope>-<sha>`). The scope is `master` on a push or a queue entry, and `pr<number>` in a pull
   request, which saves nothing. A push to master and a queue entry save every lane's entry, even when it fails or is cancelled.
   A pull request restores master's entries (`bc-<lane>-master-`) only. Its own entries would be restored ahead of master's, and a
   lint entry a pull request saved lacked the compile outputs master's entries hold, so the next run of that pull request compiled

@@ -1,15 +1,18 @@
 # The budget of each build-cache lane in MB: the build-cache entries its run uses, plus the configuration cache. trim-build-cache.sh
 # fails a master or queue lane above its budget. The budgets with the dependency cache must stay within 7 GB (scripts/ci/README.md),
 # and run-partition.sh ci checks that their sum is within the limit set there. Cold measured sizes on a 10-core Mac: shard-1 408,
-# shard-6 408, verify 412 (two pixel tests fail there), fuzz 205, android 87, lint-app 16, lint-lumio 19. Budgets sit about 15%
-# above these, with a floor of 50. shard-2 to shard-5 run the shard-1 and shard-6 unit-test classpath, so they share its budget.
+# shard-6 408, verify 412 (both modules together, two pixel tests fail there), fuzz 205, android 87, lint-app 16, lint-lumio 19.
+# Budgets sit about 15% above these, with a floor of 50. shard-2 to shard-5 run the shard-1 and shard-6 unit-test classpath, so they
+# share its budget. verify-app and verify-lumio were split from verify, so their budgets are not measured yet: check them on the
+# first master run.
 shard-1 460
 shard-2 460
 shard-3 460
 shard-4 460
 shard-5 460
 shard-6 460
-verify 480
+verify-app 300
+verify-lumio 300
 fuzz 240
 android 100
 lint-app 50

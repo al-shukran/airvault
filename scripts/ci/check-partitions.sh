@@ -21,7 +21,7 @@ fi
 listed=$(mktemp)
 trap 'rm -f "$listed"' EXIT
 
-# Lanes: "<lane> <gradle module> <class>". A lane is one of the shard lanes, verify or fuzz.
+# Lanes: "<lane> <gradle module> <class>". A lane is one of the shard lanes, verify-app, verify-lumio or fuzz.
 line_no=0
 bad=""
 while IFS= read -r line; do
@@ -37,7 +37,7 @@ while IFS= read -r line; do
     continue
   fi
   case "$lane_name" in
-    shard-[1-6] | verify | fuzz) ;;
+    shard-[1-6] | verify-app | verify-lumio | fuzz) ;;
     *) bad="$bad  $lanes_file:$line_no: unknown lane '$lane_name'
 " ;;
   esac
