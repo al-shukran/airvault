@@ -89,6 +89,19 @@ class FirstSyncScreenshotTest {
         )
     }
 
+    @Test
+    @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
+    fun firstSyncDoneLight() = compose.lumioSnapshot("first_sync_done_light") {
+        FirstSyncScreen(
+            walletName = WALLET,
+            accounts = ACCOUNTS,
+            chains = CHAINS,
+            rows = SyncRow.entries.associateWith { SyncState.Done },
+            onOpenWallet = {},
+            onLock = {},
+        )
+    }
+
     private companion object {
         const val WALLET = "Demo"
         const val ACCOUNTS = 10

@@ -410,6 +410,12 @@ class LumioCoverageScreenshotTest {
         PairReviewScreen(pairing = pairing(withBitcoin = true), alreadyPaired = false, error = null, onSave = {}, onCancel = {}, onLock = {})
     }
 
+    @Test
+    @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
+    fun pairReviewWithBitcoinAccountsLight() = compose.lumioSnapshot("pair_review_bitcoin_light") {
+        PairReviewScreen(pairing = pairing(withBitcoin = true), alreadyPaired = false, error = null, onSave = {}, onCancel = {}, onLock = {})
+    }
+
     private fun pairing(withBitcoin: Boolean): PairingPayload {
         val accounts = mutableListOf(PairFixtures.ethereumAccount(0, "Demo 0"))
         if (withBitcoin) {
