@@ -1,7 +1,10 @@
 package app.lumio.ui.asset
 
 import app.airvault.core.model.AccountId
+import app.lumio.data.net.Networks
+import app.lumio.tokens.TokenHolding
 import app.lumio.wallets.WalletAccount
+import app.lumio.watchlist.WatchedAsset
 import java.math.BigDecimal
 import java.text.NumberFormat
 import java.util.Locale
@@ -19,20 +22,53 @@ internal data class AccountHolding(
 /** The accounts of one chain that hold a coin, with their total. The accounts are the largest first. */
 internal data class ChainHolding(val chain: String, val total: BigDecimal, val accounts: List<AccountHolding>)
 
+/** What one account holds of a coin, and the chain that amount is on. */
+internal data class WalletHolding(val account: WalletAccount, val chain: String, val amount: BigDecimal)
+
 /**
- * The native coin [symbol] as the accounts hold it, one group per chain. Accounts that hold nothing of [symbol] are left out. Chains are in name
- * order, as the design lists them, and each chain's accounts are the largest first.
+ * What [accounts] hold of [asset], whose native coin is named [symbol]. A native coin is read from each account's balance. A token is read from the
+ * token balances in [tokens] that sit on the asset's chain, scaled by the token's decimals. Accounts that hold nothing of the coin are left out.
  */
-internal fun chainHoldings(accounts: List<WalletAccount>, symbol: String, walletName: String): List<ChainHolding> = accounts
-    .mapNotNull { account ->
-        val held = account.balance?.takeIf { it.symbol == symbol && it.balance.signum() > 0 } ?: return@mapNotNull null
+internal fun holdingsOf(
+    asset: WatchedAsset,
+    symbol: String,
+    accounts: List<WalletAccount>,
+    tokens: Map<WalletAccount, List<TokenHolding>>,
+): List<WalletHolding> = if (asset.contract == null) {
+    accounts.mapNotNull { account ->
+        account.balance?.takeIf { it.symbol == symbol && it.balance.signum() > 0 }?.let { WalletHolding(account, account.networkName, it.balance) }
+    }
+} else {
+    accounts.flatMap { account ->
+        tokens[account].orEmpty()
+            .filter { it.amount.signum() > 0 && it.token.contract.equals(asset.contract, ignoreCase = true) && Networks.evm(it.chain.chainId) == asset.network.chain }
+            .map { WalletHolding(account, it.chain.name, BigDecimal(it.amount).movePointLeft(it.token.decimals)) }
+    }
+}
+
+/** Whether [account] can hold [asset]: a native coin on the account's own network, or a token on any Ethereum account. */
+internal fun canHold(account: WalletAccount, asset: WatchedAsset): Boolean =
+    if (asset.contract == null) account.coin?.network == asset.network else account.namespace == Networks.EIP155
+
+/** The name of [account] as the Asset page writes it: the owner's name, else its label, else its network. */
+internal fun accountName(account: WalletAccount): String = account.name ?: account.label ?: account.networkName
+
+/** The line under an account's name: its wallet's name, its index and its short address, as `Lumio #0 · 0x1020…122b`. */
+internal fun accountDetail(walletName: String, account: WalletAccount): String = "$walletName #${account.index} · ${shortAddress(account.address)}"
+
+/**
+ * A coin's holdings as [holdingsOf] reads them, one group per chain. Chains are in name order, as the design lists them, and each chain's accounts are
+ * the largest first.
+ */
+internal fun chainHoldings(holdings: List<WalletHolding>, walletName: String): List<ChainHolding> = holdings
+    .map { holding ->
         AccountHolding(
-            walletId = account.walletId,
-            accountId = account.id,
-            chain = account.networkName,
-            name = account.name ?: account.label ?: account.networkName,
-            detail = "$walletName #${account.index} · ${shortAddress(account.address)}",
-            amount = held.balance,
+            walletId = holding.account.walletId,
+            accountId = holding.account.id,
+            chain = holding.chain,
+            name = accountName(holding.account),
+            detail = accountDetail(walletName, holding.account),
+            amount = holding.amount,
         )
     }
     .groupBy { it.chain }

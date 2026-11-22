@@ -34,12 +34,17 @@ import app.lumio.data.price.PriceSeries
 import app.lumio.home.Masking
 import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.asset.AssetPage
+import app.lumio.ui.asset.CoinAccount
 import app.lumio.ui.asset.CoinHeld
 import app.lumio.ui.asset.HoldingsPage
 import app.lumio.ui.asset.PriceChange
+import app.lumio.ui.asset.accountDetail
+import app.lumio.ui.asset.accountName
 import app.lumio.ui.asset.amountText
+import app.lumio.ui.asset.canHold
 import app.lumio.ui.asset.chainHoldings
 import app.lumio.ui.asset.fiatText
+import app.lumio.ui.asset.holdingsOf
 import app.lumio.ui.asset.holdingsSummary
 import app.lumio.ui.home.AssetIcon
 import app.lumio.ui.home.changeText
@@ -109,13 +114,25 @@ internal fun AssetRoute(
         stored = next
         scope.launch(Dispatchers.IO) { WatchlistStore.write(session, walletId, next) }
     }
-    val chains = if (asset.contract == null) chainHoldings(view.accountsOf(walletId), symbol, wallet.name) else emptyList()
-    val total = chains.map { it.total }.reduceOrNull(java.math.BigDecimal::add)
+    val accounts = view.accountsOf(walletId)
+    val holdings = holdingsOf(asset, symbol, accounts, board.tokenHeld)
+    val chains = chainHoldings(holdings, wallet.name)
+    val total = holdings.map { it.amount }.reduceOrNull(java.math.BigDecimal::add)
     val held = total?.let { sum ->
         CoinHeld(
             amount = Masking.amount(amountText(sum, symbol), hidden = !display.showAssets),
-            summary = holdingsSummary(accounts = chains.sumOf { it.accounts.size }, chains = chains.size),
+            summary = holdingsSummary(accounts = holdings.size, chains = chains.size),
             value = price?.let { Masking.amount(fiatText(sum.toDouble() * it.usd), hidden = !display.showAssets) },
+        )
+    }
+    val coinAccounts = accounts.filter { canHold(it, asset) }.map { account ->
+        val amount = holdings.firstOrNull { it.account == account }?.amount
+        CoinAccount(
+            title = accountName(account),
+            detail = accountDetail(wallet.name, account),
+            trailing = amount?.let { Masking.amount(amountText(it, symbol), hidden = !display.showAssets) },
+            onSend = { navController.navigate(sendRoute(account, selection.mode)) },
+            onReceive = { navController.navigate(LumioRoute.account(walletId, account.id)) },
         )
     }
     val names = app.lumioVault()?.portfolio?.activity?.names.orEmpty()
@@ -135,8 +152,7 @@ internal fun AssetRoute(
         onWatch = ::toggleWatch,
         held = held,
         onHoldings = { navController.navigate(LumioRoute.holdings(walletId, asset)) },
-        onSend = { navController.navigate(LumioRoute.wallet(walletId)) },
-        onReceive = { navController.navigate(LumioRoute.wallet(walletId)) },
+        accounts = coinAccounts,
         onBack = { navController.popBackStack() },
         onLock = onLock,
         onAllActivity = { navController.navigate(LumioRoute.ACTIVITY) },
@@ -193,7 +209,7 @@ internal fun HoldingsRoute(
     HoldingsPage(
         title = "Your $symbol",
         symbol = symbol,
-        chains = if (asset.contract == null) chainHoldings(view.accountsOf(walletId), symbol, wallet.name) else emptyList(),
+        chains = chainHoldings(holdingsOf(asset, symbol, view.accountsOf(walletId), board.tokenHeld), wallet.name),
         showBalance = display.showAssets,
         onAccount = { navController.navigate(LumioRoute.account(it.walletId, it.accountId)) },
         onBack = { navController.popBackStack() },

@@ -12,13 +12,19 @@ class ChartRangeTest {
     private val now = 1_800_000_000_000L
 
     @Test
-    fun theSelectorOffersTheEightRangesInOrder() {
-        assertEquals(listOf("5m", "15m", "1h", "4h", "12h", "1d", "7d", "1m"), ChartRange.entries.map { it.label })
+    fun theSelectorOffersTheSevenRangesInOrder() {
+        assertEquals(listOf("15m", "1h", "4h", "12h", "1d", "7d", "1m"), ChartRange.entries.map { it.label })
+    }
+
+    @Test
+    fun theSubHourRangesUseThePeriodsTheSourceServes() {
+        assertEquals(ChartQuery(startSec = 1_799_999_100L, span = 4, period = "5m"), ChartRange.M15.query(now))
+        assertEquals(ChartQuery(startSec = 1_799_996_400L, span = 13, period = "5m"), ChartRange.H1.query(now))
+        assertEquals(ChartQuery(startSec = 1_799_985_600L, span = 17, period = "15m"), ChartRange.H4.query(now))
     }
 
     @Test
     fun eachRangeWindowCoversItsLabel() {
-        assertEquals(300_000L, ChartRange.M5.windowMs)
         assertEquals(900_000L, ChartRange.M15.windowMs)
         assertEquals(3_600_000L, ChartRange.H1.windowMs)
         assertEquals(14_400_000L, ChartRange.H4.windowMs)

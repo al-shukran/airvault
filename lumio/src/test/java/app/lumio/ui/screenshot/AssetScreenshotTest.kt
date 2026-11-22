@@ -19,6 +19,7 @@ import app.lumio.data.price.PriceSeries
 import app.lumio.ui.asset.AccountHolding
 import app.lumio.ui.asset.AssetPage
 import app.lumio.ui.asset.ChainHolding
+import app.lumio.ui.asset.CoinAccount
 import app.lumio.ui.asset.CoinHeld
 import app.lumio.ui.asset.HoldingsPage
 import app.lumio.ui.asset.PriceChange
@@ -80,8 +81,7 @@ class AssetScreenshotTest {
             onWatch = {},
             held = held,
             onHoldings = {},
-            onSend = {},
-            onReceive = {},
+            accounts = listOf(CoinAccount(title = "Savings", detail = "Air 1 #0 · 0x1020…122b", trailing = "4 ETH", onSend = {}, onReceive = {})),
             onBack = {},
             onLock = {},
             onAllActivity = {},
