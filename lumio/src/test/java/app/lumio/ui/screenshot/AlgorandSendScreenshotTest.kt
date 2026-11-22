@@ -22,6 +22,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 /**
  * The Algorand send screens as goldens: one dark-theme golden per screen (docs/testing/guideline.md 1.5). The plans are built from fixed public values, so
@@ -29,6 +30,7 @@ import org.robolectric.annotation.Config
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = LUMIO_DARK_QUALIFIERS)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class AlgorandSendScreenshotTest {
 
     @get:Rule
