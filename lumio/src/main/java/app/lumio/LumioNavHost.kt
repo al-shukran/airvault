@@ -367,9 +367,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
             }
             lumioComposable(LumioRoute.HOME) {
                 LumioBackdrop(selection) {
-                    TabRoute(tab = LumioTab.HOME, navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = { lock() }) {
-                        TabPlaceholder("Total market cap and your watchlist will appear here.")
-                    }
+                    HomeRoute(navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = { lock() })
                 }
             }
             lumioComposable(LumioRoute.PORTFOLIO) {

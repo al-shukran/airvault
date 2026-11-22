@@ -56,12 +56,14 @@ internal fun TabRoute(
     selection: NetworkSelection,
     listVersion: Int,
     onLock: () -> Unit,
+    title: String = tab.label,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
     val online = rememberOnline()
     LumioRootScreen(
         tab = tab,
+        title = title,
         mode = selection.mode,
         onMode = { selection.choose(it) },
         panelWallets = pairedWallets(navController, holder, listVersion).map { wallet ->
@@ -74,6 +76,9 @@ internal fun TabRoute(
         onWallet = { navController.navigate(LumioRoute.wallet(it)) },
         onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
         onLock = onLock,
+        search = { onClose ->
+            SearchRoute(navController = navController, holder = holder, selection = selection, listVersion = listVersion, onClose = onClose)
+        },
         content = content,
     )
 }
