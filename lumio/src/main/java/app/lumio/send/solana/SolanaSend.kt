@@ -6,6 +6,7 @@ import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.signer.SolSignType
 import app.lensly.app.export.partsOf
 import app.lensly.core.solana.SolanaNonce
+import app.lensly.core.solana.SolanaPriorityFee
 import app.lensly.core.solana.SolanaTransaction
 import app.lensly.core.ur.SolSignRequestEncoder
 import app.lensly.core.ur.SolSignature
@@ -67,6 +68,8 @@ class SolanaSendPlan(
     val recipient: ByteArray,
     val lamports: Long,
     val feeLamports: Long,
+    /** The priority fee that the Priority Fee switch adds, in lamports, and zero when the switch is off. It is an upper bound, as Lensly shows it. */
+    val priorityFeeLamports: Long = 0L,
     val blockhash: ByteArray,
     val requestId: ByteArray,
     val message: ByteArray,
@@ -113,9 +116,15 @@ enum class SolanaOutcome { CONFIRMED, FAILED, PENDING }
 object SolanaSend {
     private val random = SecureRandom()
 
-    /** The most that can be sent from [balance]: the balance less the fee and the rent reserve. Null when the balance does not cover both. */
-    fun maxLamports(balance: BigInteger): Long? {
-        val spendable = balance - BigInteger.valueOf(SOLANA_FEE_LAMPORTS + SOLANA_RENT_RESERVE_LAMPORTS)
+    /**
+     * The priority fee of a SOL send when the Priority Fee switch is [priority]: one nonce advance and one transfer, both System Program instructions, so
+     * two builtins' units. Zero when the switch is off.
+     */
+    fun sendPriorityFee(priority: Boolean): Long = if (priority) SolanaPriorityFee.lamports(2 * SolanaPriorityFee.SYSTEM_UNITS) else 0L
+
+    /** The most that can be sent from [balance]: the balance less the fee, the priority fee when [priority] is set, and the rent reserve. Null when the balance does not cover them. */
+    fun maxLamports(balance: BigInteger, priority: Boolean = false): Long? {
+        val spendable = balance - BigInteger.valueOf(SOLANA_FEE_LAMPORTS + sendPriorityFee(priority) + SOLANA_RENT_RESERVE_LAMPORTS)
         if (spendable.signum() <= 0) return null
         return spendable.min(BigInteger.valueOf(Long.MAX_VALUE)).toLong()
     }
@@ -141,7 +150,7 @@ object SolanaSend {
      * The send of [lamports] from [account] to [recipient], with [balance] in the account, as a transfer that advances the account's nonce.
      * [nonceValue] is the nonce that the account's nonce account holds, and the message names it as its recent blockhash. Throws
      * IllegalArgumentException, with the owner's words, when the amount is not positive or the balance does not cover the amount, the fee and the
-     * rent reserve.
+     * rent reserve. [priority] adds the priority fee of [sendPriorityFee] to the message and to the fee the balance must cover.
      */
     fun plan(
         network: NetworkId,
@@ -151,9 +160,11 @@ object SolanaSend {
         balance: BigInteger,
         nonceValue: ByteArray,
         requestId: ByteArray,
+        priority: Boolean = false,
     ): SolanaSendPlan {
         require(lamports > 0) { "The amount must be more than 0 SOL." }
-        val needed = BigInteger.valueOf(lamports) + BigInteger.valueOf(SOLANA_FEE_LAMPORTS + SOLANA_RENT_RESERVE_LAMPORTS)
+        val priorityFee = sendPriorityFee(priority)
+        val needed = BigInteger.valueOf(lamports) + BigInteger.valueOf(SOLANA_FEE_LAMPORTS + priorityFee + SOLANA_RENT_RESERVE_LAMPORTS)
         require(balance >= needed) { "This account does not hold enough SOL for the amount, the fee and the rent reserve." }
         return SolanaSendPlan(
             network = network,
@@ -161,9 +172,10 @@ object SolanaSend {
             recipient = recipient,
             lamports = lamports,
             feeLamports = SOLANA_FEE_LAMPORTS,
+            priorityFeeLamports = priorityFee,
             blockhash = nonceValue,
             requestId = requestId,
-            message = SolanaNonce.transferMessage(account.key, recipient, lamports, nonceValue),
+            message = SolanaNonce.transferMessage(account.key, recipient, lamports, nonceValue, priority),
         )
     }
 
