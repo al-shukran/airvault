@@ -27,6 +27,7 @@ class AccountActivityTest {
         id = AccountId.of(chain, address),
         index = 0,
         networkName = "network",
+        coin = null,
         balance = null,
     )
 

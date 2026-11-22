@@ -1,270 +1,332 @@
 package app.lumio.ui.transactions
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.lensly.app.AddressBookEntry
-import app.lensly.app.AddressNotes
-import app.lensly.app.InternalAccount
 import app.lensly.app.addressBookEntryFor
 import app.lensly.app.addressKeyOf
 import app.lensly.app.chainOfAddress
-import app.lensly.app.headline
-import app.lensly.core.registry.Amounts
-import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.LumioIsland
-import app.lensly.ui.components.LumioTextAction
 import app.lensly.ui.components.groupAddress
-import app.lensly.ui.theme.LenslySpacing
-import app.lensly.ui.theme.LumenMono
+import app.lensly.ui.theme.ClearAirSpacing
+import app.lensly.ui.theme.ClearAirType
+import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.data.tx.TxDirection
 import app.lumio.data.tx.TxStatus
-import app.lumio.home.HomeFormat
+import app.lumio.home.Masking
+import app.lumio.portfolio.PortfolioFormat
+import app.lumio.transactions.ActivityText
 import app.lumio.transactions.TxDetail
-import app.lumio.ui.kit.LumioPrimaryButton
-import app.lumio.ui.kit.rememberCopyAction
+import app.lumio.ui.kit.ClearAirEyebrow
+import app.lumio.ui.kit.ClearAirTestnetHatch
+import app.lumio.ui.kit.ClearAirTextAction
+import app.lumio.ui.shell.LumioPageScreen
+import java.math.BigDecimal
+import java.net.URI
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.delay
 
-
-/** The test tag of the comment field. */
-const val TX_COMMENT_TAG = "tx-comment"
-
-/** The test tag of the explorer action. */
+/** The test tag of the explorer action, which asks before it opens a browser. */
 const val TX_EXPLORER_TAG = "tx-explorer"
 
+/** How long the hash says it was copied. */
+private const val COPIED_MS = 1500L
+
+/** The size of the status disc, and of the disc that an address sits in. */
+private val STATUS_DISC = 56.dp
+private val ADDRESS_DISC = 40.dp
+
 /**
- * One transaction in full (section 2.1, Transaction): a status hero with its direction and amount, then the parties, each address with the name the owner's
- * address book gives it. Every address opens the address-book sheet when [onEditAddress] is set. Then the status, network, time, confirmations, fee and memo,
- * the hash (a tap copies it), the comment and the explorer action. The reasons of the spam heuristic are listed last.
+ * The transaction page: its status, its two sides, its details and its hash. Every address on the page is tappable and opens its address-book sheet, so
+ * a counterparty is named the same way everywhere. [accountNames] names the wallet's own accounts, and [book] is the wallet's address book, both by the
+ * address key. The page is read only: names are made on Lensly.
  */
 @Composable
 fun TransactionDetailScreen(
     detail: TxDetail,
-    onBack: () -> Unit,
+    accountNames: Map<String, String>,
+    book: List<AddressBookEntry>,
+    backLabel: String,
+    showBalance: Boolean,
+    onAddress: (String) -> Unit,
     onExplorer: () -> Unit,
-    onSaveComment: (String) -> Unit,
-    modifier: Modifier = Modifier,
+    onBack: () -> Unit,
+    onLock: () -> Unit,
     zone: ZoneId = ZoneId.systemDefault(),
-    /** The Ethereum accounts of the paired wallets, so an address of one of them is named. */
-    accounts: Map<String, InternalAccount> = emptyMap(),
-    /** The Address Book of the wallet, which names the addresses it holds. */
-    book: List<AddressBookEntry> = emptyList(),
-    /** Opens the address-book sheet of an address. Null when the owner's wallet is unknown, so the addresses are not tappable. */
-    onEditAddress: ((String) -> Unit)? = null,
 ) {
+    val palette = LocalClearAirPalette.current
     val tx = detail.tx
-    LenslyScreen(title = "Transaction", modifier = modifier, onBack = onBack) {
-        StatusHero(detail = detail, zone = zone)
-        Spacer(Modifier.height(LenslySpacing.lg))
-        LumioIsland {
-            PartyRow(label = "Account", value = tx.account, accounts = accounts, book = book, onEdit = onEditAddress)
-            tx.counterparty?.let { value ->
-                PartyRow(label = counterpartyLabel(tx.direction), value = value, accounts = accounts, book = book, onEdit = onEditAddress)
+    var askExplorer by remember { mutableStateOf(false) }
+    LumioPageScreen(title = "Transaction", backLabel = backLabel, offline = null, onBack = onBack, onLock = onLock) {
+        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = ClearAirSpacing.xxl)) {
+            if (tx.network.testnet) ClearAirTestnetHatch(text = "TESTNET · TEST FUNDS HAVE NO VALUE")
+            StatusHero(detail = detail, zone = zone, shown = showBalance)
+            val counterparty = tx.counterparty
+            if (counterparty != null) {
+                val incoming = tx.direction == TxDirection.IN
+                Sectioned(label = if (incoming) "From" else "To")
+                AddressCard(
+                    address = counterparty,
+                    name = book.firstOrNull { addressKeyOf(it.address) == addressKeyOf(counterparty) }?.name,
+                    book = book,
+                    onClick = { onAddress(counterparty) },
+                )
             }
-            tx.asset.contract?.let { value ->
-                PartyRow(label = "Token Contract", value = value, accounts = accounts, book = book, onEdit = onEditAddress)
-            }
-        }
-        Spacer(Modifier.height(LenslySpacing.lg))
-        LumioIsland {
-            DetailRow("Status", statusText(tx.status))
-            DetailRow("Network", detail.chain)
-            DetailRow("Time", detailTime(tx.timestampMs, zone))
-            DetailRow("Confirmations", tx.confirmations.toString())
-            DetailRow("Fee", detail.feeText ?: "None")
-            tx.memo?.let { DetailRow("Memo", it) }
-        }
-        Spacer(Modifier.height(LenslySpacing.lg))
-        HashRow(hash = tx.hash)
-        Spacer(Modifier.height(LenslySpacing.lg))
-        CommentEditor(saved = detail.comment, onSave = onSaveComment)
-        detail.explorerUrl?.let {
-            Spacer(Modifier.height(LenslySpacing.sm))
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                LumioTextAction(text = "Open in Explorer", onClick = onExplorer, modifier = Modifier.testTag(TX_EXPLORER_TAG))
-            }
-        }
-        if (detail.flags.isNotEmpty()) {
-            Spacer(Modifier.height(LenslySpacing.lg))
-            Text(
-                text = "Flagged by the spam check",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.error,
+            Sectioned(label = if (tx.direction == TxDirection.IN) "To" else "From")
+            AddressCard(
+                address = tx.account,
+                name = accountNames[addressKeyOf(tx.account)],
+                book = book,
+                own = true,
+                onClick = { onAddress(tx.account) },
             )
-            detail.flags.forEach { flag ->
-                Text(text = flag, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            tx.asset.contract?.let { contract ->
+                Sectioned(label = "Token Contract")
+                AddressCard(
+                    address = contract,
+                    name = tx.asset.name,
+                    book = book,
+                    onClick = { onAddress(contract) },
+                )
+            }
+            Spacer(Modifier.height(ClearAirSpacing.lg))
+            Details(detail = detail)
+            Spacer(Modifier.height(ClearAirSpacing.md))
+            ClearAirTextAction(
+                text = "View on Explorer",
+                onClick = { if (detail.explorerUrl != null) askExplorer = true },
+                modifier = Modifier.padding(start = ClearAirSpacing.gutter),
+            )
+            if (detail.flags.isNotEmpty()) {
+                Spacer(Modifier.height(ClearAirSpacing.lg))
+                Text(
+                    text = "Flagged by the Spam Check",
+                    style = ClearAirType.label,
+                    color = palette.ink2,
+                    modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter),
+                )
+                for (flag in detail.flags) {
+                    Text(text = flag, style = ClearAirType.body, color = palette.ink2, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
+                }
             }
         }
     }
+    if (askExplorer) {
+        val host = detail.explorerUrl?.let { runCatching { URI(it).host }.getOrNull() } ?: "the explorer"
+        AlertDialog(
+            onDismissRequest = { askExplorer = false },
+            text = { Text(text = "Open $host in Your Browser?", style = ClearAirType.body) },
+            confirmButton = {
+                TextButton(modifier = Modifier.testTag(TX_EXPLORER_TAG), onClick = { askExplorer = false; onExplorer() }) { Text("Open") }
+            },
+            dismissButton = { TextButton(onClick = { askExplorer = false }) { Text("Cancel") } },
+        )
+    }
 }
 
-/** The status hero: the direction in a 56 dp circle, the amount with its direction, its value in dollars, and its time. */
+/** The status hero: the direction in a disc, the title with its amount, and the time, the status and the value in dollars. */
 @Composable
-private fun StatusHero(detail: TxDetail, zone: ZoneId) {
+private fun StatusHero(detail: TxDetail, zone: ZoneId, shown: Boolean) {
+    val palette = LocalClearAirPalette.current
     val tx = detail.tx
-    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+    val line = ActivityText.line(tx, chain = detail.chain, usd = detail.usd, party = null, zone = zone)
+    val coins = PortfolioFormat.coins(BigDecimal(tx.amount).movePointLeft(tx.asset.decimals))
+    val title = "${line.title} ${Masking.amount(coins, hidden = !shown)} ${tx.asset.symbol}"
+    val fiat = detail.usd?.takeIf { !tx.network.testnet }?.let { Masking.amount(PortfolioFormat.usd(it), hidden = !shown) }
+    val summary = listOfNotNull(dateOf(tx.timestampMs, zone), statusOf(tx.status), fiat).joinToString(" · ")
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            modifier = Modifier.size(STATUS_DISC).clip(CircleShape).background(palette.raised),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = directionIcon(tx.direction),
+                imageVector = when (tx.direction) {
+                    TxDirection.IN -> TxIcons.In
+                    TxDirection.OUT -> TxIcons.Out
+                    TxDirection.SELF -> TxIcons.Self
+                },
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface,
+                tint = if (line.incoming) palette.vaultBlue else palette.ink,
                 modifier = Modifier.size(24.dp),
             )
         }
-        Spacer(Modifier.height(LenslySpacing.md))
-        Text(
-            text = "${directionTitle(tx.direction)} ${Amounts.format(tx.amount, tx.asset.decimals)} ${tx.asset.symbol}",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center,
-        )
-        detail.usd?.let {
-            Text(text = HomeFormat.usd(it), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Text(text = detailTime(tx.timestampMs, zone), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-/**
- * A party of the transaction: its label, the name the owner's address book or accounts give the address above it, and the address in mono. A tap opens
- * the address-book sheet when [onEdit] is set.
- */
-@Composable
-private fun PartyRow(
-    label: String,
-    value: String,
-    accounts: Map<String, InternalAccount>,
-    book: List<AddressBookEntry>,
-    onEdit: ((String) -> Unit)?,
-) {
-    val chain = chainOfAddress(value)
-    val name = AddressNotes(
-        internal = accounts[addressKeyOf(value)],
-        entry = chain?.let { addressBookEntryFor(value, it, book) },
-    ).headline()
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.sm)) {
-        Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        name?.let {
-            Text(text = it, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-        }
-        Text(
-            text = groupAddress(value),
-            style = LumenMono,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(if (onEdit != null) Modifier.clickable { onEdit(value) } else Modifier),
-        )
-    }
-}
-
-/** The hash of the transaction in mono. A tap copies it, and the hash then reads "Copied" for 1.5 s. */
-@Composable
-private fun HashRow(hash: String) {
-    val copy = rememberCopyAction(value = hash, label = "Transaction Hash")
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.sm)) {
-        Text(text = "Transaction Hash", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
-            text = if (copy.copied) "Copied" else hash,
-            style = LumenMono,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.fillMaxWidth().clickable(onClick = copy.copy),
-        )
-    }
-}
-
-/** The comment editor: a multi-line field with the saved text, Save as the primary action and Remove as the text action. */
-@Composable
-private fun CommentEditor(saved: String?, onSave: (String) -> Unit) {
-    var draft by rememberSaveable(saved) { mutableStateOf(saved.orEmpty()) }
-    Text(text = "Comment", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    Spacer(Modifier.height(LenslySpacing.xs))
-    OutlinedTextField(
-        value = draft,
-        onValueChange = { draft = it },
-        placeholder = { Text("Add a note for this transaction") },
-        minLines = 3,
-        maxLines = 8,
-        modifier = Modifier.fillMaxWidth().testTag(TX_COMMENT_TAG),
-    )
-    Spacer(Modifier.height(LenslySpacing.sm))
-    LumioPrimaryButton(
-        text = "Save Comment",
-        onClick = { onSave(draft.trim()) },
-        enabled = draft.trim() != saved.orEmpty().trim(),
-    )
-    if (saved != null) {
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            LumioTextAction(text = "Remove", onClick = { onSave("") })
+        Spacer(Modifier.width(ClearAirSpacing.md))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = ClearAirType.titleL, color = palette.ink)
+            Text(text = summary, style = ClearAirType.body, color = palette.ink2)
         }
     }
 }
 
-/** One labelled value of the detail, such as the network or the fee, with the value at the right. */
+/** A row of an address on the page: its monogram, its name or "Not in address book", and under it the full address in groups of four. */
 @Composable
-private fun DetailRow(label: String, value: String) {
+private fun AddressCard(address: String, name: String?, book: List<AddressBookEntry>, onClick: () -> Unit, own: Boolean = false) {
+    val palette = LocalClearAirPalette.current
+    val chain = chainOfAddress(address)
+    val known = chain?.let { addressBookEntryFor(address, it, book) }
+    val title = name ?: known?.name ?: if (own) ActivityText.shortAddress(address) else "Not in Address Book"
+    val detail = when {
+        own -> "Your account · ${ActivityText.shortAddress(address)}"
+        known != null -> "Address book · from Lensly"
+        else -> "Not in address book"
+    }
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = LenslySpacing.md, vertical = LenslySpacing.sm),
-        horizontalArrangement = Arrangement.spacedBy(LenslySpacing.md),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Monogram(text = monogramOf(title, known != null || own))
+        Spacer(Modifier.width(ClearAirSpacing.sm))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = ClearAirType.rowTitle, color = palette.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(text = detail, style = ClearAirType.body, color = palette.ink2)
+        }
+    }
+    Text(
+        text = groupAddress(address),
+        style = ClearAirType.address,
+        color = palette.ink2,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xxs),
+    )
+}
+
+/** The details: the network, the fee, and the hash, which copies on tap and says so for a moment. */
+@Composable
+private fun Details(detail: TxDetail) {
+    val palette = LocalClearAirPalette.current
+    val clipboard = LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(COPIED_MS)
+            copied = false
+        }
+    }
+    KeyValue(label = "Network", value = detail.chain)
+    KeyValue(label = "Fee", value = detail.feeText ?: "None")
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                clipboard.setText(AnnotatedString(detail.tx.hash))
+                copied = true
+            }
+            .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = "Hash", style = ClearAirType.body, color = palette.ink2, modifier = Modifier.weight(1f))
         Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            text = if (copied) "Hash copied" else ActivityText.shortAddress(detail.tx.hash),
+            style = ClearAirType.rowValue,
+            color = palette.ink,
             textAlign = TextAlign.End,
-            modifier = Modifier.weight(1f),
         )
     }
 }
 
-/** The label of the other party: who the money came from, or went to. */
-private fun counterpartyLabel(direction: TxDirection): String = when (direction) {
-    TxDirection.IN -> "From"
-    TxDirection.OUT -> "To"
-    TxDirection.SELF -> "Counterparty"
+/** One label and its value, as a row of the details. */
+@Composable
+internal fun KeyValue(label: String, value: String) {
+    val palette = LocalClearAirPalette.current
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = label, style = ClearAirType.body, color = palette.ink2, modifier = Modifier.weight(1f))
+        Text(text = value, style = ClearAirType.rowValue, color = palette.ink, textAlign = TextAlign.End)
+    }
 }
 
-/** The status as the detail reads it. */
-private fun statusText(status: TxStatus): String = when (status) {
-    TxStatus.PENDING -> "Pending, not yet in a block"
+/** A small label above a group of addresses. */
+@Composable
+private fun Sectioned(label: String) {
+    ClearAirEyebrow(text = label, modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = ClearAirSpacing.md))
+}
+
+/** The initials in a circle: a sunk disc for a known party, and a dashed ring for one that is not in the address book. */
+@Composable
+internal fun Monogram(text: String, known: Boolean = true) {
+    val palette = LocalClearAirPalette.current
+    Box(modifier = Modifier.size(ADDRESS_DISC), contentAlignment = Alignment.Center) {
+        if (known) {
+            Box(modifier = Modifier.fillMaxSize().clip(CircleShape).background(palette.raised))
+        } else {
+            Canvas(Modifier.fillMaxSize()) {
+                val stroke = 1.6.dp.toPx()
+                drawCircle(
+                    color = palette.ink3,
+                    radius = size.minDimension / 2 - stroke / 2,
+                    style = Stroke(width = stroke, pathEffect = PathEffect.dashPathEffect(floatArrayOf(DASH, GAP))),
+                )
+            }
+        }
+        Text(text = text, style = ClearAirType.label, color = palette.ink)
+    }
+}
+
+/** The initials of [name]: its first letters, or a question mark for an address that no one has named. */
+internal fun monogramOf(name: String, named: Boolean): String {
+    if (!named) return "?"
+    val words = name.split(' ', '#').filter { it.isNotBlank() }
+    return words.take(2).joinToString("") { it.first().uppercase(Locale.ROOT) }.ifEmpty { "?" }
+}
+
+/** The date and clock of [epochMs], such as "21 Nov · 14:02" in the wording of the page. */
+private fun dateOf(epochMs: Long, zone: ZoneId): String {
+    val time = Instant.ofEpochMilli(epochMs).atZone(zone)
+    return "${DATE.format(time)} · ${CLOCK.format(time)}"
+}
+
+/** The status in words: confirmed, confirming, or failed. */
+private fun statusOf(status: TxStatus): String = when (status) {
     TxStatus.CONFIRMED -> "Confirmed"
-    TxStatus.FAILED -> "Failed, so no value moved"
+    TxStatus.PENDING -> "Confirming"
+    TxStatus.FAILED -> "Failed"
 }
 
-/** The full time of [epochMs] in [zone], with seconds, such as "16 Nov 2026, 14:32:05". */
-private fun detailTime(epochMs: Long, zone: ZoneId): String =
-    DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm:ss", Locale.getDefault()).withZone(zone).format(Instant.ofEpochMilli(epochMs))
+private val DATE = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
+private val CLOCK = DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH)
+private const val DASH = 4f
+private const val GAP = 3f

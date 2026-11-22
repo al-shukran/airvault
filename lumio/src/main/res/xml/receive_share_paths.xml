@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The folder of the app's cache that the Receive sheet writes its shared code to. Nothing else is shared. -->
+<paths>
+    <cache-path name="receive" path="receive/" />
+</paths>
