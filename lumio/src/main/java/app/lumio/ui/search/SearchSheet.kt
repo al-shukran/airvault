@@ -39,11 +39,12 @@ import app.lumio.ui.kit.ClearAirRow
 enum class SearchTab(val label: String) {
     MAIN("Main"),
     WATCHLIST("Watchlist"),
+    TRENDING("Trending"),
     CHAINS("Chains"),
 }
 
-/** One result: its [key], the [title] and [detail] the row shows, and the [onOpen] that opens its page. */
-data class SearchRow(val key: String, val title: String, val detail: String, val onOpen: () -> Unit)
+/** One result: its [key], the [title] and [detail] the row shows, and the [onOpen] that opens its page, or null for a result with no page yet. */
+data class SearchRow(val key: String, val title: String, val detail: String, val onOpen: (() -> Unit)?)
 
 /** A group of results under its [label]. A null label is a group with nothing above it, such as the address row. */
 data class SearchSection(val label: String?, val rows: List<SearchRow>)

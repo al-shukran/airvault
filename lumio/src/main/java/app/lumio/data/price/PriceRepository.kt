@@ -6,12 +6,16 @@ import app.lumio.data.cache.CachePolicy
 import app.lumio.data.cache.Codec
 import app.lumio.data.cache.jsonCodec
 import app.lumio.data.net.NetworkId
+import app.lumio.data.provider.GlobalMarket
+import app.lumio.data.provider.MarketQuote
 import app.lumio.data.provider.NativePrice
 import app.lumio.data.provider.PriceChart
 import app.lumio.data.provider.PriceQuote
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
 import app.lumio.data.provider.TokenPrice
+import app.lumio.data.provider.TrendingCoins
+import app.lumio.data.provider.TrendingList
 import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
 import java.util.concurrent.ConcurrentHashMap
@@ -25,12 +29,19 @@ const val PRICE_TTL_MS = 60_000L
 /** How long a kept price chart is reused from memory before it is read again, so a 24-hour chart does not stay stale for the whole session. */
 const val CHART_TTL_MS = 300_000L
 
+/** The cache keys of the whole market's figures and of the trending coins. */
+internal const val MARKET_KEY = "market-global"
+internal const val TRENDING_KEY = "trending-search"
+
 /**
  * A USD price of a network's native coin: [usd] per coin, the change over 24 hours in percent ([change24hPct] is null when the source gives none),
  * [asOfMs] the time the source gives for it, and [stale]. A stale price is the last one kept, returned because no source answered now. A price
  * that is not stale came from a source, or from memory within [PRICE_TTL_MS].
  */
 data class Price(val usd: Double, val change24hPct: Double?, val asOfMs: Long, val stale: Boolean)
+
+/** A market figure as the screens show it: its [value], and [stale] when no source answered now and it is the last one kept. */
+data class Kept<T>(val value: T, val stale: Boolean)
 
 /**
  * The USD prices of the native coins and of the ERC-20 tokens that [AssetId] names. A native coin is priced by its network's CoinGecko id, and a token
@@ -63,6 +74,30 @@ class PriceRepository(
     suspend fun assetPrices(assets: Collection<AssetId>, priority: Priority = Priority.VISIBLE): Map<AssetId, Price> = coroutineScope {
         assets.toSet().map { asset -> async { priceOf(asset, priority)?.let { asset to it } } }.awaitAll().filterNotNull().toMap()
     }
+
+    /** The last price kept in the vault's cache of each of [assets] that has one. It asks no source, so it is stale by definition. */
+    suspend fun lastPrices(assets: Collection<AssetId>): Map<AssetId, Price> {
+        val store = cache() ?: return emptyMap()
+        val codec = jsonCodec<PriceQuote>()
+        return assets.toSet().mapNotNull { asset ->
+            val key = priceKeyOf(asset) ?: return@mapNotNull null
+            store.get(CachePolicy.LastKnown, key)?.let { decodeOrNull(codec, it.value) }?.let { asset to it.toPrice(stale = true) }
+        }.toMap()
+    }
+
+    /** The whole market's figures, from a source or from memory within [PRICE_TTL_MS]. When no source answers, the last ones kept, stale. */
+    suspend fun market(priority: Priority = Priority.VISIBLE): Kept<MarketQuote>? =
+        kept(MARKET_KEY, jsonCodec<MarketQuote>(), GlobalMarket(), priority)
+
+    /** The trending coins, from a source or from memory within [PRICE_TTL_MS]. When no source answers, the last list kept, stale. */
+    suspend fun trending(priority: Priority = Priority.VISIBLE): Kept<TrendingList>? =
+        kept(TRENDING_KEY, jsonCodec<TrendingList>(), TrendingCoins(), priority)
+
+    /** The last market figures kept in the vault's cache, with no source asked. Null while the vault is locked or none was kept. */
+    suspend fun lastMarket(): Kept<MarketQuote>? = lastKept(MARKET_KEY, jsonCodec<MarketQuote>())
+
+    /** The last trending list kept in the vault's cache, with no source asked. Null while the vault is locked or none was kept. */
+    suspend fun lastTrending(): Kept<TrendingList>? = lastKept(TRENDING_KEY, jsonCodec<TrendingList>())
 
     /**
      * The USD price points of [asset] over [range], ending at [nowMs]. A series with no points means the source has no price in the window. Null means no
@@ -103,8 +138,26 @@ class PriceRepository(
         }
     }
 
+    /** A value of [request] kept under [key] for [PRICE_TTL_MS], else asked for; when no source answers, the last value kept, stale. */
+    private suspend fun <T> kept(key: String, codec: Codec<T>, request: Request<T>, priority: Priority): Kept<T>? {
+        val store = cache()
+        store?.get(CachePolicy.ShortTtl(PRICE_TTL_MS), key)?.let { decodeOrNull(codec, it.value) }?.let { return Kept(it, stale = false) }
+        return try {
+            val value = scheduler.run(request, priority)
+            store?.put(CachePolicy.ShortTtl(PRICE_TTL_MS), key, codec.encode(value))
+            store?.put(CachePolicy.LastKnown, key, codec.encode(value))
+            Kept(value, stale = false)
+        } catch (e: ProviderError) {
+            lastKept(key, codec)
+        }
+    }
+
+    /** The last value kept under [key] in the vault's cache, stale, or null when none was kept or the vault is locked. */
+    private suspend fun <T> lastKept(key: String, codec: Codec<T>): Kept<T>? =
+        cache()?.get(CachePolicy.LastKnown, key)?.let { decodeOrNull(codec, it.value) }?.let { Kept(it, stale = true) }
+
     /** The decoded value, or null when the stored bytes do not decode: a value that does not decode is a miss. */
-    private fun decodeOrNull(codec: Codec<PriceQuote>, bytes: ByteArray): PriceQuote? = runCatching { codec.decode(bytes) }.getOrNull()
+    private fun <T> decodeOrNull(codec: Codec<T>, bytes: ByteArray): T? = runCatching { codec.decode(bytes) }.getOrNull()
 
     private fun PriceQuote.toPrice(stale: Boolean): Price = Price(usd = usd, change24hPct = change24hPct, asOfMs = asOfMs, stale = stale)
 }
