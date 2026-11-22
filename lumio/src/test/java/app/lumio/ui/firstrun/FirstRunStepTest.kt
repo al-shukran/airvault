@@ -13,7 +13,6 @@ import app.lumio.ui.firstrun.FirstRunStep.PrepareLensly
 import app.lumio.ui.firstrun.FirstRunStep.ProvidedAsIs
 import app.lumio.ui.firstrun.FirstRunStep.Welcome
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 class FirstRunStepTest {
@@ -24,13 +23,6 @@ class FirstRunStepTest {
             listOf(Welcome, Keys, NeverShare, ProvidedAsIs, Notice, PrepareLensly, CreatePassword, Duress, DeviceProtection),
             FirstRunStep.entries,
         )
-    }
-
-    @Test
-    fun nextWalksTheStepsAndEndsAtDeviceProtection() {
-        assertEquals(Keys, Welcome.next)
-        assertEquals(Duress, CreatePassword.next)
-        assertNull(DeviceProtection.next)
     }
 
     @Test

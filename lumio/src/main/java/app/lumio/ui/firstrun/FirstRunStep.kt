@@ -14,11 +14,6 @@ enum class FirstRunStep(val route: String) {
     CreatePassword("first-run/create-password"),
     Duress("first-run/duress"),
     DeviceProtection("first-run/device-protection"),
-    ;
-
-    /** The screen after this one, or null after the last. */
-    val next: FirstRunStep?
-        get() = entries.getOrNull(ordinal + 1)
 }
 
 /** One segment of the chapter bar: nothing yet, half way through, or done. */

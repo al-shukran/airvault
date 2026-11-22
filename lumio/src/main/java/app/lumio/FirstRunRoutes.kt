@@ -1,5 +1,6 @@
 package app.lumio
 
+import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -72,6 +73,8 @@ internal fun NavGraphBuilder.firstRunRoutes(navController: NavHostController, ho
         var shown by remember { mutableStateOf(false) }
         var problem by remember { mutableStateOf<NewPasswordProblem?>(null) }
         var busy by remember { mutableStateOf(false) }
+        // Leaving while the vault is made would cancel the step half way, with a vault on disk and no session.
+        BackHandler(enabled = busy) {}
         FirstRunPasswordScreen(
             password = password,
             repeat = repeat,
@@ -93,9 +96,11 @@ internal fun NavGraphBuilder.firstRunRoutes(navController: NavHostController, ho
                 if (problem != null) return@submit
                 busy = true
                 scope.launch {
-                    val outcome = createVault(holder, password.toCharArray(), context)
+                    val outcome = createFirstVault(holder, password.toCharArray(), context)
                     busy = false
                     when (outcome) {
+                        // A vault is already on disk, so the gate decides where the owner goes.
+                        null -> navController.openHidden(GateRoutes.GATE)
                         GateOutcome.Opened -> navController.navigate(FirstRunStep.Duress.route) {
                             popUpTo(FirstRunStep.Welcome.route) { inclusive = true }
                         }
@@ -120,6 +125,16 @@ internal fun NavGraphBuilder.firstRunRoutes(navController: NavHostController, ho
         BackHandler { leaveHidden(navController, holder) }
         DeviceProtectionStep(onDone = { navController.openHidden(home) })
     }
+}
+
+/**
+ * Creates the vault as the shared App Password screen does, or returns null when a vault, or what is left of one, is already on disk. An
+ * earlier try may have made it: a rotation recreates this screen while the first try still runs. The vault is never made twice.
+ */
+internal suspend fun createFirstVault(holder: VaultHolder, password: CharArray, context: Context): GateOutcome? = try {
+    createVault(holder, password, context)
+} catch (e: IllegalStateException) {
+    null
 }
 
 /** I9 with its prompt: Enable runs the system check, and a failure or a cancel stays on the page with no error. Not Now goes on. */
