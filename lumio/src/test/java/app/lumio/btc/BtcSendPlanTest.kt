@@ -123,9 +123,40 @@ class BtcSendPlanTest {
     fun feeRatesAreFromOneToAThousandSatPerVbyte() {
         assertEquals(2.0, BtcSendInput.feeRate("2"))
         assertEquals(1.5, BtcSendInput.feeRate(" 1.5 "))
+        assertEquals(MIN_FEE_RATE, BtcSendInput.feeRate("1"))
+        assertEquals(MAX_FEE_RATE, BtcSendInput.feeRate("1000"))
         assertFailsWith<IllegalArgumentException> { BtcSendInput.feeRate("0.5") }
         assertFailsWith<IllegalArgumentException> { BtcSendInput.feeRate("1001") }
         assertFailsWith<IllegalArgumentException> { BtcSendInput.feeRate("") }
+    }
+
+    @Test
+    fun theFeeRateCopyAndTheFormCheckReadTheSameRange() {
+        assertEquals("1 to 1,000", FEE_RATE_RANGE_WORDS)
+        val refused = assertFailsWith<IllegalArgumentException> { BtcSendInput.feeRate("1001") }
+        assertEquals("The fee rate must be from 1 to 1,000 sat/vB.", refused.message)
+    }
+
+    @Test
+    fun useMaxPaysEveryCoinLessTheFeeOfTheRequestAndNoChange() {
+        val spendable = BtcSpendable(listOf(coin(100_000, 0, 1), coin(50_000, 1, 2)), nextChangeIndex = 0)
+        val max = BtcSend.maxAmountSats(watch, spendable, other, feeRateSatPerVb = 2.0)
+        val plan = BtcSend.plan(watch, spendable, other, max, feeRateSatPerVb = 2.0)
+        assertNull(plan.changeIndex)
+        assertEquals(150_000L, max + plan.feeSats)
+        assertEquals(max, BtcSendInput.amountSats(BtcSend.formatAmount(max)))
+    }
+
+    @Test
+    fun useMaxIsRefusedWhenTheFeeTakesAllButDust() {
+        val spendable = BtcSpendable(listOf(coin(300, 0, 1)), nextChangeIndex = 0)
+        assertFailsWith<IllegalArgumentException> { BtcSend.maxAmountSats(watch, spendable, other, feeRateSatPerVb = 2.0) }
+    }
+
+    @Test
+    fun theAmountFieldShowsBitcoinWithoutTrailingZeros() {
+        assertEquals("0.001", BtcSend.formatAmount(100_000))
+        assertEquals("1", BtcSend.formatAmount(100_000_000))
     }
 
     @Test

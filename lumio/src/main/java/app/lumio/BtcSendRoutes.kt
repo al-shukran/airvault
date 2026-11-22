@@ -248,6 +248,19 @@ internal fun BtcSendRoute(
         }
     }
 
+    /** Use Max fills the amount with every coin less the fee at the rate in the field. The owner's amount is replaced, and a refusal shows its words. */
+    fun useMax() {
+        val pool = spendable ?: return
+        runCatching {
+            BtcSend.maxAmountSats(selected.account, pool, BtcSendInput.recipient(recipient, network), BtcSendInput.feeRate(feeRate))
+        }
+            .onSuccess {
+                amount = BtcSend.formatAmount(it)
+                notice = null
+            }
+            .onFailure { error -> notice = ownerWords(error, PREPARE_FAILED) }
+    }
+
     /** A scanned recipient fills To, and the amount when the form has none. A code that is refused keeps the camera on, with the words why. */
     fun onRecipientText(text: String) {
         runCatching { BtcPaymentCode.read(text, network) }
@@ -421,7 +434,7 @@ internal fun BtcSendRoute(
                 } else {
                     null
                 },
-                onUseMax = null,
+                onUseMax = if (total != null) ::useMax else null,
                 networkName = btcNetworkName(network),
                 feeText = sent?.let { btcText(it.feeSats) } ?: "Reading the network",
                 onFee = if (sent != null) { { feeSheet = true } } else null,
