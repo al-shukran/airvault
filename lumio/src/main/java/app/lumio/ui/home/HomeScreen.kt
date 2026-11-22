@@ -20,15 +20,17 @@ import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirTextAction
+import app.lumio.watchlist.WatchedAsset
 import app.lumio.watchlist.WatchlistSort
 import java.util.Locale
 import kotlin.math.abs
 
 /**
  * One watchlist row as Home shows it: its [name], the [detail] line under it such as "BTC · 0.2104 held", and its price and 24 h change. A null
- * [priceUsd] or [change24hPct] is shown as absent, never as zero.
+ * [priceUsd] or [change24hPct] is shown as absent, never as zero. [asset] is the coin the row opens.
  */
 data class WatchlistRow(
+    val asset: WatchedAsset,
     val name: String,
     val detail: String,
     val priceUsd: String?,
@@ -38,7 +40,8 @@ data class WatchlistRow(
 /**
  * The Home tab's body: the total market cap, Send and Receive under it, and the wallet's watchlist with its sort control. [rows] are already in the
  * order the list shows them. A test network shows no prices, because test coins have no value. [onSend] and [onReceive] open the wallet's Send and
- * Receive, and [onSort] opens the sort sheet. The header parts keep the page gutter; the rows are full-bleed, as every list row is.
+ * Receive, [onSort] opens the sort sheet, and [onOpen] opens a row's coin. The header parts keep the page gutter; the rows are full-bleed, as every
+ * list row is.
  */
 @Composable
 fun HomeScreen(
@@ -48,6 +51,7 @@ fun HomeScreen(
     onSend: () -> Unit,
     onReceive: () -> Unit,
     onSort: () -> Unit,
+    onOpen: (WatchedAsset) -> Unit,
 ) {
     val palette = LocalClearAirPalette.current
     Column(
@@ -88,6 +92,7 @@ fun HomeScreen(
             title = row.name,
             description = row.detail,
             trailing = { WatchlistPrice(row = row, testnet = testnet) },
+            onClick = { onOpen(row.asset) },
         )
     }
 }

@@ -8,6 +8,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.ui.theme.ClearAirSpacing
+import app.airvault.core.model.ChainId
+import app.lumio.data.net.NetworkId
 import app.lumio.ui.home.HomeScreen
 import app.lumio.ui.home.WatchlistRow
 import app.lumio.ui.home.WatchlistSortSheet
@@ -15,6 +17,7 @@ import app.lumio.ui.search.SearchRow
 import app.lumio.ui.search.SearchSection
 import app.lumio.ui.search.SearchSheet
 import app.lumio.ui.search.SearchTab
+import app.lumio.watchlist.WatchedAsset
 import app.lumio.watchlist.WatchlistSort
 import org.junit.Rule
 import org.junit.Test
@@ -72,6 +75,7 @@ class HomeSearchScreenshotTest {
                 onSend = {},
                 onReceive = {},
                 onSort = {},
+                onOpen = {},
             )
         }
     }
@@ -89,11 +93,13 @@ class HomeSearchScreenshotTest {
     }
 
     private fun rows(): List<WatchlistRow> = listOf(
-        WatchlistRow(name = "Bitcoin", detail = "BTC · 0.2104 held", priceUsd = "$108,420.35", change24hPct = 1.82),
-        WatchlistRow(name = "Ethereum", detail = "ETH · 22.23 held", priceUsd = "$4,285.70", change24hPct = -2.41),
-        WatchlistRow(name = "Solana", detail = "SOL · 31.5 held", priceUsd = "$184.20", change24hPct = 4.10),
-        WatchlistRow(name = "Algorand", detail = "ALGO", priceUsd = null, change24hPct = null),
+        WatchlistRow(asset = coin("bip122:000000000019d6689c085ae165831e93"), name = "Bitcoin", detail = "BTC · 0.2104 held", priceUsd = "$108,420.35", change24hPct = 1.82),
+        WatchlistRow(asset = coin("eip155:1"), name = "Ethereum", detail = "ETH · 22.23 held", priceUsd = "$4,285.70", change24hPct = -2.41),
+        WatchlistRow(asset = coin("solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"), name = "Solana", detail = "SOL · 31.5 held", priceUsd = "$184.20", change24hPct = 4.10),
+        WatchlistRow(asset = coin("algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8="), name = "Algorand", detail = "ALGO", priceUsd = null, change24hPct = null),
     )
+
+    private fun coin(chain: String): WatchedAsset = WatchedAsset(NetworkId(ChainId(chain), testnet = false))
 
     private fun sections(): List<SearchSection> = listOf(
         SearchSection(

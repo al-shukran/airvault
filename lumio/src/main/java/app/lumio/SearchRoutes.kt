@@ -106,8 +106,9 @@ private fun coinEntries(view: WalletsView, openRoute: (String) -> Unit): List<Se
     .filter { (_, balance) -> balance.balance.signum() > 0 }
     .distinctBy { (_, balance) -> balance.assetId }
     .map { (walletId, balance) ->
-        val (symbol, name) = coinNames(WatchedAsset(balance.network))
-        SearchEntry(title = name, detail = symbol, terms = listOf(name, symbol), target = { openRoute(LumioRoute.wallet(walletId)) })
+        val coin = WatchedAsset(balance.network)
+        val (symbol, name) = coinNames(coin)
+        SearchEntry(title = name, detail = symbol, terms = listOf(name, symbol), target = { openRoute(LumioRoute.coin(walletId, coin)) })
     }
 
 /** One entry per account of every wallet, found by its network, its wallet's name and its address. */
@@ -136,6 +137,6 @@ private fun watchEntries(assets: List<WatchedAsset>, walletId: String?, openRout
     if (walletId == null) return emptyList()
     return assets.map { asset ->
         val (symbol, name) = coinNames(asset)
-        SearchEntry(title = name, detail = symbol, terms = listOf(name, symbol), target = { openRoute(LumioRoute.wallet(walletId)) })
+        SearchEntry(title = name, detail = symbol, terms = listOf(name, symbol), target = { openRoute(LumioRoute.coin(walletId, asset)) })
     }
 }

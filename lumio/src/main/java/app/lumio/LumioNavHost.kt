@@ -48,6 +48,8 @@ import app.lumio.ui.kit.ClearAirTestnetHatch
 import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.kit.lumioComposable
 import app.lumio.ui.settings.SettingsPage
+import app.lumio.ui.wallets.NATIVE_ASSET_KEY
+import app.lumio.watchlist.WatchedAsset
 import kotlinx.coroutines.launch
 
 
@@ -135,6 +137,25 @@ internal object LumioRoute {
 
     /** The route of the asset [assetKey] of [account] in [walletId]. */
     fun asset(walletId: String, account: AccountId, assetKey: String): String = "asset/$walletId/${account.caip10}/$assetKey"
+
+    /** The arguments of a coin's routes: the wallet, the coin's chain and its testnet flag, and its contract or the native key. */
+    const val COIN_CHAIN_ARG = "chain"
+    const val COIN_TESTNET_ARG = "testnet"
+    const val COIN_CONTRACT_ARG = "contract"
+
+    /** The Asset page (C4) of a coin across one wallet, opened from Home, Search and the watchlist. */
+    const val COIN = "coin/{$WALLET_ARG}/{$COIN_CHAIN_ARG}/{$COIN_TESTNET_ARG}/{$COIN_CONTRACT_ARG}"
+
+    /** The route of the Asset page of [asset] across the wallet [walletId]. */
+    fun coin(walletId: String, asset: WatchedAsset): String = "coin/$walletId/${coinSegments(asset)}"
+
+    /** The Holdings Breakdown (C5) of [asset] in the wallet [walletId], pushed from the Asset page. */
+    const val HOLDINGS = "holdings/{$WALLET_ARG}/{$COIN_CHAIN_ARG}/{$COIN_TESTNET_ARG}/{$COIN_CONTRACT_ARG}"
+
+    /** The route of the Holdings Breakdown of [asset] in the wallet [walletId]. */
+    fun holdings(walletId: String, asset: WatchedAsset): String = "holdings/$walletId/${coinSegments(asset)}"
+
+    private fun coinSegments(asset: WatchedAsset): String = "${asset.network.chain.caip2}/${asset.network.testnet}/${asset.contract ?: NATIVE_ASSET_KEY}"
 
     /** One paired wallet's page, opened from the Accounts tab and from the profile panel. */
     const val WALLET = "wallet/{$WALLET_ARG}"
@@ -422,6 +443,32 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                         accountId = account,
                         selection = selection,
                         listVersion = listVersion,
+                        onLock = { lock() },
+                    )
+                }
+            }
+            lumioComposable(route = LumioRoute.COIN, arguments = coinArguments()) { entry ->
+                LumioBackdrop(selection) {
+                    AssetRoute(
+                        navController = navController,
+                        holder = holder,
+                        selection = selection,
+                        listVersion = listVersion,
+                        walletId = entry.coinWallet(),
+                        asset = entry.coinAsset(),
+                        onLock = { lock() },
+                    )
+                }
+            }
+            lumioComposable(route = LumioRoute.HOLDINGS, arguments = coinArguments()) { entry ->
+                LumioBackdrop(selection) {
+                    HoldingsRoute(
+                        navController = navController,
+                        holder = holder,
+                        selection = selection,
+                        listVersion = listVersion,
+                        walletId = entry.coinWallet(),
+                        asset = entry.coinAsset(),
                         onLock = { lock() },
                     )
                 }
