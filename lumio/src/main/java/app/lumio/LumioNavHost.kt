@@ -510,7 +510,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                     ActivityRoute(navController = navController, holder = holder, selection = selection, listVersion = listVersion, coin = null, onLock = { lock() })
                 }
             }
-            lumioComposable(route = LumioRoute.ACTIVITY_COIN, arguments = coinArguments()) { entry ->
+            lumioComposable(route = LumioRoute.ACTIVITY_COIN, arguments = coinAssetArguments()) { entry ->
                 LumioBackdrop(selection) {
                     ActivityRoute(
                         navController = navController,
