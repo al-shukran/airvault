@@ -35,11 +35,14 @@ import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.ClearAirIconButton
 import app.lumio.ui.kit.ClearAirRow
 
-/** The tabs of the search, in their order. Each shows the results of its own kind; the tabs the wallet has no data for yet are not listed. */
+/** The tabs of the search, in their order. Each shows the results of its own kind. */
 enum class SearchTab(val label: String) {
     MAIN("Main"),
+    ADDRESS_BOOK("Address Book"),
     WATCHLIST("Watchlist"),
     TRENDING("Trending"),
+    ETH("ETH"),
+    SOL("SOL"),
     CHAINS("Chains"),
 }
 

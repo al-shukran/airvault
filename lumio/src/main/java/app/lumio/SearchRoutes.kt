@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.ui.components.groupAddress
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.TrendingCoin
 import app.lumio.data.provider.TrendingList
 import app.lumio.search.SearchEntry
@@ -70,6 +71,9 @@ internal fun SearchRoute(
         SearchTab.TRENDING -> listOfNotNull(section(null, trendingRows(board.trending?.value, needle)))
         SearchTab.MAIN -> if (needle.isEmpty()) emptyList() else mainSections(needle, view, ::openRoute)
         SearchTab.WATCHLIST -> if (needle.isEmpty()) emptyList() else listOfNotNull(section(null, matching(needle, watchEntries(watched, wallet?.id, ::openRoute)).rows()))
+        SearchTab.ADDRESS_BOOK -> if (needle.isEmpty()) emptyList() else listOfNotNull(section(null, matching(needle, addressBookEntries(view, ::openRoute)).rows()))
+        SearchTab.ETH -> if (needle.isEmpty()) emptyList() else chainTabSections(needle, view, Networks.EIP155, ::openRoute)
+        SearchTab.SOL -> if (needle.isEmpty()) emptyList() else chainTabSections(needle, view, Networks.SOLANA, ::openRoute)
         SearchTab.CHAINS -> if (needle.isEmpty()) emptyList() else listOfNotNull(section(null, matching(needle, chainEntries(view, ::openRoute)).rows()))
     }
     SearchSheet(
@@ -98,6 +102,12 @@ private fun mainSections(query: String, view: WalletsView, openRoute: (String) -
     )
 }
 
+/** The ETH and SOL tabs: the coins and the accounts on the chains of [namespace], grouped under their own labels. */
+private fun chainTabSections(query: String, view: WalletsView, namespace: String, openRoute: (String) -> Unit): List<SearchSection> = listOfNotNull(
+    section("Tokens", matching(query, coinEntries(view, openRoute, namespace)).rows()),
+    section("Your Accounts", matching(query, accountEntries(view, openRoute, namespace)).rows()),
+)
+
 /** A section of [rows] under [label], or null when there are no rows to show. */
 private fun section(label: String?, rows: List<SearchRow>): SearchSection? = if (rows.isEmpty()) null else SearchSection(label, rows)
 
@@ -119,10 +129,13 @@ private fun List<SearchEntry<Open>>.rows(): List<SearchRow> = mapIndexed { index
     SearchRow(key = "$index-${entry.title}", title = entry.title, detail = entry.detail, onOpen = entry.target)
 }
 
-/** One entry per coin that an account holds, found by its name and its ticker. It opens the wallet that holds the coin. */
-private fun coinEntries(view: WalletsView, openRoute: (String) -> Unit): List<SearchEntry<Open>> = view.wallets
+/**
+ * One entry per coin that an account holds, found by its name and its ticker. It opens the wallet that holds the coin. [namespace] keeps the coins on
+ * the chains of that namespace only, and null keeps them all.
+ */
+private fun coinEntries(view: WalletsView, openRoute: (String) -> Unit, namespace: String? = null): List<SearchEntry<Open>> = view.wallets
     .flatMap { wallet -> view.accountsOf(wallet.id).mapNotNull { account -> account.balance?.let { wallet.id to it } } }
-    .filter { (_, balance) -> balance.balance.signum() > 0 }
+    .filter { (_, balance) -> balance.balance.signum() > 0 && (namespace == null || balance.network.chain.namespace == namespace) }
     .distinctBy { (_, balance) -> balance.assetId }
     .map { (walletId, balance) ->
         val coin = WatchedAsset(balance.network)
@@ -130,9 +143,12 @@ private fun coinEntries(view: WalletsView, openRoute: (String) -> Unit): List<Se
         SearchEntry(title = name, detail = symbol, terms = listOf(name, symbol), target = { openRoute(LumioRoute.coin(walletId, coin)) })
     }
 
-/** One entry per account of every wallet, found by its network, its wallet's name and its address. */
-private fun accountEntries(view: WalletsView, openRoute: (String) -> Unit): List<SearchEntry<Open>> = view.wallets.flatMap { wallet ->
-    view.accountsOf(wallet.id).map { account ->
+/**
+ * One entry per account of every wallet, found by its network, its wallet's name and its address. [namespace] keeps the accounts of that namespace only,
+ * and null keeps them all.
+ */
+private fun accountEntries(view: WalletsView, openRoute: (String) -> Unit, namespace: String? = null): List<SearchEntry<Open>> = view.wallets.flatMap { wallet ->
+    view.accountsOf(wallet.id).filter { namespace == null || it.namespace == namespace }.map { account ->
         SearchEntry(
             title = account.networkName,
             detail = wallet.name,
@@ -150,6 +166,18 @@ private fun chainEntries(view: WalletsView, openRoute: (String) -> Unit): List<S
     .map { network ->
         SearchEntry(title = network, detail = "Chain", terms = listOf(network), target = { openRoute(LumioRoute.SETTINGS_NETWORKS) })
     }
+
+/** One entry per address-book entry of every wallet, found by its name, its label and its address. It opens the wallet's address book. */
+private fun addressBookEntries(view: WalletsView, openRoute: (String) -> Unit): List<SearchEntry<Open>> = view.wallets.flatMap { wallet ->
+    wallet.addressBook.map { entry ->
+        SearchEntry(
+            title = entry.name,
+            detail = entry.label ?: groupAddress(entry.address),
+            terms = listOfNotNull(entry.name, entry.label, entry.address),
+            target = { openRoute(LumioRoute.addressBook(wallet.id)) },
+        )
+    }
+}
 
 /** One entry per watched asset of the wallet [walletId], found by its name and its ticker. No wallet means no watchlist. */
 private fun watchEntries(assets: List<WatchedAsset>, walletId: String?, openRoute: (String) -> Unit): List<SearchEntry<Open>> {

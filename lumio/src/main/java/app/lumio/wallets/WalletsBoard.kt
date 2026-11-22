@@ -60,6 +60,7 @@ private class Loaded(
     val prices: Map<AssetId, Price>,
     val market: Kept<MarketQuote>?,
     val trending: Kept<TrendingList>?,
+    val dayCharts: Map<AssetId, PriceSeries>,
 )
 
 /**
@@ -258,6 +259,7 @@ internal class WalletsBoard(
     /** Reads the trending coins from the sources, for the search sheet's Trending tab. */
     fun refreshTrending() {
         scope.launch {
+            if (!withContext(Dispatchers.IO) { repository.servesTrending() }) trending = null
             readOrNull { withContext(Dispatchers.IO) { repository.trending() } }?.let { trending = it }
         }
     }
@@ -271,6 +273,7 @@ internal class WalletsBoard(
 
     /** One pass of [refreshMarket]: the market, the watched prices and their day charts. Each read runs off the main thread, and its answer lands here. */
     private suspend fun readMarket() {
+        if (!withContext(Dispatchers.IO) { repository.servesMarket() }) market = null
         readOrNull { withContext(Dispatchers.IO) { repository.market() } }?.let { market = it }
         val assets = watchedAssets()
         readOrNull { withContext(Dispatchers.IO) { repository.assetPrices(assets) } }?.let { prices = prices + it }
@@ -340,6 +343,8 @@ internal class WalletsBoard(
         prices = loaded.prices + prices
         market = loaded.market ?: market
         trending = loaded.trending ?: trending
+        // A day chart read since the vault was read is newer than the vault's copy, so it wins.
+        dayCharts.putAll(loaded.dayCharts.filterKeys { it !in dayCharts })
         if (withAccounts) {
             accountsJob?.cancel()
             accountsJob = scope.launch { readAccounts(mode, loaded.view) }
@@ -388,6 +393,7 @@ internal class WalletsBoard(
         val (prices, market, trending) = withContext(Dispatchers.IO) {
             Triple(repository.lastPrices(assetsOf(watchlists)), repository.lastMarket(), repository.lastTrending())
         }
+        val dayCharts = withContext(Dispatchers.IO) { repository.lastDayCharts(assetsOf(watchlists)) }
         return Loaded(
             view,
             tokenCounts = held.mapValues { (_, tokens) -> tokens.count { it.amount.signum() > 0 } },
@@ -396,6 +402,7 @@ internal class WalletsBoard(
             prices = prices,
             market = market,
             trending = trending,
+            dayCharts = dayCharts,
         )
     }
 

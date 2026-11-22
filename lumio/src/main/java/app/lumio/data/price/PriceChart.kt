@@ -1,6 +1,7 @@
 package app.lumio.data.price
 
 import app.lumio.data.asset.AssetId
+import kotlinx.serialization.Serializable
 
 private const val MINUTE_MS = 60_000L
 private const val HOUR_MS = 3_600_000L
@@ -34,12 +35,14 @@ enum class ChartRange(val label: String, val period: String, val periodMs: Long,
 data class ChartQuery(val startSec: Long, val span: Int, val period: String)
 
 /** One price of a chart: [usd] per coin at [timeMs], in epoch milliseconds. */
+@Serializable
 data class PricePoint(val timeMs: Long, val usd: Double)
 
 /**
  * A price chart in time order. [points] is empty when the source has no price in the window, which is an answer and not a failure. [low] and [high]
  * are the least and the greatest price, and [rising] says whether the last point is at or above the first.
  */
+@Serializable
 data class PriceSeries(val points: List<PricePoint>) {
     val low: Double? get() = points.minOfOrNull { it.usd }
 
