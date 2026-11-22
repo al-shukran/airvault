@@ -23,8 +23,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -46,7 +46,7 @@ class AlgorandAlgodTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     /** The address of the local server, without a trailing slash, as an endpoint of the provider. */
@@ -58,25 +58,25 @@ class AlgorandAlgodTest {
     private fun <T> call(req: Request<T>): T = runBlocking { provider().execute(req, cfg, http) }
 
     /** An account answer whose `amount` is [amount], written as algod writes it: a JSON number. */
-    private fun account(amount: String) = MockResponse().setBody(
+    private fun account(amount: String) = MockResponse.Builder().body(
         """{"address":"$address","amount":$amount,"amount-without-pending-rewards":$amount,"min-balance":100000,"round":1}""",
-    )
+    ).build()
 
     @Test
     fun theAssetHoldingsAreTheAssetsOfTheAccountWithTheirAmountsAndFrozenFlags() {
         server.enqueue(
-            MockResponse().setBody(
+            MockResponse.Builder().body(
                 """{"address":"$address","amount":1500000,"assets":[""" +
                     """{"amount":1500000,"asset-id":10458941,"is-frozen":false},""" +
                     """{"amount":0,"asset-id":31566704,"is-frozen":true}]}""",
-            ),
+            ).build(),
         )
 
         assertEquals(
             listOf(AsaHolding(10458941UL, BigInteger("1500000"), frozen = false), AsaHolding(31566704UL, BigInteger.ZERO, frozen = true)),
             call(AsaHoldings(ALGORAND_TESTNET, address)),
         )
-        assertEquals("/v2/accounts/$address", server.takeRequest().path)
+        assertEquals("/v2/accounts/$address", server.takeRequest().target)
     }
 
     @Test
@@ -88,7 +88,7 @@ class AlgorandAlgodTest {
 
     @Test
     fun anAssetEntryThatIsNotAnObjectIsAMalformedAnswer() {
-        server.enqueue(MockResponse().setBody("""{"address":"$address","amount":1,"assets":[3]}"""))
+        server.enqueue(MockResponse.Builder().body("""{"address":"$address","amount":1,"assets":[3]}""").build())
 
         assertFailsWith<ProviderError.Fatal> { call(AsaHoldings(ALGORAND_TESTNET, address)) }
     }
@@ -96,18 +96,18 @@ class AlgorandAlgodTest {
     @Test
     fun anAssetsDecimalsAndUnitNameAreReadFromItsParams() {
         server.enqueue(
-            MockResponse().setBody("""{"index":10458941,"params":{"creator":"$address","decimals":6,"name":"USDC","unit-name":"USDC","total":1}}"""),
+            MockResponse.Builder().body("""{"index":10458941,"params":{"creator":"$address","decimals":6,"name":"USDC","unit-name":"USDC","total":1}}""").build(),
         )
 
         assertEquals(AsaInfo(decimals = 6, unitName = "USDC", name = "USDC"), call(AsaAssetInfo(ALGORAND_TESTNET, 10458941UL)))
-        assertEquals("/v2/assets/10458941", server.takeRequest().path)
+        assertEquals("/v2/assets/10458941", server.takeRequest().target)
     }
 
     @Test
     fun aMissingNameIsEmptyAndDecimalsOutsideZeroToNineteenAreMalformed() {
-        server.enqueue(MockResponse().setBody("""{"index":7,"params":{"creator":"$address","decimals":0}}"""))
+        server.enqueue(MockResponse.Builder().body("""{"index":7,"params":{"creator":"$address","decimals":0}}""").build())
         assertEquals(AsaInfo(decimals = 0, unitName = "", name = ""), call(AsaAssetInfo(ALGORAND_TESTNET, 7UL)))
-        server.enqueue(MockResponse().setBody("""{"index":8,"params":{"decimals":20}}"""))
+        server.enqueue(MockResponse.Builder().body("""{"index":8,"params":{"decimals":20}}""").build())
         assertFailsWith<ProviderError.Fatal> { call(AsaAssetInfo(ALGORAND_TESTNET, 8UL)) }
     }
 
@@ -123,7 +123,7 @@ class AlgorandAlgodTest {
         assertEquals(BigInteger("1500000"), call(NativeBalance(ALGORAND_TESTNET, address)))
         val request = server.takeRequest()
         assertEquals("GET", request.method)
-        assertEquals("/v2/accounts/$address", request.path)
+        assertEquals("/v2/accounts/$address", request.target)
     }
 
     @Test
@@ -154,7 +154,7 @@ class AlgorandAlgodTest {
         val balance = runBlocking { mainnetOnly.execute(NativeBalance(ALGORAND_MAINNET, address), cfg, http) }
 
         assertEquals(BigInteger("2000000"), balance)
-        assertEquals("/v2/accounts/$address", server.takeRequest().path)
+        assertEquals("/v2/accounts/$address", server.takeRequest().target)
     }
 
     @Test
@@ -188,7 +188,7 @@ class AlgorandAlgodTest {
 
     @Test
     fun aRateLimitIsRateLimitedWithItsRetryAfter() {
-        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "7"))
+        server.enqueue(MockResponse.Builder().code(429).setHeader("Retry-After", "7").build())
 
         val error = assertFailsWith<ProviderError.RateLimited> { call(NativeBalance(ALGORAND_TESTNET, address)) }
 
@@ -197,14 +197,14 @@ class AlgorandAlgodTest {
 
     @Test
     fun aServerErrorIsTransient() {
-        server.enqueue(MockResponse().setResponseCode(503))
+        server.enqueue(MockResponse.Builder().code(503).build())
 
         assertFailsWith<ProviderError.Transient> { call(NativeBalance(ALGORAND_TESTNET, address)) }
     }
 
     @Test
     fun aRedirectIsNotFollowed() {
-        server.enqueue(MockResponse().setResponseCode(302).setHeader("Location", server.url("/elsewhere").toString()))
+        server.enqueue(MockResponse.Builder().code(302).setHeader("Location", server.url("/elsewhere").toString()).build())
         server.enqueue(account("1"))
 
         assertFailsWith<ProviderError.Fatal> { call(NativeBalance(ALGORAND_TESTNET, address)) }
@@ -213,7 +213,7 @@ class AlgorandAlgodTest {
 
     @Test
     fun anAnswerThatIsNotJsonIsTransient() {
-        server.enqueue(MockResponse().setBody("<html>busy</html>"))
+        server.enqueue(MockResponse.Builder().body("<html>busy</html>").build())
 
         assertFailsWith<ProviderError.Transient> { call(NativeBalance(ALGORAND_TESTNET, address)) }
     }
@@ -227,7 +227,7 @@ class AlgorandAlgodTest {
             """{"amount":-1}""",
             """{"amount":"abc"}""",
         )
-        malformed.forEach { server.enqueue(MockResponse().setBody(it)) }
+        malformed.forEach { server.enqueue(MockResponse.Builder().body(it).build()) }
 
         repeat(malformed.size) { assertFailsWith<ProviderError.Fatal> { call(NativeBalance(ALGORAND_TESTNET, address)) } }
     }
@@ -235,7 +235,7 @@ class AlgorandAlgodTest {
     @Test
     fun anAnswerLargerThanTheCapIsTransient() {
         val padding = "x".repeat(MAX_ANSWER_BYTES.toInt())
-        server.enqueue(MockResponse().setBody("""{"amount":1,"pad":"$padding"}"""))
+        server.enqueue(MockResponse.Builder().body("""{"amount":1,"pad":"$padding"}""").build())
 
         assertFailsWith<ProviderError.Transient> { call(NativeBalance(ALGORAND_TESTNET, address)) }
     }

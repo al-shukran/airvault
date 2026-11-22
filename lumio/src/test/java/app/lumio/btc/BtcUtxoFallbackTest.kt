@@ -20,8 +20,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -54,9 +54,9 @@ class BtcUtxoFallbackTest {
     @After
     fun stop() {
         scope.cancel()
-        mempool.shutdown()
-        blockstream.shutdown()
-        blockchair.shutdown()
+        mempool.close()
+        blockstream.close()
+        blockchair.close()
     }
 
     private fun scheduler(): Scheduler = Scheduler(
@@ -84,17 +84,17 @@ class BtcUtxoFallbackTest {
 
     @Test
     fun blockchairServesTheOutputsWhenMempoolAndBlockstreamAreCoolingDown() = runBlocking {
-        mempool.enqueue(MockResponse().setResponseCode(429).addHeader("Retry-After", "60"))
-        blockstream.enqueue(MockResponse().setResponseCode(429).addHeader("Retry-After", "60"))
-        blockchair.enqueue(MockResponse().setBody(blockchairPage(oneOutput)))
-        blockchair.enqueue(MockResponse().setBody(blockchairPage("")))
+        mempool.enqueue(MockResponse.Builder().code(429).addHeader("Retry-After", "60").build())
+        blockstream.enqueue(MockResponse.Builder().code(429).addHeader("Retry-After", "60").build())
+        blockchair.enqueue(MockResponse.Builder().body(blockchairPage(oneOutput)).build())
+        blockchair.enqueue(MockResponse.Builder().body(blockchairPage("")).build())
         val scheduler = scheduler()
 
         assertEquals(1, scheduler.run(AddressUtxos(BTC, address), Priority.FOREGROUND).size)
 
         // Both Esplora providers are cooling now, so the next read goes straight to Blockchair.
-        blockchair.enqueue(MockResponse().setBody(blockchairPage(oneOutput)))
-        blockchair.enqueue(MockResponse().setBody(blockchairPage("")))
+        blockchair.enqueue(MockResponse.Builder().body(blockchairPage(oneOutput)).build())
+        blockchair.enqueue(MockResponse.Builder().body(blockchairPage("")).build())
         assertEquals(1, scheduler.run(AddressUtxos(BTC, address), Priority.FOREGROUND).size)
 
         assertEquals(1, mempool.requestCount)
@@ -105,7 +105,7 @@ class BtcUtxoFallbackTest {
 
     @Test
     fun blockchairIsNotCalledWhileMempoolIsHealthy() = runBlocking {
-        mempool.enqueue(MockResponse().setBody("[]"))
+        mempool.enqueue(MockResponse.Builder().body("[]").build())
 
         assertEquals(0, scheduler().run(AddressUtxos(BTC, address), Priority.FOREGROUND).size)
 

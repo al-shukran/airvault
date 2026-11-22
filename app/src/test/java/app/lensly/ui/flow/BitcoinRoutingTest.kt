@@ -44,10 +44,7 @@ class BitcoinRoutingTest {
     val tmp = TemporaryFolder()
 
     private val context: Context = RuntimeEnvironment.getApplication()
-    private val words = (
-        "REDACTED-TEST-MNEMONIC REDACTED sketch " +
-            "REDACTED REDACTED-TEST-MNEMONIC"
-        ).split(" ")
+    private val words = List(23) { "abandon" } + "art"
 
     @Test
     fun aRequestFromTheStoredScriptTypeRoutesToTheWalletAndAnotherScriptTypeDoesNot() {

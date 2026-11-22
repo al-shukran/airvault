@@ -20,7 +20,7 @@ Guava 33.7.2-android and failureaccess 1.0.3 (Google).
 
 Jackson 2.18.11: jackson-core, jackson-databind and jackson-annotations (FasterXML). Its NOTICE is quoted below.
 
-OkHttp 4.12.0, logging-interceptor 4.12.0 and Okio 3.6.0 (Square). OkHttp's public suffix data is under the Mozilla Public License 2.0, quoted below.
+OkHttp 5.5.1 and Okio 3.18.1 (Square). OkHttp's public suffix data is under the Mozilla Public License 2.0, quoted below.
 
 RxJava 2.2.21 (ReactiveX).
 
@@ -447,9 +447,11 @@ None
 
 None
 
-==== OkHttp NOTICE (4.12.0) ====
+==== OkHttp NOTICE (5.5.1) ====
 
-Note that publicsuffixes.gz is compiled from The Public Suffix List:
+OkHttp 5.5.1 ships no NOTICE file. Its licence is Apache-2.0 (LICENSE.txt in the release). The public suffix data in the jar is the attribution below.
+
+Note that PublicSuffixDatabase.list is compiled from The Public Suffix List:
 https://publicsuffix.org/list/public_suffix_list.dat
 
 It is subject to the terms of the Mozilla Public License, v. 2.0:
