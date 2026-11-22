@@ -53,7 +53,7 @@ class FirstRunIntroTest {
         compose.onNodeWithText("Get Started").performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("Your Keys Never Leave Your Phone").assertIsDisplayed()
+        compose.onNodeWithText("Your Keys Stay on Lensly").assertIsDisplayed()
         compose.onNodeWithText("Welcome to AirVault").assertDoesNotExist()
     }
 
@@ -63,7 +63,7 @@ class FirstRunIntroTest {
 
         compose.onNodeWithTag(FIRST_RUN_INTRO_TAG).performTouchInput { swipeLeft() }
         compose.waitForIdle()
-        compose.onNodeWithText("Your Keys Never Leave Your Phone").assertIsDisplayed()
+        compose.onNodeWithText("Your Keys Stay on Lensly").assertIsDisplayed()
 
         compose.onNodeWithTag(FIRST_RUN_INTRO_TAG).performTouchInput { swipeLeft() }
         compose.waitForIdle()
@@ -71,7 +71,7 @@ class FirstRunIntroTest {
 
         compose.onNodeWithTag(FIRST_RUN_INTRO_TAG).performTouchInput { swipeRight() }
         compose.waitForIdle()
-        compose.onNodeWithText("Your Keys Never Leave Your Phone").assertIsDisplayed()
+        compose.onNodeWithText("Your Keys Stay on Lensly").assertIsDisplayed()
     }
 
     @Test
@@ -117,7 +117,7 @@ class FirstRunIntroTest {
         compose.waitForIdle()
 
         compose.onNodeWithText("Welcome to AirVault").assertDoesNotExist()
-        compose.onNodeWithText("Your Keys Never Leave Your Phone").assertIsDisplayed()
+        compose.onNodeWithText("Your Keys Stay on Lensly").assertIsDisplayed()
     }
 
     @Test
@@ -131,6 +131,6 @@ class FirstRunIntroTest {
 
         compose.mainClock.autoAdvance = true
         compose.waitForIdle()
-        compose.onNodeWithText("Your Keys Never Leave Your Phone").assertIsDisplayed()
+        compose.onNodeWithText("Your Keys Stay on Lensly").assertIsDisplayed()
     }
 }
