@@ -1,6 +1,8 @@
 package app.lumio.ui.asset
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -65,7 +67,7 @@ internal fun AssetPage(
     activity: @Composable () -> Unit,
 ) {
     val palette = LocalClearAirPalette.current
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.md)) {
+    Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(vertical = ClearAirSpacing.md)) {
         AssetTopBar(name = name, watched = watched, onWatch = onWatch, onBack = onBack, onLock = onLock)
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter),

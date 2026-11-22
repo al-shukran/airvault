@@ -1,6 +1,7 @@
 package app.lumio.ui.screenshot
 
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -8,6 +9,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import app.airvault.core.model.AccountId
+import app.lensly.ui.theme.ClearAirSpacing
+import app.lensly.ui.theme.ClearAirType
+import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.data.net.Networks
 import app.lumio.data.price.ChartRange
 import app.lumio.data.price.PricePoint
@@ -24,10 +28,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 /** The Asset page (C4) and Holdings Breakdown (C5) as the design draws them: Ethereum held on three chains across five accounts. */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = LUMIO_DARK_QUALIFIERS)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class AssetScreenshotTest {
     @get:Rule
     val compose = createComposeRule()
@@ -79,7 +85,14 @@ class AssetScreenshotTest {
             onBack = {},
             onLock = {},
             onAllActivity = {},
-            activity = { Text(text = "No activity yet. Your first receive will appear here.") },
+            activity = {
+                Text(
+                    text = "No activity yet. Your first receive will appear here.",
+                    style = ClearAirType.body,
+                    color = LocalClearAirPalette.current.ink2,
+                    modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter),
+                )
+            },
         )
     }
 

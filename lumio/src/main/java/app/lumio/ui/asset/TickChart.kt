@@ -44,22 +44,24 @@ fun TickChart(series: PriceSeries, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
     val tint = if (series.rising) palette.vaultBlue else palette.rose
     Canvas(modifier = modifier.fillMaxWidth().height(CHART_HEIGHT)) {
-        val ticks = ticksOf(series.points.map { it.usd }, size.width, size.height)
+        // The ticks sit inside the half diamond on each side, so the last point's diamond is never cut off.
+        val inset = DIAMOND_HALF.toPx()
+        val ticks = ticksOf(series.points.map { it.usd }, size.width - 2 * inset, size.height)
         ticks.forEach { tick ->
             drawLine(
                 color = tint,
-                start = Offset(tick.x, tick.from),
-                end = Offset(tick.x, tick.to),
+                start = Offset(tick.x + inset, tick.from),
+                end = Offset(tick.x + inset, tick.to),
                 strokeWidth = TICK_WIDTH.toPx(),
             )
         }
         ticks.lastOrNull()?.let { last ->
-            val half = DIAMOND_HALF.toPx()
+            val x = last.x + inset
             val path = Path().apply {
-                moveTo(last.x, last.to - half)
-                lineTo(last.x + half, last.to)
-                lineTo(last.x, last.to + half)
-                lineTo(last.x - half, last.to)
+                moveTo(x, last.to - inset)
+                lineTo(x + inset, last.to)
+                lineTo(x, last.to + inset)
+                lineTo(x - inset, last.to)
                 close()
             }
             drawPath(path = path, color = palette.ink, style = Stroke(width = TICK_WIDTH.toPx()))

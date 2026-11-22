@@ -2,6 +2,8 @@ package app.lumio.ui.asset
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -32,7 +34,7 @@ internal fun HoldingsPage(
     onLock: () -> Unit,
 ) {
     val palette = LocalClearAirPalette.current
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.md)) {
+    Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(vertical = ClearAirSpacing.md)) {
         ClearAirPageTopBar(title = title, backLabel = "Asset", onBack = onBack, onLock = onLock)
         chains.forEach { chain ->
             Row(
