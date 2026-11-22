@@ -187,6 +187,33 @@ class SolanaSendTest {
         assertEquals(1L, SolanaSend.maxLamports(BigInteger.valueOf(895_881L)))
     }
 
+    /** With an existing nonce account there is no setup, so the max takes no rent, and the send of the max passes its plan. */
+    @Test
+    fun theMaxWithAnExistingNonceAccountTakesNoSetup() {
+        val balance = BigInteger.valueOf(lamports)
+        val max = assertNotNull(SolanaSend.maxLamports(balance, setupRentLamports = null))
+        assertEquals(lamports - SOLANA_FEE_LAMPORTS - SOLANA_RENT_RESERVE_LAMPORTS, max)
+        SolanaSend.plan(SOLANA_DEVNET, account, recipient, max, balance, blockhash, requestId)
+    }
+
+    /**
+     * While the setup is pending, the max keeps its rent and its fee back. It passes the setup's funds check, and once the setup has paid its rent and
+     * fee, the send of the max passes its plan, which one lamport more does not.
+     */
+    @Test
+    fun theMaxWithASetupPendingKeepsTheRentAndTheSetupFeeBack() {
+        val rent = 1_447_680L
+        val balance = BigInteger.valueOf(10_000_000_000L)
+        val max = assertNotNull(SolanaSend.maxLamports(balance, setupRentLamports = rent))
+        assertEquals(10_000_000_000L - rent - 2 * SOLANA_FEE_LAMPORTS - SOLANA_RENT_RESERVE_LAMPORTS, max)
+        SolanaSend.checkSetupFunds(balance, rent)
+        val afterSetup = balance - BigInteger.valueOf(rent + SOLANA_FEE_LAMPORTS)
+        SolanaSend.plan(SOLANA_DEVNET, account, recipient, max, afterSetup, blockhash, requestId)
+        assertFailsWith<IllegalArgumentException> {
+            SolanaSend.plan(SOLANA_DEVNET, account, recipient, max + 1, afterSetup, blockhash, requestId)
+        }
+    }
+
     @Test
     fun aSendNeedsTheAmountTheFeeAndTheRentReserveInTheBalance() {
         assertFailsWith<IllegalArgumentException> {

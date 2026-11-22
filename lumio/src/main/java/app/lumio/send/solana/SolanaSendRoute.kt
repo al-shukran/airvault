@@ -185,6 +185,8 @@ internal fun SolanaSendRoute(
     var assetSheet by remember { mutableStateOf(false) }
     var changeRecipient by remember { mutableStateOf(false) }
     var balance by remember { mutableStateOf<BigInteger?>(null) }
+    // The rent of the one-time setup while the account has no nonce account, or null once it has one. Use Max keeps it back from the balance.
+    var setupRent by remember { mutableStateOf<Long?>(null) }
     var busy by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
     var recipientStatus by remember { mutableStateOf(RECIPIENT_HINT) }
@@ -205,23 +207,34 @@ internal fun SolanaSendRoute(
         "${SolanaAssets.text(token.amount, selected.decimals)} ${selected.symbol}"
     }
     val maxText: String? = if (token == null) {
-        balance?.let { SolanaSend.maxLamports(it, priorityFee) }?.let { SolanaSendInput.format(BigInteger.valueOf(it)) }
+        balance?.let { SolanaSend.maxLamports(it, priorityFee, setupRent) }?.let { SolanaSendInput.format(BigInteger.valueOf(it)) }
     } else {
         SolanaAssets.text(token.amount, selected.decimals)
     }
     val networkLabel = solanaNetworkName(network)
     val feeText = "${SolanaSendInput.format(BigInteger.valueOf(SOLANA_FEE_LAMPORTS))} SOL"
 
-    // The balance and the coins are read once the account is known: SOL, then the SPL tokens that the account holds. A failed token read leaves SOL alone.
+    /** The rent of the one-time setup while [from] has no nonce account, or null once it has one or when the chain cannot be read. */
+    suspend fun setupRentOf(from: SolanaSendAccount): Long? = runCatching {
+        val state = scheduler.run(SolanaAccountRead(network, Base58.encode(SolanaNonce.accountOf(from.key))), Priority.FOREGROUND)
+        if (SolanaSend.noncePath(state, from.key) == SolanaNoncePath.Setup) {
+            scheduler.run(RentExemptMinimum(network, SolanaNonce.ACCOUNT_BYTES), Priority.FOREGROUND)
+        } else {
+            null
+        }
+    }.getOrNull()
+
+    // The balance, the coins and the setup's rent are read once the account is known: SOL, then the SPL tokens that the account holds. A failed token read leaves SOL alone.
     LaunchedEffect(account) {
         val from = account ?: return@LaunchedEffect
         val read = withContext(Dispatchers.IO) {
             val sol = runCatching { scheduler.run(NativeBalance(network, from.address), Priority.FOREGROUND) }.getOrNull()
             val tokens = runCatching { scheduler.run(SplTokenBalances(network, from.address), Priority.FOREGROUND) }.getOrDefault(emptyList())
-            sol to SolanaAssets.choices(tokens, ChainHoldings.solanaNames(app))
+            Triple(sol, SolanaAssets.choices(tokens, ChainHoldings.solanaNames(app)), setupRentOf(from))
         }
         balance = read.first
         assets = read.second
+        setupRent = read.third
     }
 
     /**
@@ -396,6 +409,7 @@ internal fun SolanaSendRoute(
             balance = withContext(Dispatchers.IO) {
                 runCatching { scheduler.run(NativeBalance(network, from.address), Priority.FOREGROUND) }.getOrNull()
             }
+            setupRent = withContext(Dispatchers.IO) { setupRentOf(from) }
         }
     }
 
