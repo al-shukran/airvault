@@ -11,8 +11,8 @@ import app.lensly.core.algorand.AlgoSignedTxn
 import app.lensly.core.algorand.AlgoTxnEncoder
 import app.lensly.core.ur.AlgoSignature
 import app.lumio.data.net.NetworkId
+import app.lumio.data.provider.AlgorandIndexedTx
 import app.lumio.data.provider.AlgorandParams
-import app.lumio.data.provider.AlgorandPendingInfo
 import app.lumio.data.provider.AlgorandPendingTx
 import app.lumio.data.provider.AlgorandSuggestedParams
 import app.lumio.data.provider.AsaHolding
@@ -21,6 +21,8 @@ import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
+import app.lumio.send.Landing
+import app.lumio.send.algorandLanding
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -49,6 +51,9 @@ sealed interface AlgorandSendPlan {
     val amount: BigInteger
     val fee: BigInteger
     val txnBytes: ByteArray
+
+    /** The last round the transaction is valid in. */
+    val lastValid: ULong
 }
 
 /** A payment of ALGO from [signer] to [toAddress], whose transaction is [txn]. */
@@ -63,7 +68,9 @@ class AlgorandPaymentPlan(
     override val fee: BigInteger,
     val txn: Payment,
     override val txnBytes: ByteArray,
-) : AlgorandSendPlan
+) : AlgorandSendPlan {
+    override val lastValid: ULong get() = txn.lastValid
+}
 
 /**
  * An Algorand payment from one account: the amount rules, the fee, the plan that Lensly signs, the check of the signature that comes back, and the
@@ -203,11 +210,18 @@ object AlgorandSend {
         return reported
     }
 
-    /** The pool's state of [txid] on [network], or null when the pool does not hold it: the transaction is confirmed, or it was dropped. */
-    suspend fun pendingState(scheduler: Scheduler, network: NetworkId, txid: String): AlgorandPendingInfo? = try {
-        scheduler.run(AlgorandPendingTx(network, txid), Priority.VISIBLE)
-    } catch (e: ProviderError.NotFound) {
-        null
+    /**
+     * Where [txid] stands on [network]: the pool while it holds the transaction, then the indexer, which tells a confirmed transaction from a dropped one.
+     * [lastValid] is the last round the transaction was valid in. The indexer is read only once the pool lets the transaction go.
+     */
+    suspend fun landing(scheduler: Scheduler, network: NetworkId, txid: String, lastValid: ULong): Landing {
+        val pool = try {
+            scheduler.run(AlgorandPendingTx(network, txid), Priority.BACKGROUND)
+        } catch (e: ProviderError.NotFound) {
+            null
+        }
+        val indexed = if (pool == null) scheduler.run(AlgorandIndexedTx(network, txid), Priority.BACKGROUND) else null
+        return algorandLanding(pool, indexed, lastValid)
     }
 
     /** The page on Lora, the explorer that Algorand testnet and mainnet both use, for the transaction [txid] on [network]. */

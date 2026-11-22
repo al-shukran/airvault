@@ -18,13 +18,11 @@ import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.RecentBlockhash
 import app.lumio.data.provider.SolanaAccountState
 import app.lumio.data.provider.SolanaBlockHeight
-import app.lumio.data.provider.SolanaSignatureStatus
 import app.lumio.data.provider.solana.SOLANA_MAINNET
 import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Base58
-import kotlinx.coroutines.delay
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.security.SecureRandom
@@ -37,10 +35,6 @@ const val SOLANA_RENT_RESERVE_LAMPORTS = 890_880L
 
 /** The origin Lumio names in its sign request. */
 private const val ORIGIN = "Lumio"
-
-/** How many times the status is read after a send, and the wait between two reads. Solana confirms within seconds, so this is about a minute. */
-private const val STATUS_POLLS = 30
-private const val STATUS_POLL_MS = 2_000L
 
 /** The Solana account a send comes from: N of m/44'/501'/N', its public key, and the fingerprint of the wallet's root key. */
 class SolanaSendAccount(val index: Int, val key: ByteArray, val sourceFingerprint: Int?) {
@@ -105,9 +99,6 @@ internal const val NONCE_MOVED = "The network refused the send: this account's n
 
 /** What the owner reads when the account at the nonce address is not an initialized nonce account of this account. */
 internal const val NONCE_UNUSABLE = "The nonce account of this account cannot be used for a send."
-
-/** How a send ended on the network, as far as the status reads showed. [PENDING] means no read showed the answer in time. */
-enum class SolanaOutcome { CONFIRMED, FAILED, PENDING }
 
 /**
  * A send from one Solana account. Lumio reads the balance and a recent blockhash, builds the legacy message of the transfer, and holds no key. It
@@ -290,29 +281,6 @@ object SolanaSend {
         val reported = scheduler.run(Broadcast(network, signed.raw), Priority.FOREGROUND)
         require(reported == signed.signature) { "The server reported a different signature. Check the explorer before you send again." }
         return reported
-    }
-
-    /**
-     * Reads the status of [signature] until the network confirms it or fails it, or until the polls run out. A read that fails is tried again on the next
-     * poll. [pause] waits between two polls, so tests run in no real time.
-     */
-    suspend fun confirm(
-        scheduler: Scheduler,
-        network: NetworkId,
-        signature: String,
-        pause: suspend (Long) -> Unit = { delay(it) },
-    ): SolanaOutcome {
-        repeat(STATUS_POLLS) { poll ->
-            val status = try {
-                scheduler.run(SolanaSignatureStatus(network, signature), Priority.FOREGROUND)
-            } catch (e: ProviderError) {
-                null
-            }
-            if (status != null && status.failed) return SolanaOutcome.FAILED
-            if (status != null && status.confirmed) return SolanaOutcome.CONFIRMED
-            if (poll < STATUS_POLLS - 1) pause(STATUS_POLL_MS)
-        }
-        return SolanaOutcome.PENDING
     }
 
     /** The explorer page of [signature] on [network]: a test cluster names its cluster, and mainnet-beta is the default cluster, so it names none. */

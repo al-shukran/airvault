@@ -49,7 +49,6 @@ import app.lumio.send.ArrivalWatch
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
-import app.lumio.send.algorandLanding
 import app.lumio.send.algorandOwnChoices
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendAmountPage
@@ -115,12 +114,8 @@ private const val SIGNATURE_FAILED = "That code could not be used. Scan the sign
 private const val BROADCAST_FAILED = "The network did not accept the transaction. Check the balance, then try again."
 private const val READ_FAILED = "The Algorand network could not be read. Try again."
 private const val PENDING_TEXT = "Waiting for the network to confirm the transaction."
-private const val NOT_IN_POOL_TEXT = "The network no longer holds the transaction. Check the explorer for its status."
-private const val POOL_READ_FAILED_TEXT = "The network could not be read. Check the explorer for the transaction."
 private const val NO_BROWSER = "No browser can open the explorer."
 private const val REQUEST_ID_BYTES = 16
-private const val POLL_MS = 3_000L
-private const val POLL_LIMIT = 20
 private const val SETTLE_MS = 700L
 
 /**
@@ -177,8 +172,6 @@ internal fun AlgorandSendRoute(
     var scanProgress by remember { mutableStateOf<Float?>(null) }
     var scanStatus by remember { mutableStateOf(SCAN_HINT) }
     var scanBusy by remember { mutableStateOf(false) }
-    var sentStatus by remember { mutableStateOf(PENDING_TEXT) }
-    var sentTxid by remember { mutableStateOf<String?>(null) }
 
     val selected = assets.firstOrNull { it.key == selectedKey } ?: AlgorandAssets.native
     val loaded = funds
@@ -236,35 +229,6 @@ internal fun AlgorandSendRoute(
                 step = AlgorandSendStep.Review(plan)
             }
             .onFailure { notice = AlgorandSend.ownerWords(it, PREPARE_FAILED) }
-    }
-
-    // The status of the sent transaction, read from the pool until the network confirms it or refuses it, or the pool no longer holds it.
-    LaunchedEffect(sentTxid) {
-        val txid = sentTxid ?: return@LaunchedEffect
-        for (attempt in 0 until POLL_LIMIT) {
-            val read = withContext(Dispatchers.IO) { runCatching { AlgorandSend.pendingState(scheduler, network, txid) } }
-            if (read.isFailure) {
-                sentStatus = POOL_READ_FAILED_TEXT
-            } else {
-                val info = read.getOrNull()
-                when {
-                    info == null -> {
-                        sentStatus = NOT_IN_POOL_TEXT
-                        return@LaunchedEffect
-                    }
-                    info.poolError.isNotEmpty() -> {
-                        sentStatus = "The network refused the transaction: ${info.poolError}"
-                        return@LaunchedEffect
-                    }
-                    info.confirmedRound > 0 -> {
-                        sentStatus = "Confirmed in round ${info.confirmedRound}."
-                        return@LaunchedEffect
-                    }
-                    else -> sentStatus = PENDING_TEXT
-                }
-            }
-            if (attempt < POLL_LIMIT - 1) delay(POLL_MS)
-        }
     }
 
     /** Back to the start of the flow: the recipient of a send, or the Add asset page that an opt-in opened from. */
@@ -573,20 +537,17 @@ internal fun AlgorandSendRoute(
             amount = AlgorandAssets.amountText(current.plan, selected.symbol, selected.decimals),
             recipient = if (current.plan is AsaSendPlan && current.plan.isOptIn) fromName else groupAddress(current.plan.toAddress),
             network = networkLabel,
-            timing = sentStatus,
+            timing = PENDING_TEXT,
             fromName = fromName,
-            arrival = if (current.plan is AsaSendPlan && current.plan.isOptIn) null else ArrivalWatch(
+            arrival = ArrivalWatch(
                 arrivals = app.sendArrivals,
                 network = current.plan.network,
-                arrivedHeadline = "Your ${selected.symbol} Has Arrived",
-                read = { txid -> algorandLanding(AlgorandSend.pendingState(scheduler, current.plan.network, txid)) },
+                arrivedHeadline = if (current.plan is AsaSendPlan && current.plan.isOptIn) null else "Your ${selected.symbol} Has Arrived",
+                read = { txid -> AlgorandSend.landing(scheduler, current.plan.network, txid, current.plan.lastValid) },
             ),
             explorerUrl = { txid -> AlgorandSend.explorerUrl(current.plan.network, txid) },
             onExplorer = { txid -> openExplorer(AlgorandSend.explorerUrl(current.plan.network, txid)) },
-            onSent = { txid ->
-                sentStatus = PENDING_TEXT
-                sentTxid = txid
-            },
+            onSent = {},
             onStop = { navController.popBackStack() },
             onDone = { navController.popBackStack() },
             onReview = {

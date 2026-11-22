@@ -2,6 +2,7 @@ package app.lumio.send
 
 import app.lumio.btc.EsploraTxStatus
 import app.lumio.data.net.NetworkId
+import app.lumio.data.provider.AlgorandIndexed
 import app.lumio.data.provider.AlgorandPendingInfo
 import app.lumio.data.provider.EvmReceipt
 import app.lumio.data.provider.SolanaStatus
@@ -12,7 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-/** What the network says about a sent transaction: still on its way, in the recipient's account, or refused for good. */
+/** Where a sent transaction stands: on its way, in the recipient's account, or refused for good (a transaction the network dropped counts as refused). */
 enum class Landing { PENDING, LANDED, REFUSED }
 
 /** Posts the arrival notice. [canPost] is false unless the owner already allows notifications, so an arrival never asks for permission. */
@@ -22,54 +23,65 @@ interface ArrivalNotice {
     fun post(id: String, title: String, text: String)
 }
 
+/** The words of an arrival notice: its [title] and its [text]. */
+data class ArrivalWords(val title: String, val text: String)
+
 /**
  * One sent transaction that a send page shows: the app's [arrivals], the [network] it went out on, the heading that replaces "Is on Its Way" when it
- * lands, and [read], the chain read that says where the transaction id stands.
+ * lands, or null for a send that announces nothing (a setup), and [read], the chain read that says where the transaction id stands.
  */
 class ArrivalWatch(
     val arrivals: SendArrivals,
     val network: NetworkId,
-    val arrivedHeadline: String,
+    val arrivedHeadline: String?,
     val read: suspend (id: String) -> Landing,
 ) {
-    /** Whether the transaction [id] has arrived, watched from the first call. [text] is the notice's second line. */
-    fun arrivedFor(id: String, text: String): StateFlow<Boolean> = arrivals.watch(network, id, arrivedHeadline, text) { read(id) }
+    /** Where the transaction [id] stands, watched from the first call. [text] is the notice's second line. */
+    fun landingOf(id: String, text: String): StateFlow<Landing> =
+        arrivals.watch(network, id, arrivedHeadline?.let { ArrivalWords(it, text) }) { read(id) }
 }
 
 /**
- * The sent transactions that are watched until they land. The app holds one, so a watch keeps polling after the owner leaves the send page, and its
- * state is still there when the owner comes back. A watch reads its chain with backoff, doubling from [FIRST_DELAY_MS] up to [MAX_DELAY_MS], and stops
- * when the chain reports the transaction landed or refused. A read that fails counts as pending and is read again.
+ * The sent transactions that are watched until they land or are refused. The app holds one, so a watch keeps polling after the owner leaves the send
+ * page, and its state is still there when the owner comes back. Each transaction has one watch, so one poll loop however many pages ask for it. A watch
+ * reads its chain with backoff, doubling from [FIRST_DELAY_MS] up to [MAX_DELAY_MS], and stops when the chain reports the transaction landed or refused.
+ * A read that fails counts as pending and is read again.
  *
- * [foreground] says whether the app is on screen. The notice is posted only when it is not, and only if [ArrivalNotice.canPost] holds.
+ * [foreground] says whether the app is on screen. The notice is posted only when it is not, only if [ArrivalNotice.canPost] holds, and only for a watch
+ * that has words.
  */
 class SendArrivals(
     private val scope: CoroutineScope,
     private val notice: ArrivalNotice,
     private val foreground: () -> Boolean,
 ) {
-    private val watches = HashMap<Pair<NetworkId, String>, MutableStateFlow<Boolean>>()
+    private val watches = HashMap<Pair<NetworkId, String>, MutableStateFlow<Landing>>()
 
     /**
-     * Whether the transaction [id] on [network] has arrived. The first call starts its watch, which reads the chain with [read]; later calls for the
-     * same transaction get the same state. [title] and [text] are the notice's words.
+     * Where the transaction [id] on [network] stands. The first call starts its watch, which reads the chain with [read]; later calls for the same
+     * transaction get the same state and start nothing. [words] is the notice to post when it lands, or null for no notice.
      */
     @Synchronized
-    fun watch(network: NetworkId, id: String, title: String, text: String, read: suspend () -> Landing): StateFlow<Boolean> {
+    fun watch(network: NetworkId, id: String, words: ArrivalWords?, read: suspend () -> Landing): StateFlow<Landing> {
         watches[network to id]?.let { return it }
-        val arrived = MutableStateFlow(false)
-        watches[network to id] = arrived
-        scope.launch { poll(id, arrived, title, text, read) }
-        return arrived
+        val landing = MutableStateFlow(Landing.PENDING)
+        watches[network to id] = landing
+        scope.launch { poll(id, landing, words, read) }
+        return landing
     }
 
-    private suspend fun poll(id: String, arrived: MutableStateFlow<Boolean>, title: String, text: String, read: suspend () -> Landing) {
+    /** Where the watched transaction [id] on [network] stands now, or pending when no watch holds it. */
+    @Synchronized
+    fun landingNow(network: NetworkId, id: String): Landing = watches[network to id]?.value ?: Landing.PENDING
+
+    private suspend fun poll(id: String, landing: MutableStateFlow<Landing>, words: ArrivalWords?, read: suspend () -> Landing) {
         var wait = FIRST_DELAY_MS
         while (true) {
-            when (answerOf(read)) {
+            val answer = answerOf(read)
+            landing.value = answer
+            when (answer) {
                 Landing.LANDED -> {
-                    arrived.value = true
-                    if (!foreground() && notice.canPost()) notice.post(id, title, text)
+                    if (words != null && !foreground() && notice.canPost()) notice.post(id, words.title, words.text)
                     return
                 }
                 Landing.REFUSED -> return
@@ -113,12 +125,15 @@ internal fun solanaLanding(status: SolanaStatus?): Landing = when {
 }
 
 /**
- * Algorand: the pool reports the round that confirmed the transaction, and a pool error refuses it. A transaction the pool no longer holds reads as
- * pending: the pool's answer cannot tell a confirmed transaction from a dropped one.
+ * Algorand: while the pool holds the transaction, its answer decides: a pool error refuses it, and a confirmed round lands it. Once the pool lets go,
+ * [indexed] says whether the indexer holds the transaction, which lands it. Otherwise it was dropped once the indexer has read past the last round the
+ * transaction was valid in, since no round after that can include it. Before then it is still pending.
  */
-internal fun algorandLanding(info: AlgorandPendingInfo?): Landing = when {
-    info == null -> Landing.PENDING
-    info.poolError.isNotEmpty() -> Landing.REFUSED
-    info.confirmedRound > 0 -> Landing.LANDED
+internal fun algorandLanding(pool: AlgorandPendingInfo?, indexed: AlgorandIndexed?, lastValid: ULong): Landing = when {
+    pool != null && pool.poolError.isNotEmpty() -> Landing.REFUSED
+    pool != null && pool.confirmedRound > 0 -> Landing.LANDED
+    pool != null -> Landing.PENDING
+    indexed?.confirmedRound != null -> Landing.LANDED
+    indexed != null && indexed.indexerRound >= lastValid.toLong() -> Landing.REFUSED
     else -> Landing.PENDING
 }

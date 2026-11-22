@@ -49,6 +49,7 @@ import app.lumio.onVault
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
 import app.lumio.send.ArrivalWatch
+import app.lumio.send.Landing
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
@@ -191,7 +192,6 @@ internal fun SolanaSendRoute(
     var scanProgress by remember { mutableStateOf<Float?>(null) }
     var scanStatus by remember { mutableStateOf(SCAN_HINT) }
     var scanBusy by remember { mutableStateOf(false) }
-    var sentOutcome by remember { mutableStateOf<SolanaOutcome?>(null) }
     var sentSignature by remember { mutableStateOf<String?>(null) }
     // The Priority Fee switch of the fee sheet. It is saved, so that a rotation keeps the owner's choice.
     var priorityFee by rememberSaveable { mutableStateOf(false) }
@@ -222,14 +222,6 @@ internal fun SolanaSendRoute(
         }
         balance = read.first
         assets = read.second
-    }
-
-    // After the send, the status is read until the network confirms it, fails it, or the polls run out.
-    LaunchedEffect(sentSignature) {
-        val signature = sentSignature ?: return@LaunchedEffect
-        sentOutcome = withContext(Dispatchers.IO) {
-            runCatching { SolanaSend.confirm(scheduler, network, signature) }.getOrDefault(SolanaOutcome.PENDING)
-        }
     }
 
     /**
@@ -394,9 +386,9 @@ internal fun SolanaSendRoute(
      */
     fun finishSetup() {
         val from = account ?: return
-        notice = when (sentOutcome) {
-            SolanaOutcome.CONFIRMED -> SETUP_DONE
-            SolanaOutcome.FAILED -> SETUP_FAILED
+        notice = when (sentSignature?.let { app.sendArrivals.landingNow(network, it) }) {
+            Landing.LANDED -> SETUP_DONE
+            Landing.REFUSED -> SETUP_FAILED
             else -> SETUP_PENDING
         }
         step = SolanaSendStep.Recipient
@@ -644,12 +636,12 @@ internal fun SolanaSendRoute(
             amount = solanaAmountText(current.plan, selected.symbol),
             recipient = if (current.setup) "your nonce account" else groupAddress(current.plan.recipientAddress),
             network = networkLabel,
-            timing = sentOutcome?.let { solanaOutcomeText(network, it) } ?: "About 1 second on $networkLabel",
+            timing = "About 1 second on $networkLabel",
             fromName = fromName,
-            arrival = if (current.setup) null else ArrivalWatch(
+            arrival = ArrivalWatch(
                 arrivals = app.sendArrivals,
                 network = current.plan.network,
-                arrivedHeadline = "Your ${selected.symbol} Has Arrived",
+                arrivedHeadline = if (current.setup) null else "Your ${selected.symbol} Has Arrived",
                 read = { signature -> solanaLanding(scheduler.run(SolanaSignatureStatus(current.plan.network, signature), Priority.BACKGROUND)) },
             ),
             explorerUrl = { signature -> SolanaSend.explorerTxUrl(current.plan.network, signature) },
@@ -744,8 +736,3 @@ private fun assetDetail(asset: SolanaSendAsset): String {
     return "Balance ${SolanaAssets.text(token.amount, asset.decimals)} ${asset.symbol}"
 }
 
-private fun solanaOutcomeText(network: NetworkId, outcome: SolanaOutcome): String = when (outcome) {
-    SolanaOutcome.CONFIRMED -> "Confirmed on ${solanaNetworkName(network)}."
-    SolanaOutcome.FAILED -> "The network ran this transaction, and it failed."
-    SolanaOutcome.PENDING -> "Not confirmed yet. Check the explorer in a minute, with this signature."
-}
