@@ -30,13 +30,19 @@ private val LOADING_ROW_HEIGHT = 64.dp
 internal fun WalletLoadingScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
         DetailTopBar(title = null, onBack = onBack)
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = LumioGutter, vertical = LenslySpacing.md)) {
-            Skeleton(modifier = Modifier.fillMaxWidth(0.5f).height(LenslySpacing.xl))
-            Column(modifier = Modifier.padding(top = LenslySpacing.lg)) {
-                LumioIsland {
-                    LoadingRow()
-                    LoadingRow()
-                }
+        WalletLoadingContent()
+    }
+}
+
+/** The skeleton bars of a wallet whose balances are not read yet, without a top bar: a page's top bar belongs to the shell that holds it. */
+@Composable
+internal fun WalletLoadingContent() {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = LumioGutter, vertical = LenslySpacing.md)) {
+        Skeleton(modifier = Modifier.fillMaxWidth(0.5f).height(LenslySpacing.xl))
+        Column(modifier = Modifier.padding(top = LenslySpacing.lg)) {
+            LumioIsland {
+                LoadingRow()
+                LoadingRow()
             }
         }
     }

@@ -6,8 +6,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import app.lensly.ui.theme.LumenTheme
-import app.lumio.network.NetworkMode
+import app.lensly.ui.theme.ClearAirTheme
 import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -34,7 +33,7 @@ class LumioSettingsScreenTest {
 
     @Test
     fun theListShowsEachPageWithItsStateUnderItsTitle() {
-        compose.setContent { LumenTheme { LumioSettingsScreen(rows = rows, onOpen = {}, network = NetworkMode.MAINNET, onNetwork = {}, onBack = {}) } }
+        compose.setContent { ClearAirTheme { LumioSettingsScreen(rows = rows, onOpen = {}) } }
 
         for (row in rows) {
             compose.onNodeWithText(row.page.title).assertExists()
@@ -44,7 +43,7 @@ class LumioSettingsScreenTest {
 
     @Test
     fun theListHasNoSaveAndNoDeveloperRowInRelease() {
-        compose.setContent { LumenTheme { LumioSettingsScreen(rows = rows, onOpen = {}, network = NetworkMode.MAINNET, onNetwork = {}, onBack = {}) } }
+        compose.setContent { ClearAirTheme { LumioSettingsScreen(rows = rows, onOpen = {}) } }
 
         compose.onAllNodesWithText("Save", ignoreCase = true).assertCountEquals(0)
         compose.onNodeWithText("Developer").assertDoesNotExist()
@@ -53,7 +52,7 @@ class LumioSettingsScreenTest {
     @Test
     fun tappingARowOpensItsPage() {
         var opened: SettingsPage? = null
-        compose.setContent { LumenTheme { LumioSettingsScreen(rows = rows, onOpen = { opened = it }, network = NetworkMode.MAINNET, onNetwork = {}, onBack = {}) } }
+        compose.setContent { ClearAirTheme { LumioSettingsScreen(rows = rows, onOpen = { opened = it }) } }
 
         compose.onNodeWithText("Security").performScrollTo().performClick()
 
@@ -63,7 +62,7 @@ class LumioSettingsScreenTest {
     @Test
     fun theWalletsRowOpensTheWalletsPage() {
         var opened: SettingsPage? = null
-        compose.setContent { LumenTheme { LumioSettingsScreen(rows = rows, onOpen = { opened = it }, network = NetworkMode.MAINNET, onNetwork = {}, onBack = {}) } }
+        compose.setContent { ClearAirTheme { LumioSettingsScreen(rows = rows, onOpen = { opened = it }) } }
 
         compose.onNodeWithText("Wallets").performScrollTo().performClick()
 

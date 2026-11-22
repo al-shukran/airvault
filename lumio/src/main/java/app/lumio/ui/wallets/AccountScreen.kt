@@ -22,11 +22,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.LumioIsland
 import app.lensly.ui.components.LumioRow
 import app.lensly.ui.components.LumioTextAction
+import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LocalClearAirPalette
 import app.lensly.ui.theme.LumenMono
 import app.lumio.data.net.Networks
 import app.lumio.home.HomeFormat
@@ -34,9 +35,11 @@ import app.lumio.home.Masking
 import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.home.AssetIcon
 import app.lumio.ui.kit.AnimatedAmount
+import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.LumioAssetIcon
 import app.lumio.ui.kit.LumioPrimaryButton
 import app.lumio.ui.kit.rememberCopyAction
+import app.lumio.ui.shell.LumioPageFrame
 import app.lumio.ui.transactions.ActivityRow
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
@@ -57,7 +60,6 @@ internal fun AccountScreen(
     showBalance: Boolean,
     onSend: () -> Unit,
     onReceive: () -> Unit,
-    onBack: () -> Unit,
     modifier: Modifier = Modifier,
     assets: List<AssetRowModel> = emptyList(),
     activity: List<TxFeedItem> = emptyList(),
@@ -70,6 +72,7 @@ internal fun AccountScreen(
     loadingAssets: Boolean = false,
     loadingActivity: Boolean = false,
     zone: ZoneId = ZoneId.systemDefault(),
+    online: Boolean = true,
 ) {
     val balance = account.balance
     val empty = assets.isNotEmpty() && assets.all { it.zero }
@@ -78,10 +81,8 @@ internal fun AccountScreen(
     val heroFiat = native?.fiatText
     // The balance starts after the 40 dp coin icon and its gap, so the network line under it starts at the same edge.
     val balanceStart = if (native != null) 40.dp + LenslySpacing.xs else 0.dp
-    LenslyScreen(
-        title = WalletAccounts.familyLabel(account.namespace),
+    LumioPageFrame(
         modifier = modifier,
-        onBack = onBack,
         bottomAction = {
             if (empty) {
                 LumioPrimaryButton(text = "Receive", onClick = onReceive)
@@ -90,7 +91,11 @@ internal fun AccountScreen(
                     LumioTextAction(text = "Receive", onClick = onReceive)
                 }
                 Spacer(Modifier.height(LenslySpacing.xs))
-                LumioPrimaryButton(text = "Send", onClick = onSend)
+                // Offline, Send is disabled and says why right under it. Receive stays live: the address is already on the phone.
+                ClearAirPrimaryButton(text = "Send", onClick = onSend, enabled = online)
+                if (!online) {
+                    Text(text = "Sending needs a connection", style = ClearAirType.body, color = LocalClearAirPalette.current.ink2)
+                }
             }
         },
     ) {

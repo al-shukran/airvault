@@ -1,0 +1,74 @@
+package app.lumio.ui.kit
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import app.lensly.ui.theme.ClearAirMotion
+import app.lensly.ui.theme.LocalClearAirPalette
+import app.lensly.ui.theme.LocalReducedMotion
+
+/** The gap above a sheet, so the page above it still shows: the proposal's sheet from the top 44 dp. */
+private val SHEET_TOP = 44.dp
+
+/** The corner radius of a sheet's top, the proposal's 28 dp. */
+private val SHEET_CORNER = 28.dp
+
+/** The scrim's opacity over the page beneath a sheet, in the light theme and in the dark one. */
+private const val SCRIM_LIGHT = 0.34f
+private const val SCRIM_DARK = 0.58f
+
+/**
+ * The one modal sheet of Lumio. It rises from the bottom on the sheet spring over a scrim that fades in, and the page beneath stays still. It has
+ * no place of its own: a short task opens it over a page, and [onClose] closes it. Tapping the scrim closes it too. A caller holds at most one
+ * sheet, so a sheet never opens over another one. Reduced motion cuts the rise to a cross-fade.
+ */
+@Composable
+fun ClearAirSheet(visible: Boolean, onClose: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    val palette = LocalClearAirPalette.current
+    val reduced = LocalReducedMotion.current
+    val scrim = Color.Black.copy(alpha = if (isSystemInDarkTheme()) SCRIM_DARK else SCRIM_LIGHT)
+    Box(modifier = modifier.fillMaxSize()) {
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(tween(ClearAirMotion.SCRIM_MS)),
+            exit = fadeOut(tween(ClearAirMotion.SCRIM_MS)),
+        ) {
+            Box(modifier = Modifier.fillMaxSize().background(scrim).clickable(onClick = onClose))
+        }
+        AnimatedVisibility(
+            visible = visible,
+            enter = if (reduced) fadeIn(tween(ClearAirMotion.CROSS_FADE_MS)) else slideInVertically(sheetOffset) { it },
+            exit = if (reduced) fadeOut(tween(ClearAirMotion.CROSS_FADE_MS)) else slideOutVertically(sheetOffset) { it },
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = SHEET_TOP)
+                    .clip(RoundedCornerShape(topStart = SHEET_CORNER, topEnd = SHEET_CORNER))
+                    .background(palette.sheet),
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+/** The sheet's rise: spring ζ0.9, k520, the values of [ClearAirMotion.sheet], for the offset the slide animates. */
+private val sheetOffset = spring<IntOffset>(dampingRatio = 0.9f, stiffness = 520f)

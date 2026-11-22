@@ -25,7 +25,7 @@ fun ComposeContentTestRule.lumioSnapshot(
     content: @Composable () -> Unit,
 ) {
     reduceMotion()
-    snapshot(name = name, settleMs = settleMs, beforeCapture = beforeCapture, theme = { LumenTheme(content = it) }, content = content)
+    snapshot(name = name, settleMs = settleMs, beforeCapture = beforeCapture, theme = { LumenTheme { ClearAirTheme(content = it) } }, content = content)
 }
 
 /** Renders [content] in the Clear Air theme at the goldens' frame, with reduced motion on, as [lumioSnapshot] does for Lumen. */

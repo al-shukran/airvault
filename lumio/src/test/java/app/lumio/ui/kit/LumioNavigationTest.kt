@@ -71,12 +71,12 @@ class LumioNavigationTest {
     }
 
     @Test
-    fun reducedMotionMakesANavigationACut() {
+    fun reducedMotionCrossFadesANavigationInOneHundredMilliseconds() {
         setAnimatorScale(0f)
         showScreens()
 
         navigateToSettings()
-        compose.mainClock.advanceTimeBy(50)
+        compose.mainClock.advanceTimeBy(150)
 
         compose.onNodeWithText("Wallets screen").assertDoesNotExist()
         compose.onNodeWithText("Settings screen").assertExists()

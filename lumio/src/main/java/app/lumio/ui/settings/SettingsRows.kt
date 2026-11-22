@@ -21,9 +21,9 @@ data class SettingsFacts(
 fun settingsRows(facts: SettingsFacts, gesture: EntryGesture, version: String): List<SettingsRowState> = listOf(
     SettingsRowState(SettingsPage.DISPLAY, displaySummary(facts.display)),
     SettingsRowState(SettingsPage.TRANSACTIONS, transactionsSummary()),
+    SettingsRowState(SettingsPage.WALLETS, walletsSummary(facts.wallets)),
     SettingsRowState(SettingsPage.NETWORKS, networksSummary(facts.chainsOn, facts.customBitcoin)),
     SettingsRowState(SettingsPage.PROVIDERS, providersSummary(facts.providersOn, facts.providersTotal)),
-    SettingsRowState(SettingsPage.WALLETS, walletsSummary(facts.wallets)),
     SettingsRowState(SettingsPage.ADDRESS_BOOK, addressBookSummary(facts.wallets, facts.addresses)),
     SettingsRowState(SettingsPage.SECURITY, securitySummary(gesture)),
     SettingsRowState(SettingsPage.ABOUT, aboutSummary(version)),

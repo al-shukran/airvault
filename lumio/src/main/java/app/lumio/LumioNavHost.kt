@@ -35,6 +35,7 @@ import app.lensly.ui.navigation.HiddenBackdrop
 import app.lensly.ui.navigation.MirrorNavMotion
 import app.lensly.ui.navigation.hiddenArea
 import app.lensly.ui.navigation.leaveHidden
+import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.theme.LumenTheme
 import app.lumio.data.config.LockSettings
 import app.lumio.data.config.LockSettingsStore
@@ -43,9 +44,9 @@ import app.lumio.network.NetworkModeStore
 import app.lumio.send.algorand.AlgorandAddAssetRoute
 import app.lumio.send.algorand.AlgorandSendRoute
 import app.lumio.send.solana.SolanaSendRoute
+import app.lumio.ui.kit.ClearAirTestnetHatch
+import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.kit.lumioComposable
-import app.lumio.ui.network.NetworkSideSheet
-import app.lumio.ui.network.TestnetStrip
 import app.lumio.ui.settings.SettingsPage
 import kotlinx.coroutines.launch
 
@@ -59,6 +60,14 @@ internal object LumioRoute {
     const val PAIR_REVIEW = "pair-review"
     const val DATA_PROVIDERS = "settings/providers"
     const val LICENCES = "settings/licences"
+
+    /** The roots of the other tabs. Home, Portfolio and Explore are placeholders until their work packages land. */
+    const val HOME = "home"
+    const val PORTFOLIO = "portfolio"
+    const val EXPLORE = "explore"
+
+    /** The five tab roots, in the order of the tab bar. A screen in this set is a place of the tab bar, not a page pushed over one. */
+    val TAB_ROOTS = setOf(HOME, WALLETS, PORTFOLIO, EXPLORE, SETTINGS)
 
     /** The pages of the settings list below the list: Display, Transactions, Networks, Wallets, the address books, Security, About and Developer. */
     const val SETTINGS_DISPLAY = "settings/display"
@@ -123,6 +132,21 @@ internal object LumioRoute {
 
     /** The route of the asset [assetKey] of [account] in [walletId]. */
     fun asset(walletId: String, account: AccountId, assetKey: String): String = "asset/$walletId/${account.caip10}/$assetKey"
+
+    /** One paired wallet's page, opened from the Accounts tab and from the profile panel. */
+    const val WALLET = "wallet/{$WALLET_ARG}"
+
+    /** The route of the page of the wallet [walletId]. */
+    fun wallet(walletId: String): String = "wallet/$walletId"
+
+    /** One account's page, of the wallet in [WALLET_ARG], opened from its wallet's page. */
+    const val ACCOUNT = "account/{$WALLET_ARG}/{$ACCOUNT_ARG}"
+
+    /** The route of the page of [account] in [walletId]. */
+    fun account(walletId: String, account: AccountId): String = "account/$walletId/${account.caip10}"
+
+    /** The test networks page, opened from the profile panel. */
+    const val TEST_NETWORKS = "test-networks"
 
     /** The route of the read-only Address Book of [walletId], opened from the wallet's row in Settings. */
     const val ADDRESS_BOOK = "settings/address-book/{$WALLET_ARG}"
@@ -237,32 +261,30 @@ internal class LockSettingsState(private val store: LockSettingsStore) {
 }
 
 /**
- * A Lumio screen in the Hidden Area: the shared backdrop in Lumio's theme, with the testnet strip under the status bar while [selection] is testnet.
- * The gate screens are not Lumio's, so they keep the plain backdrop in Lensly's theme.
+ * A Lumio screen in the Hidden Area: Clear Air over the shared backdrop, with the testnet band under the status bar while the side is testnet, or
+ * while [testSide] says the screen is a test-side page. The gate screens are not Lumio's, so they keep the plain backdrop in Lensly's theme.
+ *
+ * Lumen's locals stay in scope under Clear Air until the screens that still read them are restyled, so Clear Air's theme wraps them rather than
+ * replacing Lumen's providers.
  */
 @Composable
-internal fun LumioBackdrop(selection: NetworkSelection, content: @Composable () -> Unit) {
+internal fun LumioBackdrop(
+    selection: NetworkSelection,
+    testSide: Boolean = selection.mode == NetworkMode.TESTNET,
+    content: @Composable () -> Unit,
+) {
     LumenTheme {
-        MirrorNavMotion()
-        HiddenBackdrop {
-            var sideOpen by remember { mutableStateOf(false) }
-            Column(modifier = Modifier.fillMaxSize()) {
-                // The band takes the status bar's height, and the strip sits under it. The screen below consumes the same inset, so its own
-                // top bar meets the strip with no second gap.
-                Box(modifier = Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars)) {
-                    if (selection.mode == NetworkMode.TESTNET) TestnetStrip(onOpen = { sideOpen = true })
+        ClearAirTheme {
+            MirrorNavMotion()
+            HiddenBackdrop {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // The band takes the status bar's height, and the hatch sits under it. The screen below consumes the same inset, so its own
+                    // top bar meets the band with no second gap.
+                    Box(modifier = Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars)) {
+                        if (testSide) ClearAirTestnetHatch(text = "TESTNET · TEST FUNDS HAVE NO VALUE")
+                    }
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth().consumeWindowInsets(WindowInsets.statusBars)) { content() }
                 }
-                Box(modifier = Modifier.weight(1f).fillMaxWidth().consumeWindowInsets(WindowInsets.statusBars)) { content() }
-            }
-            if (sideOpen) {
-                NetworkSideSheet(
-                    mode = selection.mode,
-                    onSelect = { next ->
-                        selection.choose(next)
-                        sideOpen = false
-                    },
-                    onDismiss = { sideOpen = false },
-                )
             }
         }
     }
@@ -270,10 +292,9 @@ internal fun LumioBackdrop(selection: NetworkSelection, content: @Composable () 
 
 /**
  * Lumio's navigation: the camera cover and the gate that Lensly shares, around the companion's Hidden Area. The Hidden Area opens on the gate and
- * then shows the wallets. Settings opens from the gear on Wallets. A wallet opens as a sheet over the wallets, and an account as a sheet over its
- * wallet. An account's Send and Receive push over them, and the pairing of a wallet from Lensly starts from the wallets. Settings is a list of pages,
- * each its own screen: the network side, Display, Transactions, Networks (the servers and the chains), Data providers, Address book (the wallets),
- * Security, About and.
+ * then shows the Accounts tab. The five tabs (Home, Accounts, Portfolio, Explore and Settings) are the roots, and every other place is a page pushed
+ * over its root: a wallet, an account, Send and Receive, the test networks and the settings pages. The profile panel and the search sheet open from
+ * a tab's top bar, and at most one sheet is ever open.
  *
  * [debugHiddenRequest] counts debug launches that asked for the hidden area. It is always zero in release builds.
  */
@@ -327,7 +348,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
         }
         hiddenArea(navController, holder, home = LumioRoute.WALLETS) {
             lumioComposable(LumioRoute.WALLETS) {
-                // The wallets are the root screen and have no back arrow. System back locks the vault first, so leaving the app never
+                // The Accounts tab is the start screen and has no back arrow. System back locks the vault first, so leaving the app never
                 // leaves the vault open, then closes the app as Android does at a root screen.
                 val activity = LocalActivity.current
                 BackHandler {
@@ -340,7 +361,71 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                         holder = holder,
                         selection = selection,
                         listVersion = listVersion,
+                        onLock = { lock() },
                     )
+                }
+            }
+            lumioComposable(LumioRoute.HOME) {
+                LumioBackdrop(selection) {
+                    TabRoute(tab = LumioTab.HOME, navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = { lock() }) {
+                        TabPlaceholder("Total market cap and your watchlist will appear here.")
+                    }
+                }
+            }
+            lumioComposable(LumioRoute.PORTFOLIO) {
+                LumioBackdrop(selection) {
+                    TabRoute(tab = LumioTab.PORTFOLIO, navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = { lock() }) {
+                        TabPlaceholder("Balances across all your accounts will appear here.")
+                    }
+                }
+            }
+            lumioComposable(LumioRoute.EXPLORE) {
+                LumioBackdrop(selection) {
+                    TabRoute(tab = LumioTab.EXPLORE, navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = { lock() }) {
+                        TabPlaceholder("Chains, providers and learning will appear here.")
+                    }
+                }
+            }
+            lumioComposable(
+                route = LumioRoute.WALLET,
+                arguments = listOf(navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType }),
+            ) { entry ->
+                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
+                LumioBackdrop(selection) {
+                    WalletRoute(
+                        navController = navController,
+                        holder = holder,
+                        walletId = walletId,
+                        selection = selection,
+                        listVersion = listVersion,
+                        onLock = { lock() },
+                    )
+                }
+            }
+            lumioComposable(
+                route = LumioRoute.ACCOUNT,
+                arguments = listOf(
+                    navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
+                    navArgument(LumioRoute.ACCOUNT_ARG) { type = NavType.StringType },
+                ),
+            ) { entry ->
+                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
+                val account = entry.accountId()
+                LumioBackdrop(selection) {
+                    AccountRoute(
+                        navController = navController,
+                        holder = holder,
+                        walletId = walletId,
+                        accountId = account,
+                        selection = selection,
+                        listVersion = listVersion,
+                        onLock = { lock() },
+                    )
+                }
+            }
+            lumioComposable(LumioRoute.TEST_NETWORKS) {
+                LumioBackdrop(selection, testSide = true) {
+                    TestNetworksRoute(navController = navController, holder = holder, onLock = { lock() })
                 }
             }
             lumioComposable(
@@ -435,7 +520,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                     )
                 }
             }
-            settingsRoute(navController = navController, holder = holder, listVersion = listVersion, selection = selection)
+            settingsRoute(navController = navController, holder = holder, listVersion = listVersion, selection = selection, onLock = { lock() })
             settingsPageRoutes(
                 navController = navController,
                 holder = holder,

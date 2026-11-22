@@ -1,17 +1,16 @@
 package app.lumio.ui.settings
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.SettingsRow
-import app.lensly.ui.theme.LenslySpacing
-import app.lumio.network.NetworkMode
-import app.lumio.ui.network.NetworkSwitch
+import app.lensly.ui.theme.ClearAirSpacing
+import app.lumio.ui.kit.ClearAirRow
 
 /** The pages of Lumio's settings. Each one is a row of the top-level list, and opens its own screen under its [title]. */
 enum class SettingsPage(val title: String) {
@@ -29,30 +28,19 @@ enum class SettingsPage(val title: String) {
 data class SettingsRowState(val page: SettingsPage, val summary: String)
 
 /**
- * Lumio's settings: the side of the networks at the top, as a Mainnet and Testnet segmented control, then one chevron row per page, in the order of
- * [rows]. [onOpen] opens the page of a row, and [onNetwork] applies the side the owner picks. Nothing on this list is saved by a Save button: each control
- * applies at once. Back returns to Wallets, from which the gear opened the list.
+ * Lumio's Settings tab: one row per page, in the order of [rows], each with its state under its title. [onOpen] opens the page of a row. The network
+ * side is not here: the profile panel holds it. Nothing on this list is saved by a Save button, because each page applies its changes at once.
  */
 @Composable
-fun LumioSettingsScreen(
-    rows: List<SettingsRowState>,
-    onOpen: (SettingsPage) -> Unit,
-    network: NetworkMode,
-    onNetwork: (NetworkMode) -> Unit,
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    LenslyScreen(title = "Settings", onBack = onBack, modifier = modifier) {
-        Text(
-            text = "Network",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(LenslySpacing.xs))
-        NetworkSwitch(mode = network, onChange = onNetwork)
-        Spacer(Modifier.height(LenslySpacing.md))
+fun LumioSettingsScreen(rows: List<SettingsRowState>, onOpen: (SettingsPage) -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(vertical = ClearAirSpacing.xs),
+    ) {
         rows.forEach { row ->
-            SettingsRow(title = row.page.title, description = row.summary, onClick = { onOpen(row.page) })
+            ClearAirRow(title = row.page.title, description = row.summary, onClick = { onOpen(row.page) })
         }
     }
 }

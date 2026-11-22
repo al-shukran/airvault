@@ -3,22 +3,16 @@ package app.lumio.ui.wallets
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.LumioIsland
@@ -29,7 +23,6 @@ import app.lumio.data.Clock
 import app.lumio.data.WallClock
 import app.lumio.home.HomeFormat
 import app.lumio.home.Masking
-import app.lumio.ui.kit.GlowBackdrop
 import app.lumio.ui.kit.WalletOrb
 import app.lumio.ui.pair.PairIntro
 import app.lumio.ui.theme.LumioGutter
@@ -41,8 +34,8 @@ import app.lumio.ui.theme.LumioGutter
 data class WalletRow(val id: String, val name: String, val fingerprint: Int, val summary: String, val usd: Double?)
 
 /**
- * The start screen (section 2.1): the total of all wallets under a glow, with its freshness line, then one island with a row per wallet and "Pair another
- * wallet" as the one text action under them. The top bar holds Settings and the lock, and pulling down anywhere reads the balances again. [notice] names a
+ * The Accounts tab (section 2.1): the total of all wallets, with its freshness line, then one island with a row per wallet and "Pair another wallet" as the
+ * one text action under them. The tab's top bar and tab bar belong to the shell, and pulling down anywhere reads the balances again. [notice] names a
  * read that did not answer, and the balances kept from before stay on screen. [clock] is the time the freshness line ages by.
  */
 @Composable
@@ -56,15 +49,13 @@ fun WalletsScreen(
     onWallet: (String) -> Unit,
     onPair: () -> Unit,
     onRefresh: () -> Unit,
-    onSettings: () -> Unit,
     modifier: Modifier = Modifier,
     clock: Clock = WallClock,
     refreshByPull: Boolean = false,
     loading: Boolean = false,
 ) {
     val running = rememberStagger()
-    Column(modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)) {
-        DetailTopBar(title = "Wallets", onBack = null, onOptions = onSettings, optionsIcon = Icons.Filled.Settings, optionsLabel = "Settings")
+    Column(modifier = modifier.fillMaxSize()) {
         LumenRefreshBox(refreshByPull = refreshByPull, onRefresh = onRefresh, modifier = Modifier.fillMaxWidth().weight(1f)) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -108,16 +99,14 @@ fun WalletsScreen(
 /** The hero of the list: "All wallets", their total under the glow, and the line that says how fresh it is. */
 @Composable
 private fun WalletsTotal(totalUsd: Double?, showTotal: Boolean, refreshing: Boolean, updatedAtMs: Long?, clock: Clock) {
-    GlowBackdrop(breathing = refreshing, modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.md)) {
-        Column {
-            Text(
-                text = "All Wallets",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            TotalAmount(usd = totalUsd, shown = showTotal)
-            FreshnessLine(refreshing = refreshing, updatedAtMs = updatedAtMs, clock = clock, modifier = Modifier.padding(top = LenslySpacing.xs))
-        }
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.md)) {
+        Text(
+            text = "All Wallets",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TotalAmount(usd = totalUsd, shown = showTotal)
+        FreshnessLine(refreshing = refreshing, updatedAtMs = updatedAtMs, clock = clock, modifier = Modifier.padding(top = LenslySpacing.xs))
     }
 }
 

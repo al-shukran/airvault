@@ -92,9 +92,9 @@ class SettingsSummariesTest {
             listOf(
                 SettingsPage.DISPLAY,
                 SettingsPage.TRANSACTIONS,
+                SettingsPage.WALLETS,
                 SettingsPage.NETWORKS,
                 SettingsPage.PROVIDERS,
-                SettingsPage.WALLETS,
                 SettingsPage.ADDRESS_BOOK,
                 SettingsPage.SECURITY,
                 SettingsPage.ABOUT,

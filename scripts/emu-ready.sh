@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Puts Lumio's debug build on an emulator with its demo seed in place, so a motion gate can start at once. It builds and installs the
-# debug APK, launches it with the seed extra (no taps), waits until the seed has opened the demo wallet over the Wallets home, and then
+# debug APK, launches it with the seed extra (no taps), waits until the seed has paired the demo wallet and opened the Accounts home, and then
 # checks on screen that the wallet's account list shows a balance.
 #
 #   scripts/emu-ready.sh [serial]   the serial defaults to the first attached emulator
@@ -49,7 +49,7 @@ esac
 # The seed logs once the wallet is open over the Wallets home, or why it is not.
 while :; do
     seed="$(adb -s "$serial" logcat -d -s 'DebugDemoSeed:I' 2>/dev/null || true)"
-    if grep -q 'The demo wallet is open on the Wallets home' <<< "$seed"; then
+    if grep -q 'The demo wallet is on the Accounts home' <<< "$seed"; then
         break
     fi
     if grep -q 'was not seeded\|could not be seeded' <<< "$seed"; then
@@ -67,12 +67,12 @@ echo "emu-ready: the demo wallet opened $(( $(date +%s) - start ))s after the la
 
 # The on-screen check: the wallet's account list, and a balance on it. The dump waits for the screen to settle, which a spinner keeps from
 # happening, so each attempt can take a few seconds.
-for _ in 1 2 3 4 5; do
+for _ in $(seq 1 30); do
     adb -s "$serial" shell rm -f "$DUMP" >/dev/null 2>&1 || true
     adb -s "$serial" shell uiautomator dump "$DUMP" >/dev/null 2>&1 || true
     window="$(adb -s "$serial" shell cat "$DUMP" 2>/dev/null || true)"
     accounts="$(printf '%s\n' "$window" | grep -Eoi 'text="[^"]*[0-9]+ accounts[^"]*"' | head -n 1 || true)"
-    balance="$(printf '%s\n' "$window" | grep -Eo 'text="[0-9][0-9.,]* [A-Z]{2,6}"' | head -n 1 || true)"
+    balance="$(printf '%s\n' "$window" | grep -Eo 'text="Updated[^"]*"' | head -n 1 || true)"
     if [ -n "$accounts" ] && [ -n "$balance" ]; then
         echo "emu-ready: $accounts and $balance on screen"
         exit 0
