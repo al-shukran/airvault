@@ -2,8 +2,8 @@ package app.lumio.ui.screenshot
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingPayload
+import app.lensly.ui.components.groupAddress
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnly
 import app.lensly.core.btc.BtcWatchOnlyAccount
@@ -28,15 +28,11 @@ import app.lumio.data.tx.TxDirection
 import app.lumio.data.tx.TxStatus
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettings
-import app.lumio.evm.SendAsset
 import app.lumio.home.TokenAsset
 import app.lumio.pair.PairFixtures
-import app.lumio.pair.PairImport
 import app.lumio.pair.PairedWallet
-import app.lumio.tokens.Token
-import app.lumio.ui.btc.BtcSendFormScreen
+import app.lumio.ui.send.SendAmountPage
 import app.lumio.ui.pair.PairReviewScreen
-import app.lumio.ui.send.SendFormScreen
 import app.lumio.ui.settings.AboutSettingsPage
 import app.lumio.ui.settings.AddressBookRows
 import app.lumio.ui.settings.AddressBookSettingsPage
@@ -81,69 +77,34 @@ class LumioScreenshotTest {
     private val sepolia = EvmChain(11155111L, "Sepolia", "ETH", 18, true, null)
     private val chains = listOf(ethereum, sepolia)
     private val address = "0x" + "a1".repeat(20)
-    private val usdc = Token(1L, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "USDC", "USD Coin", 6)
-    private val assets = listOf(SendAsset(ethereum, null, null), SendAsset(ethereum, usdc, BigInteger.valueOf(1_250_500_000L)))
-
-    @Test
-    fun ethereumSendForm() = compose.lumioSnapshot("ethereum_send_form") {
-        SendFormScreen(
-            fromLabel = "Address 1",
-            fromAddress = address,
-            chain = ethereum,
-            assets = assets,
-            selectedAsset = assets.first(),
-            onSelectAsset = {},
-            recipient = "",
-            onRecipient = {},
-            onScan = {},
-            amount = "",
-            onAmount = {},
-            busy = false,
-            notice = null,
-            onReview = {},
-            onBack = {},
-        )
-    }
-
-    /** The form as an asset page starts it: USDC chosen on Ethereum, with the recipient and the amount in USDC. */
-    @Test
-    fun ethereumTokenSendForm() = compose.lumioSnapshot("ethereum_token_send_form") {
-        SendFormScreen(
-            fromLabel = "Address 1",
-            fromAddress = address,
-            chain = ethereum,
-            assets = assets,
-            selectedAsset = assets[1],
-            onSelectAsset = {},
-            recipient = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed",
-            onRecipient = {},
-            onScan = {},
-            amount = "12.5",
-            onAmount = {},
-            busy = false,
-            notice = null,
-            onReview = {},
-            onBack = {},
-        )
-    }
 
     @Test
     fun bitcoinSendForm() = compose.lumioSnapshot("bitcoin_send_form") {
-        val account = BtcAccountRef("wallet-Demo", bitcoinAccounts(BtcNetwork.MAINNET).first())
-        BtcSendFormScreen(
-            account = account,
-            recipient = "",
-            onRecipient = {},
-            onScan = {},
-            amount = "",
+        SendAmountPage(
+            symbol = "BTC",
+            toTitle = groupAddress(BTC_RECIPIENT),
+            toDetail = "",
+            toAddress = BTC_RECIPIENT,
+            fromTitle = "Native SegWit",
+            fromDetail = "0.0150 BTC available",
+            asset = null,
+            onAsset = null,
+            amount = "0.0001",
             onAmount = {},
-            feeRate = "",
-            onFeeRate = {},
-            feeSuggestion = "Suggested 12 sat/vB for the next block",
-            busy = false,
-            notice = null,
+            amountError = null,
+            leaves = "Leaves 0.0148 BTC after the fee",
+            onUseMax = null,
+            networkName = "Bitcoin Mainnet",
+            feeText = "0.00000208 BTC",
+            onFee = {},
+            note = null,
+            canReview = true,
             onReview = {},
+            onChangeRecipient = {},
+            backLabel = "Recipient",
+            offline = null,
             onBack = {},
+            onLock = {},
         )
     }
 
@@ -429,3 +390,5 @@ class LumioScreenshotTest {
         const val NOW = 1_800_000_000_000L
     }
 }
+
+private const val BTC_RECIPIENT = "bc1q9h7w3kx0g2lz8f5y6v4r0d8qsm3p2a7kxw5e"

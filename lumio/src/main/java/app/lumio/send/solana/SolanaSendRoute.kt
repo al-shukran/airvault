@@ -2,6 +2,7 @@ package app.lumio.send.solana
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -12,17 +13,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.NavHostController
 import app.airvault.core.model.AccountId
+import app.lensly.app.AddressBookEntry
+import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.VaultHolder
+import app.lensly.app.addressNotesOf
 import app.lensly.core.solana.SolanaNonce
 import app.lensly.core.solana.SolanaTokenAccounts
+import app.lensly.ui.components.groupAddress
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.LumioApp
+import app.lumio.backLabel
 import app.lumio.chains.ChainHoldings
+import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.RentExemptMinimum
@@ -35,36 +43,50 @@ import app.lumio.data.sched.Priority
 import app.lumio.evm.SignatureScan
 import app.lumio.evm.SignatureStep
 import app.lumio.network.NetworkMode
+import app.lumio.notesDetail
+import app.lumio.notesName
 import app.lumio.onVault
 import app.lumio.pair.PairedWallets
-import app.lumio.wallets.WalletAccounts
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
-import app.lumio.ui.scan.LumioScanScreen
-import app.lumio.ui.send.SubmitScreen
-import app.lumio.ui.send.solana.SolanaSendFormScreen
-import app.lumio.ui.send.solana.SolanaSendReviewScreen
-import app.lumio.ui.send.solana.SolanaSetupReviewScreen
-import app.lumio.ui.send.solana.SolanaSignRequestScreen
-import app.lumio.ui.send.solana.solanaOutcomeText
-import app.lumio.ui.send.solanaSummary
+import app.lumio.ui.send.RECIPIENT_SCAN_HINT
+import app.lumio.ui.send.RecipientScanScreen
+import app.lumio.ui.send.SendAmountPage
+import app.lumio.ui.send.SendChangeRecipientDialog
+import app.lumio.ui.send.SendChoice
+import app.lumio.ui.send.SendDeclinedPage
+import app.lumio.ui.send.SendOption
+import app.lumio.ui.send.SendOptionSheet
+import app.lumio.ui.send.SendRecipientPage
+import app.lumio.ui.send.SendReviewPage
+import app.lumio.ui.send.SendShowPage
+import app.lumio.ui.send.SignatureScanScreen
+import app.lumio.ui.send.SignedSendSteps
+import app.lumio.ui.send.SummaryRow
+import app.lumio.ui.send.rememberSendOffline
+import app.lumio.wallets.WalletAccounts
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Base58
+import java.math.BigDecimal
 import java.math.BigInteger
+import java.math.RoundingMode
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-
-/** The screens of a Solana send, in the order the owner goes through them. */
+/** The steps of a Solana send, in the order the owner goes through them. */
 internal sealed interface SolanaSendStep {
-    data object Form : SolanaSendStep
+    data object Recipient : SolanaSendStep
 
     /** The camera reads a recipient: an address, or a `solana:` link that holds one. */
     data object ScanRecipient : SolanaSendStep
 
-    class Review(val plan: SolanaSendPlan) : SolanaSendStep
+    data object Amount : SolanaSendStep
+
+    /** The plan of the send. [newTokenAccountRent] is the rent the recipient's new token account takes, or 0 when the account exists already. */
+    class Review(val plan: SolanaSendPlan, val newTokenAccountRent: Long = 0L) : SolanaSendStep
 
     /** The one-time setup of offline signing: the nonce account to create, and the rent paid into it. Shown before Lensly signs the setup. */
     class SetupReview(val nonceAccount: String, val rentLamports: Long) : SolanaSendStep
@@ -76,6 +98,9 @@ internal sealed interface SolanaSendStep {
     class Request(val plan: SolanaSendPlan, val parts: List<String>, val setup: Boolean = false) : SolanaSendStep
 
     class Scanning(val plan: SolanaSendPlan, val parts: List<String>, val setup: Boolean = false) : SolanaSendStep
+
+    /** The owner ended the send before Lensly's signature was scanned, so nothing reached Lumio. */
+    class Declined(val plan: SolanaSendPlan) : SolanaSendStep
 
     /** The signed transaction, held in memory until the owner submits it. Leaving the screen discards it. [setup] is true for the one-time setup. */
     class Submit(
@@ -89,22 +114,24 @@ internal sealed interface SolanaSendStep {
 private const val RECIPIENT_HINT = "Point the camera at a Solana address or a solana: link."
 private const val SCAN_HINT = "Point the camera at the signature that Lensly shows."
 private const val SCAN_READING = "Reading the signature. Keep the camera on it."
-private const val SCAN_READ = "Signature read. Check the transaction, then submit it."
+private const val SCAN_READ = "Signature read. Check the transaction, then send it."
 private const val PREPARE_FAILED = "The send could not be prepared. Try again."
 private const val REQUEST_FAILED = "The sign request could not be made. Try again."
 private const val SIGNATURE_FAILED = "That code could not be used. Scan the signature again."
 private const val BROADCAST_FAILED = "The transaction could not be sent. Check the balance, then try again."
 private const val NETWORK_FAILED = "The Solana network could not be read. Try again."
 private const val NO_BROWSER = "No browser can open the explorer."
+internal const val SETUP_SIGN_TEXT = "One-time setup. Sign and scan back within about a minute."
 private const val SETUP_DONE = "Offline signing is set up. Review the send again to sign it."
 private const val SETUP_PENDING = "The setup is not confirmed yet. Review the send again in a minute."
 private const val SETUP_FAILED = "The setup did not go through. Start it again from the send."
+private const val SETTLE_MS = 700L
 
 /**
- * A Solana send from one paired account, which is fixed: the form, the review, the request that Lensly signs, the scan of its answer, and the status
- * of the transaction on the network. [walletId] and [accountId] name the account of the wallet, and [mode] picks the devnet or mainnet-beta side.
- * The coin is SOL, or an SPL token of the account. Lumio holds no key. It builds the transfer from public reads, and it broadcasts only a signature that
- * Lensly made for that message, after the signature has been checked against the account's public key.
+ * A Solana send from one paired account, which is fixed: the recipient, the amount, the review, the request that Lensly signs, the scan of its answer, and
+ * the transaction that is sent, whose status is read after it. [walletId] and [accountId] name the account of the wallet, and [mode] picks the devnet or
+ * mainnet-beta side. The coin is SOL, or an SPL token of the account. Lumio holds no key. It builds the transfer from public reads, and it broadcasts only
+ * a signature that Lensly made for that message, after the signature has been checked against the account's public key.
  */
 @Composable
 internal fun SolanaSendRoute(
@@ -113,9 +140,12 @@ internal fun SolanaSendRoute(
     walletId: String,
     accountId: AccountId,
     mode: NetworkMode,
+    onLock: () -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    val offline = rememberSendOffline(app)
     val session = holder.openSession()
     LaunchedEffect(session == null) {
         if (session == null) navController.openHidden(GateRoutes.GATE)
@@ -134,13 +164,19 @@ internal fun SolanaSendRoute(
             }
         }
     }
+    // The Address Book of the wallet, which the recipient page offers and the send names its recipients from.
+    val addressBook by produceState<List<AddressBookEntry>>(initialValue = emptyList(), session, walletId) {
+        value = onVault(emptyList()) { PairedWallets.list(session).firstOrNull { it.id == walletId }?.addressBook.orEmpty() }
+    }
 
-    var step by remember { mutableStateOf<SolanaSendStep>(SolanaSendStep.Form) }
+    var step by remember { mutableStateOf<SolanaSendStep>(SolanaSendStep.Recipient) }
     var recipient by rememberSaveable { mutableStateOf("") }
     var amount by rememberSaveable { mutableStateOf("") }
     // The coin the send moves, by its key: SOL, or the mint of a token. It is saved, so that a rotation keeps the owner's choice.
     var selectedKey by rememberSaveable { mutableStateOf(SolanaAssets.SOL_KEY) }
     var assets by remember { mutableStateOf(listOf(SolanaAssets.native)) }
+    var assetSheet by remember { mutableStateOf(false) }
+    var changeRecipient by remember { mutableStateOf(false) }
     var balance by remember { mutableStateOf<BigInteger?>(null) }
     var busy by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
@@ -150,7 +186,6 @@ internal fun SolanaSendRoute(
     var scanStatus by remember { mutableStateOf(SCAN_HINT) }
     var scanBusy by remember { mutableStateOf(false) }
     var sentOutcome by remember { mutableStateOf<SolanaOutcome?>(null) }
-    var sentNotice by remember { mutableStateOf<String?>(null) }
     var sentSignature by remember { mutableStateOf<String?>(null) }
 
     val selected = assets.firstOrNull { it.key == selectedKey } ?: SolanaAssets.native
@@ -165,6 +200,8 @@ internal fun SolanaSendRoute(
     } else {
         SolanaAssets.text(token.amount, selected.decimals)
     }
+    val networkLabel = solanaNetworkName(network)
+    val feeText = "${SolanaSendInput.format(BigInteger.valueOf(SOLANA_FEE_LAMPORTS))} SOL"
 
     // The balance and the coins are read once the account is known: SOL, then the SPL tokens that the account holds. A failed token read leaves SOL alone.
     LaunchedEffect(account) {
@@ -221,6 +258,7 @@ internal fun SolanaSendRoute(
                             val rent = if (exists) 0L else scheduler.run(RentExemptMinimum(network, SolanaAssets.TOKEN_ACCOUNT_BYTES), Priority.FOREGROUND)
                             SolanaSendStep.Review(
                                 SolanaAssets.plan(network, asset, from, to, units, available, path.nonceValue, SolanaSend.newRequestId(), exists, rent),
+                                rent,
                             )
                         }
                     }
@@ -266,7 +304,7 @@ internal fun SolanaSendRoute(
             .onSuccess { address ->
                 recipient = address
                 notice = null
-                step = SolanaSendStep.Form
+                step = SolanaSendStep.Recipient
             }
             .onFailure { error -> recipientStatus = ownerWords(error, RECIPIENT_HINT) }
     }
@@ -279,7 +317,7 @@ internal fun SolanaSendRoute(
         step = SolanaSendStep.Scanning(current.plan, current.parts, current.setup)
     }
 
-    /** Checks Lensly's signature and holds the signed transaction. Nothing is sent until the owner submits it on the next screen. */
+    /** Checks Lensly's signature and holds the signed transaction. Nothing is sent until the owner sends it on the next page. */
     fun applySignature(current: SolanaSendStep.Scanning, ur: UR) {
         scanBusy = true
         scanProgress = 1f
@@ -312,19 +350,6 @@ internal fun SolanaSendRoute(
         }
     }
 
-    /** Sends the signed transaction, then reads its status. A retry sends the same signed bytes again. */
-    fun submit(current: SolanaSendStep.Submit) {
-        scope.launch {
-            current.machine.submit()
-            val state = current.machine.state.value
-            if (state is SubmitState.Sent) {
-                sentOutcome = null
-                sentNotice = null
-                sentSignature = state.id
-            }
-        }
-    }
-
     fun onSignatureText(current: SolanaSendStep.Scanning, text: String) {
         if (scanBusy) return
         when (val result = scan.onText(text)) {
@@ -341,7 +366,7 @@ internal fun SolanaSendRoute(
         try {
             context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
         } catch (e: ActivityNotFoundException) {
-            sentNotice = NO_BROWSER
+            Toast.makeText(context, NO_BROWSER, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -353,7 +378,7 @@ internal fun SolanaSendRoute(
     }
 
     /**
-     * Done on a setup's submit screen. The form comes back with the outcome, and the balance is read again, since the rent has left the account.
+     * Done on a setup's submit page. The form comes back with the outcome, and the balance is read again, since the rent has left the account.
      */
     fun finishSetup() {
         val from = account ?: return
@@ -362,7 +387,7 @@ internal fun SolanaSendRoute(
             SolanaOutcome.FAILED -> SETUP_FAILED
             else -> SETUP_PENDING
         }
-        step = SolanaSendStep.Form
+        step = SolanaSendStep.Recipient
         scope.launch {
             balance = withContext(Dispatchers.IO) {
                 runCatching { scheduler.run(NativeBalance(network, from.address), Priority.FOREGROUND) }.getOrNull()
@@ -372,21 +397,23 @@ internal fun SolanaSendRoute(
 
     BackHandler {
         when (val current = step) {
-            SolanaSendStep.Form -> navController.popBackStack()
-            SolanaSendStep.ScanRecipient -> step = SolanaSendStep.Form
+            SolanaSendStep.Recipient -> navController.popBackStack()
+            SolanaSendStep.ScanRecipient -> step = SolanaSendStep.Recipient
+            SolanaSendStep.Amount -> step = SolanaSendStep.Recipient
             is SolanaSendStep.Review -> {
                 notice = null
-                step = SolanaSendStep.Form
+                step = SolanaSendStep.Amount
             }
             is SolanaSendStep.SetupReview -> {
                 notice = null
-                step = SolanaSendStep.Form
+                step = SolanaSendStep.Amount
             }
             is SolanaSendStep.Request -> {
                 notice = null
-                step = if (current.setup) SolanaSendStep.Form else SolanaSendStep.Review(current.plan)
+                step = if (current.setup) SolanaSendStep.Amount else SolanaSendStep.Review(current.plan)
             }
             is SolanaSendStep.Scanning -> step = SolanaSendStep.Request(current.plan, current.parts, current.setup)
+            is SolanaSendStep.Declined -> navController.popBackStack()
             is SolanaSendStep.Submit -> when (current.machine.state.value) {
                 SubmitState.Submitting -> Unit
                 is SubmitState.Sent -> if (current.setup) finishSetup() else navController.popBackStack()
@@ -396,89 +423,218 @@ internal fun SolanaSendRoute(
     }
 
     val from = account ?: return
+    val fromName = "Account ${from.index + 1}"
+    val backLabel = navController.backLabel()
     when (val current = step) {
-        SolanaSendStep.Form -> SolanaSendFormScreen(
-            network = network,
-            sender = from.address,
-            assets = assets,
-            selected = selected,
-            onSelect = { selectedKey = it.key },
-            balanceText = balanceText,
-            recipient = recipient,
-            onRecipient = { recipient = it },
-            onScan = {
-                recipientStatus = RECIPIENT_HINT
-                step = SolanaSendStep.ScanRecipient
-            },
-            amount = amount,
-            onAmount = { amount = it },
-            maxEnabled = maxText != null,
-            onMax = { maxText?.let { amount = it } },
-            busy = busy,
-            notice = notice,
-            onReview = ::review,
-            onBack = { navController.popBackStack() },
-        )
-        SolanaSendStep.ScanRecipient -> LumioScanScreen(
-            title = "Scan Address",
-            progress = null,
-            statusText = recipientStatus,
+        SolanaSendStep.Recipient -> {
+            // The error waits until the owner pauses, so it never shows while the first characters are typed.
+            var settled by remember { mutableStateOf("") }
+            LaunchedEffect(recipient) {
+                delay(SETTLE_MS)
+                settled = recipient
+            }
+            val invalid = settled.isNotBlank() && solanaRecipientError(settled) != null
+            SendRecipientPage(
+                value = recipient,
+                onValueChange = {
+                    recipient = it.trim()
+                    notice = null
+                },
+                error = if (invalid) solanaRecipientError(settled) else null,
+                hint = null,
+                canContinue = recipient.isNotBlank() && solanaRecipientError(recipient) == null,
+                accounts = emptyList(),
+                addressBook = addressBook
+                    .filter { solanaRecipientError(it.address) == null }
+                    .map { entry -> SendChoice(title = entry.name, detail = entry.label ?: "Address Book", address = entry.address) },
+                onPick = { choice -> recipient = choice.address },
+                onPaste = { clipboard.getText()?.text?.trim()?.let { recipient = it } },
+                onScan = {
+                    recipientStatus = RECIPIENT_HINT
+                    step = SolanaSendStep.ScanRecipient
+                },
+                onContinue = { step = SolanaSendStep.Amount },
+                backLabel = backLabel,
+                offline = offline,
+                onBack = { navController.popBackStack() },
+                onLock = onLock,
+            )
+        }
+        SolanaSendStep.ScanRecipient -> RecipientScanScreen(
+            status = recipientStatus,
             onText = ::onRecipientText,
-            onCancel = { step = SolanaSendStep.Form },
+            onCancel = { step = SolanaSendStep.Recipient },
         )
-        is SolanaSendStep.Review -> SolanaSendReviewScreen(
-            plan = current.plan,
-            symbol = selected.symbol,
+        SolanaSendStep.Amount -> {
+            val notes = addressNotesOf(recipient, SOLANA_FAMILY, emptyMap(), addressBook)
+            val toName = notes?.let(::notesName) ?: groupAddress(recipient)
+            val amountError = if (amount.isBlank()) {
+                null
+            } else {
+                runCatching { if (token == null) SolanaSendInput.lamports(amount) else SolanaSendInput.tokenUnits(amount, selected.decimals) }
+                    .exceptionOrNull()?.message
+            }
+            val leaves = if (token == null && balance != null && amountError == null && amount.isNotBlank()) {
+                runCatching { SolanaSendInput.lamports(amount) }.getOrNull()?.let { lamports ->
+                    val left = balance!! - BigInteger.valueOf(lamports) - BigInteger.valueOf(SOLANA_FEE_LAMPORTS)
+                    if (left.signum() >= 0) "Leaves ${SolanaSendInput.format(left)} SOL after the fee" else null
+                }
+            } else {
+                null
+            }
+            SendAmountPage(
+                symbol = selected.symbol,
+                toTitle = toName,
+                toDetail = notes?.let(::notesDetail).orEmpty(),
+                toAddress = recipient,
+                fromTitle = fromName,
+                fromDetail = balanceText?.let { "$it available" } ?: "Reading the network",
+                asset = selected.symbol.takeIf { assets.size > 1 },
+                onAsset = if (assets.size > 1) { { assetSheet = true } } else null,
+                amount = amount,
+                onAmount = { amount = it },
+                amountError = amountError ?: notice,
+                leaves = leaves,
+                onUseMax = if (maxText != null) { { maxText.let { amount = it } } } else null,
+                networkName = networkLabel,
+                feeText = feeText,
+                onFee = null,
+                note = if (assets.size > 1) null else "Chosen for you: ${networkLabel}, the network this account sends on.",
+                canReview = !busy && recipient.isNotBlank() && solanaRecipientError(recipient) == null && amount.isNotBlank() && amountError == null,
+                onReview = ::review,
+                onChangeRecipient = { changeRecipient = true },
+                backLabel = backLabel,
+                offline = offline,
+                onBack = { step = SolanaSendStep.Recipient },
+                onLock = onLock,
+            )
+            if (assets.size > 1) {
+                SendOptionSheet(
+                    visible = assetSheet,
+                    heading = "Asset",
+                    options = assets.map { SendOption(title = it.symbol, detail = assetDetail(it)) },
+                    onPick = { index ->
+                        selectedKey = assets[index].key
+                        assetSheet = false
+                    },
+                    onClose = { assetSheet = false },
+                )
+            }
+            if (changeRecipient) {
+                SendChangeRecipientDialog(
+                    keepLabel = toName,
+                    onChange = {
+                        changeRecipient = false
+                        recipient = ""
+                        step = SolanaSendStep.Recipient
+                    },
+                    onKeep = { changeRecipient = false },
+                )
+            }
+        }
+        is SolanaSendStep.Review -> {
+            val notes = addressNotesOf(current.plan.recipientAddress, SOLANA_FAMILY, emptyMap(), addressBook)
+            val toName = notes?.let(::notesName) ?: groupAddress(current.plan.recipientAddress)
+            SendReviewPage(
+                heading = "Send ${solanaAmountText(current.plan, selected.symbol)} from $fromName to $toName?",
+                toTitle = toName,
+                toDetail = notes?.let(::notesDetail).orEmpty(),
+                toAddress = current.plan.recipientAddress,
+                validLine = "Address is valid on $networkLabel",
+                firstTime = if (notes == null) "First time sending here. Compare every group with where you got it." else null,
+                rows = solanaRows(current.plan, selected.symbol),
+                warnings = if (current.newTokenAccountRent > 0) {
+                    listOf("Creates their token account (≈ ${solAmountText(current.newTokenAccountRent)} SOL)")
+                } else {
+                    emptyList()
+                },
+                notice = notice,
+                onShow = { confirm(current.plan) },
+                onEdit = {
+                    notice = null
+                    step = SolanaSendStep.Amount
+                },
+                backLabel = backLabel,
+                offline = offline,
+                onBack = {
+                    notice = null
+                    step = SolanaSendStep.Amount
+                },
+                onLock = onLock,
+            )
+        }
+        is SolanaSendStep.SetupReview -> SendReviewPage(
+            heading = "Offline Signing",
+            toTitle = "Nonce account",
+            toDetail = "Created once for this account",
+            toAddress = current.nonceAccount,
+            validLine = "Create the nonce account for this account. You do this once.",
+            firstTime = SETUP_SIGN_TEXT,
+            rows = listOf(
+                SummaryRow("Rent", "${SolanaSendInput.format(BigInteger.valueOf(current.rentLamports))} SOL"),
+                SummaryRow("Network Fee", feeText),
+                SummaryRow("Network", networkLabel),
+                SummaryRow("From", groupAddress(from.address)),
+            ),
+            warnings = emptyList(),
             notice = notice,
-            onConfirm = { confirm(current.plan) },
+            onShow = { prepareSetup(current) },
+            onEdit = {
+                notice = null
+                step = SolanaSendStep.Amount
+            },
+            backLabel = backLabel,
+            offline = offline,
             onBack = {
                 notice = null
-                step = SolanaSendStep.Form
+                step = SolanaSendStep.Amount
             },
+            onLock = onLock,
         )
-        is SolanaSendStep.SetupReview -> SolanaSetupReviewScreen(
-            network = network,
-            sender = from.address,
-            nonceAccount = current.nonceAccount,
-            rentLamports = current.rentLamports,
-            notice = notice,
-            onConfirm = { prepareSetup(current) },
-            onBack = {
-                notice = null
-                step = SolanaSendStep.Form
-            },
-        )
-        is SolanaSendStep.Request -> SolanaSignRequestScreen(
+        is SolanaSendStep.Request -> SendShowPage(
             parts = current.parts,
-            notice = notice,
-            onScan = { startScan(current) },
+            onNext = { startScan(current) },
+            onCancel = { step = if (current.setup) SolanaSendStep.Amount else SolanaSendStep.Declined(current.plan) },
+            backLabel = backLabel,
+            offline = offline,
             onBack = {
                 notice = null
-                step = if (current.setup) SolanaSendStep.Form else SolanaSendStep.Review(current.plan)
+                step = if (current.setup) SolanaSendStep.Amount else SolanaSendStep.Review(current.plan)
             },
-            setup = current.setup,
+            onLock = onLock,
         )
-        is SolanaSendStep.Scanning -> LumioScanScreen(
-            title = "Scan Signature",
+        is SolanaSendStep.Scanning -> SignatureScanScreen(
             progress = scanProgress,
-            statusText = scanStatus,
+            status = scanStatus,
             onText = { text -> onSignatureText(current, text) },
-            onCancel = { step = SolanaSendStep.Request(current.plan, current.parts, current.setup) },
-        )
-        is SolanaSendStep.Submit -> SubmitScreen(
-            machine = current.machine,
-            rows = solanaSummary(current.plan, selected.symbol),
-            explorerUrl = { signature -> SolanaSend.explorerTxUrl(current.plan.network, signature) },
-            status = solanaOutcomeText(current.plan.network, sentOutcome),
-            explorerNotice = sentNotice,
-            onSubmit = { submit(current) },
-            onOpenExplorer = { signature -> openExplorer(SolanaSend.explorerTxUrl(current.plan.network, signature)) },
-            onStartOver = {
-                notice = null
-                step = SolanaSendStep.Form
+            onCancel = {
+                step = if (current.setup) SolanaSendStep.Request(current.plan, current.parts, current.setup) else SolanaSendStep.Declined(current.plan)
             },
-            onBack = { leaveSubmit(current) },
+        )
+        is SolanaSendStep.Declined -> SendDeclinedPage(
+            amount = solanaAmountText(current.plan, selected.symbol),
+            fromName = fromName,
+            backLabel = backLabel,
+            onBack = { navController.popBackStack() },
+            onLock = onLock,
+        )
+        is SolanaSendStep.Submit -> SignedSendSteps(
+            machine = current.machine,
+            headline = if (current.setup) "Offline Signing Is on Its Way" else "Your ${selected.symbol} Is on Its Way",
+            amount = solanaAmountText(current.plan, selected.symbol),
+            recipient = if (current.setup) "your nonce account" else groupAddress(current.plan.recipientAddress),
+            network = networkLabel,
+            timing = sentOutcome?.let { solanaOutcomeText(network, it) } ?: "About 1 second on $networkLabel",
+            fromName = fromName,
+            explorerUrl = { signature -> SolanaSend.explorerTxUrl(current.plan.network, signature) },
+            onExplorer = { signature -> openExplorer(SolanaSend.explorerTxUrl(current.plan.network, signature)) },
+            onSent = { signature -> sentSignature = signature },
+            onStop = { navController.popBackStack() },
             onDone = { if (current.setup) finishSetup() else navController.popBackStack() },
+            onReview = { leaveSubmit(current) },
+            backLabel = backLabel,
+            offline = offline,
+            onLock = onLock,
         )
     }
 }
@@ -493,7 +649,7 @@ internal fun unsentExit(current: SolanaSendStep.Submit): SolanaSendStep {
     return when {
         !refused -> SolanaSendStep.Request(current.plan, current.parts, current.setup)
         current.setup -> SolanaSendStep.SetupReview(current.plan.recipientAddress, current.plan.lamports)
-        else -> SolanaSendStep.Form
+        else -> SolanaSendStep.Amount
     }
 }
 
@@ -518,4 +674,46 @@ internal fun solanaFailure(error: Throwable, setup: Boolean): SubmitFailure {
     } else {
         SubmitFailure(ownerWords(error, BROADCAST_FAILED))
     }
+}
+
+/** The name of a Solana network on the send pages. */
+private fun solanaNetworkName(network: NetworkId): String = if (network.testnet) "Solana Devnet" else "Solana Mainnet-Beta"
+
+/** The reason [text] is not a Solana address or a `solana:` link to one, or null when it is. */
+private fun solanaRecipientError(text: String): String? = runCatching { SolanaSendInput.recipientAddress(text) }
+    .exceptionOrNull()
+    ?.let { it.message ?: "Enter a valid recipient address." }
+
+/** The amount a send moves, in the coin it moves: lamports as SOL, or the token's units in its symbol. */
+private fun solanaAmountText(plan: SolanaSendPlan, symbol: String): String {
+    val token = plan.token
+    return if (token == null) {
+        "${SolanaSendInput.format(BigInteger.valueOf(plan.lamports))} SOL"
+    } else {
+        "${SolanaAssets.text(token.amount, token.decimals)} $symbol"
+    }
+}
+
+/** The rows under the recipient on the Review page: the amount, the network fee in SOL, the network and the sender. */
+private fun solanaRows(plan: SolanaSendPlan, symbol: String): List<SummaryRow> = listOf(
+    SummaryRow("Amount", solanaAmountText(plan, symbol)),
+    SummaryRow("Network Fee", "${SolanaSendInput.format(BigInteger.valueOf(plan.feeLamports))} SOL"),
+    SummaryRow("Network", solanaNetworkName(plan.network)),
+    SummaryRow("From", groupAddress(plan.senderAddress)),
+)
+
+/** A rent in lamports as SOL, rounded to a thousandth as the copy shows it. */
+private fun solAmountText(lamports: Long): String =
+    BigDecimal.valueOf(lamports).movePointLeft(9).setScale(3, RoundingMode.HALF_UP).toPlainString()
+
+/** The balance an asset row of the Amount page shows, or that it is the native coin. */
+private fun assetDetail(asset: SolanaSendAsset): String {
+    val token = asset.token ?: return "Native Coin"
+    return "Balance ${SolanaAssets.text(token.amount, asset.decimals)} ${asset.symbol}"
+}
+
+private fun solanaOutcomeText(network: NetworkId, outcome: SolanaOutcome): String = when (outcome) {
+    SolanaOutcome.CONFIRMED -> "Confirmed on ${solanaNetworkName(network)}."
+    SolanaOutcome.FAILED -> "The network ran this transaction, and it failed."
+    SolanaOutcome.PENDING -> "Not confirmed yet. Check the explorer in a minute, with this signature."
 }

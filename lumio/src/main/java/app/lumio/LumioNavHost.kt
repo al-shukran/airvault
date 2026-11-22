@@ -479,7 +479,14 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 val account = entry.accountId()
                 LumioBackdrop(selection) {
-                    BtcSendRoute(navController = navController, holder = holder, walletId = walletId, account = account, mode = selection.mode)
+                    BtcSendRoute(
+                        navController = navController,
+                        holder = holder,
+                        walletId = walletId,
+                        account = account,
+                        mode = selection.mode,
+                        onLock = { lock() },
+                    )
                 }
             }
             lumioComposable(
@@ -492,7 +499,14 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 val account = entry.accountId()
                 LumioBackdrop(selection) {
-                    SolanaSendRoute(navController = navController, holder = holder, walletId = walletId, accountId = account, mode = selection.mode)
+                    SolanaSendRoute(
+                        navController = navController,
+                        holder = holder,
+                        walletId = walletId,
+                        accountId = account,
+                        mode = selection.mode,
+                        onLock = { lock() },
+                    )
                 }
             }
             lumioComposable(
@@ -505,7 +519,14 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 val account = entry.accountId()
                 LumioBackdrop(selection) {
-                    AlgorandSendRoute(navController = navController, holder = holder, mode = selection.mode, walletId = walletId, account = account)
+                    AlgorandSendRoute(
+                        navController = navController,
+                        holder = holder,
+                        mode = selection.mode,
+                        walletId = walletId,
+                        account = account,
+                        onLock = { lock() },
+                    )
                 }
             }
             lumioComposable(
@@ -539,6 +560,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                         mode = selection.mode,
                         walletId = walletId,
                         account = account,
+                        onLock = { lock() },
                         optInAssetId = assetId,
                     )
                 }
@@ -616,6 +638,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                         account = account,
                         mode = selection.mode,
                         chainId = chain,
+                        onLock = { lock() },
                     )
                 }
             }
