@@ -40,10 +40,11 @@ env:
     ~/.gradle/caches/9.7.0/transforms
     ~/.gradle/caches/jars-9
 
-# A pull request supersedes its own earlier run. A master push or a queue entry always finishes: each commit that lands is
-# verified.
+# A pull request supersedes its own earlier run. Master pushes share one group and queue, never cancel: a running push always
+# finishes, so no two runs save build caches at once (scripts/ci/prune-caches.sh). A push that waits behind a newer one is
+# replaced by it, and the newer commit contains it and is verified. A queue entry always finishes.
 concurrency:
-  group: pr-fast-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.sha }}
+  group: pr-fast-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.event_name == 'push' && 'master' || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -535,8 +536,8 @@ jobs:
           fail-on-severity: high
 
   # Deletes superseded caches after every lane of this push has saved, so the previous master's caches stay restorable until
-  # then (scripts/ci/prune-caches.sh). It keeps the newest entry of each cache and every entry of master's current head, so a late
-  # or rerun prune of an older push never deletes a newer push's caches. One prune runs at a time.
+  # then (scripts/ci/prune-caches.sh). It keeps master's current head and the newest build-cache set, and the newest entry of each
+  # other cache, so a late or rerun prune of an older push never deletes master's head. One prune runs at a time.
   cache-prune:
     name: prune superseded caches
     if: always() && github.event_name == 'push'
