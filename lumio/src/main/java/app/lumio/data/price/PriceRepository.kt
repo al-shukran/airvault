@@ -85,19 +85,27 @@ class PriceRepository(
         }.toMap()
     }
 
+    /**
+     * Whether a switched-on source serves the market's figures. Switched off, no market figure is shown, kept or not, so every read below is null.
+     */
+    fun servesMarket(): Boolean = scheduler.serves(GlobalMarket())
+
+    /** Whether a switched-on source serves the trending coins. Switched off, no trending list is shown, kept or not. */
+    fun servesTrending(): Boolean = scheduler.serves(TrendingCoins())
+
     /** The whole market's figures, from a source or from memory within [PRICE_TTL_MS]. When no source answers, the last ones kept, stale. */
     suspend fun market(priority: Priority = Priority.VISIBLE): Kept<MarketQuote>? =
-        kept(MARKET_KEY, jsonCodec<MarketQuote>(), GlobalMarket(), priority)
+        if (servesMarket()) kept(MARKET_KEY, jsonCodec<MarketQuote>(), GlobalMarket(), priority) else null
 
     /** The trending coins, from a source or from memory within [PRICE_TTL_MS]. When no source answers, the last list kept, stale. */
     suspend fun trending(priority: Priority = Priority.VISIBLE): Kept<TrendingList>? =
-        kept(TRENDING_KEY, jsonCodec<TrendingList>(), TrendingCoins(), priority)
+        if (servesTrending()) kept(TRENDING_KEY, jsonCodec<TrendingList>(), TrendingCoins(), priority) else null
 
-    /** The last market figures kept in the vault's cache, with no source asked. Null while the vault is locked or none was kept. */
-    suspend fun lastMarket(): Kept<MarketQuote>? = lastKept(MARKET_KEY, jsonCodec<MarketQuote>())
+    /** The last market figures kept in the vault's cache, with no source asked. Null while the vault is locked, none was kept or no source is on. */
+    suspend fun lastMarket(): Kept<MarketQuote>? = if (servesMarket()) lastKept(MARKET_KEY, jsonCodec<MarketQuote>()) else null
 
-    /** The last trending list kept in the vault's cache, with no source asked. Null while the vault is locked or none was kept. */
-    suspend fun lastTrending(): Kept<TrendingList>? = lastKept(TRENDING_KEY, jsonCodec<TrendingList>())
+    /** The last trending list kept in the vault's cache, with no source asked. Null while the vault is locked, none was kept or no source is on. */
+    suspend fun lastTrending(): Kept<TrendingList>? = if (servesTrending()) lastKept(TRENDING_KEY, jsonCodec<TrendingList>()) else null
 
     /**
      * The USD price points of [asset] over [range], ending at [nowMs]. A series with no points means the source has no price in the window. Null means no
@@ -112,8 +120,22 @@ class PriceRepository(
         } catch (e: ProviderError) {
             return null
         }
-        if (series.points.isNotEmpty()) charts[key] = KeptChart(series, nowMs)
+        if (series.points.isNotEmpty()) {
+            charts[key] = KeptChart(series, nowMs)
+            // The day chart is also kept in the vault, so Home charts it on a cold start, before any source answers.
+            if (range == ChartRange.D1) dayChartKeyOf(asset)?.let { cache()?.put(CachePolicy.LastKnown, it, jsonCodec<PriceSeries>().encode(series)) }
+        }
         return series
+    }
+
+    /** The last day chart kept in the vault's cache of each of [assets] that has one. It asks no source, so it is stale by definition. */
+    suspend fun lastDayCharts(assets: Collection<AssetId>): Map<AssetId, PriceSeries> {
+        val store = cache() ?: return emptyMap()
+        val codec = jsonCodec<PriceSeries>()
+        return assets.toSet().mapNotNull { asset ->
+            val key = dayChartKeyOf(asset) ?: return@mapNotNull null
+            store.get(CachePolicy.LastKnown, key)?.let { decodeOrNull(codec, it.value) }?.let { asset to it }
+        }.toMap()
     }
 
     private data class ChartKey(val asset: AssetId, val range: ChartRange)
@@ -167,6 +189,9 @@ internal fun priceRequestOf(asset: AssetId): Request<PriceQuote>? = when (asset)
     is AssetId.Native -> NativeCoins.coinOf(asset.net)?.let { NativePrice(asset.net) }
     is AssetId.Erc20 -> DefiLlamaChains.prefixOf(asset.net)?.let { TokenPrice(asset.net, asset.contract) }
 }
+
+/** The cache key of the day chart of [asset]. Null when it has no price source. */
+internal fun dayChartKeyOf(asset: AssetId): String? = priceKeyOf(asset)?.let { "day-chart:$it" }
 
 /** The cache key of the price of [asset]. Null when it has no price source. */
 internal fun priceKeyOf(asset: AssetId): String? = when (asset) {

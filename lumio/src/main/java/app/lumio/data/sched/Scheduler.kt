@@ -100,6 +100,12 @@ class Scheduler(
         }
     }
 
+    /** Whether an enabled provider can serve [req] by its settings and traits, whatever its health is now. A switched-off source serves nothing. */
+    fun serves(req: Request<*>): Boolean {
+        val current = configs()
+        return all.any { isEligible(it, req.net, req.op, current) }
+    }
+
     /**
      * Serves [req] at [priority]. With [cacheUse] and an open cache, a stored value is returned without a call, and a value that a provider returns
      * is stored when [CacheUse.keep] accepts it. Without a cache the request is simply sent.

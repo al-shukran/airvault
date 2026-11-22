@@ -334,6 +334,29 @@ class PriceRepositoryTest {
     }
 
     @Test
+    fun withTheMarketSourceSwitchedOffNoMarketFigureIsShownEvenIfKept() = runBlocking {
+        val source = FakeProvider(id = "coingecko", networks = setOf(MARKET_NET), ops = setOf(Ops.MARKET_GLOBAL))
+        source.outcomes.add(MarketQuote(totalUsd = 2.6e12, change24hPct = 2.14, asOfMs = 1_000L))
+        assertEquals(Kept(MarketQuote(totalUsd = 2.6e12, change24hPct = 2.14, asOfMs = 1_000L), stale = false), repository(listOf(source)).market())
+
+        val switchedOff = repository(listOf(source), saved = mapOf("coingecko" to ProviderConfig(enabled = false)))
+        assertNull(switchedOff.lastMarket())
+        assertNull(switchedOff.market())
+        assertEquals(1, source.calls)
+    }
+
+    @Test
+    fun aDayChartIsKeptInTheVaultSoItIsReadWithNoSourceAsked() = runBlocking {
+        val day = PriceSeries(listOf(PricePoint(1_000L, 2.0), PricePoint(2_000L, 2.5)))
+        val source = FakeProvider(id = "defillama", networks = setOf(ETH), ops = setOf(Ops.PRICE_CHART))
+        source.outcomes.add(day)
+        assertEquals(day, repository(listOf(source)).chart(AssetId.Native(ETH), ChartRange.D1, nowMs = 3_000L))
+
+        val kept: Map<AssetId, PriceSeries> = repository(emptyList()).lastDayCharts(listOf(AssetId.Native(ETH)))
+        assertEquals(mapOf<AssetId, PriceSeries>(AssetId.Native(ETH) to day), kept)
+    }
+
+    @Test
     fun aTokenIsPricedOnceAndKeptApartFromTheNativeCoinOfItsChain() = runBlocking {
         val usdc = AssetId.Erc20.of(ETH, "0xA0B86991C6218B36C1D19D4A2E9EB0CE3606EB48")
         val source = FakeProvider(id = "defillama", networks = setOf(ETH), ops = setOf(Ops.PRICE_TOKEN))
