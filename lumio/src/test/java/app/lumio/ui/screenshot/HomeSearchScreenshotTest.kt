@@ -96,7 +96,7 @@ class HomeSearchScreenshotTest {
         WatchlistRow(asset = coin("bip122:000000000019d6689c085ae165831e93"), name = "Bitcoin", detail = "BTC · 0.2104 held", priceUsd = "$108,420.35", change24hPct = 1.82),
         WatchlistRow(asset = coin("eip155:1"), name = "Ethereum", detail = "ETH · 22.23 held", priceUsd = "$4,285.70", change24hPct = -2.41),
         WatchlistRow(asset = coin("solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"), name = "Solana", detail = "SOL · 31.5 held", priceUsd = "$184.20", change24hPct = 4.10),
-        WatchlistRow(asset = coin("algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8="), name = "Algorand", detail = "ALGO", priceUsd = null, change24hPct = null),
+        WatchlistRow(asset = coin("algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k"), name = "Algorand", detail = "ALGO", priceUsd = null, change24hPct = null),
     )
 
     private fun coin(chain: String): WatchedAsset = WatchedAsset(NetworkId(ChainId(chain), testnet = false))
