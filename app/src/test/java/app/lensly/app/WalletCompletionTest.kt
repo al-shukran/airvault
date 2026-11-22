@@ -135,9 +135,6 @@ class WalletCompletionTest {
     }
 
     private companion object {
-        val DEMO_WORDS = (
-            "REDACTED-TEST-MNEMONIC REDACTED sketch " +
-                "REDACTED REDACTED-TEST-MNEMONIC"
-            ).split(" ")
+        val DEMO_WORDS = List(23) { "abandon" } + "art"
     }
 }

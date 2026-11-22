@@ -28,10 +28,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.Dispatcher
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.RecordedRequest
+import mockwebserver3.Dispatcher
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+import mockwebserver3.RecordedRequest
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -58,7 +58,7 @@ class PriceRepositoryTest {
     @After
     fun stop() {
         scope.cancel()
-        server.shutdown()
+        server.close()
     }
 
     /**
@@ -78,11 +78,11 @@ class PriceRepositoryTest {
     private fun keyed(enabled: Boolean = true): Map<String, ProviderConfig> =
         mapOf("coingecko" to ProviderConfig(enabled = enabled, apiKey = "demo-key"))
 
-    private fun priceOf(price: String, timestamp: Long): MockResponse = MockResponse().setBody(
+    private fun priceOf(price: String, timestamp: Long): MockResponse = MockResponse.Builder().body(
         """{"coins":{"coingecko:ethereum":{"price":$price,"symbol":"ETH","timestamp":$timestamp,"confidence":0.999}}}""",
-    )
+    ).build()
 
-    private fun changeOf(value: String): MockResponse = MockResponse().setBody("""{"coins":{"coingecko:ethereum":$value}}""")
+    private fun changeOf(value: String): MockResponse = MockResponse.Builder().body("""{"coins":{"coingecko:ethereum":$value}}""").build()
 
     @Test
     fun withNoKeyOnlyDefiLlamaIsAskedAndCoinGeckoIsNever() = runBlocking {
@@ -97,7 +97,7 @@ class PriceRepositoryTest {
 
     @Test
     fun withAKeyCoinGeckoIsAskedFirstAndNoDefiLlamaCallIsMade() = runBlocking {
-        routes.on("cg", MockResponse().setBody("""{"ethereum":{"usd":1827.5,"usd_24h_change":0.41,"last_updated_at":1794774853}}"""))
+        routes.on("cg", MockResponse.Builder().body("""{"ethereum":{"usd":1827.5,"usd_24h_change":0.41,"last_updated_at":1794774853}}""").build())
         val repository = repository(live(), saved = keyed())
 
         assertEquals(Price(usd = 1827.5, change24hPct = 0.41, asOfMs = 1_794_774_853_000L, stale = false), repository.prices(listOf(ETH))[ETH])
@@ -108,7 +108,7 @@ class PriceRepositoryTest {
 
     @Test
     fun withAKeyARateLimitedCoinGeckoFallsBackToDefiLlamaAndStaysCooled() = runBlocking {
-        routes.on("cg", MockResponse().setResponseCode(429).setHeader("Retry-After", "600"))
+        routes.on("cg", MockResponse.Builder().code(429).setHeader("Retry-After", "600").build())
         routes.on("prices", priceOf("1827.5", 1_794_774_850L), priceOf("1828.0", 1_794_774_900L))
         routes.on("percentage", changeOf("0.41"), changeOf("0.42"))
         val repository = repository(live(), saved = keyed())
@@ -122,7 +122,7 @@ class PriceRepositoryTest {
 
     @Test
     fun withAKeyAFailedCoinGeckoAnswerFallsBackToDefiLlama() = runBlocking {
-        routes.on("cg", MockResponse().setBody("""{"ethereum":{"usd":0,"usd_24h_change":0.41,"last_updated_at":1794774853}}"""))
+        routes.on("cg", MockResponse.Builder().body("""{"ethereum":{"usd":0,"usd_24h_change":0.41,"last_updated_at":1794774853}}""").build())
         routes.on("prices", priceOf("1831.25", 1_794_774_850L))
         routes.on("percentage", changeOf("0.5"))
         val repository = repository(live(), saved = keyed())
@@ -236,10 +236,10 @@ class PriceRepositoryTest {
 
         @Synchronized
         override fun dispatch(request: RecordedRequest): MockResponse {
-            val route = routeOf(request.path.orEmpty())
+            val route = routeOf(request.target)
             counts[route] = calls(route) + 1
-            if (route == "cg") keys.add(request.getHeader("x-cg-demo-api-key"))
-            return queues[route]?.removeFirstOrNull() ?: MockResponse().setResponseCode(500)
+            if (route == "cg") keys.add(request.headers["x-cg-demo-api-key"])
+            return queues[route]?.removeFirstOrNull() ?: MockResponse.Builder().code(500).build()
         }
 
         private fun routeOf(path: String): String = when {

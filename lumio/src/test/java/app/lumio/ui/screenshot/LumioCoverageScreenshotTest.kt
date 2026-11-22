@@ -43,6 +43,8 @@ import app.lumio.evm.CustomChain
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettings
 import app.lumio.pair.PairFixtures
+import app.lumio.pair.PairImport
+import app.lumio.tokens.Token
 import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.pair.PairScanScreen
 import app.lumio.ui.send.SignatureScanScreen

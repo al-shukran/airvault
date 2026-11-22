@@ -38,10 +38,10 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.Dispatcher
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.RecordedRequest
+import mockwebserver3.Dispatcher
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+import mockwebserver3.RecordedRequest
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -77,27 +77,27 @@ class BtcSendNetworkTest {
     private val raw = mutableMapOf<String, String>()
     private val posted = CopyOnWriteArrayList<String>()
     /** The answer to each `POST /tx`, given the posted body. A test sets it, so the default refuses. */
-    private var answerToPost: (String) -> MockResponse = { MockResponse().setResponseCode(500) }
+    private var answerToPost: (String) -> MockResponse = { MockResponse.Builder().code(500).build() }
     private val server = MockWebServer()
 
     /** The answer to each indexer lookup, given its path. A test sets it, so the default is a server error. */
-    private var ordAnswer: (String) -> MockResponse = { MockResponse().setResponseCode(500) }
+    private var ordAnswer: (String) -> MockResponse = { MockResponse.Builder().code(500).build() }
     private val ordAsked = CopyOnWriteArrayList<String>()
 
     @Before
     fun start() {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
-                val path = request.path.orEmpty()
+                val path = request.target
                 val parts = path.split("/")
                 return when {
                     request.method == "POST" && path == "/api/tx" -> {
-                        val body = request.body.readUtf8()
+                        val body = request.body?.utf8().orEmpty()
                         posted += body
                         answerToPost(body)
                     }
                     parts.size == 5 && parts[2] == "tx" && parts[4] == "hex" ->
-                        raw[parts[3]]?.let { MockResponse().setBody(it) } ?: MockResponse().setResponseCode(404)
+                        raw[parts[3]]?.let { MockResponse.Builder().body(it).build() } ?: MockResponse.Builder().code(404).build()
                     path.startsWith("/ord/") -> {
                         ordAsked += path
                         ordAnswer(path)
@@ -111,7 +111,7 @@ class BtcSendNetworkTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     private fun CoroutineScope.scheduler(): Scheduler = Scheduler(
@@ -175,7 +175,7 @@ class BtcSendNetworkTest {
     fun aSignedTransactionIsPostedAsHexAndItsIdIsChecked() = runBlocking<Unit> {
         val (_, tx) = signedSend()
         posted.clear()
-        answerToPost = { MockResponse().setBody("${tx.txid}\n") }
+        answerToPost = { MockResponse.Builder().body("${tx.txid}\n").build() }
 
         val txid = BtcSend.broadcast(scheduler(), testnet4, tx)
 
@@ -186,14 +186,14 @@ class BtcSendNetworkTest {
     @Test
     fun aServerThatReportsAnotherIdIsRefused() = runBlocking<Unit> {
         val (_, tx) = signedSend()
-        answerToPost = { MockResponse().setBody("${"f".repeat(64)}\n") }
+        answerToPost = { MockResponse.Builder().body("${"f".repeat(64)}\n").build() }
         assertFailsWith<IllegalArgumentException> { BtcSend.broadcast(scheduler(), testnet4, tx) }
     }
 
     @Test
     fun aServerThatRefusesTheTransactionFailsTheBroadcast() = runBlocking<Unit> {
         val (_, tx) = signedSend()
-        answerToPost = { MockResponse().setResponseCode(400).setBody("bad-txns-inputs-missingorspent") }
+        answerToPost = { MockResponse.Builder().code(400).body("bad-txns-inputs-missingorspent").build() }
         val error = assertFailsWith<BtcReadException> { BtcSend.broadcast(scheduler(), testnet4, tx) }
         assertEquals(BtcReadStep.BROADCAST, error.step)
         assertTrue(error.message.orEmpty().contains("sending the transaction"), error.message)
@@ -231,7 +231,7 @@ class BtcSendNetworkTest {
         val hung = MockWebServer()
         hung.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse =
-                MockResponse().setHeadersDelay(5, TimeUnit.SECONDS).setBody("[]")
+                MockResponse.Builder().headersDelay(5, TimeUnit.SECONDS).body("[]").build()
         }
         hung.start()
         try {
@@ -257,7 +257,7 @@ class BtcSendNetworkTest {
             assertEquals(1, spendable.coins.size, "the coins come from blockstream, which answers")
             assertEquals(100_000L, spendable.coins[0].valueSats)
         } finally {
-            hung.shutdown()
+            hung.close()
         }
     }
 
@@ -283,7 +283,7 @@ class BtcSendNetworkTest {
         val spend = fund()
         val inscribed = "/ord/output/${spend.funding.txid}:0"
         ordAnswer = { path ->
-            MockResponse().setBody(if (path == inscribed) """{"inscriptions":["x"],"runes":{}}""" else """{"inscriptions":[],"runes":{}}""")
+            MockResponse.Builder().body(if (path == inscribed) """{"inscriptions":["x"],"runes":{}}""" else """{"inscriptions":[],"runes":{}}""").build()
         }
 
         val spendable = BtcSend.spendable(watch, scheduler(), indexer = ordIndexer())

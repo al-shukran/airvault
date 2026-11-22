@@ -19,8 +19,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -42,7 +42,7 @@ class EtherscanProviderTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     private fun cfg(key: String? = "KEY-123") = ProviderConfig(baseUrl = server.url("/").toString(), apiKey = key)
@@ -58,10 +58,10 @@ class EtherscanProviderTest {
 
     @Test
     fun theBalanceIsReadWithTheChainIdAndTheKeyInTheQuery() {
-        server.enqueue(MockResponse().setBody("""{"status":"1","message":"OK","result":"172774397764084972158218"}"""))
+        server.enqueue(MockResponse.Builder().body("""{"status":"1","message":"OK","result":"172774397764084972158218"}""").build())
 
         assertEquals(BigInteger("172774397764084972158218"), call(NativeBalance(ETH, ethAddress)))
-        val url = server.takeRequest().requestUrl!!
+        val url = server.takeRequest().url
         assertEquals("/v2/api", url.encodedPath)
         assertEquals("1", url.queryParameter("chainid"))
         assertEquals("account", url.queryParameter("module"))
@@ -73,11 +73,11 @@ class EtherscanProviderTest {
 
     @Test
     fun theChainIdFollowsTheNetwork() {
-        server.enqueue(MockResponse().setBody("""{"status":"1","message":"OK","result":"0"}"""))
+        server.enqueue(MockResponse.Builder().body("""{"status":"1","message":"OK","result":"0"}""").build())
 
         call(NativeBalance(NetworkId(Networks.evm(137), testnet = false), ethAddress))
 
-        assertEquals("137", server.takeRequest().requestUrl!!.queryParameter("chainid"))
+        assertEquals("137", server.takeRequest().url.queryParameter("chainid"))
     }
 
     @Test
@@ -92,9 +92,9 @@ class EtherscanProviderTest {
     @Test
     fun aRateLimitAnsweredInTheBodyIsCooledWithNoFixedWait() {
         server.enqueue(
-            MockResponse().setBody(
+            MockResponse.Builder().body(
                 """{"status":"0","message":"NOTOK","result":"Max rate limit reached, please use API Key for higher rate limit"}""",
-            ),
+            ).build(),
         )
 
         assertNull(assertFailsWith<ProviderError.RateLimited> { call(NativeBalance(ETH, ethAddress)) }.retryAfterMs)
@@ -103,14 +103,14 @@ class EtherscanProviderTest {
     @Test
     fun aQuotaAndTooManyInvalidKeyAttemptsAreRateLimits() {
         server.enqueue(
-            MockResponse().setBody(
+            MockResponse.Builder().body(
                 """{"status":"0","message":"NOTOK","result":"Community Free API limit reached. Resets 2026-06-24 12:00:00 UTC."}""",
-            ),
+            ).build(),
         )
         server.enqueue(
-            MockResponse().setBody(
+            MockResponse.Builder().body(
                 """{"status":"0","message":"NOTOK","result":"Too many invalid api key attempts, please try again later"}""",
-            ),
+            ).build(),
         )
 
         assertFailsWith<ProviderError.RateLimited> { call(NativeBalance(ETH, ethAddress)) }
@@ -119,14 +119,14 @@ class EtherscanProviderTest {
 
     @Test
     fun aRetryAfterHeaderIsTheCooldownInMilliseconds() {
-        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "30"))
+        server.enqueue(MockResponse.Builder().code(429).setHeader("Retry-After", "30").build())
 
         assertEquals(30_000L, assertFailsWith<ProviderError.RateLimited> { call(NativeBalance(ETH, ethAddress)) }.retryAfterMs)
     }
 
     @Test
     fun aRejectedKeyIsFatalAndTheMessageHoldsNoKey() {
-        server.enqueue(MockResponse().setBody("""{"status":"0","message":"NOTOK","result":"Invalid API Key (#err2)"}"""))
+        server.enqueue(MockResponse.Builder().body("""{"status":"0","message":"NOTOK","result":"Invalid API Key (#err2)"}""").build())
 
         val e = assertFailsWith<ProviderError.Fatal> { call(NativeBalance(ETH, ethAddress)) }
         assertFalse(e.message.orEmpty().contains("KEY-123"))
@@ -135,10 +135,10 @@ class EtherscanProviderTest {
     @Test
     fun aPlanThatDoesNotCoverTheChainIsUnsupportedNotAFailure() {
         server.enqueue(
-            MockResponse().setBody(
+            MockResponse.Builder().body(
                 """{"status":"0","message":"NOTOK","result":"Free API access is not supported for this chain. """ +
                     """Please upgrade your api plan for full chain coverage."}""",
-            ),
+            ).build(),
         )
 
         assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(ETH, ethAddress)) }
@@ -146,9 +146,9 @@ class EtherscanProviderTest {
 
     @Test
     fun malformedAnswersAreTransientOrFatal() {
-        server.enqueue(MockResponse().setBody("<html>portal</html>"))
-        server.enqueue(MockResponse().setBody("""{"status":"1","message":"OK","result":"1e18"}"""))
-        server.enqueue(MockResponse().setBody("""{"message":"OK"}"""))
+        server.enqueue(MockResponse.Builder().body("<html>portal</html>").build())
+        server.enqueue(MockResponse.Builder().body("""{"status":"1","message":"OK","result":"1e18"}""").build())
+        server.enqueue(MockResponse.Builder().body("""{"message":"OK"}""").build())
 
         assertFailsWith<ProviderError.Transient> { call(NativeBalance(ETH, ethAddress)) }
         assertFailsWith<ProviderError.Fatal> { call(NativeBalance(ETH, ethAddress)) }

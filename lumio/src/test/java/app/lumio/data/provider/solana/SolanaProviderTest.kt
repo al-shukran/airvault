@@ -35,9 +35,9 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.RecordedRequest
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+import mockwebserver3.RecordedRequest
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -66,7 +66,7 @@ class SolanaProviderTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     /** The owner's devnet RPC, set to the local server, with the waits recorded. */
@@ -76,12 +76,12 @@ class SolanaProviderTest {
 
     private fun <T> call(req: Request<T>): T = runBlocking { provider().execute(req, cfg(), http) }
 
-    private fun answer(result: String) = MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":$result}""")
+    private fun answer(result: String) = MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":$result}""").build()
 
     private fun rateLimited(retryAfter: String? = null): MockResponse =
-        MockResponse().setResponseCode(429).apply { retryAfter?.let { setHeader("Retry-After", it) } }
+        MockResponse.Builder().code(429).apply { retryAfter?.let { setHeader("Retry-After", it) } }.build()
 
-    private fun method(request: RecordedRequest): String = Regex("\"method\":\"([A-Za-z]+)\"").find(request.body.readUtf8())!!.groupValues[1]
+    private fun method(request: RecordedRequest): String = Regex("\"method\":\"([A-Za-z]+)\"").find(request.body?.utf8().orEmpty())!!.groupValues[1]
 
     private fun jsonStrings(values: List<String>): String = values.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
 
@@ -104,7 +104,7 @@ class SolanaProviderTest {
         server.enqueue(answer("""{"context":{"slot":1},"value":{"blockhash":"$blockhash","lastValidBlockHeight":100}}"""))
 
         assertEquals(SolanaBlockhash(blockhash, 100L), call(RecentBlockhash(devnet)))
-        val body = server.takeRequest().body.readUtf8()
+        val body = server.takeRequest().body?.utf8().orEmpty()
         assertTrue(body.contains("\"method\":\"getLatestBlockhash\""))
         assertTrue(body.contains("[{\"commitment\":\"confirmed\"}]"))
     }
@@ -114,7 +114,7 @@ class SolanaProviderTest {
         server.enqueue(answer("510481000"))
 
         assertEquals(510_481_000L, call(SolanaBlockHeight(devnet)))
-        val body = server.takeRequest().body.readUtf8()
+        val body = server.takeRequest().body?.utf8().orEmpty()
         assertTrue(body.contains("\"method\":\"getBlockHeight\""))
         assertTrue(body.contains("[{\"commitment\":\"confirmed\"}]"))
     }
@@ -150,7 +150,7 @@ class SolanaProviderTest {
         server.enqueue(answer("\"$firstSignature\""))
 
         assertEquals(firstSignature, call(Broadcast(devnet, byteArrayOf(1, 2, 3))))
-        val body = server.takeRequest().body.readUtf8()
+        val body = server.takeRequest().body?.utf8().orEmpty()
         assertTrue(body.contains("\"method\":\"sendTransaction\""))
         assertTrue(body.contains("[\"AQID\",{\"encoding\":\"base64\"}]"))
     }
@@ -222,8 +222,8 @@ class SolanaProviderTest {
             ),
             call(SplTokenBalances(devnet, address)),
         )
-        val classic = server.takeRequest().body.readUtf8()
-        val token2022 = server.takeRequest().body.readUtf8()
+        val classic = server.takeRequest().body?.utf8().orEmpty()
+        val token2022 = server.takeRequest().body?.utf8().orEmpty()
         assertTrue(classic.contains("\"method\":\"getTokenAccountsByOwner\""))
         assertTrue(classic.contains("\"programId\":\"$CLASSIC_PROGRAM\""))
         assertTrue(token2022.contains("\"programId\":\"$SPL_2022_PROGRAM\""))
@@ -282,7 +282,7 @@ class SolanaProviderTest {
 
     @Test
     fun aRateLimitInsideAJsonRpcErrorIsRetriedLikeAnHttp429() {
-        server.enqueue(MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"error":{"code":-32005,"message":"Node is behind"}}"""))
+        server.enqueue(MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"error":{"code":-32005,"message":"Node is behind"}}""").build())
         server.enqueue(answer("""{"context":{"slot":1},"value":3}"""))
 
         assertEquals(BigInteger.valueOf(3), call(NativeBalance(devnet, address)))
@@ -291,10 +291,10 @@ class SolanaProviderTest {
 
     @Test
     fun aMalformedAnswerIsFatal() {
-        server.enqueue(MockResponse().setBody("<html>portal</html>"))
+        server.enqueue(MockResponse.Builder().body("<html>portal</html>").build())
         assertFailsWith<ProviderError.Fatal> { call(NativeBalance(devnet, address)) }
 
-        server.enqueue(MockResponse().setBody("""{"jsonrpc":"2.0","id":1}"""))
+        server.enqueue(MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1}""").build())
         assertFailsWith<ProviderError.Fatal> { call(NativeBalance(devnet, address)) }
 
         server.enqueue(answer("""{"context":{"slot":1},"value":1.5}"""))
@@ -310,11 +310,11 @@ class SolanaProviderTest {
     @Test
     fun aJsonRpcErrorObjectIsFatalAndAMissingMethodIsUnsupported() {
         server.enqueue(
-            MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"error":{"code":-32002,"message":"Transaction simulation failed"}}"""),
+            MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"error":{"code":-32002,"message":"Transaction simulation failed"}}""").build(),
         )
         assertFailsWith<ProviderError.Fatal> { call(Broadcast(devnet, byteArrayOf(1))) }
 
-        server.enqueue(MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}"""))
+        server.enqueue(MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}""").build())
         assertFailsWith<ProviderError.Unsupported> { call(RecentBlockhash(devnet)) }
     }
 
@@ -369,7 +369,7 @@ class SolanaProviderTest {
     fun theSignatureStatusIsNullUntilTheNetworkKnowsItAndReadsItsConfirmation() {
         server.enqueue(answer("""{"context":{"slot":1},"value":[null]}"""))
         assertNull(call(SolanaSignatureStatus(devnet, firstSignature)))
-        val body = server.takeRequest().body.readUtf8()
+        val body = server.takeRequest().body?.utf8().orEmpty()
         assertTrue(body.contains("\"method\":\"getSignatureStatuses\""))
         assertTrue(body.contains("[[\"$firstSignature\"],{\"searchTransactionHistory\":true}]"))
 
@@ -401,9 +401,9 @@ class SolanaProviderTest {
     @Test
     fun aBlockhashThatHasExpiredIsRefusedWithTheWordsForTheOwner() {
         server.enqueue(
-            MockResponse().setBody(
+            MockResponse.Builder().body(
                 """{"jsonrpc":"2.0","id":1,"error":{"code":-32002,"message":"Transaction simulation failed: Blockhash not found","data":{}}}""",
-            ),
+            ).build(),
         )
 
         val failure = assertFailsWith<ProviderError.Fatal> { call(Broadcast(devnet, byteArrayOf(1))) }

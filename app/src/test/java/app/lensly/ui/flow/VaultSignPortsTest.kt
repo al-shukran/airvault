@@ -101,8 +101,8 @@ class VaultSignPortsTest {
     private val context: Context = RuntimeEnvironment.getApplication()
     private val words = List(23) { "abandon" } + "art"
 
-    /** The words of a second wallet, which holds other keys. */
-    private val otherWords = "REDACTED-TEST-MNEMONIC REDACTED-TEST-MNEMONIC".split(" ")
+    /** The passphrase of the second wallet: the same published words under another seed. */
+    private val otherPassphrase = "TREZOR"
 
     @Test
     fun aStoreThatThrowsAnUnexpectedExceptionIsReportedAsReviewNotSaved() {
@@ -358,11 +358,11 @@ class VaultSignPortsTest {
         val (session, id) = sessionWithWallet()
         try {
             val store = WalletStore(session)
-            val other = store.create(name = "OTHER", deviceGenerated = false, words = otherWords, passphrase = null, nowMs = 2L)
+            val other = store.create(name = "OTHER", deviceGenerated = false, words = words, passphrase = otherPassphrase, nowMs = 2L)
             store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, BulkCap.DEFAULT.accounts)
             store.addBitcoinAccounts(other, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, BulkCap.DEFAULT.accounts)
             val ours = BtcAccount.fromSeed(seed(), BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0)
-            val theirs = BtcAccount.fromSeed(Mnemonic.of(otherWords).use { it.deriveSeed("") }, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0)
+            val theirs = BtcAccount.fromSeed(Mnemonic.of(words).use { it.deriveSeed(otherPassphrase) }, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT, 0)
             val spends = listOf(
                 BtcFixtures.Spend(BtcFixtures.funding(ours, 0, 0, 100_000L), ours, 0, 0),
                 BtcFixtures.Spend(BtcFixtures.funding(theirs, 0, 0, 100_000L), theirs, 0, 0),

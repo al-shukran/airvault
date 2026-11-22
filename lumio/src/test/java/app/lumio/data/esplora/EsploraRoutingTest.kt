@@ -17,8 +17,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -50,8 +50,8 @@ class EsploraRoutingTest {
     @After
     fun stop() {
         scope.cancel()
-        mempool.shutdown()
-        blockstream.shutdown()
+        mempool.close()
+        blockstream.close()
     }
 
     private fun scheduler(): Scheduler = Scheduler(
@@ -74,8 +74,8 @@ class EsploraRoutingTest {
     @Test
     fun aStalledProviderTimesOutAndTheCallMovesToTheNextOne() = runBlocking {
         // The body arrives after the read timeout, so mempool's read fails as a timeout and is retried on blockstream.
-        mempool.enqueue(MockResponse().setBody("850002\n").setBodyDelay(2, TimeUnit.SECONDS))
-        blockstream.enqueue(MockResponse().setBody("850002\n"))
+        mempool.enqueue(MockResponse.Builder().body("850002\n").bodyDelay(2, TimeUnit.SECONDS).build())
+        blockstream.enqueue(MockResponse.Builder().body("850002\n").build())
 
         assertEquals(850_002L, scheduler().run(TipHeight(testnet4), Priority.FOREGROUND))
 
@@ -85,9 +85,9 @@ class EsploraRoutingTest {
 
     @Test
     fun aRateLimitedProviderCoolsDownAndTheNextCallGoesElsewhere() = runBlocking {
-        mempool.enqueue(MockResponse().setResponseCode(429).addHeader("Retry-After", "60"))
-        blockstream.enqueue(MockResponse().setBody("850003\n"))
-        blockstream.enqueue(MockResponse().setBody("850003\n"))
+        mempool.enqueue(MockResponse.Builder().code(429).addHeader("Retry-After", "60").build())
+        blockstream.enqueue(MockResponse.Builder().body("850003\n").build())
+        blockstream.enqueue(MockResponse.Builder().body("850003\n").build())
         val scheduler = scheduler()
 
         assertEquals(850_003L, scheduler.run(TipHeight(testnet4), Priority.FOREGROUND))
