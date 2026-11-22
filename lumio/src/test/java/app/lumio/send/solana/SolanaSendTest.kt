@@ -31,8 +31,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -80,7 +80,7 @@ class SolanaSendTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     /** The owner's devnet RPC set to the local server, with the waits recorded. */
@@ -93,7 +93,7 @@ class SolanaSendTest {
         scope = CoroutineScope(Dispatchers.Default),
     )
 
-    private fun answer(result: String) = MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":$result}""")
+    private fun answer(result: String) = MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":$result}""").build()
 
     /** A one-time setup of the test account, with a balance that covers the rent. */
     private fun setupPlan(window: SetupWindow): SolanaSendPlan = SolanaSend.setupPlan(
@@ -236,7 +236,7 @@ class SolanaSendTest {
         val setupWindow = assertNotNull(setup.window)
         assertEquals(250L, setupWindow.lastValidBlockHeight)
         assertContentEquals(blockhash, setup.blockhash)
-        val fetch = server.takeRequest().body.readUtf8()
+        val fetch = server.takeRequest().body?.utf8().orEmpty()
         assertTrue(fetch.contains("\"method\":\"getLatestBlockhash\""))
         assertTrue(fetch.contains("[{\"commitment\":\"confirmed\"}]"))
     }
@@ -261,7 +261,7 @@ class SolanaSendTest {
         assertEquals(SETUP_EXPIRED, failure.message)
         assertFalse(failure.retryable)
         assertEquals(1, server.requestCount)
-        assertTrue(server.takeRequest().body.readUtf8().contains("\"method\":\"getBlockHeight\""))
+        assertTrue(server.takeRequest().body?.utf8().orEmpty().contains("\"method\":\"getBlockHeight\""))
     }
 
     /**
@@ -414,7 +414,7 @@ class SolanaSendTest {
         val reported = SolanaSend.broadcast(scheduler(), SOLANA_DEVNET, signed)
 
         assertEquals(signed.signature, reported)
-        val body = server.takeRequest().body.readUtf8()
+        val body = server.takeRequest().body?.utf8().orEmpty()
         assertTrue(body.contains("\"method\":\"sendTransaction\""))
         assertTrue(body.contains("[\"${Base64.getEncoder().encodeToString(signed.raw)}\",{\"encoding\":\"base64\"}]"))
 
@@ -438,9 +438,9 @@ class SolanaSendTest {
         val plan = plan()
         val signed = SolanaSend.signed(plan, answerOf(requestId, Ed25519Signer.sign(privateKeyOf(accountIndex), plan.message)))
         server.enqueue(
-            MockResponse().setBody(
+            MockResponse.Builder().body(
                 """{"jsonrpc":"2.0","id":1,"error":{"code":-32002,"message":"Transaction simulation failed: Blockhash not found","data":{}}}""",
-            ),
+            ).build(),
         )
 
         val failure = assertFailsWith<ProviderError.Fatal> { SolanaSend.broadcast(scheduler(), SOLANA_DEVNET, signed) }

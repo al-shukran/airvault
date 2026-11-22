@@ -86,7 +86,7 @@ class AddressBookScreenshotTest {
 
     @Composable
     private fun ListSnapshot() {
-        AddressBookScreen(entries = listEntries, onOpen = {}, onAdd = {}, onBack = {})
+        AddressBookScreen(entries = listEntries, onOpen = {}, onAdd = {}, onScan = {}, onBack = {})
     }
 
     @Composable

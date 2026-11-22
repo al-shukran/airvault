@@ -38,10 +38,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlinx.coroutines.runBlocking
-import okhttp3.mockwebserver.Dispatcher
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.RecordedRequest
+import mockwebserver3.Dispatcher
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+import mockwebserver3.RecordedRequest
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -75,7 +75,7 @@ class SolanaSendRouteTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     @Test
@@ -133,7 +133,7 @@ class SolanaSendRouteTest {
 
     private fun rpc(): Dispatcher = object : Dispatcher() {
         override fun dispatch(request: RecordedRequest): MockResponse {
-            val body = request.body.readUtf8()
+            val body = request.body?.utf8().orEmpty()
             return when {
                 body.contains("\"getLatestBlockhash\"") -> {
                     blockhashReads.incrementAndGet()
@@ -143,12 +143,12 @@ class SolanaSendRouteTest {
                 body.contains("\"getAccountInfo\"") -> answer("""{"context":{"slot":1},"value":null}""")
                 body.contains("\"getMinimumBalanceForRentExemption\"") -> answer("1447680")
                 body.contains("\"getTokenAccountsByOwner\"") -> answer("""{"context":{"slot":1},"value":[]}""")
-                else -> MockResponse().setResponseCode(500)
+                else -> MockResponse.Builder().code(500).build()
             }
         }
     }
 
-    private fun answer(result: String) = MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":$result}""")
+    private fun answer(result: String) = MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":$result}""").build()
 
     /** The pairing as Lumio reads it: the code is encoded as Lensly writes it, and checked by [PairImport]. */
     private fun roundTrip(payload: PairingPayload): PairingPayload =

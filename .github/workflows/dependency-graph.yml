@@ -36,7 +36,10 @@ jobs:
           distribution: temurin
           java-version: '21.0.13+9'
 
+      # cache-disabled, as in pr-fast.yml: the repository's cache limit is held by the build-cache entries (scripts/ci/README.md).
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-disabled: true
 
       # No continue-on-error: with the `if` above, a failure here can only mean the graph was
       # submitted but rejected, and dependency review would then diff against a stale snapshot.

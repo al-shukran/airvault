@@ -12,10 +12,10 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import okhttp3.mockwebserver.Dispatcher
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.RecordedRequest
+import mockwebserver3.Dispatcher
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+import mockwebserver3.RecordedRequest
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -101,7 +101,7 @@ class TokenBalancesOverRpcTest {
     fun start() {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
-                val body = Json.parseToJsonElement(request.body.readUtf8()).let { it as JsonObject }
+                val body = Json.parseToJsonElement(request.body?.utf8().orEmpty()).let { it as JsonObject }
                 val params = body["params"] as JsonArray
                 val transaction = params[0] as JsonObject
                 calls += transaction
@@ -109,7 +109,7 @@ class TokenBalancesOverRpcTest {
                 assertEquals("eth_call", (body["method"] as JsonPrimitive).content)
                 val to = (transaction["to"] as JsonPrimitive).content
                 val result = if (to == Multicall3.ADDRESS) Reply.aggregate(listOf(true to Reply.uint(1_234_567), true to Reply.uint(9))) else "0x"
-                return MockResponse().setBody("""{"jsonrpc":"2.0","id":1,"result":"0x${result.removePrefix("0x")}"}""")
+                return MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":"0x${result.removePrefix("0x")}"}""").build()
             }
         }
         server.start()
@@ -117,7 +117,7 @@ class TokenBalancesOverRpcTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     @Test

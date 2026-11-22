@@ -21,8 +21,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -42,18 +42,18 @@ class DefiLlamaProviderTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        server.close()
     }
 
     private fun cfg() = ProviderConfig(baseUrl = server.url("/").toString())
 
     private fun <T> call(req: Request<T>): T = runBlocking { DefiLlamaProvider().execute(req, cfg(), http) }
 
-    private fun priceAnswer(price: String = "1831.253676", timestamp: Long = 1794774850L) = MockResponse().setBody(
+    private fun priceAnswer(price: String = "1831.253676", timestamp: Long = 1794774850L) = MockResponse.Builder().body(
         """{"coins":{"coingecko:ethereum":{"price":$price,"symbol":"ETH","timestamp":$timestamp,"confidence":0.999}}}""",
-    )
+    ).build()
 
-    private fun changeAnswer(value: String) = MockResponse().setBody("""{"coins":{"coingecko:ethereum":$value}}""")
+    private fun changeAnswer(value: String) = MockResponse.Builder().body("""{"coins":{"coingecko:ethereum":$value}}""").build()
 
     @Test
     fun thePriceAndItsTwentyFourHourChangeComeFromTwoRequests() {
@@ -61,8 +61,8 @@ class DefiLlamaProviderTest {
         server.enqueue(changeAnswer("0.58"))
 
         assertEquals(PriceQuote(usd = 1831.253676, change24hPct = 0.58, asOfMs = 1_794_774_850_000L), call(NativePrice(ETH)))
-        assertEquals("/prices/current/coingecko:ethereum", server.takeRequest().path)
-        assertEquals("/percentage/coingecko:ethereum?period=24h", server.takeRequest().path)
+        assertEquals("/prices/current/coingecko:ethereum", server.takeRequest().target)
+        assertEquals("/percentage/coingecko:ethereum?period=24h", server.takeRequest().target)
     }
 
     @Test
@@ -72,13 +72,13 @@ class DefiLlamaProviderTest {
         assertNull(call(NativePrice(ETH)).change24hPct)
 
         server.enqueue(priceAnswer())
-        server.enqueue(MockResponse().setBody("""{"coins":{}}"""))
+        server.enqueue(MockResponse.Builder().body("""{"coins":{}}""").build())
         assertNull(call(NativePrice(ETH)).change24hPct)
     }
 
     @Test
     fun aCoinTheSourceDoesNotPriceIsUnsupportedAndTheChangeIsNotAsked() {
-        server.enqueue(MockResponse().setBody("""{"coins":{}}"""))
+        server.enqueue(MockResponse.Builder().body("""{"coins":{}}""").build())
 
         assertFailsWith<ProviderError.Unsupported> { call(NativePrice(ETH)) }
         assertEquals(1, server.requestCount)
@@ -86,7 +86,7 @@ class DefiLlamaProviderTest {
 
     @Test
     fun aRetryAfterHeaderIsTheRateLimitCooldownInMilliseconds() {
-        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "30"))
+        server.enqueue(MockResponse.Builder().code(429).setHeader("Retry-After", "30").build())
 
         assertEquals(30_000L, assertFailsWith<ProviderError.RateLimited> { call(NativePrice(ETH)) }.retryAfterMs)
     }
@@ -94,14 +94,14 @@ class DefiLlamaProviderTest {
     @Test
     fun aRateLimitOnTheChangeRequestFailsTheWholeCall() {
         server.enqueue(priceAnswer())
-        server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "45"))
+        server.enqueue(MockResponse.Builder().code(429).setHeader("Retry-After", "45").build())
 
         assertEquals(45_000L, assertFailsWith<ProviderError.RateLimited> { call(NativePrice(ETH)) }.retryAfterMs)
     }
 
     @Test
     fun aServerErrorIsTransient() {
-        server.enqueue(MockResponse().setResponseCode(503))
+        server.enqueue(MockResponse.Builder().code(503).build())
 
         assertFailsWith<ProviderError.Transient> { call(NativePrice(ETH)) }
     }
@@ -135,12 +135,12 @@ class DefiLlamaProviderTest {
     fun aTokenIsPricedByItsChainPrefixAndContractAndItsChangeIsAskedForToo() {
         val usdc = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
         val coin = "ethereum:$usdc"
-        server.enqueue(MockResponse().setBody("""{"coins":{"$coin":{"price":0.9998,"symbol":"USDC","timestamp":1794774850,"confidence":0.999}}}"""))
-        server.enqueue(MockResponse().setBody("""{"coins":{"$coin":-0.01}}"""))
+        server.enqueue(MockResponse.Builder().body("""{"coins":{"$coin":{"price":0.9998,"symbol":"USDC","timestamp":1794774850,"confidence":0.999}}}""").build())
+        server.enqueue(MockResponse.Builder().body("""{"coins":{"$coin":-0.01}}""").build())
 
         assertEquals(PriceQuote(usd = 0.9998, change24hPct = -0.01, asOfMs = 1_794_774_850_000L), call(TokenPrice(ETH, usdc)))
-        assertEquals("/prices/current/$coin", server.takeRequest().path)
-        assertEquals("/percentage/$coin?period=24h", server.takeRequest().path)
+        assertEquals("/prices/current/$coin", server.takeRequest().target)
+        assertEquals("/percentage/$coin?period=24h", server.takeRequest().target)
     }
 
     @Test

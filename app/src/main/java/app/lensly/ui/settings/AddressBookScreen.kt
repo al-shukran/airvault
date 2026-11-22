@@ -1,5 +1,6 @@
 package app.lensly.ui.settings
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,14 +28,16 @@ import app.lensly.ui.wallet.WalletPill
 import app.lensly.ui.wallet.WalletPillStyle
 
 /**
- * The Address Book: each saved address with its name and label, by name. A tap opens the entry to edit or delete it, and ADD opens the form
- * for a new one. The book is for display only, and no signing rule reads it. [error] is shown when the book could not be read.
+ * The Address Book: each saved address with its name and label, by name. A tap opens the entry to edit or delete it. Add Address opens the
+ * form for a new one, and Add by Scanning reads one from the code that Lumio shows. The book is for display only, and no signing rule reads
+ * it. [error] is shown when the book could not be read.
  */
 @Composable
 fun AddressBookScreen(
     entries: List<AddressBookEntry>,
     onOpen: (AddressBookEntry) -> Unit,
     onAdd: () -> Unit,
+    onScan: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     error: String? = null,
@@ -44,7 +47,10 @@ fun AddressBookScreen(
         modifier = modifier,
         onBack = onBack,
         bottomAction = {
-            WalletPill(text = "Add Address", onClick = onAdd, modifier = Modifier.fillMaxWidth(), style = WalletPillStyle.Primary)
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(LenslySpacing.sm)) {
+                WalletPill(text = "Add by Scanning", onClick = onScan, modifier = Modifier.fillMaxWidth(), style = WalletPillStyle.Outline)
+                WalletPill(text = "Add Address", onClick = onAdd, modifier = Modifier.fillMaxWidth(), style = WalletPillStyle.Primary)
+            }
         },
     ) {
         if (error != null) {

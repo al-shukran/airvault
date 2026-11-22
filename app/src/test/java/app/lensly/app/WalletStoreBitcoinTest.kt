@@ -55,11 +55,6 @@ class WalletStoreBitcoinTest {
 
     private val words = List(23) { "abandon" } + "art"
     private val otherWords = List(23) { "zoo" } + "vote"
-    /** The throwaway mnemonic of the Lumio request tests. */
-    private val lumioWords = (
-        "REDACTED-TEST-MNEMONIC REDACTED sketch " +
-            "REDACTED REDACTED-TEST-MNEMONIC"
-        ).split(" ")
     private val cap = BulkCap.DEFAULT.accounts
     private lateinit var session: VaultSession
     private lateinit var store: WalletStore
@@ -443,9 +438,9 @@ class WalletStoreBitcoinTest {
      */
     @Test
     fun aRequestFromTheStoredScriptTypeIsReviewedAndAnotherScriptTypeIsRefused() {
-        val id = store.create(name = "Lumio", deviceGenerated = false, words = lumioWords, passphrase = null, nowMs = 1L)
+        val id = store.create(name = "Lumio", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
         store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.TESTNET4, 1, cap)
-        val seed = Mnemonic.toSeed(lumioWords)
+        val seed = Mnemonic.toSeed(words)
         for (type in ScriptType.entries) {
             val account = BtcAccount.fromSeed(seed, BtcNetwork.TESTNET4, type, 0)
             val coin = BtcCoin(BtcFixtures.funding(account, 0, 0, 100_000L), 0, 0, 0)

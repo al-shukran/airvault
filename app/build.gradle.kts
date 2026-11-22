@@ -21,7 +21,7 @@ android {
         minSdk = 31
         targetSdk = 36
         versionCode = gitCommitCount.get()
-        versionName = "0.1.0"
+        versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Phones are arm64-v8a, and the emulator the team uses is arm64-v8a too; x86_64 stays for x86 emulators. The 32-bit ARM
