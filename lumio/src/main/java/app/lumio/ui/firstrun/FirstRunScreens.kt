@@ -1,0 +1,327 @@
+package app.lumio.ui.firstrun
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import app.lensly.ui.theme.ClearAirSpacing
+import app.lensly.ui.theme.ClearAirType
+import app.lensly.ui.theme.LocalClearAirPalette
+import app.lumio.R
+import app.lumio.ui.kit.ClearAirEyebrow
+import app.lumio.ui.kit.ClearAirPrimaryButton
+import app.lumio.ui.kit.ClearAirTextAction
+import app.lumio.ui.pair.IntroStep
+
+/**
+ * A first-run page: the chapter bar, the page's [art], its eyebrow and title, then [content]. The [footer] holds the page's actions and sits at
+ * the foot, under the content, which scrolls when a small phone cannot show it all. Every first-run page has this shape.
+ */
+@Composable
+internal fun FirstRunPage(
+    step: FirstRunStep,
+    eyebrow: String,
+    title: String,
+    footer: @Composable () -> Unit,
+    art: (@Composable () -> Unit)? = null,
+    content: @Composable () -> Unit = {},
+) {
+    val palette = LocalClearAirPalette.current
+    Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+        Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md)) {
+                ChapterBar(step = step)
+                Spacer(Modifier.height(ClearAirSpacing.xl))
+                art?.invoke()
+                ClearAirEyebrow(text = eyebrow)
+                Text(text = title, style = ClearAirType.titleXL, color = palette.ink)
+                Spacer(Modifier.height(ClearAirSpacing.md))
+                content()
+            }
+        }
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md)) {
+            footer()
+        }
+    }
+}
+
+/** The three-segment chapter bar. Each segment is a hairline track, filled as [chapterFills] says for the step. */
+@Composable
+private fun ChapterBar(step: FirstRunStep) {
+    val palette = LocalClearAirPalette.current
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ClearAirSpacing.xxs)) {
+        chapterFills(step).forEach { fill ->
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(palette.hairline),
+            ) {
+                val fraction = when (fill) {
+                    ChapterFill.Empty -> 0f
+                    ChapterFill.Half -> 0.5f
+                    ChapterFill.Full -> 1f
+                }
+                if (fraction > 0f) {
+                    Box(modifier = Modifier.fillMaxWidth(fraction).fillMaxHeight().background(palette.ink))
+                }
+            }
+        }
+    }
+}
+
+/** The AirVault mark, drawn at [size]. The first-run pages show it in place of per-step art. */
+@Composable
+private fun AirVaultMark(size: Dp) {
+    Image(
+        painter = painterResource(R.drawable.ic_airvault_mark),
+        contentDescription = null,
+        modifier = Modifier.size(size),
+    )
+}
+
+/** One fact per page, with the mark above it. [action] is "Get Started" on the first page and "Next" after it. */
+@Composable
+private fun FactPage(
+    step: FirstRunStep,
+    eyebrow: String,
+    title: String,
+    body: String,
+    markSize: Dp,
+    action: String,
+    onNext: () -> Unit,
+) {
+    val palette = LocalClearAirPalette.current
+    FirstRunPage(
+        step = step,
+        eyebrow = eyebrow,
+        title = title,
+        footer = { ClearAirPrimaryButton(text = action, onClick = onNext) },
+        art = {
+            Box(modifier = Modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.md), contentAlignment = Alignment.Center) {
+                AirVaultMark(size = markSize)
+            }
+        },
+    ) {
+        Text(text = body, style = ClearAirType.body, color = palette.ink2)
+    }
+}
+
+/** Step I1: the AirVault mark large and alone, with the two-app relationship in two sentences. */
+@Composable
+fun WelcomeScreen(onNext: () -> Unit) = FactPage(
+    step = FirstRunStep.Welcome,
+    eyebrow = "Lumio",
+    title = "Welcome to AirVault",
+    body = "Lumio is the online half of AirVault. It shows your balances and carries what Lensly signs to the network. " +
+        "Your keys stay with Lensly.",
+    markSize = 132.dp,
+    action = "Get Started",
+    onNext = onNext,
+)
+
+/** Step I2: one fact, with the mark above it. */
+@Composable
+fun KeysScreen(onNext: () -> Unit) = FactPage(
+    step = FirstRunStep.Keys,
+    eyebrow = "Understand · 2 of 5",
+    title = "Your Keys Never Leave Your Phone",
+    body = "Your keys stay on your Lensly phone. Lumio never holds them.",
+    markSize = 96.dp,
+    action = "Next",
+    onNext = onNext,
+)
+
+/** Step I3: one fact, with the mark above it. */
+@Composable
+fun NeverShareScreen(onNext: () -> Unit) = FactPage(
+    step = FirstRunStep.NeverShare,
+    eyebrow = "Understand · 3 of 5",
+    title = "Never Share Your Keys with Anyone",
+    body = "AirVault has no support team, so anyone who asks for your keys is not from AirVault.",
+    markSize = 96.dp,
+    action = "Next",
+    onNext = onNext,
+)
+
+/** Step I4: the software is provided as is, with the mark above it. */
+@Composable
+fun ProvidedAsIsScreen(onNext: () -> Unit) = FactPage(
+    step = FirstRunStep.ProvidedAsIs,
+    eyebrow = "Understand · 4 of 5",
+    title = "Provided as Is",
+    body = "The software is provided as is. You are responsible for safeguarding your own assets.",
+    markSize = 96.dp,
+    action = "Next",
+    onNext = onNext,
+)
+
+/** Step I5: the three facts as ticks, and the owner's sentence behind a checkbox. Agree stays disabled until the box is ticked. */
+@Composable
+fun NoticeScreen(agreed: Boolean, onAgreedChange: (Boolean) -> Unit, onContinue: () -> Unit) {
+    val palette = LocalClearAirPalette.current
+    FirstRunPage(
+        step = FirstRunStep.Notice,
+        eyebrow = "Understand · 5 of 5",
+        title = "Important Notice",
+        footer = {
+            ClearAirPrimaryButton(text = "Agree and Continue", onClick = onContinue, enabled = agreed)
+            if (!agreed) {
+                Text(
+                    text = "Tick the box above to continue",
+                    style = ClearAirType.label,
+                    color = palette.ink2,
+                    modifier = Modifier.padding(top = ClearAirSpacing.xs),
+                )
+            }
+        },
+    ) {
+        listOf(
+            "Your keys never leave your phone",
+            "Never share your keys with anyone",
+            "The software is provided as is",
+        ).forEach { fact ->
+            Row(modifier = Modifier.padding(vertical = ClearAirSpacing.xxs), verticalAlignment = Alignment.Top) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = palette.ink,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(ClearAirSpacing.xs))
+                Text(text = fact, style = ClearAirType.body, color = palette.ink)
+            }
+        }
+        Spacer(Modifier.height(ClearAirSpacing.md))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = ClearAirSpacing.touchTarget)
+                .toggleable(value = agreed, role = Role.Checkbox, onValueChange = onAgreedChange),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Checkbox(checked = agreed, onCheckedChange = null)
+            Spacer(Modifier.width(ClearAirSpacing.xs))
+            Text(
+                text = "I understand that AirVault, Lensly, or Lumio has no tokens, public sales, or a support team and that you must not " +
+                    "transfer any cryptocurrency to anyone, especially someone claiming to be from alshukran.com.",
+                style = ClearAirType.body,
+                color = palette.ink,
+            )
+        }
+    }
+}
+
+/** Step I6: what the next screens lead to, in three numbered steps, so the pairing scan is not a surprise. */
+@Composable
+fun PrepareScreen(onNext: () -> Unit) {
+    val palette = LocalClearAirPalette.current
+    FirstRunPage(
+        step = FirstRunStep.PrepareLensly,
+        eyebrow = "Pair · 1 of 2",
+        title = "Prepare Lensly for Pairing",
+        footer = { ClearAirPrimaryButton(text = "Next", onClick = onNext) },
+    ) {
+        Text(
+            text = "Keep Lensly nearby. You'll show its pairing code to this phone in a minute.",
+            style = ClearAirType.body,
+            color = palette.ink2,
+        )
+        Spacer(Modifier.height(ClearAirSpacing.md))
+        IntroStep(number = 1, text = "Have your Lensly phone with you, charged and unlocked.")
+        IntroStep(number = 2, text = "Set a password for Lumio on the next screens.")
+        IntroStep(number = 3, text = "Then hold Lensly's pairing code up to this phone.")
+    }
+}
+
+/**
+ * Step I8: the duress question. Only "Maybe Later" is offered: Lumio has no duress password flow yet, so "Set Up Now" is not shown.
+ */
+@Composable
+fun DuressScreen(onMaybeLater: () -> Unit) {
+    val palette = LocalClearAirPalette.current
+    FirstRunPage(
+        step = FirstRunStep.Duress,
+        eyebrow = "Protect · 2 of 3",
+        title = "Create Duress Password Now?",
+        footer = { ClearAirTextAction(text = "Maybe Later", onClick = onMaybeLater) },
+        art = {
+            Box(modifier = Modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.md), contentAlignment = Alignment.Center) {
+                AirVaultMark(size = 96.dp)
+            }
+        },
+    ) {
+        Text(
+            text = "A second password that opens an empty Lumio. Use it if someone forces you to unlock your phone.",
+            style = ClearAirType.body,
+            color = palette.ink2,
+        )
+    }
+}
+
+/**
+ * Step I9: the device lock or a fingerprint. Enable runs the system prompt, which Lumio draws nothing over, and Not Now is a calm text action.
+ */
+@Composable
+fun DeviceProtectionScreen(onEnable: () -> Unit, onNotNow: () -> Unit) {
+    val palette = LocalClearAirPalette.current
+    FirstRunPage(
+        step = FirstRunStep.DeviceProtection,
+        eyebrow = "Protect · 3 of 3",
+        title = "Enable Device Protection",
+        footer = {
+            ClearAirPrimaryButton(text = "Enable", onClick = onEnable)
+            ClearAirTextAction(text = "Not Now", onClick = onNotNow, modifier = Modifier.padding(top = ClearAirSpacing.xs))
+        },
+        art = {
+            Box(modifier = Modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.md), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier.size(120.dp).clip(CircleShape).background(palette.raised),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    AirVaultMark(size = 56.dp)
+                }
+            }
+        },
+    ) {
+        Text(text = "Use your fingerprint or screen lock to open Lumio.", style = ClearAirType.body, color = palette.ink2)
+        Spacer(Modifier.height(ClearAirSpacing.xs))
+        Text(
+            text = "Your password still works whenever the sensor doesn't. You can change this later in Settings → Security.",
+            style = ClearAirType.label,
+            color = palette.ink2,
+        )
+    }
+}
