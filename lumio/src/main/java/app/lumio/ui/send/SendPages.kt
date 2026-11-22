@@ -1,6 +1,8 @@
 package app.lumio.ui.send
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -43,7 +46,6 @@ import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.ClearAirTone
 import app.lumio.ui.kit.StepThread
 import app.lumio.ui.kit.rejectOf
-import app.lumio.ui.shell.LumioPageFrame
 import app.lumio.ui.shell.LumioPageScreen
 
 /** The five steps of a send, in the order the owner goes through them: Recipient, Amount, Review, Lensly Signs, Send. */
@@ -99,7 +101,27 @@ internal fun SendPage(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     LumioPageScreen(title = title, backLabel = backLabel, offline = offline, onBack = onBack, onLock = onLock) {
-        LumioPageFrame(bottomAction = bottomAction, content = content)
+        SendPageFrame(bottomAction = bottomAction, content = content)
+    }
+}
+
+/**
+ * The body of a send page: its content scrolls, and the page's one action is held at the foot, under the content, above the navigation bar.
+ */
+@Composable
+private fun SendPageFrame(bottomAction: (@Composable () -> Unit)?, content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.sm),
+            content = content,
+        )
+        bottomAction?.let {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.sm)) { it() }
+        }
     }
 }
 
