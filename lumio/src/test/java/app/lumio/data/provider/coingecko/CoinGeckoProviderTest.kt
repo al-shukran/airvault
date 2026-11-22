@@ -5,13 +5,19 @@ import app.lumio.data.ETH
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
+import app.lumio.data.provider.GlobalMarket
 import app.lumio.data.provider.Http
+import app.lumio.data.provider.MarketQuote
 import app.lumio.data.provider.NativePrice
 import app.lumio.data.provider.OpKey
 import app.lumio.data.provider.Ops
 import app.lumio.data.provider.PriceQuote
 import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.Request
 import app.lumio.data.provider.Trait
+import app.lumio.data.provider.TrendingCoin
+import app.lumio.data.provider.TrendingCoins
+import app.lumio.data.provider.TrendingList
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -27,8 +33,8 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * The CoinGecko price plugin against a local MockWebServer. The answer is the shape of the simple-price endpoint, as the source gave it on 2026-11-16.
- * No test reaches a network, and no key is sent anywhere but the header.
+ * The CoinGecko plugin against a local MockWebServer. The answers are the shapes the endpoints gave on the days their sources were read (see
+ * [CoinGeckoProvider]). No test reaches a network, and a key is sent only in the header.
  */
 class CoinGeckoProviderTest {
     private val server = MockWebServer()
@@ -46,17 +52,25 @@ class CoinGeckoProviderTest {
 
     private fun cfg(key: String? = null) = ProviderConfig(baseUrl = server.url("/api/v3/").toString(), apiKey = key)
 
-    private fun call(req: NativePrice, key: String? = null): PriceQuote = runBlocking { CoinGeckoProvider().execute(req, cfg(key), http) }
+    private fun <T> call(req: Request<T>, key: String? = null): T = runBlocking { CoinGeckoProvider().execute(req, cfg(key), http) }
+
+    /** A price is kept for a keyed CoinGecko, so the price tests send the demo key. */
+    private fun price(req: NativePrice, key: String? = DEMO_KEY): PriceQuote = call(req, key)
 
     private fun ethereumAnswer(change: String = "0.4118") = MockResponse.Builder().body(
         """{"ethereum":{"usd":1827.5,"usd_24h_change":$change,"last_updated_at":1794774853}}""",
+    ).build()
+
+    private fun globalAnswer(total: String = "2621040321355.0405", change: String = "-1.6081983639177684") = MockResponse.Builder().body(
+        """{"data":{"active_cryptocurrencies":17397,"total_market_cap":{"btc":34570737.199462704,"usd":$total},""" +
+            """"market_cap_change_percentage_24h_usd":$change,"updated_at":1779878351}}""",
     ).build()
 
     @Test
     fun thePriceChangeAndTimeComeFromOneSimplePriceRequest() {
         server.enqueue(ethereumAnswer())
 
-        assertEquals(PriceQuote(usd = 1827.5, change24hPct = 0.4118, asOfMs = 1_794_774_853_000L), call(NativePrice(ETH)))
+        assertEquals(PriceQuote(usd = 1827.5, change24hPct = 0.4118, asOfMs = 1_794_774_853_000L), price(NativePrice(ETH)))
         val url = server.takeRequest().url
         assertEquals("/api/v3/simple/price", url.encodedPath)
         assertEquals("ethereum", url.queryParameter("ids"))
@@ -66,18 +80,16 @@ class CoinGeckoProviderTest {
     }
 
     @Test
-    fun withoutAKeyNoKeyHeaderIsSent() {
-        server.enqueue(ethereumAnswer())
-
-        call(NativePrice(ETH))
-        assertNull(server.takeRequest().headers["x-cg-demo-api-key"])
+    fun aPriceIsNeverAskedWithoutAKey() {
+        assertFailsWith<ProviderError.Unsupported> { price(NativePrice(ETH), key = null) }
+        assertEquals(0, server.requestCount)
     }
 
     @Test
     fun aDemoKeyGoesInTheHeaderAndNeverInTheUrl() {
         server.enqueue(ethereumAnswer())
 
-        call(NativePrice(ETH), key = "DEMO-KEY-123")
+        price(NativePrice(ETH), key = "DEMO-KEY-123")
         val request = server.takeRequest()
         assertEquals("DEMO-KEY-123", request.headers["x-cg-demo-api-key"])
         assertFalse(request.url.toString().contains("DEMO-KEY-123"))
@@ -87,35 +99,108 @@ class CoinGeckoProviderTest {
     fun aNullChangeIsNoChange() {
         server.enqueue(ethereumAnswer(change = "null"))
 
-        assertNull(call(NativePrice(ETH)).change24hPct)
+        assertNull(price(NativePrice(ETH)).change24hPct)
     }
 
     @Test
     fun aCoinTheSourceDoesNotKnowIsUnsupported() {
         server.enqueue(MockResponse.Builder().body("{}").build())
 
-        assertFailsWith<ProviderError.Unsupported> { call(NativePrice(ETH)) }
+        assertFailsWith<ProviderError.Unsupported> { price(NativePrice(ETH)) }
     }
 
     @Test
     fun aRateLimitWithoutRetryAfterLeavesTheCooldownToTheScheduler() {
         server.enqueue(MockResponse.Builder().code(429).build())
 
-        assertNull(assertFailsWith<ProviderError.RateLimited> { call(NativePrice(BTC)) }.retryAfterMs)
+        assertNull(assertFailsWith<ProviderError.RateLimited> { price(NativePrice(BTC)) }.retryAfterMs)
     }
 
     @Test
     fun aTestnetIsUnsupportedAndNeverCalled() {
-        assertFailsWith<ProviderError.Unsupported> { call(NativePrice(NetworkId(Networks.evm(1), testnet = true))) }
+        assertFailsWith<ProviderError.Unsupported> { price(NativePrice(NetworkId(Networks.evm(1), testnet = true))) }
         assertEquals(0, server.requestCount)
     }
 
     @Test
-    fun theProviderNeedsItsKeyAndIsNotAFallback() {
+    fun theMarketAnswersWithoutAKeyAndTheKeyIsSentWhenSet() {
+        server.enqueue(globalAnswer())
+        server.enqueue(globalAnswer())
+
+        call(GlobalMarket())
+        assertNull(server.takeRequest().headers["x-cg-demo-api-key"])
+        call(GlobalMarket(), key = DEMO_KEY)
+        assertEquals(DEMO_KEY, server.takeRequest().headers["x-cg-demo-api-key"])
+    }
+
+    @Test
+    fun theWholeMarketIsItsTotalCapAndItsChangeAndTime() {
+        server.enqueue(globalAnswer())
+
+        assertEquals(MarketQuote(totalUsd = 2621040321355.0405, change24hPct = -1.6081983639177684, asOfMs = 1_779_878_351_000L), call(GlobalMarket()))
+        assertEquals("/api/v3/global", server.takeRequest().url.encodedPath)
+    }
+
+    @Test
+    fun aMarketWithNoChangeHasNoChange() {
+        server.enqueue(globalAnswer(change = "null"))
+
+        assertNull(call(GlobalMarket()).change24hPct)
+    }
+
+    @Test
+    fun aMarketCapThatIsNotPositiveIsAFatalAnswer() {
+        server.enqueue(globalAnswer(total = "0"))
+
+        assertFailsWith<ProviderError.Fatal> { call(GlobalMarket()) }
+    }
+
+    @Test
+    fun theTrendingCoinsAreListedInTheSourcesOrderWithTheirPriceAndChange() {
+        server.enqueue(
+            MockResponse.Builder().body(
+                """{"coins":[
+                    {"item":{"id":"bonk","name":"Bonk","symbol":"BONK","market_cap_rank":103,
+                      "data":{"price":0.000005938674704566297,"price_change_percentage_24h":{"usd":-3.2712597351582655},"market_cap":"${'$'}521,967,819"}}},
+                    {"item":{"id":"new","name":"New Coin","symbol":"NEW","market_cap_rank":null,
+                      "data":{"price":null,"price_change_percentage_24h":null}}}
+                ],"nfts":[],"categories":[]}""",
+            ).build(),
+        )
+
+        val list = call(TrendingCoins())
+
+        assertEquals(
+            listOf(
+                TrendingCoin(name = "Bonk", symbol = "BONK", rank = 103, priceUsd = 0.000005938674704566297, change24hPct = -3.2712597351582655),
+                TrendingCoin(name = "New Coin", symbol = "NEW", rank = null, priceUsd = null, change24hPct = null),
+            ),
+            list.coins,
+        )
+        assertTrue(list.asOfMs > 0L)
+        assertEquals("/api/v3/search/trending", server.takeRequest().url.encodedPath)
+    }
+
+    @Test
+    fun aTrendingListWithoutCoinsIsAnEmptyAnswer() {
+        server.enqueue(MockResponse.Builder().body("""{"coins":[]}""").build())
+
+        assertEquals(emptyList<TrendingCoin>(), call(TrendingCoins()).coins)
+    }
+
+    @Test
+    fun theProviderIsKeyOptionalAndOnlyItsPriceNeedsAKey() {
         val provider = CoinGeckoProvider()
-        assertEquals(setOf(Trait.KEY_REQUIRED), provider.traits)
-        assertTrue(provider.supports(BTC, Ops.PRICE_NATIVE, ProviderConfig()))
+        assertEquals(setOf(Trait.KEY_OPTIONAL), provider.traits)
+        assertFalse(provider.supports(BTC, Ops.PRICE_NATIVE, ProviderConfig()))
+        assertTrue(provider.supports(BTC, Ops.PRICE_NATIVE, ProviderConfig(apiKey = DEMO_KEY)))
+        assertTrue(provider.supports(BTC, Ops.MARKET_GLOBAL, ProviderConfig()))
+        assertTrue(provider.supports(BTC, Ops.MARKET_TRENDING, ProviderConfig()))
         assertFalse(provider.supports(BTC, OpKey.on(BTC, "nativeBalance"), ProviderConfig()))
-        assertFalse(provider.defaultLimits(ProviderConfig()) == provider.defaultLimits(ProviderConfig(apiKey = "k")))
+        assertFalse(provider.defaultLimits(ProviderConfig()) == provider.defaultLimits(ProviderConfig(apiKey = DEMO_KEY)))
+    }
+
+    private companion object {
+        const val DEMO_KEY = "demo-key"
     }
 }
