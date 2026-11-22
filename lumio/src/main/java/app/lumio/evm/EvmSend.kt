@@ -162,21 +162,24 @@ object EvmSend {
         origin = ORIGIN,
     )
 
+    /** A signature that Lensly gave for another send: another request ID, or another account. Lumio never broadcasts it. */
+    class SignatureForAnotherSend(message: String) : IllegalArgumentException(message)
+
     /**
      * The raw signed transaction that [ur] answers for [send]. Throws IllegalArgumentException, with the owner's words, when [ur] is not
      * a signature for this request: another type, another request ID, a signature that is not an EIP-1559 signature, or a signer other than
-     * the account that sends.
+     * the account that sends. A signature for another request or another account throws [SignatureForAnotherSend].
      */
     fun signed(send: PreparedSend, requestId: ByteArray, ur: UR): ByteArray {
         val answer = when (val parsed = EthSignature.decode(ur)) {
             is EthSignature.Result.Ok -> parsed.signature
             is EthSignature.Result.Rejected -> throw IllegalArgumentException("This code is not a signature from Lensly.")
         }
-        require(answer.requestId.contentEquals(requestId)) { "This signature answers a different request." }
+        if (!answer.requestId.contentEquals(requestId)) throw SignatureForAnotherSend("This signature answers a different request.")
         val raw = send.tx.encodeSigned(answer.signature)
             ?: throw IllegalArgumentException("This signature is not one for an EIP-1559 transaction.")
-        require(TxSigner.recoverSigner(send.payload, answer.signature) == send.from) {
-            "This signature is from a different account."
+        if (TxSigner.recoverSigner(send.payload, answer.signature) != send.from) {
+            throw SignatureForAnotherSend("This signature is from a different account.")
         }
         return raw
     }

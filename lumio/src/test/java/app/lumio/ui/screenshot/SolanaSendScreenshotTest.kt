@@ -15,13 +15,13 @@ import app.lumio.send.solana.SolanaSendAsset
 import app.lumio.send.solana.SolanaSendInput
 import app.lumio.send.solana.SolanaSendPlan
 import app.lumio.send.solana.SolanaSplSend
-import app.lumio.ui.send.solana.SolanaSendFormScreen
-import app.lumio.ui.send.solana.SolanaSendReviewScreen
-import app.lumio.ui.send.solana.SolanaSetupReviewScreen
-import app.lumio.ui.send.solana.SolanaSignRequestScreen
-import app.lumio.ui.send.solana.solanaOutcomeText
-import app.lumio.ui.send.solanaSummary
 import fr.acinq.bitcoin.Base58
+import app.lensly.ui.components.groupAddress
+import app.lumio.send.solana.SETUP_SIGN_TEXT
+import app.lumio.ui.send.SendAmountPage
+import app.lumio.ui.send.SendReviewPage
+import app.lumio.ui.send.SendShowPage
+import app.lumio.ui.send.SummaryRow
 import java.math.BigInteger
 import org.junit.Rule
 import org.junit.Test
@@ -76,87 +76,169 @@ class SolanaSendScreenshotTest {
         rentLamports = 2_039_280L,
     )
 
+    private val recipientText = Base58.encode(recipient)
+
     @Test
     fun solanaSendForm() = compose.lumioSnapshot("solana_send_form") {
-        SolanaSendFormScreen(
-            network = SOLANA_DEVNET,
-            sender = sender,
-            assets = listOf(solAsset, usdcAsset),
-            selected = solAsset,
-            onSelect = {},
-            balanceText = "${SolanaSendInput.format(balance)} SOL",
-            recipient = "",
-            onRecipient = {},
-            onScan = {},
+        SendAmountPage(
+            symbol = "SOL",
+            toTitle = groupAddress(recipientText),
+            toDetail = "",
+            toAddress = recipientText,
+            fromTitle = "Account 1",
+            fromDetail = "${SolanaSendInput.format(balance)} SOL available",
+            asset = null,
+            onAsset = null,
             amount = "1.5",
             onAmount = {},
-            maxEnabled = true,
-            onMax = {},
-            busy = false,
-            notice = null,
+            amountError = null,
+            leaves = null,
+            onUseMax = {},
+            networkName = "Solana Devnet",
+            feeText = "0.000005 SOL",
+            onFee = null,
+            note = "Chosen for you: Solana Devnet, the network this account sends on.",
+            canReview = true,
             onReview = {},
+            onChangeRecipient = {},
+            backLabel = "Recipient",
+            offline = null,
             onBack = {},
+            onLock = {},
         )
     }
 
     @Test
     fun solanaSendFormToken() = compose.lumioSnapshot("solana_send_form_token") {
-        SolanaSendFormScreen(
-            network = SOLANA_DEVNET,
-            sender = sender,
-            assets = listOf(solAsset, usdcAsset),
-            selected = usdcAsset,
-            onSelect = {},
-            balanceText = "${SolanaAssets.text(usdc.amount, usdcAsset.decimals)} USDC",
-            recipient = "",
-            onRecipient = {},
-            onScan = {},
+        SendAmountPage(
+            symbol = "USDC",
+            toTitle = groupAddress(recipientText),
+            toDetail = "",
+            toAddress = recipientText,
+            fromTitle = "Account 1",
+            fromDetail = "${SolanaAssets.text(usdc.amount, usdcAsset.decimals)} USDC available",
+            asset = "USDC",
+            onAsset = {},
             amount = "1.5",
             onAmount = {},
-            maxEnabled = true,
-            onMax = {},
-            busy = false,
-            notice = null,
+            amountError = null,
+            leaves = null,
+            onUseMax = {},
+            networkName = "Solana Devnet",
+            feeText = "0.000005 SOL",
+            onFee = null,
+            note = null,
+            canReview = true,
             onReview = {},
+            onChangeRecipient = {},
+            backLabel = "Recipient",
+            offline = null,
             onBack = {},
+            onLock = {},
         )
     }
 
     @Test
     fun solanaSendReview() = compose.lumioSnapshot("solana_send_review") {
-        SolanaSendReviewScreen(plan = plan, symbol = "SOL", notice = null, onConfirm = {}, onBack = {})
+        SendReviewPage(
+            heading = "Send 1.5 SOL from Account 1 to ${groupAddress(recipientText)}?",
+            toTitle = groupAddress(recipientText),
+            toDetail = "",
+            toAddress = recipientText,
+            validLine = "Address is valid on Solana Devnet",
+            firstTime = "First time sending here. Compare every group with where you got it.",
+            rows = listOf(
+                SummaryRow("Amount", "1.5 SOL"),
+                SummaryRow("Network Fee", "0.000005 SOL"),
+                SummaryRow("Network", "Solana Devnet"),
+                SummaryRow("From", groupAddress(sender)),
+            ),
+            warnings = emptyList(),
+            notice = null,
+            onShow = {},
+            onEdit = {},
+            backLabel = "Amount",
+            offline = null,
+            onBack = {},
+            onLock = {},
+        )
     }
 
     @Test
     fun solanaSendReviewToken() = compose.lumioSnapshot("solana_send_review_token") {
-        SolanaSendReviewScreen(plan = tokenPlan, symbol = "USDC", notice = null, onConfirm = {}, onBack = {})
+        SendReviewPage(
+            heading = "Send 1.5 USDC from Account 1 to ${groupAddress(recipientText)}?",
+            toTitle = groupAddress(recipientText),
+            toDetail = "",
+            toAddress = recipientText,
+            validLine = "Address is valid on Solana Devnet",
+            firstTime = null,
+            rows = listOf(
+                SummaryRow("Amount", "1.5 USDC"),
+                SummaryRow("Network Fee", "0.000005 SOL"),
+                SummaryRow("Network", "Solana Devnet"),
+                SummaryRow("From", groupAddress(sender)),
+            ),
+            warnings = emptyList(),
+            notice = null,
+            onShow = {},
+            onEdit = {},
+            backLabel = "Amount",
+            offline = null,
+            onBack = {},
+            onLock = {},
+        )
     }
 
     @Test
     fun solanaSignRequest() = compose.lumioSnapshot("solana_send_request") {
-        SolanaSignRequestScreen(parts = SolanaSend.requestParts(plan), notice = null, onScan = {}, onBack = {})
+        SendShowPage(
+            parts = SolanaSend.requestParts(plan),
+            onNext = {},
+            onCancel = {},
+            backLabel = "Review",
+            offline = null,
+            onBack = {},
+            onLock = {},
+        )
     }
 
     @Test
     fun solanaSendSent() = compose.lumioSnapshot("solana_send_sent") {
         SubmitFixture(
-            sentSubmit("B".repeat(88)),
-            solanaSummary(plan),
+            machine = sentSubmit("B".repeat(88)),
+            headline = "Your SOL Is on Its Way",
+            amount = "1.5 SOL",
+            recipient = groupAddress(recipientText),
+            network = "Solana Devnet",
+            timing = "Confirmed on Solana Devnet.",
             explorerUrl = { SolanaSend.explorerTxUrl(SOLANA_DEVNET, it) },
-            status = solanaOutcomeText(SOLANA_DEVNET, SolanaOutcome.CONFIRMED),
         )
     }
 
     @Test
     fun solanaSetupReview() = compose.lumioSnapshot("solana_setup_review") {
-        SolanaSetupReviewScreen(
-            network = SOLANA_DEVNET,
-            sender = sender,
-            nonceAccount = Base58.encode(SolanaNonce.accountOf(senderKey)),
-            rentLamports = 1_447_680L,
+        SendReviewPage(
+            heading = "Offline Signing",
+            toTitle = "Nonce account",
+            toDetail = "Created once for this account",
+            toAddress = Base58.encode(SolanaNonce.accountOf(senderKey)),
+            validLine = "Create the nonce account for this account. You do this once.",
+            firstTime = SETUP_SIGN_TEXT,
+            rows = listOf(
+                SummaryRow("Rent", "${SolanaSendInput.format(BigInteger.valueOf(1_447_680L))} SOL"),
+                SummaryRow("Network Fee", "0.000005 SOL"),
+                SummaryRow("Network", "Solana Devnet"),
+                SummaryRow("From", groupAddress(sender)),
+            ),
+            warnings = emptyList(),
             notice = null,
-            onConfirm = {},
+            onShow = {},
+            onEdit = {},
+            backLabel = "Amount",
+            offline = null,
             onBack = {},
+            onLock = {},
         )
     }
 }
