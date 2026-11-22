@@ -49,6 +49,7 @@ object Ops {
     val EVM_GAS_FEES = OpKey("evm.gasFees")
     val EVM_TX_HISTORY = OpKey("evm.txHistory")
     val EVM_BROADCAST = OpKey("evm.broadcast")
+    val EVM_RECEIPT = OpKey("evm.receipt")
 
     val SOL_NATIVE_BALANCE = OpKey("sol.nativeBalance")
     val SOL_BLOCKHASH = OpKey("sol.blockhash")

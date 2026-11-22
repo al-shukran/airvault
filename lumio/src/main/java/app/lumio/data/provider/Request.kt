@@ -42,6 +42,12 @@ class NativeBalance(net: NetworkId, val address: String) : Request<BigInteger>(n
 /** The transaction count of [address]: the nonce of the next transaction when [pending] is true, else the count at the latest block. */
 class Nonce(net: NetworkId, val address: String, val pending: Boolean) : Request<Long>(net, Ops.EVM_NONCE)
 
+/** The receipt of the transaction [hash] on [net]: null while the network has not included it. */
+class TxReceipt(net: NetworkId, val hash: String) : Request<EvmReceipt?>(net, Ops.EVM_RECEIPT)
+
+/** How an EVM transaction ended: [success] is false when the network included it and the transfer reverted. */
+data class EvmReceipt(val success: Boolean)
+
 /**
  * The gas that a call of [to] with [valueWei] and [data] from [from] uses, as the endpoint estimates it. A native transfer has no data; an ERC-20
  * transfer calls the token contract with its transfer data and no value.

@@ -34,6 +34,7 @@ import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.RentExemptMinimum
 import app.lumio.data.provider.SolanaAccountRead
+import app.lumio.data.provider.SolanaSignatureStatus
 import app.lumio.data.provider.SplTokenBalances
 import app.lumio.data.provider.solana.SOLANA_DEVNET
 import app.lumio.data.provider.solana.SOLANA_MAINNET
@@ -47,9 +48,11 @@ import app.lumio.notesName
 import app.lumio.onVault
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
+import app.lumio.send.ArrivalWatch
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
+import app.lumio.send.solanaLanding
 import app.lumio.send.solanaOwnChoices
 import app.lumio.ui.send.RECIPIENT_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
@@ -643,6 +646,12 @@ internal fun SolanaSendRoute(
             network = networkLabel,
             timing = sentOutcome?.let { solanaOutcomeText(network, it) } ?: "About 1 second on $networkLabel",
             fromName = fromName,
+            arrival = if (current.setup) null else ArrivalWatch(
+                arrivals = app.sendArrivals,
+                network = current.plan.network,
+                arrivedHeadline = "Your ${selected.symbol} Has Arrived",
+                read = { signature -> solanaLanding(scheduler.run(SolanaSignatureStatus(current.plan.network, signature), Priority.BACKGROUND)) },
+            ),
             explorerUrl = { signature -> SolanaSend.explorerTxUrl(current.plan.network, signature) },
             onExplorer = { signature -> openExplorer(SolanaSend.explorerTxUrl(current.plan.network, signature)) },
             onSent = { signature -> sentSignature = signature },

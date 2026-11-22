@@ -8,10 +8,13 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import app.lumio.send.ArrivalWatch
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
+import app.lumio.ui.kit.LumioHaptics
 import app.lumio.ui.kit.rememberLumioHaptics
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 private const val COUNT_STEP_MS = 1_000L
@@ -20,6 +23,7 @@ private const val COUNT_STEP_MS = 1_000L
  * The pages of a signed transaction, shared by every chain, in the order its state moves: Last Chance while it waits and then sends, On Its Way once
  * the network has it, and the failure page if the network refused it. The countdown runs only while the transaction is still idle, and "Send Now"
  * skips the wait. [headline] and [timing] say what the network is doing, and [onSent] is told the id the network reported.
+ * [arrival] watches the sent transaction until it lands, and then the page says so; it is null for a send that moves no funds, which never says so.
  * [onStop] ends the send before anything is sent, [onDone] leaves the sent or failed transaction, and [onReview] is where a failure that cannot be
  * retried goes, so the owner can start the send again.
  */
@@ -32,6 +36,7 @@ internal fun SignedSendSteps(
     network: String,
     timing: String,
     fromName: String,
+    arrival: ArrivalWatch?,
     explorerUrl: (String) -> String?,
     onExplorer: (String) -> Unit,
     onSent: (String) -> Unit,
@@ -73,12 +78,16 @@ internal fun SignedSendSteps(
                 haptics.success()
                 onSent(now.id)
             }
+            val summary = "$amount to $recipient"
+            val arrived by remember(now.id) { arrival?.arrivedFor(now.id, summary) ?: MutableStateFlow(false) }.collectAsState()
+            ArrivalHaptic(arrived = arrived, id = now.id, haptics = haptics)
             SendOnItsWayPage(
-                headline = headline,
-                summary = "$amount to $recipient",
+                headline = arrival?.takeIf { arrived }?.arrivedHeadline ?: headline,
+                summary = summary,
                 network = network,
                 timing = timing,
                 recipient = recipient,
+                arrived = arrived,
                 explorerLabel = explorerUrl(now.id)?.let { "View on Explorer" },
                 onExplorer = { onExplorer(now.id) },
                 onDone = onDone,
@@ -114,5 +123,16 @@ internal fun SignedSendSteps(
                 onLock = onLock,
             )
         }
+    }
+}
+
+/**
+ * The confirm haptic, once, when the send lands while the page is open. A page opened after the send had landed stays quiet: the owner already knows.
+ */
+@Composable
+internal fun ArrivalHaptic(arrived: Boolean, id: String, haptics: LumioHaptics) {
+    val landedOnOpen = remember(id) { arrived }
+    LaunchedEffect(arrived) {
+        if (arrived && !landedOnOpen) haptics.success()
     }
 }

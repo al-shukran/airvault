@@ -34,6 +34,8 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
+import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.evm.EvmAdvanced
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmChain
@@ -52,9 +54,11 @@ import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
 import app.lumio.pair.ownAccountsOf
+import app.lumio.send.ArrivalWatch
 import app.lumio.send.EvmPaymentCode
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
+import app.lumio.send.evmLanding
 import app.lumio.tokens.TokenBalanceCache
 import app.lumio.tokens.TokenHolding
 import app.lumio.tokens.TokenPortfolio
@@ -544,6 +548,12 @@ internal fun SendRoute(
             network = now.send.chain.name,
             timing = "Usually about 1 second on ${now.send.chain.name}",
             fromName = fromName,
+            arrival = ArrivalWatch(
+                arrivals = app.sendArrivals,
+                network = NetworkId(Networks.evm(now.send.chain.chainId), now.send.chain.testnet),
+                arrivedHeadline = "Your ${now.send.chain.symbol} Has Arrived",
+                read = { hash -> evmLanding(app.evmReadsFor(checkNotNull(session)).receipt(now.send.chain, hash)) },
+            ),
             explorerUrl = { hash -> EvmSend.explorerLink(now.send.chain, hash) },
             onExplorer = { hash -> EvmSend.explorerLink(now.send.chain, hash)?.let(::openExplorer) },
             onSent = {},
