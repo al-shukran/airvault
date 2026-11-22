@@ -19,10 +19,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.NavHostController
-import app.lensly.app.AddressBookEntry
-import app.lensly.app.InternalAccount
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressBookEntryFor
+import app.lensly.app.canonicalAddressOn
 import app.lensly.app.chainOfAddress
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
@@ -31,26 +30,25 @@ import app.lensly.ui.navigation.openHidden
 import app.lumio.data.tx.CommentImportException
 import app.lumio.data.tx.TxCommentTransfer
 import app.lumio.data.tx.TxKeys
-import app.lumio.pair.PairAddressBooks
-import app.lumio.pair.PairedWallets
-import app.lumio.pair.ownAccountsOf
-import app.lumio.transactions.TxDetail
-import app.lumio.transactions.txDetailOf
+import app.lumio.data.tx.TxQuery
+import app.lumio.data.tx.TxStore
+import app.lumio.pair.PairedWallet
+import app.lumio.portfolio.TransactionPage
 import app.lumio.ui.settings.CommentBackupRows
-import app.lumio.ui.transactions.AddressBookSheet
+import app.lumio.ui.transactions.AddressInfoSheet
 import app.lumio.ui.transactions.TransactionDetailScreen
-import app.lumio.ui.transactions.addressBookWith
-import app.lumio.ui.transactions.addressBookWithout
 import java.io.IOException
-import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 
-/** The detail of one transaction, with its comment that the owner edits here. A transaction the store does not hold leaves the screen. */
+/**
+ * The page of one transaction, with the address sheet of an address opened over it. The row that opens the page has read the transaction already, so the
+ * first frame has it. A transaction the store does not hold leaves the screen.
+ */
 @Composable
-internal fun TransactionDetailRoute(navController: NavHostController, holder: VaultHolder, walletId: String, account: String, txId: String) {
+internal fun TransactionDetailRoute(navController: NavHostController, holder: VaultHolder, walletId: String, account: String, txId: String, onLock: () -> Unit) {
     val app = LocalContext.current.applicationContext as LumioApp
     val context = LocalContext.current
     val session = holder.openSession()
@@ -59,21 +57,16 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
     }
     if (session == null) return
     val vault = app.lumioVault()
-    val scope = rememberCoroutineScope()
-    var version by remember { mutableIntStateOf(0) }
-    var naming by remember { mutableStateOf<String?>(null) }
-    val load by produceState<DetailLoad?>(null, walletId, account, txId, version) {
-        val open = vault
-        value = if (open == null) {
-            DetailLoad.Missing
-        } else {
-            withContext(Dispatchers.IO) {
-                txDetailOf(app, open, account, txId)?.let { detail ->
-                    val wallets = PairedWallets.list(session)
-                    val wallet = wallets.firstOrNull { it.id == walletId }
-                    DetailLoad.Ready(detail, ownAccountsOf(wallets), wallet?.id, wallet?.addressBook.orEmpty())
-                }
-            } ?: DetailLoad.Missing
+    val board = vault?.portfolio
+    val display = rememberDisplay(app)
+    val load by produceState<DetailLoad?>(
+        initialValue = board?.transactionOf(account, txId)?.let { DetailLoad.Ready(it) },
+        walletId,
+        account,
+        txId,
+    ) {
+        if (value == null) {
+            value = board?.readTransaction(walletId, account, txId)?.let { DetailLoad.Ready(it) } ?: DetailLoad.Missing
         }
     }
     when (val current = load) {
@@ -83,69 +76,68 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
             return
         }
         is DetailLoad.Ready -> {
+            val page = current.page
+            var sheet by remember { mutableStateOf<String?>(null) }
             TransactionDetailScreen(
-                detail = current.detail,
-                accounts = current.accounts,
-                book = current.book,
-                onEditAddress = if (current.walletId == null) null else { address -> naming = address },
+                detail = page.detail,
+                accountNames = page.accounts.mapValues { (_, own) -> own.displayName ?: own.autoName },
+                book = page.book,
+                backLabel = navController.backLabel(),
+                showBalance = display.showAssets,
+                onAddress = { sheet = it },
+                onExplorer = { page.detail.explorerUrl?.let { openExplorer(context, it) } },
                 onBack = { navController.popBackStack() },
-                onExplorer = {
-                    current.detail.explorerUrl?.let { openExplorer(context, it) }
-                },
-                onSaveComment = { text ->
-                    scope.launch {
-                        withContext(Dispatchers.IO) {
-                            // A blank text clears the comment, as the store does.
-                            vault?.txs?.setComment(txId, text, System.currentTimeMillis())
-                        }
-                        version++
-                    }
-                },
+                onLock = onLock,
             )
-            val address = naming
-            val chain = address?.let(::chainOfAddress)
-            val editing = current.walletId
-            if (address != null && editing != null && chain != null) {
-                AddressBookSheet(
+            sheet?.let { address ->
+                val wallet = page.wallet
+                val seenIn by produceState<Int?>(null, address) {
+                    value = withContext(Dispatchers.IO) { vault?.txs?.let { seenInCount(it, wallet, address) } }
+                }
+                AddressInfoSheet(
                     address = address,
-                    entry = addressBookEntryFor(address, chain, current.book),
-                    onSave = { name ->
-                        naming = null
-                        scope.launch {
-                            withContext(Dispatchers.IO) {
-                                val book = PairAddressBooks.load(session)[editing].orEmpty()
-                                PairAddressBooks.replace(session, editing, addressBookWith(book, address, chain, name, UUID.randomUUID().toString()))
-                            }
-                            version++
-                        }
+                    entry = chainOfAddress(address)?.let { addressBookEntryFor(address, it, page.book) },
+                    walletName = wallet?.name,
+                    seenIn = seenIn,
+                    onEdit = {
+                        sheet = null
+                        navController.navigate(LumioRoute.addressHandoff(address, edit = true))
                     },
-                    onRemove = {
-                        naming = null
-                        scope.launch {
-                            withContext(Dispatchers.IO) {
-                                val book = PairAddressBooks.load(session)[editing].orEmpty()
-                                PairAddressBooks.replace(session, editing, addressBookWithout(book, address, chain))
-                            }
-                            version++
-                        }
+                    onAdd = {
+                        sheet = null
+                        navController.navigate(LumioRoute.addressHandoff(address, edit = false))
                     },
-                    onDismiss = { naming = null },
+                    onClose = { sheet = null },
                 )
             }
         }
     }
 }
 
-/** The state of [TransactionDetailRoute]: the transaction and its owner's address book, or missing when the store does not hold it. */
+/** The state of [TransactionDetailRoute]: the transaction page, or missing when the store does not hold the transaction. */
 private sealed interface DetailLoad {
     data object Missing : DetailLoad
 
-    class Ready(
-        val detail: TxDetail,
-        val accounts: Map<String, InternalAccount>,
-        val walletId: String?,
-        val book: List<AddressBookEntry>,
-    ) : DetailLoad
+    class Ready(val page: TransactionPage) : DetailLoad
+}
+
+/**
+ * The transactions of [wallet] whose counterparty is [address], spam included, or null when there is no wallet. The store finds the rows that hold the
+ * address's words across the wallet's accounts on every chain, and the counterparty of each row is then compared with the address (see [isSameAddress]).
+ */
+internal suspend fun seenInCount(txs: TxStore, wallet: PairedWallet?, address: String): Int? {
+    if (wallet == null) return null
+    val query = TxQuery(accounts = ownedAddressesOf(wallet).toSet(), text = address, includeSpam = true)
+    return txs.page(query, 0, Int.MAX_VALUE).count { isSameAddress(it.counterparty, address) }
+}
+
+/**
+ * Whether [counterparty] is [address], compared in the canonical form of the chain that [address] is on: Ethereum addresses case-insensitively, the
+ * other chains exactly. A counterparty that is no address of that chain, or none, is not [address].
+ */
+internal fun isSameAddress(counterparty: String?, address: String): Boolean {
+    val chain = chainOfAddress(address) ?: return false
+    return counterparty != null && canonicalAddressOn(counterparty, chain) == canonicalAddressOn(address, chain)
 }
 
 /**

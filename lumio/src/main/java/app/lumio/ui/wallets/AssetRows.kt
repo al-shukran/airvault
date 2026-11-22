@@ -5,6 +5,7 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.TokenEntry
 import app.lumio.chains.ChainHolding
 import app.lumio.data.asset.AssetId
+import app.lumio.data.net.NetworkId
 import app.lumio.data.price.Price
 import app.lumio.data.tx.LumioTx
 import app.lumio.home.HomeFormat
@@ -66,6 +67,15 @@ internal object AssetRows {
         return (listOfNotNull(native) + tokens.mapNotNull(::erc20IdOf)).distinct()
     }
 
+    /** The prices of the tokens [holdings] hold, which their dollar values need. */
+    fun tokenIds(holdings: List<TokenHolding>): List<AssetId> = holdings.mapNotNull(::erc20IdOf).distinct()
+
+    /** The dollar value of the [holdings] that [prices] gives a price, or null when none of them has one. */
+    fun tokensUsd(holdings: List<TokenHolding>, prices: Map<AssetId, Price>): Double? = holdings.mapNotNull { holding ->
+        val price = erc20IdOf(holding)?.let { prices[it] } ?: return@mapNotNull null
+        BigDecimal(holding.amount).movePointLeft(holding.token.decimals).toDouble() * price.usd
+    }.takeIf { it.isNotEmpty() }?.sum()
+
     /** The key of the asset that [tx] moves: its lowercase contract, or [NATIVE_ASSET_KEY] for the native coin. */
     fun assetKeyOf(tx: LumioTx): String = tx.asset.contract?.lowercase() ?: NATIVE_ASSET_KEY
 
@@ -84,7 +94,7 @@ internal object AssetRows {
             network = networkName,
             amountText = HomeFormat.coins(balance.balance),
             fiatText = price?.let { HomeFormat.usd(balance.balance.toDouble() * it.usd) },
-            icon = nativeIcon(balance, network),
+            icon = nativeIcon(balance.network, balance.symbol, network),
             assetId = id,
             isNative = true,
             testnet = balance.testnet,
@@ -92,10 +102,11 @@ internal object AssetRows {
         )
     }
 
-    private fun nativeIcon(balance: NativeAsset, network: (Long) -> NetworkEntry?): AssetIconSpec = when {
-        balance.network.isBtc -> AssetIconSpec.Bitcoin
-        balance.network.isEvm -> AssetIconSpec.Chain(balance.network.name.toLongOrNull()?.let(network))
-        else -> AssetIconSpec.Letter(letterOf(balance.symbol))
+    /** The logo of the native coin [symbol] on [network]: the Bitcoin mark, the chain's logo on Ethereum, or the coin's letter elsewhere. */
+    fun nativeIcon(network: NetworkId, symbol: String, lookup: (Long) -> NetworkEntry?): AssetIconSpec = when {
+        network.isBtc -> AssetIconSpec.Bitcoin
+        network.isEvm -> AssetIconSpec.Chain(network.name.toLongOrNull()?.let(lookup))
+        else -> AssetIconSpec.Letter(letterOf(symbol))
     }
 
     private fun tokenRow(

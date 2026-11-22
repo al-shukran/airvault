@@ -21,7 +21,13 @@ import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
+import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.theme.LumenTheme
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import androidx.test.core.app.ApplicationProvider
+import org.robolectric.Shadows.shadowOf
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.config.ProviderConfigStore
 import app.lumio.data.net.Networks
@@ -81,24 +87,29 @@ class SolanaSendRouteTest {
     @Test
     fun aSetupOnScreenIsNotRebuiltWhenItsWindowPasses() {
         val wallet = openVaultWithSolanaWallet()
+        goOnline()
         compose.setContent {
             LumenTheme {
-                SolanaSendRoute(
-                    navController = rememberNavController(),
-                    holder = wallet.holder,
-                    walletId = wallet.walletId,
-                    accountId = wallet.accountId,
-                    mode = NetworkMode.TESTNET,
-                )
+                ClearAirTheme {
+                    SolanaSendRoute(
+                        navController = rememberNavController(),
+                        holder = wallet.holder,
+                        walletId = wallet.walletId,
+                        accountId = wallet.accountId,
+                        mode = NetworkMode.TESTNET,
+                        onLock = {},
+                    )
+                }
             }
         }
-        compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithText(BALANCE).fetchSemanticsNodes().isNotEmpty() }
         compose.onAllNodes(hasSetTextAction())[0].performTextInput(RECIPIENT)
-        compose.onAllNodes(hasSetTextAction())[1].performTextInput("0.1")
+        compose.onNodeWithText("Continue").performClick()
+        compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithText("Amount · 2 of 5").fetchSemanticsNodes().isNotEmpty() }
+        compose.onAllNodes(hasSetTextAction())[0].performTextInput("0.1")
         compose.onNodeWithText("Review").performClick()
         compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithText("Show to Lensly").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Show to Lensly").performClick()
-        compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithText("Scan Lensly's Signature").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithText("Next: Scan Lensly's Reply").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(1, blockhashReads.get())
 
         // Longer than the 20-second wait that a rebuild used to run on, so any timer started at the fetch has come due.
@@ -107,6 +118,17 @@ class SolanaSendRouteTest {
 
         assertFalse(rebuilt, "The setup on screen was rebuilt at a new blockhash, so the request Lensly answers is no longer the one shown.")
         assertEquals(1, blockhashReads.get())
+    }
+
+    /** The send pages need a connection to review and send, so the test reports one: Robolectric starts with no network. */
+    private fun goOnline() {
+        val manager = ApplicationProvider.getApplicationContext<Context>().getSystemService(ConnectivityManager::class.java)
+        shadowOf(manager).setDefaultNetworkActive(true)
+        val network = checkNotNull(manager.activeNetwork)
+        val internet = NetworkCapabilities()
+        NetworkCapabilities::class.java.getMethod("addCapability", Int::class.javaPrimitiveType)
+            .invoke(internet, NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        shadowOf(manager).setNetworkCapabilities(network, internet)
     }
 
     private class OpenWallet(val holder: VaultHolder, val walletId: String, val accountId: AccountId)

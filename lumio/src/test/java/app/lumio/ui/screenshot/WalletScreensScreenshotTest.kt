@@ -1,10 +1,13 @@
 package app.lumio.ui.screenshot
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import app.airvault.core.model.AccountId
 import app.lensly.core.btc.BtcNetwork
 import app.lumio.btc.networkId
@@ -35,9 +38,12 @@ import app.lumio.ui.wallets.AssetScreen
 import app.lumio.ui.wallets.WalletRow
 import app.lumio.ui.wallets.WalletScreen
 import app.lumio.ui.wallets.WalletsScreen
+import app.lumio.ui.wallets.moreAccountsTitle
+import app.lumio.wallets.AccountCoin
 import app.lumio.wallets.WalletAccount
 import java.math.BigDecimal
 import java.math.BigInteger
+import java.time.ZoneOffset
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -57,6 +63,18 @@ private val fixedClock = Clock { FIXED_NOW }
 /** A read three minutes before [FIXED_NOW], which the freshness line shows as "Updated 3 min ago". */
 private const val UPDATED_3_MIN_AGO = FIXED_NOW - 3 * 60_000L
 
+/** The day the test wallet was paired, which its detail line reads as "7 Nov" in UTC. */
+private const val PAIRED_AT_MS = 1_731_000_000_000L
+
+/** A small phone, 360 by 640 dp, which the wallet goldens also draw at font scale 2.0. */
+private val SMALL_PHONE = DpSize(360.dp, 640.dp)
+
+/** How long the paused clock runs after a tap, so the frames that show the tapped state are drawn before the capture. */
+private const val SETTLE_MS = 1_000L
+
+/** A landscape phone, 640 by 360 dp. */
+private val LANDSCAPE = DpSize(640.dp, 360.dp)
+
 /**
  * The goldens of the wallet-first screens: the Wallets start screen, one wallet's accounts, one account and one asset. Each shows its fullest common state,
  * on the testnet side where the owner's coins are, and the edge states: an empty activity, a zero balance, hidden balances and long names. Recorded with
@@ -75,6 +93,7 @@ class WalletScreensScreenshotTest {
         id = AccountId.of(Networks.BTC_TESTNET4, "tb1qk3z8f0d6c2m9a7v4w5x1y2z3q4r5s6t7u8v9w0"),
         index = 0,
         networkName = "Bitcoin Testnet4",
+        coin = AccountCoin("BTC", "Bitcoin Testnet4", BtcNetwork.TESTNET4.networkId()),
         balance = NativeAsset("BTC-testnet4", "BTC", "Bitcoin Testnet4", BtcNetwork.TESTNET4.networkId(), BigDecimal("0.0012")),
         script = "Native SegWit",
     )
@@ -83,6 +102,7 @@ class WalletScreensScreenshotTest {
         id = AccountId.of(Networks.evm(10143), "0x" + "a1b2c3d4".repeat(5)),
         index = 0,
         networkName = "Monad testnet",
+        coin = AccountCoin("MON", "Monad testnet", NetworkId(Networks.evm(10143), testnet = true)),
         balance = NativeAsset("EVM-10143", "MON", "Monad testnet", NetworkId(Networks.evm(10143), testnet = true), BigDecimal("12.5")),
     )
     private val solana = WalletAccount(
@@ -90,6 +110,7 @@ class WalletScreensScreenshotTest {
         id = AccountId.of(Networks.SOL_DEVNET, "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"),
         index = 0,
         networkName = "Solana Devnet",
+        coin = AccountCoin("SOL", "Solana Devnet", SOLANA_DEVNET),
         balance = NativeAsset("SOL-devnet", "SOL", "Solana Devnet", SOLANA_DEVNET, BigDecimal("0.4")),
     )
     private val algorand = WalletAccount(
@@ -97,6 +118,7 @@ class WalletScreensScreenshotTest {
         id = AccountId.of(Networks.ALGO_TESTNET, "ALGOADDRESSEXAMPLEFORSCREENSHOTONLY0000000000000000000000000"),
         index = 0,
         networkName = "Algorand Testnet",
+        coin = null,
         balance = null,
     )
     private val zeroEthereum = ethereum.copy(
@@ -120,6 +142,17 @@ class WalletScreensScreenshotTest {
     private fun rowsOf(account: WalletAccount, tokens: List<TokenHolding> = emptyList(), holdings: List<ChainHolding> = emptyList()): List<AssetRowModel> =
         AssetRows.of(account, tokens, holdings, prices, network = { null }, token = { _, _ -> null })
 
+    /** The wallets of the Accounts tab: the testnet side's two wallets, with their totals. */
+    private val walletRows = listOf(
+        WalletRow("wallet-demo", "Demo", summary = "4 accounts · 4 apps", usd = 1234.56),
+        WalletRow("wallet-second", "Savings", summary = "2 accounts · 1 app", usd = 980.0),
+    )
+
+    /** The dollar values the wallet goldens show: the Monad coin at $2.50, and no price for the other chains. */
+    private val usdOf: (WalletAccount) -> Double? = { account ->
+        if (account.namespace == Networks.EIP155) account.balance?.balance?.multiply(BigDecimal("2.5"))?.toDouble() else null
+    }
+
     @Test
     fun wallets() = compose.lumioSnapshot("wallets", content = walletsScreen)
 
@@ -129,10 +162,7 @@ class WalletScreensScreenshotTest {
 
     private val walletsScreen: @Composable () -> Unit = {
         WalletsScreen(
-            rows = listOf(
-                WalletRow("wallet-demo", "Demo", fingerprint = 0x1a2b3c4d, summary = "4 chains · 4 accounts", usd = 1234.56),
-                WalletRow("wallet-second", "Savings", fingerprint = 0x5e6f7a8b, summary = "1 chain · 2 accounts", usd = 980.0),
-            ),
+            rows = walletRows,
             totalUsd = 2214.56,
             showTotal = true,
             refreshing = false,
@@ -145,14 +175,11 @@ class WalletScreensScreenshotTest {
         )
     }
 
-    /** The totals are hidden: the all-wallets total and each wallet's total show the mask, and nothing moves. */
+    /** The totals are hidden: the group total and each wallet's total show the mask, and nothing moves. */
     @Test
     fun walletsHiddenTotals() = compose.lumioSnapshot("wallets_hidden") {
         WalletsScreen(
-            rows = listOf(
-                WalletRow("wallet-demo", "Demo", fingerprint = 0x1a2b3c4d, summary = "4 chains · 4 accounts", usd = 1234.56),
-                WalletRow("wallet-second", "Savings", fingerprint = 0x5e6f7a8b, summary = "1 chain · 2 accounts", usd = 980.0),
-            ),
+            rows = walletRows,
             totalUsd = 2214.56,
             showTotal = false,
             refreshing = false,
@@ -181,10 +208,11 @@ class WalletScreensScreenshotTest {
         )
     }
 
+    /** A read that did not answer: its note says so, the balances kept from before stay, and the freshness line says the page is updating. */
     @Test
     fun walletsNotice() = compose.lumioSnapshot("wallets_notice") {
         WalletsScreen(
-            rows = listOf(WalletRow("wallet-demo", "Demo", fingerprint = 0x1a2b3c4d, summary = "4 chains · 4 accounts", usd = null)),
+            rows = listOf(WalletRow("wallet-demo", "Demo", summary = "4 accounts · 4 apps", usd = null)),
             totalUsd = null,
             showTotal = true,
             refreshing = true,
@@ -197,65 +225,7 @@ class WalletScreensScreenshotTest {
         )
     }
 
-    @Test
-    fun walletAccountsTestnet() = compose.lumioSnapshot("wallet_accounts_testnet") {
-        WalletScreen(
-            fingerprint = 0x1a2b3c4d,
-            mode = NetworkMode.TESTNET,
-            accounts = listOf(bitcoin, ethereum, solana, algorand),
-            tokenCounts = mapOf(ethereum to 2),
-            network = { null },
-            totalUsd = null,
-            showTotal = true,
-            showBalances = true,
-            refreshing = false,
-            updatedAtMs = UPDATED_3_MIN_AGO,
-            notice = null,
-            onAccount = {},
-            clock = fixedClock,
-        )
-    }
-
-    @Test
-    fun walletAccountsHiddenWhileReading() = compose.lumioSnapshot("wallet_accounts_reading") {
-        WalletScreen(
-            fingerprint = 0x1a2b3c4d,
-            mode = NetworkMode.MAINNET,
-            accounts = listOf(ethereum.copy(networkName = "Ethereum", balance = null)),
-            tokenCounts = emptyMap(),
-            network = { null },
-            totalUsd = null,
-            showTotal = false,
-            showBalances = false,
-            refreshing = true,
-            updatedAtMs = null,
-            notice = null,
-            onAccount = {},
-            clock = fixedClock,
-        )
-    }
-
-    /** A wallet with no account on the side: its hero says so, and no island is drawn. */
-    @Test
-    fun walletAccountsEmpty() = compose.lumioSnapshot("wallet_accounts_empty") {
-        WalletScreen(
-            fingerprint = 0x1a2b3c4d,
-            mode = NetworkMode.MAINNET,
-            accounts = emptyList(),
-            tokenCounts = emptyMap(),
-            network = { null },
-            totalUsd = null,
-            showTotal = true,
-            showBalances = true,
-            refreshing = false,
-            updatedAtMs = UPDATED_3_MIN_AGO,
-            notice = null,
-            onAccount = {},
-            clock = fixedClock,
-        )
-    }
-
-    /** The Wallets home before its balances are read: skeleton rows hold the places of the wallets, and the pair intro does not show. */
+    /** The Accounts tab before its balances are read: skeleton rows hold the places of the wallets, and the pair intro does not show. */
     @Test
     fun walletsLoading() = compose.lumioSnapshot("wallets_loading") {
         WalletsScreen(
@@ -273,27 +243,233 @@ class WalletScreensScreenshotTest {
         )
     }
 
-    /** A wallet name and an account network that run past the width of the screen: each truncates on one line. */
+    /** A small phone at font scale 2.0: the wallet names wrap to a second line, and nothing clips or ends in an ellipsis. */
     @Test
-    fun walletLongName() = compose.lumioSnapshot("wallet_long_name") {
+    fun walletsSmallPhoneLargeFont() = compose.lumioSnapshot("wallets_small_font_2", frame = SMALL_PHONE, fontScale = 2f) {
+        WalletsScreen(
+            rows = walletRows + WalletRow("wallet-long", "Savings for the house, the garden and the car", summary = "2 accounts · 1 app", usd = 5.0),
+            totalUsd = 2219.56,
+            showTotal = true,
+            refreshing = false,
+            updatedAtMs = UPDATED_3_MIN_AGO,
+            notice = null,
+            onWallet = {},
+            onPair = {},
+            onRefresh = {},
+            clock = fixedClock,
+        )
+    }
+
+    @Test
+    fun walletsLandscape() = compose.lumioSnapshot("wallets_landscape", frame = LANDSCAPE) {
+        WalletsScreen(
+            rows = walletRows,
+            totalUsd = 2214.56,
+            showTotal = true,
+            refreshing = false,
+            updatedAtMs = UPDATED_3_MIN_AGO,
+            notice = null,
+            onWallet = {},
+            onPair = {},
+            onRefresh = {},
+            clock = fixedClock,
+        )
+    }
+
+    /** One wallet's accounts on the testnet side: Bitcoin, Ethereum, Solana and Algorand, each with its address and its asset count. */
+    @Test
+    fun walletAccountsTestnet() = compose.lumioSnapshot("wallet_accounts_testnet") {
         WalletScreen(
-            fingerprint = 0x1a2b3c4d,
             mode = NetworkMode.TESTNET,
-            accounts = listOf(ethereum.copy(networkName = "Monad testnet and every other EVM network this wallet reads")),
-            tokenCounts = mapOf(ethereum to 12),
-            network = { null },
-            totalUsd = 1234.56,
+            accounts = listOf(bitcoin, ethereum, solana, algorand),
+            tokenCounts = mapOf(ethereum to 2),
+            totalUsd = 31.25,
+            usdOf = usdOf,
+            showTotal = true,
+            showBalances = true,
+            refreshing = false,
+            updatedAtMs = UPDATED_3_MIN_AGO,
+            notice = null,
+            pairedAtMs = PAIRED_AT_MS,
+            zone = ZoneOffset.UTC,
+            onAccount = {},
+            onRefresh = {},
+            clock = fixedClock,
+        )
+    }
+
+    /** Accounts that hold nothing, or are under the threshold, fold into one row, which shows them in place when it is opened. */
+    @Test
+    fun walletAccountsFolded() = compose.lumioSnapshot("wallet_accounts_folded", content = foldedWallet)
+
+    @Test
+    fun walletAccountsFoldOpen() = compose.lumioSnapshot(
+        name = "wallet_accounts_fold_open",
+        beforeCapture = {
+            onNodeWithText(moreAccountsTitle(FOLDED_COUNT)).performTouchInput { click() }
+            // The press settles on the clock, which is paused, so the tap is let through before the frame is drawn.
+            mainClock.advanceTimeBy(SETTLE_MS)
+        },
+        content = foldedWallet,
+    )
+
+    private val foldedWallet: @Composable () -> Unit = {
+        WalletScreen(
+            mode = NetworkMode.TESTNET,
+            accounts = listOf(
+                funded(0, "PulsarNova", "4000"),
+                funded(1, "NothingLess", "10000"),
+                funded(2, "FelixStone", "0"),
+                funded(3, "Cold Storage", "0.5"),
+                funded(4, "Trading", "0"),
+            ),
+            tokenCounts = emptyMap(),
+            totalUsd = 35_000.0,
+            usdOf = usdOf,
+            showTotal = true,
+            showBalances = true,
+            refreshing = false,
+            updatedAtMs = UPDATED_3_MIN_AGO,
+            notice = null,
+            pairedAtMs = PAIRED_AT_MS,
+            zone = ZoneOffset.UTC,
+            onAccount = {},
+            onRefresh = {},
+            clock = fixedClock,
+        )
+    }
+
+    /** An Ethereum account of the test wallet with [coins] of the Monad coin, under the given name in Lensly. */
+    private fun funded(index: Int, name: String, coins: String) = ethereum.copy(
+        id = AccountId.of(Networks.evm(10143), "0x" + "%040x".format(index + 1)),
+        index = index,
+        balance = ethereum.balance?.copy(balance = BigDecimal(coins)),
+        name = name,
+    )
+
+    /** The accounts of [foldedWallet] that fold: two that hold nothing and two that are under the threshold. */
+    private val FOLDED_COUNT = 4
+
+    /** A wallet with no account on the side: its hero says so, and no island is drawn. */
+    @Test
+    fun walletAccountsEmpty() = compose.lumioSnapshot("wallet_accounts_empty") {
+        WalletScreen(
+            mode = NetworkMode.MAINNET,
+            accounts = emptyList(),
+            tokenCounts = emptyMap(),
+            totalUsd = null,
+            usdOf = usdOf,
             showTotal = true,
             showBalances = true,
             refreshing = false,
             updatedAtMs = UPDATED_3_MIN_AGO,
             notice = null,
             onAccount = {},
+            onRefresh = {},
             clock = fixedClock,
         )
     }
 
-    /** An Ethereum account with one held token and two transactions: the Assets and Activity islands as the owner sees them. */
+    /** Accounts whose balances no read has reached: each value is a bar of its size, and the rows keep their places. */
+    @Test
+    fun walletAccountsHiddenWhileReading() = compose.lumioSnapshot("wallet_accounts_reading") {
+        WalletScreen(
+            mode = NetworkMode.MAINNET,
+            accounts = listOf(ethereum.copy(networkName = "Ethereum", balance = null)),
+            tokenCounts = emptyMap(),
+            totalUsd = null,
+            usdOf = usdOf,
+            showTotal = false,
+            showBalances = false,
+            refreshing = true,
+            updatedAtMs = null,
+            notice = null,
+            onAccount = {},
+            onRefresh = {},
+            clock = fixedClock,
+        )
+    }
+
+    /** A wallet with hidden totals and balances: every amount reads as the mask, and nothing moves. */
+    @Test
+    fun walletAccountsHidden() = compose.lumioSnapshot("wallet_accounts_hidden") {
+        WalletScreen(
+            mode = NetworkMode.TESTNET,
+            accounts = listOf(bitcoin, ethereum, solana),
+            tokenCounts = mapOf(ethereum to 2),
+            totalUsd = 31.25,
+            usdOf = usdOf,
+            showTotal = false,
+            showBalances = false,
+            refreshing = false,
+            updatedAtMs = UPDATED_3_MIN_AGO,
+            notice = null,
+            onAccount = {},
+            onRefresh = {},
+            clock = fixedClock,
+        )
+    }
+
+    /** An account name that runs past the width of the screen: it wraps to a second line, and nothing ends in an ellipsis. */
+    @Test
+    fun walletLongName() = compose.lumioSnapshot("wallet_long_name") {
+        WalletScreen(
+            mode = NetworkMode.TESTNET,
+            accounts = listOf(ethereum.copy(name = "An account name that the owner gave it in Lensly and that keeps going past one line")),
+            tokenCounts = mapOf(ethereum to 12),
+            totalUsd = 31.25,
+            usdOf = usdOf,
+            showTotal = true,
+            showBalances = true,
+            refreshing = false,
+            updatedAtMs = UPDATED_3_MIN_AGO,
+            notice = null,
+            onAccount = {},
+            onRefresh = {},
+            clock = fixedClock,
+        )
+    }
+
+    /** A small phone at font scale 2.0: the totals, the monograms and the rows reflow, and the address stays whole. */
+    @Test
+    fun walletSmallPhoneLargeFont() = compose.lumioSnapshot("wallet_small_font_2", frame = SMALL_PHONE, fontScale = 2f) {
+        WalletScreen(
+            mode = NetworkMode.TESTNET,
+            accounts = listOf(bitcoin, ethereum, solana),
+            tokenCounts = mapOf(ethereum to 2),
+            totalUsd = 31.25,
+            usdOf = usdOf,
+            showTotal = true,
+            showBalances = true,
+            refreshing = false,
+            updatedAtMs = UPDATED_3_MIN_AGO,
+            notice = null,
+            onAccount = {},
+            onRefresh = {},
+            clock = fixedClock,
+        )
+    }
+
+    @Test
+    fun walletLandscape() = compose.lumioSnapshot("wallet_landscape", frame = LANDSCAPE) {
+        WalletScreen(
+            mode = NetworkMode.TESTNET,
+            accounts = listOf(bitcoin, ethereum, solana),
+            tokenCounts = mapOf(ethereum to 2),
+            totalUsd = 31.25,
+            usdOf = usdOf,
+            showTotal = true,
+            showBalances = true,
+            refreshing = false,
+            updatedAtMs = UPDATED_3_MIN_AGO,
+            notice = null,
+            onAccount = {},
+            onRefresh = {},
+            clock = fixedClock,
+        )
+    }
+
+    /** An Ethereum account with one held token and two transactions: the Assets tab lists its coins, and Activity is one tap away. */
     @Test
     fun accountEthereumWithTokensAndActivity() = compose.lumioSnapshot("account_ethereum_activity", content = accountEthereumScreen)
 
@@ -301,16 +477,31 @@ class WalletScreensScreenshotTest {
     @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
     fun accountEthereumLight() = compose.lumioSnapshot("account_ethereum_light", content = accountEthereumScreen)
 
+    /** The Activity tab of the same account: its transactions, in their own rows. */
+    @Test
+    fun accountEthereumActivityTab() = compose.lumioSnapshot(
+        name = "account_ethereum_activity_tab",
+        beforeCapture = {
+            onNodeWithText("Activity").performClick()
+            mainClock.advanceTimeBy(SETTLE_MS)
+        },
+        content = accountEthereumScreen,
+    )
+
     private val accountEthereumScreen: @Composable () -> Unit = {
         AccountScreen(
             walletName = "Demo",
-            account = ethereum,
+            account = ethereum.copy(name = "PulsarNova", label = "Trading", group = "Group DeFi"),
             showBalance = true,
             assets = rowsOf(ethereum, tokens = listOf(usdcHolding)),
             activity = ethereumActivity,
+            updatedAtMs = UPDATED_3_MIN_AGO,
             onSend = {},
             onReceive = {},
             onOpenTransaction = {},
+            onRefresh = {},
+            clock = fixedClock,
+            zone = ZoneOffset.UTC,
         )
     }
 
@@ -339,6 +530,9 @@ class WalletScreensScreenshotTest {
             onSend = {},
             onReceive = {},
             onOpenTransaction = {},
+            onRefresh = {},
+            clock = fixedClock,
+            zone = ZoneOffset.UTC,
         )
     }
 
@@ -347,7 +541,7 @@ class WalletScreensScreenshotTest {
         accountTx(2, TxDirection.OUT, BigInteger.valueOf(250_000_000_000_000_000L), "0x2b5634C42055806a59e9107ED44D43c426E58258", 1_731_700_000_000L),
     )
 
-    /** A zero balance: no coin in the account, so Receive is the primary action and Send drops out. */
+    /** A zero balance: no coin in the account, so Receive is the capsule and Send drops out to the text action. */
     @Test
     fun accountZeroBalance() = compose.lumioSnapshot("account_zero_balance") {
         AccountScreen(
@@ -357,6 +551,7 @@ class WalletScreensScreenshotTest {
             assets = rowsOf(zeroEthereum),
             onSend = {},
             onReceive = {},
+            onRefresh = {},
         )
     }
 
@@ -373,12 +568,19 @@ class WalletScreensScreenshotTest {
             loadingActivity = true,
             onSend = {},
             onReceive = {},
+            onRefresh = {},
         )
     }
 
-    /** A funded account with no transaction yet: the Activity island says so. */
+    /** A funded account with no transaction yet: the Activity tab says so, in words. */
     @Test
-    fun accountEmptyActivity() = compose.lumioSnapshot("account_empty_activity") {
+    fun accountEmptyActivity() = compose.lumioSnapshot(
+        name = "account_empty_activity",
+        beforeCapture = {
+            onNodeWithText("Activity").performClick()
+            mainClock.advanceTimeBy(SETTLE_MS)
+        },
+    ) {
         AccountScreen(
             walletName = "Demo",
             account = ethereum,
@@ -386,10 +588,11 @@ class WalletScreensScreenshotTest {
             assets = rowsOf(ethereum, tokens = listOf(usdcHolding)),
             onSend = {},
             onReceive = {},
+            onRefresh = {},
         )
     }
 
-    /** Hidden balances: every amount, the hero included, reads as the mask. */
+    /** Hidden balances: every amount, the total included, reads as the mask. */
     @Test
     fun accountHiddenBalances() = compose.lumioSnapshot("account_hidden_balances") {
         AccountScreen(
@@ -400,14 +603,15 @@ class WalletScreensScreenshotTest {
             activity = ethereumActivity,
             onSend = {},
             onReceive = {},
+            onRefresh = {},
         )
     }
 
-    /** Long names: a wallet, a network and its address run past the width of the screen, and they truncate rather than wrap. */
+    /** Long names: a wallet, a label and an account name run past the width of the screen, and they wrap rather than clip. */
     @Test
     fun accountLongNames() = compose.lumioSnapshot("account_long_names") {
         val longNetwork = EvmChain(10143L, "Monad testnet and every other EVM network this wallet reads", "MON", 18, true, monad.explorerUrl)
-        val longAccount = ethereum.copy(networkName = longNetwork.name)
+        val longAccount = ethereum.copy(networkName = longNetwork.name, name = "A long account name that wraps", label = "A long label", group = "A long group")
         AccountScreen(
             walletName = "A wallet name that runs on past the width of the screen",
             account = longAccount,
@@ -423,6 +627,7 @@ class WalletScreensScreenshotTest {
             activity = ethereumActivity,
             onSend = {},
             onReceive = {},
+            onRefresh = {},
         )
     }
 
@@ -435,10 +640,11 @@ class WalletScreensScreenshotTest {
             assets = rowsOf(bitcoin),
             onSend = {},
             onReceive = {},
+            onRefresh = {},
         )
     }
 
-    /** A Solana account with an SPL token beside its SOL: the holding shows in the Assets island, and Activity is not read yet. */
+    /** A Solana account with an SPL token beside its SOL: the holding shows in the Assets list, and Activity is not read yet. */
     @Test
     fun accountSolanaSend() = compose.lumioSnapshot("account_solana") {
         AccountScreen(
@@ -448,6 +654,51 @@ class WalletScreensScreenshotTest {
             assets = rowsOf(solana, holdings = listOf(splUsdc)),
             onSend = {},
             onReceive = {},
+            onRefresh = {},
+        )
+    }
+
+    /** Offline: Send is disabled and says why under it, and Receive stays live, with the balances from the last read. */
+    @Test
+    fun accountOffline() = compose.lumioSnapshot("account_offline") {
+        AccountScreen(
+            walletName = "Demo",
+            account = ethereum,
+            showBalance = true,
+            assets = rowsOf(ethereum, tokens = listOf(usdcHolding)),
+            online = false,
+            onSend = {},
+            onReceive = {},
+            onRefresh = {},
+        )
+    }
+
+    /** A small phone at font scale 2.0: the total, the capsule and the text action sit side by side, and the address wraps in whole groups. */
+    @Test
+    fun accountSmallPhoneLargeFont() = compose.lumioSnapshot("account_small_font_2", frame = SMALL_PHONE, fontScale = 2f) {
+        AccountScreen(
+            walletName = "Air 1",
+            account = ethereum.copy(name = "PulsarNova", label = "Trading", group = "Group DeFi"),
+            showBalance = true,
+            assets = rowsOf(ethereum, tokens = listOf(usdcHolding)),
+            activity = ethereumActivity,
+            onSend = {},
+            onReceive = {},
+            onRefresh = {},
+        )
+    }
+
+    @Test
+    fun accountLandscape() = compose.lumioSnapshot("account_landscape", frame = LANDSCAPE) {
+        AccountScreen(
+            walletName = "Air 1",
+            account = ethereum.copy(name = "PulsarNova", label = "Trading", group = "Group DeFi"),
+            showBalance = true,
+            assets = rowsOf(ethereum, tokens = listOf(usdcHolding)),
+            activity = ethereumActivity,
+            onSend = {},
+            onReceive = {},
+            onRefresh = {},
         )
     }
 
@@ -525,23 +776,4 @@ class WalletScreensScreenshotTest {
         ),
         chain = "Monad testnet",
     )
-
-    @Test
-    fun walletAccountsWithAPrice() = compose.lumioSnapshot("wallet_accounts_priced") {
-        WalletScreen(
-            fingerprint = 0x1a2b3c4d,
-            mode = NetworkMode.MAINNET,
-            accounts = listOf(bitcoin.copy(networkName = "Bitcoin", balance = bitcoin.balance?.copy(network = BtcNetwork.MAINNET.networkId()))),
-            tokenCounts = emptyMap(),
-            network = { null },
-            totalUsd = 1234.56,
-            showTotal = true,
-            showBalances = true,
-            refreshing = false,
-            updatedAtMs = UPDATED_3_MIN_AGO,
-            notice = null,
-            onAccount = {},
-            clock = fixedClock,
-        )
-    }
 }

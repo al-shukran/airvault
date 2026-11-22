@@ -1,33 +1,29 @@
 package app.lumio.ui.pair
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingPayload
-import app.lensly.core.algorand.AlgorandAccount
-import app.lensly.core.btc.BtcWatchOnlyAccount
-import app.lensly.core.solana.SolanaAccount
-import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.ClearAirSpacing
+import app.lensly.ui.theme.ClearAirType
+import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.data.net.Networks
-import app.lumio.pair.PairChain
 import app.lumio.pair.PairImport
-import app.lumio.ui.kit.LumioPrimaryButton
-import app.lumio.ui.kit.LumioTag
+import app.lumio.ui.kit.ClearAirEyebrow
+import app.lumio.ui.kit.ClearAirPageTopBar
+import app.lumio.ui.kit.ClearAirPrimaryButton
+import app.lumio.ui.kit.ClearAirRow
+import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.scan.LumioScanScreen
-import app.lumio.ui.send.ReviewAddress
 
 /** The camera scan for a pairing code. [progress] shows for an animated code, and [status] says what the scan is doing. [complete] closes the ring. */
 @Composable
@@ -43,9 +39,9 @@ fun PairScanScreen(progress: Float?, status: String, onText: (String) -> Unit, o
 }
 
 /**
- * The review of a scanned pairing, before anything is saved: the wallet, each Ethereum account with the name, label and group Lensly gave
- * it, and each Bitcoin account with its network, Script Type and first address. [alreadyPaired] means saving replaces what Lumio holds for
- * the wallet. [error] is shown when a save failed.
+ * The review of a scanned pairing, before anything is saved (I11, "Add Air 1?"): the wallet's name, one row per app with its count, and the address
+ * book. Only public addresses and names cross from Lensly, and saving keeps them behind the Lumio password. [alreadyPaired] means saving replaces what
+ * Lumio holds for the wallet. [error] is shown when a save failed.
  */
 @Composable
 fun PairReviewScreen(
@@ -54,142 +50,74 @@ fun PairReviewScreen(
     error: String?,
     onSave: () -> Unit,
     onCancel: () -> Unit,
+    onLock: () -> Unit,
 ) {
-    val accounts = PairImport.accountsOf(pairing, Networks.EIP155)
-    val bitcoin = PairImport.bitcoinAccountsOf(pairing)
-    val bitcoinNames = PairImport.accountsOf(pairing, Networks.BIP122).withIndex().associate { (position, account) -> position to account }
-    LenslyScreen(
-        title = "Review Pairing",
-        onBack = onCancel,
-        bottomAction = { LumioPrimaryButton(text = if (alreadyPaired) "Update" else "Save", onClick = onSave) },
-    ) {
-        if (alreadyPaired) {
-            InlineBanner(
-                message = "This wallet is already paired. Saving makes its names, labels, groups and accounts match Lensly.",
-                tone = BannerTone.Info,
-            )
-            Spacer(Modifier.height(LenslySpacing.md))
-        }
-        ReviewHeader(title = pairing.name, fingerprint = pairing.fingerprint)
-        if (accounts.isNotEmpty()) EthereumReview(addresses = PairImport.ethereumAddressesOf(pairing), accounts = accounts)
-        if (bitcoin.isNotEmpty()) BitcoinReview(accounts = bitcoin, names = bitcoinNames)
-        val solana = PairImport.solanaPublicKeysOf(pairing)
-        if (solana.isNotEmpty()) SolanaReview(keys = solana)
-        val algorand = PairImport.algorandPublicKeysOf(pairing)
-        if (algorand.isNotEmpty()) AlgorandReview(keys = algorand)
-        error?.let {
-            Spacer(Modifier.height(LenslySpacing.md))
-            InlineBanner(message = it, tone = BannerTone.Error)
-        }
-    }
-}
-
-@Composable
-private fun EthereumReview(addresses: List<String>, accounts: List<PairingAccount>) {
-    Spacer(Modifier.height(LenslySpacing.md))
-    LumioTag(text = PairLabels.chainName(PairChain.EVM))
-    ReviewField("Network", "All EVM Networks")
-    ReviewField("Accounts", "${accounts.size}")
-    accounts.forEachIndexed { index, account -> EthereumAccountReview(address = addresses[index], index = index, account = account) }
-}
-
-@Composable
-private fun EthereumAccountReview(address: String, index: Int, account: PairingAccount) {
-    Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.md)) {
-        Text(
-            text = account.name,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        if (account.label != null || account.group != null) {
-            Spacer(Modifier.height(LenslySpacing.xxs))
-            Row {
-                account.label?.let { LumioTag(text = it) }
-                if (account.label != null && account.group != null) Spacer(Modifier.width(LenslySpacing.xs))
-                account.group?.let { LumioTag(text = it) }
+    val palette = LocalClearAirPalette.current
+    val ethereum = PairImport.accountsOf(pairing, Networks.EIP155).size
+    val bitcoin = PairImport.bitcoinAccountsOf(pairing).size
+    val solana = PairImport.solanaPublicKeysOf(pairing).size
+    val algorand = PairImport.algorandPublicKeysOf(pairing).size
+    Column(modifier = Modifier.fillMaxSize()) {
+        ClearAirPageTopBar(title = "Pair with Lensly", backLabel = "Scan", onBack = onCancel, onLock = onLock)
+        Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter)) {
+                ClearAirEyebrow(text = "Pair · 2 of 2")
+                Spacer(Modifier.height(ClearAirSpacing.xs))
+                Text(text = "Add ${pairing.name}?", style = ClearAirType.titleXL, color = palette.ink)
+                Text(text = "Read from Lensly just now", style = ClearAirType.body, color = palette.ink2)
+                Spacer(Modifier.height(ClearAirSpacing.lg))
+            }
+            if (ethereum > 0) AppRow(app = "Ethereum App", value = countOf(ethereum, "account"))
+            if (bitcoin > 0) AppRow(app = "Bitcoin App", value = countOf(bitcoin, "account"))
+            if (solana > 0) AppRow(app = "Solana App", value = countOf(solana, "account"))
+            if (algorand > 0) AppRow(app = "Algorand App", value = countOf(algorand, "account"))
+            if (pairing.addressBook.isNotEmpty()) {
+                AppRow(app = "Address Book", value = countOf(pairing.addressBook.size, "entry", "entries"))
+            }
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter)) {
+                Spacer(Modifier.height(ClearAirSpacing.lg))
+                Text(text = "Public addresses and names only", style = ClearAirType.body, color = palette.ink)
+                Text(text = "Saved behind your Lumio password", style = ClearAirType.body, color = palette.ink)
+                Spacer(Modifier.height(ClearAirSpacing.md))
+                Text(
+                    text = "Check that the wallet name matches the one Lensly shows. Your keys stay on Lensly.",
+                    style = ClearAirType.body,
+                    color = palette.ink2,
+                )
+                if (alreadyPaired) {
+                    Spacer(Modifier.height(ClearAirSpacing.md))
+                    Text(
+                        text = "This wallet is already paired. Saving makes its names, labels, groups and accounts match Lensly.",
+                        style = ClearAirType.body,
+                        color = palette.ink2,
+                    )
+                }
+                error?.let {
+                    Spacer(Modifier.height(ClearAirSpacing.md))
+                    Text(text = it, style = ClearAirType.body, color = palette.rose)
+                }
             }
         }
-        ReviewAddress("First Address", address)
-    }
-}
-
-/** The Solana accounts of a pairing, on devnet: each account's address, which is the base58 of its public key. */
-@Composable
-private fun SolanaReview(keys: List<ByteArray>) {
-    Spacer(Modifier.height(LenslySpacing.md))
-    LumioTag(text = PairLabels.chainName(PairChain.SOLANA))
-    ReviewField("Network", "Devnet")
-    ReviewField("Accounts", "${keys.size}")
-    keys.forEachIndexed { index, key ->
-        Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.md)) {
-            Text(text = "Account $index", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-            ReviewAddress("Address", SolanaAccount.addressOf(key))
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            ClearAirPrimaryButton(text = if (alreadyPaired) "Update" else "Save Wallet", onClick = onSave)
+            Spacer(Modifier.height(ClearAirSpacing.xs))
+            ClearAirTextAction(text = "Cancel", onClick = onCancel)
         }
     }
 }
 
-/** The Algorand accounts of a pairing: each account's address, which is the 58-character form of its public key. */
+/** One app of the pairing with its count: the name on the left, the count in ink beside it. */
 @Composable
-private fun AlgorandReview(keys: List<ByteArray>) {
-    Spacer(Modifier.height(LenslySpacing.md))
-    LumioTag(text = PairLabels.chainName(PairChain.ALGORAND))
-    ReviewField("Accounts", "${keys.size}")
-    keys.forEachIndexed { index, key ->
-        Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.md)) {
-            Text(text = "Account $index", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-            ReviewAddress("Address", AlgorandAccount.addressOf(key))
-        }
-    }
+private fun AppRow(app: String, value: String) {
+    val palette = LocalClearAirPalette.current
+    ClearAirRow(
+        title = app,
+        trailing = { Text(text = value, style = ClearAirType.rowValue, color = palette.ink2) },
+    )
 }
 
-/** The Bitcoin accounts of a pairing. [names] holds the name, label and group of each one, by its key's place in the pairing. */
-@Composable
-private fun BitcoinReview(accounts: List<BtcWatchOnlyAccount>, names: Map<Int, PairingAccount>) {
-    Spacer(Modifier.height(LenslySpacing.md))
-    LumioTag(text = PairLabels.chainName(PairChain.BITCOIN))
-    ReviewField("Accounts", "${accounts.size}")
-    accounts.forEachIndexed { position, account -> BitcoinAccountReview(account, names[position]) }
-}
-
-@Composable
-private fun BitcoinAccountReview(account: BtcWatchOnlyAccount, named: PairingAccount?) {
-    val address = remember(account) { account.receiveAddress(0) }
-    Column(modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.md)) {
-        named?.name?.let { name ->
-            Text(name, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-            Spacer(Modifier.height(LenslySpacing.xxs))
-        }
-        Row {
-            LumioTag(text = PairLabels.network(account.network))
-            Spacer(Modifier.width(LenslySpacing.xs))
-            LumioTag(text = PairLabels.scriptType(account.scriptType))
-        }
-        val label = named?.label
-        val group = named?.group
-        if (label != null || group != null) {
-            Spacer(Modifier.height(LenslySpacing.xxs))
-            Row {
-                label?.let { LumioTag(text = it) }
-                if (label != null && group != null) Spacer(Modifier.width(LenslySpacing.xs))
-                group?.let { LumioTag(text = it) }
-            }
-        }
-        ReviewField("Path", account.path.asString('\''))
-        ReviewAddress("First Address", address)
-    }
-}
-
-@Composable
-private fun ReviewHeader(title: String, fingerprint: Long) {
-    Text(title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
-    Spacer(Modifier.height(LenslySpacing.xs))
-    ReviewField("Master Fingerprint", PairLabels.fingerprint(fingerprint))
-}
-
-@Composable
-private fun ReviewField(label: String, value: String) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.xxs)) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-    }
-}
+/** "1 account", "2 accounts": the count of [noun], or of [plural] when it is not one. */
+private fun countOf(count: Int, noun: String, plural: String = "${noun}s"): String = "$count ${if (count == 1) noun else plural}"

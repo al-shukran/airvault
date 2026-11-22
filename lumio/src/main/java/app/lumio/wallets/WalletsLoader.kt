@@ -36,6 +36,9 @@ class WalletsView(
     /** The value in dollars of the priced balances of the wallet [walletId], or null when none of them has a price. */
     fun usd(walletId: String): Double? = HomeAssets.totalUsd(HomeAssets.priced(balancesOf(walletId), prices))
 
+    /** The value in dollars of [account]'s native coin, or null when that coin has no price or no balance is kept. */
+    fun usd(account: WalletAccount): Double? = HomeAssets.totalUsd(HomeAssets.priced(listOfNotNull(account.balance), prices))
+
     /** The time of the oldest price kept from an earlier read, among the balances of the side, or null when every price is from this read. */
     fun staleSinceMs(): Long? = HomeAssets.staleSinceMs(accounts.values.flatten().mapNotNull { it.balance }, prices)
 

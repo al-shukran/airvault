@@ -30,6 +30,12 @@ class PairScreensScreenshotTest {
     }
 
     @Test
+    @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
+    fun pairIntroLight() = compose.lumioSnapshot("pair_intro_light") {
+        PairIntro(onScan = {})
+    }
+
+    @Test
     fun scanPairProgress() = compose.lumioSnapshot("scan_pair_progress") {
         LumioScanFrame(
             title = "Scan Pairing Code",

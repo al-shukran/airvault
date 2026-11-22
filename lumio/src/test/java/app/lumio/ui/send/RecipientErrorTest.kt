@@ -1,7 +1,7 @@
 package app.lumio.ui.send
 
 import app.lensly.core.btc.BtcNetwork
-import app.lumio.ui.btc.btcRecipientError
+import app.lumio.btcRecipientError
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import org.junit.Test

@@ -39,6 +39,19 @@
             android:exported="false"
             android:isolatedProcess="true"
             android:process=":qrdecode" />
+        <!--
+            The Receive sheet shares its code as an image. The provider lets the receiving app read that one file, in the cache folder named in
+            receive_share_paths, and no other.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.receive"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/receive_share_paths" />
+        </provider>
     </application>
 
 </manifest>

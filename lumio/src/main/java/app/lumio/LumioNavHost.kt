@@ -66,6 +66,9 @@ internal object LumioRoute {
     const val PORTFOLIO = "portfolio"
     const val EXPLORE = "explore"
 
+    /** The activity of every account on the side, pushed from the Portfolio tab and its "All" link. */
+    const val ACTIVITY = "activity"
+
     /** The five tab roots, in the order of the tab bar. A screen in this set is a place of the tab bar, not a page pushed over one. */
     val TAB_ROOTS = setOf(HOME, WALLETS, PORTFOLIO, EXPLORE, SETTINGS)
 
@@ -195,18 +198,22 @@ internal object LumioRoute {
     /** The route of a send from [account] of [walletId] on the network [chainId]. */
     fun send(walletId: String, account: AccountId, chainId: Long): String = "send/$walletId/${account.caip10}?$SEND_CHAIN_ARG=$chainId"
 
-    /** The receive page of one account, with the wallet's ID and the account's CAIP-10 id as its arguments. */
-    const val RECEIVE = "receive/{$WALLET_ARG}/{$ACCOUNT_ARG}"
-
-    /** The route of the receive page of [account] in [walletId]. */
-    fun receive(walletId: String, account: AccountId): String = "receive/$walletId/${account.caip10}"
-
     /** The arguments of a transaction's page: the account that the row is for, and the transaction's id. */
     const val TX_ACCOUNT_ARG = "account"
     const val TX_ID_ARG = "txId"
 
     /** A transaction's page, for the row of [TX_ACCOUNT_ARG] and [TX_ID_ARG] in the wallet [WALLET_ARG], whose Address Book the addresses are named in. */
     const val TRANSACTION = "transaction/{$WALLET_ARG}/{$TX_ACCOUNT_ARG}/{$TX_ID_ARG}"
+
+    /** The arguments of an address's handoff page: the address, and whether it updates an entry that is already in the address book. */
+    const val ADDRESS_ARG = "address"
+    const val EDIT_ARG = "edit"
+
+    /** The handoff page that shows an address as a code for Lensly to read, to add it or to edit it. */
+    const val ADDRESS_HANDOFF = "address-handoff/{$ADDRESS_ARG}/{$EDIT_ARG}"
+
+    /** The route of the handoff page of [address], which edits its entry when [edit] is set. */
+    fun addressHandoff(address: String, edit: Boolean): String = "address-handoff/$address/$edit"
 
     /** The route of the page of transaction [txId] for [account], an account of the wallet [walletId]. */
     fun transaction(walletId: String, account: String, txId: String): String = "transaction/$walletId/$account/$txId"
@@ -372,9 +379,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
             }
             lumioComposable(LumioRoute.PORTFOLIO) {
                 LumioBackdrop(selection) {
-                    TabRoute(tab = LumioTab.PORTFOLIO, navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = { lock() }) {
-                        TabPlaceholder("Balances across all your accounts will appear here.")
-                    }
+                    PortfolioTab(navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = { lock() })
                 }
             }
             lumioComposable(LumioRoute.EXPLORE) {
@@ -438,7 +443,25 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                 val account = entry.arguments?.getString(LumioRoute.TX_ACCOUNT_ARG).orEmpty()
                 val txId = entry.arguments?.getString(LumioRoute.TX_ID_ARG).orEmpty()
                 LumioBackdrop(selection) {
-                    TransactionDetailRoute(navController = navController, holder = holder, walletId = walletId, account = account, txId = txId)
+                    TransactionDetailRoute(navController = navController, holder = holder, walletId = walletId, account = account, txId = txId, onLock = { lock() })
+                }
+            }
+            lumioComposable(LumioRoute.ACTIVITY) {
+                LumioBackdrop(selection) {
+                    ActivityRoute(navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = { lock() })
+                }
+            }
+            lumioComposable(
+                route = LumioRoute.ADDRESS_HANDOFF,
+                arguments = listOf(
+                    navArgument(LumioRoute.ADDRESS_ARG) { type = NavType.StringType },
+                    navArgument(LumioRoute.EDIT_ARG) { type = NavType.BoolType },
+                ),
+            ) { entry ->
+                val address = entry.arguments?.getString(LumioRoute.ADDRESS_ARG).orEmpty()
+                val edit = entry.arguments?.getBoolean(LumioRoute.EDIT_ARG) ?: false
+                LumioBackdrop(selection) {
+                    AddOnLenslyRoute(navController = navController, address = address, edit = edit, onLock = { lock() })
                 }
             }
             lumioComposable(LumioRoute.PAIR_SCAN) {
@@ -454,7 +477,14 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 val account = entry.accountId()
                 LumioBackdrop(selection) {
-                    BtcSendRoute(navController = navController, holder = holder, walletId = walletId, account = account, mode = selection.mode)
+                    BtcSendRoute(
+                        navController = navController,
+                        holder = holder,
+                        walletId = walletId,
+                        account = account,
+                        mode = selection.mode,
+                        onLock = { lock() },
+                    )
                 }
             }
             lumioComposable(
@@ -467,7 +497,14 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 val account = entry.accountId()
                 LumioBackdrop(selection) {
-                    SolanaSendRoute(navController = navController, holder = holder, walletId = walletId, accountId = account, mode = selection.mode)
+                    SolanaSendRoute(
+                        navController = navController,
+                        holder = holder,
+                        walletId = walletId,
+                        accountId = account,
+                        mode = selection.mode,
+                        onLock = { lock() },
+                    )
                 }
             }
             lumioComposable(
@@ -480,7 +517,14 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 val account = entry.accountId()
                 LumioBackdrop(selection) {
-                    AlgorandSendRoute(navController = navController, holder = holder, mode = selection.mode, walletId = walletId, account = account)
+                    AlgorandSendRoute(
+                        navController = navController,
+                        holder = holder,
+                        mode = selection.mode,
+                        walletId = walletId,
+                        account = account,
+                        onLock = { lock() },
+                    )
                 }
             }
             lumioComposable(
@@ -514,6 +558,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                         mode = selection.mode,
                         walletId = walletId,
                         account = account,
+                        onLock = { lock() },
                         optInAssetId = assetId,
                     )
                 }
@@ -591,25 +636,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                         account = account,
                         mode = selection.mode,
                         chainId = chain,
-                    )
-                }
-            }
-            lumioComposable(
-                route = LumioRoute.RECEIVE,
-                arguments = listOf(
-                    navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
-                    navArgument(LumioRoute.ACCOUNT_ARG) { type = NavType.StringType },
-                ),
-            ) { entry ->
-                val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
-                val account = entry.accountId()
-                LumioBackdrop(selection) {
-                    ReceiveRoute(
-                        navController = navController,
-                        holder = holder,
-                        walletId = walletId,
-                        accountId = account,
-                        mode = selection.mode,
+                        onLock = { lock() },
                     )
                 }
             }
@@ -624,6 +651,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
                         holder = holder,
                         draft = draft,
                         onChanged = { listVersion++ },
+                        onLock = { lock() },
                     )
                 }
             }
@@ -633,7 +661,13 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 LumioBackdrop(selection) {
-                    FirstSyncRoute(navController = navController, holder = holder, walletId = walletId, mode = selection.mode)
+                    FirstSyncRoute(
+                        navController = navController,
+                        holder = holder,
+                        walletId = walletId,
+                        mode = selection.mode,
+                        onLock = { lock() },
+                    )
                 }
             }
         }
