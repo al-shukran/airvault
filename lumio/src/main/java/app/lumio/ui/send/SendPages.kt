@@ -58,8 +58,8 @@ internal const val STEP_SEND = 4
 /** An address the recipient can be picked from: its [title], its [detail] line and the [address] it sends to. */
 class SendChoice(val title: String, val detail: String, val address: String)
 
-/** One line of the Review page's facts, under the recipient: its [label] and its [value]. */
-class SummaryRow(val label: String, val value: String)
+/** One line of the Review page's facts, under the recipient: its [label], its [value], and whether the value is set in the mono figures. */
+class SummaryRow(val label: String, val value: String, val mono: Boolean = false)
 
 /** One option of a choice sheet, such as a coin of the send: its [title] and what it says under it. */
 class SendOption(val title: String, val detail: String)
@@ -384,7 +384,7 @@ fun SendReviewPage(
         rows.forEach { row ->
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.xxs)) {
                 Text(text = row.label, style = ClearAirType.label, color = palette.ink2)
-                Text(text = row.value, style = ClearAirType.rowValue, color = palette.ink)
+                Text(text = row.value, style = if (row.mono) ClearAirType.address else ClearAirType.rowValue, color = palette.ink)
             }
         }
         warnings.forEach { warning ->

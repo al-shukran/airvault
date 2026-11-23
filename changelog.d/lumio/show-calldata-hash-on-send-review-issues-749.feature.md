@@ -1,0 +1,1 @@
+The review of a Lumio send that carries calldata now shows the Keccak-256 of that calldata under the same label Lensly uses for a call it cannot read. Compare the two hashes before you show the request to Lensly.
