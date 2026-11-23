@@ -1,9 +1,8 @@
 name: codeql
 
-# One full scan a day, on a schedule, and on demand from a /run-codeql comment.
-# CodeQL is not on the pull-request path: pr-fast.yml holds the security checks
-# that gate a pull request. A scheduled run writes its result into one rolling
-# issue labelled codeql, so the result is deduplicated across days; an on-demand
+# One full scan a day, on every push to master, and on demand from a /run-codeql comment. CodeQL takes longer than the
+# 3-minute PR budget, so it has no pull_request trigger: a pull request runs it only when a trusted commenter asks. A scheduled or
+# master run writes its result into one rolling issue labelled codeql, so the result is deduplicated across days; an on-demand
 # run reports on the pull request it was asked about.
 #
 # GitHub starts scheduled workflows only on the default branch, and disables them
@@ -11,6 +10,8 @@ name: codeql
 on:
   schedule:
     - cron: "23 4 * * *"
+  push:
+    branches: [master]
   workflow_dispatch:
   workflow_call:
     inputs:
