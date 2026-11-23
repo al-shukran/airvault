@@ -14,9 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,6 +27,8 @@ import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.pair.FirstSync
 import app.lumio.pair.SyncRow
 import app.lumio.pair.SyncState
+import app.lumio.ui.kit.ClearAirGlyph
+import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.ClearAirPageTopBar
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
@@ -110,12 +109,7 @@ private fun TimelineLine(text: String, step: Step) {
             contentAlignment = Alignment.Center,
         ) {
             if (step == Step.DONE) {
-                Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = null,
-                    tint = palette.onPrimary,
-                    modifier = Modifier.size(14.dp),
-                )
+                ClearAirIcon(glyph = ClearAirGlyph.CHECK, color = palette.onPrimary, modifier = Modifier.size(14.dp))
             }
         }
         Spacer(Modifier.width(ClearAirSpacing.sm))
