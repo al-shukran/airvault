@@ -556,6 +556,7 @@ Results from offensive audit run 3 (commit `86949a51`) that are accepted and not
 | AV-015 | Accepted | The Brotli difference is macOS-versus-Linux build metadata; `-Wl,--build-id=none` was disproven as a fix (20 of 586 bytes). |
 | AV-016 | Accepted | Unoffered bulk-cap values read as 100 by design; the app UI cannot produce them, and `SettingsStoreTest` covers the behavior. |
 | Lumio Biometric Unlock | Accepted | With biometric unlock on, anyone who forces the owner's finger at the unlock screen opens the real vault; the auto-prompt also shows the feature is on. |
+| TalkBack reads the confirm-word quiz choices and the restore word suggestions | Accepted | Blind owners must hear them to finish backup and restore; the phrase itself stays hidden from accessibility. Scope and residual risk: `docs/accessibility.md`, "Accepted, Do Not Re-Report". |
 
 ## 8. Report Template
 
@@ -673,3 +674,4 @@ The seed list (5.3) names where to look, not what is broken. Add no claim that a
 | 3 | 2026-11-21 | AirVault maintainers | Added commands for the release APK signature check, the Algorand fuzz gap, the build-cache trap that can skip a nightly fuzz run, the release-manifest network-permission gap, the fuzz crash-file location, verification-metadata coverage, SBOM pinning, and the benchmark APK's profileable and permission surface. |
 | 4 | 2026-11-23 | AirVault maintainers | Applied offensive audit run 3 (commit `86949a51`) changes: device pre-check, brief citation rules, pre-unlock string scope, header MAC wording, Compose FLAG_SECURE inheritance, bulk-signing terminology, timing and memory-scan Gaps, attestation command, erase grep scope, seed-path corrections. Recorded accepted results in 7.5. |
 | 5 | 2026-11-23 | AirVault maintainers | Issue #750: disclosed the self-erase on unverifiable vault state in the README and the Ledger recovery guide; recorded the Lumio Biometric Unlock accepted result in 7.5 and in the Device Protection help text. |
+| 6 | 2026-11-23 | AirVault maintainers | Recorded the accepted TalkBack behavior for the confirm-word quiz and the restore suggestions in 7.5, with the scope in `docs/accessibility.md`. |

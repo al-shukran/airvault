@@ -79,6 +79,7 @@ To run one CI partition locally, use `scripts/ci/run-partition.sh <partition>`. 
 - [Creating AirVault chain apps](docs/creating-airvault-apps.md): how a blockchain becomes a chain app, and what each chain app must provide.
 - [Recover your wallet with a Ledger](docs/recover-with-ledger.md): move a Lensly wallet to a Ledger, and a Ledger wallet back to Lensly.
 - [Testing](docs/testing/README.md): test layers, CI design, and local commands.
+- [Accessibility](docs/accessibility.md): accepted screen-reader decisions, so audits do not re-raise them.
 
 ## Status
 
