@@ -187,6 +187,22 @@ class PairedWalletsTest {
     }
 
     @Test
+    fun aPairingOfTheFingerprintOfAnUnreadableWalletReplacesIt() {
+        val saved = PairedWallets.save(session, payload(accounts = listOf(account(0, "A"))), nowMs = 1L)
+        val record = session.getRecord(saved.id, WalletRecordNames.account(0))!!
+        record[0] = (record[0] - 1).toByte()
+        session.putRecords(saved.id, mapOf(WalletRecordNames.account(0) to record), emptyList())
+        assertTrue(PairedWallets.list(session).isEmpty())
+
+        val again = PairedWallets.save(session, payload(accounts = listOf(account(0, "B"))), nowMs = 2L)
+
+        assertEquals(PairSaved(saved.id, created = false), again)
+        assertEquals(listOf(saved.id), session.listWallets())
+        assertEquals(listOf("B"), PairedWallets.list(session).single().evmAccounts.map { it.name })
+        assertEquals(1L, PairedWallets.get(session, saved.id)!!.createdAtMs)
+    }
+
+    @Test
     fun aRecordOfAnotherVersionIsKeptAndReadsAsUnpaired() {
         val saved = PairedWallets.save(session, payload(accounts = listOf(account(0, "A"))), nowMs = 1L)
         val meta = session.getRecord(saved.id, WalletRecordNames.META)!!

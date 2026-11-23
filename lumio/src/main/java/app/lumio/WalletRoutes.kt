@@ -19,6 +19,7 @@ import app.lensly.app.VaultHolder
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
+import app.lumio.btc.BtcAccountRef
 import app.lumio.data.asset.AssetId
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.TransactionSettings
@@ -496,6 +497,12 @@ internal fun pairedWallets(navController: NavHostController, holder: VaultHolder
     return wallets
 }
 
+/** Removes the cached transactions and comments of [wallet]: those of its Ethereum accounts, and of the Bitcoin addresses its last scans found. */
+internal suspend fun removeWalletHistory(vault: LumioVault, wallet: PairedWallet) {
+    val bitcoin = wallet.bitcoin.flatMap { vault.store.snapshot(BtcAccountRef(wallet.id, it).key)?.addresses.orEmpty() }
+    vault.txs.removeAccounts(wallet.evmAddresses + bitcoin)
+}
+
 /** The Wallets page of Settings: the pairing of a wallet from Lensly, and the paired wallets with deletion. A deletion is saved, then the lists read again. */
 @Composable
 internal fun WalletsSettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, onChanged: () -> Unit) {
@@ -509,6 +516,7 @@ internal fun WalletsSettingsRoute(navController: NavHostController, holder: Vaul
             if (session != null) {
                 scope.launch {
                     onVault(Unit) { PairedWallets.delete(session, wallet.id) }
+                    (holder.sessionAttachment() as? LumioVault)?.let { vault -> onVault(Unit) { removeWalletHistory(vault, wallet) } }
                     onChanged()
                 }
             }

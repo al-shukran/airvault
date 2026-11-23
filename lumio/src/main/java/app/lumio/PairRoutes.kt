@@ -178,7 +178,7 @@ internal fun PairReviewRoute(
  * Runs [block] off the main thread, and returns [default] when it cannot read: the lock may have closed the session under it, and a Home
  * that shows nothing is better than a crash.
  */
-internal suspend fun <T> onVault(default: T, block: () -> T): T = withContext(Dispatchers.IO) {
+internal suspend fun <T> onVault(default: T, block: suspend () -> T): T = withContext(Dispatchers.IO) {
     try {
         block()
     } catch (e: Exception) {
