@@ -5,15 +5,16 @@ finding about screen readers. The test coverage of the Compose screens is in [te
 
 ## Accepted, Do Not Re-Report
 
-### TalkBack Reads the Confirm-Word Quiz and the Restore Suggestions
+### TalkBack Reads the Confirm-Word Quiz, the Restore Suggestions and the Typed Prefix
 
-TalkBack speaks two kinds of recovery-phrase words on purpose. Both are in Lensly. Lumio has neither screen.
+TalkBack speaks three kinds of recovery-phrase text on purpose. All three are in Lensly. Lumio has none of these screens.
 
 1. **Confirm-word quiz.** `MnemonicConfirmScreen` shows four word choices for each question (`MnemonicQuiz`). Each
    choice is a button, and TalkBack reads it. The position prompt and the "Wrong word" banner are read too.
 2. **Restore word suggestions.** `RestoreEntryScreen` shows up to four BIP39 words that start with the letters typed so
-   far (`Bip39Autocomplete`). TalkBack reads each suggestion. The prefix being typed and the "No word starts with these
-   letters" message are plain text, so they are read too.
+   far (`Bip39Autocomplete`). TalkBack reads each suggestion.
+3. **Typed prefix.** The word being typed, shown by `PrefixField` on the restore screen, is plain text, so TalkBack reads
+   it. The "No word starts with these letters" message is read too.
 
 **Why it is accepted.** A blind owner has to hear the four choices to answer the quiz, and has to hear the suggestions to
 pick a restore word. If these words were hidden from accessibility, the owner could not finish the backup or the
