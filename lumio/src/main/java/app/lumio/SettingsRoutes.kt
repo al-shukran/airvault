@@ -6,6 +6,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
@@ -35,9 +36,11 @@ import app.lumio.ui.settings.settingsRows
 import app.lumio.ui.shell.offlineBand
 import app.lumio.ui.shell.rememberOnline
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 
@@ -72,12 +75,20 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder,
     // The vault's own read has not finished yet: read here once, so the list never comes in blank.
     val current = cached ?: remember(store) { store.refresh(); store.facts.value } ?: return
     val gesture = LocalContext.current.entryGestureHolder().current
+    val scope = rememberCoroutineScope()
     TabRoute(tab = LumioTab.SETTINGS, navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = onLock) {
         LumioSettingsScreen(
             rows = settingsRows(current, gesture, BuildConfig.VERSION_NAME),
             finish = current.finish,
             onFinish = { item -> navController.navigate(LumioRoute.settingsPage(item.page)) },
             onOpen = { page -> navController.navigate(LumioRoute.settingsPage(page)) },
+            onReset = {
+                scope.launch {
+                    // The erase runs to its end even if this screen leaves. A vault file that cannot be deleted leaves the vault, and the gate then asks for its password.
+                    withContext(Dispatchers.IO + NonCancellable) { runCatching { app.eraseLumio() } }
+                    navController.openHidden(GateRoutes.GATE)
+                }
+            },
         )
     }
 }

@@ -178,8 +178,10 @@ internal fun WalletRoute(
                 refreshing = board.refreshing,
                 refreshByPull = board.refreshByPull,
                 updatedAtMs = board.updatedAtMs,
-                notice = board.notice,
+                // A chain that did not answer names itself under its eyebrow, so the page-wide notice is left out for it.
+                notice = if (board.unreachable.isEmpty()) board.notice else null,
                 pairedAtMs = wallet.createdAtMs,
+                unreachable = board.unreachable,
                 onAccount = { account -> navController.navigate(LumioRoute.account(walletId, account.id)) },
                 onRefresh = { board.refresh(pulled = true) },
             )

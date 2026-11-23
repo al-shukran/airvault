@@ -18,6 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import app.airvault.core.model.ChainId
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
@@ -29,6 +30,7 @@ import app.lumio.network.NetworkMode
 import app.lumio.ui.kit.ClearAirAmount
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirListRow
+import app.lumio.ui.kit.ClearAirNote
 import app.lumio.ui.kit.ClearAirMonogram
 import app.lumio.ui.kit.ClearAirRefreshBox
 import app.lumio.ui.kit.ClearAirSkeleton
@@ -54,6 +56,7 @@ private val DETAIL_EMBLEM = 24.dp
  * accounts that hold nothing, or are worth under [FOLD_BELOW_USD], fold into one "More Accounts" row that opens them in place. Pulling down reads the
  * balances again. The page's top bar is the shell's, so this has none. [tokenCounts] holds the tokens each Ethereum account holds, and [usdOf] gives an
  * account's value in dollars. [tokenUsd] gives the dollars of the tokens an account holds, which count toward its fold. [notice] names a read that did not answer.
+ * [unreachable] names the chains whose read did not answer: their island says so, and keeps the balances it had.
  */
 @Composable
 fun WalletScreen(
@@ -73,6 +76,7 @@ fun WalletScreen(
     tokenUsd: Map<WalletAccount, Double> = emptyMap(),
     refreshByPull: Boolean = false,
     pairedAtMs: Long? = null,
+    unreachable: Set<ChainId> = emptySet(),
     clock: Clock = WallClock,
     zone: ZoneId = ZoneId.systemDefault(),
 ) {
@@ -113,6 +117,7 @@ fun WalletScreen(
                         tokenUsd = tokenUsd,
                         showTotal = showTotal,
                         showBalances = showBalances,
+                        unreachable = unreachable,
                         onAccount = onAccount,
                     )
                 }
@@ -158,6 +163,7 @@ private fun ChainIsland(
     tokenUsd: Map<WalletAccount, Double>,
     showTotal: Boolean,
     showBalances: Boolean,
+    unreachable: Set<ChainId>,
     onAccount: (WalletAccount) -> Unit,
 ) {
     val fold = foldAccounts(group, usdOf, tokenUsdOf = { tokenUsd[it] })
@@ -170,6 +176,10 @@ private fun ChainIsland(
         ) {
             ClearAirEyebrow(text = "${WalletAccounts.familyLabel(family)} App · ${group.size}", modifier = Modifier.weight(1f))
             groupUsd(group, usdOf)?.let { usd -> ClearAirAmount(text = HomeFormat.usd(usd), hidden = !showTotal, style = ClearAirType.rowValue) }
+        }
+        // A network that did not answer says so once, under the eyebrow. Its accounts keep the balances they had, and the rest of the island stays live.
+        group.filter { it.id.chainId in unreachable }.map { it.networkName }.distinct().forEach { name ->
+            ClearAirNote(text = "Couldn't reach $name. Lumio will retry.", modifier = Modifier.padding(bottom = ClearAirSpacing.xs))
         }
         rows.forEachIndexed { index, account ->
             if (index > 0) RowDivider(indent = ROW_DIVIDER_INDENT)
