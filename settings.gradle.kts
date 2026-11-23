@@ -13,7 +13,11 @@ pluginManagement {
                 includeGroupByRegex("com\\.google(\\..*)?")
             }
         }
-        mavenCentral {
+        // Google's mirror of Maven Central: repo.maven.apache.org rate-limits CI runners (HTTP 429), and Gradle does not
+        // fall back to the next repository on a 429. The artifacts are the same, and verification-metadata.xml pins them.
+        maven {
+            name = "MavenCentralMirror"
+            url = uri("https://maven-central.storage-download.googleapis.com/maven2/")
             content {
                 excludeGroupByRegex("androidx(\\..*)?")
                 excludeGroupByRegex("com\\.android(\\..*)?")
@@ -33,7 +37,9 @@ dependencyResolutionManagement {
         google {
             content { googleGroups.forEach { includeGroupByRegex(it) } }
         }
-        mavenCentral {
+        maven {
+            name = "MavenCentralMirror"
+            url = uri("https://maven-central.storage-download.googleapis.com/maven2/")
             content { centralExcludedGroups.forEach { excludeGroupByRegex(it) } }
         }
     }
