@@ -16,6 +16,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.core.vault.VaultSession
+import app.lumio.data.config.FinishItem
+import app.lumio.data.config.FinishSetupStore
 import app.lumio.home.HomeLoader
 import app.lumio.network.NetworkMode
 import app.lumio.pair.FirstSync
@@ -151,7 +153,9 @@ internal fun PairReviewRoute(
         onSave = {
             scope.launch {
                 val saved = withContext(Dispatchers.IO) {
-                    runCatching { PairedWallets.save(session, pairing, System.currentTimeMillis()) }.getOrNull()
+                    runCatching { PairedWallets.save(session, pairing, System.currentTimeMillis()) }.getOrNull()?.also {
+                        runCatching { FinishSetupStore.tick(session, FinishItem.PAIR) }
+                    }
                 }
                 if (saved == null) {
                     error = SAVE_FAILED

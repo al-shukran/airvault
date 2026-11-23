@@ -2,6 +2,7 @@ package app.lumio.ui.settings
 
 import app.lensly.ui.camera.EntryGesture
 import app.lumio.data.config.DisplaySettings
+import app.lumio.data.config.FinishSetup
 import app.lumio.data.config.ProviderConfig
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -82,6 +83,7 @@ class SettingsSummariesTest {
         providersTotal = 9,
         wallets = 1,
         addresses = 2,
+        finish = FinishSetup(),
     )
 
     @Test

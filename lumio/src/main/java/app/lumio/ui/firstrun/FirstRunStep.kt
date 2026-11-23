@@ -16,8 +16,8 @@ enum class FirstRunStep(val route: String) {
     DeviceProtection("first-run/device-protection"),
 }
 
-/** One segment of the chapter bar: nothing yet, half way through, or done. */
-enum class ChapterFill { Empty, Half, Full }
+/** One segment of the chapter bar: nothing yet, half way through, or done. [fraction] is how much of the segment is filled. */
+enum class ChapterFill(val fraction: Float) { Empty(0f), Half(0.5f), Full(1f) }
 
 private val UNDERSTAND = FirstRunStep.Welcome.ordinal..FirstRunStep.Notice.ordinal
 private val PROTECT = FirstRunStep.CreatePassword.ordinal..FirstRunStep.DeviceProtection.ordinal

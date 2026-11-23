@@ -16,6 +16,7 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.data.config.DisplaySettingsStore
+import app.lumio.data.config.FinishSetupStore
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.pair.PairedWallets
 import app.lumio.ui.kit.LumioTab
@@ -28,6 +29,7 @@ import app.lumio.ui.settings.NetworksSettingsPage
 import app.lumio.ui.settings.SecuritySettingsPage
 import app.lumio.ui.settings.SettingsFacts
 import app.lumio.ui.settings.WalletsSettingsPage
+import app.lumio.ui.settings.page
 import app.lumio.ui.settings.providerCounts
 import app.lumio.ui.settings.settingsRows
 import kotlinx.coroutines.Dispatchers
@@ -71,6 +73,8 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder,
     TabRoute(tab = LumioTab.SETTINGS, navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = onLock) {
         LumioSettingsScreen(
             rows = settingsRows(current, gesture, BuildConfig.VERSION_NAME),
+            finish = current.finish,
+            onFinish = { item -> navController.navigate(LumioRoute.settingsPage(item.page)) },
             onOpen = { page -> navController.navigate(LumioRoute.settingsPage(page)) },
         )
     }
@@ -102,6 +106,7 @@ private fun readFacts(vault: LumioVault, session: VaultSession): SettingsFacts {
         providersTotal = providersTotal,
         wallets = wallets.size,
         addresses = wallets.sumOf { it.addressBook.size },
+        finish = FinishSetupStore.read(session),
     )
 }
 
