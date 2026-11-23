@@ -78,7 +78,7 @@ internal object LumioRoute {
 
     fun provider(id: String): String = "settings/providers/$id"
 
-    /** The roots of the other tabs. Home, Portfolio and Explore are placeholders until their work packages land. */
+    /** The roots of the tabs, which the tab bar opens. */
     const val HOME = "home"
     const val PORTFOLIO = "portfolio"
     const val EXPLORE = "explore"
@@ -291,11 +291,13 @@ internal class PairDraft {
 }
 
 /**
- * The side of the networks the owner chose. The wallet screens read it, so the testnet strip shows on every Lumio screen while the side is testnet.
- * [choose] applies a side at once, and passes it to [store], which keeps it in the vault.
+ * The choices of the shell: the side of the networks the owner chose, and the wallet that the profile panel chose for Home and Portfolio. The wallet
+ * screens read the side, so the testnet strip shows on every Lumio screen while the side is testnet. [choose] applies a side at once, and passes it to
+ * [store], which keeps it in the vault. [walletId] is null until the owner chooses a wallet, and the first paired wallet is the active one until then.
  */
 internal class NetworkSelection(private val store: (NetworkMode) -> Unit = {}) {
     var mode by mutableStateOf(NetworkMode.MAINNET)
+    var walletId by mutableStateOf<String?>(null)
 
     /** Applies [next] at once, and keeps it. */
     fun choose(next: NetworkMode) {

@@ -2,10 +2,11 @@ package app.lumio.ui.search
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -15,12 +16,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,6 +61,13 @@ data class SearchSection(val label: String?, val rows: List<SearchRow>)
 /** The height of the search field: a capsule-like field, 48 dp tall, with the proposal's 24 dp corners. */
 private val FIELD_HEIGHT = 48.dp
 private val FIELD_CORNER = 24.dp
+
+/** The count of tabs that lie past the right edge of the tab row, which the "more" label names. */
+private fun hiddenTabs(tabRow: LazyListState): Int {
+    val info = tabRow.layoutInfo
+    val lastWhole = info.visibleItemsInfo.lastOrNull { it.offset + it.size <= info.viewportEndOffset }?.index ?: return 0
+    return SearchTab.entries.size - lastWhole - 1
+}
 
 /**
  * The search sheet's content. The field takes the query as the owner types it, the tabs choose which kind of result is shown, and [sections] are the
@@ -103,22 +116,38 @@ fun SearchSheet(
             }
             ClearAirIconButton(glyph = ClearAirGlyph.CLOSE, label = "Close", onClick = onClose)
         }
+        val tabRow = rememberLazyListState()
+        val hidden by remember { derivedStateOf { hiddenTabs(tabRow) } }
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
-            horizontalArrangement = Arrangement.spacedBy(ClearAirSpacing.md),
+            modifier = Modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            SearchTab.entries.forEach { option ->
-                val active = option == tab
-                Text(
-                    text = option.label,
-                    style = if (active) ClearAirType.rowTitle else ClearAirType.label,
-                    color = if (active) palette.ink else palette.ink2,
-                    maxLines = 1,
-                    modifier = Modifier.defaultMinSize(minHeight = 48.dp).clickable { onTab(option) }.padding(vertical = ClearAirSpacing.xs),
-                )
+            LazyRow(
+                state = tabRow,
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = ClearAirSpacing.gutter),
+                horizontalArrangement = Arrangement.spacedBy(ClearAirSpacing.md),
+                flingBehavior = rememberSnapFlingBehavior(lazyListState = tabRow),
+            ) {
+                items(SearchTab.entries) { option ->
+                    val active = option == tab
+                    Text(
+                        text = option.label,
+                        style = if (active) ClearAirType.rowTitle else ClearAirType.label,
+                        color = if (active) palette.ink else palette.ink2,
+                        maxLines = 1,
+                        modifier = Modifier.defaultMinSize(minHeight = 48.dp).clickable { onTab(option) }.padding(vertical = ClearAirSpacing.xs),
+                    )
+                }
+            }
+            if (hidden > 0) {
+                Row(
+                    modifier = Modifier.padding(end = ClearAirSpacing.gutter),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(text = "$hidden more", style = ClearAirType.label, color = palette.ink2, maxLines = 1)
+                    ClearAirIcon(glyph = ClearAirGlyph.CHEVRON, color = palette.ink2)
+                }
             }
         }
         if (sections.isEmpty()) {

@@ -1,6 +1,5 @@
 package app.lumio.ui.kit
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -10,12 +9,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -28,7 +25,6 @@ import app.lensly.ui.theme.ClearAirMotion
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
-import app.lumio.ui.home.LumioMark
 
 /** The height of a top bar's row, which holds the 48 dp touch targets of its icons. */
 private val TOP_BAR_HEIGHT = 56.dp
@@ -38,7 +34,7 @@ private val topBarTitle
     get() = ClearAirType.titleL.copy(fontSize = 18.sp, lineHeight = 23.sp)
 
 /**
- * The root top bar of a tab: the AirVault emblem, the tab's [title] with its ▾, the search and the lock. The emblem and the title open the profile
+ * The root top bar of a tab: the wallet emblem, the tab's [title] with its ▾, the search and the lock. The emblem and the title open the profile
  * panel, search opens the search sheet, and the lock locks Lumio at once.
  */
 @Composable
@@ -52,12 +48,7 @@ fun ClearAirRootTopBar(title: String, onPanel: () -> Unit, onSearch: () -> Unit,
             modifier = Modifier.size(ClearAirSpacing.touchTarget).pressable(onClick = onPanel, label = "Open the profile panel"),
             contentAlignment = Alignment.Center,
         ) {
-            Box(
-                modifier = Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(palette.raised),
-                contentAlignment = Alignment.Center,
-            ) {
-                LumioMark(size = 28.dp)
-            }
+            ClearAirWalletEmblem(tile = 36.dp)
         }
         Row(
             modifier = Modifier.weight(1f).pressable(onClick = onPanel, label = "Open the profile panel").padding(start = ClearAirSpacing.xs),
