@@ -34,6 +34,7 @@ import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
+import app.lumio.data.asset.AssetId
 import app.lumio.data.config.Fiat
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
@@ -124,10 +125,7 @@ internal fun AssetRoute(
     }
     val assetId = asset.assetId
     var range by rememberSaveable { mutableStateOf(ChartRange.D1) }
-    // The page starts on the price and the day's chart that the board holds, so its first frame is populated. A read fills in only what is missing.
-    val series by produceState<PriceSeries?>(initialValue = if (range == ChartRange.D1) board.dayChartOf(assetId) else null, assetId, range) {
-        if (value == null) value = withContext(Dispatchers.IO) { runCatching { app.prices.chart(assetId, range) }.getOrNull() }
-    }
+    val series = rememberRangeChart(assetId, range, board.dayChartOf(assetId)) { app.prices.chart(assetId, it) }
     val price by produceState<Price?>(initialValue = board.prices[assetId], assetId) {
         if (value == null) value = withContext(Dispatchers.IO) { app.prices.assetPrices(listOf(assetId))[assetId] }
     }
@@ -211,6 +209,25 @@ internal fun AssetRoute(
     receive?.let { start ->
         ReceiveFlowSheet(visible = receiveOpen, opening = receiveOpening, start = start, assets = emptyList(), onClose = { receiveOpen = false })
     }
+}
+
+/**
+ * The price chart of [range] for [assetId]. The day range starts on [dayChart], the day chart the board holds, so its first frame is populated and
+ * needs no read. Any other range, and a day range the board lacks, is read through [read]. The chart is cleared before each read, so a range never
+ * shows another range's chart under its label.
+ */
+@Composable
+internal fun rememberRangeChart(
+    assetId: AssetId,
+    range: ChartRange,
+    dayChart: PriceSeries?,
+    read: suspend (ChartRange) -> PriceSeries?,
+): PriceSeries? {
+    val series by produceState<PriceSeries?>(initialValue = dayChart.takeIf { range == ChartRange.D1 }, assetId, range) {
+        value = dayChart.takeIf { range == ChartRange.D1 }
+        if (value == null) value = withContext(Dispatchers.IO) { runCatching { read(range) }.getOrNull() }
+    }
+    return series
 }
 
 /**
