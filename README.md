@@ -29,6 +29,10 @@ Both apps come from one code base.
 - **Lensly** (`app/`) is the offline vault and signer. It holds the seed, parses requests, shows the review, and signs.
 - **Lumio** (`lumio/`) is the online companion wallet. It tracks accounts and balances, builds transactions, and broadcasts them.
 
+## Data Loss
+
+Lensly erases the vault if it cannot verify the vault's state, for example after a storage or Keystore fault or a power cut. It does this before it checks your password. Keep a separate recovery phrase for every wallet.
+
 ## Supported Chains
 
 AirVault supports Bitcoin, Ethereum and other EVM networks, Solana, and Algorand. Each chain family is a separate chain app with `common`, `signer` and `wallet` modules.

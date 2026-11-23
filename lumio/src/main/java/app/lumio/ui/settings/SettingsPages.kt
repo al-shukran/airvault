@@ -145,7 +145,7 @@ fun DeviceProtectionSettingsPage(biometric: BiometricSwitch, onBiometric: (Boole
             SettingsSwitchRow(
                 title = "Biometric Unlock",
                 description = if (biometric.on || biometric.canEnable) {
-                    "A fingerprint or face opens Lumio. Your password still works."
+                    "A fingerprint or face opens Lumio. Your password still works. With biometric unlock on, anyone who forces the owner's finger at the unlock screen opens the real vault; the auto-prompt also shows the feature is on."
                 } else {
                     BIOMETRIC_UNAVAILABLE_REASON
                 },
