@@ -2,7 +2,6 @@ package app.lensly.core.vault
 
 import java.io.File
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
@@ -72,27 +71,32 @@ class VaultSlotBindingTest {
     }
 
     @Test
-    fun anOlderHeaderIsRefusedBeforeAnyPasswordIsChecked() {
-        // Version 1 is refused.
+    fun anOlderHeaderErasesTheVaultBeforeAnyPasswordIsChecked() {
+        // Version 1 cannot be verified, so it is erased, not kept.
         patchByte(layout.header, index = 4, value = 1)
 
-        assertTrue(vault.formatChanged())
-        assertFailsWith<VaultFormatChangedException> { attempt(APP) }
-        assertFailsWith<VaultFormatChangedException> { attempt(WRONG) }
-        assertEquals(0, vault.failureCountForTesting())
+        assertEquals(UnlockResult.Erased, attempt(APP))
+        assertFalse(layout.exists())
     }
 
     @Test
-    fun anOlderKeyFileIsRefusedAsAFormatChange() {
-        // Version 2 is refused.
+    fun anOlderKeyFileErasesTheVault() {
+        // Version 2 cannot be verified, so it is erased, even under the right password.
         patchByte(layout.vaultKey, index = 4, value = 2)
 
-        assertFailsWith<VaultFormatChangedException> { attempt(APP) }
+        assertEquals(UnlockResult.Erased, attempt(APP))
+        assertFalse(layout.exists())
     }
 
     @Test
-    fun aCurrentVaultIsNotAFormatChange() {
-        assertFalse(vault.formatChanged())
+    fun anOlderKeyFileErasesTheVaultOnTheBiometricPathToo() {
+        val session = unlocked(APP)
+        val vaultKey = session.copyOfVaultKey()
+        session.close()
+        patchByte(layout.vaultKey, index = 4, value = 2)
+
+        assertEquals(null, runBlocking { vault.unlockWithVaultKey(vaultKey) })
+        assertFalse(layout.exists())
     }
 
     private fun unlocked(password: String): VaultSession {

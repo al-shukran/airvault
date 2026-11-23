@@ -57,12 +57,14 @@ class VaultHeader(
 
         private val MAGIC = "LNVH".toByteArray(Charsets.US_ASCII)
         private const val VERSION: Byte = VAULT_FORMAT_VERSION
-        private const val VERSION_INDEX = 4
         private const val FLAG_STRONGBOX = 1
         private const val FLAG_HARDWARE = 2
 
-        /** Starts the MAC input, so the header MAC is not any other MAC under the header key. */
-        private val MAC_LABEL = "lensly.vault.header.v3".toByteArray(Charsets.US_ASCII)
+        /**
+         * Starts the MAC input, so the header MAC is not any other MAC under the header key. It names the format version, so a header of
+         * another version never verifies.
+         */
+        private val MAC_LABEL = "lensly.vault.header.v$VAULT_FORMAT_VERSION".toByteArray(Charsets.US_ASCII)
 
         /** Bounds that keep a damaged or hostile header from forcing an absurd Argon2 cost. */
         private const val MIN_MEMORY_KIB = 8 * 1024
@@ -77,7 +79,7 @@ class VaultHeader(
             val buffer = ByteBuffer.wrap(bytes)
             val magic = ByteArray(MAGIC.size).also { buffer.get(it) }
             if (!magic.contentEquals(MAGIC)) throw VaultException("The vault header is not in a format this application reads.")
-            if (buffer.get() != VERSION) throw VaultFormatChangedException()
+            if (buffer.get() != VERSION) throw VaultException("The vault header is not in a format this application reads.")
             val kdf = KdfParams(
                 memoryKiB = buffer.getInt(),
                 iterations = buffer.getInt(),
@@ -104,12 +106,11 @@ class VaultHeader(
         }
 
         /**
-         * Parses `header.bin` as [encodeFile] wrote it. [mac] makes the MAC of a MAC input. A file of another format version is refused as a
-         * format change before its MAC is read, as before (see [VaultFormatChangedException]). Any other file that is not [FILE_BYTES] long,
-         * or whose MAC does not verify, is unverifiable, and the result is null.
+         * Parses `header.bin` as [encodeFile] wrote it. [mac] makes the MAC of a MAC input. A file that is not [FILE_BYTES] long, or whose
+         * MAC does not verify, is unverifiable, and the result is null. That includes a file of another format version, whose version byte
+         * is MACed like every other field: nothing is migrated from it, and the vault is erased.
          */
         fun decodeFile(file: ByteArray, mac: (ByteArray) -> ByteArray): VaultHeader? {
-            if (file.size > VERSION_INDEX && file[VERSION_INDEX] != VERSION) throw VaultFormatChangedException()
             if (file.size != FILE_BYTES) return null
             val fields = file.copyOf(FIELDS_BYTES)
             val expected = mac(macInput(fields))

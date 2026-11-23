@@ -88,7 +88,7 @@ internal object VaultRole {
 
 /**
  * The vault format version. `header.bin` and `vault.bin` both hold it after their magic, and the slot key label names it (see [Vault]).
- * A file of any other version is refused as a format change, and nothing is migrated from it (see [VaultFormatChangedException]).
+ * A vault with a file of any other version is unverifiable, so an unlock erases it, and nothing is migrated (see [VaultFormatChangedException]).
  */
 internal const val VAULT_FORMAT_VERSION: Byte = 3
 
@@ -132,8 +132,8 @@ internal object VaultKeyFile {
     }
 
     /**
-     * Parses `vault.bin`. A file of another version is a format change, see [VaultFormatChangedException]. Any other size or magic is
-     * damaged.
+     * Parses `vault.bin`. A file of another version throws [VaultFormatChangedException], and an unlock erases the vault. Any other size or
+     * magic is damaged.
      */
     fun decode(bytes: ByteArray): Contents {
         val damaged = VaultException("The vault key file is damaged or not in a format this application reads.")

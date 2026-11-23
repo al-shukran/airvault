@@ -42,11 +42,11 @@ class VaultHeaderTest {
     }
 
     @Test
-    fun anOlderVersionIsRefusedAsAFormatChange() {
+    fun anOlderVersionIsRefused() {
         // Version 1 is refused, and nothing is migrated from it.
         val bytes = header().encode()
         bytes[4] = 1
-        assertFailsWith<VaultFormatChangedException> { VaultHeader.decode(bytes) }
+        assertFailsWith<VaultException> { VaultHeader.decode(bytes) }
     }
 
     @Test
@@ -85,9 +85,10 @@ class VaultHeaderTest {
     }
 
     @Test
-    fun anOlderVersionIsAFormatChangeBeforeTheMacIsRead() {
+    fun anOlderVersionIsUnverifiable() {
+        // The version byte is MACed like every other field, so a header of another version is erased, not kept.
         val bytes = header().encodeFile { digest(it) }
         bytes[4] = 1
-        assertFailsWith<VaultFormatChangedException> { VaultHeader.decodeFile(bytes) { error("the MAC is not read first") } }
+        assertNull(VaultHeader.decodeFile(bytes) { digest(it) })
     }
 }

@@ -119,8 +119,8 @@ const val VAULT_DAMAGED =
     "The vault files are incomplete, so this device cannot open or create a vault. Clear the app's data to start again."
 
 /**
- * The vault on disk is in another format than this build reads. Nothing is checked against a password, and nothing is migrated: the owner
- * restores the wallets from their seed phrases into a new vault.
+ * `vault.bin` is in another format than this build reads. It cannot be verified, so an unlock erases the vault, and nothing is migrated: the
+ * owner restores the wallets from their seed phrases into a new vault.
  */
 class VaultFormatChangedException : VaultException(VAULT_FORMAT_CHANGED)
 
@@ -202,19 +202,6 @@ class Vault constructor(
     fun isBeforeSetup(): Boolean = layout.isBeforeSetup()
 
     /**
-     * True when the vault on disk is in another format than this build reads. [unlock] refuses such a vault before it checks any password,
-     * and the gate shows [VAULT_FORMAT_CHANGED] instead of the password screen. It reads only `header.bin` and the header key.
-     */
-    fun formatChanged(): Boolean = try {
-        verifiedHeader()
-        false
-    } catch (e: VaultFormatChangedException) {
-        true
-    } catch (e: VaultException) {
-        false
-    }
-
-    /**
      * True when this device may create a vault, under [KeystorePolicy], and this build may create one under [refusal]. The
      * answer comes from the same probe as [deviceSecurity], so it is meaningful only while no vault exists.
      */
@@ -271,7 +258,11 @@ class Vault constructor(
                     eraseLocked()
                     return@withLock null
                 }
-                if (VaultKeyFile.ownerIndex(VaultKeyFile.decode(readVaultFile(layout.vaultKey)), vaultKey) < 0) return@withLock null
+                val contents = keyFileOrNull() ?: run {
+                    eraseLocked()
+                    return@withLock null
+                }
+                if (VaultKeyFile.ownerIndex(contents, vaultKey) < 0) return@withLock null
                 // A state that does not verify is left for the next password try, which erases the vault (FailureDelay threat 15).
                 bestEffort {
                     val store = failureStore()
@@ -638,7 +629,7 @@ class Vault constructor(
     private suspend fun checkPasswordLocked(password: CharArray): Checked {
         if (!layout.exists()) return Checked.Refused
         // A header that does not verify is unverifiable, so the vault is erased before the password is checked, as an unverifiable failure
-        // state is (see [FailureDelay]). A header of another format version is still refused as a format change (see [verifiedHeader]).
+        // state is (see [FailureDelay]). A header of another format version does not verify either (see [VaultHeader.decodeFile]).
         val header = verifiedHeader() ?: run {
             eraseLocked()
             return Checked.Erased
@@ -674,7 +665,10 @@ class Vault constructor(
         val softKey = withContext(Dispatchers.Default) { deriveSoftKey(password, header.salt, header.kdf) }
         var handedOver = false
         try {
-            val contents = VaultKeyFile.decode(readVaultFile(layout.vaultKey))
+            val contents = keyFileOrNull() ?: run {
+                eraseLocked()
+                return Checked.Erased
+            }
             val opened = contents.slots.indices.mapNotNull { index ->
                 openSoftLayer(softKey, contents, index)?.let { index to it }
             }
@@ -1154,18 +1148,23 @@ class Vault constructor(
 
     /**
      * The header in `header.bin`, when its MAC verifies under the header key. Null means unverifiable: the caller erases the vault, or refuses
-     * its change, before any password is checked. A file of another format version throws [VaultFormatChangedException], and a file that
-     * cannot be read throws [VaultException], as before. A Keystore fault while the MAC is made is unverifiable too.
+     * its change, before any password is checked. A header of another format version, or a Keystore fault while the MAC is made, is
+     * unverifiable too. A file that cannot be read throws [VaultException], as before.
      */
     private fun verifiedHeader(): VaultHeader? {
         val file = readVaultFile(layout.header)
         return try {
             VaultHeader.decodeFile(file) { input -> headerMacOf(input) }
-        } catch (e: VaultFormatChangedException) {
-            throw e
         } catch (e: VaultException) {
             null
         }
+    }
+
+    /** The contents of `vault.bin`, or null when it is of another format version: unverifiable, so the caller erases the vault. */
+    private fun keyFileOrNull(): VaultKeyFile.Contents? = try {
+        VaultKeyFile.decode(readVaultFile(layout.vaultKey))
+    } catch (e: VaultFormatChangedException) {
+        null
     }
 
     /** [verifiedHeader] for a change that needs the header. Without a verified header nothing is written, and the next unlock erases the vault. */

@@ -3,12 +3,10 @@ package app.lensly.core.vault
 import java.io.File
 import java.security.ProviderException
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
@@ -48,24 +46,11 @@ class VaultHeaderBindingTest {
     }
 
     @Test
-    fun aChangedFormatVersionIsRefusedAsAFormatChangeWithoutAPasswordCheck() {
-        // The version is read before the MAC, so this stays a format change, which refuses without erasing (see VaultSlotBindingTest).
-        val made = createdVault()
-        setByte(made.layout.header, index = 4, value = 1)
-
-        assertTrue(made.vault.formatChanged())
-        assertFailsWith<VaultFormatChangedException> { attempt(made.vault, APP) }
-        assertEquals(0, made.vault.failureCountForTesting())
-        assertTrue(made.layout.header.exists())
-    }
-
-    @Test
     fun aHeaderOfTheOldLengthIsErasedAsUnverifiable() {
         // Before the MAC, header.bin held the fields alone. A vault with such a header cannot be verified, so it is erased.
         val made = createdVault()
         made.layout.header.writeBytes(made.layout.header.readBytes().copyOf(VaultHeader.FIELDS_BYTES))
 
-        assertFalse(made.vault.formatChanged())
         assertEquals(UnlockResult.Erased, attempt(made.vault, APP))
         assertFalse(made.layout.header.exists())
     }
@@ -132,9 +117,10 @@ class VaultHeaderBindingTest {
         const val WRONG = "TEST_ONLY_Zx8#Vb2!Nm5\$Qw7%Ld4"
         val KDF = KdfParams(memoryKiB = 8 * 1024, iterations = 1)
 
-        /** Where each field of `header.bin` starts (see [VaultHeader]). The version is not here: a change to it is a format change. */
+        /** Where each field of `header.bin` starts (see [VaultHeader]). */
         val CHANGEABLE_FIELDS = listOf(
             "magic" to 0,
+            "version" to 4,
             "memoryKiB" to 5,
             "iterations" to 9,
             "parallelism" to 13,
