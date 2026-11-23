@@ -6,16 +6,16 @@ after one `./gradlew resolveAll` (online) fills the Gradle module cache.
 ## Gate lanes — `run-partition.sh <lane>`
 
 `.github/workflows/pr-fast.yml` runs the blocking lanes for pull requests, the merge queue and master, so what a pull request
-verifies is what master builds after it lands. The blocking set is `deps`, `ci`, `secrets`, `manifest` and `dependency_review`, and `pr-ok` is the single
-required check over exactly those five. A skipped or failed blocking lane fails it. The other lanes run in `nightly.yml`, on the
+verifies is what master builds after it lands. The blocking set is `deps`, `shard`, `fuzz`, `ci`, `secrets`, `manifest` and `dependency_review`, and `pr-ok` is the single
+required check over exactly those seven. A skipped or failed blocking lane fails it. The other lanes run in `nightly.yml`, on the
 schedule and on pushes to master, and never block a pull request.
 
 | Lane | Runs | Job |
 |---|---|---|
 | `resolve` | `./gradlew resolveAll`, the only online step; retried when a repository is unreachable | `deps`, on a cache miss |
-| `shard-1` … `shard-6` | the unit tests listed under the lane in `shards.txt`; `shard-6` also runs every unlisted unit; pure JVM modules run whole | nightly `shard` (matrix) |
+| `shard-1` … `shard-8` | the unit tests listed under the lane in `shards.txt`; `shard-6` also runs every unlisted unit; pure JVM modules run whole; each lane also compiles the debug code of `:app` and `:lumio` | `shard` (matrix, pr-fast; nightly on the schedule) |
 | `verify-app`, `verify-lumio` | the Roborazzi pixel tests of one module, `:app` or `:lumio` (listed, or unlisted and named `*ScreenshotTest`), with `verifyRoborazziDebug` | none in CI (local); nightly `screenshots` records the goldens instead |
-| `fuzz` | the Jazzer seed replays, `app.lensly.fuzz.*`, with `-PfuzzLane` | nightly `fuzz-replay` |
+| `fuzz` | the Jazzer seed replays, `app.lensly.fuzz.*`, with `-PfuzzLane` | `fuzz` (pr-fast) |
 | `apk` | the Lumio debug APK, `:lumio:assembleDebug` | nightly `android` |
 | `android-tests` | androidTest and benchmark compile of `:app` and `:lumio`; nightly only (a step of `android`) | nightly `android` |
 | `lint-app`, `lint-shared`, `lint-lumio` | `lintReportDebug` of one module's main sources; the unit-test, androidTest and test-fixture analyses run in nightly `lintDebug`; a leg compiles its module and the modules it depends on | nightly `lint` (matrix) |
@@ -38,7 +38,7 @@ The lines balance the lanes. A test class with no line still runs, so adding a t
   `app.lensly.fuzz` target, because the shard runs leave that package out (`shared/build.gradle.kts`).
 - `scripts/ci/test-units.sh` lists every unit. `check-partitions.sh` (the `ci` lane) fails when a class is listed twice or is
   listed but no longer exists. Remove or rename such a line.
-- Keep the six shards balanced. Each test lane uploads its JUnit XML as `junit-shard-N` (kept 3 days). Sum the `time` attribute of
+- Keep the eight shards balanced. Each test lane uploads its JUnit XML as `junit-shard-N` (kept 3 days). Sum the `time` attribute of
   each class, and move classes between lanes until the shard totals are close.
 - A verify lane passes its `--tests` filter to the test task before `verifyRoborazziDebug`. The verify task depends on the whole
   `testDebugUnitTest` of its module, so without the filter every unit test would run twice. Roborazzi switches verify mode on from
@@ -164,7 +164,7 @@ the tests read them through `@MethodSource`. A crash a nightly run finds lands i
 ## Nightly and comment runs — one report each
 
 `nightly.yml` runs its checks as separate jobs: `screenshots` (records the goldens, and proposes changes in the `goldens-refresh`
-pull request), `shard`, `fuzz-replay`, `lint` and `android` (all of them on pushes to master too), and on the schedule only
+pull request), `lint` and `android` (both on pushes to master too), and on the schedule only `shard`,
 `full` (R8 and OWASP), `fuzz` (real fuzzing), `instrumented`, `e2e` and `benchmark`. A single `report` job (`needs` them all,
 `if: failure()`) opens or comments on one issue per failing check, titled `Nightly check failing: <check>` and labelled `area:ci`.
 Parallel jobs cannot open a dozen issues. In `comment-run.yml`, a read-only `gate` job authorizes the comment before any PR code is checked out, the

@@ -1,14 +1,14 @@
 name: nightly
 
-# Checks that never block a pull request, because each one takes longer than the 3-minute PR budget (or is not a gate). The
-# blocking set is pr-fast.yml (deps, ci, secrets, manifest, dependency_review), and pr-ok is its only required check. This
-# workflow runs on the schedule and on every push to master. A failing check opens or refreshes one issue for that check
-# (`report`). It never opens the ci-red alarm (master-red.yml watches pr-fast only).
+# Checks that never block a pull request, and checks too slow for the 3-minute PR budget. The blocking set is pr-fast.yml (deps,
+# shard, fuzz, ci, secrets, manifest, dependency_review), and pr-ok is its only required check. This workflow runs on the schedule
+# and on every push to master, except `shard` (schedule only: pr-fast already ran it on the pull request). A failing check opens or
+# refreshes one issue for that check (`report`). It never opens the ci-red alarm (master-red.yml watches pr-fast only).
 #
-# `shard` runs the unit tests, `screenshots` re-records the Roborazzi goldens on the Linux runner (the image they must come
-# from), and a changed golden goes to the goldens-refresh pull request for review rather than failing the run. `lint`,
-# `fuzz-replay` and `android` (the Lumio APK and androidTest compile) run on every push to master too. The R8 build, OWASP,
-# real fuzzing, and the emulator, end-to-end and benchmark runs are schedule-only.
+# `screenshots` re-records the Roborazzi goldens on the Linux runner (the image they must come from), and a changed golden goes to
+# the goldens-refresh pull request for review rather than failing the run. `lint` and `android` (the Lumio APK and androidTest
+# compile) run on every push to master too. The R8 build, OWASP, real fuzzing, and the emulator, end-to-end and benchmark runs are
+# schedule-only.
 #
 # Nightly saves no build cache: its setup-gradle steps run with cache-disabled or cache-read-only. `deps` saves the dependency
 # cache only on a miss, under the key pr-fast.yml uses.
@@ -162,9 +162,10 @@ jobs:
           fi
           ./gradlew :app:dependencyCheckAnalyze -PowaspAutoUpdate=false
 
-  # The unit tests of :app, :lumio, :shared and the pure JVM modules, in six balanced lanes (scripts/ci/shards.txt). Each lane takes
-  # about 3 to 4 minutes p90, over the pull request budget, so they run here on the schedule and on master pushes.
+  # The unit tests of :app, :lumio, :shared and the pure JVM modules, in eight balanced lanes (scripts/ci/shards.txt). pr-fast.yml runs
+  # the same lanes on every pull request, so this schedule run does not repeat them on a push to master.
   shard:
+    if: github.event_name != 'push'
     name: shard ${{ matrix.shard }}
     needs: deps
     runs-on: ubuntu-24.04
@@ -172,7 +173,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -273,36 +274,6 @@ jobs:
               --label scope:common --label area:ci --label difficulty:easy \
               --body "Nightly recorded these goldens on the Linux runner ($RUN_URL). Review the PNG diff, and merge only the changes the screen was meant to make. Goldens come from this runner only (docs/testing/guideline.md 1.5)."
           fi
-
-  # The Jazzer seed replays (app.lensly.fuzz.*). They run in their own JVM, so they are not in a shard. The `fuzz` job below
-  # is the real fuzzing.
-  fuzz-replay:
-    needs: deps
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
-        with:
-          distribution: temurin
-          java-version: '21.0.13+9'
-
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-disabled: true
-
-      - name: Restore the Gradle dependency cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.DEPS_CACHE_PATHS }}
-          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
-          fail-on-cache-miss: true
-
-      - name: Replay the fuzz seeds
-        run: ./scripts/ci/run-partition.sh fuzz
 
   # Android lint, one leg per module (scripts/ci/run-partition.sh lint-<module>). Each leg compiles its module and the modules it
   # depends on, then lints the main sources.
@@ -593,7 +564,7 @@ jobs:
   report:
     # Guideline 2.5: one issue per failing check, named for the check. A run that fails a check with an open issue comments on
     # that issue instead. Parallel jobs cannot open a dozen issues, because this one job reads the needs results.
-    needs: [deps, shard, full, screenshots, fuzz-replay, lint, android, fuzz, instrumented, e2e, benchmark]
+    needs: [deps, shard, full, screenshots, lint, android, fuzz, instrumented, e2e, benchmark]
     if: failure()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
