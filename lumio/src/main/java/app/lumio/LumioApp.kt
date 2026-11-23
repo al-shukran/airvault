@@ -13,6 +13,7 @@ import app.lensly.app.logBackupExclusion
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
+import app.lensly.core.vault.BiometricUnlock
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultSession
 import app.lumio.btc.AddressStatsCache
@@ -78,6 +79,9 @@ class LumioApp : Application(), CoverApplication {
 
     /** The lock choices of Settings → Security. They sit outside the vault, because the cover reads them before the vault opens. */
     val lockSettings: LockSettingsStore by lazy { LockSettingsStore.open(this) }
+
+    /** Opt-in biometric unlock. It is on while its sealed Vault Key is in the vault's folder, see [BiometricUnlock]. */
+    val biometricUnlock: BiometricUnlock by lazy { BiometricUnlock(this) }
 
     /** The chain registry, read from the catalogs in this APK. Debug builds include the debug testnets. */
     val registry: Registry by lazy { RegistryLoader.fromAssets(assets) }

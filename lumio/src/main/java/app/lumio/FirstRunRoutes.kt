@@ -12,7 +12,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
-import app.lensly.core.vault.confirmDeviceCredential
+import app.lensly.ui.flow.BiometricEnableAppPorts
 import app.lensly.ui.navigation.GateOutcome
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.HiddenBackdrop
@@ -113,7 +113,7 @@ internal fun NavGraphBuilder.firstRunRoutes(navController: NavHostController, ho
     }
     firstRunScreen(FirstRunStep.DeviceProtection) {
         BackHandler { leaveHidden(navController, holder) }
-        DeviceProtectionStep(onDone = { navController.openHidden(home) })
+        DeviceProtectionStep(holder = holder, onDone = { navController.openHidden(home) })
     }
 }
 
@@ -127,20 +127,27 @@ internal suspend fun createFirstVault(holder: VaultHolder, password: CharArray, 
     null
 }
 
-/** I9 with its prompt: Enable runs the system check, and a failure or a cancel stays on the page with no error. Not Now goes on. */
+/**
+ * I9 with its prompt: Enable turns biometric unlock on, which seals the vault key under the owner's biometric. A failure or a cancel stays on
+ * the page with no error. Not Now goes on. Without a strong biometric on the phone, Enable is off.
+ */
 @Composable
-private fun DeviceProtectionStep(onDone: () -> Unit) {
-    val context = LocalContext.current.applicationContext
+private fun DeviceProtectionStep(holder: VaultHolder, onDone: () -> Unit) {
+    val biometric = (LocalContext.current.applicationContext as LumioApp).biometricUnlock
     val scope = rememberCoroutineScope()
     var asking by remember { mutableStateOf(false) }
+    val available = remember { biometric.canEnable() }
+    val ports = remember { DeviceProtectionPorts(BiometricEnableAppPorts(holder, biometric), holder) }
     DeviceProtectionScreen(
+        available = available,
         onEnable = submit@{
-            if (asking) return@submit
+            val session = holder.openSession()
+            if (asking || !available || session == null) return@submit
             asking = true
             scope.launch {
-                val passed = confirmDeviceCredential(context)
+                val enabled = ports.enable()
                 asking = false
-                if (passed) onDone()
+                if (enabled) onDone()
             }
         },
         onNotNow = onDone,

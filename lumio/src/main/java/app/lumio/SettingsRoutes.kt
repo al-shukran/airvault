@@ -173,15 +173,22 @@ private fun AddressBookSettingsRoute(navController: NavHostController, holder: V
 
 /**
  * The Security page: the Hidden Entry Gesture, whose row opens the choice shared through :shared, the App Password, whose row opens its
- * change, and the lock. Each choice applies as the owner makes it.
+ * change, Device Protection, whose row opens its page, and the lock. Each choice applies as the owner makes it.
  */
 @Composable
 private fun SecuritySettingsRoute(navController: NavHostController, lockChoices: LockSettingsState) {
+    val biometric = (LocalContext.current.applicationContext as LumioApp).biometricUnlock
+    val top by navController.currentBackStackEntryAsState()
+    // Read again each time this page comes back to the top, because the Device Protection page may have turned the setting on or off.
+    val biometricOn = remember(top) { biometric.isOn() }
     SecuritySettingsPage(
         entryGesture = LocalContext.current.entryGestureHolder().current,
         lock = lockChoices.settings,
+        // A Duress Password session shows the row too, or its absence would tell that session apart. Turning it on there seals nothing.
+        deviceProtectionOn = biometricOn,
         onEntryGesture = { navController.navigate(LumioRoute.ENTRY_GESTURE) },
         onChangePassword = { navController.navigate(LumioRoute.CHANGE_PASSWORD) },
+        onDeviceProtection = { navController.navigate(LumioRoute.SETTINGS_DEVICE_PROTECTION) },
         onIdleMinutes = { minutes -> lockChoices.change { it.copy(idleMinutes = minutes) } },
         onLockWhenSwitching = { on -> lockChoices.change { it.copy(lockWhenSwitchingApps = on) } },
         onBack = { navController.popBackStack() },

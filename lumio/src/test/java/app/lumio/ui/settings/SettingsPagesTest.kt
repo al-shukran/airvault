@@ -111,8 +111,10 @@ class SettingsPagesTest {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
+                    deviceProtectionOn = false,
                     onEntryGesture = { opened = true },
                     onChangePassword = {},
+                    onDeviceProtection = {},
                     onIdleMinutes = {},
                     onLockWhenSwitching = {},
                     onBack = {},
@@ -133,8 +135,10 @@ class SettingsPagesTest {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
+                    deviceProtectionOn = false,
                     onEntryGesture = {},
                     onChangePassword = { opened = true },
+                    onDeviceProtection = {},
                     onIdleMinutes = {},
                     onLockWhenSwitching = {},
                     onBack = {},
@@ -147,6 +151,62 @@ class SettingsPagesTest {
     }
 
     @Test
+    fun theSecurityRowOpensDeviceProtectionAndTheSwitchIsNotOnSecurity() {
+        var opened = false
+        compose.setContent {
+            LumenTheme {
+                SecuritySettingsPage(
+                    entryGesture = EntryGesture.DEFAULT,
+                    lock = LockSettings(),
+                    deviceProtectionOn = false,
+                    onEntryGesture = {},
+                    onChangePassword = {},
+                    onDeviceProtection = { opened = true },
+                    onIdleMinutes = {},
+                    onLockWhenSwitching = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Biometric Unlock").assertDoesNotExist()
+        compose.onNodeWithText("Device Protection").performScrollTo().performClick()
+        assertEquals(true, opened)
+    }
+
+    @Test
+    fun theDeviceProtectionSwitchReportsTheOwnersChoice() {
+        var changed: Boolean? = null
+        compose.setContent {
+            LumenTheme {
+                DeviceProtectionSettingsPage(
+                    biometric = BiometricSwitch(on = false, canEnable = true),
+                    onBiometric = { changed = it },
+                    onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Biometric Unlock").performScrollTo().performClick()
+        assertEquals(true, changed)
+    }
+
+    @Test
+    fun theDeviceProtectionSwitchSaysWhyItCannotBeTurnedOn() {
+        compose.setContent {
+            LumenTheme {
+                DeviceProtectionSettingsPage(
+                    biometric = BiometricSwitch(on = false, canEnable = false),
+                    onBiometric = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText(BIOMETRIC_UNAVAILABLE_REASON).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
     fun theSecurityLockSwitchAppliesAtOnceAndTheTimeoutShowsItsValue() {
         var switching: Boolean? = null
         compose.setContent {
@@ -154,8 +214,10 @@ class SettingsPagesTest {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
+                    deviceProtectionOn = false,
                     onEntryGesture = {},
                     onChangePassword = {},
+                    onDeviceProtection = {},
                     onIdleMinutes = {},
                     onLockWhenSwitching = { switching = it },
                     onBack = {},

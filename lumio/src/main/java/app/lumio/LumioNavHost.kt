@@ -92,6 +92,10 @@ internal object LumioRoute {
     /** The App Password change, opened from the Security page. */
     const val CHANGE_PASSWORD = "settings/security/password"
 
+    /** Device Protection, opened from the Security page, and the App Password step that turning Biometric Unlock on asks for first. */
+    const val SETTINGS_DEVICE_PROTECTION = "settings/security/device-protection"
+    const val DEVICE_PROTECTION_ENABLE = "settings/security/device-protection/enable"
+
     /** The route of the settings page [page]. Data providers keeps its own route, as its screen does. */
     fun settingsPage(page: SettingsPage): String = when (page) {
         SettingsPage.DISPLAY -> SETTINGS_DISPLAY
@@ -388,7 +392,13 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
             draft.clear()
             leaveHidden(navController, holder)
         }
-        hiddenArea(navController, holder, home = LumioRoute.WALLETS, newVault = FirstRunStep.Welcome.route) {
+        hiddenArea(
+            navController,
+            holder,
+            home = LumioRoute.WALLETS,
+            newVault = FirstRunStep.Welcome.route,
+            biometric = app.biometricUnlock,
+        ) {
             firstRunRoutes(navController, holder, home = LumioRoute.WALLETS)
             lumioComposable(LumioRoute.WALLETS) {
                 // The Accounts tab is the start screen and has no back arrow. System back locks the vault first, so leaving the app never
@@ -648,6 +658,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
             )
             entryGestureRoutes(navController = navController, holder = holder, selection = selection)
             changePasswordRoutes(navController = navController, holder = holder, selection = selection)
+            deviceProtectionRoutes(navController = navController, holder = holder, selection = selection)
             lumioComposable(LumioRoute.DATA_PROVIDERS) {
                 LumioBackdrop(selection) { DataProvidersRoute(navController = navController, holder = holder) }
             }

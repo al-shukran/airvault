@@ -672,7 +672,7 @@ class VaultSession constructor(
         }
     }
 
-    /** A copy of the Vault Key, for [Vault.rekey] and the Duress Password operations. The caller zeroes it. */
+    /** A copy of the Vault Key, for [Vault.rekey], the Duress Password operations and [BiometricUnlock]. The caller zeroes it. */
     internal fun copyOfVaultKey(): ByteArray = synchronized(this) { requireOpen().copyOf() }
 
     /**
