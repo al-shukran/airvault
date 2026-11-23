@@ -28,6 +28,8 @@ import javax.crypto.SecretKeyFactory
  *   it for good, so the vault must then be restored from its seed phrase.
  * - `lensly.vault.slot-mac`: HMAC-SHA256, StrongBox when available, otherwise TEE. The software key of every slot is bound to it, so
  *   each password guess needs this device (see [Vault]).
+ * - `lensly.vault.header-mac`: HMAC-SHA256, StrongBox when available, otherwise TEE. It MACs `header.bin`, which is checked before any
+ *   password, so a changed header erases the vault (see [VaultHeader]).
  * - `lensly.vault.failure-mac.<seq>`: HMAC-SHA256, one for each Delay State write. It authenticates the failure-delay state
  *   with that sequence number. The keys of earlier writes are deleted, so an older state no longer verifies (see [FailureStore]).
  * - `lensly.vault.folder.<id>`: AES-256-GCM, one for each wallet folder, wallet or unused slot alike. The id is random and kept in
@@ -50,6 +52,7 @@ internal object VaultKeystore {
     private const val FOLDER_KEY_PREFIX = "lensly.vault.folder."
 
     private const val SLOT_KEY_ALIAS = "lensly.vault.slot-mac"
+    private const val HEADER_KEY_ALIAS = "lensly.vault.header-mac"
     private const val PENDING_PHOTO_ALIAS = "lensly.vault.pending-photo"
     private const val PROBE_ALIAS = "lensly.vault.probe"
     private const val BIOMETRIC_KEY_ALIAS = "lensly.vault.biometric"
@@ -129,9 +132,22 @@ internal object VaultKeystore {
         createHmacKey(SLOT_KEY_ALIAS, "vault slot key")
     }
 
+    /**
+     * Creates the header key, the HMAC key that MACs the vault header, replacing any key under that name. It is StrongBox when the device
+     * has one, and the TEE otherwise. As for the slot key, a key that is not hardware-backed is refused in a release build.
+     */
+    fun createHeaderKey() {
+        createHmacKey(HEADER_KEY_ALIAS, "vault header key")
+    }
+
     /** HMAC-SHA256 of [message] under the slot key. Throws if the key has been removed, or if the Keystore refuses the operation. */
-    fun slotMac(message: ByteArray): ByteArray {
-        val key = get(SLOT_KEY_ALIAS) ?: throw VaultException("The vault's slot key is missing from the Keystore.")
+    fun slotMac(message: ByteArray): ByteArray = macUnder(SLOT_KEY_ALIAS, "slot", message)
+
+    /** HMAC-SHA256 of [message] under the header key. Throws if the key has been removed, or if the Keystore refuses the operation. */
+    fun headerMac(message: ByteArray): ByteArray = macUnder(HEADER_KEY_ALIAS, "header", message)
+
+    private fun macUnder(alias: String, what: String, message: ByteArray): ByteArray {
+        val key = get(alias) ?: throw VaultException("The vault's $what key is missing from the Keystore.")
         return Mac.getInstance("HmacSHA256").apply { init(key) }.doFinal(message)
     }
 
@@ -217,8 +233,9 @@ internal object VaultKeystore {
      * every other folder or MAC key.
      */
     private fun isVaultAlias(alias: String): Boolean =
-        alias == HARDWARE_KEY_ALIAS || alias == SLOT_KEY_ALIAS || alias == PROBE_ALIAS || alias == PENDING_PHOTO_ALIAS ||
-            alias == BIOMETRIC_KEY_ALIAS || alias.startsWith(FAILURE_MAC_PREFIX) || alias.startsWith(FOLDER_KEY_PREFIX)
+        alias == HARDWARE_KEY_ALIAS || alias == SLOT_KEY_ALIAS || alias == HEADER_KEY_ALIAS || alias == PROBE_ALIAS ||
+            alias == PENDING_PHOTO_ALIAS || alias == BIOMETRIC_KEY_ALIAS || alias.startsWith(FAILURE_MAC_PREFIX) ||
+            alias.startsWith(FOLDER_KEY_PREFIX)
 
     private fun failureMacAlias(seq: Long): String = "$FAILURE_MAC_PREFIX.$seq"
 

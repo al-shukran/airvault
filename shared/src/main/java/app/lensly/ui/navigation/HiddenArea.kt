@@ -32,7 +32,6 @@ import app.lensly.core.vault.PolicyReason
 import app.lensly.core.vault.PolicyResult
 import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.VAULT_DAMAGED
-import app.lensly.core.vault.VAULT_FORMAT_CHANGED
 import app.lensly.core.vault.VaultAuthRequiredException
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultKeyInvalidatedException
@@ -58,9 +57,6 @@ object GateRoutes {
     const val CREATE_PASSWORD = "create-password"
     const val UNLOCK = "unlock"
     const val UNAVAILABLE = "unavailable"
-
-    /** A vault in another format. It cannot open, and the owner restores the wallets from their seed phrases. */
-    const val FORMAT_CHANGED = "format-changed"
 
     /** Vault files without a whole vault. Nothing is created over them, so the owner clears the app's data. */
     const val DAMAGED = "damaged"
@@ -105,11 +101,6 @@ fun NavGraphBuilder.hiddenArea(
         composable(GateRoutes.UNAVAILABLE) {
             HiddenBackdrop {
                 UnavailableScreen(onClose = { leaveHidden(navController, holder) }, detail = holder.vault.refusal())
-            }
-        }
-        composable(GateRoutes.FORMAT_CHANGED) {
-            HiddenBackdrop {
-                UnavailableScreen(onClose = { leaveHidden(navController, holder) }, detail = VAULT_FORMAT_CHANGED)
             }
         }
         composable(GateRoutes.DAMAGED) {
@@ -236,7 +227,6 @@ private fun GateRoute(navController: NavHostController, holder: VaultHolder, hom
     LaunchedEffect(Unit) {
         val next = when {
             holder.openSession() != null -> home
-            withContext(Dispatchers.IO) { holder.vault.formatChanged() } -> GateRoutes.FORMAT_CHANGED
             holder.vault.exists() -> GateRoutes.UNLOCK
             withContext(Dispatchers.IO) { holder.vault.isPartial() } -> GateRoutes.DAMAGED
             // A device that may not hold a vault is told so before the owner types a password for nothing.

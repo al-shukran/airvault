@@ -119,8 +119,8 @@ const val VAULT_DAMAGED =
     "The vault files are incomplete, so this device cannot open or create a vault. Clear the app's data to start again."
 
 /**
- * The vault on disk is in another format than this build reads. Nothing is checked against a password, and nothing is migrated: the owner
- * restores the wallets from their seed phrases into a new vault.
+ * `vault.bin` is in another format than this build reads. It cannot be verified, so an unlock erases the vault, and nothing is migrated: the
+ * owner restores the wallets from their seed phrases into a new vault.
  */
 class VaultFormatChangedException : VaultException(VAULT_FORMAT_CHANGED)
 
@@ -146,6 +146,9 @@ class VaultFormatChangedException : VaultException(VAULT_FORMAT_CHANGED)
  * verifies, the next attempt erases the vault before the password is checked, since the count is unknown (see [FailureDelay]).
  * Each try is counted before its password is checked, and a try whose count cannot be saved is refused without a verdict (see
  * [checkPasswordLocked]).
+ *
+ * The header (`header.bin`) is MACed under the header key. A header that does not verify is unverifiable, so [unlock] erases the vault
+ * before it checks any password, as it does for an unverifiable failure state (see [VaultHeader]).
  *
  * Argon2 runs on [Dispatchers.Default]. File and Keystore work runs on [Dispatchers.IO]. The password arrays passed to
  * [create], [unlock], [rekey], [setDuress] and [setFailureLimits] are zeroed before those calls return.
@@ -199,19 +202,6 @@ class Vault constructor(
     fun isBeforeSetup(): Boolean = layout.isBeforeSetup()
 
     /**
-     * True when the vault on disk is in another format than this build reads. [unlock] refuses such a vault before it checks any password,
-     * and the gate shows [VAULT_FORMAT_CHANGED] instead of the password screen. It reads only `header.bin`.
-     */
-    fun formatChanged(): Boolean = try {
-        VaultHeader.decode(readVaultFile(layout.header))
-        false
-    } catch (e: VaultFormatChangedException) {
-        true
-    } catch (e: VaultException) {
-        false
-    }
-
-    /**
      * True when this device may create a vault, under [KeystorePolicy], and this build may create one under [refusal]. The
      * answer comes from the same probe as [deviceSecurity], so it is meaningful only while no vault exists.
      */
@@ -263,7 +253,16 @@ class Vault constructor(
             mutex.withLock {
                 // Biometric tries do not count toward the failure delay or erase count: the OS BIOMETRIC_STRONG lockout already limits them.
                 if (!layout.exists()) return@withLock null
-                if (VaultKeyFile.ownerIndex(VaultKeyFile.decode(readVaultFile(layout.vaultKey)), vaultKey) < 0) return@withLock null
+                // An unverifiable header is erased before the key is looked at, as it is before a password is checked.
+                if (verifiedHeader() == null) {
+                    eraseLocked()
+                    return@withLock null
+                }
+                val contents = keyFileOrNull() ?: run {
+                    eraseLocked()
+                    return@withLock null
+                }
+                if (VaultKeyFile.ownerIndex(contents, vaultKey) < 0) return@withLock null
                 // A state that does not verify is left for the next password try, which erases the vault (FailureDelay threat 15).
                 bestEffort {
                     val store = failureStore()
@@ -398,10 +397,13 @@ class Vault constructor(
         removeOwnDecoyLocked(session, keepEmptyDecoy = true)
     }
 
-    /** The Keystore capabilities recorded when the vault was created. Without a vault, the device is probed. */
+    /**
+     * The Keystore capabilities recorded when the vault was created. Without a vault, the device is probed. A header that does not verify
+     * throws [VaultException], because the recorded capabilities cannot be trusted.
+     */
     fun deviceSecurity(): DeviceSecurity {
         if (layout.exists()) {
-            val header = VaultHeader.decode(layout.header.readBytes())
+            val header = verifiedHeaderOrThrow()
             return DeviceSecurity(strongBox = header.strongBox, hardwareBacked = header.hardwareBacked)
         }
         return keys.probe()
@@ -430,8 +432,8 @@ class Vault constructor(
                 keystoreOrNull { keys.deleteAll() }
                 return CreateResult.DeviceUnsupported
             }
-            // Every guess at the password runs through this key, so no vault is made without it.
-            if (keystoreOrNull { keys.createSlotKey() } == null) {
+            // Every guess runs through the slot key, and the header is MACed under the header key, so no vault is made without both.
+            if (keystoreOrNull { keys.createSlotKey() } == null || keystoreOrNull { keys.createHeaderKey() } == null) {
                 keystoreOrNull { keys.deleteAll() }
                 return CreateResult.DeviceUnsupported
             }
@@ -468,7 +470,7 @@ class Vault constructor(
                         hardwareBacked = VaultKeystore.isHardwareBacked(securityLevel),
                         keySecurityLevel = securityLevel,
                     )
-                    writeAtomically(layout.header, header.encode())
+                    writeAtomically(layout.header, header.encodeFile { input -> headerMacOf(input) })
                     // The photo key is made now, so the cover can seal its first photo before anyone unlocks the vault.
                     bestEffort {
                         val session = VaultSession(
@@ -626,7 +628,12 @@ class Vault constructor(
      */
     private suspend fun checkPasswordLocked(password: CharArray): Checked {
         if (!layout.exists()) return Checked.Refused
-        val header = VaultHeader.decode(readVaultFile(layout.header))
+        // A header that does not verify is unverifiable, so the vault is erased before the password is checked, as an unverifiable failure
+        // state is (see [FailureDelay]). A header of another format version does not verify either (see [VaultHeader.decodeFile]).
+        val header = verifiedHeader() ?: run {
+            eraseLocked()
+            return Checked.Erased
+        }
         val store = failureStore()
         // The Failure Delay check. While the wait runs, the time it has served is saved, so a reboot continues the wait.
         val check = store.checkDelay(clock, header.createdAtWallMs)
@@ -658,7 +665,10 @@ class Vault constructor(
         val softKey = withContext(Dispatchers.Default) { deriveSoftKey(password, header.salt, header.kdf) }
         var handedOver = false
         try {
-            val contents = VaultKeyFile.decode(readVaultFile(layout.vaultKey))
+            val contents = keyFileOrNull() ?: run {
+                eraseLocked()
+                return Checked.Erased
+            }
             val opened = contents.slots.indices.mapNotNull { index ->
                 openSoftLayer(softKey, contents, index)?.let { index to it }
             }
@@ -712,7 +722,7 @@ class Vault constructor(
             if (policy is PolicyResult.Refused) return CreateResult.PolicyRejected(policy.reason)
             check(layout.exists()) { "There is no vault to rekey." }
 
-            val header = VaultHeader.decode(layout.header.readBytes())
+            val header = verifiedHeaderOrThrow()
             val vaultKey = session.copyOfVaultKey()
             try {
                 val softKey = withContext(Dispatchers.Default) { deriveSoftKey(newPassword, header.salt, header.kdf) }
@@ -753,7 +763,7 @@ class Vault constructor(
             if (policy is PolicyResult.Refused) return CreateResult.PolicyRejected(policy.reason)
             check(layout.exists()) { "There is no vault to change." }
 
-            val header = VaultHeader.decode(layout.header.readBytes())
+            val header = verifiedHeaderOrThrow()
             val decoyKey = session.copyOfVaultKey()
             try {
                 val softKey = withContext(Dispatchers.Default) { deriveSoftKey(newPassword, header.salt, header.kdf) }
@@ -794,7 +804,7 @@ class Vault constructor(
             if (policy is PolicyResult.Refused) return DuressResult.PolicyRejected(policy.reason)
             check(layout.exists()) { "There is no vault to protect." }
 
-            val header = VaultHeader.decode(layout.header.readBytes())
+            val header = verifiedHeaderOrThrow()
             val vaultKey = session.copyOfVaultKey()
             val decoyKey = ByteArray(KEY_BYTES).also { random.nextBytes(it) }
             try {
@@ -1136,6 +1146,33 @@ class Vault constructor(
 
     private fun failureStore(): FailureStore = FailureStore(layout.root, keys, readBootCount)
 
+    /**
+     * The header in `header.bin`, when its MAC verifies under the header key. Null means unverifiable: the caller erases the vault, or refuses
+     * its change, before any password is checked. A header of another format version, or a Keystore fault while the MAC is made, is
+     * unverifiable too. A file that cannot be read throws [VaultException], as before.
+     */
+    private fun verifiedHeader(): VaultHeader? {
+        val file = readVaultFile(layout.header)
+        return try {
+            VaultHeader.decodeFile(file) { input -> headerMacOf(input) }
+        } catch (e: VaultException) {
+            null
+        }
+    }
+
+    /** The contents of `vault.bin`, or null when it is of another format version: unverifiable, so the caller erases the vault. */
+    private fun keyFileOrNull(): VaultKeyFile.Contents? = try {
+        VaultKeyFile.decode(readVaultFile(layout.vaultKey))
+    } catch (e: VaultFormatChangedException) {
+        null
+    }
+
+    /** [verifiedHeader] for a change that needs the header. Without a verified header nothing is written, and the next unlock erases the vault. */
+    private fun verifiedHeaderOrThrow(): VaultHeader = verifiedHeader() ?: throw VaultException(HEADER_UNVERIFIED)
+
+    /** The MAC of [input] under the header key. A Keystore fault throws [VaultException]. */
+    private fun headerMacOf(input: ByteArray): ByteArray = keystore(HEADER_UNVERIFIED) { keys.headerMac(input) }
+
     /** The bytes of a vault file. A file that cannot be read is damage to the vault, reported as the documented [VaultException]. */
     private fun readVaultFile(file: File): ByteArray = try {
         file.readBytes()
@@ -1160,6 +1197,7 @@ class Vault constructor(
         const val KEY_BYTES = VaultKeyFile.KEY_BYTES
         const val UNKNOWN_SECURITY_LEVEL = -1
         const val HARDWARE_FAILURE = "The vault's hardware key cannot unwrap the vault key."
+        const val HEADER_UNVERIFIED = "The vault header does not verify."
         const val CALIBRATION_PASSWORD = "lensly calibration"
         val SLOT_INFO = "lensly-vault-slot-v$VAULT_FORMAT_VERSION".toByteArray(Charsets.US_ASCII)
 
