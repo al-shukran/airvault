@@ -16,7 +16,6 @@ import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -40,7 +39,10 @@ import app.lumio.btc.btcText
 import app.lumio.btc.BtcSendPlan
 import app.lumio.btc.BtcSpendable
 import app.lumio.evm.CustomChain
+import app.lumio.evm.CustomChainInput
 import app.lumio.evm.EvmChain
+import app.lumio.evm.CustomNetworkField
+import app.lumio.evm.EvmRefusal
 import app.lumio.evm.EvmSettings
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairImport
@@ -52,6 +54,7 @@ import app.lumio.ui.send.SendFeeRateSheet
 import app.lumio.ui.send.SendReviewPage
 import app.lumio.ui.send.SendShowPage
 import app.lumio.ui.send.SummaryRow
+import app.lumio.ui.settings.AddCustomNetworkScreen
 import app.lumio.ui.settings.DataProvidersScreen
 import app.lumio.ui.settings.EvmSettingsSection
 import app.lumio.ui.settings.ProviderRow
@@ -106,31 +109,44 @@ class LumioCoverageScreenshotTest {
                 onSetRpc = { _, _, _ -> },
                 onResetRpc = {},
                 onRemoveCustom = {},
-                onAddCustom = { _, _ -> },
+                onAddNetwork = {},
             )
         }
     }
 
     @Test
-    fun evmAddCustomChainDialog() = dialogSnapshot(
-        name = "evm_add_custom_chain_dialog",
-        title = "Add a Chain",
-        open = { onNodeWithText("Add Custom Chain").performClick() },
-    ) {
-        LenslyScreen(title = "SETTINGS", onBack = {}) {
-            EvmSettingsSection(
-                settings = EvmSettings(),
-                chains = chains,
-                busy = false,
-                notice = null,
-                onAddressCount = {},
-                onEnabled = { _, _ -> },
-                onSetRpc = { _, _, _ -> },
-                onResetRpc = {},
-                onRemoveCustom = {},
-                onAddCustom = { _, _ -> },
-            )
-        }
+    fun addCustomNetworkForm() = compose.lumioSnapshot("add_custom_network") {
+        AddCustomNetworkScreen(
+            input = CustomChainInput(chainId = "", name = "", symbol = "", rpc = "", testnet = false),
+            refusal = null,
+            busy = false,
+            offline = null,
+            onInput = {},
+            onAdd = {},
+            onBack = {},
+            onLock = {},
+        )
+    }
+
+    @Test
+    fun addCustomNetworkRefused() = compose.lumioSnapshot("add_custom_network_refused") {
+        AddCustomNetworkScreen(
+            input = CustomChainInput(
+                chainId = "999",
+                name = "Example Chain",
+                symbol = "EXM",
+                rpc = "https://rpc.example.org",
+                testnet = true,
+                explorer = "https://explorer.example.org",
+            ),
+            refusal = EvmRefusal(CustomNetworkField.RPC, "The endpoint reports chain 1, not 999."),
+            busy = false,
+            offline = null,
+            onInput = {},
+            onAdd = {},
+            onBack = {},
+            onLock = {},
+        )
     }
 
     @Test
@@ -150,7 +166,7 @@ class LumioCoverageScreenshotTest {
                 onSetRpc = { _, _, _ -> },
                 onResetRpc = {},
                 onRemoveCustom = {},
-                onAddCustom = { _, _ -> },
+                onAddNetwork = {},
             )
         }
     }

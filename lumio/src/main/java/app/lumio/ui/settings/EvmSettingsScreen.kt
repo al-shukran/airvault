@@ -7,14 +7,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -26,7 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.ListRow
@@ -37,17 +32,16 @@ import app.lensly.ui.components.SettingsSwitchRow
 import app.lensly.ui.components.TextAction
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WalletEyebrow
-import app.lumio.evm.CustomChainInput
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettings
 
 
 /**
  * The Ethereum section of the settings: how many addresses each wallet shows, which chains are read, the RPC address of each chain, and the
- * custom chains. [onEnabled], [onSetRpc], [onResetRpc], [onRemoveCustom], [onAddCustom] and [onAddressCount] report a change to the caller,
- * which writes it. A change that is refused reports its words through the callback it was given, and the dialog stays open. [notice] shows a
- * refusal that is not tied to a dialog. [busy] holds every change until the last one has finished. Each chain is a switch row; adding a chain
- * is a row too.
+ * custom chains. [onEnabled], [onSetRpc], [onResetRpc], [onRemoveCustom] and [onAddressCount] report a change to the caller, which writes it. A
+ * change that is refused reports its words through the callback it was given, and the dialog stays open. [notice] shows a refusal that is not
+ * tied to a dialog. [busy] holds every change until the last one has finished. Each chain is a switch row. [onAddNetwork] opens the page that
+ * adds a custom network, and adding one is a row too.
  */
 @Composable
 fun EvmSettingsSection(
@@ -60,11 +54,10 @@ fun EvmSettingsSection(
     onSetRpc: (chainId: Long, raw: String, onDone: (String?) -> Unit) -> Unit,
     onResetRpc: (chainId: Long) -> Unit,
     onRemoveCustom: (chainId: Long) -> Unit,
-    onAddCustom: (CustomChainInput, onDone: (String?) -> Unit) -> Unit,
+    onAddNetwork: () -> Unit,
     onTokens: (chainId: Long) -> Unit = {},
 ) {
     var editing by remember { mutableStateOf<EvmChain?>(null) }
-    var adding by remember { mutableStateOf(false) }
     notice?.let {
         InlineBanner(message = it, tone = BannerTone.Error)
         Spacer(Modifier.height(LenslySpacing.sm))
@@ -89,9 +82,9 @@ fun EvmSettingsSection(
         )
     }
     SettingsRow(
-        title = "Add Custom Chain",
-        description = "A chain the registry does not list",
-        onClick = { adding = true },
+        title = "Add Custom Network",
+        description = "An EVM network the registry does not list",
+        onClick = onAddNetwork,
         enabled = !busy,
     )
     editing?.let { chain ->
@@ -101,9 +94,6 @@ fun EvmSettingsSection(
             onSave = { raw, onDone -> onSetRpc(chain.chainId, raw, onDone) },
             onDismiss = { editing = null },
         )
-    }
-    if (adding) {
-        AddChainDialog(onAdd = onAddCustom, onDismiss = { adding = false })
     }
 }
 
@@ -236,75 +226,5 @@ private fun RpcDialog(
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
-}
-
-/** Adds a chain the registry does not list. Every field is checked by the caller, and a refusal keeps the dialog open with its words. */
-@Composable
-private fun AddChainDialog(
-    onAdd: (CustomChainInput, (String?) -> Unit) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var chainId by remember { mutableStateOf("") }
-    var name by remember { mutableStateOf("") }
-    var symbol by remember { mutableStateOf("") }
-    var rpc by remember { mutableStateOf("") }
-    var testnet by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var saving by remember { mutableStateOf(false) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Add a Chain") },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(LenslySpacing.xs),
-            ) {
-                Field("Chain ID", chainId, enabled = !saving, keyboard = KeyboardType.Number) { chainId = it }
-                Field("Name", name, enabled = !saving) { name = it }
-                Field("Native Symbol", symbol, enabled = !saving) { symbol = it }
-                Field("RPC Address (https)", rpc, enabled = !saving) { rpc = it }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xs)) {
-                    Switch(checked = testnet, onCheckedChange = { testnet = it }, enabled = !saving)
-                    Text("Testnet", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-                }
-                error?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = !saving,
-                onClick = {
-                    saving = true
-                    val input = CustomChainInput(chainId, name, symbol, rpc, testnet)
-                    onAdd(input) { result ->
-                        saving = false
-                        if (result == null) onDismiss() else error = result
-                    }
-                },
-            ) {
-                Text("Add")
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
-}
-
-@Composable
-private fun Field(
-    label: String,
-    value: String,
-    enabled: Boolean,
-    keyboard: KeyboardType = KeyboardType.Text,
-    onChange: (String) -> Unit,
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { Text(label) },
-        singleLine = true,
-        enabled = enabled,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboard),
-        modifier = Modifier.fillMaxWidth(),
     )
 }

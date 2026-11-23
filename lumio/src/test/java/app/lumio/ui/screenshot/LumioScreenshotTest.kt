@@ -210,7 +210,7 @@ class LumioScreenshotTest {
                     onSetRpc = { _, _, _ -> },
                     onResetRpc = {},
                     onRemoveCustom = {},
-                    onAddCustom = { _, _ -> },
+                    onAddNetwork = {},
                 )
             },
         )

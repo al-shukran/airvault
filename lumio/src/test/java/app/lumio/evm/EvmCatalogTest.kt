@@ -48,4 +48,12 @@ class EvmCatalogTest {
 
         assertFalse(chains.single { it.chainId == 143L }.testnet)
     }
+
+    @Test
+    fun aCustomChainListsTheExplorerTheOwnerGave() {
+        // 424242 is not in the registry: a registry chain keeps its own explorer, and this test is about the custom one.
+        val settings = EvmSettings(custom = listOf(CustomChain(424242L, "Example", "EXM", testnet = false, explorer = "https://explorer.example.org/")))
+
+        assertEquals("https://explorer.example.org/", EvmCatalog.chains(registry, settings).single { it.chainId == 424242L }.explorerUrl)
+    }
 }

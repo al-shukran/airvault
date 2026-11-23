@@ -43,7 +43,7 @@ object EvmCatalog {
         val builtInIds = builtIn.map { it.chainId }.toSet()
         val custom = settings.custom
             .filter { it.chainId !in builtInIds }
-            .map { c -> EvmChain(c.chainId, c.name, c.symbol, CUSTOM_DECIMALS, c.testnet, explorerUrl = null) }
+            .map { c -> EvmChain(c.chainId, c.name, c.symbol, CUSTOM_DECIMALS, c.testnet, explorerUrl = c.explorer) }
         return primaryTestnetFirst(builtIn + custom)
     }
 

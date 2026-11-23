@@ -191,4 +191,65 @@ class EvmSettingsTest {
         assertEquals(0, server.requestCount)
         assertEquals(oldRpc, EvmSettingsStore.read(session).rpc[1L])
     }
+
+    private val newNetwork = CustomChainInput(chainId = "999", name = "Example", symbol = "EXM", rpc = "https://rpc.example.org", testnet = false)
+
+    @Test
+    fun aNewNetworkWithAnExplorerKeepsIt() {
+        server.enqueue(answer("0x3e7"))
+        val input = newNetwork.copy(rpc = url, explorer = "https://explorer.example.org")
+
+        val updated = EvmEdits.addCustom(EvmSettings(), emptySet(), input, rpc)
+
+        assertEquals(CustomChain(999L, "Example", "EXM", testnet = false, explorer = "https://explorer.example.org/"), updated.custom.single())
+    }
+
+    @Test
+    fun anExplorerIsAnHttpsAddressOrNone() {
+        val refusal = assertThrows(EvmRefusal::class.java) {
+            EvmEdits.addCustom(EvmSettings(), emptySet(), newNetwork.copy(explorer = "http://explorer.example.org"), rpc)
+        }
+
+        assertEquals(CustomNetworkField.EXPLORER, refusal.field)
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun aRefusalNamesTheFieldItConcerns() {
+        fun fieldOf(input: CustomChainInput, builtInIds: Set<Long> = emptySet()): CustomNetworkField? =
+            assertThrows(EvmRefusal::class.java) { EvmEdits.addCustom(EvmSettings(), builtInIds, input, rpc) }.field
+
+        assertEquals(CustomNetworkField.CHAIN_ID, fieldOf(newNetwork.copy(chainId = "0")))
+        assertEquals(CustomNetworkField.CHAIN_ID, fieldOf(newNetwork.copy(chainId = "1"), builtInIds = setOf(1L)))
+        assertEquals(CustomNetworkField.NAME, fieldOf(newNetwork.copy(name = " ")))
+        assertEquals(CustomNetworkField.SYMBOL, fieldOf(newNetwork.copy(symbol = "E-X")))
+        assertEquals(CustomNetworkField.RPC, fieldOf(newNetwork.copy(rpc = "ftp://rpc.example.org")))
+        assertEquals(CustomNetworkField.EXPLORER, fieldOf(newNetwork.copy(explorer = "not a web address")))
+    }
+
+    @Test
+    fun aChainIdAlreadyAddedIsRefusedBeforeAnyRequest() {
+        val current = EvmSettings(custom = listOf(CustomChain(999L, "Example", "EXM", testnet = false)))
+
+        val refusal = assertThrows(EvmRefusal::class.java) { EvmEdits.addCustom(current, emptySet(), newNetwork, rpc) }
+
+        assertEquals(CustomNetworkField.CHAIN_ID, refusal.field)
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun aNewNetworkIsStoredOnlyWhenTheEndpointAnswersWithItsChainId() {
+        server.enqueue(answer("0x1"))
+        val input = newNetwork.copy(rpc = url)
+
+        val refused = EvmSettingsStore.addCustom(session, rpc, emptySet(), input)
+
+        assertEquals(CustomNetworkField.RPC, refused?.field)
+        assertEquals(emptyList<CustomChain>(), EvmSettingsStore.read(session).custom)
+
+        server.enqueue(answer("0x3e7"))
+        assertNull(EvmSettingsStore.addCustom(session, rpc, emptySet(), input))
+        assertEquals(listOf(CustomChain(999L, "Example", "EXM", testnet = false)), EvmSettingsStore.read(session).custom)
+        assertEquals(url, EvmSettingsStore.read(session).rpc[999L])
+    }
 }

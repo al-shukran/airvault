@@ -5,7 +5,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
@@ -18,11 +21,14 @@ import app.lensly.ui.navigation.openHidden
 import app.lumio.data.config.DisplaySettingsStore
 import app.lumio.data.config.TransactionSettingsStore
 import app.lumio.data.config.FinishSetupStore
+import app.lumio.evm.CustomChainInput
+import app.lumio.evm.EvmRefusal
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.pair.PairedWallets
 import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.kit.lumioComposable
 import app.lumio.ui.settings.AboutSettingsPage
+import app.lumio.ui.settings.AddCustomNetworkScreen
 import app.lumio.ui.settings.AddressBookRows
 import app.lumio.ui.settings.AddressBookSettingsPage
 import app.lumio.ui.settings.LumioSettingsScreen
@@ -39,6 +45,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 
@@ -143,6 +150,9 @@ internal fun NavGraphBuilder.settingsPageRoutes(
     lumioComposable(LumioRoute.SETTINGS_NETWORKS) {
         LumioBackdrop(selection) { NetworksSettingsRoute(navController = navController, holder = holder, onLock = onLock) }
     }
+    lumioComposable(LumioRoute.SETTINGS_ADD_NETWORK) {
+        LumioBackdrop(selection) { AddCustomNetworkRoute(navController = navController, holder = holder, onLock = onLock) }
+    }
     lumioComposable(LumioRoute.SETTINGS_WALLETS) {
         LumioBackdrop(selection) {
             WalletsSettingsPage(
@@ -175,6 +185,46 @@ private fun NetworksSettingsRoute(navController: NavHostController, holder: Vaul
         onLock = onLock,
         bitcoin = { BitcoinSettingsRoute(navController = navController, holder = holder) },
         ethereum = { EvmSettingsRoute(navController = navController, holder = holder) },
+    )
+}
+
+/**
+ * The Add Custom Network page. The form is held here, and Add Network checks the endpoint off the main thread. A saved network goes back to the
+ * Networks page, which reads the chains again when it is shown; a refusal stays on the page under the field it concerns.
+ */
+@Composable
+private fun AddCustomNetworkRoute(navController: NavHostController, holder: VaultHolder, onLock: () -> Unit) {
+    val app = LocalContext.current.applicationContext as LumioApp
+    val session = holder.openSession()
+    LaunchedEffect(session == null) {
+        if (session == null) navController.openHidden(GateRoutes.GATE)
+    }
+    if (session == null) return
+    val scope = rememberCoroutineScope()
+    var input by remember { mutableStateOf(CustomChainInput(chainId = "", name = "", symbol = "", rpc = "", testnet = false)) }
+    var refusal by remember { mutableStateOf<EvmRefusal?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    AddCustomNetworkScreen(
+        input = input,
+        refusal = refusal,
+        busy = busy,
+        offline = rememberSettingsOffline(),
+        // Editing a field clears the refusal, so a message never stays over a value the owner has already changed.
+        onInput = { next ->
+            input = next
+            refusal = null
+        },
+        onAdd = {
+            busy = true
+            scope.launch {
+                val builtIn = app.registry.networks().map { it.chainId }.toSet()
+                val result = withContext(Dispatchers.IO) { EvmSettingsStore.addCustom(session, app.evmRpc, builtIn, input) }
+                busy = false
+                if (result == null) navController.popBackStack() else refusal = result
+            }
+        },
+        onBack = { navController.popBackStack() },
+        onLock = onLock,
     )
 }
 
