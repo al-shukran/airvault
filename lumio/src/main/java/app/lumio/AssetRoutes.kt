@@ -14,7 +14,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -73,11 +72,10 @@ import app.lumio.wallets.WalletAccount
 import app.lumio.watchlist.FIRST_RUN_ASSETS
 import app.lumio.watchlist.WalletWatchlist
 import app.lumio.watchlist.WatchedAsset
-import app.lumio.watchlist.WatchlistStore
+import app.lumio.watchlist.toggled
 import java.time.ZoneId
 import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 
@@ -85,9 +83,9 @@ import kotlinx.coroutines.withContext
 private const val COIN_ACTIVITY_ROWS = 10
 
 /**
- * The Asset page (C4) of [asset] across the wallet [walletId]. The price, the watchlist and the holdings are read from the hoisted board and the
- * vault, so the page is populated on its first frame; the chart and the coin's activity load in their places when their reads answer. Send and
- * Receive open on this coin, so a token is preselected.
+ * The Asset page (C4) of [asset] across the wallet [walletId]. The price, the day's chart, the watchlist and the holdings come from the hoisted board
+ * and the vault, so the page is populated on its first frame. A range the board lacks, and the coin's activity, load in their places when their reads
+ * answer. Send and Receive open on this coin, so a token is preselected.
  */
 @Composable
 internal fun AssetRoute(
@@ -125,24 +123,15 @@ internal fun AssetRoute(
     }
     val assetId = asset.assetId
     var range by rememberSaveable { mutableStateOf(ChartRange.D1) }
-    val series by produceState<PriceSeries?>(initialValue = null, assetId, range) {
-        value = withContext(Dispatchers.IO) { runCatching { app.prices.chart(assetId, range) }.getOrNull() }
+    // The page starts on the price and the day's chart that the board holds, so its first frame is populated. A read fills in only what is missing.
+    val series by produceState<PriceSeries?>(initialValue = if (range == ChartRange.D1) board.dayChartOf(assetId) else null, assetId, range) {
+        if (value == null) value = withContext(Dispatchers.IO) { runCatching { app.prices.chart(assetId, range) }.getOrNull() }
     }
-    val price by produceState<Price?>(initialValue = null, assetId) {
-        value = withContext(Dispatchers.IO) { app.prices.assetPrices(listOf(assetId))[assetId] }
+    val price by produceState<Price?>(initialValue = board.prices[assetId], assetId) {
+        if (value == null) value = withContext(Dispatchers.IO) { app.prices.assetPrices(listOf(assetId))[assetId] }
     }
-    var stored by remember(walletId) { mutableStateOf<WalletWatchlist?>(null) }
-    LaunchedEffect(walletId) {
-        stored = withContext(Dispatchers.IO) { WatchlistStore.read(session, walletId) } ?: WalletWatchlist(assets = FIRST_RUN_ASSETS)
-    }
-    val current = stored ?: WalletWatchlist(assets = FIRST_RUN_ASSETS)
+    val current = board.watchlists[walletId] ?: WalletWatchlist(assets = FIRST_RUN_ASSETS)
     val watched = asset in current.assets
-    val scope = rememberCoroutineScope()
-    fun toggleWatch() {
-        val next = current.copy(assets = if (watched) current.assets - asset else current.assets + asset)
-        stored = next
-        scope.launch(Dispatchers.IO) { WatchlistStore.write(session, walletId, next) }
-    }
     val accounts = view.accountsOf(walletId)
     val holdings = holdingsOf(asset, symbol, accounts, board.tokenHeld)
     val chains = chainHoldings(holdings, wallet.name)
@@ -186,7 +175,7 @@ internal fun AssetRoute(
         range = range,
         onRange = { range = it },
         watched = watched,
-        onWatch = ::toggleWatch,
+        onWatch = { board.putWatchlist(walletId, current.toggled(asset)) },
         held = held,
         onHoldings = { navController.navigate(LumioRoute.holdings(walletId, asset)) },
         accounts = coinAccounts,
