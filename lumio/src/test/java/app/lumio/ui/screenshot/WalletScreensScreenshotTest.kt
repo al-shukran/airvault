@@ -298,6 +298,29 @@ class WalletScreensScreenshotTest {
         )
     }
 
+    /** The testnet side with its Solana devnet unreachable: the Solana island says so under its eyebrow, and its account keeps the balance it had. */
+    @Test
+    fun walletAccountsProviderError() = compose.lumioSnapshot("wallet_provider_error") {
+        WalletScreen(
+            mode = NetworkMode.TESTNET,
+            accounts = listOf(bitcoin, ethereum, solana, algorand),
+            tokenCounts = mapOf(ethereum to 2),
+            totalUsd = 31.25,
+            usdOf = usdOf,
+            showTotal = true,
+            showBalances = true,
+            refreshing = false,
+            updatedAtMs = UPDATED_3_MIN_AGO,
+            notice = null,
+            pairedAtMs = PAIRED_AT_MS,
+            zone = ZoneOffset.UTC,
+            onAccount = {},
+            onRefresh = {},
+            unreachable = setOf(Networks.SOL_DEVNET),
+            clock = fixedClock,
+        )
+    }
+
     /** Accounts that hold nothing, or are under the threshold, fold into one row, which shows them in place when it is opened. */
     @Test
     fun walletAccountsFolded() = compose.lumioSnapshot("wallet_accounts_folded", content = foldedWallet)
