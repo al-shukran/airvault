@@ -2,26 +2,45 @@ package app.lensly.ui.a11y
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsNode
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
+import app.lensly.core.wallet.Mnemonic
+import app.lensly.core.wallet.toHex
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.SecureKeyboard
+import app.lensly.ui.flow.RevealPart
+import app.lensly.ui.flow.RevealStep
+import app.lensly.ui.flow.RevealedSecret
 import app.lensly.ui.gate.PasswordField
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LumenTheme
+import app.lensly.ui.wallet.ShowSecretScreen
+import app.lensly.ui.wallet.formatHexLines
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+
+// BIP39 vector for 256 zero bits of entropy, and a passphrase, as in the screenshot fixtures.
+private val artWords = List(23) { "abandon" } + "art"
+private const val PASSPHRASE = "TREZOR"
+private const val KEY_BYTES = 32
 
 /**
  * Semantics of the controls a screen reader must reach, checked on the JVM in the PR lane (guideline 1.9).
@@ -88,6 +107,58 @@ class SemanticsTest {
         val node = compose.onNodeWithContentDescription("Back").assertHasClickAction().fetchSemanticsNode()
         node.assertAtLeast48DpTall()
         assertAtLeast48Dp(isWidth = true, node = node)
+    }
+
+    /**
+     * The secret on Show Secret is for the owner's eyes. Each page speaks a position label instead, and the merged tree,
+     * which is what accessibility services receive, carries no node with a secret text: not on any of the 24 words, the
+     * passphrase, or the key.
+     */
+    @Test
+    fun showSecretSpeaksNoSecretTextToAccessibility() {
+        val mnemonic = RevealedSecret.ofMnemonic(Mnemonic.of(artWords), PASSPHRASE)
+        val keyBytes = ByteArray(KEY_BYTES) { it.toByte() }
+        val keyLines = formatHexLines(keyBytes.toHex())
+        val key = RevealedSecret.ofKey(keyBytes)
+        val secretTexts = (artWords + PASSPHRASE + keyLines).map { it.lowercase() }.toSet()
+        val exposesSecret = SemanticsMatcher("exposes a secret text") { node ->
+            val texts = node.config.getOrNull(SemanticsProperties.Text).orEmpty().map { it.text }
+            val descriptions = node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty()
+            (texts + descriptions).any { it.lowercase() in secretTexts }
+        }
+        val pages = List(artWords.size) { RevealStep.Revealed(mnemonic, RevealPart.WORDS, it, 60) } +
+            RevealStep.Revealed(mnemonic, RevealPart.PASSPHRASE, 0, 60) +
+            RevealStep.Revealed(key, RevealPart.KEY, 0, 60)
+        var step by mutableStateOf<RevealStep>(RevealStep.Warning)
+        compose.setContent {
+            LumenTheme {
+                ShowSecretScreen(
+                    step = step,
+                    passwordLength = 0,
+                    onKey = {},
+                    onBackspace = {},
+                    onSubmit = {},
+                    onShow = {},
+                    onMove = {},
+                    onSelect = {},
+                    onDone = {},
+                )
+            }
+        }
+
+        for (page in pages) {
+            compose.runOnIdle { step = page }
+            compose.waitForIdle()
+            compose.onAllNodes(exposesSecret).assertCountEquals(0)
+        }
+
+        // The pages stay in reach of the reader, each under its position label.
+        compose.runOnIdle { step = pages.first() }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Word 1 of ${artWords.size}").assertExists()
+        compose.runOnIdle { step = pages.last() }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Single Key Hidden").assertExists()
     }
 
     /**
