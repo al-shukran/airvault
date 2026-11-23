@@ -22,6 +22,7 @@ class VaultTest {
     private val clock = FakeClock()
     private val vault = instrumentedVault(context, clock, KdfParams(memoryKiB = 8 * 1024, iterations = 1))
     private val vaultRoot = File(context.noBackupFilesDir, "vault")
+    private val layout = VaultLayout(vaultRoot)
     private val failures = File(vaultRoot, "failures.bin")
     private val failuresBackup = File(vaultRoot, "failures.bak")
 
@@ -166,12 +167,12 @@ class VaultTest {
             val session = unlocked(vault.unlock(PASSWORD.toCharArray()))
             val wallet = session.createWallet()
             session.putRecord(wallet, "secret", byteArrayOf(5, 6, 7))
-            val recordFile = File(vaultRoot, "wallets/$wallet/secret.bin")
+            val recordFile = File(layout.walletDir(wallet), "secret.bin")
             val ciphertext = recordFile.readBytes()
 
             session.deleteWallet(wallet)
             // Put the old ciphertext back on its own. Without the wallet key it must not decrypt.
-            File(vaultRoot, "wallets/$wallet").mkdirs()
+            layout.walletDir(wallet).mkdirs()
             recordFile.writeBytes(ciphertext)
             assertNull(readOrNull(session, wallet, "secret"))
             session.close()

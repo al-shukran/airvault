@@ -106,6 +106,13 @@ else
     label="15 minutes"
 fi
 
+# The fuzz lane runs no Robolectric test, so it does not fetch the Robolectric SDK jar (-x). Its remaining Maven Central
+# downloads get a longer retry budget than gradle.properties sets (-D, Gradle's repository retry): a HTTP 429 burst from
+# Maven Central outlasted that budget in nightly fuzz legs. Changing gradle.properties or a build script would also change the
+# dependency-cache key in pr-fast.yml and force an online resolve in the PR lane, so the longer budget is set here, for the
+# fuzz lane only.
+fuzz_flags=(-x :syncRobolectricSdk -Dorg.gradle.internal.repository.max.tentatives=8)
+
 status=0
 for target in "${targets[@]}"; do
     echo "fuzz-nightly: $target, $label"
@@ -115,10 +122,10 @@ for target in "${targets[@]}"; do
     # cannot share a JVM (see the note in shared/build.gradle.kts).
     # --no-build-cache: JAZZER_FUZZ is not a task input, so a cache hit restores old outputs and runs no fuzzing.
     if [ -n "$seconds" ]; then
-        JAZZER_FUZZ=1 ./gradlew --no-build-cache :shared:cleanTestDebugUnitTest :shared:testDebugUnitTest \
+        JAZZER_FUZZ=1 ./gradlew --no-build-cache "${fuzz_flags[@]}" :shared:cleanTestDebugUnitTest :shared:testDebugUnitTest \
             --tests "$target" -PfuzzLane "-PfuzzMaxSeconds=$seconds" || status=1
     else
-        JAZZER_FUZZ=1 ./gradlew --no-build-cache :shared:cleanTestDebugUnitTest :shared:testDebugUnitTest \
+        JAZZER_FUZZ=1 ./gradlew --no-build-cache "${fuzz_flags[@]}" :shared:cleanTestDebugUnitTest :shared:testDebugUnitTest \
             --tests "$target" -PfuzzLane || status=1
     fi
 done
