@@ -81,7 +81,7 @@ internal fun SignedSendSteps(
                 onSent(now.id)
             }
             val summary = "$amount to $recipient"
-            val landing by remember(now.id) { arrival?.landingOf(now.id, summary) ?: MutableStateFlow(Landing.PENDING) }.collectAsState()
+            val landing by remember(now.id) { arrival?.landingOf(now.id) ?: MutableStateFlow(Landing.PENDING) }.collectAsState()
             ArrivalHaptic(arrived = landing == Landing.LANDED, id = now.id, haptics = haptics)
             if (landing == Landing.REFUSED) {
                 LaunchedEffect(now.id) { haptics.failure() }

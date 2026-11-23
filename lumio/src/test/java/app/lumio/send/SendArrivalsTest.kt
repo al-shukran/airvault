@@ -23,15 +23,14 @@ import org.junit.Test
 /** The arrival watch: where a sent transaction stands, how often the chain is read, and when the notice posts. Time is virtual. */
 class SendArrivalsTest {
     private val network = NetworkId(Networks.evm(10143L), testnet = true)
-    private val words = ArrivalWords("Your MON Has Arrived", "0.25 MON to FelixStone")
 
     private class FakeNotice(private val permitted: Boolean) : ArrivalNotice {
-        val posted = ArrayList<Triple<String, String, String>>()
+        val posted = ArrayList<String>()
 
         override fun canPost(): Boolean = permitted
 
-        override fun post(id: String, title: String, text: String) {
-            posted += Triple(id, title, text)
+        override fun post(id: String) {
+            posted += id
         }
     }
 
@@ -46,7 +45,7 @@ class SendArrivalsTest {
         foreground: Boolean = true,
         notice: FakeNotice = FakeNotice(permitted = true),
     ): StateFlow<Landing> = SendArrivals(backgroundScope, notice, foreground = { foreground })
-        .watch(network, "tx", words, answersOf(*steps))
+        .watch(network, "tx", notify = true, answersOf(*steps))
 
     @Test
     fun aSendArrivesOnTheReadThatLands() = runTest {
@@ -66,7 +65,7 @@ class SendArrivalsTest {
     fun readsBackOffFromTwoSecondsToOneMinute() = runTest {
         val readAt = ArrayList<Long>()
         SendArrivals(backgroundScope, FakeNotice(permitted = true), foreground = { true })
-            .watch(network, "tx", words, suspend {
+            .watch(network, "tx", notify = true, suspend {
                 readAt += currentTime
                 Landing.PENDING
             })
@@ -81,7 +80,7 @@ class SendArrivalsTest {
     fun aRefusedSendEndsRefusedAndIsNotReadAgain() = runTest {
         var reads = 0
         val landing = SendArrivals(backgroundScope, FakeNotice(permitted = true), foreground = { true })
-            .watch(network, "tx", words) {
+            .watch(network, "tx", notify = true) {
                 reads++
                 Landing.REFUSED
             }
@@ -98,7 +97,7 @@ class SendArrivalsTest {
         val lastValid = 100UL
         var reads = 0
         val landing = SendArrivals(backgroundScope, FakeNotice(permitted = true), foreground = { true })
-            .watch(network, "tx", words) {
+            .watch(network, "tx", notify = true) {
                 reads++
                 // The pool lets go and the indexer has read past the last valid round without the transaction.
                 algorandLanding(pool = null, indexed = AlgorandIndexed(confirmedRound = null, indexerRound = 101L), lastValid = lastValid)
@@ -116,7 +115,7 @@ class SendArrivalsTest {
     fun aFailedReadCountsAsPendingAndIsReadAgain() = runTest {
         var reads = 0
         val landing = SendArrivals(backgroundScope, FakeNotice(permitted = true), foreground = { true })
-            .watch(network, "tx", words) {
+            .watch(network, "tx", notify = true) {
                 reads++
                 if (reads == 1) throw IOException("unreachable")
                 Landing.LANDED
@@ -139,10 +138,10 @@ class SendArrivalsTest {
             Landing.PENDING
         }
 
-        val first = arrivals.watch(network, "tx", words, read)
+        val first = arrivals.watch(network, "tx", notify = true, read)
         advanceTimeBy(1_000)
         runCurrent()
-        val second = arrivals.watch(network, "tx", words, read)
+        val second = arrivals.watch(network, "tx", notify = true, read)
         advanceTimeBy(199_000)
         runCurrent()
 
@@ -158,7 +157,7 @@ class SendArrivalsTest {
         runCurrent()
 
         assertEquals(Landing.LANDED, landing.value)
-        assertEquals(listOf(Triple("tx", "Your MON Has Arrived", "0.25 MON to FelixStone")), notice.posted)
+        assertEquals(listOf("tx"), notice.posted)
     }
 
     @Test
@@ -187,7 +186,7 @@ class SendArrivalsTest {
     fun aWatchWithoutWordsLandsSilently() = runTest {
         val notice = FakeNotice(permitted = true)
         val landing = SendArrivals(backgroundScope, notice, foreground = { false })
-            .watch(network, "tx", null, answersOf(Landing.LANDED))
+            .watch(network, "tx", notify = false, answersOf(Landing.LANDED))
 
         runCurrent()
 
@@ -198,11 +197,11 @@ class SendArrivalsTest {
     @Test
     fun aWatchKeepsItsStateAfterItsCallerLetsGo() = runTest {
         val arrivals = SendArrivals(backgroundScope, FakeNotice(permitted = true), foreground = { false })
-        val first = arrivals.watch(network, "tx", words, answersOf(Landing.PENDING, Landing.LANDED))
+        val first = arrivals.watch(network, "tx", notify = true, answersOf(Landing.PENDING, Landing.LANDED))
 
         advanceTimeBy(2_000)
         runCurrent()
-        val later = arrivals.watch(network, "tx", words) { error("the watch is already running") }
+        val later = arrivals.watch(network, "tx", notify = true) { error("the watch is already running") }
 
         assertSame(first, later)
         assertEquals(Landing.LANDED, later.value)
@@ -211,7 +210,7 @@ class SendArrivalsTest {
     @Test
     fun landingNowReadsTheWatchAndIsPendingWithoutOne() = runTest {
         val arrivals = SendArrivals(backgroundScope, FakeNotice(permitted = true), foreground = { true })
-        arrivals.watch(network, "tx", null, answersOf(Landing.REFUSED))
+        arrivals.watch(network, "tx", notify = false, answersOf(Landing.REFUSED))
 
         runCurrent()
 
