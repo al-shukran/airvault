@@ -13,7 +13,7 @@
 # run replays as soon as the file is committed.
 #
 # Usage: scripts/ci/fuzz-nightly.sh [--list] [--seconds N] [target]
-#   no target  fuzzes all four, one Gradle invocation each (about an hour at 15 minutes per target)
+#   no target  fuzzes all five, one Gradle invocation each (about 75 minutes at 15 minutes per target)
 #   target     fuzzes that one target only; the nightly workflow uses one matrix job per target
 #   --seconds  cap each target at N seconds instead of the 15-minute annotation (/run-fuzz uses 60)
 set -euo pipefail
@@ -25,9 +25,9 @@ usage() {
     cat >&2 <<'EOF'
 usage: scripts/ci/fuzz-nightly.sh [--list] [--seconds N] [target]
 
-  --list      print the four target class names and exit
+  --list      print the five target class names and exit
   --seconds   fuzz each target for N seconds instead of the 15-minute annotation
-  target      fuzz only this class (default: all four)
+  target      fuzz only this class (default: all five)
 EOF
 }
 
@@ -36,6 +36,7 @@ targets=(
     app.lensly.fuzz.CborFuzzTest
     app.lensly.fuzz.EthSignRequestFuzzTest
     app.lensly.fuzz.UnsignedTxFuzzTest
+    app.lensly.fuzz.AlgorandRequestFuzzTest
 )
 
 list=false

@@ -128,7 +128,7 @@ CI=true scripts/ci/run-extended.sh e2e
 `:app:dependencyCheckAnalyze` in one Gradle call with `--continue`, then `check-manifest.sh`. Expect 10 to 15 minutes, mostly the
 OWASP scan. `NVD_API_KEY` is optional: without it the NVD API is rate-limited, so the scan is slower but still runs.
 
-`fuzz` is real fuzzing, not a replay: it calls `fuzz-nightly.sh --seconds 60`, so each of the four targets fuzzes for 60 seconds.
+`fuzz` is real fuzzing, not a replay: it calls `fuzz-nightly.sh --seconds 60`, so each of the five targets fuzzes for 60 seconds.
 `perf` runs the microbenchmarks on the reference device and applies the gate when `BENCHMARK_RESULT` names the result file.
 
 ## CodeQL — `/run-codeql`
@@ -153,9 +153,9 @@ reads). `--list` prints the targets. Pass one target to fuzz only that one; the 
 `--seconds N` caps each target at N seconds.
 
 ```bash
-scripts/ci/fuzz-nightly.sh          # all four targets, about an hour
+scripts/ci/fuzz-nightly.sh          # all five targets, about 75 minutes
 scripts/ci/fuzz-nightly.sh app.lensly.fuzz.CborFuzzTest   # one target, 15 minutes
-scripts/ci/fuzz-nightly.sh --seconds 60                   # /run-fuzz: four minutes in total
+scripts/ci/fuzz-nightly.sh --seconds 60                   # /run-fuzz: five minutes in total
 scripts/ci/fuzz-nightly.sh --list
 ```
 
