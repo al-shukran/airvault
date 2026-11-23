@@ -73,7 +73,7 @@ class PhotoFileNamesTest {
         val LEAKING_TOKENS = listOf(
             "decoy", "real", "duress", "pub", "key", "img", "vid", "sealed",
             "wallet", "vault", "lensly", "seed", "mnemonic", "bitcoin", "eth", "sol", "algo",
-            "pwk", "meta", "secret", "profile", "account", "base-name",
+            "pwk", "meta", "secret", "profile", "account", "base-name", "registry", "biometric",
         )
 
         val TIMESTAMP = Regex("""\d{8}_\d{6}""")

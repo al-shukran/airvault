@@ -173,7 +173,7 @@ class BiometricUnlock internal constructor(
 
     companion object {
         /** The sealed Vault Key, in the vault's folder: the IV, then the ciphertext. */
-        const val BLOB_FILE_NAME = "biometric.bin"
+        const val BLOB_FILE_NAME = "aux.bin"
 
         /** The GCM IV that the Keystore cipher generates. */
         private const val IV_BYTES = 12

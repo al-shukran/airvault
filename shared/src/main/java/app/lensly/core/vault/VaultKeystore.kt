@@ -26,36 +26,36 @@ import javax.crypto.SecretKeyFactory
  *   when available, otherwise TEE. Its use needs the screen lock or a strong biometric within
  *   [HARDWARE_KEY_AUTH_SECONDS] of the last authentication. Removing or changing the screen lock invalidates
  *   it for good, so the vault must then be restored from its seed phrase.
- * - `lensly.vault.slot-mac`: HMAC-SHA256, StrongBox when available, otherwise TEE. The software key of every slot is bound to it, so
+ * - `k2`: HMAC-SHA256, StrongBox when available, otherwise TEE. The software key of every slot is bound to it, so
  *   each password guess needs this device (see [Vault]).
- * - `lensly.vault.header-mac`: HMAC-SHA256, StrongBox when available, otherwise TEE. It MACs `header.bin`, which is checked before any
+ * - `k3`: HMAC-SHA256, StrongBox when available, otherwise TEE. It MACs `header.bin`, which is checked before any
  *   password, so a changed header erases the vault (see [VaultHeader]).
- * - `lensly.vault.failure-mac.<seq>`: HMAC-SHA256, one for each Delay State write. It authenticates the failure-delay state
+ * - `k7.<seq>`: HMAC-SHA256, one for each Delay State write. It authenticates the failure-delay state
  *   with that sequence number. The keys of earlier writes are deleted, so an older state no longer verifies (see [FailureStore]).
- * - `lensly.vault.folder.<id>`: AES-256-GCM, one for each wallet folder, wallet or unused slot alike. The id is random and kept in
+ * - `k8.<id>`: AES-256-GCM, one for each wallet folder, wallet or unused slot alike. The id is random and kept in
  *   the folder's key file (see [WalletFolder]). Deleting the key makes that folder's key file unreadable, even with the Vault Key.
- * - `lensly.vault.pending-photo`: AES-256-GCM. It wraps the private photo key of photos taken before the first setup
+ * - `k5`: AES-256-GCM. It wraps the private photo key of photos taken before the first setup
  *   (see [PendingPhotoKey]). The vault takes that key over when it is created, and the key is deleted with it.
- * - `lensly.vault.biometric`: AES-256-GCM. It seals the Vault Key for Lumio's biometric unlock (see [BiometricUnlock]). Each use needs
+ * - `k6`: AES-256-GCM. It seals the Vault Key for Lumio's biometric unlock (see [BiometricUnlock]). Each use needs
  *   a strong biometric, and a new enrollment invalidates the key.
  */
 internal object VaultKeystore {
-    const val HARDWARE_KEY_ALIAS = "lensly.vault.hw"
+    const val HARDWARE_KEY_ALIAS = "k1"
 
     /** How long one device authentication lets the hardware key be used. A later use asks for one again. */
     const val HARDWARE_KEY_AUTH_SECONDS = 30
 
     /** Every Delay State MAC key alias starts with this. */
-    private const val FAILURE_MAC_PREFIX = "lensly.vault.failure-mac"
+    private const val FAILURE_MAC_PREFIX = "k7"
 
     /** Every wallet folder key alias starts with this. */
-    private const val FOLDER_KEY_PREFIX = "lensly.vault.folder."
+    private const val FOLDER_KEY_PREFIX = "k8."
 
-    private const val SLOT_KEY_ALIAS = "lensly.vault.slot-mac"
-    private const val HEADER_KEY_ALIAS = "lensly.vault.header-mac"
-    private const val PENDING_PHOTO_ALIAS = "lensly.vault.pending-photo"
-    private const val PROBE_ALIAS = "lensly.vault.probe"
-    private const val BIOMETRIC_KEY_ALIAS = "lensly.vault.biometric"
+    private const val SLOT_KEY_ALIAS = "k2"
+    private const val HEADER_KEY_ALIAS = "k3"
+    private const val PENDING_PHOTO_ALIAS = "k5"
+    private const val PROBE_ALIAS = "k4"
+    private const val BIOMETRIC_KEY_ALIAS = "k6"
     private const val PROVIDER = "AndroidKeyStore"
 
     /**
