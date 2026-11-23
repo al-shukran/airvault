@@ -479,6 +479,8 @@ class Vault constructor(
                         if (!committed) {
                             // The Keystore keys made here stay until the next create replaces them. deleteAll would also remove the pending
                             // photo key, which opens the photos taken before setup.
+                            // Each file is overwritten first, as in a wipe, so the wrapped vault key does not survive in the storage.
+                            overwriteFiles(layout.root)
                             FailureStore.forget(layout.root)
                             layout.root.deleteRecursively()
                         }
