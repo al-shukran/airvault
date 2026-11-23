@@ -2,18 +2,20 @@ package app.lensly.core.vault
 
 import java.io.File
 import java.security.GeneralSecurityException
+import java.security.ProviderException
 import javax.crypto.SecretKey
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
-/** Vault creation, when the Keystore refuses the key the Failure Delay needs. */
+/** Vault creation, when the Keystore refuses a key, and when a step fails after the first file is written. */
 class VaultCreateTest {
 
     @get:Rule
@@ -73,6 +75,38 @@ class VaultCreateTest {
         assertContentEquals(byteArrayOf(1, 2, 3), layout.header.readBytes())
         assertFalse(layout.vaultKey.exists())
         assertContentEquals(oldKey.encoded, keys.hardwareKey().encoded)
+    }
+
+    @Test
+    fun aHeaderMacFaultAfterTheFilesAreWrittenLeavesNoVaultBehind() {
+        val layout = VaultLayout(File(tmp.root, "vault"))
+        val keys = MemoryKeystore()
+        // A pre-setup photo key, which a failed create must keep: the photos taken before setup open through it.
+        keys.createPendingPhotoKey()
+        var faultOnce = true
+        // The header MAC is the last Keystore call of a create, after the key file, the wallet pad and the review pool are written.
+        val faulty = object : KeystoreBackend by keys {
+            override fun headerMac(message: ByteArray): ByteArray {
+                if (faultOnce) {
+                    faultOnce = false
+                    throw ProviderException("the header key cannot be used")
+                }
+                return keys.headerMac(message)
+            }
+        }
+        val vault = Vault(layout, faulty, clock, KDF, readBootCount = { 7 })
+
+        assertFailsWith<VaultException> { runBlocking { vault.create(APP.toCharArray()) } }
+
+        // No file of the failed create is left: the vault is no vault, and not a partial one.
+        assertFalse(layout.root.exists())
+        assertFalse(vault.exists())
+        assertFalse(vault.isPartial())
+        assertTrue(vault.isBeforeSetup())
+        assertNotNull(keys.pendingPhotoKey())
+
+        assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })
+        assertTrue(vault.exists())
     }
 
     private companion object {

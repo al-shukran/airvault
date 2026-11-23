@@ -7,6 +7,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
@@ -76,6 +77,38 @@ class VaultHeaderBindingTest {
     }
 
     @Test
+    fun aHeaderThatDoesNotMatchErasesTheVaultAtOnceWithoutAnotherMac() {
+        val made = createdVault()
+        flipByte(made.layout.header, VaultHeader.FIELDS_BYTES)
+        val checks = HeaderMacFaults(made.keys, faults = 0)
+
+        assertEquals(UnlockResult.Erased, attempt(Vault(made.layout, checks, clock, KDF), APP))
+        assertEquals(1, checks.calls)
+        assertFalse(made.layout.header.exists())
+    }
+
+    @Test
+    fun aSingleKeystoreFaultWhileTheHeaderIsCheckedIsRetriedAndTheVaultIsKept() {
+        val made = createdVault()
+        val checks = HeaderMacFaults(made.keys, faults = 1)
+
+        assertIs<UnlockResult.Unlocked>(attempt(Vault(made.layout, checks, clock, KDF), APP)).session.close()
+        assertEquals(2, checks.calls)
+        assertTrue(made.layout.exists())
+    }
+
+    @Test
+    fun twoKeystoreFaultsWhileTheHeaderIsCheckedErasesTheVaultWithoutAThirdTry() {
+        val made = createdVault()
+        // A third MAC would succeed, so the erase shows that no third try was made.
+        val checks = HeaderMacFaults(made.keys, faults = 2)
+
+        assertEquals(UnlockResult.Erased, attempt(Vault(made.layout, checks, clock, KDF), APP))
+        assertEquals(2, checks.calls)
+        assertFalse(made.layout.header.exists())
+    }
+
+    @Test
     fun aTamperedHeaderErasesTheVaultOnTheBiometricPathToo() {
         val made = createdVault()
         val session = assertIs<UnlockResult.Unlocked>(attempt(made.vault, APP)).session
@@ -108,6 +141,21 @@ class VaultHeaderBindingTest {
         val bytes = file.readBytes()
         bytes[index] = value.toByte()
         file.writeBytes(bytes)
+    }
+
+    /** Fails the first [faults] header MACs with a Keystore fault, and counts every header MAC made through it. */
+    private class HeaderMacFaults(private val keys: MemoryKeystore, private var faults: Int) : KeystoreBackend by keys {
+        var calls = 0
+            private set
+
+        override fun headerMac(message: ByteArray): ByteArray {
+            calls++
+            if (faults > 0) {
+                faults--
+                throw ProviderException("the header key cannot be used")
+            }
+            return keys.headerMac(message)
+        }
     }
 
     private class Made(val layout: VaultLayout, val keys: MemoryKeystore, val vault: Vault)
