@@ -184,6 +184,7 @@ private fun idleLabel(minutes: Int): String = when (minutes) {
 fun AboutSettingsPage(version: String, offline: String?, onLicences: () -> Unit, onBack: () -> Unit, onLock: () -> Unit) {
     SettingsPageScreen(SettingsPage.ABOUT, offline, onBack, onLock) {
         ClearAirRow(title = "Version", description = version)
+        ClearAirNote(text = "AirVault has no token, no sale and no support team.", modifier = Modifier.padding(top = ClearAirSpacing.xs))
         SettingsGroup(title = "Licences") {
             ClearAirRow(
                 title = stringResource(R.string.settings_licences_open),
