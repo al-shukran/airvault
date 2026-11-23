@@ -19,7 +19,7 @@ import java.io.FileNotFoundException
  */
 object RegistryHolder {
     /** Directory under noBackupFilesDir where [RegistryUpdate.install] stores an accepted package. */
-    private const val INSTALLED_DIR = "registry"
+    private const val INSTALLED_DIR = "d7"
 
     /** The signed package the APK ships (shared assets), installed on first load when it is newer than the stored one. */
     private const val BUNDLED_PATH = "registry/bundled.lrp"

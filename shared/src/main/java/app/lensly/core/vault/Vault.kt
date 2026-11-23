@@ -128,10 +128,10 @@ class VaultFormatChangedException : VaultException(VAULT_FORMAT_CHANGED)
  * The App Password vault, and its optional Duress Password.
  *
  * The Vault Key is protected by three keys, and all are needed to recover it:
- * 1. Slot: a non-exportable Keystore HMAC-SHA256 key (`lensly.vault.slot-mac`) binds every guess to this device.
+ * 1. Slot: a non-exportable Keystore HMAC-SHA256 key (`k2`) binds every guess to this device.
  * 2. Software: `K_sw = HKDF-SHA256(Argon2id(password, salt) || HMAC(slot key, salt), info = "lensly-vault-slot-v3")`, used with
  *    AES-256-GCM to wrap the hardware blob. Each guess needs the slot key, so copies of the vault files cannot be tested offline.
- * 3. Hardware: a non-exportable Keystore AES-256-GCM key (`lensly.vault.hw`) wraps the Vault Key.
+ * 3. Hardware: a non-exportable Keystore AES-256-GCM key (`k1`) wraps the Vault Key.
  *
  * `unlock.bin` holds two slots: one for the real vault and one for the Decoy Vault that a Duress Password opens. Its size
  * never changes (see [VaultKeyFile]). [unlock] derives `K_sw` once and tries it on both slots, so the Duress Password
