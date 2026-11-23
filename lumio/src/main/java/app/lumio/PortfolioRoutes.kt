@@ -54,22 +54,24 @@ internal fun PortfolioTab(navController: NavHostController, holder: VaultHolder,
     val scope = rememberCoroutineScope()
     var filter by remember { mutableStateOf(PortfolioFilter()) }
     var otherHeld by remember { mutableStateOf<PortfolioHolding?>(null) }
-    LaunchedEffect(board, mode, listVersion, transactions.activityIncludesSpam) {
-        board?.readHoldings(mode)
-        board?.readActivity(mode, ActivityFilter(), includeSpam = transactions.activityIncludesSpam)
+    // The Portfolio covers the wallet the profile panel chose, as Home does, and the first paired wallet until the owner chooses one.
+    val active = wallets.active(selection) { it.id }
+    LaunchedEffect(board, mode, active?.id, listVersion, transactions.activityIncludesSpam) {
+        board?.readHoldings(mode, active?.id)
+        board?.readActivity(mode, active?.id, ActivityFilter(), includeSpam = transactions.activityIncludesSpam)
     }
     // The first holding with funds on the other side, for the card that an empty side shows. The board keeps only the side it shows.
-    LaunchedEffect(board, other, listVersion) {
-        otherHeld = app.lumioVault()?.let { vault -> PortfolioReads.holdings(app, vault, other).firstOrNull { it.amount.signum() > 0 } }
+    LaunchedEffect(board, other, active?.id, listVersion) {
+        otherHeld = app.lumioVault()?.let { vault -> PortfolioReads.holdings(app, vault, other, active?.id).firstOrNull { it.amount.signum() > 0 } }
     }
-    val receive = wallets.firstOrNull()?.let { wallet -> { navController.navigate(LumioRoute.wallet(wallet.id)) } }
+    val receive = active?.let { wallet -> { navController.navigate(LumioRoute.wallet(wallet.id)) } }
     TabRoute(tab = LumioTab.PORTFOLIO, navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = onLock) {
         PortfolioScreen(
             holdings = board?.holdings,
             filter = filter,
             onFilter = { filter = it },
-            walletName = wallets.singleOrNull()?.name ?: "All Wallets",
-            accounts = accountCounts(wallets),
+            walletName = active?.name ?: "All Wallets",
+            accounts = accountCounts(listOfNotNull(active)),
             showBalance = display.showAssets,
             hidesSmall = display::hidesSmallBalance,
             testnet = mode == NetworkMode.TESTNET,
@@ -112,9 +114,11 @@ internal fun ActivityRoute(
     val transactions = rememberTransactions(app)
     val scope = rememberCoroutineScope()
     var filter by remember { mutableStateOf(ActivityFilter(coin = coin)) }
-    // With Hide Spam off, the spam is shown from the start, and the owner has no hidden rows to reveal.
+    // With Hide Spam off, the spam is shown from the start, and the owner has no hidden rows to reveal. The activity of the Portfolio's All link covers
+    // the chosen wallet, and a coin's activity covers every wallet of the side, as its Asset page's All link opens it.
     var showSpam by remember { mutableStateOf(transactions.activityIncludesSpam) }
-    LaunchedEffect(board, mode, filter, showSpam) { board?.readActivity(mode, filter, showSpam) }
+    val walletId = if (coin == null) wallets.active(selection) { it.id }?.id else null
+    LaunchedEffect(board, mode, filter, showSpam, walletId) { board?.readActivity(mode, walletId, filter, showSpam) }
     val page = board?.activity
     LumioPageScreen(
         title = "Activity",

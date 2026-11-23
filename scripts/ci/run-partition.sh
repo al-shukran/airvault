@@ -51,7 +51,7 @@ usage: scripts/ci/run-partition.sh <lane>
 
 lanes:
   resolve      the one online step: ./gradlew resolveAll, retried only on network errors
-  shard-1..8   the unit tests shards.txt lists under the lane; shard-6 also runs the unlisted ones; pure JVM modules run whole;
+  shard-1..10   the unit tests shards.txt lists under the lane; shard-6 also runs the unlisted ones; pure JVM modules run whole;
                every shard also compiles the debug code of :app and :lumio
   verify-app, verify-lumio
                the Roborazzi pixel tests of one module, with verifyRoborazziDebug (run locally; nightly records goldens)
@@ -274,7 +274,7 @@ run_ci() {
 
 case "$lane" in
     resolve) run_resolve ;;
-    shard-[1-8]) run_shard "$lane" ;;
+    shard-[1-9]|shard-10) run_shard "$lane" ;;
     verify-app | verify-lumio) run_verify "$lane" ;;
     fuzz) run_fuzz ;;
     apk) run_apk ;;

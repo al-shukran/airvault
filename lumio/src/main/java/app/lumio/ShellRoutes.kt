@@ -11,9 +11,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
+import app.airvault.core.model.AccountId
 import app.lensly.app.VaultHolder
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
+import app.lumio.data.net.Networks
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmEdits
 import app.lumio.evm.EvmSettingsStore
@@ -22,10 +24,12 @@ import app.lumio.pair.PairedWallet
 import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.network.PanelWallet
 import app.lumio.ui.network.TestNetworksScreen
+import app.lumio.ui.network.testNetworkSentence
 import app.lumio.ui.shell.LumioPageScreen
 import app.lumio.ui.shell.LumioRootScreen
 import app.lumio.ui.shell.offlineBand
 import app.lumio.ui.shell.rememberOnline
+import app.lumio.wallets.WalletAccounts
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -53,19 +57,23 @@ internal fun TabRoute(
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
     val online = rememberOnline()
+    val wallets = pairedWallets(navController, holder, listVersion)
+    val active = wallets.active(selection) { it.id }
+    val networks = testNetworkSummary(app, holder, listVersion)
     LumioRootScreen(
         tab = tab,
         title = title,
         mode = selection.mode,
         onMode = { selection.choose(it) },
-        panelWallets = pairedWallets(navController, holder, listVersion).map { wallet ->
-            PanelWallet(id = wallet.id, name = wallet.name, detail = walletDetail(wallet))
-        },
-        testNetworks = testNetworkCount(app, holder, listVersion),
+        panelWallets = wallets.map { wallet -> PanelWallet(id = wallet.id, name = wallet.name, detail = walletDetail(wallet)) },
+        activeWalletId = active?.id,
+        onWallet = { selection.walletId = it },
+        testNetworks = networks.count,
+        networkSentence = testNetworkSentence(networks.evmNames),
         offline = if (online) null else offlineBand(app.lumioVault()?.wallets?.updatedAtMs),
         onTab = { navController.openTab(it) },
+        onScan = { active?.let { scanToPayRoute(it, selection.mode) }?.let { navController.navigate(it) } },
         onTestNetworks = { navController.navigate(LumioRoute.TEST_NETWORKS) },
-        onWallet = { navController.navigate(LumioRoute.wallet(it)) },
         onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
         onLock = onLock,
         search = { onClose ->
@@ -151,21 +159,38 @@ internal fun NavHostController.backLabel(): String = when (previousBackStackEntr
     else -> "the previous screen"
 }
 
-/** The number of test networks in use: the EVM ones that are switched on, and the networks that have no switch. */
+/** The test networks in use: how many there are, and the names of the EVM ones that are switched on. */
+private data class TestNetworkSummary(val count: Int, val evmNames: List<String>)
+
+/** The test networks in use: the EVM ones that are switched on, and the networks that have no switch. */
 @Composable
-private fun testNetworkCount(app: LumioApp, holder: VaultHolder, listVersion: Int): Int {
+private fun testNetworkSummary(app: LumioApp, holder: VaultHolder, listVersion: Int): TestNetworkSummary {
     val session = holder.openSession()
-    val count by produceState(initialValue = FIXED_TEST_NETWORKS, session, listVersion) {
+    val summary by produceState(initialValue = TestNetworkSummary(FIXED_TEST_NETWORKS, emptyList()), session, listVersion) {
         value = if (session == null) {
-            FIXED_TEST_NETWORKS
+            TestNetworkSummary(FIXED_TEST_NETWORKS, emptyList())
         } else {
             withContext(Dispatchers.IO) {
                 val settings = EvmSettingsStore.read(session)
-                EvmCatalog.chains(app.registry, settings).count { it.testnet && it.chainId in settings.enabled } + FIXED_TEST_NETWORKS
+                val on = EvmCatalog.chains(app.registry, settings).filter { it.testnet && it.chainId in settings.enabled }
+                TestNetworkSummary(on.size + FIXED_TEST_NETWORKS, on.map { it.name })
             }
         }
     }
-    return count
+    return summary
+}
+
+/** The wallet the shell shows: the one the profile panel chose, or the first paired wallet until the owner chooses one. */
+internal fun <T> List<T>.active(selection: NetworkSelection, id: (T) -> String): T? = firstOrNull { id(it) == selection.walletId } ?: firstOrNull()
+
+/**
+ * The send that Scan to Pay opens: the wallet's first Ethereum account on the side's primary network, with the camera on for the recipient. A wallet
+ * with no Ethereum account has no such send, so the row opens nothing.
+ */
+internal fun scanToPayRoute(wallet: PairedWallet, mode: NetworkMode): String? {
+    val address = wallet.evmAddresses.firstOrNull() ?: return null
+    val chainId = WalletAccounts.primaryEvmChainId(mode)
+    return LumioRoute.send(wallet.id, AccountId.of(Networks.evm(chainId), address), chainId, scan = true)
 }
 
 /** A wallet's line in the profile panel: its account count and the day it was paired, such as "30 accounts · paired 21 Nov". */

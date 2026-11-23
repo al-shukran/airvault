@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.PathParser
 
@@ -38,6 +39,8 @@ enum class ClearAirGlyph(private val data: List<String>) {
     INFO(listOf(circle(12f, 12f, 8.5f), "M12 11v5.5M12 7.8v.1")),
     ALERT(listOf("M12 4l8.5 15H3.5z", "M12 10v4M12 16.8v.1")),
     STAR(listOf("M12 4.3L14 10.05L20.08 10.17L15.23 13.85L17 19.68L12 16.2L7 19.68L8.77 13.85L3.92 10.17L10 10.05Z")),
+    SCAN(listOf("M4 9V6.5A2.5 2.5 0 0 1 6.5 4H9M15 4h2.5A2.5 2.5 0 0 1 20 6.5V9M20 15v2.5a2.5 2.5 0 0 1-2.5 2.5H15M9 20H6.5A2.5 2.5 0 0 1 4 17.5V15M7.5 12h9")),
+    PLUS(listOf("M12 5v14M5 12h14")),
     ;
 
     /** The glyph's paths on the 24 unit grid, parsed once. */
@@ -54,10 +57,13 @@ private const val GLYPH_STROKE = 1.6f
 /** The side of a glyph's grid, in units. */
 private const val GLYPH_GRID = 24f
 
-/** A glyph in [color], drawn to fill 24 dp. A [filled] glyph is solid, as the watched star is; the others are strokes. */
+/**
+ * A glyph in [color], drawn to fill [size], which is 24 dp unless a mock draws it smaller. A [filled] glyph is solid, as the watched star is; the others
+ * are strokes.
+ */
 @Composable
-fun ClearAirIcon(glyph: ClearAirGlyph, color: Color, modifier: Modifier = Modifier, filled: Boolean = false) {
-    Canvas(modifier.size(24.dp)) { drawGlyph(glyph, color, filled) }
+fun ClearAirIcon(glyph: ClearAirGlyph, color: Color, modifier: Modifier = Modifier, filled: Boolean = false, size: Dp = 24.dp) {
+    Canvas(modifier.size(size)) { drawGlyph(glyph, color, filled) }
 }
 
 private fun DrawScope.drawGlyph(glyph: ClearAirGlyph, color: Color, filled: Boolean) {
