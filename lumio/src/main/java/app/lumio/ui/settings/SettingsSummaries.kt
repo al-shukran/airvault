@@ -9,7 +9,7 @@ import app.lumio.data.provider.ProviderCatalog
 
 /** The one-line state under the Display row: whether the total shows, and whether each account's balance does. */
 fun displaySummary(settings: DisplaySettings): String =
-    "${if (settings.showTotal) "Total shown" else "Total hidden"} · ${if (settings.showAssets) "balances shown" else "balances hidden"}"
+    "${if (settings.showTotal) "Total shown" else "Total hidden"} · ${if (settings.showAssets) "balances shown" else "balances hidden"} · ${settings.currency.code}"
 
 /** The one-line state under the Transactions row: whether spam is hidden, and the Last Chance pause before a send. */
 fun transactionsSummary(settings: TransactionSettings): String {

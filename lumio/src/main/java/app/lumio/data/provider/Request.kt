@@ -111,6 +111,16 @@ class GlobalMarket : Request<MarketQuote>(MARKET_NET, Ops.MARKET_GLOBAL)
 /** The coins the source lists as trending now, in the source's order. */
 class TrendingCoins : Request<TrendingList>(MARKET_NET, Ops.MARKET_TRENDING)
 
+/** The units of each fiat currency that one US dollar buys, from the source's fiat table. */
+class FiatRates : Request<FiatQuote>(MARKET_NET, Ops.MARKET_FIAT)
+
+/**
+ * The fiat rates of the source, keyed by the upper-case currency code: [perUsd] is how many units of the currency one US dollar buys, and [asOfMs] the
+ * time they were read, in epoch milliseconds, since the source gives no time for them. It is stored in the cache, so it is serializable.
+ */
+@Serializable
+data class FiatQuote(val perUsd: Map<String, Double>, val asOfMs: Long)
+
 /**
  * The whole market in USD: [totalUsd] is the total market cap, [change24hPct] its change over the last 24 hours in percent (null when the source gives
  * none), and [asOfMs] the time the source gives for it, in epoch milliseconds. It is stored in the cache, so it is serializable.

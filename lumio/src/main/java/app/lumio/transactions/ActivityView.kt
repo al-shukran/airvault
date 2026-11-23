@@ -40,7 +40,8 @@ data class ActivityLine(
     val title: String,
     val detail: String,
     val amount: String,
-    val fiat: String?,
+    /** The value in dollars, null when no price is known. */
+    val usd: Double?,
     val incoming: Boolean,
     val pending: Boolean,
 )
@@ -99,7 +100,7 @@ object ActivityText {
             title = title,
             detail = parts.joinToString(" · "),
             amount = if (amount.signum() == 0) "Fee only" else "$sign${PortfolioFormat.coins(amount)} ${tx.asset.symbol}",
-            fiat = usd?.let { PortfolioFormat.usd(it) },
+            usd = usd,
             incoming = incoming,
             pending = pending,
         )

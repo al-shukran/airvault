@@ -729,7 +729,7 @@ class WalletScreensScreenshotTest {
                 name = "USDC",
                 network = "Algorand Testnet",
                 amountText = "0",
-                fiatText = null,
+                usd = null,
                 icon = AssetIconSpec.Letter("U"),
                 assetId = null,
                 isNative = false,

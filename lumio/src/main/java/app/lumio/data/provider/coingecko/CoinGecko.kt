@@ -6,6 +6,8 @@ import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.Networks
 import app.lumio.data.net.NetworkId
 import app.lumio.data.price.NativeCoins
+import app.lumio.data.provider.FiatQuote
+import app.lumio.data.provider.FiatRates
 import app.lumio.data.provider.GlobalMarket
 import app.lumio.data.provider.LogoImage
 import app.lumio.data.provider.Http
@@ -53,6 +55,9 @@ import okhttp3.Request as HttpRequest
  *   `{"data":{"total_market_cap":{"usd":n,..},"market_cap_change_percentage_24h_usd":n,"updated_at":seconds,..}}`.
  * - Trending. `GET https://api.coingecko.com/api/v3/search/trending` is in the same list. It answers `{"coins":[{"item":{"name","symbol",
  *   "market_cap_rank","data":{"price":n,"price_change_percentage_24h":{"usd":n},..}}},..],..}`. The source gives no time for it.
+ * - Fiat. `GET https://api.coingecko.com/api/v3/exchange_rates` is in the Demo API list (https://docs.coingecko.com/llms.txt, read on 2026-11-23),
+ *   and answers `{"rates":{"{code}":{"value":n,"type":"fiat"|"crypto",..},..}}`, every currency quoted against Bitcoin. The rate of a currency
+ *   per US dollar is its value over the `usd` value.
  * - Logo. `GET https://api.coingecko.com/api/v3/coins/{id}/contract/{contract_address}` (Coin Data by Token Address, in the Demo / Keyless list at
  *   https://docs.coingecko.com/demo/reference/coins-contract-address) answers the token's record, whose `image` object has `thumb`, `small` and `large`
  *   URLs. The image is read from `small`, or `thumb`. Only the EVM mainnets in [PLATFORMS] have an id, and the ids other than `ethereum` are not
@@ -69,7 +74,7 @@ class CoinGeckoProvider : Provider {
 
     override fun supports(net: NetworkId, op: OpKey, cfg: ProviderConfig): Boolean = when (op) {
         Ops.PRICE_NATIVE -> keyOf(cfg) != null && NativeCoins.coinOf(net) != null && providerBase(cfg.baseUrl, BASE) != null
-        Ops.MARKET_GLOBAL, Ops.MARKET_TRENDING -> providerBase(cfg.baseUrl, BASE) != null
+        Ops.MARKET_GLOBAL, Ops.MARKET_TRENDING, Ops.MARKET_FIAT -> providerBase(cfg.baseUrl, BASE) != null
         Ops.LOGO_TOKEN -> platformOf(net) != null && providerBase(cfg.baseUrl, BASE) != null
         else -> false
     }
@@ -83,6 +88,7 @@ class CoinGeckoProvider : Provider {
             is NativePrice -> price(req, cfg, http) as T
             is GlobalMarket -> global(cfg, http) as T
             is TrendingCoins -> trending(cfg, http) as T
+            is FiatRates -> fiatRates(cfg, http) as T
             is TokenLogo -> logo(req, cfg, http) as T
             else -> throw ProviderError.Unsupported()
         }
@@ -133,6 +139,23 @@ class CoinGeckoProvider : Provider {
             )
         }
         return TrendingList(coins = coins, asOfMs = WallClock.nowMs())
+    }
+
+    /**
+     * The fiat table of the source, as units of each fiat currency per US dollar. The source quotes every currency against Bitcoin, so each rate is its
+     * value divided by the US dollar's. A row with no positive value is a malformed answer.
+     */
+    private suspend fun fiatRates(cfg: ProviderConfig, http: Http): FiatQuote {
+        val url = checkNotNull(providerBase(cfg.baseUrl, BASE)).newBuilder().addPathSegment("exchange_rates").build()
+        val rates = answerObject(fetchText(http.noRedirects(), request(cfg, url), banMs = null))["rates"].asObject()
+        val usdValue = rates["usd"].asObject()["value"].decimal()
+        if (usdValue <= 0.0) throw ProviderError.Fatal("The US dollar rate is not a positive number.")
+        val perUsd = rates.filterValues { it.asObject()["type"].text() == "fiat" }.map { (code, row) ->
+            val value = row.asObject()["value"].decimal()
+            if (value <= 0.0) throw ProviderError.Fatal("A fiat rate is not a positive number.")
+            code.uppercase() to value / usdValue
+        }.toMap()
+        return FiatQuote(perUsd = perUsd, asOfMs = WallClock.nowMs())
     }
 
     /**

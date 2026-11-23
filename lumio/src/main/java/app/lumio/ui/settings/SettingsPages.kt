@@ -13,6 +13,7 @@ import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.R
 import app.lumio.data.config.DisplaySettings
+import app.lumio.data.config.FiatCurrency
 import app.lumio.data.config.LockSettings
 import app.lumio.data.config.TransactionSettings
 import app.lumio.ui.kit.ClearAirAlertNote
@@ -56,6 +57,8 @@ fun DisplaySettingsPage(
     notice: String?,
     onShowTotal: (Boolean) -> Unit,
     onShowAssets: (Boolean) -> Unit,
+    onCurrency: (FiatCurrency) -> Unit,
+    onSmallBalance: (Double) -> Unit,
     offline: String?,
     onBack: () -> Unit,
     onLock: () -> Unit,
@@ -66,6 +69,8 @@ fun DisplaySettingsPage(
             notice = notice,
             onShowTotal = onShowTotal,
             onShowAssets = onShowAssets,
+            onCurrency = onCurrency,
+            onSmallBalance = onSmallBalance,
         )
     }
 }

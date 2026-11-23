@@ -48,6 +48,7 @@ import app.lumio.ui.kit.ClearAirRefreshBox
 import app.lumio.ui.kit.ClearAirSkeleton
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.ClearAirTextTabs
+import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.kit.LumioAssetIcon
 import app.lumio.ui.kit.rememberCopyAction
 import app.lumio.ui.transactions.ActivityRowItem
@@ -81,6 +82,8 @@ internal fun AccountScreen(
     onSend: () -> Unit,
     onReceive: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Whether a row worth this many dollars, or unknown, is left out of the asset list. The total above still counts it. */
+    hidesSmall: (Double?) -> Boolean = { false },
     assets: List<AssetRowModel> = emptyList(),
     activity: List<TxFeedItem> = emptyList(),
     names: Map<String, String> = emptyMap(),
@@ -101,7 +104,7 @@ internal fun AccountScreen(
     val balance = account.balance
     val empty = assets.isNotEmpty() && assets.all { it.zero }
     val heroText = balance?.let { "${HomeFormat.coins(it.balance)} ${it.symbol}" }
-    val fiat = assets.firstOrNull { it.isNative }?.fiatText
+    val usd = assets.firstOrNull { it.isNative }?.usd
     var tab by rememberSaveable { mutableStateOf(AccountTab.ASSETS) }
     ClearAirRefreshBox(refreshByPull = refreshByPull, onRefresh = onRefresh, modifier = modifier.fillMaxSize()) {
         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = ClearAirSpacing.md)) {
@@ -111,7 +114,7 @@ internal fun AccountScreen(
             item(key = "total") {
                 AccountTotal(
                     heroText = heroText,
-                    fiat = fiat,
+                    usd = usd,
                     showBalance = showBalance,
                     refreshing = refreshing,
                     updatedAtMs = updatedAtMs,
@@ -138,7 +141,7 @@ internal fun AccountScreen(
             when (tab) {
                 AccountTab.ASSETS -> assetItems(
                     account = account,
-                    assets = assets,
+                    assets = assets.filterNot { hidesSmall(it.usd) },
                     loadingAssets = loadingAssets,
                     showBalance = showBalance,
                     onAsset = onAsset,
@@ -210,7 +213,7 @@ private fun addressText(address: String, palette: ClearAirPalette): AnnotatedStr
 
 /** The total of the account: "Total" over its coins, the dollars under them, and the freshness line. A balance no read has reached is a bar. */
 @Composable
-private fun AccountTotal(heroText: String?, fiat: String?, showBalance: Boolean, refreshing: Boolean, updatedAtMs: Long?, clock: Clock) {
+private fun AccountTotal(heroText: String?, usd: Double?, showBalance: Boolean, refreshing: Boolean, updatedAtMs: Long?, clock: Clock) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs)) {
         ClearAirEyebrow(text = "Total")
         if (heroText == null) {
@@ -218,7 +221,9 @@ private fun AccountTotal(heroText: String?, fiat: String?, showBalance: Boolean,
         } else {
             ClearAirAmount(text = heroText, hidden = !showBalance, style = ClearAirType.total)
         }
-        fiat?.let { value -> ClearAirAmount(text = value, hidden = !showBalance, style = ClearAirType.rowValue, color = LocalClearAirPalette.current.ink2) }
+        usd?.let { value ->
+            ClearAirAmount(text = LocalFiat.current.amount(value), hidden = !showBalance, style = ClearAirType.rowValue, color = LocalClearAirPalette.current.ink2)
+        }
         FreshnessLine(refreshing = refreshing, updatedAtMs = updatedAtMs, clock = clock, modifier = Modifier.padding(top = ClearAirSpacing.xxs))
     }
 }
@@ -314,8 +319,8 @@ private fun LazyListScope.activityItems(
 private fun AssetValue(asset: AssetRowModel, shown: Boolean) {
     Column(horizontalAlignment = Alignment.End) {
         ClearAirAmount(text = asset.amountText, hidden = !shown, style = ClearAirType.rowValue)
-        asset.fiatText?.let { fiat ->
-            ClearAirAmount(text = fiat, hidden = !shown, style = ClearAirType.label, color = LocalClearAirPalette.current.ink2)
+        asset.usd?.let { usd ->
+            ClearAirAmount(text = LocalFiat.current.amount(usd), hidden = !shown, style = ClearAirType.label, color = LocalClearAirPalette.current.ink2)
         }
     }
 }

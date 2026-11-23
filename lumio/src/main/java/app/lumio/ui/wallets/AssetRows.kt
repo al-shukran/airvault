@@ -23,7 +23,7 @@ const val NATIVE_ASSET_KEY = "native"
 
 /**
  * One row of an account's assets (section 2.1, Account): a coin or token that the account holds. [assetKey] names it in the asset route, and [symbol]
- * titles its row. [name] is its full name and [network] the network it sits on. [amountText] is the amount in whole units, and [fiatText] its value in
+ * titles its row. [name] is its full name and [network] the network it sits on. [amountText] is the amount in whole units, and [usd] its value in
  * dollars, null while no price is known. [assetId] is what its price is of, null when no price source names it. [testnet] marks a testnet coin, and
  * [zero] a coin of nothing.
  */
@@ -33,7 +33,7 @@ internal data class AssetRowModel(
     val name: String,
     val network: String,
     val amountText: String,
-    val fiatText: String?,
+    val usd: Double?,
     val icon: AssetIconSpec,
     val assetId: AssetId?,
     val isNative: Boolean,
@@ -93,7 +93,7 @@ internal object AssetRows {
             name = balance.name,
             network = networkName,
             amountText = HomeFormat.coins(balance.balance),
-            fiatText = price?.let { HomeFormat.usd(balance.balance.toDouble() * it.usd) },
+            usd = price?.let { balance.balance.toDouble() * it.usd },
             icon = nativeIcon(balance.network, balance.symbol, network),
             assetId = id,
             isNative = true,
@@ -126,7 +126,7 @@ internal object AssetRows {
             name = holding.token.name,
             network = holding.chain.name,
             amountText = Amounts.format(holding.amount, decimals),
-            fiatText = price?.let { HomeFormat.usd(BigDecimal(holding.amount).movePointLeft(decimals).toDouble() * it.usd) },
+            usd = price?.let { BigDecimal(holding.amount).movePointLeft(decimals).toDouble() * it.usd },
             icon = tokenIcon(token(chainId, contract), network(chainId), holding.token.symbol),
             assetId = id,
             isNative = false,
@@ -141,7 +141,7 @@ internal object AssetRows {
         name = holding.symbol,
         network = holding.network,
         amountText = Amounts.format(holding.amount, holding.decimals),
-        fiatText = null,
+        usd = null,
         icon = AssetIconSpec.Letter(letterOf(holding.symbol)),
         assetId = null,
         isNative = false,

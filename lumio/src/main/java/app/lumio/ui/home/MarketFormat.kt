@@ -1,19 +1,21 @@
 package app.lumio.ui.home
 
-import java.text.NumberFormat
+import app.lumio.data.config.Fiat
 import java.util.Locale
-
-/** Dollars to the cent, as the watchlist and the trending rows write a price. */
-internal val FIAT: NumberFormat = NumberFormat.getCurrencyInstance(Locale.US)
 
 private const val BILLION = 1e9
 private const val TRILLION = 1e12
 
-/** A dollar total as the hero writes it: trillions or billions to two places, such as "\$3.41 T", and a smaller total in full dollars. */
-internal fun compactUsd(value: Double): String = when {
-    value >= TRILLION -> String.format(Locale.US, "\$%.2f T", value / TRILLION)
-    value >= BILLION -> String.format(Locale.US, "\$%.2f B", value / BILLION)
-    else -> FIAT.format(value)
+/**
+ * A dollar total as the hero writes it, in the owner's currency: trillions or billions to two places, such as "$3.41 T", and a smaller total in full.
+ */
+internal fun compactUsd(usd: Double, fiat: Fiat): String {
+    val value = fiat.convert(usd)
+    return when {
+        value >= TRILLION -> String.format(Locale.ROOT, "%s%.2f T", fiat.currency.prefix, value / TRILLION)
+        value >= BILLION -> String.format(Locale.ROOT, "%s%.2f B", fiat.currency.prefix, value / BILLION)
+        else -> fiat.amount(usd)
+    }
 }
 
 /** How long ago, as the freshness line writes it: "8 s ago", "3 min ago", "3 h ago" or "2 d ago". A time in the future reads as just now. */

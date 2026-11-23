@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -26,6 +28,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import app.airvault.core.model.AccountId
@@ -39,6 +42,8 @@ import app.lensly.ui.navigation.hiddenArea
 import app.lensly.ui.navigation.leaveHidden
 import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.theme.LumenTheme
+import app.lumio.data.config.Fiat
+import app.lumio.data.config.FiatCurrency
 import app.lumio.data.config.LockSettings
 import app.lumio.data.config.LockSettingsStore
 import app.lumio.network.NetworkMode
@@ -48,6 +53,7 @@ import app.lumio.send.algorand.AlgorandSendRoute
 import app.lumio.send.solana.SolanaSendRoute
 import app.lumio.ui.firstrun.FirstRunStep
 import app.lumio.ui.kit.ClearAirTestnetHatch
+import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.kit.lumioComposable
 import app.lumio.ui.settings.SettingsPage
@@ -351,7 +357,24 @@ internal fun LumioBackdrop(
  */
 @Composable
 fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier, navController: NavHostController = rememberNavController()) {
-    LumioNavGraph(debugHiddenRequest = debugHiddenRequest, modifier = modifier, controller = navController)
+    FiatProvider(navController) {
+        LumioNavGraph(debugHiddenRequest = debugHiddenRequest, modifier = modifier, controller = navController)
+    }
+}
+
+/**
+ * Provides [LocalFiat]: the owner's currency with its rate. The rate is read again each time the owner opens a screen, and it is cache-first, so a screen
+ * never waits for a source. US dollars while the vault is locked, in US dollars, or while no rate is known.
+ */
+@Composable
+private fun FiatProvider(navController: NavHostController, content: @Composable () -> Unit) {
+    val app = LocalContext.current.applicationContext as LumioApp
+    val currency = rememberDisplay(app).currency
+    val entry by navController.currentBackStackEntryAsState()
+    val perUsd by produceState<Double?>(initialValue = null, currency, entry) {
+        value = if (currency == FiatCurrency.USD) null else app.prices.fiatRates()?.value?.perUsd?.get(currency.code)
+    }
+    CompositionLocalProvider(LocalFiat provides Fiat.of(currency, perUsd), content = content)
 }
 
 @Composable

@@ -1,5 +1,6 @@
 package app.lumio.portfolio
 
+import app.lumio.data.config.Fiat
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.home.NativeAsset
@@ -170,7 +171,7 @@ class PortfolioViewTest {
         assertEquals("20,100", PortfolioFormat.coins(BigDecimal("20100")))
         assertEquals("22.23", PortfolioFormat.coins(BigDecimal("22.23000")))
         assertEquals("▼ 1.15%", PortfolioFormat.change(-1.15))
-        assertEquals("−\$1,728.13", PortfolioFormat.signedUsd(-1728.13))
+        assertEquals("−\$1,728.13", PortfolioFormat.signedAmount(-1728.13, Fiat.USD))
         assertEquals("0.00%", PortfolioFormat.change(0.0))
         assertNull(PortfolioView.total(emptyList()).usd)
     }
