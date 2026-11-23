@@ -17,13 +17,10 @@ on:
 permissions:
   contents: read
 
-# The build cache has one scope per run. A pull request restores master's entries and saves none. A push to master and a queue
-# entry use `master` and save every lane's entry, even when it fails or is cancelled. Each entry holds only the build-cache entries
-# its run used (scripts/ci/trim-build-cache.sh), and its lane fails above its budget there. `cache-prune` deletes the caches a push
-# supersedes once its lanes have saved (scripts/ci/prune-caches.sh), and the cache-usage guard fails master above 8 GB, so the
-# repository keeps one master generation of build caches and one dependency cache (scripts/ci/README.md).
+# Each lane has one build-cache key, and master replaces it on every push: GitHub cache entries are immutable, so a push deletes
+# the key before it saves. A pull request and a merge-queue entry restore master's entry and save nothing. GitHub evicts the
+# least recently used entries past the repository's 10 GB limit (scripts/ci/README.md).
 env:
-  BUILD_CACHE_SCOPE: ${{ github.event_name == 'pull_request' && format('pr{0}', github.event.pull_request.number) || 'master' }}
   # Gradle encrypts configuration-cache entries with this key. Without a shared key, each runner's own keystore encrypts them, so
   # no lane can read an entry another lane saved. The repository secret must exist for this to take effect (see the PR body).
   GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
@@ -41,8 +38,8 @@ env:
     ~/.gradle/caches/jars-9
 
 # A pull request supersedes its own earlier run. Master pushes share one group and queue, never cancel: a running push always
-# finishes, so no two runs save build caches at once (scripts/ci/prune-caches.sh). A push that waits behind a newer one is
-# replaced by it, and the newer commit contains it and is verified. A queue entry always finishes.
+# finishes, so no two runs replace a build cache at once. A push that waits behind a newer one is replaced by it, and the newer
+# commit contains it and is verified. A queue entry always finishes.
 concurrency:
   group: pr-fast-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.event_name == 'push' && 'master' || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -90,6 +87,10 @@ jobs:
     runs-on: ubuntu-24.04
     # The cap covers cache restore and save: master shards ran 190-295 s, and a slow save cancelled two passing shards.
     timeout-minutes: 10
+    # actions: write lets the master push delete the build-cache key it replaces. No other event deletes anything.
+    permissions:
+      contents: read
+      actions: write
     strategy:
       fail-fast: false
       matrix:
@@ -124,17 +125,16 @@ jobs:
           key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
           fail-on-cache-miss: true
 
-      # The build cache and the configuration cache of this lane: this run's scope first, then master's.
+      # The build cache and the configuration cache of this lane. The restore-keys line reads an entry of the per-commit keys
+      # that earlier master pushes saved, until the fixed key exists.
       - name: Restore the Gradle build cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-shard-${{ matrix.shard }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
-          restore-keys: |
-            bc-shard-${{ matrix.shard }}-${{ env.BUILD_CACHE_SCOPE }}-
-            bc-shard-${{ matrix.shard }}-master-
+          key: bc-shard-${{ matrix.shard }}-master
+          restore-keys: bc-shard-${{ matrix.shard }}-master-
 
       - name: Run shard-${{ matrix.shard }}
         run: ./scripts/ci/run-partition.sh shard-${{ matrix.shard }}
@@ -143,21 +143,24 @@ jobs:
         if: always()
         run: ./gradlew --stop
 
-      # Keeps the entries this lane used (scripts/ci/trim-build-cache.sh). A pull request runs it too, so every run checks the
-      # trim; only a push and a queue entry save its result.
-      - name: Trim the Gradle build cache to this lane's entries
-        id: trim
-        if: always()
-        run: scripts/ci/trim-build-cache.sh shard-${{ matrix.shard }}
+      # Only a push to master saves. A pull request and a merge-queue entry save nothing.
+      - name: Delete the build cache this lane replaces
+        id: replace
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          KEY: bc-shard-${{ matrix.shard }}-master
+        run: gh cache list --ref refs/heads/master --key "$KEY" --limit 100 --json id,key --jq '.[] | select(.key == env.KEY) | .id' | xargs -r -n1 gh cache delete
 
       - name: Save the Gradle build cache
-        if: always() && github.event_name != 'pull_request' && steps.trim.outcome == 'success'
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.replace.outcome == 'success'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-shard-${{ matrix.shard }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
+          key: bc-shard-${{ matrix.shard }}-master
 
       - name: Upload the JUnit results
         if: always()
@@ -175,6 +178,9 @@ jobs:
     needs: deps
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
     strategy:
       fail-fast: false
       matrix:
@@ -206,10 +212,8 @@ jobs:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-verify-${{ matrix.module }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
-          restore-keys: |
-            bc-verify-${{ matrix.module }}-${{ env.BUILD_CACHE_SCOPE }}-
-            bc-verify-${{ matrix.module }}-master-
+          key: bc-verify-${{ matrix.module }}-master
+          restore-keys: bc-verify-${{ matrix.module }}-master-
 
       - name: Verify screenshots
         run: ./scripts/ci/run-partition.sh verify-${{ matrix.module }}
@@ -218,19 +222,23 @@ jobs:
         if: always()
         run: ./gradlew --stop
 
-      - name: Trim the Gradle build cache to this lane's entries
-        id: trim
-        if: always()
-        run: scripts/ci/trim-build-cache.sh verify-${{ matrix.module }}
+      - name: Delete the build cache this lane replaces
+        id: replace
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          KEY: bc-verify-${{ matrix.module }}-master
+        run: gh cache list --ref refs/heads/master --key "$KEY" --limit 100 --json id,key --jq '.[] | select(.key == env.KEY) | .id' | xargs -r -n1 gh cache delete
 
       - name: Save the Gradle build cache
-        if: always() && github.event_name != 'pull_request' && steps.trim.outcome == 'success'
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.replace.outcome == 'success'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-verify-${{ matrix.module }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
+          key: bc-verify-${{ matrix.module }}-master
 
       - name: Upload the JUnit results
         if: always()
@@ -247,6 +255,9 @@ jobs:
     needs: deps
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -274,10 +285,8 @@ jobs:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-fuzz-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
-          restore-keys: |
-            bc-fuzz-${{ env.BUILD_CACHE_SCOPE }}-
-            bc-fuzz-master-
+          key: bc-fuzz-master
+          restore-keys: bc-fuzz-master-
 
       - name: Replay the fuzz seeds
         run: ./scripts/ci/run-partition.sh fuzz
@@ -286,19 +295,23 @@ jobs:
         if: always()
         run: ./gradlew --stop
 
-      - name: Trim the Gradle build cache to this lane's entries
-        id: trim
-        if: always()
-        run: scripts/ci/trim-build-cache.sh fuzz
+      - name: Delete the build cache this lane replaces
+        id: replace
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          KEY: bc-fuzz-master
+        run: gh cache list --ref refs/heads/master --key "$KEY" --limit 100 --json id,key --jq '.[] | select(.key == env.KEY) | .id' | xargs -r -n1 gh cache delete
 
       - name: Save the Gradle build cache
-        if: always() && github.event_name != 'pull_request' && steps.trim.outcome == 'success'
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.replace.outcome == 'success'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-fuzz-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
+          key: bc-fuzz-master
 
   # Assembles the Lumio debug APK. The androidTest and benchmark sources compile on master and in the merge queue only: no test lane
   # runs them, and on a cold build cache they cost a pull request about two minutes.
@@ -307,6 +320,9 @@ jobs:
     needs: deps
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -334,10 +350,8 @@ jobs:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-android-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
-          restore-keys: |
-            bc-android-${{ env.BUILD_CACHE_SCOPE }}-
-            bc-android-master-
+          key: bc-android-master
+          restore-keys: bc-android-master-
 
       - name: Assemble the Lumio debug APK
         run: ./scripts/ci/run-partition.sh apk
@@ -350,19 +364,23 @@ jobs:
         if: always()
         run: ./gradlew --stop
 
-      - name: Trim the Gradle build cache to this lane's entries
-        id: trim
-        if: always()
-        run: scripts/ci/trim-build-cache.sh android
+      - name: Delete the build cache this lane replaces
+        id: replace
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          KEY: bc-android-master
+        run: gh cache list --ref refs/heads/master --key "$KEY" --limit 100 --json id,key --jq '.[] | select(.key == env.KEY) | .id' | xargs -r -n1 gh cache delete
 
       - name: Save the Gradle build cache
-        if: always() && github.event_name != 'pull_request' && steps.trim.outcome == 'success'
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.replace.outcome == 'success'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-android-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
+          key: bc-android-master
 
   # Android lint, one leg per module (scripts/ci/run-partition.sh lint-<module>). A leg compiles its module and the modules it
   # depends on, then lints its main sources, and the legs run on their own runners side by side, so no leg waits for another
@@ -373,6 +391,9 @@ jobs:
     needs: deps
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
     strategy:
       fail-fast: false
       matrix:
@@ -404,9 +425,8 @@ jobs:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-lint-${{ matrix.module }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
-          restore-keys: |
-            bc-lint-${{ matrix.module }}-master-
+          key: bc-lint-${{ matrix.module }}-master
+          restore-keys: bc-lint-${{ matrix.module }}-master-
 
       - name: Lint :${{ matrix.module }}
         run: ./scripts/ci/run-partition.sh lint-${{ matrix.module }}
@@ -415,19 +435,23 @@ jobs:
         if: always()
         run: ./gradlew --stop
 
-      - name: Trim the Gradle build cache to this lane's entries
-        id: trim
-        if: always()
-        run: scripts/ci/trim-build-cache.sh lint-${{ matrix.module }}
+      - name: Delete the build cache this lane replaces
+        id: replace
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          KEY: bc-lint-${{ matrix.module }}-master
+        run: gh cache list --ref refs/heads/master --key "$KEY" --limit 100 --json id,key --jq '.[] | select(.key == env.KEY) | .id' | xargs -r -n1 gh cache delete
 
       - name: Save the Gradle build cache
-        if: always() && github.event_name != 'pull_request' && steps.trim.outcome == 'success'
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.replace.outcome == 'success'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
-          key: bc-lint-${{ matrix.module }}-${{ env.BUILD_CACHE_SCOPE }}-${{ github.sha }}
+          key: bc-lint-${{ matrix.module }}-master
 
   # Guideline 1.8 and R56. The merged manifests and the OkHttp check (scripts/ci/run-partition.sh manifest).
   manifest:
@@ -535,42 +559,6 @@ jobs:
         with:
           fail-on-severity: high
 
-  # Deletes superseded caches after every lane of this push has saved, so the previous master's caches stay restorable until
-  # then (scripts/ci/prune-caches.sh). It keeps master's current head and the newest build-cache set, and the newest entry of each
-  # other cache, so a late or rerun prune of an older push never deletes master's head. One prune runs at a time.
-  cache-prune:
-    name: prune superseded caches
-    if: always() && github.event_name == 'push'
-    needs: [deps, shard, roborazzi, fuzz, android, lint]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    concurrency:
-      group: master-cache-prune
-      cancel-in-progress: false
-    permissions:
-      actions: write
-      contents: read
-    steps:
-      # Master's current head, not this run's commit.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: master
-          persist-credentials: false
-
-      - name: Delete superseded caches
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          MASTER_DEPS_KEY: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
-        run: MASTER_SHA="$(git rev-parse HEAD)" scripts/ci/prune-caches.sh
-
-      # Fails master above 8 GB after the prune: the caches are growing again, and eviction would take master's lane entries next.
-      - name: Check the cache usage after the prune
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-        run: scripts/ci/check-cache-usage.sh error
-
   pr-ok: # the single required check
     if: always()
     needs: [deps, shard, roborazzi, fuzz, android, lint, manifest, ci, secrets, dependency_review]
@@ -597,15 +585,6 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout: scripts/ci
-
-      # Reports the repository's cache size and warns above 8 GB (scripts/ci/check-cache-usage.sh). The guard that fails master is
-      # in cache-prune, after the prune.
-      - name: Check the cache usage
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: scripts/ci/check-cache-usage.sh warning
 
       # The machine-enforced lane budget (scripts/ci/lane-budget.sh, 5 minutes). It reports, and on master files an issue; it never
       # fails the gate, so a slow lane is fixed in a pull request, not rerun to green.

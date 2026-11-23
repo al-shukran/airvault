@@ -14,15 +14,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 SHARDS="$ROOT/scripts/ci/shards.txt"
 
-# The build-cache lanes keep the entries they used (trim-build-cache.sh), and the log names them: the debug flag makes Gradle print a
-# "Build cache key" line for each cacheable task it loads or stores. The marker dates the start of the job, which marks the entries
-# the job created. Both files stay in .gradle/, which the caches never hold.
-state="$ROOT/.gradle"
-mkdir -p "$state"
-[ -e "$state/build-cache-start" ] || touch "$state/build-cache-start"
-
 gradle() {
-    ./gradlew -Dorg.gradle.caching.debug=true "$@" 2>&1 | tee -a "$state/build-cache-keys.log"
+    ./gradlew "$@"
 }
 
 # Watchdog, kept on purpose. If this lane is still running after 240 s, the job log gets the JVM thread dumps (every Gradle
@@ -68,7 +61,7 @@ lanes:
   lint-app, lint-shared, lint-lumio
                lintReportDebug of one module's main sources, the legs of the lint job (see run_lint)
   manifest    merged manifests: no INTERNET or ACCESS_NETWORK_STATE in :app, Lumio's allow-list, OkHttp off the release classpath of :app
-  ci           bash -n on every script, check-partitions.sh, check-test-network.sh and check-trim-build-cache.sh (no Gradle)
+  ci           bash -n on every script, check-partitions.sh and check-test-network.sh (no Gradle)
 USAGE_END
 }
 
@@ -275,12 +268,6 @@ run_ci() {
     echo "run-partition: bash -n passed for $scripts script(s)"
     "$ROOT/scripts/ci/check-partitions.sh"
     "$ROOT/scripts/ci/check-test-network.sh"
-    "$ROOT/scripts/ci/check-trim-build-cache.sh"
-    # The build-cache budgets (build-cache-budgets.txt) with the dependency cache must stay within 7 GB (scripts/ci/README.md).
-    local budget_total
-    budget_total="$(awk '!/^#/ && NF { sum += $2 } END { print sum + 0 }' "$ROOT/scripts/ci/build-cache-budgets.txt")"
-    [ "$budget_total" -le 5300 ] || { echo "run-partition: the build-cache budgets sum to $budget_total MB, over 5300 MB" >&2; exit 1; }
-    echo "run-partition: the build-cache budgets sum to $budget_total MB"
 }
 
 case "$lane" in

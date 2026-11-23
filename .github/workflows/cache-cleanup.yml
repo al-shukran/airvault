@@ -1,7 +1,7 @@
 name: cache-cleanup
 
-# A pull request's build caches are scoped to refs/pull/<number>/merge, which no other branch can restore. Delete them when the
-# pull request closes so they stop counting against the repository's 10 GB cache limit.
+# A pull request saves the dependency cache when it changes the dependency files, scoped to refs/pull/<number>/merge, which no other
+# branch can restore. Delete it when the pull request closes so it stops counting against the repository's 10 GB cache limit.
 on:
   pull_request:
     types: [closed]
