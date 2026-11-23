@@ -156,3 +156,10 @@ sealed class ContractCall(val name: String, val signature: String) {
         }
     }
 }
+
+/**
+ * Whether a transaction whose data is [calldata] shows the Calldata Hash row: the data is not empty and [ContractCall.decode] cannot read it.
+ * Lensly shows the row for such a call unless the signed whitelist approves it, and Lumio shows it under this condition, so a send that Lensly
+ * reads shows no hash row on either app.
+ */
+fun showsCalldataHash(calldata: ByteArray): Boolean = calldata.isNotEmpty() && ContractCall.decode(calldata) == null
