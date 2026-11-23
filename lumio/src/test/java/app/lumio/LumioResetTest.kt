@@ -3,6 +3,8 @@ package app.lumio
 import app.lensly.app.EntryGestureStore
 import app.lensly.app.VaultHolder
 import app.lensly.core.vault.CreateResult
+import app.lensly.core.vault.FailureCapResult
+import app.lensly.core.vault.FailureDelay
 import app.lensly.core.vault.FakeClock
 import app.lensly.core.vault.KdfParams
 import app.lensly.core.vault.MemoryKeystore
@@ -40,15 +42,36 @@ class LumioResetTest {
     private val context = RuntimeEnvironment.getApplication()
     private val clock = FakeClock()
     // Lazy, because the rule creates the temporary folder only after the test instance is built.
-    private val vault by lazy { Vault(VaultLayout(File(tmp.root, "data"), File(tmp.root, "photos")), MemoryKeystore(), clock, KDF) }
+    private val layout by lazy { VaultLayout(File(tmp.root, "data"), File(tmp.root, "photos")) }
+    private val vault by lazy { Vault(layout, MemoryKeystore(), clock, KDF) }
     private val holder by lazy { VaultHolder(vault) }
+
+    @Test
+    fun theDatabaseSitsInsideTheVaultFolderSoAnyEraseRemovesIt() {
+        assertEquals(layout.root, lumioDatabaseFile(layout).parentFile)
+    }
+
+    @Test
+    fun aWrongPasswordEraseRemovesTheDatabase() = runBlocking {
+        assertEquals(CreateResult.Created, vault.create(PASSWORD.toCharArray()))
+        assertEquals(FailureCapResult.Saved, vault.setFailureLimits(PASSWORD.toCharArray(), null, WIPE_AFTER))
+        val databaseFile = lumioDatabaseFile(layout).apply { parentFile!!.mkdirs() }
+        LumioDatabase.open(context, databaseFile).close()
+        assertTrue(databaseFile.isFile)
+
+        repeat(WIPE_AFTER - 1) { assertEquals(UnlockResult.Rejected, wrongTry()) }
+        assertEquals(UnlockResult.Erased, wrongTry())
+
+        assertFalse(vault.exists())
+        assertFalse(databaseFile.exists())
+    }
 
     @Test
     fun resetErasesEveryLumioStoreAndKeepsTheCameraGesture() = runBlocking {
         assertEquals(CreateResult.Created, vault.create(PASSWORD.toCharArray()))
         open()
         holder.openSession()!!.putVaultRecord(PROBE, PROBE_VALUE.toByteArray())
-        val databaseFile = File(tmp.root, "vault/${LumioDatabase.FILE_NAME}").apply { parentFile!!.mkdirs() }
+        val databaseFile = lumioDatabaseFile(layout).apply { parentFile!!.mkdirs() }
         LumioDatabase.open(context, databaseFile).close()
         val lock = LockSettingsStore.open(context).also { it.save(LockSettings(idleMinutes = 5, lockWhenSwitchingApps = true)) }
         val gestures = EntryGestureStore.open(context).also { it.save(EntryGesture.PINCH_TRIPLE_TAP) }
@@ -66,6 +89,12 @@ class LumioResetTest {
         assertEquals(EntryGesture.PINCH_TRIPLE_TAP, gestures.load())
     }
 
+    /** A wrong password, tried after the longest failure delay, so the delay does not refuse the try before it is counted. */
+    private suspend fun wrongTry(): UnlockResult {
+        clock.advance(FailureDelay.MAX_CAP_MS + 1)
+        return vault.unlock(WRONG.toCharArray())
+    }
+
     /** Opens the vault with [PASSWORD] and keeps the session in the holder, as the gate does. */
     private suspend fun open() {
         val result = vault.unlock(PASSWORD.toCharArray())
@@ -75,6 +104,8 @@ class LumioResetTest {
 
     private companion object {
         const val PASSWORD = "q7Vn!2Lx#Rb9Tm4Wc8Zp"
+        const val WRONG = "Zx8#Vb2!Nm5\$Qw7%Ld4"
+        const val WIPE_AFTER = 5
         const val PROBE = "lumio-reset-probe"
         const val PROBE_VALUE = "wiped"
         val KDF = KdfParams(memoryKiB = 8 * 1024, iterations = 1)
