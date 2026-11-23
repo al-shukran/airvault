@@ -50,6 +50,8 @@ import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.kit.ChoiceGroup
 import app.lumio.ui.kit.ChoiceRow
 import app.lumio.ui.kit.ClearAirAmount
+import app.lumio.ui.kit.ClearAirChangeLine
+import app.lumio.ui.kit.ClearAirChangePercent
 import app.lumio.ui.kit.ClearAirChoiceSheet
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirFilterSentence
@@ -100,7 +102,12 @@ fun PortfolioScreen(
                 style = ClearAirType.hero,
                 modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter),
             )
-            Delta(changePct = total.changePct, changeUsd = total.changeUsd, shown = showBalance)
+            ClearAirChangeLine(
+                changePct = total.changePct,
+                changeUsd = total.changeUsd,
+                shown = showBalance,
+                modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter),
+            )
             AllocationLine(slices = PortfolioView.allocation(holdings))
             ClearAirFilterSentence(
                 parts = filter.sentence(),
@@ -214,20 +221,6 @@ private fun polyline(unit: Float, vararg xy: Float, closed: Boolean = false): Pa
  */
 data class OtherSide(val amount: String, val network: String, val testnet: Boolean, val onSwitch: () -> Unit)
 
-/** The change over 24 hours: its arrow and percent, then its amount in dollars and the word "Today". */
-@Composable
-private fun Delta(changePct: Double?, changeUsd: Double?, shown: Boolean) {
-    val palette = LocalClearAirPalette.current
-    if (changePct == null || changeUsd == null) return
-    val color = if (changeUsd < 0) palette.rose else palette.vaultBlue
-    Text(
-        text = "${PortfolioFormat.change(changePct)} · ${Masking.amount(PortfolioFormat.signedAmount(changeUsd, LocalFiat.current), hidden = !shown)} Today",
-        style = ClearAirType.body,
-        color = color,
-        modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter),
-    )
-}
-
 /** The allocation line: the three largest coins and the rest, each a segment in ink at its own strength, with its share written under it. */
 @Composable
 private fun AllocationLine(slices: List<AllocationSlice>) {
@@ -268,18 +261,7 @@ private fun RowValue(row: PortfolioRow, shown: Boolean) {
             color = palette.ink,
             textAlign = TextAlign.End,
         )
-        row.change24h?.let { change ->
-            Text(
-                text = PortfolioFormat.change(change),
-                style = ClearAirType.body,
-                color = when {
-                    change < 0 -> palette.rose
-                    change > 0 -> palette.vaultBlue
-                    else -> palette.ink2
-                },
-                textAlign = TextAlign.End,
-            )
-        }
+        row.change24h?.let { change -> ClearAirChangePercent(change) }
     }
 }
 

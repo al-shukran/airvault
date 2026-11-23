@@ -126,7 +126,7 @@ internal fun WalletsRoute(
     val view = board.view
     TabRoute(tab = LumioTab.ACCOUNTS, navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = onLock) {
         WalletsScreen(
-            rows = view?.let { shown -> shown.wallets.map { wallet -> walletRow(shown, wallet) } }.orEmpty(),
+            rows = view?.let { shown -> walletRows(shown, selection) }.orEmpty(),
             loading = view == null,
             totalUsd = view?.let(::allWalletsUsd),
             showTotal = display.showTotal,
@@ -176,20 +176,23 @@ internal fun WalletRoute(
         if (view == null || wallet == null) {
             WalletLoadingContent()
         } else {
+            val total = view.total(walletId)
             WalletScreen(
                 mode = selection.mode,
                 accounts = view.accountsOf(walletId),
                 tokenCounts = board.tokenCounts,
                 tokenUsd = board.tokenUsd,
-                totalUsd = view.usd(walletId),
+                totalUsd = total.usd,
+                changePct = total.changePct,
+                changeUsd = total.changeUsd,
                 usdOf = view::usd,
                 showTotal = display.showTotal,
                 showBalances = display.showAssets,
                 refreshing = board.refreshing,
                 refreshByPull = board.refreshByPull,
                 updatedAtMs = board.updatedAtMs,
-                // A chain that did not answer names itself under its eyebrow, so the page-wide notice is left out for it.
-                notice = if (board.unreachable.isEmpty()) board.notice else null,
+                // Every read or scan that did not answer leaves the notice. A chain that did not answer also names itself under its island.
+                notice = board.notice,
                 pairedAtMs = wallet.createdAtMs,
                 unreachable = board.unreachable,
                 onAccount = { account -> navController.navigate(LumioRoute.account(walletId, account.id)) },
@@ -471,16 +474,27 @@ internal fun sendRoute(account: WalletAccount, mode: NetworkMode): String = when
     else -> error("Lumio sends from no account on ${account.namespace}")
 }
 
-/** One paired wallet as a row of the Wallets list: its name, its summary line and its dollar total. */
-private fun walletRow(view: WalletsView, wallet: PairedWallet): WalletRow = WalletRow(
-    id = wallet.id,
-    name = wallet.name,
-    summary = summaryLine(view.accountsOf(wallet.id)),
-    usd = view.usd(wallet.id),
-)
+/** The rows of the Wallets list: the active wallet first, tagged ACTIVE, then the others in the vault's order. */
+private fun walletRows(view: WalletsView, selection: NetworkSelection): List<WalletRow> {
+    val active = view.wallets.active(selection) { it.id }?.id
+    return view.walletsActiveFirst(active).map { wallet -> walletRow(view, wallet, active = wallet.id == active) }
+}
+
+/** One paired wallet as a row of the Wallets list: its name, its summary line, its dollar total and change, and whether it is the active one. */
+private fun walletRow(view: WalletsView, wallet: PairedWallet, active: Boolean): WalletRow {
+    val total = view.total(wallet.id)
+    return WalletRow(
+        id = wallet.id,
+        name = wallet.name,
+        summary = summaryLine(view.accountsOf(wallet.id)),
+        usd = total.usd,
+        changePct = total.changePct,
+        active = active,
+    )
+}
 
 /** The dollar total of every wallet on the side, or null when none of its balances has a price. */
-private fun allWalletsUsd(view: WalletsView): Double? = view.wallets.mapNotNull { view.usd(it.id) }.takeIf { it.isNotEmpty() }?.sum()
+private fun allWalletsUsd(view: WalletsView): Double? = view.wallets.mapNotNull { view.total(it.id).usd }.takeIf { it.isNotEmpty() }?.sum()
 
 /**
  * The paired wallets of the open vault, read again when [listVersion] changes. Empty while the vault is locked, and the gate takes over then.

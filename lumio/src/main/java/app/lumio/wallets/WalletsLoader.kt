@@ -18,6 +18,9 @@ import app.lumio.home.HomeLoader
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
+import app.lumio.portfolio.PortfolioTotal
+import app.lumio.portfolio.PortfolioView
+import app.lumio.portfolio.holdingOf
 import app.lumio.rowsOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -35,8 +38,11 @@ class WalletsView(
     /** The accounts of the wallet [walletId] on the side, in chain order. */
     fun accountsOf(walletId: String): List<WalletAccount> = accounts[walletId].orEmpty()
 
-    /** The value in dollars of the priced balances of the wallet [walletId], or null when none of them has a price. */
-    fun usd(walletId: String): Double? = HomeAssets.totalUsd(HomeAssets.priced(balancesOf(walletId), prices))
+    /** The value of the wallet [walletId] in dollars and its change over 24 hours, counted as the Portfolio counts its holdings. */
+    fun total(walletId: String): PortfolioTotal = PortfolioView.total(HomeAssets.priced(balancesOf(walletId), prices).map { holdingOf(it) })
+
+    /** The wallets with the wallet [activeId] first, then the rest in the vault's order. */
+    fun walletsActiveFirst(activeId: String?): List<PairedWallet> = wallets.sortedBy { it.id != activeId }
 
     /** The value in dollars of [account]'s native coin, or null when that coin has no price or no balance is kept. */
     fun usd(account: WalletAccount): Double? = HomeAssets.totalUsd(HomeAssets.priced(listOfNotNull(account.balance), prices))

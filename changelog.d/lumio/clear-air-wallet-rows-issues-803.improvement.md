@@ -1,0 +1,1 @@
+The Accounts tab lists the active wallet first, tagged ACTIVE, and shows each wallet's change over 24 hours under its total. The wallet page shows its change under its total, and Explore lists the chains your accounts sit on with their count and the number of networks.
