@@ -25,6 +25,7 @@ import app.lumio.ui.kit.ClearAirAmount
 import app.lumio.ui.kit.ClearAirCapsuleSmall
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirTextAction
+import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.kit.LumioAssetIcon
 import app.lumio.ui.transactions.ActivityRowItem
 import java.time.ZoneId
@@ -52,6 +53,7 @@ internal fun AssetScreen(
     zone: ZoneId = ZoneId.systemDefault(),
 ) {
     val palette = LocalClearAirPalette.current
+    val fiat = LocalFiat.current
     Column(modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = ClearAirSpacing.xxl)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
@@ -66,8 +68,8 @@ internal fun AssetScreen(
         }
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs)) {
             ClearAirAmount(text = "${asset.amountText} ${asset.symbol}", hidden = !showBalance, style = ClearAirType.total)
-            asset.fiatText?.let { fiat ->
-                ClearAirAmount(text = fiat, hidden = !showBalance, style = ClearAirType.rowValue, color = palette.ink2)
+            asset.usd?.let { usd ->
+                ClearAirAmount(text = fiat.amount(usd), hidden = !showBalance, style = ClearAirType.rowValue, color = palette.ink2)
             }
         }
         chart?.let { series -> TickChart(series = series, modifier = Modifier.padding(top = ClearAirSpacing.md)) }

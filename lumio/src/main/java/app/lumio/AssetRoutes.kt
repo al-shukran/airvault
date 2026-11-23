@@ -34,6 +34,7 @@ import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
+import app.lumio.data.config.Fiat
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.price.ChartRange
@@ -56,13 +57,13 @@ import app.lumio.ui.asset.accountName
 import app.lumio.ui.asset.amountText
 import app.lumio.ui.asset.canHold
 import app.lumio.ui.asset.chainHoldings
-import app.lumio.ui.asset.fiatText
 import app.lumio.ui.asset.holdingsOf
 import app.lumio.ui.asset.holdingsSummary
 import app.lumio.ui.home.AssetIcon
 import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.home.changeText
 import app.lumio.ui.home.tokenIcon
+import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.receive.ReceiveFlowSheet
 import app.lumio.ui.receive.receiveCoinStartOf
 import app.lumio.ui.transactions.ActivityRowItem
@@ -136,11 +137,12 @@ internal fun AssetRoute(
     val holdings = holdingsOf(asset, symbol, accounts, board.tokenHeld)
     val chains = chainHoldings(holdings, wallet.name)
     val total = holdings.map { it.amount }.reduceOrNull(java.math.BigDecimal::add)
+    val fiat = LocalFiat.current
     val held = total?.let { sum ->
         CoinHeld(
             amount = Masking.amount(amountText(sum, symbol), hidden = !display.showAssets),
             summary = holdingsSummary(accounts = holdings.size, chains = chains.size),
-            value = price?.let { Masking.amount(fiatText(sum.toDouble() * it.usd), hidden = !display.showAssets) },
+            value = price?.let { Masking.amount(fiat.amount(sum.toDouble() * it.usd), hidden = !display.showAssets) },
         )
     }
     var receive by remember { mutableStateOf<ReceiveAnswers?>(null) }
@@ -170,8 +172,8 @@ internal fun AssetRoute(
         name = name,
         symbol = symbol,
         icon = { CoinLogo(logo = logo, spec = coinIcon) },
-        priceText = price?.let { fiatText(it.usd) },
-        change = price?.let { changeOf(it) },
+        priceText = price?.let { fiat.amount(it.usd) },
+        change = price?.let { changeOf(it, fiat) },
         series = series,
         range = range,
         onRange = { range = it },
@@ -273,11 +275,11 @@ internal fun NavBackStackEntry.coinAsset(): WatchedAsset {
 }
 
 /** The change of [price] over the chart's day, as the page writes it: the percent, then the dollars it moved. */
-private fun changeOf(price: Price): PriceChange? {
+private fun changeOf(price: Price, fiat: Fiat): PriceChange? {
     val percent = price.change24hPct ?: return null
     val delta = price.usd - price.usd / (1 + percent / 100)
     val sign = if (delta >= 0) "+" else "−"
-    return PriceChange(text = "${changeText(percent)} · $sign${fiatText(abs(delta))} Today", rising = percent >= 0)
+    return PriceChange(text = "${changeText(percent)} · $sign${fiat.amount(abs(delta))} Today", rising = percent >= 0)
 }
 
 /**

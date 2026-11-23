@@ -11,6 +11,7 @@ import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
+import app.lumio.data.provider.FiatQuote
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.MARKET_NET
 import app.lumio.data.provider.MarketQuote
@@ -367,5 +368,43 @@ class PriceRepositoryTest {
         clock.now += 30_000L
         assertEquals(0.9998, repository.assetPrices(listOf(usdc, AssetId.Native(ETH)))[usdc]!!.usd, 0.0)
         assertEquals(1, source.calls)
+    }
+
+    @Test
+    fun theFiatRatesAreAskedOnceAndKeptForTheTtlThenAskedAgain() = runBlocking {
+        val source = FakeProvider(id = "coingecko", networks = setOf(MARKET_NET), ops = setOf(Ops.MARKET_FIAT))
+        source.outcomes.add(FiatQuote(perUsd = mapOf("EUR" to 0.92), asOfMs = 1_000L))
+        source.outcomes.add(FiatQuote(perUsd = mapOf("EUR" to 0.93), asOfMs = 2_000L))
+        val repository = repository(listOf(source))
+
+        assertEquals(Kept(FiatQuote(perUsd = mapOf("EUR" to 0.92), asOfMs = 1_000L), stale = false), repository.fiatRates())
+        clock.now += 30_000L
+        assertEquals(Kept(FiatQuote(perUsd = mapOf("EUR" to 0.92), asOfMs = 1_000L), stale = false), repository.fiatRates())
+        assertEquals(1, source.calls)
+
+        clock.now += 31_000L
+        assertEquals(Kept(FiatQuote(perUsd = mapOf("EUR" to 0.93), asOfMs = 2_000L), stale = false), repository.fiatRates())
+        assertEquals(2, source.calls)
+    }
+
+    @Test
+    fun whenNoSourceAnswersTheLastFiatRatesKeptAreReturnedAsStale() = runBlocking {
+        val source = FakeProvider(id = "coingecko", networks = setOf(MARKET_NET), ops = setOf(Ops.MARKET_FIAT))
+        source.outcomes.add(FiatQuote(perUsd = mapOf("EUR" to 0.92), asOfMs = 1_000L))
+        source.outcomes.add(ProviderError.Fatal("The provider is down."))
+        val repository = repository(listOf(source))
+        repository.fiatRates()
+        clock.now += 10 * 60_000L
+
+        assertEquals(Kept(FiatQuote(perUsd = mapOf("EUR" to 0.92), asOfMs = 1_000L), stale = true), repository.fiatRates())
+    }
+
+    @Test
+    fun withNoSourceServingTheRatesNoRateIsReadAndNothingIsAsked() = runBlocking {
+        val source = FakeProvider(id = "coingecko", networks = setOf(MARKET_NET), ops = setOf(Ops.MARKET_GLOBAL))
+        val repository = repository(listOf(source))
+
+        assertNull(repository.fiatRates())
+        assertEquals(0, source.calls)
     }
 }

@@ -17,6 +17,7 @@ import app.lensly.ui.settings.ChangePasswordState
 import app.lensly.ui.settings.ChangeStep
 import app.lumio.btc.BtcAccountRef
 import app.lumio.data.config.DisplaySettings
+import app.lumio.data.config.FiatCurrency
 import app.lumio.data.config.FinishSetup
 import app.lumio.data.config.LockSettings
 import app.lumio.data.config.TransactionSettings
@@ -157,6 +158,21 @@ class LumioScreenshotTest {
             notice = null,
             onShowTotal = {},
             onShowAssets = {},
+            onCurrency = {},
+            onSmallBalance = {},
+            offline = null, onLock = {}, onBack = {},
+        )
+    }
+
+    @Test
+    fun settingsDisplayEuro() = compose.lumioSnapshot("settings_display_euro") {
+        DisplaySettingsPage(
+            settings = DisplaySettings(currency = FiatCurrency.EUR, smallBalanceUsd = 5.0),
+            notice = null,
+            onShowTotal = {},
+            onShowAssets = {},
+            onCurrency = {},
+            onSmallBalance = {},
             offline = null, onLock = {}, onBack = {},
         )
     }

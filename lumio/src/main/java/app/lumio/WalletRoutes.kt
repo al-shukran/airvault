@@ -258,6 +258,7 @@ internal fun AccountRoute(
                 walletName = view.wallets.firstOrNull { it.id == walletId }?.name.orEmpty(),
                 account = account,
                 showBalance = display.showAssets,
+                hidesSmall = display::hidesSmallBalance,
                 assets = assetRows,
                 loadingAssets = reads.tokens == null || reads.holdings == null,
                 activity = activity.orEmpty(),

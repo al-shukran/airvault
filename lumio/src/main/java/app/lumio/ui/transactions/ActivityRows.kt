@@ -31,6 +31,7 @@ import app.lumio.data.tx.TxDirection
 import app.lumio.home.Masking
 import app.lumio.transactions.ActivityText
 import app.lumio.transactions.TxFeedItem
+import app.lumio.ui.kit.LocalFiat
 import java.time.ZoneId
 
 /** The side of the disc that a direction mark sits in, and the mark's own side. */
@@ -86,8 +87,8 @@ fun ActivityRowItem(item: TxFeedItem, names: Map<String, String>, zone: ZoneId, 
                 color = if (line.incoming) palette.vaultBlue else palette.ink,
                 textAlign = TextAlign.End,
             )
-            line.fiat?.let {
-                Text(text = Masking.amount(it, hidden = !shown), style = ClearAirType.body, color = palette.ink2, textAlign = TextAlign.End)
+            line.usd?.let {
+                Text(text = Masking.amount(LocalFiat.current.amount(it), hidden = !shown), style = ClearAirType.body, color = palette.ink2, textAlign = TextAlign.End)
             }
         }
     }

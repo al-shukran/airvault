@@ -77,6 +77,7 @@ object Ops {
 
     val MARKET_GLOBAL = OpKey("market.global")
     val MARKET_TRENDING = OpKey("market.trending")
+    val MARKET_FIAT = OpKey("market.fiat")
 
     /** The balance reads that DATA providers are tried before RPC providers for (router rule 5). */
     val BALANCE_READS = setOf(EVM_NATIVE_BALANCE, SOL_NATIVE_BALANCE, ALGO_NATIVE_BALANCE, SOL_TOKEN_BALANCES, ALGO_TOKEN_BALANCES)

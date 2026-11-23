@@ -6,8 +6,6 @@ import app.lumio.tokens.TokenHolding
 import app.lumio.wallets.WalletAccount
 import app.lumio.watchlist.WatchedAsset
 import java.math.BigDecimal
-import java.text.NumberFormat
-import java.util.Locale
 
 /** One account's share of a coin: its name, its wallet's name, index and address as Holdings Breakdown writes them, and the amount it holds. */
 internal data class AccountHolding(
@@ -83,14 +81,9 @@ internal fun amountText(amount: BigDecimal, symbol: String): String = "${amount.
 /** An address shortened to its first six and last four characters, joined by an ellipsis: `0x1020…122b`. */
 internal fun shortAddress(address: String): String = if (address.length <= SHORT_ADDRESS_LENGTH) address else address.take(6) + "…" + address.takeLast(4)
 
-/** Dollars to the cent, as the asset page writes them: `$4,285.70`. */
-internal fun fiatText(usd: Double): String = FIAT.format(usd)
-
 /** The count of accounts and chains as the asset page's holdings row reads them: `5 accounts · 3 chains`. */
 internal fun holdingsSummary(accounts: Int, chains: Int): String = "${counted(accounts, "account")} · ${counted(chains, "chain")}"
 
 private fun counted(count: Int, noun: String): String = if (count == 1) "1 $noun" else "$count ${noun}s"
 
 private const val SHORT_ADDRESS_LENGTH = 12
-
-private val FIAT: NumberFormat = NumberFormat.getCurrencyInstance(Locale.US)

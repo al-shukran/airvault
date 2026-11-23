@@ -73,6 +73,8 @@ internal fun DisplaySettingsRoute(navController: NavHostController, holder: Vaul
         notice = display.notice,
         onShowTotal = { on -> display.change { it.copy(showTotal = on) } },
         onShowAssets = { on -> display.change { it.copy(showAssets = on) } },
+        onCurrency = { currency -> display.change { it.copy(currency = currency) } },
+        onSmallBalance = { usd -> display.change { it.copy(smallBalanceUsd = usd) } },
         offline = rememberSettingsOffline(),
         onBack = { navController.popBackStack() },
         onLock = onLock,

@@ -47,7 +47,7 @@ class AssetRowsTest {
 
         assertEquals(NATIVE_ASSET_KEY, row.assetKey)
         assertEquals("12.5", row.amountText)
-        assertEquals("\$25.00", row.fiatText)
+        assertEquals(25.0, row.usd!!, 1e-6)
         assertEquals(AssetId.Native(native), row.assetId)
         assertEquals(false, row.zero)
     }
@@ -65,7 +65,7 @@ class AssetRowsTest {
 
         assertEquals(MIXED_CASE_USDC.lowercase(), row.assetKey)
         assertEquals("1250.5", row.amountText)
-        assertEquals("\$1,250.50", row.fiatText)
+        assertEquals(1250.5, row.usd!!, 1e-6)
         assertEquals(AssetIconSpec.Letter("U"), row.icon)
     }
 
@@ -73,7 +73,7 @@ class AssetRowsTest {
     fun aTokenWithNoPriceHasNoFiat() {
         val row = AssetRows.of(account.copy(balance = null), listOf(usdcHolding), emptyList(), emptyMap(), network = { null }, token = { _, _ -> null }).single()
 
-        assertNull(row.fiatText)
+        assertNull(row.usd)
     }
 
     @Test
@@ -85,7 +85,7 @@ class AssetRowsTest {
         assertEquals(SPL_MINT, row.assetKey)
         assertEquals("1.5", row.amountText)
         assertNull(row.assetId)
-        assertNull(row.fiatText)
+        assertNull(row.usd)
     }
 
     @Test

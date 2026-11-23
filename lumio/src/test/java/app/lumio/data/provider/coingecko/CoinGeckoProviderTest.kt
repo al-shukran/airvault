@@ -5,6 +5,7 @@ import app.lumio.data.ETH
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
+import app.lumio.data.provider.FiatRates
 import app.lumio.data.provider.GlobalMarket
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.MarketQuote
@@ -67,6 +68,13 @@ class CoinGeckoProviderTest {
 
     private fun ethereumAnswer(change: String = "0.4118") = MockResponse.Builder().body(
         """{"ethereum":{"usd":1827.5,"usd_24h_change":$change,"last_updated_at":1794774853}}""",
+    ).build()
+
+    private fun exchangeRatesAnswer(eur: String = "50000") = MockResponse.Builder().body(
+        """{"rates":{"btc":{"name":"Bitcoin","unit":"BTC","value":1.0,"type":"crypto"},""" +
+            """"usd":{"name":"US Dollar","unit":"USD","value":100000.0,"type":"fiat"},""" +
+            """"eur":{"name":"Euro","unit":"€","value":$eur,"type":"fiat"},""" +
+            """"chf":{"name":"Swiss Franc","unit":"CHF","value":25000.0,"type":"fiat"}}}""",
     ).build()
 
     private fun globalAnswer(total: String = "2621040321355.0405", change: String = "-1.6081983639177684") = MockResponse.Builder().body(
@@ -272,5 +280,20 @@ class CoinGeckoProviderTest {
         const val DEMO_KEY = "demo-key"
         const val USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
         const val IMAGE_HOST = "img.example"
+    }
+
+    @Test
+    fun theFiatRatesAreEachCurrencyPerUsDollarFromTheBitcoinTable() {
+        server.enqueue(exchangeRatesAnswer())
+
+        assertEquals(mapOf("USD" to 1.0, "EUR" to 0.5, "CHF" to 0.25), call(FiatRates()).perUsd)
+        assertEquals("/api/v3/exchange_rates", server.takeRequest().url.encodedPath)
+    }
+
+    @Test
+    fun aFiatRateThatIsNotPositiveIsAFatalAnswer() {
+        server.enqueue(exchangeRatesAnswer(eur = "0"))
+
+        assertFailsWith<ProviderError.Fatal> { call(FiatRates()) }
     }
 }
