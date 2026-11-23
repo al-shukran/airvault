@@ -38,6 +38,14 @@ class SecretInputTest {
     }
 
     @Test
+    fun maskedFieldTakesTheSecretFlagsWhateverItsKeyboard() {
+        compose.setContent {
+            ClearAirTheme { ClearAirField(label = "PIN", value = "", onValueChange = {}, keyboard = KeyboardType.Number, masked = true) }
+        }
+        assertSecretFlags()
+    }
+
+    @Test
     fun apiKeyFieldTakesTheSecretFlags() {
         compose.setContent { ClearAirTheme { ApiKeyField(id = "provider", stored = null, onSave = {}) } }
         assertSecretFlags()
