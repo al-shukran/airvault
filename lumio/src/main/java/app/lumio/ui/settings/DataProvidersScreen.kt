@@ -44,6 +44,7 @@ import app.lensly.ui.components.SettingsSwitchRow
 import app.lensly.ui.components.TextAction
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.R
+import app.lumio.ui.kit.SecretInput
 import kotlin.math.roundToInt
 
 /**
@@ -203,7 +204,7 @@ private fun ProviderRowItem(
  * nothing here logs it.
  */
 @Composable
-private fun ApiKeyField(id: String, stored: String?, onSave: (String) -> Unit) {
+internal fun ApiKeyField(id: String, stored: String?, onSave: (String) -> Unit) {
     var draft by remember(id, stored) { mutableStateOf(stored.orEmpty()) }
     var revealed by remember(id) { mutableStateOf(false) }
     var focused by remember(id) { mutableStateOf(false) }
@@ -212,22 +213,24 @@ private fun ApiKeyField(id: String, stored: String?, onSave: (String) -> Unit) {
         val key = draft.trim()
         if (key.isNotEmpty() && key != stored.orEmpty()) onSave(key)
     }
-    OutlinedTextField(
-        value = draft,
-        onValueChange = { draft = it },
-        label = { Text(stringResource(R.string.providers_key_label)) },
-        singleLine = true,
-        visualTransformation = if (revealed) VisualTransformation.None else PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { save() }),
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("key-$id")
-            .onFocusChanged { state ->
-                if (focused && !state.isFocused) save()
-                focused = state.isFocused
-            },
-    )
+    SecretInput {
+        OutlinedTextField(
+            value = draft,
+            onValueChange = { draft = it },
+            label = { Text(stringResource(R.string.providers_key_label)) },
+            singleLine = true,
+            visualTransformation = if (revealed) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { save() }),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("key-$id")
+                .onFocusChanged { state ->
+                    if (focused && !state.isFocused) save()
+                    focused = state.isFocused
+                },
+        )
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
