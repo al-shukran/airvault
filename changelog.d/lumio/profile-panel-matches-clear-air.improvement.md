@@ -1,0 +1,1 @@
+The profile panel now follows the Clear Air design. Scan to Pay has its glyph in a disc, the Lensly wallets are radio rows with dividers between them, and the section labels, the test-network sentence and the spacing match the design.

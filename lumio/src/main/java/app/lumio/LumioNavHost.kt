@@ -211,8 +211,14 @@ internal object LumioRoute {
     /** The argument of the send's route: the contract of the token the send moves. Left out, the send moves the native coin of the chain. */
     const val SEND_CONTRACT_ARG = "contract"
 
-    /** The Ethereum send from one account of the wallet in [WALLET_ARG], on the network [SEND_CHAIN_ARG], of the token [SEND_CONTRACT_ARG] when set. */
-    const val SEND = "send/{$WALLET_ARG}/{$ACCOUNT_ARG}?$SEND_CHAIN_ARG={$SEND_CHAIN_ARG}&$SEND_CONTRACT_ARG={$SEND_CONTRACT_ARG}"
+    /** The argument of the send's route: when true, the send opens with the camera on for its recipient, as Scan to Pay does. */
+    const val SEND_SCAN_ARG = "scan"
+
+    /**
+     * The Ethereum send from one account of the wallet in [WALLET_ARG], on the network [SEND_CHAIN_ARG], of the token [SEND_CONTRACT_ARG] when set. With
+     * [SEND_SCAN_ARG] set, it opens on the recipient's camera.
+     */
+    const val SEND = "send/{$WALLET_ARG}/{$ACCOUNT_ARG}?$SEND_CHAIN_ARG={$SEND_CHAIN_ARG}&$SEND_CONTRACT_ARG={$SEND_CONTRACT_ARG}&$SEND_SCAN_ARG={$SEND_SCAN_ARG}"
 
     /** The Solana send from the account [ACCOUNT_ARG] of the wallet in [WALLET_ARG]. Its side (testnet or mainnet) is the selected side. */
     const val SOLANA_SEND = "solana-send/{$WALLET_ARG}/{$ACCOUNT_ARG}"
@@ -247,9 +253,14 @@ internal object LumioRoute {
     /** The route of the Bitcoin send from [account] of [walletId]. */
     fun btcSend(walletId: String, account: AccountId): String = "bitcoin-send/$walletId/${account.caip10}"
 
-    /** The route of a send from [account] of [walletId] on the network [chainId], of the token at [contract] when one is given. */
-    fun send(walletId: String, account: AccountId, chainId: Long, contract: String? = null): String =
-        "send/$walletId/${account.caip10}?$SEND_CHAIN_ARG=$chainId" + contract?.let { "&$SEND_CONTRACT_ARG=$it" }.orEmpty()
+    /**
+     * The route of a send from [account] of [walletId] on the network [chainId], of the token at [contract] when one is given. [scan] opens it with the
+     * camera on for the recipient.
+     */
+    fun send(walletId: String, account: AccountId, chainId: Long, contract: String? = null, scan: Boolean = false): String =
+        "send/$walletId/${account.caip10}?$SEND_CHAIN_ARG=$chainId" +
+            contract?.let { "&$SEND_CONTRACT_ARG=$it" }.orEmpty() +
+            if (scan) "&$SEND_SCAN_ARG=true" else ""
 
     /** The arguments of a transaction's page: the account that the row is for, and the transaction's id. */
     const val TX_ACCOUNT_ARG = "account"
@@ -762,12 +773,14 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                     navArgument(LumioRoute.ACCOUNT_ARG) { type = NavType.StringType },
                     navArgument(LumioRoute.SEND_CHAIN_ARG) { type = NavType.LongType; defaultValue = NO_CHAIN },
                     navArgument(LumioRoute.SEND_CONTRACT_ARG) { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument(LumioRoute.SEND_SCAN_ARG) { type = NavType.BoolType; defaultValue = false },
                 ),
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 val account = entry.accountId()
                 val chain = entry.arguments?.getLong(LumioRoute.SEND_CHAIN_ARG) ?: NO_CHAIN
                 val contract = entry.arguments?.getString(LumioRoute.SEND_CONTRACT_ARG)
+                val scanFirst = entry.arguments?.getBoolean(LumioRoute.SEND_SCAN_ARG) == true
                 LumioBackdrop(selection) {
                     SendRoute(
                         navController = navController,
@@ -776,6 +789,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                         account = account,
                         mode = selection.mode,
                         chainId = chain,
+                        scanFirst = scanFirst,
                         initialContract = contract,
                         onLock = { lock() },
                     )

@@ -19,7 +19,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -34,11 +34,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -71,10 +71,24 @@ private const val SCRIM_DARK = 0.58f
 private val ROW_MIN_HEIGHT = 62.dp
 private val COMPACT_ROW_MIN_HEIGHT = 48.dp
 
-/** The radio of a wallet row: a 22 dp ring with a 12 dp dot when the wallet is the chosen one. */
+/** The divider between two rows starts after a row's disc, at the gutter, the disc and its gap: 20 + 36 + 12 dp. */
+private val DIVIDER_START = 68.dp
+
+/** The thickness of a row's divider. */
+private val DIVIDER_HAIRLINE = 1.dp
+
+/** The leading disc of a row and the glyph in it, and the chevron that a row which opens something ends with. */
+private val DISC_GLYPH = 21.dp
+private val CHEVRON_SIZE = 16.dp
+
+/** The radio of a wallet row: a 22 dp ring, 2 dp thick, with a 10 dp dot when the wallet is the chosen one. */
 private val RADIO_SIZE = 22.dp
-private val RADIO_DOT = 12.dp
-private val RADIO_STROKE = 1.6.dp
+private val RADIO_STROKE = 2.dp
+private val RADIO_DOT = 10.dp
+
+/** The mock's text sizes for the panel: the caption under the Lumio name, the sentence under the control and a row's description. */
+private val CAPTION: TextStyle = ClearAirType.body.copy(fontSize = 13.sp, lineHeight = 18.sp)
+private val DESCRIPTION: TextStyle = ClearAirType.body.copy(fontSize = 12.5.sp, lineHeight = 17.sp)
 
 /** The EVM test network that Send starts on, which the sentence marks as the default. */
 private const val EVM_DEFAULT = "Monad Testnet"
@@ -139,20 +153,21 @@ fun ProfilePanel(
                     .clip(RoundedCornerShape(topEnd = PANEL_CORNER, bottomEnd = PANEL_CORNER))
                     .background(palette.sheet)
                     .statusBarsPadding()
+                    .navigationBarsPadding()
                     .verticalScroll(rememberScrollState()),
             ) {
                 Brand()
                 PanelRow(
                     title = "Scan to Pay",
                     description = "Send to a scanned address",
-                    leading = { PanelGlyph(SCAN_GLYPH, palette.ink) },
+                    leading = { GlyphDisc(ClearAirGlyph.SCAN, glyphSize = DISC_GLYPH) },
                     onClick = {
                         onDismiss()
                         onScan()
                     },
                 )
-                ClearAirEyebrow("Networks", modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = 14.dp))
-                Column(modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter)) {
+                ClearAirEyebrow("Networks", modifier = Modifier.padding(start = ClearAirSpacing.gutter), top = 14.dp, bottom = ClearAirSpacing.xxs)
+                Column(modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = ClearAirSpacing.xxs, end = ClearAirSpacing.gutter)) {
                     ClearAirSegmented(
                         options = NetworkMode.entries,
                         selected = mode,
@@ -162,25 +177,20 @@ fun ProfilePanel(
                             onDismiss()
                         },
                     )
-                    Text(
-                        text = networkSentence,
-                        style = ClearAirType.body.copy(fontSize = 13.sp, lineHeight = 18.sp),
-                        color = palette.ink2,
-                        modifier = Modifier.padding(top = 10.dp),
-                    )
+                    Text(text = networkSentence, style = CAPTION, color = palette.ink2, modifier = Modifier.padding(top = 10.dp))
                 }
                 PanelRow(
                     title = "Choose Test Networks",
-                    titleStyle = ClearAirType.rowTitle.copy(fontSize = 14.sp, lineHeight = 20.sp),
-                    trailing = { Text(text = testNetworks.toString(), style = ClearAirType.label, color = palette.ink2) },
+                    titleStyle = ClearAirType.rowTitle.copy(fontSize = 14.sp),
+                    trailing = { Text(text = testNetworks.toString(), style = ClearAirType.address, color = palette.ink2) },
                     minHeight = COMPACT_ROW_MIN_HEIGHT,
                     onClick = {
                         onDismiss()
                         onTestNetworks()
                     },
                 )
-                ClearAirEyebrow("Lensly Wallets", modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = 10.dp))
-                wallets.forEach { wallet ->
+                ClearAirEyebrow("Lensly Wallets", modifier = Modifier.padding(start = ClearAirSpacing.gutter), top = 10.dp, bottom = ClearAirSpacing.xxs)
+                wallets.forEachIndexed { index, wallet ->
                     val chosen = wallet.id == activeWalletId
                     PanelRow(
                         title = wallet.name,
@@ -188,6 +198,7 @@ fun ProfilePanel(
                         leading = { ClearAirWalletEmblem(tile = 36.dp) },
                         trailing = { PanelRadio(selected = chosen) },
                         selected = chosen,
+                        divider = index > 0,
                         onClick = {
                             onDismiss()
                             onWallet(wallet.id)
@@ -200,33 +211,33 @@ fun ProfilePanel(
                         onPair()
                     },
                 )
-                Spacer(Modifier.height(ClearAirSpacing.lg))
             }
         }
     }
 }
 
-/** The panel's head: the mark, then "Lumio" and "AirVault Companion" beside it. */
+/** The panel's head: the mark, then "Lumio" and "AirVault Companion" beside it, 10 dp under the status bar as the mock sets them. */
 @Composable
 private fun Brand() {
     val palette = LocalClearAirPalette.current
     Row(
-        modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = 8.dp, end = ClearAirSpacing.gutter, bottom = 8.dp),
+        modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = 10.dp, end = ClearAirSpacing.gutter, bottom = ClearAirSpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         LumioMark(size = 34.dp)
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(ClearAirSpacing.sm))
         Column {
-            Text(text = "Lumio", style = ClearAirType.titleL.copy(fontSize = 19.sp, lineHeight = 24.sp), color = palette.ink)
-            Text(text = "AirVault Companion", style = ClearAirType.label, color = palette.ink2)
+            Text(text = "Lumio", style = ClearAirType.titleL.copy(fontSize = 19.sp, lineHeight = 25.sp), color = palette.ink)
+            Text(text = "AirVault Companion", style = CAPTION, color = palette.ink2)
         }
     }
 }
 
 /**
- * A row of the panel, drawn as a Clear Air row is: an optional [leading] mark, a [title] with a [description] under it, and an optional [trailing] value.
- * A row that opens something has a chevron. A row with a [selected] state is a radio choice instead: it has no chevron, and a tap chooses it. The
- * [titleStyle] and [minHeight] fit a row to the mock where the mock differs.
+ * A row of the panel, drawn as the mock draws a row: an optional [leading] disc, a [title] with a [description] under it, and an optional [trailing]
+ * value. A row that opens something ends with a chevron. A row with a [selected] state is a radio choice instead: it has no chevron, and a tap chooses
+ * it. A [divider] row has a hairline above it, from the disc's edge to the gutter. The [titleStyle] and [minHeight] fit a row to the mock where the mock
+ * differs.
  */
 @Composable
 private fun PanelRow(
@@ -236,6 +247,7 @@ private fun PanelRow(
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     selected: Boolean? = null,
+    divider: Boolean = false,
     titleStyle: TextStyle = ClearAirType.rowTitle,
     minHeight: Dp = ROW_MIN_HEIGHT,
 ) {
@@ -249,8 +261,9 @@ private fun PanelRow(
         modifier = Modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = minHeight)
+            .then(if (divider) Modifier.divider(palette.hairline) else Modifier)
             .then(tap)
-            .padding(horizontal = ClearAirSpacing.gutter),
+            .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (leading != null) {
@@ -258,9 +271,9 @@ private fun PanelRow(
             Spacer(Modifier.width(ClearAirSpacing.sm))
         }
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = titleStyle, color = palette.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(text = title, style = titleStyle, color = palette.ink)
             if (description != null) {
-                Text(text = description, style = ClearAirType.body, color = palette.ink2, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(text = description, style = DESCRIPTION, color = palette.ink2)
             }
         }
         if (trailing != null) {
@@ -268,9 +281,30 @@ private fun PanelRow(
             trailing()
         }
         if (selected == null) {
-            Spacer(Modifier.width(ClearAirSpacing.xs))
-            ClearAirIcon(glyph = ClearAirGlyph.CHEVRON, color = palette.ink3)
+            Spacer(Modifier.width(ClearAirSpacing.sm))
+            ClearAirIcon(glyph = ClearAirGlyph.CHEVRON, color = palette.ink3, size = CHEVRON_SIZE)
         }
+    }
+}
+
+/** The hairline above a row, from [DIVIDER_START] to the gutter on the right, as the mock draws a row's divider. */
+private fun Modifier.divider(color: Color): Modifier = drawBehind {
+    val thickness = DIVIDER_HAIRLINE.toPx()
+    val end = size.width - ClearAirSpacing.gutter.toPx()
+    drawLine(color = color, start = Offset(DIVIDER_START.toPx(), thickness / 2), end = Offset(end, thickness / 2), strokeWidth = thickness)
+}
+
+/**
+ * A row's leading glyph in a raised disc of 36 dp, as the mock draws a row's logo: the [glyph] at [glyphSize] in ink, centred in the disc.
+ */
+@Composable
+internal fun GlyphDisc(glyph: ClearAirGlyph, glyphSize: Dp = DISC_GLYPH) {
+    val palette = LocalClearAirPalette.current
+    Box(
+        modifier = Modifier.size(36.dp).clip(CircleShape).background(palette.raised),
+        contentAlignment = Alignment.Center,
+    ) {
+        ClearAirIcon(glyph = glyph, color = palette.ink, size = glyphSize)
     }
 }
 
@@ -288,7 +322,9 @@ private fun PanelRadio(selected: Boolean) {
     }
 }
 
-/** Pair Another Wallet: an underlined text action with a plus in front of it, at least 48 dp square. */
+/**
+ * Pair Another Wallet: a plus and the words in ink, as the mock's text action sets them. It is not underlined, and it is at least 48 dp tall.
+ */
 @Composable
 private fun PairAction(onClick: () -> Unit) {
     val palette = LocalClearAirPalette.current
@@ -296,16 +332,13 @@ private fun PairAction(onClick: () -> Unit) {
         modifier = Modifier
             .padding(horizontal = ClearAirSpacing.gutter)
             .defaultMinSize(minHeight = ClearAirSpacing.touchTarget)
-            .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onClick),
+            .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onClick)
+            .padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        PanelGlyph(PLUS_GLYPH, palette.ink)
-        Spacer(Modifier.width(ClearAirSpacing.xs))
-        Text(
-            text = "Pair Another Wallet",
-            style = ClearAirType.rowTitle.copy(textDecoration = TextDecoration.Underline),
-            color = palette.ink,
-        )
+        ClearAirIcon(glyph = ClearAirGlyph.PLUS, color = palette.ink, size = 18.dp)
+        Spacer(Modifier.width(6.dp))
+        Text(text = "Pair Another Wallet", style = ClearAirType.rowTitle, color = palette.ink)
     }
 }
 

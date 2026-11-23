@@ -50,6 +50,7 @@ enum class SearchTab(val label: String) {
     ETH("ETH"),
     SOL("SOL"),
     CHAINS("Chains"),
+    PROVIDERS("Providers"),
 }
 
 /** One result: its [key], the [title] and [detail] the row shows, and the [onOpen] that opens its page, or null for a result with no page yet. */

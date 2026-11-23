@@ -11,9 +11,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
+import app.airvault.core.model.AccountId
 import app.lensly.app.VaultHolder
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
+import app.lumio.data.net.Networks
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmEdits
 import app.lumio.evm.EvmSettingsStore
@@ -27,6 +29,7 @@ import app.lumio.ui.shell.LumioPageScreen
 import app.lumio.ui.shell.LumioRootScreen
 import app.lumio.ui.shell.offlineBand
 import app.lumio.ui.shell.rememberOnline
+import app.lumio.wallets.WalletAccounts
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -69,7 +72,7 @@ internal fun TabRoute(
         networkSentence = testNetworkSentence(networks.evmNames),
         offline = if (online) null else offlineBand(app.lumioVault()?.wallets?.updatedAtMs),
         onTab = { navController.openTab(it) },
-        onScan = { active?.let { navController.navigate(LumioRoute.wallet(it.id)) } },
+        onScan = { active?.let { scanToPayRoute(it, selection.mode) }?.let { navController.navigate(it) } },
         onTestNetworks = { navController.navigate(LumioRoute.TEST_NETWORKS) },
         onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
         onLock = onLock,
@@ -179,6 +182,16 @@ private fun testNetworkSummary(app: LumioApp, holder: VaultHolder, listVersion: 
 
 /** The wallet the shell shows: the one the profile panel chose, or the first paired wallet until the owner chooses one. */
 internal fun <T> List<T>.active(selection: NetworkSelection, id: (T) -> String): T? = firstOrNull { id(it) == selection.walletId } ?: firstOrNull()
+
+/**
+ * The send that Scan to Pay opens: the wallet's first Ethereum account on the side's primary network, with the camera on for the recipient. A wallet
+ * with no Ethereum account has no such send, so the row opens nothing.
+ */
+internal fun scanToPayRoute(wallet: PairedWallet, mode: NetworkMode): String? {
+    val address = wallet.evmAddresses.firstOrNull() ?: return null
+    val chainId = WalletAccounts.primaryEvmChainId(mode)
+    return LumioRoute.send(wallet.id, AccountId.of(Networks.evm(chainId), address), chainId, scan = true)
+}
 
 /** A wallet's line in the profile panel: its account count and the day it was paired, such as "30 accounts · paired 21 Nov". */
 private fun walletDetail(wallet: PairedWallet): String {

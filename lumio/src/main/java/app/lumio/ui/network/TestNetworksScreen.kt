@@ -23,6 +23,7 @@ import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.evm.EvmChain
 import app.lumio.ui.kit.ClearAirEyebrow
+import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSwitch
 import app.lumio.ui.kit.LumioTag
@@ -71,7 +72,7 @@ fun TestNetworksScreen(
         ClearAirRow(
             title = "Add Custom Test Network",
             description = "Any EVM chain, by chain ID and RPC",
-            leading = { PanelGlyph(PLUS_GLYPH, palette.ink) },
+            leading = { GlyphDisc(ClearAirGlyph.PLUS, glyphSize = 19.dp) },
             onClick = onAddCustom,
         )
         ClearAirEyebrow("Bitcoin App")
