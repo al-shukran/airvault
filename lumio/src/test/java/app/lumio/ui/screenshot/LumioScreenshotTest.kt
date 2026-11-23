@@ -154,14 +154,14 @@ class LumioScreenshotTest {
             notice = null,
             onShowTotal = {},
             onShowAssets = {},
-            onBack = {},
+            offline = null, onLock = {}, onBack = {},
         )
     }
 
     @Test
     fun settingsTransactions() = compose.lumioSnapshot("settings_transactions") {
         TransactionsSettingsPage(
-            onBack = {},
+            offline = null, onLock = {}, onBack = {},
             comments = { CommentBackupRows(onExport = {}, onImport = {}, notice = null) },
         )
     }
@@ -169,7 +169,7 @@ class LumioScreenshotTest {
     @Test
     fun settingsNetworks() = compose.lumioSnapshot("settings_networks") {
         NetworksSettingsPage(
-            onBack = {},
+            offline = null, onLock = {}, onBack = {},
             bitcoin = {
                 BitcoinServersSettings(
                     mainnet = "https://mempool.space/api",
@@ -201,7 +201,7 @@ class LumioScreenshotTest {
     @Test
     fun settingsWallets() = compose.lumioSnapshot("settings_wallets") {
         WalletsSettingsPage(
-            onBack = {},
+            offline = null, onLock = {}, onBack = {},
             wallets = {
                 WalletsSettings(
                     wallets = listOf(PairedWallet(id = "wallet-Demo", name = "Demo", fingerprint = 0x1a2b3c4dL, createdAtMs = NOW, evmAccounts = emptyList(), bitcoin = emptyList())),
@@ -215,7 +215,7 @@ class LumioScreenshotTest {
     @Test
     fun settingsAddressBook() = compose.lumioSnapshot("settings_address_book") {
         AddressBookSettingsPage(
-            onBack = {},
+            offline = null, onLock = {}, onBack = {},
             wallets = {
                 AddressBookRows(
                     wallets = listOf(PairedWallet(id = "wallet-Demo", name = "Demo", fingerprint = 0x1a2b3c4dL, createdAtMs = NOW, evmAccounts = emptyList(), bitcoin = emptyList())),
@@ -236,7 +236,7 @@ class LumioScreenshotTest {
             onDeviceProtection = {},
             onIdleMinutes = {},
             onLockWhenSwitching = {},
-            onBack = {},
+            offline = null, onLock = {}, onBack = {},
         )
     }
 
@@ -251,18 +251,18 @@ class LumioScreenshotTest {
             onDeviceProtection = {},
             onIdleMinutes = {},
             onLockWhenSwitching = {},
-            onBack = {},
+            offline = null, onLock = {}, onBack = {},
         )
     }
 
     @Test
     fun settingsDeviceProtection() = compose.lumioSnapshot("settings_device_protection") {
-        DeviceProtectionSettingsPage(biometric = BiometricSwitch(on = false, canEnable = true), onBiometric = {}, onBack = {})
+        DeviceProtectionSettingsPage(biometric = BiometricSwitch(on = false, canEnable = true), onBiometric = {}, offline = null, onLock = {}, onBack = {})
     }
 
     @Test
     fun settingsDeviceProtectionUnavailable() = compose.lumioSnapshot("settings_device_protection_unavailable") {
-        DeviceProtectionSettingsPage(biometric = BiometricSwitch(on = false, canEnable = false), onBiometric = {}, onBack = {})
+        DeviceProtectionSettingsPage(biometric = BiometricSwitch(on = false, canEnable = false), onBiometric = {}, offline = null, onLock = {}, onBack = {})
     }
 
     /** The App Password change that Security opens: its first step, a refused new password, and the finished change. */
@@ -283,7 +283,7 @@ class LumioScreenshotTest {
 
     @Test
     fun settingsAbout() = compose.lumioSnapshot("settings_about") {
-        AboutSettingsPage(version = "0.1.0", onLicences = {}, onBack = {})
+        AboutSettingsPage(version = "0.1.0", onLicences = {}, offline = null, onLock = {}, onBack = {})
     }
 
     @Test

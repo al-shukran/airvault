@@ -27,24 +27,34 @@ fun ComposeContentTestRule.lumioSnapshot(
     fontScale: Float = 1f,
     content: @Composable () -> Unit,
 ) {
-    reduceMotion()
-    snapshot(
-        name = name,
-        settleMs = settleMs,
-        beforeCapture = beforeCapture,
-        theme = { LumenTheme { ClearAirTheme(content = it) } },
-        frame = frame,
-        fontScale = fontScale,
-        content = content,
-    )
+    withReducedMotion {
+        snapshot(
+            name = name,
+            settleMs = settleMs,
+            beforeCapture = beforeCapture,
+            theme = { LumenTheme { ClearAirTheme(content = it) } },
+            frame = frame,
+            fontScale = fontScale,
+            content = content,
+        )
+    }
 }
 
 /** Renders [content] in the Clear Air theme at the goldens' frame, with reduced motion on, as [lumioSnapshot] does for Lumen. */
 fun ComposeContentTestRule.clearAirSnapshot(name: String, content: @Composable () -> Unit) {
-    reduceMotion()
-    snapshot(name = name, theme = { ClearAirTheme(content = it) }, content = content)
+    withReducedMotion {
+        snapshot(name = name, theme = { ClearAirTheme(content = it) }, content = content)
+    }
 }
 
-private fun reduceMotion() {
-    Settings.Global.putFloat(RuntimeEnvironment.getApplication().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
+/** Runs [block] with animators off, then restores the previous animator scale so later tests in the same JVM are not affected. */
+private fun withReducedMotion(block: () -> Unit) {
+    val resolver = RuntimeEnvironment.getApplication().contentResolver
+    val previous = Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
+    Settings.Global.putFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
+    try {
+        block()
+    } finally {
+        Settings.Global.putFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, previous)
+    }
 }

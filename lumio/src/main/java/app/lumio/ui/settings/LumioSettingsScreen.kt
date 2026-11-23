@@ -1,14 +1,12 @@
 package app.lumio.ui.settings
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.data.config.FinishItem
 import app.lumio.data.config.FinishSetup
@@ -57,8 +55,3 @@ fun LumioSettingsScreen(
     }
 }
 
-/** The frame of one settings page: its title, with a back arrow to the list. The page's controls apply as the owner changes them. */
-@Composable
-fun SettingsPageScreen(page: SettingsPage, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    LenslyScreen(title = page.title, onBack = onBack, content = content)
-}

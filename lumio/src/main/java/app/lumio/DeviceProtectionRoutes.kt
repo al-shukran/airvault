@@ -35,9 +35,9 @@ import kotlinx.coroutines.launch
  * switch on asks for first. Turning it off needs no password: it deletes the sealed Vault Key and the biometric key. In a Duress Password
  * session the switch reads off and neither change is made, as turning it on there seals nothing.
  */
-internal fun NavGraphBuilder.deviceProtectionRoutes(navController: NavHostController, holder: VaultHolder, selection: NetworkSelection) {
+internal fun NavGraphBuilder.deviceProtectionRoutes(navController: NavHostController, holder: VaultHolder, selection: NetworkSelection, onLock: () -> Unit) {
     lumioComposable(LumioRoute.SETTINGS_DEVICE_PROTECTION) {
-        LumioBackdrop(selection) { DeviceProtectionRoute(navController = navController, holder = holder) }
+        LumioBackdrop(selection) { DeviceProtectionRoute(navController = navController, holder = holder, onLock = onLock) }
     }
     lumioComposable(LumioRoute.DEVICE_PROTECTION_ENABLE) {
         LumioBackdrop(selection) { DeviceProtectionEnableRoute(navController = navController, holder = holder) }
@@ -46,7 +46,7 @@ internal fun NavGraphBuilder.deviceProtectionRoutes(navController: NavHostContro
 
 /** The switch. It is read from the phone again each time the page comes to the top, so a change made on the password step shows here. */
 @Composable
-private fun DeviceProtectionRoute(navController: NavHostController, holder: VaultHolder) {
+private fun DeviceProtectionRoute(navController: NavHostController, holder: VaultHolder, onLock: () -> Unit) {
     if (!rememberGateSession(navController, holder)) return
     val session = holder.openSession() ?: return
     val biometric = (LocalContext.current.applicationContext as LumioApp).biometricUnlock
@@ -66,7 +66,9 @@ private fun DeviceProtectionRoute(navController: NavHostController, holder: Vaul
                 }
             }
         },
+        offline = rememberSettingsOffline(),
         onBack = { navController.popBackStack() },
+        onLock = onLock,
     )
 }
 

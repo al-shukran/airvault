@@ -28,7 +28,7 @@ class DisplaySettingsSectionTest {
 
     private fun show(settings: DisplaySettings = DisplaySettings(), notice: String? = null) {
         compose.setContent {
-            LumenTheme {
+            ClearAirHarness {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     DisplaySettingsSection(
                         settings = settings,
@@ -59,4 +59,10 @@ class DisplaySettingsSectionTest {
         assertEquals(true, showTotal)
         assertNull(showAssets)
     }
+}
+
+/** The theme a settings page is drawn in in the app: the Clear Air theme, under the Lumen theme that wraps Lumio. */
+@androidx.compose.runtime.Composable
+private fun ClearAirHarness(content: @androidx.compose.runtime.Composable () -> Unit) {
+    LumenTheme { app.lensly.ui.theme.ClearAirTheme(content = content) }
 }
