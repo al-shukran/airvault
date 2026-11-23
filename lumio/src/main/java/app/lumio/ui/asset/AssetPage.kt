@@ -16,9 +16,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -84,6 +86,20 @@ internal fun AssetPage(
 ) {
     val palette = LocalClearAirPalette.current
     var picker by remember { mutableStateOf<CoinPicker?>(null) }
+    // The picker sheets are composed on the first open, not on the page's first frame. A tap composes them hidden, then the picker opens a frame
+    // later, so the sheet still slides in.
+    var sheetsComposed by rememberSaveable { mutableStateOf(false) }
+    var opening by remember { mutableStateOf<CoinPicker?>(null) }
+    fun open(which: CoinPicker) {
+        sheetsComposed = true
+        opening = which
+    }
+    LaunchedEffect(opening) {
+        opening?.let {
+            picker = it
+            opening = null
+        }
+    }
     Column(modifier = Modifier.fillMaxSize().padding(vertical = ClearAirSpacing.md)) {
         AssetTopBar(name = name, watched = watched, onWatch = onWatch, onBack = onBack, onLock = onLock)
         Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
@@ -110,13 +126,13 @@ internal fun AssetPage(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (held == null) {
-                    ClearAirCapsuleSmall(text = "Receive", onClick = { picker = CoinPicker.RECEIVE })
+                    ClearAirCapsuleSmall(text = "Receive", onClick = { open(CoinPicker.RECEIVE) })
                     Spacer(Modifier.width(ClearAirSpacing.md))
-                    ClearAirTextAction(text = "Send $symbol", onClick = { picker = CoinPicker.SEND })
+                    ClearAirTextAction(text = "Send $symbol", onClick = { open(CoinPicker.SEND) })
                 } else {
-                    ClearAirCapsuleSmall(text = "Send $symbol", onClick = { picker = CoinPicker.SEND })
+                    ClearAirCapsuleSmall(text = "Send $symbol", onClick = { open(CoinPicker.SEND) })
                     Spacer(Modifier.width(ClearAirSpacing.md))
-                    ClearAirTextAction(text = "Receive", onClick = { picker = CoinPicker.RECEIVE })
+                    ClearAirTextAction(text = "Receive", onClick = { open(CoinPicker.RECEIVE) })
                 }
             }
             held?.let { coin ->
@@ -136,41 +152,43 @@ internal fun AssetPage(
             activity()
         }
     }
-    ClearAirSheet(visible = picker == CoinPicker.SEND, onClose = { picker = null }) {
-        ClearAirChoiceSheet(
-            title = "Send $symbol from",
-            groups = listOf(
-                ChoiceGroup(
-                    null,
-                    accounts.map { account ->
-                        ChoiceRow(
-                            title = account.title,
-                            detail = account.detail,
-                            trailing = account.trailing,
-                            onPick = { picker = null; account.onSend() },
-                        )
-                    },
+    if (sheetsComposed) {
+        ClearAirSheet(visible = picker == CoinPicker.SEND, onClose = { picker = null }) {
+            ClearAirChoiceSheet(
+                title = "Send $symbol from",
+                groups = listOf(
+                    ChoiceGroup(
+                        null,
+                        accounts.map { account ->
+                            ChoiceRow(
+                                title = account.title,
+                                detail = account.detail,
+                                trailing = account.trailing,
+                                onPick = { picker = null; account.onSend() },
+                            )
+                        },
+                    ),
                 ),
-            ),
-        )
-    }
-    ClearAirSheet(visible = picker == CoinPicker.RECEIVE, onClose = { picker = null }) {
-        ClearAirChoiceSheet(
-            title = "Receive $symbol to",
-            groups = listOf(
-                ChoiceGroup(
-                    null,
-                    accounts.map { account ->
-                        ChoiceRow(
-                            title = account.title,
-                            detail = account.detail,
-                            trailing = account.trailing,
-                            onPick = { picker = null; account.onReceive() },
-                        )
-                    },
+            )
+        }
+        ClearAirSheet(visible = picker == CoinPicker.RECEIVE, onClose = { picker = null }) {
+            ClearAirChoiceSheet(
+                title = "Receive $symbol to",
+                groups = listOf(
+                    ChoiceGroup(
+                        null,
+                        accounts.map { account ->
+                            ChoiceRow(
+                                title = account.title,
+                                detail = account.detail,
+                                trailing = account.trailing,
+                                onPick = { picker = null; account.onReceive() },
+                            )
+                        },
+                    ),
                 ),
-            ),
-        )
+            )
+        }
     }
 }
 

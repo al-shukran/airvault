@@ -49,13 +49,13 @@ class WalletsView(
 internal object WalletsLoader {
     /**
      * The wallets of the open vault and their accounts on [mode]'s side, read from the vault's caches. The prices are read after the accounts, so the
-     * accounts show at once. It reads no balance from the network.
+     * accounts show at once. It reads no balance from the network. It runs on the I/O dispatcher, so the board's main-thread callers do not wait for it.
      */
-    suspend fun read(app: LumioApp, session: VaultSession, mode: NetworkMode): WalletsView {
-        val wallets = withContext(Dispatchers.IO) { PairedWallets.list(session) }
+    suspend fun read(app: LumioApp, session: VaultSession, mode: NetworkMode): WalletsView = withContext(Dispatchers.IO) {
+        val wallets = PairedWallets.list(session)
         val accounts = accountsOn(app, session, mode, wallets)
         val prices = HomeLoader.prices(app, accounts.values.flatten().mapNotNull { it.balance })
-        return WalletsView(wallets, accounts, prices)
+        WalletsView(wallets, accounts, prices)
     }
 
     /**
