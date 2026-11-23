@@ -16,15 +16,15 @@ import kotlinx.coroutines.launch
 /** Where a sent transaction stands: on its way, in the recipient's account, or refused for good (a transaction the network dropped counts as refused). */
 enum class Landing { PENDING, LANDED, REFUSED }
 
-/** Posts the arrival notice. [canPost] is false unless the owner already allows notifications, so an arrival never asks for permission. */
+/**
+ * Posts the arrival notice, which shows only the cover's words. [canPost] is false unless the owner already allows notifications, so an arrival never
+ * asks for permission.
+ */
 interface ArrivalNotice {
     fun canPost(): Boolean
 
-    fun post(id: String, title: String, text: String)
+    fun post(id: String)
 }
-
-/** The words of an arrival notice: its [title] and its [text]. */
-data class ArrivalWords(val title: String, val text: String)
 
 /**
  * One sent transaction that a send page shows: the app's [arrivals], the [network] it went out on, the heading that replaces "Is on Its Way" when it
@@ -36,9 +36,9 @@ class ArrivalWatch(
     val arrivedHeadline: String?,
     val read: suspend (id: String) -> Landing,
 ) {
-    /** Where the transaction [id] stands, watched from the first call. [text] is the notice's second line. */
-    fun landingOf(id: String, text: String): StateFlow<Landing> =
-        arrivals.watch(network, id, arrivedHeadline?.let { ArrivalWords(it, text) }) { read(id) }
+    /** Where the transaction [id] stands, watched from the first call. A send with a heading also posts the notice when it lands. */
+    fun landingOf(id: String): StateFlow<Landing> =
+        arrivals.watch(network, id, notify = arrivedHeadline != null) { read(id) }
 }
 
 /**
@@ -48,7 +48,7 @@ class ArrivalWatch(
  * A read that fails counts as pending and is read again.
  *
  * [foreground] says whether the app is on screen. The notice is posted only when it is not, only if [ArrivalNotice.canPost] holds, and only for a watch
- * that has words.
+ * that asks for one.
  */
 class SendArrivals(
     private val scope: CoroutineScope,
@@ -59,14 +59,14 @@ class SendArrivals(
 
     /**
      * Where the transaction [id] on [network] stands. The first call starts its watch, which reads the chain with [read]; later calls for the same
-     * transaction get the same state and start nothing. [words] is the notice to post when it lands, or null for no notice.
+     * transaction get the same state and start nothing. [notify] says whether the notice posts when it lands.
      */
     @Synchronized
-    fun watch(network: NetworkId, id: String, words: ArrivalWords?, read: suspend () -> Landing): StateFlow<Landing> {
+    fun watch(network: NetworkId, id: String, notify: Boolean, read: suspend () -> Landing): StateFlow<Landing> {
         watches[network to id]?.let { return it }
         val landing = MutableStateFlow(Landing.PENDING)
         watches[network to id] = landing
-        scope.launch { poll(id, landing, words, read) }
+        scope.launch { poll(id, landing, notify, read) }
         return landing
     }
 
@@ -74,14 +74,14 @@ class SendArrivals(
     @Synchronized
     fun landingNow(network: NetworkId, id: String): Landing = watches[network to id]?.value ?: Landing.PENDING
 
-    private suspend fun poll(id: String, landing: MutableStateFlow<Landing>, words: ArrivalWords?, read: suspend () -> Landing) {
+    private suspend fun poll(id: String, landing: MutableStateFlow<Landing>, notify: Boolean, read: suspend () -> Landing) {
         var wait = FIRST_DELAY_MS
         while (true) {
             val answer = answerOf(read)
             landing.value = answer
             when (answer) {
                 Landing.LANDED -> {
-                    if (words != null && !foreground() && notice.canPost()) notice.post(id, words.title, words.text)
+                    if (notify && !foreground() && notice.canPost()) notice.post(id)
                     return
                 }
                 Landing.REFUSED -> return
