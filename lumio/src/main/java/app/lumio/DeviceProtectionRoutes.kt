@@ -17,6 +17,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import app.lensly.app.VaultHolder
 import app.lensly.core.vault.BiometricUnlock
+import app.lensly.core.vault.VaultSession
 import app.lensly.ui.flow.BiometricEnableAppPorts
 import app.lensly.ui.flow.BiometricEnableFlow
 import app.lensly.ui.flow.BiometricEnableOutcome
@@ -44,6 +45,12 @@ internal fun NavGraphBuilder.deviceProtectionRoutes(navController: NavHostContro
     }
 }
 
+/**
+ * Whether turning the switch on opens the App Password step. A Decoy Vault seals no Biometric Unlock, so there turning it on does nothing,
+ * as turning it off does nothing. The step would take the real password on screen, and an observer could learn that a real vault exists.
+ */
+internal fun turningOnOpensPasswordStep(session: VaultSession): Boolean = !session.isDecoy
+
 /** The switch. It is read from the phone again each time the page comes to the top, so a change made on the password step shows here. */
 @Composable
 private fun DeviceProtectionRoute(navController: NavHostController, holder: VaultHolder, onLock: () -> Unit) {
@@ -58,7 +65,7 @@ private fun DeviceProtectionRoute(navController: NavHostController, holder: Vaul
         biometric = BiometricSwitch(on = on, canEnable = canEnable),
         onBiometric = { want ->
             if (want) {
-                navController.navigate(LumioRoute.DEVICE_PROTECTION_ENABLE)
+                if (turningOnOpensPasswordStep(session)) navController.navigate(LumioRoute.DEVICE_PROTECTION_ENABLE)
             } else {
                 scope.launch {
                     biometric.disable(session)
