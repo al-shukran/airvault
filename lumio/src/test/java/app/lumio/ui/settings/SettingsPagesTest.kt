@@ -39,13 +39,13 @@ class SettingsPagesTest {
 
     @Test
     fun theDisplayPageHasNoSave() = assertNoSave {
-        DisplaySettingsPage(settings = DisplaySettings(), notice = null, onShowTotal = {}, onShowAssets = {}, onBack = {})
+        DisplaySettingsPage(settings = DisplaySettings(), notice = null, onShowTotal = {}, onShowAssets = {}, offline = null, onLock = {}, onBack = {})
     }
 
     @Test
     fun theNetworksPageHasNoSave() = assertNoSave {
         NetworksSettingsPage(
-            onBack = {},
+            offline = null, onLock = {}, onBack = {},
             bitcoin = {
                 BitcoinServersSettings(
                     mainnet = EsploraServers.MAINNET_DEFAULT,
@@ -76,12 +76,12 @@ class SettingsPagesTest {
 
     @Test
     fun theWalletsPageHasNoSave() = assertNoSave {
-        WalletsSettingsPage(onBack = {}, wallets = { Text("Pair from Lensly") })
+        WalletsSettingsPage(offline = null, onLock = {}, onBack = {}, wallets = { Text("Pair from Lensly") })
     }
 
     @Test
     fun theAddressBookPageHasNoSave() = assertNoSave {
-        AddressBookSettingsPage(onBack = {}, wallets = { Text("No wallets paired yet.") })
+        AddressBookSettingsPage(offline = null, onLock = {}, onBack = {}, wallets = { Text("No wallets paired yet.") })
     }
 
     @Test
@@ -91,7 +91,7 @@ class SettingsPagesTest {
         compose.setContent {
             LumenTheme {
                 AddressBookSettingsPage(
-                    onBack = {},
+                    offline = null, onLock = {}, onBack = {},
                     wallets = { AddressBookRows(wallets = listOf(wallet), onAddressBook = { opened = it.id }) },
                 )
             }
@@ -117,7 +117,7 @@ class SettingsPagesTest {
                     onDeviceProtection = {},
                     onIdleMinutes = {},
                     onLockWhenSwitching = {},
-                    onBack = {},
+                    offline = null, onLock = {}, onBack = {},
                 )
             }
         }
@@ -141,7 +141,7 @@ class SettingsPagesTest {
                     onDeviceProtection = {},
                     onIdleMinutes = {},
                     onLockWhenSwitching = {},
-                    onBack = {},
+                    offline = null, onLock = {}, onBack = {},
                 )
             }
         }
@@ -164,7 +164,7 @@ class SettingsPagesTest {
                     onDeviceProtection = { opened = true },
                     onIdleMinutes = {},
                     onLockWhenSwitching = {},
-                    onBack = {},
+                    offline = null, onLock = {}, onBack = {},
                 )
             }
         }
@@ -182,7 +182,7 @@ class SettingsPagesTest {
                 DeviceProtectionSettingsPage(
                     biometric = BiometricSwitch(on = false, canEnable = true),
                     onBiometric = { changed = it },
-                    onBack = {},
+                    offline = null, onLock = {}, onBack = {},
                 )
             }
         }
@@ -198,7 +198,7 @@ class SettingsPagesTest {
                 DeviceProtectionSettingsPage(
                     biometric = BiometricSwitch(on = false, canEnable = false),
                     onBiometric = {},
-                    onBack = {},
+                    offline = null, onLock = {}, onBack = {},
                 )
             }
         }
@@ -220,7 +220,7 @@ class SettingsPagesTest {
                     onDeviceProtection = {},
                     onIdleMinutes = {},
                     onLockWhenSwitching = { switching = it },
-                    onBack = {},
+                    offline = null, onLock = {}, onBack = {},
                 )
             }
         }
@@ -234,11 +234,11 @@ class SettingsPagesTest {
 
     @Test
     fun theAboutPageHasNoSave() = assertNoSave {
-        AboutSettingsPage(version = "0.1.0", onLicences = {}, onBack = {})
+        AboutSettingsPage(version = "0.1.0", onLicences = {}, offline = null, onLock = {}, onBack = {})
     }
 
     @Test
     fun theTransactionsPageHasNoSave() = assertNoSave {
-        TransactionsSettingsPage(onBack = {}, comments = {})
+        TransactionsSettingsPage(offline = null, onLock = {}, onBack = {}, comments = {})
     }
 }

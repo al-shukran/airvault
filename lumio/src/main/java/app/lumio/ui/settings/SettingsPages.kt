@@ -1,24 +1,51 @@
 package app.lumio.ui.settings
 
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import app.lensly.ui.camera.EntryGesture
-import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.SettingsRow
-import app.lensly.ui.components.SettingsSection
-import app.lensly.ui.components.SettingsSwitchRow
-import app.lensly.ui.components.SliderSetting
-import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.R
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.LockSettings
+import app.lumio.ui.kit.ClearAirEyebrow
+import app.lumio.ui.kit.ClearAirNote
+import app.lumio.ui.kit.ClearAirRow
+import app.lumio.ui.kit.ClearAirStopSlider
+import app.lumio.ui.kit.ClearAirSwitchRow
+import app.lumio.ui.shell.LumioPageScreen
+
+/**
+ * The frame of a settings screen: a Clear Air page under [title], with its back arrow to the list, the offline band when [offline] is set, and the lock.
+ * The page's controls apply as the owner changes them. The content scrolls as one column.
+ */
+@Composable
+fun SettingsFrame(title: String, offline: String?, onBack: () -> Unit, onLock: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    LumioPageScreen(title = title, backLabel = SETTINGS_BACK, offline = offline, onBack = onBack, onLock = onLock) {
+        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), content = content)
+    }
+}
+
+/** The frame of one settings page: [SettingsFrame] under the page's own title. */
+@Composable
+fun SettingsPageScreen(page: SettingsPage, offline: String?, onBack: () -> Unit, onLock: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    SettingsFrame(title = page.title, offline = offline, onBack = onBack, onLock = onLock, content = content)
+}
+
+/** A group of a settings page: its eyebrow, then its rows. */
+@Composable
+fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.lg)) {
+        ClearAirEyebrow(text = title, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
+        content()
+    }
+}
 
 /** The Display page: what Home shows. Each control applies as the owner changes it, and [notice] shows a change that the vault refused. */
 @Composable
@@ -27,9 +54,11 @@ fun DisplaySettingsPage(
     notice: String?,
     onShowTotal: (Boolean) -> Unit,
     onShowAssets: (Boolean) -> Unit,
+    offline: String?,
     onBack: () -> Unit,
+    onLock: () -> Unit,
 ) {
-    SettingsPageScreen(SettingsPage.DISPLAY, onBack) {
+    SettingsPageScreen(SettingsPage.DISPLAY, offline, onBack, onLock) {
         DisplaySettingsSection(
             settings = settings,
             notice = notice,
@@ -41,24 +70,24 @@ fun DisplaySettingsPage(
 
 /** The Networks page: the Esplora server of each Bitcoin network, then the Ethereum chains. Each part draws its own controls. */
 @Composable
-fun NetworksSettingsPage(onBack: () -> Unit, bitcoin: @Composable () -> Unit, ethereum: @Composable () -> Unit) {
-    SettingsPageScreen(SettingsPage.NETWORKS, onBack) {
-        SettingsSection(title = "Bitcoin") { bitcoin() }
-        SettingsSection(title = "Ethereum") { ethereum() }
+fun NetworksSettingsPage(offline: String?, onBack: () -> Unit, onLock: () -> Unit, bitcoin: @Composable () -> Unit, ethereum: @Composable () -> Unit) {
+    SettingsPageScreen(SettingsPage.NETWORKS, offline, onBack, onLock) {
+        SettingsGroup(title = "Bitcoin") { bitcoin() }
+        SettingsGroup(title = "Ethereum") { ethereum() }
     }
 }
 
 /** The Wallets page: the pairing of a wallet from Lensly, and each paired wallet with its delete row. [wallets] draws them. */
 @Composable
-fun WalletsSettingsPage(onBack: () -> Unit, wallets: @Composable () -> Unit) {
-    SettingsPageScreen(SettingsPage.WALLETS, onBack) { wallets() }
+fun WalletsSettingsPage(offline: String?, onBack: () -> Unit, onLock: () -> Unit, wallets: @Composable () -> Unit) {
+    SettingsPageScreen(SettingsPage.WALLETS, offline, onBack, onLock) { wallets() }
 }
 
 /** The Address book page: each paired wallet's own address book. [wallets] draws the rows. */
 @Composable
-fun AddressBookSettingsPage(onBack: () -> Unit, wallets: @Composable () -> Unit) {
-    SettingsPageScreen(SettingsPage.ADDRESS_BOOK, onBack) {
-        SettingsSection(title = "Wallets") { wallets() }
+fun AddressBookSettingsPage(offline: String?, onBack: () -> Unit, onLock: () -> Unit, wallets: @Composable () -> Unit) {
+    SettingsPageScreen(SettingsPage.ADDRESS_BOOK, offline, onBack, onLock) {
+        SettingsGroup(title = "Wallets") { wallets() }
     }
 }
 
@@ -78,53 +107,39 @@ fun SecuritySettingsPage(
     entryGesture: EntryGesture,
     lock: LockSettings,
     deviceProtectionOn: Boolean,
+    offline: String?,
     onEntryGesture: () -> Unit,
     onChangePassword: () -> Unit,
     onDeviceProtection: () -> Unit,
     onIdleMinutes: (Int) -> Unit,
     onLockWhenSwitching: (Boolean) -> Unit,
     onBack: () -> Unit,
+    onLock: () -> Unit,
 ) {
-    SettingsPageScreen(SettingsPage.SECURITY, onBack) {
-        SettingsSection(title = "Entry") {
-            SettingsRow(title = "Hidden Entry Gesture", description = entryGesture.title, onClick = onEntryGesture)
-            Spacer(Modifier.height(LenslySpacing.sm))
-            Text(
-                "Choosing another gesture asks for the App Password first.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+    SettingsPageScreen(SettingsPage.SECURITY, offline, onBack, onLock) {
+        SettingsGroup(title = "Entry") {
+            ClearAirRow(title = "Hidden Entry Gesture", description = entryGesture.title, onClick = onEntryGesture)
+            ClearAirNote(text = "Choosing another gesture asks for the App Password first.", modifier = Modifier.padding(top = ClearAirSpacing.xs))
         }
-        SettingsSection(title = "Password") {
-            SettingsRow(
-                title = "Change Password",
-                description = "Opens Lumio. Lensly's password is separate.",
-                onClick = onChangePassword,
-            )
+        SettingsGroup(title = "Password") {
+            ClearAirRow(title = "Change Password", description = "Opens Lumio. Lensly's password is separate.", onClick = onChangePassword)
         }
-        SettingsSection(title = "Unlock") {
-            SettingsRow(
-                title = "Device Protection",
-                description = if (deviceProtectionOn) "On" else "Off",
-                onClick = onDeviceProtection,
-            )
+        SettingsGroup(title = "Unlock") {
+            ClearAirRow(title = "Device Protection", description = if (deviceProtectionOn) "On" else "Off", onClick = onDeviceProtection)
         }
-        SettingsSection(title = "Lock") {
-            SliderSetting(
-                title = "Lock after Inactivity",
-                options = LockSettings.IDLE_CHOICES,
-                selected = lock.idleMinutes,
-                label = ::idleLabel,
-                onSelect = onIdleMinutes,
-                caption = { minutes -> if (minutes == LockSettings.DEFAULT_IDLE_MINUTES) "Default" else null },
+        SettingsGroup(title = "Lock") {
+            val choices = LockSettings.IDLE_CHOICES
+            ClearAirStopSlider(
+                labels = choices.map(::idleLabel),
+                selected = choices.indexOf(lock.idleMinutes).coerceAtLeast(0),
+                onSelect = { index -> onIdleMinutes(choices[index]) },
+                modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter),
             )
-            Text(
-                "Lumio locks after this long without a touch, in the background too.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            ClearAirNote(
+                text = "Lumio locks after this long without a touch, in the background too.",
+                modifier = Modifier.padding(top = ClearAirSpacing.xs),
             )
-            Spacer(Modifier.height(LenslySpacing.sm))
-            SettingsSwitchRow(
+            ClearAirSwitchRow(
                 title = "Lock When Switching Apps",
                 description = "Lumio locks as soon as you leave it. Off, it stays unlocked until the inactivity lock.",
                 checked = lock.lockWhenSwitchingApps,
@@ -139,10 +154,10 @@ fun SecuritySettingsPage(
  * The switch is unavailable until the phone has a strong biometric enrolled, and the page says why.
  */
 @Composable
-fun DeviceProtectionSettingsPage(biometric: BiometricSwitch, onBiometric: (Boolean) -> Unit, onBack: () -> Unit) {
-    LenslyScreen(title = "Device Protection", onBack = onBack) {
-        SettingsSection(title = "Unlock") {
-            SettingsSwitchRow(
+fun DeviceProtectionSettingsPage(biometric: BiometricSwitch, offline: String?, onBiometric: (Boolean) -> Unit, onBack: () -> Unit, onLock: () -> Unit) {
+    SettingsFrame(title = "Device Protection", offline = offline, onBack = onBack, onLock = onLock) {
+        SettingsGroup(title = "Unlock") {
+            ClearAirSwitchRow(
                 title = "Biometric Unlock",
                 description = if (biometric.on || biometric.canEnable) {
                     "A fingerprint or face opens Lumio. Your password still works."
@@ -166,11 +181,11 @@ private fun idleLabel(minutes: Int): String = when (minutes) {
 
 /** The About page: the version of the app, and the licences of what it ships. */
 @Composable
-fun AboutSettingsPage(version: String, onLicences: () -> Unit, onBack: () -> Unit) {
-    SettingsPageScreen(SettingsPage.ABOUT, onBack) {
-        SettingsRow(title = "Version", description = version)
-        SettingsSection(title = "Licences") {
-            SettingsRow(
+fun AboutSettingsPage(version: String, offline: String?, onLicences: () -> Unit, onBack: () -> Unit, onLock: () -> Unit) {
+    SettingsPageScreen(SettingsPage.ABOUT, offline, onBack, onLock) {
+        ClearAirRow(title = "Version", description = version)
+        SettingsGroup(title = "Licences") {
+            ClearAirRow(
                 title = stringResource(R.string.settings_licences_open),
                 description = stringResource(R.string.settings_licences_body),
                 onClick = onLicences,
@@ -181,8 +196,11 @@ fun AboutSettingsPage(version: String, onLicences: () -> Unit, onBack: () -> Uni
 
 /** The Transactions page: the backup of the transaction comments, which [comments] draws. */
 @Composable
-fun TransactionsSettingsPage(onBack: () -> Unit, comments: @Composable () -> Unit) {
-    SettingsPageScreen(SettingsPage.TRANSACTIONS, onBack) {
+fun TransactionsSettingsPage(offline: String?, onBack: () -> Unit, onLock: () -> Unit, comments: @Composable () -> Unit) {
+    SettingsPageScreen(SettingsPage.TRANSACTIONS, offline, onBack, onLock) {
         comments()
     }
 }
+
+/** The back label of every settings page: the list it returns to. */
+private const val SETTINGS_BACK = "Settings"

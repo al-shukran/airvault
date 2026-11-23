@@ -32,6 +32,8 @@ import app.lumio.ui.settings.WalletsSettingsPage
 import app.lumio.ui.settings.page
 import app.lumio.ui.settings.providerCounts
 import app.lumio.ui.settings.settingsRows
+import app.lumio.ui.shell.offlineBand
+import app.lumio.ui.shell.rememberOnline
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -110,6 +112,16 @@ private fun readFacts(vault: LumioVault, session: VaultSession): SettingsFacts {
     )
 }
 
+/**
+ * The offline band of a settings page, as the shell draws it under the top bar: null while the device is online, and the time the balances were read
+ * while it is not.
+ */
+@Composable
+internal fun rememberSettingsOffline(): String? {
+    val app = LocalContext.current.applicationContext as LumioApp
+    return if (rememberOnline()) null else offlineBand(app.lumioVault()?.wallets?.updatedAtMs)
+}
+
 /** The routes of the pages below the list. Each one is a Hidden Area screen, with the testnet banner like every Lumio screen. */
 internal fun NavGraphBuilder.settingsPageRoutes(
     navController: NavHostController,
@@ -118,42 +130,47 @@ internal fun NavGraphBuilder.settingsPageRoutes(
     listVersion: Int,
     onChanged: () -> Unit,
     lockChoices: LockSettingsState,
+    onLock: () -> Unit,
 ) {
     lumioComposable(LumioRoute.SETTINGS_DISPLAY) {
-        LumioBackdrop(selection) { DisplaySettingsRoute(navController = navController, holder = holder) }
+        LumioBackdrop(selection) { DisplaySettingsRoute(navController = navController, holder = holder, onLock = onLock) }
     }
     lumioComposable(LumioRoute.SETTINGS_TRANSACTIONS) {
-        LumioBackdrop(selection) { TransactionsSettingsRoute(navController = navController, holder = holder) }
+        LumioBackdrop(selection) { TransactionsSettingsRoute(navController = navController, holder = holder, onLock = onLock) }
     }
     lumioComposable(LumioRoute.SETTINGS_NETWORKS) {
-        LumioBackdrop(selection) { NetworksSettingsRoute(navController = navController, holder = holder) }
+        LumioBackdrop(selection) { NetworksSettingsRoute(navController = navController, holder = holder, onLock = onLock) }
     }
     lumioComposable(LumioRoute.SETTINGS_WALLETS) {
         LumioBackdrop(selection) {
             WalletsSettingsPage(
+                offline = rememberSettingsOffline(),
                 onBack = { navController.popBackStack() },
+                onLock = onLock,
                 wallets = { WalletsSettingsRoute(navController = navController, holder = holder, listVersion = listVersion, onChanged = onChanged) },
             )
         }
     }
     lumioComposable(LumioRoute.SETTINGS_ADDRESSES) {
         LumioBackdrop(selection) {
-            AddressBookSettingsRoute(navController = navController, holder = holder, listVersion = listVersion)
+            AddressBookSettingsRoute(navController = navController, holder = holder, listVersion = listVersion, onLock = onLock)
         }
     }
     lumioComposable(LumioRoute.SETTINGS_SECURITY) {
-        LumioBackdrop(selection) { SecuritySettingsRoute(navController = navController, holder = holder, lockChoices = lockChoices) }
+        LumioBackdrop(selection) { SecuritySettingsRoute(navController = navController, holder = holder, lockChoices = lockChoices, onLock = onLock) }
     }
     lumioComposable(LumioRoute.SETTINGS_ABOUT) {
-        LumioBackdrop(selection) { AboutSettingsRoute(navController = navController) }
+        LumioBackdrop(selection) { AboutSettingsRoute(navController = navController, onLock = onLock) }
     }
 }
 
 /** The Networks page: the Bitcoin servers and the Ethereum chains, each read and written by its own route. */
 @Composable
-private fun NetworksSettingsRoute(navController: NavHostController, holder: VaultHolder) {
+private fun NetworksSettingsRoute(navController: NavHostController, holder: VaultHolder, onLock: () -> Unit) {
     NetworksSettingsPage(
+        offline = rememberSettingsOffline(),
         onBack = { navController.popBackStack() },
+        onLock = onLock,
         bitcoin = { BitcoinSettingsRoute(navController = navController, holder = holder) },
         ethereum = { EvmSettingsRoute(navController = navController, holder = holder) },
     )
@@ -161,10 +178,12 @@ private fun NetworksSettingsRoute(navController: NavHostController, holder: Vaul
 
 /** The Address book page: each paired wallet, which opens that wallet's address book. The wallets are read again when the list changes. */
 @Composable
-private fun AddressBookSettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int) {
+private fun AddressBookSettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, onLock: () -> Unit) {
     val wallets = pairedWallets(navController = navController, holder = holder, listVersion = listVersion)
     AddressBookSettingsPage(
+        offline = rememberSettingsOffline(),
         onBack = { navController.popBackStack() },
+        onLock = onLock,
         wallets = {
             AddressBookRows(wallets = wallets, onAddressBook = { wallet -> navController.navigate(LumioRoute.addressBook(wallet.id)) })
         },
@@ -176,7 +195,7 @@ private fun AddressBookSettingsRoute(navController: NavHostController, holder: V
  * change, Device Protection, whose row opens its page, and the lock. Each choice applies as the owner makes it.
  */
 @Composable
-private fun SecuritySettingsRoute(navController: NavHostController, holder: VaultHolder, lockChoices: LockSettingsState) {
+private fun SecuritySettingsRoute(navController: NavHostController, holder: VaultHolder, lockChoices: LockSettingsState, onLock: () -> Unit) {
     val session = holder.openSession() ?: return
     val biometric = (LocalContext.current.applicationContext as LumioApp).biometricUnlock
     val top by navController.currentBackStackEntryAsState()
@@ -187,21 +206,25 @@ private fun SecuritySettingsRoute(navController: NavHostController, holder: Vaul
         lock = lockChoices.settings,
         // A Duress Password session shows the row too, or its absence would tell that session apart. Turning it on there seals nothing.
         deviceProtectionOn = biometricOn,
+        offline = rememberSettingsOffline(),
         onEntryGesture = { navController.navigate(LumioRoute.ENTRY_GESTURE) },
         onChangePassword = { navController.navigate(LumioRoute.CHANGE_PASSWORD) },
         onDeviceProtection = { navController.navigate(LumioRoute.SETTINGS_DEVICE_PROTECTION) },
         onIdleMinutes = { minutes -> lockChoices.change { it.copy(idleMinutes = minutes) } },
         onLockWhenSwitching = { on -> lockChoices.change { it.copy(lockWhenSwitchingApps = on) } },
         onBack = { navController.popBackStack() },
+        onLock = onLock,
     )
 }
 
 /** The About page: the version of this build, and the licences it ships under. */
 @Composable
-private fun AboutSettingsRoute(navController: NavHostController) {
+private fun AboutSettingsRoute(navController: NavHostController, onLock: () -> Unit) {
     AboutSettingsPage(
         version = BuildConfig.VERSION_NAME,
+        offline = rememberSettingsOffline(),
         onLicences = { navController.navigate(LumioRoute.LICENCES) },
         onBack = { navController.popBackStack() },
+        onLock = onLock,
     )
 }

@@ -3,15 +3,19 @@ package app.lumio.ui.settings
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.lensly.app.AddressBookEntry
-import app.lensly.ui.components.AddressText
-import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.theme.LenslySpacing
-import app.lumio.ui.send.SectionLabel
+import app.lensly.ui.theme.ClearAirSpacing
+import app.lensly.ui.theme.ClearAirType
+import app.lensly.ui.theme.LocalClearAirPalette
+import app.lumio.ui.kit.ClearAirAddressGrid
+import app.lumio.ui.kit.ClearAirEyebrow
+import app.lumio.ui.kit.ClearAirStatusBand
+import app.lumio.ui.shell.LumioPageScreen
 
 /** The chains an Address Book entry can be on, in the order the screen lists them. */
 private val CHAINS = listOf("Ethereum", "Bitcoin")
@@ -20,30 +24,27 @@ private val CHAINS = listOf("Ethereum", "Bitcoin")
 private fun chainOf(address: String): String = if (address.startsWith("0x")) "Ethereum" else "Bitcoin"
 
 /**
- * The Address Book of one paired wallet: each saved name, its label and its address, grouped by chain. Names are added and changed on a transaction's
- * addresses, so this screen has no edit action. A pairing from Lensly again replaces the book.
+ * The Address Book of one paired wallet: each saved name, its label and its address, grouped by chain. Names are added and changed on Lensly, so this
+ * screen is read only and has no edit action. A pairing from Lensly again replaces the book. With no entry, it says how to add one.
  */
 @Composable
-fun AddressBookScreen(walletName: String, entries: List<AddressBookEntry>, onBack: () -> Unit) {
-    LenslyScreen(title = "Address Book", onBack = onBack) {
-        Text(walletName, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-        Text(
-            text = "Add or change a name from an address in a transaction. Pairing this wallet again from Lensly replaces the book.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (entries.isEmpty()) {
-            Text(
-                text = "No saved addresses.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        CHAINS.forEach { chain ->
-            val inChain = entries.filter { chainOf(it.address) == chain }
-            if (inChain.isNotEmpty()) {
-                SectionLabel(chain)
-                inChain.forEach { entry -> AddressEntry(entry) }
+fun AddressBookScreen(walletName: String, entries: List<AddressBookEntry>, offline: String?, onBack: () -> Unit, onLock: () -> Unit) {
+    val palette = LocalClearAirPalette.current
+    LumioPageScreen(title = SettingsPage.ADDRESS_BOOK.title, backLabel = SettingsPage.ADDRESS_BOOK.title, offline = offline, onBack = onBack, onLock = onLock) {
+        ClearAirStatusBand(text = READ_ONLY)
+        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.sm)) {
+                Text(walletName, style = ClearAirType.rowTitle, color = palette.ink)
+                if (entries.isEmpty()) {
+                    Text(text = "No entries yet. Add them on Lensly, then re-pair.", style = ClearAirType.body, color = palette.ink2)
+                }
+            }
+            CHAINS.forEach { chain ->
+                val inChain = entries.filter { chainOf(it.address) == chain }
+                if (inChain.isNotEmpty()) {
+                    ClearAirEyebrow(text = chain, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
+                    inChain.forEach { entry -> AddressEntry(entry) }
+                }
             }
         }
     }
@@ -51,9 +52,13 @@ fun AddressBookScreen(walletName: String, entries: List<AddressBookEntry>, onBac
 
 @Composable
 private fun AddressEntry(entry: AddressBookEntry) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.xxs)) {
-        Text(entry.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-        entry.label?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        AddressText(address = entry.address, icon = false)
+    val palette = LocalClearAirPalette.current
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs)) {
+        Text(entry.name, style = ClearAirType.rowTitle, color = palette.ink)
+        entry.label?.let { Text(it, style = ClearAirType.body, color = palette.ink2) }
+        ClearAirAddressGrid(address = entry.address, modifier = Modifier.padding(top = ClearAirSpacing.xxs))
     }
 }
+
+/** The band under the top bar: the book is edited on Lensly, so it cannot be changed here. */
+private const val READ_ONLY = "Read only · edited on Lensly"
