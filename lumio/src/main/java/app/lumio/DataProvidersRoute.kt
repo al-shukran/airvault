@@ -38,7 +38,7 @@ import kotlinx.coroutines.withContext
 private const val STATUS_POLL_MS = 2_000L
 
 /** The three groups of rows, read in one pass. */
-private class ProviderLists(
+internal class ProviderLists(
     val data: List<ProviderRow>,
     val prices: List<ProviderRow>,
     val rpc: List<ProviderRow>,
@@ -106,7 +106,7 @@ internal fun DataProvidersRoute(navController: NavHostController, holder: VaultH
 }
 
 /** Reads the three groups of rows: each provider's settings, and its status from whichever scheduler holds it. */
-private suspend fun readLists(app: LumioApp, vault: LumioVault): ProviderLists {
+internal suspend fun readLists(app: LumioApp, vault: LumioVault): ProviderLists {
     val configs = ProviderCatalog.withDefaults(vault.configs())
     val evm = app.evmReadsFor(vault.session)
     val healthOf: suspend (String) -> ProviderHealth? = { id ->

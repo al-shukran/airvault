@@ -1,9 +1,6 @@
 package app.lumio.ui.settings
 
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -13,8 +10,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.pair.PairedWallet
+import app.lumio.ui.kit.ClearAirDialog
 import app.lumio.ui.kit.ClearAirNote
+import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
+import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.pair.PairLabels
 
 /** The test tag of the row that pairs a wallet from Lensly. */
@@ -57,31 +57,31 @@ fun WalletsSettings(wallets: List<PairedWallet>, onPair: () -> Unit, onDelete: (
             title = wallet.name,
             description = "Fingerprint ${PairLabels.fingerprint(wallet.fingerprint)}",
         )
+        // Pairing again replaces this wallet's watch-only copy and its address book, so the wallet keeps its place in the list.
+        ClearAirRow(title = "Re-Pair with Lensly", onClick = onPair)
         ClearAirRow(
-            title = "Delete ${wallet.name}",
+            title = "Remove from Lumio",
             onClick = { pendingDelete = wallet },
             destructive = true,
             modifier = Modifier.testTag(deleteWalletTag(wallet.id)),
         )
     }
     pendingDelete?.let { wallet ->
-        AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text("Delete ${wallet.name}?") },
-            text = { Text("Lumio erases this wallet's watch-only copy. The wallet in Lensly is not changed.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingDelete = null
-                        onDelete(wallet)
-                    },
-                    modifier = Modifier.testTag(DELETE_CONFIRM_TAG),
-                ) {
-                    Text("Delete")
-                }
-            },
-            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } },
-        )
+        ClearAirDialog(
+            title = "Remove ${wallet.name} from Lumio?",
+            text = "Lensly and your keys are not affected. Names come from Lensly and can't be edited here.",
+            onDismiss = { pendingDelete = null },
+        ) {
+            ClearAirPrimaryButton(
+                text = "Remove",
+                onClick = {
+                    pendingDelete = null
+                    onDelete(wallet)
+                },
+                modifier = Modifier.testTag(DELETE_CONFIRM_TAG),
+            )
+            ClearAirTextAction(text = "Cancel", onClick = { pendingDelete = null })
+        }
     }
 }
 

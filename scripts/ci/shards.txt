@@ -523,6 +523,8 @@ verify-app :app app.lensly.ui.screenshot.SignScreenshotTest
 verify-app :app app.lensly.ui.screenshot.WalletPartBScreenshotTest
 verify-lumio :lumio app.lumio.ui.kit.LumioKitScreenshotTest
 verify-lumio :lumio app.lumio.ui.screenshot.AddressBookScreenshotTest
+verify-lumio :lumio app.lumio.ui.screenshot.ExploreScreenshotTest
+verify-lumio :lumio app.lumio.ui.screenshot.ProviderPageScreenshotTest
 verify-lumio :lumio app.lumio.ui.screenshot.AlgorandAddAssetScreenshotTest
 verify-lumio :lumio app.lumio.ui.screenshot.AlgorandSendScreenshotTest
 verify-lumio :lumio app.lumio.ui.screenshot.FirstSyncScreenshotTest

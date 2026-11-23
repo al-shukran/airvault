@@ -66,6 +66,12 @@ internal object LumioRoute {
     const val DATA_PROVIDERS = "settings/providers"
     const val LICENCES = "settings/licences"
 
+    /** The Provider page of one provider, by its catalogue ID. */
+    const val PROVIDER = "settings/providers/{provider}"
+    const val PROVIDER_ARG = "provider"
+
+    fun provider(id: String): String = "settings/providers/$id"
+
     /** The roots of the other tabs. Home, Portfolio and Explore are placeholders until their work packages land. */
     const val HOME = "home"
     const val PORTFOLIO = "portfolio"
@@ -430,9 +436,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
             }
             lumioComposable(LumioRoute.EXPLORE) {
                 LumioBackdrop(selection) {
-                    TabRoute(tab = LumioTab.EXPLORE, navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = { lock() }) {
-                        TabPlaceholder("Chains, providers and learning will appear here.")
-                    }
+                    ExploreRoute(navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = { lock() })
                 }
             }
             lumioComposable(
@@ -662,6 +666,13 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
             deviceProtectionRoutes(navController = navController, holder = holder, selection = selection, onLock = { lock() })
             lumioComposable(LumioRoute.DATA_PROVIDERS) {
                 LumioBackdrop(selection) { DataProvidersRoute(navController = navController, holder = holder) }
+            }
+            lumioComposable(
+                route = LumioRoute.PROVIDER,
+                arguments = listOf(navArgument(LumioRoute.PROVIDER_ARG) { type = NavType.StringType }),
+            ) { entry ->
+                val id = entry.arguments?.getString(LumioRoute.PROVIDER_ARG).orEmpty()
+                LumioBackdrop(selection) { ProviderRoute(navController = navController, holder = holder, id = id, onLock = { lock() }) }
             }
             lumioComposable(LumioRoute.LICENCES) {
                 LumioBackdrop(selection) { LicencesRoute(navController = navController) }

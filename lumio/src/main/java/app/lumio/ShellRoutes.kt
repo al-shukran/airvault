@@ -1,10 +1,6 @@
 package app.lumio
 
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -13,15 +9,11 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
-import app.lensly.ui.theme.ClearAirSpacing
-import app.lensly.ui.theme.ClearAirType
-import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmEdits
 import app.lumio.evm.EvmSettingsStore
@@ -104,13 +96,6 @@ private fun LumioTab.route(): String = when (this) {
     LumioTab.SETTINGS -> LumioRoute.SETTINGS
 }
 
-/** A tab whose content is not built yet: its body says what will appear there, in the page's own place. */
-@Composable
-internal fun TabPlaceholder(text: String) {
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md)) {
-        Text(text = text, style = ClearAirType.body, color = LocalClearAirPalette.current.ink2)
-    }
-}
 
 /**
  * The test networks page: the EVM test networks with a switch each, and the networks that have no switch. The settings are read on the first frame,

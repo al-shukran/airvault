@@ -45,7 +45,6 @@ import app.lensly.ui.components.TextAction
 import app.lensly.ui.theme.LenslySpacing
 import app.lumio.R
 import app.lumio.ui.kit.SecretInput
-import kotlin.math.roundToInt
 
 /**
  * One provider as the settings list it. [apiKey] is the key in the vault, or null. [status] is what the scheduler and the settings say now. The move
@@ -261,16 +260,5 @@ internal fun ApiKeyField(id: String, stored: String?, onSave: (String) -> Unit) 
     }
 }
 
-@Composable
-private fun statusText(status: ProviderStatus): String = when (status) {
-    ProviderStatus.Off -> stringResource(R.string.status_off)
-    ProviderStatus.NeedsKey -> stringResource(R.string.status_needs_key)
-    ProviderStatus.NotActive -> stringResource(R.string.status_not_active)
-    is ProviderStatus.CircuitOpen -> stringResource(R.string.status_circuit_open, wholeSeconds(status.retryInMs))
-    is ProviderStatus.CoolingDown -> stringResource(R.string.status_cooling_down, wholeSeconds(status.inMs))
-    is ProviderStatus.Healthy -> stringResource(R.string.status_healthy, status.score.roundToInt())
-    ProviderStatus.Ready -> stringResource(R.string.status_ready)
-}
-
-/** A time in milliseconds, rounded up to whole seconds. */
-private fun wholeSeconds(ms: Long): Int = ((ms + 999L) / 1000L).toInt()
+/** The status word and, when there is one, the line that says why: Working, Rate-Limited or Off, as the Clear Air pages read them. */
+private fun statusText(status: ProviderStatus): String = listOfNotNull(providerStatusWord(status), providerStatusNote(status)).joinToString(" · ")
