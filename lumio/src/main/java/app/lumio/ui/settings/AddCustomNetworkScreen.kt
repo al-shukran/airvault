@@ -35,7 +35,7 @@ fun AddCustomNetworkScreen(
     onBack: () -> Unit,
     onLock: () -> Unit,
 ) {
-    SettingsFrame(title = "Add Custom Network", offline = offline, onBack = onBack, onLock = onLock) {
+    SettingsFrame(title = "Add Custom Network", offline = offline, onBack = onBack, onLock = onLock, backLabel = "Networks") {
         Column(modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md)) {
             ClearAirField(
                 label = "Name",

@@ -26,8 +26,15 @@ import app.lumio.ui.shell.LumioPageScreen
  * The page's controls apply as the owner changes them. The content scrolls as one column.
  */
 @Composable
-fun SettingsFrame(title: String, offline: String?, onBack: () -> Unit, onLock: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    LumioPageScreen(title = title, backLabel = SETTINGS_BACK, offline = offline, onBack = onBack, onLock = onLock) {
+fun SettingsFrame(
+    title: String,
+    offline: String?,
+    onBack: () -> Unit,
+    onLock: () -> Unit,
+    backLabel: String = SETTINGS_BACK,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    LumioPageScreen(title = title, backLabel = backLabel, offline = offline, onBack = onBack, onLock = onLock) {
         Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), content = content)
     }
 }
