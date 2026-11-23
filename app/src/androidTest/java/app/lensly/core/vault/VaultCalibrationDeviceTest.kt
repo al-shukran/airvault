@@ -27,7 +27,7 @@ class VaultCalibrationDeviceTest {
             try {
                 assertEquals(CreateResult.Created, vault.create("q7Vn!2Lx#Rb9Tm4Wc8Zp".toCharArray()))
                 // Only the KDF parameters are read here, so the fields are decoded without the MAC that follows them.
-                val header = File(context.noBackupFilesDir, "vault/header.bin").readBytes().copyOf(VaultHeader.FIELDS_BYTES)
+                val header = VaultLayout.of(context).header.readBytes().copyOf(VaultHeader.FIELDS_BYTES)
                     .let(VaultHeader::decode)
                 val kdf = header.kdf
                 Log.i(TAG, "calibrated memoryKiB=${kdf.memoryKiB} iterations=${kdf.iterations} parallelism=${kdf.parallelism}")

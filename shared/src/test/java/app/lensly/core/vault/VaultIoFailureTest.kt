@@ -54,7 +54,7 @@ class VaultIoFailureTest {
     fun unlockOpensWhenAnUnusedFolderCannotBeBroughtToTheFolderShape() {
         create()
         val folder = layout.wallets.listFiles().orEmpty().first { it.isDirectory }
-        File(folder, "secret.bin").delete()
+        File(folder, WalletFolder.fileNameOf(WalletFolder.SECRET)).delete()
         taken += folder
         folder.setWritable(false)
 

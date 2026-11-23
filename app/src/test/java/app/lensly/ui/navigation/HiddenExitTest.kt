@@ -74,7 +74,7 @@ class HiddenExitTest {
 
     /** A vault whose header and key file exist, so the gate reads the recorded security facts instead of the Keystore. */
     private fun writeVaultOnDisk(context: Context) {
-        val layout = VaultLayout(File(context.noBackupFilesDir, "vault"))
+        val layout = VaultLayout.of(context)
         layout.root.mkdirs()
         layout.header.writeBytes(
             VaultHeader(

@@ -94,8 +94,8 @@ class WalletPadTest {
         // A record the wallet lacks, and one of the wrong size, must not show in the folder shape.
         val dir = layout.walletDir(wallet)
         val shape = fileSet(dir)
-        File(dir, "bitcoin.bin").delete()
-        File(dir, "solana.bin").writeBytes(ByteArray(10))
+        File(dir, WalletFolder.fileNameOf(WalletFolder.BITCOIN)).delete()
+        File(dir, WalletFolder.fileNameOf(WalletFolder.SOLANA)).writeBytes(ByteArray(10))
         assertNotEquals(shape, fileSet(dir))
 
         val reopened = unlock()

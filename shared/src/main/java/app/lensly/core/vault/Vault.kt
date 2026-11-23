@@ -119,7 +119,7 @@ const val VAULT_DAMAGED =
     "The vault files are incomplete, so this device cannot open or create a vault. Clear the app's data to start again."
 
 /**
- * `vault.bin` is in another format than this build reads. It cannot be verified, so an unlock erases the vault, and nothing is migrated: the
+ * `unlock.bin` is in another format than this build reads. It cannot be verified, so an unlock erases the vault, and nothing is migrated: the
  * owner restores the wallets from their seed phrases into a new vault.
  */
 class VaultFormatChangedException : VaultException(VAULT_FORMAT_CHANGED)
@@ -133,7 +133,7 @@ class VaultFormatChangedException : VaultException(VAULT_FORMAT_CHANGED)
  *    AES-256-GCM to wrap the hardware blob. Each guess needs the slot key, so copies of the vault files cannot be tested offline.
  * 3. Hardware: a non-exportable Keystore AES-256-GCM key (`lensly.vault.hw`) wraps the Vault Key.
  *
- * `vault.bin` holds two slots: one for the real vault and one for the Decoy Vault that a Duress Password opens. Its size
+ * `unlock.bin` holds two slots: one for the real vault and one for the Decoy Vault that a Duress Password opens. Its size
  * never changes (see [VaultKeyFile]). [unlock] derives `K_sw` once and tries it on both slots, so the Duress Password
  * costs what the App Password costs, and a refused password costs the same. Storage and timing do not say which vault
  * opened. Only [VaultSession.isDecoy] says so, and the app must never show it.
@@ -322,7 +322,7 @@ class Vault constructor(
         }
 
     /**
-     * Replaces the App Password of an unlocked vault. Only the vault's own slot in `vault.bin` changes, so wallet data is
+     * Replaces the App Password of an unlocked vault. Only the vault's own slot in `unlock.bin` changes, so wallet data is
      * untouched, and the other slot is kept byte for byte. The new file is written to a temp file, read back and checked,
      * and only then renamed into place.
      *
@@ -1023,7 +1023,7 @@ class Vault constructor(
     }
 
     /**
-     * Writes [slots] as the new `vault.bin`, after reading it back. The file is committed only if every slot in [slots] is in it
+     * Writes [slots] as the new `unlock.bin`, after reading it back. The file is committed only if every slot in [slots] is in it
      * byte for byte and [verified] holds. Otherwise the temp file is removed and nothing changes.
      */
     private fun commitKeyFile(slots: List<ByteArray>, verified: () -> Boolean) {
@@ -1110,8 +1110,7 @@ class Vault constructor(
     private fun purgeUnowned(keep: List<ByteArray>) {
         withRealPad(keep.first()) { pad ->
             val dropped = layout.wallets.list()?.filter { id ->
-                val dir = layout.walletDir(id)
-                File(dir, WALLET_KEY_FILE_NAME).isFile && keep.none { ownsWallet(keys, layout, it, id) }
+                layout.walletKeyFile(id).isFile && keep.none { ownsWallet(keys, layout, it, id) }
             }.orEmpty()
             pad.release(dropped)
         }
@@ -1160,7 +1159,7 @@ class Vault constructor(
         }
     }
 
-    /** The contents of `vault.bin`, or null when it is of another format version: unverifiable, so the caller erases the vault. */
+    /** The contents of `unlock.bin`, or null when it is of another format version: unverifiable, so the caller erases the vault. */
     private fun keyFileOrNull(): VaultKeyFile.Contents? = try {
         VaultKeyFile.decode(readVaultFile(layout.vaultKey))
     } catch (e: VaultFormatChangedException) {

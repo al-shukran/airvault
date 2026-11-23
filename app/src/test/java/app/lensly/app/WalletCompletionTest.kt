@@ -81,7 +81,7 @@ class WalletCompletionTest {
     @Test
     fun openingTheVaultKeepsACompleteWalletWhoseMetaFileIsDamaged() {
         val id = store.create(name = "Demo", deviceGenerated = false, words = DEMO_WORDS, passphrase = null, nowMs = 1L)
-        val meta = File(VaultLayout(tmp.root).walletDir(id), "${WalletRecords.META}.bin")
+        val meta = VaultLayout(tmp.root).walletRecordFile(id, WalletRecords.META)
         // A flipped bit in the tag of the sealed record: it fails authentication, so it no longer reads, though the file is there.
         meta.writeBytes(meta.readBytes().also { it[it.size - 1] = (it[it.size - 1].toInt() xor 1).toByte() })
 

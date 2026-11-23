@@ -1,8 +1,11 @@
 package app.lensly.ui.camera
 
 import app.lensly.core.vault.MediaEnvelope
+import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
+import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WALLET_PAD_FILE_NAME
+import app.lensly.core.vault.WalletFolder
 import java.io.File
 import kotlin.random.Random
 import kotlin.test.assertEquals
@@ -14,7 +17,8 @@ import org.junit.rules.TemporaryFolder
 
 /**
  * The names the photo store and the vault layout put on disk. None may say what a file holds, whose it is, or when it was taken: no kind
- * word, no decoy or wallet word, no key word, and no timestamp.
+ * word, no decoy or wallet word, no key word, no chain word, and no timestamp. The layout is built under the app's own folder name, and
+ * a wallet holds every record it can, so the check covers each file the app writes.
  */
 class PhotoFileNamesTest {
 
@@ -24,7 +28,12 @@ class PhotoFileNamesTest {
     @Test
     fun noNameOnDiskSaysWhatAFileHoldsWhoseItIsOrWhenItWasTaken() {
         val root = folder.root
-        val layout = VaultLayout(File(root, "vault"), File(root, "photos"))
+        val layout = VaultLayout(File(root, VaultLayout.DIR_NAME), File(root, "photos"))
+        val session = VaultSession(layout, MemoryKeystore(), ByteArray(32) { 9 })
+        val wallet = session.createWallet()
+        WalletFolder.NAMES.forEach { session.putRecord(wallet, it, byteArrayOf(1)) }
+        session.putVaultRecord("settings", byteArrayOf(2))
+        session.close()
         layout.makePhotoFolders()
         val privateKey = MediaEnvelope.newPrivateKey()
         layout.photoKeyFile(decoy = false).writeBytes(MediaEnvelope.publicKeyOf(privateKey))
@@ -34,9 +43,10 @@ class PhotoFileNamesTest {
         val recording = folder.newFile("recording.mp4").apply { writeBytes(Random(2).nextBytes(300)) }
         assertTrue(store.saveVideo(recording, nowMs = 1_234_567_891_000L))
         assertEquals(2, layout.photoDir(decoy = false).listFiles().orEmpty().size, "the media must be on disk for the check to mean anything")
+        val walletFiles = layout.walletDir(wallet).listFiles().orEmpty().size
+        assertEquals(WalletFolder.NAMES.size + 1, walletFiles, "every record and the key file exist")
 
-        val onDisk = layout.photos.walkTopDown().drop(1).toList()
-        val produced = onDisk + listOf(
+        val produced = layout.root.walkTopDown().drop(1).toList() + layout.photos.walkTopDown().drop(1).toList() + listOf(
             layout.header,
             layout.vaultKey,
             layout.wallets,
@@ -56,8 +66,15 @@ class PhotoFileNamesTest {
     }
 
     private companion object {
-        /** Tokens that name a kind, an owner, a key, or a wallet. Hex names can contain none of them. */
-        val LEAKING_TOKENS = listOf("decoy", "real", "duress", "wallet", "pub", "key", "img", "vid", "sealed")
+        /**
+         * Tokens that name a kind, an owner, a key, a wallet, a record, or a chain. Hex names can contain none of them, and neither can the
+         * positional names of wallet records.
+         */
+        val LEAKING_TOKENS = listOf(
+            "decoy", "real", "duress", "pub", "key", "img", "vid", "sealed",
+            "wallet", "vault", "lensly", "seed", "mnemonic", "bitcoin", "eth", "sol", "algo",
+            "pwk", "meta", "secret", "profile", "account", "base-name",
+        )
 
         val TIMESTAMP = Regex("""\d{8}_\d{6}""")
     }

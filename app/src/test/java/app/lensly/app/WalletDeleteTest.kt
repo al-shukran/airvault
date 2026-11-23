@@ -84,7 +84,7 @@ class WalletDeleteTest {
         assertEquals(ShredStep.Ended(ShredOutcome.ERASED), flow.state.value)
         assertNull(store.meta(gone))
         assertNull(store.secret(gone))
-        assertFalse(File(VaultLayout(tmp.root).walletDir(gone), "pwk.bin").exists())
+        assertFalse(VaultLayout(tmp.root).walletKeyFile(gone).exists())
         assertEquals(setOf(kept, other), store.list().map { it.id }.toSet())
         assertEquals(keptAddress, store.addresses(kept, 1))
         assertEquals(otherAddress, store.addresses(other, 1))

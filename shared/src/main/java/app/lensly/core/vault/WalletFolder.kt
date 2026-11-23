@@ -15,14 +15,15 @@ import javax.crypto.SecretKey
  * The files of a wallet folder, and how a record is sealed in one.
  *
  * Every wallet folder holds the same files with the same sizes, whether it belongs to the real vault, to the Decoy Vault, or is an
- * unused slot: `pwk.bin`, then `<name>.bin` for each record name in [NAMES]. A record that a wallet does not have is random bytes of its
- * file's size, and a record that it has is sealed to that same size. So the folder shape says nothing about the wallet inside.
+ * unused slot: the key file ([KEY_FILE_NAME]), then one file per record name in [NAMES], named by position ([fileNameOf]). A record
+ * that a wallet does not have is random bytes of its file's size, and a record that it has is sealed to that same size. So the
+ * folder shape says nothing about the wallet inside.
  *
  * A sealed record holds the record's length, the record, and random filler up to the record's capacity. Random bytes never authenticate,
  * so [open] returns null for an absent record, and a random file is never read as a wallet's.
  *
- * `pwk.bin` holds the folder's Per-Wallet Key in two layers. The inner layer is the key sealed under the Vault Key, with the wallet id as
- * AAD. The outer layer seals that under the folder's own Keystore key, and the file names that key in clear: `version (1) || key id (36)
+ * The key file holds the folder's Per-Wallet Key in two layers. The inner layer is the key sealed under the Vault Key, with the wallet id
+ * as AAD. The outer layer seals that under the folder's own Keystore key, and the file names that key in clear: `version (1) || key id (36)
  * || AES-GCM_folder(inner)`. The key id is random and names no wallet. Deleting the Keystore key makes the file unreadable, even with the
  * Vault Key, so a shred does not depend on the storage erasing old bytes. Every folder has a key. An unused slot's inner layer is random
  * bytes sealed under its own key, so every outer layer opens and the keys do not show which folders hold wallets.
@@ -96,11 +97,11 @@ internal object WalletFolder {
     )
 
     /**
-     * The inner layer of `pwk.bin`: the Per-Wallet Key sealed under the Vault Key.
+     * The inner layer of the key file: the Per-Wallet Key sealed under the Vault Key.
      */
     internal const val VAULT_WRAPPED_KEY_BYTES = 1 + Aead.IV_BYTES + KEY_BYTES + TAG_BYTES
 
-    /** The size of `pwk.bin`, a real wallet's key file and an unused slot's alike. */
+    /** The size of the key file, a real wallet's and an unused slot's alike. */
     internal const val KEY_FILE_BYTES = 1 + KEY_ID_BYTES + Aead.IV_BYTES + VAULT_WRAPPED_KEY_BYTES + TAG_BYTES
 
     private val random = SecureRandom()
@@ -108,6 +109,19 @@ internal object WalletFolder {
     /** The record names a wallet folder holds, in file order: the fixed records, then the account records. */
     val NAMES: List<String> =
         listOf(META, SECRET, BASE_NAME, PROFILE, BITCOIN, SOLANA, ALGORAND) + (0 until ACCOUNT_SLOTS).map { accountName(it) }
+
+    /**
+     * The file of record [name]: its position in [NAMES], so no name says what the file holds. The positions are the on-disk layout,
+     * so a record is only ever added at the end of [NAMES].
+     */
+    fun fileNameOf(name: String): String {
+        val index = NAMES.indexOf(name)
+        require(index >= 0) { "Invalid record name." }
+        return "$index.bin"
+    }
+
+    /** The key file: the file after the last record, so its name says nothing about it either. */
+    val KEY_FILE_NAME: String = "${NAMES.size}.bin"
 
     /** The name of the record of account [index]. */
     fun accountName(index: Int): String = ACCOUNT_PREFIX + index
@@ -179,7 +193,7 @@ internal object WalletFolder {
 
     /** Overwrites record [name] of folder [dir] with random bytes of its size, if the folder holds that record. */
     fun erase(dir: File, name: String) {
-        val file = File(dir, "$name.bin")
+        val file = File(dir, fileNameOf(name))
         if (file.isFile) writeRandom(file, sizeOf(name))
     }
 
@@ -194,7 +208,7 @@ internal object WalletFolder {
     fun makeUnused(dir: File, keys: KeystoreBackend): Boolean {
         dir.mkdirs()
         val erased = retireKey(dir, keys)
-        val wanted = NAMES.map { "$it.bin" }.toSet() + WALLET_KEY_FILE_NAME
+        val wanted = NAMES.map { fileNameOf(it) }.toSet() + KEY_FILE_NAME
         dir.listFiles().orEmpty().forEach { child ->
             if (!child.isFile || child.name !in wanted) {
                 if (child.isFile) overwriteInPlace(child)
@@ -202,7 +216,7 @@ internal object WalletFolder {
             }
         }
         writeUnusedKeyFile(dir, keys)
-        NAMES.forEach { name -> writeRandom(File(dir, "$name.bin"), sizeOf(name)) }
+        NAMES.forEach { name -> writeRandom(File(dir, fileNameOf(name)), sizeOf(name)) }
         return erased
     }
 
@@ -210,7 +224,7 @@ internal object WalletFolder {
     fun isUnused(dir: File): Boolean {
         val children = dir.listFiles() ?: return false
         if (children.any { !it.isFile }) return false
-        val expected = NAMES.associate { "$it.bin" to sizeOf(it) } + (WALLET_KEY_FILE_NAME to KEY_FILE_BYTES)
+        val expected = NAMES.associate { fileNameOf(it) to sizeOf(it) } + (KEY_FILE_NAME to KEY_FILE_BYTES)
         return children.associate { it.name to it.length().toInt() } == expected
     }
 
@@ -220,7 +234,7 @@ internal object WalletFolder {
      */
     fun settle(dir: File, walletId: String, walletKey: ByteArray) {
         for (name in NAMES) {
-            val file = File(dir, "$name.bin")
+            val file = File(dir, fileNameOf(name))
             val size = sizeOf(name)
             val bytes = if (file.isFile) file.readBytes() else null
             val current = bytes?.let { open(walletKey, walletId, name, it) }
@@ -242,7 +256,7 @@ internal object WalletFolder {
      * caller that deletes folders stops instead of deleting one it cannot check.
      */
     fun walletKeyOf(keys: KeystoreBackend, dir: File, vaultKey: ByteArray, walletId: String): ByteArray? {
-        val file = File(dir, WALLET_KEY_FILE_NAME)
+        val file = File(dir, KEY_FILE_NAME)
         if (!file.isFile) return null
         val bytes = try {
             file.readBytes()
@@ -269,7 +283,7 @@ internal object WalletFolder {
         val keyId = keyIdIn(dir) ?: UUID.randomUUID().toString()
         val folderKey = keystoreCall { keys.folderKey(keyId) ?: keys.createFolderKey(keyId) }
         val inner = encodeBlob(Aead.seal(vaultKey, walletId.toByteArray(StandardCharsets.UTF_8), walletKey))
-        writeAtomically(File(dir, WALLET_KEY_FILE_NAME), keyFileOf(keyId, folderKey, inner))
+        writeAtomically(File(dir, KEY_FILE_NAME), keyFileOf(keyId, folderKey, inner))
     }
 
     /**
@@ -343,7 +357,7 @@ internal object WalletFolder {
         } catch (e: VaultException) {
             byteArrayOf(BLOB_VERSION) + keyId.toByteArray(StandardCharsets.US_ASCII) + randomBlob(KEY_FILE_BYTES - 1 - KEY_ID_BYTES)
         }
-        val file = File(dir, WALLET_KEY_FILE_NAME)
+        val file = File(dir, KEY_FILE_NAME)
         overwriteInPlace(file)
         file.writeBytes(bytes)
     }
@@ -372,7 +386,7 @@ internal object WalletFolder {
 
     /** The key id that the key file of the folder in [dir] names, or null when the folder has no key file in the current layout. */
     private fun keyIdIn(dir: File): String? {
-        val file = File(dir, WALLET_KEY_FILE_NAME)
+        val file = File(dir, KEY_FILE_NAME)
         if (!file.isFile) return null
         val bytes = file.readBytes()
         return if (bytes.size == KEY_FILE_BYTES && bytes[0] == BLOB_VERSION) keyIdOf(bytes) else null
