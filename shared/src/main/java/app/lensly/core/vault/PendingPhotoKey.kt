@@ -5,7 +5,7 @@ import java.io.File
 import java.io.IOException
 
 /**
- * The photo key pair of photos taken before the first setup. Until a vault exists, a shot is sealed to the public half in `real.pub`,
+ * The photo key pair of photos taken before the first setup. Until a vault exists, a shot is sealed to the public half in `0.bin`,
  * as every photo is. The private half waits in [VaultLayout.pendingKeyFile], wrapped under the Keystore key of
  * [KeystoreBackend.pendingPhotoKey], so no plain copy is on disk. When the vault is created it adopts the pair (see
  * [VaultSession.adoptPendingPhotoKey]), so those photos open through the vault's photo key from then on. A pair that cannot be verified is
@@ -31,7 +31,7 @@ internal object PendingPhotoKey {
                 val privateKey = MediaEnvelope.newPrivateKey()
                 try {
                     val sealed = keystoreCall { Aead.sealWithKeystore(keys.createPendingPhotoKey(), AAD, privateKey) }
-                    layout.photos.mkdirs()
+                    layout.makePhotoFolders()
                     writeAtomically(layout.pendingKeyFile, sealed)
                     writeAtomically(layout.photoKeyFile(decoy = false), MediaEnvelope.publicKeyOf(privateKey))
                 } finally {
@@ -75,7 +75,7 @@ internal object PendingPhotoKey {
         }
     }
 
-    /** The private half, when the pending pair opens and matches `real.pub`. Null when it cannot be verified. */
+    /** The private half, when the pending pair opens and matches `0.bin`. Null when it cannot be verified. */
     private fun openPair(layout: VaultLayout, keys: KeystoreBackend): ByteArray? {
         return try {
             val wrapKey = keystoreCall { keys.pendingPhotoKey() } ?: return null

@@ -81,7 +81,7 @@ fun GalleryScreen(
     var deletions by remember { mutableIntStateOf(0) }
     var showDeleted by remember { mutableStateOf(false) }
     var deletedNotice by remember { mutableStateOf("") }
-    val opened = photos.firstOrNull { it.name == openedName }
+    val opened = photos.firstOrNull { it.file.name == openedName }
 
     // Each deletion restarts the notice, so a second delete shows it for the full time.
     LaunchedEffect(deletions) {
@@ -130,8 +130,13 @@ fun GalleryScreen(
                 verticalArrangement = Arrangement.spacedBy(LenslySpacing.xxs),
                 horizontalArrangement = Arrangement.spacedBy(LenslySpacing.xxs),
             ) {
-                items(photos, key = { it.name }) { file ->
-                    MediaTile(store = store, file = file, onClick = { openedName = file.name })
+                items(photos, key = { it.file.name }) { media ->
+                    MediaTile(
+                        store = store,
+                        file = media.file,
+                        isVideo = media.isVideo,
+                        onClick = { openedName = media.file.name },
+                    )
                 }
             }
         }
@@ -140,11 +145,12 @@ fun GalleryScreen(
     if (opened != null) {
         MediaViewer(
             store = store,
-            file = opened,
+            file = opened.file,
+            isVideo = opened.isVideo,
             onClose = { openedName = null },
             onDelete = {
                 deletedNotice = if (opened.isVideo) "Video deleted." else "Photo deleted."
-                store.delete(opened)
+                store.delete(opened.file)
                 photos = store.list()
                 openedName = null
                 deletions++
@@ -155,7 +161,7 @@ fun GalleryScreen(
 
 /** One grid cell. A video shows its length in the corner. It dims while pressed and plays the key haptic. */
 @Composable
-private fun MediaTile(store: PhotoStore, file: File, onClick: () -> Unit) {
+private fun MediaTile(store: PhotoStore, file: File, isVideo: Boolean, onClick: () -> Unit) {
     val haptics = rememberKeyHaptics()
     val interaction = remember { MutableInteractionSource() }
     Box(
@@ -170,16 +176,17 @@ private fun MediaTile(store: PhotoStore, file: File, onClick: () -> Unit) {
                 indication = null,
                 onClick = onClick,
             )
-            .semantics { contentDescription = if (file.isVideo) "Video" else "Photo" },
+            .semantics { contentDescription = if (isVideo) "Video" else "Photo" },
     ) {
         PhotoImage(
             store = store,
             file = file,
+            isVideo = isVideo,
             maxSidePx = 320,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
-        if (file.isVideo) {
+        if (isVideo) {
             DurationBadge(
                 store = store,
                 file = file,
@@ -212,24 +219,26 @@ private fun DurationBadge(store: PhotoStore, file: File, modifier: Modifier = Mo
 private fun MediaViewer(
     store: PhotoStore,
     file: File,
+    isVideo: Boolean,
     onClose: () -> Unit,
     onDelete: () -> Unit,
 ) {
     BackHandler(onBack = onClose)
     var confirmingDelete by remember { mutableStateOf(false) }
-    val kind = if (file.isVideo) "video" else "photo"
+    val kind = if (isVideo) "video" else "photo"
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        if (file.isVideo) {
+        if (isVideo) {
             VideoPlayer(store = store, file = file, modifier = Modifier.fillMaxSize())
         } else {
             PhotoImage(
                 store = store,
                 file = file,
+                isVideo = false,
                 maxSidePx = 1600,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),

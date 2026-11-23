@@ -9,21 +9,21 @@ import javax.crypto.spec.SecretKeySpec
 
 /**
  * On-disk layout under `noBackupFilesDir/vault/`:
- * `header.bin`, `vault.key`, `failures.bin`, `failures.bak`, `wallet-pad.bin`, `vault-records/` (records that belong to one vault
+ * `header.bin`, `vault.bin`, `failures.bin`, `failures.bak`, `spare.bin`, `vault-records/` (records that belong to one vault
  * as a whole, such as settings), `review-pool/` (the Review Records of every wallet, in equal-size files outside the wallet
- * folders, see [ReviewPool]), and `wallets/<id>/` holding `pwk.bin` and the other records.
+ * folders, see [ReviewPool]), and `items/<id>/` holding `pwk.bin` and the other records.
  *
  * The real vault and the decoy vault share these folders. Every file is sealed under the key of the vault that owns it,
  * so a session lists and opens only its own files (see [ownsWallet] and [VaultRecordNames]).
  *
- * The photos and videos are sealed files (see [MediaEnvelope]) under [photos] (`filesDir/photos` in the app), in `real/` and `decoy/`
- * (see [photoDir]).
+ * The photos and videos are sealed files (see [MediaEnvelope]) under [photos] (`filesDir/photos` in the app), in the folders `0` and `1`
+ * (see [photoDir]). Both exist from setup, and no file name says what a file is: its kind and capture time are sealed inside it.
  * [wipeVault] removes the whole folder, both vaults' photos with it.
  */
 class VaultLayout(val root: File, val photos: File = File(root, "photos")) {
     val header = File(root, "header.bin")
-    val vaultKey = File(root, "vault.key")
-    val wallets = File(root, "wallets")
+    val vaultKey = File(root, "vault.bin")
+    val wallets = File(root, "items")
     val vaultRecords = File(root, "vault-records")
     val reviewPool = File(root, "review-pool")
 
@@ -44,21 +44,29 @@ class VaultLayout(val root: File, val photos: File = File(root, "photos")) {
 
     fun walletDir(walletId: String): File = File(wallets, walletId)
 
-    /** The media folder of the real vault, or of the Decoy Vault when [decoy] is true. The two are kept apart. */
-    fun photoDir(decoy: Boolean): File = File(photos, if (decoy) "decoy" else "real")
+    /** The media folder of the real vault (`0`), or of the Decoy Vault (`1`). The two are kept apart. */
+    fun photoDir(decoy: Boolean): File = File(photos, if (decoy) "1" else "0")
+
+    /**
+     * Makes both media folders. They exist from setup, so the folder listing does not show whether a Decoy Vault was made.
+     */
+    fun makePhotoFolders() {
+        photoDir(decoy = false).mkdirs()
+        photoDir(decoy = true).mkdirs()
+    }
 
     /**
      * The public key that the photos of the real vault, or of the Decoy Vault, are sealed to. It is a plain file beside the photo folders,
      * so the cover can seal without a session. Until the Decoy Vault has a key of its own, its file holds [placeholderPhotoKey], so the
      * folder shows the same files whether or not a decoy exists.
      */
-    fun photoKeyFile(decoy: Boolean): File = File(photos, if (decoy) "decoy.pub" else "real.pub")
+    fun photoKeyFile(decoy: Boolean): File = File(photos, if (decoy) "1.bin" else "0.bin")
 
     /**
      * The private half of the photo key pair that photos taken before the first setup are sealed to, wrapped under a Keystore key (see
      * [PendingPhotoKey]). It sits in the photo folder, so a wipe removes it with the photos.
      */
-    val pendingKeyFile = File(photos, "pending.key")
+    val pendingKeyFile = File(photos, "pending.bin")
 
     companion object {
         /** The app's layout: the vault under its no-backup files folder, and its photos under its files folder. */
@@ -79,13 +87,13 @@ internal object VaultRole {
 }
 
 /**
- * The vault format version. `header.bin` and `vault.key` both hold it after their magic, and the slot key label names it (see [Vault]).
+ * The vault format version. `header.bin` and `vault.bin` both hold it after their magic, and the slot key label names it (see [Vault]).
  * A file of any other version is refused as a format change, and nothing is migrated from it (see [VaultFormatChangedException]).
  */
 internal const val VAULT_FORMAT_VERSION: Byte = 3
 
 /**
- * Contents of `vault.key`, which holds one slot for the real vault and one for the decoy vault that a Duress Password
+ * Contents of `vault.bin`, which holds one slot for the real vault and one for the decoy vault that a Duress Password
  * opens. The file is magic "LNVK" (4), version [VAULT_FORMAT_VERSION] (1), then two slots of [SLOT_BYTES] each. A slot is
  * `nonce (16) || tag (16) || sealed (89)`, where `sealed = AES-GCM_Ksw(AES-GCM_hw(vaultKey || role))`, `role` is one
  * byte (see [VaultRole]), and `tag` is the first 16 bytes of HMAC-SHA256(vaultKey, label || nonce). An open vault finds
@@ -108,7 +116,7 @@ internal object VaultKeyFile {
     /** One slot: nonce, tag, then the sealed blob. */
     const val SLOT_BYTES = NONCE_BYTES + TAG_BYTES + SEALED_BYTES
 
-    /** Size of every `vault.key`. It does not depend on the password, the vault, or whether a decoy exists. */
+    /** Size of every `vault.bin`. It does not depend on the password, the vault, or whether a decoy exists. */
     const val FILE_BYTES = PREFIX_BYTES + 2 * SLOT_BYTES
 
     private val TAG_LABEL = "lensly.vault.slot-tag".toByteArray(Charsets.US_ASCII)
@@ -124,7 +132,7 @@ internal object VaultKeyFile {
     }
 
     /**
-     * Parses `vault.key`. A file of another version is a format change, see [VaultFormatChangedException]. Any other size or magic is
+     * Parses `vault.bin`. A file of another version is a format change, see [VaultFormatChangedException]. Any other size or magic is
      * damaged.
      */
     fun decode(bytes: ByteArray): Contents {

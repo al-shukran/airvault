@@ -30,8 +30,8 @@ class PhotoStoreTest {
         assertTrue(store.savePhoto(photo.copyOf(), nowMs = 1_000L))
 
         val saved = store.list().single()
-        assertTrue(saved.name.startsWith("IMG_") && saved.name.endsWith(".sealed"))
-        assertContentEquals(photo, store.photoBytes(saved))
+        assertFalse(saved.isVideo)
+        assertContentEquals(photo, store.photoBytes(saved.file))
     }
 
     @Test
@@ -58,7 +58,8 @@ class PhotoStoreTest {
         assertFalse(recording.exists())
         val video = store.list().single()
         assertTrue(video.isVideo)
-        MediaEnvelope.SealedReader.open(video, key).use { assertContentEquals(bytes, it.readAll()) }
+        assertFalse(video.file.readBytes().holds(bytes))
+        assertContentEquals(bytes, store.photoBytes(video.file))
     }
 
     @Test
@@ -72,8 +73,9 @@ class PhotoStoreTest {
 
         assertEquals(3, listed.size)
         assertTrue(listed[0].isVideo)
-        assertContentEquals(jpeg(5), store.photoBytes(listed[1]))
-        assertContentEquals(jpeg(4), store.photoBytes(listed[2]))
+        assertEquals(3_000L, listed[0].capturedMs)
+        assertContentEquals(jpeg(5), store.photoBytes(listed[1].file))
+        assertContentEquals(jpeg(4), store.photoBytes(listed[2].file))
     }
 
     @Test
@@ -105,7 +107,8 @@ class PhotoStoreTest {
 
         assertTrue(cover.savePhoto(jpeg(10), nowMs = 1_000L))
 
-        assertNull(cover.photoBytes(cover.list().single()))
+        assertTrue(cover.list().isEmpty())
+        assertNull(cover.photoBytes(cover.directory.listFiles().orEmpty().single()))
     }
 
     @Test
@@ -116,7 +119,7 @@ class PhotoStoreTest {
 
         store.close()
 
-        assertNull(store.photoBytes(saved))
+        assertNull(store.photoBytes(saved.file))
     }
 
     @Test
@@ -124,7 +127,7 @@ class PhotoStoreTest {
         val store = keyedStore(folder.root)
         store.savePhoto(jpeg(12), nowMs = 1_000L)
 
-        assertTrue(store.delete(store.list().single()))
+        assertTrue(store.delete(store.list().single().file))
 
         assertTrue(store.list().isEmpty())
     }

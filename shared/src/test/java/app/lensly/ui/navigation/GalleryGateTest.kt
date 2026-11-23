@@ -46,8 +46,8 @@ class GalleryGateTest {
     fun aPhotoSavedForTheRealVaultIsNotListedInTheDecoy() {
         val photo = saveRealPhoto()
 
-        assertEquals(listOf(photo), PhotoStore.of(layout, decoy = false).list())
-        assertTrue(PhotoStore.of(layout, decoy = true).list().isEmpty())
+        assertEquals(listOf(photo), assertNotNull(galleryAfterDelay(APP)).list().map { it.file })
+        assertTrue(assertNotNull(galleryAfterDelay(DURESS)).list().isEmpty())
     }
 
     @Test
@@ -56,7 +56,7 @@ class GalleryGateTest {
 
         val gallery = assertNotNull(galleryAfterDelay(APP))
 
-        assertEquals(listOf(photo), gallery.list())
+        assertEquals(listOf(photo), gallery.list().map { it.file })
         assertContentEquals(PHOTO, gallery.photoBytes(photo))
     }
 
@@ -105,7 +105,7 @@ class GalleryGateTest {
     /** Saves a photo the way the cover does, with no password: the vault's public key alone seals it. */
     private fun saveRealPhoto(): File {
         assertTrue(PhotoStore.of(layout, decoy = false).savePhoto(PHOTO.copyOf(), nowMs = 1_000L))
-        return PhotoStore.of(layout, decoy = false).list().single()
+        return PhotoStore.of(layout, decoy = false).directory.listFiles().orEmpty().single()
     }
 
     private fun createVaultWithDuress() {

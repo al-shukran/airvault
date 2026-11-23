@@ -18,8 +18,8 @@ internal const val WALLET_KEY_FILE_NAME = "pwk.bin"
 /** The fewest wallet folders a padded store holds, and the step its folder count grows by. */
 internal const val WALLET_SLOT_STEP = 16
 
-/** Names the file that lists the unused wallet slots. It sits outside `wallets/`, so it is never a wallet folder. */
-internal const val WALLET_PAD_FILE_NAME = "wallet-pad.bin"
+/** Names the file that lists the unused wallet slots. It sits outside `items/`, so it is never a wallet folder. */
+internal const val WALLET_PAD_FILE_NAME = "spare.bin"
 
 /** The section of [WALLET_PAD_FILE_NAME] that the real vault writes. */
 internal const val REAL_SECTION = 0
@@ -631,7 +631,7 @@ class VaultSession constructor(
      * exists, with a placeholder until a Decoy Vault has its own key. Called on unlock, and when a vault is created.
      */
     internal fun ensurePhotoKey(): Unit = synchronized(this) {
-        layout.photos.mkdirs()
+        layout.makePhotoFolders()
         val privateKey = getVaultRecord(VaultRecordNames.PHOTO_KEY)
             ?: MediaEnvelope.newPrivateKey().also { putVaultRecord(VaultRecordNames.PHOTO_KEY, it) }
         val publicKey = MediaEnvelope.publicKeyOf(privateKey)

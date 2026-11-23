@@ -157,7 +157,7 @@ class PendingPhotoKeyTest {
     /** Opens the photo folder with [privateKey] and checks that [photo] is the only photo in it. */
     private fun assertOnlyPhotoOpens(photo: ByteArray, privateKey: ByteArray?) {
         val store = PhotoStore.of(layout, decoy = false, privateKey = privateKey)
-        val opened = store.list().map { requireNotNull(store.photoBytes(it)) }
+        val opened = store.list().map { requireNotNull(store.photoBytes(it.file)) }
         assertEquals(1, opened.size)
         assertContentEquals(photo, opened.single())
     }
