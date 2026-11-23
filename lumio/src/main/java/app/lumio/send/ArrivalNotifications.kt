@@ -17,7 +17,7 @@ import app.lumio.R
 
 /**
  * The arrival notice, on its own channel. It posts only when the owner has allowed notifications: this class never asks for the permission, so an
- * arrival cannot nag.
+ * arrival cannot nag. Before unlock the lock screen shows only the cover's words, so the arrival stays behind the gesture.
  */
 class ArrivalNotifications(private val context: Context) : ArrivalNotice {
     override fun canPost(): Boolean {
@@ -29,24 +29,34 @@ class ArrivalNotifications(private val context: Context) : ArrivalNotice {
     @SuppressLint("MissingPermission") // canPost checks the permission before this is called.
     override fun post(id: String, title: String, text: String) {
         val manager = NotificationManagerCompat.from(context)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Arrivals", NotificationManager.IMPORTANCE_DEFAULT))
+        manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, COVER_TITLE, NotificationManager.IMPORTANCE_DEFAULT))
         val open = PendingIntent.getActivity(
             context,
             0,
             Intent(context, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+        val cover = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setContentTitle(COVER_TITLE)
+            .setContentText(COVER_TEXT)
+            .build()
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle(title)
             .setContentText(text)
             .setContentIntent(open)
             .setAutoCancel(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(cover)
             .build()
         manager.notify(id, 0, notification)
     }
 
     private companion object {
+        // The channel keeps its ID, so an install that already has it is renamed rather than left with an old channel.
         const val CHANNEL_ID = "arrivals"
+        const val COVER_TITLE = "Camera"
+        const val COVER_TEXT = "Tap to open"
     }
 }
