@@ -449,28 +449,40 @@ class Vault constructor(
                     }
                     val decoySlot = VaultKeyFile.randomSlot(random)
                     layout.root.mkdirs()
-                    if (!createFailureState()) {
-                        // The hardware key was made a moment ago, and the directory may hold the first Delay State copies.
-                        // Both go, so a refused creation leaves nothing behind.
-                        keystoreOrNull { keys.deleteAll() }
-                        layout.root.deleteRecursively()
-                        return CreateResult.DeviceUnsupported
+                    // The files of this create all sit under the vault root, from the first one written on. A failure after that removes
+                    // the root, so a failed create leaves no partial vault: the vault is as it was before the call.
+                    var committed = false
+                    try {
+                        if (!createFailureState()) {
+                            // The hardware key was made a moment ago, and the directory may hold the first Delay State copies.
+                            // Both go, so a refused creation leaves nothing behind. The directory is removed in the finally below.
+                            keystoreOrNull { keys.deleteAll() }
+                            return CreateResult.DeviceUnsupported
+                        }
+                        writeAtomically(layout.vaultKey, VaultKeyFile.encode(listOf(realSlot, decoySlot), random))
+                        // The store starts with its full set of wallet folders, so it never shows an empty one.
+                        WalletPad(layout, keys, vaultKey, REAL_SECTION).padTo(WALLET_SLOT_STEP)
+                        // The Review Record pool starts with its first batch, so an empty vault shows the same pool as one with records.
+                        ReviewPool(layout.reviewPool, vaultKey).ensureFirstBatch()
+                        // The header goes last. Its presence is what makes exists() true, so a crash earlier leaves no vault.
+                        val header = VaultHeader(
+                            kdf = kdf,
+                            salt = salt,
+                            createdAtWallMs = clock.wallMillis(),
+                            strongBox = keys.strongBox(),
+                            hardwareBacked = VaultKeystore.isHardwareBacked(securityLevel),
+                            keySecurityLevel = securityLevel,
+                        )
+                        writeAtomically(layout.header, header.encodeFile { input -> headerMacOf(input) })
+                        committed = true
+                    } finally {
+                        if (!committed) {
+                            // The Keystore keys made here stay until the next create replaces them. deleteAll would also remove the pending
+                            // photo key, which opens the photos taken before setup.
+                            FailureStore.forget(layout.root)
+                            layout.root.deleteRecursively()
+                        }
                     }
-                    writeAtomically(layout.vaultKey, VaultKeyFile.encode(listOf(realSlot, decoySlot), random))
-                    // The store starts with its full set of wallet folders, so it never shows an empty one.
-                    WalletPad(layout, keys, vaultKey, REAL_SECTION).padTo(WALLET_SLOT_STEP)
-                    // The Review Record pool starts with its first batch, so an empty vault shows the same pool as one with records.
-                    ReviewPool(layout.reviewPool, vaultKey).ensureFirstBatch()
-                    // The header goes last. Its presence is what makes exists() true, so a crash earlier leaves no vault.
-                    val header = VaultHeader(
-                        kdf = kdf,
-                        salt = salt,
-                        createdAtWallMs = clock.wallMillis(),
-                        strongBox = keys.strongBox(),
-                        hardwareBacked = VaultKeystore.isHardwareBacked(securityLevel),
-                        keySecurityLevel = securityLevel,
-                    )
-                    writeAtomically(layout.header, header.encodeFile { input -> headerMacOf(input) })
                     // The photo key is made now, so the cover can seal its first photo before anyone unlocks the vault.
                     bestEffort {
                         val session = VaultSession(
@@ -1147,16 +1159,26 @@ class Vault constructor(
 
     /**
      * The header in `header.bin`, when its MAC verifies under the header key. Null means unverifiable: the caller erases the vault, or refuses
-     * its change, before any password is checked. A header of another format version, or a Keystore fault while the MAC is made, is
-     * unverifiable too. A file that cannot be read throws [VaultException], as before.
+     * its change, before any password is checked. A header of another format version is unverifiable too, and so is one whose MAC hits a
+     * Keystore fault twice (see [headerMacForCheck]). A file that cannot be read throws [VaultException], as before.
      */
     private fun verifiedHeader(): VaultHeader? {
         val file = readVaultFile(layout.header)
         return try {
-            VaultHeader.decodeFile(file) { input -> headerMacOf(input) }
+            VaultHeader.decodeFile(file) { input -> headerMacForCheck(input) }
         } catch (e: VaultException) {
             null
         }
+    }
+
+    /**
+     * The header MAC for a check. A Keystore fault while the MAC is made is not a MAC that does not match, so the MAC is made once more before the
+     * fault counts. A MAC that does not match is not made again: [VaultHeader.decodeFile] rejects it at once.
+     */
+    private fun headerMacForCheck(input: ByteArray): ByteArray = try {
+        headerMacOf(input)
+    } catch (e: VaultException) {
+        headerMacOf(input)
     }
 
     /** The contents of `unlock.bin`, or null when it is of another format version: unverifiable, so the caller erases the vault. */
