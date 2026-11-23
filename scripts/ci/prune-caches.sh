@@ -4,15 +4,16 @@
 # newest saved build-cache set. Every other set is deleted, including the sets of lanes no workflow uses any more, so an
 # overlap of pushes leaves one set. On master, every other cache groups by its key without the trailing commit or content hash
 # (deps-v3-Linux, a setup-gradle entry of a nightly job), and each group keeps its newest entry, so the dependency cache and the
-# setup-gradle caches that nightly and other workflows restore survive. An entry created after this run started is never
+# setup-gradle caches that nightly and other workflows restore survive. An entry created after the prune started is never
 # deleted, and neither is the dependency key of master's current head (MASTER_DEPS_KEY).
 # A merge-queue entry (refs/heads/gh-readonly-queue/...) saves caches that no other run can restore, so all of them that are
-# older than this run are deleted. Pull request caches are not touched: cache-cleanup.yml deletes them when the pull request
+# older than this prune are deleted. Pull request caches are not touched: cache-cleanup.yml deletes them when the pull request
 # closes. --dry-run prints only.
 set -euo pipefail
 
-run_id="${GITHUB_RUN_ID:?GITHUB_RUN_ID is not set}"
-started="$(gh api "repos/{owner}/{repo}/actions/runs/$run_id" --jq .run_started_at)"
+# The prune's own start, not the run's: the run's lanes take about 15 minutes, and the caches saved meanwhile (a nightly run's
+# setup-gradle entries, for one) must be deleted by this prune, not left for a later one.
+started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 master_sha="${MASTER_SHA:?MASTER_SHA is not set}"
 master_deps="${MASTER_DEPS_KEY:?MASTER_DEPS_KEY is not set}"
 dry_run=0

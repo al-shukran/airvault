@@ -60,7 +60,9 @@ The lines balance the lanes. A test class with no line still runs, so adding a t
   master's current head and the newest set (its commit), and deletes every other `bc-*-master-<sha>` entry, including the sets of
   lanes no workflow uses any more. Other master caches group by their key without the trailing hash, and each group keeps its newest
   entry, so the dependency cache and the setup-gradle `gradle-*` caches of nightly and other workflows survive. No entry newer than
-  the prune's own run and no dependency key of master's current head is deleted. Merge-queue caches (`gh-readonly-queue/...`), which
+  created after the prune started and no dependency key of master's current head is deleted. The prune's window is its own start, not the run's:
+  the run's lanes take about 15 minutes, and a manual nightly run saved ten `gradle-*` entries in that window (run 45131719179) that
+  the run-start window kept, so the guard failed at 10.7 GB. Merge-queue caches (`gh-readonly-queue/...`), which
   no other run can restore, are deleted. The listing pages through every cache. GitHub evicts least recently used entries over 10 GB
   per repository (run 44727796023).
 - Trim: `trim-build-cache.sh <lane>` runs before each save and keeps only the build-cache entries that run used. Gradle does not
