@@ -29,9 +29,8 @@ class GalleryVideoErrorTest {
     @Test
     fun aDamagedVideoShowsTheAppsErrorState() {
         val store = keyedStore(folder.root)
-        // Not a sealed video: the store refuses its header, so the viewer has nothing to play.
-        store.directory.mkdirs()
-        File(store.directory, "VID_1000.sealed").writeBytes(ByteArray(32))
+        // Sealed as a video, but its bytes are not an MP4, so the viewer has nothing to play.
+        store.saveVideo(folder.newFile("recording.mp4").apply { writeBytes(ByteArray(32)) }, nowMs = 1_000L)
 
         compose.setContent {
             CoverTheme {

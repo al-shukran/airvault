@@ -43,6 +43,7 @@ internal fun decodePhoto(bytes: ByteArray, maxSidePx: Int): ImageBitmap? = try {
 internal fun PhotoImage(
     store: PhotoStore,
     file: File,
+    isVideo: Boolean,
     maxSidePx: Int,
     contentScale: ContentScale,
     modifier: Modifier = Modifier,
@@ -50,7 +51,7 @@ internal fun PhotoImage(
 ) {
     val bitmap by produceState<ImageBitmap?>(initialValue = null, store, file, maxSidePx) {
         value = withContext(Dispatchers.IO) {
-            if (file.isVideo) {
+            if (isVideo) {
                 store.videoSource(file)?.use { videoFrame(it, maxSidePx) }?.asImageBitmap()
             } else {
                 store.photoBytes(file)?.let { bytes ->

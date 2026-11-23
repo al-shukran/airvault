@@ -133,7 +133,7 @@ class VaultFormatChangedException : VaultException(VAULT_FORMAT_CHANGED)
  *    AES-256-GCM to wrap the hardware blob. Each guess needs the slot key, so copies of the vault files cannot be tested offline.
  * 3. Hardware: a non-exportable Keystore AES-256-GCM key (`lensly.vault.hw`) wraps the Vault Key.
  *
- * `vault.key` holds two slots: one for the real vault and one for the Decoy Vault that a Duress Password opens. Its size
+ * `vault.bin` holds two slots: one for the real vault and one for the Decoy Vault that a Duress Password opens. Its size
  * never changes (see [VaultKeyFile]). [unlock] derives `K_sw` once and tries it on both slots, so the Duress Password
  * costs what the App Password costs, and a refused password costs the same. Storage and timing do not say which vault
  * opened. Only [VaultSession.isDecoy] says so, and the app must never show it.
@@ -300,7 +300,7 @@ class Vault constructor(
         }
 
     /**
-     * Replaces the App Password of an unlocked vault. Only the vault's own slot in `vault.key` changes, so wallet data is
+     * Replaces the App Password of an unlocked vault. Only the vault's own slot in `vault.bin` changes, so wallet data is
      * untouched, and the other slot is kept byte for byte. The new file is written to a temp file, read back and checked,
      * and only then renamed into place.
      *
@@ -983,7 +983,7 @@ class Vault constructor(
     }
 
     /**
-     * Writes [slots] as the new `vault.key`, after reading it back. The file is committed only if every slot in [slots] is in it
+     * Writes [slots] as the new `vault.bin`, after reading it back. The file is committed only if every slot in [slots] is in it
      * byte for byte and [verified] holds. Otherwise the temp file is removed and nothing changes.
      */
     private fun commitKeyFile(slots: List<ByteArray>, verified: () -> Boolean) {
@@ -1210,10 +1210,10 @@ private fun overwriteFiles(dir: File) {
     }
 }
 
-/** Overwrites the files in [dir], then deletes the folder. A Decoy Vault's photos go this way when the decoy goes. */
-private fun shredFolder(dir: File) {
+/** Overwrites the files in [dir], then deletes them. The folder stays, since both photo folders exist whether or not a decoy does. */
+private fun shredFolderContents(dir: File) {
     overwriteFiles(dir)
-    dir.deleteRecursively()
+    dir.listFiles().orEmpty().forEach { it.deleteRecursively() }
 }
 
 /**
@@ -1221,7 +1221,7 @@ private fun shredFolder(dir: File) {
  * whether or not a decoy exists. A key file that cannot be written keeps its old bytes, which reveal nothing without the decoy's password.
  */
 private fun dropDecoyPhotos(layout: VaultLayout) {
-    shredFolder(layout.photoDir(decoy = true))
+    shredFolderContents(layout.photoDir(decoy = true))
     try {
         writeAtomically(layout.photoKeyFile(decoy = true), placeholderPhotoKey())
     } catch (e: IOException) {

@@ -23,10 +23,10 @@ class PasswordChangeTest {
     private val clock = FakeClock()
     private val vault = instrumentedVault(context, clock, KdfParams(memoryKiB = 8 * 1024, iterations = 1))
     private val vaultRoot = File(context.noBackupFilesDir, "vault")
-    private val vaultKeyFile = File(vaultRoot, "vault.key")
+    private val vaultKeyFile = File(vaultRoot, "vault.bin")
     // Stands in for the temp file a stopped change leaves behind. The commit names its temp file uniquely and the vault
     // never reads temp files, so any name shows the same thing.
-    private val pendingKeyFile = File(vaultRoot, "vault.key.stopped.tmp")
+    private val pendingKeyFile = File(vaultRoot, "vault.bin.stopped.tmp")
 
     /** Every temp file under the vault folder, by path. */
     private fun tempFiles(): Set<String> =
