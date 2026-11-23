@@ -275,6 +275,8 @@ class LumioApp : Application(), CoverApplication {
         // The QR decoder runs in an isolated process that cannot open preferences or files; it needs none of the app's state.
         if (android.os.Process.isIsolated()) return
         logBackupExclusion()
+        // The chain registry parses its catalogs on the app scope, so no screen's first composition parses them on the main thread.
+        runInAppScope { registry }
     }
 
     /** Opens Lumio's state for an unlocked vault, and resumes the scan jobs that an earlier session left pending. A decoy vault keeps none. */
