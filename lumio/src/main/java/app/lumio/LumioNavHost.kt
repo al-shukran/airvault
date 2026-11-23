@@ -24,7 +24,9 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
+import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import app.airvault.core.model.AccountId
 import app.lensly.app.export.PairingPayload
@@ -338,12 +340,12 @@ internal fun LumioBackdrop(
  * [debugHiddenRequest] counts debug launches that asked for the hidden area. It is always zero in release builds.
  */
 @Composable
-fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier) {
-    LumioNavGraph(debugHiddenRequest = debugHiddenRequest, modifier = modifier)
+fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier, navController: NavHostController = rememberNavController()) {
+    LumioNavGraph(debugHiddenRequest = debugHiddenRequest, modifier = modifier, controller = navController)
 }
 
 @Composable
-private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
+private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controller: NavHostController) {
     val app = LocalContext.current.applicationContext as LumioApp
     val draft = remember { PairDraft() }
     // The side is kept in the vault when the owner picks it, as Settings kept it, so the next open shows the same side.
@@ -374,6 +376,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier) {
     CoverNavHost(
         debugHiddenRequest = debugHiddenRequest,
         modifier = modifier,
+        navController = controller,
         // The top bar's lock icon clears the pairing draft too, as the Home lock does.
         lockVault = { navController, holder ->
             draft.clear()

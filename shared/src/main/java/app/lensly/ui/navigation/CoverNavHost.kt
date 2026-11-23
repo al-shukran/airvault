@@ -55,19 +55,20 @@ const val INACTIVITY_LOCK_MS = 2 * 60 * 1000L
  * the foreground, and the idle timeout. [hidden] adds the app's own hidden area, which starts with [hiddenArea]. [lockVault] is what the
  * top bar's lock icon does, and [leaveHidden] by default.
  *
- * [debugHiddenRequest] counts debug launches that asked for the hidden area. It is always zero in release builds.
+ * [debugHiddenRequest] counts debug launches that asked for the hidden area. It is always zero in release builds. [navController] is the
+ * host's controller; a test passes its own to read the graph that the host builds.
  */
 @Composable
 fun CoverNavHost(
     debugHiddenRequest: Int = 0,
     modifier: Modifier = Modifier,
+    navController: NavHostController = rememberNavController(),
     lockVault: (NavHostController, VaultHolder) -> Unit = ::leaveHidden,
     lockPolicy: LockPolicy = LockPolicy.LENSLY,
     hidden: NavGraphBuilder.(NavHostController, VaultHolder) -> Unit,
 ) {
     val holder = LocalContext.current.vaultHolder()
     val entryGestures = LocalContext.current.entryGestureHolder()
-    val navController = rememberNavController()
     ReturnToCameraWhenBackgrounded(navController, holder, lockPolicy)
     OpenHiddenOnDebugLaunch(navController, debugHiddenRequest)
     val touchModifier = InactivityLock(navController, holder, lockPolicy)
