@@ -162,7 +162,7 @@ jobs:
           fi
           ./gradlew :app:dependencyCheckAnalyze -PowaspAutoUpdate=false
 
-  # The unit tests of :app, :lumio, :shared and the pure JVM modules, in eight balanced lanes (scripts/ci/shards.txt). pr-fast.yml runs
+  # The unit tests of :app, :lumio, :shared and the pure JVM modules, in ten balanced lanes (scripts/ci/shards.txt). pr-fast.yml runs
   # the same lanes on every pull request, so this schedule run does not repeat them on a push to master.
   shard:
     if: github.event_name != 'push'
@@ -173,7 +173,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
