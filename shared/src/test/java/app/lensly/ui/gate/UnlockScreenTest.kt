@@ -70,17 +70,16 @@ class UnlockScreenTest {
     }
 
     @Test
-    fun aTapInsideTheKeyboardBetweenKeysKeepsItUpAndTheFieldFocused() {
+    fun aTapInTheGapBesideAKeyTypesThatKeyAndKeepsTheKeyboardUp() {
         setUnlock()
         val a = compose.onNodeWithContentDescription("a").fetchSemanticsNode().boundsInRoot
 
-        // The gap left of the A row lies inside the keyboard, and no key is there.
-        compose.onRoot().performTouchInput { click(Offset(a.left - 8.dp.toPx(), a.center.y)) }
+        // No dead zones: the inset left of the A row belongs to A, as on Gboard.
+        compose.onRoot().performTouchInput { click(Offset(a.left + 1.dp.toPx(), a.center.y)) }
         compose.waitForIdle()
 
         compose.onNodeWithContentDescription("Done").assertExists()
-        compose.onNodeWithContentDescription("a").assertExists()
-        assertEquals("", typed.toString())
+        assertEquals("a", typed.toString())
     }
 
     @Test
