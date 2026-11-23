@@ -33,6 +33,14 @@ Both apps come from one code base.
 
 Lensly erases the vault if it cannot verify the vault's state, for example after a storage or Keystore fault or a power cut. It does this before it checks your password. Keep a separate recovery phrase for every wallet.
 
+## Who It Is Not For
+
+For most people, a hardware wallet is safer and simpler. AirVault is a poor fit if you cannot check an APK yourself, have only one phone, cannot keep the Lensly phone offline, or may need help recovering a vault. Read [Limits and distribution](docs/limits-and-distribution.md) before you use it.
+
+## Installing and Updating
+
+Lensly is installed only as a signed APK from [GitHub Releases](https://github.com/al-shukran/airvault/releases), or built from source. It is not on Google Play, and it has no update check. Check the APK's hash and signing certificate before you install, as described in [Limits and distribution](docs/limits-and-distribution.md#installing-and-updating).
+
 ## Supported Chains
 
 AirVault supports Bitcoin, Ethereum and other EVM networks, Solana, and Algorand. Each chain family is a separate chain app with `common`, `signer` and `wallet` modules.
@@ -78,12 +86,13 @@ To run one CI partition locally, use `scripts/ci/run-partition.sh <partition>`. 
 - [Lensly changelog](CHANGELOG-lensly.md) and [Lumio changelog](CHANGELOG-lumio.md): what changed in each app.
 - [Creating AirVault chain apps](docs/creating-airvault-apps.md): how a blockchain becomes a chain app, and what each chain app must provide.
 - [Recover your wallet with a Ledger](docs/recover-with-ledger.md): move a Lensly wallet to a Ledger, and a Ledger wallet back to Lensly.
+- [Limits and distribution](docs/limits-and-distribution.md): who AirVault is a poor fit for, what an erase leaves behind, and how a release is installed and verified.
 - [Testing](docs/testing/README.md): test layers, CI design, and local commands.
 - [Accessibility](docs/accessibility.md): accepted screen-reader decisions, so audits do not re-raise them.
 
 ## Status
 
-AirVault is pre-release. No release has been published yet.
+AirVault is pre-release. Lensly and Lumio are published on [GitHub Releases](https://github.com/al-shukran/airvault/releases).
 
 ## License
 
