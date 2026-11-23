@@ -41,6 +41,10 @@ fun WalletWatchlist.ordered(change24h: (WatchedAsset) -> Double?): List<WatchedA
     WatchlistSort.CHANGE_24H -> assets.sortedByDescending(change24h)
 }
 
+/** The watchlist with [asset] starred, or without it when it is starred already. The other assets keep the order they were starred in. */
+fun WalletWatchlist.toggled(asset: WatchedAsset): WalletWatchlist =
+    copy(assets = if (asset in assets) assets - asset else assets + asset)
+
 /** The watchlists of every wallet, as the one vault record that holds them. */
 @Serializable
 private data class WatchlistRecord(val wallets: Map<String, WalletWatchlist> = emptyMap())

@@ -27,6 +27,15 @@ class WatchlistTest {
     }
 
     @Test
+    fun starringAnAssetAddsItAfterTheOthersAndStarringItAgainRemovesIt() {
+        val list = WalletWatchlist(assets = listOf(bitcoin, solana), sort = WatchlistSort.CHANGE_24H)
+        val starred = list.toggled(ethereum)
+        assertEquals(listOf(bitcoin, solana, ethereum), starred.assets)
+        assertEquals(WatchlistSort.CHANGE_24H, starred.sort)
+        assertEquals(listOf(bitcoin, solana), starred.toggled(ethereum).assets)
+    }
+
+    @Test
     fun firstRunShowsTheMainnetCoinsWithoutContracts() {
         assertEquals(4, FIRST_RUN_ASSETS.size)
         assertTrue(FIRST_RUN_ASSETS.all { it.contract == null && !it.network.testnet })
