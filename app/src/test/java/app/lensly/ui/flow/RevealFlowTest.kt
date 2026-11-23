@@ -310,6 +310,40 @@ class RevealFlowTest {
     }
 
     @Test
+    fun theWordsAreNotTheLastPartOfAPassphraseWalletButThePassphraseIs() {
+        val secret = RevealedSecret.ofMnemonic(Mnemonic.of(WORDS), "two words")
+
+        assertFalse(secret.isLastPart(RevealPart.WORDS))
+        assertTrue(secret.isLastPart(RevealPart.PASSPHRASE))
+    }
+
+    @Test
+    fun theWordsAreTheLastPartOfAWalletWithoutAPassphrase() {
+        assertTrue(RevealedSecret.ofMnemonic(Mnemonic.of(WORDS), null).isLastPart(RevealPart.WORDS))
+        assertTrue(RevealedSecret.ofMnemonic(Mnemonic.of(WORDS), "").isLastPart(RevealPart.WORDS))
+    }
+
+    @Test
+    fun theLastWordOfAPassphraseWalletIsNotItsLastPartUntilThePassphraseIsReached() {
+        runBlocking {
+            val secret = RevealedSecret.ofMnemonic(Mnemonic.of(WORDS), "two words")
+            val flow = RevealFlow(FakeRevealPorts(load = { SecretLoad.Loaded(secret) })) { 0L }
+            flow.submitPassword(PASSWORD.toCharArray())
+            flow.show()
+            repeat(Mnemonic.WORD_COUNT - 1) { flow.move(1) }
+            val lastWord = assertIs<RevealStep.Revealed>(flow.state.value)
+            assertEquals(RevealPart.WORDS, lastWord.part)
+            assertFalse(lastWord.secret.isLastPart(lastWord.part))
+
+            flow.select(RevealPart.PASSPHRASE)
+            flow.move(1)
+            val lastPassphraseWord = assertIs<RevealStep.Revealed>(flow.state.value)
+            assertEquals(RevealPart.PASSPHRASE, lastPassphraseWord.part)
+            assertTrue(lastPassphraseWord.secret.isLastPart(lastPassphraseWord.part))
+        }
+    }
+
+    @Test
     fun aSingleKeyIsOnePageAndItsBytesAreZeroed() {
         runBlocking {
             val key = ByteArray(32) { 0x11 }

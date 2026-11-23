@@ -36,6 +36,9 @@ class RevealedSecret private constructor(
     /** True for a Single Key, whose only part is [RevealPart.KEY]. */
     val isKey: Boolean get() = keyHex != null
 
+    /** True when [part] is the last part the secret has: the passphrase when there is one, otherwise the words or the key. */
+    fun isLastPart(part: RevealPart): Boolean = part == RevealPart.PASSPHRASE || !hasPassphrase
+
     /** The number of pages in [part]. */
     fun pageCount(part: RevealPart): Int = when (part) {
         RevealPart.WORDS -> words?.size ?: 0
