@@ -96,4 +96,16 @@ class RegistryCatalogTest {
 
         assertEquals(7L, assertNotNull(catalog.installed()).sequence)
     }
+
+    @Test
+    fun anOlderPackageIsRefusedAfterTheInstalledDirectoryIsRenamed() {
+        // The package was installed under `registry` before the directory was renamed to `d7`.
+        catalog(folder.root.resolve("registry")).install(TestPackages.signed(TestPackages.payload(sequence = 5))).getOrThrow()
+        val renamed = RegistryCatalog(baked, folder.root.resolve("d7"), keys, folder.root.resolve("registry"))
+
+        val refusal = renamed.install(TestPackages.signed(TestPackages.payload(sequence = 3)))
+
+        assertEquals(5L, assertIs<RegistryUpdateException.NotNewer>(refusal.exceptionOrNull()).installed)
+        assertEquals("Linea", assertNotNull(catalog(folder.root.resolve("d7")).current().network(4242L)).name)
+    }
 }
