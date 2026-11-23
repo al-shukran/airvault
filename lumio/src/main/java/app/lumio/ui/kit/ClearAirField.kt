@@ -57,21 +57,26 @@ fun ClearAirField(
                 .padding(horizontal = ClearAirSpacing.md, vertical = ClearAirSpacing.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
-                modifier = Modifier.weight(1f),
-                textStyle = style.copy(color = palette.ink),
-                keyboardOptions = KeyboardOptions(keyboardType = keyboard),
-                visualTransformation = if (masked) PasswordVisualTransformation() else VisualTransformation.None,
-                cursorBrush = SolidColor(palette.ink),
-                decorationBox = { inner ->
-                    if (value.isEmpty() && placeholder.isNotEmpty()) {
-                        Text(text = placeholder, style = style, color = palette.ink2)
-                    }
-                    inner()
-                },
-            )
+            // A password keyboard marks a secret: its field gets the secret input flags and no autocorrect.
+            val secret = keyboard == KeyboardType.Password
+            val input: @Composable () -> Unit = {
+                BasicTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    modifier = Modifier.weight(1f),
+                    textStyle = style.copy(color = palette.ink),
+                    keyboardOptions = KeyboardOptions(keyboardType = keyboard, autoCorrectEnabled = !secret),
+                    visualTransformation = if (masked) PasswordVisualTransformation() else VisualTransformation.None,
+                    cursorBrush = SolidColor(palette.ink),
+                    decorationBox = { inner ->
+                        if (value.isEmpty() && placeholder.isNotEmpty()) {
+                            Text(text = placeholder, style = style, color = palette.ink2)
+                        }
+                        inner()
+                    },
+                )
+            }
+            if (secret) SecretInput(input) else input()
             trailing?.invoke()
         }
         error?.let {
