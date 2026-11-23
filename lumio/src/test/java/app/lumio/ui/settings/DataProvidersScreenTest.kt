@@ -103,9 +103,8 @@ class DataProvidersScreenTest {
     fun eachProviderShowsItsStatus() {
         show()
 
-        compose.onNodeWithText("Needs key").assertExists()
-        compose.onNodeWithText("Healthy, score 120").assertExists()
-        compose.onNodeWithText("Ready, no calls yet").assertExists()
+        compose.onNodeWithText("– Off · Needs API Key").assertExists()
+        compose.onAllNodesWithText("✓ Working").assertCountEquals(2)
     }
 
     @Test
