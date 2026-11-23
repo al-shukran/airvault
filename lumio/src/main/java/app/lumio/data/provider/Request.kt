@@ -70,7 +70,7 @@ data class GasQuote(val baseFee: BigInteger, val priorityFee: BigInteger)
  */
 class NativePrice(net: NetworkId) : Request<PriceQuote>(net, Ops.PRICE_NATIVE)
 
-/** The logo of the ERC-20 token at [contract] on [net], as the source serves its image. A token with no logo at the source is unsupported. */
+/** The logo of the ERC-20 token at [contract] on [net], as the source serves its image. A token with no logo at the source is not found. */
 class TokenLogo(net: NetworkId, val contract: String) : Request<LogoImage>(net, Ops.LOGO_TOKEN)
 
 /** A token's logo: the bytes of the image file, as the source served them. */
