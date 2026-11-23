@@ -7,7 +7,7 @@
 #   screenshot-testing 1.5  :app:verifyRoborazziDebug, then :lumio:verifyRoborazziDebug
 #   perf               1.7  :app:connectedBenchmarkAndroidTest (reference device, self-hosted runner)
 #   security           1.8  :app:lintDebug + :app:dependencyCheckAnalyze, then check-manifest.sh (10 to 15 min)
-#   fuzz               1.8  scripts/ci/fuzz-nightly.sh --seconds 60 (real fuzzing, all four targets)
+#   fuzz               1.8  scripts/ci/fuzz-nightly.sh --seconds 60 (real fuzzing, all five targets)
 #
 # Layers that have not landed yet print "not configured yet" and exit 0, so the script is
 # usable locally before those stages exist. With CI=true the same case exits 1, so a

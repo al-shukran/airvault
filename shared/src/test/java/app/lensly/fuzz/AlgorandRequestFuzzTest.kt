@@ -6,10 +6,12 @@ import app.airvault.core.signer.ParseOutcome
 import app.lensly.core.algorand.AlgoTxnVectors
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.parse.algorandRequestCbor
+import com.code_intelligence.jazzer.junit.FuzzTest
 import kotlin.random.Random
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import org.junit.Test
+import org.junit.jupiter.params.provider.MethodSource
 
 /**
  * Seeded fuzzing of the Algorand request parser (spec 9.1). Random, truncated and mutated input must give an outcome and never throw,
@@ -62,10 +64,22 @@ class AlgorandRequestFuzzTest {
         }
     }
 
+    @MethodSource("seeds")  // Jazzer requires @FuzzTest to be the last annotation on the method.
+    @FuzzTest(maxDuration = "15m")
+    fun algorandRequestParserRefusesOrParses(bytes: ByteArray) {
+        when (val outcome = parse(bytes)) {
+            is ParseOutcome.Parsed -> assertTrue(outcome.request.body.size <= AlgoSignRequest.MAX_PAYLOAD_BYTES)
+            is ParseOutcome.Refused -> Unit
+        }
+    }
+
     private fun parse(cbor: ByteArray): ParseOutcome = AlgorandRequestParser.parse(AlgoSignRequest.UR_TYPE, cbor, ParserLimits())
 
-    private companion object {
-        const val SEED = 0x5eed_2c95L
+    companion object {
+        @JvmStatic
+        fun seeds(): List<ByteArray> = FuzzSeeds.bytes("algorand")
+
+        private const val SEED = 0x5eed_2c95L
         const val RUNS = 2_000
         const val MAX_RANDOM_BYTES = 512
     }

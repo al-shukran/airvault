@@ -108,7 +108,7 @@ jobs:
 
   fuzz:
     # Guideline 2.5: fuzzing is its own job. One matrix leg per Jazzer target, so a crash in one
-    # target does not hide the other three. fuzz-nightly.sh keeps the 15 minutes per target from
+    # target does not hide the other four. fuzz-nightly.sh keeps the 15 minutes per target from
     # the @FuzzTest annotation; the timeout below covers one target plus a cold build.
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -120,6 +120,7 @@ jobs:
           - app.lensly.fuzz.CborFuzzTest
           - app.lensly.fuzz.EthSignRequestFuzzTest
           - app.lensly.fuzz.UnsignedTxFuzzTest
+          - app.lensly.fuzz.AlgorandRequestFuzzTest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

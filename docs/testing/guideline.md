@@ -279,7 +279,7 @@ Durations are estimates, to be measured in Phase 1.5.
 | Lint (security) and OWASP | nightly; `/run-security` | 10 to 15 min |
 | Instrumented (emulator) | nightly; `/run-instrumented` | 15 to 25 min |
 | E2E flow (emulator) | nightly; `/run-e2e` | 20 to 30 min |
-| Fuzz (4 targets in parallel) | nightly; `/run-fuzz` | about 20 min |
+| Fuzz (5 targets in parallel) | nightly; `/run-fuzz` | about 20 min |
 | Benchmarks | nightly trend (emulator); `/run-perf` gates on device | 20 to 30 min |
 | Manual Rabby and MetaMask | release checklist | not CI |
 
