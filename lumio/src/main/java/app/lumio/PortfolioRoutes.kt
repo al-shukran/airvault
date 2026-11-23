@@ -19,9 +19,13 @@ import app.lumio.pair.PairedWallet
 import app.lumio.portfolio.ChainFamily
 import app.lumio.portfolio.PortfolioBoard
 import app.lumio.portfolio.PortfolioFilter
+import app.lumio.portfolio.PortfolioFormat
+import app.lumio.portfolio.PortfolioHolding
+import app.lumio.portfolio.PortfolioReads
 import app.lumio.transactions.ActivityFilter
 import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.kit.LumioTab
+import app.lumio.ui.portfolio.OtherSide
 import app.lumio.ui.portfolio.PortfolioScreen
 import app.lumio.ui.shell.LumioPageScreen
 import app.lumio.ui.transactions.ActivityList
@@ -43,15 +47,22 @@ internal fun PortfolioTab(navController: NavHostController, holder: VaultHolder,
     val app = LocalContext.current.applicationContext as LumioApp
     val board = app.lumioVault()?.portfolio
     val mode = selection.mode
+    val other = if (mode == NetworkMode.TESTNET) NetworkMode.MAINNET else NetworkMode.TESTNET
     val wallets = pairedWallets(navController, holder, listVersion)
     val display = rememberDisplay(app)
     val transactions = rememberTransactions(app)
     val scope = rememberCoroutineScope()
     var filter by remember { mutableStateOf(PortfolioFilter()) }
+    var otherHeld by remember { mutableStateOf<PortfolioHolding?>(null) }
     LaunchedEffect(board, mode, listVersion, transactions.activityIncludesSpam) {
         board?.readHoldings(mode)
         board?.readActivity(mode, ActivityFilter(), includeSpam = transactions.activityIncludesSpam)
     }
+    // The first holding with funds on the other side, for the card that an empty side shows. The board keeps only the side it shows.
+    LaunchedEffect(board, other, listVersion) {
+        otherHeld = app.lumioVault()?.let { vault -> PortfolioReads.holdings(app, vault, other).firstOrNull { it.amount.signum() > 0 } }
+    }
+    val receive = wallets.firstOrNull()?.let { wallet -> { navController.navigate(LumioRoute.wallet(wallet.id)) } }
     TabRoute(tab = LumioTab.PORTFOLIO, navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = onLock) {
         PortfolioScreen(
             holdings = board?.holdings,
@@ -67,6 +78,15 @@ internal fun PortfolioTab(navController: NavHostController, holder: VaultHolder,
             zone = ZoneId.systemDefault(),
             onOpenActivity = { navController.navigate(LumioRoute.ACTIVITY) },
             onOpenRow = { item -> openTransaction(scope, navController, board, wallets, item) },
+            otherSide = otherHeld?.let { held ->
+                OtherSide(
+                    amount = "${PortfolioFormat.coins(held.amount)} ${held.coin}",
+                    network = held.network.name,
+                    testnet = other == NetworkMode.TESTNET,
+                    onSwitch = { selection.choose(other) },
+                )
+            },
+            onReceive = receive,
         )
     }
 }
