@@ -201,6 +201,61 @@ class RegistryUpdateTest {
     }
 
     @Test
+    fun aFloorInTheRenamedDirectoryIsNotLoweredByAnOlderLegacyOne() {
+        val baked = bakedRegistry()
+        val legacy = folder.root.resolve("registry")
+        val dir = folder.root.resolve("d7")
+        RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 5)), keys, baked, legacy).getOrThrow()
+        RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 6)), keys, baked, dir).getOrThrow()
+
+        val older = assertIs<RegistryUpdateException.NotNewer>(
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 5)), keys, baked, dir, legacy)),
+        )
+
+        assertEquals(6L, older.installed)
+        assertFalse(legacy.exists())
+    }
+
+    @Test
+    fun anUnreadableLegacyFloorRefusesEveryInstallInsteadOfResettingToZero() {
+        val baked = bakedRegistry()
+        val legacy = folder.root.resolve("registry")
+        val dir = folder.root.resolve("d7")
+        RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 5)), keys, baked, legacy).getOrThrow()
+        File(legacy, RegistryUpdate.INSTALLED_FILE).writeBytes(byteArrayOf(1, 2, 3))
+        File(legacy, RegistryUpdate.SEQUENCE_FILE).delete()
+
+        assertIs<RegistryUpdateException.SequenceUnknown>(
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 1)), keys, baked, dir, legacy)),
+        )
+        assertIs<RegistryUpdateException.SequenceUnknown>(
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 6)), keys, baked, dir, legacy)),
+        )
+    }
+
+    @Test
+    fun aLegacyDirectoryThatIsTheInstalledDirectoryIsLeftAlone() {
+        val baked = bakedRegistry()
+        val dir = registryDir()
+        RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 5)), keys, baked, dir, dir).getOrThrow()
+
+        assertIs<RegistryUpdateException.NotNewer>(
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 3)), keys, baked, dir, dir)),
+        )
+        assertTrue(File(dir, RegistryUpdate.INSTALLED_FILE).isFile)
+    }
+
+    @Test
+    fun anUnreadableRecordWithNoPackageBesideItIsNeverSequenceZero() {
+        val dir = folder.root.resolve("d7").apply { mkdirs() }
+        File(dir, RegistryUpdate.SEQUENCE_FILE).writeText("not a sequence")
+
+        assertIs<RegistryUpdateException.SequenceUnknown>(
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 1)), keys, bakedRegistry(), dir)),
+        )
+    }
+
+    @Test
     fun networkWithABakedChainIdIsRejected() {
         val imposter = """{"chainId":1,"explorerName":null,"feeModel":"L1","name":"Imposter","nativeDecimals":18,"nativeSymbol":"ETH","testnet":false}"""
 
