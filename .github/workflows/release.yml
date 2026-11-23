@@ -179,6 +179,44 @@ jobs:
         with:
           subject-path: dist/${{ steps.tag.outputs.apk }}
 
+      - name: Add the changelog section to the release notes
+        env:
+          TAG: ${{ github.ref_name }}
+          APP: ${{ steps.tag.outputs.app }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          app = os.environ["APP"]
+          version = os.environ["TAG"].split("-v", 1)[-1]
+          if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+              print(f"prerelease {version}: no changelog section expected")
+              raise SystemExit(0)
+          text = Path(f"CHANGELOG-{app}.md").read_text()
+          match = re.search(
+              rf"^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## |\Z)",
+              text,
+              re.MULTILINE | re.DOTALL,
+          )
+          if match is None:
+              raise SystemExit(f"CHANGELOG-{app}.md has no [{version}] section")
+          section = match.group(1).strip()
+          if not any(line.startswith("- ") for line in section.splitlines()):
+              raise SystemExit(f"CHANGELOG-{app}.md [{version}] has no entries")
+          notes = Path(f".github/release-notes/{app}.md")
+          body = notes.read_text()
+          marker = "## How to Verify This Release"
+          if marker not in body:
+              raise SystemExit(f"{notes} has no {marker} heading")
+          head, tail = body.split(marker, 1)
+          notes.write_text(
+              head.rstrip() + "\n\n" + f"## Changes in {version}\n\n" + section + "\n\n" + marker + tail
+          )
+          print(f"added [{version}] from CHANGELOG-{app}.md to {notes}")
+          PY
+
       - name: Create the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}

@@ -74,6 +74,8 @@ To run one CI partition locally, use `scripts/ci/run-partition.sh <partition>`. 
 
 ## Documentation
 
+- [Contributing](CONTRIBUTING.md): CLA, changelog fragments, pull request labels, the CI gate, and local checks.
+- [Lensly changelog](CHANGELOG-lensly.md) and [Lumio changelog](CHANGELOG-lumio.md): what changed in each app.
 - [Creating AirVault chain apps](docs/creating-airvault-apps.md): how a blockchain becomes a chain app, and what each chain app must provide.
 - [Recover your wallet with a Ledger](docs/recover-with-ledger.md): move a Lensly wallet to a Ledger, and a Ledger wallet back to Lensly.
 - [Testing](docs/testing/README.md): test layers, CI design, and local commands.
