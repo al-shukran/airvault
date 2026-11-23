@@ -17,6 +17,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
@@ -44,7 +46,7 @@ private const val LOW_TIME_SECONDS = 10
  * Nothing here holds the secret. [step] carries it, and [RevealStep.Cleared] draws nothing, since the route leaves.
  *
  * The password keypad is the in-app one, as on every entry screen. The secret is plain text on screen, and it cannot be
- * selected, copied or autofilled.
+ * selected, copied or autofilled. Accessibility services never read it: each secret node speaks a position label.
  */
 @Composable
 fun ShowSecretScreen(
@@ -213,7 +215,8 @@ private fun RevealedStep(
                     .fillMaxWidth()
                     .clip(MaterialTheme.shapes.large)
                     .background(MaterialTheme.colorScheme.surfaceContainer)
-                    .padding(LenslySpacing.md),
+                    .padding(LenslySpacing.md)
+                    .clearAndSetSemantics { contentDescription = "Single Key Hidden" },
             ) {
                 HashLines(hex = secret.page(RevealPart.KEY, 0))
             }
@@ -227,7 +230,8 @@ private fun RevealedStep(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .clearAndSetSemantics { contentDescription = "Word ${step.index + 1} of $count" },
                 contentAlignment = Alignment.Center,
             ) {
                 WordPage(text = secret.page(step.part, step.index), passphrase = isPassphrase)
