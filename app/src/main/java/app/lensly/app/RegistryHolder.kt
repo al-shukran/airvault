@@ -21,6 +21,12 @@ object RegistryHolder {
     /** Directory under noBackupFilesDir where [RegistryUpdate.install] stores an accepted package. */
     private const val INSTALLED_DIR = "d7"
 
+    /**
+     * The directory an earlier build installed into, before [INSTALLED_DIR]. Its rollback floor is carried over, see
+     * [RegistryUpdate.install].
+     */
+    private const val LEGACY_DIR = "registry"
+
     /** The signed package the APK ships (shared assets), installed on first load when it is newer than the stored one. */
     private const val BUNDLED_PATH = "registry/bundled.lrp"
 
@@ -52,21 +58,28 @@ object RegistryHolder {
         val baked = RegistryLoader.fromAssets(assets)
         val trustedKeys = TrustedKeys.load { path -> readAsset(assets, path) }
         val dir = File(context.noBackupFilesDir, INSTALLED_DIR)
-        installBundled(assets, baked, trustedKeys, dir)
-        return RegistryCatalog(baked, dir, trustedKeys)
+        val legacy = File(context.noBackupFilesDir, LEGACY_DIR)
+        installBundled(assets, baked, trustedKeys, dir, legacy)
+        return RegistryCatalog(baked, dir, trustedKeys, legacy)
     }
 
     /**
      * Installs the signed package the APK ships, through the same checks as an offline update: its signature, its key, and its
      * sequence against the stored one. An equal or older bundled package is refused, so a newer package from storage stays in effect.
      */
-    private fun installBundled(assets: AssetManager, baked: Registry, trustedKeys: List<TrustedKey>, dir: File) {
+    private fun installBundled(
+        assets: AssetManager,
+        baked: Registry,
+        trustedKeys: List<TrustedKey>,
+        dir: File,
+        legacy: File,
+    ) {
         val bytes = try {
             assets.open(BUNDLED_PATH).use { it.readBytes() }
         } catch (e: FileNotFoundException) {
             return
         }
-        RegistryUpdate.install(bytes, trustedKeys, baked, dir)
+        RegistryUpdate.install(bytes, trustedKeys, baked, dir, legacy)
     }
 
     private fun readAsset(assets: AssetManager, path: String): String? = try {

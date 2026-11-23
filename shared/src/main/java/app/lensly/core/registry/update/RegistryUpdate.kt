@@ -19,7 +19,7 @@ import java.io.InputStream
  * storage is the caller's job.
  */
 object RegistryUpdate {
-    /** The accepted package, stored in the registry directory (`noBackupFilesDir/registry/`). */
+    /** The accepted package, stored in the registry directory that the caller passes to [install]. */
     const val INSTALLED_FILE = "installed.lrp"
 
     /**
@@ -73,15 +73,17 @@ object RegistryUpdate {
     /**
      * Stores [bytes] as the installed package in [dir] when they verify and their sequence is higher than the last
      * accepted one. An older or equal sequence is refused with [RegistryUpdateException.NotNewer]. On any failure
-     * nothing is written.
+     * nothing is written. [legacy] is the directory an earlier build installed into, see [carryLegacy].
      */
     fun install(
         bytes: ByteArray,
         trustedKeys: List<TrustedKey>,
         baked: Registry,
         dir: File,
+        legacy: File? = null,
     ): Result<RegistryPackage> = synchronized(installLock) {
         runCatching {
+            legacy?.let { carryLegacy(it, dir, trustedKeys) }
             val incoming = verify(bytes, trustedKeys, baked).getOrThrow()
             val accepted = acceptedSequence(dir, trustedKeys)
             if (incoming.sequence <= accepted) {
@@ -139,18 +141,43 @@ object RegistryUpdate {
 
     /**
      * The highest sequence accepted so far: the larger of the [SEQUENCE_FILE] record and the installed package's own
-     * sequence. It is 0 only when nothing was ever installed. An installed package that cannot be read with no record
-     * beside it is [RegistryUpdateException.SequenceUnknown], never 0.
+     * sequence. It is 0 only when nothing was ever installed or recorded. A package or a record that cannot be read,
+     * with nothing readable beside it, is [RegistryUpdateException.SequenceUnknown], never 0.
      */
     private fun acceptedSequence(dir: File, trustedKeys: List<TrustedKey>): Long {
-        val recorded = File(dir, SEQUENCE_FILE).takeIf { it.isFile }?.readText()?.trim()?.toLongOrNull()
+        val record = File(dir, SEQUENCE_FILE)
+        val recorded = record.takeIf { it.isFile }?.readText()?.trim()?.toLongOrNull()
         val file = File(dir, INSTALLED_FILE)
-        if (!file.isFile) return recorded ?: 0
+        if (!file.isFile) {
+            if (record.isFile && recorded == null) throw RegistryUpdateException.SequenceUnknown()
+            return recorded ?: 0
+        }
         val bytes = file.readBytes()
         val installed = runCatching { PackageFormat.read(bytes, trustedKeys).sequence }.getOrNull()
         if (installed == null && recorded == null) throw RegistryUpdateException.SequenceUnknown()
         return maxOf(installed ?: 0, recorded ?: 0)
     }
+
+    /**
+     * Carries the rollback floor of [legacy] into [dir]. An earlier build installed the registry into a directory named
+     * `registry`, so a device that updated from it still holds its floor there while [dir] starts empty, and an older
+     * package would be accepted again. The directory with the higher floor becomes [dir], and [legacy] is erased either
+     * way. An unreadable floor counts as the highest, so the result refuses installs rather than falling back to 0. A
+     * crash before the move leaves [legacy] in place for the next install.
+     */
+    private fun carryLegacy(legacy: File, dir: File, trustedKeys: List<TrustedKey>) {
+        if (legacy == dir || !legacy.isDirectory) return
+        if (floorOf(legacy, trustedKeys) > floorOf(dir, trustedKeys)) {
+            dir.deleteRecursively()
+            check(legacy.renameTo(dir)) { "cannot move ${legacy.path} to ${dir.path}" }
+        } else {
+            legacy.deleteRecursively()
+        }
+    }
+
+    /** [acceptedSequence] of [dir], or [Long.MAX_VALUE] when that is unknown, so an unknown floor is always the higher one. */
+    private fun floorOf(dir: File, trustedKeys: List<TrustedKey>): Long =
+        runCatching { acceptedSequence(dir, trustedKeys) }.getOrDefault(Long.MAX_VALUE)
 
     private fun checkAgainstBaked(pkg: RegistryPackage, baked: Registry) {
         for (network in pkg.networks) {
