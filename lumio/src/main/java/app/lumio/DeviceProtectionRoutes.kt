@@ -32,7 +32,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Device Protection: the page under Settings → Security that holds the Biometric Unlock switch, and the App Password step that turning the
- * switch on asks for first. Turning it off needs no password: it deletes the sealed Vault Key and the biometric key.
+ * switch on asks for first. Turning it off needs no password: it deletes the sealed Vault Key and the biometric key. In a Duress Password
+ * session the switch reads off and neither change is made, as turning it on there seals nothing.
  */
 internal fun NavGraphBuilder.deviceProtectionRoutes(navController: NavHostController, holder: VaultHolder, selection: NetworkSelection) {
     lumioComposable(LumioRoute.SETTINGS_DEVICE_PROTECTION) {
@@ -47,11 +48,12 @@ internal fun NavGraphBuilder.deviceProtectionRoutes(navController: NavHostContro
 @Composable
 private fun DeviceProtectionRoute(navController: NavHostController, holder: VaultHolder) {
     if (!rememberGateSession(navController, holder)) return
+    val session = holder.openSession() ?: return
     val biometric = (LocalContext.current.applicationContext as LumioApp).biometricUnlock
     val top by navController.currentBackStackEntryAsState()
     val scope = rememberCoroutineScope()
     val canEnable = remember { biometric.canEnable() }
-    var on by remember(top) { mutableStateOf(biometric.isOn()) }
+    var on by remember(top) { mutableStateOf(biometric.isOn(session)) }
     DeviceProtectionSettingsPage(
         biometric = BiometricSwitch(on = on, canEnable = canEnable),
         onBiometric = { want ->
@@ -59,8 +61,8 @@ private fun DeviceProtectionRoute(navController: NavHostController, holder: Vaul
                 navController.navigate(LumioRoute.DEVICE_PROTECTION_ENABLE)
             } else {
                 scope.launch {
-                    biometric.disable()
-                    on = false
+                    biometric.disable(session)
+                    on = biometric.isOn(session)
                 }
             }
         },

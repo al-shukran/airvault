@@ -61,7 +61,8 @@ interface BiometricCrypto {
  * invalidated, or when the vault is wiped. The password always works, and it is never replaced.
  *
  * The Vault Key is the secret the password opens. It is copied only to seal it and to unlock, and each copy is zeroed after use. A Duress
- * Password session never turns biometric unlock on, because the file wraps the real vault's key.
+ * Password session never turns biometric unlock on or off, because the file wraps the real vault's key. It shows biometric unlock as off,
+ * because the Decoy Vault has none of its own (see [isOn] with a session).
  */
 class BiometricUnlock internal constructor(
     private val file: File,
@@ -72,8 +73,14 @@ class BiometricUnlock internal constructor(
         AndroidBiometricCrypto(context.applicationContext),
     )
 
-    /** True while biometric unlock is on. */
+    /** True while biometric unlock is on for the real vault. */
     fun isOn(): Boolean = file.isFile
+
+    /**
+     * True while biometric unlock is on, as [session] shows it. A Duress Password session shows it off whatever the real vault has, so its
+     * settings do not reveal the real vault's setting.
+     */
+    fun isOn(session: VaultSession): Boolean = !session.isDecoy && isOn()
 
     /** True when the device has a strong biometric enrolled, so biometric unlock can be turned on. */
     fun canEnable(): Boolean = crypto.available()
@@ -107,8 +114,17 @@ class BiometricUnlock internal constructor(
         }
     }
 
-    /** Turns biometric unlock off: the sealed Vault Key and the biometric key are deleted. */
-    suspend fun disable() = withContext(NonCancellable + Dispatchers.IO) {
+    /**
+     * Turns biometric unlock off: the sealed Vault Key and the biometric key are deleted. Returns false, and deletes nothing, when [session]
+     * is a Duress Password session, the same refusal as [enable].
+     */
+    suspend fun disable(session: VaultSession): Boolean {
+        if (session.isDecoy) return false
+        deleteSealedKey()
+        return true
+    }
+
+    private suspend fun deleteSealedKey() = withContext(NonCancellable + Dispatchers.IO) {
         file.delete()
         crypto.deleteKey()
     }
@@ -125,7 +141,7 @@ class BiometricUnlock internal constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            disable()
+            deleteSealedKey()
             return BiometricOutcome.TurnedOff
         }
         try {
@@ -137,7 +153,7 @@ class BiometricUnlock internal constructor(
                 null
             }
             if (session == null) {
-                disable()
+                deleteSealedKey()
                 return BiometricOutcome.TurnedOff
             }
             return BiometricOutcome.Unlocked(session)
