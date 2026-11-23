@@ -1,5 +1,10 @@
 package app.lensly.core.vault
 
+import app.lensly.app.VaultHolder
+import app.lensly.ui.flow.BiometricEnableAppPorts
+import app.lensly.ui.flow.BiometricEnableFlow
+import app.lensly.ui.flow.BiometricEnableOutcome
+import app.lensly.ui.flow.BiometricEnableStep
 import java.io.File
 import java.security.GeneralSecurityException
 import kotlin.test.assertEquals
@@ -163,6 +168,31 @@ class BiometricUnlockTest {
         assertFalse(unlock.isOn())
     }
 
+    @Test
+    fun aWrongAppPasswordSealsNothing() {
+        val holder = VaultHolder(vault)
+        assertTrue(holder.adopt(openApp(), holder.unlockEpoch()))
+        val flow = BiometricEnableFlow(BiometricEnableAppPorts(holder, unlock))
+
+        runBlocking { flow.submitPassword(WRONG.toCharArray()) }
+
+        assertEquals(BiometricEnableStep.Password(busy = false), flow.state.value)
+        assertFalse(unlock.isOn())
+        assertFalse(biometric.keyMade)
+    }
+
+    @Test
+    fun theRightAppPasswordThenRunsThePromptAndTurnsItOn() {
+        val holder = VaultHolder(vault)
+        assertTrue(holder.adopt(openApp(), holder.unlockEpoch()))
+        val flow = BiometricEnableFlow(BiometricEnableAppPorts(holder, unlock))
+
+        runBlocking { flow.submitPassword(APP.toCharArray()) }
+
+        assertEquals(BiometricEnableStep.Ended(BiometricEnableOutcome.ON), flow.state.value)
+        assertTrue(unlock.isOn())
+    }
+
     private fun openApp(): VaultSession = assertIs<UnlockResult.Unlocked>(runBlocking { vault.unlock(APP.toCharArray()) }).session
 
     private fun ByteArray.holds(part: ByteArray): Boolean = (0..size - part.size).any { start ->
@@ -205,6 +235,7 @@ class BiometricUnlockTest {
     private companion object {
         val KDF = KdfParams(memoryKiB = 8 * 1024, iterations = 1)
         const val APP = "q7Vn!2Lx#Rb9Tm4Wc8Zp"
-        const val DURESS = "Hj3\$kP9wQz!Lm6Tn2Ysd"
+        const val WRONG = "not-the-app-password-2"
+        const val DURESS ="Hj3\$kP9wQz!Lm6Tn2Ysd"
     }
 }

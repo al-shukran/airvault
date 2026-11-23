@@ -259,6 +259,7 @@ class Vault constructor(
     suspend fun unlockWithVaultKey(vaultKey: ByteArray): VaultSession? =
         withContext(Dispatchers.IO) {
             mutex.withLock {
+                // Biometric tries do not count toward the failure delay or erase count: the OS BIOMETRIC_STRONG lockout already limits them.
                 if (!layout.exists()) return@withLock null
                 if (VaultKeyFile.ownerIndex(VaultKeyFile.decode(readVaultFile(layout.vaultKey)), vaultKey) < 0) return@withLock null
                 openSessionLocked(vaultKey, isDecoy = false)
