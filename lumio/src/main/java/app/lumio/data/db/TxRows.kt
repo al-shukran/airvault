@@ -76,6 +76,9 @@ abstract class TxDao {
     @Query("SELECT * FROM tx WHERE accountKey = :accountKey")
     abstract suspend fun rowsOf(accountKey: ByteArray): List<TxRow>
 
+    @Query("SELECT EXISTS(SELECT 1 FROM tx WHERE txId = :txId)")
+    abstract suspend fun hasRow(txId: ByteArray): Boolean
+
     @RawQuery
     abstract suspend fun page(query: SupportSQLiteQuery): List<TxRow>
 

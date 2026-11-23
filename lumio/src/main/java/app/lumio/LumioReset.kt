@@ -1,7 +1,9 @@
 package app.lumio
 
 import app.lensly.app.VaultHolder
+import app.lensly.core.vault.VaultLayout
 import app.lumio.data.config.LockSettingsStore
+import app.lumio.data.db.LumioDatabase
 import java.io.File
 
 /**
@@ -20,3 +22,9 @@ internal fun eraseLumioStores(holder: VaultHolder, databaseFile: File, lock: Loc
         lock.erase()
     }
 }
+
+/**
+ * The chain data database. It sits in the vault's own folder, so every erase of the vault removes it as well: a wrong-password erase, an
+ * unverifiable vault and Reset Lumio each delete that folder, after overwriting its files.
+ */
+internal fun lumioDatabaseFile(layout: VaultLayout): File = File(layout.root, LumioDatabase.FILE_NAME)

@@ -1,0 +1,1 @@
+Scan to Pay in the profile panel opens the camera for a recipient, then starts a send from the chosen wallet's first Ethereum account on the primary network. A Bitcoin, Solana or Algorand code is refused there, and those sends start from their account pages.

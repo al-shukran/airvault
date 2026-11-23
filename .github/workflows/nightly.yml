@@ -1,21 +1,76 @@
 name: nightly
 
-# The unit tests, lint, screenshot verification and seed replays run in pr-fast.yml on every pull request, the merge queue and
-# master. Nightly keeps only what is not a gate: the R8 release build, OWASP, real fuzzing, and the emulator and benchmark runs.
+# Checks that never block a pull request, and checks too slow for the 3-minute PR budget. The blocking set is pr-fast.yml (deps,
+# shard, fuzz, ci, secrets, manifest, dependency_review), and pr-ok is its only required check. This workflow runs on the schedule
+# and on every push to master, except `shard` (schedule only: pr-fast already ran it on the pull request). A failing check opens or
+# refreshes one issue for that check (`report`). It never opens the ci-red alarm (master-red.yml watches pr-fast only).
 #
-# Nightly restores its Gradle caches only (cache-read-only), so it adds no Gradle cache entries to the repository's cache limit.
+# `screenshots` re-records the Roborazzi goldens on the Linux runner (the image they must come from), and a changed golden goes to
+# the goldens-refresh pull request for review rather than failing the run. `lint` and `android` (the Lumio APK and androidTest
+# compile) run on every push to master too. The R8 build, OWASP, real fuzzing, and the emulator, end-to-end and benchmark runs are
+# schedule-only.
+#
+# Nightly saves no build cache: its setup-gradle steps run with cache-disabled or cache-read-only. `deps` saves the dependency
+# cache only on a miss, under the key pr-fast.yml uses.
 
 on:
   schedule:
     - cron: '17 3 * * *'       # 03:17 UTC daily
+  push:
+    branches: [master]
   workflow_dispatch:
 
-# Least privilege at the top. Only `report` can write, and only to issues.
+# Least privilege at the top. `screenshots` writes the goldens-refresh branch and its pull request, and `report` writes issues.
 permissions:
   contents: read
 
+# The dependency cache the jobs below restore. These are the paths and the key of pr-fast.yml's deps job.
+env:
+  DEPS_CACHE_PATHS: |
+    ~/.gradle/caches/modules-2
+    ~/.gradle/wrapper/dists
+    ~/.gradle/caches/9.7.0/dependencies-accessors
+    ~/.gradle/caches/9.7.0/generated-gradle-jars
+    ~/.gradle/caches/9.7.0/kotlin-dsl
+    ~/.gradle/caches/9.7.0/scripts
+    ~/.gradle/caches/9.7.0/transforms
+    ~/.gradle/caches/jars-9
+
 jobs:
+  # Resolves the dependencies once, so the jobs below restore a complete cache. A miss resolves online, as pr-fast.yml's deps job does.
+  deps:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-disabled: true
+
+      - name: Restore the Gradle dependency cache
+        id: deps
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DEPS_CACHE_PATHS }}
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+
+      - name: Resolve every configuration (online, on a cache miss only)
+        if: steps.deps.outputs.cache-hit != 'true'
+        run: ./scripts/ci/run-partition.sh resolve
+
+  # The release build of :app is minified by R8 (app/build.gradle.kts, app/proguard-rules.pro). It runs here and not in the
+  # PR lane: a cold R8 build does not fit the 5-minute lane cap (guideline 2.1). mapping.txt is written only when minify
+  # runs, so a build that skipped R8 fails this step. `if` keeps it running after an earlier failure, as the OWASP steps do.
   full:
+    if: github.event_name != 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -34,9 +89,6 @@ jobs:
         with:
           cache-read-only: true
 
-      # The release build of :app is minified by R8 (app/build.gradle.kts, app/proguard-rules.pro). It runs here and not in the
-      # PR lane: a cold R8 build does not fit the 5-minute lane cap (guideline 2.1). mapping.txt is written only when minify
-      # runs, so a build that skipped R8 fails this step. `if` keeps it running after an earlier failure, as the OWASP steps do.
       - name: Release build of :app (R8)
         if: ${{ !cancelled() }}
         run: |
@@ -110,10 +162,191 @@ jobs:
           fi
           ./gradlew :app:dependencyCheckAnalyze -PowaspAutoUpdate=false
 
+  # The unit tests of :app, :lumio, :shared and the pure JVM modules, in ten balanced lanes (scripts/ci/shards.txt). pr-fast.yml runs
+  # the same lanes on every pull request, so this schedule run does not repeat them on a push to master.
+  shard:
+    if: github.event_name != 'push'
+    name: shard ${{ matrix.shard }}
+    needs: deps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-disabled: true
+
+      - name: Restore the Gradle dependency cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DEPS_CACHE_PATHS }}
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          fail-on-cache-miss: true
+
+      - name: Run shard-${{ matrix.shard }}
+        run: ./scripts/ci/run-partition.sh shard-${{ matrix.shard }}
+
+      - name: Upload the JUnit results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: junit-shard-${{ matrix.shard }}
+          path: '**/build/test-results/**/*.xml'
+          retention-days: 3
+          if-no-files-found: ignore
+
+  # Records the Roborazzi goldens on the Linux runner (record-goldens.yml does the same by hand). A pixel change does not fail
+  # the run: a changed golden goes to the goldens-refresh pull request, which a coordinator reviews and merges. A test that
+  # cannot run fails the job, and `report` opens its issue. The refresh pull request gets no pr-fast run, because a workflow
+  # token creates it and GitHub does not start workflows from such events.
+  screenshots:
+    needs: deps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+    # Two runs must not force-push the same branch at once.
+    concurrency:
+      group: goldens-refresh
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-disabled: true
+
+      - name: Restore the Gradle dependency cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DEPS_CACHE_PATHS }}
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          fail-on-cache-miss: true
+
+      - name: Record goldens
+        run: ./gradlew --offline :app:recordRoborazziDebug :lumio:recordRoborazziDebug --continue
+
+      # Runs only after a clean recording. The branch always starts from this run's commit, so it never carries stale goldens.
+      - name: Propose the changed goldens
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C goldens-refresh
+          git add app/src/test/screenshots lumio/src/test/screenshots
+          pr=$(gh pr list --repo "$GH_REPO" --head goldens-refresh --state open --json number --jq '.[0].number // empty')
+          if git diff --cached --quiet; then
+            echo "The recorded goldens match the committed ones."
+            if [ -n "$pr" ]; then
+              gh pr close "$pr" --repo "$GH_REPO" --delete-branch \
+                --comment "The nightly recording ($RUN_URL) matches the committed goldens again, so this refresh is not needed."
+            fi
+            exit 0
+          fi
+          git commit --signoff --message "Refresh screenshot goldens" --message "Recorded on the Linux runner by $RUN_URL."
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" HEAD:refs/heads/goldens-refresh
+          if [ -z "$pr" ]; then
+            gh pr create --repo "$GH_REPO" --base master --head goldens-refresh --title "Refresh Screenshot Goldens" \
+              --label scope:common --label area:ci --label difficulty:easy \
+              --body "Nightly recorded these goldens on the Linux runner ($RUN_URL). Review the PNG diff, and merge only the changes the screen was meant to make. Goldens come from this runner only (docs/testing/guideline.md 1.5)."
+          fi
+
+  # Android lint, one leg per module (scripts/ci/run-partition.sh lint-<module>). Each leg compiles its module and the modules it
+  # depends on, then lints the main sources.
+  lint:
+    name: lint ${{ matrix.module }}
+    needs: deps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [app, lumio, shared]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-disabled: true
+
+      - name: Restore the Gradle dependency cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DEPS_CACHE_PATHS }}
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          fail-on-cache-miss: true
+
+      - name: Lint :${{ matrix.module }}
+        run: ./scripts/ci/run-partition.sh lint-${{ matrix.module }}
+
+  # Lumio's debug APK, and the androidTest and benchmark sources of both apps compiled. The instrumented jobs below run them.
+  android:
+    name: lumio apk and androidTest compile
+    needs: deps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-disabled: true
+
+      - name: Restore the Gradle dependency cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DEPS_CACHE_PATHS }}
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          fail-on-cache-miss: true
+
+      - name: Assemble the Lumio debug APK
+        run: ./scripts/ci/run-partition.sh apk
+
+      - name: Compile androidTest and benchmark
+        run: ./scripts/ci/run-partition.sh android-tests
+
+  # Real fuzzing: one matrix leg per Jazzer target, so a crash in one target does not hide the other four. fuzz-nightly.sh keeps
+  # the 15 minutes per target from the @FuzzTest annotation; the timeout below covers one target plus a cold build.
   fuzz:
-    # Guideline 2.5: fuzzing is its own job. One matrix leg per Jazzer target, so a crash in one
-    # target does not hide the other four. fuzz-nightly.sh keeps the 15 minutes per target from
-    # the @FuzzTest annotation; the timeout below covers one target plus a cold build.
+    if: github.event_name != 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
@@ -161,6 +394,7 @@ jobs:
 
   instrumented:
     # Guideline 1.3 on an emulator, separate from the host-only gates in `full`.
+    if: github.event_name != 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -216,6 +450,7 @@ jobs:
   e2e:
     # Guideline 1.6: the wallet sign flow on an emulator, separate from `instrumented` so one
     # error report names the layer.
+    if: github.event_name != 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -268,6 +503,7 @@ jobs:
     # Guideline 1.7: emulator numbers are trend data only. The 10% gate needs the reference
     # device and runs there through /run-perf; nothing here claims a gate verdict.
     # :benchmark (macrobenchmark) stays deferred; see its README.
+    if: github.event_name != 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -326,44 +562,33 @@ jobs:
         run: echo "Emulator results are trend data; the 10% gate runs on the reference device only."
 
   report:
-    # Guideline 2.5: exactly one issue or comment per run. The per-job steps it replaces could
-    # race and open one issue per failing job; this job reads the needs results instead.
-    needs: [full, fuzz, instrumented, e2e, benchmark]
+    # Guideline 2.5: one issue per failing check, named for the check. A run that fails a check with an open issue comments on
+    # that issue instead. Parallel jobs cannot open a dozen issues, because this one job reads the needs results.
+    needs: [deps, shard, full, screenshots, lint, android, fuzz, instrumented, e2e, benchmark]
     if: failure()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
       issues: write
+    env:
+      NEEDS: ${{ toJSON(needs) }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
-      - name: Open or update the nightly-failure issue
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          FULL: ${{ needs.full.result }}
-          FUZZ: ${{ needs.fuzz.result }}
-          INSTRUMENTED: ${{ needs.instrumented.result }}
-          E2E: ${{ needs.e2e.result }}
-          BENCHMARK: ${{ needs.benchmark.result }}
+      - name: Open or update one issue per failing check
         run: |
           set -euo pipefail
-          failed=""
-          for entry in "full=$FULL" "fuzz=$FUZZ" "instrumented=$INSTRUMENTED" \
-                       "e2e=$E2E" "benchmark=$BENCHMARK"; do
-            case "${entry#*=}" in
-              failure | cancelled) failed="$failed ${entry%%=*}" ;;
-            esac
+          failed=$(jq -r 'to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key' <<< "$NEEDS")
+          for check in $failed; do
+            title="Nightly check failing: $check"
+            body=$(printf 'Run: %s\nCheck: %s\n' "$RUN_URL" "$check")
+            n=$(gh issue list --repo "$GH_REPO" --label area:ci --state open --limit 500 --json number,title \
+                  | jq -r --arg t "$title" '.[] | select(.title == $t) | .number' | head -n 1)
+            if [ -n "$n" ]; then
+              gh issue comment "$n" --repo "$GH_REPO" --body "$body"
+            else
+              gh issue create --repo "$GH_REPO" --label area:ci --title "$title" --body "$body"
+            fi
           done
-          failed="${failed# }"
-          [ -n "$failed" ] || failed="unknown"
-          body="Run: $RUN_URL
-          Failed jobs: $failed"
-          n=$(gh issue list --repo "$GITHUB_REPOSITORY" -l nightly-failure -s open \
-                --json number -q '.[0].number')
-          if [ -n "$n" ]; then
-            gh issue comment "$n" --repo "$GITHUB_REPOSITORY" --body "$body"
-          else
-            gh issue create --repo "$GITHUB_REPOSITORY" \
-              -t "Nightly failed $(date -u +%F)" -l nightly-failure \
-              -b "$body"
-          fi

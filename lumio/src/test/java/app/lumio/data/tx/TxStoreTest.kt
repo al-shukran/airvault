@@ -237,6 +237,22 @@ class TxStoreTest {
     }
 
     @Test
+    fun removingAnAccountDropsItsRowsAndTheCommentsNoOtherAccountLists() = runBlocking {
+        seed()
+        store.put(listOf(rows[1].copy(account = other)))
+        store.setComment(rows[0].id, "Rent for March", 9_000L)
+        store.setComment(rows[1].id, "paid the deposit", 9_000L)
+
+        store.removeAccounts(listOf(me))
+
+        assertEquals(0, store.count(TxQuery(accounts = setOf(me), includeSpam = true)))
+        assertEquals(listOf(8, 2), query(TxQuery(accounts = setOf(other))).numbers())
+        assertNull(store.comment(rows[0].id))
+        assertEquals(listOf(rows[1].id), store.comments().map { it.txId })
+        assertEquals(emptyList(), query(TxQuery(accounts = setOf(other), text = "march")).numbers())
+    }
+
+    @Test
     fun aCommentIsStoredSearchedAndClearedWithoutEviction() {
         seed()
         runBlocking { store.setComment(rows[1].id, "paid the deposit", 9_000L) }

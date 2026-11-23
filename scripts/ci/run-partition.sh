@@ -51,13 +51,14 @@ usage: scripts/ci/run-partition.sh <lane>
 
 lanes:
   resolve      the one online step: ./gradlew resolveAll, retried only on network errors
-  shard-1..6   the unit tests shards.txt lists under the lane; shard-6 also runs the unlisted ones; pure JVM modules run whole
+  shard-1..10   the unit tests shards.txt lists under the lane; shard-6 also runs the unlisted ones; pure JVM modules run whole;
+               every shard also compiles the debug code of :app and :lumio
   verify-app, verify-lumio
-               the Roborazzi pixel tests of one module, with verifyRoborazziDebug (the legs of the roborazzi job)
+               the Roborazzi pixel tests of one module, with verifyRoborazziDebug (run locally; nightly records goldens)
   fuzz         the Jazzer seed replays (app.lensly.fuzz.*), with -PfuzzLane
   apk          the Lumio debug APK (:lumio:assembleDebug)
   android-tests
-               androidTest and benchmark compile of :app and :lumio (master and merge queue only)
+               androidTest and benchmark compile of :app and :lumio (nightly)
   lint-app, lint-shared, lint-lumio
                lintReportDebug of one module's main sources, the legs of the lint job (see run_lint)
   manifest    merged manifests: no INTERNET or ACCESS_NETWORK_STATE in :app, Lumio's allow-list, OkHttp off the release classpath of :app
@@ -149,7 +150,8 @@ run_resolve() {
 }
 
 run_shard() {
-    local -a tasks=()
+    # Both apps' debug code compiles in every lane (compileDebugKotlin), so a pull request proves each app still builds in debug.
+    local -a tasks=(:app:compileDebugKotlin :lumio:compileDebugKotlin)
     local unlisted units m c
     unlisted=$(unlisted_units)
     units=$(lane_units "$1" "$unlisted")
@@ -272,7 +274,7 @@ run_ci() {
 
 case "$lane" in
     resolve) run_resolve ;;
-    shard-[1-6]) run_shard "$lane" ;;
+    shard-[1-9]|shard-10) run_shard "$lane" ;;
     verify-app | verify-lumio) run_verify "$lane" ;;
     fuzz) run_fuzz ;;
     apk) run_apk ;;

@@ -53,7 +53,7 @@ private const val FRESHNESS_TICK_MS = 15_000L
 /**
  * The Home tab: the total market cap, and the watchlist of the active wallet with each asset's price, its 24 h change and its day's tick chart. The
  * market figures, the prices and the charts come from the open vault's shared board, so Home shows the last ones kept on its first frame, and each visit
- * asks the sources again. The active wallet is the first paired wallet until the profile panel can choose one. Send and Receive open the wallet's page,
+ * asks the sources again. The active wallet is the one the profile panel chose, or the first paired wallet. Send and Receive open the wallet's page,
  * where each account has its own.
  */
 @Composable
@@ -73,7 +73,7 @@ internal fun HomeRoute(
     val board = rememberWalletsBoard(app, selection.mode, listVersion) ?: return
     LaunchedEffect(board) { board.refreshMarket() }
     val view = board.view
-    val wallet = view?.wallets?.firstOrNull()
+    val wallet = view?.wallets?.active(selection) { it.id }
     val testnet = selection.mode == NetworkMode.TESTNET
     val watchlist = wallet?.let { board.watchlists[it.id] }
     val sort = watchlist?.sort ?: WatchlistSort.MARKET_CAP

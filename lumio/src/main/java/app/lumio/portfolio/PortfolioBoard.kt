@@ -58,13 +58,13 @@ class ActivityPage(val items: List<TxFeedItem>, val spamHidden: Int, val names: 
  */
 internal class PortfolioBoard(private val app: LumioApp, private val vault: LumioVault) {
     private val session: VaultSession = vault.session
-    private var side: NetworkMode? = null
+    private var scope: PortfolioScope? = null
 
-    /** The holdings of the side, or null until its first read lands. */
+    /** The holdings of the scope, or null until its first read lands. */
     var holdings by mutableStateOf<List<PortfolioHolding>?>(null)
         private set
 
-    /** The first page of the activity of the side under the filter it was read with, or null until it lands. */
+    /** The first page of the activity of the scope under the filter it was read with, or null until it lands. */
     var activity by mutableStateOf<ActivityPage?>(null)
         private set
 
@@ -84,49 +84,57 @@ internal class PortfolioBoard(private val app: LumioApp, private val vault: Lumi
     /** The transaction that [readTransaction] read last for [account] and [txId], or null when it was not read. */
     fun transactionOf(account: String, txId: String): TransactionPage? = transactions.get(account, txId)
 
-    /** Reads the holdings of [mode]'s side. A change of side clears the holdings of the side before it first. */
-    suspend fun readHoldings(mode: NetworkMode) {
-        if (mode != side) reset(mode)
-        val read = PortfolioReads.holdings(app, vault, mode)
-        if (mode == side) holdings = read
+    /**
+     * Reads the holdings of the wallet [walletId] on [mode]'s side, or of every wallet when it is null. A change of scope clears the holdings of the scope
+     * before it first.
+     */
+    suspend fun readHoldings(mode: NetworkMode, walletId: String?) {
+        val now = PortfolioScope(mode, walletId)
+        if (now != scope) reset(now)
+        val read = PortfolioReads.holdings(app, vault, mode, walletId)
+        if (now == scope) holdings = read
     }
 
-    /** Reads the first page of the activity of [mode]'s side under [filter]. */
-    suspend fun readActivity(mode: NetworkMode, filter: ActivityFilter, includeSpam: Boolean) {
-        if (mode != side) reset(mode)
-        val read = PortfolioReads.activity(app, vault, mode, filter, includeSpam)
-        if (mode == side) activity = read
+    /** Reads the first page of the activity of the scope under [filter], as [readHoldings] scopes it. */
+    suspend fun readActivity(mode: NetworkMode, walletId: String?, filter: ActivityFilter, includeSpam: Boolean) {
+        val now = PortfolioScope(mode, walletId)
+        if (now != scope) reset(now)
+        val read = PortfolioReads.activity(app, vault, mode, walletId, filter, includeSpam)
+        if (now == scope) activity = read
     }
 
     /** Drops what the board shows. [LumioVault] calls it when the vault locks. */
     fun close() {
-        side = null
+        scope = null
         holdings = null
         activity = null
         transactions.clear()
     }
 
-    private fun reset(mode: NetworkMode) {
-        side = mode
+    private fun reset(now: PortfolioScope) {
+        scope = now
         holdings = null
         activity = null
     }
 }
+
+/** What a board read covers: the side, and the one wallet of it, or every wallet when [walletId] is null. */
+private data class PortfolioScope(val mode: NetworkMode, val walletId: String?)
 
 /** The reads behind [PortfolioBoard]: each one reads the caches of the vault on the I/O dispatcher. */
 internal object PortfolioReads {
     /** The rows of activity that one page holds. */
     const val PAGE = 100
 
-    /** The holdings of [mode]'s side, with their prices. A price that is not known leaves the value out, never zero. */
-    suspend fun holdings(app: LumioApp, vault: LumioVault, mode: NetworkMode): List<PortfolioHolding> = withContext(Dispatchers.IO) {
+    /** The holdings of [mode]'s side of [walletId], or of every wallet when it is null, with their prices. A price that is not known leaves the value out, never zero. */
+    suspend fun holdings(app: LumioApp, vault: LumioVault, mode: NetworkMode, walletId: String?): List<PortfolioHolding> = withContext(Dispatchers.IO) {
         val session = vault.session
-        val wallets = PairedWallets.list(session)
+        val wallets = PairedWallets.list(session).filter { walletId == null || it.id == walletId }
         val settings = EvmSettingsStore.read(session)
         val chains = evmChains(app, settings, mode)
         val count = settings.addressCount
         val tokensOf = app.tokensFor(session)
-        val refs = bitcoinRefs(session).filter { mode.holds(it.account.network) }
+        val refs = bitcoinRefs(session).filter { mode.holds(it.account.network) && (walletId == null || it.walletId == walletId) }
         val natives = HomeBalances.evm(chains, Portfolio.holdings(wallets, count, chains, BalanceCache.read(session))) +
             HomeBalances.bitcoin(rowsOf(vault, refs)) +
             HomeBalances.nativeCoins(wallets, NativeBalanceCache.read(session), NativeBalances.coinsOf(mode))
@@ -152,20 +160,25 @@ internal object PortfolioReads {
         HomeAssets.priced(assets, prices).map { asset -> holdingOf(asset, titles[asset.assetId]) }
     }
 
-    /** The first page of the activity of [mode]'s side under [filter], with the spam it hides counted when [includeSpam] is off. */
-    suspend fun activity(app: LumioApp, vault: LumioVault, mode: NetworkMode, filter: ActivityFilter, includeSpam: Boolean): ActivityPage =
+    /**
+     * The first page of the activity of [mode]'s side of [walletId], or of every wallet when it is null, under [filter], with the spam it hides counted
+     * when [includeSpam] is off.
+     */
+    suspend fun activity(app: LumioApp, vault: LumioVault, mode: NetworkMode, walletId: String?, filter: ActivityFilter, includeSpam: Boolean): ActivityPage =
         withContext(Dispatchers.IO) {
             val session = vault.session
-            val wallets = PairedWallets.list(session)
+            val every = PairedWallets.list(session)
+            val wallets = every.filter { walletId == null || it.id == walletId }
             val settings = EvmSettingsStore.read(session)
             val chains = evmChains(app, settings, mode)
-            val refs = bitcoinRefs(session).filter { mode.holds(it.account.network) }
+            val refs = bitcoinRefs(session).filter { mode.holds(it.account.network) && (walletId == null || it.walletId == walletId) }
             val accounts = wallets.flatMap { it.evmAddresses.take(settings.addressCount) }.toSet() +
                 refs.map { it.account.receiveAddress(0) }
             val networks = (chains.map { evmNetwork(it) } + refs.map { it.account.network.networkId() })
                 .filter { filter.chain == null || ChainFamily.of(it) == filter.chain }
                 .toSet()
-            val names = partyNames(wallets)
+            // The names come from every wallet, so a party that another wallet's address book names keeps its name.
+            val names = partyNames(every)
             if (accounts.isEmpty() || networks.isEmpty()) return@withContext ActivityPage(emptyList(), 0, names)
             val query = TxQuery(
                 accounts = accounts,
