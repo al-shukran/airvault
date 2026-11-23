@@ -1,0 +1,1 @@
+Rabby and MetaMask now list every Lensly Ethereum account with the address Lensly shows. Before, only the first address matched. When you show the pairing code, Lensly rounds the wallet up to a multiple of 5 Ethereum accounts, because those wallets list accounts in pages of 5. Pair again to see the right addresses.

@@ -402,7 +402,6 @@ shard-6 :app app.lensly.app.sign.RecordAddressesTest
 shard-6 :app app.lensly.ui.components.WalletArtSeedHuesTest
 shard-6 :app app.lensly.ui.flow.CountingKeys
 shard-6 :app app.lensly.ui.flow.EntryGestureChangePortsTest
-shard-6 :app app.lensly.ui.flow.PairPartsTest
 shard-6 :app app.lensly.ui.flow.SignFlowBitcoinTest
 shard-6 :app app.lensly.ui.flow.UninstalledAppParser
 shard-6 :app app.lensly.ui.home.HomeChartTest
