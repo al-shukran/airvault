@@ -45,10 +45,24 @@ import kotlinx.coroutines.withContext
 
 
 /** The Settings tab's route: the root of the tab, with the list of pages in it. */
-internal fun NavGraphBuilder.settingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, selection: NetworkSelection, onLock: () -> Unit) {
+internal fun NavGraphBuilder.settingsRoute(
+    navController: NavHostController,
+    holder: VaultHolder,
+    listVersion: Int,
+    selection: NetworkSelection,
+    lockChoices: LockSettingsState,
+    onLock: () -> Unit,
+) {
     lumioComposable(LumioRoute.SETTINGS) {
         LumioBackdrop(selection) {
-            SettingsRoute(navController = navController, holder = holder, listVersion = listVersion, selection = selection, onLock = onLock)
+            SettingsRoute(
+                navController = navController,
+                holder = holder,
+                listVersion = listVersion,
+                selection = selection,
+                lockChoices = lockChoices,
+                onLock = onLock,
+            )
         }
     }
 }
@@ -59,7 +73,14 @@ internal fun NavGraphBuilder.settingsRoute(navController: NavHostController, hol
  * wallets change, so a change made on a page shows here when the owner comes back to it.
  */
 @Composable
-private fun SettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, selection: NetworkSelection, onLock: () -> Unit) {
+private fun SettingsRoute(
+    navController: NavHostController,
+    holder: VaultHolder,
+    listVersion: Int,
+    selection: NetworkSelection,
+    lockChoices: LockSettingsState,
+    onLock: () -> Unit,
+) {
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
     LaunchedEffect(session == null) {
@@ -86,6 +107,7 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder,
                 scope.launch {
                     // The erase runs to its end even if this screen leaves. A vault file that cannot be deleted leaves the vault, and the gate then asks for its password.
                     withContext(Dispatchers.IO + NonCancellable) { runCatching { app.eraseLumio() } }
+                    lockChoices.reload()
                     navController.openHidden(GateRoutes.GATE)
                 }
             },
