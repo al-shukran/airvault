@@ -1,7 +1,10 @@
 package app.lumio.ui.wallets
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -162,8 +165,11 @@ internal fun WalletNotice(message: String, modifier: Modifier = Modifier) {
 /** The hairline between two rows of an island, from [indent] to the gutter on the right, so it begins where the row's text does. */
 @Composable
 internal fun RowDivider(indent: Dp) {
-    HorizontalDivider(
-        modifier = Modifier.padding(start = indent, end = ClearAirSpacing.gutter),
-        color = LocalClearAirPalette.current.hairline,
+    Box(
+        modifier = Modifier
+            .padding(start = indent, end = ClearAirSpacing.gutter)
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(LocalClearAirPalette.current.hairline),
     )
 }

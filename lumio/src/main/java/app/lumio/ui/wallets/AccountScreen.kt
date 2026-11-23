@@ -175,8 +175,8 @@ private fun AccountIdentity(line: String, address: String) {
 }
 
 /**
- * The address of an account in groups of four after its 0x, with the first and last groups in ink and the middle ones dimmed. A tap copies the whole
- * address, and the line reads "Address copied" for 1.5 s in its place.
+ * The address of an account as the page writes it: its first and last two groups of four, with an ellipsis between, such as "0x1020 3040 … 8191 122b".
+ * A tap copies the whole address, and the line reads "Address copied" for 1.5 s in its place.
  */
 @Composable
 private fun AccountAddress(address: String) {
@@ -199,15 +199,13 @@ private fun AccountAddress(address: String) {
     }
 }
 
-/** The grouped address with its ends in ink and its middle groups in secondary ink. The grouping is [groupAddress]'s, so the groups are the same everywhere. */
+/** The abbreviated address: the first and last two of [groupAddress]'s groups in ink, with an ellipsis between them in secondary ink. */
 private fun addressText(address: String, palette: ClearAirPalette): AnnotatedString {
     val groups = groupAddress(address).split(' ')
     return buildAnnotatedString {
-        groups.forEachIndexed { index, group ->
-            if (index > 0) append(' ')
-            val edge = index == 0 || index == groups.lastIndex
-            withStyle(SpanStyle(color = if (edge) palette.ink else palette.ink2)) { append(group) }
-        }
+        withStyle(SpanStyle(color = palette.ink)) { append(groups.take(2).joinToString(" ")) }
+        withStyle(SpanStyle(color = palette.ink2)) { append(" … ") }
+        withStyle(SpanStyle(color = palette.ink)) { append(groups.takeLast(2).joinToString(" ")) }
     }
 }
 

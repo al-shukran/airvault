@@ -1,5 +1,6 @@
 package app.lumio.ui.portfolio
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,8 +10,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,8 +23,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.lensly.ui.components.lumioPress
+import app.lensly.ui.theme.ClearAirMotion
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -44,8 +53,10 @@ import app.lumio.ui.kit.ClearAirAmount
 import app.lumio.ui.kit.ClearAirChoiceSheet
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirFilterSentence
+import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSheet
+import app.lumio.ui.kit.ClearAirTestnetHatch
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.transactions.ActivityRowItem
@@ -70,8 +81,9 @@ fun PortfolioScreen(
     zone: ZoneId,
     onOpenActivity: () -> Unit,
     onOpenRow: (TxFeedItem) -> Unit,
+    otherSide: OtherSide? = null,
+    onReceive: (() -> Unit)? = null,
 ) {
-    val palette = LocalClearAirPalette.current
     var picker by remember { mutableStateOf<SentencePicker?>(null) }
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = ClearAirSpacing.xxl)) {
         ClearAirEyebrow(text = "$walletName · Total Balance", modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs))
@@ -80,7 +92,7 @@ fun PortfolioScreen(
         val usd = total.usd
         val fiat = LocalFiat.current
         if (usd == null) {
-            EmptyBalances(testnet = testnet)
+            EmptyBalances(testnet = testnet, otherSide = otherSide, onReceive = onReceive)
         } else {
             ClearAirAmount(
                 text = fiat.amount(usd),
@@ -108,7 +120,7 @@ fun PortfolioScreen(
             modifier = Modifier.fillMaxWidth().padding(start = ClearAirSpacing.gutter, end = ClearAirSpacing.gutter, top = ClearAirSpacing.xl),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(text = "Activity", style = ClearAirType.label, color = palette.ink2, modifier = Modifier.weight(1f))
+            ClearAirEyebrow(text = "Activity", modifier = Modifier.weight(1f))
             ClearAirTextAction(text = "All", onClick = onOpenActivity)
         }
         for (item in recent) {
@@ -129,24 +141,78 @@ fun PortfolioScreen(
     }
 }
 
-/** The empty side: nothing is priced yet, so there is no total to show. */
+/**
+ * The empty side: nothing is priced yet, so there is no total to show. It draws the dashed slab, names the side, says why it is empty, and offers the one
+ * action that fills the screen. [otherSide] shows under the words when the other side holds funds, and [onReceive] adds the Receive capsule.
+ */
 @Composable
-private fun EmptyBalances(testnet: Boolean) {
+private fun EmptyBalances(testnet: Boolean, otherSide: OtherSide?, onReceive: (() -> Unit)?) {
     val palette = LocalClearAirPalette.current
+    val side = if (testnet) "Testnet" else "Mainnet"
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xl)) {
-        Text(
-            text = if (testnet) "Nothing on Testnet Yet" else "Nothing on Mainnet Yet",
-            style = ClearAirType.titleXL,
-            color = palette.ink,
-        )
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { EmptySlab() }
+        Spacer(Modifier.height(ClearAirSpacing.lg))
+        Text(text = "Nothing on $side Yet", style = ClearAirType.titleXL, color = palette.ink)
         Spacer(Modifier.height(ClearAirSpacing.xs))
         Text(
-            text = "Anything you receive shows up here within seconds.",
+            text = "No ${side.lowercase()} balances so far. That's normal for a new wallet. Anything you receive shows up here within seconds.",
             style = ClearAirType.body,
             color = palette.ink2,
         )
+        otherSide?.let { OtherSideCard(other = it) }
+        onReceive?.let { receive ->
+            ClearAirPrimaryButton(text = "Receive on $side", onClick = receive, modifier = Modifier.padding(top = ClearAirSpacing.lg))
+        }
     }
 }
+
+/** The other side's balance: its amount and side, its network, and the tap that switches to that side. A testnet side wears the testnet hatch. */
+@Composable
+private fun OtherSideCard(other: OtherSide) {
+    val palette = LocalClearAirPalette.current
+    val side = if (other.testnet) "Testnet" else "Mainnet"
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = ClearAirSpacing.lg)
+            .clip(RoundedCornerShape(CARD_CORNER))
+            .background(palette.raised)
+            .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = other.onSwitch),
+    ) {
+        if (other.testnet) ClearAirTestnetHatch(text = "TESTNET")
+        Column(modifier = Modifier.padding(ClearAirSpacing.md)) {
+            Text(text = "${other.amount} on $side", style = ClearAirType.rowTitle, color = palette.ink)
+            Text(text = "${other.network} · tap to switch sides", style = ClearAirType.body, color = palette.ink2)
+        }
+    }
+}
+
+/** The vault's slab drawn dashed, with the spark above it: the mock's empty-side illustration, drawn on its own 128 × 112 grid. */
+@Composable
+private fun EmptySlab() {
+    val palette = LocalClearAirPalette.current
+    Canvas(modifier = Modifier.size(SLAB_WIDTH, SLAB_HEIGHT)) {
+        val unit = size.width / SLAB_GRID
+        val dashed = Stroke(width = SLAB_STROKE.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(DASH.toPx(), GAP.toPx())))
+        drawPath(polyline(unit, 64f, 34f, 106f, 58f, 64f, 82f, 22f, 58f, closed = true), palette.ink2, style = dashed)
+        drawPath(polyline(unit, 22f, 58f, 22f, 78f, 64f, 102f, 106f, 78f, 106f, 58f), palette.ink2, style = dashed)
+        drawPath(polyline(unit, 64f, 82f, 64f, 102f), palette.ink2, style = dashed)
+        drawPath(polyline(unit, 64f, 8f, 70f, 17f, 64f, 26f, 58f, 17f, closed = true), palette.spark)
+    }
+}
+
+/** A path through [xy], given as x and y pairs on the mock's grid and scaled by [unit] to the canvas, closed when [closed] is set. */
+private fun polyline(unit: Float, vararg xy: Float, closed: Boolean = false): Path = Path().apply {
+    moveTo(xy[0] * unit, xy[1] * unit)
+    for (i in 2 until xy.size step 2) lineTo(xy[i] * unit, xy[i + 1] * unit)
+    if (closed) close()
+}
+
+/**
+ * The other side of the Portfolio, when it holds funds: its [amount], such as "12.5 MON", its [network], such as "Monad Testnet", whether it is [testnet],
+ * and [onSwitch], which moves the page to that side. An empty Portfolio shows it under its words.
+ */
+data class OtherSide(val amount: String, val network: String, val testnet: Boolean, val onSwitch: () -> Unit)
 
 /** The change over 24 hours: its arrow and percent, then its amount in dollars and the word "Today". */
 @Composable
@@ -272,7 +338,12 @@ private fun groupingRows(filter: PortfolioFilter, pick: (PortfolioFilter) -> Uni
             enabled = allChains,
             onPick = { pick(filter.copy(grouped = true)) },
         ),
-        ChoiceRow(title = "Not Grouped", selected = !filter.isGrouped, onPick = { pick(filter.copy(grouped = false)) }),
+        ChoiceRow(
+            title = "Not Grouped",
+            detail = "Each chain's balance on its own row",
+            selected = !filter.isGrouped,
+            onPick = { pick(filter.copy(grouped = false)) },
+        ),
     )
 }
 
@@ -316,3 +387,10 @@ private val ALLOCATION_HEIGHT = 8.dp
 private val MIN_SEGMENT = 0.01f
 private const val PERCENT = 100
 private val STRENGTHS = listOf(1f, 0.6f, 0.38f, 0.2f)
+private val SLAB_WIDTH = 128.dp
+private val SLAB_HEIGHT = 112.dp
+private const val SLAB_GRID = 128f
+private val SLAB_STROKE = 2.dp
+private val DASH = 6.dp
+private val GAP = 5.dp
+private val CARD_CORNER = 16.dp
