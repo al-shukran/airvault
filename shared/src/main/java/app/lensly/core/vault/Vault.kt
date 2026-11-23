@@ -254,7 +254,9 @@ class Vault constructor(
     /**
      * Opens the real vault from its Vault Key, for Lumio's biometric unlock, which keeps that key sealed under a biometric key (see
      * [BiometricUnlock]). The key must name a slot of this vault's key file, or nothing opens and the result is null. No password is
-     * checked, so no try is counted. The session takes its own copy of [vaultKey], and the caller zeroes its own.
+     * checked, so no try is counted. An open clears the count of wrong passwords, as the right App Password does, so wrong tries made
+     * while the owner only uses biometric unlock do not pile up toward the erase. The session takes its own copy of [vaultKey], and the
+     * caller zeroes its own.
      */
     suspend fun unlockWithVaultKey(vaultKey: ByteArray): VaultSession? =
         withContext(Dispatchers.IO) {
@@ -262,6 +264,12 @@ class Vault constructor(
                 // Biometric tries do not count toward the failure delay or erase count: the OS BIOMETRIC_STRONG lockout already limits them.
                 if (!layout.exists()) return@withLock null
                 if (VaultKeyFile.ownerIndex(VaultKeyFile.decode(readVaultFile(layout.vaultKey)), vaultKey) < 0) return@withLock null
+                // A state that does not verify is left for the next password try, which erases the vault (FailureDelay threat 15).
+                bestEffort {
+                    val store = failureStore()
+                    val state = store.load(clock)
+                    if (state.failures > 0 && !FailureDelay.unverified(state)) store.recordSuccess(state, clock)
+                }
                 openSessionLocked(vaultKey, isDecoy = false)
             }
         }

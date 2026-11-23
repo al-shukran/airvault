@@ -111,7 +111,7 @@ class SettingsPagesTest {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
-                    deviceProtectionOn = null,
+                    deviceProtectionOn = false,
                     onEntryGesture = { opened = true },
                     onChangePassword = {},
                     onDeviceProtection = {},
@@ -135,7 +135,7 @@ class SettingsPagesTest {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
-                    deviceProtectionOn = null,
+                    deviceProtectionOn = false,
                     onEntryGesture = {},
                     onChangePassword = { opened = true },
                     onDeviceProtection = {},
@@ -172,27 +172,6 @@ class SettingsPagesTest {
         compose.onNodeWithText("Biometric Unlock").assertDoesNotExist()
         compose.onNodeWithText("Device Protection").performScrollTo().performClick()
         assertEquals(true, opened)
-    }
-
-    @Test
-    fun aDuressSessionShowsNoDeviceProtectionRow() {
-        compose.setContent {
-            LumenTheme {
-                SecuritySettingsPage(
-                    entryGesture = EntryGesture.DEFAULT,
-                    lock = LockSettings(),
-                    deviceProtectionOn = null,
-                    onEntryGesture = {},
-                    onChangePassword = {},
-                    onDeviceProtection = {},
-                    onIdleMinutes = {},
-                    onLockWhenSwitching = {},
-                    onBack = {},
-                )
-            }
-        }
-
-        compose.onNodeWithText("Device Protection").assertDoesNotExist()
     }
 
     @Test
@@ -235,7 +214,7 @@ class SettingsPagesTest {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
-                    deviceProtectionOn = null,
+                    deviceProtectionOn = false,
                     onEntryGesture = {},
                     onChangePassword = {},
                     onDeviceProtection = {},

@@ -70,14 +70,14 @@ const val BIOMETRIC_UNAVAILABLE_REASON = "Set up a fingerprint or face unlock on
 
 /**
  * The Security page: the Hidden Entry Gesture, whose row opens the choice of another gesture (it asks for the App Password first), the
- * App Password, whose row opens its change, Device Protection when [deviceProtectionOn] is given (null hides its row), and the lock: the
+ * App Password, whose row opens its change, Device Protection, whose row says whether it is on, and the lock: the
  * inactivity timeout, and the switch that locks when the app is switched away from. Each control applies as the owner changes it.
  */
 @Composable
 fun SecuritySettingsPage(
     entryGesture: EntryGesture,
     lock: LockSettings,
-    deviceProtectionOn: Boolean?,
+    deviceProtectionOn: Boolean,
     onEntryGesture: () -> Unit,
     onChangePassword: () -> Unit,
     onDeviceProtection: () -> Unit,
@@ -102,14 +102,12 @@ fun SecuritySettingsPage(
                 onClick = onChangePassword,
             )
         }
-        if (deviceProtectionOn != null) {
-            SettingsSection(title = "Unlock") {
-                SettingsRow(
-                    title = "Device Protection",
-                    description = if (deviceProtectionOn) "On" else "Off",
-                    onClick = onDeviceProtection,
-                )
-            }
+        SettingsSection(title = "Unlock") {
+            SettingsRow(
+                title = "Device Protection",
+                description = if (deviceProtectionOn) "On" else "Off",
+                onClick = onDeviceProtection,
+            )
         }
         SettingsSection(title = "Lock") {
             SliderSetting(

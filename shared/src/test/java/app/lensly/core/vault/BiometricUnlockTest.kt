@@ -169,6 +169,19 @@ class BiometricUnlockTest {
     }
 
     @Test
+    fun aBiometricUnlockClearsTheWrongPasswordCount() {
+        val session = openApp()
+        assertTrue(runBlocking { unlock.enable(session) })
+        session.close()
+        assertEquals(UnlockResult.Rejected, runBlocking { vault.unlock(WRONG.toCharArray()) })
+        assertEquals(1, vault.failureCountForTesting())
+
+        assertIs<BiometricOutcome.Unlocked>(runBlocking { unlock.unlock(vault) }).session.close()
+
+        assertEquals(0, vault.failureCountForTesting())
+    }
+
+    @Test
     fun aWrongAppPasswordSealsNothing() {
         val holder = VaultHolder(vault)
         assertTrue(holder.adopt(openApp(), holder.unlockEpoch()))
