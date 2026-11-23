@@ -188,7 +188,8 @@ internal suspend fun <T> onVault(default: T, block: () -> T): T = withContext(Di
 
 /**
  * The first sync of the wallet [walletId], opened when its pairing is saved. Its reads run on the application's scope, so they go on when the owner
- * leaves. The wallet opens once every row settles, or at once from the back arrow, the system back or Open wallet now.
+ * leaves. This is the last step of the onboarding, so only Continue leaves it, for the wallet. View Accounts opens the wallet above this step, and
+ * the system back stays here.
  */
 @Composable
 internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolder, walletId: String, mode: NetworkMode, onLock: () -> Unit) {
@@ -197,11 +198,15 @@ internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolde
     val wallet by produceState<PairedWallet?>(null, session, walletId) {
         value = session?.let { s -> onVault(null) { PairedWallets.list(s).firstOrNull { it.id == walletId } } }
     }
-    fun openWallet() {
+    fun finish() {
         navController.popBackStack(LumioRoute.WALLETS, inclusive = false)
         navController.navigate(LumioRoute.wallet(walletId))
     }
-    BackHandler { openWallet() }
+    fun viewAccounts() {
+        navController.navigate(LumioRoute.wallet(walletId)) { launchSingleTop = true }
+    }
+    // The system back stays on this step, so only Continue leaves the onboarding.
+    BackHandler {}
     if (session == null) {
         LaunchedEffect(Unit) { navController.popBackStack(LumioRoute.WALLETS, inclusive = false) }
         return
@@ -216,7 +221,8 @@ internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolde
         accounts = families.sumOf { it.size },
         chains = families.count { it.isNotEmpty() },
         rows = rows,
-        onOpenWallet = ::openWallet,
+        onViewAccounts = ::viewAccounts,
+        onFinish = ::finish,
         onLock = onLock,
     )
 }

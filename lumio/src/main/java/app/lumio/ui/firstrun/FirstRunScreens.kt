@@ -19,10 +19,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -36,7 +32,10 @@ import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.R
+import app.lumio.ui.kit.ClearAirCheckbox
 import app.lumio.ui.kit.ClearAirEyebrow
+import app.lumio.ui.kit.ClearAirGlyph
+import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirSegments
 import app.lumio.ui.kit.ClearAirTextAction
@@ -193,12 +192,7 @@ fun NoticeScreen(agreed: Boolean, onAgreedChange: (Boolean) -> Unit, onContinue:
             "The software is provided as is",
         ).forEach { fact ->
             Row(modifier = Modifier.padding(vertical = ClearAirSpacing.xxs), verticalAlignment = Alignment.Top) {
-                Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = null,
-                    tint = palette.ink,
-                    modifier = Modifier.size(18.dp),
-                )
+                ClearAirIcon(glyph = ClearAirGlyph.CHECK, color = palette.ink, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(ClearAirSpacing.xs))
                 Text(text = fact, style = ClearAirType.body, color = palette.ink)
             }
@@ -211,7 +205,7 @@ fun NoticeScreen(agreed: Boolean, onAgreedChange: (Boolean) -> Unit, onContinue:
                 .toggleable(value = agreed, role = Role.Checkbox, onValueChange = onAgreedChange),
             verticalAlignment = Alignment.Top,
         ) {
-            Checkbox(checked = agreed, onCheckedChange = null)
+            ClearAirCheckbox(checked = agreed)
             Spacer(Modifier.width(ClearAirSpacing.xs))
             Text(
                 text = "I understand that AirVault, Lensly, or Lumio has no tokens, public sales, or a support team and that you must not " +

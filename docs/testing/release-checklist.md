@@ -20,10 +20,12 @@ Setup, once per run:
 
 Run, for Rabby:
 
-- [ ] In Lensly, open the wallet, then the pairing export. In Rabby, add a hardware wallet, choose the Keystone-style QR
-      flow, and scan the export Lensly shows.
-- [ ] Check that Rabby shows the same address as Lensly for account 0.
-- [ ] In Rabby, send a small transaction on chain 10143 to any address, and approve it with the hardware-wallet flow.
+- [ ] Give the Lensly wallet at least 6 Ethereum accounts. In Lensly, open the wallet, then the pairing export. In Rabby, add a
+      hardware wallet, choose AirGap Vault, and scan the export Lensly shows.
+- [ ] Check that Rabby lists every Lensly account, in order, with the same address as Lensly for **each** of them, not only
+      account 0. Lensly rounds the wallet up to a multiple of 5 accounts when it shows the export.
+- [ ] In Rabby, send a small transaction on chain 10143 from account 2 or later to any address, and approve it with the
+      hardware-wallet flow.
 - [ ] Lensly shows the scan screen; scan Rabby's request. Read the review: chain, from, to, amount, fee, nonce.
 - [ ] Approve with the Application Password, scan the signature back into Rabby, and confirm Rabby broadcasts it.
 - [ ] Open the explorer and confirm the transaction is mined. Record the transaction hash.

@@ -34,6 +34,8 @@ enum class ClearAirGlyph(private val data: List<String>) {
     CHEVRON(listOf("M9 6l6 6-6 6")),
     COPY(listOf("M9 9h10v10H9z", "M15 9V6.5A1.5 1.5 0 0 0 13.5 5h-8A1.5 1.5 0 0 0 4 6.5v8A1.5 1.5 0 0 0 5.5 16H8")),
     CLOSE(listOf("M6 6l12 12M18 6L6 18")),
+    CHECK(listOf("M5 12.5l4.5 4.5L19 7.5")),
+    INFO(listOf(circle(12f, 12f, 8.5f), "M12 11v5.5M12 7.8v.1")),
     ALERT(listOf("M12 4l8.5 15H3.5z", "M12 10v4M12 16.8v.1")),
     STAR(listOf("M12 4.3L14 10.05L20.08 10.17L15.23 13.85L17 19.68L12 16.2L7 19.68L8.77 13.85L3.92 10.17L10 10.05Z")),
     ;

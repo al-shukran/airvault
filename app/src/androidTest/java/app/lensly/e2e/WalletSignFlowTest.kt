@@ -14,12 +14,12 @@ import app.airvault.core.model.ChainId
 import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.Review
 import app.lensly.app.WalletStore
-import app.lensly.app.export.PairingExport
 import app.lensly.app.export.partsOf
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
 import app.lensly.core.ur.UrScanner
 import app.lensly.core.ur.framesOf
+import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.AccountXpub
 import app.lensly.ui.flow.SignStep
 import app.lensly.ui.sign.HOLD_TO_SIGN_TAG
@@ -62,7 +62,7 @@ class WalletSignFlowTest : SignFlowE2eBase() {
         val wallet = openWallet { _, _ -> }
         val store = WalletStore(wallet.session)
         val xpub = requireNotNull(store.meta(wallet.id)) { "the wallet record must read back" }.accountKeys.first()
-        checkPairingExport(xpub, wallet.fingerprint)
+        checkPairingExport(store, wallet.id, xpub)
         val address = store.addresses(wallet.id, 1).single()
         val request = signRequestFor(wallet.fingerprint, Numeric.hexStringToByteArray(address.removePrefix("0x")))
 
@@ -104,18 +104,22 @@ class WalletSignFlowTest : SignFlowE2eBase() {
         (review.sections.first().rows.single { it.label == label }.value as DisplayValue.Address).address
 
     /**
-     * The pairing export of the wallet is the one `ur:crypto-hdkey` an online wallet imports, and its key must carry the account public key
-     * and chain code the wallet was made with.
+     * The pairing export of the wallet is the one `ur:crypto-account` an online wallet imports, and its first output must carry the address
+     * key m/44'/60'/0'/0/0 of the account key the wallet was made with.
      */
-    private fun checkPairingExport(xpub: AccountXpub, fingerprint: Int) {
-        val exportParts = PairingExport.urParts(listOf(xpub), fingerprint, E2E_WALLET_NAME)
+    private fun checkPairingExport(store: WalletStore, walletId: String, xpub: AccountXpub) {
         val exportScanner = UrScanner()
-        exportParts.forEach { part -> assertTrue("the pairing part must scan back: $part", exportScanner.receive(part)) }
+        store.ethereumPairingParts(walletId, E2E_WALLET_NAME).forEach { part ->
+            if (exportScanner.result() == null) assertTrue("the pairing part must scan back: $part", exportScanner.receive(part))
+        }
         val exportUr = requireNotNull(exportScanner.result()) { "the pairing export must form one UR" }
-        assertEquals("crypto-hdkey", exportUr.type)
-        val exportFields = fieldsOf(exportUr)
-        assertArrayEquals(xpub.publicKey, (exportFields[3L] as Cbor.Bytes).value)
-        assertArrayEquals(xpub.chainCode, (exportFields[4L] as Cbor.Bytes).value)
+        assertEquals("crypto-account", exportUr.type)
+        // Each output is a bare crypto-hdkey (tag 303), with the compressed key at 3 and the chain code at 4.
+        val outputs = (fieldsOf(exportUr)[2L] as Cbor.Arr).items
+        val first = ((outputs.first() as Cbor.Tagged).value as Cbor.Dict).entries.associate { (k, v) -> (k as Cbor.Uint).value to v }
+        val addressKey = AccountAddresses.addressXpub(xpub, 0)
+        assertArrayEquals(addressKey.publicKey, (first[3L] as Cbor.Bytes).value)
+        assertArrayEquals(addressKey.chainCode, (first[4L] as Cbor.Bytes).value)
     }
 
     /**

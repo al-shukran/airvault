@@ -1,12 +1,13 @@
 name: master-red
 
-# Opens or comments on the one open `ci-red` issue when a run of a workflow that builds master fails, and closes it once no
-# tracked workflow's latest run on master is failing. It reads run data and writes issues; it gates nothing. As with every
-# workflow_run workflow, GitHub runs only the copy of this file on the default branch.
+# Opens or comments on the one open `ci-red` issue when the blocking set (pr-fast) fails on master, and closes it once pr-fast's
+# latest run on master is green. Nightly checks never reach this file: each one opens its own issue (nightly.yml). It reads run
+# data and writes issues; it gates nothing. As with every workflow_run workflow, GitHub runs only the copy of this file on the
+# default branch.
 on:
   workflow_run:
-    # pr-fast also runs on every master push, and its master runs decide whether master is red.
-    workflows: [pr-fast, nightly]
+    # Every master push runs pr-fast, and its master runs decide whether master is red.
+    workflows: [pr-fast]
     types: [completed]
 
 permissions:
@@ -24,7 +25,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
-      actions: read # the failed job names, and the latest master runs of the other tracked workflows
+      actions: read # the failed job names, and the latest master runs of pr-fast
       issues: write
     env:
       GH_TOKEN: ${{ github.token }}
@@ -62,17 +63,13 @@ jobs:
             success)
               n=$(open_issue)
               [ -n "$n" ] || exit 0
-              still=""
-              for wf in pr-fast nightly; do
-                # The latest finished, non-cancelled run on master decides whether that workflow is red.
-                latest=$(gh run list --repo "$REPO" --workflow "$wf.yml" --branch master --limit 10 --json conclusion,status \
-                  --jq '[.[] | select(.status == "completed" and .conclusion != "cancelled" and .conclusion != "skipped")][0].conclusion // empty')
-                if [ "$latest" = failure ]; then still="$still $wf"; fi
-              done
-              if [ -n "$still" ]; then
-                gh issue comment "$n" --repo "$REPO" --body "$WORKFLOW is green on master ($RUN_URL). Still red:$still."
+              # The latest finished, non-cancelled run on master decides whether pr-fast is red, so a newer failed push keeps the issue open.
+              latest=$(gh run list --repo "$REPO" --workflow pr-fast.yml --branch master --limit 10 --json conclusion,status \
+                --jq '[.[] | select(.status == "completed" and .conclusion != "cancelled" and .conclusion != "skipped")][0].conclusion // empty')
+              if [ "$latest" = failure ]; then
+                gh issue comment "$n" --repo "$REPO" --body "$WORKFLOW is green on master ($RUN_URL), but its latest master run failed. Still red."
               else
-                gh issue comment "$n" --repo "$REPO" --body "Every tracked workflow is green on master again ($RUN_URL). Closing."
+                gh issue comment "$n" --repo "$REPO" --body "pr-fast is green on master again ($RUN_URL). Closing."
                 gh issue close "$n" --repo "$REPO" --reason completed
               fi
               ;;

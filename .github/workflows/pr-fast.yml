@@ -1,7 +1,9 @@
 name: pr-fast
 
-# One gate for pull requests, the merge queue and master. Every event runs the same lanes (scripts/ci/README.md), so a change
-# verified on its pull request is the change master builds after it lands. `pr-ok` is the single required check.
+# The blocking set for pull requests, the merge queue and master. `pr-ok` is the single required check and needs deps, shard (the
+# unit tests in eight lanes, which also compile the debug code of :app and :lumio), fuzz (the seed replays), ci (the guards, with
+# the mnemonic check), secrets (gitleaks), manifest (the no-INTERNET guard) and dependency_review. Lint, screenshot goldens, the
+# APK compile and the real fuzzing run in nightly.yml, on a schedule and on master pushes. They never block a pull request.
 #
 # Gradle runs offline in every job except `deps`. `deps` fills the Gradle module cache once per dependency key, with
 # `./gradlew resolveAll`, and the other jobs restore that exact key. A missing artifact then fails by name, not by a network
@@ -80,7 +82,7 @@ jobs:
         if: steps.deps.outputs.cache-hit != 'true'
         run: ./scripts/ci/run-partition.sh resolve
 
-  # The unit tests of :app, :lumio, :shared and the pure JVM modules, in six balanced lanes (scripts/ci/shards.txt).
+  # The unit tests of :app, :lumio, :shared and the pure JVM modules, in eight balanced lanes (scripts/ci/shards.txt).
   shard:
     name: shard ${{ matrix.shard }}
     needs: deps
@@ -94,7 +96,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -134,7 +136,10 @@ jobs:
             ~/.gradle/caches/build-cache-1
             .gradle/configuration-cache
           key: bc-shard-${{ matrix.shard }}-master
-          restore-keys: bc-shard-${{ matrix.shard }}-master-
+          # A lane with no entry of its own yet (lanes 7 and 8 at first) takes the newest shard entry: the compiled outputs match.
+          restore-keys: |
+            bc-shard-${{ matrix.shard }}-master-
+            bc-shard-
 
       - name: Run shard-${{ matrix.shard }}
         run: ./scripts/ci/run-partition.sh shard-${{ matrix.shard }}
@@ -167,84 +172,6 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: junit-shard-${{ matrix.shard }}
-          path: '**/build/test-results/**/*.xml'
-          retention-days: 3
-          if-no-files-found: ignore
-
-  # Roborazzi pixel tests, one module per leg, verified against the committed PNGs (guideline 2.7). The legs are the verify-app and
-  # verify-lumio lanes of scripts/ci/shards.txt: a leg compiles one app module, so the two run side by side within the cap.
-  roborazzi:
-    name: verify screenshots ${{ matrix.module }}
-    needs: deps
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      actions: write
-    strategy:
-      fail-fast: false
-      matrix:
-        module: [app, lumio]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
-        with:
-          distribution: temurin
-          java-version: '21.0.13+9'
-
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-disabled: true
-
-      - name: Restore the Gradle dependency cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.DEPS_CACHE_PATHS }}
-          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
-          fail-on-cache-miss: true
-
-      - name: Restore the Gradle build cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
-          key: bc-verify-${{ matrix.module }}-master
-          restore-keys: bc-verify-${{ matrix.module }}-master-
-
-      - name: Verify screenshots
-        run: ./scripts/ci/run-partition.sh verify-${{ matrix.module }}
-
-      - name: Stop the Gradle daemon before the cache is saved
-        if: always()
-        run: ./gradlew --stop
-
-      - name: Delete the build cache this lane replaces
-        id: replace
-        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          KEY: bc-verify-${{ matrix.module }}-master
-        run: gh cache list --ref refs/heads/master --key "$KEY" --limit 100 --json id,key --jq '.[] | select(.key == env.KEY) | .id' | xargs -r -n1 gh cache delete
-
-      - name: Save the Gradle build cache
-        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.replace.outcome == 'success'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
-          key: bc-verify-${{ matrix.module }}-master
-
-      - name: Upload the JUnit results
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: junit-verify-${{ matrix.module }}
           path: '**/build/test-results/**/*.xml'
           retention-days: 3
           if-no-files-found: ignore
@@ -313,176 +240,6 @@ jobs:
             .gradle/configuration-cache
           key: bc-fuzz-master
 
-  # Assembles the Lumio debug APK. The androidTest and benchmark sources compile on master and in the merge queue only: no test lane
-  # runs them, and on a cold build cache they cost a pull request about two minutes.
-  android:
-    name: lumio apk
-    needs: deps
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      actions: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
-        with:
-          distribution: temurin
-          java-version: '21.0.13+9'
-
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-disabled: true
-
-      - name: Restore the Gradle dependency cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.DEPS_CACHE_PATHS }}
-          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
-          fail-on-cache-miss: true
-
-      - name: Restore the Gradle build cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
-          key: bc-android-master
-          restore-keys: bc-android-master-
-
-      - name: Assemble the Lumio debug APK
-        run: ./scripts/ci/run-partition.sh apk
-
-      - name: Compile androidTest and benchmark
-        if: github.event_name != 'pull_request'
-        run: ./scripts/ci/run-partition.sh android-tests
-
-      - name: Stop the Gradle daemon before the cache is saved
-        if: always()
-        run: ./gradlew --stop
-
-      - name: Delete the build cache this lane replaces
-        id: replace
-        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          KEY: bc-android-master
-        run: gh cache list --ref refs/heads/master --key "$KEY" --limit 100 --json id,key --jq '.[] | select(.key == env.KEY) | .id' | xargs -r -n1 gh cache delete
-
-      - name: Save the Gradle build cache
-        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.replace.outcome == 'success'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
-          key: bc-android-master
-
-  # Android lint, one leg per module (scripts/ci/run-partition.sh lint-<module>). A leg compiles its module and the modules it
-  # depends on, then lints its main sources, and the legs run on their own runners side by side, so no leg waits for another
-  # module's compile or analysis. The unit-test and androidTest analyses run nightly (run_lint). pr-ok reads this job's result,
-  # which is success only when every leg succeeds.
-  lint:
-    name: lint ${{ matrix.module }}
-    needs: deps
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      actions: write
-    strategy:
-      fail-fast: false
-      matrix:
-        module: [app, lumio, shared]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
-        with:
-          distribution: temurin
-          java-version: '21.0.13+9'
-
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-disabled: true
-
-      - name: Restore the Gradle dependency cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.DEPS_CACHE_PATHS }}
-          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
-          fail-on-cache-miss: true
-
-      - name: Restore the Gradle build cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
-          key: bc-lint-${{ matrix.module }}-master
-          restore-keys: bc-lint-${{ matrix.module }}-master-
-
-      - name: Lint :${{ matrix.module }}
-        run: ./scripts/ci/run-partition.sh lint-${{ matrix.module }}
-
-      - name: Stop the Gradle daemon before the cache is saved
-        if: always()
-        run: ./gradlew --stop
-
-      - name: Delete the build cache this lane replaces
-        id: replace
-        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          KEY: bc-lint-${{ matrix.module }}-master
-        run: gh cache list --ref refs/heads/master --key "$KEY" --limit 100 --json id,key --jq '.[] | select(.key == env.KEY) | .id' | xargs -r -n1 gh cache delete
-
-      - name: Save the Gradle build cache
-        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.replace.outcome == 'success'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
-          key: bc-lint-${{ matrix.module }}-master
-
-  # Guideline 1.8 and R56. The merged manifests and the OkHttp check (scripts/ci/run-partition.sh manifest).
-  manifest:
-    name: manifest guards
-    needs: deps
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
-        with:
-          distribution: temurin
-          java-version: '21.0.13+9'
-
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-disabled: true
-
-      - name: Restore the Gradle dependency cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.DEPS_CACHE_PATHS }}
-          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
-          fail-on-cache-miss: true
-
-      - name: Check the merged manifests
-        run: ./scripts/ci/run-partition.sh manifest
-
   # No Gradle: every script's syntax, the test-class coverage of the lanes, and the test-network guard (guideline 3).
   ci:
     name: ci scripts and test coverage
@@ -536,6 +293,36 @@ jobs:
           "$RUNNER_TEMP/gitleaks" git --config .gitleaks.toml --redact \
             --log-opts="${BASE_SHA}..${HEAD_SHA}" --exit-code 1 .
 
+  # Guideline 1.8 and R56. The merged manifests and the OkHttp check (scripts/ci/run-partition.sh manifest).
+  manifest:
+    name: manifest guards
+    needs: deps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-disabled: true
+
+      - name: Restore the Gradle dependency cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DEPS_CACHE_PATHS }}
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          fail-on-cache-miss: true
+
+      - name: Check the merged manifests
+        run: ./scripts/ci/run-partition.sh manifest
+
   dependency_review:
     # Snapshot comes from dependency-graph.yml, which submits on pushes to master and phase-1-5.
     #
@@ -561,7 +348,7 @@ jobs:
 
   pr-ok: # the single required check
     if: always()
-    needs: [deps, shard, roborazzi, fuzz, android, lint, manifest, ci, secrets, dependency_review]
+    needs: [deps, shard, fuzz, ci, secrets, manifest, dependency_review]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -571,13 +358,10 @@ jobs:
     env:
       DEPS: ${{ needs.deps.result }}
       SHARD: ${{ needs.shard.result }}
-      ROBORAZZI: ${{ needs.roborazzi.result }}
       FUZZ: ${{ needs.fuzz.result }}
-      ANDROID: ${{ needs.android.result }}
-      LINT: ${{ needs.lint.result }}
-      MANIFEST: ${{ needs.manifest.result }}
       CI: ${{ needs.ci.result }}
       SECRETS: ${{ needs.secrets.result }}
+      MANIFEST: ${{ needs.manifest.result }}
       DEPENDENCY_REVIEW: ${{ needs.dependency_review.result }}
       DEPENDENCY_GRAPH_ENABLED: ${{ vars.DEPENDENCY_GRAPH_ENABLED }}
     steps:
@@ -586,7 +370,7 @@ jobs:
           persist-credentials: false
           sparse-checkout: scripts/ci
 
-      # The machine-enforced lane budget (scripts/ci/lane-budget.sh, 5 minutes). It reports, and on master files an issue; it never
+      # The machine-enforced lane budget (scripts/ci/lane-budget.sh, 3 minutes). It reports, and on master files an issue; it never
       # fails the gate, so a slow lane is fixed in a pull request, not rerun to green.
       - name: Check the lane budget
         continue-on-error: true
@@ -599,8 +383,7 @@ jobs:
       - name: Aggregate results
         run: |
           failed=0
-          for pair in "deps=$DEPS" "shard=$SHARD" "roborazzi=$ROBORAZZI" "fuzz=$FUZZ" "android=$ANDROID" \
-                      "lint=$LINT" "manifest=$MANIFEST" "ci=$CI" "secrets=$SECRETS"; do
+          for pair in "deps=$DEPS" "shard=$SHARD" "fuzz=$FUZZ" "ci=$CI" "secrets=$SECRETS" "manifest=$MANIFEST"; do
             name="${pair%%=*}"
             result="${pair#*=}"
             if [ "$result" != success ]; then
@@ -615,7 +398,7 @@ jobs:
             *) echo "dependency_review: $DEPENDENCY_REVIEW"; failed=1 ;;
           esac
           if [ "$failed" -ne 0 ]; then
-            echo "pr-ok: a required lane did not succeed"
+            echo "pr-ok: a blocking lane did not succeed"
             exit 1
           fi
-          echo "pr-ok: every lane succeeded"
+          echo "pr-ok: every blocking lane succeeded"
