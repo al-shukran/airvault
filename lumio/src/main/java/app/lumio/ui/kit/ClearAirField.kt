@@ -10,12 +10,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -28,7 +37,8 @@ import app.lensly.ui.theme.LocalClearAirPalette
  * A text field of a Clear Air form: its [label] above it, the value inside a hairline border, and an optional [trailing] action such as Paste or
  * Scan. Empty, it shows [placeholder] in secondary ink. With an [error] the border turns rose and the words sit under the field with a mark, so
  * colour is never the only signal. [monospace] sets an address in the address style, and a long value wraps inside the field. [masked] shows
- * the value as dots, for a password, and makes the field secret: its keyboard gets the secret input flags.
+ * the value as dots, for a password, and makes the field secret: its keyboard gets the secret input flags. On a secret field Enter, typed or on a
+ * hardware keyboard, moves focus to the next field, or runs [onSubmit] on the last one, and never adds a line break.
  */
 @Composable
 fun ClearAirField(
@@ -41,10 +51,14 @@ fun ClearAirField(
     keyboard: KeyboardType = KeyboardType.Text,
     monospace: Boolean = false,
     masked: Boolean = false,
+    onSubmit: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val palette = LocalClearAirPalette.current
+    val focus = LocalFocusManager.current
     val style = if (monospace) ClearAirType.address else ClearAirType.body
+    // A secret field's last Enter submits; any other Enter hands focus to the next field.
+    val enter: () -> Unit = { if (onSubmit != null) onSubmit() else focus.moveFocus(FocusDirection.Next) }
     Column(modifier = modifier.fillMaxWidth()) {
         Text(text = label, style = ClearAirType.label, color = palette.ink2)
         Spacer(Modifier.height(ClearAirSpacing.xxs))
@@ -63,9 +77,23 @@ fun ClearAirField(
                 BasicTextField(
                     value = value,
                     onValueChange = onValueChange,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).onPreviewKeyEvent { event ->
+                        val enterKey = secret && event.key == Key.Enter
+                        if (enterKey && event.type == KeyEventType.KeyDown) enter()
+                        enterKey
+                    },
                     textStyle = style.copy(color = palette.ink),
-                    keyboardOptions = KeyboardOptions(keyboardType = keyboard, autoCorrectEnabled = !secret),
+                    singleLine = secret,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = keyboard,
+                        autoCorrectEnabled = !secret,
+                        imeAction = when {
+                            !secret -> ImeAction.Default
+                            onSubmit != null -> ImeAction.Done
+                            else -> ImeAction.Next
+                        },
+                    ),
+                    keyboardActions = KeyboardActions(onNext = { enter() }, onDone = { enter() }),
                     visualTransformation = if (masked) PasswordVisualTransformation() else VisualTransformation.None,
                     cursorBrush = SolidColor(palette.ink),
                     decorationBox = { inner ->
