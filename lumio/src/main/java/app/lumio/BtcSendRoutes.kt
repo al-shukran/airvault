@@ -135,6 +135,7 @@ internal fun BtcSendRoute(
     onLock: () -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
+    val transactions = rememberTransactions(app)
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val offline = rememberSendOffline(app)
@@ -557,6 +558,7 @@ internal fun BtcSendRoute(
                     notice = null
                     step = BtcSendStep.Review(current.plan)
                 },
+                lastChanceSeconds = transactions.lastChanceSeconds,
                 backLabel = backLabel,
                 offline = offline,
                 onLock = onLock,

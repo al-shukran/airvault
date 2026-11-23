@@ -23,7 +23,8 @@ private const val COUNT_STEP_MS = 1_000L
 /**
  * The pages of a signed transaction, shared by every chain, in the order its state moves: Last Chance while it waits and then sends, On Its Way once
  * the network has it, and the failure page if the network refused it. The countdown runs only while the transaction is still idle, and "Send Now"
- * skips the wait. [headline] and [timing] say what the network is doing, and [onSent] is told the id the network reported.
+ * skips the wait. [lastChanceSeconds] is the length of that countdown, from the Transactions settings; zero sends at once.
+ * [headline] and [timing] say what the network is doing, and [onSent] is told the id the network reported.
  * [arrival] watches the sent transaction until it lands, and then the page says so, or until the network refuses it, and then the page says that instead.
  * Null watches nothing, and the page stays on its way.
  * [onStop] ends the send before anything is sent, [onDone] leaves the sent or failed transaction, and [onReview] is where a failure that cannot be
@@ -46,6 +47,7 @@ internal fun SignedSendSteps(
     onDone: () -> Unit,
     onReview: () -> Unit,
     backLabel: String,
+    lastChanceSeconds: Int,
     offline: String?,
     onLock: () -> Unit,
 ) {
@@ -54,7 +56,7 @@ internal fun SignedSendSteps(
     val haptics = rememberLumioHaptics()
     when (val now = state) {
         SubmitState.Idle, SubmitState.Submitting -> {
-            var remaining by remember { mutableIntStateOf(LAST_CHANCE_SECONDS) }
+            var remaining by remember { mutableIntStateOf(lastChanceSeconds) }
             LaunchedEffect(Unit) {
                 while (remaining > 0 && machine.state.value is SubmitState.Idle) {
                     delay(COUNT_STEP_MS)
@@ -66,6 +68,7 @@ internal fun SignedSendSteps(
                 recipient = recipient,
                 amount = amount,
                 remaining = remaining,
+                total = lastChanceSeconds,
                 sending = now is SubmitState.Submitting,
                 onSendNow = { scope.launch { machine.submit() } },
                 onStop = onStop,

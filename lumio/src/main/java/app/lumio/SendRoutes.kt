@@ -177,6 +177,7 @@ internal fun SendRoute(
     onLock: () -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
+    val transactions = rememberTransactions(app)
     val context = LocalContext.current
     val offline = rememberSendOffline(app)
     val session = holder.openSession()
@@ -565,6 +566,7 @@ internal fun SendRoute(
             onStop = { navController.popBackStack() },
             onDone = { navController.popBackStack() },
             onReview = { step = SendStep.Review(now.send) },
+            lastChanceSeconds = transactions.lastChanceSeconds,
             backLabel = backLabel,
             offline = offline,
             onLock = onLock,

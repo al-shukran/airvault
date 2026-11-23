@@ -16,6 +16,7 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.data.config.DisplaySettingsStore
+import app.lumio.data.config.TransactionSettingsStore
 import app.lumio.data.config.FinishSetupStore
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.pair.PairedWallets
@@ -102,6 +103,7 @@ private fun readFacts(vault: LumioVault, session: VaultSession): SettingsFacts {
     val wallets = PairedWallets.list(session)
     return SettingsFacts(
         display = DisplaySettingsStore.read(session),
+        transactions = TransactionSettingsStore.read(session),
         chainsOn = EvmSettingsStore.read(session).enabled.size,
         customBitcoin = serverOverrides(configs).isNotEmpty(),
         providersOn = providersOn,

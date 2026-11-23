@@ -45,18 +45,16 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** How long Last Chance counts down before the signed transaction is sent, in seconds. The default of the Settings delay. */
-const val LAST_CHANCE_SECONDS = 3
-
 /**
- * Last Chance, step 6 of the send: the signed transaction waits in memory for a count of [remaining] seconds, then Lumio sends it. [sending] says the
- * send is out, so the page offers no stop any more. The words say the one part that cannot be undone: after this, no one can.
+ * Last Chance, step 6 of the send: the signed transaction waits in memory for a count of [remaining] seconds out of [total], then Lumio sends it. [sending]
+ * says the send is out, so the page offers no stop any more. The words say the one part that cannot be undone: after this, no one can.
  */
 @Composable
 fun SendLastChancePage(
     recipient: String,
     amount: String,
     remaining: Int,
+    total: Int,
     sending: Boolean,
     onSendNow: () -> Unit,
     onStop: () -> Unit,
@@ -84,7 +82,7 @@ fun SendLastChancePage(
         Spacer(Modifier.height(ClearAirSpacing.sm))
         ClearAirEyebrow(text = "Send · 5 of 5")
         Box(modifier = Modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.md), contentAlignment = Alignment.Center) {
-            CountdownRing(remaining = remaining, total = LAST_CHANCE_SECONDS)
+            CountdownRing(remaining = remaining, total = total)
         }
         Text(text = "Signed by Lensly", style = ClearAirType.titleXL, color = palette.ink, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         Text(
@@ -155,7 +153,7 @@ private fun CountdownRing(remaining: Int, total: Int) {
             drawArc(
                 color = palette.spark,
                 startAngle = -90f,
-                sweepAngle = 360f * remaining.coerceIn(0, total) / total,
+                sweepAngle = if (total > 0) 360f * remaining.coerceIn(0, total) / total else 0f,
                 useCenter = false,
                 topLeft = Offset(inset, inset),
                 size = arcSize,
