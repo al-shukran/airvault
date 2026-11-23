@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import app.airvault.chains.evm.CALLDATA_HASH_LABEL
 import app.airvault.chains.evm.calldataHash
+import app.airvault.chains.evm.signer.showsCalldataHash
 import app.airvault.core.model.AccountId
 import app.lensly.DebugBtcFixture
 import app.lensly.app.AddressBookEntry
@@ -603,7 +604,7 @@ private fun reviewHeading(send: PreparedSend, fromName: String, toName: String):
 
 /**
  * The rows under the recipient on the Review page, in the order Lensly shows them: the amount, the most the fee can be, the network and the sender.
- * A send with calldata ends with the hash of that calldata, the row Lensly shows for a call it cannot read, so the owner can compare the two.
+ * A send ends with the hash of its calldata only when Lensly cannot read that calldata, the same condition under which Lensly shows the hash row.
  */
 internal fun reviewRows(send: PreparedSend, fromName: String): List<SummaryRow> = buildList {
     add(SummaryRow("Amount", amountText(send)))
@@ -612,7 +613,7 @@ internal fun reviewRows(send: PreparedSend, fromName: String): List<SummaryRow> 
     add(SummaryRow("Network", "${send.chain.name} · ID ${send.chain.chainId}"))
     add(SummaryRow("From", fromName))
     val calldata = Numeric.hexStringToByteArray(send.tx.data)
-    if (calldata.isNotEmpty()) add(SummaryRow(CALLDATA_HASH_LABEL, calldataHash(calldata), mono = true))
+    if (showsCalldataHash(calldata)) add(SummaryRow(CALLDATA_HASH_LABEL, calldataHash(calldata), mono = true))
 }
 
 private fun assetDetail(asset: SendAsset): String {

@@ -1,6 +1,8 @@
 package app.lumio.evm
 
 import app.airvault.chains.evm.CALLDATA_HASH_LABEL
+import app.airvault.chains.evm.calldataHash
+import app.airvault.chains.evm.signer.showsCalldataHash
 import app.lensly.core.evm.EvmFixtures
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
@@ -10,6 +12,7 @@ import app.lumio.reviewRows
 import app.lumio.tokens.Token
 import java.math.BigInteger
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Test
@@ -17,8 +20,8 @@ import org.web3j.crypto.Hash
 import org.web3j.utils.Numeric
 
 /**
- * The calldata hash on the Review page. Lensly shows the Keccak-256 of a call's calldata for a call it cannot read, computed with web3j's
- * Hash.sha3. Lumio's row must be that same string for the same calldata, so the owner can compare them.
+ * The calldata hash on the Review page. Lensly shows the Keccak-256 of a call's calldata only for a call it cannot read, computed with web3j's
+ * Hash.sha3. Lumio shows the row under the same condition, and its hash must be that same string for the same calldata.
  */
 class CalldataHashRowTest {
     private val chain = EvmChain(1L, "Ethereum", "ETH", 18, testnet = false, explorerUrl = "https://etherscan.io")
@@ -41,21 +44,28 @@ class CalldataHashRowTest {
     )
 
     @Test
-    fun aTokenSendShowsTheKeccakOfItsTransferCalldataAsLenslyComputesIt() {
+    fun aPlainTransferHasNoCalldataHashRowBecauseLenslyReadsIt() {
         val send = send(usdc)
         val calldata = Numeric.hexStringToByteArray(send.tx.data)
 
-        val row = reviewRows(send, "PulsarNova").single { it.label == CALLDATA_HASH_LABEL }
-
         assertTrue(send.tx.data.startsWith("0xa9059cbb"), "The token send calls transfer(address,uint256).")
-        assertEquals("0x" + Hash.sha3(calldata).toHex(), row.value)
-        assertTrue(row.mono)
+        assertFalse(showsCalldataHash(calldata))
+        assertNull(reviewRows(send, "PulsarNova").singleOrNull { it.label == CALLDATA_HASH_LABEL })
+    }
+
+    @Test
+    fun aCallLenslyCannotReadShowsTheKeccakOfItsCalldataAsLenslyComputesIt() {
+        val calldata = Numeric.hexStringToByteArray("0x12345678" + "00".repeat(32))
+
+        assertTrue(showsCalldataHash(calldata))
+        assertEquals("0x" + Hash.sha3(calldata).toHex(), calldataHash(calldata))
     }
 
     @Test
     fun aNativeSendHasNoCalldataAndNoCalldataHashRow() {
         val rows = reviewRows(send(null), "PulsarNova")
 
+        assertFalse(showsCalldataHash(Numeric.hexStringToByteArray(send(null).tx.data)))
         assertNull(rows.singleOrNull { it.label == CALLDATA_HASH_LABEL })
         assertEquals(listOf("Amount", "Max Fee", "Total at Most", "Network", "From"), rows.map { it.label })
     }
