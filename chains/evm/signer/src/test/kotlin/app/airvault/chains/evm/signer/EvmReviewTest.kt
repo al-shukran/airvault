@@ -48,6 +48,8 @@ private const val UNKNOWN_WARNING =
     "Unknown contract call. Lensly does not read this call, so it cannot say what it does. Check the contract and the calldata before you sign."
 private const val ACK_UNLIMITED = "I understand this approval is unlimited."
 private const val ACK_ALL_NFTS = "I understand this grants control of all NFTs in this collection."
+private const val ACK_FOREIGN_FROM = "I understand these tokens move out of another account."
+private const val FOREIGN = "0x5555555555555555555555555555555555555555"
 private const val ACK_UNKNOWN = "I understand Lensly cannot say what this call does."
 private const val ACK_DENYLIST = "I understand this request matches a known-dangerous request."
 private const val ACK_WHITELIST = "I have read what this call is approved to do."
@@ -573,6 +575,46 @@ class EvmReviewTest {
             review.sections.single { it.heading == "Arguments" }.rows.map { it.label to it.value.text() },
         )
         assertNotNull(review.warnings.single { it.code == "evm.registry" }.acknowledge)
+    }
+
+    @Test
+    fun aTransferFromOfTheSignersOwnAccountHasNoForeignFromWarning() {
+        val review =
+            reviewOf(txParsed(USDC, ContractCall.TransferFrom(SENDER.lowercase(), SPENDER, BigInteger.valueOf(1_500_000)).encode()!!))
+
+        assertTrue(review.warnings.none { it.code == "evm.foreign-from" })
+    }
+
+    @Test
+    fun aTransferFromOfAnotherAccountIsDangerAndShowsThatAddress() {
+        val review = reviewOf(txParsed(USDC, ContractCall.TransferFrom(FOREIGN, SPENDER, BigInteger.valueOf(1_500_000)).encode()!!))
+
+        val warning = review.warnings.single { it.code == "evm.foreign-from" }
+        assertEquals(Danger.DANGER, warning.level)
+        assertEquals(
+            "Moves tokens out of $FOREIGN, which is not your account. Sign only if that account approved this transfer.",
+            warning.message,
+        )
+        assertEquals(FieldPath("evm.data.from"), warning.field)
+        assertEquals(ACK_FOREIGN_FROM, warning.acknowledge)
+    }
+
+    @Test
+    fun aTransferFromOfAnotherAccountOnAnUnregisteredContractIsStillDanger() {
+        val review = reviewOf(txParsed(NFT, ContractCall.TransferFrom(FOREIGN, SPENDER, BigInteger.valueOf(7)).encode()!!))
+
+        assertEquals(Danger.DANGER, review.warnings.single { it.code == "evm.foreign-from" }.level)
+        assertNotNull(review.warnings.single { it.code == "evm.registry" }.acknowledge)
+    }
+
+    @Test
+    fun aSafeTransferFromOfAnotherAccountIsDangerAndNamesItsCheck() {
+        val review = reviewOf(txParsed(NFT, ContractCall.SafeTransferFrom(FOREIGN, SPENDER, BigInteger.valueOf(7)).encode()!!))
+
+        val warning = review.warnings.single { it.code == "evm.foreign-from" }
+        assertEquals(Danger.DANGER, warning.level)
+        assertEquals(FieldPath("evm.data.from"), warning.field)
+        assertEquals(ACK_FOREIGN_FROM, warning.acknowledge)
     }
 
     @Test
