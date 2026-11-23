@@ -89,7 +89,7 @@ fun KeyBackupScreen(
         Spacer(Modifier.height(LenslySpacing.lg))
         WalletPanel {
             WalletEyebrow("Private Key")
-            HashLines(hex = hex)
+            HashLines(hex = hex, modifier = Modifier.hiddenFromAccessibility("Private Key Hidden"))
         }
         if (errorMessage != null) {
             Spacer(Modifier.height(LenslySpacing.md))

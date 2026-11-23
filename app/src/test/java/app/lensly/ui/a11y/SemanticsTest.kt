@@ -28,6 +28,10 @@ import app.lensly.ui.flow.RevealedSecret
 import app.lensly.ui.gate.PasswordField
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LumenTheme
+import app.lensly.ui.wallet.KeyBackupScreen
+import app.lensly.ui.wallet.MnemonicDisplayScreen
+import app.lensly.ui.wallet.RestoreEntryScreen
+import app.lensly.ui.wallet.RestoreState
 import app.lensly.ui.wallet.ShowSecretScreen
 import app.lensly.ui.wallet.formatHexLines
 import org.junit.Assert.assertTrue
@@ -41,6 +45,16 @@ import org.robolectric.annotation.Config
 private val artWords = List(23) { "abandon" } + "art"
 private const val PASSPHRASE = "TREZOR"
 private const val KEY_BYTES = 32
+
+/** Matches a node that speaks one of [secrets] as its text or its description, compared without case. */
+private fun exposesOneOf(secrets: List<String>): SemanticsMatcher {
+    val lowered = secrets.map { it.lowercase() }.toSet()
+    return SemanticsMatcher("exposes a secret text") { node ->
+        val texts = node.config.getOrNull(SemanticsProperties.Text).orEmpty().map { it.text }
+        val descriptions = node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty()
+        (texts + descriptions).any { it.lowercase() in lowered }
+    }
+}
 
 /**
  * Semantics of the controls a screen reader must reach, checked on the JVM in the PR lane (guideline 1.9).
@@ -120,12 +134,7 @@ class SemanticsTest {
         val keyBytes = ByteArray(KEY_BYTES) { it.toByte() }
         val keyLines = formatHexLines(keyBytes.toHex())
         val key = RevealedSecret.ofKey(keyBytes)
-        val secretTexts = (artWords + PASSPHRASE + keyLines).map { it.lowercase() }.toSet()
-        val exposesSecret = SemanticsMatcher("exposes a secret text") { node ->
-            val texts = node.config.getOrNull(SemanticsProperties.Text).orEmpty().map { it.text }
-            val descriptions = node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty()
-            (texts + descriptions).any { it.lowercase() in secretTexts }
-        }
+        val exposesSecret = exposesOneOf(artWords + PASSPHRASE + keyLines)
         val pages = List(artWords.size) { RevealStep.Revealed(mnemonic, RevealPart.WORDS, it, 60) } +
             RevealStep.Revealed(mnemonic, RevealPart.PASSPHRASE, 0, 60) +
             RevealStep.Revealed(key, RevealPart.KEY, 0, 60)
@@ -159,6 +168,45 @@ class SemanticsTest {
         compose.runOnIdle { step = pages.last() }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Single Key Hidden").assertExists()
+    }
+
+    @Test
+    fun mnemonicDisplaySpeaksNoWordToAccessibility() {
+        compose.setContent { LumenTheme { MnemonicDisplayScreen(words = artWords, onWrittenDown = {}) } }
+
+        compose.onAllNodes(exposesOneOf(artWords)).assertCountEquals(0)
+        compose.onNodeWithContentDescription("Word 1 of ${artWords.size}").assertExists()
+    }
+
+    @Test
+    fun keyBackupSpeaksNoKeyLineToAccessibility() {
+        val hex = ByteArray(KEY_BYTES) { it.toByte() }.toHex()
+        compose.setContent {
+            LumenTheme { KeyBackupScreen(hex = hex, copied = false, onCopiedChange = {}, onCreate = {}) }
+        }
+
+        compose.onAllNodes(exposesOneOf(formatHexLines(hex))).assertCountEquals(0)
+        compose.onNodeWithContentDescription("Private Key Hidden").assertExists()
+    }
+
+    @Test
+    fun restoreEntrySpeaksNoEnteredWordToAccessibility() {
+        val state = RestoreState(words = artWords)
+        compose.setContent {
+            LumenTheme {
+                RestoreEntryScreen(
+                    state = state,
+                    onKey = {},
+                    onBackspace = {},
+                    onPickSuggestion = {},
+                    onEditWord = {},
+                    onSubmit = {},
+                )
+            }
+        }
+
+        compose.onAllNodes(exposesOneOf(artWords)).assertCountEquals(0)
+        compose.onNodeWithContentDescription("Word 1 of ${artWords.size}").assertExists()
     }
 
     /**

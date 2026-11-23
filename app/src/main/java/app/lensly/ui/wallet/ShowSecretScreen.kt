@@ -216,7 +216,7 @@ private fun RevealedStep(
                     .clip(MaterialTheme.shapes.large)
                     .background(MaterialTheme.colorScheme.surfaceContainer)
                     .padding(LenslySpacing.md)
-                    .clearAndSetSemantics { contentDescription = "Single Key Hidden" },
+                    .hiddenFromAccessibility("Single Key Hidden"),
             ) {
                 HashLines(hex = secret.page(RevealPart.KEY, 0))
             }
@@ -231,7 +231,7 @@ private fun RevealedStep(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .clearAndSetSemantics { contentDescription = "Word ${step.index + 1} of $count" },
+                    .hiddenFromAccessibility("Word ${step.index + 1} of $count"),
                 contentAlignment = Alignment.Center,
             ) {
                 WordPage(text = secret.page(step.part, step.index), passphrase = isPassphrase)
@@ -240,6 +240,13 @@ private fun RevealedStep(
         }
     }
 }
+
+/**
+ * Keeps a secret's text out of what accessibility services read: the node speaks [label] instead. The text stays on screen.
+ * Shared by every screen that draws a recovery word, passphrase or key.
+ */
+internal fun Modifier.hiddenFromAccessibility(label: String): Modifier =
+    clearAndSetSemantics { contentDescription = label }
 
 /**
  * One word, large. A BIP39 word is lowercase by definition, so it is uppercased like the seed display. A passphrase word is
