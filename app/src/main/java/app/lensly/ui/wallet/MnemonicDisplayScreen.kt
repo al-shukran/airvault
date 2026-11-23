@@ -75,10 +75,11 @@ private fun WordGrid(words: List<String>) {
                 horizontalArrangement = Arrangement.spacedBy(CELL_GAP),
             ) {
                 row.forEachIndexed { column, word ->
+                    val number = rowIndex * GRID_COLUMNS + column + 1
                     WordCell(
-                        number = rowIndex * GRID_COLUMNS + column + 1,
+                        number = number,
                         word = word,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).hiddenFromAccessibility("Word $number of ${words.size}"),
                     )
                 }
             }

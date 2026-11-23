@@ -268,7 +268,11 @@ private fun WordSlot(
             .padding(horizontal = LenslySpacing.xs),
         contentAlignment = Alignment.Center,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        val label = "Word ${index + 1} of ${Mnemonic.WORD_COUNT}"
+        Row(
+            modifier = if (filled) Modifier.hiddenFromAccessibility(label) else Modifier,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Box(modifier = Modifier.width(SLOT_NUMBER_WIDTH)) {
                 Text(
                     text = "%02d".format(index + 1),
