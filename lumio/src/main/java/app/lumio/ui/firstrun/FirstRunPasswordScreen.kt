@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -29,6 +26,8 @@ import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.ui.kit.ClearAirField
+import app.lumio.ui.kit.ClearAirGlyph
+import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirTextAction
 
@@ -151,12 +150,7 @@ private fun StrengthLine(segments: Int) {
 private fun NoteLine(text: String) {
     val palette = LocalClearAirPalette.current
     Row(verticalAlignment = Alignment.Top) {
-        Icon(
-            imageVector = Icons.Filled.Info,
-            contentDescription = null,
-            tint = palette.ink2,
-            modifier = Modifier.size(18.dp),
-        )
+        ClearAirIcon(glyph = ClearAirGlyph.INFO, color = palette.ink2, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(ClearAirSpacing.xs))
         Text(text = text, style = ClearAirType.label, color = palette.ink2)
     }
