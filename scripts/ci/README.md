@@ -13,7 +13,7 @@ schedule and on pushes to master, and never block a pull request.
 | Lane | Runs | Job |
 |---|---|---|
 | `resolve` | `./gradlew resolveAll`, the only online step; retried when a repository is unreachable | `deps`, on a cache miss |
-| `shard-1` … `shard-8` | the unit tests listed under the lane in `shards.txt`; `shard-6` also runs every unlisted unit; pure JVM modules run whole; each lane also compiles the debug code of `:app` and `:lumio` | `shard` (matrix, pr-fast; nightly on the schedule) |
+| `shard-1` … `shard-10` | the unit tests listed under the lane in `shards.txt`; `shard-6` also runs every unlisted unit; pure JVM modules run whole; each lane also compiles the debug code of `:app` and `:lumio` | `shard` (matrix, pr-fast; nightly on the schedule) |
 | `verify-app`, `verify-lumio` | the Roborazzi pixel tests of one module, `:app` or `:lumio` (listed, or unlisted and named `*ScreenshotTest`), with `verifyRoborazziDebug` | none in CI (local); nightly `screenshots` records the goldens instead |
 | `fuzz` | the Jazzer seed replays, `app.lensly.fuzz.*`, with `-PfuzzLane` | `fuzz` (pr-fast) |
 | `apk` | the Lumio debug APK, `:lumio:assembleDebug` | nightly `android` |
@@ -38,7 +38,7 @@ The lines balance the lanes. A test class with no line still runs, so adding a t
   `app.lensly.fuzz` target, because the shard runs leave that package out (`shared/build.gradle.kts`).
 - `scripts/ci/test-units.sh` lists every unit. `check-partitions.sh` (the `ci` lane) fails when a class is listed twice or is
   listed but no longer exists. Remove or rename such a line.
-- Keep the eight shards balanced. Each test lane uploads its JUnit XML as `junit-shard-N` (kept 3 days). Sum the `time` attribute of
+- Keep the ten shards balanced. Each test lane uploads its JUnit XML as `junit-shard-N` (kept 3 days). Sum the `time` attribute of
   each class, and move classes between lanes until the shard totals are close.
 - A verify lane passes its `--tests` filter to the test task before `verifyRoborazziDebug`. The verify task depends on the whole
   `testDebugUnitTest` of its module, so without the filter every unit test would run twice. Roborazzi switches verify mode on from
