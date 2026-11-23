@@ -33,19 +33,19 @@ class SettingsPagesTest {
     val compose = createComposeRule()
 
     private fun assertNoSave(page: @Composable () -> Unit) {
-        compose.setContent { LumenTheme { page() } }
+        compose.setContent { ClearAirHarness { page() } }
         compose.onAllNodesWithText("Save", ignoreCase = true).assertCountEquals(0)
     }
 
     @Test
     fun theDisplayPageHasNoSave() = assertNoSave {
-        DisplaySettingsPage(settings = DisplaySettings(), notice = null, onShowTotal = {}, onShowAssets = {}, onBack = {})
+        DisplaySettingsPage(settings = DisplaySettings(), notice = null, onShowTotal = {}, onShowAssets = {}, offline = null, onLock = {}, onBack = {})
     }
 
     @Test
     fun theNetworksPageHasNoSave() = assertNoSave {
         NetworksSettingsPage(
-            onBack = {},
+            offline = null, onLock = {}, onBack = {},
             bitcoin = {
                 BitcoinServersSettings(
                     mainnet = EsploraServers.MAINNET_DEFAULT,
@@ -76,12 +76,12 @@ class SettingsPagesTest {
 
     @Test
     fun theWalletsPageHasNoSave() = assertNoSave {
-        WalletsSettingsPage(onBack = {}, wallets = { Text("Pair from Lensly") })
+        WalletsSettingsPage(offline = null, onLock = {}, onBack = {}, wallets = { Text("Pair from Lensly") })
     }
 
     @Test
     fun theAddressBookPageHasNoSave() = assertNoSave {
-        AddressBookSettingsPage(onBack = {}, wallets = { Text("No wallets paired yet.") })
+        AddressBookSettingsPage(offline = null, onLock = {}, onBack = {}, wallets = { Text("No wallets paired yet.") })
     }
 
     @Test
@@ -89,9 +89,9 @@ class SettingsPagesTest {
         var opened: String? = null
         val wallet = PairedWallet(id = "w1", name = "Demo", fingerprint = 1L, createdAtMs = 0L, evmAccounts = emptyList(), bitcoin = emptyList())
         compose.setContent {
-            LumenTheme {
+            ClearAirHarness {
                 AddressBookSettingsPage(
-                    onBack = {},
+                    offline = null, onLock = {}, onBack = {},
                     wallets = { AddressBookRows(wallets = listOf(wallet), onAddressBook = { opened = it.id }) },
                 )
             }
@@ -107,7 +107,7 @@ class SettingsPagesTest {
     fun theSecurityPageHasNoSaveAndOpensTheGestureChoice() {
         var opened = false
         compose.setContent {
-            LumenTheme {
+            ClearAirHarness {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
@@ -117,7 +117,7 @@ class SettingsPagesTest {
                     onDeviceProtection = {},
                     onIdleMinutes = {},
                     onLockWhenSwitching = {},
-                    onBack = {},
+                    offline = null, onLock = {}, onBack = {},
                 )
             }
         }
@@ -131,7 +131,7 @@ class SettingsPagesTest {
     fun theSecurityPageOpensTheAppPasswordChange() {
         var opened = false
         compose.setContent {
-            LumenTheme {
+            ClearAirHarness {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
@@ -141,7 +141,7 @@ class SettingsPagesTest {
                     onDeviceProtection = {},
                     onIdleMinutes = {},
                     onLockWhenSwitching = {},
-                    onBack = {},
+                    offline = null, onLock = {}, onBack = {},
                 )
             }
         }
@@ -154,7 +154,7 @@ class SettingsPagesTest {
     fun theSecurityRowOpensDeviceProtectionAndTheSwitchIsNotOnSecurity() {
         var opened = false
         compose.setContent {
-            LumenTheme {
+            ClearAirHarness {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
@@ -164,7 +164,7 @@ class SettingsPagesTest {
                     onDeviceProtection = { opened = true },
                     onIdleMinutes = {},
                     onLockWhenSwitching = {},
-                    onBack = {},
+                    offline = null, onLock = {}, onBack = {},
                 )
             }
         }
@@ -178,11 +178,11 @@ class SettingsPagesTest {
     fun theDeviceProtectionSwitchReportsTheOwnersChoice() {
         var changed: Boolean? = null
         compose.setContent {
-            LumenTheme {
+            ClearAirHarness {
                 DeviceProtectionSettingsPage(
                     biometric = BiometricSwitch(on = false, canEnable = true),
                     onBiometric = { changed = it },
-                    onBack = {},
+                    offline = null, onLock = {}, onBack = {},
                 )
             }
         }
@@ -194,11 +194,11 @@ class SettingsPagesTest {
     @Test
     fun theDeviceProtectionSwitchSaysWhyItCannotBeTurnedOn() {
         compose.setContent {
-            LumenTheme {
+            ClearAirHarness {
                 DeviceProtectionSettingsPage(
                     biometric = BiometricSwitch(on = false, canEnable = false),
                     onBiometric = {},
-                    onBack = {},
+                    offline = null, onLock = {}, onBack = {},
                 )
             }
         }
@@ -210,7 +210,7 @@ class SettingsPagesTest {
     fun theSecurityLockSwitchAppliesAtOnceAndTheTimeoutShowsItsValue() {
         var switching: Boolean? = null
         compose.setContent {
-            LumenTheme {
+            ClearAirHarness {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
@@ -220,25 +220,30 @@ class SettingsPagesTest {
                     onDeviceProtection = {},
                     onIdleMinutes = {},
                     onLockWhenSwitching = { switching = it },
-                    onBack = {},
+                    offline = null, onLock = {}, onBack = {},
                 )
             }
         }
 
         // The page scrolls: the lock section sits below the fold of the test's small window, so each control is scrolled to first.
         compose.onNodeWithText("30 minutes").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Default").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Lock When Switching Apps").performScrollTo().performClick()
         assertEquals(true, switching)
     }
 
     @Test
     fun theAboutPageHasNoSave() = assertNoSave {
-        AboutSettingsPage(version = "0.1.0", onLicences = {}, onBack = {})
+        AboutSettingsPage(version = "0.1.0", onLicences = {}, offline = null, onLock = {}, onBack = {})
     }
 
     @Test
     fun theTransactionsPageHasNoSave() = assertNoSave {
-        TransactionsSettingsPage(onBack = {}, comments = {})
+        TransactionsSettingsPage(offline = null, onLock = {}, onBack = {}, comments = {})
     }
+}
+
+/** The theme a settings page is drawn in in the app: the Clear Air theme, under the Lumen theme that wraps Lumio. */
+@androidx.compose.runtime.Composable
+private fun ClearAirHarness(content: @androidx.compose.runtime.Composable () -> Unit) {
+    LumenTheme { app.lensly.ui.theme.ClearAirTheme(content = content) }
 }

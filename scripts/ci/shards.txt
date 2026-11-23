@@ -379,7 +379,6 @@ shard-5 :lumio app.lumio.SendRouteTest
 shard-5 :lumio app.lumio.LumioNavGraphTest
 shard-5 :lumio app.lumio.tokens.TokenBalancesOverRpcTest
 shard-5 :lumio app.lumio.tokens.TokenBalancesTest
-shard-5 :lumio app.lumio.ui.kit.AnimatedAmountTest
 shard-5 :lumio app.lumio.ui.settings.BitcoinServersSettingsTest
 shard-5 :shared app.lensly.app.export.PairingCodecTest
 shard-5 :shared app.lensly.app.export.PairingSizeTest

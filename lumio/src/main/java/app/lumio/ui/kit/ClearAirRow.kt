@@ -35,7 +35,7 @@ private val ROW_HEIGHT = 62.dp
 /**
  * A row of a list: an optional [leading] logo or monogram, a [title], a [description] under it when given, an optional [trailing] value, and a chevron
  * when the row opens something ([onClick]). It is full-bleed with the page gutter on each side, and it scales to 0.98 while pressed. A long title
- * truncates; the trailing value never does.
+ * truncates; the trailing value never does. A [destructive] row, such as a deletion, has its title in rose.
  */
 @Composable
 fun ClearAirRow(
@@ -45,6 +45,7 @@ fun ClearAirRow(
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
+    destructive: Boolean = false,
 ) {
     val palette = LocalClearAirPalette.current
     Row(
@@ -69,7 +70,7 @@ fun ClearAirRow(
             Text(
                 text = title,
                 style = ClearAirType.rowTitle,
-                color = palette.ink,
+                color = if (destructive) palette.rose else palette.ink,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

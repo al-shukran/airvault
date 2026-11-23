@@ -1,7 +1,7 @@
 package app.lumio.ui.settings
 
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -11,8 +11,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import app.lensly.ui.components.SettingsRow
+import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.pair.PairedWallet
+import app.lumio.ui.kit.ClearAirNote
+import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.pair.PairLabels
 
 /** The test tag of the row that pairs a wallet from Lensly. */
@@ -34,32 +36,28 @@ private fun addressBookDescription(count: Int): String = when (count) {
 }
 
 /**
- * The Wallets page: a row that pairs a wallet from Lensly, then each paired wallet with its fingerprint and a delete row in the error colour.
+ * The Wallets page: a row that pairs a wallet from Lensly, then each paired wallet with its fingerprint and a delete row in rose.
  * A deletion asks first, and it erases only Lumio's watch-only copy. The wallet in Lensly is not changed. A wallet's address book is on the
  * Address book page, not here.
  */
 @Composable
 fun WalletsSettings(wallets: List<PairedWallet>, onPair: () -> Unit, onDelete: (PairedWallet) -> Unit) {
     var pendingDelete by remember { mutableStateOf<PairedWallet?>(null) }
-    SettingsRow(
+    ClearAirRow(
         title = "Pair from Lensly",
         description = "Add a wallet's watch-only copy. Lensly keeps the keys.",
         onClick = onPair,
         modifier = Modifier.testTag(PAIR_WALLET_TAG),
     )
     if (wallets.isEmpty()) {
-        Text(
-            text = "No wallets paired yet.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        ClearAirNote(text = "No wallets paired yet.", modifier = Modifier.padding(top = ClearAirSpacing.xs))
     }
     wallets.forEach { wallet ->
-        SettingsRow(
+        ClearAirRow(
             title = wallet.name,
             description = "Fingerprint ${PairLabels.fingerprint(wallet.fingerprint)}",
         )
-        SettingsRow(
+        ClearAirRow(
             title = "Delete ${wallet.name}",
             onClick = { pendingDelete = wallet },
             destructive = true,
@@ -93,14 +91,10 @@ fun WalletsSettings(wallets: List<PairedWallet>, onPair: () -> Unit, onDelete: (
 @Composable
 fun AddressBookRows(wallets: List<PairedWallet>, onAddressBook: (PairedWallet) -> Unit) {
     if (wallets.isEmpty()) {
-        Text(
-            text = "No wallets paired yet.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        ClearAirNote(text = "No wallets paired yet.")
     }
     wallets.forEach { wallet ->
-        SettingsRow(
+        ClearAirRow(
             title = wallet.name,
             description = addressBookDescription(wallet.addressBook.size),
             onClick = { onAddressBook(wallet) },

@@ -58,22 +58,26 @@ private fun rememberDisplayChange(navController: NavHostController, holder: Vaul
 
 /** The Display page of the settings: what Home shows. */
 @Composable
-internal fun DisplaySettingsRoute(navController: NavHostController, holder: VaultHolder) {
+internal fun DisplaySettingsRoute(navController: NavHostController, holder: VaultHolder, onLock: () -> Unit) {
     val display = rememberDisplayChange(navController, holder) ?: return
     DisplaySettingsPage(
         settings = display.settings,
         notice = display.notice,
         onShowTotal = { on -> display.change { it.copy(showTotal = on) } },
         onShowAssets = { on -> display.change { it.copy(showAssets = on) } },
+        offline = rememberSettingsOffline(),
         onBack = { navController.popBackStack() },
+        onLock = onLock,
     )
 }
 
 /** The Transactions page of the settings: the backup of the comments on the transactions. */
 @Composable
-internal fun TransactionsSettingsRoute(navController: NavHostController, holder: VaultHolder) {
+internal fun TransactionsSettingsRoute(navController: NavHostController, holder: VaultHolder, onLock: () -> Unit) {
     TransactionsSettingsPage(
+        offline = rememberSettingsOffline(),
         onBack = { navController.popBackStack() },
+        onLock = onLock,
         comments = { CommentBackupRoute(holder = holder) },
     )
 }

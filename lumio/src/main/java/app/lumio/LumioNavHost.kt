@@ -655,10 +655,11 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                 listVersion = listVersion,
                 onChanged = { listVersion++ },
                 lockChoices = lockChoices,
+                onLock = { lock() },
             )
             entryGestureRoutes(navController = navController, holder = holder, selection = selection)
             changePasswordRoutes(navController = navController, holder = holder, selection = selection)
-            deviceProtectionRoutes(navController = navController, holder = holder, selection = selection)
+            deviceProtectionRoutes(navController = navController, holder = holder, selection = selection, onLock = { lock() })
             lumioComposable(LumioRoute.DATA_PROVIDERS) {
                 LumioBackdrop(selection) { DataProvidersRoute(navController = navController, holder = holder) }
             }
@@ -677,7 +678,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                 arguments = listOf(navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType }),
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
-                LumioBackdrop(selection) { AddressBookRoute(navController = navController, holder = holder, walletId = walletId) }
+                LumioBackdrop(selection) { AddressBookRoute(navController = navController, holder = holder, walletId = walletId, onLock = { lock() }) }
             }
             lumioComposable(
                 route = LumioRoute.ASSET,

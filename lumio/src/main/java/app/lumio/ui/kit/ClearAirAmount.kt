@@ -14,6 +14,9 @@ import app.lensly.ui.theme.LocalClearAirPalette
 
 private const val MINUS_SIGN = '−'
 
+/** What a hidden amount shows in place of its digits. */
+const val HIDDEN_AMOUNT = "••••"
+
 /**
  * An amount, such as a balance, set in JetBrains Mono Light. Its currency sign is small and raised, and its decimal fraction is dimmed, so the whole
  * number reads first. A hidden amount shows [HIDDEN_AMOUNT], which never shows how large the amount is.
