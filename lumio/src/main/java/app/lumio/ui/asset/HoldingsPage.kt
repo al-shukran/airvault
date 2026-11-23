@@ -16,13 +16,16 @@ import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.home.Masking
+import app.lumio.ui.kit.ClearAirEyebrow
+import app.lumio.ui.kit.ClearAirMonogram
 import app.lumio.ui.kit.ClearAirPageTopBar
 import app.lumio.ui.kit.ClearAirRow
+import app.lumio.ui.transactions.monogramOf
 
 /**
- * Holdings Breakdown (C5): one coin as the accounts hold it, asset to chain to account. Each chain's header carries its total on the right, and each
- * account row shows its name, then its wallet, index and address, with the amount it holds on the right. Tapping an account opens that account's page.
- * The top bar stays put while the chains scroll. [showBalance] hides the amounts when the owner has the balances hidden.
+ * Holdings Breakdown (C5): one coin as the accounts hold it, asset to chain to account. Each chain's header is an eyebrow with its total on the right, and
+ * each account row shows its monogram, its name, then its wallet, index and address, with the amount it holds on the right. Tapping an account opens that
+ * account's page. The top bar stays put while the chains scroll. [showBalance] hides the amounts when the owner has the balances hidden.
  */
 @Composable
 internal fun HoldingsPage(
@@ -40,14 +43,14 @@ internal fun HoldingsPage(
         Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             chains.forEach { chain ->
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text(text = chain.chain, style = ClearAirType.rowTitle, color = palette.ink)
+                    ClearAirEyebrow(text = chain.chain)
                     Text(
                         text = Masking.amount(amountText(chain.total, symbol), hidden = !showBalance),
-                        style = ClearAirType.rowValue,
+                        style = ClearAirType.body,
                         color = palette.ink2,
                     )
                 }
@@ -55,6 +58,7 @@ internal fun HoldingsPage(
                     ClearAirRow(
                         title = holding.name,
                         description = holding.detail,
+                        leading = { ClearAirMonogram(text = monogramOf(holding.name, named = true)) },
                         trailing = {
                             Text(
                                 text = Masking.amount(amountText(holding.amount, symbol), hidden = !showBalance),

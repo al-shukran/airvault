@@ -95,7 +95,7 @@ internal fun ReceiveSheetStep(step: ReceiveStep.Receive, onBack: (() -> Unit)?) 
             }
         },
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
+        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter)) {
             if (onBack != null) {
                 ClearAirIconButton(
                     glyph = ClearAirGlyph.BACK,
@@ -128,10 +128,10 @@ internal fun ReceiveSheetStep(step: ReceiveStep.Receive, onBack: (() -> Unit)?) 
             ReceiveCodeCard(address = address, icon = step.coin.icon, description = "QR code of your $symbol address")
         }
         Spacer(Modifier.height(ClearAirSpacing.md))
-        ClearAirEyebrow(text = "Your $symbol Address")
-        ClearAirAddressGrid(address = address)
+        ClearAirEyebrow(text = "Your $symbol Address", modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
+        ClearAirAddressGrid(address = address, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
         Spacer(Modifier.height(ClearAirSpacing.md))
-        ClearAirAlertNote(text = receiveNote(network))
+        ClearAirAlertNote(text = receiveNote(network), modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
     }
 }
 
