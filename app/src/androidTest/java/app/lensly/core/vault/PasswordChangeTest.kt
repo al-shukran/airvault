@@ -23,6 +23,7 @@ class PasswordChangeTest {
     private val clock = FakeClock()
     private val vault = instrumentedVault(context, clock, KdfParams(memoryKiB = 8 * 1024, iterations = 1))
     private val vaultRoot = File(context.noBackupFilesDir, "vault")
+    private val layout = VaultLayout(vaultRoot)
     private val vaultKeyFile = File(vaultRoot, "vault.bin")
     // Stands in for the temp file a stopped change leaves behind. The commit names its temp file uniquely and the vault
     // never reads temp files, so any name shows the same thing.
@@ -67,15 +68,15 @@ class PasswordChangeTest {
             session.putRecord(wallet, "secret", SEED)
             session.putRecord(wallet, "profile", PROFILE)
             session.putVaultRecord("settings", SETTINGS)
-            val walletKeyBefore = File(vaultRoot, "wallets/$wallet/pwk.bin").readBytes()
-            val secretBefore = File(vaultRoot, "wallets/$wallet/secret.bin").readBytes()
+            val walletKeyBefore = File(layout.walletDir(wallet), "pwk.bin").readBytes()
+            val secretBefore = File(layout.walletDir(wallet), "secret.bin").readBytes()
 
             assertEquals(CreateResult.Created, vault.rekey(session, NEW.toCharArray()))
             session.close()
 
             // Only the vault key file changed. The per-wallet key and the record files are the same bytes.
-            assertArrayEquals(walletKeyBefore, File(vaultRoot, "wallets/$wallet/pwk.bin").readBytes())
-            assertArrayEquals(secretBefore, File(vaultRoot, "wallets/$wallet/secret.bin").readBytes())
+            assertArrayEquals(walletKeyBefore, File(layout.walletDir(wallet), "pwk.bin").readBytes())
+            assertArrayEquals(secretBefore, File(layout.walletDir(wallet), "secret.bin").readBytes())
 
             clock.advance(FailureDelay.LEARNING_CAP_MS)
             val reopened = unlocked(vault.unlock(NEW.toCharArray()))
