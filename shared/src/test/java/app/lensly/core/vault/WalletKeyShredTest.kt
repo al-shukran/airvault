@@ -45,14 +45,14 @@ class WalletKeyShredTest {
         val keyId = keyIdOf(wallet)
         val folderKey = assertNotNull(keys.folderKey(keyId))
         // A copy of the key file that survives on the flash, as an old block would.
-        val keyFileBeforeDelete = File(dir, WALLET_KEY_FILE_NAME).readBytes()
+        val keyFileBeforeDelete = layout.walletKeyFile(wallet).readBytes()
 
         session.deleteWallet(wallet)
 
         assertNull(keys.folderKey(keyId), "The folder's Keystore key is still there after the delete.")
         assertFalse(session.listWallets().contains(wallet))
         // The surviving copy does not open with the Vault Key, because its folder key is gone.
-        File(dir, WALLET_KEY_FILE_NAME).writeBytes(keyFileBeforeDelete)
+        layout.walletKeyFile(wallet).writeBytes(keyFileBeforeDelete)
         assertNull(WalletFolder.walletKeyOf(keys, dir, vaultKey, wallet))
         // Control: with the deleted key back, the same copy opens. So the delete is what makes the copy unreadable.
         keys.restoreFolderKey(keyId, folderKey)
@@ -155,7 +155,7 @@ class WalletKeyShredTest {
 
     /** The id of the Keystore key that wallet folder [walletId]'s key file names in clear. */
     private fun keyIdOf(walletId: String): String =
-        String(File(layout.walletDir(walletId), WALLET_KEY_FILE_NAME).readBytes(), 1, 36, Charsets.US_ASCII)
+        String(layout.walletKeyFile(walletId).readBytes(), 1, 36, Charsets.US_ASCII)
 
     /** The sorted (file name, size) list of a folder. */
     private fun shapeOf(dir: File): List<Pair<String, Long>> =

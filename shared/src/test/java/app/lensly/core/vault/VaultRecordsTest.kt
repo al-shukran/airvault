@@ -175,7 +175,7 @@ class VaultRecordsTest {
         val session = open()
         val wallet = session.createWallet()
         session.putRecord(wallet, "profile", byteArrayOf(1, 2))
-        val file = File(VaultLayout(tmp.root).walletDir(wallet), "profile.bin")
+        val file = VaultLayout(tmp.root).walletRecordFile(wallet, WalletFolder.PROFILE)
         val size = file.length()
 
         session.deleteRecord(wallet, "profile")

@@ -363,7 +363,7 @@ class VaultDuressTest {
         // The folders stay, but the wallets they held no longer open and no session lists them.
         gone.forEach { id ->
             assertFalse(ownsWallet(keys, layout,decoyKey, id))
-            assertTrue(File(layout.walletDir(id), WALLET_KEY_FILE_NAME).isFile)
+            assertTrue(layout.walletKeyFile(id).isFile)
         }
         decoyKey.fill(0)
         val reopened = unlocked(unlockAfterDelay(APP))

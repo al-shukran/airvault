@@ -12,9 +12,6 @@ import java.util.Arrays
 import java.util.UUID
 import javax.crypto.AEADBadTagException
 
-/** The key file of a wallet folder. It holds the wallet's Per-Wallet Key, wrapped under the vault key that owns the wallet. */
-internal const val WALLET_KEY_FILE_NAME = "pwk.bin"
-
 /** The fewest wallet folders a padded store holds, and the step its folder count grows by. */
 internal const val WALLET_SLOT_STEP = 16
 
@@ -278,7 +275,7 @@ class WalletPad(
 /**
  * An unlocked vault. It holds the Vault Key in memory until [close] is called.
  *
- * Each wallet has a random Per-Wallet Key, sealed under the Vault Key and then under its folder's Keystore key, in `pwk.bin` (see
+ * Each wallet has a random Per-Wallet Key, sealed under the Vault Key and then under its folder's Keystore key, in the key file (see
  * [WalletFolder]). Each Review Record is sealed under its wallet's key in the shared [ReviewPool], and every other record is a file in
  * the wallet's folder, padded to a fixed size and sealed under the same key. [deleteWallet] deletes the folder's Keystore key first, which
  * shreds the wallet even if its files survive.
@@ -360,7 +357,7 @@ class VaultSession constructor(
         val walletKey = unwrapWalletKey(key, walletId)
             ?: throw IllegalArgumentException("No wallet with id $walletId.")
         try {
-            writeAtomically(recordFile(walletId, name), WalletFolder.seal(walletKey, walletId, name, bytes))
+            writeAtomically(layout.walletRecordFile(walletId, name), WalletFolder.seal(walletKey, walletId, name, bytes))
         } finally {
             Arrays.fill(walletKey, 0)
         }
@@ -373,7 +370,7 @@ class VaultSession constructor(
             requireWalletId(walletId)
             // A name that no wallet folder holds has no record. A file that holds no record of this wallet reads as absent.
             if (!WalletFolder.holds(name)) return null
-            val file = recordFile(walletId, name)
+            val file = layout.walletRecordFile(walletId, name)
             if (!file.isFile) return null
             val walletKey = unwrapWalletKey(key, walletId) ?: return null
             try {
@@ -391,7 +388,7 @@ class VaultSession constructor(
     fun hasRecord(walletId: String, name: String): Boolean = synchronized(this) {
         requireOpen()
         requireWalletId(walletId)
-        WalletFolder.holds(name) && recordFile(walletId, name).isFile
+        WalletFolder.holds(name) && layout.walletRecordFile(walletId, name).isFile
     }
 
     /**
@@ -404,7 +401,7 @@ class VaultSession constructor(
             val key = requireOpen()
             requireWalletId(walletId)
             val files = names.filter { WalletFolder.holds(it) }.distinct()
-                .associateWith { name -> recordFile(walletId, name) }
+                .associateWith { name -> layout.walletRecordFile(walletId, name) }
                 .filterValues { it.isFile }
             if (files.isEmpty()) return emptyMap()
             val walletKey = unwrapWalletKey(key, walletId) ?: return emptyMap()
@@ -451,11 +448,11 @@ class VaultSession constructor(
             ?: throw IllegalArgumentException("No wallet with id $walletId.")
         // Every record is sealed before any file changes, so a failure here writes nothing.
         val sealed = try {
-            puts.map { (name, bytes) -> recordFile(walletId, name) to WalletFolder.seal(walletKey, walletId, name, bytes) }
+            puts.map { (name, bytes) -> layout.walletRecordFile(walletId, name) to WalletFolder.seal(walletKey, walletId, name, bytes) }
         } finally {
             Arrays.fill(walletKey, 0)
         }
-        val targets = (sealed.map { it.first } + deletes.map { recordFile(walletId, it) }).distinct()
+        val targets = (sealed.map { it.first } + deletes.map { layout.walletRecordFile(walletId, it) }).distinct()
         // What each target holds now, so a failed write can put it back. Null means the record does not exist.
         val before = targets.associateWith { file -> if (file.isFile) file.readBytes() else null }
         try {
@@ -714,11 +711,6 @@ class VaultSession constructor(
         return sorted
     }
 
-    private fun walletKeyFile(walletId: String): File = File(layout.walletDir(walletId), WALLET_KEY_FILE_NAME)
-
-    private fun recordFile(walletId: String, name: String): File =
-        File(layout.walletDir(walletId), "$name.bin")
-
     private fun vaultRecordFile(vaultKey: ByteArray, name: String): File =
         File(layout.vaultRecords, VaultRecordNames.fileName(vaultKey, name))
 
@@ -727,7 +719,7 @@ class VaultSession constructor(
      * the result.
      */
     private fun unwrapWalletKey(vaultKey: ByteArray, walletId: String): ByteArray? {
-        if (!walletKeyFile(walletId).isFile) return null
+        if (!layout.walletKeyFile(walletId).isFile) return null
         return WalletFolder.walletKeyOf(keys, layout.walletDir(walletId), vaultKey, walletId)
             ?: throw VaultException("The key of wallet $walletId failed authentication.")
     }
@@ -742,9 +734,9 @@ class VaultSession constructor(
             require(WalletFolder.holds(name)) { "Invalid record name." }
         }
 
-        /** A vault record name. "pwk" is reserved: a record of that name would overwrite a wallet's key file. */
+        /** A vault record name. */
         fun requireRecordName(name: String) {
-            require(VaultRecordNames.NAME.matches(name) && name != "pwk") { "Invalid record name." }
+            require(VaultRecordNames.NAME.matches(name)) { "Invalid record name." }
         }
 
         /** A UUID never starts with "vault-record", so these AADs cannot collide with a wallet record's. */

@@ -22,12 +22,12 @@ class PasswordChangeTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val clock = FakeClock()
     private val vault = instrumentedVault(context, clock, KdfParams(memoryKiB = 8 * 1024, iterations = 1))
-    private val vaultRoot = File(context.noBackupFilesDir, "vault")
-    private val layout = VaultLayout(vaultRoot)
-    private val vaultKeyFile = File(vaultRoot, "vault.bin")
+    private val layout = VaultLayout.of(context)
+    private val vaultRoot = layout.root
+    private val vaultKeyFile = layout.vaultKey
     // Stands in for the temp file a stopped change leaves behind. The commit names its temp file uniquely and the vault
     // never reads temp files, so any name shows the same thing.
-    private val pendingKeyFile = File(vaultRoot, "vault.bin.stopped.tmp")
+    private val pendingKeyFile = File(vaultRoot, vaultKeyFile.name + ".stopped.tmp")
 
     /** Every temp file under the vault folder, by path. */
     private fun tempFiles(): Set<String> =
@@ -68,15 +68,15 @@ class PasswordChangeTest {
             session.putRecord(wallet, "secret", SEED)
             session.putRecord(wallet, "profile", PROFILE)
             session.putVaultRecord("settings", SETTINGS)
-            val walletKeyBefore = File(layout.walletDir(wallet), "pwk.bin").readBytes()
-            val secretBefore = File(layout.walletDir(wallet), "secret.bin").readBytes()
+            val walletKeyBefore = layout.walletKeyFile(wallet).readBytes()
+            val secretBefore = layout.walletRecordFile(wallet, "secret").readBytes()
 
             assertEquals(CreateResult.Created, vault.rekey(session, NEW.toCharArray()))
             session.close()
 
             // Only the vault key file changed. The per-wallet key and the record files are the same bytes.
-            assertArrayEquals(walletKeyBefore, File(layout.walletDir(wallet), "pwk.bin").readBytes())
-            assertArrayEquals(secretBefore, File(layout.walletDir(wallet), "secret.bin").readBytes())
+            assertArrayEquals(walletKeyBefore, layout.walletKeyFile(wallet).readBytes())
+            assertArrayEquals(secretBefore, layout.walletRecordFile(wallet, "secret").readBytes())
 
             clock.advance(FailureDelay.LEARNING_CAP_MS)
             val reopened = unlocked(vault.unlock(NEW.toCharArray()))
