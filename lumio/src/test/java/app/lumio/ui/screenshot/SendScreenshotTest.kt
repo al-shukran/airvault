@@ -1,12 +1,15 @@
 package app.lumio.ui.screenshot
 
 import androidx.compose.ui.test.junit4.createComposeRule
+import app.airvault.chains.evm.CALLDATA_HASH_LABEL
+import app.airvault.chains.evm.calldataHash
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.ui.components.groupAddress
 import app.lumio.evm.EvmChain
 import app.lumio.evm.PreparedSend
 import app.lumio.pair.PairFixtures
+import app.lumio.tokens.Erc20
 import app.lumio.tokens.Token
 import app.lumio.ui.send.SendAmountPage
 import app.lumio.ui.send.SendChoice
@@ -25,6 +28,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import org.web3j.utils.Numeric
 
 /**
  * The goldens of the send, one per page of the Crossing (Recipient, Amount, Review, Show to Lensly, Last Chance, On Its Way) and of the branches a send
@@ -273,6 +277,35 @@ class SendScreenshotTest {
             validLine = "Address is valid on Monad Testnet",
             firstTime = null,
             rows = reviewRows(fromName = "PulsarNova"),
+            warnings = emptyList(),
+            notice = null,
+            onShow = {},
+            onEdit = {},
+            backLabel = "Amount",
+            offline = null,
+            onBack = {},
+            onLock = {},
+        )
+    }
+
+    /** A token send: its review ends with the hash of the transfer's calldata, the row Lensly shows for a call it cannot read. */
+    @Test
+    fun ethereumTokenSendReview() = compose.lumioSnapshot("ethereum_token_send_review") {
+        val calldata = Numeric.hexStringToByteArray(Erc20.transfer(to, BigInteger.valueOf(12_500_000)))
+        SendReviewPage(
+            heading = "Send 12.5 USDC from PulsarNova to FelixStone?",
+            toTitle = "FelixStone",
+            toDetail = "Your account",
+            toAddress = to,
+            validLine = "Address is valid on Monad Testnet",
+            firstTime = null,
+            rows = listOf(
+                SummaryRow("Amount", "12.5 USDC"),
+                SummaryRow("Max Fee", "0.0033999 MON"),
+                SummaryRow("Network", "Monad Testnet · ID 10143"),
+                SummaryRow("From", "PulsarNova"),
+                SummaryRow(CALLDATA_HASH_LABEL, calldataHash(calldata), mono = true),
+            ),
             warnings = emptyList(),
             notice = null,
             onShow = {},

@@ -74,7 +74,7 @@ private fun toChecksumAddress(address: String): String {
     return out.toString()
 }
 
-private fun keccak256(input: ByteArray): ByteArray {
+internal fun keccak256(input: ByteArray): ByteArray {
     val digest = KeccakDigest(256)
     digest.update(input, 0, input.size)
     val out = ByteArray(digest.digestSize)
@@ -82,4 +82,4 @@ private fun keccak256(input: ByteArray): ByteArray {
     return out
 }
 
-private fun ByteArray.toHex(): String = joinToString("") { (it.toInt() and 0xff).toString(16).padStart(2, '0') }
+internal fun ByteArray.toHex(): String = joinToString("") { (it.toInt() and 0xff).toString(16).padStart(2, '0') }

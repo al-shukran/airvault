@@ -3,6 +3,8 @@ package app.airvault.chains.evm.signer
 import app.airvault.abi.AbiDecoder
 import app.airvault.abi.CallDecode
 import app.airvault.abi.WhitelistParam
+import app.airvault.chains.evm.CALLDATA_HASH_LABEL
+import app.airvault.chains.evm.calldataHash
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.Coverage
 import app.airvault.core.model.Danger
@@ -44,7 +46,6 @@ import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
-import org.web3j.crypto.Hash
 import org.web3j.crypto.Keys
 import org.web3j.utils.Numeric
 
@@ -844,7 +845,7 @@ private sealed interface Gap {
 private fun unknownParams(calldata: ByteArray, selector: String): List<ParamRow> = listOf(
     ParamRow("Selector", DisplayValue.Text("0x$selector"), "selector"),
     calldataRow(calldata),
-    ParamRow(CALLDATA_HASH_LABEL, DisplayValue.Text(hashText(Hash.sha3(calldata)), mono = true), null),
+    ParamRow(CALLDATA_HASH_LABEL, DisplayValue.Text(calldataHash(calldata), mono = true), null),
 )
 
 /** The signed calldata in full, as its own row. A call whose arguments are shown carries this row, so no byte is only a preview. */
@@ -1016,12 +1017,6 @@ internal const val FROM_LABEL = "From"
 /** The labels of the hashes a typed-data review shows. The signer recomputes the first two and checks them against these rows. */
 internal const val DOMAIN_HASH_LABEL = "Domain Hash"
 internal const val MESSAGE_HASH_LABEL = "Message Hash"
-
-/**
- * The label of the hash of an undecoded call's calldata. It is not the Data Hash of a record, which is the SHA-256 of the whole payload, so the
- * two never share a label.
- */
-internal const val CALLDATA_HASH_LABEL = "Calldata Hash (Keccak-256)"
 
 /** The unit of an amount whose coin or token is not known. The amount is then shown as raw base units. */
 internal const val UNKNOWN_UNIT = "base units"

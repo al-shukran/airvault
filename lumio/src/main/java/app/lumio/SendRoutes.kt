@@ -18,6 +18,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
+import app.airvault.chains.evm.CALLDATA_HASH_LABEL
+import app.airvault.chains.evm.calldataHash
 import app.airvault.core.model.AccountId
 import app.lensly.DebugBtcFixture
 import app.lensly.app.AddressBookEntry
@@ -88,6 +90,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.web3j.utils.Numeric
 
 /**
  * What a send reads from the open vault: the wallet, the address that sends, the settings, the chains that are on, and the tokens that the sending
@@ -598,13 +601,18 @@ private fun amountText(send: PreparedSend): String {
 private fun reviewHeading(send: PreparedSend, fromName: String, toName: String): String =
     "Send ${amountText(send)} from $fromName to $toName?"
 
-/** The rows under the recipient on the Review page, in the order Lensly shows them: the amount, the most the fee can be, the network and the sender. */
-private fun reviewRows(send: PreparedSend, fromName: String): List<SummaryRow> = buildList {
+/**
+ * The rows under the recipient on the Review page, in the order Lensly shows them: the amount, the most the fee can be, the network and the sender.
+ * A send with calldata ends with the hash of that calldata, the row Lensly shows for a call it cannot read, so the owner can compare the two.
+ */
+internal fun reviewRows(send: PreparedSend, fromName: String): List<SummaryRow> = buildList {
     add(SummaryRow("Amount", amountText(send)))
     add(SummaryRow("Max Fee", EvmFormat.amount(send.maxFeeWei, send.chain.decimals, send.chain.symbol)))
     if (send.token == null) add(SummaryRow("Total at Most", EvmFormat.amount(send.maxCostWei, send.chain.decimals, send.chain.symbol)))
     add(SummaryRow("Network", "${send.chain.name} · ID ${send.chain.chainId}"))
     add(SummaryRow("From", fromName))
+    val calldata = Numeric.hexStringToByteArray(send.tx.data)
+    if (calldata.isNotEmpty()) add(SummaryRow(CALLDATA_HASH_LABEL, calldataHash(calldata), mono = true))
 }
 
 private fun assetDetail(asset: SendAsset): String {
