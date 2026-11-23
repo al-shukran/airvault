@@ -57,16 +57,16 @@ Label pull requests and issues with one `scope:` label (`scope:lensly`, `scope:l
 
 CI is the gate. `.github/workflows/` holds one file per workflow:
 
-- `pr-fast.yml` runs the sharded Gradle checks on pull requests and the merge queue, then aggregates them into `pr-ok`.
-- `changelog.yml` checks changelog fragments on pull requests that touch product code, fragments, or a changelog file.
+- `pr-fast.yml` runs the blocking checks (CI guards, secrets scan, dependency review, manifest guard) on pull requests, the merge queue, and master, then aggregates them into `pr-ok`, the only required check. Each one finishes in about 3 minutes or less.
+- `changelog.yml` warns on master pushes that change product code without a changelog fragment. It never blocks.
 - `cla.yml` sets the `CLA` status on every pull request.
 - `dco.yml` checks that every commit in a pull request has a matching `Signed-off-by` trailer.
-- `nightly.yml` runs the R8 build, CVE scan, fuzz, emulator, end-to-end, and benchmark jobs.
-- `codeql.yml` and `codeql-command.yml` scan four languages on a schedule or on `/run-codeql`.
+- `nightly.yml` runs on master pushes and on a schedule: unit-test shards, screenshot golden refresh, lint, fuzz seed replay, and APK compile. The schedule adds the R8 build, CVE scan, real fuzzing, emulator, end-to-end, and benchmark jobs. Nothing in it blocks a pull request; a failing check opens or refreshes one issue for that check.
+- `codeql.yml` scans four languages on a schedule and on master pushes, and `codeql-command.yml` runs it on `/run-codeql`. Neither runs on pull requests by itself.
 - `comment-run.yml` runs host, emulator, and device jobs from trusted `/run-*` comments.
 - `dependency-graph.yml` submits the Gradle dependency graph so dependency review can diff it.
 - `release.yml` builds the APK for a `lensly-v*` or `lumio-v*` tag and publishes that app's changelog section with the release notes.
-- `master-red.yml`, `cache-cleanup.yml`, and `record-goldens.yml` maintain the rolling CI issue, stale caches, and screenshot goldens.
+- `master-red.yml` opens the rolling `ci-red` issue when `pr-fast` fails on master. `cache-cleanup.yml` maintains stale caches, and `record-goldens.yml` records screenshot goldens on demand.
 
 Nothing about a change is verified until CI says so. Before you push, run the checks that finish quickly:
 

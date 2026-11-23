@@ -5,23 +5,24 @@ after one `./gradlew resolveAll` (online) fills the Gradle module cache.
 
 ## Gate lanes — `run-partition.sh <lane>`
 
-`.github/workflows/pr-fast.yml` runs the same lanes for pull requests, the merge queue and master, so what a pull request
-verifies is what master builds after it lands. `pr-ok` is the single required check: every lane must succeed, and a skipped lane
-fails it, except dependency review, which is skipped until `DEPENDENCY_GRAPH_ENABLED=true`.
+`.github/workflows/pr-fast.yml` runs the blocking lanes for pull requests, the merge queue and master, so what a pull request
+verifies is what master builds after it lands. The blocking set is `deps`, `ci`, `secrets`, `manifest` and `dependency_review`, and `pr-ok` is the single
+required check over exactly those five. A skipped or failed blocking lane fails it. The other lanes run in `nightly.yml`, on the
+schedule and on pushes to master, and never block a pull request.
 
 | Lane | Runs | Job |
 |---|---|---|
 | `resolve` | `./gradlew resolveAll`, the only online step; retried when a repository is unreachable | `deps`, on a cache miss |
-| `shard-1` … `shard-6` | the unit tests listed under the lane in `shards.txt`; `shard-6` also runs every unlisted unit; pure JVM modules run whole | `shard` (matrix) |
-| `verify-app`, `verify-lumio` | the Roborazzi pixel tests of one module, `:app` or `:lumio` (listed, or unlisted and named `*ScreenshotTest`), with `verifyRoborazziDebug` | `roborazzi` (matrix) |
-| `fuzz` | the Jazzer seed replays, `app.lensly.fuzz.*`, with `-PfuzzLane` | `fuzz` |
-| `apk` | the Lumio debug APK, `:lumio:assembleDebug` | `android` |
-| `android-tests` | androidTest and benchmark compile of `:app` and `:lumio`; master and merge queue only (a step of `android`) | `android` |
-| `lint-app`, `lint-shared`, `lint-lumio` | `lintReportDebug` of one module's main sources; the unit-test, androidTest and test-fixture analyses run in nightly `lintDebug`; a leg compiles its module and the modules it depends on | `lint` (matrix) |
-| `manifest` | merged manifests (no INTERNET or ACCESS_NETWORK_STATE in `:app`, Lumio's allow-list), no OkHttp on `:app`'s release classpath | `manifest` |
+| `shard-1` … `shard-6` | the unit tests listed under the lane in `shards.txt`; `shard-6` also runs every unlisted unit; pure JVM modules run whole | nightly `shard` (matrix) |
+| `verify-app`, `verify-lumio` | the Roborazzi pixel tests of one module, `:app` or `:lumio` (listed, or unlisted and named `*ScreenshotTest`), with `verifyRoborazziDebug` | none in CI (local); nightly `screenshots` records the goldens instead |
+| `fuzz` | the Jazzer seed replays, `app.lensly.fuzz.*`, with `-PfuzzLane` | nightly `fuzz-replay` |
+| `apk` | the Lumio debug APK, `:lumio:assembleDebug` | nightly `android` |
+| `android-tests` | androidTest and benchmark compile of `:app` and `:lumio`; nightly only (a step of `android`) | nightly `android` |
+| `lint-app`, `lint-shared`, `lint-lumio` | `lintReportDebug` of one module's main sources; the unit-test, androidTest and test-fixture analyses run in nightly `lintDebug`; a leg compiles its module and the modules it depends on | nightly `lint` (matrix) |
+| `manifest` | merged manifests (no INTERNET or ACCESS_NETWORK_STATE in `:app`, Lumio's allow-list), no OkHttp on `:app`'s release classpath | `manifest` (pr-fast) |
 | `ci` | `bash -n` on every script, `check-partitions.sh`, `check-test-network.sh` (no Gradle) | `ci` |
 
-`secrets` (gitleaks) and `dependency_review` run beside them and need no Gradle.
+`secrets` (gitleaks) and `dependency_review` run beside them in `pr-fast.yml` and need no Gradle. `dependency_review` is skipped until `DEPENDENCY_GRAPH_ENABLED=true`.
 
 Every Gradle call runs with `--offline`, except `resolve`. A missing artifact then fails by name. The fix is in the build's
 `resolveAll` wiring (`build.gradle.kts`), not a rerun of the job.
@@ -62,14 +63,14 @@ The lines balance the lanes. A test class with no line still runs, so adding a t
 - Eviction: nothing in CI deletes a build cache except the push that replaces its own lane key. GitHub evicts least recently used
   entries over 10 GB per repository (run 44727796023). A lane whose entry was evicted compiles cold, and a cold lane can exceed the
   5-minute cap; `lane-budget.sh` reports it on master.
-- Nightly restores and saves no Gradle cache: its setup-gradle steps run with `cache-read-only`, and the fuzz legs restore the
-  dependency cache that master saved (#770). `record-goldens` runs setup-gradle with `cache-disabled` and restores only the dependency cache.
+- Nightly saves no build cache: its setup-gradle steps run with `cache-disabled` or `cache-read-only`. Its `deps` job restores the
+  dependency cache under the key master saved (#770) and saves it only on a miss. `record-goldens` runs setup-gradle with `cache-disabled` and restores only the dependency cache.
 - Cold lanes: a lane with no entry compiles from scratch and is not capped in time. Measured cold on a 10-core Mac: shard-1 225 s,
   shard-6 177 s, verify 224 s (two pixel tests fail on macOS), fuzz 107 s, android 180 s, lint-app 159 s, lint-lumio 168 s. A CI
   runner is likely slower, so a cold pull request lane can exceed the 5-minute cap, and `lane-budget.sh` reports it on master.
   Cold lanes come from eviction.
 - Lane budget: `pr-ok` runs `lane-budget.sh` after every lane. Each job's time (start to end, without a `Save ...` cache upload)
-  goes to the step summary, and a job over 5 minutes gets a warning. On a push to master it opens, or comments on, the open
+  goes to the step summary, and a job over 3 minutes gets a warning. On a push to master it opens, or comments on, the open
   `ci-budget` issue. It never fails the gate: fix a slow lane in a pull request, never rerun a run to make it green.
 - The configuration cache is encrypted with `GRADLE_ENCRYPTION_KEY`, a repository secret. Without it, each runner encrypts with its
   own keystore, a restored entry reads as absent ("no cached configuration is available"), and no lane reuses the configuration.
@@ -162,9 +163,11 @@ the tests read them through `@MethodSource`. A crash a nightly run finds lands i
 
 ## Nightly and comment runs — one report each
 
-`nightly.yml` runs `full` (R8 and OWASP), `fuzz`, `instrumented`, `e2e` and `benchmark` as separate jobs. A single `report` job
-(`needs` them all, `if: failure()`) opens or updates the `nightly-failure` issue once, listing which jobs failed; parallel jobs
-cannot open four issues. In `comment-run.yml`, a read-only `gate` job authorizes the comment before any PR code is checked out, the
+`nightly.yml` runs its checks as separate jobs: `screenshots` (records the goldens, and proposes changes in the `goldens-refresh`
+pull request), `shard`, `fuzz-replay`, `lint` and `android` (all of them on pushes to master too), and on the schedule only
+`full` (R8 and OWASP), `fuzz` (real fuzzing), `instrumented`, `e2e` and `benchmark`. A single `report` job (`needs` them all,
+`if: failure()`) opens or comments on one issue per failing check, titled `Nightly check failing: <check>` and labelled `area:ci`.
+Parallel jobs cannot open a dozen issues. In `comment-run.yml`, a read-only `gate` job authorizes the comment before any PR code is checked out, the
 run jobs have `contents: read`, and one `report` job posts the result comment.
 
 `instrumented` skips `app.lensly.benchmark`: those classes need `AndroidBenchmarkRunner`, which only the `benchmark` build type gets.
