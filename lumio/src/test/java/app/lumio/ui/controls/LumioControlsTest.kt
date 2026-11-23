@@ -69,7 +69,7 @@ class LumioControlsTest {
     @Test
     fun aChainIsAToggleSwitchAndAddingAChainIsARow() {
         compose.setContent {
-            LumenTheme {
+            ClearAirTheme {
                 EvmSettingsSection(
                     settings = EvmSettings(enabled = setOf(1L)),
                     chains = listOf(EvmChain(1L, "Ethereum", "ETH", 18, false, null)),
@@ -77,8 +77,8 @@ class LumioControlsTest {
                     notice = null,
                     onAddressCount = {},
                     onEnabled = { _, _ -> },
-                    onSetRpc = { _, _, _ -> },
-                    onResetRpc = {},
+                    onNetwork = {},
+                    onTokens = {},
                     onRemoveCustom = {},
                     onAddNetwork = {},
                 )
@@ -92,7 +92,7 @@ class LumioControlsTest {
     @Test
     fun theAddressStepperStopsAtItsLimits() {
         compose.setContent {
-            LumenTheme {
+            ClearAirTheme {
                 EvmSettingsSection(
                     settings = EvmSettings(addressCount = EvmSettings.MAX_ADDRESS_COUNT),
                     chains = emptyList(),
@@ -100,16 +100,16 @@ class LumioControlsTest {
                     notice = null,
                     onAddressCount = {},
                     onEnabled = { _, _ -> },
-                    onSetRpc = { _, _, _ -> },
-                    onResetRpc = {},
+                    onNetwork = {},
+                    onTokens = {},
                     onRemoveCustom = {},
                     onAddNetwork = {},
                 )
             }
         }
 
-        compose.onNodeWithContentDescription("Show more addresses").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Show fewer addresses").assertIsEnabled()
+        compose.onNodeWithText("+").assertIsNotEnabled()
+        compose.onNodeWithText("\u2212").assertIsEnabled()
     }
 
     private fun hasRole(role: Role): SemanticsMatcher = SemanticsMatcher.expectValue(SemanticsProperties.Role, role)

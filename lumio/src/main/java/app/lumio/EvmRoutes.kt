@@ -21,6 +21,7 @@ import app.lumio.evm.EvmRpc
 import app.lumio.evm.EvmSettings
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.ui.settings.EvmSettingsSection
+import app.lumio.ui.settings.NetworkPage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -89,10 +90,65 @@ internal fun EvmSettingsRoute(navController: NavHostController, holder: VaultHol
         notice = notice,
         onAddressCount = { count -> change({ s, _ -> EvmEdits.setAddressCount(s, count) }) },
         onEnabled = { chainId, on -> change({ s, _ -> EvmEdits.setEnabled(s, chainId, on) }) },
-        onSetRpc = { chainId, raw, onDone -> change({ s, rpc -> EvmEdits.setRpc(s, chainId, raw, rpc) }, onDone) },
-        onResetRpc = { chainId -> change({ s, _ -> EvmEdits.resetRpc(s, chainId) }) },
         onRemoveCustom = { chainId -> change({ s, _ -> EvmEdits.removeCustom(s, chainId) }) },
+        onNetwork = { chainId -> navController.navigate(LumioRoute.network(chainId)) },
         onAddNetwork = { navController.navigate(LumioRoute.SETTINGS_ADD_NETWORK) },
         onTokens = { chainId -> navController.navigate(LumioRoute.tokens(chainId)) },
+    )
+}
+
+/**
+ * The Network page (B4) of chain [chainId]: its built-in RPC address and the custom one the owner set. A change is checked against the endpoint
+ * before it is saved, and a refusal shows under the field, with the stored address kept as it was.
+ */
+@Composable
+internal fun EvmNetworkRoute(navController: NavHostController, holder: VaultHolder, chainId: Long, onLock: () -> Unit) {
+    val app = LocalContext.current.applicationContext as LumioApp
+    val session = holder.openSession()
+    LaunchedEffect(session == null) {
+        if (session == null) navController.openHidden(GateRoutes.GATE)
+    }
+    val scope = rememberCoroutineScope()
+    var version by remember { mutableIntStateOf(0) }
+    var busy by remember { mutableStateOf(false) }
+    var notice by remember { mutableStateOf<String?>(null) }
+    val state by produceState<SettingsState?>(initialValue = null, session, version) {
+        value = if (session == null) {
+            null
+        } else {
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val settings = EvmSettingsStore.read(session)
+                    SettingsState(settings, catalogOf(app, settings))
+                }.getOrNull()
+            }
+        }
+    }
+    val current = state ?: return
+    val chain = current.chains.firstOrNull { it.chainId == chainId } ?: return
+
+    fun change(transform: (EvmSettings, EvmRpc) -> EvmSettings) {
+        if (session == null || busy) return
+        busy = true
+        notice = null
+        scope.launch {
+            val error = withContext(Dispatchers.IO) { EvmSettingsStore.change(session, app.evmRpc, transform) }
+            busy = false
+            notice = error
+            if (error == null) version++
+        }
+    }
+
+    NetworkPage(
+        chainName = chain.name,
+        chainLine = "Chain ${chain.chainId} · ${chain.symbol}${if (chain.testnet) " · Testnet" else ""}",
+        custom = current.settings.rpc[chainId],
+        busy = busy,
+        notice = notice,
+        offline = rememberSettingsOffline(),
+        onUseBuiltIn = { change { s, _ -> EvmEdits.resetRpc(s, chainId) } },
+        onAddCustom = { raw -> change { s, rpc -> EvmEdits.setRpc(s, chainId, raw, rpc) } },
+        onBack = { navController.popBackStack() },
+        onLock = onLock,
     )
 }

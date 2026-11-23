@@ -53,7 +53,7 @@ private fun loadTokens(app: LumioApp, session: VaultSession, chainId: Long): Tok
  * Each change is written to the vault when the owner confirms it. A lookup that fails keeps the screen open with the owner's words for why.
  */
 @Composable
-internal fun AddTokenRoute(navController: NavHostController, holder: VaultHolder, chainId: Long) {
+internal fun AddTokenRoute(navController: NavHostController, holder: VaultHolder, chainId: Long, onLock: () -> Unit) {
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
     LaunchedEffect(session == null) {
@@ -136,6 +136,7 @@ internal fun AddTokenRoute(navController: NavHostController, holder: VaultHolder
         busy = busy,
         found = found,
         problem = problem,
+        offline = rememberSettingsOffline(),
         onAddress = {
             address = it
             found = null
@@ -146,5 +147,6 @@ internal fun AddTokenRoute(navController: NavHostController, holder: VaultHolder
         onCancel = { found = null },
         onRemove = ::remove,
         onBack = { navController.popBackStack() },
+        onLock = onLock,
     )
 }

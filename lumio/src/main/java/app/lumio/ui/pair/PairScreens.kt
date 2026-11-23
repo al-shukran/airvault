@@ -1,5 +1,6 @@
 package app.lumio.ui.pair
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,6 +11,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import app.lensly.app.export.PairingPayload
@@ -19,6 +24,7 @@ import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.data.net.Networks
 import app.lumio.pair.PairImport
 import app.lumio.ui.kit.ClearAirEyebrow
+import app.lumio.ui.kit.ClearAirNote
 import app.lumio.ui.kit.ClearAirPageTopBar
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
@@ -35,7 +41,22 @@ fun PairScanScreen(progress: Float?, status: String, onText: (String) -> Unit, o
         onText = onText,
         onCancel = onCancel,
         complete = complete,
+        footer = { PairHelp() },
     )
+}
+
+/**
+ * The text action under the pairing scan that says where Pair is on Lensly. When the owner asks, the page says the one step that answers it, in place.
+ */
+@Composable
+private fun PairHelp() {
+    var open by remember { mutableStateOf(false) }
+    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        ClearAirTextAction(text = "Where Is Pair on Lensly?", onClick = { open = !open })
+    }
+    if (open) {
+        ClearAirNote(text = "On Lensly, open Pair and choose the wallet to share. Hold Lensly's code inside the frame.")
+    }
 }
 
 /**

@@ -57,6 +57,7 @@ import app.lumio.ui.send.SummaryRow
 import app.lumio.ui.settings.AddCustomNetworkScreen
 import app.lumio.ui.settings.DataProvidersScreen
 import app.lumio.ui.settings.EvmSettingsSection
+import app.lumio.ui.settings.NetworkPage
 import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.ProviderStatus
 import com.github.takahirom.roborazzi.RoborazziOptions
@@ -106,8 +107,8 @@ class LumioCoverageScreenshotTest {
                 notice = null,
                 onAddressCount = {},
                 onEnabled = { _, _ -> },
-                onSetRpc = { _, _, _ -> },
-                onResetRpc = {},
+                onNetwork = {},
+                onTokens = {},
                 onRemoveCustom = {},
                 onAddNetwork = {},
             )
@@ -150,25 +151,19 @@ class LumioCoverageScreenshotTest {
     }
 
     @Test
-    fun evmEditRpcDialog() = dialogSnapshot(
-        name = "evm_edit_rpc_dialog",
-        title = "RPC for Ethereum",
-        open = { onAllNodesWithText("Edit RPC").onFirst().performClick() },
-    ) {
-        LenslyScreen(title = "SETTINGS", onBack = {}) {
-            EvmSettingsSection(
-                settings = EvmSettings(rpc = mapOf(1L to "https://rpc.example.org")),
-                chains = chains,
-                busy = false,
-                notice = null,
-                onAddressCount = {},
-                onEnabled = { _, _ -> },
-                onSetRpc = { _, _, _ -> },
-                onResetRpc = {},
-                onRemoveCustom = {},
-                onAddNetwork = {},
-            )
-        }
+    fun networkPageOfAChain() = compose.lumioSnapshot("network_page_chain") {
+        NetworkPage(
+            chainName = "Ethereum",
+            chainLine = "Chain 1 · ETH",
+            custom = "https://rpc.example.org",
+            busy = false,
+            notice = null,
+            offline = null,
+            onUseBuiltIn = {},
+            onAddCustom = {},
+            onBack = {},
+            onLock = {},
+        )
     }
 
     @Test
@@ -420,40 +415,6 @@ class LumioCoverageScreenshotTest {
      * Renders [content] in the same frame as [snapshot], runs [open] to show a dialog, and records the dialog window as [name].png. A dialog is
      * its own window, so [snapshot] would leave it out of the frame. The change threshold is the one [snapshot] uses.
      */
-    private fun dialogSnapshot(
-        name: String,
-        title: String,
-        open: ComposeContentTestRule.() -> Unit,
-        content: @Composable () -> Unit,
-    ) {
-        compose.mainClock.autoAdvance = false
-        compose.setContent {
-            CompositionLocalProvider(LocalDensity provides Density(PHONE_DENSITY)) {
-                LumenTheme {
-                    Box(
-                        modifier = Modifier
-                            .requiredSize(width = (PHONE_WIDTH_PX / PHONE_DENSITY).dp, height = (PHONE_HEIGHT_PX / PHONE_DENSITY).dp)
-                            .background(MaterialTheme.colorScheme.background),
-                    ) {
-                        content()
-                    }
-                }
-            }
-        }
-        compose.waitForIdle()
-        compose.open()
-        // A dialog attaches its window on a later frame, so the clock moves past it before the capture.
-        compose.mainClock.advanceTimeBy(DIALOG_SETTLE_MS)
-        compose.waitForIdle()
-        // The dialog is a root of its own: the one whose descendants hold its title.
-        compose.onAllNodes(isRoot()).filterToOne(hasAnyDescendant(hasText(title))).captureRoboImage(
-            filePath = "$SCREENSHOT_DIR/$name.png",
-            roborazziOptions = RoborazziOptions(
-                compareOptions = RoborazziOptions.CompareOptions(changeThreshold = CHANGE_THRESHOLD),
-            ),
-        )
-    }
-
     private companion object {
         /** The owner's phone, as [snapshot] sizes it: 720 x 1600 px at density 1.75. */
         const val PHONE_WIDTH_PX = 720f

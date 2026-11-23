@@ -92,6 +92,7 @@ fun LumioScanScreen(
     modifier: Modifier = Modifier,
     complete: Boolean = false,
     frameSource: FrameSource? = null,
+    footer: (@Composable () -> Unit)? = null,
 ) {
     // The camera is a launch of its own: while the scanner is shown, a policy that keeps own launches unlocked waits on the idle lock.
     DisposableEffect(Unit) {
@@ -105,6 +106,7 @@ fun LumioScanScreen(
         complete = complete,
         onCancel = onCancel,
         modifier = modifier,
+        footer = footer,
     ) { viewport ->
         QrScanner(onText = onText, modifier = viewport, frameSource = frameSource)
     }
@@ -122,6 +124,7 @@ fun LumioScanFrame(
     complete: Boolean,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
+    footer: (@Composable () -> Unit)? = null,
     viewport: @Composable (Modifier) -> Unit,
 ) {
     val haptics = rememberLumioHaptics()
@@ -153,6 +156,7 @@ fun LumioScanFrame(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
+        footer?.invoke()
         Spacer(Modifier.height(LenslySpacing.md))
     }
 }

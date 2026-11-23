@@ -1,15 +1,23 @@
 package app.lumio.ui.settings
 
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import app.lensly.ui.theme.ClearAirSpacing
+import app.lumio.ui.kit.ClearAirField
+import app.lumio.ui.kit.ClearAirListRow
 import app.lumio.ui.kit.ClearAirNote
 import app.lumio.ui.kit.ClearAirRow
-import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.Modifier
+import app.lumio.ui.kit.ClearAirTextAction
 
 /**
- * The Provider page: one provider's name in the bar, its status word with the line that says why, its factual tags, and the key row. The key row opens
- * the Data Providers page, where the key is typed. [keyed] is whether the provider takes an API key, and [keySet] whether one is stored.
+ * The Provider page (B5) of one provider: its name in the bar, its status word with the line that says why, its factual tags, and its API key. [keyed]
+ * is whether the provider takes a key. [savedTail] is the last four characters of the saved key, or null when none is saved, so the key itself never
+ * shows again. A typed key is saved when the owner leaves its field or presses Done, and [onSaveKey] receives it. Its Remove action passes "".
  */
 @Composable
 fun ProviderPage(
@@ -18,9 +26,9 @@ fun ProviderPage(
     statusNote: String?,
     tags: List<String>,
     keyed: Boolean,
-    keySet: Boolean,
+    savedTail: String?,
     offline: String?,
-    onConfigureKey: () -> Unit,
+    onSaveKey: (String) -> Unit,
     onBack: () -> Unit,
     onLock: () -> Unit,
 ) {
@@ -33,12 +41,41 @@ fun ProviderPage(
         }
         if (keyed) {
             SettingsGroup(title = "Configure API Key") {
-                ClearAirRow(title = "API Key", description = if (keySet) "Set" else "Not set", onClick = onConfigureKey)
+                if (savedTail != null) {
+                    ClearAirListRow(
+                        title = "API Key",
+                        description = "Saved · ends in $savedTail",
+                        trailing = { ClearAirTextAction(text = "Remove", onClick = { onSaveKey("") }) },
+                    )
+                } else {
+                    ApiKeyEntry(onSave = onSaveKey)
+                }
                 ClearAirNote(
-                    text = "The API key is optional and stored in the vault.",
+                    text = "Stored in the vault on this phone. Lumio sends it only to $name.",
                     modifier = Modifier.padding(top = ClearAirSpacing.xs),
                 )
             }
         }
     }
+}
+
+/** The key field, empty until a key is typed. The typed key is saved when the owner leaves the field or presses Done, and the field clears. */
+@Composable
+private fun ApiKeyEntry(onSave: (String) -> Unit) {
+    var draft by remember { mutableStateOf("") }
+    ClearAirField(
+        label = "API Key (Optional)",
+        value = draft,
+        onValueChange = { draft = it },
+        placeholder = "Paste a key for higher limits",
+        masked = true,
+        inputTag = "api-key",
+        onCommit = {
+            val key = draft.trim()
+            if (key.isNotEmpty()) {
+                draft = ""
+                onSave(key)
+            }
+        },
+    )
 }

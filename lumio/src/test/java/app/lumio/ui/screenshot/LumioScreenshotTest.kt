@@ -223,8 +223,8 @@ class LumioScreenshotTest {
                     notice = null,
                     onAddressCount = {},
                     onEnabled = { _, _ -> },
-                    onSetRpc = { _, _, _ -> },
-                    onResetRpc = {},
+                    onNetwork = {},
+                    onTokens = {},
                     onRemoveCustom = {},
                     onAddNetwork = {},
                 )
