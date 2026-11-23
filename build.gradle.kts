@@ -93,16 +93,12 @@ val syncRobolectricSdk by tasks.registering(Sync::class) {
     into(robolectricSdkDir)
 }
 
-// Only the modules whose unit tests run on Robolectric depend on the jar, so a JVM-only test task never waits for it. The fuzz
-// lane (-PfuzzLane) runs no Robolectric test (see shared/build.gradle.kts), so it does not wait for the jar either.
-val fuzzLane = providers.gradleProperty("fuzzLane").isPresent
-if (!fuzzLane) {
-    listOf("app", "lumio", "shared").forEach { module ->
-        project(":$module").tasks.withType<Test>().configureEach {
-            dependsOn(syncRobolectricSdk)
-            systemProperty("robolectric.offline", "true")
-            systemProperty("robolectric.dependency.dir", robolectricSdkDir.get().asFile.absolutePath)
-        }
+// Only the modules whose unit tests run on Robolectric depend on the jar, so a JVM-only test task never waits for it.
+listOf("app", "lumio", "shared").forEach { module ->
+    project(":$module").tasks.withType<Test>().configureEach {
+        dependsOn(syncRobolectricSdk)
+        systemProperty("robolectric.offline", "true")
+        systemProperty("robolectric.dependency.dir", robolectricSdkDir.get().asFile.absolutePath)
     }
 }
 
