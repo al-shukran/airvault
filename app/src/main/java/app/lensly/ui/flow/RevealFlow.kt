@@ -36,8 +36,13 @@ class RevealedSecret private constructor(
     /** True for a Single Key, whose only part is [RevealPart.KEY]. */
     val isKey: Boolean get() = keyHex != null
 
-    /** True when [part] is the last part the secret has: the passphrase when there is one, otherwise the words or the key. */
-    fun isLastPart(part: RevealPart): Boolean = part == RevealPart.PASSPHRASE || !hasPassphrase
+    /** The parts the secret has: its key, or its words and its passphrase when it has one. */
+    val parts: List<RevealPart>
+        get() = when {
+            isKey -> listOf(RevealPart.KEY)
+            hasPassphrase -> listOf(RevealPart.WORDS, RevealPart.PASSPHRASE)
+            else -> listOf(RevealPart.WORDS)
+        }
 
     /** The number of pages in [part]. */
     fun pageCount(part: RevealPart): Int = when (part) {
@@ -175,6 +180,16 @@ class RevealFlow(
     /** The time at which the secret is cleared, unless a step restarts the countdown first. */
     private var deadlineMs = 0L
 
+    /** The parts whose last page has been on screen during this session. Held in memory only. */
+    private val finalPagesShown = mutableSetOf<RevealPart>()
+
+    /** True when the secret is on screen and every part it has has reached its last page during this session. */
+    val everyPartShown: Boolean
+        get() {
+            val shown = current.value as? RevealStep.Revealed ?: return false
+            return shown.secret.parts.all { it in finalPagesShown }
+        }
+
     /**
      * The owner typed the App Password. A wrong one, or one refused during a Failure Delay, leaves the step as it was with
      * nothing shown. A right one moves on to the warning. [password] is zeroed before this returns.
@@ -211,7 +226,7 @@ class RevealFlow(
                     }
                     val part = if (loaded.secret.isKey) RevealPart.KEY else RevealPart.WORDS
                     restartCountdown()
-                    current.value = RevealStep.Revealed(loaded.secret, part, index = 0, secondsLeft = TIMEOUT_SECONDS)
+                    showPage(RevealStep.Revealed(loaded.secret, part, index = 0, secondsLeft = TIMEOUT_SECONDS))
                 }
                 SecretLoad.Locked -> publish(started, RevealStep.Cleared(ClearReason.VAULT_CLOSED))
                 SecretLoad.Unavailable -> publish(started, RevealStep.Cleared(ClearReason.UNAVAILABLE))
@@ -224,9 +239,11 @@ class RevealFlow(
         val shown = current.value as? RevealStep.Revealed ?: return
         val last = (shown.secret.pageCount(shown.part) - 1).coerceAtLeast(0)
         restartCountdown()
-        current.value = shown.copy(
-            index = (shown.index + delta).coerceIn(0, last),
-            secondsLeft = TIMEOUT_SECONDS,
+        showPage(
+            shown.copy(
+                index = (shown.index + delta).coerceIn(0, last),
+                secondsLeft = TIMEOUT_SECONDS,
+            ),
         )
     }
 
@@ -236,7 +253,7 @@ class RevealFlow(
         if (shown.secret.isKey || part == RevealPart.KEY) return
         if (part == RevealPart.PASSPHRASE && !shown.secret.hasPassphrase) return
         restartCountdown()
-        current.value = shown.copy(part = part, index = 0, secondsLeft = TIMEOUT_SECONDS)
+        showPage(shown.copy(part = part, index = 0, secondsLeft = TIMEOUT_SECONDS))
     }
 
     /** One tick of the countdown. The secret is cleared when the countdown has run out. */
@@ -270,6 +287,12 @@ class RevealFlow(
 
     private fun publish(started: Int, step: RevealStep) {
         if (started == epoch) current.value = step
+    }
+
+    /** Puts [step] on screen, and notes its part once the part's last page is shown. */
+    private fun showPage(step: RevealStep.Revealed) {
+        current.value = step
+        if (step.index == step.secret.pageCount(step.part) - 1) finalPagesShown += step.part
     }
 
     companion object {

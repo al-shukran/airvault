@@ -108,12 +108,12 @@ internal fun ShowSecretRoute(navController: NavHostController, holder: VaultHold
         onMove = { delta -> flow.move(delta) },
         onSelect = { part -> flow.select(part) },
         onDone = { flow.leave(ClearReason.DONE) },
-        // The last page's Done. The wallet counts as backed up only when the last part is shown: a passphrase is part of the backup,
-        // so the words alone leave the flag as it was.
+        // The last page's Done. The wallet counts as backed up only when every part of the secret has been shown to its last
+        // page in this session, so a passphrase-first pass or the words alone leave the flag as it was.
         onFinish = {
-            val shown = step as? RevealStep.Revealed
+            val backedUp = flow.everyPartShown
             scope.launch {
-                if (shown != null && shown.secret.isLastPart(shown.part)) markBackedUp(session, walletId)
+                if (backedUp) markBackedUp(session, walletId)
                 flow.leave(ClearReason.DONE)
             }
         },
