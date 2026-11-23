@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
+import app.lumio.data.config.Fiat
 import app.lumio.home.Masking
 import app.lumio.portfolio.AllocationSlice
 import app.lumio.portfolio.BalanceSort
@@ -46,6 +47,7 @@ import app.lumio.ui.kit.ClearAirFilterSentence
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSheet
 import app.lumio.ui.kit.ClearAirTextAction
+import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.transactions.ActivityRowItem
 import java.time.ZoneId
 
@@ -61,6 +63,7 @@ fun PortfolioScreen(
     walletName: String,
     accounts: Map<ChainFamily, Int>,
     showBalance: Boolean,
+    hidesSmall: (Double?) -> Boolean = { false },
     testnet: Boolean,
     recent: List<TxFeedItem>,
     names: Map<String, String>,
@@ -75,11 +78,12 @@ fun PortfolioScreen(
         if (holdings == null) return@Column
         val total = PortfolioView.total(holdings)
         val usd = total.usd
+        val fiat = LocalFiat.current
         if (usd == null) {
             EmptyBalances(testnet = testnet)
         } else {
             ClearAirAmount(
-                text = PortfolioFormat.usd(usd),
+                text = fiat.amount(usd),
                 hidden = !showBalance,
                 style = ClearAirType.hero,
                 modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter),
@@ -91,7 +95,8 @@ fun PortfolioScreen(
                 onPick = { picker = it },
                 modifier = Modifier.padding(top = ClearAirSpacing.md),
             )
-            for (row in PortfolioView.rows(holdings, filter)) {
+            // Small balances are left out of the list only: the total above still counts every asset.
+            for (row in PortfolioView.rows(holdings, filter).filterNot { hidesSmall(it.usd) }) {
                 ClearAirRow(
                     title = row.title,
                     description = describe(row, showBalance),
@@ -113,7 +118,7 @@ fun PortfolioScreen(
     ClearAirSheet(visible = picker == SentencePicker.CHAIN, onClose = { picker = null }) {
         ClearAirChoiceSheet(
             title = "Chains",
-            groups = listOf(ChoiceGroup(null, chainRows(holdings.orEmpty(), filter, accounts, showBalance) { picker = null; onFilter(it) })),
+            groups = listOf(ChoiceGroup(null, chainRows(holdings.orEmpty(), filter, accounts, showBalance, LocalFiat.current) { picker = null; onFilter(it) })),
         )
     }
     ClearAirSheet(visible = picker == SentencePicker.GROUPING, onClose = { picker = null }) {
@@ -150,7 +155,7 @@ private fun Delta(changePct: Double?, changeUsd: Double?, shown: Boolean) {
     if (changePct == null || changeUsd == null) return
     val color = if (changeUsd < 0) palette.rose else palette.vaultBlue
     Text(
-        text = "${PortfolioFormat.change(changePct)} · ${Masking.amount(PortfolioFormat.signedUsd(changeUsd), hidden = !shown)} Today",
+        text = "${PortfolioFormat.change(changePct)} · ${Masking.amount(PortfolioFormat.signedAmount(changeUsd, LocalFiat.current), hidden = !shown)} Today",
         style = ClearAirType.body,
         color = color,
         modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter),
@@ -192,7 +197,7 @@ private fun RowValue(row: PortfolioRow, shown: Boolean) {
     val palette = LocalClearAirPalette.current
     Column(horizontalAlignment = Alignment.End) {
         Text(
-            text = Masking.amount(row.usd?.let { PortfolioFormat.usd(it) } ?: "—", hidden = !shown),
+            text = Masking.amount(row.usd?.let { LocalFiat.current.amount(it) } ?: "—", hidden = !shown),
             style = ClearAirType.rowValue,
             color = palette.ink,
             textAlign = TextAlign.End,
@@ -229,6 +234,7 @@ private fun chainRows(
     filter: PortfolioFilter,
     accounts: Map<ChainFamily, Int>,
     shown: Boolean,
+    fiat: Fiat,
     pick: (PortfolioFilter) -> Unit,
 ): List<ChoiceRow> {
     val total = PortfolioView.total(holdings).usd
@@ -238,7 +244,7 @@ private fun chainRows(
     val all = ChoiceRow(
         title = "All Chains",
         detail = "Grouped by asset",
-        trailing = total?.let { Masking.amount(PortfolioFormat.usd(it), hidden = !shown) },
+        trailing = total?.let { Masking.amount(fiat.amount(it), hidden = !shown) },
         selected = filter.chain == null,
         onPick = { pick(filter.copy(chain = null)) },
     )
@@ -247,7 +253,7 @@ private fun chainRows(
         ChoiceRow(
             title = family.label,
             detail = if (family == ChainFamily.EVM) "Ethereum and its L2s" else "$count ${if (count == 1) "account" else "accounts"}",
-            trailing = usd?.let { Masking.amount(PortfolioFormat.usd(it), hidden = !shown) },
+            trailing = usd?.let { Masking.amount(fiat.amount(it), hidden = !shown) },
             selected = filter.chain == family,
             onPick = { pick(filter.copy(chain = family)) },
         )

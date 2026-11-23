@@ -60,7 +60,7 @@ class ActivityViewTest {
         assertEquals("Received", line.title)
         assertEquals("From Exchange Deposit · Arbitrum · 15:00", line.detail)
         assertEquals("+1 ETH", line.amount)
-        assertEquals("$4,285.70", line.fiat)
+        assertEquals(4285.7, line.usd)
         assertTrue(line.incoming)
         assertFalse(line.pending)
     }
@@ -78,7 +78,7 @@ class ActivityViewTest {
         assertEquals("Contract Call", line.title)
         assertEquals("Confirming · To 0x1234…5678 · Monad Testnet", line.detail)
         assertEquals("−0.25 ETH", line.amount)
-        assertEquals(null, line.fiat)
+        assertEquals(null, line.usd)
         assertTrue(line.pending)
     }
 

@@ -1,6 +1,6 @@
 package app.lumio.portfolio
 
-import app.lumio.home.HomeFormat
+import app.lumio.data.config.Fiat
 import java.math.BigDecimal
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
@@ -15,11 +15,8 @@ object PortfolioFormat {
     /** A coin amount in whole coins, such as "22.23" or "20,100". */
     fun coins(amount: BigDecimal): String = DecimalFormat("#,##0.########", DecimalFormatSymbols(Locale.ROOT)).format(amount)
 
-    /** A dollar amount, such as "$149,769.10". */
-    fun usd(value: Double): String = HomeFormat.usd(value)
-
-    /** A dollar amount with its sign, such as "−$1,728.13" or "$1,728.13". */
-    fun signedUsd(value: Double): String = (if (value < 0) "−" else "") + HomeFormat.usd(abs(value))
+    /** An amount in the owner's currency with its sign, such as "−$1,728.13" or "$1,728.13". */
+    fun signedAmount(usd: Double, fiat: Fiat): String = (if (usd < 0) "−" else "") + fiat.amount(abs(usd))
 
     /** A change in percent with its arrow, such as "▼ 1.15%" or "▲ 1.82%". A change of nothing has no arrow. */
     fun change(percent: Double): String = when {

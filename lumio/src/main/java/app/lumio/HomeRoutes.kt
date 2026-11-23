@@ -22,6 +22,7 @@ import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.chains.NATIVE_COINS
+import app.lumio.data.config.Fiat
 import app.lumio.data.WallClock
 import app.lumio.data.net.Networks
 import app.lumio.data.price.Kept
@@ -30,13 +31,13 @@ import app.lumio.data.price.PriceSeries
 import app.lumio.data.provider.MarketQuote
 import app.lumio.home.HomeAsset
 import app.lumio.network.NetworkMode
-import app.lumio.ui.home.FIAT
 import app.lumio.ui.home.HomeScreen
 import app.lumio.ui.home.MarketHero
 import app.lumio.ui.home.WatchlistRow
 import app.lumio.ui.home.WatchlistSortSheet
 import app.lumio.ui.home.compactUsd
 import app.lumio.ui.home.freshnessOf
+import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.kit.LumioTab
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletsView
@@ -82,11 +83,12 @@ internal fun HomeRoute(
             value = WallClock.nowMs()
         }
     }
+    val fiat = LocalFiat.current
     val rows = watchlist?.ordered { board.prices[it.assetId]?.change24hPct }.orEmpty().map { asset ->
-        rowOf(asset, view, wallet?.id, board.prices[asset.assetId], board.dayChartOf(asset.assetId), testnet)
+        rowOf(asset, view, wallet?.id, board.prices[asset.assetId], board.dayChartOf(asset.assetId), testnet, fiat)
     }
     var sortOpen by remember { mutableStateOf(false) }
-    val hero = heroOf(board.market, testnet, nowMs)
+    val hero = heroOf(board.market, testnet, nowMs, fiat)
     TabRoute(
         tab = LumioTab.HOME,
         navController = navController,
@@ -123,11 +125,11 @@ internal fun HomeRoute(
 }
 
 /** The hero as Home shows it: the market's total in dollars, its 24 h change, and when the figure was read. A test network shows no market figure. */
-private fun heroOf(market: Kept<MarketQuote>?, testnet: Boolean, nowMs: Long): MarketHero {
+private fun heroOf(market: Kept<MarketQuote>?, testnet: Boolean, nowMs: Long, fiat: Fiat): MarketHero {
     if (testnet || market == null) return MarketHero(total = null, change24hPct = null, freshness = null)
     val quote = market.value
     return MarketHero(
-        total = compactUsd(quote.totalUsd),
+        total = compactUsd(quote.totalUsd, fiat),
         change24hPct = quote.change24hPct,
         freshness = freshnessOf(quote.asOfMs, market.stale, nowMs),
     )
@@ -137,14 +139,22 @@ private fun heroOf(market: Kept<MarketQuote>?, testnet: Boolean, nowMs: Long): M
  * One watched asset as its row: its name and symbol, what the wallet holds of it, its price and change, and the ticks of its day's prices. A test network
  * shows no price and no chart.
  */
-private fun rowOf(asset: WatchedAsset, view: WalletsView?, walletId: String?, price: Price?, day: PriceSeries?, testnet: Boolean): WatchlistRow {
+private fun rowOf(
+    asset: WatchedAsset,
+    view: WalletsView?,
+    walletId: String?,
+    price: Price?,
+    day: PriceSeries?,
+    testnet: Boolean,
+    fiat: Fiat,
+): WatchlistRow {
     val (symbol, name) = coinNames(asset)
     val held = if (view != null && walletId != null) heldOf(asset, view.accountsOf(walletId)) else null
     return WatchlistRow(
         asset = asset,
         name = name,
         detail = if (held == null) symbol else "$symbol · ${held.stripTrailingZeros().toPlainString()} held",
-        priceUsd = if (testnet || price == null) null else FIAT.format(price.usd),
+        priceUsd = if (testnet || price == null) null else fiat.amount(price.usd),
         change24hPct = if (testnet) null else price?.change24hPct,
         ticks = if (testnet) emptyList() else day?.points?.map { it.usd }.orEmpty(),
     )

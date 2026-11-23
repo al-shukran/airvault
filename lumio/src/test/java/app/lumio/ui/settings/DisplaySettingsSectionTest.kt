@@ -35,6 +35,8 @@ class DisplaySettingsSectionTest {
                         notice = notice,
                         onShowTotal = { showTotal = it },
                         onShowAssets = { showAssets = it },
+                        onCurrency = {},
+                        onSmallBalance = {},
                     )
                 }
             }

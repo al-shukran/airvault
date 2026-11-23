@@ -6,6 +6,8 @@ import app.lumio.data.cache.CachePolicy
 import app.lumio.data.cache.Codec
 import app.lumio.data.cache.jsonCodec
 import app.lumio.data.net.NetworkId
+import app.lumio.data.provider.FiatQuote
+import app.lumio.data.provider.FiatRates
 import app.lumio.data.provider.GlobalMarket
 import app.lumio.data.provider.MarketQuote
 import app.lumio.data.provider.NativePrice
@@ -32,6 +34,7 @@ const val CHART_TTL_MS = 300_000L
 /** The cache keys of the whole market's figures and of the trending coins. */
 internal const val MARKET_KEY = "market-global"
 internal const val TRENDING_KEY = "trending-search"
+internal const val FIAT_KEY = "market-fiat"
 
 /**
  * A USD price of a network's native coin: [usd] per coin, the change over 24 hours in percent ([change24hPct] is null when the source gives none),
@@ -92,6 +95,16 @@ class PriceRepository(
 
     /** Whether a switched-on source serves the trending coins. Switched off, no trending list is shown, kept or not. */
     fun servesTrending(): Boolean = scheduler.serves(TrendingCoins())
+
+    /** Whether a switched-on source serves the fiat rates. Switched off, no rate is read, kept or not, and every amount stays in US dollars. */
+    fun servesFiat(): Boolean = scheduler.serves(FiatRates())
+
+    /**
+     * The fiat rates, from a source or from memory within [PRICE_TTL_MS]. When no source answers, the last ones kept, stale. Null when no source serves
+     * them, or none was ever kept and none answers.
+     */
+    suspend fun fiatRates(priority: Priority = Priority.VISIBLE): Kept<FiatQuote>? =
+        if (servesFiat()) kept(FIAT_KEY, jsonCodec<FiatQuote>(), FiatRates(), priority) else null
 
     /** The whole market's figures, from a source or from memory within [PRICE_TTL_MS]. When no source answers, the last ones kept, stale. */
     suspend fun market(priority: Priority = Priority.VISIBLE): Kept<MarketQuote>? =

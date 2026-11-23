@@ -2,6 +2,7 @@ package app.lumio.ui.settings
 
 import app.lensly.ui.camera.EntryGesture
 import app.lumio.data.config.DisplaySettings
+import app.lumio.data.config.FiatCurrency
 import app.lumio.data.config.FinishSetup
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.config.TransactionSettings
@@ -14,8 +15,9 @@ class SettingsSummariesTest {
 
     @Test
     fun theDisplayRowNamesTheTotalAndTheBalances() {
-        assertEquals("Total hidden · balances shown", displaySummary(DisplaySettings()))
-        assertEquals("Total shown · balances shown", displaySummary(DisplaySettings(showTotal = true)))
+        assertEquals("Total hidden · balances shown · USD", displaySummary(DisplaySettings()))
+        assertEquals("Total hidden · balances shown · EUR", displaySummary(DisplaySettings(currency = FiatCurrency.EUR)))
+        assertEquals("Total shown · balances shown · USD", displaySummary(DisplaySettings(showTotal = true)))
     }
 
     @Test
@@ -113,7 +115,7 @@ class SettingsSummariesTest {
     fun eachRowCarriesItsSummary() {
         val rows = settingsRows(facts, EntryGesture.DEFAULT, version = "0.1.0").associateBy { it.page }
 
-        assertEquals("Total hidden · balances shown", rows.getValue(SettingsPage.DISPLAY).summary)
+        assertEquals("Total hidden · balances shown · USD", rows.getValue(SettingsPage.DISPLAY).summary)
         assertEquals("3 chains on · Bitcoin default", rows.getValue(SettingsPage.NETWORKS).summary)
         assertEquals("7 of 9 sources on", rows.getValue(SettingsPage.PROVIDERS).summary)
         assertEquals("1 wallet · 2 saved addresses", rows.getValue(SettingsPage.ADDRESS_BOOK).summary)

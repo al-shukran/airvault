@@ -16,13 +16,13 @@ import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.data.Clock
 import app.lumio.data.WallClock
-import app.lumio.home.HomeFormat
 import app.lumio.ui.kit.ClearAirAmount
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirListRow
 import app.lumio.ui.kit.ClearAirRefreshBox
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.ClearAirWalletEmblem
+import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.pair.PairIntro
 
 /** One row of the Accounts list: the wallet's [id] and [name], its [summary] line, and its dollar [usd] total, or null when none of its balances has a price. */
@@ -84,7 +84,7 @@ fun WalletsScreen(
                                 title = row.name,
                                 description = row.summary,
                                 leading = { ClearAirWalletEmblem() },
-                                trailing = if (row.usd == null) null else ({ ClearAirAmount(text = HomeFormat.usd(row.usd), hidden = !showTotal, style = ClearAirType.rowValue) }),
+                                trailing = if (row.usd == null) null else ({ ClearAirAmount(text = LocalFiat.current.amount(row.usd), hidden = !showTotal, style = ClearAirType.rowValue) }),
                                 onClick = { onWallet(row.id) },
                             )
                         }
@@ -112,7 +112,7 @@ private fun WalletsHeader(count: Int, totalUsd: Double?, showTotal: Boolean, ref
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             ClearAirEyebrow(text = "Lensly Wallets · $count", modifier = Modifier.weight(1f))
-            totalUsd?.let { usd -> ClearAirAmount(text = HomeFormat.usd(usd), hidden = !showTotal, style = ClearAirType.rowValue) }
+            totalUsd?.let { usd -> ClearAirAmount(text = LocalFiat.current.amount(usd), hidden = !showTotal, style = ClearAirType.rowValue) }
         }
         FreshnessLine(refreshing = refreshing, updatedAtMs = updatedAtMs, clock = clock)
     }

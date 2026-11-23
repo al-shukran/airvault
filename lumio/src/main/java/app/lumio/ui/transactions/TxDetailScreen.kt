@@ -54,6 +54,7 @@ import app.lumio.transactions.TxDetail
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirTestnetHatch
 import app.lumio.ui.kit.ClearAirTextAction
+import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.shell.LumioPageScreen
 import java.math.BigDecimal
 import java.net.URI
@@ -169,7 +170,7 @@ private fun StatusHero(detail: TxDetail, zone: ZoneId, shown: Boolean) {
     val line = ActivityText.line(tx, chain = detail.chain, usd = detail.usd, party = null, zone = zone)
     val coins = PortfolioFormat.coins(BigDecimal(tx.amount).movePointLeft(tx.asset.decimals))
     val title = "${line.title} ${Masking.amount(coins, hidden = !shown)} ${tx.asset.symbol}"
-    val fiat = detail.usd?.takeIf { !tx.network.testnet }?.let { Masking.amount(PortfolioFormat.usd(it), hidden = !shown) }
+    val fiat = detail.usd?.takeIf { !tx.network.testnet }?.let { Masking.amount(LocalFiat.current.amount(it), hidden = !shown) }
     val summary = listOfNotNull(dateOf(tx.timestampMs, zone), statusOf(tx.status), fiat).joinToString(" · ")
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md),

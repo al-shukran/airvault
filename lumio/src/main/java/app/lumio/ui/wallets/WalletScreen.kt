@@ -33,6 +33,7 @@ import app.lumio.ui.kit.ClearAirMonogram
 import app.lumio.ui.kit.ClearAirRefreshBox
 import app.lumio.ui.kit.ClearAirSkeleton
 import app.lumio.ui.kit.ClearAirWalletEmblem
+import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.network.label
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
@@ -139,7 +140,7 @@ private fun WalletHero(detail: String?, totalUsd: Double?, showTotal: Boolean, r
         if (totalUsd == null) {
             Text(text = "No price yet", style = ClearAirType.rowTitle, color = LocalClearAirPalette.current.ink2)
         } else {
-            ClearAirAmount(text = HomeFormat.usd(totalUsd), hidden = !showTotal, style = ClearAirType.total)
+            ClearAirAmount(text = LocalFiat.current.amount(totalUsd), hidden = !showTotal, style = ClearAirType.total)
         }
         FreshnessLine(refreshing = refreshing, updatedAtMs = updatedAtMs, clock = clock, modifier = Modifier.padding(top = ClearAirSpacing.xxs))
     }
@@ -169,7 +170,7 @@ private fun ChainIsland(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             ClearAirEyebrow(text = "${WalletAccounts.familyLabel(family)} App · ${group.size}", modifier = Modifier.weight(1f))
-            groupUsd(group, usdOf)?.let { usd -> ClearAirAmount(text = HomeFormat.usd(usd), hidden = !showTotal, style = ClearAirType.rowValue) }
+            groupUsd(group, usdOf)?.let { usd -> ClearAirAmount(text = LocalFiat.current.amount(usd), hidden = !showTotal, style = ClearAirType.rowValue) }
         }
         rows.forEachIndexed { index, account ->
             if (index > 0) RowDivider(indent = ROW_DIVIDER_INDENT)
@@ -225,7 +226,7 @@ private fun AccountValue(account: WalletAccount, usd: Double?, showTotal: Boolea
         if (usd == null) {
             ClearAirAmount(text = coins, hidden = !showBalances, style = ClearAirType.rowValue)
         } else {
-            ClearAirAmount(text = HomeFormat.usd(usd), hidden = !showTotal, style = ClearAirType.rowValue)
+            ClearAirAmount(text = LocalFiat.current.amount(usd), hidden = !showTotal, style = ClearAirType.rowValue)
             ClearAirAmount(text = coins, hidden = !showBalances, style = ClearAirType.label, color = LocalClearAirPalette.current.ink2)
         }
     }
@@ -238,7 +239,7 @@ private fun FoldRow(count: Int, summary: String, usd: Double?, showTotal: Boolea
         title = moreAccountsTitle(count),
         description = summary,
         leading = { ClearAirMonogram(text = "+$count") },
-        trailing = if (usd == null) null else ({ ClearAirAmount(text = HomeFormat.usd(usd), hidden = !showTotal, style = ClearAirType.rowValue) }),
+        trailing = if (usd == null) null else ({ ClearAirAmount(text = LocalFiat.current.amount(usd), hidden = !showTotal, style = ClearAirType.rowValue) }),
         onClick = onClick,
     )
 }
