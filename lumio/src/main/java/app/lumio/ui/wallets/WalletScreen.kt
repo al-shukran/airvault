@@ -28,6 +28,7 @@ import app.lumio.data.WallClock
 import app.lumio.home.HomeFormat
 import app.lumio.network.NetworkMode
 import app.lumio.ui.kit.ClearAirAmount
+import app.lumio.ui.kit.ClearAirChangeLine
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirListRow
 import app.lumio.ui.kit.ClearAirNote
@@ -52,8 +53,9 @@ private val COINS_BAR_WIDTH = 44.dp
 private val DETAIL_EMBLEM = 24.dp
 
 /**
- * One paired wallet (C2), as the body of its page: its total under a "Total" eyebrow with the freshness line, and the line that says how many accounts
- * it holds in how many Lensly apps. Each chain family is an island under its own eyebrow and its total. An account opens its own page. A family's
+ * One paired wallet (C2), as the body of its page: its total under a "Total" eyebrow with its change over 24 hours ([changePct] and [changeUsd]) and the
+ * freshness line, and the line that says how many accounts it holds in how many Lensly apps. Each chain family is an island under its own eyebrow and
+ * its total. An account opens its own page. A family's
  * accounts that hold nothing, or are worth under [FOLD_BELOW_USD], fold into one "More Accounts" row that opens them in place. Pulling down reads the
  * balances again. The page's top bar is the shell's, so this has none. [tokenCounts] holds the tokens each Ethereum account holds, and [usdOf] gives an
  * account's value in dollars. [tokenUsd] gives the dollars of the tokens an account holds, which count toward its fold. [notice] names a read that did not answer.
@@ -75,6 +77,8 @@ fun WalletScreen(
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
     tokenUsd: Map<WalletAccount, Double> = emptyMap(),
+    changePct: Double? = null,
+    changeUsd: Double? = null,
     refreshByPull: Boolean = false,
     pairedAtMs: Long? = null,
     unreachable: Set<ChainId> = emptySet(),
@@ -87,6 +91,8 @@ fun WalletScreen(
                 WalletHero(
                     detail = walletDetailLine(accounts, pairedAtMs, zone),
                     totalUsd = totalUsd,
+                    changePct = changePct,
+                    changeUsd = changeUsd,
                     showTotal = showTotal,
                     refreshing = refreshing,
                     updatedAtMs = updatedAtMs,
@@ -128,11 +134,20 @@ fun WalletScreen(
 }
 
 /**
- * The hero of a wallet: "Total" over its total, the line that says what it holds, and the freshness line. A wallet with no price says so in place of
- * its total.
+ * The hero of a wallet: "Total" over its total, its change over 24 hours, the line that says what it holds, and the freshness line. A wallet with no
+ * price says so in place of its total.
  */
 @Composable
-private fun WalletHero(detail: String?, totalUsd: Double?, showTotal: Boolean, refreshing: Boolean, updatedAtMs: Long?, clock: Clock) {
+private fun WalletHero(
+    detail: String?,
+    totalUsd: Double?,
+    changePct: Double?,
+    changeUsd: Double?,
+    showTotal: Boolean,
+    refreshing: Boolean,
+    updatedAtMs: Long?,
+    clock: Clock,
+) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.sm)) {
         if (detail != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -147,6 +162,7 @@ private fun WalletHero(detail: String?, totalUsd: Double?, showTotal: Boolean, r
         } else {
             ClearAirAmount(text = LocalFiat.current.amount(totalUsd), hidden = !showTotal, style = ClearAirType.total)
         }
+        ClearAirChangeLine(changePct = changePct, changeUsd = changeUsd, shown = showTotal, modifier = Modifier.padding(top = ClearAirSpacing.xxs))
         FreshnessLine(refreshing = refreshing, updatedAtMs = updatedAtMs, clock = clock, modifier = Modifier.padding(top = ClearAirSpacing.xxs))
     }
 }
