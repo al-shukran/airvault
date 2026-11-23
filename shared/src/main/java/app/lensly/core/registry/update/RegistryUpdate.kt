@@ -73,17 +73,15 @@ object RegistryUpdate {
     /**
      * Stores [bytes] as the installed package in [dir] when they verify and their sequence is higher than the last
      * accepted one. An older or equal sequence is refused with [RegistryUpdateException.NotNewer]. On any failure
-     * nothing is written. [legacy] is the directory an earlier build installed into, see [carryLegacy].
+     * nothing is written.
      */
     fun install(
         bytes: ByteArray,
         trustedKeys: List<TrustedKey>,
         baked: Registry,
         dir: File,
-        legacy: File? = null,
     ): Result<RegistryPackage> = synchronized(installLock) {
         runCatching {
-            legacy?.let { carryLegacy(it, dir, trustedKeys) }
             val incoming = verify(bytes, trustedKeys, baked).getOrThrow()
             val accepted = acceptedSequence(dir, trustedKeys)
             if (incoming.sequence <= accepted) {
@@ -157,27 +155,6 @@ object RegistryUpdate {
         if (installed == null && recorded == null) throw RegistryUpdateException.SequenceUnknown()
         return maxOf(installed ?: 0, recorded ?: 0)
     }
-
-    /**
-     * Carries the rollback floor of [legacy] into [dir]. An earlier build installed the registry into a directory named
-     * `registry`, so a device that updated from it still holds its floor there while [dir] starts empty, and an older
-     * package would be accepted again. The directory with the higher floor becomes [dir], and [legacy] is erased either
-     * way. An unreadable floor counts as the highest, so the result refuses installs rather than falling back to 0. A
-     * crash before the move leaves [legacy] in place for the next install.
-     */
-    private fun carryLegacy(legacy: File, dir: File, trustedKeys: List<TrustedKey>) {
-        if (legacy == dir || !legacy.isDirectory) return
-        if (floorOf(legacy, trustedKeys) > floorOf(dir, trustedKeys)) {
-            dir.deleteRecursively()
-            check(legacy.renameTo(dir)) { "cannot move ${legacy.path} to ${dir.path}" }
-        } else {
-            legacy.deleteRecursively()
-        }
-    }
-
-    /** [acceptedSequence] of [dir], or [Long.MAX_VALUE] when that is unknown, so an unknown floor is always the higher one. */
-    private fun floorOf(dir: File, trustedKeys: List<TrustedKey>): Long =
-        runCatching { acceptedSequence(dir, trustedKeys) }.getOrDefault(Long.MAX_VALUE)
 
     private fun checkAgainstBaked(pkg: RegistryPackage, baked: Registry) {
         for (network in pkg.networks) {

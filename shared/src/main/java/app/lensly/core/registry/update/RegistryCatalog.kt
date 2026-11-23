@@ -6,14 +6,12 @@ import java.io.File
 /**
  * The catalog that sign requests are checked against: the [baked] registry plus the installed package in [dir].
  * The merged view is built when the catalog is created. [install] rebuilds it after an accepted package, so the
- * new entries count at once, without a restart. [legacy] is the directory an earlier build installed into; see
- * [RegistryUpdate.install].
+ * new entries count at once, without a restart.
  */
 class RegistryCatalog(
     private val baked: Registry,
     private val dir: File,
     private val trustedKeys: List<TrustedKey>,
-    private val legacy: File? = null,
 ) {
     private var merged: Registry = RegistryUpdate.withInstalled(baked, dir, trustedKeys)
 
@@ -35,7 +33,7 @@ class RegistryCatalog(
      */
     @Synchronized
     fun install(bytes: ByteArray): Result<RegistryPackage> =
-        RegistryUpdate.install(bytes, trustedKeys, baked, dir, legacy).onSuccess {
+        RegistryUpdate.install(bytes, trustedKeys, baked, dir).onSuccess {
             merged = RegistryUpdate.withInstalled(baked, dir, trustedKeys)
         }
 }
