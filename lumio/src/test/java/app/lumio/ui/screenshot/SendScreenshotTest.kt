@@ -6,6 +6,7 @@ import app.airvault.chains.evm.calldataHash
 import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.ui.components.groupAddress
+import app.lumio.data.config.TransactionSettings
 import app.lumio.evm.EvmChain
 import app.lumio.evm.PreparedSend
 import app.lumio.pair.PairFixtures
@@ -349,6 +350,7 @@ class SendScreenshotTest {
             recipient = "FelixStone",
             amount = "0.25 MON",
             remaining = 2,
+            total = TransactionSettings.DEFAULT_LAST_CHANCE_SECONDS,
             sending = false,
             onSendNow = {},
             onStop = {},

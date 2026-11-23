@@ -11,6 +11,8 @@ import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.DisplaySettingsStore
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.config.ProviderConfigStore
+import app.lumio.data.config.TransactionSettings
+import app.lumio.data.config.TransactionSettingsStore
 import app.lumio.data.db.LumioDatabase
 import app.lumio.data.scan.ScanRows
 import app.lumio.data.tx.TxKeys
@@ -74,6 +76,22 @@ class LumioVault(val session: VaultSession, database: LumioDatabase, clock: Cloc
         val next = change(displayState.value)
         DisplaySettingsStore.write(session, next)
         displayState.value = next
+    }
+
+    private val transactionState = MutableStateFlow(TransactionSettingsStore.read(session))
+
+    /** The transaction settings of this vault, as they were last saved or read. Activity and the send flow collect it, and the settings screen changes it. */
+    val transactions: StateFlow<TransactionSettings> = transactionState.asStateFlow()
+
+    /**
+     * Saves the transaction settings that [change] makes of the current ones, in one write, and then publishes them to [transactions]. A write that fails
+     * throws, and [transactions] keeps the settings it had.
+     */
+    @Synchronized
+    fun updateTransactions(change: (TransactionSettings) -> TransactionSettings) {
+        val next = change(transactionState.value)
+        TransactionSettingsStore.write(session, next)
+        transactionState.value = next
     }
 
     /** The balances that the wallet screens of this vault share. [LumioApp] sets it as the vault opens, and [wipe] closes it when the vault locks. */

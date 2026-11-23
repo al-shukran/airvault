@@ -162,8 +162,9 @@ internal fun AssetRoute(
         )
     }
     val vault = app.lumioVault()
-    val coinActivity by produceState<ActivityPage?>(initialValue = null, vault, asset, selection.mode, listVersion) {
-        value = vault?.let { PortfolioReads.activity(app, it, selection.mode, ActivityFilter(coin = asset), includeSpam = false) }
+    val includeSpam = rememberTransactions(app).activityIncludesSpam
+    val coinActivity by produceState<ActivityPage?>(initialValue = null, vault, asset, selection.mode, listVersion, includeSpam) {
+        value = vault?.let { PortfolioReads.activity(app, it, selection.mode, ActivityFilter(coin = asset), includeSpam = includeSpam) }
     }
     AssetPage(
         name = name,
