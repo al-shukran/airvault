@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
+import app.lensly.ui.flow.BiometricEnableAppPorts
 import app.lensly.ui.navigation.GateOutcome
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.HiddenBackdrop
@@ -136,6 +137,7 @@ private fun DeviceProtectionStep(holder: VaultHolder, onDone: () -> Unit) {
     val scope = rememberCoroutineScope()
     var asking by remember { mutableStateOf(false) }
     val available = remember { biometric.canEnable() }
+    val ports = remember { DeviceProtectionPorts(BiometricEnableAppPorts(holder, biometric), holder) }
     DeviceProtectionScreen(
         available = available,
         onEnable = submit@{
@@ -143,7 +145,7 @@ private fun DeviceProtectionStep(holder: VaultHolder, onDone: () -> Unit) {
             if (asking || !available || session == null) return@submit
             asking = true
             scope.launch {
-                val enabled = biometric.enable(session)
+                val enabled = ports.enable()
                 asking = false
                 if (enabled) onDone()
             }

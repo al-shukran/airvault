@@ -94,7 +94,7 @@ private fun DeviceProtectionEnableScreen(
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val flow = remember { BiometricEnableFlow(BiometricEnableAppPorts(holder, biometric)) }
+    val flow = remember { BiometricEnableFlow(DeviceProtectionPorts(BiometricEnableAppPorts(holder, biometric), holder)) }
     val password = remember { PasswordBuffer() }
     val step by flow.state.collectAsState()
     var length by remember { mutableIntStateOf(0) }
