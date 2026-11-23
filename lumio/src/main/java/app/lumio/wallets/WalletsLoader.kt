@@ -1,12 +1,14 @@
 package app.lumio.wallets
 
 import app.airvault.core.model.AccountId
+import app.airvault.core.model.ChainId
 import app.lensly.core.vault.VaultSession
 import app.lumio.LumioApp
 import app.lumio.btc.BtcAccountRef
 import app.lumio.chains.NativeBalanceCache
 import app.lumio.chains.NativeBalances
 import app.lumio.data.asset.AssetId
+import app.lumio.data.net.Networks
 import app.lumio.data.price.Price
 import app.lumio.evm.BalanceCache
 import app.lumio.evm.EvmCatalog
@@ -45,6 +47,14 @@ class WalletsView(
     private fun balancesOf(walletId: String) = accountsOf(walletId).mapNotNull { it.balance }
 }
 
+/**
+ * What a refresh did not get: the chains whose read did not answer, and whether a read failed as a whole, so that no chain can be named for it.
+ */
+data class RefreshResult(val unreachable: Set<ChainId>, val unreadable: Boolean) {
+    /** True when any read did not answer. */
+    val failed: Boolean get() = unreadable || unreachable.isNotEmpty()
+}
+
 /** Reads the wallets' accounts from the vault, and refreshes their balances from the networks. */
 internal object WalletsLoader {
     /**
@@ -59,14 +69,15 @@ internal object WalletsLoader {
     }
 
     /**
-     * Reads the Ethereum, Algorand and Solana balances of [mode]'s side, and scans its Bitcoin accounts. Returns true when a read did not answer. A read
-     * that failed keeps its cached balance.
+     * Reads the Ethereum, Algorand and Solana balances of [mode]'s side, and scans its Bitcoin accounts. A read that failed keeps its cached balance,
+     * and the result names the chains that did not answer.
      */
-    suspend fun refresh(app: LumioApp, session: VaultSession, mode: NetworkMode): Boolean {
+    suspend fun refresh(app: LumioApp, session: VaultSession, mode: NetworkMode): RefreshResult {
         val ethereum = readOrNull { HomeLoader.refreshEvm(app, session, mode) }
         val native = readOrNull { HomeLoader.refreshNative(app, session, mode) }
         readOrNull { HomeLoader.scanBitcoin(app, session, mode) }
-        return ethereum == null || ethereum.isNotEmpty() || native == null || native.isNotEmpty()
+        val unreachable = ethereum.orEmpty().map { Networks.evm(it.chainId) } + native.orEmpty().map { it.network.chain }
+        return RefreshResult(unreachable = unreachable.toSet(), unreadable = ethereum == null || native == null)
     }
 
     /**

@@ -12,6 +12,7 @@ import androidx.compose.ui.test.filterToOne
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -30,12 +31,14 @@ import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.screenshot.SCREENSHOT_DIR
+import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.settings.NoticeBlock
 import app.lensly.ui.settings.ThirdPartyLicencesScreen
 import app.lensly.ui.theme.LumenTheme
 import app.lensly.ui.components.groupAddress
 import app.lumio.btc.BtcSend
 import app.lumio.btc.btcText
+import app.lumio.ui.settings.ResetLumioDialog
 import app.lumio.btc.BtcSendPlan
 import app.lumio.btc.BtcSpendable
 import app.lumio.evm.CustomChain
@@ -147,6 +150,24 @@ class LumioCoverageScreenshotTest {
             onBack = {},
             onLock = {},
         )
+    }
+
+    @Test
+    fun resetLumioDialog() = dialogSnapshot(
+        name = "reset_lumio_dialog",
+        title = "Reset Lumio?",
+        open = {},
+    ) {
+        ClearAirTheme { ResetLumioDialog(onDismiss = {}, onConfirm = {}) }
+    }
+
+    @Test
+    fun resetLumioDialogTicked() = dialogSnapshot(
+        name = "reset_lumio_dialog_ticked",
+        title = "Reset Lumio?",
+        open = { onNode(isToggleable()).performClick() },
+    ) {
+        ClearAirTheme { ResetLumioDialog(onDismiss = {}, onConfirm = {}) }
     }
 
     @Test

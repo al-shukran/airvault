@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lumio.ui.pair.PairIntro
+import app.lumio.ui.scan.CameraDeniedNote
 import app.lumio.ui.scan.LumioScanFrame
 import org.junit.Rule
 import org.junit.Test
@@ -45,6 +46,19 @@ class PairScreensScreenshotTest {
             onCancel = {},
         ) { viewport ->
             androidx.compose.foundation.layout.Box(modifier = viewport.background(MaterialTheme.colorScheme.surfaceContainerLow))
+        }
+    }
+
+    @Test
+    fun scanPairCameraDenied() = compose.lumioSnapshot("scan_pair_camera_denied") {
+        LumioScanFrame(
+            title = "Scan Pairing Code",
+            progress = null,
+            statusText = "",
+            complete = false,
+            onCancel = {},
+        ) { viewport ->
+            CameraDeniedNote(onOpenSettings = {}, modifier = viewport)
         }
     }
 }

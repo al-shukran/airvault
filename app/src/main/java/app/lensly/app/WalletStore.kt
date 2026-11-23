@@ -6,6 +6,7 @@ import app.airvault.core.signer.Path
 import app.lensly.app.export.BrotliCompressor
 import app.lensly.app.export.BrotliEncoder
 import app.lensly.app.export.PairingCodec
+import app.lensly.app.export.PairingExport
 import app.lensly.app.export.PairingPayload
 import app.lensly.app.export.fitBytes
 import app.lensly.core.algorand.AlgorandAccount
@@ -574,6 +575,19 @@ class WalletStore(private val session: VaultSession) {
         val bytes = WalletRecords.encodeBitcoinAccounts(accounts)
         require(bytes.size <= WalletRecordNames.BITCOIN_CAPACITY) { NO_ROOM_FOR_BITCOIN }
         session.putRecord(id, WalletRecords.BITCOIN, bytes)
+    }
+
+    /**
+     * The Rabby and MetaMask pairing of Mnemonic wallet [id] (see [PairingExport]), named [name]. Their importer lists accounts in whole
+     * pages, so a wallet whose account count is not a multiple of [PairingExport.ACCOUNTS_PER_PAGE] first gets the accounts that complete
+     * its last page, as a Bulk Run would add them. The importer then lists exactly the wallet's accounts, and Lensly signs for each of them.
+     */
+    fun ethereumPairingParts(id: String, name: String): List<String> {
+        var meta = requireNotNull(meta(id)) { "No wallet $id." }
+        val missing = PairingExport.exportedCount(meta.accountCount) - meta.accountCount
+        if (missing > 0) meta = addAccounts(id, missing, cap = missing) ?: return ethereumPairingParts(id, name)
+        val fingerprint = requireNotNull(meta.masterFingerprintHex) { "Only a Mnemonic wallet has a fingerprint." }.toLong(16).toInt()
+        return PairingExport.urParts(meta.accountKeys, fingerprint, name)
     }
 
     /**

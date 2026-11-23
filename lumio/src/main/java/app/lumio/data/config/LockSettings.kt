@@ -66,6 +66,11 @@ class LockSettingsStore(private val prefs: SharedPreferences) {
             .apply()
     }
 
+    /** Removes every saved choice, so [load] reads the defaults. It waits for the write, because a reset must not leave a choice behind. */
+    fun erase() {
+        prefs.edit().clear().commit()
+    }
+
     companion object {
         /** The preference file. Its name says lock, not the vault. */
         const val FILE = "lumio_lock"

@@ -36,7 +36,8 @@ class FirstSyncScreenshotTest {
                 SyncRow.ALGORAND to SyncState.Queued,
                 SyncRow.PRICES to SyncState.Queued,
             ),
-            onOpenWallet = {},
+            onViewAccounts = {},
+            onFinish = {},
             onLock = {},
         )
     }
@@ -54,7 +55,8 @@ class FirstSyncScreenshotTest {
                 SyncRow.ALGORAND to SyncState.Queued,
                 SyncRow.PRICES to SyncState.Queued,
             ),
-            onOpenWallet = {},
+            onViewAccounts = {},
+            onFinish = {},
             onLock = {},
         )
     }
@@ -72,7 +74,8 @@ class FirstSyncScreenshotTest {
                 SyncRow.ALGORAND to SyncState.Done,
                 SyncRow.PRICES to SyncState.Done,
             ),
-            onOpenWallet = {},
+            onViewAccounts = {},
+            onFinish = {},
             onLock = {},
         )
     }
@@ -84,7 +87,8 @@ class FirstSyncScreenshotTest {
             accounts = ACCOUNTS,
             chains = CHAINS,
             rows = SyncRow.entries.associateWith { SyncState.Done },
-            onOpenWallet = {},
+            onViewAccounts = {},
+            onFinish = {},
             onLock = {},
         )
     }
@@ -97,7 +101,8 @@ class FirstSyncScreenshotTest {
             accounts = ACCOUNTS,
             chains = CHAINS,
             rows = SyncRow.entries.associateWith { SyncState.Done },
-            onOpenWallet = {},
+            onViewAccounts = {},
+            onFinish = {},
             onLock = {},
         )
     }

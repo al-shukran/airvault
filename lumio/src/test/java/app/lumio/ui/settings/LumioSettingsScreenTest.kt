@@ -35,7 +35,7 @@ class LumioSettingsScreenTest {
 
     @Test
     fun theListShowsEachPageWithItsStateUnderItsTitle() {
-        compose.setContent { ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(), onFinish = {}, onOpen = {}) } }
+        compose.setContent { ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(), onFinish = {}, onOpen = {}, onReset = {}) } }
 
         for (row in rows) {
             compose.onNodeWithText(row.page.title).assertExists()
@@ -45,7 +45,7 @@ class LumioSettingsScreenTest {
 
     @Test
     fun theListHasNoSaveAndNoDeveloperRowInRelease() {
-        compose.setContent { ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(), onFinish = {}, onOpen = {}) } }
+        compose.setContent { ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(), onFinish = {}, onOpen = {}, onReset = {}) } }
 
         compose.onAllNodesWithText("Save", ignoreCase = true).assertCountEquals(0)
         compose.onNodeWithText("Developer").assertDoesNotExist()
@@ -55,7 +55,7 @@ class LumioSettingsScreenTest {
     fun tappingARowOpensItsPage() {
         var opened: SettingsPage? = null
         compose.setContent {
-            ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(), onFinish = {}, onOpen = { opened = it }) }
+            ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(), onFinish = {}, onOpen = { opened = it }, onReset = {}) }
         }
 
         compose.onNodeWithText("Security").performScrollTo().performClick()
@@ -67,7 +67,7 @@ class LumioSettingsScreenTest {
     fun theWalletsRowOpensTheWalletsPage() {
         var opened: SettingsPage? = null
         compose.setContent {
-            ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(), onFinish = {}, onOpen = { opened = it }) }
+            ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(), onFinish = {}, onOpen = { opened = it }, onReset = {}) }
         }
 
         compose.onNodeWithText("Wallets").performScrollTo().performClick()
@@ -78,7 +78,7 @@ class LumioSettingsScreenTest {
     @Test
     fun theChecklistCountsTheTickedItemsAndListsTheOpenOnes() {
         compose.setContent {
-            ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(setOf(FinishItem.PAIR)), onFinish = {}, onOpen = {}) }
+            ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(setOf(FinishItem.PAIR)), onFinish = {}, onOpen = {}, onReset = {}) }
         }
 
         compose.onNodeWithText("Finish Setting Up").assertExists()
@@ -92,7 +92,7 @@ class LumioSettingsScreenTest {
     fun tappingAnOpenChecklistItemOpensThePageWhereItIsDone() {
         var opened: FinishItem? = null
         compose.setContent {
-            ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(), onFinish = { opened = it }, onOpen = {}) }
+            ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(), onFinish = { opened = it }, onOpen = {}, onReset = {}) }
         }
 
         compose.onNodeWithText("Enable Device Protection").performScrollTo().performClick()
@@ -104,7 +104,7 @@ class LumioSettingsScreenTest {
     fun theChecklistIsGoneOnceEveryItemIsTicked() {
         compose.setContent {
             ClearAirTheme {
-                LumioSettingsScreen(rows = rows, finish = FinishSetup(FinishItem.entries.toSet()), onFinish = {}, onOpen = {})
+                LumioSettingsScreen(rows = rows, finish = FinishSetup(FinishItem.entries.toSet()), onFinish = {}, onOpen = {}, onReset = {})
             }
         }
 

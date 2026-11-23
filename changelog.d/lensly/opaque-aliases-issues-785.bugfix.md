@@ -1,1 +1,0 @@
-Lensly's Android Keystore key names, the registry folder and the biometric unlock file no longer say what they hold. Keys made by earlier versions cannot be found, so a vault from an earlier version is erased on its first unlock after this update, as the header check above describes.
