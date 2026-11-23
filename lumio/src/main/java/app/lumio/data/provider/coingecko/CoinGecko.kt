@@ -137,7 +137,8 @@ class CoinGeckoProvider : Provider {
 
     /**
      * The logo of the token that [req] names: the image that its record names, read from the image's own URL. The record and the image are read
-     * without the key, since the image is served from a host that takes none.
+     * without the key, since the image is served from a host that takes none. A record the source does not have is [ProviderError.NotFound]. The
+     * image must be HTTPS, and it is charged to the rate bucket as the second request of the call.
      */
     private suspend fun logo(req: TokenLogo, cfg: ProviderConfig, http: Http): LogoImage {
         val platform = checkNotNull(platformOf(req.net))
@@ -147,8 +148,10 @@ class CoinGeckoProvider : Provider {
             .addPathSegment("contract")
             .addPathSegment(req.contract.lowercase())
             .build()
-        val image = answerObject(fetchText(http.noRedirects(), request(cfg, url), banMs = null))["image"].asObject()
-        val imageUrl = (image["small"] ?: image["thumb"]).text().toHttpUrlOrNull() ?: throw ProviderError.Fatal("The logo URL is not a URL.")
+        val image = answerObject(fetchText(http.noRedirects(), request(cfg, url), banMs = null, notFoundIsAnswer = true))["image"].asObject()
+        val imageUrl = (image["small"].present() ?: image["thumb"]).text().toHttpUrlOrNull()?.takeIf { it.scheme == "https" }
+            ?: throw ProviderError.Fatal("The logo URL is not an HTTPS URL.")
+        http.charge()
         return LogoImage(fetchBytes(http.noRedirects(), HttpRequest.Builder().url(imageUrl).get().build(), LOGO_LIMIT_BYTES))
     }
 

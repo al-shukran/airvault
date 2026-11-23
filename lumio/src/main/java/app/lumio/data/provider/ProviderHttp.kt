@@ -5,9 +5,7 @@ import java.math.BigInteger
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -55,27 +53,10 @@ internal fun providerBase(raw: String?, default: String): HttpUrl? {
 internal fun Http.noRedirects(): OkHttpClient = client.newBuilder().followRedirects(false).followSslRedirects(false).build()
 
 /**
- * Sends [request] off the main thread and returns the answer text. A status that is not a success becomes the [ProviderError] that
- * [failureFor] names. An IOException is left for the scheduler, which reads it as transient. Cancelling the coroutine cancels the call, so a
- * request that the scheduler has given up on stops at once. [notFoundIsAnswer] is set for a lookup whose 404 means "no such thing".
+ * Sends [request] off the main thread and hands its answer to [read]. Cancelling the coroutine cancels the call, so a request that the scheduler has
+ * given up on stops at once. An IOException is left for the scheduler, which reads it as transient.
  */
-/**
- * The body of a successful answer to [request], as bytes. An answer larger than [limit] bytes is a fatal answer, and a status that is not a success is
- * read as [fetchText] reads it.
- */
-internal suspend fun fetchBytes(client: OkHttpClient, request: okhttp3.Request, limit: Long): ByteArray = withContext(Dispatchers.IO) {
-    client.newCall(request).execute().use { answer ->
-        if (!answer.isSuccessful) throw failureFor(answer.code, answer.header("Retry-After"), banMs = null)
-        answer.body.bytes().also { if (it.size > limit) throw ProviderError.Fatal("The answer is larger than $limit bytes.") }
-    }
-}
-
-internal suspend fun fetchText(
-    client: OkHttpClient,
-    request: okhttp3.Request,
-    banMs: Long?,
-    notFoundIsAnswer: Boolean = false,
-): String = suspendCancellableCoroutine { cont ->
+private suspend fun <T> enqueueRead(client: OkHttpClient, request: okhttp3.Request, read: (Response) -> T): T = suspendCancellableCoroutine { cont ->
     val call = client.newCall(request)
     cont.invokeOnCancellation { call.cancel() }
     call.enqueue(object : Callback {
@@ -84,15 +65,34 @@ internal suspend fun fetchText(
         }
 
         override fun onResponse(c: Call, response: Response) {
-            val result = runCatching {
-                response.use { answer ->
-                    if (!answer.isSuccessful) throw failureFor(answer.code, answer.header("Retry-After"), banMs, notFoundIsAnswer)
-                    readAnswer(answer)
-                }
-            }
+            val result = runCatching { response.use(read) }
             if (cont.isActive) cont.resumeWith(result)
         }
     })
+}
+
+/**
+ * The body of a successful answer to [request], as bytes. An answer larger than [limit] bytes is a fatal answer, and a status that is not a success is
+ * read as [fetchText] reads it.
+ */
+internal suspend fun fetchBytes(client: OkHttpClient, request: okhttp3.Request, limit: Long): ByteArray = enqueueRead(client, request) { answer ->
+    if (!answer.isSuccessful) throw failureFor(answer.code, answer.header("Retry-After"), banMs = null)
+    readBytes(answer, limit)
+}
+
+/**
+ * Sends [request] off the main thread and returns the answer text. A status that is not a success becomes the [ProviderError] that
+ * [failureFor] names. An IOException is left for the scheduler, which reads it as transient. [notFoundIsAnswer] is set for a lookup whose 404 means
+ * "no such thing".
+ */
+internal suspend fun fetchText(
+    client: OkHttpClient,
+    request: okhttp3.Request,
+    banMs: Long?,
+    notFoundIsAnswer: Boolean = false,
+): String = enqueueRead(client, request) { answer ->
+    if (!answer.isSuccessful) throw failureFor(answer.code, answer.header("Retry-After"), banMs, notFoundIsAnswer)
+    readAnswer(answer)
 }
 
 /**
@@ -133,6 +133,16 @@ private fun readAnswer(response: Response): String {
     val source = (response.body ?: throw ProviderError.Transient(IOException("The answer has no body."))).source()
     if (source.request(MAX_ANSWER_BYTES + 1)) throw ProviderError.Transient(IOException("The answer is larger than $MAX_ANSWER_BYTES bytes."))
     return source.readUtf8()
+}
+
+/**
+ * Reads the body, which must fit in [limit] bytes. The source is asked for one byte past the limit, so a longer body is refused before more than that
+ * is read or buffered.
+ */
+private fun readBytes(response: Response, limit: Long): ByteArray {
+    val source = (response.body ?: throw ProviderError.Transient(IOException("The answer has no body."))).source()
+    if (source.request(limit + 1)) throw ProviderError.Fatal("The answer is larger than $limit bytes.")
+    return source.readByteArray()
 }
 
 /**

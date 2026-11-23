@@ -21,6 +21,7 @@ import app.lumio.data.provider.TrendingCoins
 import app.lumio.data.provider.TokenLogo
 import app.lumio.data.provider.TrendingList
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -30,8 +31,11 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
+import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
-import okio.Buffer
+import okhttp3.Protocol
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -56,7 +60,7 @@ class CoinGeckoProviderTest {
 
     private fun cfg(key: String? = null) = ProviderConfig(baseUrl = server.url("/api/v3/").toString(), apiKey = key)
 
-    private fun <T> call(req: Request<T>, key: String? = null): T = runBlocking { CoinGeckoProvider().execute(req, cfg(key), http) }
+    private fun <T> call(req: Request<T>, key: String? = null, client: Http = http): T = runBlocking { CoinGeckoProvider().execute(req, cfg(key), client) }
 
     /** A price is kept for a keyed CoinGecko, so the price tests send the demo key. */
     private fun price(req: NativePrice, key: String? = DEMO_KEY): PriceQuote = call(req, key)
@@ -207,21 +211,55 @@ class CoinGeckoProviderTest {
     @Test
     fun aTokenLogoIsTheImageItsRecordNamesAndNeedsNoKey() {
         val image = "logo-bytes".encodeToByteArray()
-        server.enqueue(
-            MockResponse.Builder().body(
-                """{"image":{"thumb":"${server.url("/img/thumb.png")}","small":"${server.url("/img/small.png")}"}}""",
-            ).build(),
-        )
-        server.enqueue(MockResponse.Builder().body(Buffer().write(image)).build())
+        server.enqueue(MockResponse.Builder().body("""{"image":{"small":"https://$IMAGE_HOST/img/small.png"}}""").build())
+        val served = ArrayList<HttpUrl>()
+        val charges = AtomicInteger()
 
-        val logo: LogoImage = call(TokenLogo(ETH, USDC))
+        val logo: LogoImage = call(TokenLogo(ETH, USDC), client = logoHttp(image, served, charges))
 
         assertContentEquals(image, logo.bytes)
         val record = server.takeRequest()
         assertEquals("/api/v3/coins/ethereum/contract/$USDC", record.target)
         assertNull(record.headers["x-cg-demo-api-key"])
-        assertEquals("/img/small.png", server.takeRequest().target)
+        assertEquals("/img/small.png", served.single().encodedPath)
+        assertEquals(1, charges.get())
     }
+
+    @Test
+    fun aNullSmallLogoFallsBackToThumb() {
+        server.enqueue(MockResponse.Builder().body("""{"image":{"small":null,"thumb":"https://$IMAGE_HOST/img/thumb.png"}}""").build())
+        val served = ArrayList<HttpUrl>()
+
+        call(TokenLogo(ETH, USDC), client = logoHttp("logo-bytes".encodeToByteArray(), served))
+
+        assertEquals("/img/thumb.png", served.single().encodedPath)
+    }
+
+    @Test
+    fun aTokenTheSourceHasNoRecordForIsNotFoundAndNotAFatalAnswer() {
+        server.enqueue(MockResponse.Builder().code(404).body("""{"error":"Coin not found"}""").build())
+
+        assertFailsWith<ProviderError.NotFound> { call(TokenLogo(ETH, USDC)) }
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun aLogoOverPlainHttpIsRefusedBeforeItIsFetched() {
+        server.enqueue(MockResponse.Builder().body("""{"image":{"small":"http://$IMAGE_HOST/img/small.png"}}""").build())
+        val served = ArrayList<HttpUrl>()
+
+        assertFailsWith<ProviderError.Fatal> { call(TokenLogo(ETH, USDC), client = logoHttp("logo-bytes".encodeToByteArray(), served)) }
+        assertTrue(served.isEmpty())
+    }
+
+    /** A client whose image host answers [image] with no network, so a logo URL can be HTTPS. Its requests are listed in [served]. */
+    private fun logoHttp(image: ByteArray, served: MutableList<HttpUrl>, charges: AtomicInteger = AtomicInteger()): Http = Http(
+        OkHttpClient.Builder().callTimeout(5, TimeUnit.SECONDS).addInterceptor { chain ->
+            if (chain.request().url.host != IMAGE_HOST) return@addInterceptor chain.proceed(chain.request())
+            served.add(chain.request().url)
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("OK").body(image.toResponseBody()).build()
+        }.build(),
+    ) { charges.incrementAndGet() }
 
     @Test
     fun aTokenOffTheEvmMainnetsHasNoLogoAndIsNeverAsked() {
@@ -233,5 +271,6 @@ class CoinGeckoProviderTest {
     private companion object {
         const val DEMO_KEY = "demo-key"
         const val USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        const val IMAGE_HOST = "img.example"
     }
 }
