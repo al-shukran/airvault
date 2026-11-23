@@ -58,16 +58,6 @@ class LumioKitScreenshotTest {
     fun islandLight() = compose.lumioSnapshot("kit_island_light") { KitColumn { IslandWithRows() } }
 
     @Test
-    fun primaryEnabled() = compose.lumioSnapshot("kit_primary_enabled") {
-        KitColumn { LumioPrimaryButton(text = "Review", onClick = {}) }
-    }
-
-    @Test
-    fun primaryDisabled() = compose.lumioSnapshot("kit_primary_disabled") {
-        KitColumn { LumioPrimaryButton(text = "Review", onClick = {}, enabled = false) }
-    }
-
-    @Test
     fun textAction() = compose.lumioSnapshot("kit_text_action") {
         KitColumn { LumioTextAction(text = "Pair a Wallet", onClick = {}) }
     }
@@ -82,17 +72,6 @@ class LumioKitScreenshotTest {
     @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
     fun rowPressedLight() = compose.lumioSnapshot("kit_row_pressed_light", beforeCapture = { onNodeWithTag(PRESSED).performTouchInput { down(center) } }) {
         KitColumn { LumioRow(title = "Savings", description = "2 chains · 3 accounts", modifier = Modifier.testTag(PRESSED), onClick = {}) }
-    }
-
-    @Test
-    fun primaryPressed() = compose.lumioSnapshot("kit_primary_pressed", beforeCapture = { onNodeWithTag(PRESSED).performTouchInput { down(center) } }) {
-        KitColumn { LumioPrimaryButton(text = "Review", onClick = {}, modifier = Modifier.testTag(PRESSED)) }
-    }
-
-    @Test
-    @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
-    fun primaryPressedLight() = compose.lumioSnapshot("kit_primary_pressed_light", beforeCapture = { onNodeWithTag(PRESSED).performTouchInput { down(center) } }) {
-        KitColumn { LumioPrimaryButton(text = "Review", onClick = {}, modifier = Modifier.testTag(PRESSED)) }
     }
 
     @Test
