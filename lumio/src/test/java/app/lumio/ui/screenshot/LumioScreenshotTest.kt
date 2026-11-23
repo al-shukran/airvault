@@ -37,16 +37,17 @@ import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.settings.AboutSettingsPage
 import app.lumio.ui.settings.AddressBookRows
 import app.lumio.ui.settings.AddressBookSettingsPage
+import app.lumio.ui.settings.BiometricSwitch
 import app.lumio.ui.settings.BitcoinServersSettings
 import app.lumio.ui.settings.CommentBackupRows
 import app.lumio.ui.settings.DataProvidersScreen
+import app.lumio.ui.settings.DeviceProtectionSettingsPage
 import app.lumio.ui.settings.DisplaySettingsPage
 import app.lumio.ui.settings.EvmSettingsSection
 import app.lumio.ui.settings.LumioSettingsScreen
 import app.lumio.ui.settings.NetworksSettingsPage
 import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.ProviderStatus
-import app.lumio.ui.settings.BiometricSwitch
 import app.lumio.ui.settings.SecuritySettingsPage
 import app.lumio.ui.settings.SettingsFacts
 import app.lumio.ui.settings.TransactionsSettingsPage
@@ -229,10 +230,10 @@ class LumioScreenshotTest {
         SecuritySettingsPage(
             entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE,
             lock = LockSettings(),
-            biometric = BiometricSwitch(on = false, canEnable = true),
+            deviceProtectionOn = false,
             onEntryGesture = {},
             onChangePassword = {},
-            onBiometric = {},
+            onDeviceProtection = {},
             onIdleMinutes = {},
             onLockWhenSwitching = {},
             onBack = {},
@@ -244,10 +245,10 @@ class LumioScreenshotTest {
         SecuritySettingsPage(
             entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE,
             lock = LockSettings(idleMinutes = 5, lockWhenSwitchingApps = true),
-            biometric = BiometricSwitch(on = false, canEnable = true),
+            deviceProtectionOn = false,
             onEntryGesture = {},
             onChangePassword = {},
-            onBiometric = {},
+            onDeviceProtection = {},
             onIdleMinutes = {},
             onLockWhenSwitching = {},
             onBack = {},
@@ -255,18 +256,13 @@ class LumioScreenshotTest {
     }
 
     @Test
-    fun settingsSecurityBiometricUnavailable() = compose.lumioSnapshot("settings_security_biometric_unavailable") {
-        SecuritySettingsPage(
-            entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE,
-            lock = LockSettings(),
-            biometric = BiometricSwitch(on = false, canEnable = false),
-            onEntryGesture = {},
-            onChangePassword = {},
-            onBiometric = {},
-            onIdleMinutes = {},
-            onLockWhenSwitching = {},
-            onBack = {},
-        )
+    fun settingsDeviceProtection() = compose.lumioSnapshot("settings_device_protection") {
+        DeviceProtectionSettingsPage(biometric = BiometricSwitch(on = false, canEnable = true), onBiometric = {}, onBack = {})
+    }
+
+    @Test
+    fun settingsDeviceProtectionUnavailable() = compose.lumioSnapshot("settings_device_protection_unavailable") {
+        DeviceProtectionSettingsPage(biometric = BiometricSwitch(on = false, canEnable = false), onBiometric = {}, onBack = {})
     }
 
     /** The App Password change that Security opens: its first step, a refused new password, and the finished change. */

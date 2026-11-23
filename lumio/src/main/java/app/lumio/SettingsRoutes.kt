@@ -5,10 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
@@ -27,7 +24,6 @@ import app.lumio.ui.kit.lumioComposable
 import app.lumio.ui.settings.AboutSettingsPage
 import app.lumio.ui.settings.AddressBookRows
 import app.lumio.ui.settings.AddressBookSettingsPage
-import app.lumio.ui.settings.BiometricSwitch
 import app.lumio.ui.settings.LumioSettingsScreen
 import app.lumio.ui.settings.NetworksSettingsPage
 import app.lumio.ui.settings.SecuritySettingsPage
@@ -40,7 +36,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 
@@ -178,34 +173,23 @@ private fun AddressBookSettingsRoute(navController: NavHostController, holder: V
 
 /**
  * The Security page: the Hidden Entry Gesture, whose row opens the choice shared through :shared, the App Password, whose row opens its
- * change, Biometric Unlock, and the lock. Each choice applies as the owner makes it.
+ * change, Device Protection, whose row opens its page, and the lock. Each choice applies as the owner makes it.
  */
 @Composable
 private fun SecuritySettingsRoute(navController: NavHostController, holder: VaultHolder, lockChoices: LockSettingsState) {
     val biometric = (LocalContext.current.applicationContext as LumioApp).biometricUnlock
     val session = holder.openSession()
-    val scope = rememberCoroutineScope()
-    val canEnable = remember { biometric.canEnable() }
-    var biometricOn by remember { mutableStateOf(biometric.isOn()) }
+    val top by navController.currentBackStackEntryAsState()
+    // Read again each time this page comes back to the top, because the Device Protection page may have turned the setting on or off.
+    val biometricOn = remember(top) { biometric.isOn() }
     SecuritySettingsPage(
         entryGesture = LocalContext.current.entryGestureHolder().current,
         lock = lockChoices.settings,
         // The setting seals the real vault's key, so a Duress Password session has no row for it.
-        biometric = if (session == null || session.isDecoy) null else BiometricSwitch(on = biometricOn, canEnable = canEnable),
+        deviceProtectionOn = if (session == null || session.isDecoy) null else biometricOn,
         onEntryGesture = { navController.navigate(LumioRoute.ENTRY_GESTURE) },
         onChangePassword = { navController.navigate(LumioRoute.CHANGE_PASSWORD) },
-        onBiometric = { want ->
-            scope.launch {
-                biometricOn = when {
-                    session == null -> biometricOn
-                    want -> biometric.enable(session)
-                    else -> {
-                        biometric.disable()
-                        false
-                    }
-                }
-            }
-        },
+        onDeviceProtection = { navController.navigate(LumioRoute.SETTINGS_DEVICE_PROTECTION) },
         onIdleMinutes = { minutes -> lockChoices.change { it.copy(idleMinutes = minutes) } },
         onLockWhenSwitching = { on -> lockChoices.change { it.copy(lockWhenSwitchingApps = on) } },
         onBack = { navController.popBackStack() },

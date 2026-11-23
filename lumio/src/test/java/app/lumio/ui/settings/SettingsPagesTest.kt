@@ -111,10 +111,10 @@ class SettingsPagesTest {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
-                    biometric = null,
+                    deviceProtectionOn = null,
                     onEntryGesture = { opened = true },
                     onChangePassword = {},
-                    onBiometric = {},
+                    onDeviceProtection = {},
                     onIdleMinutes = {},
                     onLockWhenSwitching = {},
                     onBack = {},
@@ -135,10 +135,10 @@ class SettingsPagesTest {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
-                    biometric = null,
+                    deviceProtectionOn = null,
                     onEntryGesture = {},
                     onChangePassword = { opened = true },
-                    onBiometric = {},
+                    onDeviceProtection = {},
                     onIdleMinutes = {},
                     onLockWhenSwitching = {},
                     onBack = {},
@@ -151,19 +151,58 @@ class SettingsPagesTest {
     }
 
     @Test
-    fun theBiometricSwitchReportsTheOwnersChoice() {
-        var changed: Boolean? = null
+    fun theSecurityRowOpensDeviceProtectionAndTheSwitchIsNotOnSecurity() {
+        var opened = false
         compose.setContent {
             LumenTheme {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
-                    biometric = BiometricSwitch(on = false, canEnable = true),
+                    deviceProtectionOn = false,
                     onEntryGesture = {},
                     onChangePassword = {},
-                    onBiometric = { changed = it },
+                    onDeviceProtection = { opened = true },
                     onIdleMinutes = {},
                     onLockWhenSwitching = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Biometric Unlock").assertDoesNotExist()
+        compose.onNodeWithText("Device Protection").performScrollTo().performClick()
+        assertEquals(true, opened)
+    }
+
+    @Test
+    fun aDuressSessionShowsNoDeviceProtectionRow() {
+        compose.setContent {
+            LumenTheme {
+                SecuritySettingsPage(
+                    entryGesture = EntryGesture.DEFAULT,
+                    lock = LockSettings(),
+                    deviceProtectionOn = null,
+                    onEntryGesture = {},
+                    onChangePassword = {},
+                    onDeviceProtection = {},
+                    onIdleMinutes = {},
+                    onLockWhenSwitching = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Device Protection").assertDoesNotExist()
+    }
+
+    @Test
+    fun theDeviceProtectionSwitchReportsTheOwnersChoice() {
+        var changed: Boolean? = null
+        compose.setContent {
+            LumenTheme {
+                DeviceProtectionSettingsPage(
+                    biometric = BiometricSwitch(on = false, canEnable = true),
+                    onBiometric = { changed = it },
                     onBack = {},
                 )
             }
@@ -174,18 +213,12 @@ class SettingsPagesTest {
     }
 
     @Test
-    fun theBiometricSwitchSaysWhyItCannotBeTurnedOn() {
+    fun theDeviceProtectionSwitchSaysWhyItCannotBeTurnedOn() {
         compose.setContent {
             LumenTheme {
-                SecuritySettingsPage(
-                    entryGesture = EntryGesture.DEFAULT,
-                    lock = LockSettings(),
+                DeviceProtectionSettingsPage(
                     biometric = BiometricSwitch(on = false, canEnable = false),
-                    onEntryGesture = {},
-                    onChangePassword = {},
                     onBiometric = {},
-                    onIdleMinutes = {},
-                    onLockWhenSwitching = {},
                     onBack = {},
                 )
             }
@@ -202,10 +235,10 @@ class SettingsPagesTest {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
-                    biometric = null,
+                    deviceProtectionOn = null,
                     onEntryGesture = {},
                     onChangePassword = {},
-                    onBiometric = {},
+                    onDeviceProtection = {},
                     onIdleMinutes = {},
                     onLockWhenSwitching = { switching = it },
                     onBack = {},
