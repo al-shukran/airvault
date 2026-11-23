@@ -1,0 +1,41 @@
+name: Changelog
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'app/**'
+      - 'lumio/**'
+      - 'shared/**'
+      - 'core/**'
+      - 'chains/**'
+      - 'abi/**'
+      - 'changelog.d/**'
+      - 'CHANGELOG-lensly.md'
+      - 'CHANGELOG-lumio.md'
+      - 'scripts/changelog_fragments.py'
+      - '.github/workflows/changelog.yml'
+
+# Read only: the check reads the pull request diff and the fragments on disk.
+#   contents: read  checkout of this workflow's own script and the base ref
+permissions:
+  contents: read
+
+jobs:
+  fragments:
+    name: Changelog fragments
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # No pull request code is run: the script is this workflow's own file, and
+      # the diff it reads is git metadata.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Changelog fragments check
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -uo pipefail
+          git fetch --no-tags origin "$BASE_REF"
+          python3 scripts/changelog_fragments.py --check --base "origin/$BASE_REF"
