@@ -53,11 +53,11 @@ lanes:
   resolve      the one online step: ./gradlew resolveAll, retried only on network errors
   shard-1..6   the unit tests shards.txt lists under the lane; shard-6 also runs the unlisted ones; pure JVM modules run whole
   verify-app, verify-lumio
-               the Roborazzi pixel tests of one module, with verifyRoborazziDebug (the legs of the roborazzi job)
+               the Roborazzi pixel tests of one module, with verifyRoborazziDebug (run locally; nightly records goldens)
   fuzz         the Jazzer seed replays (app.lensly.fuzz.*), with -PfuzzLane
   apk          the Lumio debug APK (:lumio:assembleDebug)
   android-tests
-               androidTest and benchmark compile of :app and :lumio (master and merge queue only)
+               androidTest and benchmark compile of :app and :lumio (nightly)
   lint-app, lint-shared, lint-lumio
                lintReportDebug of one module's main sources, the legs of the lint job (see run_lint)
   manifest    merged manifests: no INTERNET or ACCESS_NETWORK_STATE in :app, Lumio's allow-list, OkHttp off the release classpath of :app

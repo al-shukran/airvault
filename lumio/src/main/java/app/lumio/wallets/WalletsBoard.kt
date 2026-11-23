@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import app.airvault.core.model.ChainId
 import app.lensly.core.vault.VaultSession
 import app.lumio.LumioApp
 import app.lumio.LumioVault
@@ -145,8 +146,12 @@ internal class WalletsBoard(
     var refreshDue by mutableStateOf(true)
         private set
 
-    /** The notice of a read that did not answer, or null. */
+    /** The notice of a read that did not answer, or of a scan that failed, or null. */
     var notice by mutableStateOf<String?>(null)
+        private set
+
+    /** The chains whose last read did not answer. Their accounts say so, and keep the balances they had. */
+    var unreachable by mutableStateOf<Set<ChainId>>(emptySet())
         private set
 
     /** The time of the last complete read of the networks, or null before the first one. */
@@ -192,6 +197,7 @@ internal class WalletsBoard(
             refreshJob = null
             endRefresh()
             view = null
+            unreachable = emptySet()
             tokenCounts = emptyMap()
             tokenUsd = emptyMap()
             tokenHeld = emptyMap()
@@ -222,9 +228,10 @@ internal class WalletsBoard(
         refreshMarket()
         val run = scope.launch(start = CoroutineStart.LAZY) {
             try {
-                val failed = WalletsLoader.refresh(app, session, mode)
+                val result = WalletsLoader.refresh(app, session, mode)
                 readOrNull { load(mode) }?.let { show(mode, it, withAccounts = true) }
-                if (failed) notice = REFRESH_NOTICE else updatedAtMs = WallClock.nowMs()
+                unreachable = result.unreachable
+                if (result.failed) notice = REFRESH_NOTICE else updatedAtMs = WallClock.nowMs()
             } finally {
                 if (refreshJob === currentCoroutineContext()[Job]) endRefresh()
             }

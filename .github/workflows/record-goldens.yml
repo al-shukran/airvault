@@ -1,7 +1,8 @@
 name: record-goldens
 
-# Re-records the Roborazzi goldens on the Linux runner and image the nightly `full` job verifies against. The goldens must come from
-# this runner, because a macOS render differs from it on anti-aliased edges. Run it by hand: `gh workflow run record-goldens`. Then
+# Re-records the Roborazzi goldens on the Linux runner, the image they must come from. A macOS render differs from it on
+# anti-aliased edges. The nightly `screenshots` job records them on each push to master and proposes changes in the
+# goldens-refresh pull request, so this manual run is for an immediate artifact. Run it with `gh workflow run record-goldens`,
 # download the `goldens-linux` artifact, review the PNG diff, and commit it (docs/testing/guideline.md 1.5).
 
 on:

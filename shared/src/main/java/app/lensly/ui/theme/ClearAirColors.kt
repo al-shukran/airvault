@@ -8,8 +8,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 // Clear Air colours, from the Visual System of the Clear Air proposal (21 Nov 2026). Paper is the light theme and Ink the dark one. Colour is
-// rationed: it means a state (blue settled, amber waiting, rose failed) and never fills a button. ClearAirColorsTest checks the contrast of
-// the pairs the proposal lists.
+// rationed: it means a state (blue settled, amber waiting, rose failed). The one filled use of rose is a destructive capsule, which the locked
+// mocks draw rose-filled, such as Reset Lumio and removing a wallet. ClearAirColorsTest checks the contrast of the pairs the proposal lists.
 
 /** The Clear Air roles that Material's colour scheme has no place for. Read them with [LocalClearAirPalette]. */
 @Immutable

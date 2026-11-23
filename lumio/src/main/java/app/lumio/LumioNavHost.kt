@@ -318,6 +318,11 @@ internal class LockSettingsState(private val store: LockSettingsStore) {
         store.save(next)
         settings = next
     }
+
+    /** Reads the choices again, after a reset erased them with the rest of Lumio. */
+    fun reload() {
+        settings = store.load()
+    }
 }
 
 /**
@@ -677,7 +682,14 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                     )
                 }
             }
-            settingsRoute(navController = navController, holder = holder, listVersion = listVersion, selection = selection, onLock = { lock() })
+            settingsRoute(
+                navController = navController,
+                holder = holder,
+                listVersion = listVersion,
+                selection = selection,
+                lockChoices = lockChoices,
+                onLock = { lock() },
+            )
             settingsPageRoutes(
                 navController = navController,
                 holder = holder,
