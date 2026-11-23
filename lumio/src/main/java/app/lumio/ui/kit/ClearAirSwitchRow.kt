@@ -1,6 +1,5 @@
 package app.lumio.ui.kit
 
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateDpAsState
@@ -20,6 +19,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -41,8 +41,8 @@ private val TRACK_HEIGHT = 31.dp
 private val KNOB = 27.dp
 private val KNOB_INSET = 2.dp
 
-/** The knob's travel is a spring with no bounce, so the switch settles as the owner sees it turn. */
-private val knobSpring = spring<Dp>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumHigh)
+/** The knob's travel is the press spring of Clear Air (ζ1.0, k1400): no bounce, so the switch settles as the owner sees it turn. */
+private val knobSpring = spring<Dp>(dampingRatio = 1f, stiffness = 1400f)
 
 /**
  * The Clear Air switch: a capsule that is filled with ink when it is on, with the knob on the right, and an outlined capsule with the knob on the left
