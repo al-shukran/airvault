@@ -546,7 +546,7 @@ class EvmReviewBuilder(
                             addressParam("to", call.to),
                             ParamRow("value", text(amountText(call.value, token)), "value"),
                         ),
-                        warnings = emptyList(),
+                        warnings = foreignFromWarnings(call.from),
                         note = null,
                         unregistered = false,
                         sentence = listOf(
@@ -568,7 +568,7 @@ class EvmReviewBuilder(
                             addressParam("to", call.to),
                             ParamRow("amount or tokenId", DisplayValue.Number(call.value), "value"),
                         ),
-                        warnings = emptyList(),
+                        warnings = foreignFromWarnings(call.from),
                         note = null,
                         unregistered = true,
                         sentence = listOf(plain("Moves a token or NFT from "), party(call.from), plain(" to "), party(call.to), plain(".")),
@@ -631,7 +631,7 @@ class EvmReviewBuilder(
                         addressParam("to", call.to),
                         ParamRow("tokenId", DisplayValue.Number(call.tokenId), "tokenId"),
                     ),
-                    warnings = emptyList(),
+                    warnings = foreignFromWarnings(call.from),
                     note = null,
                     unregistered = unregistered,
                     sentence = listOf(
@@ -643,6 +643,17 @@ class EvmReviewBuilder(
                     ),
                 )
             }
+        }
+
+        /**
+         * The DANGER warning on a transfer that moves tokens out of [from], an account other than the signer. It spends an approval that
+         * account gave, so the owner must confirm it. No warning when [from] is the signer.
+         */
+        private fun foreignFromWarnings(from: String): List<CallWarning> {
+            if (from.equals(sender, ignoreCase = true)) return emptyList()
+            val message =
+                "Moves tokens out of ${checksum(from)}, which is not your account. Sign only if that account approved this transfer."
+            return listOf(CallWarning(Danger.DANGER, CODE_FOREIGN_FROM, message, ACK_FOREIGN_FROM, "from"))
         }
 
         /** The unlimited-approval warning of a call whose amount is unlimited, in the field [field] of the call. */
@@ -1049,11 +1060,15 @@ internal const val ACK_WHITELIST = "I have read what this call is approved to do
 /** The check the owner ticks for an operator grant over every token of a contract. */
 internal const val ACK_ALL_NFTS = "I understand this grants control of all NFTs in this collection."
 
+/** The check the owner ticks for a transfer that moves tokens out of an account other than the signer, by name. */
+internal const val ACK_FOREIGN_FROM = "I understand these tokens move out of another account."
+
 /** The check the owner ticks for a whitelisted proxy under Warn and confirm. */
 internal const val ACK_UPGRADE = "I accept that this proxy's code cannot be checked offline."
 
 internal const val CODE_UNLIMITED = "evm.unlimited-approval"
 internal const val CODE_ALL_NFTS = "evm.approval-for-all"
+internal const val CODE_FOREIGN_FROM = "evm.foreign-from"
 internal const val CODE_UNKNOWN_CALL = "evm.unknown-call"
 internal const val CODE_DENYLIST = "evm.denylist"
 internal const val CODE_REGISTRY = "evm.registry"
