@@ -132,7 +132,7 @@ internal fun TestNetworksRoute(navController: NavHostController, holder: VaultHo
                     settings = withContext(Dispatchers.IO) { EvmSettingsStore.read(session) }
                 }
             },
-            onAddCustom = { navController.navigate(LumioRoute.SETTINGS_NETWORKS) },
+            onAddCustom = { navController.navigate(LumioRoute.SETTINGS_ADD_NETWORK) },
         )
     }
 }

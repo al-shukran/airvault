@@ -4,6 +4,7 @@ import app.lensly.ui.camera.EntryGesture
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.FinishSetup
 import app.lumio.data.config.ProviderConfig
+import app.lumio.data.config.TransactionSettings
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Test
@@ -18,8 +19,10 @@ class SettingsSummariesTest {
     }
 
     @Test
-    fun theTransactionsRowNamesTheCommentBackup() {
-        assertEquals("Back up transaction comments", transactionsSummary())
+    fun theTransactionsRowNamesTheSpamAndTheLastChancePause() {
+        assertEquals("Spam hidden · 3 s last chance before sending", transactionsSummary(TransactionSettings()))
+        assertEquals("Spam shown · 10 s last chance before sending", transactionsSummary(TransactionSettings(hideSpam = false, lastChanceSeconds = 10)))
+        assertEquals("Spam hidden · sends at once", transactionsSummary(TransactionSettings(lastChanceSeconds = 0)))
     }
 
     @Test
@@ -77,6 +80,7 @@ class SettingsSummariesTest {
 
     private val facts = SettingsFacts(
         display = DisplaySettings(),
+        transactions = TransactionSettings(),
         chainsOn = 3,
         customBitcoin = false,
         providersOn = 7,

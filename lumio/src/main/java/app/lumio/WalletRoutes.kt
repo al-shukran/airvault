@@ -21,6 +21,7 @@ import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.data.asset.AssetId
 import app.lumio.data.config.DisplaySettings
+import app.lumio.data.config.TransactionSettings
 import app.lumio.data.net.Networks
 import app.lumio.data.price.ChartRange
 import app.lumio.data.price.PriceSeries
@@ -71,6 +72,14 @@ internal fun rememberDisplay(app: LumioApp): DisplaySettings {
     val fallback = remember { MutableStateFlow(DisplaySettings()) }
     val display by (app.lumioVault()?.display ?: fallback).collectAsState()
     return display
+}
+
+/** The transaction settings of the open vault: whether spam is hidden from Activity, and the Last Chance pause before a send is broadcast. */
+@Composable
+internal fun rememberTransactions(app: LumioApp): TransactionSettings {
+    val fallback = remember { MutableStateFlow(TransactionSettings()) }
+    val transactions by (app.lumioVault()?.transactions ?: fallback).collectAsState()
+    return transactions
 }
 
 /**

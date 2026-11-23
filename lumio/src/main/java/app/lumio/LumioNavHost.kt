@@ -90,6 +90,9 @@ internal object LumioRoute {
     const val SETTINGS_DISPLAY = "settings/display"
     const val SETTINGS_TRANSACTIONS = "settings/transactions"
     const val SETTINGS_NETWORKS = "settings/networks"
+
+    /** The Add Custom Network page, opened from the Networks page and from the Test Networks page. */
+    const val SETTINGS_ADD_NETWORK = "settings/networks/add"
     const val SETTINGS_WALLETS = "settings/wallets"
     const val SETTINGS_ADDRESSES = "settings/addresses"
     const val SETTINGS_SECURITY = "settings/security"

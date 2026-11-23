@@ -19,7 +19,7 @@ fails it, except dependency review, which is skipped until `DEPENDENCY_GRAPH_ENA
 | `android-tests` | androidTest and benchmark compile of `:app` and `:lumio`; master and merge queue only (a step of `android`) | `android` |
 | `lint-app`, `lint-shared`, `lint-lumio` | `lintReportDebug` of one module's main sources; the unit-test, androidTest and test-fixture analyses run in nightly `lintDebug`; a leg compiles its module and the modules it depends on | `lint` (matrix) |
 | `manifest` | merged manifests (no INTERNET or ACCESS_NETWORK_STATE in `:app`, Lumio's allow-list), no OkHttp on `:app`'s release classpath | `manifest` |
-| `ci` | `bash -n` on every script, `check-partitions.sh`, `check-test-network.sh`, `check-trim-build-cache.sh` (no Gradle) | `ci` |
+| `ci` | `bash -n` on every script, `check-partitions.sh`, `check-test-network.sh` (no Gradle) | `ci` |
 
 `secrets` (gitleaks) and `dependency_review` run beside them and need no Gradle.
 
@@ -49,37 +49,25 @@ The lines balance the lanes. A test class with no line still runs, so adding a t
 - `deps-v3-<os>-<hash>` restores the directories in `DEPS_CACHE_PATHS` (`pr-fast.yml`): `modules-2`, the wrapper distributions,
   and the generated directories the configuration cache names as inputs (`dependencies-accessors`, `transforms`, `kotlin-dsl`,
   `scripts`, `generated-gradle-jars`, `jars-9`). The hash covers the version catalog, `verification-metadata.xml`, the wrapper
-  properties, every `*.gradle.kts`, `settings.gradle.kts` and `gradle.properties`. The `deps` job saves it on a miss only.
-- `bc-<lane>-<scope>-<sha>` holds `~/.gradle/caches/build-cache-1` and `.gradle/configuration-cache`. The lint and verify legs name
-  their module in the lane (`bc-lint-app-<scope>-<sha>`, `bc-verify-app-<scope>-<sha>`). The scope is `master` on a push or a queue entry, and `pr<number>` in a pull
-  request, which saves nothing. A push to master and a queue entry save every lane's entry, even when it fails or is cancelled.
-  A pull request restores master's entries (`bc-<lane>-master-`) only. Its own entries would be restored ahead of master's, and a
-  lint entry a pull request saved lacked the compile outputs master's entries hold, so the next run of that pull request compiled
-  cold. Master pushes queue in one `pr-fast-master` concurrency group, so no two of them save at once. `cache-prune` (`pr-fast.yml`,
-  running `prune-caches.sh`, one at a time in `master-cache-prune`) runs after the lanes of each push. It keeps the build-cache set of
-  master's current head and the newest set (its commit), and deletes every other `bc-*-master-<sha>` entry, including the sets of
-  lanes no workflow uses any more. Other master caches group by their key without the trailing hash, and each group keeps its newest
-  entry, so the dependency cache and the setup-gradle `gradle-*` caches of nightly and other workflows survive. No entry newer than
-  created after the prune started and no dependency key of master's current head is deleted. The prune's window is its own start, not the run's:
-  the run's lanes take about 15 minutes, and a manual nightly run saved ten `gradle-*` entries in that window (run 45131719179) that
-  the run-start window kept, so the guard failed at 10.7 GB. Merge-queue caches (`gh-readonly-queue/...`), which
-  no other run can restore, are deleted. The listing pages through every cache. GitHub evicts least recently used entries over 10 GB
-  per repository (run 44727796023).
-- Trim: `trim-build-cache.sh <lane>` runs before each save and keeps only the build-cache entries that run used. Gradle does not
-  update an entry's mtime on a cache hit (checked on 9.7.0 with aged entries), so the trim reads the keys from the log instead.
-  Every Gradle call of a build-cache lane runs with `org.gradle.caching.debug=true` (`run-partition.sh`), which prints
-  `Build cache key for ... is <key>` for each cacheable task and transform it loads or stores. The trim keeps those keys and the
-  files the job created, and deletes the rest, so each saved entry is one run's working set. A Gradle upgrade must recheck the
-  trim: it fails loudly when no key is found.
-- Budgets: `build-cache-budgets.txt` gives each lane's budget in MB (its entries plus the configuration cache). A master or queue
-  lane above its budget fails before its save, which is skipped; a pull request only warns. `run-partition.sh ci` fails when the
-  budgets sum above 5.3 GB, which with the dependency cache (about 1.25 GB) and other caches keeps the repository within 7 GB.
-- Guard: `check-cache-usage.sh` reads the repository's active cache size. A pull request warns above 8 GB; `cache-prune` fails
-  master above 8 GB after the prune.
+  properties, every `*.gradle.kts`, `settings.gradle.kts` and `gradle.properties`. The `deps` job saves it on a miss in any event, so a
+  pull request that changes the dependency files saves its own key, which `cache-cleanup.yml` deletes when the pull request closes.
+- `bc-<lane>-master` holds `~/.gradle/caches/build-cache-1` and `.gradle/configuration-cache`, one key per lane: `bc-shard-N-master`,
+  `bc-verify-<module>-master`, `bc-fuzz-master`, `bc-android-master`, `bc-lint-<module>-master`. Only a push to master saves it, even
+  when a lane fails or is cancelled. GitHub cache entries cannot be overwritten, so the push deletes the lane's key and saves it again.
+  Master pushes queue in one `pr-fast-master` concurrency group, so no two of them replace a key at once. A pull request and a
+  merge-queue entry restore the key and save nothing. Each entry holds the outputs of recent master pushes, because Gradle removes
+  build-cache entries unused for 7 days.
+- The restore also names the prefix `bc-<lane>-master-`, which reads the per-commit keys of the scheme before this one until each fixed
+  key exists. Drop that restore key once those entries have expired (GitHub deletes an entry unused for 7 days).
+- Eviction: nothing in CI deletes a build cache except the push that replaces its own lane key. GitHub evicts least recently used
+  entries over 10 GB per repository (run 44727796023). A lane whose entry was evicted compiles cold, and a cold lane can exceed the
+  5-minute cap; `lane-budget.sh` reports it on master.
+- Nightly restores and saves no Gradle cache: its setup-gradle steps run with `cache-read-only`, and the fuzz legs restore the
+  dependency cache that master saved (#770). `record-goldens` runs setup-gradle with `cache-disabled` and restores only the dependency cache.
 - Cold lanes: a lane with no entry compiles from scratch and is not capped in time. Measured cold on a 10-core Mac: shard-1 225 s,
   shard-6 177 s, verify 224 s (two pixel tests fail on macOS), fuzz 107 s, android 180 s, lint-app 159 s, lint-lumio 168 s. A CI
   runner is likely slower, so a cold pull request lane can exceed the 5-minute cap, and `lane-budget.sh` reports it on master.
-  Cold lanes come from eviction; the trim keeps the total under the guard so master's entries survive.
+  Cold lanes come from eviction.
 - Lane budget: `pr-ok` runs `lane-budget.sh` after every lane. Each job's time (start to end, without a `Save ...` cache upload)
   goes to the step summary, and a job over 5 minutes gets a warning. On a push to master it opens, or comments on, the open
   `ci-budget` issue. It never fails the gate: fix a slow lane in a pull request, never rerun a run to make it green.

@@ -14,6 +14,7 @@ import app.lensly.ui.theme.LumenTheme
 import app.lumio.btc.EsploraServers
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.LockSettings
+import app.lumio.data.config.TransactionSettings
 import app.lumio.evm.EvmSettings
 import app.lumio.pair.PairedWallet
 import kotlin.test.assertEquals
@@ -68,7 +69,7 @@ class SettingsPagesTest {
                     onSetRpc = { _, _, _ -> },
                     onResetRpc = {},
                     onRemoveCustom = {},
-                    onAddCustom = { _, _ -> },
+                    onAddNetwork = {},
                 )
             },
         )
@@ -238,7 +239,29 @@ class SettingsPagesTest {
 
     @Test
     fun theTransactionsPageHasNoSave() = assertNoSave {
-        TransactionsSettingsPage(offline = null, onLock = {}, onBack = {}, comments = {})
+        TransactionsSettingsPage(
+            settings = TransactionSettings(), notice = null, onHideSpam = {}, onLastChance = {},
+            offline = null, onLock = {}, onBack = {}, comments = {},
+        )
+    }
+
+    @Test
+    fun theHideSpamSwitchReportsTheOwnersChoiceAndTheTitleShowsThePause() {
+        var hide: Boolean? = null
+        compose.setContent {
+            ClearAirHarness {
+                TransactionsSettingsPage(
+                    settings = TransactionSettings(lastChanceSeconds = 5), notice = null,
+                    onHideSpam = { hide = it }, onLastChance = {},
+                    offline = null, onLock = {}, onBack = {}, comments = {},
+                )
+            }
+        }
+
+        // The section title is an eyebrow, so it is drawn in capitals.
+        compose.onNodeWithText("LAST CHANCE BEFORE SENDING · 5 S").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Hide Spam").performScrollTo().performClick()
+        assertEquals(false, hide)
     }
 }
 

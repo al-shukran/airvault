@@ -45,6 +45,7 @@ import app.lumio.notesName
 import app.lumio.onVault
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
+import app.lumio.rememberTransactions
 import app.lumio.send.ArrivalWatch
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
@@ -135,6 +136,7 @@ internal fun AlgorandSendRoute(
     optInAssetId: ULong? = null,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
+    val transactions = rememberTransactions(app)
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val offline = rememberSendOffline(app)
@@ -554,6 +556,7 @@ internal fun AlgorandSendRoute(
                 notice = null
                 step = AlgorandSendStep.Review(current.plan)
             },
+            lastChanceSeconds = transactions.lastChanceSeconds,
             backLabel = backLabel,
             offline = offline,
             onLock = onLock,

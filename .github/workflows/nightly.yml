@@ -2,6 +2,8 @@ name: nightly
 
 # The unit tests, lint, screenshot verification and seed replays run in pr-fast.yml on every pull request, the merge queue and
 # master. Nightly keeps only what is not a gate: the R8 release build, OWASP, real fuzzing, and the emulator and benchmark runs.
+#
+# Nightly restores its Gradle caches only (cache-read-only), so it adds no Gradle cache entries to the repository's cache limit.
 
 on:
   schedule:
@@ -29,6 +31,8 @@ jobs:
           java-version: '21.0.13+9'
 
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-read-only: true
 
       # The release build of :app is minified by R8 (app/build.gradle.kts, app/proguard-rules.pro). It runs here and not in the
       # PR lane: a cold R8 build does not fit the 5-minute lane cap (guideline 2.1). mapping.txt is written only when minify
@@ -132,6 +136,25 @@ jobs:
           java-version: '21.0.13+9'
 
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-read-only: true
+
+      # Every leg restores the dependency cache that master's pr-fast run saved (the paths and key of pr-fast.yml's deps job). A cold
+      # resolve of the same set from Maven Central hit HTTP 429 in these legs (#770), so a miss fails here by name instead.
+      - name: Restore the Gradle dependency cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+            ~/.gradle/caches/9.7.0/dependencies-accessors
+            ~/.gradle/caches/9.7.0/generated-gradle-jars
+            ~/.gradle/caches/9.7.0/kotlin-dsl
+            ~/.gradle/caches/9.7.0/scripts
+            ~/.gradle/caches/9.7.0/transforms
+            ~/.gradle/caches/jars-9
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          fail-on-cache-miss: true
 
       - name: Fuzz ${{ matrix.target }}
         run: ./scripts/ci/fuzz-nightly.sh "${{ matrix.target }}"
@@ -152,6 +175,8 @@ jobs:
           java-version: '21.0.13+9'
 
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-read-only: true
 
       # Without /dev/kvm the runner falls back to `-accel off` (software x86 emulation), and an API 34 x86_64
       # image does not finish booting inside its 600 s timeout. The udev rule opens KVM to the runner user.
@@ -205,6 +230,8 @@ jobs:
           java-version: '21.0.13+9'
 
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-read-only: true
 
       - name: Allow the runner to use KVM
         run: |
@@ -255,6 +282,8 @@ jobs:
           java-version: '21.0.13+9'
 
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-read-only: true
 
       - name: Allow the runner to use KVM
         run: |

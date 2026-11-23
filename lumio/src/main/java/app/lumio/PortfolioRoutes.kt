@@ -45,11 +45,12 @@ internal fun PortfolioTab(navController: NavHostController, holder: VaultHolder,
     val mode = selection.mode
     val wallets = pairedWallets(navController, holder, listVersion)
     val display = rememberDisplay(app)
+    val transactions = rememberTransactions(app)
     val scope = rememberCoroutineScope()
     var filter by remember { mutableStateOf(PortfolioFilter()) }
-    LaunchedEffect(board, mode, listVersion) {
+    LaunchedEffect(board, mode, listVersion, transactions.activityIncludesSpam) {
         board?.readHoldings(mode)
-        board?.readActivity(mode, ActivityFilter(), includeSpam = false)
+        board?.readActivity(mode, ActivityFilter(), includeSpam = transactions.activityIncludesSpam)
     }
     TabRoute(tab = LumioTab.PORTFOLIO, navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = onLock) {
         PortfolioScreen(
@@ -87,9 +88,11 @@ internal fun ActivityRoute(
     val mode = selection.mode
     val wallets = pairedWallets(navController, holder, listVersion)
     val display = rememberDisplay(app)
+    val transactions = rememberTransactions(app)
     val scope = rememberCoroutineScope()
     var filter by remember { mutableStateOf(ActivityFilter(coin = coin)) }
-    var showSpam by remember { mutableStateOf(false) }
+    // With Hide Spam off, the spam is shown from the start, and the owner has no hidden rows to reveal.
+    var showSpam by remember { mutableStateOf(transactions.activityIncludesSpam) }
     LaunchedEffect(board, mode, filter, showSpam) { board?.readActivity(mode, filter, showSpam) }
     val page = board?.activity
     LumioPageScreen(

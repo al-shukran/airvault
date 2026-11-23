@@ -1,6 +1,7 @@
 package app.lumio.ui.screenshot
 
 import androidx.compose.runtime.Composable
+import app.lumio.data.config.TransactionSettings
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.ui.send.SignedSendSteps
@@ -52,6 +53,7 @@ internal fun SubmitFixture(
         onDone = {},
         onReview = {},
         backLabel = "Review",
+        lastChanceSeconds = TransactionSettings.DEFAULT_LAST_CHANCE_SECONDS,
         offline = null,
         onLock = {},
     )

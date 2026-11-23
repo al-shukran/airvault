@@ -19,6 +19,7 @@ import app.lumio.btc.BtcAccountRef
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.FinishSetup
 import app.lumio.data.config.LockSettings
+import app.lumio.data.config.TransactionSettings
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.price.PricePoint
@@ -130,6 +131,7 @@ class LumioScreenshotTest {
             rows = settingsRows(
                 facts = SettingsFacts(
                     display = DisplaySettings(),
+                    transactions = TransactionSettings(),
                     chainsOn = 3,
                     customBitcoin = false,
                     providersOn = 9,
@@ -162,6 +164,22 @@ class LumioScreenshotTest {
     @Test
     fun settingsTransactions() = compose.lumioSnapshot("settings_transactions") {
         TransactionsSettingsPage(
+            settings = TransactionSettings(),
+            notice = null,
+            onHideSpam = {},
+            onLastChance = {},
+            offline = null, onLock = {}, onBack = {},
+            comments = { CommentBackupRows(onExport = {}, onImport = {}, notice = null) },
+        )
+    }
+
+    @Test
+    fun settingsTransactionsSpamShownSendAtOnce() = compose.lumioSnapshot("settings_transactions_spam_shown") {
+        TransactionsSettingsPage(
+            settings = TransactionSettings(hideSpam = false, lastChanceSeconds = 0),
+            notice = null,
+            onHideSpam = {},
+            onLastChance = {},
             offline = null, onLock = {}, onBack = {},
             comments = { CommentBackupRows(onExport = {}, onImport = {}, notice = null) },
         )
@@ -193,7 +211,7 @@ class LumioScreenshotTest {
                     onSetRpc = { _, _, _ -> },
                     onResetRpc = {},
                     onRemoveCustom = {},
-                    onAddCustom = { _, _ -> },
+                    onAddNetwork = {},
                 )
             },
         )

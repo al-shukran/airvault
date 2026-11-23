@@ -14,7 +14,6 @@ import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
-import app.lumio.evm.CustomChainInput
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmEdits
@@ -93,10 +92,7 @@ internal fun EvmSettingsRoute(navController: NavHostController, holder: VaultHol
         onSetRpc = { chainId, raw, onDone -> change({ s, rpc -> EvmEdits.setRpc(s, chainId, raw, rpc) }, onDone) },
         onResetRpc = { chainId -> change({ s, _ -> EvmEdits.resetRpc(s, chainId) }) },
         onRemoveCustom = { chainId -> change({ s, _ -> EvmEdits.removeCustom(s, chainId) }) },
-        onAddCustom = { input: CustomChainInput, onDone ->
-            val builtIn = app.registry.networks().map { it.chainId }.toSet()
-            change({ s, rpc -> EvmEdits.addCustom(s, builtIn, input, rpc) }, onDone)
-        },
+        onAddNetwork = { navController.navigate(LumioRoute.SETTINGS_ADD_NETWORK) },
         onTokens = { chainId -> navController.navigate(LumioRoute.tokens(chainId)) },
     )
 }

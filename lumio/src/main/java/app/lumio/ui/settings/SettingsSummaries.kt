@@ -3,6 +3,7 @@ package app.lumio.ui.settings
 import app.lensly.ui.camera.EntryGesture
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.ProviderConfig
+import app.lumio.data.config.TransactionSettings
 import app.lumio.data.config.configOf
 import app.lumio.data.provider.ProviderCatalog
 
@@ -10,8 +11,12 @@ import app.lumio.data.provider.ProviderCatalog
 fun displaySummary(settings: DisplaySettings): String =
     "${if (settings.showTotal) "Total shown" else "Total hidden"} · ${if (settings.showAssets) "balances shown" else "balances hidden"}"
 
-/** The one-line state under the Transactions row: the comments that the backup keeps. */
-fun transactionsSummary(): String = "Back up transaction comments"
+/** The one-line state under the Transactions row: whether spam is hidden, and the Last Chance pause before a send. */
+fun transactionsSummary(settings: TransactionSettings): String {
+    val spam = if (settings.hideSpam) "Spam hidden" else "Spam shown"
+    val pause = if (settings.lastChanceSeconds == 0) "sends at once" else "${settings.lastChanceSeconds} s last chance before sending"
+    return "$spam · $pause"
+}
 
 /** The one-line state under the Networks row: how many chains are on, and whether Bitcoin reads a server the owner set. */
 fun networksSummary(chainsOn: Int, customBitcoin: Boolean): String {

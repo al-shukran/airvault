@@ -80,13 +80,13 @@ class LumioControlsTest {
                     onSetRpc = { _, _, _ -> },
                     onResetRpc = {},
                     onRemoveCustom = {},
-                    onAddCustom = { _, _ -> },
+                    onAddNetwork = {},
                 )
             }
         }
 
         compose.onNodeWithText("Ethereum").assert(hasRole(Role.Switch))
-        compose.onNodeWithText("Add Custom Chain", ignoreCase = true).assertIsEnabled()
+        compose.onNodeWithText("Add Custom Network", ignoreCase = true).assertIsEnabled()
     }
 
     @Test
@@ -103,7 +103,7 @@ class LumioControlsTest {
                     onSetRpc = { _, _, _ -> },
                     onResetRpc = {},
                     onRemoveCustom = {},
-                    onAddCustom = { _, _ -> },
+                    onAddNetwork = {},
                 )
             }
         }

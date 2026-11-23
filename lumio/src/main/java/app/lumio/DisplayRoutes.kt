@@ -14,28 +14,36 @@ import app.lensly.app.VaultHolder
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.data.config.DisplaySettings
+import app.lumio.data.config.TransactionSettings
 import app.lumio.ui.settings.DisplaySettingsPage
 import app.lumio.ui.settings.TransactionsSettingsPage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-/** The display settings as the open vault publishes them, the notice of a refused change, and the change itself. */
-private class DisplayChange(
-    val settings: DisplaySettings,
+/** A setting of the open vault as it is published, the notice of a refused change, and the change itself. */
+private class SettingChange<T>(
+    val settings: T,
     val notice: String?,
-    val change: ((DisplaySettings) -> DisplaySettings) -> Unit,
+    val change: ((T) -> T) -> Unit,
 )
 
 /**
- * The display settings of the open vault, with a way to change them. A change is written off the main thread, after the changes made before it, and a
+ * A setting of the open vault, with a way to change it through [update]. A change is written off the main thread, after the changes made before it, and a
  * write that the vault refuses sets the notice. Null while the vault is not open.
  */
 @Composable
-private fun rememberDisplayChange(navController: NavHostController, holder: VaultHolder): DisplayChange? {
+private fun <T> rememberSettingChange(
+    navController: NavHostController,
+    holder: VaultHolder,
+    defaults: T,
+    settingOf: (LumioVault) -> StateFlow<T>,
+    update: (LumioVault, (T) -> T) -> Unit,
+): SettingChange<T>? {
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
     LaunchedEffect(session == null) {
@@ -45,12 +53,12 @@ private fun rememberDisplayChange(navController: NavHostController, holder: Vaul
     val writes = remember { Mutex() }
     var notice by remember { mutableStateOf<String?>(null) }
     val vault = app.lumioVault()
-    val fallback = remember { MutableStateFlow(DisplaySettings()) }
-    val settings by (vault?.display ?: fallback).collectAsState()
+    val fallback = remember { MutableStateFlow(defaults) }
+    val settings by (vault?.let(settingOf) ?: fallback).collectAsState()
     if (vault == null) return null
-    return DisplayChange(settings, notice) { transform ->
+    return SettingChange(settings, notice) { transform ->
         scope.launch {
-            val saved = writes.withLock { withContext(Dispatchers.IO) { runCatching { vault.updateDisplay(transform) }.isSuccess } }
+            val saved = writes.withLock { withContext(Dispatchers.IO) { runCatching { update(vault, transform) }.isSuccess } }
             notice = if (saved) null else "The setting could not be saved. Try again."
         }
     }
@@ -59,7 +67,7 @@ private fun rememberDisplayChange(navController: NavHostController, holder: Vaul
 /** The Display page of the settings: what Home shows. */
 @Composable
 internal fun DisplaySettingsRoute(navController: NavHostController, holder: VaultHolder, onLock: () -> Unit) {
-    val display = rememberDisplayChange(navController, holder) ?: return
+    val display = rememberSettingChange(navController, holder, DisplaySettings(), LumioVault::display, LumioVault::updateDisplay) ?: return
     DisplaySettingsPage(
         settings = display.settings,
         notice = display.notice,
@@ -71,10 +79,16 @@ internal fun DisplaySettingsRoute(navController: NavHostController, holder: Vaul
     )
 }
 
-/** The Transactions page of the settings: the backup of the comments on the transactions. */
+/** The Transactions page of the settings: whether spam is hidden, the Last Chance pause, and the backup of the comments on the transactions. */
 @Composable
 internal fun TransactionsSettingsRoute(navController: NavHostController, holder: VaultHolder, onLock: () -> Unit) {
+    val transactions = rememberSettingChange(navController, holder, TransactionSettings(), LumioVault::transactions, LumioVault::updateTransactions)
+        ?: return
     TransactionsSettingsPage(
+        settings = transactions.settings,
+        notice = transactions.notice,
+        onHideSpam = { on -> transactions.change { it.copy(hideSpam = on) } },
+        onLastChance = { seconds -> transactions.change { it.copy(lastChanceSeconds = seconds) } },
         offline = rememberSettingsOffline(),
         onBack = { navController.popBackStack() },
         onLock = onLock,
