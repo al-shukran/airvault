@@ -21,7 +21,7 @@ In this file, "docs N.N" means section N.N of `docs/creating-airvault-apps.md`. 
 | `COMMIT` | Yes | Commit under test. Record `git rev-parse HEAD` and `git status --porcelain`. A dirty tree gets a SHA-256 of its diff. |
 | `RUN_DATE` | Yes | Run date, `yyyy-mm-dd`. |
 | `REPORT_DIR` | Yes | Directory outside the repository, chosen by the runner. |
-| `DEVICES` | No | Owner-designated test devices or emulators: model, Android version, patch level, root and StrongBox state, lock screen type. Without them, device disciplines are recorded as coverage gaps. |
+| `DEVICES` | No | Owner-designated test devices or emulators: model, Android version, patch level, root and StrongBox state, lock screen type. Without them, device disciplines are recorded as coverage gaps. Before dispatch, record installed applicationIds and whether a vault exists on every designated device. If a test would displace an existing vault, declare a Gap and use a clean device. |
 | `VARIANTS` | No | `debug`, `release`, `benchmark`. Default: `release` built from `COMMIT`, plus `debug` for comparison. |
 | `SCOPE` | No | `full` (default), or the named disciplines from section 6. |
 | `BUDGET` | No | Time and usage ceiling. Section 4.4 sets the wrap-up points. |
@@ -123,6 +123,8 @@ Model tiers: use the cheapest tier that can do the job. Escalate one tier at a t
 - Dedupe by root cause before validation. Validators are different workers, with no shared scratch files.
 - A worker that finds nothing still returns its coverage table, listing what it tried.
 - A blocked worker returns `BLOCKED` with the exact blocker. Re-scope the work; do not retry blind.
+- Every brief writes `docs/auditing-airvault.md` before each section number. Never cite a bare number.
+- Validator briefs cite the validation rule as "section 7.1, item 2", never as a shorthand number.
 
 Worker brief:
 
@@ -192,16 +194,16 @@ The release APKs are unsigned by design: the tag workflow signs them. `apksigner
 
 ### 5.3 Seed High-Value Targets
 
-Paths are repository-relative. Check them with the seed check, then extend the list. Item numbers refer to `FailureDelay.kt`.
+Paths are repository-relative. Check them with the seed check, then extend the list. Use the `rg -o` seed check as the authority for path existence; prose sub-lists are naming aids. Item numbers refer to `FailureDelay.kt`.
 
 ```bash
 rg -o '[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+\.(kt|kts|xml|yml|sh|pro|c|txt|aidl|toml|md|properties)\b' docs/auditing-airvault.md | sort -u | while read -r p; do [ -e "$p" ] || echo "MISSING: $p"; done
 ```
 
-- A. Vault and KDF: `shared/src/main/java/app/lensly/core/vault/Vault.kt` (create, unlock, erase), `VaultLayout.kt` (format version 3, two slots, photo directories, slot MAC), `VaultHeader.kt` (fields, KDF parameters, flags), `VaultKeystore.kt` (hardware wrap key, user authentication, biometric invalidation, StrongBox fallback, `lensly.vault.slot-mac`), `KeystorePolicy.kt`, `KeystoreBackend.kt`, `Aead.kt` (AES-256-GCM), `Argon2Kdf.kt`, `KdfCalibration.kt`, `VaultSession.kt`, `WalletFolder.kt`, `MediaEnvelope.kt`, `BackupExclusion.kt`. Test double: `shared/src/testFixtures/java/app/lensly/core/vault/MemoryKeystore.kt`.
+- A. Vault and KDF: `shared/src/main/java/app/lensly/core/vault/Vault.kt` (create, unlock, erase), `VaultLayout.kt` (format version 3, two slots, photo directories, slot MAC), `VaultHeader.kt` (fields, KDF parameters, flags), `VaultKeystore.kt` (hardware wrap key, user authentication, biometric invalidation, StrongBox fallback, `lensly.vault.slot-mac`), `KeystorePolicy.kt`, `KeystoreBackend.kt`, `Aead.kt` (AES-256-GCM), `Argon2Kdf.kt`, `KdfCalibration.kt`, `VaultSession.kt`, `WalletFolder.kt`, `shared/src/main/java/app/lensly/core/vault/MediaEnvelope.kt`, `BackupExclusion.kt`. Test double: `shared/src/testFixtures/java/app/lensly/core/vault/MemoryKeystore.kt`.
 - B. Failure counter, decoy, erase: `FailureDelay.kt` (its header lists threat items 1 to 17; each is a claim to test), `FailureStore.kt` (two copies, per-sequence HMAC keys, key deletion, residual risks), `PasswordPolicy.kt`, `app/src/main/java/app/lensly/app/DecoyVault.kt`, `app/src/main/java/app/lensly/ui/settings/FailureCapScreen.kt`, `shared/src/main/java/app/lensly/ui/gate/PasswordBuffer.kt`, `UnlockScreen.kt`, `CreatePasswordScreen.kt`, `shared/src/main/java/app/lensly/ui/flow/AppPasswordCheck.kt`.
 - C. Gate, cover screen, gesture: `shared/src/main/java/app/lensly/ui/SecureWindow.kt`, `shared/src/main/java/app/lensly/ui/navigation/CoverNavHost.kt`, `GalleryGate.kt`, `LockPolicy.kt`, `shared/src/main/java/app/lensly/ui/flow/EntryGestureChangeFlow.kt`, `EntryGestureChangePorts.kt`, `shared/src/main/java/app/lensly/ui/camera/PhotoStore.kt`, `CameraController.kt`, `lumio/src/main/java/app/lumio/EntryGestureRoutes.kt`, `lumio/src/main/java/app/lumio/LumioVault.kt`.
-- D. Mnemonic and keys: `shared/src/main/java/app/lensly/core/wallet/Mnemonic.kt` (words are a `CharArray`; each `get` yields a short-lived `String`; `text()` returns `CharArray`; `deriveSeed(passphrase: String)`), `EntropyMixer.kt` (dice input), `HdWallet.kt`, `Slip10Ed25519.kt`, `EvmKey.kt`, `Ed25519Signer.kt`, `PrivateKey.kt`, `LedgerPassphrase.kt`, `WalletKeyAccess.kt`, `SingleKeyAccess.kt`, `core/signer-api/src/main/kotlin/app/airvault/core/signer/KeyAccess.kt`, `ScopedKeyAccess.kt`. Screens and flows: `app/src/main/java/app/lensly/ui/wallet/DiceEntryScreen.kt`, `ShowSecretScreen.kt`, `MnemonicQuiz.kt`, `PassphraseGate.kt`, `ShredScreen.kt`; `app/src/main/java/app/lensly/ui/flow/RevealFlow.kt`, `ShredFlow.kt`, `AccountExportScreen.kt`; `docs/recover-with-ledger.md`.
+- D. Mnemonic and keys: `shared/src/main/java/app/lensly/core/wallet/Mnemonic.kt` (words are a `CharArray`; each `get` yields a short-lived `String`; `text()` returns `CharArray`; `deriveSeed(passphrase: String)`), `EntropyMixer.kt` (dice input), `HdWallet.kt`, `Slip10Ed25519.kt`, `EvmKey.kt`, `Ed25519Signer.kt`, `chains/evm/signer/src/main/kotlin/app/lensly/core/evm/Secp256k1.kt` (web3j signer, no production caller; bitcoin-kmp `WalletKeyAccess` signs), `PrivateKey.kt`, `LedgerPassphrase.kt`, `WalletKeyAccess.kt`, `SingleKeyAccess.kt`, `core/signer-api/src/main/kotlin/app/airvault/core/signer/KeyAccess.kt`, `ScopedKeyAccess.kt`. Screens and flows: `app/src/main/java/app/lensly/ui/wallet/DiceEntryScreen.kt`, `ShowSecretScreen.kt`, `MnemonicQuiz.kt`, `PassphraseGate.kt`, `ShredScreen.kt`; `app/src/main/java/app/lensly/ui/flow/RevealFlow.kt`, `ShredFlow.kt`, `AccountExportScreen.kt`; `docs/recover-with-ledger.md`.
 - E. Transport and sandboxes: `shared/src/main/java/app/lensly/core/parse/ParserSandbox.kt` (the trusted side re-checks every result), `ParserSandboxService.kt`, `ParserWire.kt`, `shared/src/main/aidl/app/lensly/core/parse/IParserSandbox.aidl`, `shared/src/main/aidl/app/lensly/core/qr/IQrDecoder.aidl`, `core/signer-api/src/main/kotlin/app/lensly/core/parse/ParserLimits.kt`, `shared/src/main/java/app/lensly/core/qr/QrDecodeService.kt`, `QrDecodeClient.kt`, `BinderQrDecodeTransport.kt`, `QrDecodeLimits.kt`, `LumaFrames.kt`, `shared/src/main/java/app/lensly/core/ur/UrScanner.kt`, `core/signer-api/src/main/kotlin/app/lensly/core/ur/Cbor.kt`.
 - F. Chain parsers and review:
   - Bitcoin: `chains/bitcoin/signer/src/main/kotlin/app/airvault/chains/bitcoin/signer/BtcPsbt.kt`, `BitcoinRequestParser.kt`, `BtcReview.kt`, `BtcReviewWarnings.kt`; `shared/src/main/java/app/lensly/core/btc/BtcUnsignedPsbt.kt`.
@@ -214,7 +216,7 @@ rg -o '[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+\.(kt|kts|xml|yml|sh|pro|c|txt|aidl|tom
   - Manifests (coverage and unknown-call policy): `chains/evm/common/src/main/kotlin/app/airvault/chains/evm/EvmManifest.kt`, `chains/bitcoin/common/src/main/kotlin/app/airvault/chains/bitcoin/BitcoinManifest.kt`, `chains/solana/common/src/main/kotlin/app/airvault/chains/solana/SolanaManifest.kt`, `chains/algorand/common/src/main/kotlin/app/airvault/chains/algorand/AlgorandManifest.kt`, `core/signer-api/src/main/kotlin/app/lensly/core/registry/UnknownCallPolicy.kt`, `chains/evm/signer/src/main/kotlin/app/lensly/core/registry/ProxyPolicy.kt`.
   - Bulk signing: `shared/src/main/java/app/lensly/core/wallet/BulkCap.kt`, `BulkPolicy.kt`, `BulkRun.kt`; `app/src/main/java/app/lensly/app/SettingsStore.kt` holds the saved cap.
 - G. Registry and updates: `shared/src/main/java/app/lensly/core/registry/update/RegistryUpdate.kt`, `PackageFormat.kt`, `RegistryPackage.kt`, `RegistryCatalog.kt`, `TrustedKey.kt`; `shared/src/main/java/app/lensly/core/registry/RegistryLoader.kt`; `app/src/main/java/app/lensly/app/RegistryHolder.kt`; `shared/src/main/assets/registry/` (bundled registry); `tools/registry-pack/` (package builder); `tools/registry-data/` (source data).
-- H. Lumio: `lumio/src/main/AndroidManifest.xml`, `lumio/src/main/java/app/lumio/pair/PairedWallets.kt`, `shared/src/main/java/app/lensly/app/export/PairingCodec.kt`, `PairingExport.kt`, `app/src/main/java/app/lensly/app/export/AccountExport.kt`, `BrotliEncoder.kt`, `lumio/src/main/java/app/lumio/pair/PairAddressBooks.kt`, `lumio/src/main/java/app/lumio/send/PaymentCode.kt`, `lumio/src/main/java/app/lumio/send/solana/SolanaSend.kt`, `lumio/src/main/java/app/lumio/send/algorand/AlgorandSendRoute.kt`, `lumio/src/main/java/app/lumio/data/rpc/RpcPlugins.kt`, `lumio/src/main/java/app/lumio/ui/scan/LumioScanScreen.kt`.
+- H. Lumio: `lumio/src/main/AndroidManifest.xml`, `lumio/src/main/java/app/lumio/pair/PairedWallets.kt`, `shared/src/main/java/app/lensly/app/export/PairingCodec.kt`, `PairingExport.kt`, `app/src/main/java/app/lensly/app/export/AccountExport.kt`, `BrotliEncoder.kt`, `lumio/src/main/java/app/lumio/pair/PairAddressBooks.kt`, `lumio/src/main/java/app/lumio/send/PaymentCode.kt`, `lumio/src/main/java/app/lumio/send/solana/SolanaSend.kt`, `lumio/src/main/java/app/lumio/send/algorand/AlgorandSendRoute.kt`, `lumio/src/main/java/app/lumio/data/rpc/RpcPlugins.kt`, `lumio/src/main/java/app/lumio/ui/scan/LumioScanScreen.kt`, `lumio/src/main/java/app/lumio/ui/kit/ClearAirField.kt`, `app/src/main/java/app/lensly/ui/flow/PairWalletScreen.kt`.
 - I. Native: `app/src/main/cpp/brotli_jni.c`, `app/src/main/cpp/CMakeLists.txt` (pins the upstream Brotli SHA-256), `app/src/main/cpp/brotli/` (vendored copy), and every `.so` in the APK.
 - J. Manifests, build, release, CI: `app/src/main/AndroidManifest.xml`, `app/src/main/res/xml/data_extraction_rules.xml`, `shared/src/main/AndroidManifest.xml`, `app/build.gradle.kts` (release R8; `benchmark` is debug-signed, not minified, and profileable), `lumio/build.gradle.kts`, `app/proguard-rules.pro`, `lumio/proguard-rules.pro`, `gradle/verification-metadata.xml`, `gradle/libs.versions.toml`, `gradle/wrapper/gradle-wrapper.properties`, `.github/workflows/release.yml` (tag signing, attestation), `pr-fast.yml`, `nightly.yml`, `comment-run.yml` and `codeql-command.yml` (`issue_comment` triggers), `master-red.yml` (`workflow_run` trigger), the rest of `.github/workflows/` (`cache-cleanup.yml`, `codeql.yml`, `dependency-graph.yml`, `record-goldens.yml`), `scripts/ci/check-manifest.sh` (guards merged debug manifests only), `scripts/ci/fuzz-nightly.sh`, `scripts/ci/shards.txt`, `docs/releasing.md`.
 - K. Debug surfaces (must be absent from release): `app/src/debug/AndroidManifest.xml`, `app/src/debug/java/app/lensly/ui/gate/GatePreviewActivity.kt`, `app/src/debug/java/app/lensly/ui/wallet/WalletPreviewActivity.kt`, `app/src/debug/java/app/lensly/ui/qr/QrPreviewActivity.kt`, `shared/src/debug/java/app/lensly/DebugLaunch.kt` (`debugHidden` extra), `lumio/src/debug/AndroidManifest.xml`, `lumio/src/debug/java/app/lumio/DebugPairFixture.kt`, `lumio/src/debug/java/app/lumio/DebugDemoSeed.kt` (`debugDemoSeed` extra), `lumio/src/debug/res/xml/network_security_config.xml`.
@@ -315,7 +317,7 @@ Goal: trace each key, nonce, tag, derivation, and comparison from its origin to 
 - [ ] Domain separation: every derived key and every MAC has its own label.
 - [ ] `Aead.kt`: 12-byte random IV; count encryptions per key; IV reuse after a restore; behavior on tag mismatch.
 - [ ] `VaultLayout.kt`: each length (nonce, tag, sealed part) and the fixed slot size; constant-time comparison (`MessageDigest.isEqual`) on every MAC check; `ownerIndex` uses `indexOfFirst`, so measure its first-match loop (6.9).
-- [ ] `VaultHeader.kt`: every field used before a password check (KDF parameters, salt, creation time, flags) is authenticated.
+- [ ] `VaultHeader.kt`: every field used before a password check (KDF parameters, salt, creation time, flags) is checked. Header fields are not directly MAC'd; the failure state is MAC'd and KDF changes break the wrapped key.
 - [ ] `KdfCalibration.kt`: floors and ceilings are enforced on values read from a file.
 - [ ] `Argon2Kdf.kt`: BouncyCastle `ARGON2_id`, version 1.3; output and salt lengths; UTF-8 of code points, not UTF-16 code units; password bytes wiped after use.
 - [ ] `VaultKeystore.kt` and `KeystorePolicy.kt`: key purposes, key size 256, user-authentication timeout, StrongBox fallback. No release path accepts a software key.
@@ -348,7 +350,7 @@ Goal: test the platform controls the attacker meets before any app code runs.
 - [ ] Every exported activity and every extra it reads. `run-as` on the release build must fail. Assess what a `profileable` benchmark build exposes when it is installed. That build is signed with the debug key, so it cannot replace a release install, and `<profileable android:shell="true">` lets `adb shell am dumpheap` read the app's heap. Its merged manifest has an exported `androidx.benchmark.IsolationActivity` and permissions that `androidx.benchmark:benchmark-common` adds (`INTERNET`, `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE`). Record whether any lane publishes that APK.
 - [ ] `adb backup`, `bmgr`, and device-to-device transfer carry no vault data. Vault files live only in private directories, and no external storage holds secrets.
 - [ ] Keystore: `KeyInfo.securityLevel` per device, StrongBox use, aliases, key deletion on reset, and behavior after an OS update.
-- [ ] `FLAG_SECURE` covers every vault screen, dialog, and popup, including Compose windows.
+- [ ] `FLAG_SECURE` covers every vault screen, dialog, and popup, including Compose windows. Compose dialogs inherit FLAG_SECURE by default (`securePolicy = Inherit`); do not treat them as a gap.
 - [ ] Notifications, shortcuts, widgets, share targets, and launcher aliases reveal nothing before unlock (docs 8.5).
 - [ ] Clipboard: every call site of `Clipboard.kt` writes no secret, and pasted text reaches a field only after the user has reviewed it.
 - [ ] Secret fields that use the system keyboard set the no-suggestions, no-personalized-learning, and no-autofill flags.
@@ -427,7 +429,7 @@ Evidence: one table per chain, with the request, the decoded fields, the rows sh
 
 Goal: every flow reaches only the states its designers intended, and no transition skips a guard.
 
-Model each machine as a table (state, event, guard, next state) before testing it: vault lifecycle (partial, locked, unlocked, decoy-unlocked, erased); the failure counter; the cover screen and gate; signing (received, parsed, reviewed, held, signed, recorded); pairing; bulk signing (`BulkRun.kt`, `BulkPolicy.kt`, `BulkCap.kt`); the registry (verify, install, roll back); key access (scope checks at load time and at each call); wallet folders (key replacement by ID); and the wallet backup flag (`seedBackedUp`, `WalletStore.kt`).
+Model each machine as a table (state, event, guard, next state) before testing it: vault lifecycle (partial, locked, unlocked, decoy-unlocked, erased); the failure counter; the cover screen and gate; signing (received, parsed, reviewed, held, signed, recorded); pairing; bulk signing (`BulkRun.kt`, `BulkPolicy.kt`, `BulkCap.kt`); the registry (verify, install, roll back); key access (scope checks at load time and at each call); wallet folders (key replacement by ID); and the wallet backup flag (`seedBackedUp`, `WalletStore.kt`). "Bulk signing" in this codebase means account creation, not transaction signing.
 
 - [ ] Every transition that spends a try, writes state, or deletes a key has a written guard.
 - [ ] Every path that sets `seedBackedUp` (`WalletStore.kt`) is backed by a completed backup or a recoverable copy, because `HomeBackup.kt` trusts the flag.
@@ -444,7 +446,7 @@ Goal: the APK the owner installs is the APK built from the reviewed commit, with
 - [ ] The wrapper JAR matches the official checksum (`distributionSha256Sum`). `gradle/libs.versions.toml` pins every version. `ndkVersion` matches the CI image.
 - [ ] `CMakeLists.txt` pins the upstream Brotli SHA-256. Check whether the build downloads that tarball or uses the vendored tree, and whether the two match.
 - [ ] Every `uses:` in `.github/workflows/` is pinned to a full commit SHA. At this commit every workflow is; check each on every run. Permissions are least-privilege, and checkouts use `persist-credentials: false`.
-- [ ] Release path: tags `lensly-v*` and `lumio-v*`; the master guard runs before keystore secrets are read; `fetch-depth: 0`; v2 and v3 signature checks; provenance. Verify the released artifact with `gh attestation verify`.
+- [ ] Release path: tags `lensly-v*` and `lumio-v*`; the master guard runs before keystore secrets are read; `fetch-depth: 0`; v2 and v3 signature checks; provenance. Verify the released artifact with `gh attestation verify … --format json`.
 - [ ] Rebuild from `COMMIT` in a clean environment and compare the signing-independent content (DEX, resources, native libraries). Record every difference.
 - [ ] `comment-run.yml` and `codeql-command.yml` (`issue_comment`): the commenter gate, the code that runs (pull request head or default branch), token permissions, and readable secrets. `master-red.yml` (`workflow_run`) must never run pull-request code with a write token.
 - [ ] No pull request can read or poison a cache that release builds use. No workflow publishes a debug or benchmark artifact.
@@ -458,7 +460,7 @@ Any step that pushes, tags, or runs workflows on the owner's repository needs th
 
 Goal: nothing reachable without the gesture reveals what the app is for (docs 8.5). Test every observer's view of the device before unlock.
 
-- [ ] Before unlock, the app label, icons, package name, activity labels, and every `strings.xml` value in every locale reveal nothing about crypto. The same holds for notifications, shortcuts, widgets, share targets, launcher aliases, and app links.
+- [ ] Before unlock, the app label, icons, package name, activity labels, and every string **rendered or exposed before the unlock gesture** in every locale reveal nothing about crypto; strings reachable only in the hidden area are out of scope. The same holds for notifications, shortcuts, widgets, share targets, launcher aliases, and app links.
 - [ ] Cover-screen banners, errors, and toasts for QR scans: an unknown request reads like any unreadable code.
 - [ ] Photo storage (`MediaEnvelope.kt`, `PhotoStore.kt`): the names and sizes a file-system observer sees, and whether padding hides the photo count.
 - [ ] Gallery strings: compare every string the gallery's unlock screen shows with no vault and with a vault. The gallery opens from the camera screen before any password is entered, so a string that differs between the two states shows whether a vault exists.
@@ -475,7 +477,7 @@ Goal: find whether secret-dependent timing, I/O, or UI behavior tells an observe
 
 Channels: the password check (correct, wrong, decoy, wrong length); the save pattern of a passing try against a failing one (item 12); slot selection (`ownerIndex`); gesture reaction; Keystore call time (StrongBox against TEE, real key against decoy); signing time in Kotlin code paths; per-key timing in the in-app keyboard.
 
-Method: take at least 10,000 samples per condition on a quiet test device, with airplane mode on, fixed brightness, and the same app state. Use a fixed-versus-random t-test (dudect style) or a rank test. Report the statistic, the sample count, and the noise floor from a control condition that must show no difference. A difference counts only if it reproduces on two runs on two different days.
+Method: take at least 10,000 samples per condition on a quiet test device, with airplane mode on, fixed brightness, and the same app state. Use a fixed-versus-random t-test (dudect style) or a rank test. Report the statistic, the sample count, and the noise floor from a control condition that must show no difference. A difference counts only if it reproduces on two runs on two different days. If the run budget cannot span two days, record device timing channels as Gaps with that reason; do not attempt a one-day Confirmed timing claim.
 
 ### 6.10 Denial of Service Leading to Loss
 
@@ -483,7 +485,7 @@ Goal: find any way an attacker who controls only inputs (QR codes, Lumio, a regi
 
 Context: the vault erases itself when it cannot verify its state (item 15; the residual risks in `FailureStore.kt`). Check three things: the erase triggers are exactly the documented set; no attacker-controlled input reaches one; and each benign trigger is documented for the owner.
 
-- [ ] List every erase call in `Vault.kt`, `FailureStore.kt`, and `FailureDelay.kt`. Name each trigger, and mark it attacker-controlled (none allowed) or benign.
+- [ ] List every erase call in `Vault.kt`, `FailureStore.kt`, and `FailureDelay.kt`. Match whole-vault erase calls only; buffer `wipe()` methods are unrelated. Name each trigger, and mark it attacker-controlled (none allowed) or benign.
 - [ ] Test the benign triggers: storage full during a save, a transient KeyMint error, a lock-screen credential change, a biometric change, an OS or app update, a reboot during a save, and a clock jump.
 - [ ] A sandbox crash or hang never counts as a wrong try. A failed registry update never blocks signing or touches the vault. A Lumio request flood never changes the failure state.
 
@@ -495,7 +497,7 @@ Evidence: the exact trigger, the observed erase or lockout, and whether an attac
 
 Goal: assume Lumio is fully hostile. It runs attacker code, shows any UI, sends any QR code, and reads all watch-only data. Determine what that gains the attacker.
 
-- [ ] Lumio holds no wallet key material (its own vault key seals watch-only data). Verify by code inspection and by a memory scan of the Lumio process.
+- [ ] Lumio holds no wallet key material (its own vault key seals watch-only data). Verify by code inspection and by a memory scan of the Lumio process. If no clean device is available, record the Lumio memory scan as a Gap; code inspection does not cover it.
 - [ ] Record what the watch-only data reveals (xpubs, addresses, balances, history, address book, pairings, provider API keys). This is privacy, not funds.
 - [ ] Every request type Lensly accepts from Lumio is reviewed on Lensly before signing (6.5). Lumio cannot make Lensly sign again for a request the owner did not review.
 - [ ] Registry packages are trusted only after verification by a trusted key and a higher sequence (S3); Lensly never takes one from Lumio. Lumio derives each account address from the exported public key, but Address Book entries in a pairing are only format-checked, so their names are unverified.
@@ -541,6 +543,18 @@ Severity measures the outcome for the mnemonic and funds under the primary scena
 - [ ] List closed issues and merged pull requests labeled `area:security` (the commands in 5.1). For each one, find the fix commit, read its regression test, and run that test at `COMMIT`.
 - [ ] Mutation check on the scratch branch: revert the fix and confirm the regression test fails. Restore the fix, and record the result.
 - [ ] A regression is a finding. Its title names the original issue or pull request, and its severity is the original severity or higher.
+
+### 7.5 Accepted Results
+
+Results from offensive audit run 3 (commit `86949a51`) that are accepted and not filed as issues.
+
+| Finding | Decision | Reason |
+|---|---|---|
+| AV-006 | Accepted | Debug and benchmark builds on an emulator skip FLAG_SECURE on purpose so screenshot testing works; release stays secure, and debug on a real device is secure. |
+| AV-012 | Accepted | Releases are cut periodically, so a tag can trail master by design. |
+| AV-014 | Accepted | The nightly script passes `--no-build-cache` to both Gradle calls, so the cached-run trap is already mitigated. |
+| AV-015 | Accepted | The Brotli difference is macOS-versus-Linux build metadata; `-Wl,--build-id=none` was disproven as a fix (20 of 586 bytes). |
+| AV-016 | Accepted | Unoffered bulk-cap values read as 100 by design; the app UI cannot produce them, and `SettingsStoreTest` covers the behavior. |
 
 ## 8. Report Template
 
@@ -656,3 +670,4 @@ The seed list (5.3) names where to look, not what is broken. Add no claim that a
 | 1 | 2026-11-21 | AirVault maintainers | First playbook. Seed paths checked at the repository state of 2026-11-21. |
 | 2 | 2026-11-21 | AirVault maintainers | Corrected Algorand, Solana, Mnemonic, erase-count, workflow, and review claims; added Address Book, payment code, wallet backup flag, lock policy, and backup exclusion checks. |
 | 3 | 2026-11-21 | AirVault maintainers | Added commands for the release APK signature check, the Algorand fuzz gap, the build-cache trap that can skip a nightly fuzz run, the release-manifest network-permission gap, the fuzz crash-file location, verification-metadata coverage, SBOM pinning, and the benchmark APK's profileable and permission surface. |
+| 4 | 2026-11-23 | AirVault maintainers | Applied offensive audit run 3 (commit `86949a51`) changes: device pre-check, brief citation rules, pre-unlock string scope, header MAC wording, Compose FLAG_SECURE inheritance, bulk-signing terminology, timing and memory-scan Gaps, attestation command, erase grep scope, seed-path corrections. Recorded accepted results in 7.5. |
