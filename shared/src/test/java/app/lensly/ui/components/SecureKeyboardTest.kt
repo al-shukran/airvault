@@ -1,14 +1,17 @@
 package app.lensly.ui.components
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LumenTheme
+import kotlin.math.abs
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Rule
@@ -250,5 +253,67 @@ class SecureKeyboardTest {
         compose.onNodeWithTag(KEY_ALTERNATES_TAG).assertExists()
         compose.onRoot().performTouchInput { up() }
         settle()
+    }
+
+    /** The touch area that [description] names, in window pixels. It takes the gaps beside a key, so it is wider than the face. */
+    private fun touchBounds(description: String): Rect =
+        compose.onNodeWithContentDescription(description).fetchSemanticsNode().boundsInRoot
+
+    /** The centre of the letter [letter] as drawn. The label sits centred on its face, so the label gives the centre. */
+    private fun letterCentre(letter: Char): Offset =
+        compose.onNodeWithText(letter.toString(), useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.center
+
+    /** Two lengths in window pixels match to within 1.5 px, which covers the rounding of each row's slots. */
+    private fun assertNear(expected: Float, actual: Float, what: String) {
+        assertTrue(abs(expected - actual) <= 1.5f, "$what: expected $expected px, was $actual px")
+    }
+
+    @Test
+    fun theRowsShareOneGridOfEqualKeysAndEachRowIsCentred() {
+        compose.setContent {
+            LumenTheme { SecureKeyboard(onKey = {}, onBackspace = {}, onDone = {}) }
+        }
+        val top = "qwertyuiop"
+        val middle = "asdfghjkl"
+        val bottom = "zxcvbnm"
+        val slot = touchBounds("q").width
+
+        // Every key takes one slot, except the edge keys of the middle row and shift and backspace, which take a slot and a half.
+        for (c in top + middle.substring(1, middle.length - 1) + bottom + ",.") {
+            assertNear(slot, touchBounds(c.toString()).width, "width of $c")
+        }
+        for (description in listOf("a", "l", "Shift", "Backspace")) {
+            assertNear(1.5f * slot, touchBounds(description).width, "width of $description")
+        }
+
+        // Each key of the middle row sits halfway between the two keys above it: A between Q and W, and L between O and P.
+        for (i in middle.indices) {
+            val midpoint = (letterCentre(top[i]).x + letterCentre(top[i + 1]).x) / 2f
+            assertNear(midpoint, letterCentre(middle[i]).x, "centre of ${middle[i]}")
+        }
+        // The bottom row sits under the middle row one key in: Z under S, and M under K, as on Gboard.
+        for (i in bottom.indices) {
+            assertNear(letterCentre(middle[i + 1]).x, letterCentre(bottom[i]).x, "centre of ${bottom[i]}")
+        }
+
+        // The rows are evenly spaced, and every row is the same height.
+        val firstGap = letterCentre('a').y - letterCentre('q').y
+        val secondGap = letterCentre('z').y - letterCentre('a').y
+        assertNear(firstGap, secondGap, "row spacing")
+        assertNear(touchBounds("q").height, touchBounds("z").height, "row height")
+    }
+
+    @Test
+    fun shiftChangesTheLabelsButNotTheKeys() {
+        compose.setContent {
+            LumenTheme { SecureKeyboard(onKey = {}, onBackspace = {}, onDone = {}) }
+        }
+        val before = letterCentre('a')
+
+        compose.onNodeWithContentDescription("Shift").performClick()
+
+        val after = letterCentre('A')
+        assertNear(before.x, after.x, "x of a and A")
+        assertNear(before.y, after.y, "y of a and A")
     }
 }

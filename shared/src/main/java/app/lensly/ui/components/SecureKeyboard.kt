@@ -7,13 +7,13 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -67,8 +67,8 @@ private enum class KeyboardPage { Letters, Symbols, MoreSymbols }
 
 private val KEY_GAP = 4.dp
 private val ROW_GAP = 8.dp
-private val ROW_PADDING = 3.dp
 private val KEY_HEIGHT = 54.dp
+private val ROW_HEIGHT = KEY_HEIGHT + ROW_GAP
 private val KEY_CORNER = 10.dp
 private val KEY_SHAPE = RoundedCornerShape(KEY_CORNER)
 private val GLYPH_SIZE = 18.dp
@@ -110,8 +110,9 @@ private val PREVIEW_TEXT_SIZE = 32.sp
  * character key shows its character, enlarged, above the key (see [KeyPreview]). Shift, backspace,
  * space, and done show no preview. A pressed key otherwise only darkens its own background.
  *
- * Keys are rounded rectangles that share the full width of the screen. Every row is weighted, so
- * the keys stretch to the available width at any phone size. The number row sits on top of every
+ * Keys are rounded rectangles that share the full width of the screen. Every row is ten slots wide
+ * (see [KeyRow]), so the keys stretch to the available width at any phone size, and the gaps between
+ * keys and rows belong to the keys beside them. The number row sits on top of every
  * page, so the keyboard keeps one height when the page changes. The second row of letters and of
  * each symbol page is inset by half a key on each side, and the bottom row of letters has shift and
  * backspace at 1.5 key widths. The bottom row is the down-arrow key that hides the keyboard, `123` (or
@@ -146,28 +147,26 @@ fun SecureKeyboard(
             .fillMaxWidth()
             .keyboardSurface()
             .navigationBarsPadding()
-            .padding(vertical = 8.dp)
             .onGloballyPositioned { picker.attach(it) },
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(ROW_GAP),
-        ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             KeyRow {
-                for (digit in NUMBER_ROW) ShiftedKey(digit, Modifier.weight(1f), enabled, shift, picker, onKey)
+                for (digit in NUMBER_ROW) ShiftedKey(digit, enabled, shift, picker, onKey)
             }
             when (page) {
                 KeyboardPage.Letters -> {
                     KeyRow {
-                        for (base in LETTERS_TOP) ShiftedKey(base, Modifier.weight(1f), enabled, shift, picker, onKey)
-                    }
-                    KeyRow(inset = true) {
-                        for (base in LETTERS_MIDDLE) ShiftedKey(base, Modifier.weight(1f), enabled, shift, picker, onKey)
+                        for (base in LETTERS_TOP) ShiftedKey(base, enabled, shift, picker, onKey)
                     }
                     KeyRow {
-                        ShiftKey(Modifier.weight(1.5f), shift.mode, enabled) { shift.tapShift() }
-                        for (base in LETTERS_BOTTOM) ShiftedKey(base, Modifier.weight(1f), enabled, shift, picker, onKey)
-                        BackspaceKey(Modifier.weight(1.5f), enabled, onBackspace)
+                        InsetKeys(LETTERS_MIDDLE, inset = 0.5f) { base, lead, trail ->
+                            ShiftedKey(base, enabled, shift, picker, onKey, lead = lead, trail = trail)
+                        }
+                    }
+                    KeyRow {
+                        ShiftKey(slots = 1.5f, mode = shift.mode, enabled = enabled) { shift.tapShift() }
+                        for (base in LETTERS_BOTTOM) ShiftedKey(base, enabled, shift, picker, onKey)
+                        BackspaceKey(slots = 1.5f, enabled = enabled, onClick = onBackspace)
                     }
                 }
                 KeyboardPage.Symbols -> SymbolRows(
@@ -199,23 +198,23 @@ fun SecureKeyboard(
             }
 
             KeyRow {
-                DismissKey(Modifier.weight(1f), enabled)
+                DismissKey(enabled = enabled)
                 SwitchKey(
                     label = if (lettersPage) "123" else "ABC",
                     description = if (lettersPage) "Symbols" else "Letters",
-                    modifier = Modifier.weight(1.5f),
+                    slots = 1.5f,
                     enabled = enabled,
                 ) {
                     if (lettersPage) shift.reset()
                     page = if (lettersPage) KeyboardPage.Symbols else KeyboardPage.Letters
                 }
-                ShiftedKey(',', Modifier.weight(1f), enabled, shift, picker, onKey)
+                ShiftedKey(',', enabled, shift, picker, onKey)
                 Key(
                     description = "Space",
                     background = MaterialTheme.colorScheme.surfaceContainerHigh,
                     enabled = enabled,
                     onClick = { onKey(shift.type(' ')) },
-                    modifier = Modifier.weight(4.5f),
+                    slots = 4f,
                 ) {
                     Text(
                         text = labelCase("Space"),
@@ -223,8 +222,8 @@ fun SecureKeyboard(
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
-                ShiftedKey('.', Modifier.weight(1f), enabled, shift, picker, onKey)
-                DoneKey(Modifier.weight(1.5f), enabled, onDone)
+                ShiftedKey('.', enabled, shift, picker, onKey)
+                DoneKey(slots = 1.5f, enabled = enabled, onClick = onDone)
             }
         }
         AlternatesStrip(picker)
@@ -250,15 +249,17 @@ private fun SymbolRows(
     onSwitch: () -> Unit,
 ) {
     KeyRow {
-        for (c in top) ShiftedKey(c, Modifier.weight(1f), enabled, shift, picker, onKey)
-    }
-    KeyRow(inset = true) {
-        for (c in middle) ShiftedKey(c, Modifier.weight(1f), enabled, shift, picker, onKey)
+        for (c in top) ShiftedKey(c, enabled, shift, picker, onKey)
     }
     KeyRow {
-        SwitchKey(switchLabel, switchDescription, Modifier.weight(1.5f), enabled, onSwitch)
-        for (c in bottom) ShiftedKey(c, Modifier.weight(1f), enabled, shift, picker, onKey)
-        BackspaceKey(Modifier.weight(1.5f), enabled, onBackspace)
+        InsetKeys(middle, inset = 0.5f) { c, lead, trail ->
+            ShiftedKey(c, enabled, shift, picker, onKey, lead = lead, trail = trail)
+        }
+    }
+    KeyRow {
+        SwitchKey(label = switchLabel, description = switchDescription, slots = 1.5f, enabled = enabled, onClick = onSwitch)
+        for (c in bottom) ShiftedKey(c, enabled, shift, picker, onKey)
+        BackspaceKey(slots = 1.5f, enabled = enabled, onClick = onBackspace)
     }
 }
 
@@ -267,19 +268,21 @@ private fun SymbolRows(
  * and other keys are typed as they are. Its alternates, if any, take the same case.
  */
 @Composable
-private fun ShiftedKey(
+private fun RowScope.ShiftedKey(
     base: Char,
-    modifier: Modifier,
     enabled: Boolean,
     shift: Shift,
     picker: AlternatesPicker,
     onKey: (Char) -> Unit,
+    lead: Float = 0f,
+    trail: Float = 0f,
 ) {
     CharKey(
         label = shift.labelFor(base),
-        modifier = modifier,
         enabled = enabled,
         onTap = { onKey(shift.type(base)) },
+        lead = lead,
+        trail = trail,
         alternates = ALTERNATES[base]?.map(shift::labelFor)?.joinToString("").orEmpty(),
         picker = picker,
         onChoose = { onKey(shift.type(it)) },
@@ -288,10 +291,10 @@ private fun ShiftedKey(
 
 /** A key that switches the page: the bottom row's `123` or `ABC`, and the switch on each symbols page. */
 @Composable
-private fun SwitchKey(
+private fun RowScope.SwitchKey(
     label: String,
     description: String,
-    modifier: Modifier,
+    slots: Float,
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
@@ -300,7 +303,7 @@ private fun SwitchKey(
         background = MaterialTheme.colorScheme.surfaceContainerHigh,
         enabled = enabled,
         onClick = onClick,
-        modifier = modifier,
+        slots = slots,
     ) {
         Text(
             text = label,
@@ -333,78 +336,80 @@ fun SecureHexKeyboard(
         modifier = modifier
             .fillMaxWidth()
             .keyboardSurface()
-            .navigationBarsPadding()
-            .padding(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(ROW_GAP),
+            .navigationBarsPadding(),
     ) {
         KeyRow {
-            for (c in HEX_DIGIT_ROW) {
-                CharKey(c, Modifier.weight(1f), enabled, onTap = { onKey(c) })
-            }
+            for (c in HEX_DIGIT_ROW) CharKey(c, enabled, onTap = { onKey(c) })
         }
         // Seven keys sit centred under the ten above them, with a space of 1.5 keys on each side.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = ROW_PADDING),
-            horizontalArrangement = Arrangement.spacedBy(KEY_GAP),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Spacer(Modifier.weight(1.5f))
-            for (c in HEX_LETTER_ROW) {
-                CharKey(c, Modifier.weight(1f), enabled, onTap = { onKey(c) })
-            }
-            Spacer(Modifier.weight(1.5f))
-        }
         KeyRow {
-            DismissKey(Modifier.weight(2f), enabled)
-            Spacer(Modifier.weight(1f))
-            BackspaceKey(Modifier.weight(3f), enabled, onBackspace)
-            DoneKey(Modifier.weight(3f), enabled, onDone)
-            Spacer(Modifier.weight(1f))
+            InsetKeys(HEX_LETTER_ROW, inset = 1.5f) { c, lead, trail ->
+                CharKey(c, enabled, onTap = { onKey(c) }, lead = lead, trail = trail)
+            }
+        }
+        // Dismiss and done each take one key's space beside them, so the row is ten keys wide, as the rows above are.
+        KeyRow {
+            DismissKey(slots = 2f, trail = 1f, enabled = enabled)
+            BackspaceKey(slots = 3f, enabled = enabled, onClick = onBackspace)
+            DoneKey(slots = 3f, trail = 1f, enabled = enabled, onClick = onDone)
         }
     }
 }
 
 /**
- * Makes the whole keyboard a tap target. A tap that lands on no key, such as the gap beside a row or the row padding, is consumed
- * here, so it does not reach the screen behind and hide the keyboard. Taps outside the keyboard still reach the screen. There is no
- * visual feedback and no semantics, so the keys look and act as before.
+ * Makes the whole keyboard a tap target. The keys cover the keyboard's area, so a tap that lands on no key, such as the bar that keeps
+ * clear of the navigation bar, is consumed here and does not reach the screen behind and hide the keyboard. Taps outside the keyboard
+ * still reach the screen. There is no visual feedback and no semantics, so the keys look and act as before.
  */
 private fun Modifier.keyboardSurface(): Modifier = pointerInput(Unit) { detectTapGestures {} }
 
 /**
- * A row of weighted keys with [ROW_PADDING] on each side. With [inset], the row gets a half-key
- * spacer on each side, which centers a nine-key row under the ten-key row above it.
+ * A row ten slots wide, where a slot is one key's width plus the gap after it. A key takes its slots (see [Key]), so every slot is
+ * the same width on every row, and the row's keys tile its width with no space left over. The row is [ROW_HEIGHT] tall: a key and
+ * the half gap above and below it, so the gaps between rows belong to the keys beside them.
  */
 @Composable
-private fun KeyRow(inset: Boolean = false, content: @Composable RowScope.() -> Unit) {
+private fun KeyRow(content: @Composable RowScope.() -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = ROW_PADDING),
-        horizontalArrangement = Arrangement.spacedBy(KEY_GAP),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (inset) Spacer(Modifier.weight(0.5f))
-        content()
-        if (inset) Spacer(Modifier.weight(0.5f))
+            .height(ROW_HEIGHT),
+        content = content,
+    )
+}
+
+/**
+ * Nine or seven keys centred in a ten-slot row, with [inset] slots left empty on each side. The first key takes the left inset and the
+ * last takes the right one, so the space beside the row is a key's touch area, as in the rest of the keyboard.
+ */
+@Composable
+private fun RowScope.InsetKeys(
+    chars: String,
+    inset: Float,
+    key: @Composable RowScope.(char: Char, lead: Float, trail: Float) -> Unit,
+) {
+    chars.forEachIndexed { index, char ->
+        key(char, if (index == 0) inset else 0f, if (index == chars.lastIndex) inset else 0f)
     }
 }
 
 /**
- * Base key: a rounded rectangle of [KEY_HEIGHT]. The caller sets the width through [modifier],
- * usually with a row weight. While pressed, the background darkens. A key with [preview] also
- * shows that text above itself while pressed. [stateText] is announced as the key's state. A [repeating] key fires on press, and again while it is held.
+ * Base key. Its touch area is [slots] row slots, plus [lead] slots before it and [trail] slots after it (see [InsetKeys]). Its face is
+ * a rounded rectangle of [KEY_HEIGHT], inset by half of [KEY_GAP] on each side and half of [ROW_GAP] above and below, so the gaps
+ * belong to the keys beside it. While pressed, the face darkens. A key with [preview] also
+ * shows that text above its face while pressed. [stateText] is announced as the key's state. A [repeating] key fires on press, and again
+ * while it is held.
  * A key with [alternates] (and its [picker]) opens them on a long press, and [onChoose] takes the alternate released on (see [alternatesGesture]).
  */
 @Composable
-private fun Key(
+private fun RowScope.Key(
     description: String,
     background: Color,
     enabled: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier,
+    slots: Float = 1f,
+    lead: Float = 0f,
+    trail: Float = 0f,
     stateText: String? = null,
     preview: String? = null,
     repeating: Boolean = false,
@@ -441,13 +446,11 @@ private fun Key(
         )
     }
 
-    Box(
-        modifier = modifier
-            .height(KEY_HEIGHT)
-            .alpha(if (enabled) 1f else DISABLED_ALPHA)
-            .clip(KEY_SHAPE)
-            .background(fill, KEY_SHAPE)
-            .onGloballyPositioned { place.coordinates = it }
+    Row(
+        modifier = Modifier
+            .weight(lead + slots + trail)
+            .fillMaxHeight()
+            .onGloballyPositioned { place.cell = it }
             .tapHaptic(haptics, enabled)
             .then(press)
             .semantics {
@@ -464,10 +467,23 @@ private fun Key(
                     }
                 }
             },
-        contentAlignment = Alignment.Center,
     ) {
-        content()
-        if (preview != null && pressed) KeyPreview(preview)
+        if (lead > 0f) Spacer(Modifier.weight(lead))
+        Box(
+            modifier = Modifier
+                .weight(slots)
+                .fillMaxHeight()
+                .padding(horizontal = KEY_GAP / 2, vertical = ROW_GAP / 2)
+                .alpha(if (enabled) 1f else DISABLED_ALPHA)
+                .clip(KEY_SHAPE)
+                .background(fill, KEY_SHAPE)
+                .onGloballyPositioned { place.face = it },
+            contentAlignment = Alignment.Center,
+        ) {
+            content()
+            if (preview != null && pressed) KeyPreview(preview)
+        }
+        if (trail > 0f) Spacer(Modifier.weight(trail))
     }
 }
 
@@ -503,11 +519,12 @@ private fun Modifier.repeatWhileHeld(
 }
 
 @Composable
-private fun CharKey(
+private fun RowScope.CharKey(
     label: Char,
-    modifier: Modifier,
     enabled: Boolean,
     onTap: () -> Unit,
+    lead: Float = 0f,
+    trail: Float = 0f,
     alternates: String = "",
     picker: AlternatesPicker? = null,
     onChoose: (Char) -> Unit = {},
@@ -519,7 +536,8 @@ private fun CharKey(
         background = MaterialTheme.colorScheme.surfaceContainerHigh,
         enabled = enabled,
         onClick = onTap,
-        modifier = modifier,
+        lead = lead,
+        trail = trail,
         preview = if (previewed) label.toString() else null,
         alternates = alternates,
         picker = picker,
@@ -563,8 +581,8 @@ private fun KeyPreview(text: String) {
 }
 
 @Composable
-private fun ShiftKey(
-    modifier: Modifier,
+private fun RowScope.ShiftKey(
+    slots: Float,
     mode: ShiftMode,
     enabled: Boolean,
     onClick: () -> Unit,
@@ -575,7 +593,7 @@ private fun ShiftKey(
         background = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceContainerHigh,
         enabled = enabled,
         onClick = onClick,
-        modifier = modifier,
+        slots = slots,
         stateText = when (mode) {
             ShiftMode.Off -> null
             ShiftMode.OneShot -> "Shift on"
@@ -587,8 +605,8 @@ private fun ShiftKey(
 }
 
 @Composable
-private fun BackspaceKey(
-    modifier: Modifier,
+private fun RowScope.BackspaceKey(
+    slots: Float,
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
@@ -597,7 +615,7 @@ private fun BackspaceKey(
         background = MaterialTheme.colorScheme.primary,
         enabled = enabled,
         onClick = onClick,
-        modifier = modifier,
+        slots = slots,
         repeating = true,
     ) {
         BackspaceGlyph(color = MaterialTheme.colorScheme.onPrimary)
@@ -605,17 +623,19 @@ private fun BackspaceKey(
 }
 
 @Composable
-private fun DoneKey(
-    modifier: Modifier,
+private fun RowScope.DoneKey(
+    slots: Float,
     enabled: Boolean,
     onClick: () -> Unit,
+    trail: Float = 0f,
 ) {
     Key(
         description = "Done",
         background = MaterialTheme.colorScheme.onSurface,
         enabled = enabled,
         onClick = onClick,
-        modifier = modifier,
+        slots = slots,
+        trail = trail,
     ) {
         EnterGlyph(color = MaterialTheme.colorScheme.background)
     }
@@ -623,9 +643,10 @@ private fun DoneKey(
 
 /** Hides the keyboard by calling [LocalKeyboardDismiss]. It sits at the left of the bottom row, next to the page key. */
 @Composable
-private fun DismissKey(
-    modifier: Modifier,
+private fun RowScope.DismissKey(
     enabled: Boolean,
+    slots: Float = 1f,
+    trail: Float = 0f,
 ) {
     val dismiss = LocalKeyboardDismiss.current
     Key(
@@ -633,7 +654,8 @@ private fun DismissKey(
         background = MaterialTheme.colorScheme.surfaceContainerHigh,
         enabled = enabled,
         onClick = dismiss,
-        modifier = modifier,
+        slots = slots,
+        trail = trail,
     ) {
         ChevronDownGlyph(color = MaterialTheme.colorScheme.onSurface)
     }
