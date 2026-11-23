@@ -555,6 +555,7 @@ Results from offensive audit run 3 (commit `86949a51`) that are accepted and not
 | AV-014 | Accepted | The nightly script passes `--no-build-cache` to both Gradle calls, so the cached-run trap is already mitigated. |
 | AV-015 | Accepted | The Brotli difference is macOS-versus-Linux build metadata; `-Wl,--build-id=none` was disproven as a fix (20 of 586 bytes). |
 | AV-016 | Accepted | Unoffered bulk-cap values read as 100 by design; the app UI cannot produce them, and `SettingsStoreTest` covers the behavior. |
+| Lumio Biometric Unlock | Accepted | With biometric unlock on, anyone who forces the owner's finger at the unlock screen opens the real vault; the auto-prompt also shows the feature is on. |
 
 ## 8. Report Template
 
@@ -671,3 +672,4 @@ The seed list (5.3) names where to look, not what is broken. Add no claim that a
 | 2 | 2026-11-21 | AirVault maintainers | Corrected Algorand, Solana, Mnemonic, erase-count, workflow, and review claims; added Address Book, payment code, wallet backup flag, lock policy, and backup exclusion checks. |
 | 3 | 2026-11-21 | AirVault maintainers | Added commands for the release APK signature check, the Algorand fuzz gap, the build-cache trap that can skip a nightly fuzz run, the release-manifest network-permission gap, the fuzz crash-file location, verification-metadata coverage, SBOM pinning, and the benchmark APK's profileable and permission surface. |
 | 4 | 2026-11-23 | AirVault maintainers | Applied offensive audit run 3 (commit `86949a51`) changes: device pre-check, brief citation rules, pre-unlock string scope, header MAC wording, Compose FLAG_SECURE inheritance, bulk-signing terminology, timing and memory-scan Gaps, attestation command, erase grep scope, seed-path corrections. Recorded accepted results in 7.5. |
+| 5 | 2026-11-23 | AirVault maintainers | Issue #750: disclosed the self-erase on unverifiable vault state in the README and the Ledger recovery guide; recorded the Lumio Biometric Unlock accepted result in 7.5 and in the Device Protection help text. |

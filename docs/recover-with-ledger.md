@@ -13,6 +13,8 @@ This guide moves a Lensly wallet to a Ledger, and a Ledger wallet to Lensly.
 2. If you set a passphrase, write it down separately from the 24 words.
 3. Never photograph the words or the passphrase, and never store them in a notes app or cloud drive.
 
+Lensly erases the vault if it cannot verify the vault's state, for example after a storage or Keystore fault or a power cut. It does this before it checks your password, so keep this paper copy.
+
 A lost passphrase cannot be recovered. Without it, the 24 words restore a different, empty wallet.
 
 ## Move to a Ledger
