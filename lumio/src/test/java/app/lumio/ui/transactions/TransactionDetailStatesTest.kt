@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.theme.ClearAirTheme
 import app.lumio.data.net.NetworkId
@@ -128,9 +129,9 @@ class TransactionDetailStatesTest {
         var opened = false
         show(detail(explorerUrl = "https://testnet.monadexplorer.com/tx/0x01"), onExplorer = { opened = true })
 
-        compose.onNodeWithText("View on Explorer").performClick()
-        compose.onNodeWithText("Open in Your Browser?").assertIsDisplayed()
-        compose.onNodeWithText("testnet.monadexplorer.com").assertIsDisplayed()
+        // The link sits below the fold of a phone-sized page, so the reader scrolls to it first.
+        compose.onNodeWithText("View on Explorer").performScrollTo().performClick()
+        compose.onNodeWithText("Open testnet.monadexplorer.com in Your Browser?").assertIsDisplayed()
         assertFalse(opened)
 
         compose.onNodeWithTag(TX_EXPLORER_TAG).performClick()

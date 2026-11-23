@@ -168,8 +168,7 @@ fun TransactionDetailScreen(
     if (askExplorer) {
         val host = detail.explorerUrl?.let { runCatching { URI(it).host }.getOrNull() } ?: "the explorer"
         ClearAirDialog(
-            title = "Open in Your Browser?",
-            text = host,
+            title = "Open $host in Your Browser?",
             onDismiss = { askExplorer = false },
             actions = {
                 ClearAirPrimaryButton(
