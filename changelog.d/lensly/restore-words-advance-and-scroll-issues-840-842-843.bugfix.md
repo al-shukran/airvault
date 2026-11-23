@@ -1,0 +1,1 @@
+Restoring a wallet moves on as soon as a typed word is the only BIP39 word with those letters, keeps the word being typed in view above the keyboard, and returns a passphrase mismatch to the passphrase without asking for the 24 words again.
