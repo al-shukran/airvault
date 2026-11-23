@@ -1,0 +1,1 @@
+Settings ends with Reset Lumio. After you confirm, Lumio erases its pairings, settings, address books and cached balances on this phone, and onboarding starts again at Welcome. Lensly is not affected, and the Hidden Entry Gesture stays as it is.

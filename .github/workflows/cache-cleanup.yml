@@ -1,24 +1,35 @@
 name: cache-cleanup
 
 # A pull request saves the dependency cache when it changes the dependency files, scoped to refs/pull/<number>/merge, which no other
-# branch can restore. Delete it when the pull request closes so it stops counting against the repository's 10 GB cache limit.
+# branch can restore. This sweep runs daily and deletes those caches once their pull request is closed or merged, so they stop
+# counting against the repository's 10 GB cache limit. It is housekeeping, so it runs on the schedule and not on pull_request.
 on:
-  pull_request:
-    types: [closed]
+  schedule:
+    - cron: '41 5 * * *'       # 05:41 UTC daily
+  workflow_dispatch:
 
 permissions: {}
 
 jobs:
   delete-pr-caches:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       actions: write
+      pull-requests: read
     steps:
-      - name: Delete the caches of this pull request
+      - name: Delete the caches of closed and merged pull requests
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh cache list --ref refs/pull/${{ github.event.pull_request.number }}/merge --limit 100 --json id --jq '.[].id' \
-            | xargs -r -n1 gh cache delete
+          set -uo pipefail
+          gh cache list --limit 100 --json id,ref --jq '.[] | select(.ref | test("^refs/pull/[0-9]+/merge$")) | "\(.id) \(.ref)"' \
+            | while read -r id ref; do
+                number=${ref#refs/pull/}
+                number=${number%/merge}
+                state=$(gh pr view "$number" --repo "$GH_REPO" --json state --jq .state || echo UNKNOWN)
+                if [ "$state" = CLOSED ] || [ "$state" = MERGED ]; then
+                  gh cache delete "$id" --repo "$GH_REPO"
+                fi
+              done

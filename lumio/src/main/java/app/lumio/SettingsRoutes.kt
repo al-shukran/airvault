@@ -42,6 +42,7 @@ import app.lumio.ui.settings.settingsRows
 import app.lumio.ui.shell.offlineBand
 import app.lumio.ui.shell.rememberOnline
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,10 +51,24 @@ import kotlinx.coroutines.withContext
 
 
 /** The Settings tab's route: the root of the tab, with the list of pages in it. */
-internal fun NavGraphBuilder.settingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, selection: NetworkSelection, onLock: () -> Unit) {
+internal fun NavGraphBuilder.settingsRoute(
+    navController: NavHostController,
+    holder: VaultHolder,
+    listVersion: Int,
+    selection: NetworkSelection,
+    lockChoices: LockSettingsState,
+    onLock: () -> Unit,
+) {
     lumioComposable(LumioRoute.SETTINGS) {
         LumioBackdrop(selection) {
-            SettingsRoute(navController = navController, holder = holder, listVersion = listVersion, selection = selection, onLock = onLock)
+            SettingsRoute(
+                navController = navController,
+                holder = holder,
+                listVersion = listVersion,
+                selection = selection,
+                lockChoices = lockChoices,
+                onLock = onLock,
+            )
         }
     }
 }
@@ -64,7 +79,14 @@ internal fun NavGraphBuilder.settingsRoute(navController: NavHostController, hol
  * wallets change, so a change made on a page shows here when the owner comes back to it.
  */
 @Composable
-private fun SettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, selection: NetworkSelection, onLock: () -> Unit) {
+private fun SettingsRoute(
+    navController: NavHostController,
+    holder: VaultHolder,
+    listVersion: Int,
+    selection: NetworkSelection,
+    lockChoices: LockSettingsState,
+    onLock: () -> Unit,
+) {
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
     LaunchedEffect(session == null) {
@@ -80,12 +102,21 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder,
     // The vault's own read has not finished yet: read here once, so the list never comes in blank.
     val current = cached ?: remember(store) { store.refresh(); store.facts.value } ?: return
     val gesture = LocalContext.current.entryGestureHolder().current
+    val scope = rememberCoroutineScope()
     TabRoute(tab = LumioTab.SETTINGS, navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = onLock) {
         LumioSettingsScreen(
             rows = settingsRows(current, gesture, BuildConfig.VERSION_NAME),
             finish = current.finish,
             onFinish = { item -> navController.navigate(LumioRoute.settingsPage(item.page)) },
             onOpen = { page -> navController.navigate(LumioRoute.settingsPage(page)) },
+            onReset = {
+                scope.launch {
+                    // The erase runs to its end even if this screen leaves. A vault file that cannot be deleted leaves the vault, and the gate then asks for its password.
+                    withContext(Dispatchers.IO + NonCancellable) { runCatching { app.eraseLumio() } }
+                    lockChoices.reload()
+                    navController.openHidden(GateRoutes.GATE)
+                }
+            },
         )
     }
 }

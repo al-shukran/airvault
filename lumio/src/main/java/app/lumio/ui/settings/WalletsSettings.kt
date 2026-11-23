@@ -78,6 +78,7 @@ fun WalletsSettings(wallets: List<PairedWallet>, onPair: () -> Unit, onDelete: (
                     pendingDelete = null
                     onDelete(wallet)
                 },
+                destructive = true,
                 modifier = Modifier.testTag(DELETE_CONFIRM_TAG),
             )
             ClearAirTextAction(text = "Cancel", onClick = { pendingDelete = null })
