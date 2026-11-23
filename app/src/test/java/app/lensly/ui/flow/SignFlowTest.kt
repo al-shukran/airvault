@@ -371,7 +371,7 @@ class SignFlowTest {
     @Test
     fun aDifferentKindOfCodeIsRefusedAsUnsupported() {
         val flow = SignFlow(FakePorts(), WALLET_ID)
-        val otherCode = PairingExport.urParts(listOf(XPUB), WALLET.masterFingerprint, "Lensly")
+        val otherCode = PairingExport.urParts(List(5) { WALLET.accountXpub(it) }, WALLET.masterFingerprint, "Lensly")
         scan(flow, otherCode.asSequence())
         assertEquals(
             SignStep.Refused(
@@ -883,7 +883,7 @@ class SignFlowTest {
     fun aCodeThatIsNotARequestRecordsNothing() {
         val ports = FakePorts()
         val flow = SignFlow(ports, WALLET_ID)
-        val otherCode = PairingExport.urParts(listOf(XPUB), WALLET.masterFingerprint, "Lensly")
+        val otherCode = PairingExport.urParts(List(5) { WALLET.accountXpub(it) }, WALLET.masterFingerprint, "Lensly")
 
         scan(flow, otherCode.asSequence())
 
