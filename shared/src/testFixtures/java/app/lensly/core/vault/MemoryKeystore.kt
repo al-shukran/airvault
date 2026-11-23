@@ -11,6 +11,7 @@ import javax.crypto.SecretKey
 class MemoryKeystore : KeystoreBackend {
     private var hardware: SecretKey? = null
     private var slotKey: SecretKey? = null
+    private var headerKey: SecretKey? = null
     private val failureMacs = mutableMapOf<Long, SecretKey>()
     private val folderKeys = mutableMapOf<String, SecretKey>()
     private var pendingPhoto: SecretKey? = null
@@ -40,9 +41,18 @@ class MemoryKeystore : KeystoreBackend {
         slotKey = newHmacKey()
     }
 
-    override fun slotMac(message: ByteArray): ByteArray {
-        val key = slotKey ?: throw VaultException("The vault's slot key is missing from the Keystore.")
-        return Mac.getInstance("HmacSHA256").apply { init(key) }.doFinal(message)
+    override fun slotMac(message: ByteArray): ByteArray = macWith(slotKey, "slot", message)
+
+    /** Replaces the header key. A header MACed under the old key no longer verifies, so the vault is unverifiable. */
+    override fun createHeaderKey() {
+        headerKey = newHmacKey()
+    }
+
+    override fun headerMac(message: ByteArray): ByteArray = macWith(headerKey, "header", message)
+
+    private fun macWith(key: SecretKey?, what: String, message: ByteArray): ByteArray {
+        val usable = key ?: throw VaultException("The vault's $what key is missing from the Keystore.")
+        return Mac.getInstance("HmacSHA256").apply { init(usable) }.doFinal(message)
     }
 
     override fun createFailureMacKey(seq: Long): SecretKey = newHmacKey().also { failureMacs[seq] = it }
@@ -90,6 +100,7 @@ class MemoryKeystore : KeystoreBackend {
         if (failDeleteAll) throw VaultException("The Keystore refused to delete the keys.")
         hardware = null
         slotKey = null
+        headerKey = null
         failureMacs.clear()
         folderKeys.clear()
         pendingPhoto = null

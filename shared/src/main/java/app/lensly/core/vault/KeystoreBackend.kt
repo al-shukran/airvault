@@ -22,6 +22,12 @@ interface KeystoreBackend {
     /** HMAC-SHA256 of [message] under the slot key. Throws [VaultException] if the key has been removed. */
     fun slotMac(message: ByteArray): ByteArray
 
+    /** Creates the header key, the HMAC key that MACs the vault header, replacing any key under that name. */
+    fun createHeaderKey()
+
+    /** HMAC-SHA256 of [message] under the header key. Throws [VaultException] if the key has been removed. */
+    fun headerMac(message: ByteArray): ByteArray
+
     /** Creates the Delay State MAC key for [seq], replacing any key under that number, and returns it. */
     fun createFailureMacKey(seq: Long): SecretKey
 
@@ -98,6 +104,10 @@ internal class AndroidKeystoreBackend(
     override fun createSlotKey() = VaultKeystore.createSlotKey()
 
     override fun slotMac(message: ByteArray): ByteArray = VaultKeystore.slotMac(message)
+
+    override fun createHeaderKey() = VaultKeystore.createHeaderKey()
+
+    override fun headerMac(message: ByteArray): ByteArray = VaultKeystore.headerMac(message)
 
     override fun createFailureMacKey(seq: Long): SecretKey = VaultKeystore.createFailureMacKey(seq)
 

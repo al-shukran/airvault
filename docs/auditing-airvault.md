@@ -232,7 +232,7 @@ These are checks, not findings. Close each one as Held, Confirmed (with a findin
 - [ ] On-disk names: `VaultLayout.kt` names photo directories and key files `real` and `decoy`. Check whether a file-system image shows which vault exists, and whether the decoy's footprint matches the real vault's.
 - [ ] Photo capture with no vault and with a vault: the outcome and the message must match in both states. Photos taken before setup are kept in a pending pair (`PendingPhotoKey.kt`). Take a photo before creating a vault and after, and compare the result and the message, because any difference shows whether a vault exists.
 - [ ] Backup exclusion: an APK whose merged manifest allows backup refuses to create a vault (`BackupExclusion.kt`, `Vault.refusal()`).
-- [ ] Header binding: flip each `VaultHeader.kt` field (KDF parameters, salt, flags) and record the failure mode and the counter.
+- [ ] Header binding: flip each `VaultHeader.kt` field (version, KDF parameters, salt, creation time, flags, key security level, and the MAC) and confirm that each flip erases the vault before a password is checked (AV-007, fixed in #746; `VaultHeaderBindingTest` covers each field). Run it against the commit under test.
 - [ ] Clock and boot count: items 4 to 10 and 16, each with a root-level clock or boot-count test on a test device.
 - [ ] Password result signature: item 12 says a passing try saves once more than a failing try. Measure whether an observer can tell right from wrong, or real from decoy.
 - [ ] Mnemonic strings: measure how long `String` copies of words and the passphrase survive after `wipe()`. Use a heap dump on a debuggable test build and a memory scan on a rooted test device.
@@ -306,7 +306,7 @@ Write these numbers into the report.
 
 - Per-try cost: Argon2id at the stored parameters. `KdfCalibration.kt` targets about 900 ms per derivation, with 64 MiB or 32 MiB of memory, plus one Keystore operation.
 - Tries before erase: the owner's erase count (default 10, allowed 3 to 20). A right password resets the count; rolling the counter back is the attacker's route to more tries.
-- Expected time to find the password, starting from the policy floor of 40 estimated bits, for three cases: (a) an honest counter; (b) a counter rolled back after each try; (c) header KDF parameters lowered, if the header is not authenticated.
+- Expected time to find the password, starting from the policy floor of 40 estimated bits, for three cases: (a) an honest counter; (b) a counter rolled back after each try; (c) header KDF parameters lowered. The header MAC refuses that edit before a password check (#746), so case (c) must end in an erase, not in a cheaper search.
 - Name the assumption that each case depends on.
 
 ### 6.2 Cryptography Review, Line by Line
@@ -317,7 +317,7 @@ Goal: trace each key, nonce, tag, derivation, and comparison from its origin to 
 - [ ] Domain separation: every derived key and every MAC has its own label.
 - [ ] `Aead.kt`: 12-byte random IV; count encryptions per key; IV reuse after a restore; behavior on tag mismatch.
 - [ ] `VaultLayout.kt`: each length (nonce, tag, sealed part) and the fixed slot size; constant-time comparison (`MessageDigest.isEqual`) on every MAC check; `ownerIndex` uses `indexOfFirst`, so measure its first-match loop (6.9).
-- [ ] `VaultHeader.kt`: every field used before a password check (KDF parameters, salt, creation time, flags) is checked. Header fields are not directly MAC'd; the failure state is MAC'd and KDF changes break the wrapped key.
+- [ ] `VaultHeader.kt`: every header field (version, KDF parameters, salt, creation time, flags, key security level) is covered by a MAC under the header key (`lensly.vault.header-mac`), checked before a password (#746). The failure state is MAC'd too, and KDF changes break the wrapped key.
 - [ ] `KdfCalibration.kt`: floors and ceilings are enforced on values read from a file.
 - [ ] `Argon2Kdf.kt`: BouncyCastle `ARGON2_id`, version 1.3; output and salt lengths; UTF-8 of code points, not UTF-16 code units; password bytes wiped after use.
 - [ ] `VaultKeystore.kt` and `KeystorePolicy.kt`: key purposes, key size 256, user-authentication timeout, StrongBox fallback. No release path accepts a software key.
@@ -675,3 +675,4 @@ The seed list (5.3) names where to look, not what is broken. Add no claim that a
 | 4 | 2026-11-23 | AirVault maintainers | Applied offensive audit run 3 (commit `86949a51`) changes: device pre-check, brief citation rules, pre-unlock string scope, header MAC wording, Compose FLAG_SECURE inheritance, bulk-signing terminology, timing and memory-scan Gaps, attestation command, erase grep scope, seed-path corrections. Recorded accepted results in 7.5. |
 | 5 | 2026-11-23 | AirVault maintainers | Issue #750: disclosed the self-erase on unverifiable vault state in the README and the Ledger recovery guide; recorded the Lumio Biometric Unlock accepted result in 7.5 and in the Device Protection help text. |
 | 6 | 2026-11-23 | AirVault maintainers | Recorded the accepted TalkBack behavior for the confirm-word quiz and the restore suggestions in 7.5, with the scope in `docs/accessibility.md`. |
+| 7 | 2026-11-23 | AirVault maintainers | Issue #746 (AV-007): the header carries a MAC under `lensly.vault.header-mac`, checked before any password, and an unverifiable header erases the vault. Updated the header checks in 5.4 and 6.2 and case (c) in 6.1. |
