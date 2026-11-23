@@ -142,7 +142,7 @@ internal fun NavGraphBuilder.settingsPageRoutes(
         }
     }
     lumioComposable(LumioRoute.SETTINGS_SECURITY) {
-        LumioBackdrop(selection) { SecuritySettingsRoute(navController = navController, lockChoices = lockChoices) }
+        LumioBackdrop(selection) { SecuritySettingsRoute(navController = navController, holder = holder, lockChoices = lockChoices) }
     }
     lumioComposable(LumioRoute.SETTINGS_ABOUT) {
         LumioBackdrop(selection) { AboutSettingsRoute(navController = navController) }
@@ -176,11 +176,12 @@ private fun AddressBookSettingsRoute(navController: NavHostController, holder: V
  * change, Device Protection, whose row opens its page, and the lock. Each choice applies as the owner makes it.
  */
 @Composable
-private fun SecuritySettingsRoute(navController: NavHostController, lockChoices: LockSettingsState) {
+private fun SecuritySettingsRoute(navController: NavHostController, holder: VaultHolder, lockChoices: LockSettingsState) {
+    val session = holder.openSession() ?: return
     val biometric = (LocalContext.current.applicationContext as LumioApp).biometricUnlock
     val top by navController.currentBackStackEntryAsState()
     // Read again each time this page comes back to the top, because the Device Protection page may have turned the setting on or off.
-    val biometricOn = remember(top) { biometric.isOn() }
+    val biometricOn = remember(top) { biometric.isOn(session) }
     SecuritySettingsPage(
         entryGesture = LocalContext.current.entryGestureHolder().current,
         lock = lockChoices.settings,

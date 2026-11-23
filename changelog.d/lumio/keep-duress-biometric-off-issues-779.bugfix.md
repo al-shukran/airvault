@@ -1,0 +1,1 @@
+Switching Biometric Unlock off from a Duress Password session deleted the real vault's sealed key, so biometric unlock stopped working for the real vault until it was turned on again with the App Password. In a Duress Password session, Device Protection now shows Biometric Unlock as off, and switching it off there changes nothing in the real vault.

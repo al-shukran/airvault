@@ -149,12 +149,37 @@ class BiometricUnlockTest {
     fun disablingDeletesTheSealedKeyAndTheBiometricKey() {
         val session = openApp()
         assertTrue(runBlocking { unlock.enable(session) })
-        session.close()
 
-        runBlocking { unlock.disable() }
+        assertTrue(runBlocking { unlock.disable(session) })
+        session.close()
 
         assertFalse(unlock.isOn())
         assertFalse(biometric.keyMade)
+    }
+
+    @Test
+    fun aDuressSessionCannotTurnItOffAndTheRealSealedKeyStaysUsable() {
+        val real = openApp()
+        assertTrue(runBlocking { unlock.enable(real) })
+        val decoy = openDuress(real)
+
+        assertFalse(runBlocking { unlock.disable(decoy) })
+        decoy.close()
+
+        assertTrue(unlock.isOn())
+        assertTrue(biometric.keyMade)
+        assertIs<BiometricOutcome.Unlocked>(runBlocking { unlock.unlock(vault) }).session.close()
+    }
+
+    @Test
+    fun aDuressSessionShowsItOffWhileTheRealVaultHasItOn() {
+        val real = openApp()
+        assertTrue(runBlocking { unlock.enable(real) })
+        val decoy = openDuress(real)
+
+        assertTrue(unlock.isOn())
+        assertFalse(unlock.isOn(decoy))
+        decoy.close()
     }
 
     @Test
@@ -207,6 +232,13 @@ class BiometricUnlockTest {
     }
 
     private fun openApp(): VaultSession = assertIs<UnlockResult.Unlocked>(runBlocking { vault.unlock(APP.toCharArray()) }).session
+
+    /** Sets a Duress Password on [real], closes it, and opens the Decoy Vault with the Duress Password. */
+    private fun openDuress(real: VaultSession): VaultSession {
+        assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { decoy -> decoy.createWallet() } })
+        real.close()
+        return assertIs<UnlockResult.Unlocked>(runBlocking { vault.unlock(DURESS.toCharArray()) }).session.also { assertTrue(it.isDecoy) }
+    }
 
     private fun ByteArray.holds(part: ByteArray): Boolean = (0..size - part.size).any { start ->
         part.indices.all { this[start + it] == part[it] }
