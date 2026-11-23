@@ -107,6 +107,7 @@ fun FirstRunPasswordScreen(
             onValueChange = onRepeat,
             keyboard = KeyboardType.Password,
             masked = !shown,
+            onSubmit = onNext,
             error = if (problem == NewPasswordProblem.Mismatch) "The passwords don't match" else null,
         )
         Spacer(Modifier.height(ClearAirSpacing.md))
