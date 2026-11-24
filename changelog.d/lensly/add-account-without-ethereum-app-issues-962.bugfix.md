@@ -1,0 +1,1 @@
+Lensly no longer crashes when Add Account is pressed on an Ethereum account list whose Ethereum App was uninstalled while the list was open. The wallet's Apps screen is shown instead, where the App can be installed again.
