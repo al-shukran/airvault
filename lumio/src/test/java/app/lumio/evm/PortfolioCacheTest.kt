@@ -5,6 +5,7 @@ import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairedWallet
+import app.lumio.tokens.Reply
 import kotlinx.coroutines.runBlocking
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
@@ -34,13 +35,13 @@ class PortfolioCacheTest {
         server.close()
     }
 
-    /** Answers the two reads from a fake endpoint: one ETH and three transactions on chain 1. */
+    /** Answers the reads from a fake endpoint: one ETH on each address in one Multicall3 call, and three transactions on chain 1. */
     private fun answerWithOneEther() {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val body = request.body?.utf8().orEmpty()
                 val result = when {
-                    body.contains("eth_getBalance") -> "0xde0b6b3a7640000"
+                    body.contains("eth_call") -> Reply.aggregate(listOf(true to Reply.uint(1_000_000_000_000_000_000L), true to Reply.uint(1_000_000_000_000_000_000L)))
                     body.contains("eth_getTransactionCount") -> "0x3"
                     else -> return MockResponse.Builder().code(400).build()
                 }
