@@ -83,7 +83,7 @@ internal fun ProviderRoute(navController: NavHostController, holder: VaultHolder
         onSaveKey = { key ->
             keyError = null
             change(onFailure = { keyError = KEY_SAVE_FAILED }) {
-                vault.updateConfigs { saved -> withApiKey(ProviderCatalog.withDefaults(saved), id, key) }
+                vault.updateConfigs { saved -> withApiKey(ProviderCatalog.withDefaults(saved), id, key, keyRequired = current.keyRequired) }
             }
         },
         onBack = { navController.popBackStack() },

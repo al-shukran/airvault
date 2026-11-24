@@ -39,6 +39,23 @@ class ProviderSettingsTest {
     }
 
     @Test
+    fun aKeyRequiredProviderIsSwitchedOnByItsKeyAndOffWhenItIsRemoved() {
+        val keyed = withApiKey(mapOf("etherscan" to ProviderConfig(enabled = false)), "etherscan", " k-123 ", keyRequired = true)
+
+        assertEquals(ProviderConfig(enabled = true, apiKey = "k-123"), keyed["etherscan"])
+        assertEquals(ProviderConfig(enabled = false), withApiKey(keyed, "etherscan", "   ", keyRequired = true)["etherscan"])
+    }
+
+    @Test
+    fun aKeyOptionalProviderKeepsItsSwitchWhenItsKeyChanges() {
+        val cleared = withApiKey(mapOf("blockscout" to ProviderConfig(apiKey = "k-1")), "blockscout", "")
+        val keyedOff = withApiKey(mapOf("blockscout" to ProviderConfig(enabled = false)), "blockscout", "k-2")
+
+        assertEquals(ProviderConfig(), cleared["blockscout"])
+        assertFalse(keyedOff.getValue("blockscout").enabled)
+    }
+
+    @Test
     fun aDragSetsTheOrderOfTheGroupAndRenumbersIt() {
         val group = listOf("a", "b", "c")
 
