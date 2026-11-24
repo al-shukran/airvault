@@ -1,0 +1,35 @@
+name: Feature Request
+description: Suggest a change or a new capability for Lensly or Lumio
+title: ""
+body:
+  - type: dropdown
+    id: app
+    attributes:
+      label: App
+      description: Which app should change?
+      options:
+        - Lensly
+        - Lumio
+        - Both
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What you cannot do today, or what gets in the way.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What you would like AirVault to do.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Other ways to solve the problem that you have considered.
