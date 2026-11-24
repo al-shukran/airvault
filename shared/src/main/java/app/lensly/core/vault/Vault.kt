@@ -213,19 +213,19 @@ class Vault constructor(
     fun isBeforeSetup(): Boolean = layout.isBeforeSetup()
 
     /**
-     * True when this device may create a vault, under [KeystorePolicy], and this build may create one under [refusal]. The
-     * answer comes from the same probe as [deviceSecurity], so it is meaningful only while no vault exists.
+     * True when this device may create a vault, under [KeystorePolicy], and this build may create one, which it may not when it allows backup.
+     * The answer comes from the same probe as [deviceSecurity], so it is meaningful only while no vault exists.
      */
     fun canCreate(): Boolean =
-        refusal() == null &&
+        !backupAllowed &&
             KeystorePolicy.verdict(deviceSecurity().hardwareBacked, BuildConfig.DEBUG, deviceIsEmulator()) !=
             KeystoreVerdict.Refused
 
     /**
      * Why this build may not create a vault, or null when it may. A build whose packaged manifest allows backup is refused, because
-     * its vault could leave the device. The text is [BackupExclusion.REFUSAL], which holds no secret.
+     * its vault could leave the device. The text names [appName], and holds no secret (see [BackupExclusion.refusal]).
      */
-    fun refusal(): String? = if (backupAllowed) BackupExclusion.REFUSAL else null
+    fun refusal(appName: String): String? = if (backupAllowed) BackupExclusion.refusal(appName) else null
 
     /**
      * Creates a vault protected by [password], which must pass [PasswordPolicy]. The decoy slot starts as random bytes.
@@ -329,6 +329,24 @@ class Vault constructor(
             mutex.withLock {
                 if (!layout.exists()) return@withLock null
                 FailureDelay.triesLeftToWarn(failureStore().load(clock))
+            }
+        }
+
+    /**
+     * The Failure Delay still to run, in milliseconds, or 0 when none runs. It only reads the stored state: it counts no try, serves no
+     * wait, saves nothing and moves no counter, so it can be asked any number of times. Only [unlock] checks the password and enforces the
+     * delay.
+     */
+    suspend fun waitRemainingMs(): Long =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                if (!layout.exists()) return@withLock 0L
+                val header = try {
+                    verifiedHeader()
+                } catch (e: VaultException) {
+                    null
+                } ?: return@withLock 0L
+                failureStore().remainingWaitMs(clock, header.createdAtWallMs)
             }
         }
 

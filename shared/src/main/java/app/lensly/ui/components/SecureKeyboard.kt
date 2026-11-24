@@ -74,6 +74,7 @@ private val KEY_SHAPE = RoundedCornerShape(KEY_CORNER)
 private val GLYPH_SIZE = 18.dp
 private val LETTER_TEXT_SIZE = 22.sp
 private const val DISABLED_ALPHA = 0.4f
+private const val HELD_DONE_ALPHA = 0.35f
 private const val PRESSED_DARKEN = 0.25f
 
 /** A held key repeats once it has been down this long, and then once per interval while it stays down. */
@@ -126,6 +127,8 @@ private val PREVIEW_TEXT_SIZE = 32.sp
  * shows the symbol for that key. Then shift turns itself off. Two taps within [DOUBLE_TAP_MS] lock caps until shift is tapped again. The
  * `123` key switches to the symbols page, which clears shift, and `ABC` returns to letters. Once a password is held by
  * the caller, the caller decides what [onDone] means (next step, submit, or unlock).
+ *
+ * [doneHeld] holds Done, dimmed and not tappable, while the other keys still type: the gate uses it while a failure delay runs.
  */
 @Composable
 fun SecureKeyboard(
@@ -134,6 +137,7 @@ fun SecureKeyboard(
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    doneHeld: Boolean = false,
 ) {
     var page by rememberSaveable { mutableStateOf(KeyboardPage.Letters) }
     val shift = rememberSaveable(saver = ShiftSaver) { Shift() }
@@ -223,7 +227,7 @@ fun SecureKeyboard(
                     )
                 }
                 ShiftedKey('.', enabled, shift, picker, onKey)
-                DoneKey(slots = 1.5f, enabled = enabled, onClick = onDone)
+                DoneKey(slots = 1.5f, enabled = enabled, held = doneHeld, onClick = onDone)
             }
         }
         AlternatesStrip(picker)
@@ -416,6 +420,7 @@ private fun RowScope.Key(
     alternates: String = "",
     picker: AlternatesPicker? = null,
     onChoose: (Char) -> Unit = {},
+    disabledAlpha: Float = DISABLED_ALPHA,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -474,7 +479,7 @@ private fun RowScope.Key(
                 .weight(slots)
                 .fillMaxHeight()
                 .padding(horizontal = KEY_GAP / 2, vertical = ROW_GAP / 2)
-                .alpha(if (enabled) 1f else DISABLED_ALPHA)
+                .alpha(if (enabled) 1f else disabledAlpha)
                 .clip(KEY_SHAPE)
                 .background(fill, KEY_SHAPE)
                 .onGloballyPositioned { place.face = it },
@@ -628,14 +633,16 @@ private fun RowScope.DoneKey(
     enabled: Boolean,
     onClick: () -> Unit,
     trail: Float = 0f,
+    held: Boolean = false,
 ) {
     Key(
         description = "Done",
         background = MaterialTheme.colorScheme.onSurface,
-        enabled = enabled,
+        enabled = enabled && !held,
         onClick = onClick,
         slots = slots,
         trail = trail,
+        disabledAlpha = if (held) HELD_DONE_ALPHA else DISABLED_ALPHA,
     ) {
         EnterGlyph(color = MaterialTheme.colorScheme.background)
     }

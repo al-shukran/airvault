@@ -55,6 +55,7 @@ import app.lumio.send.algorand.AlgorandAddAssetRoute
 import app.lumio.send.algorand.AlgorandSendRoute
 import app.lumio.send.solana.SolanaSendRoute
 import app.lumio.ui.firstrun.FirstRunStep
+import app.lumio.ui.gate.ClearAirGateLook
 import app.lumio.ui.kit.ClearAirTestnetHatch
 import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.kit.LumioTab
@@ -455,8 +456,10 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
             navController,
             holder,
             home = LumioRoute.WALLETS,
+            appName = "Lumio",
             newVault = FirstRunStep.Welcome.route,
             biometric = app.biometricUnlock,
+            gateLook = ClearAirGateLook,
         ) {
             firstRunRoutes(navController, holder, home = LumioRoute.WALLETS)
             lumioComposable(LumioRoute.WALLETS) {

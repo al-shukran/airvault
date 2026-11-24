@@ -30,6 +30,9 @@ import app.lensly.ui.theme.labelCase
 fun eraseWarning(triesLeft: Int): String =
     (if (triesLeft == 1) "1 try left" else "$triesLeft tries left") + " before this vault is erased"
 
+/** The one short line the unlock page shows when biometric unlock fails and turns itself off. */
+const val BIOMETRIC_OFF_NOTICE = "Biometric unlock is off. Type your password."
+
 /**
  * Unlock screen. It shows no error text, ever: a wrong password just clears the field, so the screen
  * never says which factor failed. Near the erase, [warning] says how many tries are left (see [eraseWarning]).

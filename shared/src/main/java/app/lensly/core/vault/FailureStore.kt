@@ -66,7 +66,13 @@ internal class FailureStore(
      * The stored state, or the lockout when the copies cannot be trusted. It never throws. A state this process could not save is
      * returned first, so no Keystore or storage error can lift it.
      */
-    fun load(clock: Clock): FailureState {
+    fun load(clock: Clock): FailureState = checkNotNull(read(clock, mayWrite = true))
+
+    /**
+     * The stored state as [load] reads it. With [mayWrite] false nothing is saved, deleted or locked: where [load] would save or lock, the
+     * result is null, and the state is left as it is.
+     */
+    private fun read(clock: Clock, mayWrite: Boolean): FailureState? {
         val written = WRITTEN[seenKey]
         val p = readCopy(primary)
         val b = readCopy(backup)
@@ -76,6 +82,7 @@ internal class FailureStore(
         val highestSeq = maxOf(p?.seq ?: 0L, b?.seq ?: 0L, newest)
         PENDING[seenKey]?.let { pending ->
             // A state this process could not save stays in force, with the times it was first made, until a save goes through.
+            if (!mayWrite) return pending
             return trySave(pending.copy(seq = maxOf(highestSeq, pending.seq) + 1), clock) ?: pending
         }
         val bootCount = readBootCount()
@@ -85,14 +92,14 @@ internal class FailureStore(
         // A boot count that went down is tampering, whatever the copies say, because no reboot does that.
         val recorded = listOfNotNull(p, b) + listOfNotNull(written?.state)
         if (recorded.any { FailureDelay.bootCountWentBack(it, bootCount) }) {
-            return lockAsTampered(clock, highestSeq, verified)
+            return lockIfWriting(mayWrite, clock, highestSeq, verified)
         }
         if (p != null && b != null && p.seq >= b.seq && p.seq >= newest && !clockWentBack(p, clock, bootCount)) {
             // Copies that differ in sequence number mean a save was interrupted. Saving the state again under a new sequence number
             // settles both copies and deletes the keys they no longer use.
-            if (p.seq != b.seq) return settle(p, clock)
+            if (p.seq != b.seq) return if (mayWrite) settle(p, clock) else p
             // Keys left behind by an interrupted save, or by a deletion the Keystore refused, are deleted here.
-            deleteOtherKeys(p.seq)
+            if (mayWrite) deleteOtherKeys(p.seq)
             return p
         }
         // The lock this process wrote last is kept while the copies still hold exactly those bytes. Without this, a Keystore that cannot
@@ -100,8 +107,12 @@ internal class FailureStore(
         if (written != null && written.state.failures >= TAMPER_FAILURES && onDisk(primary, written.bytes) && onDisk(backup, written.bytes)) {
             return written.state
         }
-        return lockAsTampered(clock, highestSeq, verified)
+        return lockIfWriting(mayWrite, clock, highestSeq, verified)
     }
+
+    /** The lockout that [read] gives for a state it cannot trust, or null when [read] must not write. */
+    private fun lockIfWriting(mayWrite: Boolean, clock: Clock, highestSeq: Long, verified: List<FailureState>): FailureState? =
+        if (mayWrite) lockAsTampered(clock, highestSeq, verified) else null
 
     /** Saves a pair that [load] found out of step, under a new sequence number. A failed save leaves the pair as it verified. */
     private fun settle(state: FailureState, clock: Clock): FailureState =
@@ -207,6 +218,21 @@ internal class FailureStore(
         // A load that saved, a lockout for instance, has already done this attempt's one save.
         if (saveAttempts != savesBefore) return DelayCheck(state, blocked = true)
         return DelayCheck(recordWaitServed(state, clock), blocked = true)
+    }
+
+    /**
+     * The Failure Delay still to run, in milliseconds, as [checkDelay] would find it. This is a read: it saves nothing, counts no try and
+     * serves no wait, so it can be asked any number of times. It is zero when no wait runs, and when the state would have to be saved or
+     * locked first, since then the next attempt, which checks it, is what acts on that state.
+     */
+    fun remainingWaitMs(clock: Clock, vaultCreatedWallMs: Long): Long {
+        val state = read(clock, mayWrite = false) ?: return 0L
+        if (FailureDelay.unverified(state)) return 0L
+        val policy = FailureDelay(vaultCreatedWallMs, FailureDelay.configuredCapFor(state))
+        val bootCount = currentBootCount()
+        if (!policy.isBlocked(state, clock, bootCount)) return 0L
+        val wait = policy.waitFor(state, clock, bootCount)
+        return (wait - FailureDelay.elapsedSinceFailure(state, clock, bootCount)).coerceIn(0L, wait)
     }
 
     /**

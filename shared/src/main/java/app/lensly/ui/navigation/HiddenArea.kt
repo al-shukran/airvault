@@ -10,9 +10,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -38,14 +40,17 @@ import app.lensly.core.vault.VaultKeyInvalidatedException
 import app.lensly.core.vault.VaultKeystore
 import app.lensly.ui.gate.CreatePasswordScreen
 import app.lensly.ui.gate.CreatePasswordState
+import app.lensly.ui.gate.BIOMETRIC_OFF_NOTICE
 import app.lensly.ui.gate.CreateStep
 import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.gate.PolicyError
 import app.lensly.ui.gate.UnavailableScreen
 import app.lensly.ui.gate.UnlockScreen
 import app.lensly.ui.gate.eraseWarning
+import kotlin.math.min
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -75,47 +80,96 @@ private const val KEY_INVALIDATED_DETAIL =
     "The screen lock was removed or changed, so the vault can no longer be opened. Clear the app's data, " +
         "then restore your wallets from their backups."
 
-/** The one short line the unlock screen shows when biometric unlock fails and turns itself off. */
-private const val BIOMETRIC_OFF_NOTICE = "Biometric unlock is off. Type your password."
+/**
+ * The gate's two pages, unlock and unavailable, as one look. [CoverGateLook] draws the camera cover's screens, which Lensly keeps. An app
+ * that wants another look passes its own to [hiddenArea]. The routes, the counts and the state stay the same, and a look only words and
+ * draws them.
+ */
+interface GateLook {
+    @Composable fun Unlock(state: UnlockUi)
+
+    @Composable fun Unavailable(detail: String?, onClose: () -> Unit)
+}
+
+/**
+ * What the unlock page shows. [refused] is true from a refused try until the next one starts, so a look can react to each refusal. [triesLeft]
+ * is set when the warning is due (see [app.lensly.core.vault.FailureDelay.WARN_TRIES_LEFT]). [waitMs] is the Failure Delay still to run, counted
+ * down, or null when none runs.
+ */
+class UnlockUi(
+    val length: Int,
+    val busy: Boolean,
+    val refused: Boolean,
+    val triesLeft: Int?,
+    val biometricOff: Boolean,
+    val waitMs: Long?,
+    val onClose: () -> Unit,
+    val onKey: (Char) -> Unit,
+    val onBackspace: () -> Unit,
+    val onSubmit: () -> Unit,
+)
+
+/** The camera cover's gate: the pages Lensly shows, which are today's unlock and unavailable screens. */
+object CoverGateLook : GateLook {
+    @Composable
+    override fun Unlock(state: UnlockUi) {
+        UnlockScreen(
+            length = state.length,
+            busy = state.busy,
+            warning = if (state.biometricOff) BIOMETRIC_OFF_NOTICE else state.triesLeft?.let(::eraseWarning),
+            onKey = state.onKey,
+            onBackspace = state.onBackspace,
+            onSubmit = state.onSubmit,
+        )
+    }
+
+    @Composable
+    override fun Unavailable(detail: String?, onClose: () -> Unit) {
+        UnavailableScreen(onClose = onClose, detail = detail)
+    }
+}
 
 /**
  * The hidden area: a nested graph that opens on the gate. The gate sends the owner to [home], or to the screen that fits the
  * vault's state. [warmUp] runs when the owner submits the App Password, so an app can load what [home] shows while the key is derived.
  * [newVault] is where the gate sends an owner with no vault yet. It is the App Password screen unless the app shows screens first, as
  * Lumio's first run does, and then that app's own App Password screen creates the vault with [createVault]. [biometric] is the app's
- * biometric unlock, which the unlock screen tries first while it is on. [content] adds the app's own screens to the graph.
+ * biometric unlock, which the unlock screen tries first while it is on. [gateLook] draws the gate's pages, and [appName] is the app's name
+ * in the copy of a build that refuses to create a vault. [content] adds the app's own screens to the graph.
  */
 fun NavGraphBuilder.hiddenArea(
     navController: NavHostController,
     holder: VaultHolder,
     home: String,
+    appName: String,
     warmUp: (Context) -> Unit = {},
     newVault: String = GateRoutes.CREATE_PASSWORD,
     biometric: BiometricUnlock? = null,
+    gateLook: GateLook = CoverGateLook,
     content: NavGraphBuilder.() -> Unit,
 ) {
     navigation(startDestination = GateRoutes.GATE, route = LenslyRoute.HIDDEN) {
         composable(GateRoutes.GATE) { HiddenBackdrop { GateRoute(navController, holder, home, newVault) } }
         composable(GateRoutes.CREATE_PASSWORD) { HiddenBackdrop { CreatePasswordRoute(navController, holder, home) } }
-        composable(GateRoutes.UNLOCK) { HiddenBackdrop { UnlockRoute(navController, holder, home, warmUp, biometric) } }
+        composable(GateRoutes.UNLOCK) { HiddenBackdrop { UnlockRoute(navController, holder, home, warmUp, biometric, gateLook) } }
         composable(GateRoutes.UNAVAILABLE) {
             HiddenBackdrop {
-                UnavailableScreen(onClose = { leaveHidden(navController, holder) }, detail = holder.vault.refusal())
+                gateLook.Unavailable(detail = holder.vault.refusal(appName), onClose = { leaveHidden(navController, holder) })
             }
         }
         composable(GateRoutes.DAMAGED) {
             HiddenBackdrop {
-                UnavailableScreen(onClose = { leaveHidden(navController, holder) }, detail = VAULT_DAMAGED)
+                gateLook.Unavailable(detail = VAULT_DAMAGED, onClose = { leaveHidden(navController, holder) })
             }
         }
         composable(GateRoutes.NO_SCREEN_LOCK) {
             HiddenBackdrop {
-                UnavailableScreen(onClose = { leaveHidden(navController, holder) }, detail = NO_SCREEN_LOCK_DETAIL)
+                gateLook.Unavailable(detail = NO_SCREEN_LOCK_DETAIL, onClose = { leaveHidden(navController, holder) })
             }
         }
         composable(GateRoutes.KEY_INVALIDATED) {
             HiddenBackdrop {
-                UnavailableScreen(onClose = { leaveHidden(navController, holder) }, detail = KEY_INVALIDATED_DETAIL)
+                gateLook.Unavailable(detail = KEY_INVALIDATED_DETAIL, onClose = { leaveHidden(navController, holder) })
             }
         }
         content()
@@ -314,6 +368,27 @@ private fun CreatePasswordRoute(navController: NavHostController, holder: VaultH
     )
 }
 
+/**
+ * The Failure Delay still to run, counted down once a second from [remainingMs], which is read again whenever it changes. It is null once the
+ * wait is over, and while none runs. The count uses the monotonic clock, so a moved wall clock does not change it.
+ */
+@Composable
+private fun rememberWaitLeft(remainingMs: Long?): State<Long?> = produceState(remainingMs, remainingMs) {
+    if (remainingMs == null) return@produceState
+    val end = SystemClock.elapsedRealtime() + remainingMs
+    while (true) {
+        val left = end - SystemClock.elapsedRealtime()
+        if (left <= 0L) {
+            value = null
+            return@produceState
+        }
+        value = left
+        delay(min(left, COUNT_STEP_MS))
+    }
+}
+
+private const val COUNT_STEP_MS = 1_000L
+
 @Composable
 private fun UnlockRoute(
     navController: NavHostController,
@@ -321,21 +396,28 @@ private fun UnlockRoute(
     home: String,
     warmUp: (Context) -> Unit,
     biometric: BiometricUnlock?,
+    gateLook: GateLook,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current.applicationContext
     val buffer = remember { PasswordBuffer() }
     var length by remember { mutableIntStateOf(0) }
     var busy by remember { mutableStateOf(false) }
+    var refused by remember { mutableStateOf(false) }
     var triesLeft by remember { mutableStateOf<Int?>(null) }
-    var biometricNotice by remember { mutableStateOf<String?>(null) }
+    var waitMs by remember { mutableStateOf<Long?>(null) }
+    val waitLeft by rememberWaitLeft(waitMs)
+    var biometricOff by remember { mutableStateOf(false) }
     var askedBiometric by rememberSaveable { mutableStateOf(false) }
 
     BackHandler { leaveHidden(navController, holder) }
     DisposableEffect(Unit) {
         onDispose { buffer.clear() }
     }
-    LaunchedEffect(Unit) { triesLeft = holder.vault.triesBeforeErase() }
+    LaunchedEffect(Unit) {
+        triesLeft = holder.vault.triesBeforeErase()
+        waitMs = holder.vault.waitRemainingMs()
+    }
     // With biometric unlock on, its prompt opens once, before the password is typed. A cancel leaves the password; a failure turns it off.
     LaunchedEffect(Unit) {
         if (biometric == null || askedBiometric || !biometric.isOn()) return@LaunchedEffect
@@ -349,49 +431,61 @@ private fun UnlockRoute(
             }
             BiometricOutcome.Declined -> {}
             BiometricOutcome.TurnedOff -> {
-                biometricNotice = BIOMETRIC_OFF_NOTICE
+                biometricOff = true
             }
         }
     }
 
-    UnlockScreen(
-        length = length,
-        busy = busy,
-        warning = biometricNotice ?: triesLeft?.let(::eraseWarning),
-        onKey = { c ->
-            if (!busy && buffer.append(c)) length = buffer.length
-        },
-        onBackspace = {
-            if (!busy) {
-                buffer.backspace()
-                length = buffer.length
-            }
-        },
-        onSubmit = submit@{
-            if (busy || buffer.isEmpty()) return@submit
-            val password = buffer.toCharArray()
-            buffer.clear()
-            length = 0
-            biometricNotice = null
-            busy = true
-            // The app's warm-up runs while the key is derived, so what Home shows is ready when it opens.
-            scope.launch(Dispatchers.IO) { runCatching { warmUp(context) } }
-            scope.launch {
-                val outcome = unlockWith(holder, password, context)
-                busy = false
-                when (outcome) {
-                    GateOutcome.Opened -> navController.openHidden(home)
-                    // A wrong password clears the field. Near the erase, the warning is read again, since this try may have counted.
-                    GateOutcome.Rejected -> triesLeft = holder.vault.triesBeforeErase()
-                    // A cancelled check counted no try, and the field was cleared on submit, so nothing is read again.
-                    GateOutcome.Cancelled -> Unit
-                    // The last allowed try erased the vault, so the owner leaves as after any wipe.
-                    GateOutcome.Erased -> leaveHidden(navController, holder)
-                    GateOutcome.KeyInvalidated -> navController.openHidden(GateRoutes.KEY_INVALIDATED)
-                    GateOutcome.Unavailable -> navController.openHidden(GateRoutes.UNAVAILABLE)
+    gateLook.Unlock(
+        UnlockUi(
+            length = length,
+            busy = busy,
+            refused = refused,
+            triesLeft = triesLeft,
+            biometricOff = biometricOff,
+            waitMs = waitLeft,
+            onClose = { leaveHidden(navController, holder) },
+            onKey = { c ->
+                if (!busy && buffer.append(c)) length = buffer.length
+            },
+            onBackspace = {
+                if (!busy) {
+                    buffer.backspace()
+                    length = buffer.length
                 }
-            }
-        },
+            },
+            onSubmit = submit@{
+                if (busy || buffer.isEmpty()) return@submit
+                val password = buffer.toCharArray()
+                buffer.clear()
+                length = 0
+                biometricOff = false
+                refused = false
+                busy = true
+                // The app's warm-up runs while the key is derived, so what Home shows is ready when it opens.
+                scope.launch(Dispatchers.IO) { runCatching { warmUp(context) } }
+                scope.launch {
+                    val outcome = unlockWith(holder, password, context)
+                    busy = false
+                    when (outcome) {
+                        GateOutcome.Opened -> navController.openHidden(home)
+                        // A wrong password clears the field. Near the erase, the warning is read again, since this try may have counted. The wait
+                        // is read again too, so a refused try shows the countdown the next try faces.
+                        GateOutcome.Rejected -> {
+                            refused = true
+                            triesLeft = holder.vault.triesBeforeErase()
+                            waitMs = holder.vault.waitRemainingMs()
+                        }
+                        // A cancelled check counted no try, and the field was cleared on submit, so nothing is read again.
+                        GateOutcome.Cancelled -> Unit
+                        // The last allowed try erased the vault, so the owner leaves as after any wipe.
+                        GateOutcome.Erased -> leaveHidden(navController, holder)
+                        GateOutcome.KeyInvalidated -> navController.openHidden(GateRoutes.KEY_INVALIDATED)
+                        GateOutcome.Unavailable -> navController.openHidden(GateRoutes.UNAVAILABLE)
+                    }
+                }
+            },
+        ),
     )
 }
 
