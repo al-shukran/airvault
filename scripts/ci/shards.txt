@@ -239,6 +239,7 @@ shard-4 :lumio app.lumio.send.SubmitMachineTest
 shard-4 :lumio app.lumio.ui.asset.TickChartTest
 shard-4 :lumio app.lumio.ui.send.RecipientErrorTest
 shard-4 :lumio app.lumio.ui.send.SignedSendStepsTest
+shard-4 :lumio app.lumio.ui.settings.CustomNetworkFormTest
 shard-4 :lumio app.lumio.ui.settings.ProviderStatusTest
 shard-4 :lumio app.lumio.ui.settings.SettingsSummariesTest
 shard-4 :shared app.lensly.core.btc.BitcoinSignTest

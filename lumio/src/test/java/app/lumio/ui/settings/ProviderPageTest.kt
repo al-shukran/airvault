@@ -1,12 +1,17 @@
 package app.lumio.ui.settings
 
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.text.AnnotatedString
 import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.theme.LumenTheme
 import org.junit.Assert.assertEquals
@@ -30,7 +35,14 @@ class ProviderPageTest {
     private val saved = mutableListOf<String>()
     private val switched = mutableListOf<Boolean>()
 
-    private fun show(savedTail: String? = null, enabled: Boolean = true, networks: List<String> = emptyList(), keyRequired: Boolean = false) {
+    private fun show(
+        savedTail: String? = null,
+        enabled: Boolean = true,
+        networks: List<String> = emptyList(),
+        keyRequired: Boolean = false,
+        keyError: String? = null,
+        backLabel: String = "Settings",
+    ) {
         compose.setContent {
             LumenTheme {
                 ClearAirTheme {
@@ -45,14 +57,23 @@ class ProviderPageTest {
                         keyed = true,
                         keyRequired = keyRequired,
                         savedTail = savedTail,
+                        keyError = keyError,
                         offline = null,
                         onSaveKey = { saved += it },
                         onBack = {},
                         onLock = {},
+                        backLabel = backLabel,
                     )
                 }
             }
         }
+    }
+
+    @Test
+    fun theBackArrowNamesTheScreenItReturnsTo() {
+        show(backLabel = "Explore")
+
+        compose.onNodeWithContentDescription("Back to Explore").assertExists()
     }
 
     @Test
@@ -79,6 +100,17 @@ class ProviderPageTest {
         compose.onNodeWithTag("api-key").performImeAction()
 
         assertEquals(listOf("7f3a9c12"), saved)
+    }
+
+    @Test
+    fun aKeyTheSaveRefusesStaysInTheFieldWithItsMessage() {
+        show(keyError = "The key could not be saved. Try again.")
+
+        compose.onNodeWithTag("api-key").performTextReplacement("7f3a9c12")
+        compose.onNodeWithTag("api-key").performImeAction()
+
+        compose.onNodeWithTag("api-key").assert(SemanticsMatcher.expectValue(SemanticsProperties.InputText, AnnotatedString("7f3a9c12")))
+        compose.onNodeWithText("The key could not be saved. Try again.", substring = true).assertExists()
     }
 
     @Test

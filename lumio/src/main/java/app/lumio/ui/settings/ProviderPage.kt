@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.ui.kit.ClearAirField
 import app.lumio.ui.kit.ClearAirListRow
@@ -19,10 +20,10 @@ import app.lumio.ui.kit.ClearAirTextAction
 /**
  * The Provider page (B5) of one provider: its name in the bar, its status word with the line that says why, the switch that turns it on or off, its
  * factual tags, the networks it serves, and its API key. [keyed] is whether the provider takes a key, and [keyRequired] whether it cannot work without
- * one. [savedTail] is the last four characters of the saved key, or null when none is saved, so the key itself never shows again. [networks] are the
- * names of the networks it serves, in catalogue order,
+ * one. [savedTail] is the last four characters of the saved key, or null when none is saved, so the key itself never shows again. [keyError] is the
+ * message for a key whose save failed. [networks] are the names of the networks it serves, in catalogue order,
  * and the page words them with [networkSummary]. A typed key is saved when the owner leaves its field or presses Done, and [onSaveKey] receives it. Its
- * Remove action passes "".
+ * Remove action passes "". [backLabel] names the screen the back arrow returns to.
  */
 @Composable
 fun ProviderPage(
@@ -36,12 +37,14 @@ fun ProviderPage(
     keyed: Boolean,
     keyRequired: Boolean,
     savedTail: String?,
+    keyError: String? = null,
     offline: String?,
     onSaveKey: (String) -> Unit,
     onBack: () -> Unit,
     onLock: () -> Unit,
+    backLabel: String = SETTINGS_BACK,
 ) {
-    SettingsFrame(title = name, offline = offline, onBack = onBack, onLock = onLock) {
+    SettingsFrame(title = name, offline = offline, onBack = onBack, onLock = onLock, backLabel = backLabel) {
         SettingsGroup(title = "Status") {
             ClearAirRow(title = status, description = statusNote)
             ClearAirSwitchRow(
@@ -69,7 +72,7 @@ fun ProviderPage(
                         trailing = { ClearAirTextAction(text = "Remove", onClick = { onSaveKey("") }) },
                     )
                 } else {
-                    ApiKeyEntry(required = keyRequired, onSave = onSaveKey)
+                    ApiKeyEntry(required = keyRequired, error = keyError, onSave = onSaveKey)
                 }
                 ClearAirNote(
                     text = "Stored in the vault on this phone. Lumio sends it only to $name.",
@@ -80,23 +83,25 @@ fun ProviderPage(
     }
 }
 
-/** The key field, empty until a key is typed. The typed key is saved when the owner leaves the field or presses Done, and the field clears. */
+/**
+ * The key field, empty until a key is typed. The typed key is saved when the owner leaves the field or presses Done. The field keeps the key
+ * until the page replaces the field with the saved key, so a save that fails leaves the key in place with [error] under it.
+ */
 @Composable
-private fun ApiKeyEntry(required: Boolean, onSave: (String) -> Unit) {
+internal fun ApiKeyEntry(required: Boolean, error: String?, onSave: (String) -> Unit) {
     var draft by remember { mutableStateOf("") }
     ClearAirField(
         label = if (required) "API Key (Required)" else "API Key (Optional)",
         value = draft,
         onValueChange = { draft = it },
         placeholder = "Paste a key for higher limits",
+        keyboard = KeyboardType.Password,
         masked = true,
+        error = error,
         inputTag = "api-key",
         onCommit = {
             val key = draft.trim()
-            if (key.isNotEmpty()) {
-                draft = ""
-                onSave(key)
-            }
+            if (key.isNotEmpty()) onSave(key)
         },
     )
 }

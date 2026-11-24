@@ -61,14 +61,14 @@ class ReceiveScreenshotTest {
     @Test
     fun receiveChooseAccount() = compose.lumioSnapshot(
         "receive_choose_account",
-        beforeCapture = { pick("USD Coin", "Base L2 on Ethereum") },
+        beforeCapture = { pick("USD Coin", "Base") },
     ) { ReceiveSheetScene(assets = assets()) }
 
     @Test
     @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
     fun receiveChooseAccountLight() = compose.lumioSnapshot(
         "receive_choose_account_light",
-        beforeCapture = { pick("USD Coin", "Base L2 on Ethereum") },
+        beforeCapture = { pick("USD Coin", "Base") },
     ) { ReceiveSheetScene(assets = assets()) }
 }
 

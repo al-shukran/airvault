@@ -69,7 +69,7 @@ private val SEARCH_CORNER = 24.dp
  * The Receive sheet: the one short task of receiving, asked one question at a time in the same sheet. [start] holds what the Receive already knows, so a
  * Receive opened from an account or an asset skips the questions it can answer. The steps are Choose Asset (only when no coin is known), Choose Network
  * and Choose Account (each only when more than one choice is left), and the Receive sheet itself. [opening] changes each time the sheet opens, so each
- * opening starts from [start] and no earlier answer.
+ * opening starts from [start] and no earlier answer. [optedIn] and [onOptIn] are for an Algorand asset: see [receiveCapsuleOf].
  */
 @Composable
 internal fun ReceiveFlowSheet(
@@ -77,6 +77,8 @@ internal fun ReceiveFlowSheet(
     opening: Int,
     start: ReceiveAnswers,
     assets: List<ReceiveCoin>,
+    optedIn: Boolean? = null,
+    onOptIn: (ULong) -> Unit = {},
     onClose: () -> Unit,
 ) {
     val flow = remember(opening) { ReceiveFlow(assets, start) }
@@ -107,6 +109,8 @@ internal fun ReceiveFlowSheet(
 
             is ReceiveStep.Receive -> ReceiveSheetStep(
                 step = step,
+                optedIn = optedIn,
+                onOptIn = onOptIn,
                 onBack = if (flow.canGoBack) flow::back else null,
             )
         }
