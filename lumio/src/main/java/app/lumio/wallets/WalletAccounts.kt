@@ -34,7 +34,9 @@ data class AccountCoin(val symbol: String, val name: String, val network: Networ
  * and the account's address. [walletId] and [id] name the account in the routes, and [index] is its place in the wallet's list for its family.
  * [networkName] names that network. [coin] is its native coin, known without a read, and null when the side has no coin of its family. [balance] is
  * that coin's balance, or null while no read of it is kept. [script] is the script type of a Bitcoin account. [name], [label] and [group] are the
- * names the owner gave the account in Lensly, and each is null when the pairing carries none.
+ * names the owner gave the account in Lensly, and each is null when the pairing carries none. [incomplete] is true when the balance is the kept result
+ * of a Bitcoin scan that failed part way, so it counts only the addresses that scan read. [readAtMs] is when the kept balance was read, in epoch
+ * milliseconds, and null when there is no balance.
  */
 data class WalletAccount(
     val walletId: String,
@@ -47,6 +49,8 @@ data class WalletAccount(
     val name: String? = null,
     val label: String? = null,
     val group: String? = null,
+    val incomplete: Boolean = false,
+    val readAtMs: Long? = null,
 ) {
     /** The address the account receives at: the address of [id]. */
     val address: String get() = id.address
@@ -135,6 +139,8 @@ object WalletAccounts {
                 coin = AccountCoin(symbol = "BTC", name = name, network = account.network.networkId()),
                 balance = HomeBalances.bitcoin(listOf(row)).singleOrNull(),
                 script = scriptLabel(account.scriptType),
+                incomplete = row.snapshot?.complete == false,
+                readAtMs = row.snapshot?.scannedAtMs,
             )
         }
 
@@ -170,6 +176,7 @@ object WalletAccounts {
                 name = account.name,
                 label = account.label,
                 group = account.group,
+                readAtMs = read?.atMs,
             )
         }
     }
@@ -194,13 +201,15 @@ object WalletAccounts {
                 chainCode = null,
                 kind = AddressKind.DEFAULT,
             )
+            val id = SolanaWallet.accountFrom(export).single().id
             WalletAccount(
                 walletId = wallet.id,
-                id = SolanaWallet.accountFrom(export).single().id,
+                id = id,
                 index = index,
                 networkName = coin?.name ?: familyLabel(Networks.SOLANA),
                 coin = coin?.let { accountCoinOf(it) },
                 balance = nativeBalance(wallet.copy(solana = listOf(key), algorand = emptyList()), coin, cache),
+                readAtMs = nativeReadAt(wallet, coin, id.address, cache),
             )
         }
     }
@@ -225,13 +234,15 @@ object WalletAccounts {
                 chainCode = null,
                 kind = AddressKind.DEFAULT,
             )
+            val id = AlgorandWallet.accountFrom(export).single().id
             WalletAccount(
                 walletId = wallet.id,
-                id = AlgorandWallet.accountFrom(export).single().id,
+                id = id,
                 index = index,
                 networkName = coin?.name ?: familyLabel(Networks.ALGORAND),
                 coin = coin?.let { accountCoinOf(it) },
                 balance = nativeBalance(wallet.copy(solana = emptyList(), algorand = listOf(key)), coin, cache),
+                readAtMs = nativeReadAt(wallet, coin, id.address, cache),
             )
         }
     }
@@ -241,4 +252,8 @@ object WalletAccounts {
     /** The native coin of [alone], the wallet that holds only this account's key, or null when the side has no [coin] for it. */
     private fun nativeBalance(alone: PairedWallet, coin: NativeCoin?, cache: List<CachedNativeBalance>): NativeAsset? =
         coin?.let { HomeBalances.nativeCoins(listOf(alone), cache, listOf(it)).singleOrNull() }
+
+    /** When the kept native balance of [address] on [coin] was read, or null when no read of it is kept. */
+    private fun nativeReadAt(wallet: PairedWallet, coin: NativeCoin?, address: String, cache: List<CachedNativeBalance>): Long? =
+        coin?.let { c -> cache.firstOrNull { it.walletId == wallet.id && it.network == c.network && it.address == address }?.atMs }
 }

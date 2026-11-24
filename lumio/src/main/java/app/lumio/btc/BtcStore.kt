@@ -46,7 +46,7 @@ class BtcStore(private val cache: Cache) {
 
 /** The snapshot record: a version byte, the count, then each snapshot in full, in DataOutputStream style. */
 private object SnapshotCodec {
-    private const val VERSION = 3
+    private const val VERSION = 4
     private const val MAX_ENTRIES = 256
     private const val MAX_LIST = 100_000
 
@@ -80,6 +80,7 @@ private object SnapshotCodec {
                 }
                 out.writeInt(s.addresses.size)
                 for (address in s.addresses) out.writeUTF(address)
+                out.writeBoolean(s.complete)
             }
         }
         return bytes.toByteArray()
@@ -121,6 +122,7 @@ private object SnapshotCodec {
                 utxos = utxos,
                 transactions = txs,
                 addresses = addresses,
+                complete = input.readBoolean(),
             )
         }.associateBy { it.key }
     }

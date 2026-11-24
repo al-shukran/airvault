@@ -1,21 +1,42 @@
 package app.lumio.ui.wallets
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
+import app.lensly.ui.theme.LocalReducedMotion
 import app.lumio.data.Clock
+import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
 import kotlinx.coroutines.delay
@@ -134,9 +155,12 @@ internal fun foldSummary(fold: AccountFold): String = listOfNotNull(
     fold.under.takeIf { it > 0 }?.let { "$it under $FOLD_THRESHOLD_LABEL" },
 ).joinToString(", ")
 
-/** The freshness line of a total, which ages once a minute. Its text changes as a read starts and ends, and nothing else on the page moves. */
+/**
+ * The freshness line of a total, which ages once a minute. Its text changes as a read starts and ends, and nothing else on the page moves. [checking],
+ * when set, is the line instead: what a read that runs has counted so far.
+ */
 @Composable
-internal fun FreshnessLine(refreshing: Boolean, updatedAtMs: Long?, clock: Clock, modifier: Modifier = Modifier) {
+internal fun FreshnessLine(refreshing: Boolean, updatedAtMs: Long?, clock: Clock, modifier: Modifier = Modifier, checking: String? = null) {
     val nowMs by produceState(clock.nowMs(), clock) {
         while (true) {
             value = clock.nowMs()
@@ -144,11 +168,71 @@ internal fun FreshnessLine(refreshing: Boolean, updatedAtMs: Long?, clock: Clock
         }
     }
     Text(
-        text = freshnessLine(refreshing, updatedAtMs, nowMs),
+        text = checking ?: freshnessLine(refreshing, updatedAtMs, nowMs),
         modifier = modifier,
         style = ClearAirType.body,
         color = LocalClearAirPalette.current.ink2,
     )
+}
+
+/** The sweep of a checking line's sheen, in milliseconds: the same crossing as a bar's sheen. */
+private const val CHECKING_SHEEN_MS = 1600
+
+/**
+ * A line that a read is still filling in, such as "Checking…". A sheen crosses its letters every 1.6 s, and only the letters take it, so the page under the
+ * line stays still. Under reduced motion the line stays still too.
+ */
+@Composable
+internal fun ShimmerText(text: String, style: TextStyle, modifier: Modifier = Modifier) {
+    val palette = LocalClearAirPalette.current
+    if (LocalReducedMotion.current) {
+        Text(text = text, modifier = modifier, style = style, color = palette.ink2)
+        return
+    }
+    val transition = rememberInfiniteTransition(label = "checking line")
+    val sweep by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(CHECKING_SHEEN_MS, easing = LinearEasing), RepeatMode.Restart),
+        label = "checking line sheen",
+    )
+    val sheen = palette.ink.copy(alpha = 0.3f)
+    Text(
+        text = text,
+        modifier = modifier
+            // Offscreen, so the sheen blends only with the letters drawn here, and not with the page under them.
+            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                val band = size.width * 0.5f
+                val centre = (sweep * 2f - 1f) * size.width
+                drawRect(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(Color.Transparent, sheen, Color.Transparent),
+                        startX = centre - band / 2f,
+                        endX = centre + band / 2f,
+                    ),
+                    blendMode = BlendMode.SrcAtop,
+                )
+            },
+        style = style,
+        color = palette.ink2,
+    )
+}
+
+/** A chain that did not answer, under its island: a spark, its failure in [text], and a Retry that reads that chain again. */
+@Composable
+internal fun ChainFailureNote(text: String, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    val palette = LocalClearAirPalette.current
+    Row(
+        modifier = modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Canvas(Modifier.size(8.dp)) { drawCircle(color = palette.spark) }
+        Spacer(Modifier.width(ClearAirSpacing.xs))
+        Text(text = "$text · ", style = ClearAirType.body, color = palette.ink2)
+        ClearAirTextAction(text = "Retry", onClick = onRetry)
+    }
 }
 
 /** A note about a read that did not answer. It wraps, and it never blocks the page under it. */

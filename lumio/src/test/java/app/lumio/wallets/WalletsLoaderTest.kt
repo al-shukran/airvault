@@ -37,7 +37,7 @@ class WalletsLoaderTest {
                     emptyList<NativeFailure>()
                 },
                 bitcoin = { start() },
-                landed = {},
+                landed = { _, _ -> },
             )
         }
     }
@@ -54,7 +54,7 @@ class WalletsLoaderTest {
                     gate.await()
                     events += "bitcoin read"
                 },
-                landed = { events += "landed" },
+                landed = { _, _ -> events += "landed" },
             )
         }
 
@@ -84,7 +84,7 @@ class WalletsLoaderTest {
                 delay(30)
                 events += "bitcoin read"
             },
-            landed = { events += "landed" },
+            landed = { _, _ -> events += "landed" },
         )
 
         assertEquals(listOf("landed", "native read", "landed", "bitcoin read", "landed"), events)

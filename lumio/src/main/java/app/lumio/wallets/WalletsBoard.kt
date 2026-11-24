@@ -8,6 +8,7 @@ import app.airvault.core.model.ChainId
 import app.lensly.core.vault.VaultSession
 import app.lumio.LumioApp
 import app.lumio.LumioVault
+import app.lumio.btc.networkId
 import app.lumio.chains.ChainHolding
 import app.lumio.data.WallClock
 import app.lumio.data.asset.AssetId
@@ -48,7 +49,10 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-/** The notice a read that did not answer leaves on the wallet screens. The last known balances stay on them. */
+/**
+ * The notice a read leaves when it fails as a whole, so no chain can be named for it. A chain that did not answer names itself under its island instead,
+ * with a Retry, and the last known balances stay on the screens either way.
+ */
 private const val REFRESH_NOTICE = "Some balances could not be refreshed. The last known balances are shown."
 
 /**
@@ -160,9 +164,15 @@ internal class WalletsBoard(
     var notice by mutableStateOf<String?>(null)
         private set
 
-    /** The chains whose last read did not answer. Their accounts say so, and keep the balances they had. */
-    var unreachable by mutableStateOf<Set<ChainId>>(emptySet())
+    /** What the wallet screens show of the reads of the chains: which run, which have answered, and which did not answer. */
+    var reads by mutableStateOf(WalletReads())
         private set
+
+    /** The Bitcoin accounts whose last scan failed, by account key. Their chain did not answer until a scan of them lands. */
+    private var bitcoinFailed = emptySet<String>()
+
+    /** The Bitcoin accounts that have a scan result in the running refresh, by account key. */
+    private var bitcoinLanded = emptySet<String>()
 
     /** The time of the last complete read of the networks, or null before the first one. */
     var updatedAtMs by mutableStateOf<Long?>(null)
@@ -188,8 +198,15 @@ internal class WalletsBoard(
         scope.launch {
             app.scanQueue.events.collect { event ->
                 when (event) {
-                    is ScanEvent.Finished -> side?.let { mode -> showLoaded(mode, withAccounts = false) }
-                    is ScanEvent.Failed -> notice = REFRESH_NOTICE
+                    is ScanEvent.Finished -> {
+                        scanLanded(event.accountKey, failed = false)
+                        side?.let { mode -> showLoaded(mode, withAccounts = false) }
+                    }
+                    // A failed scan keeps what it read before it failed, so the side shows that partial balance as incomplete.
+                    is ScanEvent.Failed -> {
+                        scanLanded(event.accountKey, failed = true)
+                        side?.let { mode -> showLoaded(mode, withAccounts = false) }
+                    }
                     is ScanEvent.Progress -> Unit
                 }
             }
@@ -207,7 +224,7 @@ internal class WalletsBoard(
             refreshJob = null
             endRefresh()
             view = null
-            unreachable = emptySet()
+            forgetReads()
             tokenCounts = emptyMap()
             tokenUsd = emptyMap()
             tokenHeld = emptyMap()
@@ -218,6 +235,7 @@ internal class WalletsBoard(
         readJob?.cancel()
         readJob = scope.launch {
             showLoaded(mode, withAccounts = true)
+            view?.let { readCoinPrices(mode, it) }
         }
     }
 
@@ -232,22 +250,107 @@ internal class WalletsBoard(
             if (pulled) refreshByPull = true
             return
         }
+        refreshMarket()
+        readChains(mode, pulled, families = null)
+    }
+
+    /**
+     * Reads the chain family [namespace] again, from its Retry link. The other families keep what they had. Nothing runs while a refresh runs.
+     */
+    fun retry(namespace: String) {
+        val mode = side ?: return
+        if (refreshing) return
+        readChains(mode, pulled = false, families = readFamilies(namespace))
+    }
+
+    /**
+     * Reads the chain [families] of the side (all of its families when null), and shows each read as it lands. A family is checked until its read ends.
+     */
+    private fun readChains(mode: NetworkMode, pulled: Boolean, families: Set<String>?) {
         refreshing = true
         refreshByPull = pulled
         notice = null
-        refreshMarket()
-        val run = scope.launch(start = CoroutineStart.LAZY) {
+        val job = scope.launch(start = CoroutineStart.LAZY) {
             try {
-                val result = WalletsLoader.refresh(app, session, mode) { showLoaded(mode, withAccounts = false) }
+                val shown = readOrNull { withContext(Dispatchers.IO) { WalletsLoader.read(app, session, mode) } } ?: return@launch
+                val sideFamilies = shown.wallets.flatMap { shown.accountsOf(it.id) }.map { it.namespace }.toSet()
+                val chains = families ?: sideFamilies
+                val bitcoinAccounts = shown.wallets.sumOf { wallet -> shown.accountsOf(wallet.id).count { it.namespace == Networks.BIP122 } }
+                val started = WallClock.nowMs()
+                bitcoinLanded = emptySet()
+                reads = reads.copy(
+                    checking = sideFamilies intersect chains,
+                    startedAtMs = reads.startedAtMs + chains.flatMap(::readFamilies).toSet().associateWith { started },
+                    bitcoinDone = 0,
+                    bitcoinTotal = bitcoinAccounts,
+                )
+                readCoinPrices(mode, shown)
+                val result = WalletsLoader.refresh(app, session, mode, chains) { namespaces, failed -> landed(mode, namespaces, failed) }
+                reads = reads.copy(checking = emptySet())
                 showLoaded(mode, withAccounts = true)
-                unreachable = result.unreachable
-                if (result.failed) notice = REFRESH_NOTICE else updatedAtMs = WallClock.nowMs()
+                if (result.unreadable) notice = REFRESH_NOTICE
+                if (reads.unreachable.isEmpty() && !result.unreadable) updatedAtMs = WallClock.nowMs()
             } finally {
                 if (refreshJob === currentCoroutineContext()[Job]) endRefresh()
             }
         }
-        refreshJob = run
-        run.start()
+        refreshJob = job
+        job.start()
+    }
+
+    /**
+     * A read of [namespaces] ended, and [failed] are the chains of it that did not answer. Its families are checked no more, and the side shows its result
+     * at once: a balance that the read kept shows, and the families it did not reach say so.
+     */
+    private suspend fun landed(mode: NetworkMode, namespaces: Set<String>, failed: Set<ChainId>) {
+        val bitcoin = if (Networks.BIP122 in namespaces) bitcoinChainIfFailing(mode) else emptySet()
+        reads = reads.copy(
+            checking = reads.checking - namespaces,
+            landed = reads.landed + namespaces,
+            unreachable = landedUnreachable(reads.unreachable, namespaces, failed + bitcoin),
+        )
+        showLoaded(mode, withAccounts = false)
+    }
+
+    /** A Bitcoin scan of [accountKey] ended, with a result or with a failure. The side's Bitcoin chain is unreachable while an account's scan has failed. */
+    private fun scanLanded(accountKey: String, failed: Boolean) {
+        bitcoinLanded = bitcoinLanded + accountKey
+        bitcoinFailed = if (failed) bitcoinFailed + accountKey else bitcoinFailed - accountKey
+        val mode = side ?: return
+        reads = reads.copy(
+            bitcoinDone = bitcoinLanded.size,
+            unreachable = landedUnreachable(reads.unreachable, setOf(Networks.BIP122), bitcoinChainIfFailing(mode)),
+        )
+    }
+
+    /** The Bitcoin chain of [mode]'s side when a scan of it has failed, and no chain otherwise. */
+    private fun bitcoinChainIfFailing(mode: NetworkMode): Set<ChainId> =
+        if (bitcoinFailed.isEmpty()) emptySet() else setOf(mode.btcNetwork().networkId().chain)
+
+    /**
+     * Reads the prices of the side's native coins from the sources, and shows them when they land. A value in dollars needs its coin's price, and the total
+     * says it is being checked until this read has ended.
+     */
+    private fun readCoinPrices(mode: NetworkMode, shown: WalletsView) {
+        val coins = shown.wallets.flatMap { shown.accountsOf(it.id) }.mapNotNull { it.coin }.map { AssetId.Native(it.network) }.distinct()
+        if (coins.isEmpty()) {
+            reads = reads.copy(priced = true)
+            return
+        }
+        reads = reads.copy(pricing = true)
+        scope.launch {
+            val answered = readOrNull { withContext(Dispatchers.IO) { readPrices(coins) } }
+            if (side != mode) return@launch
+            reads = reads.copy(pricing = false, priced = true)
+            if (!answered.isNullOrEmpty()) showLoaded(mode, withAccounts = false)
+        }
+    }
+
+    /** Drops what the reads of the side said, so its accounts are checked again. */
+    private fun forgetReads() {
+        reads = WalletReads()
+        bitcoinFailed = emptySet()
+        bitcoinLanded = emptySet()
     }
 
     /** The app came back from the background. The Wallets home reads the networks again as it shows. */
@@ -357,6 +460,7 @@ internal class WalletsBoard(
         market = null
         trending = null
         endRefresh()
+        forgetReads()
     }
 
     private fun endRefresh() {
@@ -431,7 +535,7 @@ internal class WalletsBoard(
         val epoch = forgets
         val view = WalletsLoader.read(app, session, mode)
         val held = heldTokensOf(view, mode)
-        val tokenPrices = readPrices(held.values.flatMap { AssetRows.tokenIds(it) })
+        val tokenPrices = repository.lastPrices(held.values.flatMap { AssetRows.tokenIds(it) })
         val watchlists = withContext(Dispatchers.IO) { watchlistsOf(view.wallets) }
         val (prices, market, trending) = withContext(Dispatchers.IO) {
             Triple(repository.lastPrices(assetsOf(watchlists)), repository.lastMarket(), repository.lastTrending())
