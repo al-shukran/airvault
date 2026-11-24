@@ -21,7 +21,7 @@ private val OTHER_SEED = ByteArray(32) { (it * 13 + 5).toByte() }
 
 /** A package payload for the test key. [lists] are extra top-level members, each starting with a comma. */
 private fun payload(sequence: Long = 2, lists: String = ""): String =
-    """{"createdAt":"2026-11-14","formatVersion":2,"minSchemaVersion":2,"networks":[${TestPackages.LINEA_NETWORK}],""" +
+    """{"createdAt":"2026-11-14","formatVersion":2,"minSchemaVersion":4,"networks":[${TestPackages.LINEA_NETWORK}],""" +
         """"sequence":$sequence,"tokens":[${TestPackages.LINEA_USDC}]$lists}"""
 
 /** The build's catalog with a whitelist sequence of [sequence], so a package can be older or newer than it. */

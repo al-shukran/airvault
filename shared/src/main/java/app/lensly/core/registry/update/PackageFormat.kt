@@ -58,6 +58,9 @@ internal object PackageFormat {
     /** The schema that adds dynamic, array and tuple arguments and named tuple fields to whitelist entries. */
     private const val ARGUMENTS_SCHEMA = 3L
 
+    /** The schema that adds each network's kind, parent chain and featured flag. */
+    private const val NETWORKS_SCHEMA = 4L
+
     private val MAGIC = "LRP2".toByteArray(StandardCharsets.US_ASCII)
     private val MAGIC_PREFIX = "LRP".toByteArray(StandardCharsets.US_ASCII)
     private val DOMAIN = "LENSLY-REGISTRY-v2\n".toByteArray(StandardCharsets.US_ASCII)
@@ -152,6 +155,9 @@ internal object PackageFormat {
      */
     private fun validated(dto: Payload): RegistryPackage {
         if (dto.sequence < 1) throw RegistryUpdateException.Malformed("sequence must be at least 1")
+        if (dto.networks.isNotEmpty() && dto.minSchemaVersion < NETWORKS_SCHEMA) {
+            throw RegistryUpdateException.Malformed("networks need minSchemaVersion $NETWORKS_SCHEMA")
+        }
         try {
             LocalDate.parse(dto.createdAt)
         } catch (e: DateTimeParseException) {
@@ -178,6 +184,11 @@ internal object PackageFormat {
             }
             if ((network.kind == NetworkKind.LAYER_2) != (network.parentChainId != null)) {
                 throw RegistryUpdateException.InvalidEntry("chain ${network.chainId}: a Layer 2 needs a parent chain, and a Layer 1 has none")
+            }
+            network.parentChainId?.let { parent ->
+                if (dto.networks.any { it.chainId == parent && it.kind != NetworkKind.LAYER_1 }) {
+                    throw RegistryUpdateException.InvalidEntry("chain ${network.chainId}: parent chain $parent must be a Layer 1")
+                }
             }
             requirePrintable("chain ${network.chainId} name", network.name)
             requirePrintable("chain ${network.chainId} nativeSymbol", network.nativeSymbol)

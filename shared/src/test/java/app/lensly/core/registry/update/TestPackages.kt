@@ -33,7 +33,7 @@ internal object TestPackages {
         networks: String = LINEA_NETWORK,
         tokens: String = LINEA_USDC,
         formatVersion: Int = 2,
-        minSchemaVersion: Int = 1,
+        minSchemaVersion: Int = 4,
         createdAt: String = "2026-11-10",
         whitelist: String? = null,
     ): String {

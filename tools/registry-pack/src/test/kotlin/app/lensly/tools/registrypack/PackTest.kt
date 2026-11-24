@@ -130,6 +130,11 @@ class PackTest {
             "formatVersion one" to source.copy(formatVersion = 1),
             "minSchemaVersion above this tool" to source.copy(minSchemaVersion = 5),
             "minSchemaVersion zero" to source.copy(minSchemaVersion = 0),
+            "networks without minSchemaVersion 4" to source.copy(minSchemaVersion = 3),
+            "Layer 2 parent is itself" to source.copy(networks = listOf(network.copy(parentChainId = network.chainId))),
+            "Layer 2 parent is another Layer 2" to source.copy(
+                networks = listOf(network.copy(parentChainId = 5), network.copy(chainId = 5, parentChainId = network.chainId)),
+            ),
             "impossible date" to source.copy(createdAt = "2026-02-30"),
             "control character in name" to source.copy(networks = listOf(network.copy(name = "Li\u0007nea"))),
             "bidi control in token name" to source.copy(tokens = listOf(token.copy(name = "USD‮Coin"))),
@@ -436,7 +441,7 @@ class PackTest {
         val denylist = source.denylist!!
         val wallet = source.wallets!!.single()
         val cases = mapOf(
-            "denylist without minSchemaVersion 2" to source.copy(minSchemaVersion = 1),
+            "denylist without minSchemaVersion 2" to source.copy(minSchemaVersion = 1, networks = emptyList()),
             "selector of the wrong length" to source.copy(denylist = listOf(denylist[0].copy(selector = "0x095ea7b"))),
             "contract without a chainId" to source.copy(denylist = listOf(denylist[1].copy(chainId = null))),
             "chainId zero" to source.copy(denylist = listOf(denylist[1].copy(chainId = 0))),
