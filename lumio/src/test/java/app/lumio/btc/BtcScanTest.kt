@@ -9,6 +9,14 @@ import app.lumio.data.MonotonicClock
 import app.lumio.data.cache.Cache
 import app.lumio.data.cache.CacheKeys
 import app.lumio.data.cache.DEFAULT_SHORT_TTL_MS
+import app.lumio.data.electrum.Answer
+import app.lumio.data.electrum.ElectrumError
+import app.lumio.data.electrum.ElectrumPool
+import app.lumio.data.electrum.ElectrumServer
+import app.lumio.data.electrum.FakeElectrum
+import app.lumio.data.electrum.TestIdentities
+import app.lumio.data.electrum.Trust
+import app.lumio.data.electrum.scripthash
 import app.lumio.data.esplora.BlockstreamProvider
 import app.lumio.data.esplora.MempoolProvider
 import app.lumio.data.provider.Http
@@ -23,10 +31,16 @@ import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -291,5 +305,154 @@ class BtcScanTest {
             )
         }
         assertEquals(listOf(19), found.map { it.index })
+    }
+
+    /** The receive address of each scripthash, so that a fake Electrum server can answer by index. */
+    private val indexOfScripthash: Map<String, Int> =
+        receive.withIndex().associate { (index, address) -> scripthash(scriptOf(BtcNetwork.TESTNET4, address)) to index }
+
+    /**
+     * An Electrum server for the account's receive addresses. Index 0 holds 120,000 sats confirmed, in one unspent output. Index 2 holds 30,000 sats
+     * unconfirmed, in one unspent output. [refused] names a method that the server answers with an error.
+     */
+    private fun electrumServer(refused: String? = null): FakeElectrum = FakeElectrum(TestIdentities.server, answer = { method, params ->
+        val index = indexOfScripthash[params[0].jsonPrimitive.content]
+        val txid = if (index == 0) "a".repeat(64) else "b".repeat(64)
+        when (method) {
+            refused -> Answer.Fail("refused")
+            "blockchain.scripthash.get_history" -> Answer.Reply(
+                JsonArray(
+                    when (index) {
+                        0 -> listOf(historyItem(txid, 850_000))
+                        2 -> listOf(historyItem(txid, 0))
+                        else -> emptyList()
+                    },
+                ),
+            )
+            "blockchain.scripthash.get_balance" -> Answer.Reply(
+                buildJsonObject {
+                    put("confirmed", JsonPrimitive(if (index == 0) 120_000L else 0L))
+                    put("unconfirmed", JsonPrimitive(if (index == 2) 30_000L else 0L))
+                },
+            )
+            "blockchain.scripthash.listunspent" -> Answer.Reply(
+                JsonArray(
+                    when (index) {
+                        0 -> listOf(unspentItem(txid, vout = 0, height = 850_000, sats = 120_000L))
+                        2 -> listOf(unspentItem(txid, vout = 1, height = 0, sats = 30_000L))
+                        else -> emptyList()
+                    },
+                ),
+            )
+            else -> Answer.Fail("no such method: $method")
+        }
+    })
+
+    private fun historyItem(txid: String, height: Int) = buildJsonObject {
+        put("tx_hash", JsonPrimitive(txid))
+        put("height", JsonPrimitive(height))
+    }
+
+    private fun unspentItem(txid: String, vout: Int, height: Int, sats: Long) = buildJsonObject {
+        put("tx_hash", JsonPrimitive(txid))
+        put("tx_pos", JsonPrimitive(vout))
+        put("height", JsonPrimitive(height))
+        put("value", JsonPrimitive(sats))
+    }
+
+    /** The used indexes that [electrumChain] finds when the receive addresses in [used] have history, and the number of batches it sent. */
+    private suspend fun electrumWalk(used: Set<Int>): Pair<List<Int>, Int> {
+        val indexOf = receive.withIndex().associate { it.value to it.index }
+        var batches = 0
+        val walk = electrumChain(
+            addressAt = { receive[it] },
+            read = { addresses ->
+                batches++
+                addresses.map { AddressReading(used = indexOf.getValue(it) in used, confirmedSats = 0L, unconfirmedSats = 0L) }
+            },
+        )
+        return walk.used.map { it.index } to batches
+    }
+
+    @Test
+    fun theElectrumWalkFindsWhatTheOneAtATimeWalkFinds() = runBlocking {
+        val fixtures = listOf(
+            emptySet<Int>(),
+            setOf(0),
+            setOf(19),
+            setOf(35),
+            setOf(0, 20),
+            setOf(0, 20, 40),
+            setOf(0, 21),
+            setOf(4, 23, 42),
+        )
+        for (used in fixtures) assertEquals(sequentialWalk(used), electrumWalk(used).first, "used at $used")
+        val random = Random(7)
+        repeat(300) {
+            val density = 1 + random.nextInt(30)
+            val used = (0 until 100).filter { random.nextInt(100) < density }.toSet()
+            assertEquals(sequentialWalk(used), electrumWalk(used).first, "used at $used")
+        }
+    }
+
+    @Test
+    fun aWindowOfTheElectrumWalkIsOneBatch() = runBlocking {
+        // With no history the gap closes inside the first window of 20 addresses.
+        assertEquals(1, electrumWalk(emptySet()).second)
+        // Index 0 is used, so the gap runs on to index 20, which the second window holds.
+        assertEquals(2, electrumWalk(setOf(0)).second)
+    }
+
+    @Test
+    fun electrumReadsTheWalkAndTheCoinsWhileEsploraAnswersNoAddress() = runBlocking {
+        electrumServer().use { fake ->
+            val pool = ElectrumPool(servers = listOf(ElectrumServer("localhost", Trust.Pinned(TestIdentities.server.spkiSha256), port = fake.port)))
+
+            val snapshot = scanAccount(ref, this.scheduler(), Priority.VISIBLE, nowMs = 1L, electrum = pool)
+
+            assertEquals(120_000L, snapshot.confirmedSats)
+            assertEquals(30_000L, snapshot.unconfirmedSats)
+            assertEquals(listOf(receive[0], receive[2]), snapshot.addresses)
+            assertEquals(1, snapshot.nextReceiveIndex)
+            assertEquals(listOf(BtcUtxo("a".repeat(64), 0, 120_000L, 850_000L), BtcUtxo("b".repeat(64), 1, 30_000L, null)), snapshot.utxos)
+            assertTrue(first.statsRequests().isEmpty() && second.statsRequests().isEmpty(), "Electrum answered the walk; Esplora was asked no address")
+        }
+    }
+
+    @Test
+    fun aPoolThatCannotConnectIsReadFromEsplora() = runBlocking {
+        fund(sats = 120_000L)
+        val unreachable = ElectrumPool(
+            servers = listOf(ElectrumServer("localhost", Trust.Authority)),
+            open = { _ -> throw ElectrumError.Transport("refused") },
+        )
+
+        val snapshot = scanAccount(ref, this.scheduler(), Priority.VISIBLE, nowMs = 1L, electrum = unreachable)
+
+        assertEquals(120_000L, snapshot.confirmedSats)
+        assertEquals(1, snapshot.utxos.size)
+        assertTrue(first.statsRequests().isNotEmpty(), "Esplora read the account")
+    }
+
+    @Test
+    fun aServerThatRefusesABatchIsReadFromEsplora() = runBlocking {
+        fund(sats = 120_000L)
+        electrumServer(refused = "blockchain.scripthash.get_history").use { fake ->
+            val pool = ElectrumPool(servers = listOf(ElectrumServer("localhost", Trust.Pinned(TestIdentities.server.spkiSha256), port = fake.port)))
+
+            val snapshot = scanAccount(ref, this.scheduler(), Priority.VISIBLE, nowMs = 1L, electrum = pool)
+
+            assertEquals(120_000L, snapshot.confirmedSats)
+            assertEquals(1, snapshot.utxos.size)
+            assertTrue(first.statsRequests().isNotEmpty(), "Esplora read the account")
+        }
+    }
+
+    @Test
+    fun thePublicElectrumServersAreNotUsedForAnOwnerServerOrForTestnet() {
+        val pool = ElectrumPool(servers = emptyList())
+        assertSame(pool, publicElectrumFor(pool, BtcNetwork.MAINNET, owned = emptySet()))
+        assertNull(publicElectrumFor(pool, BtcNetwork.MAINNET, owned = setOf(BtcNetwork.MAINNET)))
+        assertNull(publicElectrumFor(pool, BtcNetwork.TESTNET4, owned = emptySet()))
     }
 }

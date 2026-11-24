@@ -28,6 +28,7 @@ object TxSync {
      */
     suspend fun run(app: LumioApp, vault: LumioVault, plan: TxSyncPlan, onStored: () -> Unit, onAddress: (String) -> Unit = {}) {
         val history = app.txHistory(vault)
+        val electrumFor = app.publicElectrumOf(vault)
         for (read in plan.evm) {
             attempt { history.refresh(read.net, read.address) }
             onStored()
@@ -42,6 +43,7 @@ object TxSync {
                     nowMs = System.currentTimeMillis(),
                     memo = app.addressStats.forNetwork(net),
                     detail = true,
+                    electrum = electrumFor(ref.account.network),
                     onTxs = { address, txs, tipHeight ->
                         onAddress(address)
                         history.storeBitcoin(net, address, txs, tipHeight)

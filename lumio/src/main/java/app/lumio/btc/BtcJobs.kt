@@ -1,8 +1,10 @@
 package app.lumio.btc
 
+import app.lensly.core.btc.BtcNetwork
 import app.lumio.data.cache.CachePolicy
 import app.lumio.data.cache.CacheUse
 import app.lumio.data.cache.jsonCodec
+import app.lumio.data.electrum.ElectrumPool
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Block
 import app.lumio.data.provider.Tx
@@ -17,6 +19,7 @@ const val FINAL_CONFIRMATIONS = 6L
  * Scans the account of [job] and stores its result as the account's last known balance. The account the owner has open (FOREGROUND) also reads its
  * recent transactions. A portfolio scan keeps the transactions of the stored scan. A job whose account is no longer paired has nothing to scan, so it
  * returns at once. A scan that fails part way stores what it had read, then fails: the job stays queued, and the next pass runs it again.
+ * [electrumFor] gives the Electrum pool that reads each network, or null to read it from Esplora alone (see [publicElectrumFor]).
  */
 suspend fun scanJob(
     job: QueuedJob,
@@ -26,6 +29,7 @@ suspend fun scanJob(
     memo: AddressStatsCache,
     nowMs: () -> Long,
     step: suspend (Int) -> Unit,
+    electrumFor: (BtcNetwork) -> ElectrumPool? = { null },
 ) {
     val ref = refs.firstOrNull { it.key == job.job.accountRef } ?: return
     val detail = job.job.priority == Priority.FOREGROUND
@@ -48,6 +52,7 @@ suspend fun scanJob(
             detail = detail,
             step = step,
             onPartial = { save(it) },
+            electrum = electrumFor(ref.account.network),
         ),
     )
 }

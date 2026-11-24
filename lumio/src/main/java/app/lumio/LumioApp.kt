@@ -19,6 +19,7 @@ import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lumio.btc.AddressStatsCache
 import app.lumio.btc.networkId
+import app.lumio.btc.publicElectrumFor
 import app.lumio.btc.scanJob
 import app.lumio.chains.NativeBalances
 import app.lumio.data.MonotonicClock
@@ -26,6 +27,7 @@ import app.lumio.data.WallClock
 import app.lumio.data.config.LockSettingsStore
 import app.lumio.data.config.PreferRpcStore
 import app.lumio.data.db.LumioDatabase
+import app.lumio.data.electrum.ElectrumPool
 import app.lumio.data.esplora.BlockstreamProvider
 import app.lumio.data.esplora.CustomEsploraProvider
 import app.lumio.data.esplora.EsploraProtocol
@@ -210,6 +212,15 @@ class LumioApp : Application(), CoverApplication {
     /** The address statistics this session has read. Every scan shares them, and the transaction feed's Bitcoin reads too. */
     internal val addressStats = AddressStatsCache()
 
+    /** The public Electrum servers that read Bitcoin balances. One pool serves the session, so each server keeps one connection. */
+    internal val electrum = ElectrumPool()
+
+    /** The public Electrum pool that reads each Bitcoin network of [vault], or null where the owner has a server of their own (see [publicElectrumFor]). */
+    internal fun publicElectrumOf(vault: LumioVault): (BtcNetwork) -> ElectrumPool? {
+        val owned = serverOverrides(vault.configs()).keys
+        return { network -> publicElectrumFor(electrum, network, owned) }
+    }
+
     /**
      * True when the registry or the bundled default list names [contract] on [network]. Lumio knows such a token, so the spam heuristic and Home judge it
      * as they judge any coin. Any other token is unknown: the owner added it, or someone else sent it.
@@ -310,6 +321,7 @@ class LumioApp : Application(), CoverApplication {
             memo = addressStats,
             nowMs = { System.currentTimeMillis() },
             step = step,
+            electrumFor = publicElectrumOf(vault),
         )
         if (BuildConfig.DEBUG) Log.d(EsploraProtocol.LOG_TAG, "account done priority=${job.job.priority} ms=${elapsedMs(started)}")
     }
