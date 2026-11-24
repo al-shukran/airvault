@@ -65,7 +65,7 @@ object AddAssetRows {
      * asset. A row is added when [holdings] holds its asset, zero balances included.
      */
     fun rows(network: NetworkId, holdings: List<AsaHolding>, query: String): List<AddAssetRow> {
-        val text = query.trim()
+        val text = query.filterNot(Char::isWhitespace)
         val verified = VERIFIED_ASSETS.filter { it.testnet == network.testnet }
         val matches = verified
             .filter { it.symbol.contains(text, ignoreCase = true) || it.assetId.toString().startsWith(text) }

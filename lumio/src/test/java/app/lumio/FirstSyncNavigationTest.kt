@@ -23,9 +23,11 @@ import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultLayout
 import app.lensly.ui.navigation.GateOutcome
 import app.lensly.ui.theme.ClearAirTheme
+import app.lumio.data.db.LumioDatabase
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairedWallets
+import app.lumio.pair.SyncRow
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -55,8 +57,10 @@ class FirstSyncNavigationTest {
 
     private val clock = FakeClock()
     private val vault by lazy { Vault(VaultLayout(File(tmp.root, "lumio-vault")), MemoryKeystore(), clock, KDF) }
-    private val holder by lazy { VaultHolder(vault) }
     private val context: Context get() = ApplicationProvider.getApplicationContext()
+    private val database by lazy { LumioDatabase.open(context, File(tmp.root, "lumio.db")) }
+    private val holder by lazy { VaultHolder(vault, attach = { LumioVault(it, database) }) }
+    private val draft = PairDraft()
     private lateinit var nav: NavHostController
     private lateinit var walletId: String
 
@@ -102,6 +106,27 @@ class FirstSyncNavigationTest {
     }
 
     @Test
+    fun aRePairingStartsAFreshImportThatReadsTheChainItAdds() {
+        showImport()
+        compose.runOnUiThread {
+            draft.pairing = PairFixtures.payloadOf(listOf(PairFixtures.ethereumAccount(0, "Account 0"), PairFixtures.solanaAccount(0, "Sol 0")))
+            nav.navigate(LumioRoute.PAIR_REVIEW)
+        }
+        compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithText("Update").fetchSemanticsNodes().isNotEmpty() }
+
+        compose.onNodeWithText("Update").performClick()
+
+        compose.waitUntil(timeoutMillis = 10_000) { currentRoute() == LumioRoute.FIRST_SYNC }
+        val imports = checkNotNull(holder.sessionAttachment() as? LumioVault).firstSyncs
+        compose.waitUntil(timeoutMillis = 10_000) { imports.get(walletId, NetworkMode.TESTNET) != null }
+
+        assertTrue(
+            SyncRow.SOLANA in checkNotNull(imports.get(walletId, NetworkMode.TESTNET)).sync.rows.value,
+            "The import of the re-paired wallet reads the Solana account that the pairing adds",
+        )
+    }
+
+    @Test
     fun aWalletDeletedWhileTheImportWasAwayLeavesForTheWalletsList() {
         showImport()
         compose.onNodeWithText("View Accounts").performClick()
@@ -135,6 +160,9 @@ class FirstSyncNavigationTest {
                 nav = rememberNavController()
                 NavHost(navController = nav, startDestination = LumioRoute.WALLETS) {
                     composable(LumioRoute.WALLETS) { Text("Accounts root") }
+                    composable(LumioRoute.PAIR_REVIEW) {
+                        PairReviewRoute(navController = nav, holder = holder, draft = draft, onChanged = {}, onLock = {})
+                    }
                     composable(
                         route = LumioRoute.FIRST_SYNC,
                         arguments = listOf(navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType }),

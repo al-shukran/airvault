@@ -164,6 +164,8 @@ internal fun PairReviewRoute(
                 } else {
                     draft.clear()
                     onChanged()
+                    // The pairing replaced the wallet's records, so the import kept for its earlier pairing is dropped: the next import reads them.
+                    (holder.sessionAttachment() as? LumioVault)?.firstSyncs?.drop(saved.id)
                     navController.navigate(LumioRoute.firstSync(saved.id)) { popUpTo(LumioRoute.WALLETS) { inclusive = false } }
                 }
             }
@@ -198,7 +200,7 @@ internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolde
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
     // A decoy vault keeps no Lumio state, so its import is not kept and each visit starts it again.
-    val imports = app.lumioVault()?.firstSyncs ?: FirstSyncImports()
+    val imports = (holder.sessionAttachment() as? LumioVault)?.firstSyncs ?: FirstSyncImports()
     // The import as an earlier visit left it: its rows show on the first frame, and its reads do not run again.
     var imported by remember(session, walletId, mode) { mutableStateOf(imports.get(walletId, mode)) }
     fun finish() {

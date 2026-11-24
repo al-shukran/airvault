@@ -95,4 +95,10 @@ class FirstSyncImports {
     fun put(walletId: String, mode: NetworkMode, kept: FirstSyncImport) {
         byKey[walletId to mode] = kept
     }
+
+    /** Drops the imports of wallet [walletId] on both sides, so its next visit starts a fresh first sync. A saved pairing of the wallet calls it. */
+    @Synchronized
+    fun drop(walletId: String) {
+        byKey.keys.removeAll { it.first == walletId }
+    }
 }
