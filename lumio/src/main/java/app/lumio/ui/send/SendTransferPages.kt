@@ -47,7 +47,8 @@ import java.util.Locale
 
 /**
  * Last Chance, step 6 of the send: the signed transaction waits in memory for a count of [remaining] seconds out of [total], then Lumio sends it. [sending]
- * says the send is out, so the page offers no stop any more. The words say the one part that cannot be undone: after this, no one can.
+ * says the send is out, so the page offers no stop any more, and so does a count that has run out, such as a count of zero seconds. The words say the one
+ * part that cannot be undone: after this, no one can.
  */
 @Composable
 fun SendLastChancePage(
@@ -64,6 +65,7 @@ fun SendLastChancePage(
     onLock: () -> Unit,
 ) {
     val palette = LocalClearAirPalette.current
+    val sendingNow = sending || remaining == 0
     SendPage(
         title = "Send",
         backLabel = backLabel,
@@ -71,10 +73,10 @@ fun SendLastChancePage(
         onBack = onBack,
         onLock = onLock,
         bottomAction = {
-            ClearAirPrimaryButton(text = "Send Now", onClick = onSendNow, enabled = !sending && offline == null)
+            ClearAirPrimaryButton(text = "Send Now", onClick = onSendNow, enabled = !sendingNow && offline == null)
             if (offline != null) Text(text = "Sending needs a connection", style = ClearAirType.label, color = palette.ink2)
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                ClearAirTextAction(text = "Stop, Don't Send", onClick = onStop, enabled = !sending)
+                ClearAirTextAction(text = "Stop, Don't Send", onClick = onStop, enabled = !sendingNow)
             }
         },
     ) {
@@ -86,7 +88,7 @@ fun SendLastChancePage(
         }
         Text(text = "Signed by Lensly", style = ClearAirType.titleXL, color = palette.ink, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         Text(
-            text = if (sending) {
+            text = if (sendingNow) {
                 "Sending $amount to $recipient."
             } else {
                 "Sending $amount to $recipient in $remaining ${if (remaining == 1) "second" else "seconds"}."
