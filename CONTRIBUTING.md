@@ -65,9 +65,9 @@ Every UI change, feature, or bug fix pull request carries a short recording (15 
    tools/pr-recording/compose.sh --demo demo.mp4 --out pr-945
    ```
 
-   This writes `<out>.mp4` (H.264, at most 60 s) and `<out>.gif` (960 px wide for a pair, 720 px for a demo), both under 10 MB. It needs `ffmpeg` and ImageMagick (`brew install ffmpeg imagemagick`). A pair may hold clips of different lengths, and the shorter one freezes on its last frame.
-3. Attach it. GitHub plays a video inline only when it was uploaded through the web attachment uploader, and no documented API or `gh` command does that. Instead, push the MP4 and the GIF to an orphan branch named `pr-assets/<pr-number>`, embed the GIF in the description or a comment as `![demo](https://github.com/al-shukran/airvault/raw/pr-assets/<pr-number>/<out>.gif)`, and link the MP4 through its `blob` URL (`https://github.com/al-shukran/airvault/blob/pr-assets/<pr-number>/<out>.mp4`), because raw MP4 URLs are served as `application/octet-stream` and do not play inline.
-4. Never commit a video. `.gitignore` ignores `*.mp4`, `*.mov`, and `*.webm`. The `pr-assets/` branches hold clips for review and are never merged.
+   This writes `<out>.mp4` (H.264, at most 60 s) and `<out>.gif` (960 px wide for a pair, 720 px for a demo, stepped down when needed), both under 10 MB. Each clip covers the phone screen with no bars, so record in portrait; a landscape clip loses its sides. It needs `ffmpeg` and ImageMagick (`brew install ffmpeg imagemagick`). A pair may hold clips of different lengths, and the shorter one freezes on its last frame.
+3. Attach both files to the pull request description or a comment, each 10 MB or less. Drag the GIF into the box first, so it renders inline, then drag the MP4 under it, so it plays inline. From a terminal with GitHub CLI 2.99.0 or later, `gh pr comment <number> --attach <out>.gif --attach <out>.mp4` uploads both; a video that is not alone in its paragraph shows as a link.
+4. Never commit a video. `.gitignore` ignores `*.mp4`, `*.mov`, and `*.webm`, and the files belong on the pull request, not in the repository.
 
 ## The gate
 
