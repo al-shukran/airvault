@@ -19,7 +19,7 @@ import java.io.InputStream
  * storage is the caller's job.
  */
 object RegistryUpdate {
-    /** The accepted package, stored in the registry directory (`noBackupFilesDir/registry/`). */
+    /** The accepted package, stored in the registry directory that the caller passes to [install]. */
     const val INSTALLED_FILE = "installed.lrp"
 
     /**
@@ -139,13 +139,17 @@ object RegistryUpdate {
 
     /**
      * The highest sequence accepted so far: the larger of the [SEQUENCE_FILE] record and the installed package's own
-     * sequence. It is 0 only when nothing was ever installed. An installed package that cannot be read with no record
-     * beside it is [RegistryUpdateException.SequenceUnknown], never 0.
+     * sequence. It is 0 only when nothing was ever installed or recorded. A package or a record that cannot be read,
+     * with nothing readable beside it, is [RegistryUpdateException.SequenceUnknown], never 0.
      */
     private fun acceptedSequence(dir: File, trustedKeys: List<TrustedKey>): Long {
-        val recorded = File(dir, SEQUENCE_FILE).takeIf { it.isFile }?.readText()?.trim()?.toLongOrNull()
+        val record = File(dir, SEQUENCE_FILE)
+        val recorded = record.takeIf { it.isFile }?.readText()?.trim()?.toLongOrNull()
         val file = File(dir, INSTALLED_FILE)
-        if (!file.isFile) return recorded ?: 0
+        if (!file.isFile) {
+            if (record.isFile && recorded == null) throw RegistryUpdateException.SequenceUnknown()
+            return recorded ?: 0
+        }
         val bytes = file.readBytes()
         val installed = runCatching { PackageFormat.read(bytes, trustedKeys).sequence }.getOrNull()
         if (installed == null && recorded == null) throw RegistryUpdateException.SequenceUnknown()

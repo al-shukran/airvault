@@ -15,6 +15,7 @@ import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.vault.BiometricUnlock
 import app.lensly.core.vault.Vault
+import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lumio.btc.AddressStatsCache
 import app.lumio.btc.networkId
@@ -317,9 +318,23 @@ class LumioApp : Application(), CoverApplication {
     /** The database of the open vault. It is reopened when the vault's file has gone, as a wipe removes it. */
     @Synchronized
     private fun database(): LumioDatabase {
-        val file = File(File(noBackupFilesDir, "vault"), LumioDatabase.FILE_NAME)
+        val file = databaseFile()
         database?.takeIf { it.isOpen && file.isFile }?.let { return it }
         database?.close()
         return LumioDatabase.open(this, file).also { database = it }
+    }
+
+    private fun databaseFile(): File = lumioDatabaseFile(VaultLayout.of(this))
+
+    /** Reset Lumio: closes the database, then erases every Lumio store on this phone, see [eraseLumioStores]. The next vault opens a new database. */
+    fun eraseLumio() {
+        closeDatabase()
+        eraseLumioStores(vaultHolder, databaseFile(), lockSettings)
+    }
+
+    @Synchronized
+    private fun closeDatabase() {
+        database?.close()
+        database = null
     }
 }

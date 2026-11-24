@@ -1,6 +1,7 @@
 package app.lumio.ui.screenshot
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import app.lumio.ui.explore.ChainRow
 import app.lumio.ui.explore.ExploreScreen
 import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.ProviderStatus
@@ -26,6 +27,8 @@ class ExploreScreenshotTest {
     @Test
     fun explore() = compose.lumioSnapshot("explore") {
         ExploreScreen(
+            chains = listOf(ChainRow("Ethereum", accounts = 4), ChainRow("Solana", accounts = 1)),
+            networks = 55,
             providers = listOf(
                 ProviderRow("blockscout", false, true, true, null, ProviderStatus.Healthy(score = 120.0), false, true),
                 ProviderRow("mempool", false, false, true, null, ProviderStatus.CoolingDown(inMs = 4_000), true, false),

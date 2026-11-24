@@ -43,11 +43,14 @@ fun LumioRootScreen(
     mode: NetworkMode,
     onMode: (NetworkMode) -> Unit,
     panelWallets: List<PanelWallet>,
+    activeWalletId: String?,
+    onWallet: (String) -> Unit,
     testNetworks: Int,
+    networkSentence: String,
     offline: String?,
     onTab: (LumioTab) -> Unit,
+    onScan: () -> Unit,
     onTestNetworks: () -> Unit,
-    onWallet: (String) -> Unit,
     onPair: () -> Unit,
     onLock: () -> Unit,
     search: @Composable (onClose: () -> Unit) -> Unit,
@@ -71,23 +74,14 @@ fun LumioRootScreen(
             visible = panelOpen,
             mode = mode,
             testNetworks = testNetworks,
+            networkSentence = networkSentence,
             wallets = panelWallets,
-            onMode = { next ->
-                panelOpen = false
-                onMode(next)
-            },
-            onTestNetworks = {
-                panelOpen = false
-                onTestNetworks()
-            },
-            onWallet = { id ->
-                panelOpen = false
-                onWallet(id)
-            },
-            onPair = {
-                panelOpen = false
-                onPair()
-            },
+            activeWalletId = activeWalletId,
+            onMode = onMode,
+            onScan = onScan,
+            onTestNetworks = onTestNetworks,
+            onWallet = onWallet,
+            onPair = onPair,
             onDismiss = { panelOpen = false },
         )
         ClearAirSheet(visible = searchOpen, onClose = { searchOpen = false }) {

@@ -24,6 +24,9 @@ import app.lumio.ui.search.SearchRow
 import app.lumio.ui.search.SearchSection
 import app.lumio.ui.search.SearchSheet
 import app.lumio.ui.search.SearchTab
+import app.lumio.ui.settings.providerName
+import app.lumio.ui.settings.providerStatusNote
+import app.lumio.ui.settings.providerStatusWord
 import app.lumio.wallets.WalletsView
 import app.lumio.watchlist.FIRST_RUN_ASSETS
 import app.lumio.watchlist.WatchedAsset
@@ -59,6 +62,10 @@ internal fun SearchRoute(
             WatchlistStore.read(session, walletId)?.assets ?: FIRST_RUN_ASSETS
         }
     }
+    val vault = app.lumioVault()
+    val providers by produceState<ProviderLists?>(initialValue = null, vault, tab) {
+        if (vault != null && tab == SearchTab.PROVIDERS) value = withContext(Dispatchers.IO) { readLists(app, vault) }
+    }
     fun openRoute(route: String) {
         onClose()
         navController.navigate(route)
@@ -76,6 +83,7 @@ internal fun SearchRoute(
         SearchTab.ETH -> if (needle.isEmpty()) emptyList() else chainTabSections(needle, view, Networks.EIP155, ::openRoute)
         SearchTab.SOL -> if (needle.isEmpty()) emptyList() else chainTabSections(needle, view, Networks.SOLANA, ::openRoute)
         SearchTab.CHAINS -> if (needle.isEmpty()) emptyList() else listOfNotNull(section(null, matching(needle, chainEntries(view, ::openRoute)).rows()))
+        SearchTab.PROVIDERS -> if (needle.isEmpty()) emptyList() else listOfNotNull(section(null, matching(needle, providerEntries(providers, ::openRoute)).rows()))
     }
     SearchSheet(
         query = query,
@@ -167,6 +175,22 @@ private fun chainEntries(view: WalletsView, openRoute: (String) -> Unit): List<S
     .map { network ->
         SearchEntry(title = network, detail = "Chain", terms = listOf(network), target = { openRoute(LumioRoute.SETTINGS_NETWORKS) })
     }
+
+/**
+ * One entry per provider the Data providers page lists, found by its name. Its detail is its status, as the page words it, and it opens the provider's page.
+ */
+private fun providerEntries(lists: ProviderLists?, openRoute: (String) -> Unit): List<SearchEntry<Open>> {
+    val rows = lists?.let { it.data + it.prices + it.rpc }.orEmpty()
+    return rows.map { row ->
+        val name = providerName(row.id)
+        SearchEntry(
+            title = name,
+            detail = listOfNotNull(providerStatusWord(row.status), providerStatusNote(row.status)).joinToString(" · "),
+            terms = listOf(name),
+            target = { openRoute(LumioRoute.provider(row.id)) },
+        )
+    }
+}
 
 /** One entry per address-book entry of every wallet, found by its name, its label and its address. It opens the wallet's address book. */
 private fun addressBookEntries(view: WalletsView, openRoute: (String) -> Unit): List<SearchEntry<Open>> = view.wallets.flatMap { wallet ->

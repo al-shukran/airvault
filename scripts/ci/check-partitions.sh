@@ -37,7 +37,7 @@ while IFS= read -r line; do
     continue
   fi
   case "$lane_name" in
-    shard-[1-6] | verify-app | verify-lumio | fuzz) ;;
+    shard-[1-9] | shard-10 | verify-app | verify-lumio | fuzz) ;;
     *) bad="$bad  $lanes_file:$line_no: unknown lane '$lane_name'
 " ;;
   esac

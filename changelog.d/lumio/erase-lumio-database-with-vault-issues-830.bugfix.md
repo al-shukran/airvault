@@ -1,0 +1,1 @@
+Lumio keeps its chain data database inside the vault folder, so erasing the vault after too many wrong passwords, or with Reset Lumio, also removes the balances and transaction history it holds, and Lumio fetches them again after this update.

@@ -201,6 +201,16 @@ class RegistryUpdateTest {
     }
 
     @Test
+    fun anUnreadableRecordWithNoPackageBesideItIsNeverSequenceZero() {
+        val dir = folder.root.resolve("d7").apply { mkdirs() }
+        File(dir, RegistryUpdate.SEQUENCE_FILE).writeText("not a sequence")
+
+        assertIs<RegistryUpdateException.SequenceUnknown>(
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 1)), keys, bakedRegistry(), dir)),
+        )
+    }
+
+    @Test
     fun networkWithABakedChainIdIsRejected() {
         val imposter = """{"chainId":1,"explorerName":null,"feeModel":"L1","name":"Imposter","nativeDecimals":18,"nativeSymbol":"ETH","testnet":false}"""
 

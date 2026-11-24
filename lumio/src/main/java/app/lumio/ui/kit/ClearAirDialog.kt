@@ -21,11 +21,11 @@ import app.lensly.ui.theme.LocalClearAirPalette
 private val DIALOG_CORNER = 24.dp
 
 /**
- * A Clear Air dialog: a card over the page with its [title], a [text] line under it, and the [actions] below, which are one capsule and one text action.
- * It closes on [onDismiss], which a tap outside the card or the system back also reaches.
+ * A Clear Air dialog: a card over the page with its [title], a [text] line under it when it has one, and the [actions] below, which are one capsule and one
+ * text action. It closes on [onDismiss], which a tap outside the card or the system back also reaches.
  */
 @Composable
-fun ClearAirDialog(title: String, text: String, onDismiss: () -> Unit, actions: @Composable ColumnScope.() -> Unit) {
+fun ClearAirDialog(title: String, text: String? = null, onDismiss: () -> Unit, actions: @Composable ColumnScope.() -> Unit) {
     val palette = LocalClearAirPalette.current
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -37,7 +37,7 @@ fun ClearAirDialog(title: String, text: String, onDismiss: () -> Unit, actions: 
             verticalArrangement = Arrangement.spacedBy(ClearAirSpacing.sm),
         ) {
             Text(text = title, style = ClearAirType.rowTitle, color = palette.ink)
-            Text(text = text, style = ClearAirType.body, color = palette.ink2)
+            if (text != null) Text(text = text, style = ClearAirType.body, color = palette.ink2)
             actions()
         }
     }

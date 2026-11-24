@@ -20,10 +20,11 @@ private val CAPSULE_HEIGHT = 56.dp
 
 /**
  * The one filled action of a screen: a full-width capsule, ink on paper in the light theme and paper on ink in the dark one. It scales to 0.98 while
- * pressed and gives a light tick. Disabled, it sits on the raised layer with secondary text, and the reason is said beside it, not in it.
+ * pressed and gives a light tick. Disabled, it sits on the raised layer with secondary text, and the reason is said beside it, not in it. A [destructive]
+ * capsule fills rose when enabled, for a confirmation that erases something.
  */
 @Composable
-fun ClearAirPrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+fun ClearAirPrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, destructive: Boolean = false) {
     val haptics = rememberLumioHaptics()
     val palette = LocalClearAirPalette.current
     Box(
@@ -40,7 +41,13 @@ fun ClearAirPrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier 
                     onClick()
                 },
             )
-            .background(if (enabled) palette.primary else palette.raised),
+            .background(
+                when {
+                    !enabled -> palette.raised
+                    destructive -> palette.rose
+                    else -> palette.primary
+                },
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Text(

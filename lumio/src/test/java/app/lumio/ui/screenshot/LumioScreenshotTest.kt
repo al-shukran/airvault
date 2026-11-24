@@ -147,6 +147,7 @@ class LumioScreenshotTest {
             finish = FinishSetup(),
             onFinish = {},
             onOpen = {},
+            onReset = {},
         )
     }
 

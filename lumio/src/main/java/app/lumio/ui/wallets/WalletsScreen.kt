@@ -17,6 +17,7 @@ import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.data.Clock
 import app.lumio.data.WallClock
 import app.lumio.ui.kit.ClearAirAmount
+import app.lumio.ui.kit.ClearAirChangePercent
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirListRow
 import app.lumio.ui.kit.ClearAirRefreshBox
@@ -25,8 +26,18 @@ import app.lumio.ui.kit.ClearAirWalletEmblem
 import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.pair.PairIntro
 
-/** One row of the Accounts list: the wallet's [id] and [name], its [summary] line, and its dollar [usd] total, or null when none of its balances has a price. */
-data class WalletRow(val id: String, val name: String, val summary: String, val usd: Double?)
+/**
+ * One row of the Accounts list: the wallet's [id] and [name], its [summary] line, its dollar [usd] total, or null when none of its balances has a price,
+ * and its [changePct] over 24 hours. [active] marks the wallet the tabs show, which is tagged ACTIVE.
+ */
+data class WalletRow(
+    val id: String,
+    val name: String,
+    val summary: String,
+    val usd: Double?,
+    val changePct: Double? = null,
+    val active: Boolean = false,
+)
 
 /** The caption under the wallets: what a wallet is, and where its accounts are grouped. */
 private const val CAPTION = "Each wallet is one Lensly vault. Open it to see its accounts, grouped by the Lensly app that owns them."
@@ -84,7 +95,8 @@ fun WalletsScreen(
                                 title = row.name,
                                 description = row.summary,
                                 leading = { ClearAirWalletEmblem() },
-                                trailing = if (row.usd == null) null else ({ ClearAirAmount(text = LocalFiat.current.amount(row.usd), hidden = !showTotal, style = ClearAirType.rowValue) }),
+                                tag = if (row.active) "ACTIVE" else null,
+                                trailing = if (row.usd == null) null else ({ WalletValue(usd = row.usd, changePct = row.changePct, shown = showTotal) }),
                                 onClick = { onWallet(row.id) },
                             )
                         }
@@ -115,5 +127,14 @@ private fun WalletsHeader(count: Int, totalUsd: Double?, showTotal: Boolean, ref
             totalUsd?.let { usd -> ClearAirAmount(text = LocalFiat.current.amount(usd), hidden = !showTotal, style = ClearAirType.rowValue) }
         }
         FreshnessLine(refreshing = refreshing, updatedAtMs = updatedAtMs, clock = clock)
+    }
+}
+
+/** A wallet's value at the end of its row: its dollars, and under them its change over 24 hours. */
+@Composable
+private fun WalletValue(usd: Double, changePct: Double?, shown: Boolean) {
+    Column(horizontalAlignment = Alignment.End) {
+        ClearAirAmount(text = LocalFiat.current.amount(usd), hidden = !shown, style = ClearAirType.rowValue)
+        changePct?.let { ClearAirChangePercent(percent = it) }
     }
 }

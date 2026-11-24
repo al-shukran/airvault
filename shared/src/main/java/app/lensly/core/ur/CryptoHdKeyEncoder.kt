@@ -52,15 +52,27 @@ object CryptoHdKeyEncoder {
         name: String?,
         origin: List<Int> = ACCOUNT_ORIGIN,
         depth: Int? = null,
-    ): UR {
+    ): UR = hdKey(pubkey33, chainCode32, masterFp, parentFp, name, origin, depth).toUR()
+
+    /** The [CryptoHDKey] that [ur] encodes, with [note] as key 10 when it is not null. */
+    fun hdKey(
+        pubkey33: ByteArray,
+        chainCode32: ByteArray,
+        masterFp: Int,
+        parentFp: Int,
+        name: String?,
+        origin: List<Int> = ACCOUNT_ORIGIN,
+        depth: Int? = null,
+        note: String? = null,
+    ): CryptoHDKey {
         require(pubkey33.size == 33) { "compressed public key must be 33 bytes" }
         require(chainCode32.size == 32) { "chain code must be 32 bytes" }
         val path: List<PathComponent> = origin.map { child ->
             IndexPathComponent(child and HARDENED_BIT.inv(), child < 0)
         }
         val keypath = CryptoKeypath(path, fingerprintBytes(masterFp), depth)
-        // isMaster and isPrivate stay null, so keys 1 and 2 are absent. Children and note are absent too.
-        val hdKey = CryptoHDKey(
+        // isMaster and isPrivate stay null, so keys 1 and 2 are absent. Children are absent too.
+        return CryptoHDKey(
             null,
             pubkey33,
             chainCode32,
@@ -69,12 +81,12 @@ object CryptoHdKeyEncoder {
             null,
             fingerprintBytes(parentFp),
             name,
-            null,
+            note,
         )
-        return hdKey.toUR()
     }
 
-    private fun hardened(childNumber: Int): Int = childNumber or HARDENED_BIT
+    /** The BIP32 child number of hardened step [childNumber]. */
+    fun hardened(childNumber: Int): Int = childNumber or HARDENED_BIT
 
     private const val HARDENED_BIT = Int.MIN_VALUE
 

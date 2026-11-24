@@ -3,8 +3,13 @@ package app.lumio.evm
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
+import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
+import mockwebserver3.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -251,5 +256,33 @@ class EvmSettingsTest {
         assertNull(EvmSettingsStore.addCustom(session, rpc, emptySet(), input))
         assertEquals(listOf(CustomChain(999L, "Example", "EXM", testnet = false)), EvmSettingsStore.read(session).custom)
         assertEquals(url, EvmSettingsStore.read(session).rpc[999L])
+    }
+
+    @Test
+    fun aChangeSavedWhileANetworkIsBeingCheckedIsNotOverwritten() {
+        // The Add Network check holds its endpoint until the test lets it answer. A toggle on another page runs meanwhile.
+        val checking = CountDownLatch(1)
+        val answerNow = CountDownLatch(1)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                checking.countDown()
+                answerNow.await(5, TimeUnit.SECONDS)
+                return answer("0x3e7")
+            }
+        }
+        var refusal: EvmRefusal? = null
+        val add = thread { refusal = EvmSettingsStore.addCustom(session, rpc, emptySet(), newNetwork.copy(rpc = url)) }
+        checking.await(5, TimeUnit.SECONDS)
+
+        val toggle = thread { EvmSettingsStore.change(session, rpc) { s, _ -> EvmEdits.setEnabled(s, 10143L, false) } }
+        toggle.join(1_000)
+        answerNow.countDown()
+        add.join()
+        toggle.join()
+
+        assertNull(refusal)
+        val stored = EvmSettingsStore.read(session)
+        assertEquals(listOf(999L), stored.custom.map { it.chainId })
+        assertFalse(10143L in stored.enabled)
     }
 }

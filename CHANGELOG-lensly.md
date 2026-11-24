@@ -4,6 +4,18 @@ All notable changes to Lensly. The format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-23
+
+### Fixed
+
+- A passphrase that does not match its confirmation returns to the passphrase entry with both entries cleared, and the 24 words already typed are kept. [Issue #842](https://github.com/al-shukran/airvault/issues/842)
+- An unreadable catalog rollback record is refused instead of being read as zero, so an older signed catalog package is not accepted again. [Issue #831](https://github.com/al-shukran/airvault/issues/831)
+- Restoring a wallet moves on to the next word as soon as the typed word is one that no other BIP39 word starts with, so such a word needs no SPACE or suggestion tap. [Issue #840](https://github.com/al-shukran/airvault/issues/840)
+- The in-app keyboard lines up like the standard Android keyboard: equal keys, the middle row centred, and no dead gaps between keys. [Issue #841](https://github.com/al-shukran/airvault/issues/841)
+- The word list of a wallet restore scrolls to the word being typed, so a 24-word phrase can be entered past word 15 with the keyboard up. [Issue #843](https://github.com/al-shukran/airvault/issues/843)
+
+## [1.1.0] - 2026-11-23
+
 ### Added
 
 - Added a DANGER warning in the EVM review when a transferFrom moves tokens from another account. ([#745](https://github.com/al-shukran/airvault/pull/745)) ([#760](https://github.com/al-shukran/airvault/pull/760))
@@ -15,6 +27,11 @@ All notable changes to Lensly. The format follows [Keep a Changelog](https://kee
 
 - Hid recovery words and keys from TalkBack on the backup and restore screens so they are not read aloud. ([#744](https://github.com/al-shukran/airvault/pull/744)) ([#765](https://github.com/al-shukran/airvault/pull/765))
 - Hid the Show Secret text from TalkBack so the secret is not read aloud. ([#758](https://github.com/al-shukran/airvault/pull/758))
+- Lensly no longer erases a healthy vault after one transient Keystore error while it checks the vault header, and a vault whose creation failed partway no longer shows as damaged. [Issue #791](https://github.com/al-shukran/airvault/issues/791) [Issue #792](https://github.com/al-shukran/airvault/issues/792)
+- Lensly now checks a MAC over the vault header before it checks your password. A header that was changed, or one that an earlier version wrote, cannot be verified, so Lensly erases the vault on the next unlock attempt, before the password is checked. Vaults made by earlier versions are erased this way on their first unlock after this update, so keep a recovery phrase for every wallet. [Issue #746](https://github.com/al-shukran/airvault/issues/746)
+- Lensly's Android Keystore key names, the registry folder and the biometric unlock file no longer say what they hold. Keys made by earlier versions cannot be found, so a vault from an earlier version is erased on its first unlock after this update, as the header check above describes. [Issue #785](https://github.com/al-shukran/airvault/issues/785)
+- Rabby and MetaMask now list every Lensly Ethereum account with the address Lensly shows. Before, only the first address matched. When you show the pairing code, Lensly rounds the wallet up to a multiple of 5 Ethereum accounts, because those wallets list accounts in pages of 5. Pair again to see the right addresses. [Issue #822](https://github.com/al-shukran/airvault/issues/822)
+- Wallet data on disk no longer names what each file holds. The key of each wallet folder, its record files and its account files now have positional names with no wallet, key or chain word, and the vault's folder and files are renamed the same way. Vaults saved by earlier builds are not read by this version: the app starts with no vault, as it does for any unverifiable vault state. [Issue #757](https://github.com/al-shukran/airvault/issues/757)
 
 ## [1.0.0] - 2026-11-22
 

@@ -19,6 +19,7 @@ import app.lensly.app.VaultHolder
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
+import app.lumio.btc.BtcAccountRef
 import app.lumio.data.asset.AssetId
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.TransactionSettings
@@ -125,7 +126,7 @@ internal fun WalletsRoute(
     val view = board.view
     TabRoute(tab = LumioTab.ACCOUNTS, navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = onLock) {
         WalletsScreen(
-            rows = view?.let { shown -> shown.wallets.map { wallet -> walletRow(shown, wallet) } }.orEmpty(),
+            rows = view?.let { shown -> walletRows(shown, selection) }.orEmpty(),
             loading = view == null,
             totalUsd = view?.let(::allWalletsUsd),
             showTotal = display.showTotal,
@@ -175,20 +176,25 @@ internal fun WalletRoute(
         if (view == null || wallet == null) {
             WalletLoadingContent()
         } else {
+            val total = view.total(walletId)
             WalletScreen(
                 mode = selection.mode,
                 accounts = view.accountsOf(walletId),
                 tokenCounts = board.tokenCounts,
                 tokenUsd = board.tokenUsd,
-                totalUsd = view.usd(walletId),
+                totalUsd = total.usd,
+                changePct = total.changePct,
+                changeUsd = total.changeUsd,
                 usdOf = view::usd,
                 showTotal = display.showTotal,
                 showBalances = display.showAssets,
                 refreshing = board.refreshing,
                 refreshByPull = board.refreshByPull,
                 updatedAtMs = board.updatedAtMs,
+                // Every read or scan that did not answer leaves the notice. A chain that did not answer also names itself under its island.
                 notice = board.notice,
                 pairedAtMs = wallet.createdAtMs,
+                unreachable = board.unreachable,
                 onAccount = { account -> navController.navigate(LumioRoute.account(walletId, account.id)) },
                 onRefresh = { board.refresh(pulled = true) },
             )
@@ -468,16 +474,27 @@ internal fun sendRoute(account: WalletAccount, mode: NetworkMode): String = when
     else -> error("Lumio sends from no account on ${account.namespace}")
 }
 
-/** One paired wallet as a row of the Wallets list: its name, its summary line and its dollar total. */
-private fun walletRow(view: WalletsView, wallet: PairedWallet): WalletRow = WalletRow(
-    id = wallet.id,
-    name = wallet.name,
-    summary = summaryLine(view.accountsOf(wallet.id)),
-    usd = view.usd(wallet.id),
-)
+/** The rows of the Wallets list: the active wallet first, tagged ACTIVE, then the others in the vault's order. */
+private fun walletRows(view: WalletsView, selection: NetworkSelection): List<WalletRow> {
+    val active = view.wallets.active(selection) { it.id }?.id
+    return view.walletsActiveFirst(active).map { wallet -> walletRow(view, wallet, active = wallet.id == active) }
+}
+
+/** One paired wallet as a row of the Wallets list: its name, its summary line, its dollar total and change, and whether it is the active one. */
+private fun walletRow(view: WalletsView, wallet: PairedWallet, active: Boolean): WalletRow {
+    val total = view.total(wallet.id)
+    return WalletRow(
+        id = wallet.id,
+        name = wallet.name,
+        summary = summaryLine(view.accountsOf(wallet.id)),
+        usd = total.usd,
+        changePct = total.changePct,
+        active = active,
+    )
+}
 
 /** The dollar total of every wallet on the side, or null when none of its balances has a price. */
-private fun allWalletsUsd(view: WalletsView): Double? = view.wallets.mapNotNull { view.usd(it.id) }.takeIf { it.isNotEmpty() }?.sum()
+private fun allWalletsUsd(view: WalletsView): Double? = view.wallets.mapNotNull { view.total(it.id).usd }.takeIf { it.isNotEmpty() }?.sum()
 
 /**
  * The paired wallets of the open vault, read again when [listVersion] changes. Empty while the vault is locked, and the gate takes over then.
@@ -494,6 +511,12 @@ internal fun pairedWallets(navController: NavHostController, holder: VaultHolder
     return wallets
 }
 
+/** Removes the cached transactions and comments of [wallet]: those of its Ethereum accounts, and of the Bitcoin addresses its last scans found. */
+internal suspend fun removeWalletHistory(vault: LumioVault, wallet: PairedWallet) {
+    val bitcoin = wallet.bitcoin.flatMap { vault.store.snapshot(BtcAccountRef(wallet.id, it).key)?.addresses.orEmpty() }
+    vault.txs.removeAccounts(wallet.evmAddresses + bitcoin)
+}
+
 /** The Wallets page of Settings: the pairing of a wallet from Lensly, and the paired wallets with deletion. A deletion is saved, then the lists read again. */
 @Composable
 internal fun WalletsSettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, onChanged: () -> Unit) {
@@ -507,6 +530,7 @@ internal fun WalletsSettingsRoute(navController: NavHostController, holder: Vaul
             if (session != null) {
                 scope.launch {
                     onVault(Unit) { PairedWallets.delete(session, wallet.id) }
+                    (holder.sessionAttachment() as? LumioVault)?.let { vault -> onVault(Unit) { removeWalletHistory(vault, wallet) } }
                     onChanged()
                 }
             }

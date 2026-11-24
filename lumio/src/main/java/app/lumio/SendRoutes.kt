@@ -163,7 +163,8 @@ private const val BITCOIN_PREFIX_TEST = "tb1"
  * A send from one address of a paired wallet, on the network [chainId]. It opens on the token at [initialContract], or on the native coin when that is
  * null. The page covers the recipient, the amount and the fee, the sentence that Lensly signs, the request as a code, the scan of Lensly's reply, Last
  * Chance, and the transaction that is sent. The network is fixed by the account, so the send offers no other. Lumio holds no key. It builds the
- * transaction from public reads, and it sends only a signature that answers its own request from the account that sends.
+ * transaction from public reads, and it sends only a signature that answers its own request from the account that sends. With [scanFirst] set, the send
+ * opens on the camera for its recipient, as Scan to Pay does.
  */
 @Composable
 internal fun SendRoute(
@@ -174,6 +175,7 @@ internal fun SendRoute(
     mode: NetworkMode,
     chainId: Long,
     initialContract: String?,
+    scanFirst: Boolean,
     onLock: () -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
@@ -194,7 +196,7 @@ internal fun SendRoute(
     }
     val ready = (load as? SendLoad.Ready)?.context ?: return
 
-    var step by remember { mutableStateOf<SendStep>(SendStep.Recipient) }
+    var step by remember { mutableStateOf<SendStep>(if (scanFirst) SendStep.ScanRecipient else SendStep.Recipient) }
     var recipient by rememberSaveable { mutableStateOf("") }
     var amount by rememberSaveable { mutableStateOf("") }
     // The contract of the token the send moves, or null for the native coin of the chain. The send opens on [initialContract].

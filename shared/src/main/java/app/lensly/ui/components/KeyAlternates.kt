@@ -105,13 +105,13 @@ internal class AlternatesPicker {
         keyboard = coordinates
     }
 
-    /** Opens [chars] above [key]. Does nothing until the keyboard has been placed. */
-    fun begin(key: LayoutCoordinates, chars: String, cell: Float) {
+    /** Opens [chars] above [face], the key as drawn. Does nothing until the keyboard has been placed. */
+    fun begin(face: LayoutCoordinates, chars: String, cell: Float) {
         val board = keyboard ?: return
-        val origin = board.localPositionOf(key, Offset.Zero)
+        val origin = board.localPositionOf(face, Offset.Zero)
         val width = chars.length * cell
         open = OpenAlternates(
-            left = alternateStripLeft(origin.x + key.size.width / 2f, width, board.size.width.toFloat()),
+            left = alternateStripLeft(origin.x + face.size.width / 2f, width, board.size.width.toFloat()),
             top = origin.y - cell,
             keyTop = origin.y,
             cell = cell,
@@ -144,9 +144,13 @@ internal class AlternatesPicker {
     }
 }
 
-/** Where a key sits in its keyboard, set once the key is placed. Its gesture reads it to convert positions. */
+/**
+ * Where a key sits in its keyboard, set once the key is placed. [cell] is its touch area, which takes the gaps beside it, and [face] is
+ * the key as drawn, inside that area. Its gesture reads them to convert positions.
+ */
 internal class KeyPlace {
-    var coordinates: LayoutCoordinates? = null
+    var cell: LayoutCoordinates? = null
+    var face: LayoutCoordinates? = null
 }
 
 /**
@@ -202,7 +206,8 @@ internal fun Modifier.alternatesGesture(
     // The long-press timer is a child of this scope. It only sets the strip open, so the pointer loop never has to wait on it.
     coroutineScope {
         awaitEachGesture {
-            val key = place.coordinates ?: return@awaitEachGesture
+            val key = place.cell ?: return@awaitEachGesture
+            val face = place.face ?: return@awaitEachGesture
             val down = awaitFirstDown()
             down.consume()
             val press = PressInteraction.Press(down.position)
@@ -217,7 +222,7 @@ internal fun Modifier.alternatesGesture(
             var choice: Char? = null
             val timer = this@coroutineScope.launch {
                 delay(ALTERNATES_LONG_PRESS_MS)
-                picker.begin(key, alternates, cell)
+                picker.begin(face, alternates, cell)
                 opened = true
             }
             try {

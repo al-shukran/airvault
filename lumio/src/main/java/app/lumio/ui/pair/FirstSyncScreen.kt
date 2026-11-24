@@ -14,9 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,6 +27,8 @@ import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.pair.FirstSync
 import app.lumio.pair.SyncRow
 import app.lumio.pair.SyncState
+import app.lumio.ui.kit.ClearAirGlyph
+import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.ClearAirPageTopBar
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
@@ -38,7 +37,8 @@ import app.lumio.ui.kit.rememberLumioHaptics
 /**
  * The import after a pairing is saved (I12): a timeline of three lines, the accounts that the pairing brought and the chains they are on, and a note
  * for each read that runs long or fails, which never blocks the page. The last line closes once every read has settled, with a haptic. Nothing opens
- * the wallet by itself: Continue is the primary action, and View Accounts is a row beneath it. The back arrow and the system back open the wallet.
+ * the wallet by itself. This is the last step of the onboarding: Continue is the primary action and the only control that leaves it. View Accounts
+ * opens the wallet's accounts above this page, and the back arrow and the system back stay here.
  */
 @Composable
 fun FirstSyncScreen(
@@ -46,7 +46,8 @@ fun FirstSyncScreen(
     accounts: Int,
     chains: Int,
     rows: Map<SyncRow, SyncState>,
-    onOpenWallet: () -> Unit,
+    onViewAccounts: () -> Unit,
+    onFinish: () -> Unit,
     onLock: () -> Unit,
 ) {
     val palette = LocalClearAirPalette.current
@@ -56,7 +57,8 @@ fun FirstSyncScreen(
         if (settled) haptics.success()
     }
     Column(modifier = Modifier.fillMaxSize()) {
-        ClearAirPageTopBar(title = "Setting Up $walletName", backLabel = "Pair with Lensly", onBack = onOpenWallet, onLock = onLock)
+        // The import is the last step of the onboarding, so its back arrow stays on it.
+        ClearAirPageTopBar(title = "Setting Up $walletName", backLabel = "Pair with Lensly", onBack = {}, onLock = onLock)
         Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter)) {
                 Spacer(Modifier.height(ClearAirSpacing.md))
@@ -80,11 +82,11 @@ fun FirstSyncScreen(
             }
         }
         Column(modifier = Modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.md)) {
-            ClearAirRow(title = "View Accounts", onClick = onOpenWallet)
+            ClearAirRow(title = "View Accounts", onClick = onViewAccounts)
             Spacer(Modifier.height(ClearAirSpacing.md))
             ClearAirPrimaryButton(
                 text = "Continue",
-                onClick = onOpenWallet,
+                onClick = onFinish,
                 modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter),
             )
         }
@@ -107,12 +109,7 @@ private fun TimelineLine(text: String, step: Step) {
             contentAlignment = Alignment.Center,
         ) {
             if (step == Step.DONE) {
-                Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = null,
-                    tint = palette.onPrimary,
-                    modifier = Modifier.size(14.dp),
-                )
+                ClearAirIcon(glyph = ClearAirGlyph.CHECK, color = palette.onPrimary, modifier = Modifier.size(14.dp))
             }
         }
         Spacer(Modifier.width(ClearAirSpacing.sm))

@@ -60,7 +60,12 @@ object RegistryHolder {
      * Installs the signed package the APK ships, through the same checks as an offline update: its signature, its key, and its
      * sequence against the stored one. An equal or older bundled package is refused, so a newer package from storage stays in effect.
      */
-    private fun installBundled(assets: AssetManager, baked: Registry, trustedKeys: List<TrustedKey>, dir: File) {
+    private fun installBundled(
+        assets: AssetManager,
+        baked: Registry,
+        trustedKeys: List<TrustedKey>,
+        dir: File,
+    ) {
         val bytes = try {
             assets.open(BUNDLED_PATH).use { it.readBytes() }
         } catch (e: FileNotFoundException) {

@@ -1,12 +1,14 @@
 package app.lumio.wallets
 
 import app.airvault.core.model.AccountId
+import app.airvault.core.model.ChainId
 import app.lensly.core.vault.VaultSession
 import app.lumio.LumioApp
 import app.lumio.btc.BtcAccountRef
 import app.lumio.chains.NativeBalanceCache
 import app.lumio.chains.NativeBalances
 import app.lumio.data.asset.AssetId
+import app.lumio.data.net.Networks
 import app.lumio.data.price.Price
 import app.lumio.evm.BalanceCache
 import app.lumio.evm.EvmCatalog
@@ -16,6 +18,9 @@ import app.lumio.home.HomeLoader
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
+import app.lumio.portfolio.PortfolioTotal
+import app.lumio.portfolio.PortfolioView
+import app.lumio.portfolio.holdingOf
 import app.lumio.rowsOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -33,8 +38,11 @@ class WalletsView(
     /** The accounts of the wallet [walletId] on the side, in chain order. */
     fun accountsOf(walletId: String): List<WalletAccount> = accounts[walletId].orEmpty()
 
-    /** The value in dollars of the priced balances of the wallet [walletId], or null when none of them has a price. */
-    fun usd(walletId: String): Double? = HomeAssets.totalUsd(HomeAssets.priced(balancesOf(walletId), prices))
+    /** The value of the wallet [walletId] in dollars and its change over 24 hours, counted as the Portfolio counts its holdings. */
+    fun total(walletId: String): PortfolioTotal = PortfolioView.total(HomeAssets.priced(balancesOf(walletId), prices).map { holdingOf(it) })
+
+    /** The wallets with the wallet [activeId] first, then the rest in the vault's order. */
+    fun walletsActiveFirst(activeId: String?): List<PairedWallet> = wallets.sortedBy { it.id != activeId }
 
     /** The value in dollars of [account]'s native coin, or null when that coin has no price or no balance is kept. */
     fun usd(account: WalletAccount): Double? = HomeAssets.totalUsd(HomeAssets.priced(listOfNotNull(account.balance), prices))
@@ -43,6 +51,14 @@ class WalletsView(
     fun staleSinceMs(): Long? = HomeAssets.staleSinceMs(accounts.values.flatten().mapNotNull { it.balance }, prices)
 
     private fun balancesOf(walletId: String) = accountsOf(walletId).mapNotNull { it.balance }
+}
+
+/**
+ * What a refresh did not get: the chains whose read did not answer, and whether a read failed as a whole, so that no chain can be named for it.
+ */
+data class RefreshResult(val unreachable: Set<ChainId>, val unreadable: Boolean) {
+    /** True when any read did not answer. */
+    val failed: Boolean get() = unreadable || unreachable.isNotEmpty()
 }
 
 /** Reads the wallets' accounts from the vault, and refreshes their balances from the networks. */
@@ -59,14 +75,15 @@ internal object WalletsLoader {
     }
 
     /**
-     * Reads the Ethereum, Algorand and Solana balances of [mode]'s side, and scans its Bitcoin accounts. Returns true when a read did not answer. A read
-     * that failed keeps its cached balance.
+     * Reads the Ethereum, Algorand and Solana balances of [mode]'s side, and scans its Bitcoin accounts. A read that failed keeps its cached balance,
+     * and the result names the chains that did not answer.
      */
-    suspend fun refresh(app: LumioApp, session: VaultSession, mode: NetworkMode): Boolean {
+    suspend fun refresh(app: LumioApp, session: VaultSession, mode: NetworkMode): RefreshResult {
         val ethereum = readOrNull { HomeLoader.refreshEvm(app, session, mode) }
         val native = readOrNull { HomeLoader.refreshNative(app, session, mode) }
         readOrNull { HomeLoader.scanBitcoin(app, session, mode) }
-        return ethereum == null || ethereum.isNotEmpty() || native == null || native.isNotEmpty()
+        val unreachable = ethereum.orEmpty().map { Networks.evm(it.chainId) } + native.orEmpty().map { it.network.chain }
+        return RefreshResult(unreachable = unreachable.toSet(), unreadable = ethereum == null || native == null)
     }
 
     /**

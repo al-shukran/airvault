@@ -6,6 +6,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.data.config.FinishItem
@@ -30,7 +34,8 @@ data class SettingsRowState(val page: SettingsPage, val summary: String)
 /**
  * Lumio's Settings tab: the Finish Setting Up checklist while any of its items is open, then one row per page, in the order of [rows], each with its
  * state under its title. [finish] is what the checklist has ticked, and [onFinish] opens the page of an open item. [onOpen] opens the page of a row.
- * The network side is not here: the profile panel holds it. Nothing on this list is saved by a Save button, because each page applies its changes at once.
+ * The last row is Reset Lumio, which asks first in a dialog and then calls [onReset]. The network side is not here: the profile panel holds it.
+ * Nothing on this list is saved by a Save button, because each page applies its changes at once.
  */
 @Composable
 fun LumioSettingsScreen(
@@ -38,8 +43,10 @@ fun LumioSettingsScreen(
     finish: FinishSetup,
     onFinish: (FinishItem) -> Unit,
     onOpen: (SettingsPage) -> Unit,
+    onReset: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var resetting by rememberSaveable { mutableStateOf(false) }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -52,6 +59,15 @@ fun LumioSettingsScreen(
         rows.forEach { row ->
             ClearAirRow(title = row.page.title, description = row.summary, onClick = { onOpen(row.page) })
         }
+        ClearAirRow(
+            title = "Reset Lumio",
+            description = "Erase pairings and settings on this phone",
+            onClick = { resetting = true },
+            destructive = true,
+        )
+    }
+    if (resetting) {
+        ResetLumioDialog(onDismiss = { resetting = false }, onConfirm = { resetting = false; onReset() })
     }
 }
 

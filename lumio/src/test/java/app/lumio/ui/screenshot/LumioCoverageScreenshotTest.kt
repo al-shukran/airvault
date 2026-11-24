@@ -12,10 +12,9 @@ import androidx.compose.ui.test.filterToOne
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -30,12 +29,14 @@ import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.screenshot.SCREENSHOT_DIR
+import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.settings.NoticeBlock
 import app.lensly.ui.settings.ThirdPartyLicencesScreen
 import app.lensly.ui.theme.LumenTheme
 import app.lensly.ui.components.groupAddress
 import app.lumio.btc.BtcSend
 import app.lumio.btc.btcText
+import app.lumio.ui.settings.ResetLumioDialog
 import app.lumio.btc.BtcSendPlan
 import app.lumio.btc.BtcSpendable
 import app.lumio.evm.CustomChain
@@ -164,6 +165,24 @@ class LumioCoverageScreenshotTest {
             onBack = {},
             onLock = {},
         )
+    }
+
+    @Test
+    fun resetLumioDialog() = dialogSnapshot(
+        name = "reset_lumio_dialog",
+        title = "Reset Lumio?",
+        open = {},
+    ) {
+        ClearAirTheme { ResetLumioDialog(onDismiss = {}, onConfirm = {}) }
+    }
+
+    @Test
+    fun resetLumioDialogTicked() = dialogSnapshot(
+        name = "reset_lumio_dialog_ticked",
+        title = "Reset Lumio?",
+        open = { onNode(isToggleable()).performClick() },
+    ) {
+        ClearAirTheme { ResetLumioDialog(onDismiss = {}, onConfirm = {}) }
     }
 
     @Test
@@ -415,6 +434,40 @@ class LumioCoverageScreenshotTest {
      * Renders [content] in the same frame as [snapshot], runs [open] to show a dialog, and records the dialog window as [name].png. A dialog is
      * its own window, so [snapshot] would leave it out of the frame. The change threshold is the one [snapshot] uses.
      */
+    private fun dialogSnapshot(
+        name: String,
+        title: String,
+        open: ComposeContentTestRule.() -> Unit,
+        content: @Composable () -> Unit,
+    ) {
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(PHONE_DENSITY)) {
+                LumenTheme {
+                    Box(
+                        modifier = Modifier
+                            .requiredSize(width = (PHONE_WIDTH_PX / PHONE_DENSITY).dp, height = (PHONE_HEIGHT_PX / PHONE_DENSITY).dp)
+                            .background(MaterialTheme.colorScheme.background),
+                    ) {
+                        content()
+                    }
+                }
+            }
+        }
+        compose.waitForIdle()
+        compose.open()
+        // A dialog attaches its window on a later frame, so the clock moves past it before the capture.
+        compose.mainClock.advanceTimeBy(DIALOG_SETTLE_MS)
+        compose.waitForIdle()
+        // The dialog is a root of its own: the one whose descendants hold its title.
+        compose.onAllNodes(isRoot()).filterToOne(hasAnyDescendant(hasText(title))).captureRoboImage(
+            filePath = "$SCREENSHOT_DIR/$name.png",
+            roborazziOptions = RoborazziOptions(
+                compareOptions = RoborazziOptions.CompareOptions(changeThreshold = CHANGE_THRESHOLD),
+            ),
+        )
+    }
+
     private companion object {
         /** The owner's phone, as [snapshot] sizes it: 720 x 1600 px at density 1.75. */
         const val PHONE_WIDTH_PX = 720f

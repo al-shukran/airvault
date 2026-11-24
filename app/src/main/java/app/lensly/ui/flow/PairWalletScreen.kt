@@ -61,7 +61,6 @@ import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
 import app.lensly.app.WalletStore
-import app.lensly.app.export.PairingExport
 import app.lensly.core.registry.WalletEntry
 import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.components.BannerTone
@@ -132,18 +131,6 @@ internal enum class PairFormat(
 }
 
 /**
- * The pairing code for [wallet]: the account key m/44'/60'/0' of account 0, with the fingerprints, named after the wallet, or "Lensly" when it
- * has no name. Public data only. The fingerprint is stored as hex, so it is read as an unsigned value.
- */
-internal fun pairingParts(wallet: WalletMeta): List<String> = PairingExport.urParts(
-    accountKeys = requireNotNull(wallet.accountKeys.takeIf { it.isNotEmpty() }) { "Only a Mnemonic wallet has an account public key." },
-    masterFingerprint = requireNotNull(wallet.masterFingerprintHex) { "Only a Mnemonic wallet has a fingerprint." }
-        .toLong(16)
-        .toInt(),
-    name = wallet.name.ifBlank { DEFAULT_PAIR_NAME },
-)
-
-/**
  * PAIR WALLET, as the wizard. [walletId] names the wallet when the route was opened for one, as a wallet's own pairing action
  * does. Null means the owner opened it from the dock and chooses. It reads only public wallet data, so the open session is all
  * it needs. When the code is done, Home shows the confirmation and this route goes back to it.
@@ -181,6 +168,12 @@ internal fun PairWalletRoute(navController: NavHostController, holder: VaultHold
                 WalletStore(requireNotNull(session) { "The vault is locked." }).pairingParts(meta.id)
             }
         },
+        ethereumParts = { meta ->
+            withContext(Dispatchers.IO) {
+                WalletStore(requireNotNull(session) { "The vault is locked." })
+                    .ethereumPairingParts(meta.id, meta.name.ifBlank { DEFAULT_PAIR_NAME })
+            }
+        },
         checkPassword = { password -> checkAppPassword(holder, password) },
         onUnavailable = { navController.openHidden(HiddenRoute.UNAVAILABLE) },
         onDone = {
@@ -209,8 +202,8 @@ internal fun PairWizard(
     walletEntries: List<WalletEntry> = emptyList(),
     /** The AirVault pairing of a wallet: the keys and names of every App it holds, in one code, read off the main thread. */
     lumioParts: suspend (WalletMeta) -> List<String> = { emptyList() },
-    /** The code of Rabby or MetaMask: the Ethereum account key of each account of the wallet, read off the main thread. */
-    ethereumParts: (WalletMeta) -> List<String> = ::pairingParts,
+    /** The code of Rabby or MetaMask: the address key of each Ethereum account of the wallet, read off the main thread. */
+    ethereumParts: suspend (WalletMeta) -> List<String> = { emptyList() },
     /**
      * Checks the App Password before a pairing code is built. The wizard owns the password and zeroes it. The default refuses every
      * password, so a caller that does not check one never shows the code.
@@ -236,7 +229,7 @@ internal fun PairWizard(
         value = when {
             !inCode || !codeUnlocked || chosen == null -> null
             format == PairFormat.LUMIO -> if (hasAccountKeys) lumioParts(chosen) else null
-            else -> withContext(Dispatchers.Default) { ethereumParts(chosen) }
+            else -> if (hasAccountKeys) ethereumParts(chosen) else null
         }
     }
     val passwordAsked = inCode && !codeUnlocked
