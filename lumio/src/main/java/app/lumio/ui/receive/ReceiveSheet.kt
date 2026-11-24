@@ -34,7 +34,9 @@ import app.lensly.ui.qr.QrPixels
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
+import app.lumio.receive.ReceiveCapsule
 import app.lumio.receive.ReceiveStep
+import app.lumio.receive.receiveCapsuleOf
 import app.lumio.receive.receiveNote
 import app.lumio.receive.receiveShareText
 import app.lumio.ui.home.AssetIcon
@@ -67,10 +69,11 @@ private const val SCREEN_MARGIN = 1
 /**
  * The last step of a Receive (H3): the network, the coin and the account, the code of the address with the coin's logo at its centre, the address in
  * groups of four, the warning for the network, and Copy and Share. Copy is the primary action, since people copy far more often than they share. Share
- * sends the code as an image with the sentence of [receiveShareText]. [onBack] goes one step back, and it is null when no step came before.
+ * sends the code as an image with the sentence of [receiveShareText]. [onBack] goes one step back, and it is null when no step came before. The capsule is
+ * Opt In First when [optedIn] says the account has not opted in to the coin's Algorand asset, and a tap on it calls [onOptIn] with that asset.
  */
 @Composable
-internal fun ReceiveSheetStep(step: ReceiveStep.Receive, onBack: (() -> Unit)?) {
+internal fun ReceiveSheetStep(step: ReceiveStep.Receive, optedIn: Boolean?, onOptIn: (ULong) -> Unit, onBack: (() -> Unit)?) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val palette = LocalClearAirPalette.current
@@ -80,7 +83,10 @@ internal fun ReceiveSheetStep(step: ReceiveStep.Receive, onBack: (() -> Unit)?) 
     val copy = rememberCopyAction(value = address, label = "Address")
     ReceiveSheetFrame(
         bottom = {
-            ClearAirPrimaryButton(text = if (copy.copied) "Copied ✓" else "Copy Address", onClick = copy.copy)
+            when (val capsule = receiveCapsuleOf(step.coin, optedIn)) {
+                is ReceiveCapsule.OptInFirst -> ClearAirPrimaryButton(text = "Opt In First", onClick = { onOptIn(capsule.assetId) })
+                ReceiveCapsule.CopyAddress -> ClearAirPrimaryButton(text = if (copy.copied) "Copied ✓" else "Copy Address", onClick = copy.copy)
+            }
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 ClearAirTextAction(
                     text = "Share",
