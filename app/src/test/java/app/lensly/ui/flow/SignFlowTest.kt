@@ -14,6 +14,7 @@ import app.airvault.core.signer.Path
 import app.airvault.core.signer.ScopedKeyAccess
 import app.airvault.core.signer.UNKNOWN_REQUEST
 import app.lensly.app.EVM_FAMILY
+import app.lensly.app.WalletApp
 import app.lensly.app.export.PairingExport
 import app.lensly.app.export.partsOf
 import app.lensly.app.sign.AppPrepared
@@ -128,6 +129,8 @@ private class FakePorts(
     private val prepareGate: CompletableDeferred<Unit>? = null,
     private val signGate: CompletableDeferred<Unit>? = null,
     private val parser: RequestParser = inProcessSandboxParser,
+    /** The Apps installed in every wallet of the fake vault. */
+    private val installed: Set<WalletApp> = WalletApp.entries.toSet(),
 ) : SignFlowPorts {
     private val pipeline = SignPipeline(REGISTRY, parser)
 
@@ -138,6 +141,8 @@ private class FakePorts(
     var signCalls = 0
 
     override suspend fun wallets(): List<WalletView> = wallets
+
+    override suspend fun isInstalled(walletId: String, app: WalletApp): Boolean = app in installed
 
     override suspend fun scan(parts: List<String>): ScanReply = parser.scan(parts)
 
@@ -367,6 +372,23 @@ class SignFlowTest {
 
         assertEquals(SignStep.Refused(UNKNOWN_REQUEST), flow.state.value)
         assertTrue(ports.records.isEmpty(), "No wallet is recorded for an unsupported request")
+        assertEquals(0, ports.signCalls)
+    }
+
+    /**
+     * A request for an App the wallet does not have is refused with the install it needs, not with an account the wallet lacks. The
+     * refusal is recorded under that wallet, and nothing is signed.
+     */
+    @Test
+    fun aRequestForAnAppThatIsNotInstalledAsksForItsInstall() {
+        val ports = FakePorts(installed = setOf(WalletApp.BITCOIN))
+        val flow = SignFlow(ports, WALLET_ID)
+
+        scan(flow, framesOf(messageRequest(), FRAGMENT))
+
+        assertEquals(SignStep.Refused("Install the Ethereum App to Sign This. Nothing was signed."), flow.state.value)
+        assertEquals(listOf(WALLET_ID), ports.records.map { it.walletId })
+        assertEquals(ReviewOutcome.REFUSED, ports.records.single().outcome)
         assertEquals(0, ports.signCalls)
     }
 

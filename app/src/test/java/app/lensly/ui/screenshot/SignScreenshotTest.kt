@@ -42,6 +42,7 @@ import app.airvault.core.model.Warning
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.UNKNOWN_REQUEST
 import app.lensly.app.SOLANA_FAMILY
+import app.lensly.app.WalletApp
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
 import app.lensly.app.sign.SolanaSplFixtures
@@ -605,6 +606,8 @@ private object ScanOnlyPorts : SignFlowPorts {
     override suspend fun wallets(): List<WalletView> = error("A refused scan reads no wallet")
     override suspend fun scan(parts: List<String>): ScanReply = inProcessSandboxParser.scan(parts)
     override suspend fun checkPassword(password: CharArray): PasswordCheck = error("A refused scan checks no password")
+    override suspend fun isInstalled(walletId: String, app: WalletApp): Boolean = true
+
     override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared = error("A refused scan is not reviewed")
     override suspend fun appSign(ready: AppPrepared.Ready, approval: Approval): List<String> = error("A refused scan signs nothing")
     override suspend fun recordApp(entry: AppReviewEntry): Unit = error("A refused scan records nothing")

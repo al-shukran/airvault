@@ -80,6 +80,18 @@ class PairImportRoundTripTest {
     }
 
     @Test
+    fun aPairingWithOnlyBitcoinIsImported() {
+        val sent = PairFixtures.payloadOf(PairFixtures.bitcoinAccounts(base = base), base = base)
+
+        val read = pairingOf(PairingCodec.urParts(sent, brotli = null))
+
+        assertEquals(sent.accounts.map { it.shape() }, read.accounts.map { it.shape() })
+        assertEquals(listOf(Networks.BIP122), read.accounts.map { it.export.chain.namespace }.distinct())
+        assertTrue(PairImport.ethereumAddressesOf(read).isEmpty())
+        assertEquals(PairFixtures.allAccounts(PairFixtures.seed).map { it.shape() }, PairImport.bitcoinAccountsOf(read).map { it.shape() })
+    }
+
+    @Test
     fun theWholePairingOfEveryAppRoundTripsAsAnAnimatedCode() {
         val bitcoinAccounts = PairFixtures.allAccounts(PairFixtures.seed)
         val ethereum = (0 until 40).map { index ->

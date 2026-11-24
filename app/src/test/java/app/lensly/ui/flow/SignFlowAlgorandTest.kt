@@ -20,6 +20,7 @@ import app.lensly.core.ur.PathStep
 import app.lensly.core.wallet.WalletKeyAccess
 import app.lensly.app.export.partsOf
 import app.lensly.app.ALGORAND_FAMILY
+import app.lensly.app.WalletApp
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
 import app.lensly.app.sign.ReviewOutcome
@@ -301,6 +302,20 @@ class SignFlowAlgorandTest {
         assertEquals(1, ports.signCalls)
     }
 
+    /** An Algorand request for a wallet without the Algorand App asks for its install, before any review, and signs nothing. */
+    @Test
+    fun anAlgorandRequestForAWalletWithoutAlgorandAsksForItsInstall() = runBlocking {
+        val ports = AlgorandPorts(installed = WalletApp.entries.toSet() - WalletApp.ALGORAND)
+        val flow = SignFlow(ports, walletId = WALLET)
+
+        flow.onScanned(partOf(requestCbor(PAY_BASIC)))
+
+        assertEquals(SignStep.Refused("Install the Algorand App to Sign This. Nothing was signed."), flow.state.value)
+        assertEquals(0, ports.prepareCalls)
+        assertEquals(listOf(WALLET), ports.records.map { it.walletId })
+        assertEquals(0, ports.signCalls)
+    }
+
     /** The fake ports. The wallet holds the Algorand accounts of the 24-word phrase, and the App Password check is [password]. */
     private class AlgorandPorts(
         private val password: PasswordCheck = PasswordCheck.Accepted,
@@ -308,6 +323,8 @@ class SignFlowAlgorandTest {
         private val wallets: List<WalletView> = emptyList(),
         private val outOfScope: Boolean = false,
         private val unshownField: Boolean = false,
+        /** The Apps installed in every wallet of the fake vault. */
+        private val installed: Set<WalletApp> = WalletApp.entries.toSet(),
     ) : SignFlowPorts {
         val records = mutableListOf<AppReviewEntry>()
         var prepareCalls = 0
@@ -318,6 +335,8 @@ class SignFlowAlgorandTest {
         override suspend fun scan(parts: List<String>): ScanReply = parser.scan(parts)
 
         override suspend fun checkPassword(password: CharArray): PasswordCheck = this.password
+
+        override suspend fun isInstalled(walletId: String, app: WalletApp): Boolean = app in installed
 
         override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared {
             prepareCalls++
