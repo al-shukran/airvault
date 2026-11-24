@@ -225,6 +225,8 @@ enum class GateOutcome { Opened, Rejected, Erased, Unavailable, Cancelled, KeyIn
 private fun GateRoute(navController: NavHostController, holder: VaultHolder, home: String, newVault: String) {
     val context = LocalContext.current.applicationContext
     LaunchedEffect(Unit) {
+        // A reset that stopped half way is finished before the vault is looked at. If it fails again, the vault stays hidden (see isPartial).
+        withContext(Dispatchers.IO) { holder.vault.finishPendingWipe() }
         val next = when {
             holder.openSession() != null -> home
             holder.vault.exists() -> GateRoutes.UNLOCK

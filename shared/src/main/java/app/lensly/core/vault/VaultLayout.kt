@@ -9,8 +9,8 @@ import javax.crypto.spec.SecretKeySpec
 
 /**
  * On-disk layout under `noBackupFilesDir/data/`:
- * `header.bin`, `unlock.bin`, `failures.bin`, `failures.bak`, `spare.bin`, `records/` (records that belong to one vault
- * as a whole, such as settings), `review-pool/` (the Review Records of every wallet, in equal-size files outside the wallet
+ * `header.bin`, `unlock.bin`, `failures.bin`, `failures.bak`, `spare.bin`, `wipe.bin` (only while an erase is under way), `records/`
+ * (records that belong to one vault as a whole, such as settings), `review-pool/` (the Review Records of every wallet, in equal-size files outside the wallet
  * folders, see [ReviewPool]), and `items/<id>/` holding the key file and the other records.
  *
  * The real vault and the decoy vault share these folders. Every file is sealed under the key of the vault that owns it,
@@ -27,14 +27,20 @@ class VaultLayout(val root: File, val photos: File = File(root, "photos")) {
     val vaultRecords = File(root, "records")
     val reviewPool = File(root, "review-pool")
 
-    /** A vault exists once both the header and the wrapped vault key have been written. */
-    fun exists(): Boolean = header.isFile && vaultKey.isFile
+    /**
+     * Written before the first key goes, and removed after the last file (see [wipeVault]). While it is there, the vault is no vault: an erase
+     * that stopped half way is finished by [Vault.finishPendingWipe].
+     */
+    val wipeMarker = File(root, "wipe.bin")
+
+    /** A vault exists once both the header and the wrapped vault key have been written, and no erase is under way (see [wipeMarker]). */
+    fun exists(): Boolean = header.isFile && vaultKey.isFile && !wipeMarker.exists()
 
     /**
-     * True when files of a vault are on disk without a whole vault: the header or the key file is missing, or a wallet folder is left.
-     * Creating a vault refuses them, because a new hardware key would replace the one they were sealed under.
+     * True when files of a vault are on disk without a whole vault: the header or the key file is missing, a wallet folder is left, or an
+     * erase is under way. Creating a vault refuses them, because a new hardware key would replace the one they were sealed under.
      */
-    fun isPartial(): Boolean = !exists() && (header.exists() || vaultKey.exists() || wallets.exists())
+    fun isPartial(): Boolean = !exists() && (header.exists() || vaultKey.exists() || wallets.exists() || wipeMarker.exists())
 
     /**
      * True before the first setup: no vault, and no vault files left. Photos taken then are sealed to the pending key

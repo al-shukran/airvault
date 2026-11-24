@@ -1,0 +1,1 @@
+If a wipe of the vault failed part way after its keys were already deleted, the vault was left on the phone and no App Password could open it. A wipe that stops now leaves the vault hidden, and the next time the App Password screen opens, Lensly finishes the erase.
