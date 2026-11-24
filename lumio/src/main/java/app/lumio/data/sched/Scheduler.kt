@@ -45,7 +45,8 @@ enum class Priority(internal val rank: Int, val deadlineMs: Long) {
  * The one scheduler for provider calls. [run] checks the cache, routes the request, and admits it through the provider's token bucket and
  * concurrency cap. Failures are handled as follows:
  * - [ProviderError.RateLimited] cools the provider, for its Retry-After or else an exponential backoff from 30 s (cap 5 min). The call moves to the
- *   next candidate at once. When every candidate is cooling, the call waits for the earliest cooldown.
+ *   next candidate at once. When every candidate is cooling, the call waits for the earliest cooldown. A call on screen that would wait longer than
+ *   [FAIL_FAST_WAIT_MS] fails at once as [ProviderError.Transient] instead.
  * - [ProviderError.Transient], and an [IOException] such as a timeout, passes the provider over: the other candidates go first, for an exponential
  *   penalty from 30 s (cap 5 min) that counts the transient failures in a row. The call moves to the next candidate at once, or after a jittered
  *   backoff when no other provider is left for it. A call makes at most three attempts that fail, rate-limited or transient.
@@ -212,7 +213,7 @@ class Scheduler(
             withContext(NonCancellable) { abandon(waiter) }
             throw e
         }
-        return grant ?: throw (lastError ?: ProviderError.Unsupported())
+        return grant ?: throw (waiter.refusal ?: lastError ?: ProviderError.Unsupported())
     }
 
     /** Takes back a call that was cancelled while it waited. A slot it was already given is handed on. */
@@ -289,7 +290,7 @@ class Scheduler(
     private fun pumpLocked(now: Long): Long? {
         var wakeAt: Long? = null
         for (w in waiters.sortedWith(compareBy<Waiter>({ it.priority.rank }, { it.seq }))) {
-            when (val attempt = tryGrantLocked(w.net, w.op, w.excluded, w.tried, now)) {
+            when (val attempt = tryGrantLocked(w.net, w.op, w.excluded, w.tried, w.priority, now)) {
                 is Attempt.Granted -> {
                     waiters.remove(w)
                     w.granted = attempt.grant
@@ -297,6 +298,11 @@ class Scheduler(
                 }
                 Attempt.Unserved -> {
                     waiters.remove(w)
+                    w.wake.complete(null)
+                }
+                Attempt.Cooling -> {
+                    waiters.remove(w)
+                    w.refusal = ProviderError.Transient()
                     w.wake.complete(null)
                 }
                 is Attempt.Waiting -> {
@@ -308,12 +314,16 @@ class Scheduler(
         return wakeAt
     }
 
-    private fun tryGrantLocked(net: NetworkId, op: OpKey, excluded: Set<String>, tried: Set<String>, now: Long): Attempt {
+    private fun tryGrantLocked(net: NetworkId, op: OpKey, excluded: Set<String>, tried: Set<String>, priority: Priority, now: Long): Attempt {
         val current = configs()
         val candidates = router.route(net, op, current, state, now, tried, excluded)
         if (candidates.isEmpty()) {
             if (all.none { it.id !in excluded && isEligible(it, net, op, current) }) return Attempt.Unserved
-            return Attempt.Waiting(recoveryLocked(net, op, current, excluded, now))
+            val recovery = recoveryLocked(net, op, current, excluded, now)
+            // A provider whose probe is in flight may serve the call soon, so the call waits rather than fail.
+            val probing = all.any { it.id !in excluded && isEligible(it, net, op, current) && health[it.id]?.probeInFlight == true }
+            if (priority != Priority.BACKGROUND && !probing && recovery != null && recovery - now > FAIL_FAST_WAIT_MS) return Attempt.Cooling
+            return Attempt.Waiting(recovery)
         }
         var wakeAt: Long? = null
         for (p in candidates) {
@@ -402,6 +412,9 @@ class Scheduler(
 
         /** The slot given to this call, kept so a call cancelled after the grant can hand it back. */
         var granted: Grant? = null
+
+        /** Set when the call is refused without a grant, because every provider that could serve it is cooling for longer than [FAIL_FAST_WAIT_MS]. */
+        var refusal: ProviderError? = null
     }
 
     private sealed interface Attempt {
@@ -409,6 +422,9 @@ class Scheduler(
 
         /** Nothing can be granted now. [wakeAt] is when a wait could end, or null when only a release can help. */
         class Waiting(val wakeAt: Long?) : Attempt
+
+        /** Every provider that could serve an on-screen call is cooling for longer than [FAIL_FAST_WAIT_MS], so the call is refused. */
+        data object Cooling : Attempt
 
         data object Unserved : Attempt
     }
@@ -432,5 +448,8 @@ class Scheduler(
         const val MAX_ATTEMPTS = 3
         const val FAILURE_THRESHOLD = 5
         const val OPEN_MS = 60_000L
+
+        /** The longest a FOREGROUND or VISIBLE call waits for cooling providers. A longer wait fails the call at once as a transient failure. */
+        const val FAIL_FAST_WAIT_MS = 5_000L
     }
 }
