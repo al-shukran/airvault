@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
@@ -25,6 +26,7 @@ import app.lumio.tokens.CustomTokenLookup
 import app.lumio.tokens.CustomTokenStore
 import app.lumio.tokens.Token
 import app.lumio.tokens.TokenBalances
+import app.lumio.tokens.TypedAddressLookup
 import app.lumio.tokens.holdingText
 import app.lumio.ui.kit.ChoiceGroup
 import app.lumio.ui.kit.ChoiceRow
@@ -89,7 +91,8 @@ internal fun AddTokenRoute(
     val scope = rememberCoroutineScope()
     var version by remember { mutableIntStateOf(0) }
     var address by remember { mutableStateOf("") }
-    var busy by remember { mutableStateOf(false) }
+    var adding by remember { mutableStateOf(false) }
+    var checking by remember { mutableStateOf(false) }
     var found by remember { mutableStateOf<Token?>(null) }
     var holding by remember { mutableStateOf<TokenHolding?>(null) }
     var problem by remember { mutableStateOf<String?>(null) }
@@ -108,52 +111,62 @@ internal fun AddTokenRoute(
         return
     }
 
+    val open = session ?: return
+
     // Reads what the owner's account holds of the found token. A read that fails leaves the holding row out, and the rest of the page still works.
     LaunchedEffect(found) {
         holding = null
         val token = found ?: return@LaunchedEffect
         val account = current.account ?: return@LaunchedEffect
-        val open = session ?: return@LaunchedEffect
         val amount = withContext(Dispatchers.IO) {
             runCatching { TokenBalances.balance(app.evmReadsFor(open), chain, account.address, token.contract) }.getOrNull()
         }
         holding = amount?.let { TokenHolding(label = account.name?.let { "$it Holds" } ?: "Holds", amount = holdingText(it, token)) }
     }
 
-    // Reads the token at the typed address from the chain. A token the owner already has is named as such, and not offered again.
-    fun lookUp() {
-        val open = session ?: return
-        if (busy) return
-        busy = true
-        problem = null
-        found = null
-        scope.launch {
-            val outcome = withContext(Dispatchers.IO) {
-                runCatching { CustomTokenLookup.lookup(app.evmReadsFor(open), chain, address) }
-            }
-            busy = false
-            outcome.onSuccess { token ->
-                if ((current.defaults + current.custom).any { it.contract == token.contract }) {
-                    problem = "${token.symbol} is already in your list."
-                } else {
-                    found = token
+    // Looks up the address as the owner types or pastes it, and when the owner leaves the field. A token the owner already has is named as such, and not offered again.
+    val listed by rememberUpdatedState(current.defaults + current.custom)
+    val lookup = remember(open, chain) {
+        TypedAddressLookup(
+            scope = scope,
+            read = { contract -> withContext(Dispatchers.IO) { CustomTokenLookup.lookup(app.evmReadsFor(open), chain, contract) } },
+            onState = { next ->
+                when (next) {
+                    TypedAddressLookup.State.Idle -> {
+                        checking = false
+                        found = null
+                        problem = null
+                    }
+                    TypedAddressLookup.State.Checking -> {
+                        checking = true
+                        found = null
+                        problem = null
+                    }
+                    is TypedAddressLookup.State.Done -> {
+                        checking = false
+                        next.result.onSuccess { token ->
+                            if (listed.any { it.contract == token.contract }) {
+                                problem = "${token.symbol} is already in your list."
+                            } else {
+                                found = token
+                            }
+                        }.onFailure { problem = ownerWords(it) }
+                    }
                 }
-            }.onFailure { problem = ownerWords(it) }
-        }
+            },
+        )
     }
 
     // Saves the token the lookup found. The vault refuses a token the chain already lists, and that refusal is shown.
     fun add(token: Token) {
-        val open = session ?: return
-        if (busy) return
-        busy = true
+        if (adding) return
+        adding = true
         scope.launch {
             val failure = withContext(Dispatchers.IO) { runCatching { CustomTokenStore.add(open, token) }.exceptionOrNull() }
-            busy = false
+            adding = false
             if (failure == null) {
-                found = null
                 address = ""
-                problem = null
+                lookup.changed("")
                 version++
             } else {
                 problem = ownerWords(failure)
@@ -162,7 +175,6 @@ internal fun AddTokenRoute(
     }
 
     fun remove(token: Token) {
-        val open = session ?: return
         scope.launch {
             withContext(Dispatchers.IO) { runCatching { CustomTokenStore.remove(open, token.chainId, token.contract) } }
             version++
@@ -174,17 +186,16 @@ internal fun AddTokenRoute(
         defaults = current.defaults,
         custom = current.custom,
         address = address,
-        busy = busy,
+        busy = checking || adding,
         found = found,
         holding = holding,
         problem = problem,
         offline = rememberSettingsOffline(),
         onAddress = {
             address = it
-            found = null
-            problem = null
+            lookup.changed(it)
         },
-        onLookUp = ::lookUp,
+        onLookUp = lookup::commit,
         onAdd = ::add,
         onCancel = { found = null },
         onChangeNetwork = { choosingNetwork = true },

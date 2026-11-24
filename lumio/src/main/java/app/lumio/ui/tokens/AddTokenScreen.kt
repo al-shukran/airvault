@@ -24,8 +24,8 @@ import app.lumio.ui.settings.SettingsFrame
 import app.lumio.ui.settings.SettingsGroup
 
 /**
- * Add Token (J10): a token of one chain, found by its contract address. The address is looked up when the owner leaves the field or presses
- * Done. A token it finds shows a line that says so, then its name, symbol and decimals, and the owner's [holding] of it, above the Add Token
+ * Add Token (J10): a token of one chain, found by its contract address. The address is looked up once it is valid: a moment after it is typed or
+ * pasted, or when the owner leaves the field or presses Done. A token it finds shows a line that says so, then its name, symbol and decimals, and the owner's [holding] of it, above the Add Token
  * button. A note sits above the button, because a token's name proves nothing. Below, the chain's bundled tokens and the owner's own, and Remove on
  * the owner's. [onChangeNetwork] opens the choice of network. The screen keeps no state of its own:
  * [address], [found], [holding] and [problem] come from the caller, and each action goes back to it. [busy] holds the controls while a read is running.
