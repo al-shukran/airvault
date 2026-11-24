@@ -61,4 +61,6 @@ Google has announced developer verification for sideloaded apps. Its 19 March 20
 
 If Android requires developer verification for sideloaded apps, AirVault will register its signing identity with Android rather than move to Google Play.
 
-Obtainium can track GitHub releases and install their APKs. It is an optional way to get updates. Because it installs the APK itself, the checks above are then yours to make.
+Obtainium applies to Lumio only, the companion app on the online phone. It can track Lumio's GitHub releases and install their APKs. It is an optional way to update Lumio, and the checks above are then yours to make for each update.
+
+Never install Obtainium, or any other app that checks for updates over a network, on the Lensly phone. Lensly is updated only by manual sideload transfer: follow the steps above, then move the APK to the offline phone over USB with `adb install -r`, after the hash and signing-certificate checks pass.
