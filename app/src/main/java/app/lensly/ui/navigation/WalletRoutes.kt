@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -680,6 +681,8 @@ private fun AppsRoute(navController: NavHostController, holder: VaultHolder, wal
     val scope = rememberCoroutineScope()
     var accounts by remember(walletId) { mutableStateOf<Map<WalletApp, Int>?>(null) }
     var changes by remember(walletId) { mutableIntStateOf(0) }
+    // Why the last change was refused or not saved, shown above the list. Null when the last change saved.
+    var refusal by remember(walletId) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(walletId, changes) {
         whileUnlocked(navController, holder) {
@@ -690,7 +693,7 @@ private fun AppsRoute(navController: NavHostController, holder: VaultHolder, wal
     fun change(write: (WalletStore) -> Unit) {
         scope.launch {
             whileUnlocked(navController, holder) {
-                withContext(Dispatchers.IO) { write(WalletStore(session)) }
+                refusal = withContext(Dispatchers.IO) { refusalOf { write(WalletStore(session)) } }
                 changes++
             }
         }
@@ -699,10 +702,32 @@ private fun AppsRoute(navController: NavHostController, holder: VaultHolder, wal
     val counts = accounts ?: return
     WalletAppsScreen(
         accounts = counts,
+        refusal = refusal,
         onBack = { navController.popBackStack() },
         onInstall = { app -> change { it.installApp(walletId, app) } },
         onUninstall = { app -> change { it.uninstallApp(walletId, app) } },
     )
+}
+
+/** What the owner is told when a change to an App is refused or cannot be saved, or null when [write] saved it. */
+private fun refusalOf(write: () -> Unit): String? = try {
+    write()
+    null
+} catch (e: IllegalArgumentException) {
+    "This wallet's Apps cannot be changed."
+} catch (e: IOException) {
+    "The change could not be saved. Try again."
+}
+
+/**
+ * Keeps an App's screens on the screen when [app] is installed in wallet [walletId]. Otherwise the owner is sent to the wallet's Apps screen,
+ * and the App's screens, the App itself and any bulk run of it, leave the back stack, so Back never returns to them. Returns true when the
+ * screen may show.
+ */
+internal fun NavController.keepInstalledApp(walletId: String, app: WalletApp, installed: Set<WalletApp>): Boolean {
+    if (app in installed) return true
+    navigate(HiddenRoute.apps(walletId)) { popUpTo(HiddenRoute.APP) { inclusive = true } }
+    return false
 }
 
 /**
@@ -716,6 +741,16 @@ private fun AppRoute(navController: NavHostController, holder: VaultHolder, wall
     val session = rememberOpenSession(navController, holder) ?: return
     val reads = holder.sessionReads() ?: return
     val scope = rememberCoroutineScope()
+    // Nothing of the App is shown or loaded until the check passes: an App the wallet does not have, such as one uninstalled since this
+    // screen was opened, leads to the Apps screen instead.
+    var allowed by remember(walletId, app) { mutableStateOf(false) }
+    LaunchedEffect(walletId, app) {
+        whileUnlocked(navController, holder) {
+            val installed = withContext(Dispatchers.IO) { WalletStore(session).installedApps(walletId) }
+            allowed = navController.keepInstalledApp(walletId, app, installed)
+        }
+    }
+    if (!allowed) return
     var wallet by remember(walletId) { mutableStateOf<WalletMeta?>(null) }
     var ethereum by remember(walletId) { mutableStateOf(reads.cachedEthereumAccounts(walletId)) }
     var bitcoin by remember(walletId) { mutableStateOf<List<BitcoinAccountRecord>?>(null) }
@@ -724,14 +759,6 @@ private fun AppRoute(navController: NavHostController, holder: VaultHolder, wall
     // Why the last single add was refused at the account cap, shown on the account list. Null when the last add saved.
     var addRefusal by remember(walletId, app) { mutableStateOf<String?>(null) }
 
-    // An App the wallet does not have, such as one uninstalled since this screen was opened, leads to the Apps screen instead.
-    LaunchedEffect(walletId, app) {
-        whileUnlocked(navController, holder) {
-            if (app !in withContext(Dispatchers.IO) { WalletStore(session).installedApps(walletId) }) {
-                navController.navigate(HiddenRoute.apps(walletId)) { popUpTo(HiddenRoute.APP) { inclusive = true } }
-            }
-        }
-    }
     LaunchedEffect(walletId, app) {
         whileUnlocked(navController, holder) {
             if (app == WalletApp.ETHEREUM) {
@@ -982,16 +1009,18 @@ private fun ExportAccountsRoute(navController: NavHostController, holder: VaultH
 private fun BulkRoute(navController: NavHostController, holder: VaultHolder, walletId: String, app: WalletApp) {
     val session = rememberOpenSession(navController, holder) ?: return
     val scope = rememberCoroutineScope()
-    var wallet by remember(walletId) { mutableStateOf<WalletMeta?>(null) }
-    var bulkCap by remember(walletId) { mutableStateOf<BulkCap?>(null) }
-    // An App the wallet does not have leads to the Apps screen instead, so no account is generated for it.
+    // Nothing of the App is shown or run until the check passes: an App the wallet does not have leads to the Apps screen instead, so no
+    // account is generated for it.
+    var allowed by remember(walletId, app) { mutableStateOf(false) }
     LaunchedEffect(walletId, app) {
         whileUnlocked(navController, holder) {
-            if (app !in withContext(Dispatchers.IO) { WalletStore(session).installedApps(walletId) }) {
-                navController.navigate(HiddenRoute.apps(walletId)) { popUpTo(HiddenRoute.BULK) { inclusive = true } }
-            }
+            val installed = withContext(Dispatchers.IO) { WalletStore(session).installedApps(walletId) }
+            allowed = navController.keepInstalledApp(walletId, app, installed)
         }
     }
+    if (!allowed) return
+    var wallet by remember(walletId) { mutableStateOf<WalletMeta?>(null) }
+    var bulkCap by remember(walletId) { mutableStateOf<BulkCap?>(null) }
     var digits by rememberSaveable { mutableStateOf("") }
     var running by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<String?>(null) }

@@ -1,5 +1,7 @@
 package app.lensly.ui.home
 
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -11,11 +13,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.lensly.app.WalletApp
+import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.DetailTopBar
 import app.lensly.ui.components.IslandDivider
+import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LumioIsland
 import app.lensly.ui.components.LumioRow
 import app.lensly.ui.components.TextAction
+import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.WalletScaffold
 
 /**
@@ -30,12 +35,17 @@ fun WalletAppsScreen(
     onInstall: (WalletApp) -> Unit,
     onUninstall: (WalletApp) -> Unit,
     modifier: Modifier = Modifier,
+    refusal: String? = null,
 ) {
     var uninstalling by remember { mutableStateOf<WalletApp?>(null) }
     WalletScaffold(
         modifier = modifier,
         topBar = { DetailTopBar(title = "Apps", onBack = onBack) },
     ) {
+        if (refusal != null) {
+            InlineBanner(message = refusal, tone = BannerTone.Error)
+            Spacer(Modifier.height(LenslySpacing.xs))
+        }
         LumioIsland {
             WalletApp.entries.forEachIndexed { index, app ->
                 if (index > 0) IslandDivider()

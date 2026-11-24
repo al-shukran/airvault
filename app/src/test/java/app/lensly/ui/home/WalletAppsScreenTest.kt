@@ -113,4 +113,22 @@ class WalletAppsScreenTest {
         assertEquals(WalletApp.BITCOIN, route.uninstalled)
         assertNull(route.installed)
     }
+
+    @Test
+    fun aRefusedOrUnsavedChangeIsSaidAboveTheList() {
+        compose.setContent {
+            LumenTheme {
+                WalletAppsScreen(
+                    accounts = mapOf(WalletApp.BITCOIN to 1),
+                    onBack = {},
+                    onInstall = {},
+                    onUninstall = {},
+                    refusal = "The change could not be saved. Try again.",
+                )
+            }
+        }
+
+        compose.onNodeWithText("The change could not be saved. Try again.").assertIsDisplayed()
+        compose.onNodeWithText("Installed · 1 account").assertIsDisplayed()
+    }
 }
