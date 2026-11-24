@@ -55,7 +55,7 @@ Label pull requests and issues with one `scope:` label (`scope:lensly`, `scope:l
 
 ## Screen recordings
 
-Every UI change, feature, or bug fix pull request carries a short recording (15 to 60 seconds) that reviewers can watch inline. A fix or UI change gets a before/after pair; a new feature gets one demo.
+Every UI change, feature, or bug fix pull request carries a short recording (15 to 60 seconds) that reviewers can watch inline, or a framed screenshot for a static screen. A fix or UI change gets a before/after pair; a new feature gets one demo. If before and after look the same, skip the video and say so in the pull request instead.
 
 1. Record on an emulator: `adb -s <serial> shell screenrecord --time-limit 30 /sdcard/clip.mp4`, then `adb -s <serial> pull /sdcard/clip.mp4`. Android Studio's recorder runs the same command.
 2. Compose the clip inside a phone frame with `tools/pr-recording/compose.sh`. A before/after pair becomes two devices side by side with Before and After labels; a demo becomes one device:
@@ -65,9 +65,11 @@ Every UI change, feature, or bug fix pull request carries a short recording (15 
    tools/pr-recording/compose.sh --demo demo.mp4 --out pr-945
    ```
 
-   This writes `<out>.mp4` (H.264, at most 60 s) and `<out>.gif` (960 px wide for a pair, 720 px for a demo, stepped down when needed), both under 10 MB. Each clip covers the phone screen with no bars, so record in portrait; a landscape clip loses its sides. It needs `ffmpeg` and ImageMagick (`brew install ffmpeg imagemagick`). A pair may hold clips of different lengths, and the shorter one freezes on its last frame.
+   This writes `<out>.mp4` (H.264, at most 60 s) and `<out>.gif` (960 px wide for a pair, 720 px for a demo, stepped down when needed), both under 10 MB. Each clip covers the phone screen with no bars, so record in portrait; a landscape clip loses its sides. It needs `ffmpeg` and ImageMagick (`brew install ffmpeg imagemagick`). A pair may hold clips of different lengths, and the shorter one freezes on its last frame. A timer under the phones reads `MM:SS / MM:SS` (elapsed / total).
 3. Attach both files to the pull request description or a comment, each 10 MB or less. Drag the GIF into the box first, so it renders inline, then drag the MP4 under it, so it plays inline. From a terminal with GitHub CLI 2.99.0 or later, `gh pr comment <number> --attach <out>.gif --attach <out>.mp4` uploads both; a video that is not alone in its paragraph shows as a link.
 4. Never commit a video. `.gitignore` ignores `*.mp4`, `*.mov`, and `*.webm`, and the files belong on the pull request, not in the repository.
+
+A static screen gets a framed screenshot instead of a video. `tools/pr-recording/compose.sh shot shot.png shot-framed.png` writes a 760 px wide PNG in the same frame. Attach it to the pull request, then embed the uploaded URL as `<img src="URL" width=380 />`. Do not embed screenshots with Markdown `![]()`.
 
 ## The gate
 
