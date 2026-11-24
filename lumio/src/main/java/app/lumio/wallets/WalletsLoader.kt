@@ -7,10 +7,12 @@ import app.lumio.LumioApp
 import app.lumio.btc.BtcAccountRef
 import app.lumio.chains.NativeBalanceCache
 import app.lumio.chains.NativeBalances
+import app.lumio.chains.NativeFailure
 import app.lumio.data.asset.AssetId
 import app.lumio.data.net.Networks
 import app.lumio.data.price.Price
 import app.lumio.evm.BalanceCache
+import app.lumio.evm.ChainFailure
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.home.HomeAssets
@@ -24,6 +26,9 @@ import app.lumio.portfolio.holdingOf
 import app.lumio.rowsOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 
 /**
@@ -75,16 +80,16 @@ internal object WalletsLoader {
     }
 
     /**
-     * Reads the Ethereum, Algorand and Solana balances of [mode]'s side, and scans its Bitcoin accounts. A read that failed keeps its cached balance,
-     * and the result names the chains that did not answer.
+     * Reads the Ethereum, Algorand and Solana balances of [mode]'s side, and scans its Bitcoin accounts, all at once. [landed] runs as each read ends, so
+     * the caller shows its result without waiting for the others. A read that failed keeps its cached balance, and the result names the chains that did
+     * not answer.
      */
-    suspend fun refresh(app: LumioApp, session: VaultSession, mode: NetworkMode): RefreshResult {
-        val ethereum = readOrNull { HomeLoader.refreshEvm(app, session, mode) }
-        val native = readOrNull { HomeLoader.refreshNative(app, session, mode) }
-        readOrNull { HomeLoader.scanBitcoin(app, session, mode) }
-        val unreachable = ethereum.orEmpty().map { Networks.evm(it.chainId) } + native.orEmpty().map { it.network.chain }
-        return RefreshResult(unreachable = unreachable.toSet(), unreadable = ethereum == null || native == null)
-    }
+    suspend fun refresh(app: LumioApp, session: VaultSession, mode: NetworkMode, landed: suspend () -> Unit): RefreshResult = refreshChains(
+        evm = { HomeLoader.refreshEvm(app, session, mode) },
+        native = { HomeLoader.refreshNative(app, session, mode) },
+        bitcoin = { HomeLoader.scanBitcoin(app, session, mode) },
+        landed = landed,
+    )
 
     /**
      * The account [id] of the wallet [walletId] on [mode]'s side, with the wallet's name, or null when the vault has no such account. It reads only that
@@ -129,4 +134,21 @@ internal suspend fun <T> readOrNull(block: suspend () -> T): T? = try {
     throw e
 } catch (e: Exception) {
     null
+}
+
+/**
+ * Runs the Ethereum, native and Bitcoin reads at once. [landed] runs as each read ends, whether it answered or not, so the caller shows its result at
+ * once. A read that fails is a failure of its own chain only: the other reads still run to the end.
+ */
+internal suspend fun refreshChains(
+    evm: suspend () -> List<ChainFailure>,
+    native: suspend () -> List<NativeFailure>,
+    bitcoin: suspend () -> Unit,
+    landed: suspend () -> Unit,
+): RefreshResult = supervisorScope {
+    val evmRead = async { readOrNull(evm).also { landed() } }
+    val nativeRead = async { readOrNull(native).also { landed() } }
+    launch { readOrNull(bitcoin).also { landed() } }
+    val unreachable = evmRead.await().orEmpty().map { Networks.evm(it.chainId) } + nativeRead.await().orEmpty().map { it.network.chain }
+    RefreshResult(unreachable = unreachable.toSet(), unreadable = evmRead.await() == null || nativeRead.await() == null)
 }
