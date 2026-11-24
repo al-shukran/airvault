@@ -16,6 +16,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import app.lensly.app.VaultHolder
 import app.lensly.app.entryGestureHolder
 import app.lensly.core.vault.VaultSession
+import app.lensly.ui.flow.checkAppPassword
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.data.config.DisplaySettingsStore
@@ -293,8 +294,8 @@ private fun SecuritySettingsRoute(navController: NavHostController, holder: Vaul
         onEntryGesture = { navController.navigate(LumioRoute.ENTRY_GESTURE) },
         onChangePassword = { navController.navigate(LumioRoute.CHANGE_PASSWORD) },
         onDeviceProtection = { navController.navigate(LumioRoute.SETTINGS_DEVICE_PROTECTION) },
-        onIdleMinutes = { minutes -> lockChoices.change { it.copy(idleMinutes = minutes) } },
-        onLockWhenSwitching = { on -> lockChoices.change { it.copy(lockWhenSwitchingApps = on) } },
+        checkPassword = { password -> checkAppPassword(holder, password) },
+        onAutoLock = { choice -> lockChoices.change { it.copy(autoLock = choice) } },
         onBack = { navController.popBackStack() },
         onLock = onLock,
     )

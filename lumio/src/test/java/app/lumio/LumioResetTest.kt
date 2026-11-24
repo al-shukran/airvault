@@ -12,6 +12,7 @@ import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultLayout
 import app.lensly.ui.camera.EntryGesture
+import app.lumio.data.config.AutoLock
 import app.lumio.data.config.LockSettings
 import app.lumio.data.config.LockSettingsStore
 import app.lumio.data.db.LumioDatabase
@@ -43,7 +44,12 @@ class LumioResetTest {
     private val clock = FakeClock()
     // Lazy, because the rule creates the temporary folder only after the test instance is built.
     private val layout by lazy { VaultLayout(File(tmp.root, "data"), File(tmp.root, "photos")) }
-    private val vault by lazy { Vault(layout, MemoryKeystore(), clock, KDF) }
+    // The erase after a wrong try runs what LumioApp runs: the database files and the lock choices go, as on Reset Lumio.
+    private val vault by lazy {
+        Vault(layout, MemoryKeystore(), clock, KDF, onErased = {
+            eraseOutsideVault(lumioDatabaseFile(layout), LockSettingsStore.open(context))
+        })
+    }
     private val holder by lazy { VaultHolder(vault) }
 
     @Test
@@ -52,18 +58,21 @@ class LumioResetTest {
     }
 
     @Test
-    fun aWrongPasswordEraseRemovesTheDatabase() = runBlocking {
+    fun aWrongPasswordEraseRemovesTheDatabaseAndTheLockChoices() = runBlocking {
         assertEquals(CreateResult.Created, vault.create(PASSWORD.toCharArray()))
         assertEquals(FailureCapResult.Saved, vault.setFailureLimits(PASSWORD.toCharArray(), null, WIPE_AFTER))
         val databaseFile = lumioDatabaseFile(layout).apply { parentFile!!.mkdirs() }
         LumioDatabase.open(context, databaseFile).close()
         assertTrue(databaseFile.isFile)
+        LockSettingsStore.open(context).save(LockSettings(AutoLock.IMMEDIATELY))
 
         repeat(WIPE_AFTER - 1) { assertEquals(UnlockResult.Rejected, wrongTry()) }
         assertEquals(UnlockResult.Erased, wrongTry())
 
         assertFalse(vault.exists())
         assertFalse(databaseFile.exists())
+        assertTrue(context.getSharedPreferences(LockSettingsStore.FILE, 0).all.isEmpty(), "the lock choices outlived the erase")
+        assertEquals(LockSettings(), LockSettingsStore.open(context).load())
     }
 
     @Test
@@ -73,7 +82,7 @@ class LumioResetTest {
         holder.openSession()!!.putVaultRecord(PROBE, PROBE_VALUE.toByteArray())
         val databaseFile = lumioDatabaseFile(layout).apply { parentFile!!.mkdirs() }
         LumioDatabase.open(context, databaseFile).close()
-        val lock = LockSettingsStore.open(context).also { it.save(LockSettings(idleMinutes = 5, lockWhenSwitchingApps = true)) }
+        val lock = LockSettingsStore.open(context).also { it.save(LockSettings(AutoLock.AFTER_FIVE_MINUTES)) }
         val gestures = EntryGestureStore.open(context).also { it.save(EntryGesture.PINCH_TRIPLE_TAP) }
         assertTrue(databaseFile.isFile)
 

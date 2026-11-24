@@ -75,7 +75,7 @@ import okhttp3.OkHttpClient
  * one scan queue and one scan runner, all shared by every screen.
  */
 class LumioApp : Application(), CoverApplication {
-    override val vaultHolder: VaultHolder by lazy { VaultHolder(Vault(this), attach = ::openVault) }
+    override val vaultHolder: VaultHolder by lazy { VaultHolder(Vault(this, onErased = ::eraseAfterVaultErase), attach = ::openVault) }
     override val entryGestureHolder: EntryGestureHolder by lazy { EntryGestureHolder(EntryGestureStore.open(this)) }
 
     /** The lock choices of Settings → Security. They sit outside the vault, because the cover reads them before the vault opens. */
@@ -330,6 +330,15 @@ class LumioApp : Application(), CoverApplication {
     fun eraseLumio() {
         closeDatabase()
         eraseLumioStores(vaultHolder, databaseFile(), lockSettings)
+    }
+
+    /**
+     * The vault erased itself after a wrong try or an unverifiable file, so its folder is gone, with the database in it. The open database
+     * handle is closed, and the database files and the lock choices, which sit outside the vault, are erased as Reset Lumio erases them.
+     */
+    private fun eraseAfterVaultErase() {
+        closeDatabase()
+        eraseOutsideVault(databaseFile(), lockSettings)
     }
 
     @Synchronized

@@ -10,8 +10,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import app.lensly.ui.camera.EntryGesture
+import app.lensly.ui.flow.PasswordCheck
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.R
+import app.lumio.data.config.AutoLock
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.FiatCurrency
 import app.lumio.data.config.LockSettings
@@ -113,8 +115,8 @@ const val BIOMETRIC_UNAVAILABLE_REASON = "Set up a fingerprint or face unlock on
 
 /**
  * The Security page: the Hidden Entry Gesture, whose row opens the choice of another gesture (it asks for the App Password first), the
- * App Password, whose row opens its change, Device Protection, whose row says whether it is on, and the lock: the
- * inactivity timeout, and the switch that locks when the app is switched away from. Each control applies as the owner changes it.
+ * App Password, whose row opens its change, Device Protection, whose row says whether it is on, and Auto-Lock, whose row opens the choice of
+ * when Lumio locks itself. Every change asks for the App Password first: [checkPassword] checks it, and [onAutoLock] applies a checked choice.
  */
 @Composable
 fun SecuritySettingsPage(
@@ -125,8 +127,8 @@ fun SecuritySettingsPage(
     onEntryGesture: () -> Unit,
     onChangePassword: () -> Unit,
     onDeviceProtection: () -> Unit,
-    onIdleMinutes: (Int) -> Unit,
-    onLockWhenSwitching: (Boolean) -> Unit,
+    checkPassword: suspend (CharArray) -> PasswordCheck,
+    onAutoLock: (AutoLock) -> Unit,
     onBack: () -> Unit,
     onLock: () -> Unit,
 ) {
@@ -136,29 +138,14 @@ fun SecuritySettingsPage(
             ClearAirNote(text = "Choosing another gesture asks for the App Password first.", modifier = Modifier.padding(top = ClearAirSpacing.xs))
         }
         SettingsGroup(title = "Password") {
-            ClearAirRow(title = "Change Password", description = "Opens Lumio. Lensly's password is separate.", onClick = onChangePassword)
+            ClearAirRow(title = "Change Password", description = "Change your Lumio password", onClick = onChangePassword)
         }
         SettingsGroup(title = "Unlock") {
             ClearAirRow(title = "Device Protection", description = if (deviceProtectionOn) "On" else "Off", onClick = onDeviceProtection)
         }
         SettingsGroup(title = "Lock") {
-            val choices = LockSettings.IDLE_CHOICES
-            ClearAirStopSlider(
-                labels = choices.map(::idleLabel),
-                selected = choices.indexOf(lock.idleMinutes).coerceAtLeast(0),
-                onSelect = { index -> onIdleMinutes(choices[index]) },
-                modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter),
-            )
-            ClearAirNote(
-                text = "Lumio locks after this long without a touch, in the background too.",
-                modifier = Modifier.padding(top = ClearAirSpacing.xs),
-            )
-            ClearAirSwitchRow(
-                title = "Lock When Switching Apps",
-                description = "Lumio locks as soon as you leave it. Off, it stays unlocked until the inactivity lock.",
-                checked = lock.lockWhenSwitchingApps,
-                onCheckedChange = onLockWhenSwitching,
-            )
+            AutoLockRow(current = lock.autoLock, checkPassword = checkPassword, onChoose = onAutoLock)
+            ClearAirNote(text = "Each change asks for your current password first.", modifier = Modifier.padding(top = ClearAirSpacing.xs))
         }
     }
 }
@@ -184,13 +171,6 @@ fun DeviceProtectionSettingsPage(biometric: BiometricSwitch, offline: String?, o
             )
         }
     }
-}
-
-/** A choice of the idle lock as the owner reads it: "1 minute", "30 minutes", "1 hour". */
-private fun idleLabel(minutes: Int): String = when (minutes) {
-    1 -> "1 minute"
-    60 -> "1 hour"
-    else -> "$minutes minutes"
 }
 
 /** The About page: the version of the app, and the licences of what it ships. */

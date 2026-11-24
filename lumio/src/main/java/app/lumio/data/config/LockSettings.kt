@@ -5,33 +5,31 @@ import android.content.SharedPreferences
 import app.lensly.ui.navigation.LockPolicy
 
 /**
- * The lock choices of Settings → Security. Lumio locks after [idleMinutes] without a touch, and [lockWhenSwitchingApps] says whether
- * a switch to another app locks it too. The choices are kept outside the vault, as the camera's gesture is: the cover reads them
- * before anyone unlocks it, and they reveal no wallet.
+ * When Lumio locks itself, the choices of Settings → Security → Auto-Lock. Each choice locks after [idleMinutes] without a touch, and
+ * [lockWhenLeaving] locks the moment Lumio leaves the foreground as well. The choices are kept outside the vault, as the camera's gesture is:
+ * the cover reads them before anyone unlocks it, and they reveal no wallet.
  */
-data class LockSettings(
-    val idleMinutes: Int = DEFAULT_IDLE_MINUTES,
-    val lockWhenSwitchingApps: Boolean = false,
-) {
+enum class AutoLock(val label: String, val idleMinutes: Int, val lockWhenLeaving: Boolean) {
+    IMMEDIATELY("Immediately", idleMinutes = 1, lockWhenLeaving = true),
+    AFTER_ONE_MINUTE("After 1 Minute", idleMinutes = 1, lockWhenLeaving = false),
+    AFTER_FIVE_MINUTES("After 5 Minutes", idleMinutes = 5, lockWhenLeaving = false),
+}
+
+/** The lock choice of Settings → Security. It is [AutoLock.AFTER_ONE_MINUTE] until the owner picks another. */
+data class LockSettings(val autoLock: AutoLock = AutoLock.AFTER_ONE_MINUTE) {
     /**
-     * The cover's policy for these choices. The launches that Lumio makes itself, such as the document picker and the scanners, never
+     * The cover's policy for this choice. The launches that Lumio makes itself, such as the document picker and the scanners, never
      * lock: they keep the vault open, and their return counts as a touch.
      */
     val policy: LockPolicy
         get() = LockPolicy(
-            idleTimeoutMs = idleMinutes * MILLIS_PER_MINUTE,
-            lockWhenBackgrounded = lockWhenSwitchingApps,
+            idleTimeoutMs = autoLock.idleMinutes * MILLIS_PER_MINUTE,
+            lockWhenBackgrounded = autoLock.lockWhenLeaving,
             ownLaunchesKeepUnlocked = true,
         )
 
-    companion object {
-        /** The default: thirty minutes without a touch. */
-        const val DEFAULT_IDLE_MINUTES = 30
-
-        /** The choices of the idle lock, in minutes. */
-        val IDLE_CHOICES: List<Int> = listOf(1, 2, 5, 15, 30, 60)
-
-        private const val MILLIS_PER_MINUTE = 60_000L
+    private companion object {
+        const val MILLIS_PER_MINUTE = 60_000L
     }
 }
 
@@ -40,30 +38,19 @@ data class LockSettings(
  */
 class LockSettingsStore(private val prefs: SharedPreferences) {
 
-    /** The saved choices, or the defaults for any value that is missing or does not fit. */
+    /** The saved choice, or the default when the value is missing or names no choice. */
     fun load(): LockSettings {
-        val minutes = try {
-            prefs.getInt(KEY_IDLE_MINUTES, LockSettings.DEFAULT_IDLE_MINUTES)
+        val name = try {
+            prefs.getString(KEY_AUTO_LOCK, null)
         } catch (e: ClassCastException) {
-            LockSettings.DEFAULT_IDLE_MINUTES
+            null
         }
-        val switching = try {
-            prefs.getBoolean(KEY_SWITCHING, false)
-        } catch (e: ClassCastException) {
-            false
-        }
-        return LockSettings(
-            idleMinutes = minutes.takeIf { it in LockSettings.IDLE_CHOICES } ?: LockSettings.DEFAULT_IDLE_MINUTES,
-            lockWhenSwitchingApps = switching,
-        )
+        return LockSettings(autoLock = AutoLock.entries.firstOrNull { it.name == name } ?: AutoLock.AFTER_ONE_MINUTE)
     }
 
     /** Saves [settings]. The write runs in the background, and the screen shows the new choice at once. */
     fun save(settings: LockSettings) {
-        prefs.edit()
-            .putInt(KEY_IDLE_MINUTES, settings.idleMinutes)
-            .putBoolean(KEY_SWITCHING, settings.lockWhenSwitchingApps)
-            .apply()
+        prefs.edit().putString(KEY_AUTO_LOCK, settings.autoLock.name).apply()
     }
 
     /** Removes every saved choice, so [load] reads the defaults. It waits for the write, because a reset must not leave a choice behind. */
@@ -75,11 +62,8 @@ class LockSettingsStore(private val prefs: SharedPreferences) {
         /** The preference file. Its name says lock, not the vault. */
         const val FILE = "lumio_lock"
 
-        /** The key holding the idle minutes. */
-        const val KEY_IDLE_MINUTES = "idle_minutes"
-
-        /** The key holding the switch that locks when the app is switched away from. */
-        const val KEY_SWITCHING = "lock_when_switching"
+        /** The key holding the name of the Auto-Lock choice. */
+        const val KEY_AUTO_LOCK = "auto_lock"
 
         fun open(context: Context): LockSettingsStore =
             LockSettingsStore(context.getSharedPreferences(FILE, Context.MODE_PRIVATE))

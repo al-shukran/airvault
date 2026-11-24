@@ -165,10 +165,16 @@ class Vault constructor(
     private val readBootCount: () -> Int? = { null },
     /** Asks the owner for a device authentication when the hardware key needs one. True when they pass. */
     private val authorize: suspend () -> Boolean = { false },
+    /**
+     * Runs after the vault erases itself, on the owner's last allowed wrong try or on an unverifiable file (see [unlock]). An explicit [wipe]
+     * does not run it, since its caller already knows the vault is gone.
+     */
+    private val onErased: () -> Unit = {},
 ) {
-    constructor(context: Context, clock: Clock = RealClock) : this(context, clock, null)
+    constructor(context: Context, clock: Clock = RealClock, onErased: () -> Unit = {}) : this(context, clock, null, onErased)
 
-    constructor(context: Context, clock: Clock, kdfOverride: KdfParams?) : this(context, clock, kdfOverride, hardwareKeyUserAuth = true)
+    constructor(context: Context, clock: Clock, kdfOverride: KdfParams?, onErased: () -> Unit = {}) :
+        this(context, clock, kdfOverride, hardwareKeyUserAuth = true, onErased = onErased)
 
     /**
      * [hardwareKeyUserAuth] is false only for [app.lensly.core.vault.instrumentedVault]. Android refuses to make a key that needs a
@@ -179,6 +185,7 @@ class Vault constructor(
         clock: Clock,
         kdfOverride: KdfParams?,
         hardwareKeyUserAuth: Boolean,
+        onErased: () -> Unit = {},
     ) : this(
         layout = VaultLayout.of(context),
         keys = AndroidKeystoreBackend(context.applicationContext, hardwareKeyUserAuth),
@@ -187,6 +194,7 @@ class Vault constructor(
         readBootCount = { bootCountOf(context.applicationContext) },
         backupAllowed = BackupExclusion.allowsBackup(context.applicationInfo.flags),
         authorize = { confirmDeviceCredential(context.applicationContext) },
+        onErased = onErased,
     )
 
     private val mutex = Mutex()
@@ -719,8 +727,9 @@ class Vault constructor(
     }
 
     /**
-     * Erases the vault after the owner's last allowed wrong try: the same wipe as [wipe]. A failure is not reported here: the wipe
-     * has already tried the keys and every file, and the result is the erased outcome either way.
+     * Erases the vault after the owner's last allowed wrong try: the same wipe as [wipe], then [onErased], so the app can remove what the
+     * wipe does not reach. A failure is not reported here: the wipe has already tried the keys and every file, and the result is the
+     * erased outcome either way.
      */
     private fun eraseLocked() {
         try {
@@ -728,6 +737,7 @@ class Vault constructor(
         } catch (e: VaultException) {
             // The wipe went as far as it could. The files are removed even when a key is not.
         }
+        onErased()
     }
 
     private suspend fun rekeyLocked(session: VaultSession, newPassword: CharArray): CreateResult {

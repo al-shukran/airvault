@@ -4,20 +4,27 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import app.lensly.ui.camera.EntryGesture
+import app.lensly.ui.flow.PasswordCheck
 import app.lensly.ui.theme.LumenTheme
 import app.lumio.btc.EsploraServers
+import app.lumio.data.config.AutoLock
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.LockSettings
 import app.lumio.data.config.TransactionSettings
 import app.lumio.evm.EvmSettings
 import app.lumio.pair.PairedWallet
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -119,8 +126,8 @@ class SettingsPagesTest {
                     onEntryGesture = { opened = true },
                     onChangePassword = {},
                     onDeviceProtection = {},
-                    onIdleMinutes = {},
-                    onLockWhenSwitching = {},
+                    checkPassword = { PasswordCheck.Accepted },
+                    onAutoLock = {},
                     offline = null, onLock = {}, onBack = {},
                 )
             }
@@ -143,8 +150,8 @@ class SettingsPagesTest {
                     onEntryGesture = {},
                     onChangePassword = { opened = true },
                     onDeviceProtection = {},
-                    onIdleMinutes = {},
-                    onLockWhenSwitching = {},
+                    checkPassword = { PasswordCheck.Accepted },
+                    onAutoLock = {},
                     offline = null, onLock = {}, onBack = {},
                 )
             }
@@ -166,8 +173,8 @@ class SettingsPagesTest {
                     onEntryGesture = {},
                     onChangePassword = {},
                     onDeviceProtection = { opened = true },
-                    onIdleMinutes = {},
-                    onLockWhenSwitching = {},
+                    checkPassword = { PasswordCheck.Accepted },
+                    onAutoLock = {},
                     offline = null, onLock = {}, onBack = {},
                 )
             }
@@ -211,28 +218,53 @@ class SettingsPagesTest {
     }
 
     @Test
-    fun theSecurityLockSwitchAppliesAtOnceAndTheTimeoutShowsItsValue() {
-        var switching: Boolean? = null
+    fun theAutoLockRowShowsItsChoiceInWords() {
         compose.setContent {
             ClearAirHarness {
                 SecuritySettingsPage(
                     entryGesture = EntryGesture.DEFAULT,
-                    lock = LockSettings(),
+                    lock = LockSettings(AutoLock.IMMEDIATELY),
                     deviceProtectionOn = false,
                     onEntryGesture = {},
                     onChangePassword = {},
                     onDeviceProtection = {},
-                    onIdleMinutes = {},
-                    onLockWhenSwitching = { switching = it },
+                    checkPassword = { PasswordCheck.Accepted },
+                    onAutoLock = {},
                     offline = null, onLock = {}, onBack = {},
                 )
             }
         }
 
-        // The page scrolls: the lock section sits below the fold of the test's small window, so each control is scrolled to first.
-        compose.onNodeWithText("30 minutes").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Lock When Switching Apps").performScrollTo().performClick()
-        assertEquals(true, switching)
+        // The page scrolls: the lock section sits below the fold of the test's small window, so the row is scrolled to first.
+        compose.onNodeWithText("Immediately").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Each change asks for your current password first.").performScrollTo().assertIsDisplayed()
+    }
+
+    /** A change of Auto-Lock is kept only when the App Password is typed in the step that the row opens. The sheet itself is not driven here. */
+    @Test
+    fun theAutoLockChangeAcceptsOnlyTheAppPassword() {
+        var accepted = false
+        compose.setContent {
+            ClearAirHarness {
+                AutoLockPasswordDialog(
+                    choice = AutoLock.IMMEDIATELY,
+                    checkPassword = { if (it.concatToString() == "the right one") PasswordCheck.Accepted else PasswordCheck.Rejected },
+                    onClose = {},
+                    onAccepted = { accepted = true },
+                )
+            }
+        }
+
+        compose.onNodeWithText("Enter your current password to set Auto-Lock to Immediately.").assertExists()
+        compose.onNode(hasSetTextAction()).performTextInput("not the password")
+        compose.onNodeWithText("Change").assertIsEnabled()
+        compose.onNodeWithText("Change").performClick()
+        // The field's error is drawn with its glyph in front, as "! That isn't your current password".
+        compose.onNodeWithText(WRONG_CURRENT_PASSWORD, substring = true).assertExists()
+        assertFalse(accepted)
+        compose.onNode(hasSetTextAction()).performTextInput("the right one")
+        compose.onNodeWithText("Change").performClick()
+        assertTrue(accepted)
     }
 
     @Test

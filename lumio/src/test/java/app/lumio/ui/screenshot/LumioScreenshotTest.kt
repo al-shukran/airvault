@@ -11,11 +11,13 @@ import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.camera.EntryGesture
+import app.lensly.ui.flow.PasswordCheck
 import app.lensly.ui.gate.PolicyError
 import app.lensly.ui.settings.ChangePasswordScreen
 import app.lensly.ui.settings.ChangePasswordState
 import app.lensly.ui.settings.ChangeStep
 import app.lumio.btc.BtcAccountRef
+import app.lumio.data.config.AutoLock
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.FiatCurrency
 import app.lumio.data.config.FinishSetup
@@ -269,8 +271,8 @@ class LumioScreenshotTest {
             onEntryGesture = {},
             onChangePassword = {},
             onDeviceProtection = {},
-            onIdleMinutes = {},
-            onLockWhenSwitching = {},
+            checkPassword = { PasswordCheck.Accepted },
+            onAutoLock = {},
             offline = null, onLock = {}, onBack = {},
         )
     }
@@ -279,13 +281,13 @@ class LumioScreenshotTest {
     fun settingsSecuritySwitching() = compose.lumioSnapshot("settings_security_switching") {
         SecuritySettingsPage(
             entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE,
-            lock = LockSettings(idleMinutes = 5, lockWhenSwitchingApps = true),
+            lock = LockSettings(AutoLock.IMMEDIATELY),
             deviceProtectionOn = false,
             onEntryGesture = {},
             onChangePassword = {},
             onDeviceProtection = {},
-            onIdleMinutes = {},
-            onLockWhenSwitching = {},
+            checkPassword = { PasswordCheck.Accepted },
+            onAutoLock = {},
             offline = null, onLock = {}, onBack = {},
         )
     }

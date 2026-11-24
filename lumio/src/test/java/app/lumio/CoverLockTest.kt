@@ -24,6 +24,7 @@ import app.lensly.ui.navigation.LockPolicy
 import app.lensly.ui.navigation.PickerStop
 import app.lensly.ui.navigation.ReturnToCameraWhenBackgrounded
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
+import app.lumio.data.config.AutoLock
 import app.lumio.data.config.LockSettings
 import kotlin.test.assertEquals
 import org.junit.Before
@@ -53,8 +54,12 @@ class CoverLockTest {
         PickerStop.reset()
     }
 
-    private val defaults: LockPolicy = LockSettings().policy
-    private val switchOn: LockPolicy = LockSettings(lockWhenSwitchingApps = true).policy
+    /**
+     * A thirty-minute idle timeout with no lock on a leave, the timing the cases below count in. Lumio's own choices are checked in LockSettingsTest,
+     * and the cover's mechanics do not depend on which choice is made.
+     */
+    private val defaults: LockPolicy = LockPolicy(idleTimeoutMs = 30 * MINUTE, lockWhenBackgrounded = false, ownLaunchesKeepUnlocked = true)
+    private val immediately: LockPolicy = LockSettings(AutoLock.IMMEDIATELY).policy
 
     private fun showHiddenArea(policy: LockPolicy) {
         compose.mainClock.autoAdvance = false
@@ -144,16 +149,16 @@ class CoverLockTest {
     }
 
     @Test
-    fun switchOn_aStopLocksAtOnce() {
-        showHiddenArea(switchOn)
+    fun immediately_aStopLocksAtOnce() {
+        showHiddenArea(immediately)
         lifecycle(Lifecycle.Event.ON_STOP)
         assertEquals(LenslyRoute.CAMERA, route())
         assertEquals(1L, holder.unlockEpoch())
     }
 
     @Test
-    fun switchOn_aPickersOwnStopNeverLocks() {
-        showHiddenArea(switchOn)
+    fun immediately_aPickersOwnStopNeverLocks() {
+        showHiddenArea(immediately)
         onUi { PickerStop.arm() }
         lifecycle(Lifecycle.Event.ON_STOP)
         assertEquals(LenslyRoute.HIDDEN, route(), "the picker's own stop must not lock")

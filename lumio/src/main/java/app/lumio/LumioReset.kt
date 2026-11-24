@@ -18,9 +18,18 @@ internal fun eraseLumioStores(holder: VaultHolder, databaseFile: File, lock: Loc
     try {
         holder.vault.wipe()
     } finally {
-        listOf("", "-journal", "-wal", "-shm").forEach { File(databaseFile.path + it).delete() }
-        lock.erase()
+        eraseOutsideVault(databaseFile, lock)
     }
+}
+
+/**
+ * The stores that the vault's wipe does not finish: the database files, which the wipe removes with the vault folder but which are deleted here
+ * as well, in case one was open, and the lock choices, which sit outside the vault because the cover reads them before anyone unlocks. The vault's
+ * own erase after a wrong try runs this too (see [app.lensly.core.vault.Vault]'s onErased), so every erase of Lumio leaves the same stores behind.
+ */
+internal fun eraseOutsideVault(databaseFile: File, lock: LockSettingsStore) {
+    listOf("", "-journal", "-wal", "-shm").forEach { File(databaseFile.path + it).delete() }
+    lock.erase()
 }
 
 /**
