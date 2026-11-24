@@ -57,7 +57,7 @@ object PairImport {
     )
 
     private const val NOT_A_PAIRING = "This is not a pairing code from Lensly."
-    private const val NO_ETHEREUM = "The code holds no Ethereum account key."
+    private const val NO_ACCOUNTS = "The code holds no account key."
     private const val NOT_IN_SCOPE = "The code's key is not a key of its chain: its path is outside the key scopes of the chain."
     private const val NOT_WATCH_ONLY = "The code's key does not match its chain: a chain code is for watch-only extended keys only."
     private const val NOT_ACCOUNT_KEY = "The code's watch-only key is not the key of an account: its path is m/purpose'/coin'/N'."
@@ -96,7 +96,7 @@ object PairImport {
         }
         // An account on a chain that no installed wallet serves is left out, because Lumio cannot show it.
         val accounts = payload.accounts.filter { walletRegistry.byChain(it.export.chain) != null }
-        if (accounts.none { it.export.chain.namespace == Networks.EIP155 }) throw PairingRefusal(NO_ETHEREUM)
+        if (accounts.isEmpty()) throw PairingRefusal(NO_ACCOUNTS)
         checkAccounts(accounts)
         return payload.copy(accounts = accounts, addressBook = addressBookOf(payload.addressBook))
     }

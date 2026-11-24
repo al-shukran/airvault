@@ -121,12 +121,11 @@ class PairRefusalTest {
         assertEquals("This is not a pairing code from Lensly.", refusalOf(UR(PairingCodec.UR_TYPE, name)))
     }
 
-
     @Test
-    fun aPairingWithoutAnEthereumAppIsRefused() {
-        val reason = refusalOf(codeOf(pairing(PairFixtures.bitcoinAccounts())))
+    fun aPairingWithNoAccountOfAnyChainIsRefused() {
+        val reason = refusalOf(codeOf(pairing(emptyList())))
 
-        assertTrue(reason, reason.contains("no Ethereum account key"))
+        assertTrue(reason, reason.contains("no account key"))
     }
 
     @Test

@@ -3,11 +3,14 @@ package app.lensly.ui.flow
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleRegistry
+import app.lensly.app.AppNotInstalled
+import app.lensly.app.WalletApp
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.core.wallet.AccountXpub
@@ -111,6 +114,43 @@ class PairCodePasswordTest {
     fun theMetaMaskCodeIsNotComposedBeforeTheAppPasswordIsRight() = assertCodeIsBehindThePassword(METAMASK_OPTION)
 
     @Test
+    fun aWalletWithOnlyBitcoinPairsWithLumio() {
+        val bitcoinOnly = mnemonic().copy(accountCount = 0, accountKeys = emptyList())
+        showCode(paired = bitcoinOnly, check = { PasswordCheck.Accepted })
+        type(APP_PASSWORD)
+        pressDone()
+
+        waitForQrCode()
+        assertEquals(listOf(bitcoinOnly), built)
+    }
+
+    /**
+     * Without its Ethereum App, a Rabby code is not built: the code step says so and opens the wallet's Apps, and no Done is left to press.
+     */
+    @Test
+    fun aRabbyCodeWithoutTheEthereumAppShowsItsNoticeAndOpensTheApps() {
+        val opened = mutableListOf<String>()
+        showCode(
+            RABBY_OPTION,
+            check = { PasswordCheck.Accepted },
+            ethereumParts = { throw AppNotInstalled(WalletApp.ETHEREUM) },
+            onOpenApps = { opened += it },
+        )
+        type(APP_PASSWORD)
+        pressDone()
+
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText("Ethereum Is Not Installed", ignoreCase = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription(QR_CODE, substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Done", ignoreCase = true).assertDoesNotExist()
+
+        compose.onNodeWithText("Open Apps").performClick()
+
+        assertEquals(listOf(wallet.id), opened)
+    }
+
+    @Test
     fun theRabbyCodeLocksAgainWhenTheAppLeavesTheForeground() {
         showCode(RABBY_OPTION, check = { PasswordCheck.Accepted })
         type(APP_PASSWORD)
@@ -152,30 +192,34 @@ class PairCodePasswordTest {
         compose.onAllNodesWithContentDescription(QR_CODE, substring = true).fetchSemanticsNodes().isNotEmpty()
     }
 
-    /** Opens PAIR WALLET for [wallet] on the [option] code, and stops at the App Password step. */
+    /** Opens PAIR WALLET for [paired] on the [option] code, and stops at the App Password step. */
     private fun showCode(
         option: String = LUMIO_OPTION,
+        paired: WalletMeta = wallet,
         check: suspend (CharArray) -> PasswordCheck,
         onUnavailable: () -> Unit = {},
+        ethereumParts: suspend (WalletMeta) -> List<String> = { meta ->
+            built += meta
+            listOf("ur:crypto-multi-accounts/1-1/aa")
+        },
+        onOpenApps: (String) -> Unit = {},
     ) {
         compose.setContent {
             LumenTheme {
                 PairWizard(
-                    wallets = listOf(wallet),
+                    wallets = listOf(paired),
                     profiles = emptyMap(),
-                    preselected = wallet,
+                    preselected = paired,
                     onDone = {},
                     onLeave = {},
                     lumioParts = { meta ->
                         built += meta
                         listOf("ur:x-airvault-pairing/1-1/aa")
                     },
-                    ethereumParts = { meta ->
-                        built += meta
-                        listOf("ur:crypto-multi-accounts/1-1/aa")
-                    },
+                    ethereumParts = ethereumParts,
                     checkPassword = check,
                     onUnavailable = onUnavailable,
+                    onOpenApps = onOpenApps,
                 )
             }
         }

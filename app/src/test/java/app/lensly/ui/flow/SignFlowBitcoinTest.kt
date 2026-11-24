@@ -10,6 +10,7 @@ import app.airvault.core.signer.AppRequest
 import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.BitcoinReviewed
+import app.lensly.app.WalletApp
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
 import app.lensly.app.sign.ReviewOutcome
@@ -105,6 +106,23 @@ class SignFlowBitcoinTest {
         scanAll(flow, BtcPsbt.encodeUrParts(psbt))
 
         assertEquals(SignStep.Refused(BtcRefusal.NetworkMismatch.reason), flow.state.value)
+    }
+
+    /**
+     * A Bitcoin request for a wallet without the Bitcoin App asks for its install, before any review. The refusal is recorded under
+     * that wallet, and nothing is signed.
+     */
+    @Test
+    fun aBitcoinRequestForAWalletWithoutBitcoinAsksForItsInstall() {
+        val ports = BitcoinPorts(installed = WalletApp.entries.toSet() - WalletApp.BITCOIN)
+        val flow = SignFlow(ports, BTC_WALLET_ID)
+
+        scanAll(flow, BtcPsbt.encodeUrParts(bitcoinRequest()))
+
+        assertEquals(SignStep.Refused("Install the Bitcoin App to Sign This. Nothing was signed."), flow.state.value)
+        assertTrue(ports.preparedRequests.isEmpty(), "No review is made for an App the wallet does not have")
+        assertEquals(listOf(BTC_WALLET_ID), ports.recorded.map { it.walletId })
+        assertEquals(0, ports.signCalls)
     }
 
     @Test
@@ -294,6 +312,8 @@ private class BitcoinPorts(
     var passwordAccepted: Boolean = false,
     private val recordFails: Boolean = false,
     private val wallets: List<WalletView> = emptyList(),
+    /** The Apps installed in every wallet of the fake vault. */
+    private val installed: Set<WalletApp> = WalletApp.entries.toSet(),
 ) : SignFlowPorts {
     val preparedRequests = mutableListOf<AppRequest>()
     val recorded = mutableListOf<AppReviewEntry>()
@@ -305,6 +325,8 @@ private class BitcoinPorts(
 
     override suspend fun checkPassword(password: CharArray): PasswordCheck =
         if (passwordAccepted) PasswordCheck.Accepted else PasswordCheck.Rejected
+
+    override suspend fun isInstalled(walletId: String, app: WalletApp): Boolean = app in installed
 
     override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared {
         check(request.header.app == bitcoinManifest.id) { "only a Bitcoin request is expected in the Bitcoin tests" }

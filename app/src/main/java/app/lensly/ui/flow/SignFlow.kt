@@ -6,6 +6,7 @@ import app.airvault.core.model.Review as CoreReview
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.KeyScopeViolation
 import app.airvault.core.signer.UNKNOWN_REQUEST
+import app.lensly.app.WalletApp
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
 import app.lensly.app.sign.ReviewOutcome
@@ -70,6 +71,9 @@ interface SignFlowPorts {
 
     /** Checks the App Password. The caller keeps ownership of [password] and zeroes it afterwards. */
     suspend fun checkPassword(password: CharArray): PasswordCheck
+
+    /** Whether the App [app] is installed in wallet [walletId]. Throws [WalletUnavailable] when the wallet cannot be read. */
+    suspend fun isInstalled(walletId: String, app: WalletApp): Boolean
 
     /**
      * Reviews the request [request] of an installed chain app against wallet [walletId]: the app's rules, the wallet's keys and the master
@@ -241,6 +245,11 @@ class SignFlow(
         }
         return routed(request) { target ->
             try {
+                // An App the wallet does not have is refused before its review, so no other refusal names an account it lacks.
+                val app = WalletApp.entries.firstOrNull { it.appId == request.header.app }
+                if (app != null && !ports.isInstalled(target, app)) {
+                    return@routed appRefusal(started, target, request, notInstalled(app), ready = null)
+                }
                 when (val prepared = ports.appPrepare(target, request)) {
                     is AppPrepared.Ready -> SignStep.AppReview(prepared)
                     is AppPrepared.Refused -> appRefusal(started, target, request, prepared.reason, ready = null, rows = prepared.rows)
@@ -366,6 +375,9 @@ class SignFlow(
     }
 
     private companion object {
+        /** The refusal of a request for [app] in a wallet that does not have it, which asks the owner to install the App first. */
+        fun notInstalled(app: WalletApp): String = "Install the ${app.label} App to Sign This. Nothing was signed."
+
         /**
          * The most characters one part of a UR adds beyond its payload: its `ur:` prefix, type and sequence, and the CBOR header of its
          * fragment, at two characters per byte. A part of the largest request measures about 80. The rest is room for fountain parts

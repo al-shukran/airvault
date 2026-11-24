@@ -172,6 +172,22 @@ class PairedWalletsTest {
     }
 
     @Test
+    fun aBitcoinOnlyPairingIsStoredAndListedWithItsBitcoinAccounts() {
+        val saved = PairedWallets.save(
+            session,
+            payload(accounts = emptyList(), bitcoin = PairFixtures.allAccounts(PairFixtures.seed)),
+            nowMs = 1L,
+        )
+
+        val listed = PairedWallets.list(session).single()
+
+        assertTrue(saved.created)
+        assertEquals(setOf(PairChain.BITCOIN), listed.families)
+        assertTrue(listed.evmAccounts.isEmpty())
+        assertEquals(8, listed.bitcoin.size)
+    }
+
+    @Test
     fun seedsThatDifferArePairedAsSeparateWallets() {
         PairedWallets.save(session, payload(name = "One", accounts = listOf(account(0, "A"))), nowMs = 1L)
         PairedWallets.save(session, payload(name = "Two", accounts = listOf(account(0, "B")), seed = PairFixtures.otherSeed), nowMs = 2L)

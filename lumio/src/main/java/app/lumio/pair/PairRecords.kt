@@ -50,15 +50,16 @@ internal object PairRecords {
 
     /**
      * The META record: the wallet's master fingerprint, when Lumio first paired it, its creation time, its name, and the address of each of its
-     * Ethereum accounts. The number of accounts is the number of addresses. Each address is in its EIP-55 form.
+     * Ethereum accounts. The number of accounts is the number of addresses, which is zero for a wallet with no Ethereum account.
+     * Each address is in its EIP-55 form.
      */
     class Meta(val fingerprint: Long, val createdAtMs: Long, val name: String, val addresses: List<String>)
 
     fun encodeMeta(meta: Meta): ByteArray {
         val name = meta.name.toByteArray(Charsets.UTF_8)
         require(name.size in 1..PairingCodec.MAX_NAME_BYTES) { "A wallet name holds 1 to ${PairingCodec.MAX_NAME_BYTES} bytes." }
-        require(meta.addresses.size in 1..PairingCodec.MAX_ETHEREUM_ACCOUNTS) {
-            "A wallet holds 1 to ${PairingCodec.MAX_ETHEREUM_ACCOUNTS} accounts."
+        require(meta.addresses.size in 0..PairingCodec.MAX_ETHEREUM_ACCOUNTS) {
+            "A wallet holds 0 to ${PairingCodec.MAX_ETHEREUM_ACCOUNTS} accounts."
         }
         require(meta.addresses.all { evmAddressOf(it) == it }) { "An account's address is an Ethereum address in EIP-55 form." }
         val buffer = ByteBuffer.allocate(META_HEADER_BYTES + name.size + META_COUNT_BYTES + meta.addresses.size * ADDRESS_CHARS)
@@ -79,11 +80,11 @@ internal object PairRecords {
         val fingerprint = buffer.int.toLong() and UINT32_MASK
         val createdAtMs = buffer.long
         val length = buffer.get().toInt() and UNSIGNED_BYTE_MASK
-        require(length in 1..PairingCodec.MAX_NAME_BYTES && buffer.remaining() > length + META_COUNT_BYTES) { "Not a pairing record." }
+        require(length in 1..PairingCodec.MAX_NAME_BYTES && buffer.remaining() >= length + META_COUNT_BYTES) { "Not a pairing record." }
         val name = String(bytes, buffer.position(), length, Charsets.UTF_8)
         buffer.position(buffer.position() + length)
         val accountCount = buffer.get().toInt() and UNSIGNED_BYTE_MASK
-        require(accountCount in 1..PairingCodec.MAX_ETHEREUM_ACCOUNTS && buffer.remaining() == accountCount * ADDRESS_CHARS) {
+        require(accountCount in 0..PairingCodec.MAX_ETHEREUM_ACCOUNTS && buffer.remaining() == accountCount * ADDRESS_CHARS) {
             "Not a pairing record."
         }
         val addresses = List(accountCount) { index ->

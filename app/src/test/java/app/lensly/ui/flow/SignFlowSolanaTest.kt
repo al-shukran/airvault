@@ -11,6 +11,7 @@ import app.airvault.core.model.Approval
 import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.ScopedKeyAccess
 import app.lensly.app.SOLANA_FAMILY
+import app.lensly.app.WalletApp
 import app.lensly.app.export.partsOf
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
@@ -174,6 +175,20 @@ class SignFlowSolanaTest {
         assertEquals(SignStep.Refused(SolanaRequestCheck.LOOKUP_RECIPIENT_REFUSAL), flow.state.value)
     }
 
+    /** A Solana request for a wallet without the Solana App asks for its install, before any review, and signs nothing. */
+    @Test
+    fun aSolanaRequestForAWalletWithoutSolanaAsksForItsInstall() = runBlocking {
+        val ports = SolanaPorts(installed = WalletApp.entries.toSet() - WalletApp.SOLANA)
+        val flow = SignFlow(ports, walletId = WALLET)
+
+        flow.onScanned(partOf(requestCbor(transfer())))
+
+        assertEquals(SignStep.Refused("Install the Solana App to Sign This. Nothing was signed."), flow.state.value)
+        assertEquals(0, ports.prepareCalls)
+        assertEquals(listOf(WALLET), ports.records.map { it.walletId })
+        assertEquals(0, ports.signCalls)
+    }
+
     /** The fake ports. The wallet holds the Solana accounts of mnemonic A, and the App Password check is [password]. */
     private class SolanaPorts(
         private val keys: List<ByteArray> = SOLANA_KEYS,
@@ -182,6 +197,8 @@ class SignFlowSolanaTest {
         private val wallets: List<WalletView> = emptyList(),
         /** The reason the signer refuses with, or null when it signs. */
         private val signRefusal: String? = null,
+        /** The Apps installed in every wallet of the fake vault. */
+        private val installed: Set<WalletApp> = WalletApp.entries.toSet(),
     ) : SignFlowPorts {
         val records = mutableListOf<AppReviewEntry>()
         val reviewed = mutableListOf<SolanaRequestReview>()
@@ -193,6 +210,8 @@ class SignFlowSolanaTest {
         override suspend fun scan(parts: List<String>): ScanReply = parser.scan(parts)
 
         override suspend fun checkPassword(password: CharArray): PasswordCheck = this.password
+
+        override suspend fun isInstalled(walletId: String, app: WalletApp): Boolean = app in installed
 
         override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared {
             prepareCalls++

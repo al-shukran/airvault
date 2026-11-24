@@ -38,6 +38,7 @@ import app.lensly.app.SettingsStore
 import app.lensly.app.SigningAccount
 import app.lensly.app.SolanaTokensHolder
 import app.lensly.app.VaultHolder
+import app.lensly.app.WalletApp
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletStore
@@ -146,6 +147,10 @@ internal class VaultSignPorts(
     }
 
     override suspend fun scan(parts: List<String>): ScanReply = withContext(Dispatchers.IO) { parser.scan(parts) }
+
+    override suspend fun isInstalled(walletId: String, app: WalletApp): Boolean = withContext(Dispatchers.IO) {
+        readWallet { session -> app in WalletStore(session).installedApps(walletId) }
+    }
 
     /** The account that signs a request, as its review names it: its name, its wallet's name and its address. */
     private fun signerOf(wallet: WalletView, index: Int, address: String): SigningAccount = SigningAccount(
