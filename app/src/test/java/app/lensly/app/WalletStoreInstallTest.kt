@@ -3,10 +3,15 @@ package app.lensly.app
 import app.airvault.core.model.AppId
 import app.lensly.chains.signerRegistry
 import app.lensly.core.algorand.AlgorandAccount
+import app.lensly.core.btc.BtcAccount
+import app.lensly.core.btc.BtcNetwork
+import app.lensly.core.btc.ScriptType
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
+import app.lensly.core.vault.WalletRecordNames
+import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -164,17 +169,68 @@ class WalletStoreInstallTest {
     }
 
     @Test
-    fun aLensly120WalletWithAllFourAppsOpensWithAllFourInstalled() {
-        // Lensly 1.2.0 created each wallet with one account of every App. The same installs leave the same records, so the Apps
-        // are read back as installed when the vault is opened again.
-        val id = newWallet()
-        WalletApp.entries.forEach { store.installApp(id, it) }
+    fun aWalletWithTheRecordsLensly120WroteOpensWithAllFourInstalled() {
+        // The records Lensly 1.2.0 wrote for a new wallet: one account of each App at index 0. They are written here directly, without the
+        // install code under test, and reading them back must show all four Apps installed with the same addresses.
+        val seed = seed()
+        val id = session.createWallet()
+        session.putRecord(id, WalletRecords.SECRET, WalletRecords.encodeSecret(DEMO_WORDS, null))
+        session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName("Demo"))
+        val wallet = HdWallet(seed)
+        val meta = WalletMeta(
+            id = id,
+            name = "Demo",
+            createdAtMs = 1L,
+            deviceGenerated = false,
+            accountCount = 1,
+            masterFingerprintHex = wallet.masterFingerprintHex,
+            accountKeys = listOf(wallet.accountXpub(0)),
+        )
+        session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(meta))
+        val bitcoin = BitcoinAccountRecord(
+            network = BtcNetwork.MAINNET,
+            scriptType = ScriptType.NATIVE_SEGWIT,
+            index = 0,
+            firstReceiveAddress = BtcAccount.fromSeed(seed, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT, 0).receiveAddress(0),
+        )
+        session.putRecord(id, WalletRecords.BITCOIN, WalletRecords.encodeBitcoinAccounts(listOf(bitcoin)))
+        session.putRecord(id, WalletRecordNames.SOLANA, WalletRecords.encodeSolanaKeys(listOf(SolanaAccount.publicKey(seed, 0))))
+        session.putRecord(id, WalletRecordNames.ALGORAND, WalletRecords.encodeAlgorandKeys(listOf(AlgorandAccount.publicKey(seed, 0))))
 
         session.close()
         session = openSession()
         store = WalletStore(session)
 
         assertEquals(WalletApp.entries.toSet(), store.installedApps(id))
+        assertEquals(1, store.meta(id)?.accountCount)
+        assertEquals(1, store.bitcoinAccounts(id).size)
+        assertEquals(1, store.solanaKeys(id).size)
+        assertEquals(1, store.algorandKeys(id).size)
+        assertEquals(listOf(LEDGER_LIVE_ETHEREUM_0), store.ethereumAccounts(id)?.addresses)
+        assertEquals(listOf(id), store.list().map { it.id })
+    }
+
+    @Test
+    fun uninstallingOneAppLeavesTheSecretRecordAsItWas() {
+        val id = newWallet()
+        WalletApp.entries.forEach { store.installApp(id, it) }
+        val secret = assertNotNull(session.getRecord(id, WalletRecords.SECRET)).toList()
+
+        WalletApp.entries.forEach { app ->
+            store.uninstallApp(id, app)
+            assertEquals(secret, session.getRecord(id, WalletRecords.SECRET)?.toList(), "The secret after $app is uninstalled.")
+        }
+    }
+
+    @Test
+    fun addingAnEthereumAccountToAWalletWithoutEthereumIsRefusedAndWritesNothing() {
+        val id = newWallet()
+
+        assertFailsWith<AppNotInstalled> { store.addAccount(id) }
+        assertFailsWith<AppNotInstalled> { store.addAccounts(id, count = 1, cap = 1) }
+
+        assertEquals(0, assertNotNull(store.meta(id)).accountCount)
+        assertEquals(setOf(WalletApp.BITCOIN), store.installedApps(id))
     }
 
     private fun newWallet(): String = store.create(name = "Demo", deviceGenerated = false, words = DEMO_WORDS, passphrase = null, nowMs = 1L)

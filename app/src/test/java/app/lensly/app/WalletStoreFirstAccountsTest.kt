@@ -73,6 +73,20 @@ class WalletStoreFirstAccountsTest {
     }
 
     @Test
+    fun aDecoyWalletHasBitcoinOnly() {
+        DecoyVault.populate(session)
+
+        assertEquals(setOf(WalletApp.BITCOIN), store.installedApps(session.listWallets().single()))
+    }
+
+    @Test
+    fun aRestoredWalletHasBitcoinOnly() {
+        val id = store.create(name = "Restored", deviceGenerated = false, words = DEMO_WORDS, passphrase = null, nowMs = 1L, seedBackedUp = true)
+
+        assertEquals(setOf(WalletApp.BITCOIN), store.installedApps(id))
+    }
+
+    @Test
     fun everyWalletAppIsAnInstalledChainApp() {
         assertEquals(installedSigners.map { it.manifest.id }.toSet(), WalletApp.entries.map { it.appId }.toSet())
     }

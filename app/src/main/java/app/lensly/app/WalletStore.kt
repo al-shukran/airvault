@@ -60,7 +60,7 @@ class SolanaCapReached : IllegalArgumentException("A wallet keeps at most ${Wall
 class AlgorandCapReached : IllegalArgumentException("A wallet keeps at most ${WalletRecords.ALGORAND_MAX_ACCOUNTS} Algorand accounts.")
 
 /** A request for an App that is not installed in the wallet, such as a pairing for Ethereum in a wallet without it. Nothing is saved. */
-class AppNotInstalled(val app: WalletApp) : IllegalStateException("The ${app.label} app is not installed in this wallet.")
+class AppNotInstalled(val app: WalletApp) : Exception("The ${app.label} app is not installed in this wallet.")
 
 /**
  * What a wallet's secret is. A Mnemonic wallet holds a 24-word Mnemonic and an optional Passphrase, and every account
@@ -319,15 +319,13 @@ class WalletStore(private val session: VaultSession) {
 
     /**
      * Installs [app] in Mnemonic wallet [id] by adding its account at index 0. The seed always derives that account to the same address.
-     * An App that is already installed is left as it is. Nothing is saved if the account cannot be derived. The check and the write run
-     * under the session's lock.
+     * An App that is already installed is left as it is. Nothing is saved if the account cannot be derived. Two installs of one App cannot
+     * both write, because each first account checks under the session's lock that it is still the only change.
      *
      * @throws IllegalArgumentException if the wallet is missing, or is a Single Key wallet and [app] is not its Ethereum account.
      */
     fun installApp(id: String, app: WalletApp) {
-        synchronized(session) {
-            if (app !in installedApps(id)) app.firstAccount(this, id)
-        }
+        if (app !in installedApps(id)) app.firstAccount(this, id)
     }
 
     /**
@@ -371,6 +369,7 @@ class WalletStore(private val session: VaultSession) {
     fun addAccount(id: String): WalletMeta = synchronized(session) {
         val current = requireNotNull(meta(id)) { "No wallet $id." }
         require(current.kind == WalletKind.MNEMONIC) { SINGLE_KEY_ONE_ACCOUNT }
+        if (current.accountCount == 0) throw AppNotInstalled(WalletApp.ETHEREUM)
         if (current.accountCount >= PairingCodec.MAX_ETHEREUM_ACCOUNTS) throw EthereumCapReached()
         val key = accountKeyOf(id, current.accountCount)
         val updated = current.copy(accountCount = current.accountCount + 1, accountKeys = current.accountKeys + key)
@@ -391,6 +390,15 @@ class WalletStore(private val session: VaultSession) {
      * more than [PairingCodec.MAX_ETHEREUM_ACCOUNTS] Ethereum accounts. Nothing is saved then.
      */
     fun addAccounts(id: String, count: Int, cap: Int, onProgress: (Int) -> Unit = {}): WalletMeta? {
+        val current = requireNotNull(meta(id)) { "No wallet $id." }
+        if (current.accountCount == 0) throw AppNotInstalled(WalletApp.ETHEREUM)
+        return deriveEthereumAccounts(id, count, cap, onProgress)
+    }
+
+    /** The first Ethereum account of wallet [id], which is how installing Ethereum adds it. Only the App's install calls this. */
+    internal fun addFirstEthereumAccount(id: String): WalletMeta? = deriveEthereumAccounts(id, count = 1, cap = 1) {}
+
+    private fun deriveEthereumAccounts(id: String, count: Int, cap: Int, onProgress: (Int) -> Unit): WalletMeta? {
         require(BulkPolicy.checkCount(count, cap) is BulkPolicy.CountCheck.Valid) {
             "A Bulk Run makes 1 to $cap accounts."
         }
