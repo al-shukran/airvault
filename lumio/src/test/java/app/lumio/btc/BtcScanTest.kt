@@ -2,17 +2,25 @@ package app.lumio.btc
 
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
+import app.lumio.data.FakeClock
+import app.lumio.data.FakeKvDao
 import app.lumio.data.MonotonicClock
+import app.lumio.data.cache.Cache
+import app.lumio.data.cache.CacheKeys
 import app.lumio.data.cache.DEFAULT_SHORT_TTL_MS
 import app.lumio.data.esplora.BlockstreamProvider
 import app.lumio.data.esplora.MempoolProvider
 import app.lumio.data.provider.Http
+import app.lumio.data.provider.ProviderError
+import app.lumio.data.scan.QueuedJob
+import app.lumio.data.scan.ScanJob
 import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
 import app.lumio.pair.PairFixtures
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
@@ -142,5 +150,25 @@ class BtcScanTest {
 
         scanAccount(ref, scheduler, Priority.FOREGROUND, nowMs = 2L, detail = true)
         assertTrue((first.paths + second.paths).any { it.endsWith("/txs") })
+    }
+
+    @Test
+    fun aScanThatFailsMidwayKeepsWhatItHasRead() = runBlocking {
+        // Two used receive addresses, then an address whose requests fail on both servers, so the receive walk ends there.
+        for (server in listOf(first, second)) {
+            server.stats[account.receiveAddress(0)] = addressJson(chain = side(fundedSum = 120_000L, fundedCount = 1, txCount = 1))
+            server.stats[account.receiveAddress(2)] = addressJson(chain = side(fundedSum = 30_000L, fundedCount = 1, txCount = 1))
+            server.failing += account.receiveAddress(4)
+        }
+        val store = BtcStore(Cache(FakeKvDao(), CacheKeys(ByteArray(32) { 1 }, ByteArray(32) { 2 }), FakeClock(1_000L)))
+        val job = QueuedJob(1L, ScanJob("wallet-1", ref.account.network.networkId(), ref.key, Priority.VISIBLE))
+
+        assertFailsWith<ProviderError.Transient> {
+            scanJob(job, listOf(ref), this.scheduler(), store, AddressStatsCache(), nowMs = { 1_000L }, step = {})
+        }
+
+        val kept = store.snapshot(ref.key)
+        assertEquals(150_000L, kept?.confirmedSats, "the two addresses read before the failure are kept")
+        assertEquals(listOf(account.receiveAddress(0), account.receiveAddress(2)), kept?.addresses)
     }
 }

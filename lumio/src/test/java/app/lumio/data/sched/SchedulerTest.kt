@@ -279,9 +279,10 @@ class SchedulerTest {
 
         assertTrue(failureOf { s.run(TipHeight(ETH)) } is ProviderError.Transient)
         assertEquals(3, a.calls)
-        assertTrue(failureOf { s.run(TipHeight(ETH)) } is ProviderError.Transient)
-        assertEquals(5, a.calls)
-        assertTrue((s.statusOf("a")?.circuitOpenMs ?: 0L) > 0L)
+        // The fifth failure, in this call, opens the circuit. The call's last attempt then waits out the 60 s, and its probe succeeds.
+        assertEquals(100L, s.run(TipHeight(ETH)))
+        assertEquals(6, a.calls)
+        assertTrue(testScheduler.currentTime >= 60_000L)
     }
 
     @Test
@@ -289,9 +290,8 @@ class SchedulerTest {
         val a = provider("a").apply { repeat(5) { outcomes.add(ProviderError.Transient()) } }
         val s = scheduler(a)
         failureOf { s.run(TipHeight(ETH)) }
-        failureOf { s.run(TipHeight(ETH)) }
 
-        advanceTimeBy(60_000)
+        // The fifth failure, in this call, opens the circuit. The call's last attempt then waits out the 60 s, and its probe succeeds.
         assertEquals(100L, s.run(TipHeight(ETH)))
         assertEquals(6, a.calls)
         assertEquals(100L, s.run(TipHeight(ETH)))
@@ -319,6 +319,16 @@ class SchedulerTest {
         val keyed = scheduler(a, configs = mapOf("a" to ProviderConfig(apiKey = "fake-key")))
         assertEquals(100L, keyed.run(TipHeight(ETH)))
         assertEquals(1, a.calls)
+    }
+
+    @Test
+    fun aCallGivesUpAfterThreeRateLimitedAttempts() = runTest {
+        // Every answer is a 429, so each attempt waits out its 1 s cooldown. A call that is refused three times gives up.
+        val a = provider("a").apply { repeat(5) { outcomes.add(ProviderError.RateLimited(retryAfterMs = 1_000)) } }
+        val s = scheduler(a)
+
+        assertTrue(failureOf { s.run(TipHeight(ETH)) } is ProviderError.RateLimited)
+        assertEquals(3, a.calls)
     }
 
     private companion object {
