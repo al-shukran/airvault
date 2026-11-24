@@ -350,6 +350,7 @@ internal fun chooseCoins(
         val feeWithout = feeFor(vsizeOf(chosen, false), feeRateSatPerVb)
         if (total - amountSats >= feeWithout) return CoinPick(chosen.toList(), total - amountSats, 0L)
     }
+    BtcSendInput.overBalance(amountSats, total)?.let { throw IllegalArgumentException(it) }
     throw IllegalArgumentException("The confirmed balance does not cover this amount and its fee.")
 }
 
@@ -386,12 +387,26 @@ object BtcSendInput {
         val amount = text.trim()
         require(amount.length <= MAX_AMOUNT_CHARS && DECIMAL.matches(amount)) { "Enter an amount in BTC, such as 0.001." }
         val value = BigDecimal(amount)
+        require(value.signum() > 0) { "Enter an amount above 0" }
         require(value <= MAX_BTC) { "The amount is more than all the bitcoin there is." }
         require(value.stripTrailingZeros().scale() <= SAT_DECIMALS) { "Use at most 8 decimal places for BTC." }
         val sats = value.movePointRight(SAT_DECIMALS).toBigIntegerExact().toLong()
         require(sats >= DUST_SATS) { "The amount must be at least $DUST_SATS sat, the dust limit." }
         return sats
     }
+
+    /**
+     * The reason [typed] cannot be sent from coins worth [total] sats: what it is, or the words that it is more than the coins hold. Null when it can be
+     * sent, or when nothing is typed yet.
+     */
+    fun amountError(typed: String, total: Long?): String? {
+        if (typed.isBlank()) return null
+        val sats = runCatching { amountSats(typed) }.getOrElse { return it.message }
+        return total?.let { overBalance(sats, it) }
+    }
+
+    /** The words for [sats] more than [total] sats of coins, or null when they are not more. */
+    fun overBalance(sats: Long, total: Long): String? = if (sats > total) "More than your available ${btcText(total)}" else null
 
     /** The fee rate of [text] in sat/vB, from 1 to 1000. */
     fun feeRate(text: String): Double {

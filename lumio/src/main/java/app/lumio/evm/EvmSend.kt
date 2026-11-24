@@ -131,10 +131,10 @@ object EvmSend {
         val balance = DebugEvmFunds.balance() ?: reads.balance(chain, from, Priority.FOREGROUND)
         val tokenBalance = token?.let { TokenBalances.balance(reads, chain, from, it.contract) }
         if (token != null && tokenBalance != null && valueWei > tokenBalance) {
-            throw IllegalArgumentException(
-                "The token balance is ${EvmFormat.amount(tokenBalance, token.decimals, token.symbol)}, but this send is " +
-                    EvmFormat.amount(valueWei, token.decimals, token.symbol) + ".",
-            )
+            throw IllegalArgumentException("More than your available ${EvmFormat.amount(tokenBalance, token.decimals, token.symbol)}")
+        }
+        if (token == null && valueWei > balance) {
+            throw IllegalArgumentException("More than your available ${EvmFormat.amount(balance, chain.decimals, chain.symbol)}")
         }
         val nonce = reads.nonce(chain, from, pending = true, Priority.FOREGROUND)
         val fees = reads.fees(chain, Priority.FOREGROUND)
@@ -244,7 +244,7 @@ object SendInput {
         val value = BigDecimal(amount)
         require(value.stripTrailingZeros().scale() <= decimals) { "Use at most $decimals decimal places for $symbol." }
         val wei = value.movePointRight(decimals).toBigIntegerExact()
-        require(wei.signum() > 0) { "The amount must be more than zero." }
+        require(wei.signum() > 0) { "Enter an amount above 0" }
         return wei
     }
 }

@@ -5,8 +5,8 @@ import com.sparrowwallet.hummingbird.UR
 
 /** What one scanned text did to a scan of Lensly's signature. */
 sealed interface SignatureStep {
-    /** A frame of an animated code was read. [fraction] is how much of the code is in, from 0 to 1. */
-    data class Reading(val fraction: Float) : SignatureStep
+    /** A frame of an animated code was read. [fraction] is how much of the code is in, from 0 to 1, and [received] of [expected] parts are in. */
+    data class Reading(val fraction: Float, val received: Int, val expected: Int) : SignatureStep
 
     /** The code is whole. What it says is checked when the signature is applied to the send. */
     class Complete(val ur: UR) : SignatureStep
@@ -25,7 +25,7 @@ class SignatureScan {
 
     fun onText(text: String): SignatureStep {
         if (finished || !scanner.receive(text)) return SignatureStep.Ignored
-        val ur = scanner.result() ?: return SignatureStep.Reading(scanner.progress.toFloat())
+        val ur = scanner.result() ?: return SignatureStep.Reading(scanner.progress.toFloat(), scanner.receivedParts, scanner.expectedParts)
         finished = true
         return SignatureStep.Complete(ur)
     }

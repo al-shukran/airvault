@@ -216,6 +216,14 @@ class SolanaSendTest {
     }
 
     @Test
+    fun anAmountMoreThanTheBalanceIsRefusedWithTheBalanceNamed() {
+        val refused = assertFailsWith<IllegalArgumentException> {
+            SolanaSend.plan(SOLANA_DEVNET, account, recipient, 2_000_000_000L, BigInteger.valueOf(1_500_000_000L), blockhash, requestId)
+        }
+        assertEquals("More than your available 1.5 SOL", refused.message)
+    }
+
+    @Test
     fun aSendNeedsTheAmountTheFeeAndTheRentReserveInTheBalance() {
         assertFailsWith<IllegalArgumentException> {
             SolanaSend.plan(SOLANA_DEVNET, account, recipient, lamports, neededBalance - BigInteger.ONE, blockhash, requestId)

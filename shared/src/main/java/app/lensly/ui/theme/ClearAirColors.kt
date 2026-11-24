@@ -42,6 +42,8 @@ data class ClearAirPalette(
     val rose: Color,
     /** The hatch lines of the testnet band. A texture, not a colour. */
     val testHatch: Color,
+    /** Paper in both themes: the scan brackets and their caption, which sit on the dark camera. */
+    val paper: Color,
 )
 
 /** The palette of the theme in composition. [ClearAirTheme] provides it. */
@@ -62,6 +64,7 @@ internal val ClearAirPaperPalette = ClearAirPalette(
     vaultBlue = Color(0xFF2A56A8),
     rose = Color(0xFFB3261E),
     testHatch = Color(0xFF2B2530).copy(alpha = 0.08f),
+    paper = Color(0xFFFBF6EC),
 )
 
 internal val ClearAirInkPalette = ClearAirPalette(
@@ -79,6 +82,7 @@ internal val ClearAirInkPalette = ClearAirPalette(
     vaultBlue = Color(0xFF8DBBFF),
     rose = Color(0xFFFF8A80),
     testHatch = Color(0xFFF5EFE4).copy(alpha = 0.075f),
+    paper = Color(0xFFFBF6EC),
 )
 
 internal val ClearAirPaperScheme: ColorScheme = clearAirScheme(ClearAirPaperPalette, lightColorScheme())
