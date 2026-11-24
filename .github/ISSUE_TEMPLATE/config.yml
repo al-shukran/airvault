@@ -1,6 +1,6 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Report a security vulnerability
+  - name: Report a Security Vulnerability
     url: https://github.com/al-shukran/airvault/security/advisories/new
     about: Please report vulnerabilities privately, see SECURITY.md
   - name: Documentation
