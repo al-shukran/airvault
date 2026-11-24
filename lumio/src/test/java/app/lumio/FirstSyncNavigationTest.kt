@@ -101,6 +101,19 @@ class FirstSyncNavigationTest {
         assertFalse(LumioRoute.FIRST_SYNC in backStack(), "Continue leaves the import, so the onboarding is over")
     }
 
+    @Test
+    fun aWalletDeletedWhileTheImportWasAwayLeavesForTheWalletsList() {
+        showImport()
+        compose.onNodeWithText("View Accounts").performClick()
+        compose.waitForIdle()
+        PairedWallets.delete(checkNotNull(holder.openSession()), walletId)
+
+        systemBack()
+
+        compose.waitUntil(timeoutMillis = 10_000) { currentRoute() == LumioRoute.WALLETS }
+        assertEquals(LumioRoute.WALLETS, currentRoute())
+    }
+
     /** Opens the import of a wallet that the vault holds, as the pairing review does after it saves the wallet. */
     private fun showImport() {
         walletId = pairedWallet()
