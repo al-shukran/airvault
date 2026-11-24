@@ -346,6 +346,7 @@ private fun Details(detail: TxDetail) {
     val copy = rememberCopyAction(value = detail.tx.hash, label = "Transaction Hash")
     KeyValue(label = "Network", value = detail.chain)
     KeyValue(label = "Fee", value = detail.feeText ?: "None")
+    detail.tx.blockNumber?.let { KeyValue(label = "Block", value = String.format(Locale.ROOT, "%,d", it)) }
     Row(
         modifier = Modifier
             .fillMaxWidth()

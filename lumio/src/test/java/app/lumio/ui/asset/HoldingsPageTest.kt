@@ -6,6 +6,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import app.airvault.core.model.AccountId
 import app.lensly.ui.theme.ClearAirTheme
+import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import java.math.BigDecimal
 import kotlin.test.assertEquals
 import org.junit.Rule
@@ -33,7 +35,7 @@ class HoldingsPageTest {
     @Test
     fun aChainHeadsItsAccountsWithItsTotal() {
         val opened = mutableListOf<AccountHolding>()
-        val chains = listOf(ChainHolding(chain = "Ethereum", total = BigDecimal("3"), accounts = listOf(cold)))
+        val chains = listOf(ChainHolding(chain = "Ethereum", network = NetworkId(Networks.evm(1L), testnet = false), total = BigDecimal("3"), accounts = listOf(cold)))
         compose.setContent {
             ClearAirTheme {
                 HoldingsPage(

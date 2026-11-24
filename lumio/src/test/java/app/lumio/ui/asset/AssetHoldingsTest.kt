@@ -65,6 +65,19 @@ class AssetHoldingsTest {
     }
 
     @Test
+    fun eachChainCarriesTheNetworkThatNamesItsLogoInTheSameOrder() {
+        val accounts = listOf(
+            account(ethereum, "Ethereum", "Unnamed", eth(ethereum, "1")),
+            account(arbitrum, "Arbitrum", "FelixStone", eth(arbitrum, "3.23")),
+        )
+
+        val chains = chainHoldings(holdingsOf(nativeEth, "ETH", accounts, emptyMap()), walletName = "Air 1")
+
+        assertEquals(listOf("Arbitrum", "Ethereum"), chains.map { it.chain })
+        assertEquals(listOf(NetworkId(arbitrum, testnet = false), NetworkId(ethereum, testnet = false)), chains.map { it.network })
+    }
+
+    @Test
     fun otherCoinsAndEmptyBalancesAreLeftOut() {
         val accounts = listOf(
             account(ethereum, "Ethereum", "Holds", eth(ethereum, "2")),

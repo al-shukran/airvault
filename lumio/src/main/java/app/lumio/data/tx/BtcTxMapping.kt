@@ -58,6 +58,7 @@ fun EsploraTx.toLumioTx(account: String, net: NetworkId, tipHeight: Long, observ
         counterparty = counterparty,
         status = if (confirmed) TxStatus.CONFIRMED else TxStatus.PENDING,
         confirmations = blockHeight?.let { maxOf(0L, tipHeight - it + 1) } ?: 0L,
+        blockNumber = blockHeight,
         inputData = null,
         memo = null,
     )

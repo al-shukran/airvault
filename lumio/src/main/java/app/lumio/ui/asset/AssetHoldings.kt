@@ -1,6 +1,7 @@
 package app.lumio.ui.asset
 
 import app.airvault.core.model.AccountId
+import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.tokens.TokenHolding
 import app.lumio.wallets.WalletAccount
@@ -17,11 +18,11 @@ internal data class AccountHolding(
     val amount: BigDecimal,
 )
 
-/** The accounts of one chain that hold a coin, with their total. The accounts are the largest first. */
-internal data class ChainHolding(val chain: String, val total: BigDecimal, val accounts: List<AccountHolding>)
+/** The accounts of one chain that hold a coin, with their total and the network that names the chain's logo. The accounts are the largest first. */
+internal data class ChainHolding(val chain: String, val network: NetworkId, val total: BigDecimal, val accounts: List<AccountHolding>)
 
-/** What one account holds of a coin, and the chain that amount is on. */
-internal data class WalletHolding(val account: WalletAccount, val chain: String, val amount: BigDecimal)
+/** What one account holds of a coin, and the network and chain that amount is on. */
+internal data class WalletHolding(val account: WalletAccount, val network: NetworkId, val chain: String, val amount: BigDecimal)
 
 /**
  * What [accounts] hold of [asset], whose native coin is named [symbol]. A native coin is read from each account's balance. A token is read from the
@@ -34,13 +35,13 @@ internal fun holdingsOf(
     tokens: Map<WalletAccount, List<TokenHolding>>,
 ): List<WalletHolding> = if (asset.contract == null) {
     accounts.mapNotNull { account ->
-        account.balance?.takeIf { it.symbol == symbol && it.balance.signum() > 0 }?.let { WalletHolding(account, account.networkName, it.balance) }
+        account.balance?.takeIf { it.symbol == symbol && it.balance.signum() > 0 }?.let { WalletHolding(account, it.network, account.networkName, it.balance) }
     }
 } else {
     accounts.flatMap { account ->
         tokens[account].orEmpty()
             .filter { it.amount.signum() > 0 && it.token.contract.equals(asset.contract, ignoreCase = true) && Networks.evm(it.chain.chainId) == asset.network.chain }
-            .map { WalletHolding(account, it.chain.name, BigDecimal(it.amount).movePointLeft(it.token.decimals)) }
+            .map { WalletHolding(account, asset.network, it.chain.name, BigDecimal(it.amount).movePointLeft(it.token.decimals)) }
     }
 }
 
@@ -59,19 +60,24 @@ internal fun accountDetail(walletName: String, account: WalletAccount): String =
  * the largest first.
  */
 internal fun chainHoldings(holdings: List<WalletHolding>, walletName: String): List<ChainHolding> = holdings
-    .map { holding ->
-        AccountHolding(
-            walletId = holding.account.walletId,
-            accountId = holding.account.id,
-            chain = holding.chain,
-            name = accountName(holding.account),
-            detail = accountDetail(walletName, holding.account),
-            amount = holding.amount,
-        )
-    }
     .groupBy { it.chain }
     .map { (chain, rows) ->
-        ChainHolding(chain = chain, total = rows.map { it.amount }.reduce(BigDecimal::add), accounts = rows.sortedByDescending { it.amount })
+        val accounts = rows.map { holding ->
+            AccountHolding(
+                walletId = holding.account.walletId,
+                accountId = holding.account.id,
+                chain = chain,
+                name = accountName(holding.account),
+                detail = accountDetail(walletName, holding.account),
+                amount = holding.amount,
+            )
+        }
+        ChainHolding(
+            chain = chain,
+            network = rows.first().network,
+            total = rows.map { it.amount }.reduce(BigDecimal::add),
+            accounts = accounts.sortedByDescending { it.amount },
+        )
     }
     .sortedBy { it.chain }
 

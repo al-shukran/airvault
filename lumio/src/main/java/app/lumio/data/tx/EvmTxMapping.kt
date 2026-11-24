@@ -36,6 +36,7 @@ fun List<ExplorerTx>.toLumioTxs(account: String, net: NetworkId, native: TxAsset
                 counterparty = counterpartyOf(direction, row.from, row.to ?: row.createdContract),
                 status = if (row.failed) TxStatus.FAILED else TxStatus.CONFIRMED,
                 confirmations = row.confirmations,
+                blockNumber = row.blockNumber,
                 inputData = row.input.takeIf { it != EMPTY_INPUT },
                 memo = memoOf(row.input),
             )
@@ -52,6 +53,7 @@ fun List<ExplorerTx>.toLumioTxs(account: String, net: NetworkId, native: TxAsset
                 counterparty = counterpartyOf(direction, row.from, row.to),
                 status = TxStatus.CONFIRMED,
                 confirmations = row.confirmations,
+                blockNumber = row.blockNumber,
                 inputData = null,
                 memo = null,
             )

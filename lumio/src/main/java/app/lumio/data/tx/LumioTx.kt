@@ -43,8 +43,8 @@ data class TxAsset(val contract: String?, val symbol: String, val name: String, 
  *
  * [amount] is in base units of [asset] and is never negative. [fee] is in base units of the native coin, and it is set only when the account paid the
  * fee. [counterparty] is the other address, or null for a self transfer. [inputData] is the EVM input data as hex, and [memo] is that data as text
- * when it is printable text. [confirmations] is the depth at which the network reported the transaction. [spam] is set by the spam heuristic, not by a
- * provider.
+ * when it is printable text. [confirmations] is the depth at which the network reported the transaction, and [blockNumber] is the height of the block that
+ * holds it, null while it is not in a block yet. [spam] is set by the spam heuristic, not by a provider.
  */
 @Serializable
 data class LumioTx(
@@ -60,6 +60,7 @@ data class LumioTx(
     val counterparty: String?,
     val status: TxStatus,
     val confirmations: Long,
+    val blockNumber: Long? = null,
     val inputData: String?,
     val memo: String?,
     val spam: Boolean = false,
