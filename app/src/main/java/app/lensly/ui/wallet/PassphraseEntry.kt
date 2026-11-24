@@ -32,6 +32,9 @@ internal class PassphraseEntry(private val onSettled: (passphrase: String?) -> U
     var mismatch by mutableStateOf(false)
         private set
 
+    /** Set by a mismatch and kept until the entry is cleared, so an empty Enter cannot drop the passphrase after a typed edit. */
+    private var mismatchPending = false
+
     /** Set from the Enter entry while it is typed, and kept while Confirm is typed. */
     var ledgerIssue by mutableStateOf<LedgerPassphraseIssue?>(null)
         private set
@@ -62,8 +65,8 @@ internal class PassphraseEntry(private val onSettled: (passphrase: String?) -> U
                     length = 0
                     step = PassphraseStep.Confirm
                 }
-                // An empty entry means no passphrase. Right after a mismatch it must not drop the passphrase silently.
-                !mismatch -> skip()
+                // An empty entry means no passphrase. While a mismatch is pending it must not drop the passphrase silently.
+                !mismatchPending -> skip()
             }
             PassphraseStep.Confirm -> {
                 val second = buffer.toCharArray()
@@ -76,6 +79,7 @@ internal class PassphraseEntry(private val onSettled: (passphrase: String?) -> U
                 } else {
                     clear()
                     mismatch = true
+                    mismatchPending = true
                     step = PassphraseStep.Enter
                 }
             }
@@ -95,6 +99,7 @@ internal class PassphraseEntry(private val onSettled: (passphrase: String?) -> U
         first = null
         length = 0
         ledgerIssue = null
+        mismatchPending = false
     }
 
     private fun typed() {
