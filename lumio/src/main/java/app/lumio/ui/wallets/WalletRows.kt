@@ -230,7 +230,8 @@ internal fun ChainFailureNote(text: String, onRetry: () -> Unit, modifier: Modif
     ) {
         Canvas(Modifier.size(8.dp)) { drawCircle(color = palette.spark) }
         Spacer(Modifier.width(ClearAirSpacing.xs))
-        Text(text = "$text · ", style = ClearAirType.body, color = palette.ink2)
+        // The note takes the width the Retry action leaves, so a long network name wraps and the action stays in view.
+        Text(text = "$text · ", style = ClearAirType.body, color = palette.ink2, modifier = Modifier.weight(1f))
         ClearAirTextAction(text = "Retry", onClick = onRetry)
     }
 }

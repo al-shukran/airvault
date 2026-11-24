@@ -148,6 +148,6 @@ class WalletProgressTest {
 
     @Test
     fun theFailureNoteNamesTheNetwork() {
-        assertEquals("Couldn't reach Bitcoin servers", unreachableNote("Bitcoin"))
+        assertEquals("Couldn't reach Bitcoin. Lumio will retry.", unreachableNote("Bitcoin"))
     }
 }
