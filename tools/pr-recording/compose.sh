@@ -2,6 +2,7 @@
 # Put a screen recording or a screenshot inside a Pixel 8 for a pull request.
 #
 #   compose.sh --before a.mp4 --after b.mp4 --out out   two phones with Before and After labels
+#   compose.sh --before a.png --after b.png --out out   the same two phones as one transparent PNG
 #   compose.sh --demo a.mp4 --out out                   one phone
 #   compose.sh shot in.png out.png                      one phone and one screenshot
 #   add --app-only directly before an input that has no system bars, e.g. --app-only --after g.mp4
@@ -16,8 +17,9 @@
 # with at least 2 px to spare. The space around it is filled with the colours of its own edges.
 #
 # A pair or a demo writes out.mp4 (H.264, at most 60 s, black around the phones) and out.gif
-# (transparent around the phones), both at most 10 MB. A shot writes a 760 px wide PNG, transparent
-# outside the phone. The phone is Android Studio's Pixel 8 device art (1080x2400 display), read at
+# (transparent around the phones), both under 9.5 MB. A still pair writes out.png, a 984 px wide PNG
+# with the two phones 24 px apart, transparent outside them. A shot writes a 760 px wide PNG,
+# transparent outside the phone. The phone is Android Studio's Pixel 8 device art (1080x2400 display), read at
 # run time from DEVICE_ART_DIR. The art is not stored in the repository.
 # Needs ffmpeg, ImageMagick (magick) and that device art. See CONTRIBUTING.md.
 set -euo pipefail
@@ -27,7 +29,7 @@ font=${PR_RECORDING_FONT:-$here/../../shared/src/main/res/font/archivo_variable.
 art=${DEVICE_ART_DIR:-/Applications/Android Studio.app/Contents/plugins/android/resources/device-art-resources/pixel_8}
 bars="$here/bars"
 max_seconds=60
-max_bytes=$((10 * 1024 * 1024))
+max_bytes=9500000
 
 # Pixel 8 device art (pixel_8/layout): the phone is back.webp, and the 1080x2400 display sits at
 # (49, 55) in it. mask.webp is the camera and the black corners, drawn over the screen.
@@ -37,6 +39,7 @@ at() { echo $(( ($1 * $2 * 2 + body_w) / (2 * body_w) )); }
 
 usage() {
   echo "usage: $0 --before a.mp4 --after b.mp4 --out out" >&2
+  echo "       $0 --before a.png --after b.png --out out" >&2
   echo "       $0 --demo a.mp4 --out out" >&2
   echo "       $0 shot [--app-only] in.png out.png" >&2
   echo "       add --app-only directly before an input that has no system bars" >&2
@@ -183,6 +186,18 @@ display_fit_clip() {
     -map '[out]' -shortest -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p "$2"
 }
 
+# The still $1 in a phone $2 px wide, as a transparent PNG of that phone at $4. The phone is the one that
+# layers $3 made, so call layers first. Outside the phone the PNG is transparent.
+framed_still() {
+  local src=$1 pw=$2 name=$3 out=$4
+  display_fit_still "$src" "$work/$name-fit.png" "$work/$name-open.png"
+  magick -size "${pw}x$PH" xc:none \
+    \( "$work/$name-fit.png" "$work/$name-shape.png" -compose CopyOpacity -composite \) \
+    -compose Over -gravity NorthWest -geometry "+$DX+$DY" -composite \
+    "$work/$name-back.png" -geometry +0+0 -composite \
+    "$work/$name-mask.png" -geometry "+$DX+$DY" -composite -depth 8 "$out"
+}
+
 if [ "${1:-}" = shot ]; then
   app=0
   if [ "${2:-}" = --app-only ]; then app=1; set -- shot "${@:3}"; fi
@@ -193,19 +208,13 @@ if [ "${1:-}" = shot ]; then
     bars_background "$src" "$work/still-bars.png"
     src=$work/still-bars.png
   fi
-  # A 760 px phone, with nothing around it: the PNG is transparent outside the device.
   layers 760 shot
-  display_fit_still "$src" "$work/still-fit.png" "$work/shot-open.png"
-  magick -size "760x$PH" xc:none \
-    \( "$work/still-fit.png" "$work/shot-shape.png" -compose CopyOpacity -composite \) \
-    -compose Over -gravity NorthWest -geometry "+$DX+$DY" -composite \
-    "$work/shot-back.png" -geometry +0+0 -composite \
-    "$work/shot-mask.png" -geometry "+$DX+$DY" -composite -depth 8 "$out"
+  framed_still "$src" 760 shot "$out"
   echo "wrote $out"
   exit 0
 fi
 
-before='' after='' demo='' out=''
+before='' after='' demo='' out='' still=0
 pending=0 before_app=0 after_app=0 demo_app=0
 while [ $# -gt 0 ]; do
   case $1 in
@@ -223,6 +232,10 @@ if [ -n "$demo" ]; then
   clips=("$demo") apps=("$demo_app")
 else
   [ -n "$before" ] && [ -n "$after" ] || usage
+  if [ "${before##*.}" = png ] || [ "${after##*.}" = png ]; then
+    [ "${before##*.}" = png ] && [ "${after##*.}" = png ] || { echo "--before and --after must both be PNG stills, or both clips" >&2; exit 2; }
+    still=1
+  fi
   clips=("$before" "$after") apps=("$before_app" "$after_app")
 fi
 for clip in "${clips[@]}"; do
@@ -234,6 +247,46 @@ n=${#clips[@]}
 # thin strip for the Before and After labels; a demo puts one 600 px phone.
 if [ "$n" -eq 2 ]; then pw=480 top=48 gap=24; else pw=600 top=0 gap=0; fi
 layers "$pw" dev
+
+if [ "$n" -eq 2 ]; then
+  width=$((2 * pw + gap)) xs=(0 $((pw + gap)))
+else
+  width=$pw xs=(0)
+fi
+height=$((top + PH))
+height=$((height + height % 2))
+
+# Stage: the background, and for a pair the Before and After labels, centred above each phone. The
+# label is neutral dark grey on a light pill, so it reads on GitHub's light and dark themes alike.
+# The black stage is for the MP4; the clear one is for the GIF and the still.
+draws=(-fill black)
+if [ "$n" -eq 2 ]; then
+  labels=(Before After)
+  draws+=(-font "$font" -pointsize 28)
+  for i in 0 1; do
+    cx=$((xs[i] + pw / 2))
+    draws+=(-fill '#f2f2f2' -draw "roundrectangle $((cx - 60)),4 $((cx + 60)),44 6,6"
+      -fill '#3a3a3c' -gravity center
+      -annotate "$(printf '%+d%+d' $((cx - width / 2)) $((24 - height / 2)))" "${labels[i]}" -gravity NorthWest)
+  done
+fi
+
+if [ "$still" -eq 1 ]; then
+  for i in 0 1; do
+    src=${clips[i]}
+    if [ "${apps[i]}" -eq 1 ]; then
+      bars_background "$src" "$work/still-bars-$i.png"
+      src=$work/still-bars-$i.png
+    fi
+    framed_still "$src" "$pw" dev "$work/still-$i.png"
+  done
+  magick -size "${width}x${height}" xc:none "${draws[@]}" \
+    "$work/still-0.png" -geometry "+${xs[0]}+$top" -composite \
+    "$work/still-1.png" -geometry "+${xs[1]}+$top" -composite -depth 8 "PNG32:$out.png"
+  echo "wrote $out.png"
+  exit 0
+fi
+
 for ((i = 0; i < n; i++)); do
   if [ "${apps[i]}" -eq 1 ]; then
     # An input marked --app-only has no system bars: it gets the real bars first, as a 1080x2400 clip.
@@ -248,26 +301,6 @@ for ((i = 0; i < n; i++)); do
   clips[i]="$work/fit-$i.mp4"
 done
 
-if [ "$n" -eq 2 ]; then
-  width=$((2 * pw + gap)) xs=(0 $((pw + gap)))
-else
-  width=$pw xs=(0)
-fi
-height=$((top + PH))
-height=$((height + height % 2))
-
-# Stage: the background, and for a pair the Before and After label pills. The black stage
-# is for the MP4; the clear one is for the GIF.
-draws=(-fill black)
-if [ "$n" -eq 2 ]; then
-  labels=(Before After) fills=('#D9463E' '#1E9E62')
-  draws+=(-font "$font" -pointsize 26 -stroke white -strokewidth 0.6)
-  for i in 0 1; do
-    cx=$((xs[i] + pw / 2))
-    draws+=(-fill "${fills[i]}" -draw "roundrectangle $((cx - 130)),4 $((cx + 130)),44 20,20"
-      -fill white -gravity center -annotate "$(printf '%+d%+d' $((cx - width / 2)) $((24 - height / 2)))" "${labels[i]}" -gravity NorthWest)
-  done
-fi
 magick -size "${width}x${height}" xc:black "${draws[@]}" "$work/stage-black.png"
 magick -size "${width}x${height}" xc:none "${draws[@]}" "PNG32:$work/stage-clear.png"
 
@@ -336,6 +369,6 @@ for pass in "10 960 256" "8 960 256" "8 720 256" "6 720 256" "5 600 256" "5 600 
 done
 
 for f in "$out.mp4" "$out.gif"; do
-  [ "$(size_of "$f")" -le "$max_bytes" ] || { echo "$f is larger than 10 MB" >&2; exit 1; }
+  [ "$(size_of "$f")" -le "$max_bytes" ] || { echo "$f is larger than 9.5 MB" >&2; exit 1; }
 done
 echo "wrote $out.mp4 ($secs s) and $out.gif"
