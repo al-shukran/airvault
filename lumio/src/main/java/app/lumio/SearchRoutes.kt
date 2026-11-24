@@ -15,6 +15,7 @@ import app.lumio.data.config.Fiat
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.TrendingCoin
 import app.lumio.data.provider.TrendingList
+import app.lumio.pair.PairedWallet
 import app.lumio.search.SearchEntry
 import app.lumio.search.looksLikeAddress
 import app.lumio.search.matching
@@ -53,7 +54,8 @@ internal fun SearchRoute(
     val session = holder.openSession() ?: return
     val board = rememberWalletsBoard(app, selection.mode, listVersion) ?: return
     val view = board.view ?: return
-    val wallet = view.wallets.firstOrNull()
+    // The watchlist is the wallet's the profile panel chose, as Home shows it, and the first paired wallet until the owner chooses one.
+    val wallet = view.wallets.active(selection) { it.id }
     var query by remember { mutableStateOf("") }
     var tab by remember { mutableStateOf(SearchTab.MAIN) }
     val watched by produceState(initialValue = emptyList<WatchedAsset>(), wallet?.id) {
@@ -77,7 +79,7 @@ internal fun SearchRoute(
     // The Trending tab lists the coins without a query, and filters them as the owner types.
     val sections: List<SearchSection> = when (tab) {
         SearchTab.TRENDING -> listOfNotNull(section(null, trendingRows(board.trending?.value, needle, LocalFiat.current)))
-        SearchTab.MAIN -> if (needle.isEmpty()) emptyList() else mainSections(needle, view, ::openRoute)
+        SearchTab.MAIN -> if (needle.isEmpty()) emptyList() else mainSections(needle, view, wallet, ::openRoute)
         SearchTab.WATCHLIST -> if (needle.isEmpty()) emptyList() else listOfNotNull(section(null, matching(needle, watchEntries(watched, wallet?.id, ::openRoute)).rows()))
         SearchTab.ADDRESS_BOOK -> if (needle.isEmpty()) emptyList() else listOfNotNull(section(null, matching(needle, addressBookEntries(view, ::openRoute)).rows()))
         SearchTab.ETH -> if (needle.isEmpty()) emptyList() else chainTabSections(needle, view, Networks.EIP155, ::openRoute)
@@ -96,20 +98,20 @@ internal fun SearchRoute(
 }
 
 /** The Main tab: the address row when a whole address is pasted, then the coins, the accounts and the chains, each under its own label. */
-private fun mainSections(query: String, view: WalletsView, openRoute: (String) -> Unit): List<SearchSection> {
-    val wallet = view.wallets.firstOrNull()
-    val addressRows = if (wallet != null && looksLikeAddress(query)) {
+private fun mainSections(query: String, view: WalletsView, wallet: PairedWallet?, openRoute: (String) -> Unit): List<SearchSection> = listOfNotNull(
+    section(null, addressRows(query, wallet, openRoute)),
+    section("Tokens", matching(query, coinEntries(view, openRoute)).rows()),
+    section("Your Accounts", matching(query, accountEntries(view, openRoute)).rows()),
+    section("Chains", matching(query, chainEntries(view, openRoute)).rows()),
+)
+
+/** The address row of the Main tab: a whole address that is pasted opens the wallet the profile panel chose, when there is one. */
+internal fun addressRows(query: String, wallet: PairedWallet?, openRoute: (String) -> Unit): List<SearchRow> =
+    if (wallet != null && looksLikeAddress(query)) {
         listOf(SearchRow(key = "send-to-address", title = "Send to This Address", detail = groupAddress(query), onOpen = { openRoute(LumioRoute.wallet(wallet.id)) }))
     } else {
         emptyList()
     }
-    return listOfNotNull(
-        section(null, addressRows),
-        section("Tokens", matching(query, coinEntries(view, openRoute)).rows()),
-        section("Your Accounts", matching(query, accountEntries(view, openRoute)).rows()),
-        section("Chains", matching(query, chainEntries(view, openRoute)).rows()),
-    )
-}
 
 /** The ETH and SOL tabs: the coins and the accounts on the chains of [namespace], grouped under their own labels. */
 private fun chainTabSections(query: String, view: WalletsView, namespace: String, openRoute: (String) -> Unit): List<SearchSection> = listOfNotNull(

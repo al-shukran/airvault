@@ -106,6 +106,9 @@ internal fun AccountScreen(
     val heroText = balance?.let { "${HomeFormat.coins(it.balance)} ${it.symbol}" }
     val usd = assets.firstOrNull { it.isNative }?.usd
     var tab by rememberSaveable { mutableStateOf(AccountTab.ASSETS) }
+    var showSmall by rememberSaveable { mutableStateOf(false) }
+    // The assets that Hide Small Balances leaves out of the list. The total above counts every asset.
+    val listed = if (showSmall) assets else assets.filterNot { hidesSmall(it.usd) }
     ClearAirRefreshBox(refreshByPull = refreshByPull, onRefresh = onRefresh, modifier = modifier.fillMaxSize()) {
         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = ClearAirSpacing.md)) {
             item(key = "identity") {
@@ -141,11 +144,13 @@ internal fun AccountScreen(
             when (tab) {
                 AccountTab.ASSETS -> assetItems(
                     account = account,
-                    assets = assets.filterNot { hidesSmall(it.usd) },
+                    assets = listed,
+                    hiddenSmall = assets.size - listed.size,
                     loadingAssets = loadingAssets,
                     showBalance = showBalance,
                     onAsset = onAsset,
                     onAddAsset = onAddAsset,
+                    onShowSmall = { showSmall = true },
                 )
                 AccountTab.ACTIVITY -> activityItems(
                     account = account,
@@ -250,14 +255,19 @@ private fun AccountActions(empty: Boolean, online: Boolean, onSend: () -> Unit, 
     }
 }
 
-/** The assets of the account: one row each, a bar for each row a read has not landed, and "Add Asset" for an Algorand account. */
+/**
+ * The assets of the account: one row each, a bar for each row a read has not landed, and "Add Asset" for an Algorand account. When Hide Small Balances
+ * leaves out every asset, the line says how many are hidden, and Show lists them ([hiddenSmall] counts the ones left out).
+ */
 private fun LazyListScope.assetItems(
     account: WalletAccount,
     assets: List<AssetRowModel>,
+    hiddenSmall: Int,
     loadingAssets: Boolean,
     showBalance: Boolean,
     onAsset: (AssetRowModel) -> Unit,
     onAddAsset: (() -> Unit)?,
+    onShowSmall: () -> Unit,
 ) {
     if (assets.isEmpty()) {
         item(key = "assets-empty") {
@@ -266,6 +276,8 @@ private fun LazyListScope.assetItems(
                     LoadingRow()
                     LoadingRow()
                 }
+            } else if (hiddenSmall > 0) {
+                HiddenSmallLine(count = hiddenSmall, onShow = onShowSmall)
             } else {
                 EmptyLine(if (account.balance == null) NOT_READ else "No assets yet.")
             }
@@ -320,6 +332,19 @@ private fun AssetValue(asset: AssetRowModel, shown: Boolean) {
         asset.usd?.let { usd ->
             ClearAirAmount(text = LocalFiat.current.amount(usd), hidden = !shown, style = ClearAirType.label, color = LocalClearAirPalette.current.ink2)
         }
+    }
+}
+
+/** The count of the assets that Hide Small Balances leaves out, with Show as the text action that lists them, as the activity's spam line does. */
+@Composable
+private fun HiddenSmallLine(count: Int, onShow: () -> Unit) {
+    val noun = if (count == 1) "small asset" else "small assets"
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = "$count $noun hidden", style = ClearAirType.body, color = LocalClearAirPalette.current.ink2, modifier = Modifier.weight(1f))
+        ClearAirTextAction(text = "Show", onClick = onShow)
     }
 }
 

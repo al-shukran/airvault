@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import app.lensly.ui.theme.ClearAirTheme
+import app.lumio.home.Masking
 import app.lumio.portfolio.PortfolioFilter
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -24,7 +25,7 @@ class PortfolioEmptyStateTest {
     private var switched = 0
     private var received = 0
 
-    private fun show(testnet: Boolean, otherSide: OtherSide?, onReceive: (() -> Unit)?) {
+    private fun show(testnet: Boolean, otherSide: OtherSide?, onReceive: (() -> Unit)?, showBalance: Boolean = true) {
         compose.setContent {
             ClearAirTheme {
                 PortfolioScreen(
@@ -33,7 +34,7 @@ class PortfolioEmptyStateTest {
                     onFilter = {},
                     walletName = "Air 1",
                     accounts = emptyMap(),
-                    showBalance = true,
+                    showBalance = showBalance,
                     testnet = testnet,
                     recent = emptyList(),
                     names = emptyMap(),
@@ -62,6 +63,20 @@ class PortfolioEmptyStateTest {
         assertEquals(1, received)
         compose.onNodeWithText("12.5 MON on Testnet").performClick()
         assertEquals(1, switched)
+    }
+
+    @Test
+    fun aHiddenBalanceMasksTheOtherSideAmountAndKeepsItsSideAndNetwork() {
+        show(
+            testnet = false,
+            otherSide = OtherSide(amount = "12.5 MON", network = "Monad Testnet", testnet = true, onSwitch = { switched++ }),
+            onReceive = null,
+            showBalance = false,
+        )
+
+        compose.onNodeWithText("12.5 MON on Testnet").assertDoesNotExist()
+        compose.onNodeWithText("${Masking.MASK} on Testnet").assertIsDisplayed()
+        compose.onNodeWithText("Monad Testnet · tap to switch sides").assertIsDisplayed()
     }
 
     @Test
