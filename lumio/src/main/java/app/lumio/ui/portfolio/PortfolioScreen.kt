@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,6 +61,7 @@ import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSheet
 import app.lumio.ui.kit.ClearAirTestnetHatch
 import app.lumio.ui.kit.ClearAirTextAction
+import app.lumio.ui.kit.HiddenSmallLine
 import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.transactions.ActivityRowItem
 import java.time.ZoneId
@@ -87,6 +89,7 @@ fun PortfolioScreen(
     onReceive: (() -> Unit)? = null,
 ) {
     var picker by remember { mutableStateOf<SentencePicker?>(null) }
+    var showSmall by rememberSaveable { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = ClearAirSpacing.xxl)) {
         ClearAirEyebrow(text = "$walletName · Total Balance", modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs))
         if (holdings == null) return@Column
@@ -115,13 +118,16 @@ fun PortfolioScreen(
                 modifier = Modifier.padding(top = ClearAirSpacing.md),
             )
             // Small balances are left out of the list only: the total above still counts every asset.
-            for (row in PortfolioView.rows(holdings, filter).filterNot { hidesSmall(it.usd) }) {
+            val rows = PortfolioView.rows(holdings, filter)
+            val listed = if (showSmall) rows else rows.filterNot { hidesSmall(it.usd) }
+            for (row in listed) {
                 ClearAirRow(
                     title = row.title,
                     description = describe(row, showBalance),
                     trailing = { RowValue(row = row, shown = showBalance) },
                 )
             }
+            if (listed.isEmpty() && rows.isNotEmpty()) HiddenSmallLine(count = rows.size, onShow = { showSmall = true })
         }
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = ClearAirSpacing.gutter, end = ClearAirSpacing.gutter, top = ClearAirSpacing.xl),

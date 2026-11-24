@@ -1,5 +1,6 @@
 package app.lumio.data.config
 
+import app.lumio.data.provider.FiatQuote
 import java.util.Locale
 
 /**
@@ -23,6 +24,18 @@ enum class FiatCurrency(val code: String, val title: String, val symbol: String,
 
 /** How many units of [currency] one US dollar buys. It is kept with its currency, so it is never applied to another one. */
 data class FiatRate(val currency: FiatCurrency, val perUsd: Double)
+
+/** A rate read longer ago than this is not used, so amounts show in US dollars until a newer rate is read. No marker says that a rate was old. */
+private const val FIAT_RATE_MAX_AGE_MS = 24 * 60 * 60 * 1_000L
+
+/**
+ * The rate of [currency] in [quote] as of [nowMs]. Null when the quote has no rate for the currency, or when it was read more than [FIAT_RATE_MAX_AGE_MS]
+ * before [nowMs], so the amounts fall back to US dollars rather than use a stale rate.
+ */
+fun fiatRateOf(quote: FiatQuote, currency: FiatCurrency, nowMs: Long): FiatRate? {
+    val perUsd = quote.perUsd[currency.code] ?: return null
+    return if (nowMs - quote.asOfMs > FIAT_RATE_MAX_AGE_MS) null else FiatRate(currency, perUsd)
+}
 
 /**
  * The currency that amounts show in, and how many of its units one US dollar buys. It is built with [of], which falls back to US dollars when no rate is

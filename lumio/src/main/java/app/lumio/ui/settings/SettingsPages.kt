@@ -44,10 +44,17 @@ fun SettingsFrame(
     }
 }
 
-/** The frame of one settings page: [SettingsFrame] under the page's own title. */
+/** The frame of one settings page: [SettingsFrame] under the page's own title, and its back arrow to [backLabel]. */
 @Composable
-fun SettingsPageScreen(page: SettingsPage, offline: String?, onBack: () -> Unit, onLock: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    SettingsFrame(title = page.title, offline = offline, onBack = onBack, onLock = onLock, content = content)
+fun SettingsPageScreen(
+    page: SettingsPage,
+    offline: String?,
+    onBack: () -> Unit,
+    onLock: () -> Unit,
+    backLabel: String = SETTINGS_BACK,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    SettingsFrame(title = page.title, offline = offline, onBack = onBack, onLock = onLock, backLabel = backLabel, content = content)
 }
 
 /** A group of a settings page: its eyebrow, then its rows. */
@@ -86,8 +93,15 @@ fun DisplaySettingsPage(
 
 /** The Networks page: the Esplora server of each Bitcoin network, then the Ethereum chains. Each part draws its own controls. */
 @Composable
-fun NetworksSettingsPage(offline: String?, onBack: () -> Unit, onLock: () -> Unit, bitcoin: @Composable () -> Unit, ethereum: @Composable () -> Unit) {
-    SettingsPageScreen(SettingsPage.NETWORKS, offline, onBack, onLock) {
+fun NetworksSettingsPage(
+    offline: String?,
+    onBack: () -> Unit,
+    onLock: () -> Unit,
+    bitcoin: @Composable () -> Unit,
+    ethereum: @Composable () -> Unit,
+    backLabel: String = SETTINGS_BACK,
+) {
+    SettingsPageScreen(SettingsPage.NETWORKS, offline, onBack, onLock, backLabel = backLabel) {
         SettingsGroup(title = "Bitcoin") { bitcoin() }
         SettingsGroup(title = "Ethereum") { ethereum() }
     }
@@ -232,5 +246,5 @@ fun TransactionsSettingsPage(
     }
 }
 
-/** The back label of every settings page: the list it returns to. */
-private const val SETTINGS_BACK = "Settings"
+/** The back label of a settings page opened from Settings: the list it returns to. A page opened from elsewhere names the screen it returns to. */
+internal const val SETTINGS_BACK = "Settings"

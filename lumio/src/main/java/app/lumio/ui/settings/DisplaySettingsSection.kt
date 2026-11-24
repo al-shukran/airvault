@@ -22,6 +22,7 @@ import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSheet
 import app.lumio.ui.kit.ClearAirStopSlider
 import app.lumio.ui.kit.ClearAirSwitchRow
+import app.lumio.ui.kit.LocalFiat
 
 /**
  * The Display settings: what the wallet screens show. Each switch, choice and slider reports its new value at once. [notice] shows a change that the
@@ -80,7 +81,8 @@ fun DisplaySettingsSection(
         )
     }
     val stops = DisplaySettings.SMALL_BALANCE_STOPS
-    val threshold = FiatCurrency.USD.format(settings.smallBalanceUsd)
+    // The threshold is held in US dollars and shown in the chosen currency, which falls back to US dollars while no rate is known.
+    val threshold = LocalFiat.current.amount(settings.smallBalanceUsd)
     SettingsGroup(title = "Hide Small Balances · $threshold") {
         ClearAirStopSlider(
             // Only the ends are labelled. The title above carries the value, and the track has a stop for each fifty cents.

@@ -6,10 +6,12 @@ import app.lensly.core.registry.TokenEntry
 import app.lumio.chains.ChainHolding
 import app.lumio.data.asset.AssetId
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.price.Price
 import app.lumio.data.tx.LumioTx
 import app.lumio.home.HomeFormat
 import app.lumio.home.NativeAsset
+import app.lumio.send.algorand.VERIFIED_ASSETS
 import app.lumio.tokens.TokenHolding
 import app.lumio.transactions.evmNetwork
 import app.lumio.ui.home.AssetIconSpec
@@ -59,6 +61,31 @@ internal object AssetRows {
     ): List<AssetRowModel> {
         val native = account.balance?.let { nativeRow(it, account.networkName, prices, network) }
         return listOfNotNull(native) + tokens.map { tokenRow(it, prices, network, token) } + holdings.map(::holdingRow)
+    }
+
+    /**
+     * The row of the Algorand asset [assetKey] for [account], when the account has no row for it: an asset it holds nothing of, or has not opted in to.
+     * Search opens such an asset's page, which has no balance and no price, and Receive on it offers the opt-in. Null unless [account] is an Algorand
+     * account and [assetKey] is an asset ID.
+     */
+    fun unheldAlgorandRow(account: WalletAccount, assetKey: String): AssetRowModel? {
+        val assetId = assetKey.toULongOrNull()?.takeIf { it > 0UL } ?: return null
+        if (account.namespace != Networks.ALGORAND) return null
+        val testnet = account.id.chainId == Networks.ALGO_TESTNET
+        val symbol = VERIFIED_ASSETS.firstOrNull { it.assetId == assetId && it.testnet == testnet }?.symbol ?: "ASA $assetId"
+        return AssetRowModel(
+            assetKey = assetKey,
+            symbol = symbol,
+            name = symbol,
+            network = account.networkName,
+            amountText = "0",
+            usd = null,
+            icon = AssetIconSpec.Letter(letterOf(symbol)),
+            assetId = null,
+            isNative = false,
+            testnet = testnet,
+            zero = true,
+        )
     }
 
     /** The prices that [account] and its [tokens] can have, the native coin first. */

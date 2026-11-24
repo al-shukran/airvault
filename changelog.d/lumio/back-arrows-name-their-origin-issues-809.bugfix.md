@@ -1,0 +1,1 @@
+The back arrow of the Data Providers, Provider, Networks and Add Custom Network pages names the screen that it returns to, so a page opened from Explore or Search no longer says Settings, and Add Custom Network opened from Test Networks says Test Networks.

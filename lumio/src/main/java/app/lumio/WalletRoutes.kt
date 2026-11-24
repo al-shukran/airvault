@@ -26,12 +26,16 @@ import app.lumio.data.config.TransactionSettings
 import app.lumio.data.net.Networks
 import app.lumio.data.price.ChartRange
 import app.lumio.data.price.PriceSeries
+import app.lumio.data.provider.algorand.ALGORAND_MAINNET
+import app.lumio.data.provider.algorand.ALGORAND_TESTNET
 import app.lumio.network.NetworkMode
 import app.lumio.network.NetworkModeStore
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
 import app.lumio.portfolio.PortfolioReads
 import app.lumio.receive.ReceiveAnswers
+import app.lumio.send.algorand.AlgorandAssets
+import app.lumio.send.algorand.optedInAssets
 import app.lumio.transactions.TxFeedItem
 import app.lumio.transactions.TxSync
 import app.lumio.transactions.TxSyncPlan
@@ -326,6 +330,8 @@ internal fun AssetRoute(
     var receive by remember { mutableStateOf<ReceiveAnswers?>(null) }
     var receiveOpen by remember { mutableStateOf(false) }
     var receiveOpening by remember { mutableIntStateOf(0) }
+    var receiveOptedIn by remember { mutableStateOf<Boolean?>(null) }
+    val receiveScope = rememberCoroutineScope()
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
     LaunchedEffect(session == null) {
@@ -345,7 +351,9 @@ internal fun AssetRoute(
         return
     }
     val reads = remember(board, account, mode) { board.readsOf(account, mode) }
+    // An Algorand asset with no row, which Search opens, is its unheld row once the reads have landed: the account holds nothing of it, or has not opted in.
     val asset = rememberAssetRows(app, account, reads).firstOrNull { it.assetKey == assetKey }
+        ?: AssetRows.unheldAlgorandRow(account, assetKey)?.takeIf { reads.tokens != null && reads.holdings != null }
     if (asset == null) {
         if (reads.tokens == null || reads.holdings == null) {
             WalletLoadingScreen(onBack = { navController.popBackStack() })
@@ -379,6 +387,8 @@ internal fun AssetRoute(
                     opening = receiveOpening,
                     start = start,
                     assets = emptyList(),
+                    optedIn = receiveOptedIn,
+                    onOptIn = { assetId -> navController.navigate(LumioRoute.algorandOptIn(walletId, account.id, assetId)) },
                     onClose = { receiveOpen = false },
                 )
             }
@@ -392,13 +402,30 @@ internal fun AssetRoute(
             names = names,
             onSend = { navController.navigate(assetSendRoute(account, asset, mode)) },
             onReceive = {
-                receive = receiveStartOf(asset, account, view.wallets)
+                val start = receiveStartOf(asset, account, view.wallets)
+                receive = start
                 receiveOpening++
                 receiveOpen = true
+                // The opt-in of an Algorand asset is read as the Receive opens, and the capsule stays Copy Address until the answer lands.
+                receiveOptedIn = null
+                start.coin?.algorandAssetId?.let { assetId ->
+                    receiveScope.launch { receiveOptedIn = algorandOptedIn(app, session, mode, account.address, assetId) }
+                }
             },
             onOpenTransaction = { item -> navController.navigate(LumioRoute.transaction(walletId, item.tx.account, item.tx.id)) },
         )
     }
+}
+
+/**
+ * Whether [address] has opted in to the Algorand asset [assetId] on the Algorand side of [mode], read from the network now. It is null when the read
+ * fails, so the Receive keeps its Copy Address.
+ */
+private suspend fun algorandOptedIn(app: LumioApp, session: VaultSession, mode: NetworkMode, address: String, assetId: ULong): Boolean? {
+    val network = if (mode.holds(ALGORAND_TESTNET.testnet)) ALGORAND_TESTNET else ALGORAND_MAINNET
+    return runCatching {
+        withContext(Dispatchers.IO) { AlgorandAssets.optedIn(assetId, optedInAssets(app.nativeSchedulerFor(session), network, address)) }
+    }.getOrNull()
 }
 
 /**

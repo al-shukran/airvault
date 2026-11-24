@@ -7,7 +7,8 @@ import app.lumio.ui.home.AssetIconSpec
 
 /**
  * A coin the Receive picker offers. [held] puts it under Your Assets, and [subtitle] is the line under its name. [networks] are the networks it is
- * native on, and [networkNote] is the line under the network choices, such as the bridged-asset rule.
+ * native on, and [networkNote] is the line under the network choices, such as the bridged-asset rule. [algorandAssetId] is the ID of the Algorand asset when
+ * the coin is one, so that its Receive can ask whether the account has opted in to it.
  */
 internal data class ReceiveCoin(
     val symbol: String,
@@ -17,7 +18,24 @@ internal data class ReceiveCoin(
     val icon: AssetIconSpec,
     val networks: List<ReceiveNetwork>,
     val networkNote: String? = null,
+    val algorandAssetId: ULong? = null,
 )
+
+/** The capsule under the address of a Receive: Copy Address, or Opt In First for an Algorand asset the account has not opted in to. */
+internal sealed interface ReceiveCapsule {
+    data object CopyAddress : ReceiveCapsule
+
+    data class OptInFirst(val assetId: ULong) : ReceiveCapsule
+}
+
+/**
+ * The capsule of a Receive of [coin] into an account whose opt-in to the coin's asset is [optedIn]. Only a confirmed "not opted in" asks for the opt-in:
+ * a null answer, while the read runs or after it fails, and an opted-in account both keep Copy Address, so Receive never waits on the network.
+ */
+internal fun receiveCapsuleOf(coin: ReceiveCoin, optedIn: Boolean?): ReceiveCapsule {
+    val assetId = coin.algorandAssetId
+    return if (assetId != null && optedIn == false) ReceiveCapsule.OptInFirst(assetId) else ReceiveCapsule.CopyAddress
+}
 
 /**
  * A network a coin is native on, with the [accounts] that can take the coin there. [name] is the row's words, such as "Base L2 on Ethereum", and [label]

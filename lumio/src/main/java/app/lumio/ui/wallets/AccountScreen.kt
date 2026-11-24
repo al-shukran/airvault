@@ -48,6 +48,7 @@ import app.lumio.ui.kit.ClearAirRefreshBox
 import app.lumio.ui.kit.ClearAirSkeleton
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.ClearAirTextTabs
+import app.lumio.ui.kit.HiddenSmallLine
 import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.kit.LumioAssetIcon
 import app.lumio.ui.kit.rememberCopyAction
@@ -332,19 +333,6 @@ private fun AssetValue(asset: AssetRowModel, shown: Boolean) {
         asset.usd?.let { usd ->
             ClearAirAmount(text = LocalFiat.current.amount(usd), hidden = !shown, style = ClearAirType.label, color = LocalClearAirPalette.current.ink2)
         }
-    }
-}
-
-/** The count of the assets that Hide Small Balances leaves out, with Show as the text action that lists them, as the activity's spam line does. */
-@Composable
-private fun HiddenSmallLine(count: Int, onShow: () -> Unit) {
-    val noun = if (count == 1) "small asset" else "small assets"
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(text = "$count $noun hidden", style = ClearAirType.body, color = LocalClearAirPalette.current.ink2, modifier = Modifier.weight(1f))
-        ClearAirTextAction(text = "Show", onClick = onShow)
     }
 }
 
