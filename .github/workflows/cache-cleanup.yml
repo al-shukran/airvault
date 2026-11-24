@@ -24,7 +24,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -uo pipefail
-          gh cache list --limit 100 --json id,ref --jq '.[] | select(.ref | test("^refs/pull/[0-9]+/merge$")) | "\(.id) \(.ref)"' \
+          gh api --paginate "repos/$GH_REPO/actions/caches?per_page=100" \
+            --jq '.actions_caches[] | select(.ref | test("^refs/pull/[0-9]+/merge$")) | "\(.id) \(.ref)"' \
             | while read -r id ref; do
                 number=${ref#refs/pull/}
                 number=${number%/merge}
