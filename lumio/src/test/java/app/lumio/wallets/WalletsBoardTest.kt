@@ -37,6 +37,7 @@ import app.lumio.watchlist.WatchlistStore
 import com.sparrowwallet.hummingbird.UR
 import java.io.File
 import java.math.BigInteger
+import kotlin.concurrent.thread
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -177,6 +178,34 @@ class WalletsBoardTest {
         release.complete(Unit)
         settle()
 
+        assertNull(board.watchlists[wallet.id])
+
+        board.close()
+        database.close()
+        session.close()
+    }
+
+    @Test
+    fun aDeletionOnAWorkerThreadChangesTheBoardOnlyWhenTheMainThreadRunsIt() {
+        val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 13 + 7).toByte() })
+        val database = LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "worker.db"))
+        val vault = LumioVault(session, database)
+        val app = RuntimeEnvironment.getApplication() as LumioApp
+        PairedWallets.save(session, pairing(), nowMs = 100L)
+        val wallet = PairedWallets.list(session).single()
+        val starred = WalletWatchlist(assets = listOf(WatchedAsset(NetworkId(Networks.evm(10143), testnet = true))))
+        WatchlistStore.write(session, wallet.id, starred)
+        val board = WalletsBoard(app, vault, repository = PriceRepository(app.priceScheduler) { vault.cache }) { emptyMap<AssetId, Price>() }
+        vault.wallets = board
+        board.showSide(mode, listVersion = 0)
+        assertEquals(starred, await { board.watchlists[wallet.id] })
+
+        // The vault's deletion runs on Dispatchers.IO, so the forget comes from a worker thread. The board's state is the main thread's, so the worker
+        // must leave the change to Main: the list stays until the main looper runs.
+        thread { runBlocking { removeWalletHistory(vault, wallet) } }.join()
+        assertEquals(starred, board.watchlists[wallet.id])
+
+        shadowOf(Looper.getMainLooper()).idle()
         assertNull(board.watchlists[wallet.id])
 
         board.close()

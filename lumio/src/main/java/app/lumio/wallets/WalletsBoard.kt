@@ -289,10 +289,15 @@ internal class WalletsBoard(
         refreshMarket()
     }
 
-    /** Drops the watchlist of [walletId] from memory when the wallet is deleted, so a wallet paired again under the same id starts from the vault's copy. */
+    /**
+     * Drops the watchlist of [walletId] from memory when the wallet is deleted, so a wallet paired again under the same id starts from the vault's copy.
+     * The deletion calls it from a background thread, so the change runs on the board's main scope, where the board's state is kept.
+     */
     fun forgetWatchlist(walletId: String) {
-        forgets++
-        watchlists = watchlists - walletId
+        scope.launch {
+            forgets++
+            watchlists = watchlists - walletId
+        }
     }
 
     /** One pass of [refreshMarket]: the market, the watched prices and their day charts. Each read runs off the main thread, and its answer lands here. */
