@@ -38,6 +38,8 @@ import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.evm.SendInput
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirField
+import app.lumio.ui.kit.ClearAirGlyph
+import app.lumio.ui.kit.ClearAirIconButton
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSheet
@@ -126,9 +128,9 @@ private fun SendPageFrame(bottomAction: (@Composable () -> Unit)?, content: @Com
 }
 
 /**
- * The Recipient page, step 1 of 5: one field for an address or a name, with Paste and Scan beside it, then the owner's own accounts and the Address
- * Book, each row showing its address in groups. [error] is the words for a typed value that is not a recipient, and [hint] says what Lumio can
- * tell about it. Continue is disabled until [canContinue], and the hint line says what is missing.
+ * The Recipient page, step 1 of 5: one field for an address or a name, with a clear icon while it holds text and a scan icon at its end, then the
+ * owner's own accounts and the Address Book, each row showing its address in groups. [error] is the words for a typed value that is not a recipient,
+ * and [hint] says what Lumio can tell about it. Continue is disabled until [canContinue], and the hint line says what is missing.
  */
 @Composable
 fun SendRecipientPage(
@@ -140,7 +142,6 @@ fun SendRecipientPage(
     accounts: List<SendChoice>,
     addressBook: List<SendChoice>,
     onPick: (SendChoice) -> Unit,
-    onPaste: () -> Unit,
     onScan: () -> Unit,
     onContinue: () -> Unit,
     backLabel: String,
@@ -172,8 +173,8 @@ fun SendRecipientPage(
             error = error,
             monospace = true,
             trailing = {
-                ClearAirTextAction(text = "Paste", onClick = onPaste)
-                ClearAirTextAction(text = "Scan", onClick = onScan)
+                if (value.isNotEmpty()) ClearAirIconButton(glyph = ClearAirGlyph.CLOSE, label = "Clear", onClick = { onValueChange("") })
+                ClearAirIconButton(glyph = ClearAirGlyph.SCAN, label = "Scan", onClick = onScan)
             },
         )
         Spacer(Modifier.height(ClearAirSpacing.xs))
@@ -395,6 +396,8 @@ fun SendReviewPage(
             Spacer(Modifier.height(ClearAirSpacing.sm))
             ClearAirStatusMark(glyph = "!", text = it, tone = ClearAirTone.Failed)
         }
+        Spacer(Modifier.height(ClearAirSpacing.sm))
+        Text(text = "Lensly shows this same sentence, address and fee next.", style = ClearAirType.body, color = palette.ink2)
     }
 }
 

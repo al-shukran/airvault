@@ -57,6 +57,7 @@ object SolanaAssets {
         require(units.bitLength() < Long.SIZE_BITS) { "The amount is more than all of this coin there is." }
         val token = asset.token
             ?: return SolanaSend.plan(network, account, recipient, units.toLong(), sol, nonceValue, requestId, priority)
+        require(units <= token.amount) { "More than your available ${text(token.amount, token.decimals)} ${asset.symbol}" }
         return SolanaSplSend.plan(
             network, account, recipient, token, units.toLong().toULong(), sol, nonceValue, requestId, recipientAccountExists, rentLamports, priority,
         )

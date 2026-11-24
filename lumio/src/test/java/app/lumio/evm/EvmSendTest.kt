@@ -121,7 +121,7 @@ class EvmSendTest {
     @Test
     fun anAmountThatIsNotAPositiveDecimalInTheChainsUnitsIsRefused() {
         assertEquals("Use at most 18 decimal places for ETH.", refusal { SendInput.amountWei("0.0000000000000000001", 18, "ETH") })
-        assertEquals("The amount must be more than zero.", refusal { SendInput.amountWei("0", 18, "ETH") })
+        assertEquals("Enter an amount above 0", refusal { SendInput.amountWei("0", 18, "ETH") })
         for (bad in listOf("", "-1", "1e3", "1.", ".5", "abc", "1,5")) {
             assertEquals("Enter an amount in ETH, such as 0.01.", refusal { SendInput.amountWei(bad, 18, "ETH") }, "amount '$bad'")
         }

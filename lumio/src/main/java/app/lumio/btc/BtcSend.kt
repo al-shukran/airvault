@@ -350,6 +350,7 @@ internal fun chooseCoins(
         val feeWithout = feeFor(vsizeOf(chosen, false), feeRateSatPerVb)
         if (total - amountSats >= feeWithout) return CoinPick(chosen.toList(), total - amountSats, 0L)
     }
+    if (amountSats > total) throw IllegalArgumentException("More than your available ${btcText(total)}")
     throw IllegalArgumentException("The confirmed balance does not cover this amount and its fee.")
 }
 
@@ -386,6 +387,7 @@ object BtcSendInput {
         val amount = text.trim()
         require(amount.length <= MAX_AMOUNT_CHARS && DECIMAL.matches(amount)) { "Enter an amount in BTC, such as 0.001." }
         val value = BigDecimal(amount)
+        require(value.signum() > 0) { "Enter an amount above 0" }
         require(value <= MAX_BTC) { "The amount is more than all the bitcoin there is." }
         require(value.stripTrailingZeros().scale() <= SAT_DECIMALS) { "Use at most 8 decimal places for BTC." }
         val sats = value.movePointRight(SAT_DECIMALS).toBigIntegerExact().toLong()

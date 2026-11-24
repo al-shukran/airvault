@@ -78,7 +78,10 @@ private val VIEWFINDER_RADIUS = 28.dp
 private val RING_WIDTH = 3.dp
 private val RING_GAP = 6.dp
 
-/** The spark corner brackets: how far they sit inside the viewfinder, how long each arm is, and their stroke. */
+/** The height of the viewfinder, as the Clear Air mock draws the scan (ScanFrame 316). */
+private val SCAN_FRAME_HEIGHT = 316.dp
+
+/** The corner brackets: how far they sit inside the viewfinder, how long each arm is, and their stroke. */
 private val BRACKET_INSET = 16.dp
 private val BRACKET_ARM = 22.dp
 private val BRACKET_WIDTH = 3.dp
@@ -233,7 +236,7 @@ fun LumioScanFrame(
         if (complete) haptics.success()
     }
     LenslyScreen(title = title, modifier = modifier, onBack = onCancel, scrollable = false) {
-        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+        Box(modifier = Modifier.fillMaxWidth().height(SCAN_FRAME_HEIGHT)) {
             viewport(Modifier.fillMaxSize().padding(RING_GAP).clip(RoundedCornerShape(VIEWFINDER_RADIUS)))
             ViewfinderCorners(modifier = Modifier.fillMaxSize().padding(RING_GAP))
             PerimeterRing(fraction = if (complete) 1f else progress ?: 0f, modifier = Modifier.fillMaxSize())
@@ -291,12 +294,12 @@ private fun PerimeterRing(fraction: Float, modifier: Modifier) {
 }
 
 /**
- * The spark corner brackets inside the viewfinder (section 2.1). They breathe between [BREATH_FLOOR] and full while the scan runs, and stay full under
+ * The paper corner brackets inside the viewfinder (section 2.1). They breathe between [BREATH_FLOOR] and full while the scan runs, and stay full under
  * reduced motion. The alpha is read in the draw phase, so a breath redraws the brackets without a recomposition.
  */
 @Composable
 private fun ViewfinderCorners(modifier: Modifier) {
-    val spark = LocalClearAirPalette.current.spark
+    val paper = LocalClearAirPalette.current.paper
     val breath: State<Float>? = if (LocalReducedMotion.current) {
         null
     } else {
@@ -329,7 +332,7 @@ private fun ViewfinderCorners(modifier: Modifier) {
             }
             val style = Stroke(width = BRACKET_WIDTH.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
             onDrawBehind {
-                drawPath(brackets, spark.copy(alpha = breath?.value ?: 1f), style = style)
+                drawPath(brackets, paper.copy(alpha = breath?.value ?: 1f), style = style)
             }
         },
     )

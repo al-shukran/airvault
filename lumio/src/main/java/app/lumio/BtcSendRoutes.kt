@@ -13,7 +13,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import android.widget.Toast
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.NavHostController
@@ -56,6 +55,7 @@ import app.lumio.send.bitcoinLanding
 import app.lumio.send.bitcoinOwnChoices
 import app.lumio.ui.pair.PairLabels
 import app.lumio.ui.send.RECIPIENT_SCAN_HINT
+import app.lumio.ui.send.REPLY_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendAmountPage
 import app.lumio.ui.send.SendChangeRecipientDialog
@@ -69,6 +69,7 @@ import app.lumio.ui.send.SignatureScanScreen
 import app.lumio.ui.send.SignedSendSteps
 import app.lumio.ui.send.SummaryRow
 import app.lumio.ui.send.rememberSendOffline
+import app.lumio.ui.send.replyProgress
 import app.lumio.wallets.WalletAccounts
 import com.sparrowwallet.hummingbird.UR
 import kotlinx.coroutines.Dispatchers
@@ -101,8 +102,6 @@ private sealed interface BtcSendStep {
     class Submit(val plan: BtcSendPlan, val parts: List<String>, val machine: SubmitMachine<*, String>) : BtcSendStep
 }
 
-private const val SCAN_HINT = "Point the camera at the signature that Lensly shows."
-private const val SCAN_READING = "Reading the signature. Keep the camera on it."
 private const val SCAN_READ = "Signature read. Check the transaction, then send it."
 private const val PREPARE_FAILED = "The send could not be prepared. Try again."
 private const val REQUEST_FAILED = "The sign request could not be made. Try again."
@@ -137,7 +136,6 @@ internal fun BtcSendRoute(
     val app = LocalContext.current.applicationContext as LumioApp
     val transactions = rememberTransactions(app)
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
     val offline = rememberSendOffline(app)
     val session = holder.openSession()
     LaunchedEffect(session == null) {
@@ -175,7 +173,7 @@ internal fun BtcSendRoute(
     var recipientStatus by remember { mutableStateOf(RECIPIENT_SCAN_HINT) }
     var scan by remember { mutableStateOf(SignatureScan()) }
     var scanProgress by remember { mutableStateOf<Float?>(null) }
-    var scanStatus by remember { mutableStateOf(SCAN_HINT) }
+    var scanStatus by remember { mutableStateOf(REPLY_SCAN_HINT) }
     var scanBusy by remember { mutableStateOf(false) }
     // The server's fee estimate for the network, and the coins the send may spend. The fee sheet plans again on these.
     var suggestedRate by remember { mutableStateOf<Double?>(null) }
@@ -291,7 +289,7 @@ internal fun BtcSendRoute(
     fun startScan(current: BtcSendStep.Request) {
         scan = SignatureScan()
         scanProgress = null
-        scanStatus = SCAN_HINT
+        scanStatus = REPLY_SCAN_HINT
         notice = null
         step = BtcSendStep.Scanning(current.plan, current.parts)
     }
@@ -329,7 +327,7 @@ internal fun BtcSendRoute(
         when (val result = scan.onText(text)) {
             is SignatureStep.Reading -> {
                 scanProgress = result.fraction
-                scanStatus = SCAN_READING
+                scanStatus = replyProgress(result.received, result.expected)
             }
             is SignatureStep.Complete -> applySignature(current, result.ur)
             SignatureStep.Ignored -> Unit
@@ -400,7 +398,6 @@ internal fun BtcSendRoute(
                     .filter { btcRecipientError(it.address, network) == null }
                     .map { entry -> SendChoice(title = entry.name, detail = entry.label ?: "Address Book", address = entry.address) },
                 onPick = { choice -> recipient = choice.address },
-                onPaste = { clipboard.getText()?.text?.trim()?.let { recipient = it } },
                 onScan = {
                     recipientStatus = RECIPIENT_SCAN_HINT
                     step = BtcSendStep.ScanRecipient
@@ -523,6 +520,7 @@ internal fun BtcSendRoute(
             progress = scanProgress,
             status = scanStatus,
             onText = { text -> onSignatureText(current, text) },
+            onBack = { step = BtcSendStep.Request(current.plan, current.parts) },
             onCancel = { step = BtcSendStep.Declined(current.plan) },
         )
         is BtcSendStep.Declined -> SendDeclinedPage(

@@ -13,7 +13,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.NavHostController
@@ -55,6 +54,7 @@ import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
 import app.lumio.send.solanaOwnChoices
 import app.lumio.ui.send.RECIPIENT_SCAN_HINT
+import app.lumio.ui.send.REPLY_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendAmountPage
 import app.lumio.ui.send.SendChangeRecipientDialog
@@ -70,6 +70,7 @@ import app.lumio.ui.send.SignedSendSteps
 import app.lumio.ui.send.SolanaFeeSheet
 import app.lumio.ui.send.SummaryRow
 import app.lumio.ui.send.rememberSendOffline
+import app.lumio.ui.send.replyProgress
 import app.lumio.wallets.WalletAccounts
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Base58
@@ -117,8 +118,6 @@ internal sealed interface SolanaSendStep {
 }
 
 private const val RECIPIENT_HINT = "Point the camera at a Solana address or a solana: link."
-private const val SCAN_HINT = "Point the camera at the signature that Lensly shows."
-private const val SCAN_READING = "Reading the signature. Keep the camera on it."
 private const val SCAN_READ = "Signature read. Check the transaction, then send it."
 private const val PREPARE_FAILED = "The send could not be prepared. Try again."
 private const val REQUEST_FAILED = "The sign request could not be made. Try again."
@@ -150,7 +149,6 @@ internal fun SolanaSendRoute(
     val app = LocalContext.current.applicationContext as LumioApp
     val transactions = rememberTransactions(app)
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
     val offline = rememberSendOffline(app)
     val session = holder.openSession()
     LaunchedEffect(session == null) {
@@ -192,7 +190,7 @@ internal fun SolanaSendRoute(
     var recipientStatus by remember { mutableStateOf(RECIPIENT_HINT) }
     var scan by remember { mutableStateOf(SignatureScan()) }
     var scanProgress by remember { mutableStateOf<Float?>(null) }
-    var scanStatus by remember { mutableStateOf(SCAN_HINT) }
+    var scanStatus by remember { mutableStateOf(REPLY_SCAN_HINT) }
     var scanBusy by remember { mutableStateOf(false) }
     var sentSignature by remember { mutableStateOf<String?>(null) }
     // The Priority Fee switch of the fee sheet. It is saved, so that a rotation keeps the owner's choice.
@@ -329,7 +327,7 @@ internal fun SolanaSendRoute(
     fun startScan(current: SolanaSendStep.Request) {
         scan = SignatureScan()
         scanProgress = null
-        scanStatus = SCAN_HINT
+        scanStatus = REPLY_SCAN_HINT
         notice = null
         step = SolanaSendStep.Scanning(current.plan, current.parts, current.setup)
     }
@@ -372,7 +370,7 @@ internal fun SolanaSendRoute(
         when (val result = scan.onText(text)) {
             is SignatureStep.Reading -> {
                 scanProgress = result.fraction
-                scanStatus = SCAN_READING
+                scanStatus = replyProgress(result.received, result.expected)
             }
             is SignatureStep.Complete -> applySignature(current, result.ur)
             SignatureStep.Ignored -> Unit
@@ -466,7 +464,6 @@ internal fun SolanaSendRoute(
                     .filter { solanaRecipientError(it.address) == null }
                     .map { entry -> SendChoice(title = entry.name, detail = entry.label ?: "Address Book", address = entry.address) },
                 onPick = { choice -> recipient = choice.address },
-                onPaste = { clipboard.getText()?.text?.trim()?.let { recipient = it } },
                 onScan = {
                     recipientStatus = RECIPIENT_HINT
                     step = SolanaSendStep.ScanRecipient
@@ -633,6 +630,7 @@ internal fun SolanaSendRoute(
             progress = scanProgress,
             status = scanStatus,
             onText = { text -> onSignatureText(current, text) },
+            onBack = { step = SolanaSendStep.Request(current.plan, current.parts, current.setup) },
             onCancel = {
                 step = if (current.setup) SolanaSendStep.Request(current.plan, current.parts, current.setup) else SolanaSendStep.Declined(current.plan)
             },

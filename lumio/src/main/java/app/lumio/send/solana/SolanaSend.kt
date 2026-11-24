@@ -173,10 +173,11 @@ object SolanaSend {
         requestId: ByteArray,
         priority: Boolean = false,
     ): SolanaSendPlan {
-        require(lamports > 0) { "The amount must be more than 0 SOL." }
+        require(lamports > 0) { "Enter an amount above 0" }
+        require(BigInteger.valueOf(lamports) <= balance) { "More than your available ${SolanaSendInput.format(balance)} SOL" }
         val priorityFee = sendPriorityFee(priority)
         val needed = BigInteger.valueOf(lamports) + BigInteger.valueOf(SOLANA_FEE_LAMPORTS + priorityFee + SOLANA_RENT_RESERVE_LAMPORTS)
-        require(balance >= needed) { "This account does not hold enough SOL for the amount, the fee and the rent reserve." }
+        require(balance >= needed) { "This account does not hold enough SOL for the fee and the rent reserve." }
         return SolanaSendPlan(
             network = network,
             account = account,
@@ -342,7 +343,7 @@ object SolanaSendInput {
         val value = BigDecimal(amount)
         require(value.stripTrailingZeros().scale() <= SOL_DECIMALS) { "Use at most 9 decimal places for SOL." }
         val lamports = value.movePointRight(SOL_DECIMALS).toBigIntegerExact()
-        require(lamports.signum() > 0) { "The amount must be more than 0 SOL." }
+        require(lamports.signum() > 0) { "Enter an amount above 0" }
         require(lamports <= BigInteger.valueOf(Long.MAX_VALUE)) { "The amount is more than all the SOL there is." }
         return lamports.toLong()
     }
@@ -354,7 +355,7 @@ object SolanaSendInput {
         val value = BigDecimal(amount)
         require(value.stripTrailingZeros().scale() <= decimals) { "Use at most $decimals decimal places for this token." }
         val units = value.movePointRight(decimals).toBigIntegerExact()
-        require(units.signum() > 0) { "The amount must be more than 0." }
+        require(units.signum() > 0) { "Enter an amount above 0" }
         require(units.bitLength() < Long.SIZE_BITS) { "The amount is more than all of this token there is." }
         return units
     }

@@ -13,7 +13,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.NavHostController
@@ -51,6 +50,7 @@ import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
 import app.lumio.send.algorandOwnChoices
+import app.lumio.ui.send.REPLY_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendAmountPage
 import app.lumio.ui.send.SendChangeRecipientDialog
@@ -66,6 +66,7 @@ import app.lumio.ui.send.SignatureScanScreen
 import app.lumio.ui.send.SignedSendSteps
 import app.lumio.ui.send.SummaryRow
 import app.lumio.ui.send.rememberSendOffline
+import app.lumio.ui.send.replyProgress
 import app.lumio.wallets.WalletAccounts
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
@@ -106,8 +107,6 @@ private sealed interface AlgorandSendStep {
 
 private const val RECIPIENT_HINT = "Point the camera at an Algorand address."
 private const val RECIPIENT_REFUSED = "That code is not an Algorand address. Point the camera at an address."
-private const val SCAN_HINT = "Point the camera at the signature that Lensly shows."
-private const val SCAN_READING = "Reading the signature. Keep the camera on it."
 private const val SCAN_READ = "Signature read. Check the transaction, then send it."
 private const val PREPARE_FAILED = "The send could not be prepared. Try again."
 private const val REQUEST_FAILED = "The sign request could not be made. Try again."
@@ -138,7 +137,6 @@ internal fun AlgorandSendRoute(
     val app = LocalContext.current.applicationContext as LumioApp
     val transactions = rememberTransactions(app)
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
     val offline = rememberSendOffline(app)
     val session = holder.openSession()
     LaunchedEffect(session == null) {
@@ -172,7 +170,7 @@ internal fun AlgorandSendRoute(
     var recipientStatus by remember { mutableStateOf(RECIPIENT_HINT) }
     var scan by remember { mutableStateOf(SignatureScan()) }
     var scanProgress by remember { mutableStateOf<Float?>(null) }
-    var scanStatus by remember { mutableStateOf(SCAN_HINT) }
+    var scanStatus by remember { mutableStateOf(REPLY_SCAN_HINT) }
     var scanBusy by remember { mutableStateOf(false) }
 
     val selected = assets.firstOrNull { it.key == selectedKey } ?: AlgorandAssets.native
@@ -249,8 +247,9 @@ internal fun AlgorandSendRoute(
         busy = true
         notice = null
         scope.launch {
+            val name = addressNotesOf(recipient, ALGORAND_FAMILY, emptyMap(), wallet.addressBook)?.let(::notesName) ?: groupAddress(recipient)
             val outcome = withContext(Dispatchers.IO) {
-                runCatching { reviewPlan(scheduler, network, address, asset, recipient, amount, wallet.fingerprint, accountIndex, signer) }
+                runCatching { reviewPlan(scheduler, network, address, asset, recipient, amount, wallet.fingerprint, accountIndex, signer, name) }
             }
             busy = false
             outcome.fold(
@@ -288,7 +287,7 @@ internal fun AlgorandSendRoute(
     fun startScan(current: AlgorandSendStep.Request) {
         scan = SignatureScan()
         scanProgress = null
-        scanStatus = SCAN_HINT
+        scanStatus = REPLY_SCAN_HINT
         notice = null
         step = AlgorandSendStep.Scanning(current.plan, current.requestId, current.parts)
     }
@@ -329,7 +328,7 @@ internal fun AlgorandSendRoute(
         when (val result = scan.onText(text)) {
             is SignatureStep.Reading -> {
                 scanProgress = result.fraction
-                scanStatus = SCAN_READING
+                scanStatus = replyProgress(result.received, result.expected)
             }
             is SignatureStep.Complete -> applySignature(current, result.ur)
             SignatureStep.Ignored -> Unit
@@ -398,7 +397,6 @@ internal fun AlgorandSendRoute(
                     .filter { AlgorandSend.recipientError(it.address) == null }
                     .map { entry -> SendChoice(title = entry.name, detail = entry.label ?: "Address Book", address = entry.address) },
                 onPick = { choice -> recipient = choice.address },
-                onPaste = { clipboard.getText()?.text?.trim()?.let { recipient = it } },
                 onScan = {
                     recipientStatus = RECIPIENT_HINT
                     step = AlgorandSendStep.ScanRecipient
@@ -448,7 +446,7 @@ internal fun AlgorandSendRoute(
                 networkName = networkLabel,
                 feeText = if (isAlgo) fee?.let { AlgorandFormat.amount(it) } ?: "Reading the network" else "Shown on review",
                 onFee = null,
-                note = keep?.let { "$it ALGO stays reserved. That part is never sent." },
+                note = keep?.let { "$it ALGO stays reserved" },
                 canReview = canReview,
                 onReview = ::review,
                 onChangeRecipient = { changeRecipient = true },
@@ -524,6 +522,7 @@ internal fun AlgorandSendRoute(
             progress = scanProgress,
             status = scanStatus,
             onText = { text -> onSignatureText(current, text) },
+            onBack = { step = AlgorandSendStep.Request(current.plan, current.requestId, current.parts) },
             onCancel = { step = AlgorandSendStep.Declined(current.plan) },
         )
         is AlgorandSendStep.Declined -> SendDeclinedPage(
@@ -590,6 +589,7 @@ internal suspend fun reviewPlan(
     fingerprint: Long,
     accountIndex: Int,
     signer: ByteArray,
+    recipientName: String = recipient,
 ): AlgorandSendPlan {
     val key = AlgorandSend.recipientKey(recipient)
     val units = AlgorandAssets.units(amount, asset.decimals, asset.symbol)
@@ -597,6 +597,7 @@ internal suspend fun reviewPlan(
     val recipientOptedIn = asset.assetId?.let { id ->
         AlgorandAssets.optedIn(id, optedInAssets(scheduler, network, AlgorandAccount.addressOf(key)))
     } ?: true
+    require(recipientOptedIn) { "$recipientName can't receive ${asset.symbol} yet. They must opt in first." }
     return AlgorandAssets.plan(asset, network, funds, fingerprint, accountIndex, signer, key, units, recipientOptedIn)
 }
 
@@ -629,6 +630,6 @@ private fun assetDetail(asset: AlgorandAsset): String = when (val held = asset.h
 private fun amountError(text: String, asset: AlgorandAsset, max: BigInteger?): String? {
     if (text.isBlank()) return null
     val units = runCatching { AlgorandAssets.units(text, asset.decimals, asset.symbol) }.getOrElse { return it.message ?: "Enter an amount in ${asset.symbol}." }
-    if (max != null && units > max) return "More than you can send. The most is ${AlgorandAssets.text(max, asset.decimals)} ${asset.symbol}."
+    if (max != null && units > max) return "More than your available ${AlgorandAssets.text(max, asset.decimals)} ${asset.symbol}"
     return null
 }

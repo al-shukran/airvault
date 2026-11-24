@@ -100,7 +100,7 @@ class EvmSendRpcTest {
         val failure = assertThrows(IllegalArgumentException::class.java) {
             runBlocking { EvmSend.prepare(reads(), chain, from, 0, to, oneCent) }
         }
-        assertEquals(true, failure.message?.startsWith("The balance is"))
+        assertEquals(true, failure.message?.startsWith("More than your available "))
     }
 
     @Test
@@ -179,7 +179,7 @@ class EvmSendRpcTest {
             runBlocking { EvmSend.prepare(reads(), chain, from, 0, to, BigInteger.valueOf(12_500_000L), usdc) }
         }
 
-        assertEquals("The token balance is 10 USDC, but this send is 12.5 USDC.", failure.message)
+        assertEquals("More than your available 10 USDC", failure.message)
         assertEquals(false, methodsCalled().contains("eth_estimateGas"))
     }
 
