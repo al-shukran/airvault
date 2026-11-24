@@ -21,7 +21,7 @@ import app.lumio.ui.kit.ClearAirTextAction
  * factual tags, the networks it serves, and its API key. [keyed] is whether the provider takes a key. [savedTail] is the last four characters of the
  * saved key, or null when none is saved, so the key itself never shows again. [networks] are the names of the networks it serves, in catalogue order,
  * and the page words them with [networkSummary]. A typed key is saved when the owner leaves its field or presses Done, and [onSaveKey] receives it. Its
- * Remove action passes "".
+ * Remove action passes "". [backLabel] names the screen the back arrow returns to.
  */
 @Composable
 fun ProviderPage(
@@ -38,8 +38,9 @@ fun ProviderPage(
     onSaveKey: (String) -> Unit,
     onBack: () -> Unit,
     onLock: () -> Unit,
+    backLabel: String = SETTINGS_BACK,
 ) {
-    SettingsFrame(title = name, offline = offline, onBack = onBack, onLock = onLock) {
+    SettingsFrame(title = name, offline = offline, onBack = onBack, onLock = onLock, backLabel = backLabel) {
         SettingsGroup(title = "Status") {
             ClearAirRow(title = status, description = statusNote)
             ClearAirSwitchRow(

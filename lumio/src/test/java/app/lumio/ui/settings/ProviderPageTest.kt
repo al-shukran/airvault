@@ -2,6 +2,7 @@ package app.lumio.ui.settings
 
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -30,7 +31,7 @@ class ProviderPageTest {
     private val saved = mutableListOf<String>()
     private val switched = mutableListOf<Boolean>()
 
-    private fun show(savedTail: String? = null, enabled: Boolean = true, networks: List<String> = emptyList()) {
+    private fun show(savedTail: String? = null, enabled: Boolean = true, networks: List<String> = emptyList(), backLabel: String = "Settings") {
         compose.setContent {
             LumenTheme {
                 ClearAirTheme {
@@ -48,10 +49,18 @@ class ProviderPageTest {
                         onSaveKey = { saved += it },
                         onBack = {},
                         onLock = {},
+                        backLabel = backLabel,
                     )
                 }
             }
         }
+    }
+
+    @Test
+    fun theBackArrowNamesTheScreenItReturnsTo() {
+        show(backLabel = "Explore")
+
+        compose.onNodeWithContentDescription("Back to Explore").assertExists()
     }
 
     @Test

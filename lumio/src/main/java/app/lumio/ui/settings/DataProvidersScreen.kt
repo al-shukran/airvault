@@ -39,8 +39,9 @@ fun DataProvidersScreen(
     preferRpc: Boolean = false,
     onPreferRpc: (Boolean) -> Unit = {},
     prices: List<ProviderRow> = emptyList(),
+    backLabel: String = SETTINGS_BACK,
 ) {
-    SettingsFrame(title = "Data Providers", offline = offline, onBack = onBack, onLock = onLock) {
+    SettingsFrame(title = "Data Providers", offline = offline, onBack = onBack, onLock = onLock, backLabel = backLabel) {
         ClearAirNote(
             text = stringResource(R.string.providers_intro),
             modifier = Modifier.padding(top = ClearAirSpacing.md, start = ClearAirSpacing.gutter, end = ClearAirSpacing.gutter),

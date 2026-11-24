@@ -75,6 +75,7 @@ internal fun ProviderRoute(navController: NavHostController, holder: VaultHolder
         onSaveKey = { key -> change { vault.updateConfigs { saved -> withApiKey(ProviderCatalog.withDefaults(saved), id, key) } } },
         onBack = { navController.popBackStack() },
         onLock = onLock,
+        backLabel = navController.backLabel(),
     )
 }
 

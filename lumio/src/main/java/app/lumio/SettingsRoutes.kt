@@ -217,6 +217,7 @@ private fun NetworksSettingsRoute(navController: NavHostController, holder: Vaul
         onLock = onLock,
         bitcoin = { BitcoinSettingsRoute(navController = navController, holder = holder) },
         ethereum = { EvmSettingsRoute(navController = navController, holder = holder) },
+        backLabel = navController.backLabel(),
     )
 }
 
