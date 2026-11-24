@@ -22,7 +22,7 @@ class SettingsSummariesTest {
 
     @Test
     fun theTransactionsRowNamesTheSpamAndTheLastChancePause() {
-        assertEquals("Spam hidden · 3 s last chance before sending", transactionsSummary(TransactionSettings()))
+        assertEquals("Spam hidden · 60 s last chance before sending", transactionsSummary(TransactionSettings()))
         assertEquals("Spam shown · 10 s last chance before sending", transactionsSummary(TransactionSettings(hideSpam = false, lastChanceSeconds = 10)))
         assertEquals("Spam hidden · sends at once", transactionsSummary(TransactionSettings(lastChanceSeconds = 0)))
     }

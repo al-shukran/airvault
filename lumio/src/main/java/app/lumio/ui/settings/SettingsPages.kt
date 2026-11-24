@@ -228,10 +228,10 @@ fun TransactionsSettingsPage(
             checked = settings.hideSpam,
             onCheckedChange = onHideSpam,
         )
-        val choices = TransactionSettings.LAST_CHANCE_RANGE.toList()
+        val choices = TransactionSettings.LAST_CHANCE_CHOICES
         SettingsGroup(title = "Last Chance before Sending · ${settings.lastChanceSeconds} s") {
             ClearAirStopSlider(
-                // Only the ends are labelled. The title above carries the value, and the track has a stop for each second.
+                // Only the ends are labelled. The title above carries the value, and the track has a stop for each choice.
                 labels = choices.map { if (it == choices.first() || it == choices.last()) "$it s" else "" },
                 selected = choices.indexOf(settings.lastChanceSeconds).coerceAtLeast(0),
                 onSelect = { index -> onLastChance(choices[index]) },

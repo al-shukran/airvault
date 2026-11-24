@@ -22,10 +22,10 @@ data class TransactionSettings(
 
     companion object {
         /** The default pause before a send is broadcast, in seconds. */
-        const val DEFAULT_LAST_CHANCE_SECONDS = 3
+        const val DEFAULT_LAST_CHANCE_SECONDS = 60
 
-        /** The choices of the Last Chance pause, in seconds: one stop for each whole second. */
-        val LAST_CHANCE_RANGE: IntRange = 0..10
+        /** The choices of the Last Chance pause, in seconds, up to five minutes, so there is ample time to stop a signed send. */
+        val LAST_CHANCE_CHOICES: List<Int> = listOf(0, 1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 300)
     }
 }
 
@@ -37,8 +37,8 @@ object TransactionSettingsStore {
     private val json = Json
 
     /**
-     * The settings stored in [session], or the defaults when none are stored or the record does not parse. A pause outside
-     * [TransactionSettings.LAST_CHANCE_RANGE] reads as the default pause.
+     * The settings stored in [session], or the defaults when none are stored or the record does not parse. A pause not among
+     * [TransactionSettings.LAST_CHANCE_CHOICES] reads as the default pause.
      */
     fun read(session: VaultSession): TransactionSettings {
         val bytes = session.getVaultRecord(RECORD) ?: return TransactionSettings()
@@ -47,7 +47,7 @@ object TransactionSettingsStore {
         } catch (e: SerializationException) {
             return TransactionSettings()
         }
-        val seconds = stored.lastChanceSeconds.takeIf { it in TransactionSettings.LAST_CHANCE_RANGE } ?: TransactionSettings.DEFAULT_LAST_CHANCE_SECONDS
+        val seconds = stored.lastChanceSeconds.takeIf { it in TransactionSettings.LAST_CHANCE_CHOICES } ?: TransactionSettings.DEFAULT_LAST_CHANCE_SECONDS
         return stored.copy(lastChanceSeconds = seconds)
     }
 
