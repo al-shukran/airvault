@@ -4,6 +4,8 @@ import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -119,6 +121,75 @@ class VaultWipeRecoveryTest {
         assertEquals(CreateResult.Created, runBlocking { relaunched.create(APP.toCharArray()) })
     }
 
+    @Test
+    fun aProcessThatStoppedBeforeItsKeysIsFinishedWithTheKeys() {
+        createVault()
+        // The process stopped right after the marker was written: the keys and every file are still there, and the vault is already hidden.
+        layout.wipeMarker.writeBytes(ByteArray(0))
+        assertFalse(vault.exists())
+        assertRejected(attempt(APP))
+
+        assertTrue(runBlocking { vault.finishPendingWipe() })
+
+        assertNull(keys.folderKeyIds().firstOrNull())
+        assertEquals(0, keys.failureMacKeyCount())
+        assertFailsWith<VaultException> { keys.hardwareKey() }
+        assertFalse(layout.root.exists())
+    }
+
+    @Test
+    fun aProcessThatStoppedAfterTheLastFileIsFinished() {
+        createVault()
+        // Every key and file went, and the process stopped before the marker did.
+        keys.deleteAll()
+        layout.root.listFiles()!!.forEach { it.deleteRecursively() }
+        layout.wipeMarker.writeBytes(ByteArray(0))
+
+        assertTrue(runBlocking { vault.finishPendingWipe() })
+
+        assertFalse(layout.root.exists())
+        assertTrue(vault.isBeforeSetup())
+    }
+
+    @Test
+    fun theDuressPasswordOpensNothingWhileAnEraseIsPending() {
+        createVault()
+        val real = unlocked(attempt(APP))
+        assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { it.createWallet() } })
+        real.close()
+        layout.wipeMarker.writeBytes(ByteArray(0))
+
+        assertRejected(attempt(DURESS))
+        assertTrue(runBlocking { vault.finishPendingWipe() })
+        assertRejected(attempt(DURESS))
+        assertFalse(layout.root.exists())
+    }
+
+    @Test
+    fun theFinishRunsTheAppsEraseOnlyWhenAnEraseWasPending() {
+        var erased = 0
+        val withHook = Vault(layout, keys, clock, KDF, onErased = { erased++ })
+        createVault()
+
+        assertTrue(runBlocking { withHook.finishPendingWipe() })
+        assertEquals(0, erased)
+
+        layout.wipeMarker.writeBytes(ByteArray(0))
+        assertTrue(runBlocking { withHook.finishPendingWipe() })
+        // The app's stores outside the vault go too, even when the process died before the caller of the erase reached them.
+        assertEquals(1, erased)
+    }
+
+    @Test
+    fun aKeyFailureOfAnyKindStillRemovesEveryFile() {
+        createVault()
+
+        val failure = assertFailsWith<VaultException> { wipeVault(layout) { throw IllegalStateException("keystore gone") } }
+
+        assertIs<IllegalStateException>(failure.cause)
+        assertFalse(layout.root.exists())
+    }
+
     private fun createVault() {
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })
     }
@@ -151,6 +222,7 @@ class VaultWipeRecoveryTest {
 
     private companion object {
         const val APP = "q7Vn!2Lx#Rb9Tm4Wc8Zp"
+        const val DURESS = "Gh5%Rt8!Yu2#Pk6@Ws3Fn"
         const val MAX_WAIT = FailureDelay.MAX_CAP_MS + 1
         val KDF = KdfParams(memoryKiB = 8 * 1024, iterations = 1)
     }

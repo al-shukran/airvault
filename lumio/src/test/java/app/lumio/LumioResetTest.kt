@@ -150,6 +150,21 @@ class LumioResetTest {
         assertFalse(File(tmp.root, "data").exists())
     }
 
+    @Test
+    fun aResetWhoseProcessDiedBeforeTheOutsideStoresIsFinishedWithThemAtTheNextGate() = runBlocking {
+        assertEquals(CreateResult.Created, vault.create(PASSWORD.toCharArray()))
+        LockSettingsStore.open(context).save(LockSettings(AutoLock.AFTER_FIVE_MINUTES))
+        shareReceiveCode()
+        // The process died inside the vault's erase, after its marker was written and before the lock choices and the receive code went.
+        layout.wipeMarker.writeBytes(ByteArray(0))
+
+        assertTrue(vault.finishPendingWipe())
+
+        assertFalse(File(tmp.root, "data").exists())
+        assertFalse(receiveShares.exists(), "the shared receive code outlived the reset")
+        assertTrue(context.getSharedPreferences(LockSettingsStore.FILE, 0).all.isEmpty(), "the lock choices outlived the reset")
+    }
+
     /** A receive code shared from Lumio, as the Receive sheet leaves it in the app's cache. */
     private fun shareReceiveCode() {
         File(receiveShares.apply { mkdirs() }, "receive-qr.png").writeBytes(byteArrayOf(1, 2, 3))

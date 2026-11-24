@@ -394,20 +394,15 @@ class Vault constructor(
     }
 
     /**
-     * Finishes an erase that stopped half way, which [wipeVault] left a marker for. The gate calls it before it looks at the vault, so
-     * a vault that a reset has started to erase is never unlocked. Returns false while the marker is still there, when some file could not
-     * be removed: the vault then stays hidden, and the next gate tries again.
+     * Finishes an erase that stopped half way, which [wipeVault] left a marker for, then runs [onErased], so the stores outside the vault go
+     * even when the process died before its caller erased them. The gate calls it before it looks at the vault, so a vault that a reset has
+     * started to erase is never unlocked. Returns false while the marker is still there, when some file could not be removed: the vault then
+     * stays hidden, and the next gate tries again.
      */
     suspend fun finishPendingWipe(): Boolean =
         withContext(Dispatchers.IO) {
             mutex.withLock {
-                if (layout.wipeMarker.exists()) {
-                    try {
-                        wipe()
-                    } catch (e: VaultException) {
-                        // The wipe went as far as it could. The marker says whether anything is left.
-                    }
-                }
+                if (layout.wipeMarker.exists()) eraseLocked()
                 !layout.wipeMarker.exists()
             }
         }
@@ -1318,8 +1313,9 @@ fun wipeVault(layout: VaultLayout, deleteKeys: () -> Unit) {
     val keyFailure = try {
         deleteKeys()
         null
-    } catch (e: VaultException) {
-        e
+    } catch (e: Exception) {
+        // Any failure, not only a Keystore one, still lets the files go.
+        e as? VaultException ?: VaultException("The vault keys could not be deleted.", e)
     }
     // Each file is overwritten before it is deleted, so no record, key file, pool slot or photo survives in the storage.
     overwriteFiles(layout.root)
@@ -1342,6 +1338,13 @@ private fun markWipe(layout: VaultLayout) {
         writeAtomically(layout.wipeMarker, ByteArray(0))
     } catch (e: IOException) {
         throw VaultException("The vault could not start its erase, so nothing was erased.", e)
+    }
+    // The rename should reach the disk before the first key goes, or a power cut could leave the files without their keys and without the
+    // marker. A folder that cannot be synced does not stop the erase: the marker is written, and the journal commits it within seconds.
+    try {
+        syncDirectory(layout.root)
+    } catch (e: IOException) {
+        // Best effort, see above.
     }
 }
 
