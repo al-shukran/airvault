@@ -186,10 +186,12 @@ object BtcSend {
             }
         }
         // The walk trusts what the session's scan read within the TTL, so a send right after a scan asks the server for little or nothing. The two
-        // chains are walked at once, as the scan walks them, so the send takes as long as the longer chain, not the two added together.
+        // chains are walked at once, so the send takes as long as the longer chain, not the two added together. Each chain asks one address at a
+        // time: the budget of a read counts its wait in the scheduler's queue, so reads of a window would be cut short behind each other, and a
+        // read past the stop would be a request the scan did not need.
         val (receive, change) = coroutineScope {
-            val receive = async { scanChain(account::receiveAddress, statsOf, memo, nowMs, trustWithinTtl = true) }
-            val change = async { scanChain(account::changeAddress, statsOf, memo, nowMs, trustWithinTtl = true) }
+            val receive = async { scanChain(account::receiveAddress, statsOf, memo, nowMs, trustWithinTtl = true, window = 1) }
+            val change = async { scanChain(account::changeAddress, statsOf, memo, nowMs, trustWithinTtl = true, window = 1) }
             receive.await() to change.await()
         }
         val funded = receive.used.map { RECEIVE_BRANCH to it } + change.used.map { CHANGE_BRANCH to it }
