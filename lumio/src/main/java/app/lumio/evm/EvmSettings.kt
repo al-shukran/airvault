@@ -145,7 +145,7 @@ object EvmEdits {
         val url = try {
             RpcUrl.validate(input.rpc, rpc.allowLocalHttp)
         } catch (e: IllegalArgumentException) {
-            refuse(CustomNetworkField.RPC, e.message ?: "That is not a web address.")
+            refuse(CustomNetworkField.RPC, e.message ?: RpcUrl.REFUSED)
         }
         rpc.requireChain(url, chainId)
         return current.copy(

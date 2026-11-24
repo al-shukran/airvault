@@ -1,5 +1,6 @@
 package app.lumio.ui.settings
 
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -15,7 +16,10 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** The Provider page's key entry: a typed key is saved once the owner finishes it, a saved key shows only its last four characters, and Remove clears it. */
+/**
+ * The Provider page (B5): its switch turns the provider on and off, the networks it serves are counted and named, and its key entry saves a typed key
+ * once the owner finishes it. A saved key shows only its last four characters, and Remove clears it.
+ */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w400dp-h4000dp")
 class ProviderPageTest {
@@ -24,26 +28,46 @@ class ProviderPageTest {
     val compose = createComposeRule()
 
     private val saved = mutableListOf<String>()
+    private val switched = mutableListOf<Boolean>()
 
-    private fun show(savedTail: String? = null) {
+    private fun show(savedTail: String? = null, enabled: Boolean = true, networks: List<String> = emptyList()) {
         compose.setContent {
             LumenTheme {
                 ClearAirTheme {
                     ProviderPage(
-                    name = "Blockscout",
-                    status = "Working",
-                    statusNote = null,
-                    tags = emptyList(),
-                    keyed = true,
-                    savedTail = savedTail,
-                    offline = null,
-                    onSaveKey = { saved += it },
-                    onBack = {},
-                    onLock = {},
-                )
+                        name = "Blockscout",
+                        status = "Working",
+                        statusNote = null,
+                        enabled = enabled,
+                        onEnabled = { switched += it },
+                        tags = emptyList(),
+                        networks = networks,
+                        keyed = true,
+                        savedTail = savedTail,
+                        offline = null,
+                        onSaveKey = { saved += it },
+                        onBack = {},
+                        onLock = {},
+                    )
                 }
             }
         }
+    }
+
+    @Test
+    fun theSwitchTurnsTheProviderOffAndOn() {
+        show(enabled = true)
+
+        compose.onNodeWithTag("provider-enabled").assertIsOn().performClick()
+
+        assertEquals(listOf(false), switched)
+    }
+
+    @Test
+    fun theNetworksItServesAreCountedAndNamed() {
+        show(networks = listOf("Ethereum", "Base", "Arbitrum"))
+
+        compose.onNodeWithText("Ethereum, Base and Arbitrum").assertExists()
     }
 
     @Test

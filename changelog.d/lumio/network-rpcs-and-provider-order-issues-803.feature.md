@@ -1,0 +1,1 @@
+Each chain's Network page keeps every custom RPC address you add, so you can select the one in use or remove one. Its Data Provider Order lists the providers that serve the chain, and a drag changes their order. The Data Providers page numbers each group, and a row opens its Provider page, which holds the switch and the networks the provider serves.

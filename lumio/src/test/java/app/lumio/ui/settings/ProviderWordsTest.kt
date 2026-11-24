@@ -58,4 +58,21 @@ class ProviderWordsTest {
         )
         assertEquals(listOf("Works without an API Key"), providerTags("routescan", setOf(Trait.KEY_OPTIONAL)))
     }
+
+    @Test
+    fun aPrivacyOrMevTraitGivesNoClaimOnThePage() {
+        assertEquals(emptyList<String>(), providerTags("1rpc", setOf(Trait.KEY_REQUIRED, Trait.PRIVACY, Trait.MEV_PROTECTED)))
+    }
+
+    @Test
+    fun aProviderNamesItsNetworksAndCountsTheRest() {
+        assertEquals("Ethereum", networkSummary(listOf("Ethereum")))
+        assertEquals("Ethereum and Base", networkSummary(listOf("Ethereum", "Base")))
+        assertEquals("Ethereum, Base and Arbitrum", networkSummary(listOf("Ethereum", "Base", "Arbitrum")))
+        assertEquals("Ethereum, Base, Arbitrum and Optimism", networkSummary(listOf("Ethereum", "Base", "Arbitrum", "Optimism")))
+        assertEquals(
+            "Ethereum, Base, Arbitrum, Optimism and 10 more",
+            networkSummary(listOf("Ethereum", "Base", "Arbitrum", "Optimism") + List(10) { "Chain $it" }),
+        )
+    }
 }

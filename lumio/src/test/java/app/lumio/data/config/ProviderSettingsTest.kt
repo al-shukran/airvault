@@ -7,6 +7,7 @@ import app.lumio.data.containsBytes
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -38,18 +39,27 @@ class ProviderSettingsTest {
     }
 
     @Test
-    fun aMoveSwapsNeighboursAndRenumbersTheGroup() {
+    fun aDragSetsTheOrderOfTheGroupAndRenumbersIt() {
         val group = listOf("a", "b", "c")
 
-        val moved = withMoved(emptyMap(), group, "b", up = true)
+        val ordered = withOrderWithin(emptyMap(), group, listOf("b", "a", "c"))
 
-        assertEquals(listOf("b", "a", "c"), orderedIds(group, moved))
-        assertEquals(mapOf("a" to 1, "b" to 0, "c" to 2), moved.mapValues { it.value.priority })
+        assertEquals(listOf("b", "a", "c"), orderedIds(group, ordered))
+        assertEquals(mapOf("a" to 1, "b" to 0, "c" to 2), ordered.mapValues { it.value.priority })
     }
 
     @Test
-    fun aProviderAtAnEndOfItsGroupDoesNotMove() {
-        assertEquals(emptyMap<String, ProviderConfig>(), withMoved(emptyMap(), listOf("a", "b"), "a", up = true))
+    fun aDragOfSomeRowsKeepsTheOthersInTheirPlaces() {
+        // "b" holds the middle place and stays there, while "c" and "a" trade the two ends.
+        val ordered = withOrderWithin(emptyMap(), listOf("a", "b", "c"), listOf("c", "a"))
+
+        assertEquals(listOf("c", "b", "a"), orderedIds(listOf("a", "b", "c"), ordered))
+    }
+
+    @Test
+    fun anOrderNamingAProviderOutsideTheGroupOrOneTwiceIsRefused() {
+        assertThrows(IllegalArgumentException::class.java) { withOrderWithin(emptyMap(), listOf("a", "b"), listOf("a", "z")) }
+        assertThrows(IllegalArgumentException::class.java) { withOrderWithin(emptyMap(), listOf("a", "b"), listOf("a", "a")) }
     }
 
     @Test

@@ -325,18 +325,17 @@ class LumioScreenshotTest {
     fun dataProviders() = compose.lumioSnapshot("data_providers") {
         DataProvidersScreen(
             data = listOf(
-                providerRow("etherscan", acceptsKey = true, status = ProviderStatus.NeedsKey, canMoveUp = false),
-                providerRow("mempool", acceptsKey = false, status = ProviderStatus.Ready, canMoveDown = false),
+                providerRow("etherscan", acceptsKey = true, status = ProviderStatus.NeedsKey),
+                providerRow("mempool", acceptsKey = false, status = ProviderStatus.Ready),
             ),
             rpc = listOf(
-                providerRow("1rpc", acceptsKey = true, mev = true, status = ProviderStatus.Healthy(120.0), apiKey = "k-1"),
+                providerRow("1rpc", acceptsKey = true, status = ProviderStatus.Healthy(120.0), apiKey = "k-1"),
             ),
             offline = null,
             onBack = {},
             onLock = {},
             onOpen = {},
-            onEnabled = { _, _ -> },
-            onMove = { _, _ -> },
+            onReorder = { _, _ -> },
         )
     }
 
@@ -346,16 +345,15 @@ class LumioScreenshotTest {
         DataProvidersScreen(
             data = emptyList(),
             prices = listOf(
-                providerRow("coingecko", acceptsKey = true, status = ProviderStatus.NeedsKey, canMoveUp = false),
-                providerRow("defillama", acceptsKey = false, status = ProviderStatus.Healthy(95.0), canMoveDown = false),
+                providerRow("coingecko", acceptsKey = true, status = ProviderStatus.NeedsKey),
+                providerRow("defillama", acceptsKey = false, status = ProviderStatus.Healthy(95.0)),
             ),
             rpc = emptyList(),
             offline = null,
             onBack = {},
             onLock = {},
             onOpen = {},
-            onEnabled = { _, _ -> },
-            onMove = { _, _ -> },
+            onReorder = { _, _ -> },
         )
     }
 
@@ -430,19 +428,13 @@ class LumioScreenshotTest {
         id: String,
         acceptsKey: Boolean,
         status: ProviderStatus,
-        mev: Boolean = false,
         apiKey: String? = null,
-        canMoveUp: Boolean = true,
-        canMoveDown: Boolean = true,
     ) = ProviderRow(
         id = id,
-        mevProtected = mev,
         acceptsKey = acceptsKey,
         enabled = true,
         apiKey = apiKey,
         status = status,
-        canMoveUp = canMoveUp,
-        canMoveDown = canMoveDown,
     )
 
     private companion object {

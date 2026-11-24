@@ -10,6 +10,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 
+/** The RPC addresses of a chain whose only custom address is [url], and that address is in use. */
+internal fun rpcInUse(url: String): ChainRpcs = ChainRpcs(custom = listOf(url), active = url)
+
 /**
  * EVM reads for a test. Each chain in [settings] reads from the owner's address, which is a local MockWebServer URL, so plain HTTP is allowed.
  * The public pool has no provider here, so a test never reaches the network.

@@ -8,7 +8,7 @@ import app.lumio.data.FakeProvider
 import app.lumio.data.config.ProviderConfigStore
 import app.lumio.data.config.withApiKey
 import app.lumio.data.config.withEnabled
-import app.lumio.data.config.withMoved
+import app.lumio.data.config.withOrderWithin
 import app.lumio.data.provider.OpKey
 import app.lumio.data.provider.Trait
 import org.junit.Assert.assertEquals
@@ -59,7 +59,7 @@ class ProviderSettingsRoutingTest {
 
     @Test
     fun theSavedOrderDecidesWhichProviderIsOfferedFirst() {
-        ProviderConfigStore(session).save(withMoved(emptyMap(), listOf("a", "b"), "b", up = true))
+        ProviderConfigStore(session).save(withOrderWithin(emptyMap(), listOf("a", "b"), listOf("b", "a")))
 
         assertEquals("b", offeredBy(FakeProvider("a"), FakeProvider("b")).first())
     }

@@ -72,7 +72,7 @@ class EvmSettingsTest {
         val settings = EvmSettings(
             addressCount = 3,
             enabled = setOf(1L, 999L),
-            rpc = mapOf(1L to "https://rpc.example.org"),
+            rpc = mapOf(1L to rpcInUse("https://rpc.example.org")),
             custom = listOf(CustomChain(999L, "Example", "EXM", testnet = true)),
         )
 
@@ -133,14 +133,14 @@ class EvmSettingsTest {
 
         assertEquals(listOf(CustomChain(999L, "Example", "EXM", testnet = true)), updated.custom)
         assertTrue(999L in updated.enabled)
-        assertEquals(url, updated.rpc[999L])
+        assertEquals(url, updated.activeRpc(999L))
     }
 
     @Test
     fun removingACustomChainDropsItsEnabledFlagAndItsRpc() {
         val settings = EvmSettings(
             enabled = setOf(999L),
-            rpc = mapOf(999L to "https://rpc.example.org"),
+            rpc = mapOf(999L to rpcInUse("https://rpc.example.org")),
             custom = listOf(CustomChain(999L, "Example", "EXM", testnet = true)),
         )
 
@@ -152,49 +152,129 @@ class EvmSettingsTest {
     }
 
     @Test
-    fun resettingAnRpcKeepsTheChainAndItsFlag() {
-        val settings = EvmSettings(enabled = setOf(1L), rpc = mapOf(1L to "https://rpc.example.org"))
+    fun resettingAnRpcKeepsTheChainItsFlagAndItsCustomAddresses() {
+        val settings = EvmSettings(enabled = setOf(1L), rpc = mapOf(1L to rpcInUse("https://rpc.example.org")))
 
         val updated = EvmEdits.resetRpc(settings, 1L)
 
-        assertTrue(updated.rpc.isEmpty())
+        assertNull(updated.activeRpc(1L))
+        assertEquals(listOf("https://rpc.example.org"), updated.rpc[1L]?.custom)
         assertEquals(setOf(1L), updated.enabled)
+    }
+
+    @Test
+    fun aChainKeepsEveryRpcTheOwnerAddsAndTheLatestIsInUse() {
+        server.enqueue(answer("0x1"))
+        server.enqueue(answer("0x1"))
+        val first = server.url("/first").toString()
+        val second = server.url("/second").toString()
+
+        val updated = EvmEdits.setRpc(EvmEdits.setRpc(EvmSettings(), 1L, first, rpc), 1L, second, rpc)
+
+        assertEquals(ChainRpcs(custom = listOf(first, second), active = second), updated.rpc[1L])
+    }
+
+    @Test
+    fun anAddressAlreadyListedIsSelectedAndNotListedTwice() {
+        server.enqueue(answer("0x1"))
+        val first = server.url("/first").toString()
+        val second = server.url("/second").toString()
+        val settings = EvmSettings(rpc = mapOf(1L to ChainRpcs(custom = listOf(first, second), active = second)))
+
+        val updated = EvmEdits.setRpc(settings, 1L, first, rpc)
+
+        assertEquals(ChainRpcs(custom = listOf(first, second), active = first), updated.rpc[1L])
+    }
+
+    @Test
+    fun anAddressTheChainDoesNotListCannotBeSelected() {
+        assertThrows(IllegalArgumentException::class.java) { EvmEdits.useRpc(EvmSettings(), 1L, "https://rpc.example.org") }
+    }
+
+    @Test
+    fun aChainsRpcsCanBeSelectedAndRemovedWithoutTouchingAnotherChain() {
+        val first = "https://first.example.org"
+        val second = "https://second.example.org"
+        val other = "https://other.example.org"
+        val settings = EvmSettings(
+            rpc = mapOf(
+                1L to ChainRpcs(custom = listOf(first, second), active = second),
+                10143L to ChainRpcs(custom = listOf(other), active = other),
+            ),
+        )
+
+        val selected = EvmEdits.useRpc(settings, 1L, first)
+        assertEquals(ChainRpcs(custom = listOf(first, second), active = first), selected.rpc[1L])
+        assertEquals(settings.rpc[10143L], selected.rpc[10143L])
+
+        val removedInUse = EvmEdits.removeRpc(selected, 1L, first)
+        assertEquals(ChainRpcs(custom = listOf(second), active = null), removedInUse.rpc[1L])
+
+        val removedLast = EvmEdits.removeRpc(removedInUse, 1L, second)
+        assertFalse(removedLast.rpc.containsKey(1L))
+        assertEquals(settings.rpc[10143L], removedLast.rpc[10143L])
+    }
+
+    @Test
+    fun theRpcsOfEveryChainSurviveAWriteAndARead() {
+        val settings = EvmSettings(
+            rpc = mapOf(
+                1L to ChainRpcs(custom = listOf("https://first.example.org", "https://second.example.org"), active = "https://second.example.org"),
+                10143L to ChainRpcs(custom = listOf("https://other.example.org"), active = null),
+            ),
+        )
+
+        EvmSettingsStore.write(session, settings)
+
+        assertEquals(settings, EvmSettingsStore.read(session))
+    }
+
+    @Test
+    fun onlyTheRpcsInUseAreReadFrom() {
+        val settings = EvmSettings(
+            rpc = mapOf(
+                1L to ChainRpcs(custom = listOf("https://first.example.org"), active = "https://first.example.org"),
+                10143L to ChainRpcs(custom = listOf("https://other.example.org"), active = null),
+            ),
+        )
+
+        assertEquals(mapOf("1" to "https://first.example.org"), settings.activeRpcUrls())
     }
 
     private val oldRpc = "https://old.example.org"
 
     @Test
     fun anRpcThatServesTheChainIsSavedAfterTheCheck() {
-        EvmSettingsStore.write(session, EvmSettings(rpc = mapOf(1L to oldRpc)))
+        EvmSettingsStore.write(session, EvmSettings(rpc = mapOf(1L to rpcInUse(oldRpc))))
         server.enqueue(answer("0x1"))
 
         val refusal = EvmSettingsStore.change(session, rpc) { s, r -> EvmEdits.setRpc(s, 1L, url, r) }
 
         assertNull(refusal)
-        assertEquals(url, EvmSettingsStore.read(session).rpc[1L])
+        assertEquals(url, EvmSettingsStore.read(session).activeRpc(1L))
     }
 
     @Test
     fun anRpcThatServesAnotherChainIsRefusedAndTheOldAddressStays() {
-        EvmSettingsStore.write(session, EvmSettings(rpc = mapOf(1L to oldRpc)))
+        EvmSettingsStore.write(session, EvmSettings(rpc = mapOf(1L to rpcInUse(oldRpc))))
         server.enqueue(answer("0x2"))
 
         val refusal = EvmSettingsStore.change(session, rpc) { s, r -> EvmEdits.setRpc(s, 1L, url, r) }
 
         assertEquals("The endpoint reports chain 2, not 1.", refusal)
-        assertEquals(oldRpc, EvmSettingsStore.read(session).rpc[1L])
+        assertEquals(oldRpc, EvmSettingsStore.read(session).activeRpc(1L))
     }
 
     @Test
     fun anAddressThatIsNotHttpsIsRefusedBeforeAnyRequestAndTheOldAddressStays() {
-        EvmSettingsStore.write(session, EvmSettings(rpc = mapOf(1L to oldRpc)))
+        EvmSettingsStore.write(session, EvmSettings(rpc = mapOf(1L to rpcInUse(oldRpc))))
         val releaseRpc = EvmRpc(allowLocalHttp = false, timeoutMs = 2_000L)
 
         val refusal = EvmSettingsStore.change(session, releaseRpc) { s, r -> EvmEdits.setRpc(s, 1L, url, r) }
 
         assertNotNull(refusal)
         assertEquals(0, server.requestCount)
-        assertEquals(oldRpc, EvmSettingsStore.read(session).rpc[1L])
+        assertEquals(oldRpc, EvmSettingsStore.read(session).activeRpc(1L))
     }
 
     private val newNetwork = CustomChainInput(chainId = "999", name = "Example", symbol = "EXM", rpc = "https://rpc.example.org", testnet = false)
@@ -255,7 +335,7 @@ class EvmSettingsTest {
         server.enqueue(answer("0x3e7"))
         assertNull(EvmSettingsStore.addCustom(session, rpc, emptySet(), input))
         assertEquals(listOf(CustomChain(999L, "Example", "EXM", testnet = false)), EvmSettingsStore.read(session).custom)
-        assertEquals(url, EvmSettingsStore.read(session).rpc[999L])
+        assertEquals(url, EvmSettingsStore.read(session).activeRpc(999L))
     }
 
     @Test

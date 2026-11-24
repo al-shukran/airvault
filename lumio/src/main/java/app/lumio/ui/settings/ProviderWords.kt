@@ -33,14 +33,12 @@ fun providerName(id: String): String = when (id) {
 }
 
 /**
- * The factual tags of a provider's page, each shown only when it is true. "Works without an API Key" is stated when no key is required, Blockscout is the
- * one provider the page calls anonymous, and the privacy and MEV traits give their tags.
+ * The factual tags of a provider's page. "Works without an API Key" is stated only when the provider requires no key, and Blockscout is the one provider
+ * the page calls anonymous. No other claim about a provider's privacy or MEV protection is shown.
  */
 fun providerTags(id: String, traits: Set<Trait>): List<String> = buildList {
     if (Trait.KEY_REQUIRED !in traits) add("Works without an API Key")
     if (id == "blockscout") add("Anonymous")
-    if (Trait.PRIVACY in traits) add("Privacy First")
-    if (Trait.MEV_PROTECTED in traits) add("MEV Protection")
 }
 
 /** How many network names a provider's page lists before it counts the rest. */

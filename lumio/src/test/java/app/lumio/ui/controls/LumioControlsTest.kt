@@ -16,10 +16,8 @@ import app.lumio.evm.EvmSettings
 import app.lumio.network.NetworkMode
 import app.lumio.ui.kit.ClearAirSegmented
 import app.lumio.ui.network.label
-import app.lumio.ui.settings.DataProvidersScreen
 import app.lumio.ui.settings.EvmSettingsSection
-import app.lumio.ui.settings.ProviderRow
-import app.lumio.ui.settings.ProviderStatus
+import app.lumio.ui.settings.ProviderPage
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -51,20 +49,25 @@ class LumioControlsTest {
     fun aProviderSwitchIsAToggleSwitch() {
         compose.setContent {
             ClearAirTheme {
-                DataProvidersScreen(
-                    data = listOf(provider("mempool")),
-                    rpc = emptyList(),
+                ProviderPage(
+                    name = "mempool.space",
+                    status = "✓ Working",
+                    statusNote = null,
+                    enabled = true,
+                    onEnabled = {},
+                    tags = emptyList(),
+                    networks = emptyList(),
+                    keyed = false,
+                    savedTail = null,
                     offline = null,
+                    onSaveKey = {},
                     onBack = {},
                     onLock = {},
-                    onOpen = {},
-                    onEnabled = { _, _ -> },
-                    onMove = { _, _ -> },
                 )
             }
         }
 
-        compose.onNodeWithTag("enable-mempool").assert(hasRole(Role.Switch))
+        compose.onNodeWithTag("provider-enabled").assert(hasRole(Role.Switch))
     }
 
     @Test
@@ -115,14 +118,4 @@ class LumioControlsTest {
 
     private fun hasRole(role: Role): SemanticsMatcher = SemanticsMatcher.expectValue(SemanticsProperties.Role, role)
 
-    private fun provider(id: String) = ProviderRow(
-        id = id,
-        mevProtected = false,
-        acceptsKey = false,
-        enabled = true,
-        apiKey = null,
-        status = ProviderStatus.Ready,
-        canMoveUp = true,
-        canMoveDown = true,
-    )
 }
