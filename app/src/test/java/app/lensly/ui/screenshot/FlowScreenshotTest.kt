@@ -129,6 +129,7 @@ class FlowScreenshotTest {
             step = step,
             wallets = wallets,
             profiles = emptyMap(),
+            accounts = wallets.associate { it.id to it.accountCount },
             wallet = wallet,
             format = format,
             walletEntry = walletEntry,
