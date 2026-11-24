@@ -483,12 +483,7 @@ internal fun SolanaSendRoute(
         SolanaSendStep.Amount -> {
             val notes = addressNotesOf(recipient, SOLANA_FAMILY, emptyMap(), addressBook)
             val toName = notes?.let(::notesName) ?: groupAddress(recipient)
-            val amountError = if (amount.isBlank()) {
-                null
-            } else {
-                runCatching { if (token == null) SolanaSendInput.lamports(amount) else SolanaSendInput.tokenUnits(amount, selected.decimals) }
-                    .exceptionOrNull()?.message
-            }
+            val amountError = SolanaAssets.amountError(amount, selected, if (token == null) balance else token.amount)
             val leaves = if (token == null && balance != null && amountError == null && amount.isNotBlank()) {
                 runCatching { SolanaSendInput.lamports(amount) }.getOrNull()?.let { lamports ->
                     val left = balance!! - BigInteger.valueOf(lamports) - BigInteger.valueOf(SOLANA_FEE_LAMPORTS + SolanaSend.sendPriorityFee(priorityFee))

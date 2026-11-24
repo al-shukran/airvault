@@ -627,7 +627,7 @@ private fun assetDetail(asset: AlgorandAsset): String = when (val held = asset.h
 }
 
 /** The reason [text] cannot be sent in [asset], given the most that can be: null when it can, or when nothing is typed yet. */
-private fun amountError(text: String, asset: AlgorandAsset, max: BigInteger?): String? {
+internal fun amountError(text: String, asset: AlgorandAsset, max: BigInteger?): String? {
     if (text.isBlank()) return null
     val units = runCatching { AlgorandAssets.units(text, asset.decimals, asset.symbol) }.getOrElse { return it.message ?: "Enter an amount in ${asset.symbol}." }
     if (max != null && units > max) return "More than your available ${AlgorandAssets.text(max, asset.decimals)} ${asset.symbol}"

@@ -174,7 +174,7 @@ object SolanaSend {
         priority: Boolean = false,
     ): SolanaSendPlan {
         require(lamports > 0) { "Enter an amount above 0" }
-        require(BigInteger.valueOf(lamports) <= balance) { "More than your available ${SolanaSendInput.format(balance)} SOL" }
+        SolanaAssets.overBalance(SolanaAssets.native, BigInteger.valueOf(lamports), balance)?.let { throw IllegalArgumentException(it) }
         val priorityFee = sendPriorityFee(priority)
         val needed = BigInteger.valueOf(lamports) + BigInteger.valueOf(SOLANA_FEE_LAMPORTS + priorityFee + SOLANA_RENT_RESERVE_LAMPORTS)
         require(balance >= needed) { "This account does not hold enough SOL for the fee and the rent reserve." }

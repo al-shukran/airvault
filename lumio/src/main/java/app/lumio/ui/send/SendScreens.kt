@@ -6,6 +6,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.ui.kit.ClearAirTextAction
@@ -39,6 +40,8 @@ fun SignatureScanScreen(progress: Float?, status: String, onText: (String) -> Un
         statusText = status,
         onText = onText,
         onCancel = onBack,
+        // The reply's viewfinder is taller than a pairing code's (F6).
+        frameHeight = 316.dp,
         footer = {
             Text(
                 text = "Lensly showed something you didn't expect? Reject it there.",

@@ -431,7 +431,7 @@ internal fun BtcSendRoute(
                 onAsset = null,
                 amount = amount,
                 onAmount = { amount = it },
-                amountError = (if (amount.isBlank()) null else runCatching { BtcSendInput.amountSats(amount) }.exceptionOrNull()?.message) ?: notice,
+                amountError = BtcSendInput.amountError(amount, total) ?: notice,
                 leaves = if (sent != null && total != null && total - sent.amountSats - sent.feeSats >= 0) {
                     "Leaves ${btcText(total - sent.amountSats - sent.feeSats)} after the fee"
                 } else {
