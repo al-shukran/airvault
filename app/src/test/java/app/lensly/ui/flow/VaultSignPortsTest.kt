@@ -47,6 +47,7 @@ import app.airvault.core.signer.AppRequest
 import app.airvault.core.signer.ParseOutcome
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletStore
+import app.lensly.app.installAll
 import app.lensly.app.sign.AppPrepared
 import app.lensly.app.sign.AppReviewEntry
 import app.lensly.app.sign.ReviewOutcome
@@ -639,7 +640,9 @@ class VaultSignPortsTest {
     /** A vault session holding one wallet of [words], and that wallet's id. The caller closes the session. */
     private fun sessionWithWallet(): Pair<VaultSession, String> {
         val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it + 5).toByte() })
-        val id = WalletStore(session).create(name = "MAIN", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
+        val store = WalletStore(session)
+        val id = store.create(name = "MAIN", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
+        store.installAll(id)
         return session to id
     }
 

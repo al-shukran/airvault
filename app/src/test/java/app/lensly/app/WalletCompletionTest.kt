@@ -44,7 +44,7 @@ class WalletCompletionTest {
         val listed = store.list().single()
         assertEquals(id, listed.id)
         assertEquals(true, listed.complete)
-        assertEquals(1, listed.accountCount)
+        assertEquals(0, listed.accountCount)
     }
 
     @Test

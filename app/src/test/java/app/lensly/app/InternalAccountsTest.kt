@@ -51,7 +51,7 @@ class InternalAccountsTest {
         words = phrase,
         passphrase = null,
         nowMs = 1L,
-    )
+    ).also { store.installAll(it) }
 
     @Test
     fun anEthereumAccountIsNamedByItsDisplayNameAndLabel() {

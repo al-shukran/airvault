@@ -54,6 +54,7 @@ class ProfileStoreTest {
     /** A wallet named "Seed" with [accounts] accounts, indices 0 until [accounts]. */
     private fun newWallet(accounts: Int): String {
         val id = store.create(name = "Seed", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
+        store.installAll(id)
         repeat(accounts - 1) { store.addAccount(id) }
         return id
     }

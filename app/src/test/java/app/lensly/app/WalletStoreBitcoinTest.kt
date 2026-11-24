@@ -76,7 +76,7 @@ class WalletStoreBitcoinTest {
         words = words,
         passphrase = null,
         nowMs = 1L,
-    )
+    ).also { store.installAll(it) }
 
     @Test
     fun firstReceiveAddressesMatchThePublishedVectors() {
@@ -247,6 +247,7 @@ class WalletStoreBitcoinTest {
     @Test
     fun thePairingNamesEveryEthereumAccountAsLenslyShowsIt() {
         val id = store.create(name = "Savings", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
+        store.installAll(id)
         store.addAccount(id)
         store.saveAccountProfile(id, 0, AccountProfile(name = "Cold", label = "vault", group = "Long term"))
 
@@ -377,6 +378,7 @@ class WalletStoreBitcoinTest {
         // Lumio reads these same frames in its own pairing test. A change here is a change to what Lumio is sent, so re-record the fixture
         // only when the pairing itself changes.
         val id = store.create(name = "Savings", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
+        store.installAll(id)
         store.addAccount(id)
         store.saveAccountProfile(id, 0, AccountProfile(name = "Cold", label = "vault", group = "Long term"))
         store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 2, cap)

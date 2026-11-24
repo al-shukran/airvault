@@ -44,7 +44,7 @@ class WalletStoreBulkTest {
         words = words,
         passphrase = null,
         nowMs = 1L,
-    )
+    ).also { store.installAll(it) }
 
     @Test
     fun aRunRaisesTheAccountCountByItsCount() {

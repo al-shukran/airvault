@@ -50,7 +50,7 @@ class WalletStoreSolanaTest {
         words = words,
         passphrase = null,
         nowMs = 1L,
-    )
+    ).also { store.installAll(it) }
 
     private fun seed(): ByteArray = Mnemonic.of(words).use { it.deriveSeed("") }
 

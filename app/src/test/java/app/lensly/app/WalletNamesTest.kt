@@ -53,7 +53,7 @@ class WalletNamesTest {
     }
 
     private fun newWallet(): String =
-        store.create(name = "Seed", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
+        store.create(name = "Seed", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L).also { store.installAll(it) }
 
     @Test
     fun aNewWalletNamesItsAccountsFromItsNameAtCreation() {

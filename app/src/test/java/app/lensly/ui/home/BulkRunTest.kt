@@ -2,6 +2,7 @@ package app.lensly.ui.home
 
 import app.airvault.chains.bitcoin.bitcoinManifest
 import app.lensly.app.WalletStore
+import app.lensly.app.installAll
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
@@ -50,7 +51,7 @@ class BulkRunTest {
         words = words,
         passphrase = null,
         nowMs = 1L,
-    )
+    ).also { store.installAll(it) }
 
     @Test
     fun aTaprootRunMakesTaprootAccountsOnTheBip86Path() {

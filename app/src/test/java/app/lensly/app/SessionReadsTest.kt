@@ -152,5 +152,5 @@ class SessionReadsTest {
         words = words,
         passphrase = name,
         nowMs = 1L,
-    )
+    ).also { store.installAll(it) }
 }

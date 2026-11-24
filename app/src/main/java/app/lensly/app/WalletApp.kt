@@ -35,7 +35,7 @@ enum class WalletApp(
         label = "Ethereum",
         routeId = "ethereum",
         pairing = EthereumPairingKeys,
-        firstAccount = { store, id -> store.addAccounts(id, count = 1, cap = 1) },
+        firstAccount = { store, id -> store.addFirstEthereumAccount(id) },
     ),
     SOLANA(
         appId = AppId("solana"),
