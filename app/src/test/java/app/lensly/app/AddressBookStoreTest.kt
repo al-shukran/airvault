@@ -4,6 +4,8 @@ import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
+import java.io.ByteArrayOutputStream
+import java.io.DataOutputStream
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -96,6 +98,44 @@ class AddressBookStoreTest {
         assertFailsWith<VaultException> { store.load() }
         assertFailsWith<VaultException> { store.put(alice) }
         assertContentEquals(byteArrayOf(9, 9, 9), session.getVaultRecord("address-book"))
+    }
+
+    @Test
+    fun aBookOfTheVersionBeforeTheGroupReadsWithEmptyGroupsAndIsWrittenWithOne() {
+        val carol = AddressBookEntry(
+            id = "entry-carol",
+            address = "0x52908400098527886E0F7030069857D2E4169EE7",
+            name = "Carol",
+            label = null,
+            notes = "Pays rent",
+        )
+        val session = open()
+        session.putVaultRecord("address-book", versionTwoBook(listOf(alice, carol)))
+        val store = AddressBookStore(session)
+
+        assertEquals(listOf(alice, carol), store.load())
+
+        store.put(alice.copy(name = "Alice Two"))
+
+        assertEquals(3, session.getVaultRecord("address-book")!![0].toInt())
+        assertEquals(listOf(alice.copy(name = "Alice Two"), carol), store.load())
+    }
+
+    /** A book as the version before the group wrote it: the version byte 2, then each entry's id, address, name, label and notes. */
+    private fun versionTwoBook(entries: List<AddressBookEntry>): ByteArray {
+        val buffer = ByteArrayOutputStream()
+        DataOutputStream(buffer).use { out ->
+            out.writeByte(2)
+            out.writeInt(entries.size)
+            entries.forEach { entry ->
+                listOf(entry.id, entry.address, entry.name, entry.label.orEmpty(), entry.notes.orEmpty()).forEach { text ->
+                    val bytes = text.toByteArray(Charsets.UTF_8)
+                    out.writeInt(bytes.size)
+                    out.write(bytes)
+                }
+            }
+        }
+        return buffer.toByteArray()
     }
 
     @Test

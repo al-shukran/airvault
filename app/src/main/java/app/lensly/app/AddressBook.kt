@@ -100,6 +100,9 @@ class AddressBookStore(private val session: VaultSession) {
 
         /** The version of the book. Each entry holds its group and its notes. */
         const val VERSION = 3
+
+        /** The version before the group. Such a book reads with an empty group, and a save writes [VERSION]. */
+        const val VERSION_WITHOUT_GROUP = 2
         const val MAX_ENTRIES = 10_000
         const val MAX_TEXT_BYTES = 4096
 
@@ -123,7 +126,7 @@ class AddressBookStore(private val session: VaultSession) {
         fun decode(bytes: ByteArray): List<AddressBookEntry> = try {
             DataInputStream(ByteArrayInputStream(bytes)).use { input ->
                 val version = input.readUnsignedByte()
-                require(version == VERSION) { "Unknown Address Book version." }
+                require(version == VERSION || version == VERSION_WITHOUT_GROUP) { "Unknown Address Book version." }
                 val count = input.readInt()
                 require(count in 0..MAX_ENTRIES) { "Too many Address Book entries." }
                 List(count) {
@@ -131,7 +134,7 @@ class AddressBookStore(private val session: VaultSession) {
                     val address = input.readText()
                     val name = input.readText()
                     val label = input.readText().ifEmpty { null }
-                    val group = input.readText()
+                    val group = if (version == VERSION) input.readText() else ""
                     val notes = input.readText().ifEmpty { null }
                     // An entry is read through the checks that saving runs. A record that fails them is refused, not shown.
                     require(isValidDisplayName(name)) { "An Address Book name is not a valid name." }

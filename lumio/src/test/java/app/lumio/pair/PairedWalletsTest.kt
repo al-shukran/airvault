@@ -12,6 +12,8 @@ import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WalletRecordNames
 import app.lensly.core.wallet.HdWallet
+import java.io.ByteArrayOutputStream
+import java.io.DataOutputStream
 import java.util.UUID
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -262,6 +264,50 @@ class PairedWalletsTest {
 
         PairedWallets.save(session, payload(accounts = listOf(account(0, "Savings"))), nowMs = 300L)
         assertEquals(emptyList<AddressBookEntry>(), PairedWallets.list(session).single().addressBook)
+    }
+
+    @Test
+    fun aVersionOneBookReadsWithEmptyGroupsAndIsKeptAndWrittenWithOne() {
+        val saved = PairedWallets.save(session, payload(accounts = listOf(account(0, "Savings"))), nowMs = 100L)
+        val books = mapOf(saved.id to listOf(ADDRESS_BOOK_ALICE, ADDRESS_BOOK_COLD))
+        session.putVaultRecord(PairAddressBooks.NAME, versionOneBooks(books))
+
+        assertEquals(listOf(ADDRESS_BOOK_ALICE.copy(group = ""), ADDRESS_BOOK_COLD), PairedWallets.list(session).single().addressBook)
+
+        PairedWallets.save(
+            session,
+            payload(accounts = listOf(account(0, "Savings")), addressBook = listOf(ADDRESS_BOOK_FAUCET)),
+            nowMs = 200L,
+        )
+
+        assertEquals(2, session.getVaultRecord(PairAddressBooks.NAME)!![0].toInt())
+        assertEquals(listOf(ADDRESS_BOOK_FAUCET), PairedWallets.list(session).single().addressBook)
+    }
+
+    /**
+     * The books as the version before the group wrote them: the version byte 1, then each wallet's id and its entries, each as its id,
+     * address, name and label.
+     */
+    private fun versionOneBooks(books: Map<String, List<AddressBookEntry>>): ByteArray {
+        val buffer = ByteArrayOutputStream()
+        DataOutputStream(buffer).use { out ->
+            out.writeByte(1)
+            out.writeInt(books.size)
+            for ((walletId, entries) in books) {
+                writeText(out, walletId)
+                out.writeInt(entries.size)
+                entries.forEach { entry ->
+                    listOf(entry.id, entry.address, entry.name, entry.label.orEmpty()).forEach { writeText(out, it) }
+                }
+            }
+        }
+        return buffer.toByteArray()
+    }
+
+    private fun writeText(out: DataOutputStream, text: String) {
+        val bytes = text.toByteArray(Charsets.UTF_8)
+        out.writeInt(bytes.size)
+        out.write(bytes)
     }
 
     @Test
