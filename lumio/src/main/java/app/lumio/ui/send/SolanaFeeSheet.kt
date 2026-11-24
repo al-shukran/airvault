@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -19,6 +18,7 @@ import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.ui.kit.ClearAirSheet
+import app.lumio.ui.kit.ClearAirSwitchRow
 
 /**
  * The fee sheet of a Solana send: the network fee, and one Priority Fee switch, off by default. Solana has no fee stops, so the switch takes the place of
@@ -49,10 +49,7 @@ fun SolanaFeeSheet(
             }
             Text(text = timing, style = ClearAirType.body, color = palette.ink2, modifier = Modifier.padding(top = ClearAirSpacing.xxs))
             Spacer(Modifier.height(ClearAirSpacing.lg))
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "Priority Fee", style = ClearAirType.titleL, color = palette.ink, modifier = Modifier.weight(1f))
-                Switch(checked = on, onCheckedChange = { on = it })
-            }
+            ClearAirSwitchRow(title = "Priority Fee", checked = on, onCheckedChange = { on = it })
             Spacer(Modifier.height(ClearAirSpacing.md))
             Text(text = "Changes apply when you close this sheet.", style = ClearAirType.body, color = palette.ink2)
         }
