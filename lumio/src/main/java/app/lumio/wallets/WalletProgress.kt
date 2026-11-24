@@ -7,16 +7,14 @@ import app.lumio.data.net.Networks
  * What a wallet screen shows of the reads of its chains. [checking] names the chain families whose read runs now, by namespace (such as [Networks.BIP122]).
  * [landed] names the families whose read has answered or failed since the side was shown: until then an account with no balance is still being checked.
  * [startedAtMs] is when the latest read of each family began, so a kept balance read before it is the last known one. [unreachable] names the chains
- * whose last read did not answer. [bitcoinDone] of [bitcoinTotal] Bitcoin accounts have a result in the running refresh. [pricing] is true while the
- * prices of the side's coins are read, and [priced] once that read has ended, so the total says "No price yet" only after it.
+ * whose last read did not answer. [pricing] is true while the prices of the side's coins are read, and [priced] once that read has ended, so the
+ * total says "No price yet" only after it.
  */
 data class WalletReads(
     val checking: Set<String> = emptySet(),
     val landed: Set<String> = emptySet(),
     val startedAtMs: Map<String, Long> = emptyMap(),
     val unreachable: Set<ChainId> = emptySet(),
-    val bitcoinDone: Int = 0,
-    val bitcoinTotal: Int = 0,
     val pricing: Boolean = false,
     val priced: Boolean = false,
 )

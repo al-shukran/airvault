@@ -2,6 +2,7 @@ package app.lumio.ui.wallets
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import app.lumio.data.Clock
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -44,5 +45,34 @@ class WalletsScreenTest {
         compose.onAllNodesWithText("ACTIVE").assertCountEquals(1)
         compose.onNodeWithText("▼ 1.15%").assertIsDisplayed()
         compose.onNodeWithText("▲ 0.62%").assertIsDisplayed()
+    }
+
+    @Test
+    fun aNoticeShowsBesideTheUpdatedLineAndNeverReplacesIt() {
+        compose.setContent {
+            ClearAirTheme {
+                WalletsScreen(
+                    rows = listOf(WalletRow("a", "Air 1", "30 accounts · 4 apps", usd = null)),
+                    totalUsd = null,
+                    showTotal = true,
+                    refreshing = false,
+                    updatedAtMs = NOW_MS - 3 * MINUTE_MS,
+                    notice = REFRESH_NOTICE,
+                    onWallet = {},
+                    onPair = {},
+                    onRefresh = {},
+                    clock = Clock { NOW_MS },
+                )
+            }
+        }
+
+        compose.onNodeWithText(REFRESH_NOTICE).assertIsDisplayed()
+        compose.onNodeWithText("Updated 3 min ago").assertIsDisplayed()
+    }
+
+    private companion object {
+        const val NOW_MS = 1_700_000_000_000L
+        const val MINUTE_MS = 60_000L
+        const val REFRESH_NOTICE = "Some balances could not be refreshed. The last known balances are shown."
     }
 }
