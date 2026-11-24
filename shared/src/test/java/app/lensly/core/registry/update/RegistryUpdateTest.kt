@@ -2,6 +2,7 @@ package app.lensly.core.registry.update
 
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
 import java.io.File
@@ -212,7 +213,7 @@ class RegistryUpdateTest {
 
     @Test
     fun networkWithABakedChainIdIsRejected() {
-        val imposter = """{"chainId":1,"explorerName":null,"feeModel":"L1","name":"Imposter","nativeDecimals":18,"nativeSymbol":"ETH","testnet":false}"""
+        val imposter = """{"chainId":1,"explorerName":null,"feeModel":"L1","name":"Imposter","nativeDecimals":18,"nativeSymbol":"ETH","testnet":false,"featured":false,"kind":"LAYER_1","parentChainId":null}"""
 
         assertIs<RegistryUpdateException.Conflict>(failure(verifyPayload(TestPackages.payload(networks = imposter, tokens = ""))))
     }
@@ -269,10 +270,10 @@ class RegistryUpdateTest {
     @Test
     fun aPackageThatNeedsANewerSchemaIsIncompatible() {
         val refused = assertIs<RegistryUpdateException.Incompatible>(
-            failure(verifyPayload(TestPackages.payload(minSchemaVersion = 4))),
+            failure(verifyPayload(TestPackages.payload(minSchemaVersion = 5))),
         )
-        assertEquals(4L, refused.required)
-        assertEquals(3L, refused.supported)
+        assertEquals(5L, refused.required)
+        assertEquals(4L, refused.supported)
     }
 
     @Test
@@ -315,6 +316,18 @@ class RegistryUpdateTest {
     }
 
     @Test
+    fun aLayerTwoNeedsAParentThatIsKnownAndALayerOneHasNone() {
+        val network = TestPackages.LINEA_NETWORK
+        val noParent = network.replace("\"parentChainId\":1", "\"parentChainId\":null")
+        val layerOneWithParent = network.replace("\"kind\":\"LAYER_2\"", "\"kind\":\"LAYER_1\"")
+        val unknownParent = network.replace("\"parentChainId\":1", "\"parentChainId\":4343")
+
+        assertIs<RegistryUpdateException.InvalidEntry>(failure(verifyPayload(TestPackages.payload(networks = noParent))))
+        assertIs<RegistryUpdateException.InvalidEntry>(failure(verifyPayload(TestPackages.payload(networks = layerOneWithParent))))
+        assertIs<RegistryUpdateException.InvalidEntry>(failure(verifyPayload(TestPackages.payload(networks = unknownParent))))
+    }
+
+    @Test
     fun malformedPayloadsAreRejected() {
         val network = TestPackages.LINEA_NETWORK
         val cases = listOf(
@@ -323,6 +336,10 @@ class RegistryUpdateTest {
             "unknown fee model" to TestPackages.payload(networks = network.replace("L2_ROLLUP", "L3")),
             "unknown field" to TestPackages.payload(networks = network.replace("\"testnet\":false", "\"testnet\":false,\"extra\":1")),
             "missing explorerName" to TestPackages.payload(networks = network.replace("\"explorerName\":\"Lineascan\",", "")),
+            "missing kind" to TestPackages.payload(networks = network.replace("\"kind\":\"LAYER_2\",", "")),
+            "missing featured" to TestPackages.payload(networks = network.replace("\"featured\":false,", "")),
+            "missing parentChainId" to TestPackages.payload(networks = network.replace(",\"parentChainId\":1", "")),
+            "unknown kind" to TestPackages.payload(networks = network.replace("LAYER_2", "LAYER_3")),
             "not a JSON object" to "[1,2,3]",
             "formatVersion as a string" to TestPackages.payload().replace("\"formatVersion\":2", "\"formatVersion\":\"2\""),
             "no minSchemaVersion" to TestPackages.payload().replace("\"minSchemaVersion\":1,", ""),
@@ -404,7 +421,7 @@ class RegistryUpdateTest {
         val bakedWithLinea = RegistryLoader.load(
             fakeReader(
                 RegistryLoader.NETWORKS_PATH to
-                    """{"networks":[{"chainId":4242,"name":"Linea","nativeSymbol":"ETH","feeModel":"L2_ROLLUP","explorerName":"Lineascan","testnet":false}]}""",
+                    """{"networks":[{"chainId":4242,"name":"Linea","nativeSymbol":"ETH","feeModel":"L2_ROLLUP","explorerName":"Lineascan","testnet":false,"featured":false,"kind":"LAYER_1","parentChainId":null}]}""",
                 RegistryLoader.TOKENS_PATH to """{"tokens":[]}""",
             ),
         )
@@ -417,7 +434,7 @@ class RegistryUpdateTest {
 
     @Test
     fun withAdditionsRefusesToReplaceABakedChain() {
-        val replacement = NetworkEntry(1L, "Imposter", "ETH", 18, FeeModel.L1, null, false)
+        val replacement = NetworkEntry(1L, "Imposter", "ETH", 18, FeeModel.L1, null, false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null)
 
         assertFailsWith<IllegalArgumentException> { bakedRegistry().withAdditions(listOf(replacement), emptyList()) }
     }

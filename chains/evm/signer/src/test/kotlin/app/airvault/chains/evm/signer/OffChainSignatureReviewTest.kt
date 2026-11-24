@@ -9,6 +9,7 @@ import app.airvault.core.model.stopsSigning
 import app.airvault.core.model.text
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.Registry
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -145,9 +146,9 @@ private val NESTED_BATCH = """{"types":{"Batch":[{"name":"memo","type":"string"}
 
 private val REGISTRY = Registry(
     networks = listOf(
-        NetworkEntry(1, "Ethereum", "ETH", 18, FeeModel.L1, "Etherscan", testnet = false),
-        NetworkEntry(BNB, "BNB Smart Chain", "BNB", 18, FeeModel.L1, "BscScan", testnet = false),
-        NetworkEntry(ARBITRUM, "Arbitrum One", "ETH", 18, FeeModel.L1, "Arbiscan", testnet = false),
+        NetworkEntry(1, "Ethereum", "ETH", 18, FeeModel.L1, "Etherscan", testnet = false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null),
+        NetworkEntry(BNB, "BNB Smart Chain", "BNB", 18, FeeModel.L1, "BscScan", testnet = false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null),
+        NetworkEntry(ARBITRUM, "Arbitrum One", "ETH", 18, FeeModel.L1, "Arbiscan", testnet = false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null),
     ),
     tokens = emptyList(),
 )

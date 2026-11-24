@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import app.lensly.R
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.components.BackdropLogo
 import app.lensly.ui.components.TokenIcon
@@ -82,6 +83,7 @@ private val bnbSmartChain = NetworkEntry(
     explorerName = "BscScan",
     testnet = false,
     icon = "chain_binance_smart_chain",
+    featured = false, kind = NetworkKind.LAYER_1, parentChainId = null,
 )
 
 private val avalancheChain = NetworkEntry(
@@ -92,6 +94,7 @@ private val avalancheChain = NetworkEntry(
     explorerName = "Snowtrace",
     testnet = false,
     icon = "chain_avalanche",
+    featured = false, kind = NetworkKind.LAYER_1, parentChainId = null,
 )
 
 private val stackedSamples = listOf(
@@ -147,6 +150,7 @@ private val stackedSamples = listOf(
             explorerName = "Etherscan",
             testnet = false,
             icon = "chain_ethereum",
+            featured = false, kind = NetworkKind.LAYER_1, parentChainId = null,
         ),
     ),
 )

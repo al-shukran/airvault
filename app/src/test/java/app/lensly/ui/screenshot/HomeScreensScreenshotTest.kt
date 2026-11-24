@@ -25,6 +25,7 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.update.RegistryUpdateException
 import app.lensly.core.wallet.BulkCap
@@ -698,7 +699,7 @@ class HomeScreensScreenshotTest {
         "EJ5HRNWQ2KD7ZTXC3PLG6VMYSB4FAU2OQ7WRKN5XTJ3MDLC6HZGVY4PAS2",
     )
 
-    private val linea = NetworkEntry(59144L, "Linea", "ETH", 18, FeeModel.L2_ROLLUP, "Lineascan", false)
+    private val linea = NetworkEntry(59144L, "Linea", "ETH", 18, FeeModel.L2_ROLLUP, "Lineascan", false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null)
     private val usdc = TokenEntry(59144L, "0x176211869ca2b568f2a7d4ee941e073a821ee1ff", "USDC", "USD Coin", 6)
 }
 

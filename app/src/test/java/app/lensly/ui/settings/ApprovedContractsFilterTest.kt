@@ -3,6 +3,7 @@ package app.lensly.ui.settings
 import app.airvault.abi.WhitelistParam
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.WhitelistEntry
 import kotlin.test.assertEquals
 import org.junit.Test
@@ -86,6 +87,7 @@ class ApprovedContractsFilterTest {
         feeModel = FeeModel.L1,
         explorerName = null,
         testnet = false,
+        featured = false, kind = NetworkKind.LAYER_1, parentChainId = null,
     )
 
     private fun entry(

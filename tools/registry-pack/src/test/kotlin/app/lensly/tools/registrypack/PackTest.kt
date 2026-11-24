@@ -128,7 +128,7 @@ class PackTest {
             "nativeDecimals above 36" to source.copy(networks = listOf(network.copy(nativeDecimals = 37))),
             "sequence zero" to source.copy(sequence = 0),
             "formatVersion one" to source.copy(formatVersion = 1),
-            "minSchemaVersion above this tool" to source.copy(minSchemaVersion = 4),
+            "minSchemaVersion above this tool" to source.copy(minSchemaVersion = 5),
             "minSchemaVersion zero" to source.copy(minSchemaVersion = 0),
             "impossible date" to source.copy(createdAt = "2026-02-30"),
             "control character in name" to source.copy(networks = listOf(network.copy(name = "Li\u0007nea"))),

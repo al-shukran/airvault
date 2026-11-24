@@ -35,6 +35,7 @@ import app.lensly.core.parse.ScriptedSandbox
 import app.lensly.core.parse.inProcessSandboxParser
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.Registry
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
@@ -97,6 +98,7 @@ private val REGISTRY = Registry(
             feeModel = FeeModel.L1,
             explorerName = "MonadVision",
             testnet = true,
+            featured = false, kind = NetworkKind.LAYER_1, parentChainId = null,
         ),
     ),
     tokens = emptyList(),

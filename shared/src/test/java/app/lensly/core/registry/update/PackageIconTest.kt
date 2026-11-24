@@ -45,7 +45,7 @@ class PackageIconTest {
     private companion object {
         const val LINEA_WITH_ICON =
             """{"chainId":4242,"explorerName":"Lineascan","feeModel":"L2_ROLLUP","icon":"chain_ethereum",""" +
-                """"name":"Linea","nativeDecimals":18,"nativeSymbol":"ETH","testnet":false}"""
+                """"name":"Linea","nativeDecimals":18,"nativeSymbol":"ETH","testnet":false,"featured":false,"kind":"LAYER_1","parentChainId":null}"""
         const val LINEA_USDC_WITH_ICON =
             """{"chainId":4242,"contract":"0x176211869ca2b568f2a7d4ee941e073a821ee1ff","decimals":6,""" +
                 """"icon":"token_usdc","name":"USDC","symbol":"USDC"}"""

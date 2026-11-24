@@ -14,6 +14,7 @@ import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.ur.PathStep
@@ -34,7 +35,7 @@ private const val PERMIT_WARNING = "A signed permit lets a spender move your tok
 
 /** The registry the typed review reads: Ethereum with USDC, and a denylist entry the tests choose. */
 private val TYPED_REGISTRY = Registry(
-    networks = listOf(NetworkEntry(1, "Ethereum", "ETH", 18, FeeModel.L1, "Etherscan", testnet = false)),
+    networks = listOf(NetworkEntry(1, "Ethereum", "ETH", 18, FeeModel.L1, "Etherscan", testnet = false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null)),
     tokens = listOf(TokenEntry(1, TYPED_USDC, "USDC", "USD Coin", 6)),
 )
 
@@ -264,8 +265,8 @@ class EvmTypedReviewTest {
         // The request names Arbitrum One, but the domain names Ethereum. The network, the addresses and the token come from Ethereum.
         val registry = Registry(
             networks = listOf(
-                NetworkEntry(1, "Ethereum", "ETH", 18, FeeModel.L1, "Etherscan", testnet = false),
-                NetworkEntry(42161, "Arbitrum One", "ETH", 18, FeeModel.L1, "Arbiscan", testnet = false),
+                NetworkEntry(1, "Ethereum", "ETH", 18, FeeModel.L1, "Etherscan", testnet = false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null),
+                NetworkEntry(42161, "Arbitrum One", "ETH", 18, FeeModel.L1, "Arbiscan", testnet = false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null),
             ),
             tokens = listOf(
                 TokenEntry(1, TYPED_USDC, "USDC", "USD Coin", 6),

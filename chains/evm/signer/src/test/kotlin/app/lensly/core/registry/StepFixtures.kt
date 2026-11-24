@@ -15,7 +15,7 @@ internal const val SIGNER = "0x0bf93ea5a1fa4ce3dd22c7ffd314462d3869777f"
  * Ethereum with USDC, WETH, USDT, LINK and WBTC. ETHG and UNI are not registered, so the steps show them as an address and a raw amount.
  */
 internal val STEP_REGISTRY = Registry(
-    networks = listOf(NetworkEntry(1, "Ethereum", "ETH", 18, FeeModel.L1, "Etherscan", false)),
+    networks = listOf(NetworkEntry(1, "Ethereum", "ETH", 18, FeeModel.L1, "Etherscan", false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null)),
     tokens = listOf(
         TokenEntry(1, USDC, "USDC", "USD Coin", 6),
         TokenEntry(1, WETH, "WETH", "Wrapped Ether", 18),

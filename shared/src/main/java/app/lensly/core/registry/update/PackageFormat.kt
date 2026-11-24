@@ -8,6 +8,7 @@ import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.WalletEntry
@@ -48,9 +49,10 @@ internal object PackageFormat {
      * denylist and the wallets, so an older app refuses a package that carries them instead of failing on unknown fields.
      * Schema 3 adds dynamic, array and tuple arguments to whitelist entries, and the names of tuple fields. The format itself
      * (`LRP2`, formatVersion 2) does not change: a package that uses none of these still reads as it did, and one that does
-     * states schema 3, so an app that reads only schema 2 refuses it as Incompatible.
+     * states schema 3, so an app that reads only schema 2 refuses it as Incompatible. Schema 4 adds each network's kind, parent
+     * chain and featured flag, which an app that reads only schema 3 refuses as Incompatible.
      */
-    const val SCHEMA_VERSION = 3L
+    const val SCHEMA_VERSION = 4L
     const val MAX_BYTES = 1 shl 20
 
     /** The schema that adds dynamic, array and tuple arguments and named tuple fields to whitelist entries. */
@@ -174,6 +176,9 @@ internal object PackageFormat {
                     "chain ${network.chainId}: nativeDecimals must be 0 to $MAX_DECIMALS",
                 )
             }
+            if ((network.kind == NetworkKind.LAYER_2) != (network.parentChainId != null)) {
+                throw RegistryUpdateException.InvalidEntry("chain ${network.chainId}: a Layer 2 needs a parent chain, and a Layer 1 has none")
+            }
             requirePrintable("chain ${network.chainId} name", network.name)
             requirePrintable("chain ${network.chainId} nativeSymbol", network.nativeSymbol)
             network.explorerName?.let { requirePrintable("chain ${network.chainId} explorerName", it) }
@@ -232,7 +237,7 @@ internal object PackageFormat {
         val networks = dto.networks.map {
             NetworkEntry(
                 it.chainId, it.name, it.nativeSymbol, it.nativeDecimals, it.feeModel, it.explorerName, it.testnet,
-                icon = it.icon,
+                featured = it.featured, kind = it.kind, parentChainId = it.parentChainId, icon = it.icon,
             )
         }
         val tokens = dto.tokens.map {
@@ -291,6 +296,9 @@ internal object PackageFormat {
         val feeModel: FeeModel,
         val explorerName: String?,
         val testnet: Boolean,
+        val featured: Boolean,
+        val kind: NetworkKind,
+        val parentChainId: Long?,
         /** Optional. Packages signed before logos existed omit it. */
         val icon: String? = null,
     )

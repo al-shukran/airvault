@@ -161,6 +161,12 @@ object RegistryUpdate {
             if (baked.network(network.chainId) != null) {
                 throw RegistryUpdateException.Conflict("chain ${network.chainId} is already in the baked catalog")
             }
+            val parent = network.parentChainId
+            if (parent != null && baked.network(parent) == null && pkg.networks.none { it.chainId == parent }) {
+                throw RegistryUpdateException.InvalidEntry(
+                    "chain ${network.chainId} settles to chain $parent, which is neither baked nor in the package",
+                )
+            }
         }
         for (token in pkg.tokens) {
             if (baked.token(token.chainId, token.contract) != null) {

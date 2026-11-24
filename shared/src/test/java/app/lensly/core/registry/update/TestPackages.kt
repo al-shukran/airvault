@@ -18,7 +18,7 @@ internal object TestPackages {
     val TRUSTED: List<TrustedKey> = listOf(TrustedKey(PUBLIC_BYTES))
 
     const val LINEA_NETWORK =
-        """{"chainId":4242,"explorerName":"Lineascan","feeModel":"L2_ROLLUP","name":"Linea","nativeDecimals":18,"nativeSymbol":"ETH","testnet":false}"""
+        """{"chainId":4242,"explorerName":"Lineascan","feeModel":"L2_ROLLUP","featured":false,"kind":"LAYER_2","name":"Linea","nativeDecimals":18,"nativeSymbol":"ETH","parentChainId":1,"testnet":false}"""
     const val LINEA_USDC =
         """{"chainId":4242,"contract":"0x176211869ca2b568f2a7d4ee941e073a821ee1ff","decimals":6,"name":"USDC","symbol":"USDC"}"""
     const val LINEA_SWAP =

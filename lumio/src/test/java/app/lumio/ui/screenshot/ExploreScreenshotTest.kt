@@ -27,7 +27,11 @@ class ExploreScreenshotTest {
     @Test
     fun explore() = compose.lumioSnapshot("explore") {
         ExploreScreen(
-            chains = listOf(ChainRow("Ethereum", accounts = 4), ChainRow("Solana", accounts = 1)),
+            chains = listOf(
+                ChainRow("Ethereum", "Layer 1 · 4 of your accounts"),
+                ChainRow("Base", "L2 on Ethereum · ID 8453"),
+                ChainRow("Solana", "Layer 1 · 1 of your accounts"),
+            ),
             networks = 55,
             providers = listOf(
                 ProviderRow("blockscout", true, true, null, ProviderStatus.Healthy(score = 120.0)),

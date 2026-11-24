@@ -43,7 +43,7 @@ class RegistryIconFieldTest {
 
         const val BASE_NETWORK =
             """{"chainId":8453,"name":"Base","nativeSymbol":"ETH","nativeDecimals":18,"feeModel":"L2_ROLLUP",""" +
-                """"explorerName":"Basescan","testnet":false"""
+                """"explorerName":"Basescan","testnet":false,"featured":false,"kind":"LAYER_1","parentChainId":null"""
         const val USDC_TOKEN =
             """{"chainId":8453,"contract":"$USDC_BASE","symbol":"USDC","name":"USD Coin","decimals":6"""
 

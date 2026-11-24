@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performClick
 import app.airvault.abi.WhitelistParam
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.ui.components.groupAddress
@@ -37,6 +38,7 @@ class ApprovedContractsScreenTest {
         feeModel = FeeModel.L1,
         explorerName = "Etherscan",
         testnet = false,
+        featured = false, kind = NetworkKind.LAYER_1, parentChainId = null,
     )
     private val contract = "0x" + "5".repeat(40)
     private val swap = WhitelistEntry(
