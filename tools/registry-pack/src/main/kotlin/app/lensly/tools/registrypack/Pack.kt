@@ -106,6 +106,9 @@ data class NetworkDto(
     val feeModel: FeeModel,
     val explorerName: String?,
     val testnet: Boolean,
+    val featured: Boolean,
+    val kind: NetworkKind,
+    val parentChainId: Long?,
 )
 
 @Serializable
@@ -120,6 +123,9 @@ data class TokenDto(
 @Serializable
 enum class FeeModel { L1, L2_ROLLUP }
 
+@Serializable
+enum class NetworkKind { LAYER_1, LAYER_2 }
+
 /**
  * Builds, checks and signs registry packages. The app reader is `core/registry/update`; the two must agree.
  *
@@ -133,7 +139,7 @@ enum class FeeModel { L1, L2_ROLLUP }
 internal object Pack {
     const val FORMAT_VERSION = 2
     /** The newest catalog schema the app reads. A package may not need a newer one. */
-    const val SCHEMA_VERSION = 3
+    const val SCHEMA_VERSION = 4
 
     /** The schema that adds dynamic, array and tuple arguments, and the names of tuple fields, to whitelist entries. */
     private const val ARGUMENTS_SCHEMA = 3
@@ -248,9 +254,12 @@ internal object Pack {
         "chainId" to network.chainId,
         "explorerName" to network.explorerName,
         "feeModel" to network.feeModel.name,
+        "featured" to network.featured,
+        "kind" to network.kind.name,
         "name" to network.name,
         "nativeDecimals" to network.nativeDecimals,
         "nativeSymbol" to network.nativeSymbol,
+        "parentChainId" to network.parentChainId,
         "testnet" to network.testnet,
     )
 
@@ -278,6 +287,9 @@ internal object Pack {
             require(network.chainId > 0) { "network chainId must be positive: ${network.chainId}" }
             // Release builds never see a testnet (RegistryLoader), so a package cannot add one.
             require(!network.testnet) { "network ${network.chainId}: a package cannot add a testnet" }
+            require((network.kind == NetworkKind.LAYER_2) == (network.parentChainId != null)) {
+                "network ${network.chainId}: a Layer 2 needs a parent chain, and a Layer 1 has none"
+            }
             requireText("network ${network.chainId} name", network.name)
             requireText("network ${network.chainId} nativeSymbol", network.nativeSymbol)
             require(network.nativeDecimals in 0..MAX_DECIMALS) {

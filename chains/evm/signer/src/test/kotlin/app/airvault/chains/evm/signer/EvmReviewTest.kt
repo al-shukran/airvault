@@ -16,6 +16,7 @@ import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
@@ -75,8 +76,8 @@ private const val HYPEREVM_UNLINKED = "0x333333333333333333333333333333333333333
 /** HyperEVM mainnet (999) and testnet (998), as the registry names them. HYPEREVM_TOKEN is the one registered token. */
 private val HYPEREVM_REGISTRY = Registry(
     networks = listOf(
-        NetworkEntry(999, "HyperEVM", "HYPE", 18, FeeModel.L1, null, testnet = false),
-        NetworkEntry(998, "HyperEVM Testnet", "HYPE", 18, FeeModel.L1, null, testnet = true),
+        NetworkEntry(999, "HyperEVM", "HYPE", 18, FeeModel.L1, null, testnet = false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null),
+        NetworkEntry(998, "HyperEVM Testnet", "HYPE", 18, FeeModel.L1, null, testnet = true, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null),
     ),
     tokens = listOf(TokenEntry(999, HYPEREVM_TOKEN, "HYT", "HyperEVM Test Token", 18)),
 )
@@ -84,8 +85,8 @@ private val HYPEREVM_REGISTRY = Registry(
 /** Monad testnet (10143), as the debug catalog names it, and Ethereum with USDC. */
 private val REGISTRY = Registry(
     networks = listOf(
-        NetworkEntry(10143, "Monad Testnet", "MON", 18, FeeModel.L1, "MonadVision", testnet = true),
-        NetworkEntry(1, "Ethereum", "ETH", 18, FeeModel.L1, "Etherscan", testnet = false),
+        NetworkEntry(10143, "Monad Testnet", "MON", 18, FeeModel.L1, "MonadVision", testnet = true, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null),
+        NetworkEntry(1, "Ethereum", "ETH", 18, FeeModel.L1, "Etherscan", testnet = false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null),
     ),
     tokens = listOf(TokenEntry(1, USDC_LOWER, "USDC", "USD Coin", 6)),
 )

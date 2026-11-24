@@ -2,6 +2,7 @@ package app.lensly.ui.components
 
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.registry.TokenEntry
 import app.lensly.shared.R
@@ -169,6 +170,7 @@ class ChainTokenIconsTest {
         explorerName = "Basescan",
         testnet = false,
         icon = icon,
+        featured = false, kind = NetworkKind.LAYER_1, parentChainId = null,
     )
 
     private fun token(icon: String?) = TokenEntry(

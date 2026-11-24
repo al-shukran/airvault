@@ -1,5 +1,5 @@
 {
   "networks": [
-    {"chainId": 11155111, "name": "Ethereum Sepolia", "nativeSymbol": "ETH", "nativeDecimals": 18, "feeModel": "L1", "explorerName": "Etherscan", "testnet": true, "icon": "chain_ethereum"}
+    {"chainId": 11155111, "name": "Ethereum Sepolia", "nativeSymbol": "ETH", "nativeDecimals": 18, "feeModel": "L1", "explorerName": "Etherscan", "testnet": true, "icon": "chain_ethereum", "featured": false, "kind": "LAYER_1", "parentChainId": null}
   ]
 }

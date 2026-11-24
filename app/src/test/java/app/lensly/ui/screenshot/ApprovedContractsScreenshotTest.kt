@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.airvault.abi.WhitelistParam
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.ui.settings.ApprovedContractsScreen
@@ -31,6 +32,7 @@ class ApprovedContractsScreenshotTest {
         explorerName = "Etherscan",
         testnet = false,
         icon = "chain_ethereum",
+        featured = false, kind = NetworkKind.LAYER_1, parentChainId = null,
     )
 
     private val approvals = listOf(

@@ -147,7 +147,7 @@ class RegistryTest {
                 RegistryLoader.NETWORKS_PATH to NETWORKS_MAIN,
                 RegistryLoader.TOKENS_PATH to TOKENS_MAIN,
                 RegistryLoader.NETWORKS_DEBUG_PATH to """
-                    {"networks":[{"chainId":1,"name":"Override","nativeSymbol":"ETH","feeModel":"L1","explorerName":null,"testnet":true}]}
+                    {"networks":[{"chainId":1,"name":"Override","nativeSymbol":"ETH","feeModel":"L1","explorerName":null,"testnet":true,"featured":false,"kind":"LAYER_1","parentChainId":null}]}
                 """.trimIndent(),
             ),
         )
@@ -186,8 +186,8 @@ class RegistryTest {
                 fakeReader(
                     RegistryLoader.NETWORKS_PATH to """
                         {"networks":[
-                          {"chainId":1,"name":"A","nativeSymbol":"ETH","feeModel":"L1","explorerName":null,"testnet":false},
-                          {"chainId":1,"name":"B","nativeSymbol":"ETH","feeModel":"L1","explorerName":null,"testnet":false}
+                          {"chainId":1,"name":"A","nativeSymbol":"ETH","feeModel":"L1","explorerName":null,"testnet":false,"featured":false,"kind":"LAYER_1","parentChainId":null},
+                          {"chainId":1,"name":"B","nativeSymbol":"ETH","feeModel":"L1","explorerName":null,"testnet":false,"featured":false,"kind":"LAYER_1","parentChainId":null}
                         ]}
                     """.trimIndent(),
                     RegistryLoader.TOKENS_PATH to TOKENS_MAIN,
@@ -205,13 +205,13 @@ class RegistryTest {
 
     private companion object {
         val NETWORKS_MAIN = """
-            {"networks":[{"chainId":1,"name":"Ethereum","nativeSymbol":"ETH","feeModel":"L1","explorerName":"Etherscan","testnet":false}]}
+            {"networks":[{"chainId":1,"name":"Ethereum","nativeSymbol":"ETH","feeModel":"L1","explorerName":"Etherscan","testnet":false,"featured":false,"kind":"LAYER_1","parentChainId":null}]}
         """.trimIndent()
 
         val TOKENS_MAIN = """{"tokens":[]}"""
 
         val NETWORKS_DEBUG = """
-            {"networks":[{"chainId":10143,"name":"Monad Testnet","nativeSymbol":"MON","feeModel":"L1","explorerName":"MonadVision","testnet":true}]}
+            {"networks":[{"chainId":10143,"name":"Monad Testnet","nativeSymbol":"MON","feeModel":"L1","explorerName":"MonadVision","testnet":true,"featured":false,"kind":"LAYER_1","parentChainId":null}]}
         """.trimIndent()
     }
 }

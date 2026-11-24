@@ -52,6 +52,7 @@ import app.lensly.core.registry.AbiRows
 import app.lensly.core.registry.CallSteps
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
@@ -276,6 +277,7 @@ private val UR_NETWORK = NetworkEntry(
     explorerName = "Etherscan",
     testnet = false,
     icon = "chain_ethereum",
+    featured = false, kind = NetworkKind.LAYER_1, parentChainId = null,
 )
 private val UR_REGISTRY = Registry(
     networks = listOf(UR_NETWORK),

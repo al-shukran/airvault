@@ -15,8 +15,8 @@ private const val CONTRACT = "0x5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a"
 private const val IMPLEMENTATION = "0x7777777777777777777777777777777777777777"
 private const val CODE_DIGEST = "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
-private val ETHEREUM = NetworkEntry(1L, "Ethereum", "ETH", 18, FeeModel.L1, "Etherscan", false)
-private val BASE = NetworkEntry(8453L, "Base", "ETH", 18, FeeModel.L2_ROLLUP, "Basescan", false)
+private val ETHEREUM = NetworkEntry(1L, "Ethereum", "ETH", 18, FeeModel.L1, "Etherscan", false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null)
+private val BASE = NetworkEntry(8453L, "Base", "ETH", 18, FeeModel.L2_ROLLUP, "Basescan", false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null)
 
 private fun swap(chainId: Long = 1L, contract: String = CONTRACT) = WhitelistEntry(
     chainId = chainId,
@@ -155,7 +155,7 @@ class WhitelistRegistryTest {
 
     @Test
     fun addingNetworksKeepsTheWhitelist() {
-        val added = registry.withAdditions(listOf(NetworkEntry(10L, "Optimism", "ETH", 18, FeeModel.L2_ROLLUP, null, false)), emptyList())
+        val added = registry.withAdditions(listOf(NetworkEntry(10L, "Optimism", "ETH", 18, FeeModel.L2_ROLLUP, null, false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null)), emptyList())
 
         assertEquals(SWAP_SIGNATURE, added.whitelist(1L, CONTRACT, SWAP_SELECTOR)?.signature)
     }

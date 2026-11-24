@@ -32,6 +32,7 @@ import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
@@ -203,6 +204,7 @@ private val REGISTRY = Registry(
             feeModel = FeeModel.L1,
             explorerName = "MonadVision",
             testnet = true,
+            featured = false, kind = NetworkKind.LAYER_1, parentChainId = null,
         ),
         NetworkEntry(
             chainId = ETHEREUM,
@@ -212,6 +214,7 @@ private val REGISTRY = Registry(
             feeModel = FeeModel.L1,
             explorerName = "Etherscan",
             testnet = false,
+            featured = false, kind = NetworkKind.LAYER_1, parentChainId = null,
         ),
         NetworkEntry(
             chainId = BASE,
@@ -221,6 +224,7 @@ private val REGISTRY = Registry(
             feeModel = FeeModel.L2_ROLLUP,
             explorerName = "Basescan",
             testnet = false,
+            featured = false, kind = NetworkKind.LAYER_1, parentChainId = null,
         ),
     ),
     tokens = listOf(

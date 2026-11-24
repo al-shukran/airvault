@@ -40,6 +40,11 @@ class Registry constructor(
                 "token ${token.symbol} references unknown chainId ${token.chainId}"
             }
         }
+        for (network in networkList) {
+            network.parentChainId?.let { parent ->
+                require(networksById.containsKey(parent)) { "network ${network.chainId} names unknown parent chain $parent" }
+            }
+        }
         require(whitelistByKey.size == whitelistList.size) { "duplicate whitelist entry in registry" }
         for (entry in whitelistList) {
             require(networksById.containsKey(entry.chainId)) {

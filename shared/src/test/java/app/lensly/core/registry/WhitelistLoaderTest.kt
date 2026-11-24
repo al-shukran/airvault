@@ -224,13 +224,13 @@ class WhitelistLoaderTest {
         const val SEPOLIA = 11155111L
 
         val NETWORKS_MAIN = """
-            {"networks":[{"chainId":1,"name":"Ethereum","nativeSymbol":"ETH","feeModel":"L1","explorerName":"Etherscan","testnet":false}]}
+            {"networks":[{"chainId":1,"name":"Ethereum","nativeSymbol":"ETH","feeModel":"L1","explorerName":"Etherscan","testnet":false,"featured":false,"kind":"LAYER_1","parentChainId":null}]}
         """.trimIndent()
 
         val ASSETS_MAIN = """{"tokens":[]}"""
 
         val NETWORKS_DEBUG = """
-            {"networks":[{"chainId":11155111,"name":"Ethereum Sepolia","nativeSymbol":"ETH","feeModel":"L1","explorerName":"Etherscan","testnet":true}]}
+            {"networks":[{"chainId":11155111,"name":"Ethereum Sepolia","nativeSymbol":"ETH","feeModel":"L1","explorerName":"Etherscan","testnet":true,"featured":false,"kind":"LAYER_1","parentChainId":null}]}
         """.trimIndent()
 
         val RELEASE_WHITELIST = """{"whitelist":[${

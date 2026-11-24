@@ -11,6 +11,7 @@ import app.lensly.app.sign.ReviewOutcome
 import app.lensly.app.sign.ReviewRecord
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.NetworkKind
 import java.time.Instant
 
 /** The account of the sample records, in full. */
@@ -33,6 +34,7 @@ internal val sampleNetworks: List<NetworkEntry> = listOf(
         explorerName = "MonadVision",
         testnet = true,
         icon = "chain_monad",
+        featured = false, kind = NetworkKind.LAYER_1, parentChainId = null,
     ),
 )
 

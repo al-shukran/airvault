@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
@@ -31,8 +32,8 @@ class TokensScreenTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private val alpha = NetworkEntry(chainId = 1L, name = "Alpha Chain", nativeSymbol = "ETH", feeModel = FeeModel.L1, explorerName = null, testnet = false)
-    private val beta = NetworkEntry(chainId = 10L, name = "Beta Rollup", nativeSymbol = "ETH", feeModel = FeeModel.L2_ROLLUP, explorerName = null, testnet = false)
+    private val alpha = NetworkEntry(chainId = 1L, name = "Alpha Chain", nativeSymbol = "ETH", feeModel = FeeModel.L1, explorerName = null, testnet = false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null)
+    private val beta = NetworkEntry(chainId = 10L, name = "Beta Rollup", nativeSymbol = "ETH", feeModel = FeeModel.L2_ROLLUP, explorerName = null, testnet = false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null)
     private val alphaOne = TokenEntry(chainId = 1L, contract = "0x" + "1".repeat(40), symbol = "AAA", name = "Alpha Token", decimals = 18)
     private val alphaTwo = TokenEntry(chainId = 1L, contract = "0x" + "2".repeat(40), symbol = "BBB", name = "Bravo Token", decimals = 6)
     private val betaOne = TokenEntry(chainId = 10L, contract = "0x" + "3".repeat(40), symbol = "CCC", name = "Charlie Token", decimals = 8)

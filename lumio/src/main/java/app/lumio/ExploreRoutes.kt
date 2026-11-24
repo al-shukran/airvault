@@ -40,7 +40,7 @@ internal fun ExploreRoute(navController: NavHostController, holder: VaultHolder,
         val current = lists ?: return@TabRoute
         val settings = evmSettings ?: return@TabRoute
         ExploreScreen(
-            chains = view?.let { shown -> chainRows(shown.wallets.flatMap { wallet -> shown.accountsOf(wallet.id) }) }.orEmpty(),
+            chains = view?.let { shown -> chainRows(app.registry, selection.mode, shown.wallets.flatMap { wallet -> shown.accountsOf(wallet.id) }) }.orEmpty(),
             networks = networksOn(app.registry, settings, selection.mode),
             providers = current.data + current.prices,
             onChains = { navController.navigate(LumioRoute.SETTINGS_NETWORKS) },

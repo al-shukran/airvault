@@ -11,7 +11,10 @@
       "nativeDecimals": 18,
       "feeModel": "L2_ROLLUP",
       "explorerName": "Lineascan",
-      "testnet": false
+      "testnet": false,
+      "featured": false,
+      "kind": "LAYER_2",
+      "parentChainId": 1
     }
   ],
   "tokens": [

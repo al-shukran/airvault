@@ -11,6 +11,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.shippedRegistry
@@ -29,10 +30,10 @@ class NetworksScreenTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private val mainnet = NetworkEntry(chainId = 1L, name = "Alpha Chain", nativeSymbol = "ETH", feeModel = FeeModel.L1, explorerName = null, testnet = false)
-    private val mainnetTwo = NetworkEntry(chainId = 10L, name = "Beta Rollup", nativeSymbol = "ETH", feeModel = FeeModel.L2_ROLLUP, explorerName = null, testnet = false)
-    private val testnet = NetworkEntry(chainId = 11155111L, name = "Gamma Testnet", nativeSymbol = "SEP", feeModel = FeeModel.L1, explorerName = null, testnet = true)
-    private val testnetTwo = NetworkEntry(chainId = 84532L, name = "Delta Testnet", nativeSymbol = "ETH", feeModel = FeeModel.L2_ROLLUP, explorerName = null, testnet = true)
+    private val mainnet = NetworkEntry(chainId = 1L, name = "Alpha Chain", nativeSymbol = "ETH", feeModel = FeeModel.L1, explorerName = null, testnet = false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null)
+    private val mainnetTwo = NetworkEntry(chainId = 10L, name = "Beta Rollup", nativeSymbol = "ETH", feeModel = FeeModel.L2_ROLLUP, explorerName = null, testnet = false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null)
+    private val testnet = NetworkEntry(chainId = 11155111L, name = "Gamma Testnet", nativeSymbol = "SEP", feeModel = FeeModel.L1, explorerName = null, testnet = true, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null)
+    private val testnetTwo = NetworkEntry(chainId = 84532L, name = "Delta Testnet", nativeSymbol = "ETH", feeModel = FeeModel.L2_ROLLUP, explorerName = null, testnet = true, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null)
     private val networks = listOf(mainnet, mainnetTwo, testnet, testnetTwo)
 
     private fun show(networks: List<NetworkEntry>, tokens: List<TokenEntry> = emptyList()) {

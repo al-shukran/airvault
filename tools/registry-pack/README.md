@@ -67,10 +67,10 @@ The entries file is the source a package is built from. Entries may appear in an
 | Field | Meaning |
 | --- | --- |
 | `formatVersion` | Must be `2`. |
-| `minSchemaVersion` | Optional, default `1`. The catalog schema the package needs; `3` is the newest the application reads. A package with a `denylist` or `wallets` list needs `2`. A package with a whitelist argument that is dynamic, an array or a tuple, or that names tuple fields, needs `3`. |
+| `minSchemaVersion` | Optional, default `1`. The catalog schema the package needs; `4` is the newest the application reads. A package with a `denylist` or `wallets` list needs `2`. A package with a whitelist argument that is dynamic, an array or a tuple, or that names tuple fields, needs `3`. A package with networks needs `4`. |
 | `sequence` | At least 1. The application refuses a package whose sequence is not higher than the last one it accepted. |
 | `createdAt` | ISO date, `yyyy-mm-dd`. |
-| `networks` | Networks the package adds. A package cannot add a testnet. |
+| `networks` | Networks the package adds. A package cannot add a testnet. Each network states `kind` (`LAYER_1`, or `LAYER_2` for a rollup), `parentChainId` (the chain a Layer 2 settles to, such as `1`, and `null` for a Layer 1) and `featured` (`true` when Lumio's Explore chains group lists it without an account). A Layer 2 needs a parent, and a Layer 1 has none. |
 | `tokens` | Tokens the package adds. Each token's chain must be baked into the application or added by this package. |
 | `whitelist` | Optional. The contract calls that may be signed despite a Decode Gap (see below). Omitted, the application keeps the whitelist it has installed, or its built-in list when none is installed; `[]` clears it. |
 | `denylist` | Optional. Known-dangerous requests that get a warning or a refusal (see below). Omitted, the application keeps its built-in list; `[]` clears it. |

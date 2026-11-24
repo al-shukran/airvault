@@ -54,6 +54,10 @@ not fetched by `build.py`.
 5. `verify_onchain.py` keeps a network when at least one of its RPCs answers `eth_chainId` with the expected value
    and none answers with another value. A network with no answer is kept only when chainlist lists a mainnet, and
    it is flagged in the report.
+6. `kind` and `parentChainId` follow `feeModel`: an `L2_ROLLUP` chain is a Layer 2 on Ethereum (chain 1), and every other
+   chain is a Layer 1 with a null `parentChainId`. `featured` marks the networks that Lumio's Explore chains group lists
+   without an account on them: Base, Arbitrum One, Optimism, Polygon PoS and Monad testnet (`FEATURED_CHAIN_IDS` in
+   `build.py`). `build.py` sets all three, and `verify_onchain.py` keeps them.
 
 ### feeModel
 
