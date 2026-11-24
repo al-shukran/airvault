@@ -21,6 +21,8 @@ import app.lumio.data.config.FinishSetupStore
 import app.lumio.home.HomeLoader
 import app.lumio.network.NetworkMode
 import app.lumio.pair.FirstSync
+import app.lumio.pair.FirstSyncImport
+import app.lumio.pair.FirstSyncImports
 import app.lumio.pair.PairScan
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
@@ -195,9 +197,10 @@ internal suspend fun <T> onVault(default: T, block: suspend () -> T): T = withCo
 internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolder, walletId: String, mode: NetworkMode, onLock: () -> Unit) {
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
-    val wallet by produceState<PairedWallet?>(null, session, walletId) {
-        value = session?.let { s -> onVault(null) { PairedWallets.list(s).firstOrNull { it.id == walletId } } }
-    }
+    // A decoy vault keeps no Lumio state, so its import is not kept and each visit starts it again.
+    val imports = app.lumioVault()?.firstSyncs ?: FirstSyncImports()
+    // The import as an earlier visit left it: its rows show on the first frame, and its reads do not run again.
+    var imported by remember(session, walletId, mode) { mutableStateOf(imports.get(walletId, mode)) }
     fun finish() {
         navController.popBackStack(LumioRoute.WALLETS, inclusive = false)
         navController.navigate(LumioRoute.wallet(walletId))
@@ -211,13 +214,25 @@ internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolde
         LaunchedEffect(Unit) { navController.popBackStack(LumioRoute.WALLETS, inclusive = false) }
         return
     }
-    val current = wallet ?: return
-    val sync = remember(session, current, mode) { FirstSync(firstSyncSteps(app, session, mode, current)) }
-    val rows by sync.rows.collectAsState()
+    // Each visit reads the wallet again. The vault may have lost it while the owner was away, and a wallet
+    // that is gone leaves for the wallets list.
+    LaunchedEffect(session, walletId, mode) {
+        val wallet = onVault(null) { PairedWallets.list(session).firstOrNull { it.id == walletId } }
+        if (wallet == null) {
+            navController.popBackStack(LumioRoute.WALLETS, inclusive = false)
+        } else {
+            val sync = imports.get(walletId, mode)?.sync ?: FirstSync(firstSyncSteps(app, session, mode, wallet))
+            imported = FirstSyncImport(wallet, sync).also { imports.put(walletId, mode, it) }
+        }
+    }
+    val current = imported ?: return
+    val sync = current.sync
     LaunchedEffect(sync) { app.runInAppScope { sync.run() } }
-    val families = listOf<List<*>>(current.evmAddresses, current.bitcoin, current.solana, current.algorand)
+    val rows by sync.rows.collectAsState()
+    val wallet = current.wallet
+    val families = listOf<List<*>>(wallet.evmAddresses, wallet.bitcoin, wallet.solana, wallet.algorand)
     FirstSyncScreen(
-        walletName = current.name,
+        walletName = wallet.name,
         accounts = families.sumOf { it.size },
         chains = families.count { it.isNotEmpty() },
         rows = rows,

@@ -30,7 +30,8 @@ private fun chainOf(address: String): String = if (address.startsWith("0x")) "Et
 @Composable
 fun AddressBookScreen(walletName: String, entries: List<AddressBookEntry>, offline: String?, onBack: () -> Unit, onLock: () -> Unit) {
     val palette = LocalClearAirPalette.current
-    LumioPageScreen(title = SettingsPage.ADDRESS_BOOK.title, backLabel = SettingsPage.ADDRESS_BOOK.title, offline = offline, onBack = onBack, onLock = onLock) {
+    // Opened from Settings or from Search, so the back arrow names no place: it is read as Back.
+    LumioPageScreen(title = SettingsPage.ADDRESS_BOOK.title, backLabel = null, offline = offline, onBack = onBack, onLock = onLock) {
         ClearAirStatusBand(text = READ_ONLY)
         Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.sm)) {

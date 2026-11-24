@@ -94,7 +94,7 @@ fun PortfolioScreen(
         val usd = total.usd
         val fiat = LocalFiat.current
         if (usd == null) {
-            EmptyBalances(testnet = testnet, otherSide = otherSide, onReceive = onReceive)
+            EmptyBalances(testnet = testnet, showBalance = showBalance, otherSide = otherSide, onReceive = onReceive)
         } else {
             ClearAirAmount(
                 text = fiat.amount(usd),
@@ -153,7 +153,7 @@ fun PortfolioScreen(
  * action that fills the screen. [otherSide] shows under the words when the other side holds funds, and [onReceive] adds the Receive capsule.
  */
 @Composable
-private fun EmptyBalances(testnet: Boolean, otherSide: OtherSide?, onReceive: (() -> Unit)?) {
+private fun EmptyBalances(testnet: Boolean, showBalance: Boolean, otherSide: OtherSide?, onReceive: (() -> Unit)?) {
     val palette = LocalClearAirPalette.current
     val side = if (testnet) "Testnet" else "Mainnet"
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xl)) {
@@ -166,16 +166,19 @@ private fun EmptyBalances(testnet: Boolean, otherSide: OtherSide?, onReceive: ((
             style = ClearAirType.body,
             color = palette.ink2,
         )
-        otherSide?.let { OtherSideCard(other = it) }
+        otherSide?.let { OtherSideCard(other = it, shown = showBalance) }
         onReceive?.let { receive ->
             ClearAirPrimaryButton(text = "Receive on $side", onClick = receive, modifier = Modifier.padding(top = ClearAirSpacing.lg))
         }
     }
 }
 
-/** The other side's balance: its amount and side, its network, and the tap that switches to that side. A testnet side wears the testnet hatch. */
+/**
+ * The other side's balance: its amount and side, its network, and the tap that switches to that side. A testnet side wears the testnet hatch. A hidden
+ * balance ([shown] off) masks the amount and leaves the side and the network.
+ */
 @Composable
-private fun OtherSideCard(other: OtherSide) {
+private fun OtherSideCard(other: OtherSide, shown: Boolean) {
     val palette = LocalClearAirPalette.current
     val side = if (other.testnet) "Testnet" else "Mainnet"
     Column(
@@ -188,7 +191,7 @@ private fun OtherSideCard(other: OtherSide) {
     ) {
         if (other.testnet) ClearAirTestnetHatch(text = "TESTNET")
         Column(modifier = Modifier.padding(ClearAirSpacing.md)) {
-            Text(text = "${other.amount} on $side", style = ClearAirType.rowTitle, color = palette.ink)
+            Text(text = "${Masking.amount(other.amount, hidden = !shown)} on $side", style = ClearAirType.rowTitle, color = palette.ink)
             Text(text = "${other.network} · tap to switch sides", style = ClearAirType.body, color = palette.ink2)
         }
     }

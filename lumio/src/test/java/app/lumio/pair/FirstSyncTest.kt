@@ -91,6 +91,27 @@ class FirstSyncTest {
     }
 
     @Test
+    fun aSecondRunDoesNotReadAgain() = runTest {
+        var reads = 0
+        val sync = FirstSync(listOf(SyncStep(listOf(SyncRow.PRICES)) { reads++; emptySet() }))
+        sync.run()
+        sync.run()
+        assertEquals(1, reads)
+        assertEquals(SyncState.Done, sync.rows.value.getValue(SyncRow.PRICES))
+    }
+
+    @Test
+    fun aRunThatIsStillGoingIsNotStartedAgain() = runTest {
+        var reads = 0
+        val sync = FirstSync(listOf(SyncStep(listOf(SyncRow.PRICES)) { reads++; delay(1_000); emptySet() }))
+        val first = launch { sync.run() }
+        runCurrent()
+        sync.run()
+        first.join()
+        assertEquals(1, reads)
+    }
+
+    @Test
     fun aNativeFailureMarksOnlyItsChain() = runTest {
         val sync = FirstSync(listOf(SyncStep(listOf(SyncRow.SOLANA, SyncRow.ALGORAND)) { setOf(SyncRow.ALGORAND) }))
         sync.run()
