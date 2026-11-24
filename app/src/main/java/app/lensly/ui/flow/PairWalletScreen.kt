@@ -56,6 +56,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
 import app.lensly.R
 import app.lensly.app.AppNotInstalled
+import app.lensly.app.NoAppsInstalled
 import app.lensly.app.RegistryHolder
 import app.lensly.app.VaultHolder
 import app.lensly.app.WalletApp
@@ -232,12 +233,16 @@ internal fun PairWizard(
     val inCode = step == PairStep.CODE
     // Both codes are derived from the wallet's seed, so only a Mnemonic wallet has one. A Single Key has none.
     val isMnemonic = chosen?.kind == WalletKind.MNEMONIC
-    // The code is built only when the owner reaches it and the App Password is right, from public wallet data. Rabby and MetaMask need the
-    // Ethereum App of the wallet, so a wallet without it has no code, only the App the code needs.
+    // The code is built only when the owner reaches it and the App Password is right, from public wallet data. Lumio needs one App of the
+    // wallet, and Rabby and MetaMask need the Ethereum App, so a wallet without them has no code, only a notice.
     val code by produceState<PairCode?>(initialValue = null, chosen, inCode, format, isMnemonic, codeUnlocked) {
         value = when {
             !inCode || !codeUnlocked || chosen == null || !isMnemonic -> null
-            format == PairFormat.LUMIO -> PairCode.Frames(lumioParts(chosen))
+            format == PairFormat.LUMIO -> try {
+                PairCode.Frames(lumioParts(chosen))
+            } catch (e: NoAppsInstalled) {
+                PairCode.NoApps
+            }
             else -> try {
                 PairCode.Frames(ethereumParts(chosen))
             } catch (e: AppNotInstalled) {
@@ -338,8 +343,7 @@ internal fun PairWizard(
             wallet = chosen,
             format = format,
             walletEntry = format?.walletName?.let { name -> walletEntries.firstOrNull { it.name == name } },
-            frames = (code as? PairCode.Frames)?.frames,
-            missingApp = (code as? PairCode.Missing)?.app,
+            code = code,
             onPickWallet = { picked ->
                 wallet = picked
                 step = PairStep.APP
@@ -357,10 +361,15 @@ internal fun PairWizard(
     }
 }
 
-/** What the code step of a pairing shows: its frames, or the App the code needs that the chosen wallet does not have. */
-private sealed interface PairCode {
+/** What the code step of a pairing shows: its frames, or a notice in their place. */
+internal sealed interface PairCode {
     class Frames(val frames: List<String>) : PairCode
+
+    /** The App the code needs is not installed in the chosen wallet. */
     class Missing(val app: WalletApp) : PairCode
+
+    /** No App is installed in the chosen wallet, so Lumio has no account to pair. */
+    data object NoApps : PairCode
 }
 
 /**
@@ -377,9 +386,8 @@ internal fun PairWizardScreen(
     format: PairFormat?,
     /** The Wallet Entry of the chosen online wallet, or null when the registry has none. Its note shows on the instructions step. */
     walletEntry: WalletEntry? = null,
-    frames: List<String>?,
-    /** The App the code needs that the wallet does not have. The code step shows its notice instead of the code. */
-    missingApp: WalletApp? = null,
+    /** What the code step shows: its frames, or a notice in their place. Null while the code is not asked for or is still being read. */
+    code: PairCode? = null,
     onPickWallet: (WalletMeta) -> Unit,
     onPickFormat: (PairFormat) -> Unit,
     onShowCode: () -> Unit,
@@ -400,7 +408,7 @@ internal fun PairWizardScreen(
             }
         }
         // A notice has no code to be done with, so its Done is left out.
-        PairStep.CODE -> if (missingApp == null) {
+        PairStep.CODE -> if (code == null || code is PairCode.Frames) {
             { PillButton(text = "Done", onClick = onDone, accent = true, modifier = Modifier.fillMaxWidth()) }
         } else {
             null
@@ -436,12 +444,20 @@ internal fun PairWizardScreen(
                     PairStep.APP ->
                         if (wallet?.kind == WalletKind.SINGLE_KEY) SingleKeyNotice() else FormatStep(onPick = onPickFormat)
                     PairStep.INSTRUCTIONS -> InstructionsStep(format = format, walletEntry = walletEntry)
-                    PairStep.CODE ->
-                        if (missingApp != null) {
-                            AppMissingNotice(app = missingApp, onOpenApps = onOpenApps)
-                        } else {
-                            CodeStep(format = format, frames = frames)
-                        }
+                    PairStep.CODE -> when (code) {
+                        is PairCode.Missing -> AppMissingNotice(
+                            title = "${code.app.label} Is Not Installed",
+                            message = "Rabby and MetaMask pair through the ${code.app.label} app. Install it on this wallet to show the code.",
+                            onOpenApps = onOpenApps,
+                        )
+                        PairCode.NoApps -> AppMissingNotice(
+                            title = "No App Is Installed",
+                            message = "Lumio pairs the Apps of this wallet. Install one on this wallet to show the code.",
+                            onOpenApps = onOpenApps,
+                        )
+                        is PairCode.Frames -> CodeStep(format = format, frames = code.frames)
+                        null -> CodeStep(format = format, frames = null)
+                    }
                 }
             }
         }
@@ -543,16 +559,13 @@ private fun SingleKeyNotice() {
 }
 
 /**
- * The code step of a wallet without the [app] its code needs, Ethereum for Rabby and MetaMask. Nothing is installed from here: the owner
- * opens the wallet's Apps and installs it there, so an App is never added by a pairing.
+ * The code step of a wallet whose Apps cannot give the code: the App it needs is missing, Ethereum for Rabby and MetaMask, or no App is
+ * installed for Lumio. Nothing is installed from here: the owner opens the wallet's Apps and installs it there, so an App is never added
+ * by a pairing.
  */
 @Composable
-private fun AppMissingNotice(app: WalletApp, onOpenApps: () -> Unit) {
-    InlineBanner(
-        title = "${app.label} Is Not Installed",
-        message = "Rabby and MetaMask pair through the ${app.label} app. Install it on this wallet to show the code.",
-        tone = BannerTone.Info,
-    )
+private fun AppMissingNotice(title: String, message: String, onOpenApps: () -> Unit) {
+    InlineBanner(title = title, message = message, tone = BannerTone.Info)
     Spacer(Modifier.height(LenslySpacing.lg))
     LumioTextAction(text = "Open Apps", onClick = onOpenApps)
 }
