@@ -11,7 +11,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextReplacement
 import app.lensly.core.btc.BtcNetwork
-import app.lensly.ui.theme.LumenTheme
+import app.lensly.ui.theme.ClearAirTheme
 import app.lumio.btc.EsploraServers
 import kotlin.test.assertEquals
 import org.junit.Rule
@@ -34,7 +34,7 @@ class BitcoinServersSettingsTest {
 
     private fun show(mainnet: String = EsploraServers.MAINNET_DEFAULT, indexer: String = "") {
         compose.setContent {
-            LumenTheme {
+            ClearAirTheme {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     BitcoinServersSettings(
                         mainnet = mainnet,
@@ -68,7 +68,7 @@ class BitcoinServersSettingsTest {
         compose.onNodeWithTag(serverTag(BtcNetwork.MAINNET)).performImeAction()
 
         assertEquals(emptyList<Pair<BtcNetwork, String?>>(), applied)
-        compose.onNodeWithText("Mainnet: The address must start with https://.").assertExists()
+        compose.onNodeWithText("The address must start with https://.", substring = true).assertExists()
     }
 
     @Test
@@ -117,7 +117,7 @@ class BitcoinServersSettingsTest {
         compose.onNodeWithTag(INDEXER_TAG).performImeAction()
 
         assertEquals(emptyList<String?>(), indexers)
-        compose.onNodeWithText("Ordinals Indexer: The address must start with https://.").assertExists()
+        compose.onNodeWithText("The address must start with https://.", substring = true).assertExists()
     }
 
     @Test

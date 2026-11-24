@@ -132,6 +132,12 @@ internal object LumioRoute {
     /** The route of the tokens of chain [chainId]. */
     fun tokens(chainId: Long): String = "settings/tokens/$chainId"
 
+    /** The Network page (B4) of chain [chainId]: its default and custom RPC address. */
+    const val NETWORK = "settings/chains/{$CHAIN_ARG}"
+
+    /** The route of the Network page of chain [chainId]. */
+    fun network(chainId: Long): String = "settings/chains/$chainId"
+
     /** The argument of the gesture change: the gesture's stored number. */
     const val GESTURE_ARG = "gesture"
 
@@ -716,7 +722,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
             changePasswordRoutes(navController = navController, holder = holder, selection = selection)
             deviceProtectionRoutes(navController = navController, holder = holder, selection = selection, onLock = { lock() })
             lumioComposable(LumioRoute.DATA_PROVIDERS) {
-                LumioBackdrop(selection) { DataProvidersRoute(navController = navController, holder = holder) }
+                LumioBackdrop(selection) { DataProvidersRoute(navController = navController, holder = holder, onLock = { lock() }) }
             }
             lumioComposable(
                 route = LumioRoute.PROVIDER,
@@ -733,7 +739,14 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                 arguments = listOf(navArgument(LumioRoute.CHAIN_ARG) { type = NavType.LongType }),
             ) { entry ->
                 val chainId = entry.arguments?.getLong(LumioRoute.CHAIN_ARG) ?: 0L
-                LumioBackdrop(selection) { AddTokenRoute(navController = navController, holder = holder, chainId = chainId) }
+                LumioBackdrop(selection) { AddTokenRoute(navController = navController, holder = holder, chainId = chainId, onLock = { lock() }) }
+            }
+            lumioComposable(
+                route = LumioRoute.NETWORK,
+                arguments = listOf(navArgument(LumioRoute.CHAIN_ARG) { type = NavType.LongType }),
+            ) { entry ->
+                val chainId = entry.arguments?.getLong(LumioRoute.CHAIN_ARG) ?: 0L
+                LumioBackdrop(selection) { EvmNetworkRoute(navController = navController, holder = holder, chainId = chainId, onLock = { lock() }) }
             }
             lumioComposable(
                 route = LumioRoute.ADDRESS_BOOK,
