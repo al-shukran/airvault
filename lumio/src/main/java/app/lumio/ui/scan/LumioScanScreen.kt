@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -78,7 +79,10 @@ private val VIEWFINDER_RADIUS = 28.dp
 private val RING_WIDTH = 3.dp
 private val RING_GAP = 6.dp
 
-/** The spark corner brackets: how far they sit inside the viewfinder, how long each arm is, and their stroke. */
+/** The height of the viewfinder of a pairing code, as the Clear Air mock draws it (I10). The reply scan passes its own height. */
+private val SCAN_FRAME_HEIGHT = 300.dp
+
+/** The corner brackets: how far they sit inside the viewfinder, how long each arm is, and their stroke. */
 private val BRACKET_INSET = 16.dp
 private val BRACKET_ARM = 22.dp
 private val BRACKET_WIDTH = 3.dp
@@ -111,6 +115,7 @@ fun LumioScanScreen(
     complete: Boolean = false,
     frameSource: FrameSource? = null,
     footer: (@Composable () -> Unit)? = null,
+    frameHeight: Dp = SCAN_FRAME_HEIGHT,
 ) {
     // The camera is a launch of its own: while the scanner is shown, a policy that keeps own launches unlocked waits on the idle lock.
     DisposableEffect(Unit) {
@@ -146,6 +151,7 @@ fun LumioScanScreen(
         onCancel = onCancel,
         modifier = modifier,
         footer = footer,
+        frameHeight = frameHeight,
     ) { viewport ->
         when {
             granted -> QrScanner(onText = onText, modifier = viewport, frameSource = frameSource)
@@ -216,6 +222,7 @@ fun LumioScanFrame(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
     footer: (@Composable () -> Unit)? = null,
+    frameHeight: Dp = SCAN_FRAME_HEIGHT,
     viewport: @Composable (Modifier) -> Unit,
 ) {
     val haptics = rememberLumioHaptics()
@@ -233,7 +240,7 @@ fun LumioScanFrame(
         if (complete) haptics.success()
     }
     LenslyScreen(title = title, modifier = modifier, onBack = onCancel, scrollable = false) {
-        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+        Box(modifier = Modifier.fillMaxWidth().height(frameHeight)) {
             viewport(Modifier.fillMaxSize().padding(RING_GAP).clip(RoundedCornerShape(VIEWFINDER_RADIUS)))
             ViewfinderCorners(modifier = Modifier.fillMaxSize().padding(RING_GAP))
             PerimeterRing(fraction = if (complete) 1f else progress ?: 0f, modifier = Modifier.fillMaxSize())
@@ -291,12 +298,12 @@ private fun PerimeterRing(fraction: Float, modifier: Modifier) {
 }
 
 /**
- * The spark corner brackets inside the viewfinder (section 2.1). They breathe between [BREATH_FLOOR] and full while the scan runs, and stay full under
+ * The paper corner brackets inside the viewfinder (section 2.1). They breathe between [BREATH_FLOOR] and full while the scan runs, and stay full under
  * reduced motion. The alpha is read in the draw phase, so a breath redraws the brackets without a recomposition.
  */
 @Composable
 private fun ViewfinderCorners(modifier: Modifier) {
-    val spark = LocalClearAirPalette.current.spark
+    val paper = LocalClearAirPalette.current.paper
     val breath: State<Float>? = if (LocalReducedMotion.current) {
         null
     } else {
@@ -329,7 +336,7 @@ private fun ViewfinderCorners(modifier: Modifier) {
             }
             val style = Stroke(width = BRACKET_WIDTH.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
             onDrawBehind {
-                drawPath(brackets, spark.copy(alpha = breath?.value ?: 1f), style = style)
+                drawPath(brackets, paper.copy(alpha = breath?.value ?: 1f), style = style)
             }
         },
     )

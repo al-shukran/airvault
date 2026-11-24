@@ -15,7 +15,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import app.airvault.chains.evm.CALLDATA_HASH_LABEL
@@ -66,6 +65,7 @@ import app.lumio.tokens.TokenBalanceCache
 import app.lumio.tokens.TokenHolding
 import app.lumio.tokens.TokenPortfolio
 import app.lumio.ui.send.RECIPIENT_SCAN_HINT
+import app.lumio.ui.send.REPLY_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendAmountPage
 import app.lumio.ui.send.recipientError
@@ -83,6 +83,7 @@ import app.lumio.ui.send.SignatureScanScreen
 import app.lumio.ui.send.SignedSendSteps
 import app.lumio.ui.send.SummaryRow
 import app.lumio.ui.send.rememberSendOffline
+import app.lumio.ui.send.replyProgress
 import app.lumio.wallets.WalletAccounts
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
@@ -145,8 +146,6 @@ private sealed interface SendStep {
     class Declined(val send: PreparedSend) : SendStep
 }
 
-private const val SCAN_HINT = "Point the camera at the signature that Lensly shows."
-private const val SCAN_READING = "Reading the signature. Keep the camera on it."
 private const val SCAN_READ = "Signature read. Check the transaction, then send it."
 private const val PREPARE_FAILED = "The send could not be prepared. Try again."
 private const val REQUEST_FAILED = "The sign request could not be made. Try again."
@@ -205,7 +204,7 @@ internal fun SendRoute(
     var recipientScanStatus by remember { mutableStateOf(RECIPIENT_SCAN_HINT) }
     var scan by remember { mutableStateOf(SignatureScan()) }
     var scanProgress by remember { mutableStateOf<Float?>(null) }
-    var scanStatus by remember { mutableStateOf(SCAN_HINT) }
+    var scanStatus by remember { mutableStateOf(REPLY_SCAN_HINT) }
     var scanBusy by remember { mutableStateOf(false) }
     var changeRecipient by remember { mutableStateOf(false) }
     var assetSheet by remember { mutableStateOf(false) }
@@ -221,7 +220,6 @@ internal fun SendRoute(
     // The coins the chain offers: the native coin, and the tokens held here. The send moves the chosen one, native by default.
     val assets = selectedChain?.let { chain -> SendAssets.onChain(chain, ready.held) }.orEmpty()
     val asset = assets.firstOrNull { contract != null && it.token?.contract.equals(contract, ignoreCase = true) } ?: assets.firstOrNull()
-    val clipboard = LocalClipboardManager.current
     val fromName = fromNameOf(ready)
 
     // The amount is read again after the owner pauses typing. A send that cannot be prepared says why under the amount.
@@ -285,7 +283,7 @@ internal fun SendRoute(
     fun startScan(send: PreparedSend, requestId: ByteArray, parts: List<String>) {
         scan = SignatureScan()
         scanProgress = null
-        scanStatus = SCAN_HINT
+        scanStatus = REPLY_SCAN_HINT
         notice = null
         step = SendStep.Scanning(send, requestId, parts)
     }
@@ -328,7 +326,7 @@ internal fun SendRoute(
         when (val result = scan.onText(text)) {
             is SignatureStep.Reading -> {
                 scanProgress = result.fraction
-                scanStatus = SCAN_READING
+                scanStatus = replyProgress(result.received, result.expected)
             }
             is SignatureStep.Complete -> applySignature(scanning, result.ur)
             SignatureStep.Ignored -> Unit
@@ -389,7 +387,6 @@ internal fun SendRoute(
                     SendChoice(title = entry.name, detail = entry.label ?: "Address Book", address = entry.address)
                 },
                 onPick = { choice -> recipient = choice.address },
-                onPaste = { clipboard.getText()?.text?.trim()?.let { recipient = it } },
                 onScan = {
                     recipientScanStatus = RECIPIENT_SCAN_HINT
                     step = SendStep.ScanRecipient
@@ -518,6 +515,7 @@ internal fun SendRoute(
             progress = scanProgress,
             status = scanStatus,
             onText = { text -> onSignatureText(now, text) },
+            onBack = { step = SendStep.Show(now.send, now.requestId, now.parts) },
             onCancel = { step = SendStep.Declined(now.send) },
         )
         is SendStep.Mismatch -> {

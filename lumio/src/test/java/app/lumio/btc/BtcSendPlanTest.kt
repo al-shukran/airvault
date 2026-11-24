@@ -59,6 +59,16 @@ class BtcSendPlanTest {
     }
 
     @Test
+    fun anAmountMoreThanTheCoinsHoldIsNamedInTheFieldAndRefusedByThePlan() {
+        val coins = listOf(coin(10_000, 0, 1), coin(20_000, 1, 2))
+        assertEquals("More than your available 0.0003 BTC", BtcSendInput.amountError("0.00030001", 30_000L))
+        assertNull(BtcSendInput.amountError("0.0003", 30_000L))
+        assertNull(BtcSendInput.amountError("0.00030001", null))
+        val refused = assertFailsWith<IllegalArgumentException> { chooseCoins(coins, 30_001, 1.0, stubVsize) }
+        assertEquals("More than your available 0.0003 BTC", refused.message)
+    }
+
+    @Test
     fun unmarkedCoinsAreSpentBeforeAMarkedCoinWhenTheyCoverTheAmount() {
         val marked = BtcCoin(BtcFixtures.funding(account, 0, 0, 50_000L, salt = 4), 0, 0, 0, riskMarked = true)
         val pick = chooseCoins(listOf(marked, coin(20_000, 1, 2), coin(15_000, 2, 3)), 30_000, 1.0, stubVsize)

@@ -57,6 +57,7 @@ object SolanaAssets {
         require(units.bitLength() < Long.SIZE_BITS) { "The amount is more than all of this coin there is." }
         val token = asset.token
             ?: return SolanaSend.plan(network, account, recipient, units.toLong(), sol, nonceValue, requestId, priority)
+        overBalance(asset, units, token.amount)?.let { throw IllegalArgumentException(it) }
         return SolanaSplSend.plan(
             network, account, recipient, token, units.toLong().toULong(), sol, nonceValue, requestId, recipientAccountExists, rentLamports, priority,
         )
@@ -67,4 +68,20 @@ object SolanaAssets {
 
     /** [text] for a token's amount, which a plan holds as an unsigned 64-bit number. */
     fun text(units: ULong, decimals: Int): String = text(BigInteger(units.toString()), decimals)
+
+    /**
+     * The reason [typed] cannot be sent in [asset] from [held] of it: what it is, or the words that it is more than is held. Null when it can be sent,
+     * or when nothing is typed yet. [held] is null while the balance is read.
+     */
+    fun amountError(typed: String, asset: SolanaSendAsset, held: BigInteger?): String? {
+        if (typed.isBlank()) return null
+        val units = runCatching {
+            if (asset.token == null) BigInteger.valueOf(SolanaSendInput.lamports(typed)) else SolanaSendInput.tokenUnits(typed, asset.decimals)
+        }.getOrElse { return it.message }
+        return held?.let { overBalance(asset, units, it) }
+    }
+
+    /** The words for [units] more than [available] of [asset], or null when they are not more. */
+    fun overBalance(asset: SolanaSendAsset, units: BigInteger, available: BigInteger): String? =
+        if (units > available) "More than your available ${text(available, asset.decimals)} ${asset.symbol}" else null
 }

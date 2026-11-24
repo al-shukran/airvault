@@ -54,7 +54,7 @@ object SolanaSplSend {
         priority: Boolean = false,
     ): SolanaSendPlan {
         require(balance.program == SolanaTokenAccounts.TOKEN_PROGRAM) { SPL_2022_REFUSAL }
-        require(amount > 0UL) { "The amount must be more than 0." }
+        require(amount > 0UL) { "Enter an amount above 0" }
         require(balance.amount >= BigInteger(amount.toString())) { "This account does not hold enough of this token." }
         val rent = if (recipientAccountExists) 0L else rentLamports
         // The units the priority fee pays for: the nonce advance, the token transfer, and the token account's creation when it is made.

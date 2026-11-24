@@ -79,7 +79,7 @@ object AlgorandAssets {
         val places = if (decimals == 0) "" else "(\\.[0-9]{1,$decimals})?"
         require(Regex("[0-9]{1,18}$places").matches(trimmed)) { "Enter an amount in $symbol, with up to $decimals decimal places." }
         val units = BigDecimal(trimmed).movePointRight(decimals).toBigIntegerExact()
-        require(units.signum() > 0) { "Enter an amount above zero." }
+        require(units.signum() > 0) { "Enter an amount above 0" }
         require(units.bitLength() < Long.SIZE_BITS) { "Enter a smaller amount." }
         return units
     }

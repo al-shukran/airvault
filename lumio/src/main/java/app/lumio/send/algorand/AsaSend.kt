@@ -70,7 +70,7 @@ object AsaSend {
         held: BigInteger,
         recipientOptedIn: Boolean,
     ): AsaSendPlan {
-        require(amount.signum() > 0 && amount.bitLength() < Long.SIZE_BITS) { "Enter an amount above zero." }
+        require(amount.signum() > 0 && amount.bitLength() < Long.SIZE_BITS) { "Enter an amount above 0" }
         require(held >= amount) { NOT_HELD }
         require(recipientOptedIn) { NOT_OPTED_IN }
         return build(network, funds, fingerprint, accountIndex, signer, to, assetId, amount, keep = funds.minimum)

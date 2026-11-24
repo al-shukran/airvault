@@ -111,7 +111,7 @@ object AlgorandSend {
         val trimmed = text.trim()
         require(AMOUNT.matches(trimmed)) { "Enter an amount in ALGO, with up to six decimal places." }
         val micro = BigDecimal(trimmed).movePointRight(DECIMALS).toBigIntegerExact()
-        require(micro.signum() > 0) { "Enter an amount above zero." }
+        require(micro.signum() > 0) { "Enter an amount above 0" }
         return micro
     }
 
@@ -149,7 +149,7 @@ object AlgorandSend {
         to: ByteArray,
         amount: BigInteger,
     ): AlgorandPaymentPlan {
-        require(amount.signum() > 0 && amount.bitLength() < Long.SIZE_BITS) { "Enter an amount above zero." }
+        require(amount.signum() > 0 && amount.bitLength() < Long.SIZE_BITS) { "Enter an amount above 0" }
         val fee = feeOf(template(funds.params, signer, to, amount, fee = 0UL), funds.params)
         val txn = template(funds.params, signer, to, amount, fee = fee)
         val total = amount + fee.toBigInteger()

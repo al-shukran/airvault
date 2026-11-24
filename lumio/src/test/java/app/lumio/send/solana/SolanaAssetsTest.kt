@@ -89,6 +89,17 @@ class SolanaAssetsTest {
         assertEquals("1.5", SolanaAssets.text(BigInteger("1500000"), 6))
     }
 
+    @Test
+    fun anAmountMoreThanTheAccountHoldsIsNamedInTheFieldForSolAndForAToken() {
+        val held = BigInteger.valueOf(1_500_000_000L)
+        assertEquals("More than your available 1.5 SOL", SolanaAssets.amountError("2", SolanaAssets.native, held))
+        assertNull(SolanaAssets.amountError("1.5", SolanaAssets.native, held))
+        assertNull(SolanaAssets.amountError("2", SolanaAssets.native, null))
+        val token = SolanaSendAsset(usdc, "USDC", 6)
+        assertEquals("More than your available 25 USDC", SolanaAssets.amountError("25.000001", token, usdc.amount))
+        assertNull(SolanaAssets.amountError("25", token, usdc.amount))
+    }
+
     private companion object {
         const val TOKEN_2022 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
     }

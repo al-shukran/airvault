@@ -322,12 +322,12 @@ class LumioCoverageScreenshotTest {
 
     @Test
     fun bitcoinBroadcastIdle() = compose.lumioSnapshot("bitcoin_broadcast_idle") {
-        SignatureScanScreen(progress = null, status = SCAN_HINT, onText = {}, onCancel = {})
+        SignatureScanScreen(progress = null, status = SCAN_HINT, onText = {}, onBack = {}, onCancel = {})
     }
 
     @Test
     fun bitcoinBroadcastSending() = compose.lumioSnapshot("bitcoin_broadcast_sending") {
-        SignatureScanScreen(progress = 1f, status = SCAN_READ, onText = {}, onCancel = {})
+        SignatureScanScreen(progress = 1f, status = SCAN_READ, onText = {}, onBack = {}, onCancel = {})
     }
 
     @Test
@@ -359,12 +359,12 @@ class LumioCoverageScreenshotTest {
 
     @Test
     fun ethereumBroadcastIdle() = compose.lumioSnapshot("ethereum_broadcast_idle") {
-        SignatureScanScreen(progress = null, status = SCAN_HINT, onText = {}, onCancel = {})
+        SignatureScanScreen(progress = null, status = SCAN_HINT, onText = {}, onBack = {}, onCancel = {})
     }
 
     @Test
     fun ethereumBroadcastSending() = compose.lumioSnapshot("ethereum_broadcast_sending") {
-        SignatureScanScreen(progress = 1f, status = SCAN_READ, onText = {}, onCancel = {})
+        SignatureScanScreen(progress = 1f, status = SCAN_READ, onText = {}, onBack = {}, onCancel = {})
     }
 
     // Pairing: the scan, and the import result
@@ -488,7 +488,7 @@ class LumioCoverageScreenshotTest {
         /** The time of the cached Ethereum reads of the portfolio, fixed so the goldens do not change from day to day. */
         const val PORTFOLIO_READ = 1_800_000_000_000L
         // The words the send and pairing routes show. They are copied from SendRoutes, BtcSendRoutes and PairRoutes.
-        const val SCAN_HINT = "Point the camera at the signature that Lensly shows."
+        const val SCAN_HINT = "Point at Lensly's Reply"
         const val SCAN_READ = "Signature read. Check the transaction, then submit it."
         const val REQUEST_FAILED = "The sign request could not be made. Try again."
         const val BROADCAST_FAILED = "The transaction could not be sent. Check the balance, then try again."

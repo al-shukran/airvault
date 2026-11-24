@@ -10,6 +10,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Test
 
@@ -113,5 +114,13 @@ class AlgorandAssetsTest {
     fun anAmountIsShownWithoutTrailingZeros() {
         assertEquals("1.5", AlgorandAssets.text(BigInteger("1500000"), 6))
         assertEquals("2", AlgorandAssets.text(BigInteger("2000000"), 6))
+    }
+
+    @Test
+    fun anAmountMoreThanTheMostThatCanBeSentIsNamedInTheFieldAndNotAllowed() {
+        val most = BigInteger.valueOf(1_000_000L)
+        assertEquals("More than your available 1 ALGO", amountError("1.5", AlgorandAssets.native, most))
+        assertNull(amountError("1", AlgorandAssets.native, most))
+        assertNull(amountError("1.5", AlgorandAssets.native, null))
     }
 }
