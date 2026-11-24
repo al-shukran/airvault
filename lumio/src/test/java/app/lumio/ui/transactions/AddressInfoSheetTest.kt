@@ -48,6 +48,27 @@ class AddressInfoSheetTest {
     }
 
     @Test
+    fun aGroupedAddressSaysItsGroup() {
+        val entry = AddressBookEntry(id = "entry-1", address = address, name = "Lena Park", label = null, group = "Friends")
+        compose.setContent {
+            ClearAirTheme {
+                AddressInfoSheet(
+                    address = address,
+                    entry = entry,
+                    walletName = "Air 1",
+                    seenIn = 2,
+                    onEdit = {},
+                    onAdd = {},
+                    onClose = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Address book · Group Friends").assertIsDisplayed()
+        compose.onNodeWithText("Friends").assertIsDisplayed()
+    }
+
+    @Test
     fun aKnownAddressShowsItsEntryAndOffersToEditIt() {
         val actions = mutableListOf<String>()
         val entry = AddressBookEntry(id = "entry-1", address = address, name = "Lena Park", label = "Monad test buddy", notes = "Splits test MON")

@@ -64,7 +64,7 @@ fun interface BrotliDecompressor {
  * only: keys, chain codes, paths, chains and names. The codec does not know the chains: each account is its [AccountExport].
  *
  * The layout, with integer keys. The code's CBOR is an envelope:
- *  - envelope: { 1: version (7), 6: encoding, 7: body (bytes) }. Encoding 0 keeps the body as it is, and encoding 2 holds it Brotli-compressed.
+ *  - envelope: { 1: version (8), 6: encoding, 7: body (bytes) }. Encoding 0 keeps the body as it is, and encoding 2 holds it Brotli-compressed.
  *  - body, once it is decompressed: { 2: fingerprint (uint32), 3: name, 4: auto-name base (may be empty), 5: [run],
  *    6: [label or group] (optional: absent when no account has a label or group), 7: [address] (optional: absent when the Address Book is empty) }
  *  - run: a block of consecutive accounts of one chain, whose keys have one curve, one kind, one path shape and one key length, and whose
@@ -74,8 +74,8 @@ fun interface BrotliDecompressor {
  *    Auto-Name), 12: [label index] (optional), 13: [group index] (optional) }. The path of account i of a run is m/purpose'/coin'/i'/suffix.
  *    A name of "" is the Auto-Name: the auto-name base, a space and the account index. A label or group index of 0 is none, and n is entry n-1 of key 6.
  *  - key length: 33 bytes for a secp256k1 key (compressed), or 32 bytes for an Ed25519 key, with no prefix.
- *  - address: { 1: id, 2: address, 3: name, 4: label (optional) }, one Address Book entry. An id that is a lower-case UUID is 16 bytes, and an
- *    address that is an EVM address in checksum form is 20 bytes. Any other id or address is text.
+ *  - address: { 1: id, 2: address, 3: name, 4: label (optional), 5: group (text, empty when none) }, one Address Book entry.
+ *    An id that is a lower-case UUID is 16 bytes, and an address that is an EVM address in checksum form is 20 bytes. Any other id or address is text.
  *
  * The body is at most [MAX_BODY_BYTES] bytes, compressed or not. The encoder keeps it compressed only when that makes it smaller.
  */
@@ -87,7 +87,7 @@ object PairingCodec {
      * The layout version of this build, which it writes and reads. A code of any other version is refused with a message that says why. There is
      * no reader for an older version: an older code must be paired again.
      */
-    const val VERSION = 7L
+    const val VERSION = 8L
 
     /**
      * The largest CBOR fragment of one animated frame, in bytes. It is the only frame size of the pairing, so a change of it is one edit here.
@@ -404,12 +404,13 @@ object PairingCodec {
         else -> refuse()
     }
 
-    /** The Address Book entry of one address item: { 1: id, 2: address, 3: name, 4: label (optional) }. */
+    /** The Address Book entry of one address item: { 1: id, 2: address, 3: name, 4: label (optional), 5: group }. */
     private fun encodeAddress(entry: AddressBookEntry): Cbor {
         val entries = mutableListOf<Pair<Cbor, Cbor>>(
             uint(1) to entryIdItem(entry.id),
             uint(2) to entryAddressItem(entry.address),
             uint(3) to Cbor.Text(entry.name),
+            uint(5) to Cbor.Text(entry.group),
         )
         entry.label?.let { entries += uint(4) to Cbor.Text(it) }
         return Cbor.Dict(entries)
@@ -430,12 +431,13 @@ object PairingCodec {
     }
 
     private fun decodeAddress(item: Cbor): AddressBookEntry {
-        val fields = fieldsOf(item as? Cbor.Dict ?: refuse(), 1L..4L)
+        val fields = fieldsOf(item as? Cbor.Dict ?: refuse(), 1L..5L)
         return AddressBookEntry(
             id = entryId(required(fields, 1L)),
             address = entryAddress(required(fields, 2L)),
             name = textOf(required(fields, 3L), 1, MAX_ENTRY_NAME_BYTES),
             label = fields[4L]?.let { textOf(it, 1, MAX_LABEL_BYTES) },
+            group = textOf(required(fields, 5L), 0, MAX_LABEL_BYTES),
         )
     }
 
@@ -487,6 +489,7 @@ object PairingCodec {
             }
             require(isPlain(entry.name, 1, MAX_ENTRY_NAME_BYTES)) { "An Address Book name is 1 to $MAX_ENTRY_NAME_BYTES bytes." }
             entry.label?.let { require(isPlain(it, 1, MAX_LABEL_BYTES)) { "An Address Book label is 1 to $MAX_LABEL_BYTES bytes." } }
+            require(isPlain(entry.group, 0, MAX_LABEL_BYTES)) { "An Address Book group is up to $MAX_LABEL_BYTES bytes." }
         }
     }
 

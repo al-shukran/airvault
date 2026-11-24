@@ -180,6 +180,7 @@ private fun AddressBookFormRoute(navController: NavHostController, holder: Vault
     val id by rememberSaveable(entryId) { mutableStateOf(entry?.id ?: UUID.randomUUID().toString()) }
     var address by rememberSaveable(entryId) { mutableStateOf(entry?.address ?: prefilled) }
     var name by rememberSaveable(entryId) { mutableStateOf(entry?.name.orEmpty()) }
+    var group by rememberSaveable(entryId) { mutableStateOf(entry?.group.orEmpty()) }
     var label by rememberSaveable(entryId) { mutableStateOf(entry?.label.orEmpty()) }
     var notes by rememberSaveable(entryId) { mutableStateOf(entry?.notes.orEmpty()) }
     var focused by remember { mutableStateOf<AddressBookField?>(null) }
@@ -192,6 +193,7 @@ private fun AddressBookFormRoute(navController: NavHostController, holder: Vault
         when (focused) {
             AddressBookField.ADDRESS -> if (!addressFixed && address.length < ADDRESS_BOOK_ADDRESS_MAX_LENGTH) address += key
             AddressBookField.NAME -> if (name.length < DISPLAY_NAME_MAX_LENGTH) name += key
+            AddressBookField.GROUP -> if (group.length < PROFILE_TEXT_MAX_LENGTH) group += key
             AddressBookField.LABEL -> if (label.length < PROFILE_TEXT_MAX_LENGTH) label += key
             AddressBookField.NOTES -> if (notes.length < ADDRESS_NOTES_MAX_LENGTH) notes += key
             null -> Unit
@@ -201,6 +203,7 @@ private fun AddressBookFormRoute(navController: NavHostController, holder: Vault
         when (focused) {
             AddressBookField.ADDRESS -> if (!addressFixed) address = address.dropLast(1)
             AddressBookField.NAME -> name = name.dropLast(1)
+            AddressBookField.GROUP -> group = group.dropLast(1)
             AddressBookField.LABEL -> label = label.dropLast(1)
             AddressBookField.NOTES -> notes = notes.dropLast(1)
             null -> Unit
@@ -208,7 +211,7 @@ private fun AddressBookFormRoute(navController: NavHostController, holder: Vault
     }
     val onSave: () -> Unit = {
         scope.launch {
-            val next = runCatching { addressBookEntryOf(id, address, name, label, book, notes) }
+            val next = runCatching { addressBookEntryOf(id, address, name, label, book, notes, group) }
                 .getOrElse {
                     error = it.message
                     return@launch
@@ -228,6 +231,7 @@ private fun AddressBookFormRoute(navController: NavHostController, holder: Vault
         title = if (entry == null) "Add Address" else "Edit Address",
         address = address,
         name = name,
+        group = group,
         label = label,
         notes = notes,
         focused = focused,

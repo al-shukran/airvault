@@ -22,7 +22,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 
-/** The version-7 pairing: the accounts of every chain round-trip, a code of another version is refused by its version, and an encoder never writes a code a reader refuses. */
+/** The version-8 pairing: the accounts of every chain round-trip, a code of another version is refused by its version, and an encoder never writes a code a reader refuses. */
 class PairingCodecTest {
 
     @Test
@@ -92,14 +92,14 @@ class PairingCodecTest {
 
     @Test
     fun anOlderVersionIsRefusedByItsVersion() {
-        val message = refusalOf { PairingCodec.decode(envelope(6L, byteArrayOf()), null) }
-        assertEquals("This pairing uses format 6, and this app reads format 7. Update the app, then pair again.", message)
+        val message = refusalOf { PairingCodec.decode(envelope(7L, byteArrayOf()), null) }
+        assertEquals("This pairing uses format 7, and this app reads format 8. Update the app, then pair again.", message)
     }
 
     @Test
     fun aNewerVersionIsRefusedByItsVersionEvenWithFieldsItDoesNotKnow() {
-        val message = refusalOf { PairingCodec.decode(envelope(8L, byteArrayOf()), null) }
-        assertEquals("This pairing uses format 8, and this app reads format 7. Update the app, then pair again.", message)
+        val message = refusalOf { PairingCodec.decode(envelope(9L, byteArrayOf()), null) }
+        assertEquals("This pairing uses format 9, and this app reads format 8. Update the app, then pair again.", message)
     }
 
     @Test
@@ -163,6 +163,19 @@ class PairingCodecTest {
         val payload = RealisticPairing.payload()
         assertEquals(12, payload.addressBook.size)
         assertSamePayload(payload, roundTrip(payload))
+    }
+
+    @Test
+    fun anAddressBookGroupRoundTripsAndAnEmptyGroupIsNone() {
+        val book = listOf(entry(0).copy(group = "Friends"), entry(1))
+
+        assertEquals(listOf("Friends", ""), roundTrip(RealisticPairing.payload().copy(addressBook = book)).addressBook.map { it.group })
+    }
+
+    @Test
+    fun aGroupOfMoreThanTheLabelLimitIsRefusedByTheEncoder() {
+        val payload = RealisticPairing.payload().copy(addressBook = listOf(entry(0).copy(group = "g".repeat(PairingCodec.MAX_LABEL_BYTES + 1))))
+        assertTrue(refusalOf { PairingCodec.encode(payload, null) }.contains("group"))
     }
 
     @Test
@@ -268,7 +281,7 @@ class PairingCodecTest {
     private fun uint(value: Long): Cbor = Cbor.Uint(value)
 
     private companion object {
-        const val VERSION = 7L
+        const val VERSION = 8L
         const val FINGERPRINT = 0x1234
     }
 }

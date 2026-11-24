@@ -53,6 +53,21 @@ class AddressBookStoreTest {
     }
 
     @Test
+    fun aGroupIsSavedWithItsEntryAndIsTrimmed() {
+        val store = AddressBookStore(open())
+        val carol = "0x52908400098527886E0F7030069857D2E4169EE7"
+        val grouped = addressBookEntryOf("new", carol, "Carol", "", emptyList(), group = " Friends ")
+
+        store.put(grouped)
+
+        assertEquals("Friends", grouped.group)
+        assertEquals(listOf(grouped), store.load())
+        assertFailsWith<IllegalArgumentException> {
+            addressBookEntryOf("new", carol, "Carol", "", emptyList(), group = "x".repeat(PROFILE_TEXT_MAX_LENGTH + 1))
+        }
+    }
+
+    @Test
     fun deleteRemovesOnlyTheEntryWithThatId() {
         val store = AddressBookStore(open())
         store.put(alice)

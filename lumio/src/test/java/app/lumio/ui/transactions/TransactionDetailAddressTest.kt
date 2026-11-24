@@ -87,7 +87,7 @@ class TransactionDetailAddressTest {
 
     @Test
     fun aCounterpartyInTheAddressBookIsNamed() {
-        val book = listOf(AddressBookEntry(id = "entry-1", address = friend, name = "Lena Park", label = null))
+        val book = listOf(AddressBookEntry(id = "entry-1", address = friend, name = "Lena Park", label = null, group = "Friends"))
         compose.setContent {
             ClearAirTheme {
                 TransactionDetailScreen(
@@ -105,5 +105,6 @@ class TransactionDetailAddressTest {
         }
 
         compose.onNodeWithText("Lena Park").assertIsDisplayed()
+        compose.onNodeWithText("Address book · Group Friends").assertIsDisplayed()
     }
 }

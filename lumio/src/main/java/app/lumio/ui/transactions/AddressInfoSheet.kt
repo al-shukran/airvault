@@ -25,6 +25,10 @@ import app.lumio.ui.kit.ClearAirSheet
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.rememberCopyAction
 
+/** How Lumio says it knows a saved address: its group when the owner gave one, otherwise that the entry came from Lensly. */
+internal fun addressBookSourceOf(entry: AddressBookEntry): String =
+    if (entry.group.isEmpty()) "Address book · from Lensly" else "Address book · Group ${entry.group}"
+
 /**
  * The address-book sheet of an address on a transaction page. It is read only: a known address shows what Lensly holds for it, and an unknown one says
  * so and how often it has come up in the wallet's history. [entry] is null for an address that is not in the address book. The capsule copies the
@@ -59,13 +63,14 @@ fun AddressInfoSheet(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(text = entry?.name ?: "Not in Address Book", style = ClearAirType.titleL, color = palette.ink)
                     val summary = when {
-                        entry != null -> "Address book · from Lensly"
+                        entry != null -> addressBookSourceOf(entry)
                         seenIn != null && walletName != null -> "Seen in $seenIn ${if (seenIn == 1) "transaction" else "transactions"} with $walletName"
                         else -> "Tap to add it on Lensly"
                     }
                     Text(text = summary, style = ClearAirType.body, color = palette.ink2)
                 }
             }
+            entry?.group?.takeIf { it.isNotEmpty() }?.let { KeyValue(label = "Group", value = it) }
             entry?.label?.let { KeyValue(label = "Label", value = it) }
             entry?.notes?.let { KeyValue(label = "Notes", value = it) }
             ClearAirEyebrow(text = "Address", modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
