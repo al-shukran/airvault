@@ -11,10 +11,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.theme.LenslySpacing
 
 /** Height of the line that reports a wrong word. It is kept even when there is no error, so the choices do not move. */
@@ -41,7 +41,7 @@ fun MnemonicConfirmScreen(
         Spacer(Modifier.height(LenslySpacing.xs))
         ProgressTrack(fraction = state.step.toFloat() / state.total)
         Spacer(Modifier.height(LenslySpacing.lg))
-        DotHeadline(text = "WORD #${state.position}")
+        ScreenHeadline(text = "WORD #${state.position}")
         Spacer(Modifier.height(LenslySpacing.sm))
         Text(
             text = "Pick the word at this position.",

@@ -111,7 +111,7 @@ private fun PassphraseAsk(
     ) {
         WalletEyebrow("Optional Step")
         Spacer(Modifier.height(LenslySpacing.xs))
-        DotText(text = "Passphrase", fontSize = 48.sp)
+        DisplayText(text = "Passphrase", fontSize = 48.sp)
         Spacer(Modifier.height(LenslySpacing.lg))
         Text(
             text = "Without the passphrase, the 24 words restore a different, empty wallet.",
@@ -173,7 +173,7 @@ private fun PassphraseEntry(
             StepSegments(count = ENTRY_STEPS, filled = step)
             Spacer(Modifier.height(LenslySpacing.lg))
             // 48sp keeps "PASSPHRASE" on one line on a 720dp-wide phone; the 64sp headline wraps it.
-            DotText(text = if (confirming) "Confirm" else "Passphrase", fontSize = 48.sp)
+            DisplayText(text = if (confirming) "Confirm" else "Passphrase", fontSize = 48.sp)
             Spacer(Modifier.height(LenslySpacing.sm))
             Text(
                 text = if (confirming) "Type it again to check it." else "Part of the backup. Write it down separately.",

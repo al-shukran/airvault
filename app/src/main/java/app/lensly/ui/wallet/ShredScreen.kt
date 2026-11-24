@@ -8,9 +8,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.flow.ShredStep
 import app.lensly.ui.theme.LenslySpacing
 
@@ -102,7 +102,7 @@ private fun ConfirmStep(
     ) {
         StepHeader(step = 2, count = SHRED_STEP_COUNT)
         Spacer(Modifier.height(LenslySpacing.lg))
-        DotHeadline(text = "Warning")
+        ScreenHeadline(text = "Warning")
         Spacer(Modifier.height(LenslySpacing.lg))
         InlineBanner(
             title = copy.warningTitle,

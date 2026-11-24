@@ -53,7 +53,7 @@ fun MnemonicDisplayScreen(
         WalletEyebrow("${words.size} words, in order")
         Spacer(Modifier.height(LenslySpacing.xs))
         // One line at 48sp, so the grid of 24 words fits above the button on a 720x1600 screen.
-        DotText(text = "Write Down", fontSize = 48.sp)
+        DisplayText(text = "Write Down", fontSize = 48.sp)
         Spacer(Modifier.height(LenslySpacing.lg))
         InlineBanner(
             title = "Never Photograph",

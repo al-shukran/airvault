@@ -26,9 +26,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import app.lensly.core.vault.PasswordPolicy
 import app.lensly.ui.components.BottomSlot
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.PillChip
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslySpacing
@@ -116,7 +116,7 @@ fun CreatePasswordScreen(
             Spacer(Modifier.height(LenslySpacing.sm))
             // A fixed height keeps the policy chip in the same place on both steps.
             Box(modifier = Modifier.fillMaxWidth().height(HEADLINE_HEIGHT)) {
-                DotHeadline(text = if (confirming) "Confirm" else "Set Password")
+                ScreenHeadline(text = if (confirming) "Confirm" else "Set Password")
             }
             Spacer(Modifier.height(LenslySpacing.md))
             PillChip(

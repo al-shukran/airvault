@@ -68,7 +68,7 @@ import app.lensly.ui.sign.groupHex
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalLumenPalette
 import app.lensly.ui.theme.LocalMonoFamily
-import app.lensly.ui.wallet.DotText
+import app.lensly.ui.wallet.DisplayText
 import app.lensly.ui.wallet.WalletEyebrow
 import app.lensly.ui.wallet.WalletScaffold
 import java.time.Instant
@@ -112,7 +112,7 @@ fun WalletHistoryScreen(
         topBar = { DetailTopBar(title = "History", onBack = onBack) },
     ) {
         Spacer(Modifier.height(LenslySpacing.lg))
-        DotText(text = walletName.uppercase(), fontSize = 40.sp)
+        DisplayText(text = walletName.uppercase(), fontSize = 40.sp)
         Spacer(Modifier.height(LenslySpacing.sm))
         if (records.isEmpty()) {
             EmptyState(icon = LenslyIcons.History, title = "No Reviews Yet", body = EMPTY_BODY)

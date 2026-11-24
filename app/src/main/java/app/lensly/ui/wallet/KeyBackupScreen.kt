@@ -28,10 +28,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
@@ -76,7 +76,7 @@ fun KeyBackupScreen(
         Spacer(Modifier.height(LenslySpacing.lg))
         WalletEyebrow("Single Key, Shown Once")
         Spacer(Modifier.height(LenslySpacing.xs))
-        DotHeadline(text = "Write Down")
+        ScreenHeadline(text = "Write Down")
         Spacer(Modifier.height(LenslySpacing.sm))
         InlineBanner(message = "Never photograph this key.", tone = BannerTone.Warning)
         Spacer(Modifier.height(LenslySpacing.md))

@@ -10,7 +10,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-// The camera cover and the gate keep Lensly's original look: black and grey, white text, a red shutter, Doto and Space Mono type, and
+// The camera cover and the gate keep Lensly's original look: black and grey, white text, a red shutter, Archivo and Space Mono type, and
 // smaller corners. It is dark whatever the system setting. Everything reachable without the viewfinder gesture takes this theme. The
 // hidden area takes LumenTheme.
 

@@ -31,9 +31,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.camera.EntryGesturePad
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillChip
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.components.SettingsSection
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
@@ -159,7 +159,7 @@ fun EntryGesturePracticeStep(
     LenslyScreen(title = "Hidden Entry Gesture", modifier = modifier, onBack = onBack, scrollable = false) {
         StepHeader(step = 2, count = CHANGE_STEP_COUNT)
         Spacer(Modifier.height(LenslySpacing.lg))
-        DotHeadline(text = "Practice")
+        ScreenHeadline(text = "Practice")
         Spacer(Modifier.height(LenslySpacing.sm))
         Text(
             text = "Do this once: ${gesture.description} The gesture is saved only after it works.",

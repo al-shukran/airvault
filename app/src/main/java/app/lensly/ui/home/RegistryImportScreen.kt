@@ -27,7 +27,7 @@ import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.TokenIcon
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalLumenPalette
-import app.lensly.ui.wallet.DotText
+import app.lensly.ui.wallet.DisplayText
 import app.lensly.ui.wallet.WalletEyebrow
 import app.lensly.ui.wallet.WalletScaffold
 
@@ -104,7 +104,7 @@ fun RegistryImportScreen(
         Spacer(Modifier.height(LenslySpacing.lg))
         WalletEyebrow("Offline Catalog")
         Spacer(Modifier.height(LenslySpacing.xs))
-        DotText(text = "Catalog", fontSize = 40.sp)
+        DisplayText(text = "Catalog", fontSize = 40.sp)
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             text = "Insert removable storage with a signed package.",

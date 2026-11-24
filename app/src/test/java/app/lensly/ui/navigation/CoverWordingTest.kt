@@ -56,7 +56,7 @@ class CoverWordingTest {
             "ui/navigation/CoverNavHost.kt",
             "ui/navigation/GalleryGate.kt",
             "core/vault/DeviceCredentialPrompt.kt",
-            "ui/components/DotHeadline.kt",
+            "ui/components/ScreenHeadline.kt",
             "ui/components/DotProgress.kt",
             "ui/components/EmptyState.kt",
             "ui/components/ErrorState.kt",

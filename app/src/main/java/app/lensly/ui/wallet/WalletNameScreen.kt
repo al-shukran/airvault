@@ -28,10 +28,10 @@ import androidx.compose.ui.unit.dp
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.BottomSlot
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalLumenPalette
@@ -99,7 +99,7 @@ fun WalletNameScreen(
         ) {
             WalletEyebrow("Name")
             Spacer(Modifier.height(LenslySpacing.xs))
-            DotHeadline(text = "Name It")
+            ScreenHeadline(text = "Name It")
             Spacer(Modifier.height(LenslySpacing.sm))
             Text(
                 text = "You can change it later.",

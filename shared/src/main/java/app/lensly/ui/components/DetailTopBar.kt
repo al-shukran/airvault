@@ -36,7 +36,7 @@ val LocalVaultLock = staticCompositionLocalOf<(() -> Unit)?> { null }
 private val TOP_BAR_HEIGHT = 56.dp
 
 /**
- * The one top bar of every detail screen: Back on the left when [onBack] is set, the [title] in the dot-matrix headline face, the lock
+ * The one top bar of every detail screen: Back on the left when [onBack] is set, the [title] in the headline face, the lock
  * icon on the right while the vault is unlocked (see [LocalVaultLock]), and the options icon after it, which [optionsLabel] names for a
  * reader of the screen. A null [onOptions] leaves the options icon out, and a null [title] leaves the title out. [titleModifier] is laid on the title,
  * so a screen can move it to the next screen.

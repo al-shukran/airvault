@@ -45,6 +45,7 @@ verify-lumio :lumio app.lumio.ui.screenshot.ProviderPageScreenshotTest
 verify-lumio :lumio app.lumio.ui.screenshot.AlgorandAddAssetScreenshotTest
 verify-lumio :lumio app.lumio.ui.screenshot.AlgorandSendScreenshotTest
 verify-lumio :lumio app.lumio.ui.screenshot.FirstSyncScreenshotTest
+verify-lumio :lumio app.lumio.ui.screenshot.GateScreenshotTest
 verify-lumio :lumio app.lumio.ui.screenshot.LumioCoverageScreenshotTest
 verify-lumio :lumio app.lumio.ui.screenshot.LumioMarkScreenshotTest
 verify-lumio :lumio app.lumio.ui.screenshot.LumioScreenshotTest

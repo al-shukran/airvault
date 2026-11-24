@@ -24,8 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
@@ -55,7 +55,7 @@ fun WalletStartScreen(
             )
         },
     ) {
-        DotHeadline(text = "New Wallet")
+        ScreenHeadline(text = "New Wallet")
         Spacer(Modifier.height(LenslySpacing.lg))
         ChoiceRow(
             title = "Create",

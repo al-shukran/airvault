@@ -13,8 +13,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.theme.LenslySpacing
 
 /**
@@ -35,7 +35,7 @@ fun UnavailableScreen(
             .padding(horizontal = LenslySpacing.md),
     ) {
         Spacer(Modifier.height(LenslySpacing.lg))
-        DotHeadline(text = "Not Available")
+        ScreenHeadline(text = "Not Available")
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             text = "Lensly cannot open on this device.",
