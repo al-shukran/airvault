@@ -1,11 +1,10 @@
 package app.lumio.data.electrum
 
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
@@ -95,19 +94,17 @@ class ElectrumPoolTest {
     fun aConnectionThatTheServerClosedIsReopenedWithoutCoolingTheServer(): Unit = runBlocking {
         // The server answers the handshake and one request, then closes the connection.
         FakeElectrum(identity, closeAfterLines = 2, answer = echoOnly).use { fake ->
-            val opened = AtomicInteger()
+            val opened = mutableListOf<ElectrumConnection>()
             val pool = ElectrumPool(
                 servers = listOf(server(fake.port)),
                 clock = { 0L },
-                open = { s ->
-                    opened.incrementAndGet()
-                    ElectrumConnection.open(s, 5_000, 5_000)
-                },
+                open = { s -> ElectrumConnection.open(s, 5_000, 5_000).also { opened += it } },
             )
             assertEquals("a", pool.echo("a"))
-            delay(200)
+            // The pool only reopens a connection it has seen close. Wait for that close instead of sleeping for it.
+            withTimeout(5_000) { opened.single().awaitClosed() }
             assertEquals("b", pool.echo("b"))
-            assertEquals(2, opened.get())
+            assertEquals(2, opened.size)
         }
     }
 }
