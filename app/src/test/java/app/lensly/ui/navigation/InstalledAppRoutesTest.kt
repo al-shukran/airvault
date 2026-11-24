@@ -72,6 +72,18 @@ class InstalledAppRoutesTest {
         assertRedirectedToApps(nav, id)
     }
 
+    /** A bulk run opened directly has no App screen under it. Back from the Apps screen must not return to the bulk run. */
+    @Test
+    fun aBulkRunOpenedDirectlyForAnUninstalledAppLeavesNoEntryBehindForBack() {
+        val id = newWallet()
+
+        val nav = show(HiddenRoute.bulk(id, WalletApp.ETHEREUM))
+
+        assertRedirectedToApps(nav, id)
+        compose.runOnUiThread { nav.popBackStack() }
+        assertEquals(LenslyRoute.CAMERA, nav.currentBackStackEntry?.destination?.route)
+    }
+
     /** A bulk run is opened from its App's screen, so that screen is under it. The App is uninstalled while the screen stays open. */
     @Test
     fun aBulkRunOfAnUninstalledAppLeadsToTheAppsScreenAndLeavesNoEntryOfItBehind() {

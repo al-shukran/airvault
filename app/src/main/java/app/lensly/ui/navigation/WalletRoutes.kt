@@ -731,9 +731,13 @@ internal fun NavController.keepInstalledApp(walletId: String, app: WalletApp, in
     return false
 }
 
-/** Shows the Apps of wallet [walletId] in place of an App's screens, which leave the back stack. */
+/**
+ * Shows the Apps of wallet [walletId] in place of an App's screens, which leave the back stack. A bulk run is opened from its App's screen,
+ * so the App's entry takes the run with it. A bulk run opened directly has no App entry, so its own entry leaves instead.
+ */
 private fun NavController.showAppsScreen(walletId: String) {
-    navigate(HiddenRoute.apps(walletId)) { popUpTo(HiddenRoute.APP) { inclusive = true } }
+    val leaving = if (currentBackStack.value.any { it.destination.route == HiddenRoute.APP }) HiddenRoute.APP else HiddenRoute.BULK
+    navigate(HiddenRoute.apps(walletId)) { popUpTo(leaving) { inclusive = true } }
 }
 
 /**
