@@ -1,6 +1,6 @@
 # AirVault Offensive Audit Playbook
 
-Repeatable playbook for an owner-run offensive assessment of AirVault. Paste the whole file into an agent session, or give it to a human lead. The revision history is at the end.
+Repeatable playbook for a project-run offensive assessment of AirVault. Paste the whole file into an agent session, or give it to a human lead. The revision history is at the end.
 
 ## 1. Purpose and How to Use
 
@@ -21,12 +21,12 @@ In this file, "docs N.N" means section N.N of `docs/creating-airvault-apps.md`. 
 | `COMMIT` | Yes | Commit under test. Record `git rev-parse HEAD` and `git status --porcelain`. A dirty tree gets a SHA-256 of its diff. |
 | `RUN_DATE` | Yes | Run date, `yyyy-mm-dd`. |
 | `REPORT_DIR` | Yes | Directory outside the repository, chosen by the runner. |
-| `DEVICES` | No | Owner-designated test devices or emulators: model, Android version, patch level, root and StrongBox state, lock screen type. Without them, device disciplines are recorded as coverage gaps. Before dispatch, record installed applicationIds and whether a vault exists on every designated device. If a test would displace an existing vault, declare a Gap and use a clean device. |
+| `DEVICES` | No | Test devices or emulators designated by the project: model, Android version, patch level, root and StrongBox state, lock screen type. Without them, device disciplines are recorded as coverage gaps. Before dispatch, record installed applicationIds and whether a vault exists on every designated device. If a test would displace an existing vault, declare a Gap and use a clean device. |
 | `VARIANTS` | No | `debug`, `release`, `benchmark`. Default: `release` built from `COMMIT`, plus `debug` for comparison. |
 | `SCOPE` | No | `full` (default), or the named disciplines from section 6. |
 | `BUDGET` | No | Time and usage ceiling. Section 4.4 sets the wrap-up points. |
 
-Output: `REPORT_DIR/audit-reports/<RUN_DATE>-<commit>.md`, where `<commit>` is the first 8 characters of `COMMIT`. Write the report in the template of section 8. Working files (ledger, briefs, transcripts, PoCs) go to `REPORT_DIR/audit-runs/<RUN_DATE>-<commit>/`. Never commit reports or run files to the repository unless the owner asks.
+Output: `REPORT_DIR/audit-reports/<RUN_DATE>-<commit>.md`, where `<commit>` is the first 8 characters of `COMMIT`. Write the report in the template of section 8. Working files (ledger, briefs, transcripts, PoCs) go to `REPORT_DIR/audit-runs/<RUN_DATE>-<commit>/`. Never commit reports or run files to the repository unless the project requests it.
 
 Start checklist:
 
@@ -38,20 +38,20 @@ Start checklist:
 
 ## 2. Rules of Engagement
 
-This playbook runs only when the repository owner starts it, against the owner's own apps and owner-designated test devices. Never target anyone else's device, account, wallet, endpoint, or person.
+This playbook runs only when the project starts it, against the project's own apps and project-designated test devices. Never target anyone else's device, account, wallet, endpoint, or person.
 
 | Rule | Requirement |
 |---|---|
-| Targets | Lensly and Lumio, built from `COMMIT`, plus owner-designated devices and emulators. Nothing else. |
+| Targets | Lensly and Lumio, built from `COMMIT`, plus project-designated devices and emulators. Nothing else. |
 | Mnemonics | Throwaway test mnemonics, generated for this run and never reused. Reports show at most the first and last word, or a hash. |
 | Funds | Never real funds, and never a mainnet broadcast. Broadcast tests use a public testnet and a faucet-funded throwaway key. A signing defect stops at the signed bytes. |
 | Network | Public testnet RPC only, at a polite rate. No scanning. No load against third parties. |
-| Repository | Read-only. PoCs go on a scratch branch `audit/<RUN_DATE>-<commit>` in a separate worktree, which is never pushed unless the owner asks. No commits to the default branch, no tags, no release or workflow dispatch. |
+| Repository | Read-only. PoCs go on a scratch branch `audit/<RUN_DATE>-<commit>` in a separate worktree, which is never pushed unless the project requests it. No commits to the default branch, no tags, no release or workflow dispatch. |
 | Secrets | Never read, request, print, or copy release keystores, CI secrets, signing passwords, or API keys. |
 | Signing | Test APKs are signed with a throwaway key made for this run. The release key is never used. |
 | Devices | Return each device to its prior state, or record every change: root, developer options, adb authorization, Keystore state, clock. Factory-reset rooted devices afterward. |
-| People | No social engineering of real people. The coerced-user scenario (S5) uses the owner's test operator in the coercer role. |
-| Disclosure | Results stay with the owner. Label issues from the repository's set: `scope:lensly`, `scope:lumio`, `scope:common`; `app:bitcoin`, `app:ethereum`, `app:solana`, `app:algorand`; `difficulty:easy`, `difficulty:medium`, `difficulty:hard`; `area:core`, `area:chains`, `area:abi`, `area:shared`, `area:benchmark`, `area:security`, `area:build`, `area:ci`. Send Critical and High findings to the owner privately before any public issue. |
+| People | No social engineering of real people. The coerced-user scenario (S5) uses the project's test operator in the coercer role. |
+| Disclosure | Results stay with the project. Label issues from the repository's set: `scope:lensly`, `scope:lumio`, `scope:common`; `app:bitcoin`, `app:ethereum`, `app:solana`, `app:algorand`; `difficulty:easy`, `difficulty:medium`, `difficulty:hard`; `area:core`, `area:chains`, `area:abi`, `area:shared`, `area:benchmark`, `area:security`, `area:build`, `area:ci`. Send Critical and High findings to the project privately before any public issue. |
 | Stop | Stop at once if a test touches a real vault, key, fund, or person. Log the stop as a process incident. |
 
 ## 3. Adversary Model
@@ -60,7 +60,7 @@ This playbook runs only when the repository owner starts it, against the owner's
 
 An extremely skilled, persistent, well-funded team with unlimited time. The run's budget limits the run, not the attacker. Tools: static analysis (jadx, apktool, Ghidra, CodeQL, Semgrep), dynamic analysis (adb, Frida and objection on non-production builds or rooted test devices), fuzzers (Jazzer, libFuzzer, AFL++), forensic imaging where the lab has it, software timing measurement, and scripted social engineering of the user flow. The attacker reads the repository, its docs, its threat-model comments, and its tests. Obscurity is not a control in this model.
 
-Out of scope unless the owner adds it: hardware side channels, fault injection, and TEE or StrongBox internals. Record them as assumptions (3.2).
+Out of scope unless the project adds it: hardware side channels, fault injection, and TEE or StrongBox internals. Record them as assumptions (3.2).
 
 ### 3.2 Primary Scenario: Physical Possession of the Phone
 
@@ -149,7 +149,7 @@ RETURN: one Finding Template (8.1) per Candidate, and one Coverage table for eve
 |---|---|
 | 60% of budget | Start no new discipline workers. Queue the validators. |
 | 85% of budget | Tell every running worker to finish its current PoC, save its scratch area, and return now. Validate what has returned. |
-| 95%, or the owner's usage ceiling | Write the report now. Mark unfinished work as coverage gaps with its last state. Keep the ledger and scratch areas. |
+| 95%, or the usage ceiling | Write the report now. Mark unfinished work as coverage gaps with its last state. Keep the ledger and scratch areas. |
 | Repeated tool or connection failures | Treat as 95%. Log the failures in the tool summary. |
 
 A partial report is valid. A report that claims coverage it did not run is not.
@@ -452,9 +452,9 @@ Goal: the APK the owner installs is the APK built from the reviewed commit, with
 - [ ] No pull request can read or poison a cache that release builds use. No workflow publishes a debug or benchmark artifact.
 - [ ] Dependency graph and SBOM: the workflow `if:` is `vars.DEPENDENCY_GRAPH_ENABLED == 'true'`. Read the variable with `gh variable list`, read the live document with `gh api repos/:owner/:repo/dependency-graph/sbom`, and record whether the workflow comment still claims the graph is off. The SBOM is branch-pinned (`pkg:github/<owner>/<repo>@master`), so it cannot be tied to a commit; record that as Low and check the package count against the release classpath.
 
-Attack ideas: replace one dependency with a same-version artifact from another source, and verify that verification fails; test the release tag guard locally with `act`, using a tag on a commit off the default branch, and never push tags to the owner's repository; test the comment-triggered workflows only in a fork the test team owns, with the owner's approval; compare `versionCode` on a shallow clone (code 1, per the comment in `app/build.gradle.kts`), and log it unless an update path accepts it.
+Attack ideas: replace one dependency with a same-version artifact from another source, and verify that verification fails; test the release tag guard locally with `act`, using a tag on a commit off the default branch, and never push tags to the project's repository; test the comment-triggered workflows only in a fork the test team owns, with the project's approval; compare `versionCode` on a shallow clone (code 1, per the comment in `app/build.gradle.kts`), and log it unless an update path accepts it.
 
-Any step that pushes, tags, or runs workflows on the owner's repository needs the owner's explicit approval for that step.
+Any step that pushes, tags, or runs workflows on the project's repository needs the project's explicit approval for that step.
 
 ### 6.8 Privacy Leaks Before Unlock
 
@@ -473,7 +473,7 @@ Evidence: every string visible before unlock, with its source file and line.
 
 ### 6.9 Side Channels and Timing
 
-Goal: find whether secret-dependent timing, I/O, or UI behavior tells an observer more than it should. Software channels only, unless the owner adds hardware channels.
+Goal: find whether secret-dependent timing, I/O, or UI behavior tells an observer more than it should. Software channels only, unless the project adds hardware channels.
 
 Channels: the password check (correct, wrong, decoy, wrong length); the save pattern of a passing try against a failing one (item 12); slot selection (`ownerIndex`); gesture reaction; Keystore call time (StrongBox against TEE, real key against decoy); signing time in Kotlin code paths; per-key timing in the in-app keyboard.
 
@@ -535,7 +535,7 @@ Severity measures the outcome for the mnemonic and funds under the primary scena
 | High | The same outcome, with a precondition a phone-holding attacker can realistically meet: a known credential, a rooted device, a restored older state, or an installed app the owner approved. Also a review defect that hides a dangerous field from the owner. |
 | Medium | Materially reduces the password search space; reveals that a decoy exists, or reveals vault contents, to an observer; leaks addresses or xpubs without authorization; defeats a defense-in-depth control. |
 | Low | A hardening gap with no direct path to the mnemonic or funds: a missing flag, a weak limit, shipped code that is never used, or a comment that misdescribes a control. |
-| Info | An observation for the owner. No action in this run. |
+| Info | An observation for the project. No action in this run. |
 
 ### 7.4 Deduplication and Regressions
 

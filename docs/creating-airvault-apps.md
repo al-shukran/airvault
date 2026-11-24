@@ -818,7 +818,7 @@ These rules are not optional. A chain app that breaks one does not merge.
 
 - The app never sees the seed or mnemonic.
 - Every key request is checked against the manifest's `KeyScope` (2.2), at load time and at each call.
-- Key material lives only inside `KeyAccess` calls and is zeroed after. `RAW_PRIVATE_KEY` needs a justification and an owner-approved review.
+- Key material lives only inside `KeyAccess` calls and is zeroed after. `RAW_PRIVATE_KEY` needs a justification and a review approved by the project.
 - A path in a request that is in scope but not one of the user's known accounts is shown as a CAUTION ("this request asks for an account you have not used before") with the full path.
 
 ### 8.3 Clear signing
@@ -839,7 +839,7 @@ A descriptor shows what the template says; it does not prove the transaction is 
 
 ### 8.5 Cover screen never leaks crypto
 
-The rule from the owner's design rules applies to every chain app: nothing reachable without the unlock gesture may hint at wallets or crypto. For chain apps this means:
+The rule from the project's design rules applies to every chain app: nothing reachable without the unlock gesture may hint at wallets or crypto. For chain apps this means:
 
 - `displayName`, chain icons, asset symbols and review titles are used only inside the unlocked vault.
 - A chain app cannot register a notification, shortcut, widget, share target or launcher alias.
@@ -1030,7 +1030,7 @@ Feature gaps the refactor exposes but does not have to close: Lumio building ASA
 
 ## 12. Design decisions and unverified facts
 
-Design decisions (owner, 2026-11-18):
+Design decisions (2026-11-18):
 
 1. **Vendor manifest signing.** Third-party chain apps carry a vendor-signed manifest and a human review record before they ship (section 2.5).
 2. **Envelope for existing chains.** No. Bitcoin, EVM, Solana and Algorand keep only their current UR types. `x-airvault-sign-request` is for new chains.
@@ -1040,7 +1040,7 @@ Design decisions (owner, 2026-11-18):
 6. **Code generation.** No generator. New chains copy `chains/_template/`; EVM chains are data in the `evm` app.
 7. **Ordinals and Runes protection.** Lumio flags risky inputs from an indexer, and Lensly warns on them (section 5).
 
-### 12.1 Phase 2.9 Fact-Check Decisions (Owner, 2026-11-19)
+### 12.1 Phase 2.9 Fact-Check Decisions (2026-11-19)
 
 These decisions close the open questions raised by the fact check of this document. Sections above refer to them by item number.
 
@@ -1051,7 +1051,7 @@ These decisions close the open questions raised by the fact check of this docume
 5. **OP_RETURN.** Follow the Core v30 default for relay. Lensly warns above 80 bytes of data (section 6.1).
 6. **PSBT wire names.** Existing chains keep their current UR types. Lumio keeps writing `crypto-psbt` (section 7.2), and Lensly also reads the registry's current name `psbt`, answering under the name each request used.
 7. **ERC-7730 version.** Keep the v1 descriptor decision, pinned to 2.1.0 (Active). Do not adopt 3.0.0-next (Draft).
-8. **Monad testnet.** Chain ID 10143 stays the default testnet, as the owner uses it.
+8. **Monad testnet.** Chain ID 10143 stays the default testnet, as the project uses it.
 
 BEP-20 (<https://github.com/bnb-chain/BEPs/blob/master/BEPs/BEP20.md>) does not define `getOwner`. A `getOwner` function is not a BEP-20 requirement.
 
