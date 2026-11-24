@@ -198,7 +198,7 @@ internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolde
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
     // A decoy vault keeps no Lumio state, so its import is not kept and each visit starts it again.
-    val imports = app.lumioVault()?.firstSyncs ?: FirstSyncImports()
+    val imports = (holder.sessionAttachment() as? LumioVault)?.firstSyncs ?: FirstSyncImports()
     // The import as an earlier visit left it: its rows show on the first frame, and its reads do not run again.
     var imported by remember(session, walletId, mode) { mutableStateOf(imports.get(walletId, mode)) }
     fun finish() {
