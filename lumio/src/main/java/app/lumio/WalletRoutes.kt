@@ -96,6 +96,21 @@ internal fun rememberWalletsBoard(app: LumioApp, mode: NetworkMode, listVersion:
     return board
 }
 
+/**
+ * Reads the side the owner chose from [session], off the main thread, and says when it is read. A screen that shows networks waits for it, so the
+ * default side never shows first. Null while the vault is locked, and nothing is read then.
+ */
+@Composable
+internal fun rememberSideRead(session: VaultSession?, selection: NetworkSelection): Boolean {
+    var read by remember(session) { mutableStateOf(false) }
+    LaunchedEffect(session) {
+        if (session == null) return@LaunchedEffect
+        selection.mode = withContext(Dispatchers.IO) { NetworkModeStore.read(session) }
+        read = true
+    }
+    return read
+}
+
 /** The Wallets start screen: one row per paired wallet, with its total in dollars or its count of accounts per chain. */
 @Composable
 internal fun WalletsRoute(
@@ -112,11 +127,7 @@ internal fun WalletsRoute(
     }
     if (session == null) return
     // The side the owner chose is kept in the vault. It is read when the vault opens, so the app opens on the side it was left on.
-    var sideRead by remember(session) { mutableStateOf(false) }
-    LaunchedEffect(session) {
-        selection.mode = withContext(Dispatchers.IO) { NetworkModeStore.read(session) }
-        sideRead = true
-    }
+    val sideRead = rememberSideRead(session, selection)
     val board = rememberWalletsBoard(app, selection.mode, listVersion, ready = sideRead) ?: return
     // The Wallets home is the one screen that reads the networks as it opens: once per unlock, after a return from the background, and after a change of side.
     LaunchedEffect(board, sideRead, board.refreshDue) {
