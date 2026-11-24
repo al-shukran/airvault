@@ -6,6 +6,7 @@ import app.lumio.data.cache.CachePolicy
 import app.lumio.data.cache.CacheUse
 import app.lumio.data.cache.DEFAULT_SHORT_TTL_MS
 import app.lumio.data.cache.jsonCodec
+import app.lumio.data.electrum.ElectrumPool
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.AddressStats
@@ -33,8 +34,16 @@ fun BtcNetwork.networkId(): NetworkId =
 /** How many recent transactions an account keeps. */
 const val RECENT_TX_COUNT = 20
 
-/** A used address of a chain: its index on that chain, the address, and what the server says of it. */
-internal class UsedAddress(val index: Int, val address: String, val stats: EsploraAddressStats)
+/** A used address of a chain: its index on that chain, the address, and what the scan read of it. */
+internal class UsedAddress(val index: Int, val address: String, val reading: AddressReading)
+
+/** What a scan read of one address: whether a transaction names it, and the coins it holds, confirmed and unconfirmed. */
+internal class AddressReading(val used: Boolean, val confirmedSats: Long, val unconfirmedSats: Long) {
+    val balance: Long get() = confirmedSats + unconfirmedSats
+}
+
+/** What Esplora says of an address, as a scan reads it. */
+internal fun EsploraAddressStats.reading(): AddressReading = AddressReading(used, chain.net, mempool.net)
 
 /** The used addresses one chain turned up, in index order. */
 internal class ChainScan(val used: List<UsedAddress>)
@@ -92,7 +101,7 @@ internal suspend fun scanChain(
             if (index == reads.size) repeat(window) { reads += read(reads.size) }
             val stats = reads[index].await()
             if (stats.used) {
-                found += UsedAddress(index, addressAt(index), stats)
+                found += UsedAddress(index, addressAt(index), stats.reading())
                 unused = 0
             } else {
                 unused++
@@ -123,6 +132,9 @@ private fun lastUsedIn(addressAt: (Int) -> String, memo: Map<String, MemoStats>)
  * addresses, with the confirmed and the unconfirmed side kept apart. An address with a balance is asked for its unspent outputs. The recent
  * transactions are asked for only when [detail] is set, for the account's own view, so a portfolio scan never asks for them.
  *
+ * With [electrum], the walk and the unspent outputs come from Electrum in batches, and the transactions still come from Esplora. An account that
+ * Electrum fails to read is read from Esplora instead.
+ *
  * A request that fails part way ends the scan with its error. First [onPartial] gets the snapshot of what was read up to then, and the caller keeps
  * it, so the next scan of the account starts from that balance rather than from nothing.
  */
@@ -136,6 +148,7 @@ suspend fun scanAccount(
     step: suspend (Int) -> Unit = {},
     onTxs: suspend (address: String, txs: List<EsploraTx>, tipHeight: Long) -> Unit = { _, _, _ -> },
     onPartial: suspend (BtcSnapshot) -> Unit = {},
+    electrum: ElectrumPool? = null,
 ): BtcSnapshot {
     val account = ref.account
     val net = account.network.networkId()
@@ -169,8 +182,8 @@ suspend fun scanAccount(
             identity = account.receiveAddress(0),
             scannedAtMs = nowMs,
             tipHeight = tipHeight,
-            confirmedSats = used.sumOf { it.stats.chain.net },
-            unconfirmedSats = used.sumOf { it.stats.mempool.net },
+            confirmedSats = used.sumOf { it.reading.confirmedSats },
+            unconfirmedSats = used.sumOf { it.reading.unconfirmedSats },
             nextReceiveIndex = nextIndex,
             nextReceiveAddress = account.receiveAddress(nextIndex),
             utxos = utxos.toList(),
@@ -185,10 +198,26 @@ suspend fun scanAccount(
             addresses = used.map { it.address },
         )
     }
+    // Electrum reads the walk and the unspent outputs when it can. An account that it fails to read is read from Esplora below.
+    val fromElectrum = electrum?.let { electrumRead(it, account, step) }
     try {
-        coroutineScope {
-            launch { scanChain(account::receiveAddress, statsOf, memo, nowMs, found = receiveUsed) }
-            launch { scanChain(account::changeAddress, statsOf, memo, nowMs, found = changeUsed) }
+        if (fromElectrum != null) {
+            receiveUsed += fromElectrum.receive
+            changeUsed += fromElectrum.change
+            utxos += fromElectrum.utxos
+        } else {
+            coroutineScope {
+                launch { scanChain(account::receiveAddress, statsOf, memo, nowMs, found = receiveUsed) }
+                launch { scanChain(account::changeAddress, statsOf, memo, nowMs, found = changeUsed) }
+            }
+            // An address with no balance holds no coins, so it is not asked for its unspent outputs.
+            for (hit in (receiveUsed + changeUsed).filter { it.reading.balance != 0L }) {
+                utxos += scheduler.run(
+                    AddressUtxos(net, hit.address),
+                    priority,
+                    CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "utxo/${net.chain}/${hit.address}", jsonCodec()),
+                ).map { BtcUtxo(it.txid, it.vout, it.valueSats, it.blockHeight) }
+            }
         }
         if (detail) {
             for (address in (receiveUsed + changeUsed).map { it.address }) {
@@ -200,14 +229,6 @@ suspend fun scanAccount(
                 onTxs(address, listed, tipHeight)
                 listed.forEach { txs.putIfAbsent(it.txid, it) }
             }
-        }
-        // An address with no balance holds no coins, so it is not asked for its unspent outputs.
-        for (hit in (receiveUsed + changeUsed).filter { it.stats.balance != 0L }) {
-            utxos += scheduler.run(
-                AddressUtxos(net, hit.address),
-                priority,
-                CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "utxo/${net.chain}/${hit.address}", jsonCodec()),
-            ).map { BtcUtxo(it.txid, it.vout, it.valueSats, it.blockHeight) }
         }
     } catch (e: CancellationException) {
         throw e
