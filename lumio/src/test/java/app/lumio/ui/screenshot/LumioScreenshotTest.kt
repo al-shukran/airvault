@@ -226,8 +226,8 @@ class LumioScreenshotTest {
                     notice = null,
                     onAddressCount = {},
                     onEnabled = { _, _ -> },
-                    onSetRpc = { _, _, _ -> },
-                    onResetRpc = {},
+                    onNetwork = {},
+                    onTokens = {},
                     onRemoveCustom = {},
                     onAddNetwork = {},
                 )
@@ -333,10 +333,12 @@ class LumioScreenshotTest {
             rpc = listOf(
                 providerRow("1rpc", acceptsKey = true, mev = true, status = ProviderStatus.Healthy(120.0), apiKey = "k-1"),
             ),
+            offline = null,
             onBack = {},
+            onLock = {},
+            onOpen = {},
             onEnabled = { _, _ -> },
             onMove = { _, _ -> },
-            onApiKey = { _, _ -> },
         )
     }
 
@@ -350,10 +352,12 @@ class LumioScreenshotTest {
                 providerRow("defillama", acceptsKey = false, status = ProviderStatus.Healthy(95.0), canMoveDown = false),
             ),
             rpc = emptyList(),
+            offline = null,
             onBack = {},
+            onLock = {},
+            onOpen = {},
             onEnabled = { _, _ -> },
             onMove = { _, _ -> },
-            onApiKey = { _, _ -> },
         )
     }
 

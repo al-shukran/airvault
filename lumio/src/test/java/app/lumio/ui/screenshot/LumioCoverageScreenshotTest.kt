@@ -15,8 +15,6 @@ import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -60,6 +58,7 @@ import app.lumio.ui.send.SummaryRow
 import app.lumio.ui.settings.AddCustomNetworkScreen
 import app.lumio.ui.settings.DataProvidersScreen
 import app.lumio.ui.settings.EvmSettingsSection
+import app.lumio.ui.settings.NetworkPage
 import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.ProviderStatus
 import com.github.takahirom.roborazzi.RoborazziOptions
@@ -109,8 +108,8 @@ class LumioCoverageScreenshotTest {
                 notice = null,
                 onAddressCount = {},
                 onEnabled = { _, _ -> },
-                onSetRpc = { _, _, _ -> },
-                onResetRpc = {},
+                onNetwork = {},
+                onTokens = {},
                 onRemoveCustom = {},
                 onAddNetwork = {},
             )
@@ -153,6 +152,22 @@ class LumioCoverageScreenshotTest {
     }
 
     @Test
+    fun networkPageOfAChain() = compose.lumioSnapshot("network_page_chain") {
+        NetworkPage(
+            chainName = "Ethereum",
+            chainLine = "Chain 1 · ETH",
+            custom = "https://rpc.example.org",
+            busy = false,
+            notice = null,
+            offline = null,
+            onUseBuiltIn = {},
+            onAddCustom = {},
+            onBack = {},
+            onLock = {},
+        )
+    }
+
+    @Test
     fun resetLumioDialog() = dialogSnapshot(
         name = "reset_lumio_dialog",
         title = "Reset Lumio?",
@@ -171,28 +186,6 @@ class LumioCoverageScreenshotTest {
     }
 
     @Test
-    fun evmEditRpcDialog() = dialogSnapshot(
-        name = "evm_edit_rpc_dialog",
-        title = "RPC for Ethereum",
-        open = { onAllNodesWithText("Edit RPC").onFirst().performClick() },
-    ) {
-        LenslyScreen(title = "SETTINGS", onBack = {}) {
-            EvmSettingsSection(
-                settings = EvmSettings(rpc = mapOf(1L to "https://rpc.example.org")),
-                chains = chains,
-                busy = false,
-                notice = null,
-                onAddressCount = {},
-                onEnabled = { _, _ -> },
-                onSetRpc = { _, _, _ -> },
-                onResetRpc = {},
-                onRemoveCustom = {},
-                onAddNetwork = {},
-            )
-        }
-    }
-
-    @Test
     fun dataProvidersWithEveryStatus() = compose.lumioSnapshot("data_providers_statuses") {
         DataProvidersScreen(
             data = listOf(
@@ -206,10 +199,12 @@ class LumioCoverageScreenshotTest {
             rpc = listOf(
                 providerRow("1rpc", acceptsKey = true, mev = true, status = ProviderStatus.Off, enabled = false, apiKey = "k-1"),
             ),
+            offline = null,
             onBack = {},
+            onLock = {},
+            onOpen = {},
             onEnabled = { _, _ -> },
             onMove = { _, _ -> },
-            onApiKey = { _, _ -> },
         )
     }
 

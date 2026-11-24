@@ -10,7 +10,6 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.ui.theme.ClearAirTheme
-import app.lumio.ui.settings.ApiKeyField
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -42,12 +41,6 @@ class SecretInputTest {
         compose.setContent {
             ClearAirTheme { ClearAirField(label = "PIN", value = "", onValueChange = {}, keyboard = KeyboardType.Number, masked = true) }
         }
-        assertSecretFlags()
-    }
-
-    @Test
-    fun apiKeyFieldTakesTheSecretFlags() {
-        compose.setContent { ClearAirTheme { ApiKeyField(id = "provider", stored = null, onSave = {}) } }
         assertSecretFlags()
     }
 

@@ -11,7 +11,6 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import app.lensly.ui.theme.ClearAirTheme
-import app.lensly.ui.theme.LumenTheme
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettings
 import app.lumio.network.NetworkMode
@@ -51,14 +50,16 @@ class LumioControlsTest {
     @Test
     fun aProviderSwitchIsAToggleSwitch() {
         compose.setContent {
-            LumenTheme {
+            ClearAirTheme {
                 DataProvidersScreen(
                     data = listOf(provider("mempool")),
                     rpc = emptyList(),
+                    offline = null,
                     onBack = {},
+                    onLock = {},
+                    onOpen = {},
                     onEnabled = { _, _ -> },
                     onMove = { _, _ -> },
-                    onApiKey = { _, _ -> },
                 )
             }
         }
@@ -69,7 +70,7 @@ class LumioControlsTest {
     @Test
     fun aChainIsAToggleSwitchAndAddingAChainIsARow() {
         compose.setContent {
-            LumenTheme {
+            ClearAirTheme {
                 EvmSettingsSection(
                     settings = EvmSettings(enabled = setOf(1L)),
                     chains = listOf(EvmChain(1L, "Ethereum", "ETH", 18, false, null)),
@@ -77,8 +78,8 @@ class LumioControlsTest {
                     notice = null,
                     onAddressCount = {},
                     onEnabled = { _, _ -> },
-                    onSetRpc = { _, _, _ -> },
-                    onResetRpc = {},
+                    onNetwork = {},
+                    onTokens = {},
                     onRemoveCustom = {},
                     onAddNetwork = {},
                 )
@@ -92,7 +93,7 @@ class LumioControlsTest {
     @Test
     fun theAddressStepperStopsAtItsLimits() {
         compose.setContent {
-            LumenTheme {
+            ClearAirTheme {
                 EvmSettingsSection(
                     settings = EvmSettings(addressCount = EvmSettings.MAX_ADDRESS_COUNT),
                     chains = emptyList(),
@@ -100,16 +101,16 @@ class LumioControlsTest {
                     notice = null,
                     onAddressCount = {},
                     onEnabled = { _, _ -> },
-                    onSetRpc = { _, _, _ -> },
-                    onResetRpc = {},
+                    onNetwork = {},
+                    onTokens = {},
                     onRemoveCustom = {},
                     onAddNetwork = {},
                 )
             }
         }
 
-        compose.onNodeWithContentDescription("Show more addresses").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Show fewer addresses").assertIsEnabled()
+        compose.onNodeWithText("+").assertIsNotEnabled()
+        compose.onNodeWithText("\u2212").assertIsEnabled()
     }
 
     private fun hasRole(role: Role): SemanticsMatcher = SemanticsMatcher.expectValue(SemanticsProperties.Role, role)

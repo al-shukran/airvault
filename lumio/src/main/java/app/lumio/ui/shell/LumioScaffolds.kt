@@ -91,13 +91,14 @@ fun LumioRootScreen(
 }
 
 /**
- * A page of the shell: its page top bar with a back arrow to [backLabel], the offline band when [offline] is set, and the page's [content]. A page has
- * no tab bar, and its back arrow, the system back and predictive back all return one page. [sheet] is the page's one sheet, drawn over the whole page.
+ * A page of the shell: its page top bar with a back arrow to [backLabel] (a plain back arrow when [backLabel] is null), the offline band when [offline] is
+ * set, and the page's [content]. A page has no tab bar, and its back arrow, the system back and predictive back all return one page. [sheet] is the
+ * page's one sheet, drawn over the whole page.
  */
 @Composable
 fun LumioPageScreen(
     title: String,
-    backLabel: String,
+    backLabel: String?,
     offline: String?,
     onBack: () -> Unit,
     onLock: () -> Unit,

@@ -29,9 +29,9 @@ class ProviderPageScreenshotTest {
             statusNote = null,
             tags = listOf("Works without an API Key", "Anonymous"),
             keyed = true,
-            keySet = false,
+            savedTail = null,
             offline = null,
-            onConfigureKey = {},
+            onSaveKey = {},
             onBack = {},
             onLock = {},
         )
@@ -45,9 +45,9 @@ class ProviderPageScreenshotTest {
             statusNote = "Needs API Key",
             tags = emptyList(),
             keyed = true,
-            keySet = false,
+            savedTail = null,
             offline = null,
-            onConfigureKey = {},
+            onSaveKey = {},
             onBack = {},
             onLock = {},
         )

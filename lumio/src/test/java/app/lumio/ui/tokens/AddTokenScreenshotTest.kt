@@ -37,12 +37,14 @@ class AddTokenScreenshotTest {
             busy = false,
             found = Token(1L, "0x6982508145454ce325ddbe47a25d4ec3d2311933", "PEPE", "Pepe", 18),
             problem = null,
+            offline = null,
             onAddress = {},
             onLookUp = {},
             onAdd = {},
             onCancel = {},
             onRemove = {},
             onBack = {},
+            onLock = {},
         )
     }
 }

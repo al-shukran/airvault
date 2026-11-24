@@ -17,7 +17,6 @@ import app.lumio.data.config.PreferRpcStore
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.config.configOf
 import app.lumio.data.config.orderedIds
-import app.lumio.data.config.withApiKey
 import app.lumio.data.config.withEnabled
 import app.lumio.data.config.withMoved
 import app.lumio.data.provider.Provider
@@ -50,7 +49,7 @@ internal class ProviderLists(
  * to the open vault's provider settings. The routers read those settings on their next call, so a change takes effect at once.
  */
 @Composable
-internal fun DataProvidersRoute(navController: NavHostController, holder: VaultHolder) {
+internal fun DataProvidersRoute(navController: NavHostController, holder: VaultHolder, onLock: () -> Unit) {
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
     LaunchedEffect(session == null) {
@@ -88,7 +87,10 @@ internal fun DataProvidersRoute(navController: NavHostController, holder: VaultH
         data = current.data,
         prices = current.prices,
         rpc = current.rpc,
+        offline = rememberSettingsOffline(),
         onBack = { navController.popBackStack() },
+        onLock = onLock,
+        onOpen = { id -> navController.navigate(LumioRoute.provider(id)) },
         // Each write starts from the defaults-filled settings, so a price provider never saves a default as a plain 0.
         onEnabled = { id, on -> change { writable.updateConfigs { saved -> withEnabled(ProviderCatalog.withDefaults(saved), id, on) } } },
         onMove = { id, up ->
@@ -99,7 +101,6 @@ internal fun DataProvidersRoute(navController: NavHostController, holder: VaultH
             }
             change { writable.updateConfigs { saved -> withMoved(ProviderCatalog.withDefaults(saved), group, id, up) } }
         },
-        onApiKey = { id, key -> change { writable.updateConfigs { saved -> withApiKey(ProviderCatalog.withDefaults(saved), id, key) } } },
         preferRpc = current.preferRpc,
         onPreferRpc = { on -> change { PreferRpcStore.write(writable.session, on) } },
     )

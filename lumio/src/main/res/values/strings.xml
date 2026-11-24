@@ -2,17 +2,12 @@
 <resources>
     <string name="app_name">Lumio</string>
 
-    <string name="providers_title">DATA PROVIDERS</string>
-    <string name="providers_intro">Lumio reads chain data and sends transactions through these providers, in the order below. A provider that is off, or that needs a key you have not set, is skipped. API keys are sealed in this vault and stay hidden until you show them.</string>
+    <string name="providers_intro">Lumio reads chain data and sends transactions through these providers, in the order below. A provider that is off, or that needs a key you have not set, is skipped. Open a provider to set its key, which is stored in the vault.</string>
     <string name="providers_data_heading">Data</string>
     <string name="providers_prices_heading">Prices</string>
     <string name="providers_rpc_heading">RPC</string>
-    <string name="providers_mev_badge">MEV-Protected</string>
     <string name="providers_move_up">Move Up</string>
     <string name="providers_move_down">Move Down</string>
-    <string name="providers_key_label">API Key</string>
-    <string name="providers_key_reveal">Show Key</string>
-    <string name="providers_key_clear">Clear Key</string>
     <string name="settings_licences_body">Every library and font AirVault ships, with the licence each one is used under.</string>
     <string name="settings_licences_open">Third-Party Licences</string>
     <string name="providers_privacy_heading">Explorers and Privacy</string>

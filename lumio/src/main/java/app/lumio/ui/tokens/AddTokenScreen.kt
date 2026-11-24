@@ -1,34 +1,29 @@
 package app.lumio.ui.tokens
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.input.ImeAction
-import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.InlineBanner
-import app.lensly.ui.components.LenslyScreen
-import app.lensly.ui.components.SettingsSection
-import app.lensly.ui.components.TextAction
-import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.tokens.Token
+import app.lumio.ui.kit.ClearAirField
+import app.lumio.ui.kit.ClearAirListRow
+import app.lumio.ui.kit.ClearAirNote
+import app.lumio.ui.kit.ClearAirPrimaryButton
+import app.lumio.ui.kit.ClearAirRow
+import app.lumio.ui.kit.ClearAirTextAction
+import app.lumio.ui.settings.SettingsFrame
+import app.lumio.ui.settings.SettingsGroup
 
 /**
- * The tokens of one chain: a field for a contract address, a lookup that reads the token from the chain, the token it found with an Add button, and the
- * list of the chain's tokens, the bundled defaults and the owner's own. The owner's tokens have a Remove action. The screen keeps no state of its own:
+ * Add Token (J10): a token of one chain, found by its contract address. The address is looked up when the owner leaves the field or presses
+ * Done, and the token it names shows with its symbol, name and decimals above the Add Token button. A note sits above the button, because a token's
+ * name proves nothing. Below, the chain's bundled tokens and the owner's own, and Remove on the owner's. The screen keeps no state of its own:
  * [address], [found] and [problem] come from the caller, and each action goes back to it. [busy] holds the controls while a read is running.
  */
 @Composable
@@ -40,134 +35,67 @@ fun AddTokenScreen(
     busy: Boolean,
     found: Token?,
     problem: String?,
+    offline: String?,
     onAddress: (String) -> Unit,
     onLookUp: () -> Unit,
     onAdd: (Token) -> Unit,
     onCancel: () -> Unit,
     onRemove: (Token) -> Unit,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier,
+    onLock: () -> Unit,
 ) {
-    LenslyScreen(title = "Tokens on $chainName", modifier = modifier, onBack = onBack) {
-        Text(
-            "Paste the contract address of an ERC-20 token. Lumio reads its symbol, name and decimals from this chain. Nothing is saved until you add it.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(LenslySpacing.md))
-        AddressField(address = address, busy = busy, onAddress = onAddress, onLookUp = onLookUp)
-        problem?.let {
-            Spacer(Modifier.height(LenslySpacing.sm))
-            InlineBanner(message = it, tone = BannerTone.Error)
-        }
-        found?.let {
-            Spacer(Modifier.height(LenslySpacing.md))
-            FoundToken(token = it, chainName = chainName, busy = busy, onAdd = onAdd, onCancel = onCancel)
-        }
-        Spacer(Modifier.height(LenslySpacing.lg))
-        SettingsSection(title = "Default Tokens") {
-            if (defaults.isEmpty()) EmptyLine("No default tokens on this chain.")
-            defaults.forEach { TokenLine(token = it, onRemove = null) }
-        }
-        Spacer(Modifier.height(LenslySpacing.md))
-        SettingsSection(title = "Your Tokens") {
-            if (custom.isEmpty()) EmptyLine("No tokens added yet.")
-            custom.forEach { token -> TokenLine(token = token, onRemove = { onRemove(token) }) }
-        }
-    }
-}
-
-/** The contract field, with Paste beside it and the Look up button under it. */
-@Composable
-private fun AddressField(address: String, busy: Boolean, onAddress: (String) -> Unit, onLookUp: () -> Unit) {
     val clipboard = LocalClipboardManager.current
-    OutlinedTextField(
-        value = address,
-        onValueChange = onAddress,
-        modifier = Modifier.fillMaxWidth().testTag("token-address"),
-        label = { Text("Contract Address") },
-        placeholder = { Text("0x…") },
-        singleLine = true,
-        enabled = !busy,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-    )
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.xs),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        TextAction(
-            text = "Paste",
-            onClick = { clipboard.getText()?.text?.let(onAddress) },
-            enabled = !busy,
-            modifier = Modifier.testTag("token-paste"),
-        )
-        Button(
-            onClick = onLookUp,
-            enabled = !busy && address.isNotBlank(),
-            modifier = Modifier.testTag("token-lookup"),
-        ) {
-            Text("Look Up")
-        }
-    }
-}
-
-/** The token a lookup found, with its symbol, name and decimals, and the buttons that add it or drop it. */
-@Composable
-private fun FoundToken(token: Token, chainName: String, busy: Boolean, onAdd: (Token) -> Unit, onCancel: () -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth().testTag("token-found")) {
-        Text(
-            "Found on $chainName",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            token.symbol,
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Text(
-            "${token.name} · ${token.decimals} decimals",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            token.contract,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = LenslySpacing.sm),
-            horizontalArrangement = Arrangement.spacedBy(LenslySpacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Button(onClick = { onAdd(token) }, enabled = !busy, modifier = Modifier.testTag("token-add")) { Text("Add Token") }
-            TextAction(text = "Cancel", onClick = onCancel, enabled = !busy)
-        }
-    }
-}
-
-/** One token of a list: its symbol and name on the left, and its Remove action on the right when the owner may remove it. */
-@Composable
-private fun TokenLine(token: Token, onRemove: (() -> Unit)?) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = LenslySpacing.xs),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(token.symbol, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-            Text(
-                "${token.name} · ${token.decimals} decimals",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+    SettingsFrame(title = "Add Token", offline = offline, onBack = onBack, onLock = onLock, backLabel = "Networks") {
+        ClearAirRow(title = chainName, description = "Network for this token", modifier = Modifier.padding(top = ClearAirSpacing.md))
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md)) {
+            ClearAirField(
+                label = "Token Contract Address",
+                value = address,
+                onValueChange = onAddress,
+                placeholder = "0x…",
+                monospace = true,
+                error = problem,
+                onCommit = { if (address.isNotBlank() && !busy) onLookUp() },
+                inputTag = "token-address",
+                trailing = {
+                    ClearAirTextAction(
+                        text = "Paste",
+                        onClick = { clipboard.getText()?.text?.let(onAddress) },
+                        enabled = !busy,
+                        modifier = Modifier.testTag("token-paste"),
+                    )
+                },
             )
         }
-        if (onRemove != null) TextAction(text = "Remove", onClick = onRemove, destructive = true)
+        found?.let { token ->
+            SettingsGroup(title = "Found on $chainName") {
+                ClearAirRow(title = "Symbol", description = token.symbol, modifier = Modifier.testTag("token-found"))
+                ClearAirRow(title = "Name", description = token.name)
+                ClearAirRow(title = "Decimals", description = token.decimals.toString())
+            }
+            ClearAirNote(text = "Anyone can create a token with any name. Add only tokens you trust.", modifier = Modifier.padding(top = ClearAirSpacing.md))
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md)) {
+                ClearAirPrimaryButton(text = "Add Token", onClick = { onAdd(token) }, enabled = !busy, modifier = Modifier.testTag("token-add"))
+                ClearAirTextAction(text = "Cancel", onClick = onCancel, enabled = !busy)
+            }
+        }
+        SettingsGroup(title = "Default Tokens") {
+            if (defaults.isEmpty()) ClearAirNote(text = "No default tokens on this chain.")
+            defaults.forEach { token -> ClearAirListRow(title = token.symbol, description = tokenWords(token)) }
+        }
+        Spacer(Modifier.height(ClearAirSpacing.md))
+        SettingsGroup(title = "Your Tokens") {
+            if (custom.isEmpty()) ClearAirNote(text = "No tokens added yet.")
+            custom.forEach { token ->
+                ClearAirListRow(
+                    title = token.symbol,
+                    description = tokenWords(token),
+                    trailing = { ClearAirTextAction(text = "Remove", onClick = { onRemove(token) }, enabled = !busy) },
+                )
+            }
+        }
     }
 }
 
-@Composable
-private fun EmptyLine(text: String) {
-    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = LenslySpacing.xs))
-}
+/** A token's name and decimals, as its list row says them. */
+private fun tokenWords(token: Token): String = "${token.name} · ${token.decimals} decimals"

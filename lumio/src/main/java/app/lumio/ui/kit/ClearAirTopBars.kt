@@ -64,17 +64,17 @@ fun ClearAirRootTopBar(title: String, onPanel: () -> Unit, onSearch: () -> Unit,
 }
 
 /**
- * The top bar of a page: a back arrow labelled "Back to [backLabel]", the page's [title], which wraps rather than clips, and the lock. Back and the
- * system back both return one page.
+ * The top bar of a page: a back arrow labelled "Back to [backLabel]", or just "Back" when [backLabel] is null, the page's [title], which wraps rather
+ * than clips, and the lock. Back and the system back both return one page.
  */
 @Composable
-fun ClearAirPageTopBar(title: String, backLabel: String, onBack: () -> Unit, onLock: () -> Unit, modifier: Modifier = Modifier) {
+fun ClearAirPageTopBar(title: String, backLabel: String?, onBack: () -> Unit, onLock: () -> Unit, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
     Row(
         modifier = modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.xs, vertical = ClearAirSpacing.xxs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ClearAirIconButton(glyph = ClearAirGlyph.BACK, label = "Back to $backLabel", onClick = onBack)
+        ClearAirIconButton(glyph = ClearAirGlyph.BACK, label = backLabel?.let { "Back to $it" } ?: "Back", onClick = onBack)
         Text(
             text = title,
             modifier = Modifier.weight(1f).padding(horizontal = ClearAirSpacing.xs),
