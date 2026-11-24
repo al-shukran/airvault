@@ -75,13 +75,17 @@ object ProviderCatalog {
 
     /**
      * Whether [provider] serves [chain] for balance reads, as it does once the key it takes is set. Membership is read with a probe key, so a key-required
-     * provider lists its chains before the owner sets one. [Provider.supports] only reads the probe; nothing is sent with it.
+     * provider lists its chains before the owner sets one. [owner] is the owner's own chain addresses, which only the custom RPC reads, so it lists the
+     * chains the owner set. [Provider.supports] only reads the probe; nothing is sent with it.
      */
-    fun servesEvmChain(provider: Provider, chain: EvmChain): Boolean =
-        provider.supports(NetworkId(Networks.evm(chain.chainId), chain.testnet), Ops.EVM_NATIVE_BALANCE, PROBE)
+    fun servesEvmChain(provider: Provider, chain: EvmChain, owner: Map<String, String> = emptyMap()): Boolean =
+        provider.supports(
+            NetworkId(Networks.evm(chain.chainId), chain.testnet),
+            Ops.EVM_NATIVE_BALANCE,
+            ProviderConfig(apiKey = "probe", chainUrls = owner),
+        )
 
     /** The chains of [chains] that [provider] serves, as [servesEvmChain] reads them. */
-    fun evmChainsOf(provider: Provider, chains: List<EvmChain>): List<EvmChain> = chains.filter { servesEvmChain(provider, it) }
-
-    private val PROBE = ProviderConfig(apiKey = "probe")
+    fun evmChainsOf(provider: Provider, chains: List<EvmChain>, owner: Map<String, String> = emptyMap()): List<EvmChain> =
+        chains.filter { servesEvmChain(provider, it, owner) }
 }

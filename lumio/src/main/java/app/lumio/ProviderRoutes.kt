@@ -98,11 +98,11 @@ private suspend fun readProvider(app: LumioApp, vault: LumioVault, id: String): 
     val row = (lists.data + lists.prices + lists.rpc).firstOrNull { it.id == id } ?: return null
     val provider = (ProviderCatalog.dataProviders() + ProviderCatalog.priceProviders() + ProviderCatalog.rpcProviders(BuildConfig.DEBUG))
         .firstOrNull { it.id == id } ?: return null
-    val chains = EvmCatalog.chains(app.registry, EvmSettingsStore.read(vault.session))
+    val settings = EvmSettingsStore.read(vault.session)
     return ProviderState(
         row = row,
         tags = providerTags(id, provider.traits),
-        networks = ProviderCatalog.evmChainsOf(provider, chains).map { it.name },
+        networks = ProviderCatalog.evmChainsOf(provider, EvmCatalog.chains(app.registry, settings), owner = settings.activeRpcUrls()).map { it.name },
         keyRequired = Trait.KEY_REQUIRED in provider.traits,
     )
 }
