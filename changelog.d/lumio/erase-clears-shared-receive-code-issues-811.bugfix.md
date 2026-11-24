@@ -1,0 +1,1 @@
+Every erase of Lumio, Reset Lumio or the last allowed wrong password, also deletes a shared receive QR code left in the app's cache, and the wrong-password erase locks the open session at once. A wrong current password on the Change Password page is cleared from its field.

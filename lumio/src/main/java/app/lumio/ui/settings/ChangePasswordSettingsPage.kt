@@ -65,7 +65,11 @@ fun ChangePasswordSettingsPage(
                 PasswordChange.Changed -> onChanged()
                 PasswordChange.Locked -> onLocked()
                 PasswordChange.Unavailable -> onUnavailable()
-                else -> problem = outcome
+                else -> {
+                    // A wrong current password is cleared, as the gate clears it, so it does not stay on the page.
+                    if (outcome == PasswordChange.WrongCurrent) current = ""
+                    problem = outcome
+                }
             }
         }
     }

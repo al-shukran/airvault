@@ -30,7 +30,7 @@ private const val PNG_QUALITY = 100
 internal fun writeReceiveCode(context: Context, address: String): Uri {
     val pixels = QrMatrix.pixelsForCentredLogo(address, margin = SHARE_MARGIN, targetPx = SHARE_PIXELS)
     val bitmap = Bitmap.createBitmap(pixels.argb, pixels.size, pixels.size, Bitmap.Config.ARGB_8888)
-    val file = File(File(context.cacheDir, SHARE_DIR).apply { mkdirs() }, SHARE_FILE)
+    val file = File(receiveShareDir(context).apply { mkdirs() }, SHARE_FILE)
     try {
         file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, PNG_QUALITY, it) }
     } finally {
@@ -38,6 +38,9 @@ internal fun writeReceiveCode(context: Context, address: String): Uri {
     }
     return FileProvider.getUriForFile(context, "${context.packageName}.receive", file)
 }
+
+/** The folder of the shared code. It names an address of the owner's, so every erase of Lumio deletes it (see [app.lumio.eraseOutsideVault]). */
+internal fun receiveShareDir(context: Context): File = File(context.cacheDir, SHARE_DIR)
 
 /** Opens the system share sheet with the code at [uri] as an image and [text] as its words. */
 internal fun shareReceive(context: Context, uri: Uri, text: String) {

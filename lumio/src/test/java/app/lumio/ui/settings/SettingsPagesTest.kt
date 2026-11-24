@@ -5,7 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -15,6 +17,7 @@ import androidx.compose.ui.test.performTextInput
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.flow.PasswordCheck
 import app.lensly.ui.theme.LumenTheme
+import app.lumio.PasswordChange
 import app.lumio.btc.EsploraServers
 import app.lumio.data.config.AutoLock
 import app.lumio.data.config.DisplaySettings
@@ -265,6 +268,35 @@ class SettingsPagesTest {
         compose.onNode(hasSetTextAction()).performTextInput("the right one")
         compose.onNodeWithText("Change").performClick()
         assertTrue(accepted)
+    }
+
+    /** A wrong current password is cleared from its field, as the gate clears it, and the page asks for all three fields again. */
+    @Test
+    fun aWrongCurrentPasswordIsClearedFromThePage() {
+        var tried: String? = null
+        compose.setContent {
+            ClearAirHarness {
+                ChangePasswordSettingsPage(
+                    offline = null,
+                    onSubmit = { current, _, _ ->
+                        tried = current
+                        PasswordChange.WrongCurrent
+                    },
+                    onChanged = {}, onLocked = {}, onUnavailable = {}, onBack = {}, onLock = {},
+                )
+            }
+        }
+
+        val fields = compose.onAllNodes(hasSetTextAction())
+        fields[0].performTextInput("not the password")
+        fields[1].performTextInput("Vk8#Rw2!Lq6Zn4Tp9Xb")
+        fields[2].performTextInput("Vk8#Rw2!Lq6Zn4Tp9Xb")
+        compose.onNode(hasText("Change Password") and hasClickAction()).performClick()
+
+        assertEquals("not the password", tried)
+        compose.onNodeWithText(WRONG_CURRENT_PASSWORD, substring = true).assertExists()
+        compose.onNodeWithText("not the password").assertDoesNotExist()
+        compose.onNodeWithText("Fill in all three fields to continue").assertExists()
     }
 
     @Test

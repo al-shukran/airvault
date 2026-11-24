@@ -58,6 +58,7 @@ import app.lumio.tokens.TokenCatalog
 import app.lumio.portfolio.PortfolioBoard
 import app.lumio.send.ArrivalNotifications
 import app.lumio.send.SendArrivals
+import app.lumio.ui.receive.receiveShareDir
 import app.lumio.wallets.WalletsBoard
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -75,7 +76,7 @@ import okhttp3.OkHttpClient
  * one scan queue and one scan runner, all shared by every screen.
  */
 class LumioApp : Application(), CoverApplication {
-    override val vaultHolder: VaultHolder by lazy { VaultHolder(Vault(this, onErased = ::eraseAfterVaultErase), attach = ::openVault) }
+    override val vaultHolder: VaultHolder by lazy { VaultHolder(Vault(this, onErased = ::onVaultErased), attach = ::openVault) }
     override val entryGestureHolder: EntryGestureHolder by lazy { EntryGestureHolder(EntryGestureStore.open(this)) }
 
     /** The lock choices of Settings → Security. They sit outside the vault, because the cover reads them before the vault opens. */
@@ -329,16 +330,12 @@ class LumioApp : Application(), CoverApplication {
     /** Reset Lumio: closes the database, then erases every Lumio store on this phone, see [eraseLumioStores]. The next vault opens a new database. */
     fun eraseLumio() {
         closeDatabase()
-        eraseLumioStores(vaultHolder, databaseFile(), lockSettings)
+        eraseLumioStores(vaultHolder, databaseFile(), receiveShareDir(this), lockSettings)
     }
 
-    /**
-     * The vault erased itself after a wrong try or an unverifiable file, so its folder is gone, with the database in it. The open database
-     * handle is closed, and the database files and the lock choices, which sit outside the vault, are erased as Reset Lumio erases them.
-     */
-    private fun eraseAfterVaultErase() {
-        closeDatabase()
-        eraseOutsideVault(databaseFile(), lockSettings)
+    /** The vault erased itself after a wrong try or an unverifiable file, so its folder is gone, with the database in it. See [eraseAfterVaultErase]. */
+    private fun onVaultErased() {
+        eraseAfterVaultErase(vaultHolder, ::closeDatabase, databaseFile(), receiveShareDir(this), lockSettings)
     }
 
     @Synchronized

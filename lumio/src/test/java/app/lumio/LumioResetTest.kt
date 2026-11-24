@@ -18,6 +18,7 @@ import app.lumio.data.config.LockSettingsStore
 import app.lumio.data.db.LumioDatabase
 import java.io.File
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
@@ -44,13 +45,17 @@ class LumioResetTest {
     private val clock = FakeClock()
     // Lazy, because the rule creates the temporary folder only after the test instance is built.
     private val layout by lazy { VaultLayout(File(tmp.root, "data"), File(tmp.root, "photos")) }
-    // The erase after a wrong try runs what LumioApp runs: the database files and the lock choices go, as on Reset Lumio.
-    private val vault by lazy {
+    private val receiveShares by lazy { File(tmp.root, "cache/receive") }
+    // What LumioApp closes as its database handle. A test makes it throw to show the stores go all the same.
+    private var closeDatabase: () -> Unit = {}
+    // The erase after a wrong try runs what LumioApp runs: the session locks, and the database files, the shared receive code and the lock
+    // choices go, as on Reset Lumio.
+    private val vault: Vault by lazy {
         Vault(layout, MemoryKeystore(), clock, KDF, onErased = {
-            eraseOutsideVault(lumioDatabaseFile(layout), LockSettingsStore.open(context))
+            eraseAfterVaultErase(holder, closeDatabase, lumioDatabaseFile(layout), receiveShares, LockSettingsStore.open(context))
         })
     }
-    private val holder by lazy { VaultHolder(vault) }
+    private val holder: VaultHolder by lazy { VaultHolder(vault) }
 
     @Test
     fun theDatabaseSitsInsideTheVaultFolderSoAnyEraseRemovesIt() {
@@ -65,14 +70,35 @@ class LumioResetTest {
         LumioDatabase.open(context, databaseFile).close()
         assertTrue(databaseFile.isFile)
         LockSettingsStore.open(context).save(LockSettings(AutoLock.IMMEDIATELY))
+        shareReceiveCode()
+        // The wrong tries come from an open session, as Change Password's check of the current password does.
+        open()
 
         repeat(WIPE_AFTER - 1) { assertEquals(UnlockResult.Rejected, wrongTry()) }
         assertEquals(UnlockResult.Erased, wrongTry())
 
+        assertNull(holder.openSession(), "the session outlived the erase")
         assertFalse(vault.exists())
         assertFalse(databaseFile.exists())
+        assertFalse(receiveShares.exists(), "the shared receive code outlived the erase")
         assertTrue(context.getSharedPreferences(LockSettingsStore.FILE, 0).all.isEmpty(), "the lock choices outlived the erase")
         assertEquals(LockSettings(), LockSettingsStore.open(context).load())
+    }
+
+    @Test
+    fun aWrongPasswordEraseRemovesTheOutsideStoresWhenTheDatabaseCloseThrows() = runBlocking {
+        assertEquals(CreateResult.Created, vault.create(PASSWORD.toCharArray()))
+        assertEquals(FailureCapResult.Saved, vault.setFailureLimits(PASSWORD.toCharArray(), null, WIPE_AFTER))
+        LockSettingsStore.open(context).save(LockSettings(AutoLock.IMMEDIATELY))
+        shareReceiveCode()
+        closeDatabase = { throw IllegalStateException("close failed") }
+
+        repeat(WIPE_AFTER - 1) { assertEquals(UnlockResult.Rejected, wrongTry()) }
+        assertFailsWith<IllegalStateException> { wrongTry() }
+
+        assertFalse(vault.exists())
+        assertFalse(receiveShares.exists())
+        assertTrue(context.getSharedPreferences(LockSettingsStore.FILE, 0).all.isEmpty())
     }
 
     @Test
@@ -84,18 +110,25 @@ class LumioResetTest {
         LumioDatabase.open(context, databaseFile).close()
         val lock = LockSettingsStore.open(context).also { it.save(LockSettings(AutoLock.AFTER_FIVE_MINUTES)) }
         val gestures = EntryGestureStore.open(context).also { it.save(EntryGesture.PINCH_TRIPLE_TAP) }
+        shareReceiveCode()
         assertTrue(databaseFile.isFile)
 
         // The caller closes the database first, as LumioApp does.
-        eraseLumioStores(holder, databaseFile, lock)
+        eraseLumioStores(holder, databaseFile, receiveShares, lock)
 
         assertNull(holder.openSession())
         assertFalse(vault.exists())
         assertFalse(File(tmp.root, "data").exists())
         assertFalse(databaseFile.exists())
+        assertFalse(receiveShares.exists())
         assertTrue(context.getSharedPreferences(LockSettingsStore.FILE, 0).all.isEmpty())
         assertEquals(LockSettings(), lock.load())
         assertEquals(EntryGesture.PINCH_TRIPLE_TAP, gestures.load())
+    }
+
+    /** A receive code shared from Lumio, as the Receive sheet leaves it in the app's cache. */
+    private fun shareReceiveCode() {
+        File(receiveShares.apply { mkdirs() }, "receive-qr.png").writeBytes(byteArrayOf(1, 2, 3))
     }
 
     /** A wrong password, tried after the longest failure delay, so the delay does not refuse the try before it is counted. */
