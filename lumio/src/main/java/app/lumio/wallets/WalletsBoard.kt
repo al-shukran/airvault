@@ -63,6 +63,8 @@ private class Loaded(
     val market: Kept<MarketQuote>?,
     val trending: Kept<TrendingList>?,
     val dayCharts: Map<AssetId, PriceSeries>,
+    /** [WalletsBoard.forgets] when the read began. A wallet forgotten since may still be in the read's view and watchlists. */
+    val forgets: Int,
 )
 
 /**
@@ -117,6 +119,9 @@ internal class WalletsBoard(
     private val chartReads = mutableStateMapOf<AssetId, PriceSeries>()
     private val dayCharts = mutableStateMapOf<AssetId, PriceSeries>()
     private var marketJob: Job? = null
+
+    /** Counts the forgotten watchlists. A read that began before a forget may hold the forgotten wallet, so [show] drops it. */
+    private var forgets = 0
 
     /** The balances of the side, or null until its first read lands. */
     var view by mutableStateOf<WalletsView?>(null)
@@ -284,6 +289,12 @@ internal class WalletsBoard(
         refreshMarket()
     }
 
+    /** Drops the watchlist of [walletId] from memory when the wallet is deleted, so a wallet paired again under the same id starts from the vault's copy. */
+    fun forgetWatchlist(walletId: String) {
+        forgets++
+        watchlists = watchlists - walletId
+    }
+
     /** One pass of [refreshMarket]: the market, the watched prices and their day charts. Each read runs off the main thread, and its answer lands here. */
     private suspend fun readMarket() {
         if (!withContext(Dispatchers.IO) { repository.servesMarket() }) market = null
@@ -348,7 +359,8 @@ internal class WalletsBoard(
      * a home open or a refresh does; a scan that finishes alone does not, since the refresh that started it reads them once it has ended.
      */
     private fun show(mode: NetworkMode, loaded: Loaded, withAccounts: Boolean) {
-        if (mode != side) return
+        // A read that began before a wallet was forgotten may still list it. The list change that forgot it reads again, so this read is dropped.
+        if (mode != side || loaded.forgets != forgets) return
         view = loaded.view
         tokenCounts = loaded.tokenCounts
         tokenUsd = loaded.tokenUsd
@@ -401,6 +413,7 @@ internal class WalletsBoard(
      * no balance from the network.
      */
     private suspend fun load(mode: NetworkMode): Loaded {
+        val epoch = forgets
         val view = WalletsLoader.read(app, session, mode)
         val held = heldTokensOf(view, mode)
         val tokenPrices = readPrices(held.values.flatMap { AssetRows.tokenIds(it) })
@@ -419,6 +432,7 @@ internal class WalletsBoard(
             market = market,
             trending = trending,
             dayCharts = dayCharts,
+            forgets = epoch,
         )
     }
 

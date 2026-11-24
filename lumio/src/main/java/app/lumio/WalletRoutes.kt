@@ -558,6 +558,7 @@ internal suspend fun removeWalletHistory(vault: LumioVault, wallet: PairedWallet
     val bitcoin = wallet.bitcoin.flatMap { vault.store.snapshot(BtcAccountRef(wallet.id, it).key)?.addresses.orEmpty() }
     vault.txs.removeAccounts(wallet.evmAddresses + bitcoin)
     WatchlistStore.remove(vault.session, wallet.id)
+    vault.wallets?.forgetWatchlist(wallet.id)
 }
 
 /** The Wallets page of Settings: the pairing of a wallet from Lensly, and the paired wallets with deletion. A deletion is saved, then the lists read again. */

@@ -1,6 +1,7 @@
 package app.lumio.data.provider
 
 import app.lumio.data.FakeProvider
+import app.lumio.data.rpc.CustomRpc
 import app.lumio.data.provider.etherscan.EtherscanProvider
 import app.lumio.evm.EvmChain
 import org.junit.Assert.assertEquals
@@ -29,5 +30,17 @@ class ProviderMembershipTest {
 
         assertEquals(listOf(ethereum), ProviderCatalog.evmChainsOf(keyed, chains))
         assertEquals(0, keyed.calls)
+    }
+
+    @Test
+    fun theCustomRpcListsTheChainsTheOwnerSetAnAddressFor() {
+        val custom = CustomRpc(allowLocalHttp = false)
+
+        assertEquals(listOf(ethereum), ProviderCatalog.evmChainsOf(custom, chains, owner = mapOf("1" to "https://rpc.example.org")))
+    }
+
+    @Test
+    fun theCustomRpcListsNoChainWithoutAnOwnerAddress() {
+        assertEquals(emptyList<EvmChain>(), ProviderCatalog.evmChainsOf(CustomRpc(allowLocalHttp = false), chains))
     }
 }
