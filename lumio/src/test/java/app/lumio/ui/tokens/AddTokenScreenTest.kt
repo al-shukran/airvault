@@ -114,7 +114,7 @@ class AddTokenScreenTest {
     fun aFoundTokenShowsItsDetailsAndAddOrCancelReportBack() {
         show(found = pepe)
 
-        compose.onNodeWithTag("token-found").assertExists()
+        compose.onNodeWithTag("token-found").assertTextContains("Found on Ethereum", substring = true)
         compose.onNodeWithText("Pepe").assertExists()
         compose.onNodeWithTag("token-add").performClick()
         compose.onNodeWithText("Cancel", ignoreCase = true).performClick()
@@ -125,9 +125,9 @@ class AddTokenScreenTest {
 
     @Test
     fun aRefusalIsShownInItsOwnWords() {
-        show(problem = "No contract is at this address on Ethereum.")
+        show(problem = "No token found at this address on Ethereum.")
 
-        compose.onNodeWithText("No contract is at this address on Ethereum.", substring = true).assertExists()
+        compose.onNodeWithText("No token found at this address on Ethereum.", substring = true).assertExists()
     }
 
     @Test
@@ -140,12 +140,14 @@ class AddTokenScreenTest {
     @Test
     fun pasteFillsTheAddressFromTheClipboard() {
         val clipboard = RuntimeEnvironment.getApplication().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("address", "0x6b175474e89094c44da98b954eedeac495271d0f"))
+        clipboard.setPrimaryClip(ClipData.newPlainText("address", "0x6b17 5474 e890 94c4 4da9 8b95 4eed eac4 9527 1d0f"))
         show()
 
         compose.onNodeWithTag("token-paste").performClick()
 
-        compose.onNodeWithTag("token-address").assertTextContains("0x6b175474e89094c44da98b954eedeac495271d0f")
+        // The pasted groups are read without their spaces, and the field shows them in groups of four.
+        assertEquals("0x6b175474e89094c44da98b954eedeac495271d0f", address)
+        compose.onNodeWithTag("token-address").assertTextContains("0x6b17 5474 e890 94c4 4da9 8b95 4eed eac4 9527 1d0f")
         assertNull(added)
     }
 }

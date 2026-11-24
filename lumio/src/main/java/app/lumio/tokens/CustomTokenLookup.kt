@@ -31,7 +31,7 @@ internal object CustomTokenLookup {
         val contract = contractOf(raw)
         val decimalsReply = read(reads, chain, contract, Erc20.DECIMALS)
             ?: throw IllegalArgumentException("The contract did not answer decimals(). It may not be an ERC-20 token on ${chain.name}.")
-        if (decimalsReply.length <= EMPTY_REPLY) throw IllegalArgumentException("No contract is at this address on ${chain.name}.")
+        if (decimalsReply.length <= EMPTY_REPLY) throw IllegalArgumentException("No token found at this address on ${chain.name}.")
         val decimals = try {
             Abi.uint(Abi.bytes(decimalsReply))
         } catch (e: AbiException) {
