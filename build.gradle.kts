@@ -52,7 +52,7 @@ subprojects {
     configurations.configureEach {
         resolutionStrategy.force(
             "com.squareup.wire:wire-runtime:6.4.7",
-            "com.squareup.wire:wire-runtime-jvm:6.4.7",
+            "com.squareup.wire:wire-runtime-jvm:7.2.2",
         )
     }
 }
