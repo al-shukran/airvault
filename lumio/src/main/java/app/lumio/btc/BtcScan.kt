@@ -34,6 +34,17 @@ fun BtcNetwork.networkId(): NetworkId =
 /** How many recent transactions an account keeps. */
 const val RECENT_TX_COUNT = 20
 
+/** The most addresses that the first window of a walk asks for at once, however many the scan before it found used. */
+private const val MAX_FIRST_WINDOW = 100
+
+/**
+ * The size of the first window of a walk whose indices below [usedBelow] were used at the scan before. That window reaches the gap after them, so a
+ * rescan of an account that has not moved on asks for the gap in the same round as the used addresses. Without a hint ([usedBelow] of 0) the first
+ * window is [window].
+ */
+internal fun firstWindowOf(usedBelow: Int, window: Int): Int =
+    if (usedBelow == 0) window else maxOf(window, minOf(usedBelow + BtcAccount.GAP_LIMIT, MAX_FIRST_WINDOW))
+
 /** A used address of a chain: its index on that chain, the address, and what the scan read of it. */
 internal class UsedAddress(val index: Int, val address: String, val reading: AddressReading)
 
@@ -72,6 +83,8 @@ class MemoStats(val stats: EsploraAddressStats, val readAtMs: Long)
  * address below a used one must show within a minute, not only after a restart. The gap window after that address is asked again, since new
  * activity shows there first. With [trustWithinTtl], every address read within the TTL is trusted, used or not, so a walk that follows a scan
  * asks the server for none of them. [found] gets each used address as the walk finds it, so a walk that fails part way keeps those addresses.
+ * [usedBelow] is the hint of a rescan: every index below it was used at the scan before, so the first window reaches the gap after them (see
+ * [firstWindowOf]). The hint changes the number of requests in flight, never the used addresses the walk finds.
  */
 internal suspend fun scanChain(
     addressAt: (Int) -> String,
@@ -81,6 +94,7 @@ internal suspend fun scanChain(
     trustWithinTtl: Boolean = false,
     found: MutableList<UsedAddress> = mutableListOf(),
     window: Int = BtcAccount.GAP_LIMIT,
+    usedBelow: Int = 0,
 ): ChainScan = supervisorScope {
     val lastUsed = lastUsedIn(addressAt, memo)
     // The reads started so far, by index. A failed read fails only the walk that awaits it, so the used addresses before it are kept.
@@ -94,11 +108,15 @@ internal suspend fun scanChain(
     }
     var unused = 0
     var index = 0
+    var size = firstWindowOf(usedBelow, window)
     try {
         while (unused < BtcAccount.GAP_LIMIT) {
             coroutineContext.ensureActive()
             // Every address before this one has been walked and the gap is still open, so the next window is asked for at once.
-            if (index == reads.size) repeat(window) { reads += read(reads.size) }
+            if (index == reads.size) {
+                repeat(size) { reads += read(reads.size) }
+                size = window
+            }
             val stats = reads[index].await()
             if (stats.used) {
                 found += UsedAddress(index, addressAt(index), stats.reading())
@@ -137,6 +155,8 @@ private fun lastUsedIn(addressAt: (Int) -> String, memo: Map<String, MemoStats>)
  *
  * A request that fails part way ends the scan with its error. First [onPartial] gets the snapshot of what was read up to then, and the caller keeps
  * it, so the next scan of the account starts from that balance rather than from nothing.
+ *
+ * [usedBelow] is the receive index that the scan before stored as its next index: every receive index below it was used then (see [scanChain]).
  */
 suspend fun scanAccount(
     ref: BtcAccountRef,
@@ -149,6 +169,7 @@ suspend fun scanAccount(
     onTxs: suspend (address: String, txs: List<EsploraTx>, tipHeight: Long) -> Unit = { _, _, _ -> },
     onPartial: suspend (BtcSnapshot) -> Unit = {},
     electrum: ElectrumPool? = null,
+    usedBelow: Int = 0,
 ): BtcSnapshot {
     val account = ref.account
     val net = account.network.networkId()
@@ -199,7 +220,7 @@ suspend fun scanAccount(
         )
     }
     // Electrum reads the walk and the unspent outputs when it can. An account that it fails to read is read from Esplora below.
-    val fromElectrum = electrum?.let { electrumRead(it, account, step) }
+    val fromElectrum = electrum?.let { electrumRead(it, account, step, usedBelow) }
     try {
         if (fromElectrum != null) {
             receiveUsed += fromElectrum.receive
@@ -207,7 +228,7 @@ suspend fun scanAccount(
             utxos += fromElectrum.utxos
         } else {
             coroutineScope {
-                launch { scanChain(account::receiveAddress, statsOf, memo, nowMs, found = receiveUsed) }
+                launch { scanChain(account::receiveAddress, statsOf, memo, nowMs, found = receiveUsed, usedBelow = usedBelow) }
                 launch { scanChain(account::changeAddress, statsOf, memo, nowMs, found = changeUsed) }
             }
             // An address with no balance holds no coins, so it is not asked for its unspent outputs.

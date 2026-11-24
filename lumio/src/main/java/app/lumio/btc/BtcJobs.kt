@@ -34,11 +34,12 @@ suspend fun scanJob(
 ) {
     val ref = refs.firstOrNull { it.key == job.job.accountRef } ?: return
     val detail = job.job.priority == Priority.FOREGROUND
+    // The stored scan of the account, which is the hint of this one: the receive addresses below its next index were used then.
+    val stored = store.snapshot(ref.key)?.takeIf { it.identity == ref.account.receiveAddress(0) }
     suspend fun save(scanned: BtcSnapshot) {
         val snapshot = if (detail) {
             scanned
         } else {
-            val stored = store.snapshot(ref.key)?.takeIf { it.identity == ref.account.receiveAddress(0) }
             scanned.copy(transactions = stored?.transactions.orEmpty())
         }
         store.save(snapshot)
@@ -52,8 +53,8 @@ suspend fun scanJob(
             memo = memo.forNetwork(ref.account.network.networkId()),
             detail = detail,
             step = step,
+            usedBelow = stored?.nextReceiveIndex ?: 0,
             onPartial = { partial ->
-                val stored = store.snapshot(ref.key)?.takeIf { it.identity == ref.account.receiveAddress(0) }
                 if (stored != null && !partial.isNotWorseThan(stored)) {
                     // The stored balances and addresses stay, and the refresh is marked incomplete.
                     store.save(stored.copy(complete = false))
