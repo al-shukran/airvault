@@ -13,15 +13,16 @@ import java.io.IOException
 /**
  * The Address Book that each paired wallet holds, as Lensly sent it with the pairing. The books of all paired wallets are one vault record,
  * [NAME], sealed under the Vault Key like the other vault records, so a saved name or address is not readable from the vault files. The
- * record holds a version byte (1), the number of wallets, and for each wallet its id, its entry count and its entries. An entry is four
- * texts: id, address, name and label (empty when there is none). Lumio never edits a book. A pairing replaces its wallet's book with the one
+ * record holds a version byte (2), the number of wallets, and for each wallet its id, its entry count and its entries. An entry is five
+ * texts: id, address, name, label and group (empty when there is none). A record of another version does not read, and [PairedWallets.list]
+ * wipes it, so the owner pairs again. Lumio never edits a book. A pairing replaces its wallet's book with the one
  * it carries, and an empty book is no book.
  */
 internal object PairAddressBooks {
     /** The vault record that holds the books. It is listed among the known vault record names, so a Decoy Vault removal keeps it. */
     const val NAME = "lumio-address-books"
 
-    private const val VERSION = 1
+    private const val VERSION = 2
     private const val MAX_WALLETS = 1_024
     private const val MAX_TEXT_BYTES = PairingCodec.MAX_ENTRY_NAME_BYTES
 
@@ -58,6 +59,7 @@ internal object PairAddressBooks {
                     out.writeText(entry.address)
                     out.writeText(entry.name)
                     out.writeText(entry.label.orEmpty())
+                    out.writeText(entry.group)
                 }
             }
         }
@@ -80,6 +82,7 @@ internal object PairAddressBooks {
                         address = input.readText(),
                         name = input.readText(),
                         label = input.readText().ifEmpty { null },
+                        group = input.readText(),
                     )
                 }
             }

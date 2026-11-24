@@ -69,12 +69,12 @@ class PairRefusalTest {
     @Test
     fun aNewerVersionOfThePairingIsRefusedByItsVersion() {
         val newer = Cbor.encode(
-            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(8), Cbor.Uint(9) to Cbor.Text("a field of a later format"))),
+            Cbor.Dict(listOf(Cbor.Uint(1) to Cbor.Uint(9), Cbor.Uint(9) to Cbor.Text("a field of a later format"))),
         )
 
         val reason = refusalOf(UR(PairingCodec.UR_TYPE, newer))
 
-        assertTrue(reason, reason.contains("format 8"))
+        assertTrue(reason, reason.contains("format 9"))
         assertTrue(reason, reason.contains("Update the app"))
     }
 

@@ -30,7 +30,7 @@ import app.lensly.ui.wallet.WalletPill
 import app.lensly.ui.wallet.WalletPillStyle
 
 /** The fields of the Address Book form. */
-enum class AddressBookField { ADDRESS, NAME, LABEL, NOTES }
+enum class AddressBookField { ADDRESS, NAME, GROUP, LABEL, NOTES }
 
 /** The longest address the form takes: a Bitcoin address is at most 62 characters, an EVM address 42. */
 const val ADDRESS_BOOK_ADDRESS_MAX_LENGTH = 64
@@ -45,17 +45,18 @@ internal fun addressNetworkName(address: String): String? = when (chainOfAddress
 }
 
 /**
- * The form of one Address Book entry: its address, its network, its name, its label and its notes. A new entry from a record opens with the
- * address it was started from, which is fixed, since it is the key of the entry; so does a saved entry. Only a new entry the owner starts from
- * the list takes a typed address, and its network follows the address. The keyboard starts hidden and opens on the field tapped, as the
- * account profile does. [onDelete] is set only for an entry that is saved, and [error] is the reason a save was refused, shown until the next
- * save.
+ * The form of one Address Book entry: its address, its network, its name, its group, its label and its notes. A new entry from a record opens
+ * with the address it was started from, which is fixed, since it is the key of the entry; so does a saved entry. Only a new entry the owner
+ * starts from the list takes a typed address, and its network follows the address. The keyboard starts hidden and opens on the field tapped,
+ * as the account profile does. [onDelete] is set only for an entry that is saved, and [error] is the reason a save was refused, shown until
+ * the next save.
  */
 @Composable
 fun AddressBookFormScreen(
     title: String,
     address: String,
     name: String,
+    group: String,
     label: String,
     notes: String,
     focused: AddressBookField?,
@@ -114,6 +115,16 @@ fun AddressBookFormScreen(
                         focused = focused == AddressBookField.NAME,
                         maxLength = DISPLAY_NAME_MAX_LENGTH,
                         onFocus = { onFocus(AddressBookField.NAME) },
+                    )
+                }
+                FormCell {
+                    ProfileFieldRow(
+                        label = "Address Group",
+                        value = group,
+                        placeholder = "No group",
+                        focused = focused == AddressBookField.GROUP,
+                        maxLength = PROFILE_TEXT_MAX_LENGTH,
+                        onFocus = { onFocus(AddressBookField.GROUP) },
                     )
                 }
                 FormCell {

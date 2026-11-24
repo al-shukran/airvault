@@ -12,7 +12,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /** Three entries of an Address Book, one for each form Lumio reads: an EVM address, a mainnet and a testnet Bitcoin address. */
-internal val ADDRESS_BOOK_ALICE = AddressBookEntry("5f0c2a1e-0001", "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed", "Alice", "Savings")
+internal val ADDRESS_BOOK_ALICE =
+    AddressBookEntry("5f0c2a1e-0001", "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed", "Alice", "Savings", group = "Friends")
 internal val ADDRESS_BOOK_COLD = AddressBookEntry("5f0c2a1e-0002", "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4", "Cold storage", null)
 internal val ADDRESS_BOOK_FAUCET =
     AddressBookEntry("5f0c2a1e-0003", "tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7", "Testnet faucet", "Testnet4")

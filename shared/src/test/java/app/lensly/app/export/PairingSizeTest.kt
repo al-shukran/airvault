@@ -17,7 +17,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The size of the version-7 pairing for three wallets: the realistic vault (four chains, the Bitcoin accounts the owner stores, and an Address
+ * The size of the version-8 pairing for three wallets: the realistic vault (four chains, the Bitcoin accounts the owner stores, and an Address
  * Book of twelve), the demo, and the worst case the UI allows (100 accounts on each chain, all named). The sizes are of the envelope with the body
  * stored as it is, since the JVM tests cannot load the native Brotli encoder. Lensly keeps the Brotli body only when it is smaller, so each stored
  * size is an upper bound for the code Lensly writes. Each budget is the measured value plus about 5%.
@@ -129,7 +129,7 @@ class PairingSizeTest {
         // Measured with this build, body stored as it is (limits are the measured value plus about 5%).
         const val REALISTIC_STORED_BYTES_LIMIT = 1_900
         const val REALISTIC_FRAMES_LIMIT = 7
-        const val DEMO_STORED_BYTES_LIMIT = 4_430
+        const val DEMO_STORED_BYTES_LIMIT = 4_620
         const val DEMO_FRAMES_LIMIT = 15
         const val WORST_STORED_BYTES_LIMIT = 22_800
         const val WORST_FRAMES_LIMIT = 77

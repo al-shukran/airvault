@@ -133,11 +133,11 @@ fun TransactionDetailScreen(
             )
             tx.asset.contract?.let { contract ->
                 Sectioned(label = "Token Contract")
-                val named = entryOf(contract, book) != null
+                val entry = entryOf(contract, book)
                 AddressRow(
                     line = AddressLine(
                         name = tx.asset.name,
-                        detail = if (named) "Address book · from Lensly" else "Tap to add it on Lensly",
+                        detail = entry?.let(::addressBookSourceOf) ?: "Tap to add it on Lensly",
                         named = true,
                     ),
                     onClick = { onAddress(contract) },
@@ -202,7 +202,7 @@ private fun entryOf(address: String, book: List<AddressBookEntry>): AddressBookE
 
 /** The other side's line: its entry's name when the address book has it, and otherwise "Not in Address Book", with the invitation to add it. */
 private fun counterpartyLine(entry: AddressBookEntry?): AddressLine = if (entry != null) {
-    AddressLine(name = entry.name, detail = "Address book · from Lensly", named = true)
+    AddressLine(name = entry.name, detail = addressBookSourceOf(entry), named = true)
 } else {
     AddressLine(name = "Not in Address Book", detail = "Tap to add it on Lensly", named = false)
 }

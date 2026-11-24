@@ -22,12 +22,12 @@ const val ADDRESS_NOT_VALID_MESSAGE = "Enter a valid Ethereum, Bitcoin, Solana o
 fun isValidAddressNotes(notes: String): Boolean = notes.length <= ADDRESS_NOTES_MAX_LENGTH && PairingCodec.hasNoHiddenCharacter(notes)
 
 /**
- * The entry that the form's [address], [name], [label] and [notes] make, under [id]. [book] holds the entries already saved, so an address
- * is in the book once on its chain. The chain is the one the address is valid on.
+ * The entry that the form's [address], [name], [label], [notes] and [group] make, under [id]. [book] holds the entries already saved, so an
+ * address is in the book once on its chain. The chain is the one the address is valid on.
  *
  * @throws IllegalArgumentException with the reason, when the address is not a valid Ethereum, Bitcoin, Solana or Algorand address, another
- * entry of [book] has the address on the same chain, the name is not a Display Name, the label is too long or has a control or hidden
- * character, or the notes are too long or have one.
+ * entry of [book] has the address on the same chain, the name is not a Display Name, the label or group is too long or has a control or
+ * hidden character, or the notes are too long or have one.
  */
 fun addressBookEntryOf(
     id: String,
@@ -36,6 +36,7 @@ fun addressBookEntryOf(
     label: String,
     book: List<AddressBookEntry>,
     notes: String = "",
+    group: String = "",
 ): AddressBookEntry {
     val canonical = requireNotNull(canonicalAddressOf(address)) { ADDRESS_NOT_VALID_MESSAGE }
     val chain = chainOfAddress(canonical)
@@ -52,20 +53,23 @@ fun addressBookEntryOf(
     require(shownNotes.isEmpty() || isValidAddressNotes(shownNotes)) {
         "Enter notes of up to $ADDRESS_NOTES_MAX_LENGTH characters, with no control or hidden character."
     }
+    val shownGroup = group.trim()
+    require(shownGroup.isEmpty() || isValidProfileText(shownGroup)) { "Enter a group of up to $PROFILE_TEXT_MAX_LENGTH characters." }
     return AddressBookEntry(
         id = id,
         address = canonical,
         name = shownName,
         label = shownLabel.ifEmpty { null },
         notes = shownNotes.ifEmpty { null },
+        group = shownGroup,
     )
 }
 
 /**
  * The Address Book, stored as the vault record `address-book` through [VaultSession.putVaultRecord]. A vault record belongs to the vault, so
  * it is sealed under the Vault Key, removed when the vault is wiped, and kept apart from a Decoy Vault's. The record holds a version byte,
- * then the entry count (int), then each entry as its texts: id, address, name, label and notes. A text is its length (int)
- * and its UTF-8 bytes, as the Review Records write theirs. An empty label or notes is an empty text.
+ * then the entry count (int), then each entry as its texts: id, address, name, label, group and notes. A text is its length (int)
+ * and its UTF-8 bytes, as the Review Records write theirs. An empty label, group or notes is an empty text.
  * A later pairing sync can send these same fields.
  *
  * [load] throws [VaultException] when the record cannot be read, so a save never replaces a book it could not read.
@@ -94,8 +98,8 @@ class AddressBookStore(private val session: VaultSession) {
     private companion object {
         const val NAME = "address-book"
 
-        /** The version of the book. Each entry holds its notes. */
-        const val VERSION = 2
+        /** The version of the book. Each entry holds its group and its notes. */
+        const val VERSION = 3
         const val MAX_ENTRIES = 10_000
         const val MAX_TEXT_BYTES = 4096
 
@@ -109,6 +113,7 @@ class AddressBookStore(private val session: VaultSession) {
                     out.writeText(entry.address)
                     out.writeText(entry.name)
                     out.writeText(entry.label.orEmpty())
+                    out.writeText(entry.group)
                     out.writeText(entry.notes.orEmpty())
                 }
             }
@@ -126,12 +131,14 @@ class AddressBookStore(private val session: VaultSession) {
                     val address = input.readText()
                     val name = input.readText()
                     val label = input.readText().ifEmpty { null }
+                    val group = input.readText()
                     val notes = input.readText().ifEmpty { null }
                     // An entry is read through the checks that saving runs. A record that fails them is refused, not shown.
                     require(isValidDisplayName(name)) { "An Address Book name is not a valid name." }
                     require(label == null || isValidProfileText(label)) { "An Address Book label is not valid text." }
+                    require(group.isEmpty() || isValidProfileText(group)) { "An Address Book group is not valid text." }
                     require(notes == null || isValidAddressNotes(notes)) { "Address Book notes are not valid text." }
-                    AddressBookEntry(id = id, address = address, name = name, label = label, notes = notes)
+                    AddressBookEntry(id = id, address = address, name = name, label = label, notes = notes, group = group)
                 }
             }
         } catch (e: IOException) {

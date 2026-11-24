@@ -16,6 +16,8 @@ data class AddressBookEntry(
     val label: String?,
     /** The notes, or null when the owner wrote none. */
     val notes: String? = null,
+    /** The group the owner gave the entry, or empty when none. A pairing carries it, and Lumio shows it on the transaction page. */
+    val group: String = "",
 ) {
     /** The chain [address] is valid on, or null when it is not a valid address. A lookup matches an entry on the family of its chain. */
     val chain: ChainId?
