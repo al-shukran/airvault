@@ -14,6 +14,7 @@ sealed interface ExplorerTx {
     val from: String
     val to: String?
     val confirmations: Long
+    val blockNumber: Long
 
     /** A transaction that the account sent or received, with the gas it used. [failed] is true when the transaction reverted. */
     data class Normal(
@@ -22,6 +23,7 @@ sealed interface ExplorerTx {
         override val from: String,
         override val to: String?,
         override val confirmations: Long,
+        override val blockNumber: Long,
         val valueWei: BigInteger,
         val failed: Boolean,
         val gasUsed: BigInteger,
@@ -39,6 +41,7 @@ sealed interface ExplorerTx {
         override val from: String,
         override val to: String?,
         override val confirmations: Long,
+        override val blockNumber: Long,
         val contract: String,
         val name: String,
         val symbol: String,

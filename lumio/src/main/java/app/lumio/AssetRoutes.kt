@@ -141,6 +141,7 @@ internal fun AssetRoute(
             amount = Masking.amount(amountText(sum, symbol), hidden = !display.showAssets),
             summary = holdingsSummary(accounts = holdings.size, chains = chains.size),
             value = price?.let { Masking.amount(fiat.amount(sum.toDouble() * it.usd), hidden = !display.showAssets) },
+            chainIcons = chains.map { AssetRows.nativeIcon(it.network, symbol, app.registry::network) },
         )
     }
     var receive by remember { mutableStateOf<ReceiveAnswers?>(null) }

@@ -12,8 +12,15 @@ class ChartRangeTest {
     private val now = 1_800_000_000_000L
 
     @Test
-    fun theSelectorOffersTheSevenRangesInOrder() {
-        assertEquals(listOf("15m", "1h", "4h", "12h", "1d", "7d", "1m"), ChartRange.entries.map { it.label })
+    fun theSelectorOffersTheEightRangesInOrderWithTheFiveMinuteRangeFirst() {
+        assertEquals(listOf("5m", "15m", "1h", "4h", "12h", "1d", "7d", "1m"), ChartRange.entries.map { it.label })
+    }
+
+    @Test
+    fun theFiveMinuteRangeIsTwoPointsFiveMinutesApart() {
+        val fiveMinutes = ChartRange.entries.first { it.label == "5m" }
+        assertEquals(ChartQuery(startSec = 1_799_999_700L, span = 2, period = "5m"), fiveMinutes.query(now))
+        assertEquals(300_000L, fiveMinutes.windowMs)
     }
 
     @Test

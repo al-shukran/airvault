@@ -31,7 +31,13 @@ class ProviderPageTest {
     private val saved = mutableListOf<String>()
     private val switched = mutableListOf<Boolean>()
 
-    private fun show(savedTail: String? = null, enabled: Boolean = true, networks: List<String> = emptyList(), backLabel: String = "Settings") {
+    private fun show(
+        savedTail: String? = null,
+        enabled: Boolean = true,
+        networks: List<String> = emptyList(),
+        keyRequired: Boolean = false,
+        backLabel: String = "Settings",
+    ) {
         compose.setContent {
             LumenTheme {
                 ClearAirTheme {
@@ -44,6 +50,7 @@ class ProviderPageTest {
                         tags = emptyList(),
                         networks = networks,
                         keyed = true,
+                        keyRequired = keyRequired,
                         savedTail = savedTail,
                         offline = null,
                         onSaveKey = { saved += it },
@@ -87,6 +94,21 @@ class ProviderPageTest {
         compose.onNodeWithTag("api-key").performImeAction()
 
         assertEquals(listOf("7f3a9c12"), saved)
+    }
+
+    @Test
+    fun aKeyRequiredProviderSaysItsKeyIsRequiredNotOptional() {
+        show(keyRequired = true)
+
+        compose.onNodeWithText("API Key (Required)").assertExists()
+        compose.onNodeWithText("API Key (Optional)").assertDoesNotExist()
+    }
+
+    @Test
+    fun aKeyOptionalProviderSaysItsKeyIsOptional() {
+        show(keyRequired = false)
+
+        compose.onNodeWithText("API Key (Optional)").assertExists()
     }
 
     @Test

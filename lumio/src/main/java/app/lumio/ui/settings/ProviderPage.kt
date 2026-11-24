@@ -18,8 +18,9 @@ import app.lumio.ui.kit.ClearAirTextAction
 
 /**
  * The Provider page (B5) of one provider: its name in the bar, its status word with the line that says why, the switch that turns it on or off, its
- * factual tags, the networks it serves, and its API key. [keyed] is whether the provider takes a key. [savedTail] is the last four characters of the
- * saved key, or null when none is saved, so the key itself never shows again. [networks] are the names of the networks it serves, in catalogue order,
+ * factual tags, the networks it serves, and its API key. [keyed] is whether the provider takes a key, and [keyRequired] whether it cannot work without
+ * one. [savedTail] is the last four characters of the saved key, or null when none is saved, so the key itself never shows again. [networks] are the
+ * names of the networks it serves, in catalogue order,
  * and the page words them with [networkSummary]. A typed key is saved when the owner leaves its field or presses Done, and [onSaveKey] receives it. Its
  * Remove action passes "". [backLabel] names the screen the back arrow returns to.
  */
@@ -33,6 +34,7 @@ fun ProviderPage(
     tags: List<String>,
     networks: List<String>,
     keyed: Boolean,
+    keyRequired: Boolean,
     savedTail: String?,
     offline: String?,
     onSaveKey: (String) -> Unit,
@@ -68,7 +70,7 @@ fun ProviderPage(
                         trailing = { ClearAirTextAction(text = "Remove", onClick = { onSaveKey("") }) },
                     )
                 } else {
-                    ApiKeyEntry(onSave = onSaveKey)
+                    ApiKeyEntry(required = keyRequired, onSave = onSaveKey)
                 }
                 ClearAirNote(
                     text = "Stored in the vault on this phone. Lumio sends it only to $name.",
@@ -81,10 +83,10 @@ fun ProviderPage(
 
 /** The key field, empty until a key is typed. The typed key is saved when the owner leaves the field or presses Done, and the field clears. */
 @Composable
-private fun ApiKeyEntry(onSave: (String) -> Unit) {
+private fun ApiKeyEntry(required: Boolean, onSave: (String) -> Unit) {
     var draft by remember { mutableStateOf("") }
     ClearAirField(
-        label = "API Key (Optional)",
+        label = if (required) "API Key (Required)" else "API Key (Optional)",
         value = draft,
         onValueChange = { draft = it },
         placeholder = "Paste a key for higher limits",
