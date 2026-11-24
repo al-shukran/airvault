@@ -25,6 +25,11 @@ class ProviderStatusTest {
     }
 
     @Test
+    fun aKeyRequiredProviderNeedsItsKeyWhetherItIsSwitchedOnOrOff() {
+        assertEquals(ProviderStatus.NeedsKey, providerStatus(keyRequired, ProviderConfig(enabled = false), noCalls))
+    }
+
+    @Test
     fun aProviderTheSchedulerDoesNotHoldIsNotActive() {
         assertEquals(ProviderStatus.NotActive, providerStatus(keyless, ProviderConfig(), null))
     }
