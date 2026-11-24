@@ -49,6 +49,11 @@ class AddAssetRowsTest {
     }
 
     @Test
+    fun aLineBreakInTheTypedIdIsIgnored() {
+        assertEquals(AddAssetRows.rows(ALGORAND_TESTNET, emptyList(), "123456"), AddAssetRows.rows(ALGORAND_TESTNET, emptyList(), "1234\n56\n"))
+    }
+
+    @Test
     fun aTypedIdOfAVerifiedAssetIsListedOnce() {
         assertEquals(listOf(testnetUsdc), AddAssetRows.rows(ALGORAND_TESTNET, emptyList(), "10458941").map { it.assetId })
     }

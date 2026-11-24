@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -32,6 +33,8 @@ import kotlinx.coroutines.withContext
 /** How many characters of a saved key the page shows, so the owner can tell which key is saved without seeing it. */
 private const val KEY_TAIL = 4
 
+private const val KEY_SAVE_FAILED = "The key could not be saved. Try again."
+
 /** What the Provider page shows of one provider: its row, its tags, and the names of the networks it serves in catalogue order. */
 private class ProviderState(val row: ProviderRow, val tags: List<String>, val networks: List<String>, val keyRequired: Boolean)
 
@@ -53,11 +56,13 @@ internal fun ProviderRoute(navController: NavHostController, holder: VaultHolder
         value = withContext(Dispatchers.IO) { readProvider(app, vault, id) }
     }
     val current = state ?: return
+    var keyError by remember { mutableStateOf<String?>(null) }
 
-    // Runs one write off the main thread, then reads the provider again.
-    fun change(write: () -> Unit) {
+    // Runs one write off the main thread, then reads the provider again. [onFailure] runs when the write throws.
+    fun change(onFailure: () -> Unit = {}, write: () -> Unit) {
         scope.launch {
-            withContext(Dispatchers.IO) { runCatching(write) }
+            val failed = withContext(Dispatchers.IO) { runCatching(write).isFailure }
+            if (failed) onFailure()
             version++
         }
     }
@@ -73,8 +78,14 @@ internal fun ProviderRoute(navController: NavHostController, holder: VaultHolder
         keyed = current.row.acceptsKey,
         keyRequired = current.keyRequired,
         savedTail = current.row.apiKey?.takeIf { it.isNotBlank() }?.takeLast(KEY_TAIL),
+        keyError = keyError,
         offline = rememberSettingsOffline(),
-        onSaveKey = { key -> change { vault.updateConfigs { saved -> withApiKey(ProviderCatalog.withDefaults(saved), id, key) } } },
+        onSaveKey = { key ->
+            keyError = null
+            change(onFailure = { keyError = KEY_SAVE_FAILED }) {
+                vault.updateConfigs { saved -> withApiKey(ProviderCatalog.withDefaults(saved), id, key) }
+            }
+        },
         onBack = { navController.popBackStack() },
         onLock = onLock,
     )
