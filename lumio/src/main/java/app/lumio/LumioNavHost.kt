@@ -745,7 +745,9 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                 arguments = listOf(navArgument(LumioRoute.CHAIN_ARG) { type = NavType.LongType }),
             ) { entry ->
                 val chainId = entry.arguments?.getLong(LumioRoute.CHAIN_ARG) ?: 0L
-                LumioBackdrop(selection) { AddTokenRoute(navController = navController, holder = holder, chainId = chainId, onLock = { lock() }) }
+                LumioBackdrop(selection) {
+                    AddTokenRoute(navController = navController, holder = holder, chainId = chainId, selection = selection, onLock = { lock() })
+                }
             }
             lumioComposable(
                 route = LumioRoute.NETWORK,

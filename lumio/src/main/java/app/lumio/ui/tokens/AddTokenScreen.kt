@@ -25,10 +25,10 @@ import app.lumio.ui.settings.SettingsGroup
 
 /**
  * Add Token (J10): a token of one chain, found by its contract address. The address is looked up when the owner leaves the field or presses
- * Done. A token it finds shows a line that says so, then its name, symbol and decimals, above the Add Token button. A note sits above the
- * button, because a token's name proves nothing. Below, the chain's bundled tokens and the owner's own, and Remove on the owner's. The screen
- * keeps no state of its own:
- * [address], [found] and [problem] come from the caller, and each action goes back to it. [busy] holds the controls while a read is running.
+ * Done. A token it finds shows a line that says so, then its name, symbol and decimals, and the owner's [holding] of it, above the Add Token
+ * button. A note sits above the button, because a token's name proves nothing. Below, the chain's bundled tokens and the owner's own, and Remove on
+ * the owner's. [onChangeNetwork] opens the choice of network. The screen keeps no state of its own:
+ * [address], [found], [holding] and [problem] come from the caller, and each action goes back to it. [busy] holds the controls while a read is running.
  */
 @Composable
 fun AddTokenScreen(
@@ -38,12 +38,14 @@ fun AddTokenScreen(
     address: String,
     busy: Boolean,
     found: Token?,
+    holding: TokenHolding?,
     problem: String?,
     offline: String?,
     onAddress: (String) -> Unit,
     onLookUp: () -> Unit,
     onAdd: (Token) -> Unit,
     onCancel: () -> Unit,
+    onChangeNetwork: () -> Unit,
     onRemove: (Token) -> Unit,
     onBack: () -> Unit,
     onLock: () -> Unit,
@@ -52,7 +54,12 @@ fun AddTokenScreen(
     // A pasted address may arrive grouped, as the app writes it, so its spaces go before the lookup reads it.
     val addressChanged: (String) -> Unit = { onAddress(it.filterNot(Char::isWhitespace)) }
     SettingsFrame(title = "Add Token", offline = offline, onBack = onBack, onLock = onLock, backLabel = "Networks") {
-        ClearAirRow(title = chainName, description = "Network for this token", modifier = Modifier.padding(top = ClearAirSpacing.md))
+        ClearAirRow(
+            title = chainName,
+            description = "Network for this token",
+            modifier = Modifier.padding(top = ClearAirSpacing.md),
+            trailing = { ClearAirTextAction(text = "Change", onClick = onChangeNetwork, enabled = !busy) },
+        )
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md)) {
             ClearAirField(
                 label = "Token Contract Address",
@@ -86,6 +93,7 @@ fun AddTokenScreen(
             ClearAirRow(title = "Name", description = token.name)
             ClearAirRow(title = "Symbol", description = token.symbol)
             ClearAirRow(title = "Decimals", description = token.decimals.toString())
+            holding?.let { ClearAirRow(title = it.label, description = it.amount) }
             ClearAirNote(text = "Anyone can create a token with any name. Add only tokens you trust.", modifier = Modifier.padding(top = ClearAirSpacing.md))
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md)) {
                 ClearAirPrimaryButton(text = "Add Token", onClick = { onAdd(token) }, enabled = !busy, modifier = Modifier.testTag("token-add"))
@@ -109,6 +117,9 @@ fun AddTokenScreen(
         }
     }
 }
+
+/** The owner's balance of a found token: the [label] names the account that holds it, and the [amount] is the balance as words. */
+data class TokenHolding(val label: String, val amount: String)
 
 /** A token's name and decimals, as its list row says them. */
 private fun tokenWords(token: Token): String = "${token.name} · ${token.decimals} decimals"

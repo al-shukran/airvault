@@ -48,11 +48,13 @@ class AddTokenScreenTest {
     private var added: Token? = null
     private var removed: Token? = null
     private var cancelled = 0
+    private var changed = 0
 
     private fun show(
         defaults: List<Token> = listOf(usdc),
         custom: List<Token> = listOf(dai),
         found: Token? = null,
+        holding: TokenHolding? = null,
         problem: String? = null,
         busy: Boolean = false,
     ) {
@@ -66,12 +68,14 @@ class AddTokenScreenTest {
                     address = address,
                     busy = busy,
                     found = found,
+                    holding = holding,
                     problem = problem,
                     offline = null,
                     onAddress = { address = it },
                     onLookUp = { looked++ },
                     onAdd = { added = it },
                     onCancel = { cancelled++ },
+                    onChangeNetwork = { changed++ },
                     onRemove = { removed = it },
                     onBack = {},
                     onLock = {},
@@ -121,6 +125,23 @@ class AddTokenScreenTest {
 
         assertEquals(pepe, added)
         assertEquals(1, cancelled)
+    }
+
+    @Test
+    fun theOwnersHoldingOfTheFoundTokenShowsItsLabelAndAmount() {
+        show(found = pepe, holding = TokenHolding("PulsarNova Holds", "1,200 PEPE"))
+
+        compose.onNodeWithText("PulsarNova Holds").assertExists()
+        compose.onNodeWithText("1,200 PEPE").assertExists()
+    }
+
+    @Test
+    fun changeOpensTheNetworkChoice() {
+        show()
+
+        compose.onNodeWithText("Change").performClick()
+
+        assertEquals(1, changed)
     }
 
     @Test
