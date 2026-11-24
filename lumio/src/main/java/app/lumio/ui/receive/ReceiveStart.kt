@@ -3,6 +3,7 @@ package app.lumio.ui.receive
 import app.lensly.app.addressKeyOf
 import app.lensly.app.autoAccountName
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.ownAccountsOf
 import app.lumio.receive.ReceiveAccount
@@ -17,7 +18,8 @@ import app.lumio.wallets.WalletAccount
 /**
  * The answers that a Receive opened from the asset [row] of [account] starts with. The coin, its network and the account are all known, so the Receive
  * opens at its sheet with no question. The account is named as Lensly names it: its own name when the pairing sent one, else its Auto-Name, with its
- * label and group when the pairing sent them. Only Ethereum accounts carry names in a pairing, so the others keep their Auto-Name.
+ * label and group when the pairing sent them. Only Ethereum accounts carry names in a pairing, so the others keep their Auto-Name. An Algorand asset row is
+ * keyed by its asset ID, which the Receive carries so that it can ask whether the account has opted in to the asset.
  */
 internal fun receiveStartOf(row: AssetRowModel, account: WalletAccount, wallets: List<PairedWallet>): ReceiveAnswers {
     val receiveAccount = receiveAccountOf(account, wallets)
@@ -29,6 +31,7 @@ internal fun receiveStartOf(row: AssetRowModel, account: WalletAccount, wallets:
         held = !row.zero,
         icon = row.icon,
         networks = listOf(network),
+        algorandAssetId = if (account.namespace == Networks.ALGORAND) row.assetKey.toULongOrNull() else null,
     )
     return ReceiveAnswers(coin = coin, network = network, account = receiveAccount)
 }
