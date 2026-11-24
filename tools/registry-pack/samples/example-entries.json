@@ -1,6 +1,6 @@
 {
   "formatVersion": 2,
-  "minSchemaVersion": 2,
+  "minSchemaVersion": 4,
   "sequence": 1,
   "createdAt": "2026-11-10",
   "networks": [

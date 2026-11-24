@@ -133,8 +133,8 @@ entries file has one.
 ## Samples
 
 - `samples/example-entries.json` is the source of `samples/example.lrp`. The sample is signed by the development key listed
-  in the debug file. Its private half was discarded after signing, so the sample is not re-signed when the format changes:
-  list a new development key in the debug file, then sign the sample with it.
+  in the debug file, whose private half is kept outside the repository. When the format changes, generate a new development
+  key with `keygen`, list it in the debug file in place of the old one, then sign the sample again with `build`.
 - `samples/example-whitelist-entries.json` shows whitelist entries, with a plain call and a proxy call. Its contracts are
   placeholders. Build it with your own key to try the format; it is not a real approval of any contract.
 

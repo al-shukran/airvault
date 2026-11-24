@@ -1,9 +1,9 @@
 {
-  "note": "Development key. Debug source set only: release builds never read this file. Its private half signed samples/example.lrp and was then discarded.",
+  "note": "Development key. Debug source set only: release builds never read this file. Its private half is kept outside the repository and signs samples/example.lrp. The key was rotated when the package schema moved to 4.",
   "keys": [
     {
-      "id": "09924d8ec60d1d7a",
-      "publicKey": "5b41103ac5bc29817ba5dc6e0fb768a6c78c85e56956a8576b51c78ceb56059b",
+      "id": "12e61e595818a5e3",
+      "publicKey": "a9808516c011dbc40f9ab28cd51b41421b8de2de3253c90c3c941f35d04d7db9",
       "status": "active"
     }
   ]
