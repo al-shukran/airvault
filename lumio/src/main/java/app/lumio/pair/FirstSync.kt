@@ -1,5 +1,7 @@
 package app.lumio.pair
 
+import app.lumio.network.NetworkMode
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -35,23 +37,31 @@ class FirstSync(private val steps: List<SyncStep>) {
     /** The state of each row of the sync. A row with no read is absent. */
     val rows: StateFlow<Map<SyncRow, SyncState>> = states.asStateFlow()
 
-    /** Runs the reads in order. Call it once. */
-    suspend fun run() = coroutineScope {
-        for (step in steps) {
-            update(step.rows) { _, _ -> SyncState.Working(slow = false) }
-            val slow = launch {
-                delay(SLOW_AFTER_MS)
-                update(step.rows) { _, state -> if (state is SyncState.Working) SyncState.Working(slow = true) else state }
+    private val started = AtomicBoolean(false)
+
+    /**
+     * Runs the reads in order. The reads run once: a call made while they are going, or after they have run, returns at once, so a screen that
+     * opens the sync again reattaches to it.
+     */
+    suspend fun run() {
+        if (!started.compareAndSet(false, true)) return
+        coroutineScope {
+            for (step in steps) {
+                update(step.rows) { _, _ -> SyncState.Working(slow = false) }
+                val slow = launch {
+                    delay(SLOW_AFTER_MS)
+                    update(step.rows) { _, state -> if (state is SyncState.Working) SyncState.Working(slow = true) else state }
+                }
+                val failed = try {
+                    step.read()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    step.rows.toSet()
+                }
+                slow.cancel()
+                update(step.rows) { row, _ -> if (row in failed) SyncState.Failed else SyncState.Done }
             }
-            val failed = try {
-                step.read()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                step.rows.toSet()
-            }
-            slow.cancel()
-            update(step.rows) { row, _ -> if (row in failed) SyncState.Failed else SyncState.Done }
         }
     }
 
@@ -65,5 +75,24 @@ class FirstSync(private val steps: List<SyncStep>) {
 
         /** True once every row has either finished or failed. */
         fun isSettled(rows: Map<SyncRow, SyncState>): Boolean = rows.values.all { it == SyncState.Done || it == SyncState.Failed }
+    }
+}
+
+/** An import of [wallet]: the first sync of the wallet, which runs once however often the import screen opens. */
+class FirstSyncImport(val wallet: PairedWallet, val sync: FirstSync)
+
+/**
+ * The imports of an open vault, by wallet and network side. Returning to an import reattaches to its sync, so its reads do not run again and its rows
+ * show on the first frame. The vault drops this object when it locks.
+ */
+class FirstSyncImports {
+    private val byKey = HashMap<Pair<String, NetworkMode>, FirstSyncImport>()
+
+    @Synchronized
+    fun get(walletId: String, mode: NetworkMode): FirstSyncImport? = byKey[walletId to mode]
+
+    @Synchronized
+    fun put(walletId: String, mode: NetworkMode, kept: FirstSyncImport) {
+        byKey[walletId to mode] = kept
     }
 }
