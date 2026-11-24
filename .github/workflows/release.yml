@@ -239,6 +239,6 @@ jobs:
           - Signing certificate SHA-256: \`$CERT_SHA256\`
           - Source commit: \`$GITHUB_SHA\`
           EOF
-          args=(--notes-file "$notes")
+          args=(--title "${APP^} ${TAG#*-v}" --notes-file "$notes")
           if [ "$PRERELEASE" = true ]; then args+=(--prerelease); fi
           gh release create "$TAG" "dist/$APK" dist/SHA256SUMS "${args[@]}"

@@ -12,14 +12,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,10 +67,11 @@ private val SUGGESTION_HEIGHT = 56.dp
 /**
  * Restore flow: the owner types word #1 to #24 through [SecureKeyboard], and the screen lists
  * suggestions above the keyboard. Keyboard contract for the caller: a letter appends to [RestoreState.prefix];
- * SPACE or a suggestion tap commits the typed word; a tap on a filled chip calls [onEditWord] with its index;
- * DONE calls [onSubmit], which the caller uses to validate the full phrase. Once all 24 words are in, a
- * CHECK WORDS button also calls [onSubmit]. The keyboard is up when the screen opens. A tap outside the word field or the
- * system Back hides it, and a tap on the field, or on a chip to edit its word, brings it back.
+ * SPACE or a suggestion tap commits the typed word, and the caller may also commit it as soon as no other BIP39 word starts
+ * with it; a tap on a filled chip calls [onEditWord] with its index; DONE calls [onSubmit], which the caller uses to validate
+ * the full phrase. Once all 24 words are in, the keyboard goes down and a CHECK WORDS button calls [onSubmit]. The keyboard is
+ * up when the screen opens. A tap outside the word field or the system Back hides it, and a tap on the field, or on a chip to
+ * edit its word, brings it back. The word being typed is kept in view above the keyboard.
  */
 @Composable
 fun RestoreEntryScreen(
@@ -84,6 +89,15 @@ fun RestoreEntryScreen(
     // A prefix that no BIP39 word starts with can never become a word, so the field says so at once.
     val noMatch = state.prefix.isNotEmpty() && state.suggestions.isEmpty()
     var focused by rememberSaveable { mutableStateOf(true) }
+    val activeSlot = remember { BringIntoViewRequester() }
+    // The word being typed is kept in the list above the keyboard, when it becomes active and when the keyboard comes up.
+    LaunchedEffect(state.activeIndex, focused) {
+        if (state.activeIndex < count) activeSlot.bringIntoView()
+    }
+    // The last word settles the phrase: the keyboard goes down and CHECK WORDS is next. Nothing is submitted.
+    LaunchedEffect(complete) {
+        if (complete) focused = false
+    }
     KeyboardHost(focused = focused, onUnfocus = { focused = false }) {
         LenslyScreen(
             title = TITLE,
@@ -169,6 +183,7 @@ fun RestoreEntryScreen(
                                     focused = true
                                     onEditWord(edited)
                                 },
+                                reveal = activeSlot,
                                 modifier = Modifier.weight(1f),
                             )
                         }
@@ -249,6 +264,7 @@ private fun WordSlot(
     index: Int,
     state: RestoreState,
     onEdit: (Int) -> Unit,
+    reveal: BringIntoViewRequester,
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -257,6 +273,7 @@ private fun WordSlot(
     val shape = RoundedCornerShape(percent = 50)
     Box(
         modifier = modifier
+            .then(if (active) Modifier.bringIntoViewRequester(reveal) else Modifier)
             .height(SLOT_HEIGHT)
             .clip(shape)
             .background(if (filled) colors.surfaceVariant else Color.Transparent, shape)

@@ -81,4 +81,32 @@ class Bip39AutocompleteTest {
         assertFalse(autocomplete.isWord("aband"))
         assertFalse(autocomplete.isWord("abandonx"))
     }
+
+    @Test
+    fun uniqueExactWordIsSettledAsSoonAsItIsTyped() {
+        assertTrue(autocomplete.isUniqueWord("abandon"))
+        assertTrue(autocomplete.isUniqueWord("ABANDON"))
+    }
+
+    @Test
+    fun prefixAmbiguousExactWordStillNeedsAChoice() {
+        // "act" is a word, and "action" starts with it, so the owner still picks with SPACE or a suggestion.
+        assertTrue(autocomplete.isWord("act"))
+        assertFalse(autocomplete.isUniqueWord("act"))
+    }
+
+    @Test
+    fun aNonWordIsNeverSettled() {
+        assertFalse(autocomplete.isUniqueWord(""))
+        assertFalse(autocomplete.isUniqueWord("aband"))
+        assertFalse(autocomplete.isUniqueWord("zzzq"))
+    }
+
+    @Test
+    fun uniquenessAgreesWithALinearScanOfTheWholeWordlist() {
+        val all = Bip39Wordlist.words
+        for (word in all) {
+            assertEquals(all.count { it.startsWith(word) } == 1, autocomplete.isUniqueWord(word), word)
+        }
+    }
 }

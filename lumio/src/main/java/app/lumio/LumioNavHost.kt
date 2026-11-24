@@ -78,7 +78,7 @@ internal object LumioRoute {
 
     fun provider(id: String): String = "settings/providers/$id"
 
-    /** The roots of the other tabs. Home, Portfolio and Explore are placeholders until their work packages land. */
+    /** The roots of the tabs, which the tab bar opens. */
     const val HOME = "home"
     const val PORTFOLIO = "portfolio"
     const val EXPLORE = "explore"
@@ -211,8 +211,14 @@ internal object LumioRoute {
     /** The argument of the send's route: the contract of the token the send moves. Left out, the send moves the native coin of the chain. */
     const val SEND_CONTRACT_ARG = "contract"
 
-    /** The Ethereum send from one account of the wallet in [WALLET_ARG], on the network [SEND_CHAIN_ARG], of the token [SEND_CONTRACT_ARG] when set. */
-    const val SEND = "send/{$WALLET_ARG}/{$ACCOUNT_ARG}?$SEND_CHAIN_ARG={$SEND_CHAIN_ARG}&$SEND_CONTRACT_ARG={$SEND_CONTRACT_ARG}"
+    /** The argument of the send's route: when true, the send opens with the camera on for its recipient, as Scan to Pay does. */
+    const val SEND_SCAN_ARG = "scan"
+
+    /**
+     * The Ethereum send from one account of the wallet in [WALLET_ARG], on the network [SEND_CHAIN_ARG], of the token [SEND_CONTRACT_ARG] when set. With
+     * [SEND_SCAN_ARG] set, it opens on the recipient's camera.
+     */
+    const val SEND = "send/{$WALLET_ARG}/{$ACCOUNT_ARG}?$SEND_CHAIN_ARG={$SEND_CHAIN_ARG}&$SEND_CONTRACT_ARG={$SEND_CONTRACT_ARG}&$SEND_SCAN_ARG={$SEND_SCAN_ARG}"
 
     /** The Solana send from the account [ACCOUNT_ARG] of the wallet in [WALLET_ARG]. Its side (testnet or mainnet) is the selected side. */
     const val SOLANA_SEND = "solana-send/{$WALLET_ARG}/{$ACCOUNT_ARG}"
@@ -247,9 +253,14 @@ internal object LumioRoute {
     /** The route of the Bitcoin send from [account] of [walletId]. */
     fun btcSend(walletId: String, account: AccountId): String = "bitcoin-send/$walletId/${account.caip10}"
 
-    /** The route of a send from [account] of [walletId] on the network [chainId], of the token at [contract] when one is given. */
-    fun send(walletId: String, account: AccountId, chainId: Long, contract: String? = null): String =
-        "send/$walletId/${account.caip10}?$SEND_CHAIN_ARG=$chainId" + contract?.let { "&$SEND_CONTRACT_ARG=$it" }.orEmpty()
+    /**
+     * The route of a send from [account] of [walletId] on the network [chainId], of the token at [contract] when one is given. [scan] opens it with the
+     * camera on for the recipient.
+     */
+    fun send(walletId: String, account: AccountId, chainId: Long, contract: String? = null, scan: Boolean = false): String =
+        "send/$walletId/${account.caip10}?$SEND_CHAIN_ARG=$chainId" +
+            contract?.let { "&$SEND_CONTRACT_ARG=$it" }.orEmpty() +
+            if (scan) "&$SEND_SCAN_ARG=true" else ""
 
     /** The arguments of a transaction's page: the account that the row is for, and the transaction's id. */
     const val TX_ACCOUNT_ARG = "account"
@@ -291,11 +302,13 @@ internal class PairDraft {
 }
 
 /**
- * The side of the networks the owner chose. The wallet screens read it, so the testnet strip shows on every Lumio screen while the side is testnet.
- * [choose] applies a side at once, and passes it to [store], which keeps it in the vault.
+ * The choices of the shell: the side of the networks the owner chose, and the wallet that the profile panel chose for Home and Portfolio. The wallet
+ * screens read the side, so the testnet strip shows on every Lumio screen while the side is testnet. [choose] applies a side at once, and passes it to
+ * [store], which keeps it in the vault. [walletId] is null until the owner chooses a wallet, and the first paired wallet is the active one until then.
  */
 internal class NetworkSelection(private val store: (NetworkMode) -> Unit = {}) {
     var mode by mutableStateOf(NetworkMode.MAINNET)
+    var walletId by mutableStateOf<String?>(null)
 
     /** Applies [next] at once, and keeps it. */
     fun choose(next: NetworkMode) {
@@ -317,6 +330,11 @@ internal class LockSettingsState(private val store: LockSettingsStore) {
         val next = transform(settings)
         store.save(next)
         settings = next
+    }
+
+    /** Reads the choices again, after a reset erased them with the rest of Lumio. */
+    fun reload() {
+        settings = store.load()
     }
 }
 
@@ -677,7 +695,14 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                     )
                 }
             }
-            settingsRoute(navController = navController, holder = holder, listVersion = listVersion, selection = selection, onLock = { lock() })
+            settingsRoute(
+                navController = navController,
+                holder = holder,
+                listVersion = listVersion,
+                selection = selection,
+                lockChoices = lockChoices,
+                onLock = { lock() },
+            )
             settingsPageRoutes(
                 navController = navController,
                 holder = holder,
@@ -748,12 +773,14 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                     navArgument(LumioRoute.ACCOUNT_ARG) { type = NavType.StringType },
                     navArgument(LumioRoute.SEND_CHAIN_ARG) { type = NavType.LongType; defaultValue = NO_CHAIN },
                     navArgument(LumioRoute.SEND_CONTRACT_ARG) { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument(LumioRoute.SEND_SCAN_ARG) { type = NavType.BoolType; defaultValue = false },
                 ),
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
                 val account = entry.accountId()
                 val chain = entry.arguments?.getLong(LumioRoute.SEND_CHAIN_ARG) ?: NO_CHAIN
                 val contract = entry.arguments?.getString(LumioRoute.SEND_CONTRACT_ARG)
+                val scanFirst = entry.arguments?.getBoolean(LumioRoute.SEND_SCAN_ARG) == true
                 LumioBackdrop(selection) {
                     SendRoute(
                         navController = navController,
@@ -762,6 +789,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                         account = account,
                         mode = selection.mode,
                         chainId = chain,
+                        scanFirst = scanFirst,
                         initialContract = contract,
                         onLock = { lock() },
                     )

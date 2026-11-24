@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -32,6 +33,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import app.lensly.ui.components.lumioPress
+import app.lensly.ui.theme.ClearAirMotion
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -48,11 +51,15 @@ import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.ClearAirIconButton
+import app.lumio.ui.kit.ClearAirRadio
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSheet
 
 /** The logo or monogram at the start of a row of the Receive sheet. */
 private val ROW_LOGO = 36.dp
+
+/** The height of a choice row of the network and account steps, which is the height of a kit row. */
+private val CHOICE_MIN_HEIGHT = 62.dp
 
 /** The height and corner of the search field, the proposal's capsule-like field. */
 private val SEARCH_HEIGHT = 48.dp
@@ -106,7 +113,10 @@ internal fun ReceiveFlowSheet(
     }
 }
 
-/** The body of one step of the Receive sheet: the grabber, the step's [content] in a column that scrolls, and the step's [bottom] action at the foot. */
+/**
+ * The body of one step of the Receive sheet: the grabber, the step's [content] in a column that scrolls, and the step's [bottom] action at the foot. The
+ * content carries its own gutter, so a choice row sits full width as a kit row does, and every heading and note pads itself to the same gutter.
+ */
 @Composable
 internal fun ReceiveSheetFrame(
     bottom: (@Composable ColumnScope.() -> Unit)? = null,
@@ -118,8 +128,7 @@ internal fun ReceiveSheetFrame(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = ClearAirSpacing.gutter),
+                .verticalScroll(rememberScrollState()),
             content = content,
         )
         if (bottom != null) {
@@ -156,18 +165,18 @@ private fun ReceiveAssetStep(assets: List<ReceiveCoin>, onPick: (ReceiveCoin) ->
             text = "Receive What?",
             style = ClearAirType.titleL,
             color = palette.ink,
-            modifier = Modifier.padding(top = ClearAirSpacing.sm),
+            modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = ClearAirSpacing.sm, end = ClearAirSpacing.gutter),
         )
         Spacer(Modifier.height(ClearAirSpacing.md))
         ReceiveSearchField(query = query, onQueryChange = { query = it })
         val held = shown.filter { it.held }
         if (held.isNotEmpty()) {
-            ClearAirEyebrow(text = "Your Assets")
+            ClearAirEyebrow(text = "Your Assets", modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
             held.forEach { coin -> CoinRow(coin = coin, onPick = onPick) }
         }
         val other = shown.filterNot { it.held }
         if (other.isNotEmpty()) {
-            ClearAirEyebrow(text = "Other Assets")
+            ClearAirEyebrow(text = "Other Assets", modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
             other.forEach { coin -> CoinRow(coin = coin, onPick = onPick) }
         }
     }
@@ -183,7 +192,7 @@ private fun ReceiveSearchField(query: String, onQueryChange: (String) -> Unit) {
         singleLine = true,
         textStyle = ClearAirType.body.copy(color = palette.ink),
         cursorBrush = SolidColor(palette.ink),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter),
         decorationBox = { field ->
             Row(
                 modifier = Modifier
@@ -218,7 +227,10 @@ private fun CoinRow(coin: ReceiveCoin, onPick: (ReceiveCoin) -> Unit) {
     )
 }
 
-/** The network step: the networks [coin] is native on, with the bridged-asset note under them. */
+/**
+ * The network step: the networks [coin] is native on, each with its name and what it is under that, and the bridged-asset note under them. Each network
+ * is a radio row, and a tap picks it and goes on to the next step.
+ */
 @Composable
 private fun ReceiveNetworkStep(
     coin: ReceiveCoin,
@@ -233,13 +245,14 @@ private fun ReceiveNetworkStep(
             text = "On Which Network?",
             style = ClearAirType.titleL,
             color = palette.ink,
-            modifier = Modifier.padding(top = ClearAirSpacing.sm, bottom = ClearAirSpacing.md),
+            modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = ClearAirSpacing.sm, end = ClearAirSpacing.gutter, bottom = ClearAirSpacing.md),
         )
         coin.networks.forEach { network ->
-            ClearAirRow(
-                title = network.name,
+            RadioRow(
+                title = network.label,
+                detail = networkDetail(network),
                 leading = { AssetIcon(spec = network.icon, size = ROW_LOGO) },
-                onClick = { onPick(network) },
+                onPick = { onPick(network) },
             )
         }
         coin.networkNote?.let { FootNote(text = it) }
@@ -261,24 +274,50 @@ private fun ReceiveAccountStep(
             text = "Into Which Account?",
             style = ClearAirType.titleL,
             color = palette.ink,
-            modifier = Modifier.padding(top = ClearAirSpacing.sm, bottom = ClearAirSpacing.md),
+            modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = ClearAirSpacing.sm, end = ClearAirSpacing.gutter, bottom = ClearAirSpacing.md),
         )
         network.accounts.forEach { account ->
-            ClearAirRow(
+            RadioRow(
                 title = account.name,
-                description = accountLine(account),
+                detail = accountLine(account),
                 leading = { Monogram(initials = monogramOf(account.name)) },
-                onClick = { onPick(account) },
+                onPick = { onPick(account) },
             )
         }
         network.accountNote?.let { FootNote(text = it) }
     }
 }
 
+/**
+ * One choice of the network and account steps, as the mock draws it: its logo or monogram, its name with a line under it, and a radio at its end. A tap
+ * picks it, and the step goes on, so the radio is never filled here.
+ */
+@Composable
+private fun RadioRow(title: String, detail: String?, leading: @Composable () -> Unit, onPick: () -> Unit) {
+    val palette = LocalClearAirPalette.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = CHOICE_MIN_HEIGHT)
+            .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onPick)
+            .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        leading()
+        Spacer(Modifier.width(ClearAirSpacing.sm))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = ClearAirType.rowTitle, color = palette.ink)
+            detail?.let { Text(text = it, style = ClearAirType.body, color = palette.ink2) }
+        }
+        Spacer(Modifier.width(ClearAirSpacing.sm))
+        ClearAirRadio(selected = false)
+    }
+}
+
 /** The eyebrow of a step, with a back arrow in front of it when the step has one to go back to. */
 @Composable
 private fun StepHeader(label: String, onBack: (() -> Unit)?) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter), verticalAlignment = Alignment.CenterVertically) {
         if (onBack != null) {
             ClearAirIconButton(glyph = ClearAirGlyph.BACK, label = "Back", onClick = onBack)
         }
@@ -294,7 +333,7 @@ private fun FootNote(text: String) {
         text = text,
         style = ClearAirType.body,
         color = palette.ink2,
-        modifier = Modifier.padding(top = ClearAirSpacing.md),
+        modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = ClearAirSpacing.md, end = ClearAirSpacing.gutter),
     )
 }
 
@@ -309,6 +348,12 @@ private fun Monogram(initials: String) {
         Text(text = initials, style = ClearAirType.label.copy(fontWeight = FontWeight.Bold), color = palette.ink)
     }
 }
+
+/**
+ * The line under a network's name: what the network is beyond its short name, such as "L2 on Ethereum" for Base. A network whose name is only its short
+ * name has no line.
+ */
+private fun networkDetail(network: ReceiveNetwork): String? = network.name.removePrefix(network.label).trim().ifEmpty { null }
 
 /** The line under an account's name: its label, its group, and its short address, as in "Trading · Group DeFi · 0x1020…122b". */
 private fun accountLine(account: ReceiveAccount): String =

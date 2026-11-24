@@ -1,5 +1,8 @@
 package app.lumio.ui.scan
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -10,8 +13,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,29 +35,45 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import app.lensly.ui.camera.FrameSource
+import app.lensly.ui.camera.hasCameraPermission
+import app.lensly.ui.camera.openAppSettings
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.navigation.PickerStop
 import app.lensly.ui.qr.QrScanner
+import app.lensly.ui.theme.ClearAirSpacing
+import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LocalClearAirPalette
 import app.lensly.ui.theme.LocalReducedMotion
 import app.lensly.ui.theme.LumenMotion
+import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.rememberLumioHaptics
 
 /** The corner radius of the viewfinder, the ring's width, and the gap between the ring and the camera (section 2.1). */
@@ -98,17 +119,90 @@ fun LumioScanScreen(
         PickerStop.hold()
         onDispose { PickerStop.release() }
     }
+    val context = LocalContext.current
+    // The camera is asked for here, so a refusal shows the Camera Denied note in place of the viewfinder. A test's own frames need no camera.
+    var granted by remember { mutableStateOf(frameSource != null || context.hasCameraPermission()) }
+    var refused by rememberSaveable { mutableStateOf(false) }
+    val askCamera = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { answer ->
+        granted = answer
+        refused = !answer
+    }
+    LaunchedEffect(Unit) {
+        if (!granted) askCamera.launch(Manifest.permission.CAMERA)
+    }
+    // Settings may have changed while the app was away, so the permission is read again each time the app comes back.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) granted = context.hasCameraPermission()
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
     LumioScanFrame(
         title = title,
         progress = progress,
-        statusText = statusText,
+        // The camera's hint says what to point it at. While the camera is refused, the note says what is needed instead.
+        statusText = if (refused && !granted) "" else statusText,
         complete = complete,
         onCancel = onCancel,
         modifier = modifier,
     ) { viewport ->
-        QrScanner(onText = onText, modifier = viewport, frameSource = frameSource)
+        when {
+            granted -> QrScanner(onText = onText, modifier = viewport, frameSource = frameSource)
+            refused -> CameraDeniedNote(onOpenSettings = { context.openAppSettings() }, modifier = viewport)
+        }
     }
 }
+
+/**
+ * The Camera Denied state (K6): a dashed note in place of the viewfinder, in its exact place and size, so the page does not move when the owner
+ * allows the camera and the scan starts by itself. Open Settings is the one action, because the system does not ask a second time.
+ */
+@Composable
+fun CameraDeniedNote(onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
+    val palette = LocalClearAirPalette.current
+    Column(
+        modifier = modifier
+            .drawBehind {
+                val width = DENIED_DASH_WIDTH.toPx()
+                drawRoundRect(
+                    color = palette.ink2,
+                    topLeft = Offset(width / 2, width / 2),
+                    size = Size(size.width - width, size.height - width),
+                    cornerRadius = CornerRadius(VIEWFINDER_RADIUS.toPx()),
+                    style = Stroke(
+                        width = width,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(DENIED_DASH_ON.toPx(), DENIED_DASH_OFF.toPx())),
+                    ),
+                )
+            }
+            .padding(ClearAirSpacing.gutter),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = "Lumio needs the camera to read codes. Nothing is recorded.",
+            style = ClearAirType.body,
+            color = palette.ink,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(ClearAirSpacing.xs))
+        Text(
+            text = "Allow Camera in Settings, then come back here.",
+            style = ClearAirType.label,
+            color = palette.ink2,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(ClearAirSpacing.md))
+        ClearAirPrimaryButton(text = "Open Settings", onClick = onOpenSettings)
+    }
+}
+
+/** The dashes of the Camera Denied frame: the stroke, and the length of each dash and of the gap after it. */
+private val DENIED_DASH_WIDTH = 1.dp
+private val DENIED_DASH_ON = 8.dp
+private val DENIED_DASH_OFF = 6.dp
 
 /**
  * The scan layout around a viewport: the shell, the ring, the check and the status line. [LumioScanScreen] puts the live scanner in [viewport]. The

@@ -57,14 +57,11 @@ import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.BulkCap
 import app.lensly.core.wallet.BulkPolicy
-import app.lensly.core.wallet.LedgerPassphraseIssue
 import app.lensly.core.wallet.Mnemonic
-import app.lensly.core.wallet.ledgerPassphraseIssue
 import app.lensly.ui.flow.AccountExportGate
 import app.lensly.ui.flow.PairWalletRoute
 import app.lensly.ui.flow.SignWalletRoute
 import app.lensly.ui.flow.checkAppPassword
-import app.lensly.ui.gate.PasswordBuffer
 import app.lensly.ui.home.ActivityScreen
 import app.lensly.ui.home.AlgorandAccountsScreen
 import app.lensly.ui.home.BitcoinAccountsScreen
@@ -89,10 +86,10 @@ import app.lensly.ui.home.refusalReason
 import app.lensly.ui.home.runBulk
 import app.lensly.ui.wallet.Bip39Autocomplete
 import app.lensly.ui.wallet.PassphraseBackupScreen
+import app.lensly.ui.wallet.PassphraseEntry
 import app.lensly.ui.wallet.PassphraseGate
 import app.lensly.ui.wallet.PassphraseScreen
 import app.lensly.ui.wallet.PassphraseState
-import app.lensly.ui.wallet.PassphraseStep
 import app.lensly.ui.wallet.RestoreEntryScreen
 import app.lensly.ui.wallet.RestoreState
 import app.lensly.ui.wallet.WalletNameScreen
@@ -373,9 +370,9 @@ private fun importPackage(context: Context, uri: Uri): ImportState {
 }
 
 /**
- * Restore: the owner types the 24 words one at a time. Letters build the word in progress, SPACE or a suggestion
- * commits it, and a filled slot can be retyped. A complete phrase must pass [Mnemonic.isValid], or the screen
- * shows the checksum error.
+ * Restore: the owner types the 24 words one at a time. Letters build the word in progress. A word that no other BIP39
+ * word starts with commits as soon as it is typed. SPACE or a suggestion commits the rest, and a filled slot can be
+ * retyped. A complete phrase must pass [Mnemonic.isValid], or the screen shows the checksum error.
  */
 @Composable
 private fun RestoreRoute(navController: NavHostController, entry: NavBackStackEntry) {
@@ -411,6 +408,7 @@ private fun RestoreRoute(navController: NavHostController, entry: NavBackStackEn
                 c.isLetter() && activeIndex < Mnemonic.WORD_COUNT && prefix.length < MAX_WORD_LETTERS -> {
                     prefix += c.lowercaseChar()
                     invalid = false
+                    if (autocomplete.isUniqueWord(prefix)) commit(prefix)
                 }
                 else -> Unit
             }
@@ -441,97 +439,36 @@ private fun RestoreRoute(navController: NavHostController, entry: NavBackStackEn
 
 /**
  * The optional BIP39 passphrase, shared by restore and create. Ask, then enter it, then confirm it. An empty entry
- * means no passphrase. The entry is zeroed as soon as it has been copied into the draft.
+ * means no passphrase. A mismatch goes back to entering it, and the words stay in the draft. The entry is zeroed as
+ * soon as it has been copied into the draft.
  */
 @Composable
 private fun PassphraseRoute(navController: NavHostController, entry: NavBackStackEntry) {
     val draft = draftOf(navController, entry)
     RequireDraft(navController, ready = draft.words.isNotEmpty())
-    val buffer = remember { PasswordBuffer() }
-    var step by remember { mutableStateOf(PassphraseStep.Ask) }
-    var first by remember { mutableStateOf<CharArray?>(null) }
-    var length by remember { mutableIntStateOf(0) }
-    var mismatch by remember { mutableStateOf(false) }
-    // Set from the typed entry in Enter, and from the first entry once it moves to Confirm.
-    var ledgerIssue by remember { mutableStateOf<LedgerPassphraseIssue?>(null) }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            buffer.clear()
-            first?.fill('\u0000')
+    val typed = remember {
+        PassphraseEntry { settled ->
+            draft.setPassphrase(settled)
+            navController.navigate(HiddenRoute.NAME)
         }
     }
-
-    fun finish(passphrase: String?) {
-        draft.setPassphrase(passphrase)
-        navController.navigate(HiddenRoute.NAME)
+    DisposableEffect(Unit) {
+        onDispose { typed.clear() }
     }
 
     PassphraseScreen(
-        state = PassphraseState(step = step, length = length, mismatch = mismatch, ledgerIssue = ledgerIssue),
-        onYes = { step = PassphraseStep.Enter },
-        onSkip = { finish(null) },
-        onKey = { c ->
-            if (buffer.append(c)) {
-                length = buffer.length
-                mismatch = false
-                if (step == PassphraseStep.Enter) ledgerIssue = ledgerIssueOf(buffer)
-            }
-        },
-        onBackspace = {
-            buffer.backspace()
-            length = buffer.length
-            mismatch = false
-            if (step == PassphraseStep.Enter) ledgerIssue = ledgerIssueOf(buffer)
-        },
-        onSubmit = {
-            when (step) {
-                PassphraseStep.Ask -> Unit
-                PassphraseStep.Enter -> {
-                    if (buffer.isEmpty()) {
-                        finish(null)
-                    } else {
-                        first?.fill('\u0000')
-                        first = buffer.toCharArray()
-                        buffer.clear()
-                        length = 0
-                        step = PassphraseStep.Confirm
-                    }
-                }
-                PassphraseStep.Confirm -> {
-                    val second = buffer.toCharArray()
-                    val expected = first
-                    val matches = PassphraseGate.matches(expected, second)
-                    second.fill('\u0000')
-                    if (expected != null && matches) {
-                        val text = String(expected)
-                        expected.fill('\u0000')
-                        first = null
-                        buffer.clear()
-                        finish(text)
-                    } else {
-                        buffer.clear()
-                        length = 0
-                        mismatch = true
-                    }
-                }
-            }
-        },
+        state = PassphraseState(
+            step = typed.step,
+            length = typed.length,
+            mismatch = typed.mismatch,
+            ledgerIssue = typed.ledgerIssue,
+        ),
+        onYes = { typed.startEntry() },
+        onSkip = { typed.skip() },
+        onKey = { c -> typed.key(c) },
+        onBackspace = { typed.backspace() },
+        onSubmit = { typed.submit() },
     )
-}
-
-/**
- * The Ledger issue of the passphrase typed into [buffer], or null when it is empty or can be typed on a Ledger. The check
- * reads a copy of the characters, and the copy is zeroed before this returns. No String of the passphrase is made.
- */
-private fun ledgerIssueOf(buffer: PasswordBuffer): LedgerPassphraseIssue? {
-    if (buffer.isEmpty()) return null
-    val chars = buffer.toCharArray()
-    try {
-        return ledgerPassphraseIssue(chars)
-    } finally {
-        chars.fill('\u0000')
-    }
 }
 
 /** Shown under the write-down or name screen when a save fails. The words or key stay, so the owner can try again. */

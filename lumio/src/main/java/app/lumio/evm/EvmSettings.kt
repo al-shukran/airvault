@@ -73,6 +73,8 @@ object EvmSettingsStore {
     fun addCustom(session: VaultSession, rpc: EvmRpc, builtIn: Set<Long>, input: CustomChainInput): EvmRefusal? =
         attempt(session, rpc) { current, endpoint -> EvmEdits.addCustom(current, builtIn, input, endpoint) }
 
+    /** Runs one change at a time, so a change made while another checks its endpoint is kept, not overwritten by that check's write. */
+    @Synchronized
     private fun attempt(session: VaultSession, rpc: EvmRpc, transform: (EvmSettings, EvmRpc) -> EvmSettings): EvmRefusal? = try {
         write(session, transform(read(session), rpc))
         null

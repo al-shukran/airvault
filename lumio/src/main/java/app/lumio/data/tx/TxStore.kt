@@ -51,6 +51,15 @@ class TxStore(private val dao: TxDao, private val keys: TxKeys) {
         }
     }
 
+    /**
+     * Removes every transaction of [accounts], with its terms, and the comment on each transaction that no other account still lists. Remove Wallet calls
+     * it with the wallet's accounts, so the database keeps no history of a wallet that is no longer paired.
+     */
+    suspend fun removeAccounts(accounts: Collection<String>) {
+        val txIds = accounts.flatMap { account -> dao.rowsOf(accountKeyOf(account)).onEach { dao.removeRow(it.txId, it.accountKey) }.map { it.txId } }
+        txIds.distinctBy { it.asList() }.filterNot { dao.hasRow(it) }.forEach { dao.writeComment(it, COMMENT_KEY, comment = null, terms = emptyList()) }
+    }
+
     /** The counterparties of the account's transactions that are not spam: the addresses the account has dealt with. */
     suspend fun counterparties(account: String): Set<String> =
         dao.rowsOf(accountKeyOf(account)).asSequence().filter { !it.spam }.mapNotNull { open(it)?.counterparty }.toSet()

@@ -86,7 +86,7 @@ internal fun AssetScreen(
         }
         if (activity.isEmpty()) {
             Text(
-                text = "No transactions yet.",
+                text = "No activity yet. Your first receive will appear here.",
                 style = ClearAirType.body,
                 color = palette.ink2,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.sm),

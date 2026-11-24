@@ -51,8 +51,8 @@ Run commands assume the wrapper at the repo root.
 - **Tools:** Roborazzi (`roborazzi-compose`) on Robolectric.
 - **Why Roborazzi, not Paparazzi:** Roborazzi captures from the same Robolectric `createComposeRule()` tests as 1.4, so one test source checks behavior and pixels. Paparazzi renders through layoutlib, not Robolectric, and cannot reuse those tests or their shadows.
 - **Files:** goldens in `app/src/test/screenshots/`; move to Git LFS if they exceed about 2 MB.
-- **Run:** `./gradlew :app:verifyRoborazziDebug` (and `:lumio:verifyRoborazziDebug`) in the nightly, which compares against the committed PNGs with a 0.0005 pixel-change threshold (`ScreenshotHarness.kt`).
-- **Record:** on Linux CI only. Run the `record-goldens` workflow (`gh workflow run record-goldens`) on the same runner image the nightly uses, download the `goldens-linux` artifact, review the PNG diff, and commit it. A macOS render differs from the Linux runner on anti-aliased edges, so a local macOS run is advisory, not the gate.
+- **Run:** `./gradlew :app:verifyRoborazziDebug` (and `:lumio:verifyRoborazziDebug`) locally, which compares against the committed PNGs with a 0.0005 pixel-change threshold (`ScreenshotHarness.kt`). CI does not verify pixels: the nightly `screenshots` job re-records them on each push to master and opens the `goldens-refresh` pull request for any change.
+- **Record:** on Linux CI only. The nightly `screenshots` job records them on the same runner image; review its `goldens-refresh` pull request, which is the diff to commit. To record now, run the `record-goldens` workflow (`gh workflow run record-goldens`), download the `goldens-linux` artifact, review the PNG diff, and commit it. A macOS render differs from the Linux runner on anti-aliased edges, so a local macOS run is advisory, not the gate.
 
 ### 1.6 End-to-end
 
@@ -72,7 +72,7 @@ Run commands assume the wrapper at the repo root.
 - **Static:** Android Lint security checks (`./gradlew :app:lintDebug`, `SECURITY` issues as errors). Dependencies: OWASP `org.owasp.dependencycheck` nightly; `actions/dependency-review-action` on PRs touching dependency files. Secrets: `gitleaks` on changed files, allowlisting only `vectors/**`.
 - **Manifest guard:** check the merged manifest, since libraries add permissions during merge. Assert no `android.permission.INTERNET`, no `ACCESS_NETWORK_STATE`, and `android:allowBackup="false"`. Script: `scripts/ci/check-manifest.sh` after `:app:processDebugMainManifest`.
 - **Exact-match vectors:** BIP39 (mnemonic-to-seed), BIP32 (test vectors 1 and 2), EIP-155 and EIP-1559 signing examples, in `shared/src/test/resources/vectors/<standard>/`. Each directory has a `README.md` with the source URL and retrieval date.
-- **Fuzzing (Jazzer, `com.code-intelligence:jazzer-junit`):** `UrScanner`/`UrFrames`, `Cbor`, `EthSignRequest`, the RLP transaction decoder (`UnsignedTx`), and the Algorand request parser. PR lane replays seeds as regular tests (JUnit regression mode), in their own JVM through `-PfuzzLane`: Jazzer's agent and Robolectric's sandbox cannot share one. Nightly fuzzes each target for 15 minutes. Minimized crashes become inputs in `shared/src/test/resources/fuzz-regressions/`.
+- **Fuzzing (Jazzer, `com.code-intelligence:jazzer-junit`):** `UrScanner`/`UrFrames`, `Cbor`, `EthSignRequest`, the RLP transaction decoder (`UnsignedTx`), and the Algorand request parser. The pr-fast `fuzz` job replays seeds as regular tests (JUnit regression mode), in their own JVM through `-PfuzzLane`: Jazzer's agent and Robolectric's sandbox cannot share one. Nightly fuzzes each target for 15 minutes. Minimized crashes become inputs in `shared/src/test/resources/fuzz-regressions/`.
 
 ### 1.9 Accessibility
 
@@ -91,7 +91,7 @@ Each fixed bug lands with a failing test in the layer where it was found. Nightl
 ### 2.1 Hard requirements
 
 - **No test demand for untouched code.** A partition runs only when its own paths change. No repo-wide coverage gate; any JaCoCo report is informational and limited to changed files.
-- **Each PR lane finishes in 5 minutes wall clock** (budget raised from 3 minutes on 2026-11-21), covering checkout, JDK, cache restore and Gradle. `scripts/ci/lane-budget.sh` measures every lane of every `pr-fast` run and, on master, files a `ci-budget` issue for a lane over budget.
+- **Each PR lane finishes in 3 minutes wall clock** (owner rule, 2026-11-23; it was 5 minutes from 2026-11-21), covering checkout, JDK, cache restore and Gradle. `scripts/ci/lane-budget.sh` measures every lane of every `pr-fast` run and, on master, files a `ci-budget` issue for a lane over budget.
 - **2.1 amendment (2026-11-12): pr-fast test cap 5 min because** the ui-a partition took 180 s on PR 125 with the Gradle cache restored, and earlier PR runs on the same partitions were killed at the 3-minute cap. Cold work that the cache cannot skip (configuration of about 40 s, since no configuration cache survives to CI, and main and test Kotlin compile of about 55 s) does not fit reliably in 3 minutes. The `test` job sets `timeout-minutes: 5`; the other jobs keep their caps.
 - **Over-budget work moves** to a nightly schedule and a comment command (2.5, 2.6).
 - **Docs, text, and non-build config changes run zero test jobs.** The aggregate job in 2.4 keeps branch protection satisfied.
@@ -275,7 +275,7 @@ Durations are estimates, to be measured in Phase 1.5.
 | Integration and UI (Robolectric) | PR fast lane, `ui-a`, `ui-b` and `ui-c` partitions | up to 5 min each; split or move if over |
 | Manifest guard | PR fast lane, manifest and dependency paths | about 1 min |
 | Secrets scan, dependency review | PR fast lane, changed files | under 30 s |
-| Screenshot (Roborazzi verify) | nightly 03:17 UTC; `/run-screenshot-testing` | 5 to 10 min |
+| Screenshot (Roborazzi record) | nightly, on each master push and at 03:17 UTC; `/run-screenshot-testing` | 5 to 10 min |
 | Lint (security) and OWASP | nightly; `/run-security` | 10 to 15 min |
 | Instrumented (emulator) | nightly; `/run-instrumented` | 15 to 25 min |
 | E2E flow (emulator) | nightly; `/run-e2e` | 20 to 30 min |
@@ -300,8 +300,8 @@ Durations are estimates, to be measured in Phase 1.5.
 
 1. Enable `org.gradle.configuration-cache=true`; confirm the build passes.
 2. Add `scripts/ci/run-partition.sh`, `run-extended.sh`, `check-manifest.sh`.
-3. Add `pr-fast.yml` (2.4) with a filter row for each partition in 2.2. Create the `nightly-failure` label.
-4. Add the manifest guard, `gitleaks`, and dependency review to the PR lane. Measure PR runs; split or move anything over 5 minutes.
+3. Add `pr-fast.yml` (2.4) with a filter row for each partition in 2.2. Create the `area:ci` label.
+4. Add `gitleaks`, the manifest guard, and dependency review to the PR lane. Measure PR runs; move anything that takes over 3 minutes to nightly.
 5. Add catalog entries: `ui-test-junit4`, Robolectric, Roborazzi, `espresso-accessibility`, UI Automator, Microbenchmark, Macrobenchmark, Jazzer. Pin versions at least two weeks old.
 6. Add the WCAG contrast test for `ui/theme/Color.kt` and the standard vectors with exact-match tests.
 7. Add Jazzer targets for `UrScanner`, `Cbor`, `EthSignRequest`; commit seeds; enable PR replay.
@@ -319,7 +319,7 @@ Where the shipped build differs from the text above:
 
 - **JDK:** CI uses temurin `21.0.13+9` (pinned, not the floating `21`), not the `java-version: '17'` in the 2.4 and 2.5 YAML. The application still targets Java 17.
 - **Partitions:** the PR lane also has `core-parse`, `app` and `registry-pack`, because tests already live in those packages. `core-ur-evm` also selects `app.lensly.core.evm.*`.
-- **`ui` and pixels:** the `ui-a`, `ui-b` and `ui-c` partitions pass `-PprLane`, which excludes `app.lensly.ui.screenshot.*` from the PR lane. Pixel tests run nightly via `verifyRoborazziDebug`.
+- **`ui` and pixels:** the `ui-a`, `ui-b` and `ui-c` partitions pass `-PprLane`, which excludes `app.lensly.ui.screenshot.*` from the PR lane. Pixel tests run nightly, where the `screenshots` job records the goldens.
 - **Dependency graph:** enabled. The repository variable `DEPENDENCY_GRAPH_ENABLED=true` keeps both halves live: the submission job in `dependency-graph.yml` submits the Gradle graph and succeeds, and `dependency_review` in `pr-fast.yml` diffs it on dependency changes. There is no `continue-on-error`, so a high-severity finding fails `pr-ok`. Reference: https://github.com/heyaibi/lensly/settings/security_analysis.
 - **OWASP:** `dependencyCheckAnalyze` runs nightly and reads an optional `NVD_API_KEY`. A cold run takes 10 to 15 min.
 - **Fuzz isolation:** Jazzer and Robolectric cannot share a JVM. Running a fuzz target first corrupts the Robolectric sandbox, and later Robolectric tests fail with `NoClassDefFoundError: JazzerInternal`. The fuzz tests therefore sit behind `-PfuzzLane`, which `run-partition.sh`, `fuzz-nightly.sh` and `nightly.yml` each pass in a separate Gradle invocation.

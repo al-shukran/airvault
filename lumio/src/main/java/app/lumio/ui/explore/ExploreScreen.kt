@@ -18,21 +18,36 @@ import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.providerName
 import app.lumio.ui.settings.providerStatusNote
 import app.lumio.ui.settings.providerStatusWord
+import app.lumio.ui.wallets.accountsByChain
+import app.lumio.wallets.WalletAccount
+import app.lumio.wallets.WalletAccounts
+
+/** A chain family that the owner's accounts sit on: its [name], such as "Ethereum", and how many of the owner's accounts it holds. */
+data class ChainRow(val name: String, val accounts: Int)
+
+/** The chain families [accounts] sit on, in family order, each with its count of accounts. A family with no account has no row. */
+internal fun chainRows(accounts: List<WalletAccount>): List<ChainRow> =
+    accountsByChain(accounts).map { (family, group) -> ChainRow(name = WalletAccounts.familyLabel(family), accounts = group.size) }
 
 /**
- * The Explore landing (B3): the chains, then the data providers. Each group has a text action to its full list. Each provider row opens its Provider
- * page. The Learn AirVault group is left out until its articles have copy.
+ * The Explore landing (B3): the chains, then the data providers. The chains group names each chain family the owner's accounts sit on, with its count
+ * of accounts, and its action reads "All" and the count of [networks] on the side. Each group has a text action to its full list. Each provider row
+ * opens its Provider page. The Learn AirVault group is left out until its articles have copy.
  */
 @Composable
 fun ExploreScreen(
+    chains: List<ChainRow>,
+    networks: Int,
     providers: List<ProviderRow>,
     onChains: () -> Unit,
     onProviders: () -> Unit,
     onProvider: (String) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-        ExploreGroup(title = "Chains and L2s", action = "All networks", onAction = onChains) {
-            ClearAirRow(title = "Networks", description = "Ethereum, Bitcoin, Solana and Algorand", onClick = onChains)
+        ExploreGroup(title = "Chains and L2s", action = "All $networks", onAction = onChains) {
+            chains.forEach { chain ->
+                ClearAirRow(title = chain.name, description = "${chain.accounts} of your accounts", onClick = onChains)
+            }
         }
         ExploreGroup(title = "Data Providers", action = "All ${providers.size}", onAction = onProviders) {
             providers.forEach { row ->

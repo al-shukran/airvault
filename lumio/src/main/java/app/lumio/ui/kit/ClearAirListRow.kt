@@ -22,9 +22,9 @@ import app.lensly.ui.theme.LocalClearAirPalette
 private val ROW_HEIGHT = 62.dp
 
 /**
- * A list row whose text wraps rather than clips: an optional [leading] mark, a [title] with a [description] under it, an optional [trailing] value, and
- * a chevron when the row opens something ([onClick]). A long name runs to a second line, and no label ends in an ellipsis. The row scales to 0.98 while
- * pressed.
+ * A list row whose text wraps rather than clips: an optional [leading] mark, a [title] with an optional [tag] beside it and a [description] under it, an
+ * optional [trailing] value, and a chevron when the row opens something ([onClick]). A long name runs to a second line, and no label ends in an
+ * ellipsis. The row scales to 0.98 while pressed.
  */
 @Composable
 fun ClearAirListRow(
@@ -32,6 +32,7 @@ fun ClearAirListRow(
     modifier: Modifier = Modifier,
     leading: (@Composable () -> Unit)? = null,
     description: String? = null,
+    tag: String? = null,
     trailing: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
@@ -55,7 +56,12 @@ fun ClearAirListRow(
             Spacer(Modifier.width(ClearAirSpacing.sm))
         }
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = ClearAirType.rowTitle, color = palette.ink)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = title, modifier = Modifier.weight(1f, fill = false), style = ClearAirType.rowTitle, color = palette.ink)
+                if (tag != null) {
+                    ClearAirTag(text = tag, modifier = Modifier.padding(start = ClearAirSpacing.xs))
+                }
+            }
             if (description != null) {
                 Text(text = description, style = ClearAirType.body, color = palette.ink2)
             }

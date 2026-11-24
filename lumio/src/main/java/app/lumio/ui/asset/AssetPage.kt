@@ -1,5 +1,6 @@
 package app.lumio.ui.asset
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,9 +25,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
@@ -240,19 +244,34 @@ private fun HeldRow(coin: CoinHeld, icon: @Composable () -> Unit, onClick: () ->
     }
 }
 
-/** The chart ranges as mono text. The chosen one carries the diamond, and tapping one chooses it. */
+/** The chart ranges as mono text. The chosen one is bold with the spark's diamond under it, and tapping one chooses it. */
 @Composable
 private fun RangeRow(selected: ChartRange, onSelect: (ChartRange) -> Unit, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         ChartRange.entries.forEach { range ->
             val chosen = range == selected
-            Text(
-                text = if (chosen) "◆${range.label}" else range.label,
+            Column(
                 modifier = Modifier.clickable(role = Role.Tab, onClick = { onSelect(range) }).padding(vertical = ClearAirSpacing.xxs),
-                style = ClearAirType.address,
-                color = if (chosen) palette.ink else palette.ink2,
-            )
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = range.label,
+                    style = ClearAirType.address.copy(fontWeight = if (chosen) FontWeight.Bold else FontWeight.Normal),
+                    color = if (chosen) palette.ink else palette.ink2,
+                )
+                // Every range keeps the diamond's place, so the row does not move when the choice does.
+                Box(
+                    modifier = Modifier
+                        .padding(top = ClearAirSpacing.xxs)
+                        .size(RANGE_SPARK)
+                        .rotate(45f)
+                        .background(if (chosen) palette.spark else Color.Transparent),
+                )
+            }
         }
     }
 }
+
+/** The side of the spark under the chosen range: a square, turned into a diamond. */
+private val RANGE_SPARK = 5.dp

@@ -78,8 +78,8 @@ data class PairSaved(val id: String, val created: Boolean)
 object PairedWallets {
 
     /**
-     * The paired wallets, oldest first, each with its Address Book. A folder with no META record is left out. A pairing record or a book that does
-     * not read in full is wiped, with its wallet, and reads as unpaired.
+     * The paired wallets, oldest first, each with its Address Book. A folder with no META record is left out, and so is one whose pairing record
+     * does not read in full, which is kept as it is (see [readOrNull]). A book record that does not read is wiped, and the pairings are kept.
      */
     fun list(session: VaultSession): List<PairedWallet> {
         val books = try {
@@ -89,7 +89,7 @@ object PairedWallets {
             emptyMap()
         }
         return session.listWallets()
-            .mapNotNull { id -> readOrWipe(session, id)?.copy(addressBook = books[id].orEmpty()) }
+            .mapNotNull { id -> readOrNull(session, id)?.copy(addressBook = books[id].orEmpty()) }
             .sortedBy { it.createdAtMs }
     }
 
@@ -97,7 +97,7 @@ object PairedWallets {
      * The paired wallet in folder [id], or null when the folder is not paired. It reads that folder only, where [list] reads every folder. Its
      * [PairedWallet.addressBook] is empty: [list] is the read that holds the Address Book.
      */
-    fun get(session: VaultSession, id: String): PairedWallet? = readOrWipe(session, id)
+    fun get(session: VaultSession, id: String): PairedWallet? = readOrNull(session, id)
 
     /**
      * Stores [pairing], as Lensly exported it. Lensly is the source of truth: the names, labels and groups, the accounts, the keys and the
@@ -105,10 +105,11 @@ object PairedWallets {
      * fingerprint makes a new wallet.
      */
     fun save(session: VaultSession, pairing: PairingPayload, nowMs: Long): PairSaved {
-        val paired = list(session).firstOrNull { it.fingerprint == pairing.fingerprint }
-        val id = paired?.id ?: session.createWallet()
+        val paired = list(session).firstOrNull { it.fingerprint == pairing.fingerprint }?.let { it.id to it.createdAtMs }
+            ?: unreadableWith(session, pairing.fingerprint)
+        val id = paired?.first ?: session.createWallet()
         try {
-            session.putRecords(id, recordsFor(pairing, createdAtMs = paired?.createdAtMs ?: nowMs), deletesFor(pairing))
+            session.putRecords(id, recordsFor(pairing, createdAtMs = paired?.second ?: nowMs), deletesFor(pairing))
             PairAddressBooks.replace(session, id, pairing.addressBook)
         } catch (e: Throwable) {
             if (paired == null) session.deleteWallet(id)
@@ -159,12 +160,28 @@ object PairedWallets {
         return accounts + bitcoin + solana + algorand
     }
 
-    /** The paired wallet in folder [id]. A folder whose record does not read in full is wiped, and reads as null. */
-    private fun readOrWipe(session: VaultSession, id: String): PairedWallet? = try {
+    /**
+     * The paired wallet in folder [id], or null when its record does not read in full. The folder is kept as it is. A record that
+     * authenticates but does not read belongs to another format, and reading or pairing another wallet must not remove it. Such a folder
+     * reads as unpaired. A pairing with its fingerprint replaces it when its META record reads (see [unreadableWith]).
+     */
+    private fun readOrNull(session: VaultSession, id: String): PairedWallet? = try {
         read(session, id)
     } catch (e: IllegalArgumentException) {
-        delete(session, id)
         null
+    }
+
+    /**
+     * The folder, and its creation time, of a kept wallet whose META record reads and holds [fingerprint] while another of its records does not. A
+     * pairing of that fingerprint replaces its records, so it never adds a second wallet beside it.
+     */
+    private fun unreadableWith(session: VaultSession, fingerprint: Long): Pair<String, Long>? = session.listWallets().firstNotNullOfOrNull { id ->
+        val meta = try {
+            session.getRecord(id, WalletRecordNames.META)?.let { PairRecords.decodeMeta(it) }
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+        meta?.takeIf { it.fingerprint == fingerprint }?.let { id to it.createdAtMs }
     }
 
     /** The paired wallet in folder [id], or null when the folder has no META record. A record that does not read in full throws. */
