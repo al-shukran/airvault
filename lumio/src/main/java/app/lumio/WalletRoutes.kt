@@ -62,6 +62,7 @@ import app.lumio.wallets.AccountReads
 import app.lumio.wallets.AccountReadsLoader
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
+import app.lumio.watchlist.WatchlistStore
 import app.lumio.wallets.WalletsBoard
 import app.lumio.wallets.WalletsLoader
 import app.lumio.wallets.WalletsView
@@ -547,10 +548,14 @@ internal fun pairedWallets(navController: NavHostController, holder: VaultHolder
     return wallets
 }
 
-/** Removes the cached transactions and comments of [wallet]: those of its Ethereum accounts, and of the Bitcoin addresses its last scans found. */
+/**
+ * Removes the cached transactions and comments of [wallet]: those of its Ethereum accounts, and of the Bitcoin addresses its last scans found. Its
+ * watchlist goes with them.
+ */
 internal suspend fun removeWalletHistory(vault: LumioVault, wallet: PairedWallet) {
     val bitcoin = wallet.bitcoin.flatMap { vault.store.snapshot(BtcAccountRef(wallet.id, it).key)?.addresses.orEmpty() }
     vault.txs.removeAccounts(wallet.evmAddresses + bitcoin)
+    WatchlistStore.remove(vault.session, wallet.id)
 }
 
 /** The Wallets page of Settings: the pairing of a wallet from Lensly, and the paired wallets with deletion. A deletion is saved, then the lists read again. */

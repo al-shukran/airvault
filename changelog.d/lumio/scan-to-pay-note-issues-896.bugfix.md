@@ -1,0 +1,1 @@
+Scan to Pay in the profile panel says why it cannot open a send when the wallet has no Ethereum account or no wallet is paired, instead of doing nothing. It also does nothing on a tap until the network settings are read, so a fast tap on the first frame cannot open a send that the settings would refuse.

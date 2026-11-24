@@ -58,6 +58,7 @@ class LumioControlsTest {
                     tags = emptyList(),
                     networks = emptyList(),
                     keyed = false,
+                    keyRequired = false,
                     savedTail = null,
                     offline = null,
                     onSaveKey = {},

@@ -99,6 +99,15 @@ class ProfilePanelTest {
         compose.onAllNodesWithText("Scanned: air1").assertCountEquals(0)
     }
 
+    @Test
+    fun scanToPayOpensNothingBeforeTheSettingsAreReadEvenOnATap() {
+        compose.setContent { Shell(scanReady = false) }
+        openPanel()
+        compose.onNodeWithText("Scan to Pay").performClick()
+        compose.waitForIdle()
+        compose.onAllNodesWithText("Scanned: air1").assertCountEquals(0)
+    }
+
     private fun openPanel() {
         compose.onAllNodesWithContentDescription("Open the profile panel").onFirst().performClick()
         compose.waitForIdle()
@@ -108,16 +117,16 @@ class ProfilePanelTest {
     private fun row(name: String) = compose.onNode(isSelectable() and hasText(name, substring = true))
 
     @Composable
-    private fun Shell(scanNote: String? = null) {
+    private fun Shell(scanNote: String? = null, scanReady: Boolean = true) {
         LumenTheme {
             ClearAirTheme {
-                Root(scanNote)
+                Root(scanNote, scanReady)
             }
         }
     }
 
     @Composable
-    private fun Root(scanNote: String?) {
+    private fun Root(scanNote: String?, scanReady: Boolean) {
         var active by remember { mutableStateOf("air1") }
         var scanned by remember { mutableStateOf<String?>(null) }
         LumioRootScreen(
@@ -134,6 +143,7 @@ class ProfilePanelTest {
             onTab = {},
             onScan = { scanned = active },
             scanNote = scanNote,
+            scanReady = scanReady,
             onTestNetworks = {},
             onPair = {},
             onLock = {},

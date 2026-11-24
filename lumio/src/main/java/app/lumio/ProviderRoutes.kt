@@ -16,6 +16,7 @@ import app.lensly.ui.navigation.openHidden
 import app.lumio.data.config.withApiKey
 import app.lumio.data.config.withEnabled
 import app.lumio.data.provider.ProviderCatalog
+import app.lumio.data.provider.Trait
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.ui.settings.ProviderPage
@@ -32,7 +33,7 @@ import kotlinx.coroutines.withContext
 private const val KEY_TAIL = 4
 
 /** What the Provider page shows of one provider: its row, its tags, and the names of the networks it serves in catalogue order. */
-private class ProviderState(val row: ProviderRow, val tags: List<String>, val networks: List<String>)
+private class ProviderState(val row: ProviderRow, val tags: List<String>, val networks: List<String>, val keyRequired: Boolean)
 
 /**
  * The Provider page (B5) of the provider [id]: its status, its switch, its tags, the networks it serves and its API key. The page reads the provider the
@@ -70,6 +71,7 @@ internal fun ProviderRoute(navController: NavHostController, holder: VaultHolder
         tags = current.tags,
         networks = current.networks,
         keyed = current.row.acceptsKey,
+        keyRequired = current.keyRequired,
         savedTail = current.row.apiKey?.takeIf { it.isNotBlank() }?.takeLast(KEY_TAIL),
         offline = rememberSettingsOffline(),
         onSaveKey = { key -> change { vault.updateConfigs { saved -> withApiKey(ProviderCatalog.withDefaults(saved), id, key) } } },
@@ -89,5 +91,6 @@ private suspend fun readProvider(app: LumioApp, vault: LumioVault, id: String): 
         row = row,
         tags = providerTags(id, provider.traits),
         networks = ProviderCatalog.evmChainsOf(provider, chains).map { it.name },
+        keyRequired = Trait.KEY_REQUIRED in provider.traits,
     )
 }
