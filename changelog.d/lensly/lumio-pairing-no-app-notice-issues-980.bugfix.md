@@ -1,0 +1,1 @@
+Lensly no longer shows a Lumio pairing code for a wallet with no installed App, a code that Lumio always refuses. The pairing shows a notice that no App is installed, with a button to open the wallet's Apps, where an App can be installed before the code is shown.

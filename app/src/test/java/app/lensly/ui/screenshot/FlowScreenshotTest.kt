@@ -8,6 +8,7 @@ import app.lensly.app.export.AccountExportView
 import app.lensly.core.registry.WalletEntry
 import app.lensly.ui.flow.AccountExportScreen
 import app.lensly.ui.flow.ConfirmPasswordScreen
+import app.lensly.ui.flow.PairCode
 import app.lensly.ui.flow.PairFormat
 import app.lensly.ui.flow.PairLoading
 import app.lensly.ui.flow.PairStep
@@ -133,7 +134,7 @@ class FlowScreenshotTest {
             wallet = wallet,
             format = format,
             walletEntry = walletEntry,
-            frames = frames,
+            code = frames?.let { PairCode.Frames(it) },
             onPickWallet = {},
             onPickFormat = {},
             onShowCode = {},

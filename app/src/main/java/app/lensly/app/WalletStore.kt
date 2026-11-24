@@ -62,6 +62,9 @@ class AlgorandCapReached : IllegalArgumentException("A wallet keeps at most ${Wa
 /** A request for an App that is not installed in the wallet, such as a pairing for Ethereum in a wallet without it. Nothing is saved. */
 class AppNotInstalled(val app: WalletApp) : Exception("The ${app.label} app is not installed in this wallet.")
 
+/** A pairing that needs an account of the wallet, such as Lumio's, for a wallet with no App installed. Nothing is saved. */
+class NoAppsInstalled : Exception("No app is installed in this wallet.")
+
 /**
  * What a wallet's secret is. A Mnemonic wallet holds a 24-word Mnemonic and an optional Passphrase, and every account
  * derives from them. A Single Key wallet holds one imported private key. It has exactly one account, and no derivation
@@ -669,15 +672,18 @@ class WalletStore(private val session: VaultSession) {
      * which the JVM tests use. The pairing asks for no App Password, and it carries public data only.
      *
      * @throws IllegalArgumentException if the wallet is missing or is a Single Key, which has no account key to pair.
+     * @throws NoAppsInstalled if no App is installed in the wallet, so it has no account to pair.
      */
     fun pairingParts(id: String, brotli: BrotliCompressor? = BrotliEncoder): List<String> {
         val meta = requireNotNull(meta(id)) { "No wallet $id." }
         require(meta.kind == WalletKind.MNEMONIC) { "A Single Key has no account key to pair." }
+        // Checked before the seed is derived. Lumio refuses a pairing with no account, so none is built.
+        val installed = installedApps(id)
+        if (installed.isEmpty()) throw NoAppsInstalled()
         val secret = mnemonicSecret(id)
         val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
         try {
             val fingerprint = HdWallet(seed).masterFingerprint.toLong() and UINT32_MASK
-            val installed = installedApps(id)
             val accounts = WalletApp.entries.filter { it in installed }
                 .flatMap { app -> app.pairedAccounts(this, id, seed, fingerprint.toInt()) }
             val name = fitBytes(meta.name.ifBlank { DEFAULT_PAIRING_NAME }, PairingCodec.MAX_NAME_BYTES)

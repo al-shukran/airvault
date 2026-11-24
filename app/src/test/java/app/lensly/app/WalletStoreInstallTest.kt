@@ -169,6 +169,16 @@ class WalletStoreInstallTest {
     }
 
     @Test
+    fun anAirVaultPairingRefusesAWalletWithNoAppAndBuildsNoCode() {
+        val id = newWallet()
+        store.uninstallApp(id, WalletApp.BITCOIN)
+
+        assertFailsWith<NoAppsInstalled> { store.pairingParts(id, null) }
+
+        assertEquals(emptySet(), store.installedApps(id))
+    }
+
+    @Test
     fun aWalletWithTheRecordsLensly120WroteOpensWithAllFourInstalled() {
         // The records Lensly 1.2.0 wrote for a new wallet: one account of each App at index 0. They are written here directly, without the
         // install code under test, and reading them back must show all four Apps installed with the same addresses.

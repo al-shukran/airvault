@@ -149,7 +149,6 @@ class PairWizardTest {
                     profiles = emptyMap(),
                     wallet = wallet,
                     format = PairFormat.LUMIO,
-                    frames = null,
                     onPickWallet = {},
                     onPickFormat = {},
                     onShowCode = {},
