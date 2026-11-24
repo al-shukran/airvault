@@ -13,7 +13,7 @@
     <string name="settings_sources_bitcoin_title">Bitcoin</string>
     <string name="settings_sources_bitcoin_body">mempool.space by The Mempool Open Source Project, and blockstream.info by Blockstream</string>
     <string name="settings_sources_electrum_title">Electrum</string>
-    <string name="settings_sources_electrum_body">Servers by Bitaroo, Emzy and Blockstream</string>
+    <string name="settings_sources_electrum_body">Servers by Bitaroo, Emzy, Blockstream, lu.ke and Seth for Privacy</string>
     <string name="settings_sources_explorers_title">Explorers</string>
     <string name="settings_sources_explorers_body">Blockscout, Routescan and 3xpl</string>
     <string name="settings_sources_rpc_title">Public RPC</string>
