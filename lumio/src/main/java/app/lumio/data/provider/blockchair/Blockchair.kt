@@ -30,9 +30,10 @@ import okhttp3.HttpUrl
 import okhttp3.Request as HttpRequest
 
 /**
- * Blockchair as a DATA provider. It serves the Bitcoin mainnet unspent outputs and the Ethereum mainnet native balance. It is keyless by
- * default, and it takes an optional key from the config. [fallbackOnly] marks it FALLBACK_ONLY, for the Bitcoin scheduler, which offers it only when
- * no other provider can serve the read at that moment. The EVM pool keeps it as an ordinary DATA provider.
+ * Blockchair as a DATA provider. It serves the Bitcoin mainnet unspent outputs and the Ethereum mainnet native balance. It needs a key of the
+ * user's own ([Trait.KEY_REQUIRED]): without one it serves nothing, and the router never offers it. [fallbackOnly] marks it FALLBACK_ONLY, for
+ * the Bitcoin scheduler, which offers it only when no other provider can serve the read at that moment. The EVM pool keeps it as an ordinary
+ * DATA provider.
  *
  * Sources, read on 2026-11-15:
  * - Official: https://blockchair.com/api/docs and https://blockchair.com/api/plans. Both answer HTTP 401 with a browser challenge to a client
@@ -40,10 +41,10 @@ import okhttp3.Request as HttpRequest
  * - A community changelog, dated 2021, for the path, the field names and the `key` parameter:
  *   https://github.com/jjlittlezz/Blockchair.Support/blob/master/API.md
  * - The live API host, https://api.blockchair.com, answered HTTP 430 with `{"data":null,"context":{"code":430,...}}` to a keyless address request
- *   (2026-11-15), which is the quota response that this file treats as a rate limit.
+ *   (2026-11-15). That is the quota response, which this file treats as a rate limit. Keyless use is therefore not offered.
  *
  * Requests: `GET {base}/{chain}/dashboards/address/{address}`, where `chain` is `bitcoin` or `ethereum`. Output pages use `limit=0,N` and
- * `offset=0,M`. The key, when set, goes in the `key` query parameter.
+ * `offset=0,M`. The key goes in the `key` query parameter.
  *
  * Not supported: Bitcoin testnets and Sepolia, which the changelog does not give as current. Address statistics (ADDRESS_STATS), because the
  * dashboard's chain and mempool sides are not documented in a form that could be split without guessing.
@@ -52,12 +53,12 @@ class BlockchairProvider(fallbackOnly: Boolean = false) : Provider {
     override val id: String = "blockchair"
     override val kind: Kind = Kind.DATA
     override val traits: Set<Trait> =
-        if (fallbackOnly) setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL, Trait.FALLBACK_ONLY) else setOf(Trait.KEYLESS, Trait.KEY_OPTIONAL)
+        if (fallbackOnly) setOf(Trait.KEY_REQUIRED, Trait.FALLBACK_ONLY) else setOf(Trait.KEY_REQUIRED)
 
     override fun supports(net: NetworkId, op: OpKey, cfg: ProviderConfig): Boolean =
-        chainOf(net, op) != null && providerBase(cfg.baseUrl, BASE) != null
+        chainOf(net, op) != null && keyOf(cfg) != null && providerBase(cfg.baseUrl, BASE) != null
 
-    override fun defaultLimits(cfg: ProviderConfig): Limits = if (keyOf(cfg) == null) KEYLESS_LIMITS else KEYED_LIMITS
+    override fun defaultLimits(cfg: ProviderConfig): Limits = LIMITS
 
     @Suppress("UNCHECKED_CAST")
     override suspend fun <T> execute(req: Request<T>, cfg: ProviderConfig, http: Http): T {
@@ -122,7 +123,7 @@ class BlockchairProvider(fallbackOnly: Boolean = false) : Provider {
             .addPathSegment("address")
             .addPathSegment(address)
             .apply { query.forEach { (name, value) -> addQueryParameter(name, value) } }
-            .apply { keyOf(cfg)?.let { addQueryParameter("key", it) } }
+            .addQueryParameter("key", checkNotNull(keyOf(cfg)))
             .build()
         return fetchText(http.noRedirects(), HttpRequest.Builder().url(url).get().build(), BAN_MS)
     }
@@ -144,8 +145,5 @@ private const val BAN_MS = 3_600_000L
 private val BTC_ADDRESS = Regex("[A-Za-z0-9]{14,100}")
 private val EVM_ADDRESS = Regex("0x[0-9a-fA-F]{40}")
 
-/** About 960 calls a day, under the 1,000 a day that the free keyless tier is reported to allow. One call at a time. */
-private val KEYLESS_LIMITS = Limits(rps = 1.0 / 90, burst = 1, maxConcurrent = 1)
-
-/** A keyed plan's allowance is not read from the docs, so this stays modest. */
-private val KEYED_LIMITS = Limits(rps = 1.0, burst = 3, maxConcurrent = 2)
+/** The plan's allowance is not read from the docs, so this stays modest. */
+private val LIMITS = Limits(rps = 1.0, burst = 3, maxConcurrent = 2)

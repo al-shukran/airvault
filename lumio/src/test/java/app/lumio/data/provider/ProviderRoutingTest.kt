@@ -2,6 +2,7 @@ package app.lumio.data.provider
 
 import app.lumio.data.BTC
 import app.lumio.data.ETH
+import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.blockchair.BlockchairProvider
@@ -22,12 +23,20 @@ class ProviderRoutingTest {
         override fun score(providerId: String, nowMs: Long): Double = 0.0
     }
 
-    private fun ids(net: NetworkId, op: OpKey): Set<String> =
-        router.route(net, op, emptyMap(), everyone, 0L, emptySet(), emptySet()).map { it.id }.toSet()
+    private val keyed = mapOf("blockchair" to ProviderConfig(apiKey = "fake-key"))
+
+    private fun ids(net: NetworkId, op: OpKey, configs: Map<String, ProviderConfig> = keyed): Set<String> =
+        router.route(net, op, configs, everyone, 0L, emptySet(), emptySet()).map { it.id }.toSet()
 
     @Test
     fun bitcoinOutputsGoOnlyToBlockchair() {
         assertEquals(setOf("blockchair"), ids(BTC, Ops.BTC_UTXOS))
+    }
+
+    @Test
+    fun blockchairIsNotOfferedWithoutAKey() {
+        assertTrue(ids(BTC, Ops.BTC_UTXOS, emptyMap()).isEmpty())
+        assertEquals(setOf("3xpl"), ids(ETH, OpKey.on(ETH, "nativeBalance"), emptyMap()))
     }
 
     @Test
