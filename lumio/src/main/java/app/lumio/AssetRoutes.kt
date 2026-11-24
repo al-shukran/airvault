@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -38,7 +39,7 @@ import app.lumio.data.asset.AssetId
 import app.lumio.data.config.Fiat
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
-import app.lumio.data.price.ChartRange
+import app.lumio.data.price.ChartFrame
 import app.lumio.data.price.Price
 import app.lumio.data.price.PriceSeries
 import app.lumio.home.Masking
@@ -124,7 +125,7 @@ internal fun AssetRoute(
         }
     }
     val assetId = asset.assetId
-    var range by rememberSaveable { mutableStateOf(ChartRange.D1) }
+    var range by rememberSaveable(stateSaver = FrameSaver) { mutableStateOf(ChartFrame.H1) }
     val series = rememberRangeChart(assetId, range, board.dayChartOf(assetId)) { app.prices.chart(assetId, it) }
     val price by produceState<Price?>(initialValue = board.prices[assetId], assetId) {
         if (value == null) value = withContext(Dispatchers.IO) { app.prices.assetPrices(listOf(assetId))[assetId] }
@@ -212,20 +213,26 @@ internal fun AssetRoute(
     }
 }
 
+/** The frame the selector keeps across recreation, by its name. A name this build does not know falls back to the default frame, the 1-hour one. */
+private val FrameSaver: Saver<ChartFrame, String> = Saver(
+    save = { it.name },
+    restore = { name -> ChartFrame.entries.firstOrNull { it.name == name } ?: ChartFrame.H1 },
+)
+
 /**
- * The price chart of [range] for [assetId]. The day range starts on [dayChart], the day chart the board holds, so its first frame is populated and
- * needs no read. Any other range, and a day range the board lacks, is read through [read]. The chart is cleared before each read, so a range never
- * shows another range's chart under its label.
+ * The price chart of [range] for [assetId]. The 1-hour frame starts on [dayChart], the day chart the board holds, so its first frame is populated and
+ * needs no read. Any other frame, and a 1-hour frame the board lacks, is read through [read]. The chart is cleared before each read, so a frame never
+ * shows another frame's chart under its label.
  */
 @Composable
 internal fun rememberRangeChart(
     assetId: AssetId,
-    range: ChartRange,
+    range: ChartFrame,
     dayChart: PriceSeries?,
-    read: suspend (ChartRange) -> PriceSeries?,
+    read: suspend (ChartFrame) -> PriceSeries?,
 ): PriceSeries? {
-    val series by produceState<PriceSeries?>(initialValue = dayChart.takeIf { range == ChartRange.D1 }, assetId, range) {
-        value = dayChart.takeIf { range == ChartRange.D1 }
+    val series by produceState<PriceSeries?>(initialValue = dayChart.takeIf { range == ChartFrame.H1 }, assetId, range) {
+        value = dayChart.takeIf { range == ChartFrame.H1 }
         if (value == null) value = withContext(Dispatchers.IO) { runCatching { read(range) }.getOrNull() }
     }
     return series

@@ -125,7 +125,7 @@ class PriceRepository(
      * source answered, such as a testnet coin or a source that is down. A series with points is kept in memory for the session, and read again once it
      * is [CHART_TTL_MS] old. The request goes through the scheduler, so the price providers' rate limits and cooldowns apply.
      */
-    suspend fun chart(asset: AssetId, range: ChartRange, priority: Priority = Priority.VISIBLE, nowMs: Long = System.currentTimeMillis()): PriceSeries? {
+    suspend fun chart(asset: AssetId, range: ChartFrame, priority: Priority = Priority.VISIBLE, nowMs: Long = System.currentTimeMillis()): PriceSeries? {
         val key = ChartKey(asset, range)
         charts[key]?.takeIf { nowMs - it.atMs < CHART_TTL_MS }?.let { return it.series }
         val series = try {
@@ -136,7 +136,7 @@ class PriceRepository(
         if (series.points.isNotEmpty()) {
             charts[key] = KeptChart(series, nowMs)
             // The day chart is also kept in the vault, so Home charts it on a cold start, before any source answers.
-            if (range == ChartRange.D1) dayChartKeyOf(asset)?.let { cache()?.put(CachePolicy.LastKnown, it, jsonCodec<PriceSeries>().encode(series)) }
+            if (range == ChartFrame.H1) dayChartKeyOf(asset)?.let { cache()?.put(CachePolicy.LastKnown, it, jsonCodec<PriceSeries>().encode(series)) }
         }
         return series
     }
@@ -151,7 +151,7 @@ class PriceRepository(
         }.toMap()
     }
 
-    private data class ChartKey(val asset: AssetId, val range: ChartRange)
+    private data class ChartKey(val asset: AssetId, val range: ChartFrame)
 
     /** A chart as the repository kept it, and the time it was read, in epoch milliseconds. */
     private class KeptChart(val series: PriceSeries, val atMs: Long)

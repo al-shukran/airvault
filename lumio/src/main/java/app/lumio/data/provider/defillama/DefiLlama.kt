@@ -48,8 +48,8 @@ import okhttp3.Request as HttpRequest
  * - `GET {base}/chart/{coin}?start=&span=&period=` answers `{"coins":{"{coin}":{"symbol":..,"confidence":..,"prices":[{"timestamp":seconds,"price":n}]}}}`.
  *   `start` is the unix time in seconds of the first point, `span` the number of points, and `period` the spacing in candle notation (`1h`, `4h`,
  *   `1d`, `1w`). The OpenAPI file https://api-docs.defillama.com/defillama-openapi-free.json, read on 2026-11-16, gives these three parameters and the
- *   server `https://coins.llama.fi` for this path. Its prose says only that `period` takes "4h"-style values. A live check on 2026-11-22 found
- *   `5m` and `15m` answer points, while `1m` answers none for a recent window and irregular points for an hour, so no range uses `1m`.
+ *   server `https://coins.llama.fi` for this path. Its prose says only that `period` takes "4h"-style values. A live check on 2026-11-24 found
+ *   `5m`, `15m`, `1h`, `4h` and `1d` answer dense points for the coins the chart frames draw. `1m` answers few and irregular points, so no frame uses `1m`.
  * - Limits: the free docs state none, and they document no 429. A 429 is still read as a rate limit, see [failureFor] in the provider package.
  */
 class DefiLlamaProvider : Provider {

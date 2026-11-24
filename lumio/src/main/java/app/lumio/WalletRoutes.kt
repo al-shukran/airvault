@@ -24,7 +24,7 @@ import app.lumio.data.asset.AssetId
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.TransactionSettings
 import app.lumio.data.net.Networks
-import app.lumio.data.price.ChartRange
+import app.lumio.data.price.ChartFrame
 import app.lumio.data.price.PriceSeries
 import app.lumio.network.NetworkMode
 import app.lumio.network.NetworkModeStore
@@ -360,7 +360,7 @@ internal fun AssetRoute(
             value = null
             return@produceState
         }
-        val series = withContext(Dispatchers.IO) { runCatching { app.prices.chart(assetId, ChartRange.D7) }.getOrNull() }
+        val series = withContext(Dispatchers.IO) { runCatching { app.prices.chart(assetId, ChartFrame.H4) }.getOrNull() }
         if (series != null) board.putChart(assetId, series)
         value = series
     }

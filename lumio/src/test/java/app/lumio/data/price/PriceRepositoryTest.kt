@@ -351,7 +351,7 @@ class PriceRepositoryTest {
         val day = PriceSeries(listOf(PricePoint(1_000L, 2.0), PricePoint(2_000L, 2.5)))
         val source = FakeProvider(id = "defillama", networks = setOf(ETH), ops = setOf(Ops.PRICE_CHART))
         source.outcomes.add(day)
-        assertEquals(day, repository(listOf(source)).chart(AssetId.Native(ETH), ChartRange.D1, nowMs = 3_000L))
+        assertEquals(day, repository(listOf(source)).chart(AssetId.Native(ETH), ChartFrame.H1, nowMs = 3_000L))
 
         val kept: Map<AssetId, PriceSeries> = repository(emptyList()).lastDayCharts(listOf(AssetId.Native(ETH)))
         assertEquals(mapOf<AssetId, PriceSeries>(AssetId.Native(ETH) to day), kept)

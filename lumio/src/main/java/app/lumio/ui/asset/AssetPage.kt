@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
-import app.lumio.data.price.ChartRange
+import app.lumio.data.price.ChartFrame
 import app.lumio.data.price.PriceSeries
 import app.lumio.ui.kit.ChoiceGroup
 import app.lumio.ui.kit.ChoiceRow
@@ -83,8 +83,8 @@ internal fun AssetPage(
     priceText: String?,
     change: PriceChange?,
     series: PriceSeries?,
-    range: ChartRange,
-    onRange: (ChartRange) -> Unit,
+    range: ChartFrame,
+    onRange: (ChartFrame) -> Unit,
     watched: Boolean,
     onWatch: () -> Unit,
     held: CoinHeld?,
@@ -270,12 +270,12 @@ private fun ChainDots(icons: List<AssetIconSpec>) {
 private val CHAIN_DOT = 15.dp
 private val CHAIN_DOT_OVERLAP = 4.dp
 
-/** The chart ranges as mono text. The chosen one is bold with the spark's diamond under it, and tapping one chooses it. */
+/** The chart time frames as mono text. The chosen one is bold with the spark's diamond under it, and tapping one chooses it. */
 @Composable
-private fun RangeRow(selected: ChartRange, onSelect: (ChartRange) -> Unit, modifier: Modifier = Modifier) {
+private fun RangeRow(selected: ChartFrame, onSelect: (ChartFrame) -> Unit, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        ChartRange.entries.forEach { range ->
+        ChartFrame.entries.forEach { range ->
             val chosen = range == selected
             Column(
                 modifier = Modifier.clickable(role = Role.Tab, onClick = { onSelect(range) }).padding(vertical = ClearAirSpacing.xxs),

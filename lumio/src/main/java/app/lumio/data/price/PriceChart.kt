@@ -8,27 +8,24 @@ private const val HOUR_MS = 3_600_000L
 private const val DAY_MS = 86_400_000L
 
 /**
- * The span of a price chart, as the range selector offers it. [label] is what the selector shows. The chart draws [points] points, [periodMs] apart,
- * and [period] is that same spacing as the price endpoint takes it. The last point is the time asked for, so the window runs from `points - 1`
- * periods before it. Each label is the window's length: `5m` is two points five minutes apart, and `1m` is 30 days. The source answers the 5-minute and
- * 15-minute periods, and not a 1-minute one, so no range is drawn at a finer spacing than 5 minutes.
+ * A time frame of the price chart, as the asset page's selector offers it. [label] is what the selector shows, and it is also the interval of one point,
+ * in the form the price endpoint takes it. The chart draws [points] points, [periodMs] apart, and the last point is the time asked for, so the window
+ * runs from `points - 1` intervals before it. Each frame has a fixed count of points that the source answers densely. `1h` stops at a day, because
+ * the source's hourly points for some coins go missing beyond that. `1m` is not offered: the source answers it with few and irregular points.
  */
-enum class ChartRange(val label: String, val period: String, val periodMs: Long, val points: Int) {
-    M5("5m", "5m", 5 * MINUTE_MS, 2),
-    M15("15m", "5m", 5 * MINUTE_MS, 4),
-    H1("1h", "5m", 5 * MINUTE_MS, 13),
-    H4("4h", "15m", 15 * MINUTE_MS, 17),
-    H12("12h", "1h", HOUR_MS, 13),
-    D1("1d", "1h", HOUR_MS, 25),
-    D7("7d", "4h", 4 * HOUR_MS, 43),
-    D30("1m", "1d", DAY_MS, 31),
+enum class ChartFrame(val label: String, val periodMs: Long, val points: Int) {
+    M5("5m", 5 * MINUTE_MS, 48),
+    M15("15m", 15 * MINUTE_MS, 48),
+    H1("1h", HOUR_MS, 24),
+    H4("4h", 4 * HOUR_MS, 48),
+    D1("1d", DAY_MS, 48),
     ;
 
     /** The time from the first point to the last one, in milliseconds. */
     val windowMs: Long get() = periodMs * (points - 1)
 
-    /** The query of this range at [nowMs]: the window's start in unix seconds, then the number of points and their period. */
-    fun query(nowMs: Long): ChartQuery = ChartQuery(startSec = (nowMs - windowMs) / 1_000L, span = points, period = period)
+    /** The query of this frame at [nowMs]: the window's start in unix seconds, then the number of points and their interval. */
+    fun query(nowMs: Long): ChartQuery = ChartQuery(startSec = (nowMs - windowMs) / 1_000L, span = points, period = label)
 }
 
 /** The chart endpoint's query: the start in unix seconds, the number of points (`span`), and the spacing between them (`period`). */

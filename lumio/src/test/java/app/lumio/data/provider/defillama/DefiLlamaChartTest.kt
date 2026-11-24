@@ -5,7 +5,7 @@ import app.lumio.data.asset.AssetId
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
-import app.lumio.data.price.ChartRange
+import app.lumio.data.price.ChartFrame
 import app.lumio.data.price.PricePoint
 import app.lumio.data.price.PriceSeries
 import app.lumio.data.provider.Http
@@ -49,7 +49,7 @@ class DefiLlamaChartTest {
 
     private fun cfg() = ProviderConfig(baseUrl = server.url("/").toString())
 
-    private fun chart(asset: AssetId, range: ChartRange): PriceSeries = runBlocking {
+    private fun chart(asset: AssetId, range: ChartFrame): PriceSeries = runBlocking {
         DefiLlamaProvider().execute(PriceChart(asset, range, now), cfg(), http)
     }
 
@@ -66,22 +66,22 @@ class DefiLlamaChartTest {
             ),
         )
 
-        val series = chart(AssetId.Native(ETH), ChartRange.D1)
+        val series = chart(AssetId.Native(ETH), ChartFrame.H1)
 
         assertEquals(
             listOf(PricePoint(1_799_995_200_000L, 1_831.25), PricePoint(1_799_998_800_000L, 1_840.5)),
             series.points,
         )
-        assertEquals("/chart/coingecko:ethereum?start=1799913600&span=25&period=1h", server.takeRequest().target)
+        assertEquals("/chart/coingecko:ethereum?start=1799917200&span=24&period=1h", server.takeRequest().target)
     }
 
     @Test
-    fun aRangeOfThirtyDaysAsksDailyPointsFromItsStart() {
+    fun aDailyFrameAsksDailyPointsFromItsStart() {
         server.enqueue(answerFor("coingecko:ethereum", """{"timestamp":1799998800,"price":1840.5}"""))
 
-        chart(AssetId.Native(ETH), ChartRange.D30)
+        chart(AssetId.Native(ETH), ChartFrame.D1)
 
-        assertEquals("/chart/coingecko:ethereum?start=1797408000&span=31&period=1d", server.takeRequest().target)
+        assertEquals("/chart/coingecko:ethereum?start=1795939200&span=48&period=1d", server.takeRequest().target)
     }
 
     @Test
@@ -93,38 +93,38 @@ class DefiLlamaChartTest {
             ),
         )
 
-        assertEquals(listOf(PricePoint(1_799_998_800_000L, 1_840.5)), chart(AssetId.Native(ETH), ChartRange.D1).points)
+        assertEquals(listOf(PricePoint(1_799_998_800_000L, 1_840.5)), chart(AssetId.Native(ETH), ChartFrame.H1).points)
     }
 
     @Test
     fun aWindowWithNoPricesIsAnEmptySeriesAndNotAFailure() {
         server.enqueue(answerFor("coingecko:ethereum", ""))
 
-        assertEquals(PriceSeries(emptyList()), chart(AssetId.Native(ETH), ChartRange.D1))
+        assertEquals(PriceSeries(emptyList()), chart(AssetId.Native(ETH), ChartFrame.H1))
     }
 
     @Test
     fun aCoinTheSourceDoesNotKnowIsUnsupported() {
         server.enqueue(MockResponse.Builder().body("""{"coins":{}}""").build())
 
-        assertFailsWith<ProviderError.Unsupported> { chart(AssetId.Native(ETH), ChartRange.D1) }
+        assertFailsWith<ProviderError.Unsupported> { chart(AssetId.Native(ETH), ChartFrame.H1) }
     }
 
     @Test
     fun aTokenIsChartedByItsChainPrefixAndContract() {
         server.enqueue(answerFor("ethereum:$usdc", """{"timestamp":1799998800,"price":1.0}"""))
 
-        val series = chart(AssetId.Erc20(ETH, usdc), ChartRange.D30)
+        val series = chart(AssetId.Erc20(ETH, usdc), ChartFrame.D1)
 
         assertEquals(listOf(PricePoint(1_799_998_800_000L, 1.0)), series.points)
-        assertEquals("/chart/ethereum:$usdc?start=1797408000&span=31&period=1d", server.takeRequest().target)
+        assertEquals("/chart/ethereum:$usdc?start=1795939200&span=48&period=1d", server.takeRequest().target)
     }
 
     @Test
     fun aTestnetCoinIsUnsupportedAndNeverCalled() {
         val testnet = NetworkId(Networks.evm(1), testnet = true)
 
-        assertFailsWith<ProviderError.Unsupported> { chart(AssetId.Native(testnet), ChartRange.D1) }
+        assertFailsWith<ProviderError.Unsupported> { chart(AssetId.Native(testnet), ChartFrame.H1) }
         assertEquals(0, server.requestCount)
     }
 
