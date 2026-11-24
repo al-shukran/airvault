@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +55,14 @@ fun ChangePasswordSettingsPage(
     val filled = current.isNotEmpty() && password.isNotEmpty() && repeat.isNotEmpty()
     val refused = (problem as? PasswordChange.NewPassword)?.problem
 
+    // The fields hold the App Password as Strings, which the JVM cannot zero, so clearing them only ends their life on this page.
+    fun clearFields() {
+        current = ""
+        password = ""
+        repeat = ""
+    }
+    DisposableEffect(Unit) { onDispose { clearFields() } }
+
     fun submit() {
         if (busy || !filled) return
         busy = true
@@ -61,15 +70,12 @@ fun ChangePasswordSettingsPage(
         scope.launch {
             val outcome = onSubmit(current, password, repeat)
             busy = false
+            clearFields()
             when (outcome) {
                 PasswordChange.Changed -> onChanged()
                 PasswordChange.Locked -> onLocked()
                 PasswordChange.Unavailable -> onUnavailable()
-                else -> {
-                    // A wrong current password is cleared, as the gate clears it, so it does not stay on the page.
-                    if (outcome == PasswordChange.WrongCurrent) current = ""
-                    problem = outcome
-                }
+                else -> problem = outcome
             }
         }
     }

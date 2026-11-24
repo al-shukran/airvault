@@ -23,6 +23,7 @@ import app.lumio.data.config.AutoLock
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.LockSettings
 import app.lumio.data.config.TransactionSettings
+import app.lumio.ui.firstrun.NewPasswordProblem
 import app.lumio.evm.EvmSettings
 import app.lumio.pair.PairedWallet
 import kotlin.test.assertEquals
@@ -296,6 +297,38 @@ class SettingsPagesTest {
         assertEquals("not the password", tried)
         compose.onNodeWithText(WRONG_CURRENT_PASSWORD, substring = true).assertExists()
         compose.onNodeWithText("not the password").assertDoesNotExist()
+        compose.onNodeWithText("Fill in all three fields to continue").assertExists()
+    }
+
+    /** Once a change is made, no field keeps its password: the page asks for all three again. */
+    @Test
+    fun aChangedPasswordClearsAllThreeFields() = assertFieldsClearedAfter(PasswordChange.Changed, "Vk8#Rw2!Lq6Zn4Tp9Xb")
+
+    /** A refused submit clears all three fields too, so no typed password stays on the page. */
+    @Test
+    fun aRefusedSubmitClearsAllThreeFields() =
+        assertFieldsClearedAfter(PasswordChange.NewPassword(NewPasswordProblem.Mismatch), "Vk8#Rw2!Lq6Zn4Tp9Xc") {
+            compose.onNodeWithText("The passwords don't match", substring = true).assertExists()
+        }
+
+    private fun assertFieldsClearedAfter(outcome: PasswordChange, repeat: String, extra: () -> Unit = {}) {
+        compose.setContent {
+            ClearAirHarness {
+                ChangePasswordSettingsPage(
+                    offline = null,
+                    onSubmit = { _, _, _ -> outcome },
+                    onChanged = {}, onLocked = {}, onUnavailable = {}, onBack = {}, onLock = {},
+                )
+            }
+        }
+
+        val fields = compose.onAllNodes(hasSetTextAction())
+        fields[0].performTextInput("not the password")
+        fields[1].performTextInput("Vk8#Rw2!Lq6Zn4Tp9Xb")
+        fields[2].performTextInput(repeat)
+        compose.onNode(hasText("Change Password") and hasClickAction()).performClick()
+
+        extra()
         compose.onNodeWithText("Fill in all three fields to continue").assertExists()
     }
 
