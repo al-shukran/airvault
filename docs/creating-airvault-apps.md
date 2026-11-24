@@ -994,7 +994,7 @@ CAIP-2 references for `bip122`, `solana` and `algorand` are the registry values 
 | NFTs | none | ERC-721/1155 to add | Metaplex to add | ARC-3/69/19 to add |
 | Extras | `fee.satPerVb`, `btc.rbf` | `fee.*` EIP-1559, `evm.nonce` | `solana.memo` (not yet built), `fee.cuPrice`, `fee.cuLimit`, durable nonce | `algorand.note` (Lumio sends empty today), `closeTo`, `rekeyTo`, `lease` |
 | Preconditions | none | none | TokenAccount (ATA) | OptIn |
-| Lumio providers | Esplora (mempool, Blockstream), Blockchair | Chainlist RPC, custom RPC, Etherscan, Routescan, Blockscout, 3xpl | Solana RPC, custom RPC | Algod |
+| Lumio providers | Esplora (mempool, Blockstream), Electrum (Bitaroo, Emzy, Blockstream, lu.ke, Seth for Privacy), Blockchair | Chainlist RPC, custom RPC, Etherscan, Routescan, Blockscout, 3xpl | Solana RPC, custom RPC | Algod |
 
 The EVM contract registry (whitelist, denylist, protocol steps for Uniswap, CoW, bulker: about 20 of the 26 files in `shared/.../core/registry/`) becomes part of the `evm` app. It is EVM review logic, not core.
 
