@@ -346,7 +346,7 @@ class SendScreenshotTest {
         SendLastChancePage(
             recipient = "FelixStone",
             amount = "0.25 MON",
-            remaining = 2,
+            remaining = 42,
             total = TransactionSettings.DEFAULT_LAST_CHANCE_SECONDS,
             sending = false,
             onSendNow = {},
