@@ -16,7 +16,7 @@ import kotlinx.coroutines.SupervisorJob
  */
 internal fun testReads(settings: EvmSettings): EvmReads {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    val configs = { mapOf(CustomRpc.ID to ProviderConfig(chainUrls = settings.rpc.mapKeys { it.key.toString() })) }
+    val configs = { mapOf(CustomRpc.ID to ProviderConfig(chainUrls = settings.activeRpcUrls())) }
     val http = JsonRpc.newHttp(timeoutMs = 2_000L)
     return EvmReads(
         pool = Scheduler(emptyList(), configs, http, MonotonicClock, Random(7), scope),

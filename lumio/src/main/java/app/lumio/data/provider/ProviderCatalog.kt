@@ -3,6 +3,8 @@ package app.lumio.data.provider
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.esplora.BlockstreamProvider
 import app.lumio.data.esplora.MempoolProvider
+import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.algorand.AlgorandAlgod
 import app.lumio.data.provider.blockchair.BlockchairProvider
 import app.lumio.data.provider.blockscout.BlockscoutProvider
@@ -16,6 +18,7 @@ import app.lumio.data.provider.solana.SolanaRpc
 import app.lumio.data.provider.threexpl.ThreeXplProvider
 import app.lumio.data.rpc.CustomRpc
 import app.lumio.data.rpc.RpcPlugins
+import app.lumio.evm.EvmChain
 
 /**
  * The providers the settings list, each group in the order it is listed when no priority is set. The chain-data providers come first and the
@@ -69,4 +72,16 @@ object ProviderCatalog {
      * list them yet, as with the Solana providers.
      */
     fun algorandProviders(): List<Provider> = listOf(AlgorandAlgod())
+
+    /**
+     * Whether [provider] serves [chain] for balance reads, as it does once the key it takes is set. Membership is read with a probe key, so a key-required
+     * provider lists its chains before the owner sets one. [Provider.supports] only reads the probe; nothing is sent with it.
+     */
+    fun servesEvmChain(provider: Provider, chain: EvmChain): Boolean =
+        provider.supports(NetworkId(Networks.evm(chain.chainId), chain.testnet), Ops.EVM_NATIVE_BALANCE, PROBE)
+
+    /** The chains of [chains] that [provider] serves, as [servesEvmChain] reads them. */
+    fun evmChainsOf(provider: Provider, chains: List<EvmChain>): List<EvmChain> = chains.filter { servesEvmChain(provider, it) }
+
+    private val PROBE = ProviderConfig(apiKey = "probe")
 }

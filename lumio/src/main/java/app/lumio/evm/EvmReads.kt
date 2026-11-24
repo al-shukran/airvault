@@ -81,7 +81,7 @@ class EvmReads(
     suspend fun statusOf(providerId: String): ProviderHealth? = pool.statusOf(providerId) ?: owner.statusOf(providerId)
 
     private suspend fun <T> run(chain: EvmChain, priority: Priority, req: Request<T>, publicPool: Scheduler = pool): T {
-        val scheduler = if (settings().rpc.containsKey(chain.chainId)) owner else publicPool
+        val scheduler = if (settings().activeRpc(chain.chainId) != null) owner else publicPool
         return try {
             withTimeout(deadlineMs) { scheduler.run(req, priority) }
         } catch (e: ProviderError) {
@@ -103,7 +103,7 @@ class EvmReads(
             val settings = { EvmSettingsStore.read(session) }
             val configs = {
                 val saved = ProviderConfigStore(session).load()
-                val owner = settings().rpc.mapKeys { it.key.toString() }
+                val owner = settings().activeRpcUrls()
                 saved + (CustomRpc.ID to (saved[CustomRpc.ID] ?: ProviderConfig()).copy(chainUrls = owner))
             }
             return EvmReads(

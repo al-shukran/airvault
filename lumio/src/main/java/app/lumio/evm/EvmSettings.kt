@@ -9,13 +9,20 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
-/** A chain the owner added. Its RPC address is in [EvmSettings.rpc]. [explorer] is its block explorer, when the owner gave one. */
+/** A chain the owner added. Its RPC addresses are in [EvmSettings.rpc]. [explorer] is its block explorer, when the owner gave one. */
 @Serializable
 data class CustomChain(val chainId: Long, val name: String, val symbol: String, val testnet: Boolean, val explorer: String? = null)
 
 /**
+ * The RPC addresses the owner set for one chain. [custom] holds the addresses the owner added, in the order added. [active] is the one the chain reads
+ * from, or null for the built-in address. [active] is always null or one of [custom].
+ */
+@Serializable
+data class ChainRpcs(val custom: List<String> = emptyList(), val active: String? = null)
+
+/**
  * Lumio's EVM settings. They are kept as a vault record, so they are encrypted under the vault key: how many addresses of each wallet are
- * shown, which chains are read, the RPC address the owner set for a chain, and the custom chains. A missing field reads as its default.
+ * shown, which chains are read, the RPC addresses the owner set for each chain, and the custom chains. A missing field reads as its default.
  */
 @Serializable
 data class EvmSettings(
@@ -23,10 +30,16 @@ data class EvmSettings(
     val addressCount: Int = DEFAULT_ADDRESS_COUNT,
     /** The chains whose balances are read and shown. */
     val enabled: Set<Long> = DEFAULT_ENABLED,
-    /** The RPC address the owner set for a chain, built-in or custom. A chain without one reads from its default. */
-    val rpc: Map<Long, String> = emptyMap(),
+    /** The RPC addresses the owner set for each chain. A chain without one in use reads from its built-in address. */
+    val rpc: Map<Long, ChainRpcs> = emptyMap(),
     val custom: List<CustomChain> = emptyList(),
 ) {
+    /** The RPC address that [chainId] reads from, or null when it reads from its built-in address. */
+    fun activeRpc(chainId: Long): String? = rpc[chainId]?.active
+
+    /** The RPC address in use for each chain that has one, keyed by chain ID as text, the form the provider settings use for their chain URLs. */
+    fun activeRpcUrls(): Map<String, String> = rpc.mapNotNull { (chainId, rpcs) -> rpcs.active?.let { chainId.toString() to it } }.toMap()
+
     companion object {
         const val DEFAULT_ADDRESS_COUNT = 5
         const val MAX_ADDRESS_COUNT = 20
@@ -138,7 +151,7 @@ object EvmEdits {
         return current.copy(
             custom = current.custom + CustomChain(chainId, name, symbol, input.testnet, explorer),
             enabled = current.enabled + chainId,
-            rpc = current.rpc + (chainId to url),
+            rpc = current.rpc + (chainId to ChainRpcs(custom = listOf(url), active = url)),
         )
     }
 
@@ -151,15 +164,32 @@ object EvmEdits {
 
     private fun refuse(field: CustomNetworkField, message: String): Nothing = throw EvmRefusal(field, message)
 
-    /** [current] with the RPC address of [chainId] set to [raw], once the endpoint answers with that chain ID. */
+    /** [current] with [raw] added to the custom RPC addresses of [chainId] and in use, once the endpoint answers with that chain ID. */
     fun setRpc(current: EvmSettings, chainId: Long, raw: String, rpc: EvmRpc): EvmSettings {
         val url = RpcUrl.validate(raw, rpc.allowLocalHttp)
         rpc.requireChain(url, chainId)
-        return current.copy(rpc = current.rpc + (chainId to url))
+        return current.withRpcs(chainId) { it.copy(custom = if (url in it.custom) it.custom else it.custom + url, active = url) }
     }
 
-    /** [current] without an RPC address for [chainId], so the chain reads from its default again. */
-    fun resetRpc(current: EvmSettings, chainId: Long): EvmSettings = current.copy(rpc = current.rpc - chainId)
+    /** [current] with the built-in RPC address of [chainId] in use. Its custom addresses stay in the list. */
+    fun resetRpc(current: EvmSettings, chainId: Long): EvmSettings = current.withRpcs(chainId) { it.copy(active = null) }
+
+    /** [current] with [url], one of the custom RPC addresses of [chainId], in use. */
+    fun useRpc(current: EvmSettings, chainId: Long, url: String): EvmSettings {
+        require(url in (current.rpc[chainId]?.custom ?: emptyList())) { "That address is not one of the chain's custom RPCs." }
+        return current.withRpcs(chainId) { it.copy(active = url) }
+    }
+
+    /** [current] without the custom RPC address [url] of [chainId]. When [url] was in use, the built-in address is in use instead. */
+    fun removeRpc(current: EvmSettings, chainId: Long, url: String): EvmSettings = current.withRpcs(chainId) {
+        it.copy(custom = it.custom - url, active = if (it.active == url) null else it.active)
+    }
+
+    /** [current] with the RPC addresses of [chainId] changed by [change]. A chain left with none drops its entry, so it reads as it does by default. */
+    private fun EvmSettings.withRpcs(chainId: Long, change: (ChainRpcs) -> ChainRpcs): EvmSettings {
+        val next = change(rpc[chainId] ?: ChainRpcs())
+        return copy(rpc = if (next == ChainRpcs()) rpc - chainId else rpc + (chainId to next))
+    }
 
     fun setEnabled(current: EvmSettings, chainId: Long, on: Boolean): EvmSettings =
         current.copy(enabled = if (on) current.enabled + chainId else current.enabled - chainId)

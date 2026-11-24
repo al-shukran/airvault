@@ -17,12 +17,11 @@ import app.lumio.data.config.PreferRpcStore
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.config.configOf
 import app.lumio.data.config.orderedIds
-import app.lumio.data.config.withEnabled
-import app.lumio.data.config.withMoved
+import app.lumio.data.config.withOrderWithin
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderCatalog
-import app.lumio.data.provider.Trait
 import app.lumio.data.sched.ProviderHealth
+import app.lumio.evm.EvmChain
 import app.lumio.ui.settings.DataProvidersScreen
 import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.providerStatus
@@ -68,9 +67,6 @@ internal fun DataProvidersRoute(navController: NavHostController, holder: VaultH
             delay(STATUS_POLL_MS)
         }
     }
-    val dataIds = remember { ProviderCatalog.dataProviders().map { it.id } }
-    val priceIds = remember { ProviderCatalog.priceProviders().map { it.id } }
-    val rpcIds = remember { ProviderCatalog.rpcProviders(BuildConfig.DEBUG).map { it.id } }
     val writes = remember { Mutex() }
     val current = lists ?: return
     val writable = vault ?: return
@@ -92,15 +88,7 @@ internal fun DataProvidersRoute(navController: NavHostController, holder: VaultH
         onLock = onLock,
         onOpen = { id -> navController.navigate(LumioRoute.provider(id)) },
         // Each write starts from the defaults-filled settings, so a price provider never saves a default as a plain 0.
-        onEnabled = { id, on -> change { writable.updateConfigs { saved -> withEnabled(ProviderCatalog.withDefaults(saved), id, on) } } },
-        onMove = { id, up ->
-            val group = when (id) {
-                in dataIds -> dataIds
-                in priceIds -> priceIds
-                else -> rpcIds
-            }
-            change { writable.updateConfigs { saved -> withMoved(ProviderCatalog.withDefaults(saved), group, id, up) } }
-        },
+        onReorder = { group, order -> change { writable.updateConfigs { saved -> withOrderWithin(ProviderCatalog.withDefaults(saved), group, order) } } },
         preferRpc = current.preferRpc,
         onPreferRpc = { on -> change { PreferRpcStore.write(writable.session, on) } },
     )
@@ -109,16 +97,25 @@ internal fun DataProvidersRoute(navController: NavHostController, holder: VaultH
 /** Reads the three groups of rows: each provider's settings, and its status from whichever scheduler holds it. */
 internal suspend fun readLists(app: LumioApp, vault: LumioVault): ProviderLists {
     val configs = ProviderCatalog.withDefaults(vault.configs())
-    val evm = app.evmReadsFor(vault.session)
-    val healthOf: suspend (String) -> ProviderHealth? = { id ->
-        app.scheduler.statusOf(id) ?: app.priceScheduler.statusOf(id) ?: evm.statusOf(id)
-    }
+    val healthOf = healthReader(app, vault)
     return ProviderLists(
         data = rowsOf(ProviderCatalog.dataProviders(), configs, healthOf),
         prices = rowsOf(ProviderCatalog.priceProviders(), configs, healthOf),
         rpc = rowsOf(ProviderCatalog.rpcProviders(BuildConfig.DEBUG), configs, healthOf),
         preferRpc = PreferRpcStore.read(vault.session),
     )
+}
+
+/** The data providers that serve [chain], in the order the settings list them, each with its status. */
+internal suspend fun readChainProviders(app: LumioApp, vault: LumioVault, chain: EvmChain): List<ProviderRow> {
+    val serving = ProviderCatalog.dataProviders().filter { ProviderCatalog.servesEvmChain(it, chain) }
+    return rowsOf(serving, ProviderCatalog.withDefaults(vault.configs()), healthReader(app, vault))
+}
+
+/** What the schedulers say about a provider now: its status is read from whichever scheduler holds it. */
+private suspend fun healthReader(app: LumioApp, vault: LumioVault): suspend (String) -> ProviderHealth? {
+    val evm = app.evmReadsFor(vault.session)
+    return { id -> app.scheduler.statusOf(id) ?: app.priceScheduler.statusOf(id) ?: evm.statusOf(id) }
 }
 
 /** The rows of one group, in the order the settings list them. */
@@ -128,19 +125,15 @@ private suspend fun rowsOf(
     healthOf: suspend (String) -> ProviderHealth?,
 ): List<ProviderRow> {
     val byId = providers.associateBy { it.id }
-    val ordered = orderedIds(providers.map { it.id }, configs)
-    return ordered.mapIndexed { index, id ->
+    return orderedIds(providers.map { it.id }, configs).map { id ->
         val provider = checkNotNull(byId[id])
         val config = configOf(configs, id)
         ProviderRow(
             id = id,
-            mevProtected = Trait.MEV_PROTECTED in provider.traits,
             acceptsKey = id in ProviderCatalog.KEY_LISTED,
             enabled = config.enabled,
             apiKey = config.apiKey,
             status = providerStatus(provider.traits, config, healthOf(id)),
-            canMoveUp = index > 0,
-            canMoveDown = index < ordered.lastIndex,
         )
     }
 }

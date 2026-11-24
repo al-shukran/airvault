@@ -7,24 +7,31 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.ui.kit.ClearAirField
 import app.lumio.ui.kit.ClearAirListRow
 import app.lumio.ui.kit.ClearAirNote
 import app.lumio.ui.kit.ClearAirRow
+import app.lumio.ui.kit.ClearAirSwitchRow
 import app.lumio.ui.kit.ClearAirTextAction
 
 /**
- * The Provider page (B5) of one provider: its name in the bar, its status word with the line that says why, its factual tags, and its API key. [keyed]
- * is whether the provider takes a key. [savedTail] is the last four characters of the saved key, or null when none is saved, so the key itself never
- * shows again. A typed key is saved when the owner leaves its field or presses Done, and [onSaveKey] receives it. Its Remove action passes "".
+ * The Provider page (B5) of one provider: its name in the bar, its status word with the line that says why, the switch that turns it on or off, its
+ * factual tags, the networks it serves, and its API key. [keyed] is whether the provider takes a key. [savedTail] is the last four characters of the
+ * saved key, or null when none is saved, so the key itself never shows again. [networks] are the names of the networks it serves, in catalogue order,
+ * and the page words them with [networkSummary]. A typed key is saved when the owner leaves its field or presses Done, and [onSaveKey] receives it. Its
+ * Remove action passes "".
  */
 @Composable
 fun ProviderPage(
     name: String,
     status: String,
     statusNote: String?,
+    enabled: Boolean,
+    onEnabled: (Boolean) -> Unit,
     tags: List<String>,
+    networks: List<String>,
     keyed: Boolean,
     savedTail: String?,
     offline: String?,
@@ -35,9 +42,21 @@ fun ProviderPage(
     SettingsFrame(title = name, offline = offline, onBack = onBack, onLock = onLock) {
         SettingsGroup(title = "Status") {
             ClearAirRow(title = status, description = statusNote)
+            ClearAirSwitchRow(
+                title = "Use $name",
+                description = "A provider that is off is skipped",
+                checked = enabled,
+                onCheckedChange = onEnabled,
+                modifier = Modifier.testTag("provider-enabled"),
+            )
         }
         tags.forEach { tag ->
             ClearAirRow(title = tag)
+        }
+        if (networks.isNotEmpty()) {
+            SettingsGroup(title = "Supported Networks · ${networks.size}") {
+                ClearAirNote(text = networkSummary(networks), modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
+            }
         }
         if (keyed) {
             SettingsGroup(title = "Configure API Key") {
