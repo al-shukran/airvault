@@ -11,7 +11,7 @@ class ScanToPayRouteTest {
 
     @Test
     fun scanToPayOpensTheSendOnTheTestnetPrimaryNetworkWithTheCameraOn() {
-        val route = scanToPayRoute(wallet(), NetworkMode.TESTNET).orEmpty()
+        val route = scanToPayRoute(wallet(), NetworkMode.TESTNET, primaryOn = true).orEmpty()
 
         assertTrue(route.startsWith("send/air1/"))
         assertTrue(route.endsWith("?chain=10143&scan=true"))
@@ -19,7 +19,12 @@ class ScanToPayRouteTest {
 
     @Test
     fun aWalletWithNoEthereumAccountHasNoScanToPaySend() {
-        assertNull(scanToPayRoute(wallet(accounts = emptyList()), NetworkMode.TESTNET))
+        assertNull(scanToPayRoute(wallet(accounts = emptyList()), NetworkMode.TESTNET, primaryOn = true))
+    }
+
+    @Test
+    fun scanToPayOpensNoSendWhileThePrimaryNetworkIsSwitchedOff() {
+        assertNull(scanToPayRoute(wallet(), NetworkMode.TESTNET, primaryOn = false))
     }
 
     private fun wallet(accounts: List<PairedAccount> = listOf(PairedAccount(index = 0, address = ADDRESS, name = null, label = null, group = null))) =

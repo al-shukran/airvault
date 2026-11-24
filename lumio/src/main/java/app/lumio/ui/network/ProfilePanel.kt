@@ -125,6 +125,8 @@ fun ProfilePanel(
     activeWalletId: String?,
     onMode: (NetworkMode) -> Unit,
     onScan: () -> Unit,
+    /** Set while Scan to Pay cannot open a send: the row says what to turn on, and a tap does nothing. */
+    scanNote: String? = null,
     onTestNetworks: () -> Unit,
     onWallet: (String) -> Unit,
     onPair: () -> Unit,
@@ -159,11 +161,13 @@ fun ProfilePanel(
                 Brand()
                 PanelRow(
                     title = "Scan to Pay",
-                    description = "Send to a scanned address",
+                    description = scanNote ?: "Send to a scanned address",
                     leading = { GlyphDisc(ClearAirGlyph.SCAN, glyphSize = DISC_GLYPH) },
                     onClick = {
-                        onDismiss()
-                        onScan()
+                        if (scanNote == null) {
+                            onDismiss()
+                            onScan()
+                        }
                     },
                 )
                 ClearAirEyebrow("Networks", modifier = Modifier.padding(start = ClearAirSpacing.gutter), top = 14.dp, bottom = ClearAirSpacing.xxs)

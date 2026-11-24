@@ -21,6 +21,9 @@ enum class FiatCurrency(val code: String, val title: String, val symbol: String,
     fun format(value: Double): String = prefix + String.format(Locale.ROOT, "%,.${digits}f", value)
 }
 
+/** How many units of [currency] one US dollar buys. It is kept with its currency, so it is never applied to another one. */
+data class FiatRate(val currency: FiatCurrency, val perUsd: Double)
+
 /**
  * The currency that amounts show in, and how many of its units one US dollar buys. It is built with [of], which falls back to US dollars when no rate is
  * known, so an amount is never shown in a currency with a wrong number.
@@ -36,8 +39,11 @@ class Fiat private constructor(val currency: FiatCurrency, private val perUsd: D
         /** US dollars, which every amount is held in, so it needs no rate. */
         val USD: Fiat = Fiat(FiatCurrency.USD, 1.0)
 
-        /** The [currency] at [perUsd] units per US dollar. US dollars when the rate is not known or is not positive, so the wrong currency is never shown. */
-        fun of(currency: FiatCurrency, perUsd: Double?): Fiat =
-            if (currency == FiatCurrency.USD || perUsd == null || perUsd <= 0.0) USD else Fiat(currency, perUsd)
+        /**
+         * The [currency] at [rate]. US dollars when the rate is not known, is not positive, or prices another currency, so the wrong currency is never shown
+         * and a rate from before a currency switch is never applied.
+         */
+        fun of(currency: FiatCurrency, rate: FiatRate?): Fiat =
+            if (currency == FiatCurrency.USD || rate == null || rate.currency != currency || rate.perUsd <= 0.0) USD else Fiat(currency, rate.perUsd)
     }
 }
