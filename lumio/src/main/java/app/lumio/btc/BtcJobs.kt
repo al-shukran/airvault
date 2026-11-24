@@ -62,11 +62,16 @@ suspend fun scanJob(
 }
 
 /**
- * True when this partial scan reads no less than [stored]: it holds every address that [stored] holds, and its balance is not lower. A scan that
- * fails part way has not read the addresses after the failed request, so it can lack a stored address and the balance of that address.
+ * True when this partial scan reads no less than [stored]: it holds every address and every unspent output that [stored] holds, and its balance is
+ * not lower. A scan that fails part way has not read the addresses after the failed request, so it can lack a stored address and the balance of
+ * that address. A failed UTXO request leaves the balance and addresses intact, so the unspent outputs are checked too.
  */
-private fun BtcSnapshot.isNotWorseThan(stored: BtcSnapshot): Boolean =
-    addresses.containsAll(stored.addresses) && confirmedSats + unconfirmedSats >= stored.confirmedSats + stored.unconfirmedSats
+private fun BtcSnapshot.isNotWorseThan(stored: BtcSnapshot): Boolean {
+    val outputs = utxos.map { it.txid to it.vout }.toSet()
+    return addresses.containsAll(stored.addresses) &&
+        outputs.containsAll(stored.utxos.map { it.txid to it.vout }) &&
+        confirmedSats + unconfirmedSats >= stored.confirmedSats + stored.unconfirmedSats
+}
 
 /**
  * The block [hash] of [net]. A block never changes, so the answer is cached for good, and a later read is served from the cache.
