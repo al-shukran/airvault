@@ -204,13 +204,13 @@ internal fun WalletRoute(
                 usdOf = view::usd,
                 showTotal = display.showTotal,
                 showBalances = display.showAssets,
-                refreshing = board.refreshing,
                 refreshByPull = board.refreshByPull,
                 updatedAtMs = board.updatedAtMs,
-                // Every read or scan that did not answer leaves the notice. A chain that did not answer also names itself under its island.
+                // A chain that did not answer names itself under its island, with a Retry. The notice is left for a read that failed as a whole.
                 notice = board.notice,
                 pairedAtMs = wallet.createdAtMs,
-                unreachable = board.unreachable,
+                reads = board.reads,
+                onRetry = board::retry,
                 onAccount = { account -> navController.navigate(LumioRoute.account(walletId, account.id)) },
                 onRefresh = { board.refresh(pulled = true) },
             )

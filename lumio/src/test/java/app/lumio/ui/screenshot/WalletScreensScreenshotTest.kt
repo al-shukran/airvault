@@ -41,6 +41,7 @@ import app.lumio.ui.wallets.WalletsScreen
 import app.lumio.ui.wallets.moreAccountsTitle
 import app.lumio.wallets.AccountCoin
 import app.lumio.wallets.WalletAccount
+import app.lumio.wallets.WalletReads
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.time.ZoneOffset
@@ -287,7 +288,6 @@ class WalletScreensScreenshotTest {
             usdOf = usdOf,
             showTotal = true,
             showBalances = true,
-            refreshing = false,
             updatedAtMs = UPDATED_3_MIN_AGO,
             notice = null,
             pairedAtMs = PAIRED_AT_MS,
@@ -309,14 +309,13 @@ class WalletScreensScreenshotTest {
             usdOf = usdOf,
             showTotal = true,
             showBalances = true,
-            refreshing = false,
             updatedAtMs = UPDATED_3_MIN_AGO,
             notice = null,
             pairedAtMs = PAIRED_AT_MS,
             zone = ZoneOffset.UTC,
             onAccount = {},
             onRefresh = {},
-            unreachable = setOf(Networks.SOL_DEVNET),
+            reads = WalletReads(unreachable = setOf(Networks.SOL_DEVNET), startedAtMs = mapOf(Networks.SOLANA to UPDATED_3_MIN_AGO)),
             clock = fixedClock,
         )
     }
@@ -352,7 +351,6 @@ class WalletScreensScreenshotTest {
             usdOf = usdOf,
             showTotal = true,
             showBalances = true,
-            refreshing = false,
             updatedAtMs = UPDATED_3_MIN_AGO,
             notice = null,
             pairedAtMs = PAIRED_AT_MS,
@@ -385,7 +383,6 @@ class WalletScreensScreenshotTest {
             usdOf = usdOf,
             showTotal = true,
             showBalances = true,
-            refreshing = false,
             updatedAtMs = UPDATED_3_MIN_AGO,
             notice = null,
             onAccount = {},
@@ -405,7 +402,7 @@ class WalletScreensScreenshotTest {
             usdOf = usdOf,
             showTotal = false,
             showBalances = false,
-            refreshing = true,
+            reads = WalletReads(checking = setOf(Networks.EIP155)),
             updatedAtMs = null,
             notice = null,
             onAccount = {},
@@ -425,7 +422,6 @@ class WalletScreensScreenshotTest {
             usdOf = usdOf,
             showTotal = false,
             showBalances = false,
-            refreshing = false,
             updatedAtMs = UPDATED_3_MIN_AGO,
             notice = null,
             onAccount = {},
@@ -445,7 +441,6 @@ class WalletScreensScreenshotTest {
             usdOf = usdOf,
             showTotal = true,
             showBalances = true,
-            refreshing = false,
             updatedAtMs = UPDATED_3_MIN_AGO,
             notice = null,
             onAccount = {},
@@ -465,7 +460,6 @@ class WalletScreensScreenshotTest {
             usdOf = usdOf,
             showTotal = true,
             showBalances = true,
-            refreshing = false,
             updatedAtMs = UPDATED_3_MIN_AGO,
             notice = null,
             onAccount = {},
@@ -484,7 +478,6 @@ class WalletScreensScreenshotTest {
             usdOf = usdOf,
             showTotal = true,
             showBalances = true,
-            refreshing = false,
             updatedAtMs = UPDATED_3_MIN_AGO,
             notice = null,
             onAccount = {},
