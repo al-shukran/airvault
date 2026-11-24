@@ -69,25 +69,31 @@ data class RefreshResult(val unreachable: Set<ChainId>, val unreadable: Boolean)
 /** Reads the wallets' accounts from the vault, and refreshes their balances from the networks. */
 internal object WalletsLoader {
     /**
-     * The wallets of the open vault and their accounts on [mode]'s side, read from the vault's caches. The prices are read after the accounts, so the
-     * accounts show at once. It reads no balance from the network. It runs on the I/O dispatcher, so the board's main-thread callers do not wait for it.
+     * The wallets of the open vault and their accounts on [mode]'s side, read from the vault's caches, with the last prices kept. It reads nothing from a
+     * source, so the accounts show at once. It runs on the I/O dispatcher, so the board's main-thread callers do not wait for it.
      */
     suspend fun read(app: LumioApp, session: VaultSession, mode: NetworkMode): WalletsView = withContext(Dispatchers.IO) {
         val wallets = PairedWallets.list(session)
         val accounts = accountsOn(app, session, mode, wallets)
-        val prices = HomeLoader.prices(app, accounts.values.flatten().mapNotNull { it.balance })
+        val prices = HomeLoader.lastPrices(app, accounts.values.flatten().mapNotNull { it.balance })
         WalletsView(wallets, accounts, prices)
     }
 
     /**
-     * Reads the Ethereum, Algorand and Solana balances of [mode]'s side, and scans its Bitcoin accounts, all at once. [landed] runs as each read ends, so
-     * the caller shows its result without waiting for the others. A read that failed keeps its cached balance, and the result names the chains that did
-     * not answer.
+     * Reads the chain families [families] of [mode]'s side, all at once: the Ethereum balances, the Algorand and Solana balances, and the Bitcoin scans.
+     * [landed] runs as each read ends, with the namespaces it covers and the chains that did not answer, so the caller shows its result without waiting
+     * for the others. A read that failed keeps its cached balance, and the result names the chains that did not answer.
      */
-    suspend fun refresh(app: LumioApp, session: VaultSession, mode: NetworkMode, landed: suspend () -> Unit): RefreshResult = refreshChains(
-        evm = { HomeLoader.refreshEvm(app, session, mode) },
-        native = { HomeLoader.refreshNative(app, session, mode) },
-        bitcoin = { HomeLoader.scanBitcoin(app, session, mode) },
+    suspend fun refresh(
+        app: LumioApp,
+        session: VaultSession,
+        mode: NetworkMode,
+        families: Set<String>,
+        landed: suspend (namespaces: Set<String>, unreachable: Set<ChainId>) -> Unit,
+    ): RefreshResult = refreshChains(
+        evm = if (Networks.EIP155 in families) ({ HomeLoader.refreshEvm(app, session, mode) }) else null,
+        native = if (Networks.SOLANA in families || Networks.ALGORAND in families) ({ HomeLoader.refreshNative(app, session, mode) }) else null,
+        bitcoin = if (Networks.BIP122 in families) ({ HomeLoader.scanBitcoin(app, session, mode) }) else null,
         landed = landed,
     )
 
@@ -137,18 +143,33 @@ internal suspend fun <T> readOrNull(block: suspend () -> T): T? = try {
 }
 
 /**
- * Runs the Ethereum, native and Bitcoin reads at once. [landed] runs as each read ends, whether it answered or not, so the caller shows its result at
- * once. A read that fails is a failure of its own chain only: the other reads still run to the end.
+ * Runs the reads that are given, at once. A null read is not run. [landed] runs as each read ends, whether it answered or not, with the namespaces the
+ * read covers and the chains that did not answer, so the caller shows its result at once. A read that fails is a failure of its own chain only: the
+ * other reads still run to the end.
  */
 internal suspend fun refreshChains(
-    evm: suspend () -> List<ChainFailure>,
-    native: suspend () -> List<NativeFailure>,
-    bitcoin: suspend () -> Unit,
-    landed: suspend () -> Unit,
+    evm: (suspend () -> List<ChainFailure>)?,
+    native: (suspend () -> List<NativeFailure>)?,
+    bitcoin: (suspend () -> Unit)?,
+    landed: suspend (namespaces: Set<String>, unreachable: Set<ChainId>) -> Unit,
 ): RefreshResult = supervisorScope {
-    val evmRead = async { readOrNull(evm).also { landed() } }
-    val nativeRead = async { readOrNull(native).also { landed() } }
-    launch { readOrNull(bitcoin).also { landed() } }
-    val unreachable = evmRead.await().orEmpty().map { Networks.evm(it.chainId) } + nativeRead.await().orEmpty().map { it.network.chain }
-    RefreshResult(unreachable = unreachable.toSet(), unreadable = evmRead.await() == null || nativeRead.await() == null)
+    val evmRead = evm?.let { read ->
+        async {
+            readOrNull(read).also { failures -> landed(setOf(Networks.EIP155), failures.orEmpty().map { Networks.evm(it.chainId) }.toSet()) }
+        }
+    }
+    val nativeRead = native?.let { read ->
+        async {
+            readOrNull(read).also { failures ->
+                landed(setOf(Networks.SOLANA, Networks.ALGORAND), failures.orEmpty().map { it.network.chain }.toSet())
+            }
+        }
+    }
+    bitcoin?.let { read -> launch { readOrNull(read); landed(setOf(Networks.BIP122), emptySet()) } }
+    val evmFailures = evmRead?.await()
+    val nativeFailures = nativeRead?.await()
+    RefreshResult(
+        unreachable = (evmFailures.orEmpty().map { Networks.evm(it.chainId) } + nativeFailures.orEmpty().map { it.network.chain }).toSet(),
+        unreadable = (evmRead != null && evmFailures == null) || (nativeRead != null && nativeFailures == null),
+    )
 }

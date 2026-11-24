@@ -124,12 +124,16 @@ internal object Erc20 {
 internal object Multicall3 {
     const val ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11"
     const val AGGREGATE3 = "0x82ad56cb"
+    const val GET_ETH_BALANCE = "0x4d2301cc"
 
     /** One call of the batch: [target] runs [data], and [allowFailure] lets the batch go on when that call reverts. */
     class Call(val target: String, val allowFailure: Boolean, val data: String)
 
     /** One answer of the batch: whether its call succeeded, and the bytes it returned. */
     class Result(val success: Boolean, val data: ByteArray)
+
+    /** The call data of getEthBalance(address): the native balance of [address] in wei. Multicall3 answers it on its own address. */
+    fun getEthBalance(address: String): String = GET_ETH_BALANCE + Abi.hex(Abi.addressWord(address)).removePrefix("0x")
 
     /**
      * The call data of aggregate3((address target, bool allowFailure, bytes callData)[]). The one argument is a dynamic array of dynamic tuples, so it

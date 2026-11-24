@@ -39,6 +39,11 @@ data class BtcSnapshot(
     val transactions: List<BtcTx>,
     /** The addresses the scan found in use. Their stored transactions are the account's activity, which a screen reads before any scan runs. */
     val addresses: List<String> = emptyList(),
+    /**
+     * False when the scan failed part way: the balance counts only the addresses read so far, and [nextReceiveIndex] may point at an unread index. A
+     * complete scan sets it back to true.
+     */
+    val complete: Boolean = true,
 ) {
     /** The confirmations of [tx] at the tip this scan saw. An unconfirmed transaction has none. */
     fun confirmations(tx: BtcTx): Long = tx.blockHeight?.let { maxOf(0L, tipHeight - it + 1) } ?: 0L

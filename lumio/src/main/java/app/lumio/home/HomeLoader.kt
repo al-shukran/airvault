@@ -27,9 +27,9 @@ import kotlinx.coroutines.withContext
  * the Bitcoin scans. Every vault read and every database read runs off the main thread.
  */
 internal object HomeLoader {
-    /** The prices of the coins of [assets], keyed by asset. An asset with no price, or whose sources do not answer, is absent. */
-    suspend fun prices(app: LumioApp, assets: List<HomeAsset>): Map<AssetId, Price> = withContext(Dispatchers.IO) {
-        app.prices.assetPrices(assets.map { it.assetId }.distinct())
+    /** The last prices kept of the coins of [assets], keyed by asset. It asks no source, so an asset that no read has priced is absent. */
+    suspend fun lastPrices(app: LumioApp, assets: List<HomeAsset>): Map<AssetId, Price> = withContext(Dispatchers.IO) {
+        app.prices.lastPrices(assets.map { it.assetId }.distinct())
     }
 
     /**
@@ -67,14 +67,18 @@ internal object HomeLoader {
     }
 
     /**
-     * Queues a scan of each Bitcoin account of [mode]'s side, and runs the scans. The scan queue reports each account as it finishes, so Home can
-     * read the scans as they land.
+     * Queues a scan of each Bitcoin account of [mode]'s side, and runs the scans. The first account is the one at the top of the wallet screen, so it
+     * scans at FOREGROUND and its recent transactions are read first. The scan queue reports each account as it finishes, so Home can read the scans
+     * as they land.
      */
     suspend fun scanBitcoin(app: LumioApp, session: VaultSession, mode: NetworkMode) {
         val refs = withContext(Dispatchers.IO) { bitcoinRefs(session).filter { mode.holds(it.account.network) } }
         if (refs.isEmpty()) return
         val net = mode.btcNetwork().networkId()
-        withContext(Dispatchers.IO) { queueScans(app.scanQueue, refs, net, Priority.VISIBLE) }
+        withContext(Dispatchers.IO) {
+            queueScans(app.scanQueue, refs.take(1), net, Priority.FOREGROUND)
+            queueScans(app.scanQueue, refs.drop(1), net, Priority.VISIBLE)
+        }
         app.startScan(net).join()
     }
 

@@ -166,6 +166,8 @@ internal fun PairReviewRoute(
                     onChanged()
                     // The pairing replaced the wallet's records, so the import kept for its earlier pairing is dropped: the next import reads them.
                     (holder.sessionAttachment() as? LumioVault)?.firstSyncs?.drop(saved.id)
+                    // The first reads of the paired wallet start now, before the owner opens it, so its balances land on the wallet screens as they arrive.
+                    (holder.sessionAttachment() as? LumioVault)?.wallets?.refresh()
                     navController.navigate(LumioRoute.firstSync(saved.id)) { popUpTo(LumioRoute.WALLETS) { inclusive = false } }
                 }
             }

@@ -2,6 +2,9 @@ package app.lumio.evm
 
 import app.lensly.core.vault.VaultSession
 import app.lumio.pair.PairedWallet
+import app.lumio.tokens.Abi
+import app.lumio.tokens.AbiException
+import app.lumio.tokens.Multicall3
 import java.math.BigInteger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -20,10 +23,14 @@ data class AddressRow(val index: Int, val address: String, val reads: Map<Long, 
 /** A native balance on [chain], as the cache holds it, with the time of its read. */
 data class Holding(val chain: EvmChain, val wei: BigInteger, val atMs: Long)
 
+/** The most addresses that one Multicall3 call reads. */
+private const val BATCH_SIZE = 50
+
 /**
- * Reads the balances and nonces of one wallet's addresses on the given chains through [reads]. A chain that the pool cannot serve, or whose
- * endpoint fails, is reported as a [ChainFailure] and gives no reads. Chains run side by side. The addresses of one chain are read in order, and
- * the first failure ends that chain, so an offline device waits for one failure per chain, not one per address.
+ * Reads the native balances and nonces of one wallet's addresses on the given chains through [reads]. A chain that the pool cannot serve, or whose
+ * endpoint fails, is reported as a [ChainFailure] and gives no reads. Chains run side by side. Within a chain, the balances come in one Multicall3
+ * call and the nonces are read side by side. An address whose balance or nonce does not answer gives no read and does not stop the others; the
+ * chain reports its first failure.
  */
 class PortfolioRefresh(
     private val reads: EvmReads,
@@ -33,27 +40,94 @@ class PortfolioRefresh(
     class WalletReads(val reads: List<CachedBalance>, val failures: List<ChainFailure>)
 
     suspend fun wallet(walletId: String, addresses: List<String>, count: Int, chains: List<EvmChain>): WalletReads = coroutineScope {
-        val results = chains.map { chain -> async { readChain(walletId, addresses, count, chain) } }.awaitAll()
+        val results = chains.map { chain -> async { readChain(walletId, addresses.take(count), chain) } }.awaitAll()
         WalletReads(results.flatMap { it.reads }, results.mapNotNull { it.failure })
     }
 
-    private suspend fun readChain(walletId: String, addresses: List<String>, count: Int, chain: EvmChain): ChainResult = try {
-        val fresh = addresses.take(count).map { address ->
-            CachedBalance(
-                walletId = walletId,
-                chainId = chain.chainId,
-                address = address,
-                wei = reads.balance(chain, address).toString(),
-                nonce = reads.nonce(chain, address, pending = false),
-                atMs = nowMs(),
+    private suspend fun readChain(walletId: String, addresses: List<String>, chain: EvmChain): ChainResult = try {
+        coroutineScope {
+            val nonces = addresses.map { address -> async { nonceOf(chain, address) } }
+            val balances = readBalances(
+                addresses,
+                call = { to, data -> reads.call(chain, to, data) },
+                single = { address -> reads.balance(chain, address) },
             )
+            val fresh = ArrayList<CachedBalance>()
+            var failure: String? = null
+            for ((address, nonce) in addresses.zip(nonces.awaitAll())) {
+                val wei = balances.getValue(address)
+                val error = wei.exceptionOrNull() ?: nonce.exceptionOrNull()
+                if (error != null) {
+                    failure = failure ?: error.message ?: "The endpoint failed."
+                } else {
+                    fresh.add(CachedBalance(walletId, chain.chainId, address, wei.getOrThrow().toString(), nonce.getOrThrow(), nowMs()))
+                }
+            }
+            ChainResult(fresh, failure?.let { ChainFailure(chain.chainId, it) })
         }
-        ChainResult(fresh, null)
     } catch (e: RpcFailure) {
         ChainResult(emptyList(), ChainFailure(chain.chainId, e.message ?: "The endpoint failed."))
     }
 
+    /** The nonce of [address] on [chain], or the failure of its read. */
+    private suspend fun nonceOf(chain: EvmChain, address: String): Result<Long> = try {
+        Result.success(reads.nonce(chain, address, pending = false))
+    } catch (e: RpcFailure) {
+        Result.failure(e)
+    }
+
     private class ChainResult(val reads: List<CachedBalance>, val failure: ChainFailure?)
+}
+
+/**
+ * The native balance of each of [addresses] on one chain, read with Multicall3: one `getEthBalance` call per address, up to [BATCH_SIZE] addresses to
+ * one eth_call. A batch the chain cannot answer, because Multicall3 is not deployed there, the call errors, or the answer does not decode, is read
+ * address by address through [single] instead, all at once. A failed address gives a failed [Result] and does not stop the others. An endpoint that
+ * cannot be reached throws [RpcFailure] for the whole read.
+ */
+internal suspend fun readBalances(
+    addresses: List<String>,
+    call: suspend (to: String, data: String) -> String,
+    single: suspend (address: String) -> BigInteger,
+): Map<String, Result<BigInteger>> = coroutineScope {
+    addresses.chunked(BATCH_SIZE).map { batch ->
+        async {
+            batch.zip(batchAnswers(batch, call) ?: batch.map { address -> async { singleRead(address, single) } }.awaitAll())
+        }
+    }.awaitAll().flatten().toMap()
+}
+
+/**
+ * The balances of [batch] from one Multicall3 call, in order, or null when the chain cannot answer it: the call errors, the reply is empty, or the
+ * reply does not decode. An endpoint failure other than those throws [RpcFailure].
+ */
+private suspend fun batchAnswers(batch: List<String>, call: suspend (String, String) -> String): List<Result<BigInteger>>? {
+    val reply = try {
+        call(Multicall3.ADDRESS, Multicall3.aggregate3(batch.map { Multicall3.Call(Multicall3.ADDRESS, allowFailure = true, Multicall3.getEthBalance(it)) }))
+    } catch (e: RpcFailure) {
+        if (e.reason == RpcFailure.Reason.ERROR || e.reason == RpcFailure.Reason.MALFORMED) return null
+        throw e
+    }
+    // A chain without Multicall3 answers a call to its address with no data, which is the text "0x".
+    if (reply.removePrefix("0x").isEmpty()) return null
+    val results = try {
+        Multicall3.decodeAggregate3(reply, batch.size)
+    } catch (e: AbiException) {
+        return null
+    }
+    return results.map { result ->
+        if (result.success && result.data.size >= Abi.WORD) {
+            Result.success(Abi.uint(result.data))
+        } else {
+            Result.failure(RpcFailure(RpcFailure.Reason.ERROR, "The balance could not be read."))
+        }
+    }
+}
+
+private suspend fun singleRead(address: String, single: suspend (String) -> BigInteger): Result<BigInteger> = try {
+    Result.success(single(address))
+} catch (e: RpcFailure) {
+    Result.failure(e)
 }
 
 /** The addresses Lumio shows for each wallet, and the refresh that fills the balance cache. */

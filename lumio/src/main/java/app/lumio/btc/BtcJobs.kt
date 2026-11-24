@@ -51,7 +51,7 @@ suspend fun scanJob(
             memo = memo.forNetwork(ref.account.network.networkId()),
             detail = detail,
             step = step,
-            onPartial = { save(it) },
+            onPartial = { save(it.copy(complete = false)) },
             electrum = electrumFor(ref.account.network),
         ),
     )

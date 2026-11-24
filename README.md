@@ -80,6 +80,10 @@ You need a JDK and the Android SDK.
 
 To run one CI partition locally, use `scripts/ci/run-partition.sh <partition>`. See [docs/testing/README.md](docs/testing/README.md) for the partition names.
 
+## Data Sources
+
+Lumio reads balances and prices from free public servers, and it thanks the people who run them. The providers it asks are listed in the "Lumio providers" row of the [chain app table](docs/creating-airvault-apps.md#111-how-each-chain-maps-onto-the-spec).
+
 ## Documentation
 
 - [Contributing](CONTRIBUTING.md): CLA, changelog fragments, pull request labels, the CI gate, and local checks.

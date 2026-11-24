@@ -193,6 +193,14 @@ fun AboutSettingsPage(version: String, offline: String?, onLicences: () -> Unit,
     SettingsPageScreen(SettingsPage.ABOUT, offline, onBack, onLock) {
         ClearAirRow(title = "Version", description = version)
         ClearAirNote(text = "AirVault has no token, no sale and no support team.", modifier = Modifier.padding(top = ClearAirSpacing.xs))
+        SettingsGroup(title = stringResource(R.string.settings_sources_heading)) {
+            ClearAirRow(title = stringResource(R.string.settings_sources_bitcoin_title), description = stringResource(R.string.settings_sources_bitcoin_body))
+            ClearAirRow(title = stringResource(R.string.settings_sources_electrum_title), description = stringResource(R.string.settings_sources_electrum_body))
+            ClearAirRow(title = stringResource(R.string.settings_sources_explorers_title), description = stringResource(R.string.settings_sources_explorers_body))
+            ClearAirRow(title = stringResource(R.string.settings_sources_rpc_title), description = stringResource(R.string.settings_sources_rpc_body))
+            ClearAirRow(title = stringResource(R.string.settings_sources_prices_title), description = stringResource(R.string.settings_sources_prices_body))
+            ClearAirNote(text = stringResource(R.string.settings_sources_thanks), modifier = Modifier.padding(top = ClearAirSpacing.xs))
+        }
         SettingsGroup(title = "Licences") {
             ClearAirRow(
                 title = stringResource(R.string.settings_licences_open),
