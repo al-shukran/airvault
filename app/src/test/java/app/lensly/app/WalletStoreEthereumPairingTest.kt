@@ -54,6 +54,7 @@ class WalletStoreEthereumPairingTest {
 
     private fun walletWith(accounts: Int): String {
         val id = store.create(name = "Demo", deviceGenerated = false, words = WORDS, passphrase = null, nowMs = 1L)
+        store.installAll(id)
         repeat(accounts - 1) { store.addAccount(id) }
         return id
     }

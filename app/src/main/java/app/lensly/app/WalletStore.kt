@@ -59,6 +59,9 @@ class SolanaCapReached : IllegalArgumentException("A wallet keeps at most ${Wall
 /** An Algorand account refused because the wallet would keep more than [WalletRecords.ALGORAND_MAX_ACCOUNTS]. Nothing is saved. */
 class AlgorandCapReached : IllegalArgumentException("A wallet keeps at most ${WalletRecords.ALGORAND_MAX_ACCOUNTS} Algorand accounts.")
 
+/** A request for an App that is not installed in the wallet, such as a pairing for Ethereum in a wallet without it. Nothing is saved. */
+class AppNotInstalled(val app: WalletApp) : IllegalStateException("The ${app.label} app is not installed in this wallet.")
+
 /**
  * What a wallet's secret is. A Mnemonic wallet holds a 24-word Mnemonic and an optional Passphrase, and every account
  * derives from them. A Single Key wallet holds one imported private key. It has exactly one account, and no derivation
@@ -151,6 +154,9 @@ sealed interface WalletSecret {
  *   follows in the layout of an account record. A wallet with no
  *   record has no Bitcoin account. The record is one fixed size, so the profiles share the room the accounts leave.
  *
+ * No record stores which Apps a wallet has installed. An App is installed in a wallet when the wallet holds at least one of its accounts
+ * (see [installedApps]).
+ *
  * Encoded bytes are zeroed after they are written or parsed, including the internal buffer of the stream
  * that produced them. The Strings for the words and the passphrase cannot be zeroed. They are dropped as soon
  * as the wallet has been used. The private key of a Single Key secret is the caller's to zero.
@@ -219,10 +225,9 @@ class WalletStore(private val session: VaultSession) {
     }
 
     /**
-     * Saves a new wallet with one account of each App and returns its id. The secret is written first, then the name and the metadata, which
-     * the first accounts are added to. The metadata is saved incomplete. Each App then adds its first account, in [WalletApp] order, and the
-     * metadata is saved complete last, so a crash before that leaves a wallet [list] does not show. If a write fails, the partial wallet
-     * is removed.
+     * Saves a new wallet with one Bitcoin account and returns its id. The other Apps are installed afterwards with [installApp]. The secret
+     * is written first, then the name and the metadata. The metadata is saved incomplete, the Bitcoin account is added, and the metadata is
+     * saved complete last, so a crash before that leaves a wallet [list] does not show. If a write fails, the partial wallet is removed.
      *
      * @throws IllegalArgumentException if [name] is not a valid Display Name, or [words] is not a valid 24-word mnemonic. Nothing is
      * written then.
@@ -258,7 +263,7 @@ class WalletStore(private val session: VaultSession) {
             )
             session.putRecord(id, WalletRecords.BASE_NAME, WalletRecords.encodeName(clean))
             session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(meta))
-            WalletApp.entries.forEach { app -> app.firstAccount(this, id) }
+            WalletApp.BITCOIN.firstAccount(this, id)
             val done = requireNotNull(this.meta(id)) { "No wallet $id." }
             session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(done.copy(complete = true)))
         } catch (e: Throwable) {
@@ -303,6 +308,59 @@ class WalletStore(private val session: VaultSession) {
             throw e
         }
         return id
+    }
+
+    /**
+     * The Apps wallet [id] has installed, in [WalletApp] order. An App is installed when the wallet holds at least one of its accounts, so
+     * no record stores the set: installing an App adds its account at index 0, and uninstalling it removes all of its accounts. A Single Key
+     * wallet has its Ethereum account only. A wallet that does not exist has none.
+     */
+    fun installedApps(id: String): Set<WalletApp> = WalletApp.entries.filter { hasAccountOf(id, it) }.toSet()
+
+    /**
+     * Installs [app] in Mnemonic wallet [id] by adding its account at index 0. The seed always derives that account to the same address.
+     * An App that is already installed is left as it is. Nothing is saved if the account cannot be derived. The check and the write run
+     * under the session's lock.
+     *
+     * @throws IllegalArgumentException if the wallet is missing, or is a Single Key wallet and [app] is not its Ethereum account.
+     */
+    fun installApp(id: String, app: WalletApp) {
+        synchronized(session) {
+            if (app !in installedApps(id)) app.firstAccount(this, id)
+        }
+    }
+
+    /**
+     * Uninstalls [app] from Mnemonic wallet [id]: removes all of its accounts in one atomic write. Nothing else changes, and the secret record
+     * is never touched, so [installApp] derives the same accounts again. The names, labels and groups of the removed accounts are lost. An App
+     * that is not installed is left as it is.
+     *
+     * @throws IllegalArgumentException if the wallet is missing or is a Single Key wallet, whose one account is its Ethereum account.
+     */
+    fun uninstallApp(id: String, app: WalletApp) {
+        synchronized(session) {
+            val current = requireNotNull(meta(id)) { "No wallet $id." }
+            require(current.kind == WalletKind.MNEMONIC) { SINGLE_KEY_NO_UNINSTALL }
+            if (app !in installedApps(id)) return
+            when (app) {
+                WalletApp.BITCOIN -> session.putRecords(id, emptyMap(), listOf(WalletRecords.BITCOIN))
+                WalletApp.ETHEREUM -> {
+                    val cleared = current.copy(accountCount = 0, accountKeys = emptyList())
+                    val profiles = (0 until current.accountCount).map { WalletRecords.accountRecord(it) }
+                    session.putRecords(id, mapOf(WalletRecords.META to WalletRecords.encodeMeta(cleared)), profiles)
+                }
+                WalletApp.SOLANA -> session.putRecords(id, emptyMap(), listOf(WalletRecordNames.SOLANA))
+                WalletApp.ALGORAND -> session.putRecords(id, emptyMap(), listOf(WalletRecordNames.ALGORAND))
+            }
+        }
+    }
+
+    /** True when wallet [id] holds at least one account of [app]. */
+    private fun hasAccountOf(id: String, app: WalletApp): Boolean = when (app) {
+        WalletApp.BITCOIN -> bitcoinAccounts(id).isNotEmpty()
+        WalletApp.ETHEREUM -> (meta(id)?.accountCount ?: 0) > 0
+        WalletApp.SOLANA -> solanaKeys(id).isNotEmpty()
+        WalletApp.ALGORAND -> algorandKeys(id).isNotEmpty()
     }
 
     /**
@@ -583,6 +641,8 @@ class WalletStore(private val session: VaultSession) {
      * its last page, as a Bulk Run would add them. The importer then lists exactly the wallet's accounts, and Lensly signs for each of them.
      */
     fun ethereumPairingParts(id: String, name: String): List<String> {
+        // Checked before anything is written, so a wallet without Ethereum gets no accounts from this pairing.
+        if (WalletApp.ETHEREUM !in installedApps(id)) throw AppNotInstalled(WalletApp.ETHEREUM)
         var meta = requireNotNull(meta(id)) { "No wallet $id." }
         val missing = PairingExport.exportedCount(meta.accountCount) - meta.accountCount
         if (missing > 0) meta = addAccounts(id, missing, cap = missing) ?: return ethereumPairingParts(id, name)
@@ -607,7 +667,9 @@ class WalletStore(private val session: VaultSession) {
         val seed = Mnemonic.of(secret.words).use { it.deriveSeed(secret.passphrase.orEmpty()) }
         try {
             val fingerprint = HdWallet(seed).masterFingerprint.toLong() and UINT32_MASK
-            val accounts = WalletApp.entries.flatMap { app -> app.pairedAccounts(this, id, seed, fingerprint.toInt()) }
+            val installed = installedApps(id)
+            val accounts = WalletApp.entries.filter { it in installed }
+                .flatMap { app -> app.pairedAccounts(this, id, seed, fingerprint.toInt()) }
             val name = fitBytes(meta.name.ifBlank { DEFAULT_PAIRING_NAME }, PairingCodec.MAX_NAME_BYTES)
             val autoNameBase = fitBytes(meta.autoNameBase, PairingCodec.MAX_NAME_BYTES)
             val book = AddressBookStore(session).load().take(PairingCodec.MAX_ADDRESS_BOOK)
@@ -1083,6 +1145,7 @@ class WalletStore(private val session: VaultSession) {
 
     private companion object {
         const val SINGLE_KEY_ONE_ACCOUNT = "A Single Key wallet has exactly one account and cannot generate more."
+        const val SINGLE_KEY_NO_UNINSTALL = "A Single Key wallet's one account is its Ethereum account, which cannot be uninstalled."
         const val NO_ROOM_FOR_BITCOIN =
             "The Bitcoin accounts of this wallet take too much room to save. Clear a name, label or group on one of them."
         const val NO_ROOM_FOR_SOLANA = "The Solana accounts of this wallet take too much room to save."

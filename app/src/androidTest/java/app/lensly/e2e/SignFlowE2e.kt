@@ -23,6 +23,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.compose.rememberNavController
 import androidx.test.platform.app.InstrumentationRegistry
 import app.lensly.app.VaultHolder
+import app.lensly.app.WalletApp
 import app.lensly.app.WalletStore
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.UrScanner
@@ -77,6 +78,7 @@ internal fun createTestWallet(vault: Vault, addAccounts: (WalletStore, String) -
     val session = (unlocked as UnlockResult.Unlocked).session
     val store = WalletStore(session)
     val id = store.create(name = E2E_WALLET_NAME, deviceGenerated = false, words = E2E_WORDS, passphrase = null, nowMs = 0L)
+    WalletApp.entries.forEach { store.installApp(id, it) }
     addAccounts(store, id)
     val meta = requireNotNull(store.meta(id)) { "the wallet record must read back" }
     val fingerprint = requireNotNull(meta.masterFingerprintHex) { "a Mnemonic wallet has a fingerprint" }.toLong(16).toInt()

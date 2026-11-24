@@ -105,6 +105,7 @@ class WalletStoreKindTest {
     fun anAccountOfAMnemonicWalletIsTheAddressOfItsIndex() {
         val wallet = HdWallet(Mnemonic.toSeed(words))
         val id = store.create(name = "Seed", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
+        store.installAll(id)
         store.addAccount(id)
 
         assertEquals("0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb", store.accountAddress(id, 0))

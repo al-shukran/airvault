@@ -281,6 +281,7 @@ class SettingsStoreTest {
         val session = open()
         val wallets = WalletStore(session)
         val id = wallets.create(name = "Test", deviceGenerated = false, words = words, passphrase = null, nowMs = 1L)
+        wallets.installAll(id)
 
         SettingsStore(session).save(AppSettings(BulkCap.TWENTY))
         val twenty = SettingsStore(session).load().bulkCap.accounts
