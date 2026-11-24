@@ -202,11 +202,14 @@ class WalletStoreInstallTest {
         store = WalletStore(session)
 
         assertEquals(WalletApp.entries.toSet(), store.installedApps(id))
-        assertEquals(1, store.meta(id)?.accountCount)
-        assertEquals(1, store.bitcoinAccounts(id).size)
-        assertEquals(1, store.solanaKeys(id).size)
-        assertEquals(1, store.algorandKeys(id).size)
-        assertEquals(listOf(LEDGER_LIVE_ETHEREUM_0), store.ethereumAccounts(id)?.addresses)
+        assertEquals(
+            mapOf(WalletApp.BITCOIN to 1, WalletApp.ETHEREUM to 1, WalletApp.SOLANA to 1, WalletApp.ALGORAND to 1),
+            store.accountCounts(id),
+        )
+        assertEquals(listOf(bitcoin.firstReceiveAddress), accountsOf(WalletApp.BITCOIN, id))
+        assertEquals(listOf(LEDGER_LIVE_ETHEREUM_0), accountsOf(WalletApp.ETHEREUM, id))
+        assertEquals(listOf(hex(SolanaAccount.publicKey(seed, 0))), accountsOf(WalletApp.SOLANA, id))
+        assertEquals(listOf(hex(AlgorandAccount.publicKey(seed, 0))), accountsOf(WalletApp.ALGORAND, id))
         assertEquals(listOf(id), store.list().map { it.id })
     }
 
@@ -220,6 +223,39 @@ class WalletStoreInstallTest {
             store.uninstallApp(id, app)
             assertEquals(secret, session.getRecord(id, WalletRecords.SECRET)?.toList(), "The secret after $app is uninstalled.")
         }
+    }
+
+    @Test
+    fun aBitcoinOnlyWalletRestoresItsBitcoinAccountAndLeavesADecoyWalletUntouched() {
+        val decoy = store.create(name = "Decoy", deviceGenerated = false, words = DEMO_WORDS, passphrase = "decoy", nowMs = 2L)
+        WalletApp.entries.forEach { store.installApp(decoy, it) }
+        val decoyBefore = WalletApp.entries.associateWith { accountsOf(it, decoy) }
+        val id = newWallet()
+        val before = accountsOf(WalletApp.BITCOIN, id)
+
+        store.uninstallApp(id, WalletApp.BITCOIN)
+        assertEquals(emptySet(), store.installedApps(id))
+        assertEquals(setOf(id, decoy), store.list().map { it.id }.toSet())
+
+        store.installApp(id, WalletApp.BITCOIN)
+        assertEquals(setOf(WalletApp.BITCOIN), store.installedApps(id))
+        assertEquals(before, accountsOf(WalletApp.BITCOIN, id), "Bitcoin derives the same address again.")
+        assertEquals(decoyBefore, WalletApp.entries.associateWith { accountsOf(it, decoy) }, "The decoy keeps every App's accounts.")
+        assertEquals(WalletApp.entries.toSet(), store.installedApps(decoy))
+    }
+
+    @Test
+    fun aRefusedInstallOrUninstallLeavesTheAppSetAndTheAccountCountsAsTheyWere() {
+        val id = store.createSingleKey(name = "Imported", privateKey = ByteArray(32) { 1 }, nowMs = 5L)
+        val counts = store.accountCounts(id)
+        val secret = assertNotNull(session.getRecord(id, WalletRecords.SECRET)).toList()
+
+        assertFailsWith<IllegalArgumentException> { store.installApp(id, WalletApp.BITCOIN) }
+        assertFailsWith<IllegalArgumentException> { store.uninstallApp(id, WalletApp.ETHEREUM) }
+
+        assertEquals(setOf(WalletApp.ETHEREUM), store.installedApps(id))
+        assertEquals(counts, store.accountCounts(id))
+        assertEquals(secret, session.getRecord(id, WalletRecords.SECRET)?.toList())
     }
 
     @Test
