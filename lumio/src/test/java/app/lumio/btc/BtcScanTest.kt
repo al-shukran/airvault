@@ -178,6 +178,69 @@ class BtcScanTest {
         assertEquals(listOf(account.receiveAddress(0), account.receiveAddress(2)), kept?.addresses)
     }
 
+    /**
+     * A complete scan stores 150,000 sats on receive addresses 0 and 2. Then the address at [failingIndex] fails on both servers, and the next scan
+     * of the account fails. Returns the stored scan after that failed scan.
+     */
+    private suspend fun CoroutineScope.failedScanAfterACompleteOne(failingIndex: Int): BtcSnapshot? {
+        for (server in listOf(first, second)) {
+            server.stats[account.receiveAddress(0)] = addressJson(chain = side(fundedSum = 120_000L, fundedCount = 1, txCount = 1))
+            server.stats[account.receiveAddress(2)] = addressJson(chain = side(fundedSum = 30_000L, fundedCount = 1, txCount = 1))
+        }
+        val store = BtcStore(Cache(FakeKvDao(), CacheKeys(ByteArray(32) { 1 }, ByteArray(32) { 2 }), FakeClock(1_000L)))
+        val job = QueuedJob(1L, ScanJob("wallet-1", ref.account.network.networkId(), ref.key, Priority.VISIBLE))
+        scanJob(job, listOf(ref), scheduler(), store, AddressStatsCache(), nowMs = { 1_000L }, step = {})
+
+        for (server in listOf(first, second)) server.failing += account.receiveAddress(failingIndex)
+        assertFailsWith<ProviderError.Transient> {
+            scanJob(job, listOf(ref), scheduler(), store, AddressStatsCache(), nowMs = { 2_000L }, step = {})
+        }
+        return store.snapshot(ref.key)
+    }
+
+    @Test
+    fun aFailedScanThatReadsLessThanTheStoredScanKeepsTheStoredScan() = runBlocking {
+        // Address 2 fails, so the second scan reads only address 0 (120,000 sats) before it stops.
+        val kept = failedScanAfterACompleteOne(failingIndex = 2)
+
+        assertEquals(150_000L, kept?.confirmedSats, "the balance of the complete scan is kept")
+        assertEquals(listOf(account.receiveAddress(0), account.receiveAddress(2)), kept?.addresses, "no stored address is dropped")
+        assertEquals(false, kept?.complete, "the kept balance is marked incomplete")
+    }
+
+    @Test
+    fun aFailedScanThatReadsNoAddressKeepsTheStoredScan() = runBlocking {
+        // Address 0 fails, so the second scan reads nothing before it stops.
+        val kept = failedScanAfterACompleteOne(failingIndex = 0)
+
+        assertEquals(150_000L, kept?.confirmedSats, "the balance of the complete scan is kept")
+        assertEquals(listOf(account.receiveAddress(0), account.receiveAddress(2)), kept?.addresses, "no stored address is dropped")
+        assertEquals(false, kept?.complete, "the kept balance is marked incomplete")
+    }
+
+    @Test
+    fun aFailedScanThatReadsMoreThanTheStoredScanReplacesIt() = runBlocking {
+        for (server in listOf(first, second)) {
+            server.stats[account.receiveAddress(0)] = addressJson(chain = side(fundedSum = 120_000L, fundedCount = 1, txCount = 1))
+        }
+        val store = BtcStore(Cache(FakeKvDao(), CacheKeys(ByteArray(32) { 1 }, ByteArray(32) { 2 }), FakeClock(1_000L)))
+        val job = QueuedJob(1L, ScanJob("wallet-1", ref.account.network.networkId(), ref.key, Priority.VISIBLE))
+        scanJob(job, listOf(ref), this.scheduler(), store, AddressStatsCache(), nowMs = { 1_000L }, step = {})
+
+        // A payment of 30,000 sats lands on address 0, and address 4 fails on both servers, so the second scan stops after address 3.
+        for (server in listOf(first, second)) {
+            server.stats[account.receiveAddress(0)] = addressJson(chain = side(fundedSum = 150_000L, fundedCount = 2, txCount = 2))
+            server.failing += account.receiveAddress(4)
+        }
+        assertFailsWith<ProviderError.Transient> {
+            scanJob(job, listOf(ref), this.scheduler(), store, AddressStatsCache(), nowMs = { 2_000L }, step = {})
+        }
+
+        val replaced = store.snapshot(ref.key)
+        assertEquals(150_000L, replaced?.confirmedSats, "a partial scan that reads no less than the stored one replaces it")
+        assertEquals(false, replaced?.complete, "the refresh is marked incomplete")
+    }
+
     /** The receive addresses by index, for the walk tests that read no server. */
     private val receive: List<String> = List(150) { account.receiveAddress(it) }
     private val usedStats = EsploraParse.addressStats(addressJson(chain = side(fundedSum = 1_000L, fundedCount = 1, txCount = 1)))
