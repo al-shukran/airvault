@@ -7,9 +7,11 @@ import app.lumio.data.MonotonicClock
 import app.lumio.data.config.ProviderConfigStore
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Http
+import app.lumio.data.provider.MAX_SOLANA_BALANCE_ACCOUNTS
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.ProviderCatalog
 import app.lumio.data.provider.ProviderError
+import app.lumio.data.provider.SolanaBalances
 import app.lumio.data.provider.algorand.ALGORAND_MAINNET
 import app.lumio.data.provider.algorand.ALGORAND_TESTNET
 import app.lumio.data.provider.solana.SOLANA_DEVNET
@@ -18,12 +20,24 @@ import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
+import java.math.BigInteger
 import kotlin.random.Random
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+
+/** The most reads of one network that run at once. Each read is one call, and the scheduler's own limit of the provider still applies. */
+private const val READS_AT_ONCE = 8
+
+/** The balances that one network's reads of a wallet gave, by address, and the first failure among the reads that did not answer. */
+private class Reads(val balances: Map<String, BigInteger>, val failure: ProviderError?)
 
 /**
  * A native coin that Lumio reads for Algorand or Solana accounts: its [network], its [symbol] and [name] as Home shows them, and its [decimals], the
@@ -81,8 +95,8 @@ object NativeBalances {
 
     /**
      * Reads the balance of each address of [wallets] on each of [coins] through [scheduler], and stores the reads in the cache of [session]. The addresses of
-     * one wallet on one network are read in order, and the first failure ends that network for that wallet: its cached reads stay as they were, and the
-     * failure is returned. Reads of addresses that are no longer paired are dropped.
+     * one wallet on one network are read together (see [readBalances]). An address whose read fails keeps its cached balance, the others are stored, and
+     * the first failure of each wallet on each network is returned. Reads of addresses that are no longer paired are dropped.
      */
     suspend fun refresh(
         session: VaultSession,
@@ -96,19 +110,39 @@ object NativeBalances {
         for (wallet in wallets) for (coin in coins) {
             val shown = addresses(wallet, coin.network)
             if (shown.isEmpty()) continue
-            val fresh = try {
-                shown.map { address ->
-                    val balance = scheduler.run(NativeBalance(coin.network, address), Priority.VISIBLE)
-                    CachedNativeBalance(wallet.id, coin.network, address, balance.toString(), nowMs())
-                }
-            } catch (e: ProviderError) {
-                failures.add(NativeFailure(coin.network, e.message ?: "The endpoint failed."))
-                emptyList()
-            }
+            val reads = readBalances(coin.network, shown, scheduler)
+            reads.failure?.let { failures.add(NativeFailure(coin.network, it.message ?: "The endpoint failed.")) }
+            val fresh = reads.balances.map { (address, balance) -> CachedNativeBalance(wallet.id, coin.network, address, balance.toString(), nowMs()) }
             cache = merged(cache, wallet.id, coin.network, shown.toSet(), fresh)
         }
         withContext(Dispatchers.IO) { NativeBalanceCache.write(session, cache) }
         failures
+    }
+
+    /**
+     * The balance of each of [addresses] on [network]. A Solana network reads them in groups of [MAX_SOLANA_BALANCE_ACCOUNTS], one call per group. An
+     * Algorand network reads each address in a call of its own. The calls run at once, [READS_AT_ONCE] at a time, and a call that fails leaves its own
+     * addresses out of the answer, so the others still answer. [Reads.failure] is the first failure.
+     */
+    private suspend fun readBalances(network: NetworkId, addresses: List<String>, scheduler: Scheduler): Reads = coroutineScope {
+        val gate = Semaphore(READS_AT_ONCE)
+        val groups = if (network.isSol) addresses.chunked(MAX_SOLANA_BALANCE_ACCOUNTS) else addresses.map { listOf(it) }
+        groups.map { group ->
+            async {
+                gate.withPermit {
+                    try {
+                        val values = if (network.isSol) {
+                            scheduler.run(SolanaBalances(network, group), Priority.VISIBLE)
+                        } else {
+                            listOf(scheduler.run(NativeBalance(network, group.single()), Priority.VISIBLE))
+                        }
+                        Reads(group.zip(values).toMap(), null)
+                    } catch (e: ProviderError) {
+                        Reads(emptyMap(), e)
+                    }
+                }
+            }
+        }.awaitAll().fold(Reads(emptyMap(), null)) { all, one -> Reads(all.balances + one.balances, all.failure ?: one.failure) }
     }
 
     /**

@@ -1,5 +1,6 @@
 package app.lumio.btc
 
+import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lumio.data.FakeClock
@@ -24,6 +25,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import mockwebserver3.MockResponse
@@ -92,9 +94,12 @@ class BtcScanTest {
         assertEquals(120_000L, snapshot.confirmedSats)
         assertEquals(1, snapshot.utxos.size)
         assertEquals(1, snapshot.nextReceiveIndex, "index 0 is used, so the next receive address is index 1")
-        // The receive chain asks index 0 and then its 20-address gap: 21 requests. The change chain has no history: 20 requests.
-        assertEquals(41, first.statsRequests().size + second.statsRequests().size)
-        assertEquals((1..41).toList(), steps.sorted(), "each address asked for is reported once, as the scan goes")
+        // The receive chain needs index 0 and its 20-address gap: 21 reads. The change chain has no history: 20 reads. The gap is read in windows
+        // of 20, so the reads of a window may run past the stop, and each read that is sent is asked for: 41 requests at least, 60 at most.
+        val asked = first.statsRequests().size + second.statsRequests().size
+        assertTrue(asked in 41..60, "the scan asked for $asked addresses")
+        assertEquals((1..steps.size).toList(), steps.sorted(), "each address asked for is reported once, as the scan goes")
+        assertTrue(first.statsRequests().isNotEmpty() && second.statsRequests().isNotEmpty(), "the two servers share the requests")
     }
 
     @Test
@@ -109,9 +114,10 @@ class BtcScanTest {
 
         val elapsedMs = (System.nanoTime() - started) / 1_000_000
         assertEquals(5_000L, snapshot.confirmedSats, "the second server answers the whole scan")
-        // Its lane allows two calls at once, and the first 429 cools it. No call is admitted to it after that, so it sees at most two.
-        assertTrue(first.paths.size <= 2, "a cooled server gets no new call: it saw ${first.paths.size}")
-        // The second server's own rate (3 calls a second, after a burst of 6) paces the 41 requests: about 12 s. A wait on the 600 s header would fail this.
+        // Its lane allows four calls at once, and the first 429 cools it. No call is admitted to it after that, so it sees at most four.
+        assertTrue(first.paths.size <= 4, "a cooled server gets no new call: it saw ${first.paths.size}")
+        // The second server's own rate (5 calls a second, after a burst of 10) paces the scan's requests: about 10 s. A wait on the
+        // 600 s header would fail this.
         assertTrue(elapsedMs < 30_000, "the scan must not wait out the Retry-After: it took $elapsedMs ms")
     }
 
@@ -170,5 +176,120 @@ class BtcScanTest {
         val kept = store.snapshot(ref.key)
         assertEquals(150_000L, kept?.confirmedSats, "the two addresses read before the failure are kept")
         assertEquals(listOf(account.receiveAddress(0), account.receiveAddress(2)), kept?.addresses)
+    }
+
+    /** The receive addresses by index, for the walk tests that read no server. */
+    private val receive: List<String> = List(150) { account.receiveAddress(it) }
+    private val usedStats = EsploraParse.addressStats(addressJson(chain = side(fundedSum = 1_000L, fundedCount = 1, txCount = 1)))
+    private val unusedStats = EsploraParse.addressStats(addressJson())
+
+    /** The used indexes that [scanChain] finds, for [window], when the receive addresses in [used] have history and the others have none. */
+    private suspend fun walkedUsed(used: Set<Int>, window: Int): List<Int> {
+        val indexOf = receive.withIndex().associate { it.value to it.index }
+        return scanChain(
+            addressAt = { receive[it] },
+            statsOf = { address -> if (indexOf.getValue(address) in used) usedStats else unusedStats },
+            window = window,
+        ).used.map { it.index }
+    }
+
+    /** The walk of a window of 1 and the walk of a whole gap must both find the used addresses that the one-at-a-time walk finds. */
+    private suspend fun assertWalksAgree(used: Set<Int>) {
+        val expected = sequentialWalk(used)
+        for (window in listOf(1, BtcAccount.GAP_LIMIT)) {
+            assertEquals(expected, walkedUsed(used, window), "used at $used, window $window")
+        }
+    }
+
+    /** The walk that [scanChain] replaced: one address at a time, stopping after the gap limit. The windowed walk must find what it finds. */
+    private fun sequentialWalk(used: Set<Int>): List<Int> {
+        val found = mutableListOf<Int>()
+        var unused = 0
+        var index = 0
+        while (unused < BtcAccount.GAP_LIMIT) {
+            if (index in used) {
+                found += index
+                unused = 0
+            } else {
+                unused++
+            }
+            index++
+        }
+        return found
+    }
+
+    @Test
+    fun theWindowedWalkFindsWhatTheOneAtATimeWalkFinds() = runBlocking {
+        val fixtures = listOf(
+            emptySet<Int>(),
+            setOf(0),
+            setOf(19),
+            setOf(35),
+            setOf(0, 20),
+            setOf(0, 20, 40),
+            setOf(0, 21),
+            setOf(4, 23, 42),
+        )
+        for (used in fixtures) assertWalksAgree(used)
+        // Random histories of every density, so the walk stops in many places: inside a window and at its edges.
+        val random = Random(42)
+        repeat(300) {
+            val density = 1 + random.nextInt(30)
+            assertWalksAgree((0 until 100).filter { random.nextInt(100) < density }.toSet())
+        }
+    }
+
+    @Test
+    fun aWalkOfOneAddressAtATimeReadsNoAddressPastTheStop() = runBlocking {
+        val read = mutableListOf<Int>()
+        scanChain(
+            addressAt = { receive[it] },
+            statsOf = { address ->
+                val index = receive.indexOf(address)
+                read += index
+                if (index == 0) usedStats else unusedStats
+            },
+            window = 1,
+        )
+        // Index 0 is used, so the walk stops after the 20 unused addresses that follow it.
+        assertEquals((0..20).toList(), read)
+    }
+
+    @Test
+    fun aWindowIsAskedForAtOnce() = runBlocking {
+        var inFlight = 0
+        var mostInFlight = 0
+        scanChain(
+            addressAt = { receive[it] },
+            statsOf = {
+                inFlight++
+                mostInFlight = maxOf(mostInFlight, inFlight)
+                delay(5)
+                inFlight--
+                unusedStats
+            },
+        )
+        assertTrue(mostInFlight > 1, "the reads of a window are in flight together: at most $mostInFlight at once")
+    }
+
+    @Test
+    fun aFailedReadKeepsTheUsedAddressesBeforeItAndNoneAfter() = runBlocking {
+        // Index 19 is used, and the read of 20, which opens the next window, fails. Index 25 may be read in that window,
+        // but the walk never reaches it.
+        val found = mutableListOf<UsedAddress>()
+        assertFailsWith<ProviderError.Transient> {
+            scanChain(
+                addressAt = { receive[it] },
+                statsOf = { address ->
+                    when (receive.indexOf(address)) {
+                        20 -> throw ProviderError.Transient()
+                        19, 25 -> usedStats
+                        else -> unusedStats
+                    }
+                },
+                found = found,
+            )
+        }
+        assertEquals(listOf(19), found.map { it.index })
     }
 }

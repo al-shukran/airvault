@@ -28,6 +28,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import app.lensly.BuildConfig
 import app.lensly.app.AlgorandCapReached
+import app.lensly.app.AppNotInstalled
 import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.BitcoinCapReached
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
@@ -726,8 +727,13 @@ private fun refusalOf(write: () -> Unit): String? = try {
  */
 internal fun NavController.keepInstalledApp(walletId: String, app: WalletApp, installed: Set<WalletApp>): Boolean {
     if (app in installed) return true
-    navigate(HiddenRoute.apps(walletId)) { popUpTo(HiddenRoute.APP) { inclusive = true } }
+    showAppsScreen(walletId)
     return false
+}
+
+/** Shows the Apps of wallet [walletId] in place of an App's screens, which leave the back stack. */
+private fun NavController.showAppsScreen(walletId: String) {
+    navigate(HiddenRoute.apps(walletId)) { popUpTo(HiddenRoute.APP) { inclusive = true } }
 }
 
 /**
@@ -792,13 +798,19 @@ private fun AppRoute(navController: NavHostController, holder: VaultHolder, wall
                     whileUnlocked(navController, holder) {
                         // At the cap the add is refused and nothing is saved: the refusal is shown on the list. The write moves the
                         // session's write count, so the view is read again with the new account.
-                        addRefusal = withContext(Dispatchers.IO) {
-                            try {
-                                WalletStore(session).addAccount(walletId)
-                                null
-                            } catch (e: EthereumCapReached) {
-                                e.message
+                        try {
+                            addRefusal = withContext(Dispatchers.IO) {
+                                try {
+                                    WalletStore(session).addAccount(walletId)
+                                    null
+                                } catch (e: EthereumCapReached) {
+                                    e.message
+                                }
                             }
+                        } catch (e: AppNotInstalled) {
+                            // Ethereum was uninstalled while this list was open, so there is nothing to add to: the Apps screen is shown.
+                            navController.showAppsScreen(walletId)
+                            return@whileUnlocked
                         }
                         ethereum = withContext(Dispatchers.IO) { reads.ethereumAccounts(walletId) }
                     }

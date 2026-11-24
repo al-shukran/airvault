@@ -80,3 +80,17 @@ class SolanaSignatureStatus(net: NetworkId, val signature: String) : Request<Sol
 
 /** A signature's status: [confirmed] once the network has confirmed it (processed alone is not enough), and [failed] when it ran with an error. */
 data class SolanaStatus(val confirmed: Boolean, val failed: Boolean)
+
+/** The most accounts that one balance read asks for: `getMultipleAccounts` takes up to this many keys in one call. */
+const val MAX_SOLANA_BALANCE_ACCOUNTS = 100
+
+/**
+ * The native balances of [addresses] on [net] in lamports, in the order given, read by one `getMultipleAccounts` call. An account that does not exist
+ * holds 0 lamports. A read holds 1 to [MAX_SOLANA_BALANCE_ACCOUNTS] addresses.
+ */
+class SolanaBalances(net: NetworkId, val addresses: List<String>) : Request<List<BigInteger>>(net, Ops.SOL_NATIVE_BALANCE) {
+    init {
+        require(addresses.size in 1..MAX_SOLANA_BALANCE_ACCOUNTS) { "A balance read holds 1 to $MAX_SOLANA_BALANCE_ACCOUNTS addresses." }
+        require(addresses.all { SOLANA_ADDRESS.matches(it) }) { "Not a Solana address." }
+    }
+}

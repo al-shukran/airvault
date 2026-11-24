@@ -189,6 +189,24 @@ class SignFlowSolanaTest {
         assertEquals(0, ports.signCalls)
     }
 
+    /**
+     * A Solana request for a Single Key wallet, which has no seed and so cannot install the Solana App. The owner is not asked to install it:
+     * the review refuses the account the wallet lacks, and nothing is signed.
+     */
+    @Test
+    fun aSolanaRequestForASingleKeyWalletIsRefusedForItsMissingAccountNotForAnInstall() = runBlocking {
+        val ports = SolanaPorts(installed = setOf(WalletApp.ETHEREUM), singleKey = true)
+        val flow = SignFlow(ports, walletId = WALLET)
+
+        flow.onScanned(partOf(requestCbor(transfer())))
+
+        assertEquals(SignStep.Refused("This wallet has no Solana accounts."), flow.state.value)
+        assertEquals(1, ports.prepareCalls)
+        assertEquals(listOf(WALLET), ports.records.map { it.walletId })
+        assertEquals("This wallet has no Solana accounts.", ports.records.single().refusal)
+        assertEquals(0, ports.signCalls)
+    }
+
     /** The fake ports. The wallet holds the Solana accounts of mnemonic A, and the App Password check is [password]. */
     private class SolanaPorts(
         private val keys: List<ByteArray> = SOLANA_KEYS,
@@ -199,6 +217,8 @@ class SignFlowSolanaTest {
         private val signRefusal: String? = null,
         /** The Apps installed in every wallet of the fake vault. */
         private val installed: Set<WalletApp> = WalletApp.entries.toSet(),
+        /** A Single Key wallet: it cannot install an App, and it has no Solana accounts, so its review refuses the request. */
+        private val singleKey: Boolean = false,
     ) : SignFlowPorts {
         val records = mutableListOf<AppReviewEntry>()
         val reviewed = mutableListOf<SolanaRequestReview>()
@@ -213,8 +233,11 @@ class SignFlowSolanaTest {
 
         override suspend fun isInstalled(walletId: String, app: WalletApp): Boolean = app in installed
 
+        override suspend fun canInstall(walletId: String, app: WalletApp): Boolean = !singleKey
+
         override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared {
             prepareCalls++
+            if (singleKey) return AppPrepared.Refused("This wallet has no Solana accounts.")
             val sol = when (val decoded = SolSignRequest.decode(request.body)) {
                 is SolSignRequest.Result.Ok -> decoded.request
                 is SolSignRequest.Result.Rejected -> return AppPrepared.Refused(decoded.reason)

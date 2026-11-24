@@ -3,6 +3,8 @@ package app.lensly.ui.navigation
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -80,6 +82,23 @@ class InstalledAppRoutesTest {
 
         store.uninstallApp(id, WalletApp.ETHEREUM)
         compose.runOnUiThread { nav.navigate(HiddenRoute.bulk(id, WalletApp.ETHEREUM)) }
+
+        assertRedirectedToApps(nav, id)
+    }
+
+    /**
+     * The App is uninstalled while its account list stays open, so Add Account finds no Ethereum account to add to. The owner goes to the Apps
+     * screen, and the app does not crash.
+     */
+    @Test
+    fun addingAnAccountToAnAppUninstalledWhileItsListIsOpenLeadsToTheAppsScreen() {
+        val id = newWallet()
+        store.installApp(id, WalletApp.ETHEREUM)
+        val nav = show(HiddenRoute.app(id, WalletApp.ETHEREUM))
+        compose.waitUntil(timeoutMillis = 5_000) { compose.onAllNodesWithText("Ethereum Accounts").fetchSemanticsNodes().isNotEmpty() }
+
+        store.uninstallApp(id, WalletApp.ETHEREUM)
+        compose.onNodeWithText("Add Account").performClick()
 
         assertRedirectedToApps(nav, id)
     }
