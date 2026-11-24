@@ -67,18 +67,6 @@ fun failureShown(accounts: List<WalletAccount>, family: String, reads: WalletRea
 fun isCheckingPrice(reads: WalletReads): Boolean = reads.pricing || !reads.priced
 
 /**
- * The status line of a wallet screen while a read runs: "Checking Bitcoin · 3 of 8 accounts" for the first family in chain order that is still checked,
- * and "Checking Ethereum" for a family whose read has no count. Null when no family is checked, and the screen then shows the age of the last complete read.
- */
-fun checkingLine(reads: WalletReads): String? {
-    val family = WalletAccounts.FAMILIES.firstOrNull { it in reads.checking } ?: return null
-    val label = WalletAccounts.familyLabel(family)
-    if (family != Networks.BIP122) return "Checking $label"
-    val accounts = if (reads.bitcoinTotal == 1) "1 account" else "${reads.bitcoinTotal} accounts"
-    return "Checking $label · ${reads.bitcoinDone} of $accounts"
-}
-
-/**
  * The note under a chain's island when its read did not answer, and the screen puts its Retry link after it. It says the last known balance is shown
  * only when the chain keeps one: "Couldn't reach Bitcoin. Showing the last known balance." or "Couldn't reach Bitcoin."
  */

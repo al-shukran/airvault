@@ -2,16 +2,19 @@ package app.lumio.ui.wallets
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import app.airvault.core.model.AccountId
 import app.airvault.core.model.ChainId
 import app.lensly.ui.theme.ClearAirTheme
+import app.lumio.data.Clock
 import app.lumio.data.net.Networks
 import app.lumio.network.NetworkMode
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletReads
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,6 +37,9 @@ class WalletScreenTest {
         notice: String? = null,
         reads: WalletReads = WalletReads(),
         onRetry: (String) -> Unit = {},
+        refreshing: Boolean = false,
+        updatedAtMs: Long? = null,
+        clock: Clock = Clock { NOW_MS },
     ) {
         compose.setContent {
             ClearAirTheme {
@@ -56,12 +62,14 @@ class WalletScreenTest {
                     usdOf = { null },
                     showTotal = true,
                     showBalances = true,
-                    updatedAtMs = null,
+                    refreshing = refreshing,
+                    updatedAtMs = updatedAtMs,
                     notice = notice,
                     reads = reads,
                     onRetry = onRetry,
                     onAccount = {},
                     onRefresh = {},
+                    clock = clock,
                 )
             }
         }
@@ -98,5 +106,27 @@ class WalletScreenTest {
         compose.onNodeWithText("Retry").performClick()
 
         assertEquals(Networks.EIP155, retried)
+    }
+
+    @Test
+    fun aReadThatRunsSaysCheckingInPlaceOfTheAge() {
+        render(refreshing = true, updatedAtMs = NOW_MS - 3 * MINUTE_MS)
+
+        assertTrue(compose.onAllNodesWithText("Checking…").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(compose.onAllNodesWithText("Updated 3 min ago").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun aNoticeShowsBesideTheUpdatedLineAndNeverReplacesIt() {
+        render(notice = REFRESH_NOTICE, updatedAtMs = NOW_MS - 3 * MINUTE_MS)
+
+        compose.onNodeWithText(REFRESH_NOTICE).assertIsDisplayed()
+        compose.onNodeWithText("Updated 3 min ago").assertIsDisplayed()
+    }
+
+    private companion object {
+        const val NOW_MS = 1_700_000_000_000L
+        const val MINUTE_MS = 60_000L
+        const val REFRESH_NOTICE = "Some balances could not be refreshed. The last known balances are shown."
     }
 }

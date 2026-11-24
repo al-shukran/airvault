@@ -107,24 +107,6 @@ class WalletProgressTest {
     }
 
     @Test
-    fun theStatusLineCountsTheBitcoinAccountsItHasChecked() {
-        assertEquals(
-            "Checking Bitcoin · 3 of 8 accounts",
-            checkingLine(WalletReads(checking = setOf(Networks.BIP122), bitcoinDone = 3, bitcoinTotal = 8)),
-        )
-        assertEquals(
-            "Checking Bitcoin · 0 of 1 account",
-            checkingLine(WalletReads(checking = setOf(Networks.BIP122), bitcoinDone = 0, bitcoinTotal = 1)),
-        )
-        assertEquals("Checking Ethereum", checkingLine(WalletReads(checking = setOf(Networks.EIP155))))
-        assertEquals(
-            "Checking Bitcoin · 3 of 8 accounts",
-            checkingLine(WalletReads(checking = setOf(Networks.SOLANA, Networks.BIP122), bitcoinDone = 3, bitcoinTotal = 8)),
-        )
-        assertNull(checkingLine(WalletReads()))
-    }
-
-    @Test
     fun theTotalSaysItIsCheckingThePriceUntilThePricesHaveBeenRead() {
         assertTrue(isCheckingPrice(WalletReads()))
         assertTrue(isCheckingPrice(WalletReads(priced = true, pricing = true)))

@@ -66,9 +66,12 @@ private fun plural(count: Int, noun: String): String = if (count == 1) "1 $noun"
 internal fun accountsByChain(accounts: List<WalletAccount>): List<Pair<String, List<WalletAccount>>> =
     WalletAccounts.FAMILIES.mapNotNull { family -> accounts.filter { it.namespace == family }.takeIf { it.isNotEmpty() }?.let { family to it } }
 
-/** The line under a total: "Updating…" while a read runs, else the age of the last complete read. A read that did not answer keeps the time before it. */
+/**
+ * The line under a total: "Checking…" while a read runs, else the age of the last complete read. A read that did not answer keeps the time before it.
+ * Every screen that shows a total says it this way.
+ */
 internal fun freshnessLine(refreshing: Boolean, updatedAtMs: Long?, nowMs: Long): String = when {
-    refreshing -> "Updating…"
+    refreshing -> "Checking…"
     updatedAtMs == null -> "Not updated yet"
     else -> updatedAgo(nowMs - updatedAtMs)
 }
@@ -157,11 +160,10 @@ internal fun foldSummary(fold: AccountFold): String = listOfNotNull(
 ).joinToString(", ")
 
 /**
- * The freshness line of a total, which ages once a minute. Its text changes as a read starts and ends, and nothing else on the page moves. [checking],
- * when set, is the line instead: what a read that runs has counted so far.
+ * The freshness line of a total, which ages once a minute. Its text changes as a read starts and ends, and nothing else on the page moves.
  */
 @Composable
-internal fun FreshnessLine(refreshing: Boolean, updatedAtMs: Long?, clock: Clock, modifier: Modifier = Modifier, checking: String? = null) {
+internal fun FreshnessLine(refreshing: Boolean, updatedAtMs: Long?, clock: Clock, modifier: Modifier = Modifier) {
     val nowMs by produceState(clock.nowMs(), clock) {
         while (true) {
             value = clock.nowMs()
@@ -169,7 +171,7 @@ internal fun FreshnessLine(refreshing: Boolean, updatedAtMs: Long?, clock: Clock
         }
     }
     Text(
-        text = checking ?: freshnessLine(refreshing, updatedAtMs, nowMs),
+        text = freshnessLine(refreshing, updatedAtMs, nowMs),
         modifier = modifier,
         style = ClearAirType.body,
         color = LocalClearAirPalette.current.ink2,

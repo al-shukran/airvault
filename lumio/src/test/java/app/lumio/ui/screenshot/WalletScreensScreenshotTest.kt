@@ -211,7 +211,7 @@ class WalletScreensScreenshotTest {
         )
     }
 
-    /** A read that did not answer: its note says so, the balances kept from before stay, and the freshness line says the page is updating. */
+    /** A read that did not answer: its note says so, the balances kept from before stay, and the freshness line says the page is checking. */
     @Test
     fun walletsNotice() = compose.lumioSnapshot("wallets_notice") {
         WalletsScreen(
@@ -405,6 +405,7 @@ class WalletScreensScreenshotTest {
             showTotal = false,
             showBalances = false,
             reads = WalletReads(checking = setOf(Networks.EIP155)),
+            refreshing = true,
             updatedAtMs = null,
             notice = null,
             onAccount = {},

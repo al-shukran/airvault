@@ -40,7 +40,6 @@ import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
 import app.lumio.wallets.WalletReads
 import app.lumio.wallets.balanceSlotOf
-import app.lumio.wallets.checkingLine
 import app.lumio.wallets.failureShown
 import app.lumio.wallets.isCheckingPrice
 import app.lumio.wallets.unreachableNote
@@ -79,6 +78,7 @@ fun WalletScreen(
     tokenUsd: Map<WalletAccount, Double> = emptyMap(),
     changePct: Double? = null,
     changeUsd: Double? = null,
+    refreshing: Boolean = false,
     refreshByPull: Boolean = false,
     pairedAtMs: Long? = null,
     reads: WalletReads = WalletReads(),
@@ -96,6 +96,7 @@ fun WalletScreen(
                     changeUsd = changeUsd,
                     showTotal = showTotal,
                     reads = reads,
+                    refreshing = refreshing,
                     updatedAtMs = updatedAtMs,
                     clock = clock,
                 )
@@ -148,6 +149,7 @@ private fun WalletHero(
     changeUsd: Double?,
     showTotal: Boolean,
     reads: WalletReads,
+    refreshing: Boolean,
     updatedAtMs: Long?,
     clock: Clock,
 ) {
@@ -170,13 +172,11 @@ private fun WalletHero(
             ClearAirAmount(text = LocalFiat.current.amount(totalUsd), hidden = !showTotal, style = ClearAirType.total)
         }
         ClearAirChangeLine(changePct = changePct, changeUsd = changeUsd, shown = showTotal, modifier = Modifier.padding(top = ClearAirSpacing.xxs))
-        // The status line counts what a read that runs has checked, and else says how old the last complete read is. It never says "Updating".
         FreshnessLine(
-            refreshing = false,
+            refreshing = refreshing,
             updatedAtMs = updatedAtMs,
             clock = clock,
             modifier = Modifier.padding(top = ClearAirSpacing.xxs),
-            checking = checkingLine(reads),
         )
     }
 }

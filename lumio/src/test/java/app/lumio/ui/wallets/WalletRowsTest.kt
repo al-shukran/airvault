@@ -61,9 +61,9 @@ class WalletRowsTest {
     }
 
     @Test
-    fun freshnessLineIsUpdatingThenTheAge() {
-        assertEquals("Updating…", freshnessLine(refreshing = true, updatedAtMs = 0L, nowMs = 0L))
-        assertEquals("Updating…", freshnessLine(refreshing = true, updatedAtMs = null, nowMs = 0L))
+    fun freshnessLineIsCheckingThenTheAge() {
+        assertEquals("Checking…", freshnessLine(refreshing = true, updatedAtMs = 0L, nowMs = 0L))
+        assertEquals("Checking…", freshnessLine(refreshing = true, updatedAtMs = null, nowMs = 0L))
         assertEquals("Not updated yet", freshnessLine(refreshing = false, updatedAtMs = null, nowMs = 5_000_000L))
         assertEquals("Updated 3 min ago", freshnessLine(refreshing = false, updatedAtMs = 1_000_000L, nowMs = 1_000_000L + 3 * 60_000L))
     }
