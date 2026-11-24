@@ -1,6 +1,6 @@
 # Accessibility
 
-This page records accessibility decisions that the maintainers have reviewed and accepted. Check it before you file a
+This page records accessibility decisions that have been reviewed and accepted. Check it before you file a
 finding about screen readers. The test coverage of the Compose screens is in [testing/accessibility.md](testing/accessibility.md).
 
 ## Accepted, Do Not Re-Report
