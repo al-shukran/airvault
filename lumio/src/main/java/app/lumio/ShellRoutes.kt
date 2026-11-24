@@ -164,6 +164,7 @@ internal fun backLabelOf(route: String?): String = when (route) {
     LumioRoute.EXPLORE -> "Explore"
     LumioRoute.SETTINGS -> "Settings"
     LumioRoute.SETTINGS_NETWORKS -> "Networks"
+    LumioRoute.TEST_NETWORKS -> "Test Networks"
     LumioRoute.DATA_PROVIDERS -> "Data Providers"
     LumioRoute.WALLET -> "Wallet"
     else -> "the previous screen"

@@ -22,7 +22,8 @@ import app.lumio.ui.kit.ClearAirTone
  * The Add Custom Network page: an EVM network the registry does not list, by its name, RPC address, chain ID and symbol, with an optional explorer
  * and a switch for a test network. The screen keeps no state of its own: [input] and [refusal] come from the caller, and each change goes back to it.
  * A refusal shows under the field it concerns, and a refusal that concerns no one field shows under the button. [busy] holds the form while the
- * endpoint is checked, and [onAdd] is pressed to check the network, so no error shows while the owner is still typing.
+ * endpoint is checked, and [onAdd] is pressed to check the network, so no error shows while the owner is still typing. [backLabel] names the screen the
+ * back arrow returns to.
  */
 @Composable
 fun AddCustomNetworkScreen(
@@ -30,12 +31,13 @@ fun AddCustomNetworkScreen(
     refusal: EvmRefusal?,
     busy: Boolean,
     offline: String?,
+    backLabel: String,
     onInput: (CustomChainInput) -> Unit,
     onAdd: () -> Unit,
     onBack: () -> Unit,
     onLock: () -> Unit,
 ) {
-    SettingsFrame(title = "Add Custom Network", offline = offline, onBack = onBack, onLock = onLock, backLabel = "Networks") {
+    SettingsFrame(title = "Add Custom Network", offline = offline, onBack = onBack, onLock = onLock, backLabel = backLabel) {
         Column(modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md)) {
             ClearAirField(
                 label = "Name",
@@ -101,3 +103,12 @@ fun AddCustomNetworkScreen(
 
 /** The words for [field] of the form, when the refusal concerns it. */
 private fun errorOf(refusal: EvmRefusal?, field: CustomNetworkField): String? = refusal?.takeIf { it.field == field }?.message
+
+/**
+ * What the Add Custom Network page holds: the typed [input] and the [refusal] of the last check. An edit clears the refusal, so a message never stays
+ * over a value the owner has already changed.
+ */
+internal data class CustomNetworkForm(val input: CustomChainInput, val refusal: EvmRefusal? = null) {
+    /** The form after the owner edits it: the new input, and no refusal. */
+    fun edited(next: CustomChainInput): CustomNetworkForm = CustomNetworkForm(input = next)
+}
