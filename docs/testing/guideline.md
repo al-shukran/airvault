@@ -91,7 +91,7 @@ Each fixed bug lands with a failing test in the layer where it was found. Nightl
 ### 2.1 Hard requirements
 
 - **No test demand for untouched code.** A partition runs only when its own paths change. No repo-wide coverage gate; any JaCoCo report is informational and limited to changed files.
-- **Each PR lane finishes in 3 minutes wall clock** (rule from 2026-11-23; it was 5 minutes from 2026-11-21), covering checkout, JDK, cache restore and Gradle. `scripts/ci/lane-budget.sh` measures every lane of every `pr-fast` run and, on master, files a `ci-budget` issue for a lane over budget.
+- **Each PR lane finishes in 5 minutes wall clock** (budget of 300 s, raised from 3 minutes in #943 on 2026-11-24, because the cache-miss work of a cold lane does not fit in 3 minutes), covering checkout, JDK, cache restore and Gradle. `scripts/ci/lane-budget.sh` measures every lane of every `pr-fast` run. It warns above 240 s, before the 5-minute job timeout, and on master files a `ci-budget` issue for a lane over 300 s.
 - **2.1 amendment (2026-11-12): pr-fast test cap 5 min because** the ui-a partition took 180 s on PR 125 with the Gradle cache restored, and earlier PR runs on the same partitions were killed at the 3-minute cap. Cold work that the cache cannot skip (configuration of about 40 s, since no configuration cache survives to CI, and main and test Kotlin compile of about 55 s) does not fit reliably in 3 minutes. The `test` job sets `timeout-minutes: 5`; the other jobs keep their caps.
 - **Over-budget work moves** to a nightly schedule and a comment command (2.5, 2.6).
 - **Docs, text, and non-build config changes run zero test jobs.** The aggregate job in 2.4 keeps branch protection satisfied.
@@ -116,7 +116,7 @@ Each fixed bug lands with a failing test in the layer where it was found. Nightl
 | `manifest` | `app/src/**/AndroidManifest.xml`, `shared/src/**/AndroidManifest.xml`, `lumio/src/**/AndroidManifest.xml`, `gradle/libs.versions.toml`, `app/build.gradle.kts`, `shared/build.gradle.kts`, `lumio/build.gradle.kts`, `scripts/ci/check-manifest.sh` | `check-manifest.sh` (`:app` offline, `:lumio` allow-list) |
 | `ci` | `scripts/ci/**`, `.github/workflows/**`, `.gitleaks.toml`, and the test source sets `app/src/test/**`, `shared/src/test/**`, `lumio/src/test/**` | `bash -n` on every script, then `check-partitions.sh` and `check-test-network.sh` |
 
-The `ui` tests split in three so each stays under the 3-minute cap, and the `lumio` tests and debug APK split into five so each `test` job of `pr-fast` stays under its 5-minute cap. Every test class in `app`, `shared` and `lumio` must be listed in exactly one arm of `run-partition.sh`, in the Gradle call for the module that holds it. A package can hold classes in two modules (`app.lensly.ui.navigation` has one in each), so the match is per module and per class. `check-partitions.sh` fails the `ci` partition when a class is in no arm or in two. It also runs on any PR that touches a test source set, so a new test class is checked on its own PR.
+The `ui` tests split in three so each stays under its cap, and the `lumio` tests and debug APK split into five so each `test` job of `pr-fast` stays under its 5-minute cap. Every test class in `app`, `shared` and `lumio` must be listed in exactly one arm of `run-partition.sh`, in the Gradle call for the module that holds it. A package can hold classes in two modules (`app.lensly.ui.navigation` has one in each), so the match is per module and per class. `check-partitions.sh` fails the `ci` partition when a class is in no arm or in two. It also runs on any PR that touches a test source set, so a new test class is checked on its own PR.
 
 Build paths (`build.gradle.kts`, `gradle.properties`, `settings.gradle.kts`, `gradle/**`) trigger every unit partition. This is the one exception to "touched code only", because build changes can affect any package. Needs confirmation.
 
@@ -301,7 +301,7 @@ Durations are estimates, to be measured in Phase 1.5.
 1. Enable `org.gradle.configuration-cache=true`; confirm the build passes.
 2. Add `scripts/ci/run-partition.sh`, `run-extended.sh`, `check-manifest.sh`.
 3. Add `pr-fast.yml` (2.4) with a filter row for each partition in 2.2. Create the `area:ci` label.
-4. Add `gitleaks`, the manifest guard, and dependency review to the PR lane. Measure PR runs; move anything that takes over 3 minutes to nightly.
+4. Add `gitleaks`, the manifest guard, and dependency review to the PR lane. Measure PR runs; move anything that takes over 5 minutes to nightly.
 5. Add catalog entries: `ui-test-junit4`, Robolectric, Roborazzi, `espresso-accessibility`, UI Automator, Microbenchmark, Macrobenchmark, Jazzer. Pin versions at least two weeks old.
 6. Add the WCAG contrast test for `ui/theme/Color.kt` and the standard vectors with exact-match tests.
 7. Add Jazzer targets for `UrScanner`, `Cbor`, `EthSignRequest`; commit seeds; enable PR replay.
