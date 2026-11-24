@@ -7,7 +7,9 @@ import app.lensly.app.export.PairingPayload
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
+import app.lensly.core.vault.WalletPad
 import app.lumio.LumioApp
+import app.lumio.removeWalletHistory
 import app.lumio.LumioVault
 import app.lumio.data.asset.AssetId
 import app.lumio.data.cache.CachePolicy
@@ -30,6 +32,8 @@ import app.lumio.pair.PairImport
 import app.lumio.pair.PairedWallets
 import app.lumio.watchlist.FIRST_RUN_ASSETS
 import app.lumio.watchlist.WalletWatchlist
+import app.lumio.watchlist.WatchedAsset
+import app.lumio.watchlist.WatchlistStore
 import com.sparrowwallet.hummingbird.UR
 import java.io.File
 import java.math.BigInteger
@@ -97,6 +101,39 @@ class WalletsBoardTest {
         board.showSide(mode, listVersion = 0)
 
         assertEquals(Kept(kept, stale = true), await { board.market })
+        assertEquals(WalletWatchlist(assets = FIRST_RUN_ASSETS), await { board.watchlists[wallet.id] })
+
+        board.close()
+        database.close()
+        session.close()
+    }
+
+    @Test
+    fun aWalletPairedAgainAfterItsDeletionDoesNotShowTheDeletedWatchlist() {
+        // A padded vault, as production keeps one: a deleted wallet's slot is the one the next pairing takes, so the id comes back.
+        val layout = VaultLayout(tmp.root)
+        val keys = MemoryKeystore()
+        val key = ByteArray(32) { (it * 3 + 2).toByte() }
+        val session = VaultSession(layout, keys, key, pad = WalletPad(layout, keys, key.copyOf(), section = 0))
+        val database = LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "repair.db"))
+        val vault = LumioVault(session, database)
+        val app = RuntimeEnvironment.getApplication() as LumioApp
+        PairedWallets.save(session, pairing(), nowMs = 100L)
+        val wallet = PairedWallets.list(session).single()
+        val starred = WalletWatchlist(assets = listOf(WatchedAsset(NetworkId(Networks.evm(10143), testnet = true))))
+        WatchlistStore.write(session, wallet.id, starred)
+        val board = WalletsBoard(app, vault, repository = PriceRepository(app.priceScheduler) { vault.cache }) { emptyMap<AssetId, Price>() }
+        vault.wallets = board
+        board.showSide(mode, listVersion = 0)
+        assertEquals(starred, await { board.watchlists[wallet.id] })
+
+        // The wallet is deleted, then paired again under the same id. Its list must not come back from the board's memory.
+        PairedWallets.delete(session, wallet.id)
+        runBlocking { removeWalletHistory(vault, wallet) }
+        PairedWallets.save(session, pairing(), nowMs = 200L)
+        assertEquals(wallet.id, PairedWallets.list(session).single().id)
+        board.showSide(mode, listVersion = 1)
+
         assertEquals(WalletWatchlist(assets = FIRST_RUN_ASSETS), await { board.watchlists[wallet.id] })
 
         board.close()

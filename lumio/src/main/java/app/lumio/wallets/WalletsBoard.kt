@@ -284,6 +284,11 @@ internal class WalletsBoard(
         refreshMarket()
     }
 
+    /** Drops the watchlist of [walletId] from memory when the wallet is deleted, so a wallet paired again under the same id starts from the vault's copy. */
+    fun forgetWatchlist(walletId: String) {
+        scope.launch { watchlists = watchlists - walletId }
+    }
+
     /** One pass of [refreshMarket]: the market, the watched prices and their day charts. Each read runs off the main thread, and its answer lands here. */
     private suspend fun readMarket() {
         if (!withContext(Dispatchers.IO) { repository.servesMarket() }) market = null
