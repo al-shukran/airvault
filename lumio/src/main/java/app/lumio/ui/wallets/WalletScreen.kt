@@ -214,7 +214,7 @@ private fun ChainIsland(
         // because of it. The rest of the island stays live.
         if (failureShown(group, family, reads)) {
             ChainFailureNote(
-                text = unreachableNote(group.first().networkName),
+                text = unreachableNote(group.first().networkName, keptBalance = group.any { it.balance != null }),
                 onRetry = { onRetry(family) },
                 modifier = Modifier.padding(bottom = ClearAirSpacing.xs),
             )

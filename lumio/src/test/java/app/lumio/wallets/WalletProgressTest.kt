@@ -148,6 +148,11 @@ class WalletProgressTest {
 
     @Test
     fun theFailureNoteNamesTheNetwork() {
-        assertEquals("Couldn't reach Bitcoin. Showing the last known balance.", unreachableNote("Bitcoin"))
+        assertEquals("Couldn't reach Bitcoin. Showing the last known balance.", unreachableNote("Bitcoin", keptBalance = true))
+    }
+
+    @Test
+    fun theFailureNoteDoesNotPromiseABalanceTheChainDoesNotKeep() {
+        assertEquals("Couldn't reach Bitcoin.", unreachableNote("Bitcoin", keptBalance = false))
     }
 }

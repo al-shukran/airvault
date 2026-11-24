@@ -161,13 +161,13 @@ fun LumioScanScreen(
     }
 }
 
+/** The Camera Denied words wherever the camera reads any code. Pair names the code it reads, Lensly's, instead. */
+const val CAMERA_DENIED_TEXT = "Lumio needs the camera to read codes. Nothing is recorded."
+
 /**
  * The Camera Denied state (K6): a dashed note in place of the viewfinder, in its exact place and size, so the page does not move when the owner
  * allows the camera and the scan starts by itself. Open Settings is the one action, because the system does not ask a second time.
  */
-/** The Camera Denied words wherever the camera reads any code. Pair names the code it reads, Lensly's, instead. */
-const val CAMERA_DENIED_TEXT = "Lumio needs the camera to read codes. Nothing is recorded."
-
 @Composable
 fun CameraDeniedNote(onOpenSettings: () -> Unit, modifier: Modifier = Modifier, text: String = CAMERA_DENIED_TEXT) {
     val palette = LocalClearAirPalette.current

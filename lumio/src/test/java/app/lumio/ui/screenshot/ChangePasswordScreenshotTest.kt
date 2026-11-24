@@ -17,7 +17,7 @@ import org.robolectric.annotation.GraphicsMode
 
 private const val NEW_PASSWORD = "Vk8#Rw2!Lq6Zn4Tp9Xb"
 
-/** The golden of Change Password on the Clear Air page after a wrong current password: the field's words, and the page asking for all three again. */
+/** The golden of Change Password on the Clear Air page after a wrong current password: the field's words, and the three fields kept as typed. */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = LUMIO_DARK_QUALIFIERS)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)

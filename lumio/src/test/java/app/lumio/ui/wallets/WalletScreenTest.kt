@@ -85,7 +85,8 @@ class WalletScreenTest {
     fun aChainThatDidNotAnswerNamesItselfUnderItsIslandWithARetry() {
         render(reads = WalletReads(unreachable = setOf(ethereum)))
 
-        compose.onNodeWithText("Couldn't reach Ethereum. Showing the last known balance.", substring = true).assertIsDisplayed()
+        // This chain keeps no balance, so the note says only that it could not be reached.
+        compose.onNodeWithText("Couldn't reach Ethereum.").assertIsDisplayed()
         compose.onNodeWithText("Retry").assertIsDisplayed()
     }
 
