@@ -111,7 +111,8 @@ private fun SettingsRoute(
             onOpen = { page -> navController.navigate(LumioRoute.settingsPage(page)) },
             onReset = {
                 scope.launch {
-                    // The erase runs to its end even if this screen leaves. A vault file that cannot be deleted leaves the vault, and the gate then asks for its password.
+                    // The erase runs to its end even if this screen leaves. A vault file that cannot be deleted leaves the erase unfinished, and the gate
+                    // finishes it before it shows anything (see Vault.finishPendingWipe).
                     withContext(Dispatchers.IO + NonCancellable) { runCatching { app.eraseLumio() } }
                     lockChoices.reload()
                     navController.openHidden(GateRoutes.GATE)

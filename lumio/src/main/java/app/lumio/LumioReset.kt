@@ -11,7 +11,8 @@ import java.io.File
  * books, the Biometric Unlock key and the photos; the chain data database at [databaseFile], with its balances, scan jobs and history; and the lock
  * choices. The camera's Hidden Entry Gesture is kept, so the cover is the same after a reset, and Lensly is not touched. The vault locks first, so its
  * keys are zeroed before any file goes. The caller closes the database first. The database and the lock choices are erased even when the vault
- * cannot be deleted, and then the vault's [app.lensly.core.vault.VaultException] reaches the caller.
+ * cannot be deleted, and then the vault's [app.lensly.core.vault.VaultException] reaches the caller. The vault's erase is then finished the next
+ * time the gate opens (see [app.lensly.core.vault.Vault.finishPendingWipe]).
  */
 internal fun eraseLumioStores(holder: VaultHolder, databaseFile: File, lock: LockSettingsStore) {
     holder.lock()

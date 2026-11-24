@@ -10,6 +10,7 @@ import app.lensly.core.vault.KdfParams
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.Vault
+import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultLayout
 import app.lensly.ui.camera.EntryGesture
 import app.lumio.data.config.LockSettings
@@ -17,11 +18,13 @@ import app.lumio.data.config.LockSettingsStore
 import app.lumio.data.db.LumioDatabase
 import java.io.File
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
+import org.junit.Assume.assumeFalse
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -87,6 +90,28 @@ class LumioResetTest {
         assertTrue(context.getSharedPreferences(LockSettingsStore.FILE, 0).all.isEmpty())
         assertEquals(LockSettings(), lock.load())
         assertEquals(EntryGesture.PINCH_TRIPLE_TAP, gestures.load())
+    }
+
+    @Test
+    fun aResetThatStopsHalfWayErasesTheDatabaseAndTheNextGateFinishesTheVault() = runBlocking {
+        assertEquals(CreateResult.Created, vault.create(PASSWORD.toCharArray()))
+        open()
+        val databaseFile = lumioDatabaseFile(layout).apply { parentFile!!.mkdirs() }
+        LumioDatabase.open(context, databaseFile).close()
+        val lock = LockSettingsStore.open(context).also { it.save(LockSettings(idleMinutes = 5, lockWhenSwitchingApps = true)) }
+        // A wallet folder that cannot be deleted stops the erase after the keys are gone.
+        layout.wallets.setWritable(false)
+        try {
+            assumeFalse(layout.wallets.canWrite())
+            assertFailsWith<VaultException> { eraseLumioStores(holder, databaseFile, lock) }
+        } finally {
+            layout.wallets.setWritable(true)
+        }
+
+        assertFalse(databaseFile.exists())
+        assertEquals(LockSettings(), lock.load())
+        assertTrue(vault.finishPendingWipe())
+        assertFalse(File(tmp.root, "data").exists())
     }
 
     /** A wrong password, tried after the longest failure delay, so the delay does not refuse the try before it is counted. */
