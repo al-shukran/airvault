@@ -171,9 +171,6 @@ internal class WalletsBoard(
     /** The Bitcoin accounts whose last scan failed, by account key. Their chain did not answer until a scan of them lands. */
     private var bitcoinFailed = emptySet<String>()
 
-    /** The Bitcoin accounts that have a scan result in the running refresh, by account key. */
-    private var bitcoinLanded = emptySet<String>()
-
     /** The time of the last complete read of the networks, or null before the first one. */
     var updatedAtMs by mutableStateOf<Long?>(null)
         private set
@@ -275,14 +272,10 @@ internal class WalletsBoard(
                 val shown = readOrNull { withContext(Dispatchers.IO) { WalletsLoader.read(app, session, mode) } } ?: return@launch
                 val sideFamilies = shown.wallets.flatMap { shown.accountsOf(it.id) }.map { it.namespace }.toSet()
                 val chains = families ?: sideFamilies
-                val bitcoinAccounts = shown.wallets.sumOf { wallet -> shown.accountsOf(wallet.id).count { it.namespace == Networks.BIP122 } }
                 val started = WallClock.nowMs()
-                bitcoinLanded = emptySet()
                 reads = reads.copy(
                     checking = sideFamilies intersect chains,
                     startedAtMs = reads.startedAtMs + chains.flatMap(::readFamilies).toSet().associateWith { started },
-                    bitcoinDone = 0,
-                    bitcoinTotal = bitcoinAccounts,
                 )
                 readCoinPrices(mode, shown)
                 val result = WalletsLoader.refresh(app, session, mode, chains) { namespaces, failed -> landed(mode, namespaces, failed) }
@@ -314,11 +307,9 @@ internal class WalletsBoard(
 
     /** A Bitcoin scan of [accountKey] ended, with a result or with a failure. The side's Bitcoin chain is unreachable while an account's scan has failed. */
     private fun scanLanded(accountKey: String, failed: Boolean) {
-        bitcoinLanded = bitcoinLanded + accountKey
         bitcoinFailed = if (failed) bitcoinFailed + accountKey else bitcoinFailed - accountKey
         val mode = side ?: return
         reads = reads.copy(
-            bitcoinDone = bitcoinLanded.size,
             unreachable = landedUnreachable(reads.unreachable, setOf(Networks.BIP122), bitcoinChainIfFailing(mode)),
         )
     }
@@ -350,7 +341,6 @@ internal class WalletsBoard(
     private fun forgetReads() {
         reads = WalletReads()
         bitcoinFailed = emptySet()
-        bitcoinLanded = emptySet()
     }
 
     /** The app came back from the background. The Wallets home reads the networks again as it shows. */
