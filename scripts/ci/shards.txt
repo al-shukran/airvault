@@ -405,7 +405,7 @@ shard-7 :lumio app.lumio.btc.DownProvider
 shard-7 :lumio app.lumio.btc.TimedServer
 shard-7 :lumio app.lumio.data.config.PreferRpcStoreTest
 shard-7 :lumio app.lumio.data.config.TransactionSettingsTest
-shard-7 :lumio app.lumio.data.price.ChartRangeTest
+shard-7 :lumio app.lumio.data.price.ChartFrameTest
 shard-7 :lumio app.lumio.data.provider.ProviderHttpTest
 shard-7 :lumio app.lumio.data.provider.routescan.RoutescanTxHistoryTest
 shard-7 :lumio app.lumio.data.rpc.RpcProvidersTest

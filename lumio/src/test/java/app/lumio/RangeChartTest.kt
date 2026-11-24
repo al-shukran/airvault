@@ -10,7 +10,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import app.lumio.data.ETH
 import app.lumio.data.asset.AssetId
-import app.lumio.data.price.ChartRange
+import app.lumio.data.price.ChartFrame
 import app.lumio.data.price.PricePoint
 import app.lumio.data.price.PriceSeries
 import org.junit.Assert.assertEquals
@@ -30,12 +30,12 @@ class RangeChartTest {
     val compose = createComposeRule()
 
     private val asset = AssetId.Native(ETH)
-    private val reads = CopyOnWriteArrayList<ChartRange>()
+    private val reads = CopyOnWriteArrayList<ChartFrame>()
 
     /** A chart of one point for the day range and seven for the week, so the text shows which range was read. */
-    private fun read(range: ChartRange): PriceSeries {
+    private fun read(range: ChartFrame): PriceSeries {
         reads += range
-        return seriesOf(if (range == ChartRange.D7) 7 else 1)
+        return seriesOf(if (range == ChartFrame.H4) 7 else 1)
     }
 
     private fun awaitText(text: String) = compose.waitUntil(timeoutMillis = 5_000) {
@@ -45,29 +45,29 @@ class RangeChartTest {
     private fun seriesOf(points: Int) = PriceSeries(List(points) { PricePoint(it.toLong(), 1.0) })
 
     @Composable
-    private fun ChartPoints(range: ChartRange, dayChart: PriceSeries?) {
+    private fun ChartPoints(range: ChartFrame, dayChart: PriceSeries?) {
         val series = rememberRangeChart(asset, range, dayChart) { read(it) }
         Text(text = "${series?.points?.size ?: 0} points")
     }
 
     @Test
     fun switchingTheRangeLoadsThatRangesChart() {
-        var range by mutableStateOf(ChartRange.D1)
+        var range by mutableStateOf(ChartFrame.H1)
         compose.setContent { ChartPoints(range, dayChart = null) }
         awaitText("1 points")
 
-        compose.runOnIdle { range = ChartRange.D7 }
+        compose.runOnIdle { range = ChartFrame.H4 }
 
         awaitText("7 points")
         compose.onNodeWithText("1 points").assertDoesNotExist()
-        assertEquals(listOf(ChartRange.D1, ChartRange.D7), reads.toList())
+        assertEquals(listOf(ChartFrame.H1, ChartFrame.H4), reads.toList())
     }
 
     @Test
     fun theDayRangeShowsTheBoardsDayChartWithoutARead() {
-        compose.setContent { ChartPoints(ChartRange.D1, dayChart = seriesOf(3)) }
+        compose.setContent { ChartPoints(ChartFrame.H1, dayChart = seriesOf(3)) }
 
         compose.onNodeWithText("3 points").assertExists()
-        assertEquals(emptyList<ChartRange>(), reads.toList())
+        assertEquals(emptyList<ChartFrame>(), reads.toList())
     }
 }

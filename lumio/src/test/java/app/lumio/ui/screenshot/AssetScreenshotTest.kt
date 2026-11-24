@@ -14,7 +14,7 @@ import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
-import app.lumio.data.price.ChartRange
+import app.lumio.data.price.ChartFrame
 import app.lumio.data.price.PricePoint
 import app.lumio.data.price.PriceSeries
 import app.lumio.ui.asset.AccountHolding
@@ -76,7 +76,7 @@ class AssetScreenshotTest {
             priceText = "$4,285.70",
             change = PriceChange(text = "▼ 2.41% · −$105.82 Today", rising = false),
             series = series(),
-            range = ChartRange.D1,
+            range = ChartFrame.H1,
             onRange = {},
             watched = true,
             onWatch = {},

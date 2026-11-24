@@ -7,7 +7,7 @@ import app.lumio.btc.EsploraTxStatus
 import app.lumio.data.asset.AssetId
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
-import app.lumio.data.price.ChartRange
+import app.lumio.data.price.ChartFrame
 import app.lumio.data.price.PriceSeries
 import java.math.BigInteger
 import kotlinx.serialization.Serializable
@@ -97,7 +97,7 @@ class TokenPrice(net: NetworkId, val contract: String) : Request<PriceQuote>(net
  * The USD price points of [asset] over [range], ending at [nowMs] (epoch milliseconds). The answer may hold no points when the source has no price in
  * the window. It is kept in memory by the price repository for the session, and never written to the cache.
  */
-class PriceChart(val asset: AssetId, val range: ChartRange, val nowMs: Long) : Request<PriceSeries>(asset.net, Ops.PRICE_CHART)
+class PriceChart(val asset: AssetId, val range: ChartFrame, val nowMs: Long) : Request<PriceSeries>(asset.net, Ops.PRICE_CHART)
 
 /**
  * The network every market request names. The market is not one network's, so these requests name Bitcoin's mainnet, which only passes the router's
