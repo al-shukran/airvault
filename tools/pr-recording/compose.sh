@@ -3,22 +3,22 @@
 #
 #   compose.sh --before a.mp4 --after b.mp4 --out out   two phones with Before and After labels
 #   compose.sh --demo a.mp4 --out out                   one phone
-#   compose.sh shot in.png out.png                      one phone and one screenshot, no timer
+#   compose.sh shot in.png out.png                      one phone and one screenshot
 #   add --app-only directly before an input that has no system bars, e.g. --app-only --after g.mp4
 #
 # The input should be a real emulator capture at 1080x2400 (adb exec-out screencap -p for a still,
-# a sequence of them for a clip). Those already show the status bar and the navigation bar. An
-# app screen without system bars (a golden) needs --app-only, placed directly before that input:
-# the real bars from bars/ are placed around it, chosen by the brightness of the input's top and bottom.
+# or a screenrecord clip). Those already show the status bar and the navigation bar. An app screen
+# without system bars (a golden) needs --app-only, placed directly before that input: the real bars
+# from bars/ are placed around it, chosen by the brightness of the input's top and bottom.
+#
+# The content is never cropped. It is scaled down, if it must be, and centred so that all four of
+# its corners lie inside the phone's visible screen opening, which is worked out from the device art,
+# with at least 2 px to spare. The space around it is filled with the colours of its own edges.
 #
 # A pair or a demo writes out.mp4 (H.264, at most 60 s, black around the phones) and out.gif
-# (transparent around the phones), both at most 10 MB, with an elapsed / total timer under
-# the phones. A shot writes a 760 px wide PNG, transparent outside the phone.
-# Nothing is cropped. Each clip or screenshot is scaled to fit the display, and a strip left
-# over is filled with the colour of its own edge. The screen is clipped to the rounded corners
-# that the device art leaves open.
-# The phone is Android Studio's Pixel 8 device art (1080x2400 display), read at run time from
-# DEVICE_ART_DIR. The art is not stored in the repository.
+# (transparent around the phones), both at most 10 MB. A shot writes a 760 px wide PNG, transparent
+# outside the phone. The phone is Android Studio's Pixel 8 device art (1080x2400 display), read at
+# run time from DEVICE_ART_DIR. The art is not stored in the repository.
 # Needs ffmpeg, ImageMagick (magick) and that device art. See CONTRIBUTING.md.
 set -euo pipefail
 
@@ -39,7 +39,7 @@ usage() {
   echo "usage: $0 --before a.mp4 --after b.mp4 --out out" >&2
   echo "       $0 --demo a.mp4 --out out" >&2
   echo "       $0 shot [--app-only] in.png out.png" >&2
-  echo "       add --app-only to the inputs of a screen without system bars" >&2
+  echo "       add --app-only directly before an input that has no system bars" >&2
   exit 2
 }
 
@@ -53,10 +53,10 @@ read -r body_w body_h < <(magick identify -format '%w %h\n' "$art/back.webp" | h
 work=$(mktemp -d "${TMPDIR:-/tmp}/pr-recording.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 
-# The phone, the display mask and the screen shape at $1 px wide, written as $2-back.png,
-# $2-mask.png and $2-shape.png. Sets PH (phone height), and DX, DY, DW, DH (the display's offset
-# and size). The shape is the transparent hole in the phone image: the body surrounds it, so the
-# corners outside the phone are left out, and flood-filling from the middle selects only the hole.
+# The phone at $1 px wide, written as $2-back.png, $2-mask.png, $2-shape.png and $2-open.png. Sets PH
+# (phone height), and DX, DY, DW, DH (the display's offset and size). The shape is the transparent hole
+# in the phone image: the body surrounds it, so flood-filling from the middle selects only the hole.
+# The opening is what is visible through the hole, which is the hole without the mask's black corners.
 layers() {
   local pw=$1 name=$2 cx cy
   PH=$(at "$body_h" "$pw") DX=$(at "$disp_x" "$pw") DY=$(at "$disp_y" "$pw")
@@ -71,21 +71,29 @@ layers() {
   magick "$work/$name-back.png" -alpha extract -fill 'gray(50%)' -draw "color $cx,$cy floodfill" \
     -fill black +opaque 'gray(50%)' -fill white -opaque 'gray(50%)' \
     -morphology Dilate Disk:2 -crop "${DW}x${DH}+$DX+$DY" +repage "$work/$name-shape.png"
+  magick "$work/$name-shape.png" \( "$work/$name-mask.png" -alpha extract -negate \) \
+    -compose Multiply -composite "$work/$name-open.png"
 }
 
-# The size an $1 x $2 image takes when it fits inside a $3 x $4 box, rounded down to even pixels.
-fit_box() {
-  local iw=$1 ih=$2 bw=$3 bh=$4 w h
-  if [ $((iw * bh)) -gt $((ih * bw)) ]; then w=$bw h=$((ih * bw / iw)); else h=$bh w=$((iw * bh / ih)); fi
-  echo $((w / 2 * 2)) $((h / 2 * 2))
-}
-
-# The size an $1 x $2 image takes when it fits inside the display.
-fit() { fit_box "$1" "$2" "$DW" "$DH"; }
-
-# The colour of the pixel at $2,$3 of image $1, as #RRGGBB.
-pixel_hex() {
-  magick "$1" -alpha off -depth 8 -crop "1x1+$2+$3" +repage txt:- | grep -o -m1 '#[0-9A-Fa-f]\{6\}'
+# The size and place for an $1 x $2 image inside the display opening $3, with all four corners at least
+# 2 px inside it. The image is scaled down a step at a time, from its full size, until that holds. Prints
+# "width height x y". Fails when no size works, which is not expected for a phone screen.
+fit_inside() {
+  local w=$1 h=$2 open=$3 k fw fh x0 y0 v
+  for k in $(seq 1000 -5 800); do
+    read -r fw fh < <(awk -v w="$w" -v h="$h" -v dw="$DW" -v dh="$DH" -v k="$k" 'BEGIN {
+      f = (dw / w < dh / h) ? dw / w : dh / h
+      fw = int(w * f * k / 1000); fh = int(h * f * k / 1000)
+      print fw - fw % 2, fh - fh % 2 }')
+    x0=$(( (DW - fw) / 2 )) y0=$(( (DH - fh) / 2 ))
+    v=$(magick "$open" -format "%[fx:p{$((x0 + 2)),$((y0 + 2))}] %[fx:p{$((x0 + fw - 3)),$((y0 + 2))}] %[fx:p{$((x0 + 2)),$((y0 + fh - 3))}] %[fx:p{$((x0 + fw - 3)),$((y0 + fh - 3))}]" info:)
+    if awk -v v="$v" 'BEGIN { split(v, a, " "); for (i = 1; i <= 4; i++) if (a[i] < 0.5) exit 1; exit 0 }'; then
+      echo "$fw $fh $x0 $y0"
+      return 0
+    fi
+  done
+  echo "no size of the content fits inside the display opening" >&2
+  return 1
 }
 
 # "dark" or "light": the mean brightness of the top (or bottom, for $2) 40 rows of image $1.
@@ -97,12 +105,24 @@ theme_of() {
   awk -v v="$v" 'BEGIN { print (v < 0.5) ? "dark" : "light" }'
 }
 
+# The size an $1 x $2 image takes when it fits inside a $3 x $4 box, rounded down to even pixels.
+fit_box() {
+  local iw=$1 ih=$2 bw=$3 bh=$4 w h
+  if [ $((iw * bh)) -gt $((ih * bw)) ]; then w=$bw h=$((ih * bw / iw)); else h=$bh w=$((iw * bh / ih)); fi
+  echo $((w / 2 * 2)) $((h / 2 * 2))
+}
+
+# The colour of the pixel at $2,$3 of image $1, as #RRGGBB.
+pixel_hex() {
+  magick "$1" -alpha off -depth 8 -crop "1x1+$2+$3" +repage txt:- | grep -o -m1 '#[0-9A-Fa-f]\{6\}'
+}
+
 # A 1080x2400 background for an app screen without system bars, written to $2: the real status bar
 # and navigation bar from bars/ that match the image $1, with the space between them filled with
-# the colour of the image's left edge. Sets FIT_W and FIT_H (the content's size, scaled to fit that
-# space without cropping) and FIT_X and FIT_Y (where the content goes).
+# the colour of the image's left edge. The content is then placed inside the space by the same code
+# that places every other input.
 bars_background() {
-  local w h st nv sh nh box pad
+  local w h st nv sh nh box pad fw fh
   [ -f "$bars/status-light.png" ] && [ -f "$bars/nav-dark.png" ] || { echo "system bars missing in $bars" >&2; exit 1; }
   read -r w h < <(magick identify -format '%w %h\n' "$1" | head -1)
   st="$bars/status-$(theme_of "$1" top).png"
@@ -111,9 +131,9 @@ bars_background() {
   nh=$(magick identify -format '%h' "$nv")
   box=$((2400 - sh - nh))
   pad=$(pixel_hex "$1" 0 $((h / 2)))
-  read -r FIT_W FIT_H < <(fit_box "$w" "$h" 1080 "$box")
-  FIT_X=$(( (1080 - FIT_W) / 2 )) FIT_Y=$(( sh + (box - FIT_H) / 2 ))
+  read -r fw fh < <(fit_box "$w" "$h" 1080 "$box")
   magick -size 1080x2400 "xc:$pad" "$st" -geometry +0+0 -composite "$nv" -geometry "+0+$((2400 - nh))" \
+    -composite \( "$1" -resize "${fw}x${fh}!" \) -geometry "+$(( (1080 - fw) / 2 ))+$((sh + (box - fh) / 2))" \
     -composite -depth 8 "$2"
 }
 
@@ -124,10 +144,43 @@ still_edge() {
   pixel_hex "$1" $((w / 2)) $((h - 1))
 }
 
-# The average colour of the bottom two rows of a clip's first frame, as 0xRRGGBB for ffmpeg.
-clip_edge() {
-  ffmpeg -v error -i "$1" -frames:v 1 -vf 'crop=iw:2:0:ih-2,scale=1:1:flags=area' \
-    -f rawvideo -pix_fmt rgb24 - | od -An -tu1 | awk 'NR == 1 { printf "0x%02x%02x%02x", $1, $2, $3 }'
+# A display-sized canvas for content placed at $3,$4 with size $5 x $6 in it, written to $2. The space
+# around the content takes the colours of the sample image $1's own edges: top, bottom, left and right.
+display_canvas() {
+  local sample=$1 out=$2 fw=$3 fh=$4 x0=$5 y0=$6 w h top bottom left right
+  local draws=(-fill black)
+  read -r w h < <(magick identify -format '%w %h\n' "$sample" | head -1)
+  top=$(pixel_hex "$sample" $((w / 2)) 1)
+  bottom=$(pixel_hex "$sample" $((w / 2)) $((h - 2)))
+  left=$(pixel_hex "$sample" 1 $((h / 2)))
+  right=$(pixel_hex "$sample" $((w - 2)) $((h / 2)))
+  if [ "$y0" -gt 0 ]; then draws+=(-fill "$top" -draw "rectangle 0,0 $((DW - 1)),$((y0 - 1))"); fi
+  if [ "$x0" -gt 0 ]; then draws+=(-fill "$left" -draw "rectangle 0,$y0 $((x0 - 1)),$((y0 + fh - 1))"); fi
+  if [ $((x0 + fw)) -lt "$DW" ]; then draws+=(-fill "$right" -draw "rectangle $((x0 + fw)),$y0 $((DW - 1)),$((y0 + fh - 1))"); fi
+  magick -size "${DW}x${DH}" "xc:$bottom" "${draws[@]}" -depth 8 "$out"
+}
+
+# A still scaled and centred inside the display opening $3, as a display-sized PNG in $2.
+display_fit_still() {
+  local w h fitline fw fh x0 y0
+  read -r w h < <(magick identify -format '%w %h\n' "$1" | head -1)
+  fitline=$(fit_inside "$w" "$h" "$3") || exit 1
+  read -r fw fh x0 y0 <<< "$fitline"
+  display_canvas "$1" "$work/canvas.png" "$fw" "$fh" "$x0" "$y0"
+  magick "$work/canvas.png" \( "$1" -resize "${fw}x${fh}!" \) -geometry "+$x0+$y0" -composite -depth 8 "$2"
+}
+
+# A clip scaled and centred inside the display opening $3, as a display-sized MP4 in $2.
+display_fit_clip() {
+  local w h fitline fw fh x0 y0
+  read -r w h < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$1" | tr ',' ' ')
+  fitline=$(fit_inside "$w" "$h" "$3") || exit 1
+  read -r fw fh x0 y0 <<< "$fitline"
+  ffmpeg -v error -y -i "$1" -frames:v 1 "$work/first.png"
+  display_canvas "$work/first.png" "$work/canvas.png" "$fw" "$fh" "$x0" "$y0"
+  ffmpeg -v error -y -loop 1 -framerate 30 -i "$work/canvas.png" -i "$1" -filter_complex \
+    "[1:v]fps=30,scale=$fw:$fh,format=yuv420p[c];[0:v]format=yuv420p[b];[b][c]overlay=$x0:$y0:shortest=1,format=yuv420p[out]" \
+    -map '[out]' -shortest -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p "$2"
 }
 
 if [ "${1:-}" = shot ]; then
@@ -137,19 +190,14 @@ if [ "${1:-}" = shot ]; then
   src=$2 out=$3
   [ -f "$src" ] || { echo "no such image: $src" >&2; exit 1; }
   if [ $app -eq 1 ]; then
-    bars_background "$src" "$work/still-bg.png"
-    magick "$work/still-bg.png" \( "$src" -resize "${FIT_W}x${FIT_H}!" \) -geometry "+$FIT_X+$FIT_Y" \
-      -composite "$work/still.png"
-    src=$work/still.png
+    bars_background "$src" "$work/still-bars.png"
+    src=$work/still-bars.png
   fi
   # A 760 px phone, with nothing around it: the PNG is transparent outside the device.
   layers 760 shot
-  bg=$(still_edge "$src")
-  read -r iw ih < <(magick identify -format '%w %h\n' "$src" | head -1)
-  read -r fw fh < <(fit "$iw" "$ih")
+  display_fit_still "$src" "$work/still-fit.png" "$work/shot-open.png"
   magick -size "760x$PH" xc:none \
-    \( "$src" -resize "${fw}x${fh}!" -background "$bg" -gravity NorthWest -extent "${DW}x${DH}" +repage \
-      "$work/shot-shape.png" -compose CopyOpacity -composite \) \
+    \( "$work/still-fit.png" "$work/shot-shape.png" -compose CopyOpacity -composite \) \
     -compose Over -gravity NorthWest -geometry "+$DX+$DY" -composite \
     "$work/shot-back.png" -geometry +0+0 -composite \
     "$work/shot-mask.png" -geometry "+$DX+$DY" -composite -depth 8 "$out"
@@ -182,37 +230,30 @@ for clip in "${clips[@]}"; do
 done
 
 n=${#clips[@]}
-# An input marked --app-only has no system bars: it gets the real bars as a full 1080x2400 clip.
-for ((i = 0; i < n; i++)); do
-  [ "${apps[i]}" -eq 1 ] || continue
-  ffmpeg -v error -y -i "${clips[i]}" -frames:v 1 "$work/first-$i.png"
-  bars_background "$work/first-$i.png" "$work/bars-$i.png"
-  ffmpeg -v error -y -loop 1 -framerate 30 -i "$work/bars-$i.png" -i "${clips[i]}" -filter_complex \
-    "[1:v]fps=30,scale=$FIT_W:$FIT_H,format=yuv420p[c];[0:v][c]overlay=$FIT_X:$FIT_Y:shortest=1,format=yuv420p[out]" \
-    -map '[out]' -shortest -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p "$work/app-$i.mp4"
-  clips[i]="$work/app-$i.mp4"
-done
-pad_c=()
-for clip in "${clips[@]}"; do pad_c+=("$(clip_edge "$clip")"); done
-
-# Layout in pixels, with no margin. A pair puts two 480 px phones side by side, 24 px apart,
-# under a thin strip of label pills; a demo puts one 600 px phone. The timer is a thin strip
-# directly under the phones.
+# Layout in pixels, with no margin. A pair puts two 480 px phones side by side, 24 px apart, under a
+# thin strip for the Before and After labels; a demo puts one 600 px phone.
 if [ "$n" -eq 2 ]; then pw=480 top=48 gap=24; else pw=600 top=0 gap=0; fi
 layers "$pw" dev
-fit_w=() fit_h=()
-for clip in "${clips[@]}"; do
-  read -r iw ih < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$clip" | tr ',' ' ')
-  read -r fw fh < <(fit "$iw" "$ih")
-  fit_w+=("$fw") fit_h+=("$fh")
+for ((i = 0; i < n; i++)); do
+  if [ "${apps[i]}" -eq 1 ]; then
+    # An input marked --app-only has no system bars: it gets the real bars first, as a 1080x2400 clip.
+    ffmpeg -v error -y -i "${clips[i]}" -frames:v 1 "$work/app-first-$i.png"
+    bars_background "$work/app-first-$i.png" "$work/app-bars-$i.png"
+    ffmpeg -v error -y -loop 1 -framerate 30 -i "$work/app-bars-$i.png" -i "${clips[i]}" -filter_complex \
+      "[1:v]fps=30,format=yuv420p[c];[0:v][c]overlay=0:0:shortest=1,format=yuv420p[out]" \
+      -map '[out]' -shortest -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p "$work/app-$i.mp4"
+    clips[i]="$work/app-$i.mp4"
+  fi
+  display_fit_clip "${clips[i]}" "$work/fit-$i.mp4" "$work/dev-open.png"
+  clips[i]="$work/fit-$i.mp4"
 done
+
 if [ "$n" -eq 2 ]; then
   width=$((2 * pw + gap)) xs=(0 $((pw + gap)))
 else
   width=$pw xs=(0)
 fi
-strip_y=$((top + PH))
-height=$((strip_y + 44))
+height=$((top + PH))
 height=$((height + height % 2))
 
 # Stage: the background, and for a pair the Before and After label pills. The black stage
@@ -235,20 +276,9 @@ secs=$(for clip in "${clips[@]}"; do
   ffprobe -v error -show_entries format=duration -of csv=p=0 "$clip"
 done | awk -v cap="$max_seconds" '{ if ($1 > m) m = $1 } END { if (m > cap) m = cap; printf "%.2f", m }')
 
-# Timer: one label per elapsed second, as "MM:SS / MM:SS", in a black pill with white text.
-# The labels are rendered with ImageMagick because some ffmpeg builds lack drawtext.
-total=$(awk -v s="$secs" 'BEGIN { t = int(s); if (t < s) t++; print t }')
-for ((k = 0; k < total; k++)); do
-  printf -v label '%02d:%02d / %02d:%02d' $((k / 60)) $((k % 60)) $((total / 60)) $((total % 60))
-  magick -size "${width}x44" xc:none -fill black -draw "roundrectangle $((width / 2 - 140)),4 $((width / 2 + 140)),40 18,18" \
-    -font "$font" -pointsize 26 -fill white -gravity center -annotate +0+0 "$label" \
-    "PNG32:$(printf '%s/t%03d.png' "$work" "$k")"
-done
-
-# Filter graph for one output, with the stage in pixel format $1 (yuv420p or rgba). Each clip is
-# scaled to fit the display and padded with its edge colour, then clipped to the screen shape. The
-# screen goes under the phone, and the mask over both. Input 0 is the stage, inputs 1..n the clips,
-# n+1 the phone, n+2 the mask, n+3 the screen shape and n+4 the timer labels.
+# Filter graph for one output, with the stage in pixel format $1 (yuv420p or rgba). Each clip, already
+# the size of the display, is clipped to the screen shape. The phone goes under it and the mask over it.
+# Input 0 is the stage, inputs 1..n the clips, n+1 the phone, n+2 the mask and n+3 the screen shape.
 build_graph() {
   local fmt=$1 parts=() split_b='' split_m='' split_h='' cur=s0 i x
   parts+=("[0:v]format=$fmt[s0]")
@@ -262,15 +292,14 @@ build_graph() {
   parts+=("[$((n + 3)):v]format=gray,split=$n$split_h")
   for i in $(seq 0 $((n - 1))); do
     x=${xs[i]}
-    parts+=("[$((i + 1)):v]fps=30,scale=${fit_w[i]}:${fit_h[i]},pad=$DW:$DH:0:0:color=${pad_c[i]},setsar=1,format=yuv420p,tpad=stop_mode=clone:stop_duration=${max_seconds}[c$i]")
+    parts+=("[$((i + 1)):v]fps=30,format=yuv420p,tpad=stop_mode=clone:stop_duration=${max_seconds}[c$i]")
     parts+=("[c$i][h$i]alphamerge[k$i]")
     parts+=("[$cur][k$i]overlay=$((x + DX)):$((top + DY)):format=auto[t$i]")
     parts+=("[t$i][b$i]overlay=$x:$top:format=auto[u$i]")
     parts+=("[u$i][m$i]overlay=$((x + DX)):$((top + DY)):format=auto[v$i]")
     cur=v$i
   done
-  parts+=("[$((n + 4)):v]format=rgba,fps=30[tm]")
-  parts+=("[$cur][tm]overlay=0:$strip_y:format=auto,format=$fmt[out]")
+  parts+=("[$cur]format=$fmt[out]")
   (IFS=';'; echo "${parts[*]}")
 }
 
@@ -282,7 +311,6 @@ inputs_with() {
   for clip in "${clips[@]}"; do inputs+=(-i "$clip"); done
   inputs+=(-framerate 30 -loop 1 -i "$work/dev-back.png" -framerate 30 -loop 1 -i "$work/dev-mask.png")
   inputs+=(-framerate 30 -loop 1 -i "$work/dev-shape.png")
-  inputs+=(-framerate 1 -start_number 0 -i "$work/t%03d.png")
 }
 
 # MP4: step the quality down, then the frame rate, until it fits.
