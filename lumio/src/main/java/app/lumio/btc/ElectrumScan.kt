@@ -26,9 +26,14 @@ internal class ElectrumRead(val receive: List<UsedAddress>, val change: List<Use
 /**
  * Reads [account] from [pool]: the gap-limit walk of both chains at once, then the unspent outputs of the addresses that hold coins. Each window
  * of the walk is one batch, and so are the unspent outputs. [step] reports the addresses asked for so far, as the Esplora walk does. Returns null
- * when Electrum fails, so that the caller reads the account from Esplora. A cancellation is passed on.
+ * when Electrum fails, so that the caller reads the account from Esplora. A cancellation is passed on. [usedBelow] is the receive hint of [electrumChain].
  */
-internal suspend fun electrumRead(pool: ElectrumPool, account: BtcWatchOnlyAccount, step: suspend (Int) -> Unit): ElectrumRead? {
+internal suspend fun electrumRead(
+    pool: ElectrumPool,
+    account: BtcWatchOnlyAccount,
+    step: suspend (Int) -> Unit,
+    usedBelow: Int = 0,
+): ElectrumRead? {
     val network = account.network
     val asked = AtomicInteger(0)
     val read: suspend (List<String>) -> List<AddressReading> = { addresses ->
@@ -38,7 +43,7 @@ internal suspend fun electrumRead(pool: ElectrumPool, account: BtcWatchOnlyAccou
         val receive = mutableListOf<UsedAddress>()
         val change = mutableListOf<UsedAddress>()
         coroutineScope {
-            launch { electrumChain(account::receiveAddress, read, receive) }
+            launch { electrumChain(account::receiveAddress, read, receive, usedBelow) }
             launch { electrumChain(account::changeAddress, read, change) }
         }
         val holders = (receive + change).filter { it.reading.balance != 0L }
@@ -52,18 +57,21 @@ internal suspend fun electrumRead(pool: ElectrumPool, account: BtcWatchOnlyAccou
 }
 
 /**
- * Walks one chain with the gap limit, as [scanChain] does, and finds the same used addresses. [read] answers one window of
- * [BtcAccount.GAP_LIMIT] addresses at a time, in one batch. The walk stops in the window where the gap closes, so no address past the stop is counted.
+ * Walks one chain with the gap limit, as [scanChain] does, and finds the same used addresses. [read] answers one window at a time, in one batch: windows
+ * of [BtcAccount.GAP_LIMIT] addresses, except that the first one reaches the gap after [usedBelow] (see [firstWindowOf]). The walk stops in the window
+ * where the gap closes, so no address past the stop is counted.
  */
 internal suspend fun electrumChain(
     addressAt: (Int) -> String,
     read: suspend (List<String>) -> List<AddressReading>,
     found: MutableList<UsedAddress> = mutableListOf(),
+    usedBelow: Int = 0,
 ): ChainScan {
     var index = 0
     var unused = 0
+    var size = firstWindowOf(usedBelow, BtcAccount.GAP_LIMIT)
     while (unused < BtcAccount.GAP_LIMIT) {
-        val window = List(BtcAccount.GAP_LIMIT) { addressAt(index + it) }
+        val window = List(size) { addressAt(index + it) }
         for ((offset, reading) in read(window).withIndex()) {
             if (reading.used) {
                 found += UsedAddress(index + offset, window[offset], reading)
@@ -72,7 +80,8 @@ internal suspend fun electrumChain(
                 break
             }
         }
-        index += BtcAccount.GAP_LIMIT
+        index += size
+        size = BtcAccount.GAP_LIMIT
     }
     return ChainScan(found)
 }

@@ -282,12 +282,13 @@ class BtcScanTest {
     private val unusedStats = EsploraParse.addressStats(addressJson())
 
     /** The used indexes that [scanChain] finds, for [window], when the receive addresses in [used] have history and the others have none. */
-    private suspend fun walkedUsed(used: Set<Int>, window: Int): List<Int> {
+    private suspend fun walkedUsed(used: Set<Int>, window: Int, usedBelow: Int = 0): List<Int> {
         val indexOf = receive.withIndex().associate { it.value to it.index }
         return scanChain(
             addressAt = { receive[it] },
             statsOf = { address -> if (indexOf.getValue(address) in used) usedStats else unusedStats },
             window = window,
+            usedBelow = usedBelow,
         ).used.map { it.index }
     }
 
@@ -445,7 +446,7 @@ class BtcScanTest {
     }
 
     /** The used indexes that [electrumChain] finds when the receive addresses in [used] have history, and the number of batches it sent. */
-    private suspend fun electrumWalk(used: Set<Int>): Pair<List<Int>, Int> {
+    private suspend fun electrumWalk(used: Set<Int>, usedBelow: Int = 0): Pair<List<Int>, Int> {
         val indexOf = receive.withIndex().associate { it.value to it.index }
         var batches = 0
         val walk = electrumChain(
@@ -454,6 +455,7 @@ class BtcScanTest {
                 batches++
                 addresses.map { AddressReading(used = indexOf.getValue(it) in used, confirmedSats = 0L, unconfirmedSats = 0L) }
             },
+            usedBelow = usedBelow,
         )
         return walk.used.map { it.index } to batches
     }
@@ -485,6 +487,46 @@ class BtcScanTest {
         assertEquals(1, electrumWalk(emptySet()).second)
         // Index 0 is used, so the gap runs on to index 20, which the second window holds.
         assertEquals(2, electrumWalk(setOf(0)).second)
+    }
+
+    @Test
+    fun aRescanWithTheStoredNextIndexAsksForTheGapInTheFirstBatch() = runBlocking {
+        // Indexes 0 to 4 were used at the scan before, so the next index is 5. The gap after them closes at index 24: one batch of 25 addresses.
+        val used = (0 until 5).toSet()
+        val (found, batches) = electrumWalk(used, usedBelow = 5)
+        assertEquals(sequentialWalk(used), found)
+        assertEquals(1, batches)
+        assertEquals(2, electrumWalk(used).second, "without the hint the gap is asked for in a second batch")
+    }
+
+    @Test
+    fun aHintNeverChangesWhatTheWalkFinds() = runBlocking {
+        val random = Random(11)
+        repeat(200) {
+            val used = (0 until 120).filter { random.nextInt(100) < 1 + random.nextInt(25) }.toSet()
+            // A hint is the used run below the next index, as a stored scan records it. The walk must find the same addresses with or without it.
+            val usedBelow = generateSequence(0) { it + 1 }.first { it !in used }
+            assertEquals(sequentialWalk(used), electrumWalk(used, usedBelow).first, "used at $used, hint $usedBelow")
+            assertEquals(sequentialWalk(used), walkedUsed(used, BtcAccount.GAP_LIMIT, usedBelow), "used at $used, hint $usedBelow")
+        }
+    }
+
+    @Test
+    fun aRescanAsksForTheWholeKnownWindowAtOnce() = runBlocking {
+        var inFlight = 0
+        var mostInFlight = 0
+        scanChain(
+            addressAt = { receive[it] },
+            statsOf = { address ->
+                inFlight++
+                mostInFlight = maxOf(mostInFlight, inFlight)
+                delay(5)
+                inFlight--
+                if (receive.indexOf(address) < 5) usedStats else unusedStats
+            },
+            usedBelow = 5,
+        )
+        assertEquals(25, mostInFlight, "the first window reaches the gap after the five used addresses")
     }
 
     @Test
