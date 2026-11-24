@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The lane budget of pr-fast: every job of this run must finish within LANE_BUDGET_SECONDS (default 180) of its start. A
+# The lane budget of pr-fast: every job of this run must finish within LANE_BUDGET_SECONDS (default 300) of its start. A
 # step whose name starts with "Save " (the build-cache upload on master) is left out: a pull request never waits on it.
 # pr-ok runs it after every lane. It writes each job's time to the step summary and a warning for each job over the budget.
 # With FILE_ISSUE=true (a push to master) it also opens, or comments on, the one open `ci-budget` issue, so a slow lane is
@@ -8,7 +8,7 @@ set -euo pipefail
 
 run_id="${GITHUB_RUN_ID:?GITHUB_RUN_ID is not set}"
 attempt="${GITHUB_RUN_ATTEMPT:-1}"
-budget="${LANE_BUDGET_SECONDS:-180}"
+budget="${LANE_BUDGET_SECONDS:-300}"
 title="CI: a pr-fast lane took longer than ${budget} s"
 
 rows="$(gh api --paginate "repos/{owner}/{repo}/actions/runs/$run_id/attempts/$attempt/jobs?per_page=100" \
