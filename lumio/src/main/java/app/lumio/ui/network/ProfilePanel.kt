@@ -127,6 +127,8 @@ fun ProfilePanel(
     onScan: () -> Unit,
     /** Set while Scan to Pay cannot open a send: the row says what to turn on, and a tap does nothing. */
     scanNote: String? = null,
+    /** False until the side's settings are read: the row does nothing on a tap until then, so a send the settings would refuse never opens. */
+    scanReady: Boolean = true,
     onTestNetworks: () -> Unit,
     onWallet: (String) -> Unit,
     onPair: () -> Unit,
@@ -164,7 +166,7 @@ fun ProfilePanel(
                     description = scanNote ?: "Send to a scanned address",
                     leading = { GlyphDisc(ClearAirGlyph.SCAN, glyphSize = DISC_GLYPH) },
                     onClick = {
-                        if (scanNote == null) {
+                        if (scanReady && scanNote == null) {
                             onDismiss()
                             onScan()
                         }
