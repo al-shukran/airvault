@@ -44,6 +44,8 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** The notice a read that did not answer leaves on the wallet screens. The last known balances stay on them. */
@@ -120,6 +122,9 @@ internal class WalletsBoard(
     private val dayCharts = mutableStateMapOf<AssetId, PriceSeries>()
     private var marketJob: Job? = null
 
+    /** Takes turns between the reads that show the balances, so a read that began earlier never shows over one that began later. */
+    private val shows = Mutex()
+
     /** Counts the forgotten watchlists. A read that began before a forget may hold the forgotten wallet, so [show] drops it. */
     private var forgets = 0
 
@@ -183,7 +188,7 @@ internal class WalletsBoard(
         scope.launch {
             app.scanQueue.events.collect { event ->
                 when (event) {
-                    is ScanEvent.Finished -> side?.let { mode -> readOrNull { load(mode) }?.let { show(mode, it, withAccounts = false) } }
+                    is ScanEvent.Finished -> side?.let { mode -> showLoaded(mode, withAccounts = false) }
                     is ScanEvent.Failed -> notice = REFRESH_NOTICE
                     is ScanEvent.Progress -> Unit
                 }
@@ -212,7 +217,7 @@ internal class WalletsBoard(
         version = listVersion
         readJob?.cancel()
         readJob = scope.launch {
-            readOrNull { load(mode) }?.let { show(mode, it, withAccounts = true) }
+            showLoaded(mode, withAccounts = true)
         }
     }
 
@@ -233,8 +238,8 @@ internal class WalletsBoard(
         refreshMarket()
         val run = scope.launch(start = CoroutineStart.LAZY) {
             try {
-                val result = WalletsLoader.refresh(app, session, mode)
-                readOrNull { load(mode) }?.let { show(mode, it, withAccounts = true) }
+                val result = WalletsLoader.refresh(app, session, mode) { showLoaded(mode, withAccounts = false) }
+                showLoaded(mode, withAccounts = true)
                 unreachable = result.unreachable
                 if (result.failed) notice = REFRESH_NOTICE else updatedAtMs = WallClock.nowMs()
             } finally {
@@ -352,6 +357,11 @@ internal class WalletsBoard(
     private fun endRefresh() {
         refreshing = false
         refreshByPull = false
+    }
+
+    /** Reads the balances of [mode] from the vault's caches, and shows them. The reads take turns, so the last one shown is the last one begun. */
+    private suspend fun showLoaded(mode: NetworkMode, withAccounts: Boolean) = shows.withLock {
+        readOrNull { load(mode) }?.let { show(mode, it, withAccounts) }
     }
 
     /**
