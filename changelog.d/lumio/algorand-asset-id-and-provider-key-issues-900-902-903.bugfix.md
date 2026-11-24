@@ -1,0 +1,1 @@
+An Algorand asset ID typed with a line break in it, such as one from pasted text, is read as the same ID, so the Add asset list offers it. The Data Providers API key field gives the keyboard the password type, and a key whose save fails stays in the field with a message.
