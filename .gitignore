@@ -21,3 +21,8 @@ registry-release.*
 
 # Generated screen gallery (tools/gallery/build-gallery.sh)
 /out/
+
+# Screen recordings for pull requests: attach them to the pull request, never commit them
+*.mp4
+*.mov
+*.webm
