@@ -60,9 +60,13 @@ object WatchlistStore {
     fun read(session: VaultSession, walletId: String): WalletWatchlist? = readAll(session)[walletId]
 
     /** Stores [watchlist] for [walletId] and keeps the lists of the other wallets. */
-    fun write(session: VaultSession, walletId: String, watchlist: WalletWatchlist) {
-        val record = WatchlistRecord(readAll(session) + (walletId to watchlist))
-        session.putVaultRecord(RECORD, json.encodeToString(WatchlistRecord.serializer(), record).encodeToByteArray())
+    fun write(session: VaultSession, walletId: String, watchlist: WalletWatchlist) = saveAll(session, readAll(session) + (walletId to watchlist))
+
+    /** Deletes the watchlist of [walletId] and keeps the lists of the other wallets. */
+    fun remove(session: VaultSession, walletId: String) = saveAll(session, readAll(session) - walletId)
+
+    private fun saveAll(session: VaultSession, wallets: Map<String, WalletWatchlist>) {
+        session.putVaultRecord(RECORD, json.encodeToString(WatchlistRecord.serializer(), WatchlistRecord(wallets)).encodeToByteArray())
     }
 
     private fun readAll(session: VaultSession): Map<String, WalletWatchlist> {
