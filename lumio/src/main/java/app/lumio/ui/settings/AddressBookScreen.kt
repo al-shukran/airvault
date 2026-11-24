@@ -25,8 +25,8 @@ import app.lumio.ui.shell.LumioPageScreen
 fun AddressBookScreen(walletName: String, entries: List<AddressBookEntry>, offline: String?, onBack: () -> Unit, onLock: () -> Unit) {
     val palette = LocalClearAirPalette.current
     // Named groups come first in alphabetical order, ignoring case, and the entries with no group follow under no header.
-    val (named, ungrouped) = entries.partition { it.group.isNotEmpty() }
-    val groups = named.groupBy { it.group }.toList().sortedBy { (group, _) -> group.lowercase() }
+    val (named, ungrouped) = entries.partition { it.group.isNotBlank() }
+    val groups = named.groupBy { it.group.trim() }.toList().sortedBy { (group, _) -> group.lowercase() }
     // Opened from Settings or from Search, so the back arrow names no place: it is read as Back.
     LumioPageScreen(title = SettingsPage.ADDRESS_BOOK.title, backLabel = null, offline = offline, onBack = onBack, onLock = onLock) {
         ClearAirStatusBand(text = READ_ONLY)
