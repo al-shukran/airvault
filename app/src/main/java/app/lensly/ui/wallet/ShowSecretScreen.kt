@@ -23,9 +23,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.flow.RevealPart
 import app.lensly.ui.flow.RevealStep
 import app.lensly.ui.theme.LenslySpacing
@@ -113,7 +113,7 @@ private fun WarningStep(
     ) {
         StepHeader(step = 2, count = STEP_COUNT)
         Spacer(Modifier.height(LenslySpacing.lg))
-        DotHeadline(text = "Warning")
+        ScreenHeadline(text = "Warning")
         Spacer(Modifier.height(LenslySpacing.lg))
         InlineBanner(
             title = "Keep It Private",
@@ -262,6 +262,6 @@ private fun WordPage(text: String, passphrase: Boolean) {
             textAlign = TextAlign.Center,
         )
     } else {
-        DotText(text = text.uppercase(), fontSize = 64.sp)
+        DisplayText(text = text.uppercase(), fontSize = 64.sp)
     }
 }

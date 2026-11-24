@@ -21,12 +21,12 @@ import app.lensly.ui.components.AddressIcon
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.BottomSlot
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.PillChip
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.components.SecureHexKeyboard
 import app.lensly.ui.gate.PasswordField
 import app.lensly.ui.theme.LenslySpacing
@@ -80,7 +80,7 @@ fun KeyEntryScreen(
             }
             Spacer(Modifier.height(LenslySpacing.sm))
             // 48sp keeps "PRIVATE KEY" on one line on a 720dp-wide phone, as PassphraseScreen does for its headline.
-            DotText(text = "Private Key", fontSize = 48.sp)
+            DisplayText(text = "Private Key", fontSize = 48.sp)
             Spacer(Modifier.height(LenslySpacing.md))
             InlineBanner(
                 message = "A lost key is lost funds. Lensly cannot make this key again.",
@@ -149,7 +149,7 @@ fun KeyAddressScreen(
             PillChip(text = "EVM")
         }
         Spacer(Modifier.height(LenslySpacing.sm))
-        DotHeadline(text = "Address")
+        ScreenHeadline(text = "Address")
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             text = "This key controls the address below. Check it is the one you expect before you continue.",

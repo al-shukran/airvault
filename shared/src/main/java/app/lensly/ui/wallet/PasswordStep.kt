@@ -22,10 +22,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.BottomSlot
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.DotProgress
 import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.gate.GateStatusLine
 import app.lensly.ui.gate.PasswordField
@@ -73,7 +73,7 @@ fun PasswordStep(
         ) {
             StepHeader(step = step, count = stepCount)
             Spacer(Modifier.height(LenslySpacing.lg))
-            DotHeadline(text = "Password")
+            ScreenHeadline(text = "Password")
             Spacer(Modifier.height(LenslySpacing.sm))
             Text(
                 text = prompt,

@@ -128,7 +128,7 @@ private val monogramRing: Dp = 1.dp
 private const val MONOGRAM_LETTER_SHARE = 0.6f
 
 /**
- * A letter in the dot-matrix face, inside a thin circle in the muted foreground colour. It marks a network with no logo, and
+ * A letter in the display face, inside a thin circle in the muted foreground colour. It marks a network with no logo, and
  * a token with no logo: the neutral letter avatar. It takes the same [size] as a logo, so it lines up with the other icons.
  */
 @Composable

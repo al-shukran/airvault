@@ -50,7 +50,7 @@ import java.security.SecureRandom
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
-/** How many of the newest entries the dot-matrix strip shows. */
+/** How many of the newest entries the strip shows. */
 private const val RECENT_ENTRIES = 20
 
 /** Height of the recent strip and the status line. Each has one height, so the buttons do not move as the entry grows. */
@@ -172,7 +172,7 @@ fun DiceEntryScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                DotText(
+                DisplayText(
                     text = recentStrip(entered),
                     modifier = Modifier.testTag(RECENT_STRIP_TAG),
                     fontSize = 20.sp,
@@ -198,12 +198,12 @@ fun DiceEntryScreen(
     }
 }
 
-/** One figure in the header: a muted label over a dot-matrix number. */
+/** One figure in the header: a muted label over a large number. */
 @Composable
 private fun Stat(label: String, value: String) {
     Column(verticalArrangement = Arrangement.spacedBy(LenslySpacing.xxs)) {
         WalletEyebrow(label)
-        DotText(text = value, fontSize = 40.sp)
+        DisplayText(text = value, fontSize = 40.sp)
     }
 }
 

@@ -12,9 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.sp
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.theme.LenslySpacing
 
 /**
@@ -42,7 +42,7 @@ fun CeremonyResultScreen(
         },
     ) {
         Spacer(Modifier.height(LenslySpacing.lg))
-        DotHeadline(text = "Compare")
+        ScreenHeadline(text = "Compare")
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             text = "The first hash was fixed before your rolls. The second proves the mix used them.",
@@ -66,7 +66,7 @@ fun CeremonyResultScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             WalletEyebrow("Checksum Word", modifier = Modifier.weight(1f))
-            DotText(text = checksumWord.uppercase(), fontSize = 28.sp)
+            DisplayText(text = checksumWord.uppercase(), fontSize = 28.sp)
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }

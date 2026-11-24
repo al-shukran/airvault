@@ -30,12 +30,12 @@ import app.lensly.core.registry.WhitelistEntry
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BottomSlot
 import app.lensly.ui.components.ChainIcon
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.PillChip
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.components.SettingsIsland
 import app.lensly.ui.sign.FactRow
@@ -83,7 +83,7 @@ fun ApprovedContractsScreen(
             )
             if (entries.isEmpty()) {
                 Spacer(Modifier.height(LenslySpacing.lg))
-                DotHeadline(text = "No Approved Contracts")
+                ScreenHeadline(text = "No Approved Contracts")
                 Spacer(Modifier.height(LenslySpacing.sm))
                 Text(
                     text = "Contracts are added only through a signed offline update (Update Catalog). This prevents anyone from " +

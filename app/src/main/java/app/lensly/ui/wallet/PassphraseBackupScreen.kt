@@ -11,10 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.theme.LenslySpacing
 
 /**
@@ -54,7 +54,7 @@ fun PassphraseBackupScreen(
         Spacer(Modifier.height(LenslySpacing.lg))
         WalletEyebrow("Part of the Backup")
         Spacer(Modifier.height(LenslySpacing.xs))
-        DotHeadline(text = "Write Down")
+        ScreenHeadline(text = "Write Down")
         Spacer(Modifier.height(LenslySpacing.sm))
         InlineBanner(message = "Write it down separately from the 24 words.", tone = BannerTone.Warning)
         Spacer(Modifier.height(LenslySpacing.md))

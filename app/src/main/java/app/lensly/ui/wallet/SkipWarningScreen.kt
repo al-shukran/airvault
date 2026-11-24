@@ -8,9 +8,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.lensly.ui.components.BannerTone
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.theme.LenslySpacing
 
 /**
@@ -38,7 +38,7 @@ fun SkipWarningScreen(
     ) {
         WalletEyebrow("Skip the Ceremony")
         Spacer(Modifier.height(LenslySpacing.xs))
-        DotHeadline(text = "No Mixing")
+        ScreenHeadline(text = "No Mixing")
         Spacer(Modifier.height(LenslySpacing.lg))
         Text(
             text = "This wallet will trust only the device's random generator.",

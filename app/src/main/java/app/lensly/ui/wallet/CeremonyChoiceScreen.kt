@@ -18,9 +18,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.components.pressFeedback
 import app.lensly.ui.components.rememberKeyHaptics
 import app.lensly.ui.components.tapHaptic
@@ -77,7 +77,7 @@ fun CeremonyChoiceScreen(
         },
     ) {
         Spacer(Modifier.height(LenslySpacing.lg))
-        DotHeadline(text = "Mix in Yours")
+        ScreenHeadline(text = "Mix in Yours")
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             text = "The device has already committed to its randomness.",

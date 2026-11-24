@@ -17,8 +17,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import app.lensly.ui.components.BottomSlot
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.KeyboardHost
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.labelCase
@@ -65,7 +65,7 @@ fun UnlockScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(LenslySpacing.sm))
-            DotHeadline(text = "Unlock")
+            ScreenHeadline(text = "Unlock")
 
             Spacer(Modifier.weight(1f))
 

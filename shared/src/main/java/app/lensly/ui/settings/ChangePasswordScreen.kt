@@ -21,13 +21,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.BottomSlot
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.InlineBanner
 import app.lensly.ui.components.KeyboardHost
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.LoadingState
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.PillChip
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.gate.MIN_PASSWORD_LENGTH
 import app.lensly.ui.gate.PasswordField
@@ -118,7 +118,7 @@ fun ChangePasswordScreen(
             Spacer(Modifier.height(LenslySpacing.sm))
             // A fixed height keeps the hint chip in the same place on every step.
             Box(modifier = Modifier.fillMaxWidth().height(HEADLINE_HEIGHT)) {
-                DotHeadline(text = headline(state.step, copy))
+                ScreenHeadline(text = headline(state.step, copy))
             }
             PillChip(text = hint(state.step, copy))
 
@@ -183,7 +183,7 @@ private fun ChangedContent(copy: ChangeCopy, onDone: () -> Unit, modifier: Modif
             modifier = Modifier.size(48.dp),
         )
         Spacer(Modifier.height(LenslySpacing.sm))
-        DotHeadline(text = "Changed")
+        ScreenHeadline(text = "Changed")
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             text = copy.changedText,

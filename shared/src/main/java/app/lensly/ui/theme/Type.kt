@@ -11,19 +11,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import app.lensly.shared.R
 
-// Doto is a dot-matrix display face. It ships as one variable font (weight axis),
-// so the two weights below select different points on the same file.
+// Archivo is the heading face. It ships as one variable font: the weight axis picks the weight, and the width axis is set at 114, as the
+// Lumen and Clear Air headings are set.
 @OptIn(ExperimentalTextApi::class)
-val DotoFamily = FontFamily(
+val ArchivoFamily = FontFamily(
     Font(
-        resId = R.font.doto_variable,
+        resId = R.font.archivo_variable,
         weight = FontWeight.Normal,
-        variationSettings = FontVariation.Settings(FontVariation.weight(400)),
+        variationSettings = FontVariation.Settings(FontVariation.weight(400), FontVariation.width(114f)),
     ),
     Font(
-        resId = R.font.doto_variable,
+        resId = R.font.archivo_variable,
         weight = FontWeight.Bold,
-        variationSettings = FontVariation.Settings(FontVariation.weight(700)),
+        variationSettings = FontVariation.Settings(FontVariation.weight(700), FontVariation.width(114f)),
     ),
 )
 
@@ -45,47 +45,49 @@ val LocalMonoFamily = staticCompositionLocalOf { SpaceMonoFamily }
 private const val LABEL_TRACKING = 1.5
 
 /**
- * The cover's type scale. Display and headline use Doto, titles and labels use Space Mono, and body text uses the sans.
+ * The cover's type scale. Display and headline use Archivo, titles and labels use Space Mono, and body text uses the sans.
  */
 val CoverTypography = Typography(
-    // Display and headline styles use the dot-matrix face.
+    // Display and headline styles use the heading face.
     displayLarge = TextStyle(
-        fontFamily = DotoFamily,
+        fontFamily = ArchivoFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 96.sp,
         lineHeight = 96.sp,
         letterSpacing = 0.sp,
     ),
+    // Archivo at width 114 is wider than the dot face was: at 64 sp "AVAILABLE" breaks inside the word, and 44 sp leaves room for it on a
+    // 320 dp phone at the default font scale.
     displayMedium = TextStyle(
-        fontFamily = DotoFamily,
+        fontFamily = ArchivoFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 64.sp,
-        lineHeight = 64.sp,
+        fontSize = 44.sp,
+        lineHeight = 44.sp,
         letterSpacing = 0.sp,
     ),
     displaySmall = TextStyle(
-        fontFamily = DotoFamily,
+        fontFamily = ArchivoFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 48.sp,
         lineHeight = 48.sp,
         letterSpacing = 0.sp,
     ),
     headlineLarge = TextStyle(
-        fontFamily = DotoFamily,
+        fontFamily = ArchivoFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 40.sp,
         lineHeight = 44.sp,
         letterSpacing = 0.sp,
     ),
     headlineMedium = TextStyle(
-        fontFamily = DotoFamily,
+        fontFamily = ArchivoFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 32.sp,
         lineHeight = 36.sp,
         letterSpacing = 0.sp,
     ),
     headlineSmall = TextStyle(
-        fontFamily = DotoFamily,
+        fontFamily = ArchivoFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 24.sp,
         lineHeight = 28.sp,

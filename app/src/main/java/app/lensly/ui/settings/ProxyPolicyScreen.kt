@@ -8,11 +8,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.lensly.core.registry.ProxyPolicy
-import app.lensly.ui.components.DotHeadline
 import app.lensly.ui.components.IslandDivider
 import app.lensly.ui.components.LenslyScreen
 import app.lensly.ui.components.PillButton
 import app.lensly.ui.components.RadioRow
+import app.lensly.ui.components.ScreenHeadline
 import app.lensly.ui.components.SettingsIsland
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.wallet.PasswordStep
@@ -119,7 +119,7 @@ private fun ChooseContent(
     ) {
         StepHeader(step = 1, count = STEP_COUNT)
         Spacer(Modifier.height(LenslySpacing.lg))
-        DotHeadline(text = "Proxies")
+        ScreenHeadline(text = "Proxies")
         Spacer(Modifier.height(LenslySpacing.sm))
         Text(
             text = "A proxy is a contract whose code can be replaced. Its approved meaning can change when that happens, so " +

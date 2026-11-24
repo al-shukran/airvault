@@ -76,7 +76,7 @@ private const val SECRET_WARNING =
         "Make sure no one and no camera can see your screen."
 
 /**
- * One wallet: its name in the dot-matrix face, its Visual Identity, its label and groups, its Apps, and its options. Each App is a
+ * One wallet: its name in the display face, its Visual Identity, its label and groups, its Apps, and its options. Each App is a
  * row with its logo and its account count, and a tap on the row calls [onOpenApp], which opens that App's accounts. [bitcoinAccounts]
  * is the number of the wallet's Bitcoin accounts, and the Ethereum count is the wallet's account count.
  *

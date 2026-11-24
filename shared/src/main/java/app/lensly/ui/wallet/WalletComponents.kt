@@ -223,9 +223,9 @@ fun WalletError(message: String?, modifier: Modifier = Modifier) {
     }
 }
 
-/** Dot-matrix text for counters, check words and recent entries. Like [DotHeadline], it is shown in uppercase. */
+/** Display text for counters, check words and recent entries. Like [ScreenHeadline], it is shown in uppercase. */
 @Composable
-fun DotText(
+fun DisplayText(
     text: String,
     modifier: Modifier = Modifier,
     fontSize: TextUnit = 28.sp,

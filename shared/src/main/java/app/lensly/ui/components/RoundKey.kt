@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 enum class RoundKeyVariant { Normal, Accent, Outline }
 
 /**
- * Dialer-style round key: a 72dp circle with a dot-matrix label and an optional
+ * Dialer-style round key: a 72dp circle with a label and an optional
  * small muted sublabel underneath.
  */
 @Composable
