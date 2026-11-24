@@ -1,5 +1,8 @@
 package app.lumio.ui.settings
 
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import app.lensly.ui.theme.ClearAirTheme
@@ -33,5 +36,17 @@ class AddressBookScreenTest {
         val inOrder = listOf("EXCHANGES · 1", "Testnet faucet", "FRIENDS · 2", "Alice", "Bob", "Cold storage")
         val tops = inOrder.map { compose.onNodeWithText(it).fetchSemanticsNode().positionInRoot.y }
         assertTrue("Expected $inOrder top to bottom, found $tops", tops.zipWithNext().all { (a, b) -> a < b })
+    }
+
+    @Test
+    fun aBlankGroupIsNoGroupSoItGetsNoNamelessHeader() {
+        compose.setContent {
+            ClearAirTheme {
+                AddressBookScreen(walletName = "Air 1", entries = listOf(ADDRESS_BOOK_COLD.copy(group = " ")), offline = null, onBack = {}, onLock = {})
+            }
+        }
+
+        compose.onNodeWithText("Cold storage").assertIsDisplayed()
+        compose.onAllNodes(hasText("· 1", substring = true)).assertCountEquals(0)
     }
 }
