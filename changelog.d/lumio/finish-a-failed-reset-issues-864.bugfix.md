@@ -1,0 +1,1 @@
+If Reset Lumio failed part way after the vault's keys were already deleted, the vault was left on the phone and no App Password could open it, and no erase was offered. A reset that stops now leaves the vault hidden, and the next time the App Password screen opens, Lumio finishes the erase.

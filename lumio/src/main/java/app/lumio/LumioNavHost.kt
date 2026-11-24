@@ -42,11 +42,13 @@ import app.lensly.ui.navigation.hiddenArea
 import app.lensly.ui.navigation.leaveHidden
 import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.theme.LumenTheme
+import app.lumio.data.WallClock
 import app.lumio.data.config.Fiat
 import app.lumio.data.config.FiatCurrency
 import app.lumio.data.config.FiatRate
 import app.lumio.data.config.LockSettings
 import app.lumio.data.config.LockSettingsStore
+import app.lumio.data.config.fiatRateOf
 import app.lumio.network.NetworkMode
 import app.lumio.network.NetworkModeStore
 import app.lumio.send.algorand.AlgorandAddAssetRoute
@@ -400,7 +402,7 @@ private fun FiatProvider(navController: NavHostController, content: @Composable 
     val currency = rememberDisplay(app).currency
     val entry by navController.currentBackStackEntryAsState()
     val rate by produceState<FiatRate?>(initialValue = null, currency, entry) {
-        value = if (currency == FiatCurrency.USD) null else app.prices.fiatRates()?.value?.perUsd?.get(currency.code)?.let { FiatRate(currency, it) }
+        value = if (currency == FiatCurrency.USD) null else app.prices.fiatRates()?.value?.let { fiatRateOf(it, currency, WallClock.nowMs()) }
     }
     CompositionLocalProvider(LocalFiat provides Fiat.of(currency, rate), content = content)
 }

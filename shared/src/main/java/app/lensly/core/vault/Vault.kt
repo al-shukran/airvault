@@ -200,10 +200,13 @@ class Vault constructor(
     private val mutex = Mutex()
     private val random = SecureRandom()
 
-    /** True once a vault has been created and not wiped. */
+    /** True once a vault has been created and not wiped. An erase under way counts as a wipe (see [VaultLayout.exists]). */
     fun exists(): Boolean = layout.exists()
 
-    /** True when vault files are left without a whole vault. The gate then shows [VAULT_DAMAGED], and [create] refuses. */
+    /**
+     * True when vault files are left without a whole vault, or an erase stopped half way. The gate then shows [VAULT_DAMAGED], and [create]
+     * refuses. [finishPendingWipe] runs first at the gate, so only an erase that fails again reaches it.
+     */
     fun isPartial(): Boolean = layout.isPartial()
 
     /** True before the first setup, when there is no vault and no vault file. See [VaultLayout.isBeforeSetup]. */
@@ -384,11 +387,25 @@ class Vault constructor(
     /**
      * Deletes the vault: its Keystore keys first, then every file, the real vault and the decoy vault alike. Call this on an
      * explicit user command, or from the erase that follows the owner's last allowed wrong try (see [unlock]). Do not call it
-     * while any other operation of this class is running.
+     * while any other operation of this class is running. If it throws, [finishPendingWipe] completes the erase at the next gate.
      */
     fun wipe() {
         wipeVault(layout) { keys.deleteAll() }
     }
+
+    /**
+     * Finishes an erase that stopped half way, which [wipeVault] left a marker for, then runs [onErased], so the stores outside the vault go
+     * even when the process died before its caller erased them. The gate calls it before it looks at the vault, so a vault that a reset has
+     * started to erase is never unlocked. Returns false while the marker is still there, when some file could not be removed: the vault then
+     * stays hidden, and the next gate tries again.
+     */
+    suspend fun finishPendingWipe(): Boolean =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                if (layout.wipeMarker.exists()) eraseLocked()
+                !layout.wipeMarker.exists()
+            }
+        }
 
     /**
      * Deletes only the Decoy Vault's contents, from a decoy session: its wallets and records go, and its slot stays under
@@ -1284,19 +1301,50 @@ internal fun deviceIsEmulator(): Boolean {
  * and synced before it is deleted. Without the keys the wrapped vault key and every wallet key are unrecoverable even if some file survives.
  * The files go even when [deleteKeys] throws, so a key that cannot be deleted never leaves the vault on disk.
  *
- * @throws VaultException if some file could not be removed, or if [deleteKeys] threw.
+ * The erase starts by writing [VaultLayout.wipeMarker], which hides the vault (see [VaultLayout.exists]). The marker goes only once no file
+ * is left, so an erase that stops half way, by a file that cannot be deleted or by a process that dies, is finished by
+ * [Vault.finishPendingWipe] at the next gate.
+ *
+ * @throws VaultException if the marker cannot be written, in which case nothing was deleted. Otherwise it throws if some file could not be
+ * removed, or if [deleteKeys] threw.
  */
 fun wipeVault(layout: VaultLayout, deleteKeys: () -> Unit) {
-    try {
+    markWipe(layout)
+    val keyFailure = try {
         deleteKeys()
-    } finally {
-        // Each file is overwritten before it is deleted, so no record, key file, pool slot or photo survives in the storage.
-        overwriteFiles(layout.root)
-        overwriteFiles(layout.photos)
-        FailureStore.forget(layout.root)
-        val rootGone = layout.root.deleteRecursively()
-        val photosGone = layout.photos.deleteRecursively()
-        if (!rootGone || !photosGone) throw VaultException("Some vault files could not be deleted.")
+        null
+    } catch (e: Exception) {
+        // Any failure, not only a Keystore one, still lets the files go.
+        e as? VaultException ?: VaultException("The vault keys could not be deleted.", e)
+    }
+    // Each file is overwritten before it is deleted, so no record, key file, pool slot or photo survives in the storage.
+    overwriteFiles(layout.root)
+    overwriteFiles(layout.photos)
+    FailureStore.forget(layout.root)
+    val rootGone = layout.root.listFiles().orEmpty().filter { it != layout.wipeMarker }.map { it.deleteRecursively() }.all { it }
+    val photosGone = layout.photos.deleteRecursively()
+    if (!rootGone || !photosGone || !layout.wipeMarker.delete()) {
+        throw VaultException("Some vault files could not be deleted.", keyFailure)
+    }
+    layout.root.delete()
+    // Nothing is left that the keys protect. A key that could not be deleted is inert, and the next create replaces it.
+    if (keyFailure != null) throw keyFailure
+}
+
+/** Writes the erase marker before anything is deleted. A marker that cannot be written leaves the vault as it was. */
+private fun markWipe(layout: VaultLayout) {
+    try {
+        layout.root.mkdirs()
+        writeAtomically(layout.wipeMarker, ByteArray(0))
+    } catch (e: IOException) {
+        throw VaultException("The vault could not start its erase, so nothing was erased.", e)
+    }
+    // The rename should reach the disk before the first key goes, or a power cut could leave the files without their keys and without the
+    // marker. A folder that cannot be synced does not stop the erase: the marker is written, and the journal commits it within seconds.
+    try {
+        syncDirectory(layout.root)
+    } catch (e: IOException) {
+        // Best effort, see above.
     }
 }
 

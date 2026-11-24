@@ -74,7 +74,8 @@ class VaultWipeTest {
         val layout = populated()
         var vaultStillThereWhenKeysWentAway = false
 
-        wipeVault(layout) { vaultStillThereWhenKeysWentAway = layout.exists() }
+        // exists() is false once the erase has begun, so the header stands for the vault's files.
+        wipeVault(layout) { vaultStillThereWhenKeysWentAway = layout.header.exists() }
 
         assertTrue(vaultStillThereWhenKeysWentAway)
         assertFalse(layout.root.exists())

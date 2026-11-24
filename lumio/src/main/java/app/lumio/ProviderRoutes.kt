@@ -88,6 +88,7 @@ internal fun ProviderRoute(navController: NavHostController, holder: VaultHolder
         },
         onBack = { navController.popBackStack() },
         onLock = onLock,
+        backLabel = navController.backLabel(),
     )
 }
 

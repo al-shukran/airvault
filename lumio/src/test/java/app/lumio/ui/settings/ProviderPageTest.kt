@@ -4,6 +4,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -40,6 +41,7 @@ class ProviderPageTest {
         networks: List<String> = emptyList(),
         keyRequired: Boolean = false,
         keyError: String? = null,
+        backLabel: String = "Settings",
     ) {
         compose.setContent {
             LumenTheme {
@@ -60,10 +62,18 @@ class ProviderPageTest {
                         onSaveKey = { saved += it },
                         onBack = {},
                         onLock = {},
+                        backLabel = backLabel,
                     )
                 }
             }
         }
+    }
+
+    @Test
+    fun theBackArrowNamesTheScreenItReturnsTo() {
+        show(backLabel = "Explore")
+
+        compose.onNodeWithContentDescription("Back to Explore").assertExists()
     }
 
     @Test

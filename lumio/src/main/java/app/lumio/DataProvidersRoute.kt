@@ -91,6 +91,7 @@ internal fun DataProvidersRoute(navController: NavHostController, holder: VaultH
         onReorder = { group, order -> change { writable.updateConfigs { saved -> withOrderWithin(ProviderCatalog.withDefaults(saved), group, order) } } },
         preferRpc = current.preferRpc,
         onPreferRpc = { on -> change { PreferRpcStore.write(writable.session, on) } },
+        backLabel = navController.backLabel(),
     )
 }
 

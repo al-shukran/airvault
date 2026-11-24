@@ -10,6 +10,7 @@ import app.lensly.core.vault.KdfParams
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.Vault
+import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultLayout
 import app.lensly.ui.camera.EntryGesture
 import app.lumio.data.config.AutoLock
@@ -24,6 +25,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
+import org.junit.Assume.assumeFalse
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -124,6 +126,43 @@ class LumioResetTest {
         assertTrue(context.getSharedPreferences(LockSettingsStore.FILE, 0).all.isEmpty())
         assertEquals(LockSettings(), lock.load())
         assertEquals(EntryGesture.PINCH_TRIPLE_TAP, gestures.load())
+    }
+
+    @Test
+    fun aResetThatStopsHalfWayErasesTheDatabaseAndTheNextGateFinishesTheVault() = runBlocking {
+        assertEquals(CreateResult.Created, vault.create(PASSWORD.toCharArray()))
+        open()
+        val databaseFile = lumioDatabaseFile(layout).apply { parentFile!!.mkdirs() }
+        LumioDatabase.open(context, databaseFile).close()
+        val lock = LockSettingsStore.open(context).also { it.save(LockSettings(AutoLock.AFTER_FIVE_MINUTES)) }
+        // A wallet folder that cannot be deleted stops the erase after the keys are gone.
+        layout.wallets.setWritable(false)
+        try {
+            assumeFalse(layout.wallets.canWrite())
+            assertFailsWith<VaultException> { eraseLumioStores(holder, databaseFile, receiveShares, lock) }
+        } finally {
+            layout.wallets.setWritable(true)
+        }
+
+        assertFalse(databaseFile.exists())
+        assertEquals(LockSettings(), lock.load())
+        assertTrue(vault.finishPendingWipe())
+        assertFalse(File(tmp.root, "data").exists())
+    }
+
+    @Test
+    fun aResetWhoseProcessDiedBeforeTheOutsideStoresIsFinishedWithThemAtTheNextGate() = runBlocking {
+        assertEquals(CreateResult.Created, vault.create(PASSWORD.toCharArray()))
+        LockSettingsStore.open(context).save(LockSettings(AutoLock.AFTER_FIVE_MINUTES))
+        shareReceiveCode()
+        // The process died inside the vault's erase, after its marker was written and before the lock choices and the receive code went.
+        layout.wipeMarker.writeBytes(ByteArray(0))
+
+        assertTrue(vault.finishPendingWipe())
+
+        assertFalse(File(tmp.root, "data").exists())
+        assertFalse(receiveShares.exists(), "the shared receive code outlived the reset")
+        assertTrue(context.getSharedPreferences(LockSettingsStore.FILE, 0).all.isEmpty(), "the lock choices outlived the reset")
     }
 
     /** A receive code shared from Lumio, as the Receive sheet leaves it in the app's cache. */

@@ -154,12 +154,18 @@ internal fun TestNetworksRoute(navController: NavHostController, holder: VaultHo
  * The name that a page's back arrow gives: the screen that Back returns to, so TalkBack says where the arrow goes. A page with no tab or known page
  * beneath it says "the previous screen".
  */
-internal fun NavHostController.backLabel(): String = when (previousBackStackEntry?.destination?.route) {
+internal fun NavHostController.backLabel(): String = backLabelOf(previousBackStackEntry?.destination?.route)
+
+/** The name of the screen at [route], the one that Back returns to. A route with no name here says "the previous screen". */
+internal fun backLabelOf(route: String?): String = when (route) {
     LumioRoute.HOME -> "Home"
     LumioRoute.WALLETS -> "Accounts"
     LumioRoute.PORTFOLIO -> "Portfolio"
     LumioRoute.EXPLORE -> "Explore"
     LumioRoute.SETTINGS -> "Settings"
+    LumioRoute.SETTINGS_NETWORKS -> "Networks"
+    LumioRoute.TEST_NETWORKS -> "Test Networks"
+    LumioRoute.DATA_PROVIDERS -> "Data Providers"
     LumioRoute.WALLET -> "Wallet"
     else -> "the previous screen"
 }

@@ -1,6 +1,8 @@
 package app.lumio.data.config
 
+import app.lumio.data.provider.FiatQuote
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -62,5 +64,18 @@ class FiatTest {
     fun aZeroThresholdShowsEveryBalanceAndAnUnknownValueIsNeverLeftOut() {
         assertFalse(DisplaySettings(smallBalanceUsd = 0.0).hidesSmallBalance(0.0))
         assertFalse(DisplaySettings(smallBalanceUsd = 5.0).hidesSmallBalance(null))
+    }
+
+    @Test
+    fun aRateReadWithinADayIsUsedAndOneOlderCountsAsNoRate() {
+        val now = 1_700_000_000_000L
+        val day = 24 * 60 * 60 * 1_000L
+        assertEquals(FiatRate(FiatCurrency.EUR, 0.9), fiatRateOf(FiatQuote(mapOf("EUR" to 0.9), asOfMs = now - day), FiatCurrency.EUR, now))
+        assertNull(fiatRateOf(FiatQuote(mapOf("EUR" to 0.9), asOfMs = now - day - 1), FiatCurrency.EUR, now))
+    }
+
+    @Test
+    fun aQuoteWithNoRateForTheCurrencyGivesNoRate() {
+        assertNull(fiatRateOf(FiatQuote(mapOf("EUR" to 0.9), asOfMs = 0L), FiatCurrency.CHF, 0L))
     }
 }

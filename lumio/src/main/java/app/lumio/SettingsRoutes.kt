@@ -23,7 +23,6 @@ import app.lumio.data.config.DisplaySettingsStore
 import app.lumio.data.config.TransactionSettingsStore
 import app.lumio.data.config.FinishSetupStore
 import app.lumio.evm.CustomChainInput
-import app.lumio.evm.EvmRefusal
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.pair.PairedWallets
 import app.lumio.ui.kit.LumioTab
@@ -32,6 +31,7 @@ import app.lumio.ui.settings.AboutSettingsPage
 import app.lumio.ui.settings.AddCustomNetworkScreen
 import app.lumio.ui.settings.AddressBookRows
 import app.lumio.ui.settings.AddressBookSettingsPage
+import app.lumio.ui.settings.CustomNetworkForm
 import app.lumio.ui.settings.LumioSettingsScreen
 import app.lumio.ui.settings.NetworksSettingsPage
 import app.lumio.ui.settings.SecuritySettingsPage
@@ -112,7 +112,8 @@ private fun SettingsRoute(
             onOpen = { page -> navController.navigate(LumioRoute.settingsPage(page)) },
             onReset = {
                 scope.launch {
-                    // The erase runs to its end even if this screen leaves. A vault file that cannot be deleted leaves the vault, and the gate then asks for its password.
+                    // The erase runs to its end even if this screen leaves. A vault file that cannot be deleted leaves the erase unfinished, and the gate
+                    // finishes it before it shows anything (see Vault.finishPendingWipe).
                     withContext(Dispatchers.IO + NonCancellable) { runCatching { app.eraseLumio() } }
                     lockChoices.reload()
                     navController.openHidden(GateRoutes.GATE)
@@ -217,6 +218,7 @@ private fun NetworksSettingsRoute(navController: NavHostController, holder: Vaul
         onLock = onLock,
         bitcoin = { BitcoinSettingsRoute(navController = navController, holder = holder) },
         ethereum = { EvmSettingsRoute(navController = navController, holder = holder) },
+        backLabel = navController.backLabel(),
     )
 }
 
@@ -233,26 +235,22 @@ private fun AddCustomNetworkRoute(navController: NavHostController, holder: Vaul
     }
     if (session == null) return
     val scope = rememberCoroutineScope()
-    var input by remember { mutableStateOf(CustomChainInput(chainId = "", name = "", symbol = "", rpc = "", testnet = false)) }
-    var refusal by remember { mutableStateOf<EvmRefusal?>(null) }
+    var form by remember { mutableStateOf(CustomNetworkForm(CustomChainInput(chainId = "", name = "", symbol = "", rpc = "", testnet = false))) }
     var busy by remember { mutableStateOf(false) }
     AddCustomNetworkScreen(
-        input = input,
-        refusal = refusal,
+        input = form.input,
+        refusal = form.refusal,
         busy = busy,
         offline = rememberSettingsOffline(),
-        // Editing a field clears the refusal, so a message never stays over a value the owner has already changed.
-        onInput = { next ->
-            input = next
-            refusal = null
-        },
+        backLabel = navController.backLabel(),
+        onInput = { form = form.edited(it) },
         onAdd = {
             busy = true
             scope.launch {
                 val builtIn = app.registry.networks().map { it.chainId }.toSet()
-                val result = withContext(Dispatchers.IO) { EvmSettingsStore.addCustom(session, app.evmRpc, builtIn, input) }
+                val result = withContext(Dispatchers.IO) { EvmSettingsStore.addCustom(session, app.evmRpc, builtIn, form.input) }
                 busy = false
-                if (result == null) navController.popBackStack() else refusal = result
+                if (result == null) navController.popBackStack() else form = form.copy(refusal = result)
             }
         },
         onBack = { navController.popBackStack() },

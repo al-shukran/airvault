@@ -67,7 +67,7 @@ class AccountScreenHiddenAssetsTest {
         render(listOf(dust))
 
         compose.onNodeWithText("No assets yet.").assertDoesNotExist()
-        compose.onNodeWithText("1 small asset hidden").assertIsDisplayed()
+        compose.onNodeWithText("1 small balance hidden").assertIsDisplayed()
     }
 
     @Test
@@ -77,6 +77,6 @@ class AccountScreenHiddenAssetsTest {
         compose.onNodeWithText("Show").performClick()
 
         compose.onNodeWithText("DUST").assertIsDisplayed()
-        compose.onNodeWithText("1 small asset hidden").assertDoesNotExist()
+        compose.onNodeWithText("1 small balance hidden").assertDoesNotExist()
     }
 }

@@ -15,10 +15,14 @@ import app.lumio.data.config.Fiat
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.TrendingCoin
 import app.lumio.data.provider.TrendingList
+import app.lumio.data.provider.algorand.ALGORAND_MAINNET
+import app.lumio.data.provider.algorand.ALGORAND_TESTNET
+import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import app.lumio.search.SearchEntry
 import app.lumio.search.looksLikeAddress
 import app.lumio.search.matching
+import app.lumio.send.algorand.AddAssetRows
 import app.lumio.ui.home.changeText
 import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.search.SearchRow
@@ -28,6 +32,7 @@ import app.lumio.ui.search.SearchTab
 import app.lumio.ui.settings.providerName
 import app.lumio.ui.settings.providerStatusNote
 import app.lumio.ui.settings.providerStatusWord
+import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletsView
 import app.lumio.watchlist.FIRST_RUN_ASSETS
 import app.lumio.watchlist.WatchedAsset
@@ -79,7 +84,7 @@ internal fun SearchRoute(
     // The Trending tab lists the coins without a query, and filters them as the owner types.
     val sections: List<SearchSection> = when (tab) {
         SearchTab.TRENDING -> listOfNotNull(section(null, trendingRows(board.trending?.value, needle, LocalFiat.current)))
-        SearchTab.MAIN -> if (needle.isEmpty()) emptyList() else mainSections(needle, view, wallet, ::openRoute)
+        SearchTab.MAIN -> if (needle.isEmpty()) emptyList() else mainSections(needle, view, wallet, selection.mode, ::openRoute)
         SearchTab.WATCHLIST -> if (needle.isEmpty()) emptyList() else listOfNotNull(section(null, matching(needle, watchEntries(watched, wallet?.id, ::openRoute)).rows()))
         SearchTab.ADDRESS_BOOK -> if (needle.isEmpty()) emptyList() else listOfNotNull(section(null, matching(needle, addressBookEntries(view, ::openRoute)).rows()))
         SearchTab.ETH -> if (needle.isEmpty()) emptyList() else chainTabSections(needle, view, Networks.EIP155, ::openRoute)
@@ -97,13 +102,36 @@ internal fun SearchRoute(
     )
 }
 
-/** The Main tab: the address row when a whole address is pasted, then the coins, the accounts and the chains, each under its own label. */
-private fun mainSections(query: String, view: WalletsView, wallet: PairedWallet?, openRoute: (String) -> Unit): List<SearchSection> = listOfNotNull(
-    section(null, addressRows(query, wallet, openRoute)),
-    section("Tokens", matching(query, coinEntries(view, openRoute)).rows()),
-    section("Your Accounts", matching(query, accountEntries(view, openRoute)).rows()),
-    section("Chains", matching(query, chainEntries(view, openRoute)).rows()),
-)
+/**
+ * The Main tab: the address row when a whole address is pasted, then the coins and the Algorand assets, the accounts and the chains, each under its own
+ * label.
+ */
+private fun mainSections(query: String, view: WalletsView, wallet: PairedWallet?, mode: NetworkMode, openRoute: (String) -> Unit): List<SearchSection> {
+    val algorand = wallet?.let { paired -> view.accountsOf(paired.id).firstOrNull { it.namespace == Networks.ALGORAND } }
+    return listOfNotNull(
+        section(null, addressRows(query, wallet, openRoute)),
+        section("Tokens", matching(query, coinEntries(view, openRoute)).rows() + algorandAssetRows(query, algorand, mode, openRoute)),
+        section("Your Accounts", matching(query, accountEntries(view, openRoute)).rows()),
+        section("Chains", matching(query, chainEntries(view, openRoute)).rows()),
+    )
+}
+
+/**
+ * The Algorand assets that [query] names on the side of [mode], as the Add asset screen finds them: the verified ones by ticker or ID, and the ID the
+ * owner types. A row opens the asset on [account], which has a page for it even with no balance, so that Receive can offer the opt-in. No account, no rows.
+ */
+internal fun algorandAssetRows(query: String, account: WalletAccount?, mode: NetworkMode, openRoute: (String) -> Unit): List<SearchRow> {
+    if (account == null) return emptyList()
+    val network = if (mode.holds(ALGORAND_TESTNET.testnet)) ALGORAND_TESTNET else ALGORAND_MAINNET
+    return AddAssetRows.rows(network, emptyList(), query).map { row ->
+        SearchRow(
+            key = "asa-${row.assetId}",
+            title = row.title,
+            detail = row.detail,
+            onOpen = { openRoute(LumioRoute.asset(account.walletId, account.id, row.assetId.toString())) },
+        )
+    }
+}
 
 /** The address row of the Main tab: a whole address that is pasted opens the wallet the profile panel chose, when there is one. */
 internal fun addressRows(query: String, wallet: PairedWallet?, openRoute: (String) -> Unit): List<SearchRow> =
