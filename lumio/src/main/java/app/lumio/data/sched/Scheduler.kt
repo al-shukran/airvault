@@ -30,8 +30,9 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 
 /**
- * How urgent a provider call is. When a slot frees, the most urgent waiting call takes it. [deadlineMs] is how long a call of this priority may take
- * in all, waits included, before it fails as [ProviderError.Transient]. A call on screen gives up sooner than a background scan.
+ * How urgent a provider call is. When a slot frees, the most urgent waiting call takes it. [deadlineMs] is how long one request of this priority may
+ * take once it is sent, before it fails as [ProviderError.Transient]. Time spent queued behind rate limits does not count. A call on screen gives up
+ * sooner than a background scan.
  */
 @Serializable
 enum class Priority(internal val rank: Int, val deadlineMs: Long) {
@@ -47,13 +48,14 @@ enum class Priority(internal val rank: Int, val deadlineMs: Long) {
  *   next candidate at once. When every candidate is cooling, the call waits for the earliest cooldown.
  * - [ProviderError.Transient], and an [IOException] such as a timeout, passes the provider over: the other candidates go first, for an exponential
  *   penalty from 30 s (cap 5 min) that counts the transient failures in a row. The call moves to the next candidate at once, or after a jittered
- *   backoff when no other provider is left for it. A call makes at most three attempts that fail this way.
+ *   backoff when no other provider is left for it. A call makes at most three attempts that fail, rate-limited or transient.
  * - Five transient failures in a row open the provider's circuit for 60 s. Then one probe call goes out. A successful probe closes the circuit,
  *   and a failed one opens it again.
  * - [ProviderError.Unsupported] and [ProviderError.Fatal] skip the provider for that call only. [ProviderError.NotFound] is an answer.
  *
- * Each call has a deadline set by its [Priority], and one that runs past it fails as [ProviderError.Transient]. A provider that sends more than one HTTP
- * request in a call pays for each request after the first from the same token bucket (see [Http.charge]), so its requests stay within the rate.
+ * Each request has a deadline set by its [Priority]. The clock starts when the request is sent, so time queued behind rate limits does not count.
+ * A request that runs past its deadline fails as [ProviderError.Transient]. A provider that sends more than one HTTP request in a call pays for each
+ * request after the first from the same token bucket (see [Http.charge]), so its requests stay within the rate.
  *
  * Time comes from [clock] and jitter from [random], so tests run in virtual time. [scope] runs the timers that wake waiting calls. [cache] is read
  * for the open vault, and it is null while the vault is locked, when only uncached calls can run.
@@ -111,7 +113,7 @@ class Scheduler(
      * is stored when [CacheUse.keep] accepts it. Without a cache the request is simply sent.
      *
      * @throws ProviderError.Unsupported when no enabled provider can serve the request. Otherwise it throws the error of the last candidate, and
-     * [ProviderError.Transient] when the call passes its deadline.
+     * [ProviderError.Transient] when a request passes its deadline.
      */
     suspend fun <T> run(req: Request<T>, priority: Priority = Priority.VISIBLE, cacheUse: CacheUse<T>? = null): T {
         val store = if (cacheUse == null) null else cache()
@@ -121,11 +123,7 @@ class Scheduler(
                 runCatching { cacheUse.codec.decode(entry.value) }.onSuccess { return it }
             }
         }
-        val value = try {
-            withTimeout(priority.deadlineMs) { call(req, priority) }
-        } catch (e: TimeoutCancellationException) {
-            throw ProviderError.Transient(e)
-        }
+        val value = call(req, priority)
         if (cacheUse != null && store != null && cacheUse.keep(value)) {
             store.put(cacheUse.policy, cacheUse.key, cacheUse.codec.encode(value))
         }
@@ -135,15 +133,20 @@ class Scheduler(
     private suspend fun <T> call(req: Request<T>, priority: Priority): T {
         val tried = HashSet<String>()
         val excluded = HashSet<String>()
-        var transientFailures = 0
+        var failedAttempts = 0
         var lastError: ProviderError? = null
         while (true) {
             val grant = acquire(req, priority, excluded, tried, lastError)
             val started = clock.nowMs()
             val result = try {
-                Result.success(grant.provider.execute(req, grant.cfg, Http(http.client) { takeExtraToken(grant.lane) }))
+                val value = withTimeout(priority.deadlineMs) {
+                    grant.provider.execute(req, grant.cfg, Http(http.client) { takeExtraToken(grant.lane) })
+                }
+                Result.success(value)
             } catch (e: ProviderError) {
                 Result.failure(e)
+            } catch (e: TimeoutCancellationException) {
+                Result.failure(ProviderError.Transient(e))
             } catch (e: IOException) {
                 Result.failure(ProviderError.Transient(e))
             } catch (e: Throwable) {
@@ -162,14 +165,17 @@ class Scheduler(
             }
             settle(grant, Outcome.Failed(failure))
             lastError = failure
+            // A rate-limited attempt waits for a cooldown, and that wait is not timed, so every failed attempt counts toward MAX_ATTEMPTS.
+            if (failure is ProviderError.RateLimited || failure is ProviderError.Transient) {
+                failedAttempts++
+                if (failedAttempts >= MAX_ATTEMPTS) throw failure
+            }
             when (failure) {
                 is ProviderError.RateLimited -> Unit
                 is ProviderError.Transient -> {
                     tried.add(grant.provider.id)
-                    transientFailures++
-                    if (transientFailures >= MAX_ATTEMPTS) throw failure
                     // A failover to a provider this call has not tried goes at once. Only a retry with no such provider backs off first.
-                    if (!untriedLeft(req, tried, excluded)) delay(jitterMs(backoffMs(BASE_MS, transientFailures)))
+                    if (!untriedLeft(req, tried, excluded)) delay(jitterMs(backoffMs(BASE_MS, failedAttempts)))
                 }
                 is ProviderError.Unsupported, is ProviderError.Fatal -> excluded.add(grant.provider.id)
                 is ProviderError.NotFound -> throw failure

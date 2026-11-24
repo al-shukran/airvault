@@ -18,9 +18,10 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.coroutineContext
-import kotlinx.coroutines.async
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 
 /** The network id of a Bitcoin network: "mainnet", or "testnet4" for the test network. */
 fun BtcNetwork.networkId(): NetworkId =
@@ -57,7 +58,7 @@ class MemoStats(val stats: EsploraAddressStats, val readAtMs: Long)
  * walk, is not asked again while its read is younger than [DEFAULT_SHORT_TTL_MS] at [nowMs]. Past that, it is asked again: a payment to an
  * address below a used one must show within a minute, not only after a restart. The gap window after that address is asked again, since new
  * activity shows there first. With [trustWithinTtl], every address read within the TTL is trusted, used or not, so a walk that follows a scan
- * asks the server for none of them.
+ * asks the server for none of them. [found] gets each used address as the walk finds it, so a walk that fails part way keeps those addresses.
  */
 internal suspend fun scanChain(
     addressAt: (Int) -> String,
@@ -65,8 +66,8 @@ internal suspend fun scanChain(
     memo: ConcurrentMap<String, MemoStats> = ConcurrentHashMap(),
     nowMs: Long = 0L,
     trustWithinTtl: Boolean = false,
+    found: MutableList<UsedAddress> = mutableListOf(),
 ): ChainScan {
-    val used = mutableListOf<UsedAddress>()
     val lastUsed = lastUsedIn(addressAt, memo)
     var unused = 0
     var index = 0
@@ -78,14 +79,14 @@ internal suspend fun scanChain(
         }
         val stats = fresh?.stats ?: statsOf(address).also { memo[address] = MemoStats(it, nowMs) }
         if (stats.used) {
-            used += UsedAddress(index, address, stats)
+            found += UsedAddress(index, address, stats)
             unused = 0
         } else {
             unused++
         }
         index++
     }
-    return ChainScan(used)
+    return ChainScan(found)
 }
 
 /** The last index that [memo] holds as used, counting up from index 0 while [memo] holds the address; -1 when none is used. */
@@ -104,6 +105,9 @@ private fun lastUsedIn(addressAt: (Int) -> String, memo: Map<String, MemoStats>)
  * requests that the scheduler allows. [step] reports how many addresses have been asked for so far. The balances are the sums over the used
  * addresses, with the confirmed and the unconfirmed side kept apart. An address with a balance is asked for its unspent outputs. The recent
  * transactions are asked for only when [detail] is set, for the account's own view, so a portfolio scan never asks for them.
+ *
+ * A request that fails part way ends the scan with its error. First [onPartial] gets the snapshot of what was read up to then, and the caller keeps
+ * it, so the next scan of the account starts from that balance rather than from nothing.
  */
 suspend fun scanAccount(
     ref: BtcAccountRef,
@@ -114,7 +118,8 @@ suspend fun scanAccount(
     detail: Boolean = false,
     step: suspend (Int) -> Unit = {},
     onTxs: suspend (address: String, txs: List<EsploraTx>, tipHeight: Long) -> Unit = { _, _, _ -> },
-): BtcSnapshot = coroutineScope {
+    onPartial: suspend (BtcSnapshot) -> Unit = {},
+): BtcSnapshot {
     val account = ref.account
     val net = account.network.networkId()
     val asked = AtomicInteger(0)
@@ -132,61 +137,68 @@ suspend fun scanAccount(
         priority,
         CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "tip/${net.chain}", jsonCodec()),
     )
-    val (receiveWalk, changeWalk) = coroutineScope {
-        val receive = async { scanChain(account::receiveAddress, statsOf, memo, nowMs) }
-        val change = async { scanChain(account::changeAddress, statsOf, memo, nowMs) }
-        receive.await() to change.await()
+    // What the scan has read so far. A request that fails leaves it here, and [snapshot] keeps it.
+    val receiveUsed = mutableListOf<UsedAddress>()
+    val changeUsed = mutableListOf<UsedAddress>()
+    val txs = LinkedHashMap<String, EsploraTx>()
+    val utxos = mutableListOf<BtcUtxo>()
+    fun snapshot(): BtcSnapshot {
+        val used = receiveUsed + changeUsed
+        val owned = used.map { it.address }.toSet()
+        val usedReceive = receiveUsed.map { it.index }.toSet()
+        val nextIndex = generateSequence(0) { it + 1 }.first { it !in usedReceive }
+        return BtcSnapshot(
+            key = ref.key,
+            identity = account.receiveAddress(0),
+            scannedAtMs = nowMs,
+            tipHeight = tipHeight,
+            confirmedSats = used.sumOf { it.stats.chain.net },
+            unconfirmedSats = used.sumOf { it.stats.mempool.net },
+            nextReceiveIndex = nextIndex,
+            nextReceiveAddress = account.receiveAddress(nextIndex),
+            utxos = utxos.toList(),
+            transactions = if (!detail) emptyList() else txs.values
+                .map { tx -> BtcTx(tx.txid, netSats(tx, owned), tx.blockHeight, tx.blockTimeSec) }
+                .sortedWith(
+                    compareByDescending<BtcTx> { it.blockHeight ?: Long.MAX_VALUE }
+                        .thenByDescending { it.blockTimeSec ?: Long.MAX_VALUE }
+                        .thenBy { it.txid },
+                )
+                .take(RECENT_TX_COUNT),
+            addresses = used.map { it.address },
+        )
     }
-    val used = receiveWalk.used + changeWalk.used
-    val owned = used.map { it.address }.toSet()
-
-    val recent: List<BtcTx> = if (!detail) emptyList() else {
-        val txs = LinkedHashMap<String, EsploraTx>()
-        for (address in owned) {
-            val listed = scheduler.run(
-                AddressTxs(net, address),
-                priority,
-                CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "txs/${net.chain}/$address", jsonCodec()),
-            )
-            onTxs(address, listed, tipHeight)
-            listed.forEach { txs.putIfAbsent(it.txid, it) }
+    try {
+        coroutineScope {
+            launch { scanChain(account::receiveAddress, statsOf, memo, nowMs, found = receiveUsed) }
+            launch { scanChain(account::changeAddress, statsOf, memo, nowMs, found = changeUsed) }
         }
-        txs.values
-            .map { tx -> BtcTx(tx.txid, netSats(tx, owned), tx.blockHeight, tx.blockTimeSec) }
-            .sortedWith(
-                compareByDescending<BtcTx> { it.blockHeight ?: Long.MAX_VALUE }
-                    .thenByDescending { it.blockTimeSec ?: Long.MAX_VALUE }
-                    .thenBy { it.txid },
-            )
-            .take(RECENT_TX_COUNT)
-    }
-
-    // An address with no balance holds no coins, so it is not asked for its unspent outputs.
-    val utxos = used
-        .filter { it.stats.balance != 0L }
-        .flatMap { hit ->
-            scheduler.run(
+        if (detail) {
+            for (address in (receiveUsed + changeUsed).map { it.address }) {
+                val listed = scheduler.run(
+                    AddressTxs(net, address),
+                    priority,
+                    CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "txs/${net.chain}/$address", jsonCodec()),
+                )
+                onTxs(address, listed, tipHeight)
+                listed.forEach { txs.putIfAbsent(it.txid, it) }
+            }
+        }
+        // An address with no balance holds no coins, so it is not asked for its unspent outputs.
+        for (hit in (receiveUsed + changeUsed).filter { it.stats.balance != 0L }) {
+            utxos += scheduler.run(
                 AddressUtxos(net, hit.address),
                 priority,
                 CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "utxo/${net.chain}/${hit.address}", jsonCodec()),
             ).map { BtcUtxo(it.txid, it.vout, it.valueSats, it.blockHeight) }
         }
-
-    val usedReceive = receiveWalk.used.map { it.index }.toSet()
-    val nextIndex = generateSequence(0) { it + 1 }.first { it !in usedReceive }
-    BtcSnapshot(
-        key = ref.key,
-        identity = account.receiveAddress(0),
-        scannedAtMs = nowMs,
-        tipHeight = tipHeight,
-        confirmedSats = used.sumOf { it.stats.chain.net },
-        unconfirmedSats = used.sumOf { it.stats.mempool.net },
-        nextReceiveIndex = nextIndex,
-        nextReceiveAddress = account.receiveAddress(nextIndex),
-        utxos = utxos,
-        transactions = recent,
-        addresses = used.map { it.address },
-    )
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        onPartial(snapshot())
+        throw e
+    }
+    return snapshot()
 }
 
 /**

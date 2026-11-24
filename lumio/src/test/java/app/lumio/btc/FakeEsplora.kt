@@ -40,6 +40,9 @@ internal class FakeEsplora : Dispatcher() {
     /** The HTTP status of every answer. Anything but 200 is sent without a body. */
     var status: Int = 200
 
+    /** The addresses whose every request is answered 500, so a scan that reaches one fails there. */
+    val failing = mutableSetOf<String>()
+
     /** Every request path, in the order it was asked for. */
     val paths = CopyOnWriteArrayList<String>()
 
@@ -60,6 +63,8 @@ internal class FakeEsplora : Dispatcher() {
         queued.poll()?.let { return it }
         if (status != 200) return MockResponse.Builder().code(status).build()
         val parts = path.split("/")
+        val address = parts.getOrNull(3)
+        if (address != null && address in failing) return MockResponse.Builder().code(500).build()
         val body = when {
             path == "/api/blocks/tip/height" -> tip
             path == "/api/fee-estimates" -> FEES
