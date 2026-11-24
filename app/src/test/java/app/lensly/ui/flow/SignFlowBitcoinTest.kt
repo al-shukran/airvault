@@ -328,6 +328,8 @@ private class BitcoinPorts(
 
     override suspend fun isInstalled(walletId: String, app: WalletApp): Boolean = app in installed
 
+    override suspend fun canInstall(walletId: String, app: WalletApp): Boolean = true
+
     override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared {
         check(request.header.app == bitcoinManifest.id) { "only a Bitcoin request is expected in the Bitcoin tests" }
         preparedRequests += request
