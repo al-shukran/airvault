@@ -107,6 +107,22 @@ class PassphraseEntryTest {
     }
 
     @Test
+    fun aBackspaceOnAnEmptyEntryAfterAMismatchDoesNotDropThePassphrase() {
+        entry.startEntry()
+        type("TREZOR")
+        entry.submit()
+        type("TREZER")
+        entry.submit()
+        entry.backspace()
+        assertTrue(entry.mismatch)
+        entry.submit()
+
+        assertEquals(PassphraseStep.Enter, entry.step)
+        assertTrue(entry.mismatch)
+        assertEquals(emptyList(), settled)
+    }
+
+    @Test
     fun aMismatchKeepsTheWordsOfTheDraft() {
         val draft = WalletDraft()
         draft.setTypedWords(artWords)
