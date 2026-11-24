@@ -210,9 +210,11 @@ class HomeScreensScreenshotTest {
 
     @Test
     fun walletsListWithFiveWallets() = compose.snapshot("wallets_five_wallets", settleMs = SETTLE_MS) {
+        val wallets = sampleWallets()
         WalletsScreen(
-            wallets = sampleWallets(),
+            wallets = wallets,
             profiles = sampleHomeProfiles,
+            accounts = wallets.associate { it.id to it.accountCount },
             onOpen = {},
             onEdit = {},
             onPair = {},
@@ -389,6 +391,7 @@ class HomeScreensScreenshotTest {
         WalletHomeScreen(
             wallets = wallets,
             profiles = profiles,
+            accounts = wallets.associate { it.id to it.accountCount },
             recent = recent,
             readiness = readiness,
             nowMs = FIXED_NOW_MS,
