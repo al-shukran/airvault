@@ -27,6 +27,7 @@ import app.lumio.data.db.LumioDatabase
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairedWallets
+import app.lumio.pair.SyncRow
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -115,9 +116,14 @@ class FirstSyncNavigationTest {
 
         compose.onNodeWithText("Update").performClick()
 
-        compose.waitUntil(timeoutMillis = 10_000) {
-            currentRoute() == LumioRoute.FIRST_SYNC && compose.onAllNodesWithText("Solana").fetchSemanticsNodes().isNotEmpty()
-        }
+        compose.waitUntil(timeoutMillis = 10_000) { currentRoute() == LumioRoute.FIRST_SYNC }
+        val imports = checkNotNull(holder.sessionAttachment() as? LumioVault).firstSyncs
+        compose.waitUntil(timeoutMillis = 10_000) { imports.get(walletId, NetworkMode.TESTNET) != null }
+
+        assertTrue(
+            SyncRow.SOLANA in checkNotNull(imports.get(walletId, NetworkMode.TESTNET)).sync.rows.value,
+            "The import of the re-paired wallet reads the Solana account that the pairing adds",
+        )
     }
 
     @Test
