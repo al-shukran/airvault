@@ -46,6 +46,7 @@ internal class PassphraseEntry(private val onSettled: (passphrase: String?) -> U
     }
 
     fun backspace() {
+        if (buffer.isEmpty()) return
         buffer.backspace()
         typed()
     }
