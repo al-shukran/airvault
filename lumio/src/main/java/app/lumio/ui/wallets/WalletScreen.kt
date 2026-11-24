@@ -126,6 +126,7 @@ fun WalletScreen(
                         showTotal = showTotal,
                         showBalances = showBalances,
                         reads = reads,
+                        clock = clock,
                         onRetry = onRetry,
                         onAccount = onAccount,
                     )
@@ -194,6 +195,7 @@ private fun ChainIsland(
     showTotal: Boolean,
     showBalances: Boolean,
     reads: WalletReads,
+    clock: Clock,
     onRetry: (String) -> Unit,
     onAccount: (WalletAccount) -> Unit,
 ) {
@@ -226,6 +228,7 @@ private fun ChainIsland(
                 showTotal = showTotal,
                 showBalances = showBalances,
                 slot = balanceSlotOf(account, reads),
+                clock = clock,
                 onClick = { onAccount(account) },
             )
         }
@@ -254,23 +257,25 @@ private fun AccountItem(
     showTotal: Boolean,
     showBalances: Boolean,
     slot: BalanceSlot,
+    clock: Clock,
     onClick: () -> Unit,
 ) {
     ClearAirListRow(
         title = accountTitle(account),
         description = accountLine(account, tokens),
         leading = { ClearAirMonogram(text = monogramOf(account)) },
-        trailing = { AccountValue(account = account, usd = usd, showTotal = showTotal, showBalances = showBalances, slot = slot) },
+        trailing = { AccountValue(account = account, usd = usd, showTotal = showTotal, showBalances = showBalances, slot = slot, clock = clock) },
         onClick = onClick,
     )
 }
 
 /**
  * The value of an account at the right of its row: its dollars over its coins, or only its coins without a price. Without a kept balance it says what the
- * read is doing: "Checking…" while its chain is read, or "Not checked" when its chain did not answer. An incomplete Bitcoin balance says so under it.
+ * read is doing: "Checking…" while its chain is read, or "Not checked" when its chain did not answer. An incomplete Bitcoin balance says so under it, and a
+ * last known balance says how old it is.
  */
 @Composable
-private fun AccountValue(account: WalletAccount, usd: Double?, showTotal: Boolean, showBalances: Boolean, slot: BalanceSlot) {
+private fun AccountValue(account: WalletAccount, usd: Double?, showTotal: Boolean, showBalances: Boolean, slot: BalanceSlot, clock: Clock) {
     val balance = account.balance
     Column(horizontalAlignment = Alignment.End) {
         if (balance == null) {
@@ -291,6 +296,7 @@ private fun AccountValue(account: WalletAccount, usd: Double?, showTotal: Boolea
         if (slot is BalanceSlot.Value && slot.incomplete) {
             Text(text = "Incomplete", style = ClearAirType.label, color = LocalClearAirPalette.current.ink2)
         }
+        account.readAtMs?.takeIf { slot is BalanceSlot.Value && slot.stale }?.let { AsOfLine(readAtMs = it, clock = clock) }
     }
 }
 

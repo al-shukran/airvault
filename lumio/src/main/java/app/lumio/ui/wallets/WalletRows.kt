@@ -36,6 +36,7 @@ import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lensly.ui.theme.LocalReducedMotion
 import app.lumio.data.Clock
+import app.lumio.ui.home.agoText
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
@@ -175,6 +176,18 @@ internal fun FreshnessLine(refreshing: Boolean, updatedAtMs: Long?, clock: Clock
     )
 }
 
+/** The age of a kept balance under its value, "as of 4 min ago", while the latest read has not reached it. It counts again each minute, as [FreshnessLine] does. */
+@Composable
+internal fun AsOfLine(readAtMs: Long, clock: Clock) {
+    val nowMs by produceState(clock.nowMs(), clock) {
+        while (true) {
+            value = clock.nowMs()
+            delay(MINUTE_MS)
+        }
+    }
+    Text(text = "as of ${agoText(nowMs - readAtMs)}", style = ClearAirType.label, color = LocalClearAirPalette.current.ink2)
+}
+
 /** The sweep of a checking line's sheen, in milliseconds: the same crossing as a bar's sheen. */
 private const val CHECKING_SHEEN_MS = 1600
 
@@ -231,7 +244,8 @@ internal fun ChainFailureNote(text: String, onRetry: () -> Unit, modifier: Modif
         Canvas(Modifier.size(8.dp)) { drawCircle(color = palette.spark) }
         Spacer(Modifier.width(ClearAirSpacing.xs))
         // The note takes the width the Retry action leaves, so a long network name wraps and the action stays in view.
-        Text(text = "$text · ", style = ClearAirType.body, color = palette.ink2, modifier = Modifier.weight(1f))
+        Text(text = text, style = ClearAirType.body, color = palette.ink2, modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(ClearAirSpacing.xs))
         ClearAirTextAction(text = "Retry", onClick = onRetry)
     }
 }

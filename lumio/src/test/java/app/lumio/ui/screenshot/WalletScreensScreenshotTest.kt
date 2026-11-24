@@ -113,6 +113,8 @@ class WalletScreensScreenshotTest {
         networkName = "Solana Devnet",
         coin = AccountCoin("SOL", "Solana Devnet", SOLANA_DEVNET),
         balance = NativeAsset("SOL-devnet", "SOL", "Solana Devnet", SOLANA_DEVNET, BigDecimal("0.4")),
+        // Read before the latest Solana read began, so the kept balance says how old it is.
+        readAtMs = FIXED_NOW - 4 * 60_000L,
     )
     private val algorand = WalletAccount(
         walletId = "wallet-demo",

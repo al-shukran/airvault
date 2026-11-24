@@ -85,7 +85,7 @@ class WalletScreenTest {
     fun aChainThatDidNotAnswerNamesItselfUnderItsIslandWithARetry() {
         render(reads = WalletReads(unreachable = setOf(ethereum)))
 
-        compose.onNodeWithText("Couldn't reach Ethereum. Lumio will retry.", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Couldn't reach Ethereum. Showing the last known balance.", substring = true).assertIsDisplayed()
         compose.onNodeWithText("Retry").assertIsDisplayed()
     }
 
