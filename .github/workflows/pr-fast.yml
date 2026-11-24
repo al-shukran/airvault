@@ -370,7 +370,7 @@ jobs:
           persist-credentials: false
           sparse-checkout: scripts/ci
 
-      # The machine-enforced lane budget (scripts/ci/lane-budget.sh, 3 minutes). It reports, and on master files an issue; it never
+      # The machine-enforced lane budget (scripts/ci/lane-budget.sh, 5 minutes). It reports, and on master files an issue; it never
       # fails the gate, so a slow lane is fixed in a pull request, not rerun to green.
       - name: Check the lane budget
         continue-on-error: true
