@@ -231,6 +231,30 @@ class BiometricUnlockTest {
         assertTrue(unlock.isOn())
     }
 
+    /**
+     * Change Password re-wraps the password's slot around the same Vault Key, so the sealed key still opens this vault after the change, and the
+     * old password stops working. The biometric blob is not rewritten by the change.
+     */
+    @Test
+    fun aPasswordChangeKeepsBiometricUnlockWorking() {
+        val session = openApp()
+        val vaultKey = session.copyOfVaultKey()
+        assertTrue(runBlocking { unlock.enable(session) })
+        val sealedBefore = File(layout.root, BiometricUnlock.BLOB_FILE_NAME).readBytes()
+
+        assertEquals(CreateResult.Created, runBlocking { vault.rekey(session, CHANGED.toCharArray()) })
+        session.close()
+
+        assertTrue(File(layout.root, BiometricUnlock.BLOB_FILE_NAME).readBytes().contentEquals(sealedBefore))
+        val opened = assertIs<BiometricOutcome.Unlocked>(runBlocking { unlock.unlock(vault) }).session
+        assertTrue(opened.copyOfVaultKey().contentEquals(vaultKey))
+        opened.close()
+        assertEquals(UnlockResult.Rejected, runBlocking { vault.unlock(APP.toCharArray()) })
+        // The wrong try starts a failure delay, which the next try has to wait out.
+        clock.advance(FailureDelay.MAX_CAP_MS + 1)
+        assertIs<UnlockResult.Unlocked>(runBlocking { vault.unlock(CHANGED.toCharArray()) }).session.close()
+    }
+
     private fun openApp(): VaultSession = assertIs<UnlockResult.Unlocked>(runBlocking { vault.unlock(APP.toCharArray()) }).session
 
     /** Sets a Duress Password on [real], closes it, and opens the Decoy Vault with the Duress Password. */
@@ -281,6 +305,7 @@ class BiometricUnlockTest {
         val KDF = KdfParams(memoryKiB = 8 * 1024, iterations = 1)
         const val APP = "q7Vn!2Lx#Rb9Tm4Wc8Zp"
         const val WRONG = "not-the-app-password-2"
+        const val CHANGED = "Vk8#Rw2!Lq6Zn4Tp9Xb"
         const val DURESS ="Hj3\$kP9wQz!Lm6Tn2Ysd"
     }
 }
