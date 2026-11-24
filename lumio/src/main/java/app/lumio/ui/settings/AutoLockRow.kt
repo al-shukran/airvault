@@ -2,6 +2,7 @@ package app.lumio.ui.settings
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -91,6 +92,7 @@ internal fun AutoLockPasswordDialog(
     var password by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    DisposableEffect(Unit) { onDispose { password = "" } }
 
     fun submit() {
         if (busy || password.isEmpty()) return
