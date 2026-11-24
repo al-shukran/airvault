@@ -1,59 +1,94 @@
 package app.lumio.ui.settings
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.ui.theme.ClearAirSpacing
+import app.lumio.ui.kit.ClearAirDraggableRows
 import app.lumio.ui.kit.ClearAirField
 import app.lumio.ui.kit.ClearAirListRow
 import app.lumio.ui.kit.ClearAirNote
-import app.lumio.ui.kit.ClearAirPrimaryButton
+import app.lumio.ui.kit.ClearAirNumberedRow
 import app.lumio.ui.kit.ClearAirRadio
+import app.lumio.ui.kit.ClearAirTextAction
 
 /**
- * The Network page (B4) of one chain: its built-in RPC address, which cannot be deleted, and the custom address the owner set, if any. The radio
- * on the address in use is filled, and tapping the built-in row returns to it at once. A new custom address is typed in the field and checked by
- * [onAddCustom] when the owner presses Add; a refusal shows under the field. [custom] is the address in use, or null for the built-in one, and
- * [busy] holds the page while a change runs. The typed address is cleared once the address in use changes.
+ * The Network page (B4) of one chain. The built-in RPC address comes first, and it cannot be deleted. The owner's own addresses follow, one radio row
+ * each: the one in use is filled, and tapping a row makes it the one in use at once. [custom] lists those addresses and [active] is the one in use, or
+ * null for the built-in address. A new address is typed in the field and checked when the owner presses Add or leaves the field, and a refusal shows under
+ * the field with the typed address kept. [providers] are the data providers that serve the chain, in the order they are asked, and [onReorder] gets their
+ * new order when the owner drags one. [busy] holds the page while a change runs.
  */
 @Composable
 fun NetworkPage(
     chainName: String,
     chainLine: String,
-    custom: String?,
+    custom: List<String>,
+    active: String?,
+    providers: List<ProviderRow>,
     busy: Boolean,
     notice: String?,
     offline: String?,
     onUseBuiltIn: () -> Unit,
+    onUseCustom: (String) -> Unit,
+    onRemoveCustom: (String) -> Unit,
     onAddCustom: (String) -> Unit,
+    onReorder: (List<String>) -> Unit,
     onBack: () -> Unit,
     onLock: () -> Unit,
 ) {
     var draft by remember { mutableStateOf("") }
-    LaunchedEffect(custom) { draft = "" }
+    // The typed address clears once the list or the address in use changes, which a saved address does.
+    LaunchedEffect(custom, active) { draft = "" }
+    fun addDraft() {
+        if (!busy && draft.isNotBlank()) onAddCustom(draft.trim())
+    }
     SettingsFrame(title = chainName, offline = offline, onBack = onBack, onLock = onLock, backLabel = "Networks") {
         ClearAirNote(text = chainLine, modifier = Modifier.padding(top = ClearAirSpacing.md))
         SettingsGroup(title = "Default RPC") {
             ClearAirListRow(
                 title = "Built-in RPC",
-                description = "Built In · Can't be deleted",
-                trailing = { ClearAirRadio(selected = custom == null) },
-                onClick = if (busy || custom == null) null else onUseBuiltIn,
+                tag = "Built In",
+                description = "Can't be deleted",
+                modifier = Modifier.selectable(selected = active == null, enabled = !busy, role = Role.RadioButton, onClick = onUseBuiltIn),
+                trailing = { ClearAirRadio(selected = active == null) },
             )
         }
-        custom?.let {
+        if (custom.isNotEmpty()) {
             SettingsGroup(title = "Custom RPCs") {
-                ClearAirListRow(title = it, description = "In use", trailing = { ClearAirRadio(selected = true) })
+                custom.forEach { url ->
+                    ClearAirListRow(
+                        title = url,
+                        description = if (url == active) "In use" else null,
+                        modifier = Modifier.selectable(
+                            selected = url == active,
+                            enabled = !busy,
+                            role = Role.RadioButton,
+                            onClick = { onUseCustom(url) },
+                        ),
+                        trailing = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ClearAirTextAction(text = "Remove", onClick = { onRemoveCustom(url) }, enabled = !busy)
+                                Spacer(Modifier.width(ClearAirSpacing.sm))
+                                ClearAirRadio(selected = url == active)
+                            }
+                        },
+                    )
+                }
             }
         }
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md)) {
@@ -65,14 +100,22 @@ fun NetworkPage(
                 keyboard = KeyboardType.Uri,
                 monospace = true,
                 error = notice,
+                onCommit = { addDraft() },
+                trailing = { ClearAirTextAction(text = "Add", onClick = { addDraft() }, enabled = !busy && draft.isNotBlank()) },
                 inputTag = "custom-rpc",
             )
-            Spacer(Modifier.height(ClearAirSpacing.sm))
-            ClearAirPrimaryButton(
-                text = if (busy) "Checking RPC…" else "Add",
-                onClick = { onAddCustom(draft.trim()) },
-                enabled = !busy && draft.isNotBlank(),
-            )
+        }
+        if (providers.isNotEmpty()) {
+            SettingsGroup(title = "Data Provider Order") {
+                ClearAirDraggableRows(rows = providers, key = { it.id }, onReorder = onReorder) { index, provider, handle ->
+                    ClearAirNumberedRow(
+                        number = index + 1,
+                        title = providerName(provider.id),
+                        description = providerStatusLine(provider.status),
+                        dragHandle = handle,
+                    )
+                }
+            }
         }
     }
 }

@@ -44,6 +44,7 @@ import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.theme.LumenTheme
 import app.lumio.data.config.Fiat
 import app.lumio.data.config.FiatCurrency
+import app.lumio.data.config.FiatRate
 import app.lumio.data.config.LockSettings
 import app.lumio.data.config.LockSettingsStore
 import app.lumio.network.NetworkMode
@@ -398,10 +399,10 @@ private fun FiatProvider(navController: NavHostController, content: @Composable 
     val app = LocalContext.current.applicationContext as LumioApp
     val currency = rememberDisplay(app).currency
     val entry by navController.currentBackStackEntryAsState()
-    val perUsd by produceState<Double?>(initialValue = null, currency, entry) {
-        value = if (currency == FiatCurrency.USD) null else app.prices.fiatRates()?.value?.perUsd?.get(currency.code)
+    val rate by produceState<FiatRate?>(initialValue = null, currency, entry) {
+        value = if (currency == FiatCurrency.USD) null else app.prices.fiatRates()?.value?.perUsd?.get(currency.code)?.let { FiatRate(currency, it) }
     }
-    CompositionLocalProvider(LocalFiat provides Fiat.of(currency, perUsd), content = content)
+    CompositionLocalProvider(LocalFiat provides Fiat.of(currency, rate), content = content)
 }
 
 @Composable

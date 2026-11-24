@@ -11,11 +11,13 @@ import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.camera.EntryGesture
+import app.lensly.ui.flow.PasswordCheck
 import app.lensly.ui.gate.PolicyError
 import app.lensly.ui.settings.ChangePasswordScreen
 import app.lensly.ui.settings.ChangePasswordState
 import app.lensly.ui.settings.ChangeStep
 import app.lumio.btc.BtcAccountRef
+import app.lumio.data.config.AutoLock
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.FiatCurrency
 import app.lumio.data.config.FinishSetup
@@ -269,8 +271,8 @@ class LumioScreenshotTest {
             onEntryGesture = {},
             onChangePassword = {},
             onDeviceProtection = {},
-            onIdleMinutes = {},
-            onLockWhenSwitching = {},
+            checkPassword = { PasswordCheck.Accepted },
+            onAutoLock = {},
             offline = null, onLock = {}, onBack = {},
         )
     }
@@ -279,13 +281,13 @@ class LumioScreenshotTest {
     fun settingsSecuritySwitching() = compose.lumioSnapshot("settings_security_switching") {
         SecuritySettingsPage(
             entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE,
-            lock = LockSettings(idleMinutes = 5, lockWhenSwitchingApps = true),
+            lock = LockSettings(AutoLock.IMMEDIATELY),
             deviceProtectionOn = false,
             onEntryGesture = {},
             onChangePassword = {},
             onDeviceProtection = {},
-            onIdleMinutes = {},
-            onLockWhenSwitching = {},
+            checkPassword = { PasswordCheck.Accepted },
+            onAutoLock = {},
             offline = null, onLock = {}, onBack = {},
         )
     }
@@ -325,18 +327,17 @@ class LumioScreenshotTest {
     fun dataProviders() = compose.lumioSnapshot("data_providers") {
         DataProvidersScreen(
             data = listOf(
-                providerRow("etherscan", acceptsKey = true, status = ProviderStatus.NeedsKey, canMoveUp = false),
-                providerRow("mempool", acceptsKey = false, status = ProviderStatus.Ready, canMoveDown = false),
+                providerRow("etherscan", acceptsKey = true, status = ProviderStatus.NeedsKey),
+                providerRow("mempool", acceptsKey = false, status = ProviderStatus.Ready),
             ),
             rpc = listOf(
-                providerRow("1rpc", acceptsKey = true, mev = true, status = ProviderStatus.Healthy(120.0), apiKey = "k-1"),
+                providerRow("1rpc", acceptsKey = true, status = ProviderStatus.Healthy(120.0), apiKey = "k-1"),
             ),
             offline = null,
             onBack = {},
             onLock = {},
             onOpen = {},
-            onEnabled = { _, _ -> },
-            onMove = { _, _ -> },
+            onReorder = { _, _ -> },
         )
     }
 
@@ -346,16 +347,15 @@ class LumioScreenshotTest {
         DataProvidersScreen(
             data = emptyList(),
             prices = listOf(
-                providerRow("coingecko", acceptsKey = true, status = ProviderStatus.NeedsKey, canMoveUp = false),
-                providerRow("defillama", acceptsKey = false, status = ProviderStatus.Healthy(95.0), canMoveDown = false),
+                providerRow("coingecko", acceptsKey = true, status = ProviderStatus.NeedsKey),
+                providerRow("defillama", acceptsKey = false, status = ProviderStatus.Healthy(95.0)),
             ),
             rpc = emptyList(),
             offline = null,
             onBack = {},
             onLock = {},
             onOpen = {},
-            onEnabled = { _, _ -> },
-            onMove = { _, _ -> },
+            onReorder = { _, _ -> },
         )
     }
 
@@ -430,19 +430,13 @@ class LumioScreenshotTest {
         id: String,
         acceptsKey: Boolean,
         status: ProviderStatus,
-        mev: Boolean = false,
         apiKey: String? = null,
-        canMoveUp: Boolean = true,
-        canMoveDown: Boolean = true,
     ) = ProviderRow(
         id = id,
-        mevProtected = mev,
         acceptsKey = acceptsKey,
         enabled = true,
         apiKey = apiKey,
         status = status,
-        canMoveUp = canMoveUp,
-        canMoveDown = canMoveDown,
     )
 
     private companion object {

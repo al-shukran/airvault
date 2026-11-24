@@ -61,7 +61,7 @@ class EvmSendRpcTest {
         server.close()
     }
 
-    private fun reads(): EvmReads = testReads(EvmSettings(rpc = mapOf(1L to server.url("/").toString())))
+    private fun reads(): EvmReads = testReads(EvmSettings(rpc = mapOf(1L to rpcInUse(server.url("/").toString()))))
 
     /** The answer to a balanceOf read: one word, in the token's base units. */
     private fun balanceAnswer(units: BigInteger): String = "\"0x" + units.toString(16).padStart(64, '0') + "\""

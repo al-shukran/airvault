@@ -1,0 +1,1 @@
+The Explore tab's All N count now matches the Networks page it opens: it counts the networks switched on for the side shown, custom chains included. Explore also waits for the saved mainnet or testnet side before it shows any chain, so a testnet vault no longer flashes mainnet chains first.

@@ -63,7 +63,7 @@ class PortfolioCacheTest {
     @Test
     fun aRefreshStoresEachShownAddressAndAnOfflineRefreshKeepsItsReadTime() {
         answerWithOneEther()
-        val settings = EvmSettings(addressCount = 2, enabled = setOf(1L), rpc = mapOf(1L to server.url("/").toString()))
+        val settings = EvmSettings(addressCount = 2, enabled = setOf(1L), rpc = mapOf(1L to rpcInUse(server.url("/").toString())))
         val reads = testReads(settings)
 
         val online = runBlocking {

@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
@@ -13,6 +14,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -86,6 +88,17 @@ class ProfilePanelTest {
         compose.onNodeWithText("Scanned: air1").assertIsDisplayed()
     }
 
+    @Test
+    fun scanToPayTellsTheOwnerWhichNetworkToTurnOnAndOpensNothingWhileItIsOff() {
+        compose.setContent { Shell(scanNote = "Turn on Monad Testnet to scan to pay") }
+        openPanel()
+        compose.onNodeWithText("Turn on Monad Testnet to scan to pay").assertIsDisplayed()
+        compose.onNodeWithText("Scan to Pay").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Turn on Monad Testnet to scan to pay").assertIsDisplayed()
+        compose.onAllNodesWithText("Scanned: air1").assertCountEquals(0)
+    }
+
     private fun openPanel() {
         compose.onAllNodesWithContentDescription("Open the profile panel").onFirst().performClick()
         compose.waitForIdle()
@@ -95,16 +108,16 @@ class ProfilePanelTest {
     private fun row(name: String) = compose.onNode(isSelectable() and hasText(name, substring = true))
 
     @Composable
-    private fun Shell() {
+    private fun Shell(scanNote: String? = null) {
         LumenTheme {
             ClearAirTheme {
-                Root()
+                Root(scanNote)
             }
         }
     }
 
     @Composable
-    private fun Root() {
+    private fun Root(scanNote: String?) {
         var active by remember { mutableStateOf("air1") }
         var scanned by remember { mutableStateOf<String?>(null) }
         LumioRootScreen(
@@ -120,6 +133,7 @@ class ProfilePanelTest {
             offline = null,
             onTab = {},
             onScan = { scanned = active },
+            scanNote = scanNote,
             onTestNetworks = {},
             onPair = {},
             onLock = {},

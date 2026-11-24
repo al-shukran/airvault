@@ -1,0 +1,136 @@
+package app.lumio.ui.settings
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
+import app.lensly.ui.gate.MIN_PASSWORD_LENGTH
+import app.lensly.ui.theme.ClearAirSpacing
+import app.lensly.ui.theme.ClearAirType
+import app.lensly.ui.theme.LocalClearAirPalette
+import app.lumio.PasswordChange
+import app.lumio.ui.firstrun.NewPasswordProblem
+import app.lumio.ui.firstrun.policyMessage
+import app.lumio.ui.kit.ClearAirField
+import app.lumio.ui.kit.ClearAirPrimaryButton
+import app.lumio.ui.kit.ClearAirTextAction
+import kotlinx.coroutines.launch
+
+/**
+ * Change Password, the App Password's change in Settings → Security: the current password, then the new one and its repeat. The capsule stays off
+ * until all three fields are filled, and a hint under the fields says so. A problem shows on the field it belongs to, in the gate's words, and a
+ * wrong current password never says how close a lockout is. [onSubmit] runs the change, [onChanged] leaves the page once it is made, and
+ * [onLocked] and [onUnavailable] take the owner to the gate's answer for a vault that cannot be used.
+ */
+@Composable
+fun ChangePasswordSettingsPage(
+    offline: String?,
+    onSubmit: suspend (current: String, password: String, repeat: String) -> PasswordChange,
+    onChanged: () -> Unit,
+    onLocked: () -> Unit,
+    onUnavailable: () -> Unit,
+    onBack: () -> Unit,
+    onLock: () -> Unit,
+) {
+    val palette = LocalClearAirPalette.current
+    val scope = rememberCoroutineScope()
+    var current by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var repeat by remember { mutableStateOf("") }
+    var shown by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    // What the last submit found and left on the page. Editing a field clears it, so an old problem does not stay on screen.
+    var problem by remember { mutableStateOf<PasswordChange?>(null) }
+    val filled = current.isNotEmpty() && password.isNotEmpty() && repeat.isNotEmpty()
+    val refused = (problem as? PasswordChange.NewPassword)?.problem
+
+    fun submit() {
+        if (busy || !filled) return
+        busy = true
+        problem = null
+        scope.launch {
+            val outcome = onSubmit(current, password, repeat)
+            busy = false
+            when (outcome) {
+                PasswordChange.Changed -> onChanged()
+                PasswordChange.Locked -> onLocked()
+                PasswordChange.Unavailable -> onUnavailable()
+                else -> {
+                    // A wrong current password is cleared, as the gate clears it, so it does not stay on the page.
+                    if (outcome == PasswordChange.WrongCurrent) current = ""
+                    problem = outcome
+                }
+            }
+        }
+    }
+
+    val reveal: @Composable () -> Unit = {
+        ClearAirTextAction(text = if (shown) "Hide" else "Show", onClick = { shown = !shown })
+    }
+
+    SettingsFrame(title = "Change Password", offline = offline, onBack = onBack, onLock = onLock) {
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter)) {
+            ClearAirField(
+                label = "Current Password",
+                value = current,
+                onValueChange = {
+                    current = it
+                    problem = null
+                },
+                keyboard = KeyboardType.Password,
+                masked = !shown,
+                error = if (problem == PasswordChange.WrongCurrent) WRONG_CURRENT_PASSWORD else null,
+                trailing = reveal,
+            )
+            Spacer(Modifier.height(ClearAirSpacing.lg))
+            ClearAirField(
+                label = "New Password",
+                value = password,
+                onValueChange = {
+                    password = it
+                    problem = null
+                },
+                placeholder = "At least $MIN_PASSWORD_LENGTH characters",
+                keyboard = KeyboardType.Password,
+                masked = !shown,
+                error = policyMessage(refused),
+                trailing = reveal,
+            )
+            Spacer(Modifier.height(ClearAirSpacing.lg))
+            ClearAirField(
+                label = "Repeat New Password",
+                value = repeat,
+                onValueChange = {
+                    repeat = it
+                    problem = null
+                },
+                keyboard = KeyboardType.Password,
+                masked = !shown,
+                onSubmit = { submit() },
+                error = if (refused == NewPasswordProblem.Mismatch) "The passwords don't match" else null,
+                trailing = reveal,
+            )
+            Spacer(Modifier.height(ClearAirSpacing.lg))
+            if (!filled) {
+                Text(text = "Fill in all three fields to continue", style = ClearAirType.body, color = palette.ink2)
+                Spacer(Modifier.height(ClearAirSpacing.xs))
+            }
+            ClearAirPrimaryButton(
+                text = "Change Password",
+                onClick = { submit() },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = filled && !busy,
+            )
+        }
+    }
+}

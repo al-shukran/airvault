@@ -14,6 +14,9 @@ import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
+import app.lumio.data.config.withOrderWithin
+import app.lumio.data.provider.ProviderCatalog
+import app.lumio.evm.ChainRpcs
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmEdits
@@ -22,6 +25,7 @@ import app.lumio.evm.EvmSettings
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.ui.settings.EvmSettingsSection
 import app.lumio.ui.settings.NetworkPage
+import app.lumio.ui.settings.ProviderRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -97,9 +101,13 @@ internal fun EvmSettingsRoute(navController: NavHostController, holder: VaultHol
     )
 }
 
+/** What the Network page shows of one chain: the settings, the chain, and the data providers that serve it in the order they are asked. */
+private class NetworkState(val settings: EvmSettings, val chain: EvmChain, val providers: List<ProviderRow>)
+
 /**
- * The Network page (B4) of chain [chainId]: its built-in RPC address and the custom one the owner set. A change is checked against the endpoint
- * before it is saved, and a refusal shows under the field, with the stored address kept as it was.
+ * The Network page (B4) of chain [chainId]: its built-in RPC address, the custom addresses the owner set with the one in use, and the order of the data
+ * providers that serve the chain. A change of address is checked against the endpoint before it is saved, and a refusal shows under the field, with the
+ * stored addresses kept as they were.
  */
 @Composable
 internal fun EvmNetworkRoute(navController: NavHostController, holder: VaultHolder, chainId: Long, onLock: () -> Unit) {
@@ -109,23 +117,26 @@ internal fun EvmNetworkRoute(navController: NavHostController, holder: VaultHold
         if (session == null) navController.openHidden(GateRoutes.GATE)
     }
     val scope = rememberCoroutineScope()
+    val vault = app.lumioVault()
+    val dataIds = remember { ProviderCatalog.dataProviders().map { it.id } }
     var version by remember { mutableIntStateOf(0) }
     var busy by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
-    val state by produceState<SettingsState?>(initialValue = null, session, version) {
-        value = if (session == null) {
+    val state by produceState<NetworkState?>(initialValue = null, session, vault, version) {
+        value = if (session == null || vault == null) {
             null
         } else {
             withContext(Dispatchers.IO) {
                 runCatching {
                     val settings = EvmSettingsStore.read(session)
-                    SettingsState(settings, catalogOf(app, settings))
+                    val chain = catalogOf(app, settings).firstOrNull { it.chainId == chainId }
+                    chain?.let { NetworkState(settings, it, readChainProviders(app, vault, it)) }
                 }.getOrNull()
             }
         }
     }
     val current = state ?: return
-    val chain = current.chains.firstOrNull { it.chainId == chainId } ?: return
+    val writable = vault ?: return
 
     fun change(transform: (EvmSettings, EvmRpc) -> EvmSettings) {
         if (session == null || busy) return
@@ -139,15 +150,31 @@ internal fun EvmNetworkRoute(navController: NavHostController, holder: VaultHold
         }
     }
 
+    // The order is written to the data providers' settings, for every chain, so the other chains keep the places they hold.
+    fun reorderProviders(order: List<String>) {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                runCatching { writable.updateConfigs { saved -> withOrderWithin(ProviderCatalog.withDefaults(saved), dataIds, order) } }
+            }
+            version++
+        }
+    }
+
+    val rpcs = current.settings.rpc[chainId] ?: ChainRpcs()
     NetworkPage(
-        chainName = chain.name,
-        chainLine = "Chain ${chain.chainId} · ${chain.symbol}${if (chain.testnet) " · Testnet" else ""}",
-        custom = current.settings.rpc[chainId],
+        chainName = current.chain.name,
+        chainLine = "Chain ${current.chain.chainId} · ${current.chain.symbol}${if (current.chain.testnet) " · Testnet" else ""}",
+        custom = rpcs.custom,
+        active = rpcs.active,
+        providers = current.providers,
         busy = busy,
         notice = notice,
         offline = rememberSettingsOffline(),
         onUseBuiltIn = { change { s, _ -> EvmEdits.resetRpc(s, chainId) } },
+        onUseCustom = { url -> change { s, _ -> EvmEdits.useRpc(s, chainId, url) } },
+        onRemoveCustom = { url -> change { s, _ -> EvmEdits.removeRpc(s, chainId, url) } },
         onAddCustom = { raw -> change { s, rpc -> EvmEdits.setRpc(s, chainId, raw, rpc) } },
+        onReorder = ::reorderProviders,
         onBack = { navController.popBackStack() },
         onLock = onLock,
     )

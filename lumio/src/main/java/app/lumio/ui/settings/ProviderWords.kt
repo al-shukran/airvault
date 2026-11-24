@@ -15,6 +15,9 @@ fun providerStatusWord(status: ProviderStatus): String = when (status) {
 /** The line under the status word when the owner can act on it: a provider that is Off for want of a key says so. */
 fun providerStatusNote(status: ProviderStatus): String? = if (status == ProviderStatus.NeedsKey) "Needs API Key" else null
 
+/** The status word and, when there is one, the line that says why: Working, Rate-Limited or Off, as the Clear Air pages read them. */
+fun providerStatusLine(status: ProviderStatus): String = listOfNotNull(providerStatusWord(status), providerStatusNote(status)).joinToString(" · ")
+
 /** The name a provider goes by on the Clear Air pages. A provider with no name here shows its catalogue ID. */
 fun providerName(id: String): String = when (id) {
     "blockchair" -> "Blockchair"
@@ -36,4 +39,21 @@ fun providerName(id: String): String = when (id) {
 fun providerTags(id: String, traits: Set<Trait>): List<String> = buildList {
     if (Trait.KEY_REQUIRED !in traits) add("Works without an API Key")
     if (id == "blockscout") add("Anonymous")
+}
+
+/** How many network names a provider's page lists before it counts the rest. */
+private const val NAMES_SHOWN = 4
+
+/**
+ * The networks a provider serves, as the page words them: the first four names in the catalogue's order, then how many are left. "Ethereum, Base and
+ * Arbitrum" for three networks, and "Ethereum, Base, Arbitrum, Optimism and 10 more" for fourteen.
+ */
+fun networkSummary(names: List<String>): String {
+    val shown = names.take(NAMES_SHOWN)
+    val rest = names.size - shown.size
+    return when {
+        rest > 0 -> "${shown.joinToString(", ")} and $rest more"
+        shown.size <= 1 -> shown.joinToString()
+        else -> shown.dropLast(1).joinToString(", ") + " and " + shown.last()
+    }
 }

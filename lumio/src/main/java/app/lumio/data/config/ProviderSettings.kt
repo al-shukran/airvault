@@ -12,10 +12,14 @@ fun withApiKey(configs: Map<String, ProviderConfig>, id: String, key: String): M
     configs + (id to configOf(configs, id).copy(apiKey = key.trim().ifEmpty { null }))
 
 /**
- * The settings with [id] moved one place up or down within [group], the group's listing order. The moved group is renumbered from 0 in its new order,
- * and the other providers keep their priorities. The settings are unchanged when [id] cannot move.
+ * The settings with the providers of [order] reordered within [group]. [order] names some of the group's providers, in the order they should take. Each
+ * takes the place it holds in the group's listing order, and the rest of the group keeps its places. The group is then renumbered from 0 in its new
+ * order, and the providers outside it keep their priorities. A provider named twice, or one outside [group], is refused.
  */
-fun withMoved(configs: Map<String, ProviderConfig>, group: List<String>, id: String, up: Boolean): Map<String, ProviderConfig> {
-    val priorities = movedPriorities(orderedIds(group, configs), id, up) ?: return configs
-    return configs + priorities.mapValues { (providerId, priority) -> configOf(configs, providerId).copy(priority = priority) }
+fun withOrderWithin(configs: Map<String, ProviderConfig>, group: List<String>, order: List<String>): Map<String, ProviderConfig> {
+    val listing = orderedIds(group, configs)
+    require(order.all { it in listing } && listing.count { it in order } == order.size) { "The order names a provider outside the group, or one twice." }
+    val next = order.iterator()
+    val reordered = listing.map { if (it in order) next.next() else it }
+    return configs + reordered.withIndex().associate { (rank, id) -> id to configOf(configs, id).copy(priority = rank) }
 }

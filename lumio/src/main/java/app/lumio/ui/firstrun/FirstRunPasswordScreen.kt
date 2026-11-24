@@ -115,8 +115,8 @@ fun FirstRunPasswordScreen(
     }
 }
 
-/** The first field's error for a password the policy refuses. A mismatch is shown under the repeat instead. */
-private fun policyMessage(problem: NewPasswordProblem?): String? = when (problem) {
+/** The first field's error for a password the policy refuses. A mismatch is shown under the repeat instead. Change Password words it the same way. */
+internal fun policyMessage(problem: NewPasswordProblem?): String? = when (problem) {
     NewPasswordProblem.TooShort -> "Use at least $MIN_PASSWORD_LENGTH characters."
     NewPasswordProblem.TooWeak -> "Too easy to guess. Add variety."
     NewPasswordProblem.Mismatch, null -> null
