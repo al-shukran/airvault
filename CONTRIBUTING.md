@@ -57,7 +57,16 @@ Label pull requests and issues with one `scope:` label (`scope:lensly`, `scope:l
 
 Every UI change, feature, or bug fix pull request carries a short recording (15 to 60 seconds) that reviewers can watch inline, or a framed screenshot for a static screen. A fix or UI change gets a before/after pair; a new feature gets one demo. If before and after look the same, skip the video and say so in the pull request instead.
 
-1. Record on an emulator: `adb -s <serial> shell screenrecord --time-limit 30 /sdcard/clip.mp4`, then `adb -s <serial> pull /sdcard/clip.mp4`. Android Studio's recorder runs the same command.
+1. Capture on an emulator at 1080x2400, so the status bar and the navigation bar are real. Put the system UI in demo mode first, so the clock and the battery are clean:
+
+   ```
+   adb shell settings put global sysui_demo_allowed 1
+   adb shell am broadcast -a com.android.systemui.demo -e command enter
+   adb shell am broadcast -a com.android.systemui.demo -e command clock -e hhmm 1200
+   adb shell am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false
+   ```
+
+   A still is `adb exec-out screencap -p > shot.png`. A clip is a loop of screencaps, about four a second, with the swipes or taps in between, then `ffmpeg -framerate 4 -i frame%02d.png -c:v libx264 -pix_fmt yuv420p clip.mp4`. On the emulator tested for this tool, `screenrecord` stopped after one frame while the screen was still moving, so use the screencap loop there. On a physical phone, `adb shell screenrecord --time-limit 30 /sdcard/clip.mp4`, then `adb pull`, works as well.
 2. Compose the clip inside a phone frame with `tools/pr-recording/compose.sh`. A before/after pair becomes two devices side by side with Before and After labels; a demo becomes one device:
 
    ```
@@ -65,11 +74,11 @@ Every UI change, feature, or bug fix pull request carries a short recording (15 
    tools/pr-recording/compose.sh --demo demo.mp4 --out pr-945
    ```
 
-   This writes `<out>.mp4` (H.264, at most 60 s, black around the phones) and `<out>.gif` (transparent around the phones, stepped down when needed), both under 10 MB. Nothing is cropped: each clip is scaled to fit the phone's display, and a strip left over is filled with the clip's own bottom-edge colour. Record on an emulator at 1080x2400 for an exact fit. It needs `ffmpeg`, ImageMagick (`brew install ffmpeg imagemagick`), and the Pixel 8 device art from Android Studio. The art is read at run time and is not stored in the repository; `DEVICE_ART_DIR` overrides its path. A pair may hold clips of different lengths, and the shorter one freezes on its last frame. A timer strip under the phones reads `MM:SS / MM:SS` (elapsed / total).
+   This writes `<out>.mp4` (H.264, at most 60 s, black around the phones) and `<out>.gif` (transparent around the phones, stepped down when needed), both under 10 MB. Nothing is cropped: each clip is scaled to fit the phone's display, and a strip left over is filled with the clip's own bottom-edge colour. An input that has no system bars, such as a golden screenshot from the test suite, goes in with `--app-only` directly before its file, for example `--before before.mp4 --app-only --after golden.mp4`. The real status and navigation bars from `tools/pr-recording/bars/` are placed around it, chosen by the brightness of its top and bottom edges. The bars were captured from the same emulator in demo mode (light and dark), so do not use `--app-only` on a capture that already has them. It needs `ffmpeg`, ImageMagick (`brew install ffmpeg imagemagick`), and the Pixel 8 device art from Android Studio. The art is read at run time and is not stored in the repository; `DEVICE_ART_DIR` overrides its path. A pair may hold clips of different lengths, and the shorter one freezes on its last frame. A timer strip under the phones reads `MM:SS / MM:SS` (elapsed / total).
 3. Attach both files to the pull request description or a comment, each 10 MB or less. Drag the GIF into the box first, so it renders inline, then drag the MP4 under it, so it plays inline. From a terminal with GitHub CLI 2.99.0 or later, `gh pr comment <number> --attach <out>.gif --attach <out>.mp4` uploads both; a video that is not alone in its paragraph shows as a link.
 4. Never commit a video. `.gitignore` ignores `*.mp4`, `*.mov`, and `*.webm`, and the files belong on the pull request, not in the repository.
 
-A static screen gets a framed screenshot instead of a video. `tools/pr-recording/compose.sh shot shot.png shot-framed.png` writes a 760 px wide PNG of the phone, transparent outside it, with no timer. Attach it to the pull request, then embed the uploaded URL as `<img src="URL" width=380 />`. Do not embed screenshots with Markdown `![]()`.
+A static screen gets a framed screenshot instead of a video. `tools/pr-recording/compose.sh shot shot.png shot-framed.png` writes a 760 px wide PNG of the phone, transparent outside it, with no timer. Use the screencap from step 1; add `--app-only` before the file for a golden. Attach it to the pull request, then embed the uploaded URL as `<img src="URL" width=380 />`. Do not embed screenshots with Markdown `![]()`.
 
 ## The gate
 
