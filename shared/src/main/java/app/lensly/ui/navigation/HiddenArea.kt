@@ -279,19 +279,29 @@ enum class GateOutcome { Opened, Rejected, Erased, Unavailable, Cancelled, KeyIn
 private fun GateRoute(navController: NavHostController, holder: VaultHolder, home: String, newVault: String) {
     val context = LocalContext.current.applicationContext
     LaunchedEffect(Unit) {
-        // A reset that stopped half way is finished before the vault is looked at. If it fails again, the vault stays hidden (see isPartial).
-        withContext(Dispatchers.IO) { holder.vault.finishPendingWipe() }
-        val next = when {
-            holder.openSession() != null -> home
-            holder.vault.exists() -> GateRoutes.UNLOCK
-            withContext(Dispatchers.IO) { holder.vault.isPartial() } -> GateRoutes.DAMAGED
-            // A device that may not hold a vault is told so before the owner types a password for nothing.
-            withContext(Dispatchers.IO) { holder.vault.canCreate() } ->
-                if (VaultKeystore.isDeviceSecure(context)) newVault else GateRoutes.NO_SCREEN_LOCK
-            else -> GateRoutes.UNAVAILABLE
+        // An open session goes straight to home, without a Dispatchers.IO hop. A wipe marker cannot coexist with an open session:
+        // every wipe locks the holder first, and the gate never unlocks while the marker exists (see VaultLayout.exists). So nothing
+        // is left to finish, and the route does not wait on a background round trip.
+        val next = if (holder.openSession() != null) {
+            home
+        } else {
+            // A reset that stopped half way is finished before the vault is looked at. If it fails again, the vault stays hidden (see isPartial).
+            withContext(Dispatchers.IO) { holder.vault.finishPendingWipe() }
+            when {
+                holder.vault.exists() -> GateRoutes.UNLOCK
+                withContext(Dispatchers.IO) { holder.vault.isPartial() } -> GateRoutes.DAMAGED
+                // A device that may not hold a vault is told so before the owner types a password for nothing.
+                withContext(Dispatchers.IO) { holder.vault.canCreate() } ->
+                    if (VaultKeystore.isDeviceSecure(context)) newVault else GateRoutes.NO_SCREEN_LOCK
+                else -> GateRoutes.UNAVAILABLE
+            }
         }
-        navController.navigate(next) {
-            popUpTo(GateRoutes.GATE) { inclusive = true }
+        // The IO hops above may resume this coroutine off Main, and navigation must run on Main. Immediate runs inline on Main, so an
+        // open session still navigates within the first pass.
+        withContext(Dispatchers.Main.immediate) {
+            navController.navigate(next) {
+                popUpTo(GateRoutes.GATE) { inclusive = true }
+            }
         }
     }
 }
