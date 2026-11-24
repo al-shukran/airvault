@@ -40,7 +40,7 @@ Each signature makes a round trip of QR codes:
 3. Lensly shows the signed result as QR codes.
 4. Lumio scans the result and broadcasts it to the network.
 
-Lumio reads balances and prices from free public servers, and it thanks the people who run them. Those servers see the addresses Lumio checks and your IP address. [Limits and distribution](docs/limits-and-distribution.md) lists what else leaks.
+Lumio reads balances and prices from free public servers, and it thanks the people who run them. The [chain app table](docs/creating-airvault-apps.md#111-how-each-chain-maps-onto-the-spec) lists the providers it asks. Those servers see the addresses Lumio checks and your IP address. [Limits and distribution](docs/limits-and-distribution.md) lists what else leaks.
 
 ## Supported Chains and Wallets
 
