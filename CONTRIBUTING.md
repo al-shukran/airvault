@@ -55,11 +55,18 @@ Label pull requests and issues with one `scope:` label (`scope:lensly`, `scope:l
 
 ## Screen recordings
 
-Every UI change, feature, or bug fix pull request carries a short recording (15 to 60 seconds) that reviewers can watch inline. A fix or UI change gets a before/after clip; a new feature gets one demo clip.
+Every UI change, feature, or bug fix pull request carries a short recording (15 to 60 seconds) that reviewers can watch inline. A fix or UI change gets a before/after pair; a new feature gets one demo.
 
 1. Record on an emulator: `adb -s <serial> shell screenrecord --time-limit 30 /sdcard/clip.mp4`, then `adb -s <serial> pull /sdcard/clip.mp4`. Android Studio's recorder runs the same command.
-2. Join a before and an after clip side by side. Render each caption as a PNG with ImageMagick (`magick -size 360x48 xc:black -fill white -font /System/Library/Fonts/Helvetica.ttc -pointsize 28 -gravity center -annotate +0+0 Before before.png`), then overlay it: `ffmpeg -i before.mp4 -i after.mp4 -i before.png -i after.png -filter_complex "[0:v]scale=360:-2,pad=360:ih+48:0:48:black[b];[1:v]scale=360:-2,pad=360:ih+48:0:48:black[a];[b][2:v]overlay=0:0[b2];[a][3:v]overlay=0:0[a2];[b2][a2]hstack=inputs=2" -c:v libx264 -pix_fmt yuv420p joined.mp4`. The Homebrew ffmpeg build has no `drawtext` filter.
-3. Attach it. GitHub plays a video inline only when it was uploaded through the web attachment uploader, and no documented API or `gh` command does that. Instead, push the MP4 and a GIF to an orphan branch named `pr-assets/<pr-number>`, embed the GIF in the description or a comment as `![demo](https://github.com/al-shukran/airvault/raw/pr-assets/<pr-number>/demo.gif)`, and link the MP4 through its `blob` URL (`https://github.com/al-shukran/airvault/blob/pr-assets/<pr-number>/<clip>.mp4`), because raw MP4 URLs are served as `application/octet-stream` and do not play inline. Make the GIF with `ffmpeg -i joined.mp4 -vf "fps=10,scale=360:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 demo.gif`, and keep it under 10 MB.
+2. Compose the clip inside a phone frame with `tools/pr-recording/compose.sh`. A before/after pair becomes two devices side by side with Before and After labels; a demo becomes one device:
+
+   ```
+   tools/pr-recording/compose.sh --before before.mp4 --after after.mp4 --out pr-954
+   tools/pr-recording/compose.sh --demo demo.mp4 --out pr-945
+   ```
+
+   This writes `<out>.mp4` (H.264, at most 60 s) and `<out>.gif` (960 px wide for a pair, 720 px for a demo), both under 10 MB. It needs `ffmpeg` and ImageMagick (`brew install ffmpeg imagemagick`). A pair may hold clips of different lengths, and the shorter one freezes on its last frame.
+3. Attach it. GitHub plays a video inline only when it was uploaded through the web attachment uploader, and no documented API or `gh` command does that. Instead, push the MP4 and the GIF to an orphan branch named `pr-assets/<pr-number>`, embed the GIF in the description or a comment as `![demo](https://github.com/al-shukran/airvault/raw/pr-assets/<pr-number>/<out>.gif)`, and link the MP4 through its `blob` URL (`https://github.com/al-shukran/airvault/blob/pr-assets/<pr-number>/<out>.mp4`), because raw MP4 URLs are served as `application/octet-stream` and do not play inline.
 4. Never commit a video. `.gitignore` ignores `*.mp4`, `*.mov`, and `*.webm`. The `pr-assets/` branches hold clips for review and are never merged.
 
 ## The gate
