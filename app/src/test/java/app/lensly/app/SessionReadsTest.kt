@@ -146,6 +146,19 @@ class SessionReadsTest {
         assertNull(holder.sessionReads(), "The next unlock starts with no reads.")
     }
 
+    @Test
+    fun theListingCountsTheAccountsOfEveryAppTheWalletHolds() {
+        val id = store.create(name = "FIRST", deviceGenerated = false, words = words, passphrase = "FIRST", nowMs = 1L)
+        val reads = SessionReads(session)
+        assertEquals(1, reads.listing().accounts[id], "A new wallet holds its Bitcoin account only.")
+
+        store.installAll(id)
+        assertEquals(4, reads.listing().accounts[id], "Installing the other Apps adds their accounts, and the listing reads again.")
+
+        store.uninstallApp(id, WalletApp.SOLANA)
+        assertEquals(3, reads.listing().accounts[id], "Uninstalling an App removes its accounts from the total.")
+    }
+
     private fun newWallet(name: String): String = store.create(
         name = name,
         deviceGenerated = false,

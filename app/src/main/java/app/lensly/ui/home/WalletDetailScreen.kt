@@ -76,9 +76,10 @@ private const val SECRET_WARNING =
         "Make sure no one and no camera can see your screen."
 
 /**
- * One wallet: its name in the display face, its Visual Identity, its label and groups, its Apps, and its options. Each App is a
- * row with its logo and its account count, and a tap on the row calls [onOpenApp], which opens that App's accounts. [bitcoinAccounts]
- * is the number of the wallet's Bitcoin accounts, and the Ethereum count is the wallet's account count.
+ * One wallet: its name in the display face, its Visual Identity, its label and groups, its Apps, and its options. Each installed App is a
+ * row with its logo and its account count, and a tap on the row calls [onOpenApp], which opens that App's accounts. [accounts] holds the
+ * number of accounts of every App; an App with none is not installed. [onManageApps] opens the Apps screen, where Apps are installed and
+ * uninstalled. A wallet with no installed App says so and offers that screen.
  *
  * The wallet's options open from the overflow icon or a long press on the header. They hold [onEditWallet], [onHistory],
  * [onShowSecret] behind a warning, and [onDeleteWallet]. Generating, selecting, pairing and signing are on each App.
@@ -88,11 +89,10 @@ fun WalletDetailScreen(
     wallet: WalletMeta,
     walletProfile: WalletProfile,
     walletPosition: Int,
-    bitcoinAccounts: Int,
-    solanaAccounts: Int,
-    algorandAccounts: Int,
+    accounts: Map<WalletApp, Int>,
     onBack: () -> Unit,
     onOpenApp: (WalletApp) -> Unit,
+    onManageApps: () -> Unit,
     onShowSecret: () -> Unit,
     onHistory: () -> Unit,
     onEditWallet: () -> Unit,
@@ -184,19 +184,22 @@ fun WalletDetailScreen(
                 }
             }
             item(key = "apps") {
-                LumioIsland {
-                    WalletApp.entries.forEachIndexed { index, app ->
-                        if (index > 0) IslandDivider()
-                        AppRow(
-                            app = app,
-                            count = when (app) {
-                                WalletApp.BITCOIN -> bitcoinAccounts
-                                WalletApp.ETHEREUM -> wallet.accountCount
-                                WalletApp.SOLANA -> solanaAccounts
-                                WalletApp.ALGORAND -> algorandAccounts
-                            },
-                            onClick = { onOpenApp(app) },
-                        )
+                val installed = WalletApp.entries.filter { (accounts[it] ?: 0) > 0 }
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    if (installed.isEmpty()) {
+                        InlineBanner(title = "No Apps Installed", message = "Install an app to add accounts.", tone = BannerTone.Info)
+                        Spacer(Modifier.height(LenslySpacing.xs))
+                    }
+                    LumioIsland {
+                        installed.forEachIndexed { index, app ->
+                            if (index > 0) IslandDivider()
+                            AppRow(app = app, count = accounts.getValue(app), onClick = { onOpenApp(app) })
+                        }
+                        // A Single Key wallet has only its Ethereum account, so its Apps cannot change.
+                        if (wallet.kind != WalletKind.SINGLE_KEY) {
+                            if (installed.isNotEmpty()) IslandDivider()
+                            ManageAppsRow(onClick = onManageApps)
+                        }
                     }
                 }
             }
@@ -248,6 +251,13 @@ private fun AppRow(app: WalletApp, count: Int, onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier.tapHaptic(haptics),
     )
+}
+
+/** The row that opens the Apps screen, where the wallet's Apps are installed and uninstalled. */
+@Composable
+private fun ManageAppsRow(onClick: () -> Unit) {
+    val haptics = rememberKeyHaptics()
+    LumioRow(title = "Manage Apps", onClick = onClick, modifier = Modifier.tapHaptic(haptics))
 }
 
 /**

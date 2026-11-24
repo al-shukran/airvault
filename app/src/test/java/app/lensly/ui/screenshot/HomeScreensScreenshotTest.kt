@@ -14,6 +14,7 @@ import app.lensly.app.AccountProfile
 import app.lensly.app.BitcoinAccountRecord
 import app.lensly.app.ProfileColour
 import app.lensly.app.ProfileIcon
+import app.lensly.app.WalletApp
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.app.WalletProfile
@@ -492,11 +493,15 @@ class HomeScreensScreenshotTest {
             wallet = wallet,
             walletProfile = walletProfile,
             walletPosition = 0,
-            solanaAccounts = 0,
-            algorandAccounts = 0,
-            bitcoinAccounts = bitcoinAccounts,
+            accounts = mapOf(
+                WalletApp.BITCOIN to bitcoinAccounts,
+                WalletApp.ETHEREUM to wallet.accountCount,
+                WalletApp.SOLANA to 0,
+                WalletApp.ALGORAND to 0,
+            ),
             onBack = {},
             onOpenApp = {},
+            onManageApps = {},
             onShowSecret = {},
             onHistory = {},
             onEditWallet = {},

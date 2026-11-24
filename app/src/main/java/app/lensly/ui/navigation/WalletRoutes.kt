@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -76,6 +77,7 @@ import app.lensly.ui.home.HomeReadiness
 import app.lensly.ui.home.ImportState
 import app.lensly.ui.home.RegistryImportScreen
 import app.lensly.ui.home.SolanaAccountsScreen
+import app.lensly.ui.home.WalletAppsScreen
 import app.lensly.ui.home.WalletDetailScreen
 import app.lensly.ui.home.WalletHistoryScreen
 import app.lensly.ui.home.WalletHomeScreen
@@ -128,6 +130,9 @@ internal fun NavGraphBuilder.walletRoutes(navController: NavHostController, hold
     vaultComposable(HiddenRoute.PAIR, motion = NavMotion.RISE) { HiddenBackdrop { PairWalletRoute(navController, holder, walletId = null) } }
     vaultComposable(HiddenRoute.DETAIL, arguments = walletIdArguments()) { entry ->
         HiddenBackdrop { DetailRoute(navController, holder, entry.walletId()) }
+    }
+    vaultComposable(HiddenRoute.APPS, arguments = walletIdArguments()) { entry ->
+        HiddenBackdrop { AppsRoute(navController, holder, entry.walletId()) }
     }
     vaultComposable(HiddenRoute.APP, arguments = walletIdArguments() + appArgument()) { entry ->
         HiddenBackdrop { AppRoute(navController, holder, entry.walletId(), entry.walletApp()) }
@@ -204,6 +209,7 @@ private fun HomeRoute(
     WalletHomeScreen(
         wallets = listing?.wallets,
         profiles = listing?.profiles.orEmpty(),
+        accounts = listing?.accounts.orEmpty(),
         recent = recent,
         readiness = readiness,
         nowMs = System.currentTimeMillis(),
@@ -295,6 +301,7 @@ private fun WalletsRoute(navController: NavHostController, holder: VaultHolder) 
     WalletsScreen(
         wallets = listing?.wallets,
         profiles = listing?.profiles.orEmpty(),
+        accounts = listing?.accounts.orEmpty(),
         onOpen = { walletId -> navController.navigate(HiddenRoute.detail(walletId)) },
         onEdit = { walletId -> navController.navigate(HiddenRoute.editWallet(walletId)) },
         onPair = { walletId -> navController.navigate(HiddenRoute.export(walletId)) },
@@ -624,9 +631,7 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
     var wallet by remember(walletId) { mutableStateOf<WalletMeta?>(null) }
     var walletProfile by remember(walletId) { mutableStateOf(WalletProfile()) }
     var position by remember(walletId) { mutableIntStateOf(0) }
-    var bitcoinAccounts by remember(walletId) { mutableStateOf<Int?>(null) }
-    var solanaAccounts by remember(walletId) { mutableStateOf<Int?>(null) }
-    var algorandAccounts by remember(walletId) { mutableStateOf<Int?>(null) }
+    var accounts by remember(walletId) { mutableStateOf<Map<WalletApp, Int>?>(null) }
 
     LaunchedEffect(walletId) {
         whileUnlocked(navController, holder) {
@@ -644,31 +649,85 @@ private fun DetailRoute(navController: NavHostController, holder: VaultHolder, w
     }
     LaunchedEffect(walletId) {
         whileUnlocked(navController, holder) {
-            bitcoinAccounts = withContext(Dispatchers.IO) { WalletStore(session).bitcoinAccounts(walletId).size }
-            solanaAccounts = withContext(Dispatchers.IO) { WalletStore(session).solanaKeys(walletId).size }
-            algorandAccounts = withContext(Dispatchers.IO) { WalletStore(session).algorandKeys(walletId).size }
+            accounts = withContext(Dispatchers.IO) { WalletStore(session).accountCounts(walletId) }
         }
     }
 
     val shown = wallet ?: return
-    // The App rows wait for every count, so a row never shows a zero that is about to change.
-    val bitcoin = bitcoinAccounts ?: return
-    val solana = solanaAccounts ?: return
-    val algorand = algorandAccounts ?: return
+    // The App rows wait for the counts, so a row never shows a zero that is about to change.
+    val counts = accounts ?: return
     WalletDetailScreen(
         wallet = shown,
         walletProfile = walletProfile,
         walletPosition = position,
-        bitcoinAccounts = bitcoin,
-        solanaAccounts = solana,
-        algorandAccounts = algorand,
+        accounts = counts,
         onBack = { navController.popBackStack() },
         onOpenApp = { app -> navController.navigate(HiddenRoute.app(walletId, app)) },
+        onManageApps = { navController.navigate(HiddenRoute.apps(walletId)) },
         onShowSecret = { navController.navigate(HiddenRoute.showSecret(walletId)) },
         onHistory = { navController.navigate(HiddenRoute.history(walletId)) },
         onEditWallet = { navController.navigate(HiddenRoute.editWallet(walletId)) },
         onDeleteWallet = { navController.navigate(HiddenRoute.deleteWallet(walletId)) },
     )
+}
+
+/**
+ * The Apps of wallet [walletId], each installed or uninstalled from its row. The counts are read again after every change, so the rows show
+ * the new state.
+ */
+@Composable
+private fun AppsRoute(navController: NavHostController, holder: VaultHolder, walletId: String) {
+    val session = rememberOpenSession(navController, holder) ?: return
+    val scope = rememberCoroutineScope()
+    var accounts by remember(walletId) { mutableStateOf<Map<WalletApp, Int>?>(null) }
+    var changes by remember(walletId) { mutableIntStateOf(0) }
+    // Why the last change was refused or not saved, shown above the list. Null when the last change saved.
+    var refusal by remember(walletId) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(walletId, changes) {
+        whileUnlocked(navController, holder) {
+            accounts = withContext(Dispatchers.IO) { WalletStore(session).accountCounts(walletId) }
+        }
+    }
+
+    fun change(write: (WalletStore) -> Unit) {
+        scope.launch {
+            whileUnlocked(navController, holder) {
+                refusal = withContext(Dispatchers.IO) { refusalOf { write(WalletStore(session)) } }
+                changes++
+            }
+        }
+    }
+
+    val counts = accounts ?: return
+    WalletAppsScreen(
+        accounts = counts,
+        refusal = refusal,
+        onBack = { navController.popBackStack() },
+        onInstall = { app -> change { it.installApp(walletId, app) } },
+        onUninstall = { app -> change { it.uninstallApp(walletId, app) } },
+    )
+}
+
+/** What the owner is told when a change to an App is refused or cannot be saved, or null when [write] saved it. */
+private fun refusalOf(write: () -> Unit): String? = try {
+    write()
+    null
+} catch (e: IllegalArgumentException) {
+    "This wallet's Apps cannot be changed."
+} catch (e: IOException) {
+    "The change could not be saved. Try again."
+}
+
+/**
+ * Keeps an App's screens on the screen when [app] is installed in wallet [walletId]. Otherwise the owner is sent to the wallet's Apps screen,
+ * and the App's screens, the App itself and any bulk run of it, leave the back stack, so Back never returns to them. Returns true when the
+ * screen may show.
+ */
+internal fun NavController.keepInstalledApp(walletId: String, app: WalletApp, installed: Set<WalletApp>): Boolean {
+    if (app in installed) return true
+    navigate(HiddenRoute.apps(walletId)) { popUpTo(HiddenRoute.APP) { inclusive = true } }
+    return false
 }
 
 /**
@@ -682,6 +741,16 @@ private fun AppRoute(navController: NavHostController, holder: VaultHolder, wall
     val session = rememberOpenSession(navController, holder) ?: return
     val reads = holder.sessionReads() ?: return
     val scope = rememberCoroutineScope()
+    // Nothing of the App is shown or loaded until the check passes: an App the wallet does not have, such as one uninstalled since this
+    // screen was opened, leads to the Apps screen instead.
+    var allowed by remember(walletId, app) { mutableStateOf(false) }
+    LaunchedEffect(walletId, app) {
+        whileUnlocked(navController, holder) {
+            val installed = withContext(Dispatchers.IO) { WalletStore(session).installedApps(walletId) }
+            allowed = navController.keepInstalledApp(walletId, app, installed)
+        }
+    }
+    if (!allowed) return
     var wallet by remember(walletId) { mutableStateOf<WalletMeta?>(null) }
     var ethereum by remember(walletId) { mutableStateOf(reads.cachedEthereumAccounts(walletId)) }
     var bitcoin by remember(walletId) { mutableStateOf<List<BitcoinAccountRecord>?>(null) }
@@ -940,6 +1009,16 @@ private fun ExportAccountsRoute(navController: NavHostController, holder: VaultH
 private fun BulkRoute(navController: NavHostController, holder: VaultHolder, walletId: String, app: WalletApp) {
     val session = rememberOpenSession(navController, holder) ?: return
     val scope = rememberCoroutineScope()
+    // Nothing of the App is shown or run until the check passes: an App the wallet does not have leads to the Apps screen instead, so no
+    // account is generated for it.
+    var allowed by remember(walletId, app) { mutableStateOf(false) }
+    LaunchedEffect(walletId, app) {
+        whileUnlocked(navController, holder) {
+            val installed = withContext(Dispatchers.IO) { WalletStore(session).installedApps(walletId) }
+            allowed = navController.keepInstalledApp(walletId, app, installed)
+        }
+    }
+    if (!allowed) return
     var wallet by remember(walletId) { mutableStateOf<WalletMeta?>(null) }
     var bulkCap by remember(walletId) { mutableStateOf<BulkCap?>(null) }
     var digits by rememberSaveable { mutableStateOf("") }

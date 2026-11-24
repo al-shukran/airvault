@@ -161,6 +161,7 @@ internal fun PairWalletRoute(navController: NavHostController, holder: VaultHold
     PairWizard(
         wallets = listing.wallets,
         profiles = listing.profiles,
+        accounts = listing.accounts,
         preselected = preselected,
         walletEntries = walletEntries,
         lumioParts = { meta ->
@@ -196,6 +197,7 @@ internal fun PairWalletRoute(navController: NavHostController, holder: VaultHold
 internal fun PairWizard(
     wallets: List<WalletMeta>,
     profiles: Map<String, WalletProfile>,
+    accounts: Map<String, Int> = emptyMap(),
     preselected: WalletMeta?,
     onDone: () -> Unit,
     onLeave: () -> Unit,
@@ -321,6 +323,7 @@ internal fun PairWizard(
             step = step,
             wallets = wallets,
             profiles = profiles,
+            accounts = accounts,
             wallet = chosen,
             format = format,
             walletEntry = format?.walletName?.let { name -> walletEntries.firstOrNull { it.name == name } },
@@ -350,6 +353,7 @@ internal fun PairWizardScreen(
     step: PairStep,
     wallets: List<WalletMeta>,
     profiles: Map<String, WalletProfile>,
+    accounts: Map<String, Int> = emptyMap(),
     wallet: WalletMeta?,
     format: PairFormat?,
     /** The Wallet Entry of the chosen online wallet, or null when the registry has none. Its note shows on the instructions step. */
@@ -403,7 +407,7 @@ internal fun PairWizardScreen(
         ) { shown ->
             Column(modifier = if (shown == PairStep.CODE) Modifier.fillMaxSize() else Modifier.fillMaxWidth()) {
                 when (shown) {
-                    PairStep.WALLET -> WalletStep(wallets = wallets, profiles = profiles, onPick = onPickWallet)
+                    PairStep.WALLET -> WalletStep(wallets = wallets, profiles = profiles, accounts = accounts, onPick = onPickWallet)
                     PairStep.APP ->
                         if (wallet?.kind == WalletKind.SINGLE_KEY) SingleKeyNotice() else FormatStep(onPick = onPickFormat)
                     PairStep.INSTRUCTIONS -> InstructionsStep(format = format, walletEntry = walletEntry)
@@ -440,7 +444,12 @@ private fun PairStepIndicator(step: PairStep) {
 
 /** Step one: the wallet to pair. Each wallet is a card, and a tap chooses it. */
 @Composable
-private fun WalletStep(wallets: List<WalletMeta>, profiles: Map<String, WalletProfile>, onPick: (WalletMeta) -> Unit) {
+private fun WalletStep(
+    wallets: List<WalletMeta>,
+    profiles: Map<String, WalletProfile>,
+    accounts: Map<String, Int>,
+    onPick: (WalletMeta) -> Unit,
+) {
     Text(
         text = "Choose the wallet you are pairing. Only its public account key is shared.",
         style = MaterialTheme.typography.bodyMedium,
@@ -459,6 +468,7 @@ private fun WalletStep(wallets: List<WalletMeta>, profiles: Map<String, WalletPr
         WalletCard(
             wallet = wallet,
             profile = profiles[wallet.id] ?: WalletProfile(),
+            accounts = accounts[wallet.id] ?: 0,
             position = position,
             compact = true,
             onClick = { onPick(wallet) },

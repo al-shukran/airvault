@@ -3,8 +3,8 @@ package app.lensly.app
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.home.HomeReadiness
 
-/** The wallets of an open vault and their profiles: what Home and the Wallets list show. */
-class WalletListing(val wallets: List<WalletMeta>, val profiles: Map<String, WalletProfile>)
+/** The wallets of an open vault, their profiles, and the number of accounts of every App each one holds: what Home and the Wallets list show. */
+class WalletListing(val wallets: List<WalletMeta>, val profiles: Map<String, WalletProfile>, val accounts: Map<String, Int>)
 
 /**
  * The reads that Home, the Wallets list and an App show, kept for one open session. [VaultHolder] makes one when a session opens and
@@ -45,7 +45,8 @@ class SessionReads(private val session: VaultSession) : SessionAttachment {
         val store = WalletStore(session)
         val wallets = store.list()
         val profiles = wallets.associate { it.id to store.walletProfile(it.id) }
-        return WalletListing(wallets, profiles).also { listing = Taken(writes, it) }
+        val accounts = wallets.associate { it.id to store.accountCounts(it.id).values.sum() }
+        return WalletListing(wallets, profiles, accounts).also { listing = Taken(writes, it) }
     }
 
     /** The kept Review Records of every wallet, or null when there are none or a write has passed them. */

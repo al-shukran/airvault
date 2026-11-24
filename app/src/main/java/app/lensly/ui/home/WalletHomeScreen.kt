@@ -118,6 +118,7 @@ fun WalletHomeScreen(
     onBackup: (String) -> Unit,
     modifier: Modifier = Modifier,
     profiles: Map<String, WalletProfile> = emptyMap(),
+    accounts: Map<String, Int> = emptyMap(),
     debugNotice: String? = null,
     notice: String? = null,
     onNoticeShown: () -> Unit = {},
@@ -160,6 +161,7 @@ fun WalletHomeScreen(
                         WalletListSection(
                             wallets = wallets,
                             profiles = profiles,
+                            accounts = accounts,
                             onOpen = onOpen,
                             onLongPress = { sheetWallet = it },
                             onAllWallets = onWallets,
