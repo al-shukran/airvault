@@ -110,6 +110,7 @@ internal fun RecentActivitySection(
 internal fun WalletListSection(
     wallets: List<WalletMeta>,
     profiles: Map<String, WalletProfile>,
+    accounts: Map<String, Int>,
     onOpen: (String) -> Unit,
     onLongPress: (WalletMeta) -> Unit,
     onAllWallets: () -> Unit,
@@ -126,6 +127,7 @@ internal fun WalletListSection(
                 WalletRow(
                     wallet = wallet,
                     profile = profiles[wallet.id] ?: WalletProfile(),
+                    accounts = accounts[wallet.id] ?: 0,
                     position = index,
                     onClick = { onOpen(wallet.id) },
                     onLongPress = { onLongPress(wallet) },

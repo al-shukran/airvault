@@ -315,7 +315,17 @@ class WalletStore(private val session: VaultSession) {
      * no record stores the set: installing an App adds its account at index 0, and uninstalling it removes all of its accounts. A Single Key
      * wallet has its Ethereum account only. A wallet that does not exist has none.
      */
-    fun installedApps(id: String): Set<WalletApp> = WalletApp.entries.filter { hasAccountOf(id, it) }.toSet()
+    fun installedApps(id: String): Set<WalletApp> = accountCounts(id).filterValues { it > 0 }.keys
+
+    /** The number of accounts of each App that wallet [id] holds, in [WalletApp] order. A wallet that does not exist holds none. */
+    fun accountCounts(id: String): Map<WalletApp, Int> = WalletApp.entries.associateWith { app ->
+        when (app) {
+            WalletApp.BITCOIN -> bitcoinAccounts(id).size
+            WalletApp.ETHEREUM -> meta(id)?.accountCount ?: 0
+            WalletApp.SOLANA -> solanaKeys(id).size
+            WalletApp.ALGORAND -> algorandKeys(id).size
+        }
+    }
 
     /**
      * Installs [app] in Mnemonic wallet [id] by adding its account at index 0. The seed always derives that account to the same address.
@@ -351,14 +361,6 @@ class WalletStore(private val session: VaultSession) {
                 WalletApp.ALGORAND -> session.putRecords(id, emptyMap(), listOf(WalletRecordNames.ALGORAND))
             }
         }
-    }
-
-    /** True when wallet [id] holds at least one account of [app]. */
-    private fun hasAccountOf(id: String, app: WalletApp): Boolean = when (app) {
-        WalletApp.BITCOIN -> bitcoinAccounts(id).isNotEmpty()
-        WalletApp.ETHEREUM -> (meta(id)?.accountCount ?: 0) > 0
-        WalletApp.SOLANA -> solanaKeys(id).isNotEmpty()
-        WalletApp.ALGORAND -> algorandKeys(id).isNotEmpty()
     }
 
     /**

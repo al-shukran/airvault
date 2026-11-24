@@ -74,6 +74,7 @@ private val COMPACT_TWO_LINE_CARD_HEIGHT = 120.dp
 internal fun WalletCard(
     wallet: WalletMeta,
     profile: WalletProfile,
+    accounts: Int,
     position: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -86,9 +87,8 @@ internal fun WalletCard(
     val feedback = LocalHapticFeedback.current
     val interaction = remember { MutableInteractionSource() }
     val identity = visualIdentity(profile.colour, profile.icon, position)
-    val accounts = if (wallet.accountCount == 1) "1 account" else "${wallet.accountCount} accounts"
     val fingerprint = if (showFingerprint) wallet.masterFingerprintHex?.let { "master ${it.uppercase()}" } else null
-    val details = listOfNotNull(accounts, fingerprint).joinToString(" · ")
+    val details = listOfNotNull(accountCountLabel(accounts), fingerprint).joinToString(" · ")
     val longClick: (() -> Unit)? = onLongPress?.let { open ->
         {
             feedback.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -161,6 +161,7 @@ internal fun WalletCard(
 internal fun WalletRow(
     wallet: WalletMeta,
     profile: WalletProfile,
+    accounts: Int,
     position: Int,
     onClick: () -> Unit,
     onLongPress: (() -> Unit)?,
@@ -171,7 +172,7 @@ internal fun WalletRow(
     val identity = visualIdentity(profile.colour, profile.icon, position)
     val kind = if (wallet.kind == WalletKind.SINGLE_KEY) "Single key" else null
     val fingerprint = if (showFingerprint) wallet.masterFingerprintHex?.let { "master ${it.uppercase()}" } else null
-    val details = listOfNotNull(kind, accountCountLabel(wallet.accountCount), fingerprint).joinToString(" · ")
+    val details = listOfNotNull(kind, accountCountLabel(accounts), fingerprint).joinToString(" · ")
     LumioRow(
         title = wallet.name,
         description = details,

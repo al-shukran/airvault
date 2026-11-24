@@ -23,6 +23,8 @@ internal object HiddenRoute {
     const val DETAIL = "detail/{walletId}"
     // One App of a wallet and its accounts. Reached from the App rows of the wallet detail.
     const val APP = "app/{walletId}/{app}"
+    // The Apps of a wallet, each installed or uninstalled. Reached from Manage Apps on the wallet detail.
+    const val APPS = "apps/{walletId}"
     const val BULK = "bulk/{walletId}/{app}"
     const val EXPORT = "export/{walletId}"
     // Export of one or more accounts: each account's code and its plain-text fields. Reached from an account's options or from
@@ -128,6 +130,8 @@ internal object HiddenRoute {
     fun bulk(walletId: String, app: WalletApp): String = "bulk/$walletId/${app.routeId}"
 
     fun app(walletId: String, app: WalletApp): String = "app/$walletId/${app.routeId}"
+
+    fun apps(walletId: String): String = "apps/$walletId"
 
     fun export(walletId: String): String = "export/$walletId"
 

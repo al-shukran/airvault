@@ -29,10 +29,12 @@ import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.Warning
 import app.lensly.app.EVM_FAMILY
 import app.lensly.app.SigningAccount
+import app.lensly.app.WalletApp
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
 import app.lensly.ui.gate.UnlockScreen
 import app.lensly.ui.home.HomeReadiness
+import app.lensly.ui.home.WalletAppsScreen
 import app.lensly.ui.home.WalletHomeScreen
 import app.lensly.ui.settings.FailureCapChoice
 import app.lensly.ui.sign.ReviewScreen
@@ -154,6 +156,22 @@ class AccessibilityTest {
         }
 
         assertOnlyTheContainerIsReported("home", findings())
+    }
+
+    @Test
+    fun appsScreenReportsOnlyItsContainer() {
+        compose.setContent {
+            LumenTheme {
+                WalletAppsScreen(
+                    accounts = mapOf(WalletApp.BITCOIN to 1),
+                    onBack = {},
+                    onInstall = {},
+                    onUninstall = {},
+                )
+            }
+        }
+
+        assertOnlyTheContainerIsReported("apps", findings())
     }
 
     @Test

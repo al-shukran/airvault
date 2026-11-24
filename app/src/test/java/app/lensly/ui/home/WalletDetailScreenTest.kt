@@ -25,8 +25,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * The wallet screen. It lists the two Apps with their account counts, and a tap on an App opens it. The wallet's options open from the
- * overflow icon or a long press on the header. They hold the wallet's own actions, and showing the secret asks for a warning first.
+ * The wallet screen. It lists the Apps the wallet has installed with their account counts, and a tap on an App opens it. Manage Apps opens
+ * the Apps screen. The wallet's options open from the overflow icon or a long press on the header. They hold the wallet's own actions, and
+ * showing the secret asks for a warning first.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
@@ -38,6 +39,7 @@ class WalletDetailScreenTest {
     /** What the route keeps while the wallet screen is open: the App last opened, and the secret or history that was asked for. */
     private class Route {
         var opened: WalletApp? = null
+        var managed = false
         var revealed = false
         var historyOpened = false
     }
@@ -59,11 +61,15 @@ class WalletDetailScreenTest {
             ),
             walletProfile = WalletProfile(),
             walletPosition = 0,
-            bitcoinAccounts = bitcoin,
-            solanaAccounts = 0,
-            algorandAccounts = 0,
+            accounts = mapOf(
+                WalletApp.BITCOIN to bitcoin,
+                WalletApp.ETHEREUM to accounts,
+                WalletApp.SOLANA to 0,
+                WalletApp.ALGORAND to 0,
+            ),
             onBack = {},
             onOpenApp = { app -> route.opened = app },
+            onManageApps = { route.managed = true },
             onShowSecret = { route.revealed = true },
             onHistory = { route.historyOpened = true },
             onEditWallet = {},
@@ -83,6 +89,46 @@ class WalletDetailScreenTest {
         compose.onNodeWithText("2 accounts").assertIsDisplayed()
         compose.onNodeWithText("Ethereum").assertIsDisplayed()
         compose.onNodeWithText("3 accounts").assertIsDisplayed()
+    }
+
+    @Test
+    fun aWalletShowsOnlyItsInstalledAppsAndOpensTheAppsScreen() {
+        val route = Route()
+        compose.setContent {
+            LumenTheme {
+                Detail(route, accounts = 3, bitcoin = 0)
+            }
+        }
+
+        compose.onNodeWithText("Bitcoin").assertDoesNotExist()
+        compose.onNodeWithText("Ethereum").assertIsDisplayed()
+        compose.onNodeWithText("Manage Apps").performClick()
+        assertTrue(route.managed)
+    }
+
+    @Test
+    fun aWalletWithNoInstalledAppSaysSoAndOpensTheAppsScreen() {
+        val route = Route()
+        compose.setContent {
+            LumenTheme {
+                Detail(route, accounts = 0, bitcoin = 0)
+            }
+        }
+
+        compose.onNodeWithText("No Apps Installed").assertIsDisplayed()
+        compose.onNodeWithText("Manage Apps").performClick()
+        assertTrue(route.managed)
+    }
+
+    @Test
+    fun aSingleKeyWalletHasNoManageAppsRow() {
+        compose.setContent {
+            LumenTheme {
+                Detail(Route(), accounts = 1, bitcoin = 0, kind = WalletKind.SINGLE_KEY)
+            }
+        }
+
+        compose.onNodeWithText("Manage Apps").assertDoesNotExist()
     }
 
     @Test
@@ -178,8 +224,8 @@ class WalletDetailScreenTest {
         }
 
         compose.onNodeWithText("1 account").assertIsDisplayed()
-        // The Bitcoin, Solana and Algorand rows hold no account, so the count of 0 is shown three times.
-        compose.onAllNodesWithText("0 accounts")[0].assertIsDisplayed()
+        // Only the Ethereum account is installed, so the Bitcoin, Solana and Algorand rows are not listed.
+        assertTrue(compose.onAllNodesWithText("0 accounts").fetchSemanticsNodes().isEmpty())
         compose.onNodeWithContentDescription("Wallet options").performClick()
         compose.onNodeWithText("Show Private Key").assertIsDisplayed()
     }

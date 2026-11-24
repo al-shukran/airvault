@@ -34,6 +34,7 @@ fun WalletsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     profiles: Map<String, WalletProfile> = emptyMap(),
+    accounts: Map<String, Int> = emptyMap(),
 ) {
     var sheetWallet by remember { mutableStateOf<WalletMeta?>(null) }
     LenslyScreen(
@@ -56,6 +57,7 @@ fun WalletsScreen(
                             WalletRow(
                                 wallet = wallet,
                                 profile = profiles[wallet.id] ?: WalletProfile(),
+                                accounts = accounts[wallet.id] ?: 0,
                                 position = position,
                                 onClick = { onOpen(wallet.id) },
                                 onLongPress = { sheetWallet = wallet },
