@@ -144,6 +144,8 @@ private class FakePorts(
 
     override suspend fun isInstalled(walletId: String, app: WalletApp): Boolean = app in installed
 
+    override suspend fun canInstall(walletId: String, app: WalletApp): Boolean = true
+
     override suspend fun scan(parts: List<String>): ScanReply = parser.scan(parts)
 
     override suspend fun checkPassword(password: CharArray): PasswordCheck = passwordCheck(password)
