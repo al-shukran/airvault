@@ -722,7 +722,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
             changePasswordRoutes(navController = navController, holder = holder, selection = selection)
             deviceProtectionRoutes(navController = navController, holder = holder, selection = selection, onLock = { lock() })
             lumioComposable(LumioRoute.DATA_PROVIDERS) {
-                LumioBackdrop(selection) { DataProvidersRoute(navController = navController, holder = holder) }
+                LumioBackdrop(selection) { DataProvidersRoute(navController = navController, holder = holder, onLock = { lock() }) }
             }
             lumioComposable(
                 route = LumioRoute.PROVIDER,

@@ -199,10 +199,12 @@ class LumioCoverageScreenshotTest {
             rpc = listOf(
                 providerRow("1rpc", acceptsKey = true, mev = true, status = ProviderStatus.Off, enabled = false, apiKey = "k-1"),
             ),
+            offline = null,
             onBack = {},
+            onLock = {},
+            onOpen = {},
             onEnabled = { _, _ -> },
             onMove = { _, _ -> },
-            onApiKey = { _, _ -> },
         )
     }
 

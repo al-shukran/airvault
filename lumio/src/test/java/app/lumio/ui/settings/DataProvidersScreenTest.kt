@@ -1,18 +1,13 @@
 package app.lumio.ui.settings
 
-import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performImeAction
-import androidx.compose.ui.test.performTextReplacement
-import app.lensly.ui.theme.LumenTheme
+import app.lensly.ui.theme.ClearAirTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -21,8 +16,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * The Data providers screen: its two groups, each row's switch, order, status, MEV badge and key field, and what it reports back. The window is tall
- * enough that every row is on screen, so a tap reaches the control it names. Buttons and badges print their text in capitals, so the text matches ignore case.
+ * The Data providers screen: each provider's switch, its Details action, its order actions, and the Prefer RPC switch, and what each reports back.
+ * The window is tall enough that every row is on screen, so a tap reaches the control it names. The key of a provider is set on its Provider page.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w400dp-h4000dp")
@@ -64,137 +59,54 @@ class DataProvidersScreenTest {
 
     private val switched = mutableListOf<Pair<String, Boolean>>()
     private val moved = mutableListOf<Pair<String, Boolean>>()
-    private val keys = mutableListOf<Pair<String, String>>()
+    private val opened = mutableListOf<String>()
+    private val preferred = mutableListOf<Boolean>()
 
     private fun show() {
         compose.setContent {
-            LumenTheme {
+            ClearAirTheme {
                 DataProvidersScreen(
                     data = listOf(etherscan, mempool),
                     rpc = listOf(oneRpc),
+                    offline = null,
                     onBack = {},
+                    onLock = {},
+                    onOpen = { opened += it },
                     onEnabled = { id, on -> switched += id to on },
                     onMove = { id, up -> moved += id to up },
-                    onApiKey = { id, key -> keys += id to key },
+                    onPreferRpc = { preferred += it },
                 )
             }
         }
     }
 
     @Test
-    fun theDataAndRpcGroupsRenderTheirProviders() {
+    fun aSwitchTurnsItsProviderOnAndOff() {
         show()
-
-        compose.onNodeWithText("Data", ignoreCase = true).assertExists()
-        compose.onNodeWithText("RPC", ignoreCase = true).assertExists()
-        compose.onNodeWithText("etherscan").assertExists()
-        compose.onNodeWithText("mempool").assertExists()
-        compose.onNodeWithText("1rpc").assertExists()
-    }
-
-    @Test
-    fun theMevBadgeShowsOnlyOnAProtectedProvider() {
-        show()
-
-        compose.onAllNodesWithText("MEV-Protected", ignoreCase = true).assertCountEquals(1)
-    }
-
-    @Test
-    fun eachProviderShowsItsStatus() {
-        show()
-
-        compose.onNodeWithText("– Off · Needs API Key").assertExists()
-        compose.onAllNodesWithText("✓ Working").assertCountEquals(2)
-    }
-
-    @Test
-    fun aKeyFieldShowsOnlyForAProviderThatTakesAKey() {
-        show()
-
-        compose.onNodeWithTag("key-etherscan").assertExists()
-        compose.onNodeWithTag("key-1rpc").assertExists()
-        compose.onNodeWithTag("key-mempool").assertDoesNotExist()
-    }
-
-    @Test
-    fun aSwitchReportsTheProviderAndTheNewState() {
-        show()
-
-        compose.onNodeWithTag("enable-mempool").performClick()
-
+        compose.onNodeWithTag("enable-mempool").assertIsOn().performClick()
         assertEquals(listOf("mempool" to false), switched)
     }
 
     @Test
-    fun theMoveButtonsAreOffAtTheEndsOfAGroup() {
+    fun orderActionsAreHeldAtTheEndsOfTheirGroup() {
         show()
-
         compose.onNodeWithTag("move-up-etherscan").assertIsNotEnabled()
         compose.onNodeWithTag("move-down-mempool").assertIsNotEnabled()
-        compose.onNodeWithTag("move-down-etherscan").assertIsEnabled()
-
-        compose.onNodeWithTag("move-down-etherscan").performClick()
-
+        compose.onNodeWithTag("move-down-etherscan").assertIsEnabled().performClick()
         assertEquals(listOf("etherscan" to false), moved)
     }
 
     @Test
-    fun aTypedKeyIsSavedWhenTheOwnerPressesDoneNotWhileTyping() {
+    fun detailsOpensTheProvidersPage() {
         show()
-
-        compose.onNodeWithTag("key-etherscan").performTextReplacement("k-99")
-        assertEquals(emptyList<Pair<String, String>>(), keys)
-
-        compose.onNodeWithTag("key-etherscan").performImeAction()
-        assertEquals(listOf("etherscan" to "k-99"), keys)
+        compose.onNodeWithTag("open-1rpc").performClick()
+        assertEquals(listOf("1rpc"), opened)
     }
 
     @Test
-    fun clearedKeyIsReportedAsBlank() {
+    fun thePreferRpcSwitchReportsItsNewValue() {
         show()
-
-        compose.onNodeWithTag("clear-key-1rpc").performClick()
-
-        assertEquals(listOf("1rpc" to ""), keys)
-    }
-
-    @Test
-    fun noKeyFieldHasASaveButton() {
-        show()
-
-        compose.onAllNodesWithText("Save key", ignoreCase = true).assertCountEquals(0)
-    }
-
-    @Test
-    fun theKeyIsHiddenUntilItsRevealToggleIsTapped() {
-        show()
-
-        compose.onNodeWithTag("reveal-1rpc").assertIsOff().performClick()
-
-        compose.onNodeWithTag("reveal-1rpc").assertIsOn()
-    }
-
-    @Test
-    fun thePreferRpcSwitchReportsItsNewState() {
-        var reported: Boolean? = null
-        compose.setContent {
-            LumenTheme {
-                DataProvidersScreen(
-                    data = listOf(etherscan),
-                    rpc = listOf(oneRpc),
-                    onBack = {},
-                    onEnabled = { _, _ -> },
-                    onMove = { _, _ -> },
-                    onApiKey = { _, _ -> },
-                    preferRpc = false,
-                    onPreferRpc = { reported = it },
-                )
-            }
-        }
-
-        compose.onNodeWithText("Explorers and Privacy", ignoreCase = true).assertExists()
-        compose.onNodeWithTag("prefer-rpc").performClick()
-
-        assertEquals(true, reported)
+        compose.onNodeWithTag("prefer-rpc").assertIsOff().performClick()
+        assertEquals(listOf(true), preferred)
     }
 }

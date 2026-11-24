@@ -11,7 +11,6 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import app.lensly.ui.theme.ClearAirTheme
-import app.lensly.ui.theme.LumenTheme
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettings
 import app.lumio.network.NetworkMode
@@ -51,14 +50,16 @@ class LumioControlsTest {
     @Test
     fun aProviderSwitchIsAToggleSwitch() {
         compose.setContent {
-            LumenTheme {
+            ClearAirTheme {
                 DataProvidersScreen(
                     data = listOf(provider("mempool")),
                     rpc = emptyList(),
+                    offline = null,
                     onBack = {},
+                    onLock = {},
+                    onOpen = {},
                     onEnabled = { _, _ -> },
                     onMove = { _, _ -> },
-                    onApiKey = { _, _ -> },
                 )
             }
         }
