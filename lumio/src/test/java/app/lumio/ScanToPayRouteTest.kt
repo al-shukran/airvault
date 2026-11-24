@@ -3,6 +3,7 @@ package app.lumio
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedAccount
 import app.lumio.pair.PairedWallet
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -25,6 +26,14 @@ class ScanToPayRouteTest {
     @Test
     fun scanToPayOpensNoSendWhileThePrimaryNetworkIsSwitchedOff() {
         assertNull(scanToPayRoute(wallet(), NetworkMode.TESTNET, primaryOn = false))
+    }
+
+    @Test
+    fun theNoteNamesWhatStopsScanToPayAndIsNullWhenNothingDoes() {
+        assertEquals("Pair a wallet to scan to pay", scanNoteOf(wallet = null, primaryOff = null))
+        assertEquals("This wallet has no Ethereum account to scan to pay", scanNoteOf(wallet(accounts = emptyList()), primaryOff = "Monad Testnet"))
+        assertEquals("Turn on Monad Testnet to scan to pay", scanNoteOf(wallet(), primaryOff = "Monad Testnet"))
+        assertNull(scanNoteOf(wallet(), primaryOff = null))
     }
 
     private fun wallet(accounts: List<PairedAccount> = listOf(PairedAccount(index = 0, address = ADDRESS, name = null, label = null, group = null))) =

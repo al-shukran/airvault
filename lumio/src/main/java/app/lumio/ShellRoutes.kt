@@ -60,7 +60,7 @@ internal fun TabRoute(
     val wallets = pairedWallets(navController, holder, listVersion)
     val active = wallets.active(selection) { it.id }
     val networks = testNetworkSummary(app, holder, listVersion)
-    val primaryOff = primaryNetworkOff(app, holder, selection.mode, listVersion)
+    val primary = primaryNetwork(app, holder, selection.mode, listVersion)
     LumioRootScreen(
         tab = tab,
         title = title,
@@ -71,10 +71,13 @@ internal fun TabRoute(
         onWallet = { selection.walletId = it },
         testNetworks = networks.count,
         networkSentence = testNetworkSentence(networks.evmNames),
-        scanNote = primaryOff?.let { "Turn on $it to scan to pay" },
+        scanNote = scanNoteOf(active, primary?.offName),
+        scanReady = primary != null,
         offline = if (online) null else offlineBand(app.lumioVault()?.wallets?.updatedAtMs),
         onTab = { navController.openTab(it) },
-        onScan = { active?.let { scanToPayRoute(it, selection.mode, primaryOn = primaryOff == null) }?.let { navController.navigate(it) } },
+        onScan = {
+            if (primary != null) active?.let { scanToPayRoute(it, selection.mode, primaryOn = primary.offName == null) }?.let { navController.navigate(it) }
+        },
         onTestNetworks = { navController.navigate(LumioRoute.TEST_NETWORKS) },
         onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
         onLock = onLock,
@@ -164,23 +167,26 @@ internal fun NavHostController.backLabel(): String = when (previousBackStackEntr
 /** The test networks in use: how many there are, and the names of the EVM ones that are switched on. */
 private data class TestNetworkSummary(val count: Int, val evmNames: List<String>)
 
-/** The name of [mode]'s primary network while it is switched off, else null. Scan to Pay needs that network on. */
+/** The side's primary network, read from the settings: [offName] is its name while it is switched off, else null. Scan to Pay needs that network on. */
+private class PrimaryNetwork(val offName: String?)
+
+/** The side's primary network once the settings are read, and null before that, so Scan to Pay stays inert until the switch is known. */
 @Composable
-private fun primaryNetworkOff(app: LumioApp, holder: VaultHolder, mode: NetworkMode, listVersion: Int): String? {
+private fun primaryNetwork(app: LumioApp, holder: VaultHolder, mode: NetworkMode, listVersion: Int): PrimaryNetwork? {
     val session = holder.openSession()
-    val off by produceState<String?>(initialValue = null, session, mode, listVersion) {
+    val primary by produceState<PrimaryNetwork?>(initialValue = null, session, mode, listVersion) {
         value = if (session == null) {
             null
         } else {
             withContext(Dispatchers.IO) {
                 val settings = EvmSettingsStore.read(session)
-                val primary = WalletAccounts.primaryEvmChainId(mode)
-                val chain = EvmCatalog.chains(app.registry, settings).firstOrNull { it.chainId == primary }
-                if (primary in settings.enabled) null else chain?.name
+                val chainId = WalletAccounts.primaryEvmChainId(mode)
+                val chain = EvmCatalog.chains(app.registry, settings).firstOrNull { it.chainId == chainId }
+                PrimaryNetwork(offName = if (chainId in settings.enabled) null else chain?.name)
             }
         }
     }
-    return off
+    return primary
 }
 
 /** The test networks in use: the EVM ones that are switched on, and the networks that have no switch. */
@@ -213,6 +219,17 @@ internal fun scanToPayRoute(wallet: PairedWallet, mode: NetworkMode, primaryOn: 
     if (!primaryOn) return null
     val chainId = WalletAccounts.primaryEvmChainId(mode)
     return LumioRoute.send(wallet.id, AccountId.of(Networks.evm(chainId), address), chainId, scan = true)
+}
+
+/**
+ * The note Scan to Pay shows in place of its description when it cannot open a send, or null when it can: the wallet must be paired, it must have an
+ * Ethereum account, and the side's primary network [primaryOff] must be on.
+ */
+internal fun scanNoteOf(wallet: PairedWallet?, primaryOff: String?): String? = when {
+    wallet == null -> "Pair a wallet to scan to pay"
+    wallet.evmAddresses.isEmpty() -> "This wallet has no Ethereum account to scan to pay"
+    primaryOff != null -> "Turn on $primaryOff to scan to pay"
+    else -> null
 }
 
 /** A wallet's line in the profile panel: its account count and the day it was paired, such as "30 accounts · paired 21 Nov". */
