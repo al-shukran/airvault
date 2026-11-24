@@ -1,0 +1,132 @@
+package app.lumio.ui.settings
+
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.KeyboardType
+import app.lensly.ui.flow.PasswordCheck
+import app.lensly.ui.theme.ClearAirType
+import app.lensly.ui.theme.LocalClearAirPalette
+import app.lumio.data.config.AutoLock
+import app.lumio.ui.kit.ChoiceGroup
+import app.lumio.ui.kit.ChoiceRow
+import app.lumio.ui.kit.ClearAirChoiceSheet
+import app.lumio.ui.kit.ClearAirDialog
+import app.lumio.ui.kit.ClearAirField
+import app.lumio.ui.kit.ClearAirPrimaryButton
+import app.lumio.ui.kit.ClearAirRow
+import app.lumio.ui.kit.ClearAirSheet
+import app.lumio.ui.kit.ClearAirTextAction
+import kotlinx.coroutines.launch
+
+/** The error under the password when it is not the App Password. It is the same words the Change Password page uses. */
+internal const val WRONG_CURRENT_PASSWORD = "That isn't your current password"
+
+/**
+ * The Auto-Lock row of the Security page: its value in words, and a radio sheet of the three choices, like Currency's. A choice other than the
+ * current one asks for the App Password in a dialog first, and [onChoose] runs only once [checkPassword] accepts it. A wrong password keeps the
+ * dialog open with its error. An unavailable vault closes the dialog, since the change cannot be checked there.
+ */
+@Composable
+fun AutoLockRow(
+    current: AutoLock,
+    checkPassword: suspend (CharArray) -> PasswordCheck,
+    onChoose: (AutoLock) -> Unit,
+) {
+    val palette = LocalClearAirPalette.current
+    var sheetOpen by remember { mutableStateOf(false) }
+    var pending by remember { mutableStateOf<AutoLock?>(null) }
+    ClearAirRow(
+        title = "Auto-Lock",
+        description = "When Lumio locks itself",
+        trailing = { Text(text = current.label, style = ClearAirType.label, color = palette.ink2) },
+        onClick = { sheetOpen = true },
+    )
+    ClearAirSheet(visible = sheetOpen, onClose = { sheetOpen = false }) {
+        ClearAirChoiceSheet(
+            title = "Auto-Lock",
+            groups = listOf(
+                ChoiceGroup(
+                    null,
+                    AutoLock.entries.map { choice ->
+                        ChoiceRow(
+                            title = choice.label,
+                            selected = choice == current,
+                            onPick = {
+                                sheetOpen = false
+                                if (choice != current) pending = choice
+                            },
+                        )
+                    },
+                ),
+            ),
+        )
+    }
+    pending?.let { choice ->
+        AutoLockPasswordDialog(
+            choice = choice,
+            checkPassword = checkPassword,
+            onClose = { pending = null },
+            onAccepted = {
+                pending = null
+                onChoose(choice)
+            },
+        )
+    }
+}
+
+/** The App Password step of an Auto-Lock change: one masked field, cleared on each try, and the change once the password is accepted. */
+@Composable
+internal fun AutoLockPasswordDialog(
+    choice: AutoLock,
+    checkPassword: suspend (CharArray) -> PasswordCheck,
+    onClose: () -> Unit,
+    onAccepted: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var password by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+
+    fun submit() {
+        if (busy || password.isEmpty()) return
+        val entered = password.toCharArray()
+        password = ""
+        error = null
+        busy = true
+        scope.launch {
+            val check = checkPassword(entered)
+            busy = false
+            when (check) {
+                PasswordCheck.Accepted -> onAccepted()
+                PasswordCheck.Rejected -> error = WRONG_CURRENT_PASSWORD
+                PasswordCheck.Unavailable -> onClose()
+            }
+        }
+    }
+
+    ClearAirDialog(
+        title = "Auto-Lock",
+        text = "Enter your current password to set Auto-Lock to ${choice.label}.",
+        onDismiss = onClose,
+    ) {
+        ClearAirField(
+            label = "Current Password",
+            value = password,
+            onValueChange = {
+                password = it
+                error = null
+            },
+            keyboard = KeyboardType.Password,
+            masked = true,
+            error = error,
+            onSubmit = { submit() },
+        )
+        ClearAirPrimaryButton(text = "Change", onClick = { submit() }, enabled = password.isNotEmpty() && !busy)
+        ClearAirTextAction(text = "Cancel", onClick = onClose)
+    }
+}
