@@ -5,8 +5,11 @@
 #   compose.sh --demo a.mp4 --out out                   one device
 #
 # Writes out.mp4 (H.264, at most 60 s, at most 10 MB) and out.gif (960 px wide for
-# a pair, 720 for a demo, at most 10 MB). Needs ffmpeg and ImageMagick (magick).
-# See CONTRIBUTING.md.
+# a pair, 720 for a demo, at most 10 MB). Each recording is scaled to cover the
+# screen cutout and cropped to it, so any aspect ratio fills the screen with no
+# bars. A clip with another aspect ratio is cropped at the sides, or at the
+# bottom when it is taller, so the status bar at the top stays whole.
+# Needs ffmpeg and ImageMagick (magick). See CONTRIBUTING.md.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -81,10 +84,10 @@ if [ "$n" -eq 2 ]; then
 fi
 magick "${stage[@]}" "$work/stage.png"
 
-# Screen mask: 360x780 with the same corner radius as the screen cutout.
+# Screen mask: the 360x780 cutout with its 48 px corner radius.
 magick -size 360x780 xc:black -fill white -draw 'roundrectangle 0,0 359,779 48,48' "$work/mask.png"
 
-# Filter graph: each clip is fitted to the screen, freeze-padded, masked to the
+# Filter graph: each clip covers the screen, is freeze-padded, masked to the
 # rounded screen, and overlaid under its frame. Input 0 is the stage, inputs
 # 1..n the clips, n+1 the frame and n+2 the mask.
 parts=("[0:v]format=yuv420p[s0]")
@@ -98,7 +101,7 @@ parts+=("[$((n + 1)):v]format=rgba,split=$n$split_f")
 cur=s0
 for i in $(seq 0 $((n - 1))); do
   x=${xs[i]}
-  parts+=("[$((i + 1)):v]fps=30,scale=360:780:force_original_aspect_ratio=decrease,pad=360:780:(ow-iw)/2:(oh-ih)/2:0x0C0B0E,setsar=1,format=yuv420p,tpad=stop_mode=clone:stop_duration=${max_seconds}[c$i]")
+  parts+=("[$((i + 1)):v]fps=30,scale=360:780:force_original_aspect_ratio=increase,crop=360:780:(iw-ow)/2:0,setsar=1,format=yuv420p,tpad=stop_mode=clone:stop_duration=${max_seconds}[c$i]")
   parts+=("[c$i][m$i]alphamerge[k$i]")
   parts+=("[$cur][k$i]overlay=$((x + 8)):$((top + 8))[t$i]")
   parts+=("[t$i][f$i]overlay=${x}:${top}[u$i]")
@@ -118,17 +121,19 @@ inputs=(-framerate 30 -loop 1 -i "$work/stage.png")
 for clip in "${clips[@]}"; do inputs+=(-i "$clip"); done
 inputs+=(-framerate 30 -loop 1 -i "$frame" -framerate 30 -loop 1 -i "$work/mask.png")
 
-for crf in 22 25 28 31; do
+# MP4: step the quality down, then the frame rate, until it fits.
+for pass in "22 30" "25 30" "28 30" "31 30" "31 24" "31 15"; do
+  read -r crf fps <<<"$pass"
   ffmpeg -v error -y "${inputs[@]}" -filter_complex "$graph" -map '[out]' -t "$secs" -an \
-    -r 30 -c:v libx264 -preset slow -crf "$crf" -pix_fmt yuv420p -movflags +faststart "$out.mp4"
+    -r "$fps" -c:v libx264 -preset slow -crf "$crf" -pix_fmt yuv420p -movflags +faststart "$out.mp4"
   [ "$(size_of "$out.mp4")" -le "$max_bytes" ] && break
 done
 
-# GIF: step the frame rate and width down until it fits.
-for pass in "10 960" "8 960" "8 720" "6 720"; do
-  read -r fps max_width <<<"$pass"
+# GIF: step the frame rate, width and palette size down until it fits.
+for pass in "10 960 256" "8 960 256" "8 720 256" "6 720 256" "5 600 256" "5 600 128" "4 480 128" "4 480 64"; do
+  read -r fps max_width colors <<<"$pass"
   ffmpeg -v error -y -i "$out.mp4" -filter_complex \
-    "fps=$fps,scale='min($max_width,iw)':-2:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=sierra2_4a:diff_mode=rectangle" \
+    "fps=$fps,scale='min($max_width,iw)':-2:flags=lanczos,split[a][b];[a]palettegen=max_colors=$colors:stats_mode=diff[p];[b][p]paletteuse=dither=sierra2_4a:diff_mode=rectangle" \
     -loop 0 "$out.gif"
   [ "$(size_of "$out.gif")" -le "$max_bytes" ] && break
 done
