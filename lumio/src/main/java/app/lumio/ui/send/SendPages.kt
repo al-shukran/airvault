@@ -179,7 +179,7 @@ fun SendRecipientPage(
         )
         Spacer(Modifier.height(ClearAirSpacing.xs))
         Text(
-            text = hint ?: "Tap a name, or paste or scan an address.",
+            text = hint ?: "Tap a name, or scan an address.",
             style = ClearAirType.body,
             color = palette.ink2,
         )
