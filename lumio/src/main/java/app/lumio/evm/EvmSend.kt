@@ -225,16 +225,15 @@ object SendInput {
     fun recipient(text: String): String {
         val address = text.trim()
         require(ADDRESS.matches(address)) { "Enter the recipient: 0x and 40 hex characters." }
-        if (Keys.toChecksumAddress(address) == address) return address
+        require(!checksumMismatch(address)) { "The checksum does not match. Check the recipient address." }
+        require(Keys.toChecksumAddress(address) == address) { "This address has no checksum. Enter it with its EIP-55 capital letters." }
+        return address
+    }
+
+    /** True when [address], 0x and 40 hex digits, mixes capitals and lowercase letters but its capitals do not match its EIP-55 checksum. */
+    internal fun checksumMismatch(address: String): Boolean {
         val hex = address.substring(2)
-        val mixedCase = hex != hex.lowercase() && hex != hex.uppercase()
-        throw IllegalArgumentException(
-            if (mixedCase) {
-                "The checksum does not match. Check the recipient address."
-            } else {
-                "This address has no checksum. Enter it with its EIP-55 capital letters."
-            },
-        )
+        return hex != hex.lowercase() && hex != hex.uppercase() && Keys.toChecksumAddress(address) != address
     }
 
     /** The amount of [text] in wei, for a chain whose native coin has [decimals] decimal places. It must be more than zero. */

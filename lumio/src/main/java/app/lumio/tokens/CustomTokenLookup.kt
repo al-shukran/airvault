@@ -3,6 +3,7 @@ package app.lumio.tokens
 import app.lumio.evm.ContractReads
 import app.lumio.evm.EvmChain
 import app.lumio.evm.RpcFailure
+import app.lumio.evm.SendInput
 import java.math.BigInteger
 
 /**
@@ -45,10 +46,14 @@ internal object CustomTokenLookup {
         return Token(chain.chainId, contract, symbol, name, decimals.toInt())
     }
 
-    /** The contract at [raw], trimmed and lowercased. Throws IllegalArgumentException for text that is not an address or is the zero address. */
+    /**
+     * The contract at [raw], trimmed and lowercased. Throws IllegalArgumentException for text that is not an address, for a mixed-case address whose
+     * capitals do not match its checksum, or for the zero address.
+     */
     internal fun contractOf(raw: String): String {
         val text = raw.trim()
         require(ADDRESS.matches(text)) { "Enter a contract address: 0x and 40 hex digits." }
+        require(!SendInput.checksumMismatch(text)) { "This address has a typo: its capital letters don't match its checksum." }
         val contract = text.lowercase()
         require(contract != ZERO_ADDRESS) { "That is the zero address, not a token contract." }
         return contract
