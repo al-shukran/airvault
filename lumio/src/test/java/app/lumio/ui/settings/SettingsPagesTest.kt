@@ -271,9 +271,9 @@ class SettingsPagesTest {
         assertTrue(accepted)
     }
 
-    /** A wrong current password is cleared from its field, as the gate clears it, and the page asks for all three fields again. */
+    /** A wrong current password leaves all three fields as typed, so the owner corrects the one that is wrong and only the error shows. */
     @Test
-    fun aWrongCurrentPasswordIsClearedFromThePage() {
+    fun aWrongCurrentPasswordKeepsTheFieldsAsTyped() {
         var tried: String? = null
         compose.setContent {
             ClearAirHarness {
@@ -296,8 +296,8 @@ class SettingsPagesTest {
 
         assertEquals("not the password", tried)
         compose.onNodeWithText(WRONG_CURRENT_PASSWORD, substring = true).assertExists()
-        compose.onNodeWithText("not the password").assertDoesNotExist()
-        compose.onNodeWithText("Fill in all three fields to continue").assertExists()
+        compose.onNodeWithText("Fill in all three fields to continue").assertDoesNotExist()
+        compose.onNode(hasText("Change Password") and hasClickAction()).assertExists()
     }
 
     /** Once a change is made, no field keeps its password: the page asks for all three again. */

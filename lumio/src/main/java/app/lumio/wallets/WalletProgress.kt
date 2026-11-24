@@ -78,8 +78,12 @@ fun checkingLine(reads: WalletReads): String? {
     return "Checking $label · ${reads.bitcoinDone} of $accounts"
 }
 
-/** The note under a chain's island when its read did not answer. The screen puts its Retry link after it: "Couldn't reach Bitcoin servers". */
-fun unreachableNote(networkName: String): String = "Couldn't reach $networkName servers"
+/**
+ * The note under a chain's island when its read did not answer, and the screen puts its Retry link after it. It says the last known balance is shown
+ * only when the chain keeps one: "Couldn't reach Bitcoin. Showing the last known balance." or "Couldn't reach Bitcoin."
+ */
+fun unreachableNote(networkName: String, keptBalance: Boolean): String =
+    if (keptBalance) "Couldn't reach $networkName. Showing the last known balance." else "Couldn't reach $networkName."
 
 /** The chain namespaces that one read covers. Solana and Algorand are read together, so a Retry on either reads both. */
 fun readFamilies(namespace: String): Set<String> = when (namespace) {
