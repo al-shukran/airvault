@@ -25,10 +25,11 @@ private val ESPLORA_OPS = setOf(
 )
 
 /**
- * The rate each Esplora server is asked at by default. It is well under the rate that the scan needs for eight accounts, and the scheduler moves a
- * call to another server when one answers 429, so a server's limit costs time and never a failed scan.
+ * The rate each Esplora server is asked at by default: 5 calls a second, 10 in a burst, and 4 in flight. Servers of equal priority share the calls
+ * round robin (see Router), so the two public servers together take about 10 calls a second. The scheduler moves a call to another server when one
+ * answers 429, and cools that server for its Retry-After, so a server's limit costs time and never a failed scan.
  */
-private val DEFAULT_LIMITS = Limits(rps = 3.0, burst = 6, maxConcurrent = 2)
+private val DEFAULT_LIMITS = Limits(rps = 5.0, burst = 10, maxConcurrent = 4)
 
 /**
  * A provider that serves Bitcoin through an Esplora server. A plugin names the base URL of each network in [baseUrl]. [EsploraProtocol] makes

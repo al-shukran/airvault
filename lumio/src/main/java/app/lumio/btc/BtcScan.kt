@@ -19,9 +19,12 @@ import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 
 /** The network id of a Bitcoin network: "mainnet", or "testnet4" for the test network. */
 fun BtcNetwork.networkId(): NetworkId =
@@ -50,9 +53,10 @@ class AddressStatsCache {
 class MemoStats(val stats: EsploraAddressStats, val readAtMs: Long)
 
 /**
- * Walks one chain of an account (receive or change) with the gap limit. It asks for each address in turn, and it stops once
- * [BtcAccount.GAP_LIMIT] addresses in a row have no history. A used address resets that count, so a gap shorter than the limit never
- * ends the walk.
+ * Walks one chain of an account (receive or change) with the gap limit. It asks for the addresses in windows of [window], every address of a
+ * window at once, and it stops once [BtcAccount.GAP_LIMIT] addresses in a row have no history. A used address resets that count, so a gap
+ * shorter than the limit never ends the walk. The walk finds the same used addresses for any window: a window is asked for only while the walk
+ * has not stopped, and the reads past the stop are cancelled. A window of 1 asks for one address at a time, so it never reads past the stop.
  *
  * [memo] holds what an earlier walk of this session read. An address it found unused, and that lies before the last used address of that
  * walk, is not asked again while its read is younger than [DEFAULT_SHORT_TTL_MS] at [nowMs]. Past that, it is asked again: a payment to an
@@ -67,26 +71,39 @@ internal suspend fun scanChain(
     nowMs: Long = 0L,
     trustWithinTtl: Boolean = false,
     found: MutableList<UsedAddress> = mutableListOf(),
-): ChainScan {
+    window: Int = BtcAccount.GAP_LIMIT,
+): ChainScan = supervisorScope {
     val lastUsed = lastUsedIn(addressAt, memo)
-    var unused = 0
-    var index = 0
-    while (unused < BtcAccount.GAP_LIMIT) {
-        coroutineContext.ensureActive()
+    // The reads started so far, by index. A failed read fails only the walk that awaits it, so the used addresses before it are kept.
+    val reads = ArrayList<Deferred<EsploraAddressStats>>()
+    fun read(index: Int): Deferred<EsploraAddressStats> = async {
         val address = addressAt(index)
         val fresh = memo[address]?.takeIf {
             nowMs - it.readAtMs < DEFAULT_SHORT_TTL_MS && (trustWithinTtl || (!it.stats.used && index <= lastUsed))
         }
-        val stats = fresh?.stats ?: statsOf(address).also { memo[address] = MemoStats(it, nowMs) }
-        if (stats.used) {
-            found += UsedAddress(index, address, stats)
-            unused = 0
-        } else {
-            unused++
-        }
-        index++
+        fresh?.stats ?: statsOf(address).also { memo[address] = MemoStats(it, nowMs) }
     }
-    return ChainScan(found)
+    var unused = 0
+    var index = 0
+    try {
+        while (unused < BtcAccount.GAP_LIMIT) {
+            coroutineContext.ensureActive()
+            // Every address before this one has been walked and the gap is still open, so the next window is asked for at once.
+            if (index == reads.size) repeat(window) { reads += read(reads.size) }
+            val stats = reads[index].await()
+            if (stats.used) {
+                found += UsedAddress(index, addressAt(index), stats)
+                unused = 0
+            } else {
+                unused++
+            }
+            index++
+        }
+    } finally {
+        // The reads past the stop are not needed, so they are cancelled rather than waited for.
+        reads.forEach { it.cancel() }
+    }
+    ChainScan(found)
 }
 
 /** The last index that [memo] holds as used, counting up from index 0 while [memo] holds the address; -1 when none is used. */
