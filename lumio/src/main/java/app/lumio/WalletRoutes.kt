@@ -351,7 +351,9 @@ internal fun AssetRoute(
         return
     }
     val reads = remember(board, account, mode) { board.readsOf(account, mode) }
+    // An Algorand asset with no row, which Search opens, is its unheld row once the reads have landed: the account holds nothing of it, or has not opted in.
     val asset = rememberAssetRows(app, account, reads).firstOrNull { it.assetKey == assetKey }
+        ?: AssetRows.unheldAlgorandRow(account, assetKey)?.takeIf { reads.tokens != null && reads.holdings != null }
     if (asset == null) {
         if (reads.tokens == null || reads.holdings == null) {
             WalletLoadingScreen(onBack = { navController.popBackStack() })
