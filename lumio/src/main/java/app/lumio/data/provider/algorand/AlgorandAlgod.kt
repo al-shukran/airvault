@@ -75,7 +75,7 @@ class AlgorandAlgod(
 
     override fun supports(net: NetworkId, op: OpKey, cfg: ProviderConfig): Boolean = op in OPS && baseOf(net) != null
 
-    override fun defaultLimits(cfg: ProviderConfig): Limits = PUBLIC_LIMITS
+    override fun defaultLimits(cfg: ProviderConfig): Limits = ALGORAND_LIMITS
 
     @Suppress("UNCHECKED_CAST")
     override suspend fun <T> execute(req: Request<T>, cfg: ProviderConfig, http: Http): T {
@@ -264,6 +264,9 @@ class AlgorandAlgod(
             Ops.ALGO_NATIVE_BALANCE, Ops.ALGO_TOKEN_BALANCES, Ops.ALGO_ASSET_INFO, Ops.ALGO_SUGGESTED_PARAMS, Ops.ALGO_PENDING_TX,
             Ops.ALGO_INDEXED_TX, Ops.ALGO_BROADCAST,
         )
+
+        /** Algonode answers eight account reads in about the time of one (measured), so the balance reads of a wallet may run eight at a time. */
+        private val ALGORAND_LIMITS = PUBLIC_LIMITS.copy(maxConcurrent = 8)
 
         private const val SHAPE = "The answer does not have the documented shape."
         private const val GENESIS_HASH_BYTES = 32

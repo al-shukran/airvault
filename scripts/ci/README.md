@@ -70,8 +70,9 @@ The lines balance the lanes. A test class with no line still runs, so adding a t
   runner is likely slower, so a cold pull request lane can exceed the 5-minute cap, and `lane-budget.sh` reports it on master.
   Cold lanes come from eviction.
 - Lane budget: `pr-ok` runs `lane-budget.sh` after every lane. Each job's time (start to end, without a `Save ...` cache upload)
-  goes to the step summary, and a job over 5 minutes gets a warning. On a push to master it opens, or comments on, the open
-  `ci-budget` issue. It never fails the gate: fix a slow lane in a pull request, never rerun a run to make it green.
+  goes to the step summary, a job over 4 minutes (240 s) gets a warning, and a job over 5 minutes gets a warning too. On a push
+  to master it opens, or comments on, the open `ci-budget` issue for each job over 5 minutes. It never fails the gate: fix a
+  slow lane in a pull request, never rerun a run to make it green.
 - The configuration cache is encrypted with `GRADLE_ENCRYPTION_KEY`, a repository secret. Without it, each runner encrypts with its
   own keystore, a restored entry reads as absent ("no cached configuration is available"), and no lane reuses the configuration.
   Empty means no key, which is how a fork's pull request runs.

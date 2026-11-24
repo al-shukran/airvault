@@ -7,6 +7,7 @@ import app.lumio.data.net.Networks
 import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
+import app.lumio.data.provider.MAX_SOLANA_BALANCE_ACCOUNTS
 import app.lumio.data.provider.MAX_SOLANA_HISTORY
 import app.lumio.data.provider.OpKey
 import app.lumio.data.provider.Ops
@@ -17,6 +18,7 @@ import app.lumio.data.provider.RentExemptMinimum
 import app.lumio.data.provider.Request
 import app.lumio.data.provider.SolanaAccountRead
 import app.lumio.data.provider.SolanaAddressHistory
+import app.lumio.data.provider.SolanaBalances
 import app.lumio.data.provider.SolanaBlockHeight
 import app.lumio.data.provider.SolanaBlockhash
 import app.lumio.data.provider.SolanaSignatureStatus
@@ -96,6 +98,31 @@ class SolanaProviderTest {
 
         assertEquals(BigInteger("1500000000"), call(NativeBalance(devnet, address)))
         assertEquals("getBalance", method(server.takeRequest()))
+    }
+
+    @Test
+    fun aBalanceReadIsOneGetMultipleAccountsCallAndAMissingAccountHoldsZero() {
+        server.enqueue(answer("""{"context":{"slot":1},"value":[{"lamports":1500000000},null,{"lamports":5}]}"""))
+
+        assertEquals(listOf(BigInteger("1500000000"), BigInteger.ZERO, BigInteger.valueOf(5)), call(SolanaBalances(devnet, listOf(address, other, mint))))
+        val request = server.takeRequest()
+        assertEquals("getMultipleAccounts", method(request))
+        assertTrue(request.body!!.utf8().contains("\"$mint\""))
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun anAnswerWithAnotherNumberOfAccountsIsMalformed() {
+        server.enqueue(answer("""{"context":{"slot":1},"value":[null]}"""))
+
+        assertFailsWith<ProviderError.Fatal> { call(SolanaBalances(devnet, listOf(address, other))) }
+    }
+
+    @Test
+    fun aBalanceReadHoldsOneToOneHundredAddresses() {
+        assertFailsWith<IllegalArgumentException> { SolanaBalances(devnet, emptyList()) }
+        assertFailsWith<IllegalArgumentException> { SolanaBalances(devnet, List(MAX_SOLANA_BALANCE_ACCOUNTS + 1) { address }) }
+        assertEquals(0, server.requestCount)
     }
 
     /** The blockhash is read at "confirmed", and its last valid height comes with it. */

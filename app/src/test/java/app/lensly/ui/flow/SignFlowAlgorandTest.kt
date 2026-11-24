@@ -316,6 +316,24 @@ class SignFlowAlgorandTest {
         assertEquals(0, ports.signCalls)
     }
 
+    /**
+     * An Algorand request for a Single Key wallet, which has no seed and so cannot install the Algorand App. The owner is not asked to install
+     * it: the review refuses the account the wallet lacks, and nothing is signed.
+     */
+    @Test
+    fun anAlgorandRequestForASingleKeyWalletIsRefusedForItsMissingAccountNotForAnInstall() = runBlocking {
+        val ports = AlgorandPorts(installed = setOf(WalletApp.ETHEREUM), singleKey = true)
+        val flow = SignFlow(ports, walletId = WALLET)
+
+        flow.onScanned(partOf(requestCbor(PAY_BASIC)))
+
+        assertEquals(SignStep.Refused("This wallet has no Algorand accounts."), flow.state.value)
+        assertEquals(1, ports.prepareCalls)
+        assertEquals(listOf(WALLET), ports.records.map { it.walletId })
+        assertEquals("This wallet has no Algorand accounts.", ports.records.single().refusal)
+        assertEquals(0, ports.signCalls)
+    }
+
     /** The fake ports. The wallet holds the Algorand accounts of the 24-word phrase, and the App Password check is [password]. */
     private class AlgorandPorts(
         private val password: PasswordCheck = PasswordCheck.Accepted,
@@ -325,6 +343,8 @@ class SignFlowAlgorandTest {
         private val unshownField: Boolean = false,
         /** The Apps installed in every wallet of the fake vault. */
         private val installed: Set<WalletApp> = WalletApp.entries.toSet(),
+        /** A Single Key wallet: it cannot install an App, and it has no Algorand accounts, so its review refuses the request. */
+        private val singleKey: Boolean = false,
     ) : SignFlowPorts {
         val records = mutableListOf<AppReviewEntry>()
         var prepareCalls = 0
@@ -338,8 +358,11 @@ class SignFlowAlgorandTest {
 
         override suspend fun isInstalled(walletId: String, app: WalletApp): Boolean = app in installed
 
+        override suspend fun canInstall(walletId: String, app: WalletApp): Boolean = !singleKey
+
         override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared {
             prepareCalls++
+            if (singleKey) return AppPrepared.Refused("This wallet has no Algorand accounts.")
             val algo = when (val decoded = AlgoSignRequest.decode(request.body)) {
                 is AlgoSignRequest.Result.Ok -> decoded.request
                 is AlgoSignRequest.Result.Rejected -> return AppPrepared.Refused(decoded.reason)

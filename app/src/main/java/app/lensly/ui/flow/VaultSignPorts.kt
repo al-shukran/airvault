@@ -152,6 +152,10 @@ internal class VaultSignPorts(
         readWallet { session -> app in WalletStore(session).installedApps(walletId) }
     }
 
+    override suspend fun canInstall(walletId: String, app: WalletApp): Boolean = withContext(Dispatchers.IO) {
+        readWallet { session -> WalletStore(session).meta(walletId)?.kind == WalletKind.MNEMONIC }
+    }
+
     /** The account that signs a request, as its review names it: its name, its wallet's name and its address. */
     private fun signerOf(wallet: WalletView, index: Int, address: String): SigningAccount = SigningAccount(
         name = wallet.accountNames[index] ?: autoAccountName(wallet.autoNameBase, index),
