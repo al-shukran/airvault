@@ -59,16 +59,16 @@ class NativeBalancesTest {
         CoroutineScope(SupervisorJob() + Dispatchers.Default),
     )
 
-    /** Pairs one wallet, with an Ethereum account and the first Algorand and Solana accounts of the test seed, and returns the vault's wallets. */
-    private fun pairedWallets(): List<PairedWallet> {
+    /** Pairs one wallet, with an Ethereum account and the first [algorand] Algorand and [solana] Solana accounts of the test seed, and returns the vault's wallets. */
+    private fun pairedWallets(algorand: Int = 1, solana: Int = 1): List<PairedWallet> {
         val id = session.createWallet()
         val records = mapOf(
             WalletRecordNames.META to PairRecords.encodeMeta(
                 PairRecords.Meta(fingerprint = 1L, createdAtMs = 0L, name = "Demo", addresses = listOf(PairFixtures.address(PairFixtures.seed, 0))),
             ),
             WalletRecordNames.account(0) to PairRecords.encodeAccount(PairRecords.Account(name = null, label = null, group = null)),
-            WalletRecordNames.ALGORAND to PairRecords.encodeAlgorand(listOf(AlgorandAccount.publicKey(PairFixtures.seed, 0))),
-            WalletRecordNames.SOLANA to PairRecords.encodeSolana(listOf(SolanaAccount.publicKey(PairFixtures.seed, 0))),
+            WalletRecordNames.ALGORAND to PairRecords.encodeAlgorand((0 until algorand).map { AlgorandAccount.publicKey(PairFixtures.seed, it) }),
+            WalletRecordNames.SOLANA to PairRecords.encodeSolana((0 until solana).map { SolanaAccount.publicKey(PairFixtures.seed, it) }),
         )
         session.putRecords(id, records, emptyList())
         return PairedWallets.list(session)
@@ -91,7 +91,7 @@ class NativeBalancesTest {
     fun aRefreshStoresEachCoinAndTheWalletsShowItInItsOwnUnit() {
         val wallets = pairedWallets()
         algorand.outcomes.add(BigInteger("1500000"))
-        solana.outcomes.add(BigInteger("1500000000"))
+        solana.outcomes.add(listOf(BigInteger("1500000000")))
 
         val failures = refresh(wallets, at = 1_000L)
 
@@ -105,11 +105,11 @@ class NativeBalancesTest {
     fun aFailedReadKeepsThePreviousBalanceAndReportsTheFailure() {
         val wallets = pairedWallets()
         algorand.outcomes.add(BigInteger("1500000"))
-        solana.outcomes.add(BigInteger("1500000000"))
+        solana.outcomes.add(listOf(BigInteger("1500000000")))
         refresh(wallets, at = 1_000L)
 
         algorand.outcomes.add(ProviderError.Fatal("The endpoint refused the read."))
-        solana.outcomes.add(BigInteger("2000000000"))
+        solana.outcomes.add(listOf(BigInteger("2000000000")))
         val failures = refresh(wallets, at = 2_000L)
 
         assertEquals(listOf(ALGORAND_TESTNET), failures.map { it.network })
@@ -148,7 +148,7 @@ class NativeBalancesTest {
     fun theMainnetSideReadsTheMainnetCoins() {
         val wallets = pairedWallets()
         algorand.outcomes.add(BigInteger("2500000"))
-        solana.outcomes.add(BigInteger("500000000"))
+        solana.outcomes.add(listOf(BigInteger("500000000")))
 
         val failures = runBlocking {
             NativeBalances.refresh(session, wallets, NativeBalances.coinsOf(NetworkMode.MAINNET), scheduler, nowMs = { 1_000L })
@@ -160,5 +160,58 @@ class NativeBalancesTest {
         assertEquals(listOf(ALGORAND_MAINNET, SOLANA_MAINNET), NativeBalanceCache.read(session).map { it.network })
         assertEquals(listOf("2.5 ALGO", "0.5 SOL"), lines(wallets, NetworkMode.MAINNET))
         assertTrue(shown(wallets, NetworkMode.TESTNET).isEmpty())
+    }
+
+    @Test
+    fun aSolanaRefreshReadsAllOfAWalletsAccountsInOneCall() {
+        val wallets = pairedWallets(solana = 100)
+        solana.outcomes.add(List(99) { BigInteger.ONE } + BigInteger.ZERO)
+
+        assertEquals(emptyList<NativeFailure>(), refresh(wallets, at = 1_000L))
+
+        assertEquals(1, solana.calls)
+        val cached = NativeBalanceCache.read(session).filter { it.network == SOLANA_DEVNET }
+        assertEquals(100, cached.size)
+        assertEquals(1, cached.count { it.amount == "0" })
+    }
+
+    @Test
+    fun aFailedSolanaCallKeepsEveryCachedBalanceOfTheWallet() {
+        val wallets = pairedWallets(solana = 100)
+        solana.outcomes.add(List(100) { BigInteger.ONE })
+        refresh(wallets, at = 1_000L)
+
+        solana.outcomes.add(ProviderError.Fatal("The endpoint refused the read."))
+        val failures = refresh(wallets, at = 2_000L)
+
+        assertEquals(listOf(SOLANA_DEVNET), failures.map { it.network })
+        val cached = NativeBalanceCache.read(session).filter { it.network == SOLANA_DEVNET }
+        assertEquals(100, cached.count { it.atMs == 1_000L && it.amount == "1" })
+    }
+
+    @Test
+    fun anAlgorandRefreshReadsAtMostEightAddressesAtOnceAndAFailedReadLeavesOnlyItself() {
+        val slowAlgorand = FakeProvider(id = "algorand", networks = setOf(ALGORAND_TESTNET), ops = setOf(Ops.ALGO_NATIVE_BALANCE), latencyMs = 20L)
+        val slowScheduler = Scheduler(
+            listOf(slowAlgorand, solana),
+            { emptyMap() },
+            JsonRpc.newHttp(),
+            MonotonicClock,
+            Random(7),
+            CoroutineScope(SupervisorJob() + Dispatchers.Default),
+        )
+        val wallets = pairedWallets(algorand = 20)
+        slowAlgorand.outcomes.addAll(List(19) { BigInteger.ONE })
+        slowAlgorand.outcomes.add(ProviderError.Fatal("The endpoint refused the read."))
+        solana.outcomes.add(listOf(BigInteger.ONE))
+
+        val failures = runBlocking {
+            NativeBalances.refresh(session, wallets, NativeBalances.coinsOf(NetworkMode.TESTNET), slowScheduler, nowMs = { 1_000L })
+        }
+
+        assertEquals(listOf(ALGORAND_TESTNET), failures.map { it.network })
+        assertEquals(20, slowAlgorand.calls)
+        assertEquals(8, slowAlgorand.maxInFlight)
+        assertEquals(19, NativeBalanceCache.read(session).count { it.network == ALGORAND_TESTNET })
     }
 }

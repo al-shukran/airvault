@@ -607,6 +607,7 @@ private object ScanOnlyPorts : SignFlowPorts {
     override suspend fun scan(parts: List<String>): ScanReply = inProcessSandboxParser.scan(parts)
     override suspend fun checkPassword(password: CharArray): PasswordCheck = error("A refused scan checks no password")
     override suspend fun isInstalled(walletId: String, app: WalletApp): Boolean = true
+    override suspend fun canInstall(walletId: String, app: WalletApp): Boolean = true
 
     override suspend fun appPrepare(walletId: String, request: AppRequest): AppPrepared = error("A refused scan is not reviewed")
     override suspend fun appSign(ready: AppPrepared.Ready, approval: Approval): List<String> = error("A refused scan signs nothing")

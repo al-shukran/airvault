@@ -127,6 +127,11 @@ class AlgorandAlgodTest {
     }
 
     @Test
+    fun theLaneAllowsEightAccountReadsAtOnce() {
+        assertEquals(8, provider().defaultLimits(ProviderConfig()).maxConcurrent)
+    }
+
+    @Test
     fun theBalanceShowsAsAlgo() {
         server.enqueue(account("1500000"))
 

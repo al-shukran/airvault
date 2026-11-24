@@ -76,6 +76,12 @@ interface SignFlowPorts {
     suspend fun isInstalled(walletId: String, app: WalletApp): Boolean
 
     /**
+     * Whether the App [app] can be installed in wallet [walletId]. A Single Key wallet has no seed, so it cannot install an App, and
+     * its refusals of an App it lacks come from the App's own review. Throws [WalletUnavailable] when the wallet cannot be read.
+     */
+    suspend fun canInstall(walletId: String, app: WalletApp): Boolean
+
+    /**
      * Reviews the request [request] of an installed chain app against wallet [walletId]: the app's rules, the wallet's keys and the master
      * fingerprint the request names. Throws [WalletUnavailable] when the wallet cannot be read.
      */
@@ -245,9 +251,10 @@ class SignFlow(
         }
         return routed(request) { target ->
             try {
-                // An App the wallet does not have is refused before its review, so no other refusal names an account it lacks.
+                // An App the wallet does not have is refused before its review, so no other refusal names an account it lacks. A wallet that
+                // cannot install the App is not told to install it: its review refuses the account it lacks.
                 val app = WalletApp.entries.firstOrNull { it.appId == request.header.app }
-                if (app != null && !ports.isInstalled(target, app)) {
+                if (app != null && !ports.isInstalled(target, app) && ports.canInstall(target, app)) {
                     return@routed appRefusal(started, target, request, notInstalled(app), ready = null)
                 }
                 when (val prepared = ports.appPrepare(target, request)) {
