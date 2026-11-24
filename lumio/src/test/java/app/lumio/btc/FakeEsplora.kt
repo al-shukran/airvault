@@ -43,6 +43,9 @@ internal class FakeEsplora : Dispatcher() {
     /** The addresses whose every request is answered 500, so a scan that reaches one fails there. */
     val failing = mutableSetOf<String>()
 
+    /** The addresses whose `GET /address/{address}/utxo` is answered 500, while their history is still answered. */
+    val failingUtxos = mutableSetOf<String>()
+
     /** Every request path, in the order it was asked for. */
     val paths = CopyOnWriteArrayList<String>()
 
@@ -65,6 +68,9 @@ internal class FakeEsplora : Dispatcher() {
         val parts = path.split("/")
         val address = parts.getOrNull(3)
         if (address != null && address in failing) return MockResponse.Builder().code(500).build()
+        if (address != null && parts.getOrNull(4) == "utxo" && address in failingUtxos) {
+            return MockResponse.Builder().code(500).build()
+        }
         val body = when {
             path == "/api/blocks/tip/height" -> tip
             path == "/api/fee-estimates" -> FEES

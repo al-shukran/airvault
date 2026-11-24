@@ -219,6 +219,27 @@ class BtcScanTest {
     }
 
     @Test
+    fun aFailedUtxoReadKeepsTheStoredUtxos() = runBlocking {
+        // The complete scan reads the balance and one unspent output of address 0. Then only the UTXO requests of that address fail.
+        fund(sats = 120_000L)
+        val store = BtcStore(Cache(FakeKvDao(), CacheKeys(ByteArray(32) { 1 }, ByteArray(32) { 2 }), FakeClock(1_000L)))
+        val job = QueuedJob(1L, ScanJob("wallet-1", ref.account.network.networkId(), ref.key, Priority.VISIBLE))
+        scanJob(job, listOf(ref), this.scheduler(), store, AddressStatsCache(), nowMs = { 1_000L }, step = {})
+        val stored = store.snapshot(ref.key)
+        assertEquals(1, stored?.utxos?.size)
+
+        for (server in listOf(first, second)) server.failingUtxos += account.receiveAddress(0)
+        assertFailsWith<ProviderError.Transient> {
+            scanJob(job, listOf(ref), this.scheduler(), store, AddressStatsCache(), nowMs = { 2_000L }, step = {})
+        }
+
+        val kept = store.snapshot(ref.key)
+        assertEquals(120_000L, kept?.confirmedSats, "the balance of the complete scan is kept")
+        assertEquals(stored?.utxos, kept?.utxos, "the stored unspent outputs are kept, not replaced by the partial list")
+        assertEquals(false, kept?.complete, "the kept scan is marked incomplete")
+    }
+
+    @Test
     fun aFailedScanThatReadsMoreThanTheStoredScanReplacesIt() = runBlocking {
         for (server in listOf(first, second)) {
             server.stats[account.receiveAddress(0)] = addressJson(chain = side(fundedSum = 120_000L, fundedCount = 1, txCount = 1))
