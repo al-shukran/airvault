@@ -17,6 +17,7 @@ import app.lumio.data.db.LumioDatabase
 import app.lumio.data.scan.ScanRows
 import app.lumio.data.tx.TxKeys
 import app.lumio.data.tx.TxStore
+import app.lumio.pair.FirstSyncImports
 import app.lumio.portfolio.PortfolioBoard
 import app.lumio.wallets.WalletsBoard
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -109,6 +110,9 @@ class LumioVault(val session: VaultSession, database: LumioDatabase, clock: Cloc
 
     /** The facts the Settings list shows, read when the vault opens and again when the list is shown. */
     internal val settingsFacts = SettingsFactsHolder(this)
+
+    /** The imports whose first sync this vault has started, so returning to an import reattaches to its run. */
+    internal val firstSyncs = FirstSyncImports()
 
     private companion object {
         const val SCAN_JOB_PURPOSE = "lumio-scan-job-v1"

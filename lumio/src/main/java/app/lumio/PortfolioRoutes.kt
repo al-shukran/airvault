@@ -12,8 +12,10 @@ import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressKeyOf
 import app.lumio.chains.NativeBalances
+import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.algorand.ALGORAND_MAINNET
 import app.lumio.data.provider.solana.SOLANA_MAINNET
+import app.lumio.evm.EvmChain
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import app.lumio.portfolio.ChainFamily
@@ -24,6 +26,8 @@ import app.lumio.portfolio.PortfolioHolding
 import app.lumio.portfolio.PortfolioReads
 import app.lumio.transactions.ActivityFilter
 import app.lumio.transactions.TxFeedItem
+import app.lumio.transactions.chainLabel
+import app.lumio.transactions.vaultChains
 import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.portfolio.OtherSide
 import app.lumio.ui.portfolio.PortfolioScreen
@@ -33,7 +37,9 @@ import app.lumio.ui.transactions.AddOnLenslyScreen
 import app.lumio.watchlist.WatchedAsset
 import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** The most recent rows that the Portfolio tab shows under its balances. The activity page shows the rest. */
 private const val RECENT_ROWS = 3
@@ -53,7 +59,7 @@ internal fun PortfolioTab(navController: NavHostController, holder: VaultHolder,
     val transactions = rememberTransactions(app)
     val scope = rememberCoroutineScope()
     var filter by remember { mutableStateOf(PortfolioFilter()) }
-    var otherHeld by remember { mutableStateOf<PortfolioHolding?>(null) }
+    var otherSide by remember { mutableStateOf<OtherSide?>(null) }
     // The Portfolio covers the wallet the profile panel chose, as Home does, and the first paired wallet until the owner chooses one.
     val active = wallets.active(selection) { it.id }
     LaunchedEffect(board, mode, active?.id, listVersion, transactions.activityIncludesSpam) {
@@ -62,7 +68,10 @@ internal fun PortfolioTab(navController: NavHostController, holder: VaultHolder,
     }
     // The first holding with funds on the other side, for the card that an empty side shows. The board keeps only the side it shows.
     LaunchedEffect(board, other, active?.id, listVersion) {
-        otherHeld = app.lumioVault()?.let { vault -> PortfolioReads.holdings(app, vault, other, active?.id).firstOrNull { it.amount.signum() > 0 } }
+        otherSide = app.lumioVault()?.let { vault ->
+            val held = PortfolioReads.holdings(app, vault, other, active?.id).firstOrNull { it.amount.signum() > 0 } ?: return@let null
+            otherSideOf(held, withContext(Dispatchers.IO) { vaultChains(app, vault) }, other) { selection.choose(other) }
+        }
     }
     val receive = active?.let { wallet -> { navController.navigate(LumioRoute.wallet(wallet.id)) } }
     TabRoute(tab = LumioTab.PORTFOLIO, navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = onLock) {
@@ -80,14 +89,7 @@ internal fun PortfolioTab(navController: NavHostController, holder: VaultHolder,
             zone = ZoneId.systemDefault(),
             onOpenActivity = { navController.navigate(LumioRoute.ACTIVITY) },
             onOpenRow = { item -> openTransaction(scope, navController, board, wallets, item) },
-            otherSide = otherHeld?.let { held ->
-                OtherSide(
-                    amount = "${PortfolioFormat.coins(held.amount)} ${held.coin}",
-                    network = held.network.name,
-                    testnet = other == NetworkMode.TESTNET,
-                    onSwitch = { selection.choose(other) },
-                )
-            },
+            otherSide = otherSide,
             onReceive = receive,
         )
     }
@@ -173,6 +175,17 @@ private fun openTransaction(scope: CoroutineScope, navController: NavHostControl
         navController.navigate(LumioRoute.transaction(walletId, account, txId)) { launchSingleTop = true }
     }
 }
+
+/**
+ * The card of the other side, for [held] the first holding with funds there: its amount, the name of its chain as the feed shows it, and the side it is on.
+ * [onSwitch] moves the page to [other].
+ */
+internal fun otherSideOf(held: PortfolioHolding, chains: Map<NetworkId, EvmChain>, other: NetworkMode, onSwitch: () -> Unit): OtherSide = OtherSide(
+    amount = "${PortfolioFormat.coins(held.amount)} ${held.coin}",
+    network = chainLabel(held.network, chains),
+    testnet = other == NetworkMode.TESTNET,
+    onSwitch = onSwitch,
+)
 
 /** The number of accounts of each chain family across the wallets, for the chain choices. */
 private fun accountCounts(wallets: List<PairedWallet>): Map<ChainFamily, Int> = mapOf(
