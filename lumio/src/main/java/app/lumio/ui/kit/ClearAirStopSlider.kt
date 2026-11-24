@@ -23,6 +23,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
@@ -45,6 +50,19 @@ fun ClearAirStopSlider(labels: List<String>, selected: Int, onSelect: (Int) -> U
             modifier = Modifier
                 .fillMaxWidth()
                 .height(ClearAirSpacing.touchTarget)
+                .semantics {
+                    // TalkBack adjusts the slider one stop at a time, and reads the stop's name rather than a number.
+                    progressBarRangeInfo = ProgressBarRangeInfo(
+                        selected.toFloat(),
+                        0f..last.toFloat(),
+                        (labels.size - 2).coerceAtLeast(0),
+                    )
+                    stateDescription = labels.getOrElse(selected) { "" }
+                    setProgress { target ->
+                        onSelect(target.roundToInt().coerceIn(0, last))
+                        true
+                    }
+                }
                 .onSizeChanged { width = it.width.toFloat() }
                 .pointerInput(labels.size) { detectTapGestures { onSelect(stopAt(it.x)) } }
                 .pointerInput(labels.size) {
