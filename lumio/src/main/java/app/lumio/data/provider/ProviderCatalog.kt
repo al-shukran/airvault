@@ -40,12 +40,23 @@ object ProviderCatalog {
      */
     private val PRICE_PRIORITIES: Map<String, Int> = mapOf("coingecko" to 0, "defillama" to 1)
 
+    /** The providers that cannot work without an API key. They start switched off, until the owner saves a key on their Provider page. */
+    private val KEY_REQUIRED_IDS: Set<String> by lazy {
+        (dataProviders() + priceProviders() + rpcProviders(allowLocalHttp = false))
+            .filter { Trait.KEY_REQUIRED in it.traits }
+            .map { it.id }
+            .toSet()
+    }
+
     /**
-     * The settings with the price defaults under [saved]. A saved setting of a price provider replaces its default whole, so every change to the
-     * price group must start from this map, or a default priority would be written as 0 and tie with the other provider.
+     * The settings with the defaults under [saved]. A saved setting of a provider replaces its default whole, so every change to a defaulted provider must
+     * start from this map, or a default would be written as the plain setting and tie with the other providers. The price providers take their priorities,
+     * and the providers that need a key start switched off.
      */
     fun withDefaults(saved: Map<String, ProviderConfig>): Map<String, ProviderConfig> =
-        PRICE_PRIORITIES.mapValues { (_, priority) -> ProviderConfig(priority = priority) } + saved
+        PRICE_PRIORITIES.mapValues { (_, priority) -> ProviderConfig(priority = priority) } +
+            KEY_REQUIRED_IDS.associateWith { ProviderConfig(enabled = false) } +
+            saved
 
     /** The chain-data providers, in their listed order. */
     fun dataProviders(): List<Provider> = listOf(

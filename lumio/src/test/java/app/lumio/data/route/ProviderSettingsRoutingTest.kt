@@ -45,7 +45,7 @@ class ProviderSettingsRoutingTest {
 
         assertEquals(listOf("other"), offeredBy(etherscan, other))
 
-        ProviderConfigStore(session).save(withApiKey(emptyMap(), "etherscan", "k-42"))
+        ProviderConfigStore(session).save(withApiKey(emptyMap(), "etherscan", "k-42", keyRequired = true))
 
         assertEquals(setOf("etherscan", "other"), offeredBy(etherscan, other).toSet())
     }

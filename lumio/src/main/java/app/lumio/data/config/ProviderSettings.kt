@@ -11,7 +11,7 @@ fun withEnabled(configs: Map<String, ProviderConfig>, id: String, on: Boolean): 
  * The settings with [key] as the API key of [id], trimmed. A blank key removes the saved one. A provider that cannot work without its key
  * ([keyRequired]) is switched on by a key and off when the key is removed, so its switch agrees with its status.
  */
-fun withApiKey(configs: Map<String, ProviderConfig>, id: String, key: String, keyRequired: Boolean = false): Map<String, ProviderConfig> {
+fun withApiKey(configs: Map<String, ProviderConfig>, id: String, key: String, keyRequired: Boolean): Map<String, ProviderConfig> {
     val keyed = configs + (id to configOf(configs, id).copy(apiKey = key.trim().ifEmpty { null }))
     return if (keyRequired) withEnabled(keyed, id, on = key.isNotBlank()) else keyed
 }

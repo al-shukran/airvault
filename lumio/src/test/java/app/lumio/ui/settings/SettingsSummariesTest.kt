@@ -64,19 +64,19 @@ class SettingsSummariesTest {
     }
 
     @Test
-    fun aProviderWithNoSavedSettingIsOnAsItsDefaultSays() {
+    fun aProviderThatNeedsAKeyIsOffUntilOneIsSaved() {
         val (on, total) = providerCounts(emptyMap(), debug = false)
 
+        // Etherscan, Blockchair and Ankr need a key, so they start switched off. The other providers start switched on.
         assertTrue(total > 0)
-        assertEquals(total, on)
+        assertEquals(total - 3, on)
     }
 
     @Test
     fun aSwitchedOffProviderIsNotCountedAsOn() {
-        val (allOn, total) = providerCounts(emptyMap(), debug = false)
+        val (allOn, _) = providerCounts(emptyMap(), debug = false)
         val (on, _) = providerCounts(mapOf("mempool" to ProviderConfig(enabled = false)), debug = false)
 
-        assertEquals(total, allOn)
         assertEquals(allOn - 1, on)
     }
 
