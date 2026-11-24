@@ -13,7 +13,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * The goldens of the read-only Address Book: a wallet's entries grouped by chain, and the book of a wallet that has none. They use the same
+ * The goldens of the read-only Address Book: a wallet's entries grouped by their Group, and the book of a wallet that has none. They use the same
  * theme, size and recording as [LumioScreenshotTest], and they are recorded with `:lumio:recordRoborazziDebug`.
  */
 @RunWith(RobolectricTestRunner::class)

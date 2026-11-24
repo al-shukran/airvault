@@ -17,19 +17,16 @@ import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirStatusBand
 import app.lumio.ui.shell.LumioPageScreen
 
-/** The chains an Address Book entry can be on, in the order the screen lists them. */
-private val CHAINS = listOf("Ethereum", "Bitcoin")
-
-/** The chain of an Address Book [address]: an EVM address starts with 0x, and any other is a Bitcoin address. */
-private fun chainOf(address: String): String = if (address.startsWith("0x")) "Ethereum" else "Bitcoin"
-
 /**
- * The Address Book of one paired wallet: each saved name, its label and its address, grouped by chain. Names are added and changed on Lensly, so this
- * screen is read only and has no edit action. A pairing from Lensly again replaces the book. With no entry, it says how to add one.
+ * The Address Book of one paired wallet: each saved name, its label and its address, grouped by the Group each entry has. Names are added and changed
+ * on Lensly, so this screen is read only and has no edit action. A pairing from Lensly again replaces the book. With no entry, it says how to add one.
  */
 @Composable
 fun AddressBookScreen(walletName: String, entries: List<AddressBookEntry>, offline: String?, onBack: () -> Unit, onLock: () -> Unit) {
     val palette = LocalClearAirPalette.current
+    // Named groups come first in alphabetical order, ignoring case, and the entries with no group follow under no header.
+    val (named, ungrouped) = entries.partition { it.group.isNotEmpty() }
+    val groups = named.groupBy { it.group }.toList().sortedBy { (group, _) -> group.lowercase() }
     // Opened from Settings or from Search, so the back arrow names no place: it is read as Back.
     LumioPageScreen(title = SettingsPage.ADDRESS_BOOK.title, backLabel = null, offline = offline, onBack = onBack, onLock = onLock) {
         ClearAirStatusBand(text = READ_ONLY)
@@ -40,13 +37,11 @@ fun AddressBookScreen(walletName: String, entries: List<AddressBookEntry>, offli
                     Text(text = "No entries yet. Add them on Lensly, then re-pair.", style = ClearAirType.body, color = palette.ink2)
                 }
             }
-            CHAINS.forEach { chain ->
-                val inChain = entries.filter { chainOf(it.address) == chain }
-                if (inChain.isNotEmpty()) {
-                    ClearAirEyebrow(text = chain, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
-                    inChain.forEach { entry -> AddressEntry(entry) }
-                }
+            groups.forEach { (group, inGroup) ->
+                ClearAirEyebrow(text = "$group · ${inGroup.size}", modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
+                inGroup.forEach { entry -> AddressEntry(entry) }
             }
+            ungrouped.forEach { entry -> AddressEntry(entry) }
         }
     }
 }
