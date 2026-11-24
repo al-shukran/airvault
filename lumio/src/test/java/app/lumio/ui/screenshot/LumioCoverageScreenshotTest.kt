@@ -45,6 +45,7 @@ import app.lumio.evm.EvmChain
 import app.lumio.evm.CustomNetworkField
 import app.lumio.evm.EvmRefusal
 import app.lumio.evm.EvmSettings
+import app.lumio.evm.rpcInUse
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairImport
 import app.lumio.tokens.Token
@@ -100,7 +101,7 @@ class LumioCoverageScreenshotTest {
                 settings = EvmSettings(
                     addressCount = 3,
                     enabled = setOf(1L, 11155111L, 424242L),
-                    rpc = mapOf(1L to "https://rpc.example.org"),
+                    rpc = mapOf(1L to rpcInUse("https://rpc.example.org")),
                     custom = listOf(CustomChain(424242L, "Demo Chain", "DEMO", testnet = false)),
                 ),
                 chains = chains,
@@ -156,12 +157,17 @@ class LumioCoverageScreenshotTest {
         NetworkPage(
             chainName = "Ethereum",
             chainLine = "Chain 1 · ETH",
-            custom = "https://rpc.example.org",
+            custom = listOf("https://rpc.example.org"),
+            active = "https://rpc.example.org",
+            providers = emptyList(),
             busy = false,
             notice = null,
             offline = null,
             onUseBuiltIn = {},
+            onUseCustom = {},
+            onRemoveCustom = {},
             onAddCustom = {},
+            onReorder = {},
             onBack = {},
             onLock = {},
         )
@@ -189,22 +195,21 @@ class LumioCoverageScreenshotTest {
     fun dataProvidersWithEveryStatus() = compose.lumioSnapshot("data_providers_statuses") {
         DataProvidersScreen(
             data = listOf(
-                providerRow("etherscan", acceptsKey = true, status = ProviderStatus.NeedsKey, canMoveUp = false),
+                providerRow("etherscan", acceptsKey = true, status = ProviderStatus.NeedsKey),
                 providerRow("blockscout", acceptsKey = false, status = ProviderStatus.NotActive),
                 providerRow("blockchair", acceptsKey = false, status = ProviderStatus.CircuitOpen(retryInMs = 90_000L)),
                 providerRow("routescan", acceptsKey = false, status = ProviderStatus.CoolingDown(inMs = 30_000L)),
                 providerRow("mempool", acceptsKey = false, status = ProviderStatus.Healthy(120.0)),
-                providerRow("3xpl", acceptsKey = false, status = ProviderStatus.Ready, canMoveDown = false, enabled = false),
+                providerRow("3xpl", acceptsKey = false, status = ProviderStatus.Ready, enabled = false),
             ),
             rpc = listOf(
-                providerRow("1rpc", acceptsKey = true, mev = true, status = ProviderStatus.Off, enabled = false, apiKey = "k-1"),
+                providerRow("1rpc", acceptsKey = true, status = ProviderStatus.Off, enabled = false, apiKey = "k-1"),
             ),
             offline = null,
             onBack = {},
             onLock = {},
             onOpen = {},
-            onEnabled = { _, _ -> },
-            onMove = { _, _ -> },
+            onReorder = { _, _ -> },
         )
     }
 
@@ -416,20 +421,14 @@ class LumioCoverageScreenshotTest {
         id: String,
         acceptsKey: Boolean,
         status: ProviderStatus,
-        mev: Boolean = false,
         enabled: Boolean = true,
         apiKey: String? = null,
-        canMoveUp: Boolean = true,
-        canMoveDown: Boolean = true,
     ) = ProviderRow(
         id = id,
-        mevProtected = mev,
         acceptsKey = acceptsKey,
         enabled = enabled,
         apiKey = apiKey,
         status = status,
-        canMoveUp = canMoveUp,
-        canMoveDown = canMoveDown,
     )
 
     /**

@@ -14,7 +14,10 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** The Network page (B4): the built-in RPC returns to it at once, Add checks the typed address, and a refusal shows under the field. */
+/**
+ * The Network page (B4): the built-in RPC returns to it at once, a custom address is selected or removed on its row, Add checks the typed address,
+ * and a refusal shows under the field.
+ */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w400dp-h4000dp")
 class NetworkPageTest {
@@ -24,23 +27,30 @@ class NetworkPageTest {
 
     private var builtIn = 0
     private val added = mutableListOf<String>()
+    private val selected = mutableListOf<String>()
+    private val removed = mutableListOf<String>()
 
-    private fun show(custom: String? = null, notice: String? = null) {
+    private fun show(custom: List<String> = emptyList(), active: String? = null, notice: String? = null) {
         compose.setContent {
             LumenTheme {
                 ClearAirTheme {
                     NetworkPage(
-                    chainName = "Base",
-                    chainLine = "Chain 8453 · ETH",
-                    custom = custom,
-                    busy = false,
-                    notice = notice,
-                    offline = null,
-                    onUseBuiltIn = { builtIn++ },
-                    onAddCustom = { added += it },
-                    onBack = {},
-                    onLock = {},
-                )
+                        chainName = "Base",
+                        chainLine = "Chain 8453 · ETH",
+                        custom = custom,
+                        active = active,
+                        providers = emptyList(),
+                        busy = false,
+                        notice = notice,
+                        offline = null,
+                        onUseBuiltIn = { builtIn++ },
+                        onUseCustom = { selected += it },
+                        onRemoveCustom = { removed += it },
+                        onAddCustom = { added += it },
+                        onReorder = {},
+                        onBack = {},
+                        onLock = {},
+                    )
                 }
             }
         }
@@ -48,11 +58,29 @@ class NetworkPageTest {
 
     @Test
     fun theBuiltInRowReturnsToItWhenACustomAddressIsInUse() {
-        show(custom = "https://base.example.org")
+        show(custom = listOf("https://base.example.org"), active = "https://base.example.org")
 
         compose.onNodeWithText("Built-in RPC").performClick()
 
         assertEquals(1, builtIn)
+    }
+
+    @Test
+    fun aCustomAddressIsSelectedByItsRow() {
+        show(custom = listOf("https://base.example.org", "https://base-2.example.org"), active = "https://base.example.org")
+
+        compose.onNodeWithText("https://base-2.example.org").performClick()
+
+        assertEquals(listOf("https://base-2.example.org"), selected)
+    }
+
+    @Test
+    fun aCustomAddressIsRemovedByItsRemoveAction() {
+        show(custom = listOf("https://base.example.org"), active = null)
+
+        compose.onNodeWithText("Remove").performClick()
+
+        assertEquals(listOf("https://base.example.org"), removed)
     }
 
     @Test

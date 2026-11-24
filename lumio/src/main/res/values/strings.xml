@@ -2,12 +2,10 @@
 <resources>
     <string name="app_name">Lumio</string>
 
-    <string name="providers_intro">Lumio reads chain data and sends transactions through these providers, in the order below. A provider that is off, or that needs a key you have not set, is skipped. Open a provider to set its key, which is stored in the vault.</string>
+    <string name="providers_intro">Lumio asks providers in this order and moves to the next one if a provider fails. Drag to change the order.</string>
     <string name="providers_data_heading">Data</string>
     <string name="providers_prices_heading">Prices</string>
     <string name="providers_rpc_heading">RPC</string>
-    <string name="providers_move_up">Move Up</string>
-    <string name="providers_move_down">Move Down</string>
     <string name="settings_licences_body">Every library and font AirVault ships, with the licence each one is used under.</string>
     <string name="settings_licences_open">Third-Party Licences</string>
     <string name="providers_privacy_heading">Explorers and Privacy</string>

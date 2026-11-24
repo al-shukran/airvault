@@ -22,6 +22,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
  * debug build ([allowLocalHttp]). An address with a user name or password is refused, so a secret never sits in a URL that is stored.
  */
 object RpcUrl {
+    /** The owner's words for an address that is not accepted. */
+    const val REFUSED = "This isn't a valid https address"
     private const val MAX_LENGTH = 512
     private val LOCAL_HOSTS = setOf("localhost", "10.0.2.2")
 
@@ -29,13 +31,13 @@ object RpcUrl {
     fun validate(raw: String, allowLocalHttp: Boolean): String {
         val text = raw.trim()
         require(text.isNotEmpty()) { "Enter an RPC address." }
-        require(text.length <= MAX_LENGTH) { "The RPC address is too long." }
-        val url = text.toHttpUrlOrNull() ?: throw IllegalArgumentException("That is not a web address.")
-        require(url.username.isEmpty() && url.password.isEmpty()) { "The RPC address must not hold a user name or password." }
+        require(text.length <= MAX_LENGTH) { REFUSED }
+        val url = text.toHttpUrlOrNull() ?: throw IllegalArgumentException(REFUSED)
+        require(url.username.isEmpty() && url.password.isEmpty()) { REFUSED }
         when (url.scheme) {
             "https" -> Unit
-            "http" -> require(allowLocalHttp && url.host in LOCAL_HOSTS) { "Plain HTTP is refused. Use an https address." }
-            else -> throw IllegalArgumentException("Use an https address.")
+            "http" -> require(allowLocalHttp && url.host in LOCAL_HOSTS) { REFUSED }
+            else -> throw IllegalArgumentException(REFUSED)
         }
         return url.toString()
     }

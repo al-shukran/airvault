@@ -2,6 +2,7 @@ package app.lumio.tokens
 
 import app.lumio.evm.EvmSettings
 import app.lumio.evm.RpcFailure
+import app.lumio.evm.rpcInUse
 import app.lumio.evm.testReads
 import java.math.BigInteger
 import kotlin.test.assertEquals
@@ -122,7 +123,7 @@ class TokenBalancesOverRpcTest {
 
     @Test
     fun theBatchGoesOutAsEthCallAndTheBalancesComeBack() {
-        val settings = EvmSettings(rpc = mapOf(1L to server.url("/").toString()))
+        val settings = EvmSettings(rpc = mapOf(1L to rpcInUse(server.url("/").toString())))
         val balances = runBlocking { TokenBalances.read(testReads(settings), ETHEREUM, OWNER, listOf(USDC, DAI)) }
 
         assertEquals(mapOf(USDC to BigInteger.valueOf(1_234_567), DAI to BigInteger.valueOf(9)), balances)

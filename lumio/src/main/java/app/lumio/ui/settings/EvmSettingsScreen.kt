@@ -89,7 +89,7 @@ private fun ChainRow(
     onRemove: () -> Unit,
 ) {
     val custom = settings.custom.any { it.chainId == chain.chainId }
-    val rpc = if (settings.rpc.containsKey(chain.chainId)) "custom RPC in use" else "built-in RPC"
+    val rpc = if (settings.activeRpc(chain.chainId) != null) "custom RPC in use" else "built-in RPC"
     val testnet = if (chain.testnet) " · Testnet" else ""
     ClearAirSwitchRow(
         title = chain.name,

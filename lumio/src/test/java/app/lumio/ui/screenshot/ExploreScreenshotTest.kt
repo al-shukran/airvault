@@ -30,9 +30,9 @@ class ExploreScreenshotTest {
             chains = listOf(ChainRow("Ethereum", accounts = 4), ChainRow("Solana", accounts = 1)),
             networks = 55,
             providers = listOf(
-                ProviderRow("blockscout", false, true, true, null, ProviderStatus.Healthy(score = 120.0), false, true),
-                ProviderRow("mempool", false, false, true, null, ProviderStatus.CoolingDown(inMs = 4_000), true, false),
-                ProviderRow("etherscan", false, true, true, null, ProviderStatus.NeedsKey, true, true),
+                ProviderRow("blockscout", true, true, null, ProviderStatus.Healthy(score = 120.0)),
+                ProviderRow("mempool", false, true, null, ProviderStatus.CoolingDown(inMs = 4_000)),
+                ProviderRow("etherscan", true, true, null, ProviderStatus.NeedsKey),
             ),
             onChains = {},
             onProviders = {},

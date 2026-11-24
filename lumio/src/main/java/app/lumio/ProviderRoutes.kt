@@ -14,8 +14,12 @@ import app.lensly.app.VaultHolder
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.data.config.withApiKey
+import app.lumio.data.config.withEnabled
 import app.lumio.data.provider.ProviderCatalog
+import app.lumio.evm.EvmCatalog
+import app.lumio.evm.EvmSettingsStore
 import app.lumio.ui.settings.ProviderPage
+import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.providerName
 import app.lumio.ui.settings.providerStatusNote
 import app.lumio.ui.settings.providerStatusWord
@@ -27,9 +31,12 @@ import kotlinx.coroutines.withContext
 /** How many characters of a saved key the page shows, so the owner can tell which key is saved without seeing it. */
 private const val KEY_TAIL = 4
 
+/** What the Provider page shows of one provider: its row, its tags, and the names of the networks it serves in catalogue order. */
+private class ProviderState(val row: ProviderRow, val tags: List<String>, val networks: List<String>)
+
 /**
- * The Provider page (B5) of the provider [id]: its status, its tags and its API key. The status is read the way the Data providers page reads it, once
- * when the page opens, and again after a key is saved or removed. A key is written to the vault the same way the Data providers page writes it.
+ * The Provider page (B5) of the provider [id]: its status, its switch, its tags, the networks it serves and its API key. The page reads the provider the
+ * way the Data providers page does, once when it opens and again after a change. Each change is written to the open vault's provider settings.
  */
 @Composable
 internal fun ProviderRoute(navController: NavHostController, holder: VaultHolder, id: String, onLock: () -> Unit) {
@@ -41,32 +48,46 @@ internal fun ProviderRoute(navController: NavHostController, holder: VaultHolder
     val scope = rememberCoroutineScope()
     var version by remember { mutableIntStateOf(0) }
     val vault = app.lumioVault() ?: return
-    val lists by produceState<ProviderLists?>(initialValue = null, vault, version) {
-        value = withContext(Dispatchers.IO) { readLists(app, vault) }
+    val state by produceState<ProviderState?>(initialValue = null, vault, version) {
+        value = withContext(Dispatchers.IO) { readProvider(app, vault, id) }
     }
-    val current = lists ?: return
-    val row = (current.data + current.prices + current.rpc).firstOrNull { it.id == id } ?: return
-    val traits = remember(id) {
-        (ProviderCatalog.dataProviders() + ProviderCatalog.priceProviders() + ProviderCatalog.rpcProviders(BuildConfig.DEBUG))
-            .firstOrNull { it.id == id }?.traits.orEmpty()
+    val current = state ?: return
+
+    // Runs one write off the main thread, then reads the provider again.
+    fun change(write: () -> Unit) {
+        scope.launch {
+            withContext(Dispatchers.IO) { runCatching(write) }
+            version++
+        }
     }
+
     ProviderPage(
         name = providerName(id),
-        status = providerStatusWord(row.status),
-        statusNote = providerStatusNote(row.status),
-        tags = providerTags(id, traits),
-        keyed = row.acceptsKey,
-        savedTail = row.apiKey?.takeIf { it.isNotBlank() }?.takeLast(KEY_TAIL),
+        status = providerStatusWord(current.row.status),
+        statusNote = providerStatusNote(current.row.status),
+        enabled = current.row.enabled,
+        onEnabled = { on -> change { vault.updateConfigs { saved -> withEnabled(ProviderCatalog.withDefaults(saved), id, on) } } },
+        tags = current.tags,
+        networks = current.networks,
+        keyed = current.row.acceptsKey,
+        savedTail = current.row.apiKey?.takeIf { it.isNotBlank() }?.takeLast(KEY_TAIL),
         offline = rememberSettingsOffline(),
-        onSaveKey = { key ->
-            scope.launch {
-                withContext(Dispatchers.IO) {
-                    runCatching { vault.updateConfigs { saved -> withApiKey(ProviderCatalog.withDefaults(saved), id, key) } }
-                }
-                version++
-            }
-        },
+        onSaveKey = { key -> change { vault.updateConfigs { saved -> withApiKey(ProviderCatalog.withDefaults(saved), id, key) } } },
         onBack = { navController.popBackStack() },
         onLock = onLock,
+    )
+}
+
+/** The state of provider [id], or null when no provider has that ID. Read off the main thread. */
+private suspend fun readProvider(app: LumioApp, vault: LumioVault, id: String): ProviderState? {
+    val lists = readLists(app, vault)
+    val row = (lists.data + lists.prices + lists.rpc).firstOrNull { it.id == id } ?: return null
+    val provider = (ProviderCatalog.dataProviders() + ProviderCatalog.priceProviders() + ProviderCatalog.rpcProviders(BuildConfig.DEBUG))
+        .firstOrNull { it.id == id } ?: return null
+    val chains = EvmCatalog.chains(app.registry, EvmSettingsStore.read(vault.session))
+    return ProviderState(
+        row = row,
+        tags = providerTags(id, provider.traits),
+        networks = ProviderCatalog.evmChainsOf(provider, chains).map { it.name },
     )
 }
