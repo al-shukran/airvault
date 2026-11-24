@@ -160,12 +160,12 @@ class SchedulerTest {
     }
 
     @Test
-    fun whenEveryProviderIsCooledACallWaitsForTheEarliestCooldown() = runTest {
+    fun aBackgroundCallWaitsForTheEarliestCooldownWhenEveryProviderIsCooled() = runTest {
         val a = provider("a").apply { outcomes.add(ProviderError.RateLimited(retryAfterMs = 5_000)) }
         val b = provider("b").apply { outcomes.add(ProviderError.RateLimited(retryAfterMs = 10_000)) }
         val s = scheduler(a, b, configs = PREFER_A)
 
-        assertEquals(100L, s.run(TipHeight(ETH)))
+        assertEquals(100L, s.run(TipHeight(ETH), Priority.BACKGROUND))
 
         assertEquals(5_000L, testScheduler.currentTime)
         assertEquals(2, a.calls)
@@ -280,7 +280,7 @@ class SchedulerTest {
         assertTrue(failureOf { s.run(TipHeight(ETH)) } is ProviderError.Transient)
         assertEquals(3, a.calls)
         // The fifth failure, in this call, opens the circuit. The call's last attempt then waits out the 60 s, and its probe succeeds.
-        assertEquals(100L, s.run(TipHeight(ETH)))
+        assertEquals(100L, s.run(TipHeight(ETH), Priority.BACKGROUND))
         assertEquals(6, a.calls)
         assertTrue(testScheduler.currentTime >= 60_000L)
     }
@@ -292,7 +292,7 @@ class SchedulerTest {
         failureOf { s.run(TipHeight(ETH)) }
 
         // The fifth failure, in this call, opens the circuit. The call's last attempt then waits out the 60 s, and its probe succeeds.
-        assertEquals(100L, s.run(TipHeight(ETH)))
+        assertEquals(100L, s.run(TipHeight(ETH), Priority.BACKGROUND))
         assertEquals(6, a.calls)
         assertEquals(100L, s.run(TipHeight(ETH)))
         assertEquals(7, a.calls)
@@ -329,6 +329,41 @@ class SchedulerTest {
 
         assertTrue(failureOf { s.run(TipHeight(ETH)) } is ProviderError.RateLimited)
         assertEquals(3, a.calls)
+    }
+
+    @Test
+    fun aCallOnScreenFailsAtOnceWhenEveryProviderIsCoolingForLongerThanFiveSeconds() = runTest {
+        for (priority in listOf(Priority.FOREGROUND, Priority.VISIBLE)) {
+            val a = provider("a").apply { outcomes.add(ProviderError.RateLimited(retryAfterMs = 60_000)) }
+            val b = provider("b").apply { outcomes.add(ProviderError.RateLimited(retryAfterMs = 60_000)) }
+            val s = scheduler(a, b, configs = PREFER_A)
+
+            assertTrue(failureOf { s.run(TipHeight(ETH), priority) } is ProviderError.Transient)
+            assertEquals(0L, testScheduler.currentTime)
+            assertEquals(1, a.calls)
+            assertEquals(1, b.calls)
+        }
+    }
+
+    @Test
+    fun aCallOnScreenWaitsOutACooldownOfFiveSecondsOrLess() = runTest {
+        val a = provider("a").apply { outcomes.add(ProviderError.RateLimited(retryAfterMs = 5_000)) }
+        val b = provider("b").apply { outcomes.add(ProviderError.RateLimited(retryAfterMs = 5_000)) }
+        val s = scheduler(a, b, configs = PREFER_A)
+
+        assertEquals(100L, s.run(TipHeight(ETH), Priority.FOREGROUND))
+        assertEquals(5_000L, testScheduler.currentTime)
+    }
+
+    @Test
+    fun aCallOnScreenFailsAtOnceWhenTheOnlyProviderHasAnOpenCircuit() = runTest {
+        val a = provider("a").apply { repeat(5) { outcomes.add(ProviderError.Transient()) } }
+        val s = scheduler(a)
+        failureOf { s.run(TipHeight(ETH), Priority.FOREGROUND) }
+
+        // The fifth failure, in this call, opens the circuit for 60 s. The call's next attempt is refused rather than waiting that out.
+        assertTrue(failureOf { s.run(TipHeight(ETH), Priority.FOREGROUND) } is ProviderError.Transient)
+        assertEquals(5, a.calls)
     }
 
     private companion object {

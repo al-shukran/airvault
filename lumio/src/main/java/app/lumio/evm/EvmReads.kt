@@ -28,8 +28,6 @@ import app.lumio.data.sched.Scheduler
 import java.math.BigInteger
 import kotlin.random.Random
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.withTimeout
 
 /** A read-only call of a contract on a chain, as the chain answers it. [to] is the contract and [data] the encoded call; the answer is the return data in hex. */
 interface ContractReads {
@@ -39,13 +37,13 @@ interface ContractReads {
 /**
  * The EVM chain reads and broadcasts, routed by the scheduler. A chain whose RPC address the owner set reads only from that address, so the
  * owner's addresses never reach a public provider. Every other chain reads from the public pool: its DATA providers first, then its RPC providers.
- * A failure reaches the caller as [RpcFailure], and a call that runs past [deadlineMs] fails as unreachable.
+ * A failure reaches the caller as [RpcFailure]. The scheduler sets the deadlines: a read waits in its queue as long as it takes, and each request's
+ * clock starts when it is sent.
  */
 class EvmReads(
     private val pool: Scheduler,
     private val owner: Scheduler,
     private val settings: () -> EvmSettings,
-    private val deadlineMs: Long = DEADLINE_MS,
     /** The pool that balance reads use while [preferRpc] holds. It has no explorers. Without it, [pool] serves every read. */
     private val rpcOnly: Scheduler = pool,
     private val preferRpc: () -> Boolean = { false },
@@ -83,18 +81,13 @@ class EvmReads(
     private suspend fun <T> run(chain: EvmChain, priority: Priority, req: Request<T>, publicPool: Scheduler = pool): T {
         val scheduler = if (settings().activeRpc(chain.chainId) != null) owner else publicPool
         return try {
-            withTimeout(deadlineMs) { scheduler.run(req, priority) }
+            scheduler.run(req, priority)
         } catch (e: ProviderError) {
             throw e.toRpcFailure()
-        } catch (e: TimeoutCancellationException) {
-            throw RpcFailure(RpcFailure.Reason.UNREACHABLE, "The endpoints did not answer in time.")
         }
     }
 
     companion object {
-        /** The longest one read or broadcast may take, across its retries and failovers. */
-        const val DEADLINE_MS = 30_000L
-
         /**
          * The reads of the open vault [session]. The pool and the owner's addresses are two schedulers over one HTTP stack, so each keeps its
          * own health and rates. The owner's addresses come from the vault's EVM settings, read on each call, so a change takes effect at once.
