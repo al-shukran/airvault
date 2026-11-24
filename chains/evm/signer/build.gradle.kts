@@ -34,8 +34,8 @@ dependencies {
     // The pins :shared holds for web3j's transitive libraries (Dependabot alerts 6-12, 15-23 and 37-39). They keep this module on the
     // artifacts the verification metadata lists.
     constraints {
-        implementation("com.fasterxml.jackson.core:jackson-databind:2.18.11")
-        implementation("com.fasterxml.jackson.core:jackson-core:2.18.11")
+        implementation("com.fasterxml.jackson.core:jackson-databind:2.23.0")
+        implementation("com.fasterxml.jackson.core:jackson-core:2.23.0")
         implementation("com.fasterxml.jackson.core:jackson-annotations:2.18.11")
         implementation(libs.bouncycastle.bcprov.jdk18on)
     }

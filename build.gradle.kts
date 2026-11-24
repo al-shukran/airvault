@@ -20,16 +20,16 @@ buildscript {
                 // Alerts 28-34: dependency-check ships jackson 2.22.1; 2.22.3 is the first release outside
                 // both the 2.22.x ranges and every older 2.18.x range. Forcing the BOM keeps
                 // jackson-annotations, dataformat-yaml, datatype-jsr310 and module-blackbird aligned.
-                "com.fasterxml.jackson:jackson-bom:2.22.3",
-                "com.fasterxml.jackson.core:jackson-core:2.22.3",
-                "com.fasterxml.jackson.core:jackson-databind:2.22.3",
+                "com.fasterxml.jackson:jackson-bom:2.23.0",
+                "com.fasterxml.jackson.core:jackson-core:2.23.0",
+                "com.fasterxml.jackson.core:jackson-databind:2.23.0",
                 // Alert 24: arrives at 33.6.0-jre; 33.8.0 is the latest patched release.
                 "com.google.guava:guava:33.8.0-jre",
                 // Alerts 5, 13, 14: arrives at 1.80.2; 1.87 is the latest patched release.
                 "org.bouncycastle:bcprov-jdk18on:1.87",
                 "org.bouncycastle:bcpkix-jdk18on:1.87",
                 // Alert 4: arrives at 0.9.5.
-                "org.bitbucket.b_c:jose4j:0.9.6",
+                "org.bitbucket.b_c:jose4j:0.9.7",
                 // Alert 3: arrives at 2.0.6.
                 "org.jdom:jdom2:2.0.6.1",
                 // Alerts 25, 26, 35: arrives at 1.23.1, below every fixed line (1.14.2, 1.15.3, 1.23.2).
@@ -39,7 +39,7 @@ buildscript {
                 // Alerts 1 and 2: arrives below the fixed lines 4.5.13 and 3.18.0. These pinned versions are the
                 // latest patched releases, so an explicit pin keeps the classpath from dropping back.
                 "org.apache.httpcomponents:httpclient:4.5.14",
-                "org.apache.commons:commons-lang3:3.21.0",
+                "org.apache.commons:commons-lang3:3.22.0",
             )
         }
     }
