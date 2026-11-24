@@ -22,12 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -73,6 +68,8 @@ import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lensly.ui.theme.LocalReducedMotion
 import app.lensly.ui.theme.LumenMotion
+import app.lumio.ui.kit.ClearAirGlyph
+import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.rememberLumioHaptics
 
@@ -81,7 +78,7 @@ private val VIEWFINDER_RADIUS = 28.dp
 private val RING_WIDTH = 3.dp
 private val RING_GAP = 6.dp
 
-/** The gold corner brackets: how far they sit inside the viewfinder, how long each arm is, and their stroke. */
+/** The spark corner brackets: how far they sit inside the viewfinder, how long each arm is, and their stroke. */
 private val BRACKET_INSET = 16.dp
 private val BRACKET_ARM = 22.dp
 private val BRACKET_WIDTH = 3.dp
@@ -242,8 +239,8 @@ fun LumioScanFrame(
         Spacer(Modifier.height(LenslySpacing.md))
         Text(
             text = statusText,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = ClearAirType.body,
+            color = LocalClearAirPalette.current.ink2,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -258,8 +255,8 @@ fun LumioScanFrame(
 @Composable
 private fun PerimeterRing(fraction: Float, modifier: Modifier) {
     val arc by animateFloatAsState(targetValue = fraction.coerceIn(0f, 1f), animationSpec = LumenMotion.spatial, label = "scan ring")
-    val track = MaterialTheme.colorScheme.outlineVariant
-    val gold = MaterialTheme.colorScheme.primary
+    val track = LocalClearAirPalette.current.hairline
+    val spark = LocalClearAirPalette.current.spark
     Box(
         modifier = modifier.drawWithCache {
             val width = RING_WIDTH.toPx()
@@ -282,7 +279,7 @@ private fun PerimeterRing(fraction: Float, modifier: Modifier) {
                 if (arc > 0f) {
                     segment.reset()
                     measure.getSegment(0f, length * arc, segment, true)
-                    drawPath(segment, gold, style = arcStyle)
+                    drawPath(segment, spark, style = arcStyle)
                 }
             }
         },
@@ -290,12 +287,12 @@ private fun PerimeterRing(fraction: Float, modifier: Modifier) {
 }
 
 /**
- * The gold corner brackets inside the viewfinder (section 2.1). They breathe between [BREATH_FLOOR] and full while the scan runs, and stay full under
+ * The spark corner brackets inside the viewfinder (section 2.1). They breathe between [BREATH_FLOOR] and full while the scan runs, and stay full under
  * reduced motion. The alpha is read in the draw phase, so a breath redraws the brackets without a recomposition.
  */
 @Composable
 private fun ViewfinderCorners(modifier: Modifier) {
-    val gold = MaterialTheme.colorScheme.primary
+    val spark = LocalClearAirPalette.current.spark
     val breath: State<Float>? = if (LocalReducedMotion.current) {
         null
     } else {
@@ -328,7 +325,7 @@ private fun ViewfinderCorners(modifier: Modifier) {
             }
             val style = Stroke(width = BRACKET_WIDTH.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
             onDrawBehind {
-                drawPath(brackets, gold.copy(alpha = breath?.value ?: 1f), style = style)
+                drawPath(brackets, spark.copy(alpha = breath?.value ?: 1f), style = style)
             }
         },
     )
@@ -343,11 +340,6 @@ private fun BoxScope.CheckMark(visible: Boolean, modifier: Modifier) {
         enter = scaleIn(LumenMotion.bouncy, initialScale = 0.6f) + fadeIn(LumenMotion.effects),
         exit = fadeOut(LumenMotion.effects),
     ) {
-        Icon(
-            imageVector = Icons.Filled.Check,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(CHECK_SIZE),
-        )
+        ClearAirIcon(glyph = ClearAirGlyph.CHECK, color = LocalClearAirPalette.current.spark, size = CHECK_SIZE)
     }
 }

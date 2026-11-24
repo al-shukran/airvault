@@ -3,8 +3,6 @@ package app.lumio.send.algorand
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,7 +22,9 @@ import app.lensly.ui.components.LumioIsland
 import app.lensly.ui.components.LumioRow
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
+import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LenslySpacing
+import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.LumioApp
 import app.lumio.LumioRoute
 import app.lumio.data.net.NetworkId
@@ -35,6 +35,7 @@ import app.lumio.network.NetworkMode
 import app.lumio.onVault
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
+import app.lumio.ui.kit.ClearAirField
 import app.lumio.ui.kit.LumioTag
 import app.lumio.wallets.WalletAccounts
 import kotlinx.coroutines.Dispatchers
@@ -90,22 +91,17 @@ internal fun AlgorandAddAssetScreen(
     onBack: () -> Unit,
 ) {
     LenslyScreen(title = "Add Asset", onBack = onBack) {
-        OutlinedTextField(
+        ClearAirField(
+            label = "Search, or enter an asset ID",
             value = query,
             onValueChange = onQuery,
-            label = { Text("Search, or enter an asset ID") },
-            singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(LenslySpacing.md))
         if (reading) {
-            Text("Reading the network", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Reading the network", style = ClearAirType.label, color = LocalClearAirPalette.current.ink2)
         } else if (rows.isEmpty()) {
-            Text(
-                "No asset matches. Type an asset ID to add it.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Text("No asset matches. Type an asset ID to add it.", style = ClearAirType.body, color = LocalClearAirPalette.current.ink2)
         }
         LumioIsland {
             rows.forEach { row ->
