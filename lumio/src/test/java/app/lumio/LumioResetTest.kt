@@ -113,6 +113,7 @@ class LumioResetTest {
         val lock = LockSettingsStore.open(context).also { it.save(LockSettings(AutoLock.AFTER_FIVE_MINUTES)) }
         val gestures = EntryGestureStore.open(context).also { it.save(EntryGesture.PINCH_TRIPLE_TAP) }
         shareReceiveCode()
+        File(layout.photoDir(decoy = false).apply { mkdirs() }, "photo.bin").writeBytes(byteArrayOf(9))
         assertTrue(databaseFile.isFile)
 
         // The caller closes the database first, as LumioApp does.
@@ -121,11 +122,13 @@ class LumioResetTest {
         assertNull(holder.openSession())
         assertFalse(vault.exists())
         assertFalse(File(tmp.root, "data").exists())
+        assertFalse(layout.photos.exists(), "the photos outlived the reset")
         assertFalse(databaseFile.exists())
         assertFalse(receiveShares.exists())
         assertTrue(context.getSharedPreferences(LockSettingsStore.FILE, 0).all.isEmpty())
         assertEquals(LockSettings(), lock.load())
         assertEquals(EntryGesture.PINCH_TRIPLE_TAP, gestures.load())
+        assertEquals(emptyList(), tmp.root.walkTopDown().filter { it.isFile }.toList(), "a file outlived the reset")
     }
 
     @Test

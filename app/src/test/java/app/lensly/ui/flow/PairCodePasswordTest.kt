@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performClick
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleRegistry
 import app.lensly.app.AppNotInstalled
+import app.lensly.app.NoAppsInstalled
 import app.lensly.app.WalletApp
 import app.lensly.app.WalletKind
 import app.lensly.app.WalletMeta
@@ -125,6 +126,33 @@ class PairCodePasswordTest {
     }
 
     /**
+     * Lumio refuses a pairing with no account, so without any installed App no AirVault code is built. The code step says so and opens the
+     * wallet's Apps, and no Done is left to press.
+     */
+    @Test
+    fun aLumioCodeWithNoInstalledAppShowsItsNoticeAndOpensTheApps() {
+        val opened = mutableListOf<String>()
+        showCode(
+            LUMIO_OPTION,
+            check = { PasswordCheck.Accepted },
+            lumioParts = { throw NoAppsInstalled() },
+            onOpenApps = { opened += it },
+        )
+        type(APP_PASSWORD)
+        pressDone()
+
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText("No App Is Installed", ignoreCase = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription(QR_CODE, substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Done", ignoreCase = true).assertDoesNotExist()
+
+        compose.onNodeWithText("Open Apps").performClick()
+
+        assertEquals(listOf(wallet.id), opened)
+    }
+
+    /**
      * Without its Ethereum App, a Rabby code is not built: the code step says so and opens the wallet's Apps, and no Done is left to press.
      */
     @Test
@@ -198,6 +226,10 @@ class PairCodePasswordTest {
         paired: WalletMeta = wallet,
         check: suspend (CharArray) -> PasswordCheck,
         onUnavailable: () -> Unit = {},
+        lumioParts: suspend (WalletMeta) -> List<String> = { meta ->
+            built += meta
+            listOf("ur:x-airvault-pairing/1-1/aa")
+        },
         ethereumParts: suspend (WalletMeta) -> List<String> = { meta ->
             built += meta
             listOf("ur:crypto-multi-accounts/1-1/aa")
@@ -212,10 +244,7 @@ class PairCodePasswordTest {
                     preselected = paired,
                     onDone = {},
                     onLeave = {},
-                    lumioParts = { meta ->
-                        built += meta
-                        listOf("ur:x-airvault-pairing/1-1/aa")
-                    },
+                    lumioParts = lumioParts,
                     ethereumParts = ethereumParts,
                     checkPassword = check,
                     onUnavailable = onUnavailable,

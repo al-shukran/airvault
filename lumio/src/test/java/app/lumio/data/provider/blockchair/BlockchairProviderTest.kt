@@ -12,13 +12,13 @@ import app.lumio.data.provider.OpKey
 import app.lumio.data.provider.Ops
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Request
+import app.lumio.data.provider.Trait
 import app.lumio.data.provider.Utxo
 import java.math.BigInteger
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
-import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
@@ -41,6 +41,7 @@ class BlockchairProviderTest {
     /** A BIP-173 example address, which is public. */
     private val btcAddress = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"
     private val ethAddress = "0x" + "ab".repeat(20)
+    private val fakeKey = "KEY-123"
 
     @Before
     fun start() {
@@ -52,7 +53,7 @@ class BlockchairProviderTest {
         server.close()
     }
 
-    private fun cfg(key: String? = null) = ProviderConfig(baseUrl = server.url("/").toString(), apiKey = key)
+    private fun cfg(key: String? = fakeKey) =ProviderConfig(baseUrl = server.url("/").toString(), apiKey = key)
 
     private fun <T> call(req: Request<T>, cfg: ProviderConfig = cfg()): T = runBlocking { provider.execute(req, cfg, http) }
 
@@ -76,7 +77,7 @@ class BlockchairProviderTest {
         assertEquals("/bitcoin/dashboards/address/$btcAddress", first.encodedPath)
         assertEquals("0,1000", first.queryParameter("limit"))
         assertEquals("0,0", first.queryParameter("offset"))
-        assertNull(first.queryParameter("key"))
+        assertEquals(fakeKey, first.queryParameter("key"))
     }
 
     @Test
@@ -89,8 +90,18 @@ class BlockchairProviderTest {
     }
 
     @Test
-    fun aKeyedPlanHasItsOwnLimits() {
-        assertNotEquals(provider.defaultLimits(cfg()), provider.defaultLimits(cfg(key = "KEY-123")))
+    fun itNeedsAKeyAndTheTraitsSaySo() {
+        assertEquals(setOf(Trait.KEY_REQUIRED), provider.traits)
+        assertEquals(setOf(Trait.KEY_REQUIRED, Trait.FALLBACK_ONLY), BlockchairProvider(fallbackOnly = true).traits)
+    }
+
+    @Test
+    fun withoutAKeyOrWithABlankOneNothingIsSupportedAndNothingIsSent() {
+        assertFalse(provider.supports(BTC, Ops.BTC_UTXOS, cfg(key = null)))
+        assertFalse(provider.supports(ETH, OpKey.on(ETH, "nativeBalance"), cfg(key = " ")))
+        assertFailsWith<ProviderError.Unsupported> { call(AddressUtxos(BTC, btcAddress), cfg(key = null)) }
+        assertFailsWith<ProviderError.Unsupported> { call(NativeBalance(ETH, ethAddress), cfg(key = " ")) }
+        assertEquals(0, server.requestCount)
     }
 
     @Test
@@ -220,7 +231,7 @@ class BlockchairProviderTest {
 
     @Test
     fun aPlainHttpBaseToAnotherHostIsNotSupported() {
-        assertFalse(provider.supports(ETH, OpKey.on(ETH, "nativeBalance"), ProviderConfig(baseUrl = "http://example.org/")))
+        assertFalse(provider.supports(ETH, OpKey.on(ETH, "nativeBalance"), ProviderConfig(baseUrl = "http://example.org/", apiKey = fakeKey)))
     }
 
     @Test

@@ -30,10 +30,17 @@ class DataPluginsRoutingTest {
 
     @Test
     fun theDataProvidersThatServeEthereumAreOfferedBeforeAnyRpcProvider() {
-        val order = offered()
+        val order = offered(configs = mapOf("blockchair" to ProviderConfig(apiKey = "fake-key")))
 
         assertEquals(setOf("routescan", "blockscout", "blockchair", "3xpl"), order.filter { it in dataIds }.toSet())
         assertTrue(order.indexOfLast { it in dataIds } < order.indexOfFirst { it in rpcIds })
+    }
+
+    @Test
+    fun blockchairIsOfferedOnlyOnceItHasAKey() {
+        assertFalse("blockchair" in offered())
+
+        assertTrue("blockchair" in offered(configs = mapOf("blockchair" to ProviderConfig(apiKey = "fake-key"))))
     }
 
     @Test

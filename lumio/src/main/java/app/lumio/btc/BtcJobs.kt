@@ -18,7 +18,8 @@ const val FINAL_CONFIRMATIONS = 6L
 /**
  * Scans the account of [job] and stores its result as the account's last known balance. The account the owner has open (FOREGROUND) also reads its
  * recent transactions. A portfolio scan keeps the transactions of the stored scan. A job whose account is no longer paired has nothing to scan, so it
- * returns at once. A scan that fails part way stores what it had read, then fails: the job stays queued, and the next pass runs it again.
+ * returns at once. A scan that fails part way is stored as incomplete, then fails, and the job stays queued for the next pass. Such a scan replaces the
+ * stored one only when it reads no less (see [isNotWorseThan]); otherwise the stored scan is kept, marked incomplete.
  * [electrumFor] gives the Electrum pool that reads each network, or null to read it from Esplora alone (see [publicElectrumFor]).
  */
 suspend fun scanJob(
@@ -51,10 +52,30 @@ suspend fun scanJob(
             memo = memo.forNetwork(ref.account.network.networkId()),
             detail = detail,
             step = step,
-            onPartial = { save(it.copy(complete = false)) },
+            onPartial = { partial ->
+                val stored = store.snapshot(ref.key)?.takeIf { it.identity == ref.account.receiveAddress(0) }
+                if (stored != null && !partial.isNotWorseThan(stored)) {
+                    // The stored balances and addresses stay, and the refresh is marked incomplete.
+                    store.save(stored.copy(complete = false))
+                } else {
+                    save(partial.copy(complete = false))
+                }
+            },
             electrum = electrumFor(ref.account.network),
         ),
     )
+}
+
+/**
+ * True when this partial scan reads no less than [stored]: it holds every address and every unspent output that [stored] holds, and its balance is
+ * not lower. A scan that fails part way has not read the addresses after the failed request, so it can lack a stored address and the balance of
+ * that address. A failed UTXO request leaves the balance and addresses intact, so the unspent outputs are checked too.
+ */
+private fun BtcSnapshot.isNotWorseThan(stored: BtcSnapshot): Boolean {
+    val outputs = utxos.map { it.txid to it.vout }.toSet()
+    return addresses.containsAll(stored.addresses) &&
+        outputs.containsAll(stored.utxos.map { it.txid to it.vout }) &&
+        confirmedSats + unconfirmedSats >= stored.confirmedSats + stored.unconfirmedSats
 }
 
 /**
