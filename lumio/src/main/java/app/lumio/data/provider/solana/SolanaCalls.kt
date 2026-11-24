@@ -11,6 +11,7 @@ import app.lumio.data.provider.SOLANA_SIGNATURE
 import app.lumio.data.provider.SolanaAccountRead
 import app.lumio.data.provider.SolanaAccountState
 import app.lumio.data.provider.SolanaAddressHistory
+import app.lumio.data.provider.SolanaBalances
 import app.lumio.data.provider.SolanaBlockHeight
 import app.lumio.data.provider.SolanaBlockhash
 import app.lumio.data.provider.SolanaSignatureStatus
@@ -83,6 +84,7 @@ internal class SolanaCalls(
     suspend fun <T> execute(req: Request<T>): T {
         val result: Any? = when (req) {
             is NativeBalance -> lamports(address(req.address))
+            is SolanaBalances -> balances(req.addresses)
             is RecentBlockhash -> blockhash()
             is SolanaBlockHeight -> blockHeight()
             is Broadcast -> broadcast(req.raw)
@@ -99,6 +101,18 @@ internal class SolanaCalls(
     /** `getBalance`: the lamports of [address], which the answer gives as a number in `value`. */
     private suspend fun lamports(address: String): BigInteger =
         call("getBalance", JsonArray(listOf(JsonPrimitive(address)))).asObject()["value"].amount()
+
+    /**
+     * `getMultipleAccounts` with no account data, so the answer is only the lamports of each account, in order. An account that does not exist is null
+     * in the answer and holds 0. An answer with another number of accounts than was asked is a malformed answer.
+     */
+    private suspend fun balances(addresses: List<String>): List<BigInteger> {
+        val keys = JsonArray(addresses.map { JsonPrimitive(address(it)) })
+        val noData = options("dataSlice" to options("offset" to JsonPrimitive(0), "length" to JsonPrimitive(0)))
+        val accounts = call("getMultipleAccounts", JsonArray(listOf(keys, noData))).asObject()["value"].asArray()
+        if (accounts.size != addresses.size) throw ProviderError.Fatal(NOT_A_SOLANA_VALUE)
+        return accounts.map { account -> if (account is JsonNull) BigInteger.ZERO else account.asObject()["lamports"].amount() }
+    }
 
     /** `getLatestBlockhash` at [CONFIRMED]: the blockhash in `value`, and the height after which it is no longer valid. */
     private suspend fun blockhash(): SolanaBlockhash {
