@@ -12,11 +12,12 @@ object BackupExclusion {
     fun allowsBackup(flags: Int): Boolean = flags and ApplicationInfo.FLAG_ALLOW_BACKUP != 0
 
     /**
-     * The error for a build that allows backup. It names the setting and holds no secret. The startup check logs it, and the
-     * screen that refuses provisioning shows it.
+     * The error for a build that allows backup, for the app named [appName]. It names the setting and holds no secret. The startup check
+     * logs it, and the screen that refuses provisioning shows it.
      */
-    const val REFUSAL = "This build allows Android to back up its data, so Lensly does not create a vault in it. " +
-        "A release must set android:allowBackup to false."
+    fun refusal(appName: String): String =
+        "This build allows Android to back up its data, so $appName does not create a vault in it. " +
+            "A release must set android:allowBackup to false."
 
     const val LOG_TAG = "Lensly"
 }

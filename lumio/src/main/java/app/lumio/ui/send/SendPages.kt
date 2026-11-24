@@ -298,7 +298,7 @@ fun SendAmountPage(
 private fun AmountInput(value: String, onValueChange: (String) -> Unit, symbol: String, error: String?) {
     val palette = LocalClearAirPalette.current
     Row(
-        modifier = Modifier.fillMaxWidth().then(rejectOf(error)),
+        modifier = Modifier.fillMaxWidth().then(rejectOf(failed = error != null)),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {

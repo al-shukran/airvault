@@ -57,7 +57,7 @@ class BackupExclusionTest {
         val layout = VaultLayout(File(tmp.root, "vault"))
         val vault = Vault(layout, MemoryKeystore(), FakeClock(), KDF, backupAllowed = true)
 
-        assertEquals(BackupExclusion.REFUSAL, vault.refusal())
+        assertEquals(BackupExclusion.refusal("Lensly"), vault.refusal("Lensly"))
         assertFalse(vault.canCreate())
         assertEquals(CreateResult.BackupAllowed, runBlocking { vault.create(PASSWORD.toCharArray()) })
         assertFalse(vault.exists())
@@ -68,7 +68,7 @@ class BackupExclusionTest {
         val layout = VaultLayout(File(tmp.root, "vault"))
         val vault = Vault(layout, MemoryKeystore(), FakeClock(), KDF, backupAllowed = false)
 
-        assertNull(vault.refusal())
+        assertNull(vault.refusal("Lensly"))
         assertTrue(vault.canCreate())
         assertEquals(CreateResult.Created, runBlocking { vault.create(PASSWORD.toCharArray()) })
         assertTrue(vault.exists())

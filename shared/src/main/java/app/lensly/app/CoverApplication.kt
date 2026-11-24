@@ -25,5 +25,5 @@ fun Context.entryGestureHolder(): EntryGestureHolder = (applicationContext as Co
  * itself refuses to create a vault in such a build, see Vault.refusal.
  */
 fun Application.logBackupExclusion() {
-    if (BackupExclusion.allowsBackup(applicationInfo.flags)) Log.e(BackupExclusion.LOG_TAG, BackupExclusion.REFUSAL)
+    if (BackupExclusion.allowsBackup(applicationInfo.flags)) Log.e(BackupExclusion.LOG_TAG, BackupExclusion.refusal(BackupExclusion.LOG_TAG))
 }

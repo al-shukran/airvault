@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirMotion
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -75,14 +76,17 @@ fun ClearAirRefreshBox(
     )
 }
 
-/** The spark: a diamond in the palette's spark colour that grows with [progress]. While [breathing] its opacity eases between two values. */
+/**
+ * The spark: a diamond in the palette's spark colour, [size] across before it turns, that grows with [progress]. While [breathing] its opacity
+ * eases between two values, and under reduced motion it holds still.
+ */
 @Composable
-private fun ClearAirSpark(progress: Float, breathing: Boolean, modifier: Modifier = Modifier) {
+internal fun ClearAirSpark(progress: Float, breathing: Boolean, modifier: Modifier = Modifier, size: Dp = SPARK_SIZE) {
     val spark = LocalClearAirPalette.current.spark
     val breath = breathOpacity(breathing && !LocalReducedMotion.current)
     Box(
         modifier = modifier
-            .size(SPARK_SIZE)
+            .size(size)
             .graphicsLayer {
                 rotationZ = SPARK_TURN
                 scaleX = progress

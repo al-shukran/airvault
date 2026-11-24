@@ -16,7 +16,7 @@ import app.lensly.app.WalletDraftViewModel
  * shows its counts. The wallet screens are in [walletRoutes].
  */
 internal fun NavGraphBuilder.hiddenGraph(navController: NavHostController, holder: VaultHolder) {
-    hiddenArea(navController, holder, home = HiddenRoute.HOME, warmUp = { RegistryHolder.get(it) }) {
+    hiddenArea(navController, holder, home = HiddenRoute.HOME, appName = "Lensly", warmUp = { RegistryHolder.get(it) }) {
         walletRoutes(navController, holder)
         settingsRoutes(navController, holder)
         addressBookRoutes(navController, holder)

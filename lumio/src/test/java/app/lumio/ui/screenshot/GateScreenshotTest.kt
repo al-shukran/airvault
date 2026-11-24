@@ -1,11 +1,9 @@
 package app.lumio.ui.screenshot
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import app.lensly.ui.gate.UnavailableScreen
-import app.lensly.ui.gate.UnlockScreen
-import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
-import app.lensly.ui.screenshot.coverTheme
-import app.lensly.ui.screenshot.snapshot
+import app.lensly.core.vault.BackupExclusion
+import app.lensly.ui.navigation.UnlockUi
+import app.lumio.ui.gate.ClearAirGateLook
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -14,28 +12,69 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * The gate that Lumio shows behind the camera cover: the unlock screen, idle and while the key is derived, and the unavailable screen. The
- * hidden area draws the shared gate in the cover's theme, so these goldens show the type Lumio's owner sees before the wallet.
+ * The gate that Lumio shows before the wallets, in Clear Air: the unlock page idle, while the key is derived, after a wrong password, during a
+ * failure delay, and the unavailable page. The goldens are in the light theme, and the idle and unavailable pages also in the dark one.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(qualifiers = SCREENSHOT_QUALIFIERS)
+@Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class GateScreenshotTest {
     @get:Rule
     val compose = createComposeRule()
 
     @Test
-    fun unlockIdle() = compose.snapshot("lumio_unlock_idle", theme = coverTheme) {
-        UnlockScreen(length = 6, busy = false, onKey = {}, onBackspace = {}, onSubmit = {})
+    fun unlockIdle() = compose.clearAirSnapshot("lumio_unlock_idle") {
+        ClearAirGateLook.Unlock(unlock(length = 6))
     }
 
     @Test
-    fun unlockWhileKeyIsDerived() = compose.snapshot("lumio_unlock_unlocking", theme = coverTheme) {
-        UnlockScreen(length = 0, busy = true, onKey = {}, onBackspace = {}, onSubmit = {})
+    @Config(qualifiers = LUMIO_DARK_QUALIFIERS)
+    fun unlockIdleDark() = compose.clearAirSnapshot("lumio_unlock_idle_dark") {
+        ClearAirGateLook.Unlock(unlock(length = 6))
     }
 
     @Test
-    fun unavailable() = compose.snapshot("lumio_unavailable", theme = coverTheme) {
-        UnavailableScreen(onClose = {})
+    fun unlockWhileKeyIsDerived() = compose.clearAirSnapshot("lumio_unlock_unlocking") {
+        ClearAirGateLook.Unlock(unlock(busy = true))
     }
+
+    @Test
+    fun unlockWrongTries() = compose.clearAirSnapshot("lumio_unlock_wrong_tries") {
+        ClearAirGateLook.Unlock(unlock(refused = true, triesLeft = 2))
+    }
+
+    @Test
+    fun unlockFailureDelay() = compose.clearAirSnapshot("lumio_unlock_wait") {
+        ClearAirGateLook.Unlock(unlock(length = 6, waitMs = 38_000L))
+    }
+
+    @Test
+    fun unavailable() = compose.clearAirSnapshot("lumio_unavailable") {
+        ClearAirGateLook.Unavailable(detail = null, onClose = {})
+    }
+
+    @Test
+    @Config(qualifiers = LUMIO_DARK_QUALIFIERS)
+    fun unavailableDark() = compose.clearAirSnapshot("lumio_unavailable_dark") {
+        ClearAirGateLook.Unavailable(detail = BackupExclusion.refusal("Lumio"), onClose = {})
+    }
+
+    private fun unlock(
+        length: Int = 0,
+        busy: Boolean = false,
+        refused: Boolean = false,
+        triesLeft: Int? = null,
+        waitMs: Long? = null,
+    ) = UnlockUi(
+        length = length,
+        busy = busy,
+        refused = refused,
+        triesLeft = triesLeft,
+        biometricOff = false,
+        waitMs = waitMs,
+        onClose = {},
+        onKey = {},
+        onBackspace = {},
+        onSubmit = {},
+    )
 }
