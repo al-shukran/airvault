@@ -1,5 +1,6 @@
 package app.lensly.core.registry.update
 
+import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.vault.writeAtomically
@@ -161,11 +162,13 @@ object RegistryUpdate {
             if (baked.network(network.chainId) != null) {
                 throw RegistryUpdateException.Conflict("chain ${network.chainId} is already in the baked catalog")
             }
-            val parent = network.parentChainId
-            if (parent != null && baked.network(parent) == null && pkg.networks.none { it.chainId == parent }) {
-                throw RegistryUpdateException.InvalidEntry(
+            val parent = network.parentChainId ?: continue
+            val settlesTo = baked.network(parent) ?: pkg.networks.firstOrNull { it.chainId == parent }
+                ?: throw RegistryUpdateException.InvalidEntry(
                     "chain ${network.chainId} settles to chain $parent, which is neither baked nor in the package",
                 )
+            if (settlesTo.kind != NetworkKind.LAYER_1) {
+                throw RegistryUpdateException.InvalidEntry("chain ${network.chainId} settles to chain $parent, which is not a Layer 1")
             }
         }
         for (token in pkg.tokens) {

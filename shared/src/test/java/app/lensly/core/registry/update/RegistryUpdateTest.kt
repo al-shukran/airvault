@@ -342,7 +342,7 @@ class RegistryUpdateTest {
             "unknown kind" to TestPackages.payload(networks = network.replace("LAYER_2", "LAYER_3")),
             "not a JSON object" to "[1,2,3]",
             "formatVersion as a string" to TestPackages.payload().replace("\"formatVersion\":2", "\"formatVersion\":\"2\""),
-            "no minSchemaVersion" to TestPackages.payload().replace("\"minSchemaVersion\":1,", ""),
+            "no minSchemaVersion" to TestPackages.payload().replace("\"minSchemaVersion\":4,", ""),
         )
         for ((label, payload) in cases) {
             assertIs<RegistryUpdateException.Malformed>(verifyPayload(payload).exceptionOrNull(), label)

@@ -1,6 +1,9 @@
 package app.lensly.core.registry.update
 
 import app.airvault.abi.WhitelistParam
+import app.lensly.core.registry.FeeModel
+import app.lensly.core.registry.NetworkEntry
+import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
@@ -39,6 +42,19 @@ class WhitelistPackageTest {
 
     private val keys = TestPackages.TRUSTED
     private val baked: Registry = RegistryLoader.load { path -> File(MAIN, path).takeIf(File::isFile)?.readText() }
+
+    /**
+     * A schema 2 or 3 package cannot carry networks, so the chain its whitelist names is baked for those tests.
+     */
+    private val bakedLinea: Registry = baked.withAdditions(
+        listOf(
+            NetworkEntry(
+                chainId = 4242, name = "Linea", nativeSymbol = "ETH", feeModel = FeeModel.L2_ROLLUP, explorerName = "Lineascan",
+                testnet = false, featured = false, kind = NetworkKind.LAYER_2, parentChainId = 1,
+            ),
+        ),
+        emptyList(),
+    )
 
     /** An approved call of the build, on chain 1, which a package that omits its whitelist must keep. */
     private val approvedInBuild = WhitelistEntry(
@@ -199,20 +215,20 @@ class WhitelistPackageTest {
 
     @Test
     fun aWhitelistEntryWithADynamicArgumentNeedsSchemaThree() {
-        val asSchemaTwo = TestPackages.payload(minSchemaVersion = 2, whitelist = DYNAMIC_ENTRY)
-        assertIs<RegistryUpdateException.Malformed>(failure(RegistryUpdate.verify(TestPackages.signed(asSchemaTwo), keys, baked)))
+        val asSchemaTwo = TestPackages.payload(minSchemaVersion = 2, networks = "", tokens = "", whitelist = DYNAMIC_ENTRY)
+        assertIs<RegistryUpdateException.Malformed>(failure(RegistryUpdate.verify(TestPackages.signed(asSchemaTwo), keys, bakedLinea)))
 
-        val asSchemaThree = TestPackages.payload(minSchemaVersion = 3, whitelist = DYNAMIC_ENTRY)
-        val parsed = RegistryUpdate.verify(TestPackages.signed(asSchemaThree), keys, baked).getOrThrow()
+        val asSchemaThree = TestPackages.payload(minSchemaVersion = 3, networks = "", tokens = "", whitelist = DYNAMIC_ENTRY)
+        val parsed = RegistryUpdate.verify(TestPackages.signed(asSchemaThree), keys, bakedLinea).getOrThrow()
         assertEquals(EXECUTE_SELECTOR, checkNotNull(parsed.whitelist).single().selector)
         assertEquals("bytes", checkNotNull(parsed.whitelist).single().params.single().type)
     }
 
     @Test
     fun aNamedTupleArgumentIsReadWithItsFieldNamesInSchemaThree() {
-        val payload = TestPackages.payload(minSchemaVersion = 3, whitelist = TUPLE_ENTRY)
+        val payload = TestPackages.payload(minSchemaVersion = 3, networks = "", tokens = "", whitelist = TUPLE_ENTRY)
 
-        val parsed = RegistryUpdate.verify(TestPackages.signed(payload), keys, baked).getOrThrow()
+        val parsed = RegistryUpdate.verify(TestPackages.signed(payload), keys, bakedLinea).getOrThrow()
 
         val hop = checkNotNull(parsed.whitelist).single()
         assertEquals(HOP_SELECTOR, hop.selector)
@@ -221,16 +237,16 @@ class WhitelistPackageTest {
 
     @Test
     fun aNamedTupleNeedsSchemaThree() {
-        val payload = TestPackages.payload(minSchemaVersion = 2, whitelist = TUPLE_ENTRY)
+        val payload = TestPackages.payload(minSchemaVersion = 2, networks = "", tokens = "", whitelist = TUPLE_ENTRY)
 
-        assertIs<RegistryUpdateException.Malformed>(failure(RegistryUpdate.verify(TestPackages.signed(payload), keys, baked)))
+        assertIs<RegistryUpdateException.Malformed>(failure(RegistryUpdate.verify(TestPackages.signed(payload), keys, bakedLinea)))
     }
 
     @Test
     fun aSchemaTwoPackageWithStaticArgumentsStillVerifies() {
-        val payload = TestPackages.payload(minSchemaVersion = 2, whitelist = TestPackages.LINEA_SWAP)
+        val payload = TestPackages.payload(minSchemaVersion = 2, networks = "", tokens = "", whitelist = TestPackages.LINEA_SWAP)
 
-        val parsed = RegistryUpdate.verify(TestPackages.signed(payload), keys, baked).getOrThrow()
+        val parsed = RegistryUpdate.verify(TestPackages.signed(payload), keys, bakedLinea).getOrThrow()
 
         assertEquals(SWAP_SELECTOR, checkNotNull(parsed.whitelist).single().selector)
     }

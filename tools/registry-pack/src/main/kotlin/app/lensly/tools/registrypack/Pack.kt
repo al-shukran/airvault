@@ -143,6 +143,9 @@ internal object Pack {
 
     /** The schema that adds dynamic, array and tuple arguments, and the names of tuple fields, to whitelist entries. */
     private const val ARGUMENTS_SCHEMA = 3
+
+    /** The schema that adds each network's kind, parent chain and featured flag. */
+    private const val NETWORKS_SCHEMA = 4
     const val MAX_BYTES = 1 shl 20
 
     private val MAGIC = "LRP2".toByteArray(StandardCharsets.US_ASCII)
@@ -290,6 +293,11 @@ internal object Pack {
             require((network.kind == NetworkKind.LAYER_2) == (network.parentChainId != null)) {
                 "network ${network.chainId}: a Layer 2 needs a parent chain, and a Layer 1 has none"
             }
+            network.parentChainId?.let { parent ->
+                require(content.networks.none { it.chainId == parent && it.kind != NetworkKind.LAYER_1 }) {
+                    "network ${network.chainId}: parent chain $parent must be a Layer 1"
+                }
+            }
             requireText("network ${network.chainId} name", network.name)
             requireText("network ${network.chainId} nativeSymbol", network.nativeSymbol)
             require(network.nativeDecimals in 0..MAX_DECIMALS) {
@@ -359,6 +367,9 @@ internal object Pack {
         }
         require(!needsArgumentSchema || content.minSchemaVersion >= ARGUMENTS_SCHEMA) {
             "a whitelist entry with dynamic, array or tuple arguments needs minSchemaVersion $ARGUMENTS_SCHEMA"
+        }
+        require(content.networks.isEmpty() || content.minSchemaVersion >= NETWORKS_SCHEMA) {
+            "a package with networks needs minSchemaVersion $NETWORKS_SCHEMA"
         }
         val newLists = content.denylist != null || content.wallets != null
         require(!newLists || content.minSchemaVersion >= 2) { "a denylist or wallets list needs minSchemaVersion 2" }
