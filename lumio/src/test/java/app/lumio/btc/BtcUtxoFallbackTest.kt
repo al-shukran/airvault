@@ -69,9 +69,10 @@ class BtcUtxoFallbackTest {
             mapOf(
                 "mempool" to ProviderConfig(priority = 0),
                 "blockstream" to ProviderConfig(priority = 1),
-                // A fast bucket, so the second page does not wait for its token. The keyless budget is tested in PageChargeTest.
+                // A fast bucket, so the second page does not wait for its token. The page charge is tested in PageChargeTest.
                 "blockchair" to ProviderConfig(
                     baseUrl = blockchair.url("/").toString(),
+                    apiKey = "fake-key",
                     limits = Limits(rps = 100.0, burst = 10, maxConcurrent = 1),
                 ),
             )

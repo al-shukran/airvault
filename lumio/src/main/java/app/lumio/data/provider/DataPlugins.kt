@@ -11,12 +11,12 @@ import app.lumio.data.provider.threexpl.ThreeXplProvider
  * balance read. So an RPC provider answers only when no DATA provider can serve the read at that moment.
  *
  * Blockchair's Bitcoin outputs are not listed here. The Bitcoin scheduler (LumioApp) lists them as a FALLBACK_ONLY provider, and each page after
- * the first of a call takes its own token from the keyless budget.
+ * the first of a call takes its own token from the call's rate budget.
  */
 object DataPlugins {
     /**
-     * The EVM balance providers. Etherscan is listed, but it serves nothing until a key is set. With [preferRpc], the explorers are left out, so a
-     * balance read goes to the RPC providers only. Each explorer here serves native balances alone, so nothing else changes.
+     * The EVM balance providers. Etherscan and Blockchair are listed, but they serve nothing until a key is set. With [preferRpc], the explorers are
+     * left out, so a balance read goes to the RPC providers only. Each explorer here serves native balances alone, so nothing else changes.
      */
     fun evm(preferRpc: Boolean = false): List<Provider> = if (preferRpc) emptyList() else listOf(
         RoutescanProvider(),
