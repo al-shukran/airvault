@@ -231,10 +231,11 @@ def build_networks(chains, existing, manual, chain_keys, feemodel):
         if old_fee and old_fee != new_fee:
             notes["fee"].append(f"{row['name']} ({cid}): feeModel {old_fee} -> {new_fee} (feemodel.json)")
         row["feeModel"] = new_fee
-        # The fee model is the rule for the kind: an L2_ROLLUP settles to Ethereum (see the rules in README.md).
+        # An L2_ROLLUP settles to Ethereum (see the rules in README.md). The kind follows the parent: a chain with a parent is a Layer 2.
+        parent = ETHEREUM_CHAIN_ID if new_fee == "L2_ROLLUP" else None
         row["featured"] = cid in FEATURED_CHAIN_IDS
-        row["kind"] = "LAYER_2" if new_fee == "L2_ROLLUP" else "LAYER_1"
-        row["parentChainId"] = ETHEREUM_CHAIN_ID if row["kind"] == "LAYER_2" else None
+        row["kind"] = "LAYER_2" if parent is not None else "LAYER_1"
+        row["parentChainId"] = parent
         if row["icon"] is not None and row["icon"] not in chain_keys.values():
             raise SystemExit(f"icon {row['icon']} does not resolve in RegistryIcons.kt")
     for cid in feemodel:
