@@ -2,6 +2,7 @@ package app.lumio.ui.home
 
 import app.lumio.data.config.Fiat
 import app.lumio.data.config.FiatCurrency
+import app.lumio.data.config.FiatRate
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import org.junit.Assert.assertEquals as assertFloat
@@ -25,7 +26,7 @@ class MarketFormatTest {
 
     @Test
     fun aTotalIsWrittenInTheOwnersCurrency() {
-        assertEquals("€1.80 T", compactUsd(3.6e12, Fiat.of(FiatCurrency.EUR, 0.5)))
+        assertEquals("€1.80 T", compactUsd(3.6e12, Fiat.of(FiatCurrency.EUR, FiatRate(FiatCurrency.EUR, 0.5))))
     }
 
     @Test
