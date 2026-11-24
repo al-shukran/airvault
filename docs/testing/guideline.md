@@ -91,7 +91,7 @@ Each fixed bug lands with a failing test in the layer where it was found. Nightl
 ### 2.1 Hard requirements
 
 - **No test demand for untouched code.** A partition runs only when its own paths change. No repo-wide coverage gate; any JaCoCo report is informational and limited to changed files.
-- **Each PR lane finishes in 3 minutes wall clock** (owner rule, 2026-11-23; it was 5 minutes from 2026-11-21), covering checkout, JDK, cache restore and Gradle. `scripts/ci/lane-budget.sh` measures every lane of every `pr-fast` run and, on master, files a `ci-budget` issue for a lane over budget.
+- **Each PR lane finishes in 3 minutes wall clock** (rule from 2026-11-23; it was 5 minutes from 2026-11-21), covering checkout, JDK, cache restore and Gradle. `scripts/ci/lane-budget.sh` measures every lane of every `pr-fast` run and, on master, files a `ci-budget` issue for a lane over budget.
 - **2.1 amendment (2026-11-12): pr-fast test cap 5 min because** the ui-a partition took 180 s on PR 125 with the Gradle cache restored, and earlier PR runs on the same partitions were killed at the 3-minute cap. Cold work that the cache cannot skip (configuration of about 40 s, since no configuration cache survives to CI, and main and test Kotlin compile of about 55 s) does not fit reliably in 3 minutes. The `test` job sets `timeout-minutes: 5`; the other jobs keep their caps.
 - **Over-budget work moves** to a nightly schedule and a comment command (2.5, 2.6).
 - **Docs, text, and non-build config changes run zero test jobs.** The aggregate job in 2.4 keeps branch protection satisfied.
@@ -118,7 +118,7 @@ Each fixed bug lands with a failing test in the layer where it was found. Nightl
 
 The `ui` tests split in three so each stays under the 3-minute cap, and the `lumio` tests and debug APK split into five so each `test` job of `pr-fast` stays under its 5-minute cap. Every test class in `app`, `shared` and `lumio` must be listed in exactly one arm of `run-partition.sh`, in the Gradle call for the module that holds it. A package can hold classes in two modules (`app.lensly.ui.navigation` has one in each), so the match is per module and per class. `check-partitions.sh` fails the `ci` partition when a class is in no arm or in two. It also runs on any PR that touches a test source set, so a new test class is checked on its own PR.
 
-Build paths (`build.gradle.kts`, `gradle.properties`, `settings.gradle.kts`, `gradle/**`) trigger every unit partition. This is the one exception to "touched code only", because build changes can affect any package. Owner to confirm.
+Build paths (`build.gradle.kts`, `gradle.properties`, `settings.gradle.kts`, `gradle/**`) trigger every unit partition. This is the one exception to "touched code only", because build changes can affect any package. Needs confirmation.
 
 A `core` change does not run `ui`; `ui` depends on `core`, and the nightly run covers that gap.
 
@@ -320,7 +320,7 @@ Where the shipped build differs from the text above:
 - **JDK:** CI uses temurin `21.0.13+9` (pinned, not the floating `21`), not the `java-version: '17'` in the 2.4 and 2.5 YAML. The application still targets Java 17.
 - **Partitions:** the PR lane also has `core-parse`, `app` and `registry-pack`, because tests already live in those packages. `core-ur-evm` also selects `app.lensly.core.evm.*`.
 - **`ui` and pixels:** the `ui-a`, `ui-b` and `ui-c` partitions pass `-PprLane`, which excludes `app.lensly.ui.screenshot.*` from the PR lane. Pixel tests run nightly, where the `screenshots` job records the goldens.
-- **Dependency graph:** enabled. The repository variable `DEPENDENCY_GRAPH_ENABLED=true` keeps both halves live: the submission job in `dependency-graph.yml` submits the Gradle graph and succeeds, and `dependency_review` in `pr-fast.yml` diffs it on dependency changes. There is no `continue-on-error`, so a high-severity finding fails `pr-ok`. Reference: https://github.com/heyaibi/lensly/settings/security_analysis.
+- **Dependency graph:** enabled. The repository variable `DEPENDENCY_GRAPH_ENABLED=true` keeps both halves live: the submission job in `dependency-graph.yml` submits the Gradle graph and succeeds, and `dependency_review` in `pr-fast.yml` diffs it on dependency changes. There is no `continue-on-error`, so a high-severity finding fails `pr-ok`. Reference: https://github.com/al-shukran/airvault/settings/security_analysis.
 - **OWASP:** `dependencyCheckAnalyze` runs nightly and reads an optional `NVD_API_KEY`. A cold run takes 10 to 15 min.
 - **Fuzz isolation:** Jazzer and Robolectric cannot share a JVM. Running a fuzz target first corrupts the Robolectric sandbox, and later Robolectric tests fail with `NoClassDefFoundError: JazzerInternal`. The fuzz tests therefore sit behind `-PfuzzLane`, which `run-partition.sh`, `fuzz-nightly.sh` and `nightly.yml` each pass in a separate Gradle invocation.
 - **Benchmark lane:** the benchmark variant needs `benchmarkImplementation` so `androidx.benchmark.IsolationActivity` merges into the application APK; without it every run fails with "Unable to resolve activity for androidx.benchmark.IsolationActivity". The lane runs only `app.lensly.benchmark.*`. Baselines need a manual AOT compile on a reference device, because a Gradle run reinstalls and clears the compiled code; the procedure is in `app/src/androidTest/benchmark-baselines/README.md`.

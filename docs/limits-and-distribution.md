@@ -12,7 +12,7 @@ AirVault is a poor fit if any of these apply:
 - You have only one phone. Lensly must stay on a phone that never connects to a network, and Lumio needs a connected phone. If both run on one phone, the phone that holds your keys is online.
 - You cannot keep the Lensly phone offline all the time, for example because you need it for daily messages, banking or two-factor codes.
 - You may need help recovering. Lensly erases the vault when it cannot verify the vault's state, and when you reach the wrong-password limit you chose (`README.md`, `shared/src/main/java/app/lensly/core/vault/Vault.kt`). The app cannot bring back an erased vault. Your recovery phrase is what restores a wallet.
-- A capable adversary with physical access or forensic tools is among the people you need to protect against. The threat model is tested by an owner-run playbook, [auditing-airvault.md](auditing-airvault.md). This repository records no independent audit, and the playbook lists assumptions the team does not control.
+- A capable adversary with physical access or forensic tools is among the people you need to protect against. The threat model is tested by a project-run playbook, [auditing-airvault.md](auditing-airvault.md). This repository records no independent audit, and the playbook lists assumptions the team does not control.
 
 If you still choose AirVault, keep a separate recovery phrase for every wallet, and keep the Lensly phone offline. [Recover your wallet with a Ledger](recover-with-ledger.md) shows how a Lensly wallet can move to a hardware wallet.
 
