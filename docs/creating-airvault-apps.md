@@ -185,6 +185,16 @@ A vendor builds a chain app the same way the core team does:
 
 A vendor may ship a signer without a wallet side (for example, when the vendor runs its own online wallet that speaks AirVault's QR types). The reverse is not allowed: a wallet side without a signer has nothing to sign with.
 
+### 2.6 Per-Wallet Install
+
+Chain apps are installed per wallet, using the Install and Uninstall actions on the wallet's Apps screen. The term follows the Ledger model.
+
+- A chain app is installed in a wallet when the wallet holds at least one account of that app. No record stores the set, so vaults from earlier versions open with their existing apps installed.
+- A new, restored or decoy wallet holds one Bitcoin account. The user installs the other apps they want.
+- Installing an app creates its account 0. Uninstalling removes all of its accounts. Keys come from the seed, so reinstalling restores the same addresses, but the names, labels and groups of the removed accounts are lost. The uninstall dialog says so.
+- Any app can be uninstalled, Bitcoin included. A wallet with no apps shows an empty state with a Manage Apps action.
+- Lumio and Rabby pairing share only installed apps. A signing request for an app that is not installed is refused, with a prompt to install that app.
+
 ---
 
 ## 3. Interfaces
