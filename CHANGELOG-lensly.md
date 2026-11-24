@@ -6,15 +6,19 @@ All notable changes to Lensly. The format follows [Keep a Changelog](https://kee
 
 ## [1.2.0] - 2026-11-23
 
+**Upgrading:** Upgrading from Lensly 1.0.x is not supported. Uninstall the older version and install this one fresh. Vault data is not carried over, and an installed registry catalog is not carried over either and must be installed again.
+
 ### Fixed
 
 - A passphrase that does not match its confirmation returns to the passphrase entry with both entries cleared, and the 24 words already typed are kept. [Issue #842](https://github.com/al-shukran/airvault/issues/842)
-- An unreadable catalog rollback record is refused instead of being read as zero, so an older signed catalog package is not accepted again. [Issue #831](https://github.com/al-shukran/airvault/issues/831)
+- On a fresh install, an unreadable catalog rollback record is refused instead of being read as zero, so an older signed catalog package is not accepted again. Upgrades from 1.0.x do not get this protection. [Issue #831](https://github.com/al-shukran/airvault/issues/831)
 - Restoring a wallet moves on to the next word as soon as the typed word is one that no other BIP39 word starts with, so such a word needs no SPACE or suggestion tap. [Issue #840](https://github.com/al-shukran/airvault/issues/840)
 - The in-app keyboard lines up like the standard Android keyboard: equal keys, the middle row centred, and no dead gaps between keys. [Issue #841](https://github.com/al-shukran/airvault/issues/841)
 - The word list of a wallet restore scrolls to the word being typed, so a 24-word phrase can be entered past word 15 with the keyboard up. [Issue #843](https://github.com/al-shukran/airvault/issues/843)
 
 ## [1.1.0] - 2026-11-23
+
+**Upgrading:** Upgrading from Lensly 1.0.x is not supported. Uninstall the older version and install this one fresh. Vault data is not carried over, and an installed registry catalog is not carried over either and must be installed again.
 
 ### Added
 
