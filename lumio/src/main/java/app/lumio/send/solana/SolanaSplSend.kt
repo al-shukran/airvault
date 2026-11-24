@@ -38,7 +38,7 @@ object SolanaSplSend {
      * The send of [amount] base units of the token in [balance] from [account] to [recipient]. [sol] is the account's SOL balance, and [nonceValue] the
      * nonce that its nonce account holds. [recipientAccountExists] says whether the recipient already has a token account for the mint. When it does
      * not, the send opens one, paid by the account at [rentLamports]. Throws IllegalArgumentException with the owner's words when the token is in
-     * Token-2022, the amount is not positive, or the SOL cannot pay the fee, the rent reserve and any new account.
+     * Token-2022, the amount is not positive or more than the account holds, or the SOL cannot pay the fee, the rent reserve and any new account.
      */
     fun plan(
         network: NetworkId,
@@ -55,6 +55,7 @@ object SolanaSplSend {
     ): SolanaSendPlan {
         require(balance.program == SolanaTokenAccounts.TOKEN_PROGRAM) { SPL_2022_REFUSAL }
         require(amount > 0UL) { "Enter an amount above 0" }
+        require(balance.amount >= BigInteger(amount.toString())) { "This account does not hold enough of this token." }
         val rent = if (recipientAccountExists) 0L else rentLamports
         // The units the priority fee pays for: the nonce advance, the token transfer, and the token account's creation when it is made.
         val units = SolanaPriorityFee.SYSTEM_UNITS + SolanaPriorityFee.PROGRAM_UNITS + if (recipientAccountExists) 0L else SolanaPriorityFee.PROGRAM_UNITS
