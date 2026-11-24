@@ -102,7 +102,15 @@ class BtcTxMappingTest {
 
         assertEquals(TxStatus.PENDING, tx.status)
         assertEquals(0L, tx.confirmations)
+        assertNull(tx.blockNumber)
         assertEquals(observedAtMs, tx.timestampMs)
+    }
+
+    @Test
+    fun aConfirmedTransactionCarriesTheHeightOfItsBlock() {
+        val tx = map(tx(inputs = listOf(other to 50_000L), outputs = listOf(me to 40_000L), height = 41_208_337L))
+
+        assertEquals(41_208_337L, tx.blockNumber)
     }
 
     @Test

@@ -34,14 +34,16 @@ private val ROW_HEIGHT = 62.dp
 
 /**
  * A row of a list: an optional [leading] logo or monogram, a [title], a [description] under it when given, an optional [trailing] value, and a chevron
- * when the row opens something ([onClick]). It is full-bleed with the page gutter on each side, and it scales to 0.98 while pressed. A long title
- * truncates; the trailing value never does. A [destructive] row, such as a deletion, has its title in rose.
+ * when the row opens something ([onClick]). A [descriptionSuffix] sits after the description's text on its line, such as a row of chain logos. It is
+ * full-bleed with the page gutter on each side, and it scales to 0.98 while pressed. A long title truncates; the trailing value never does. A
+ * [destructive] row, such as a deletion, has its title in rose.
  */
 @Composable
 fun ClearAirRow(
     title: String,
     modifier: Modifier = Modifier,
     description: String? = null,
+    descriptionSuffix: (@Composable () -> Unit)? = null,
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
@@ -75,13 +77,20 @@ fun ClearAirRow(
                 overflow = TextOverflow.Ellipsis,
             )
             if (description != null) {
-                Text(
-                    text = description,
-                    style = ClearAirType.body,
-                    color = palette.ink2,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = description,
+                        style = ClearAirType.body,
+                        color = palette.ink2,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = if (descriptionSuffix == null) Modifier else Modifier.weight(1f, fill = false),
+                    )
+                    if (descriptionSuffix != null) {
+                        Spacer(Modifier.width(ClearAirSpacing.xxs))
+                        descriptionSuffix()
+                    }
+                }
             }
         }
         if (trailing != null) {

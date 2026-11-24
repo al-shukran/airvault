@@ -41,6 +41,7 @@ class TransactionDetailStatesTest {
         status: TxStatus = TxStatus.CONFIRMED,
         direction: TxDirection = TxDirection.OUT,
         explorerUrl: String? = null,
+        blockNumber: Long? = null,
     ): TxDetail = TxDetail(
         tx = LumioTx(
             id = "tx-1",
@@ -55,6 +56,7 @@ class TransactionDetailStatesTest {
             counterparty = friend,
             status = status,
             confirmations = 0L,
+            blockNumber = blockNumber,
             inputData = null,
             memo = null,
         ),
@@ -104,6 +106,22 @@ class TransactionDetailStatesTest {
         show(detail(status = TxStatus.FAILED))
 
         compose.onNodeWithText("Failed", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun aConfirmedTransactionShowsItsBlockWithThousandsSeparators() {
+        show(detail(blockNumber = 41_208_337L))
+
+        // The details sit below the fold of a phone-sized page, so the reader scrolls to them first.
+        compose.onNodeWithText("Block").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("41,208,337").assertIsDisplayed()
+    }
+
+    @Test
+    fun aPendingTransactionHasNoBlockRowYet() {
+        show(detail(status = TxStatus.PENDING))
+
+        assertTrue(compose.onAllNodesWithText("Block").fetchSemanticsNodes().isEmpty())
     }
 
     @Test

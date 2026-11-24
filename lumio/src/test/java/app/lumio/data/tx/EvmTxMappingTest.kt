@@ -15,6 +15,7 @@ class EvmTxMappingTest {
     private val other = "0x" + "cd".repeat(20)
     private val hash = "0x" + "1a".repeat(32)
     private val usdc = "0x" + "ee".repeat(20)
+    private val block = 18_000_000L
 
     private fun normal(
         from: String,
@@ -29,6 +30,7 @@ class EvmTxMappingTest {
         from = from,
         to = to,
         confirmations = 1_000L,
+        blockNumber = block,
         valueWei = valueWei,
         failed = failed,
         gasUsed = BigInteger.valueOf(21_000),
@@ -43,6 +45,7 @@ class EvmTxMappingTest {
         from = from,
         to = to,
         confirmations = 900L,
+        blockNumber = block,
         contract = usdc,
         name = "USD Coin",
         symbol = "USDC",
@@ -52,6 +55,12 @@ class EvmTxMappingTest {
     )
 
     private fun map(vararg rows: ExplorerTx, account: String = me): List<LumioTx> = rows.toList().toLumioTxs(account, ETH, native)
+
+    @Test
+    fun aTransactionAndATokenTransferCarryTheBlockTheyAreIn() {
+        assertEquals(block, map(normal(from = other, to = me)).single().blockNumber)
+        assertEquals(block, map(token(from = other, to = me)).single().blockNumber)
+    }
 
     @Test
     fun anIncomingTransactionIsInWithTheSenderAsTheCounterpartyAndNoFee() {
