@@ -57,6 +57,7 @@ class AddTokenScreenTest {
         holding: TokenHolding? = null,
         problem: String? = null,
         busy: Boolean = false,
+        checking: Boolean = false,
     ) {
         compose.setContent {
             LumenTheme {
@@ -67,6 +68,7 @@ class AddTokenScreenTest {
                     custom = custom,
                     address = address,
                     busy = busy,
+                    checking = checking,
                     found = found,
                     holding = holding,
                     problem = problem,
@@ -152,10 +154,28 @@ class AddTokenScreenTest {
     }
 
     @Test
-    fun whileALookupRunsTheFieldAndButtonsAreHeld() {
-        show(busy = true)
+    fun whileALookupRunsALineSaysSoAndPasteAndChangeStayOpen() {
+        show(checking = true)
+
+        compose.onNodeWithTag("token-checking").assertTextContains("Checking…", substring = true)
+        compose.onNodeWithTag("token-paste").assertIsEnabled()
+        compose.onNodeWithText("Change").assertIsEnabled()
+    }
+
+    @Test
+    fun whileALookupRunsOnlyAddIsHeld() {
+        show(found = pepe, checking = true)
+
+        compose.onNodeWithTag("token-add").assertIsNotEnabled()
+        compose.onNodeWithText("Cancel", ignoreCase = true).assertIsEnabled()
+    }
+
+    @Test
+    fun whileATokenIsSavedThePasteAndButtonsAreHeld() {
+        show(found = pepe, busy = true)
 
         compose.onNodeWithTag("token-paste").assertIsNotEnabled()
+        compose.onNodeWithTag("token-add").assertIsNotEnabled()
     }
 
     @Test

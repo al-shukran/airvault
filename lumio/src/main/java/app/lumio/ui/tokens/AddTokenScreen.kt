@@ -28,7 +28,8 @@ import app.lumio.ui.settings.SettingsGroup
  * pasted, or when the owner leaves the field or presses Done. A token it finds shows a line that says so, then its name, symbol and decimals, and the owner's [holding] of it, above the Add Token
  * button. A note sits above the button, because a token's name proves nothing. Below, the chain's bundled tokens and the owner's own, and Remove on
  * the owner's. [onChangeNetwork] opens the choice of network. The screen keeps no state of its own:
- * [address], [found], [holding] and [problem] come from the caller, and each action goes back to it. [busy] holds the controls while a read is running.
+ * [address], [found], [holding] and [problem] come from the caller, and each action goes back to it. [busy] holds the controls while a token is saved.
+ * While a lookup runs, [checking] shows a line that says so, and holds only Add: Paste, Change and Cancel still change the address or the choice.
  */
 @Composable
 fun AddTokenScreen(
@@ -37,6 +38,7 @@ fun AddTokenScreen(
     custom: List<Token>,
     address: String,
     busy: Boolean,
+    checking: Boolean,
     found: Token?,
     holding: TokenHolding?,
     problem: String?,
@@ -80,13 +82,22 @@ fun AddTokenScreen(
                     )
                 },
             )
-            found?.let {
+            if (checking) {
                 ClearAirStatusMark(
-                    glyph = "✓",
-                    text = "Found on $chainName",
-                    tone = ClearAirTone.Settled,
-                    modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.xs).testTag("token-found"),
+                    glyph = "…",
+                    text = "Checking…",
+                    tone = ClearAirTone.Pending,
+                    modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.xs).testTag("token-checking"),
                 )
+            } else {
+                found?.let {
+                    ClearAirStatusMark(
+                        glyph = "✓",
+                        text = "Found on $chainName",
+                        tone = ClearAirTone.Settled,
+                        modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.xs).testTag("token-found"),
+                    )
+                }
             }
         }
         found?.let { token ->
@@ -96,7 +107,7 @@ fun AddTokenScreen(
             holding?.let { ClearAirRow(title = it.label, description = it.amount) }
             ClearAirNote(text = "Anyone can create a token with any name. Add only tokens you trust.", modifier = Modifier.padding(top = ClearAirSpacing.md))
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md)) {
-                ClearAirPrimaryButton(text = "Add Token", onClick = { onAdd(token) }, enabled = !busy, modifier = Modifier.testTag("token-add"))
+                ClearAirPrimaryButton(text = "Add Token", onClick = { onAdd(token) }, enabled = !busy && !checking, modifier = Modifier.testTag("token-add"))
                 ClearAirTextAction(text = "Cancel", onClick = onCancel, enabled = !busy)
             }
         }

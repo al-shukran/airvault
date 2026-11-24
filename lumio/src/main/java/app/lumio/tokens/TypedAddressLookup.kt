@@ -47,12 +47,25 @@ internal class TypedAddressLookup(
         validContract(next)?.let { start(it, PAUSE_MS) }
     }
 
-    /** The owner left the field or pressed Done. A lookup waiting or running for this text is left to finish, so no lookup repeats. */
+    /**
+     * The owner left the field or pressed Done. A text that is not an address reports why, as the owner's words. A lookup waiting or running for
+     * this text is left to finish, so no lookup repeats.
+     */
     fun commit() {
         if (job?.isActive == true) return
-        val contract = validContract(text) ?: return
+        val contract = try {
+            CustomTokenLookup.contractOf(text)
+        } catch (e: IllegalArgumentException) {
+            onState(State.Done(Result.failure(e)))
+            return
+        }
         if (answered == contract) return
         start(contract, 0L)
+    }
+
+    /** The owner dismissed the token the lookup found. The next [commit] looks the address up again. */
+    fun forget() {
+        answered = null
     }
 
     private fun start(contract: String, pauseMs: Long) {

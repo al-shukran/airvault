@@ -100,4 +100,44 @@ class TypedAddressLookupTest {
         assertEquals(2, calls)
         assertEquals(pepe, lastDone().getOrNull())
     }
+
+    @Test
+    fun leavingTheFieldOnTextThatIsNotAnAddressSaysWhy() = runTest {
+        val reads = mutableListOf<String>()
+        val lookup = TypedAddressLookup(this, read = { reads += it; pepe }, onState = { states += it })
+
+        lookup.changed("0x1234")
+        advanceUntilIdle()
+        lookup.commit()
+        assertEquals("Enter a contract address: 0x and 40 hex digits.", lastDone().exceptionOrNull()?.message)
+
+        lookup.changed("0x" + "g".repeat(40))
+        lookup.commit()
+        assertEquals("Enter a contract address: 0x and 40 hex digits.", lastDone().exceptionOrNull()?.message)
+
+        lookup.changed("0x" + "0".repeat(40))
+        lookup.commit()
+        assertEquals("That is the zero address, not a token contract.", lastDone().exceptionOrNull()?.message)
+
+        assertEquals(emptyList(), reads)
+    }
+
+    @Test
+    fun aDismissedTokenIsLookedUpAgainOnDone() = runTest {
+        val reads = mutableListOf<String>()
+        val lookup = TypedAddressLookup(this, read = { reads += it; pepe }, onState = { states += it })
+
+        lookup.changed(pepeAddress)
+        advanceUntilIdle()
+        lookup.commit()
+        advanceUntilIdle()
+        assertEquals(1, reads.size)
+
+        lookup.forget()
+        lookup.commit()
+        advanceUntilIdle()
+
+        assertEquals(2, reads.size)
+        assertEquals(pepe, lastDone().getOrNull())
+    }
 }

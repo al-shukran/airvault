@@ -56,6 +56,14 @@ private fun ownerWords(error: Throwable): String = when (error) {
     else -> "The token could not be read. Try again."
 }
 
+/** The line that names the account holding a found token. An account without a name is "Account 1", as the rest of Lumio names it. */
+internal fun holdingLabel(account: PairedAccount): String = "${account.name ?: "Account ${account.index + 1}"} Holds"
+
+/** Picking the network the page already shows changes nothing, so the typed address and the found token stay. Any other network opens its own page. */
+internal fun onNetworkPicked(current: Long, picked: Long, open: (Long) -> Unit) {
+    if (picked != current) open(picked)
+}
+
 /** The tokens of [chainId] as the screen shows them. Reads the vault, so the caller runs it off the main thread. */
 private fun loadTokens(app: LumioApp, session: VaultSession, chainId: Long, selection: NetworkSelection): TokenListState {
     val settings = EvmSettingsStore.read(session)
@@ -121,7 +129,7 @@ internal fun AddTokenRoute(
         val amount = withContext(Dispatchers.IO) {
             runCatching { TokenBalances.balance(app.evmReadsFor(open), chain, account.address, token.contract) }.getOrNull()
         }
-        holding = amount?.let { TokenHolding(label = account.name?.let { "$it Holds" } ?: "Holds", amount = holdingText(it, token)) }
+        holding = amount?.let { TokenHolding(label = holdingLabel(account), amount = holdingText(it, token)) }
     }
 
     // Looks up the address as the owner types or pastes it, and when the owner leaves the field. A token the owner already has is named as such, and not offered again.
@@ -186,7 +194,8 @@ internal fun AddTokenRoute(
         defaults = current.defaults,
         custom = current.custom,
         address = address,
-        busy = checking || adding,
+        busy = adding,
+        checking = checking,
         found = found,
         holding = holding,
         problem = problem,
@@ -197,7 +206,10 @@ internal fun AddTokenRoute(
         },
         onLookUp = lookup::commit,
         onAdd = ::add,
-        onCancel = { found = null },
+        onCancel = {
+            found = null
+            lookup.forget()
+        },
         onChangeNetwork = { choosingNetwork = true },
         onRemove = ::remove,
         onBack = { navController.popBackStack() },
@@ -217,7 +229,9 @@ internal fun AddTokenRoute(
                             selected = option.chainId == chainId,
                             onPick = {
                                 choosingNetwork = false
-                                navController.navigate(LumioRoute.tokens(option.chainId)) { popUpTo(LumioRoute.TOKENS) { inclusive = true } }
+                                onNetworkPicked(current = chainId, picked = option.chainId) { picked ->
+                                    navController.navigate(LumioRoute.tokens(picked)) { popUpTo(LumioRoute.TOKENS) { inclusive = true } }
+                                }
                             },
                         )
                     },
