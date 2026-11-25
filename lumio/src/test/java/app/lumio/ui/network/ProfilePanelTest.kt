@@ -63,6 +63,20 @@ class ProfilePanelTest {
     }
 
     @Test
+    fun theTestNetworkSentenceShowsOnTheTestnetSide() {
+        compose.setContent { Shell(mode = NetworkMode.TESTNET) }
+        openPanel()
+        compose.onNodeWithText(testNetworkSentence(listOf("Monad Testnet"))).assertIsDisplayed()
+    }
+
+    @Test
+    fun theTestNetworkSentenceIsNotOnTheMainnetSide() {
+        compose.setContent { Shell() }
+        openPanel()
+        compose.onAllNodesWithText(testNetworkSentence(listOf("Monad Testnet"))).assertCountEquals(0)
+    }
+
+    @Test
     fun choosingAWalletSetsTheScopeAndTheRadio() {
         compose.setContent { Shell() }
         openPanel()
@@ -117,22 +131,22 @@ class ProfilePanelTest {
     private fun row(name: String) = compose.onNode(isSelectable() and hasText(name, substring = true))
 
     @Composable
-    private fun Shell(scanNote: String? = null, scanReady: Boolean = true) {
+    private fun Shell(scanNote: String? = null, scanReady: Boolean = true, mode: NetworkMode = NetworkMode.MAINNET) {
         LumenTheme {
             ClearAirTheme {
-                Root(scanNote, scanReady)
+                Root(scanNote, scanReady, mode)
             }
         }
     }
 
     @Composable
-    private fun Root(scanNote: String?, scanReady: Boolean) {
+    private fun Root(scanNote: String?, scanReady: Boolean, mode: NetworkMode) {
         var active by remember { mutableStateOf("air1") }
         var scanned by remember { mutableStateOf<String?>(null) }
         LumioRootScreen(
             tab = LumioTab.HOME,
             title = WALLETS.first { it.id == active }.name,
-            mode = NetworkMode.MAINNET,
+            mode = mode,
             onMode = {},
             panelWallets = WALLETS,
             activeWalletId = active,

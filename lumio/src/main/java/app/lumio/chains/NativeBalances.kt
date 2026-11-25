@@ -1,5 +1,6 @@
 package app.lumio.chains
 
+import app.lumio.DebugDemoData
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.vault.VaultSession
@@ -85,7 +86,7 @@ object NativeBalances {
      * own health and rates, apart from the EVM and Bitcoin schedulers.
      */
     fun schedulerOf(session: VaultSession, http: Http, scope: CoroutineScope, allowLocalHttp: Boolean): Scheduler = Scheduler(
-        providers = ProviderCatalog.algorandProviders() + ProviderCatalog.solanaProviders(allowLocalHttp),
+        providers = DebugDemoData.providers(ProviderCatalog.algorandProviders() + ProviderCatalog.solanaProviders(allowLocalHttp)),
         configs = { ProviderConfigStore(session).load() },
         http = http,
         clock = MonotonicClock,

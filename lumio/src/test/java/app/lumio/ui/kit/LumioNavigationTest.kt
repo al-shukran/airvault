@@ -12,6 +12,8 @@ import app.lensly.ui.navigation.NavReducedMotion
 import app.lensly.ui.navigation.cutWhenReduced
 import app.lensly.ui.theme.LumenTheme
 import app.lumio.LumioRoute
+import app.lumio.backToAccounts
+import app.lumio.openTab
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -96,6 +98,54 @@ class LumioNavigationTest {
         compose.mainClock.advanceTimeBy(600)
         compose.onNodeWithText("Wallets screen").assertDoesNotExist()
         compose.onNodeWithText("Settings screen").assertExists()
+    }
+
+    @Test
+    fun backFromAnotherTabReturnsToHomeTheStartTab() {
+        showTabs()
+
+        compose.runOnIdle { nav.openTab(LumioTab.ACCOUNTS) }
+        compose.runOnIdle { nav.openTab(LumioTab.SETTINGS) }
+        compose.runOnIdle { nav.popBackStack() }
+
+        assertEquals(LumioRoute.HOME, nav.currentBackStackEntry?.destination?.route)
+    }
+
+    @Test
+    fun backToAccountsOpensAccountsWhenPairingStartedFromAnotherTab() {
+        showTabs()
+
+        compose.runOnIdle { nav.openTab(LumioTab.SETTINGS) }
+        compose.runOnIdle { nav.navigate(LumioRoute.PAIR_SCAN) }
+        compose.runOnIdle { nav.backToAccounts() }
+
+        assertEquals(LumioRoute.WALLETS, nav.currentBackStackEntry?.destination?.route)
+    }
+
+    @Test
+    fun backToAccountsPopsToAccountsWhenItIsOnTheStack() {
+        showTabs()
+
+        compose.runOnIdle { nav.openTab(LumioTab.ACCOUNTS) }
+        compose.runOnIdle { nav.navigate(LumioRoute.PAIR_SCAN) }
+        compose.runOnIdle { nav.backToAccounts() }
+
+        assertEquals(LumioRoute.WALLETS, nav.currentBackStackEntry?.destination?.route)
+        assertEquals(listOf(LumioRoute.HOME, LumioRoute.WALLETS), nav.currentBackStack.value.mapNotNull { it.destination.route })
+    }
+
+    private fun showTabs() {
+        compose.setContent {
+            LumenTheme {
+                nav = rememberNavController()
+                NavHost(navController = nav, startDestination = LumioRoute.HOME) {
+                    for (route in listOf(LumioRoute.HOME, LumioRoute.WALLETS, LumioRoute.SETTINGS, LumioRoute.PAIR_SCAN)) {
+                        lumioComposable(route) { Text(route) }
+                    }
+                }
+            }
+        }
+        compose.waitForIdle()
     }
 
     private fun showScreens() {

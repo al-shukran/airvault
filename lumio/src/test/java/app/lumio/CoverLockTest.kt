@@ -126,6 +126,17 @@ class CoverLockTest {
     }
 
     @Test
+    fun oneMonth_staysOpenForTwentyNineDaysAndLocksAfterThirty() {
+        val day = 24 * 60 * MINUTE
+        showHiddenArea(LockSettings(AutoLock.AFTER_ONE_MONTH).policy)
+        lifecycle(Lifecycle.Event.ON_STOP)
+        compose.mainClock.advanceTimeBy(29 * day)
+        assertEquals(LenslyRoute.HIDDEN, route())
+        compose.mainClock.advanceTimeBy(2 * day)
+        assertEquals(LenslyRoute.CAMERA, route())
+    }
+
+    @Test
     fun defaults_timeAwayInTheBackgroundCountsTowardTheTimeout() {
         showHiddenArea(defaults)
         compose.mainClock.advanceTimeBy(10 * MINUTE)
