@@ -53,9 +53,10 @@ fun SettingsFrame(
     onBack: () -> Unit,
     onLock: () -> Unit,
     backLabel: String = SETTINGS_BACK,
+    sheet: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    LumioPageScreen(title = title, backLabel = backLabel, offline = offline, onBack = onBack, onLock = onLock) {
+    LumioPageScreen(title = title, backLabel = backLabel, offline = offline, onBack = onBack, onLock = onLock, sheet = sheet) {
         val scroll = rememberScrollState()
         val page = remember(scroll) { PageScroll(scroll) }
         CompositionLocalProvider(LocalPageScroll provides page) {
@@ -78,9 +79,10 @@ fun SettingsPageScreen(
     onBack: () -> Unit,
     onLock: () -> Unit,
     backLabel: String = SETTINGS_BACK,
+    sheet: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    SettingsFrame(title = page.title, offline = offline, onBack = onBack, onLock = onLock, backLabel = backLabel, content = content)
+    SettingsFrame(title = page.title, offline = offline, onBack = onBack, onLock = onLock, backLabel = backLabel, sheet = sheet, content = content)
 }
 
 /** A group of a settings page: its eyebrow, then its rows. */
