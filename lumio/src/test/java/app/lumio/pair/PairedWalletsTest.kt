@@ -7,6 +7,7 @@ import app.lensly.app.export.PairingPayload
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.btc.ScriptType
+import app.lensly.core.vault.KeystoreBackend
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
@@ -15,6 +16,7 @@ import app.lensly.core.wallet.HdWallet
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.util.UUID
+import javax.crypto.SecretKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -362,6 +364,41 @@ class PairedWalletsTest {
 
         assertEquals(emptyList<PairedWallet>(), PairedWallets.list(session))
         assertEquals(emptyMap<String, List<AddressBookEntry>>(), PairAddressBooks.load(session))
+    }
+
+    @Test
+    fun theListIsReadOnceUntilAWriteChangesIt() {
+        val counting = CountingKeystore(MemoryKeystore())
+        val counted = VaultSession(VaultLayout(tmp.newFolder()), counting, ByteArray(32) { (it * 5 + 1).toByte() })
+        PairedWallets.save(counted, payload(accounts = listOf(account(0, "A"), account(1, "B"))), nowMs = 100L)
+        counted.listWallets()
+        counting.opened = 0
+
+        val first = PairedWallets.list(counted)
+        val readsForOneWallet = counting.opened
+        val second = PairedWallets.list(counted)
+
+        // The folder's key is unwrapped once for all of the wallet's records, and a second list reads nothing.
+        assertEquals(1, readsForOneWallet)
+        assertEquals(readsForOneWallet, counting.opened)
+        assertEquals(first, second)
+
+        PairedWallets.save(counted, payload(accounts = listOf(account(0, "A"), account(1, "Renamed"))), nowMs = 200L)
+        counting.opened = 0
+        val third = PairedWallets.list(counted)
+
+        assertEquals(1, counting.opened)
+        assertEquals("Renamed", third.single().evmAccounts[1].name)
+    }
+
+    /** A Keystore that counts the folder keys it hands out, one for each unwrap of a wallet's key. */
+    private class CountingKeystore(private val inner: KeystoreBackend) : KeystoreBackend by inner {
+        var opened = 0
+
+        override fun folderKey(keyId: String): SecretKey? {
+            opened++
+            return inner.folderKey(keyId)
+        }
     }
 
     /**
