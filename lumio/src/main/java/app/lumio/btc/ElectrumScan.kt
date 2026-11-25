@@ -4,6 +4,7 @@ import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lumio.data.electrum.ElectrumPool
+import app.lumio.data.electrum.headerTip
 import app.lumio.data.electrum.scripthash
 import app.lumio.data.electrum.scripthashBalances
 import app.lumio.data.electrum.scripthashHistories
@@ -21,6 +22,15 @@ import kotlinx.coroutines.launch
  */
 internal fun publicElectrumFor(pool: ElectrumPool, network: BtcNetwork, owned: Set<BtcNetwork>): ElectrumPool? =
     pool.takeIf { network == BtcNetwork.MAINNET && network !in owned }
+
+/** The height of the best block that [pool] reports, or null when no server answers, so that the caller asks Esplora. A cancellation is passed on. */
+internal suspend fun electrumTip(pool: ElectrumPool): Long? = try {
+    pool.withServer { it.headerTip().height }
+} catch (e: CancellationException) {
+    throw e
+} catch (e: Exception) {
+    null
+}
 
 /** What an Electrum read of one account found: the used addresses of each chain, and the unspent outputs of the addresses that hold coins. */
 internal class ElectrumRead(val receive: List<UsedAddress>, val change: List<UsedAddress>, val utxos: List<BtcUtxo>)

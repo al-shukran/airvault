@@ -63,7 +63,7 @@ stale=$(comm -13 <(printf '%s\n' "$known") <(printf '%s\n' "$listed_sorted" | so
 doubled=$(printf '%s\n' "$listed_sorted" | uniq -d)
 unlisted=$(comm -23 <(printf '%s\n' "$known") <(printf '%s\n' "$listed_sorted" | sort -u) | grep -c . || true)
 catch_all=$(comm -23 <(printf '%s\n' "$known") <(printf '%s\n' "$listed_sorted" | sort -u) \
-  | grep -v -E '^:shared app\.lensly\.fuzz\. |^:(app|lumio) [^ ]*ScreenshotTest$' || true)
+  | grep -v -E '^:shared app\.lensly\.fuzz\.|^:(app|lumio) [^ ]*ScreenshotTest$' || true)
 
 status=0
 if [ -n "$doubled" ]; then

@@ -189,6 +189,7 @@ class AddTokenScreenTest {
         // The pasted groups are read without their spaces, and the field shows them in groups of four.
         assertEquals("0x6b175474e89094c44da98b954eedeac495271d0f", address)
         compose.onNodeWithTag("token-address").assertTextContains("0x6b17 5474 e890 94c4 4da9 8b95 4eed eac4 9527 1d0f")
+        assertEquals(1, looked)
         assertNull(added)
     }
 }
