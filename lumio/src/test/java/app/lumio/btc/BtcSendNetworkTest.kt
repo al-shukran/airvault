@@ -238,8 +238,11 @@ class BtcSendNetworkTest {
             }),
         )
         return FakeElectrum(TestIdentities.server, answer = { method, params ->
-            val holds = params[0].jsonPrimitive.content == funded
+            val holds = params.firstOrNull()?.jsonPrimitive?.content == funded
             when (method) {
+                "blockchain.headers.subscribe" -> Answer.Reply(
+                    buildJsonObject { put("height", JsonPrimitive(850_000)); put("hex", JsonPrimitive("00")) },
+                )
                 "blockchain.scripthash.get_history" -> Answer.Reply(if (holds) history else JsonArray(emptyList()))
                 "blockchain.scripthash.get_balance" -> Answer.Reply(
                     buildJsonObject { put("confirmed", JsonPrimitive(if (holds) 100_000L else 0L)); put("unconfirmed", JsonPrimitive(0L)) },
