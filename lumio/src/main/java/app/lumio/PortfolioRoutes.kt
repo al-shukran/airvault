@@ -97,6 +97,7 @@ internal fun PortfolioTab(navController: NavHostController, holder: VaultHolder,
             otherSide = otherSide,
             onReceive = receive,
             iconOf = { row -> portfolioIcon(app, row) },
+            chainIconsOf = { row -> row.networks.map { AssetRows.nativeIcon(it, row.coin, app.registry::network) } },
         )
     }
 }

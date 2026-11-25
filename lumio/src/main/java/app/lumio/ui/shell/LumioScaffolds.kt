@@ -27,6 +27,7 @@ import app.lumio.ui.kit.ClearAirRootTopBar
 import app.lumio.ui.kit.ClearAirStatusBand
 import app.lumio.ui.kit.ClearAirTabBar
 import app.lumio.ui.kit.LumioTab
+import app.lumio.ui.kit.WalletEmblemTone
 import app.lumio.ui.network.PanelWallet
 import app.lumio.ui.network.ProfilePanel
 import app.lumio.ui.kit.ClearAirSheet
@@ -66,6 +67,7 @@ fun LumioRootScreen(
             ClearAirRootTopBar(
                 title = title,
                 switcher = tab == LumioTab.HOME,
+                emblem = panelWallets.firstOrNull { it.id == activeWalletId }?.tone ?: WalletEmblemTone.BLUE,
                 onPanel = { panelOpen = true },
                 onSearch = { searchOpen = true },
                 onLock = onLock,

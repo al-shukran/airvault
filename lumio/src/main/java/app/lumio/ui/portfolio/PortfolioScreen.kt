@@ -49,6 +49,7 @@ import app.lumio.portfolio.SentencePicker
 import app.lumio.portfolio.sentence
 import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.home.AssetDisc
+import app.lumio.ui.home.ChainDots
 import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.home.letterOf
 import app.lumio.ui.kit.ChoiceGroup
@@ -71,7 +72,8 @@ import java.time.ZoneId
 
 /**
  * The Portfolio tab: the total of the side, what it is made of, and the balances that the filter sentence describes. Each underlined phrase opens a
- * radio sheet, and a choice applies and closes it. [holdings] is null until the side is read, so the tab shows its frame and no number.
+ * radio sheet, and a choice applies and closes it. [holdings] is null until the side is read, so the tab shows its frame and no number. A row that adds up
+ * several networks shows their logos ([chainIconsOf]) after its description.
  */
 @Composable
 fun PortfolioScreen(
@@ -91,6 +93,7 @@ fun PortfolioScreen(
     otherSide: OtherSide? = null,
     onReceive: (() -> Unit)? = null,
     iconOf: (PortfolioRow) -> AssetIconSpec = { AssetIconSpec.Letter(letterOf(it.coin)) },
+    chainIconsOf: (PortfolioRow) -> List<AssetIconSpec> = { emptyList() },
 ) {
     var picker by remember { mutableStateOf<SentencePicker?>(null) }
     var showSmall by rememberSaveable { mutableStateOf(false) }
@@ -135,6 +138,7 @@ fun PortfolioScreen(
                 ClearAirRow(
                     title = row.title,
                     description = describe(row, showBalance),
+                    descriptionSuffix = if (row.merged) ({ ChainDots(chainIconsOf(row)) }) else null,
                     leading = { AssetDisc(iconOf(row)) },
                     trailing = { RowValue(row = row, shown = showBalance) },
                     divider = index > 0,
