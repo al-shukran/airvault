@@ -12,7 +12,7 @@ import androidx.navigation.compose.composable
 import app.lensly.ui.theme.LumenTheme
 
 /**
- * A screen of Lensly's hidden area, in the Lumen theme, with the transition of its [motion] class (section 3.2 of the Phase 2.8 spec). The
+ * A screen of Lensly's hidden area, in the Lumen theme, with the transition of its [motion] class. The
  * default is a Push. A [NavMotion.ROOT] screen keeps the NavHost's transition. The activity sets the camera cover's theme at the root, so the
  * cover and the gate keep it and every route that goes through here takes Lumen, including the status and navigation bar icons.
  */
@@ -29,6 +29,7 @@ fun NavGraphBuilder.vaultComposable(
             content(entry)
         }
     }
+    if (motion == NavMotion.RISE) riseRoutes += route
     if (motion == NavMotion.ROOT) {
         composable(route = route, arguments = arguments, deepLinks = deepLinks, content = screen)
     } else {
@@ -37,8 +38,8 @@ fun NavGraphBuilder.vaultComposable(
             arguments = arguments,
             deepLinks = deepLinks,
             enterTransition = { cutWhenReduced(NavReducedMotion.reduced, EnterTransition.None) { enterOf(motion) } },
-            exitTransition = { cutWhenReduced(NavReducedMotion.reduced, ExitTransition.None) { exitTowards(motion) } },
-            popEnterTransition = { cutWhenReduced(NavReducedMotion.reduced, EnterTransition.None) { popEnterFrom(motion) } },
+            exitTransition = { cutWhenReduced(NavReducedMotion.reduced, ExitTransition.None) { LenslyNavTransitions.exit(this) } },
+            popEnterTransition = { cutWhenReduced(NavReducedMotion.reduced, EnterTransition.None) { LenslyNavTransitions.popEnter(this) } },
             popExitTransition = { cutWhenReduced(NavReducedMotion.reduced, ExitTransition.None) { popExitOf(motion) } },
             content = screen,
         )

@@ -25,7 +25,7 @@ object ClearAirMotion {
     val sheet: SpringSpec<Float> = spring(dampingRatio = 0.9f, stiffness = 520f)
     const val SCRIM_MS = 200
 
-    /** A full-screen push, which is a new place: 240 ms on a decelerating curve, with a 1/12-width slide and a fade. */
+    /** A full-screen push, which is a new place: 240 ms on a decelerating curve, sliding in from the right over a still screen. */
     const val PUSH_MS = 240
     val pushEasing: Easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
 
