@@ -6,6 +6,7 @@ import app.lensly.core.vault.VaultSession
 import app.lumio.data.containsBytes
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -59,5 +60,25 @@ class ProviderConfigStoreTest {
         val text = ProviderConfig(apiKey = "k-marker", baseUrl = "https://example.invalid/k-marker").toString()
 
         assertFalse(text.contains("k-marker"))
+    }
+
+    @Test
+    fun aSaveOnARecordThatDoesNotParseIsRefusedAndTheRecordKept() {
+        val damaged = """{"mempool":{"priority":"first"}}"""
+        session.putVaultRecord(ProviderConfigStore.RECORD, damaged.encodeToByteArray())
+
+        assertEquals(emptyMap<String, ProviderConfig>(), store.load())
+        assertThrows(UnreadableRecordException::class.java) { store.save(mapOf("mempool" to ProviderConfig(priority = 1))) }
+
+        assertEquals(damaged, session.getVaultRecord(ProviderConfigStore.RECORD)!!.decodeToString())
+    }
+
+    @Test
+    fun aSaveWithNoRecordSucceeds() {
+        val configs = mapOf("mempool" to ProviderConfig(priority = 1))
+
+        store.save(configs)
+
+        assertEquals(configs, store.load())
     }
 }

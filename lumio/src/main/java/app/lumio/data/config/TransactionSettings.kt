@@ -2,7 +2,6 @@ package app.lumio.data.config
 
 import app.lensly.core.vault.VaultSession
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 /**
@@ -36,22 +35,27 @@ object TransactionSettingsStore {
 
     private val json = Json
 
+    /** The settings stored in [session], or the defaults when none are stored or the record does not parse. */
+    fun read(session: VaultSession): TransactionSettings = try {
+        load(session)
+    } catch (e: UnreadableRecordException) {
+        TransactionSettings()
+    }
+
     /**
-     * The settings stored in [session], or the defaults when none are stored or the record does not parse. A pause not among
-     * [TransactionSettings.LAST_CHANCE_CHOICES] reads as the default pause.
+     * The settings stored in [session], or the defaults when none are stored. A pause not among [TransactionSettings.LAST_CHANCE_CHOICES] reads as the
+     * default pause. @throws UnreadableRecordException when the record does not parse.
      */
-    fun read(session: VaultSession): TransactionSettings {
+    private fun load(session: VaultSession): TransactionSettings {
         val bytes = session.getVaultRecord(RECORD) ?: return TransactionSettings()
-        val stored = try {
-            json.decodeFromString(TransactionSettings.serializer(), bytes.decodeToString())
-        } catch (e: SerializationException) {
-            return TransactionSettings()
-        }
+        val stored = decodeOrRefuse("transaction settings") { json.decodeFromString(TransactionSettings.serializer(), bytes.decodeToString()) }
         val seconds = stored.lastChanceSeconds.takeIf { it in TransactionSettings.LAST_CHANCE_CHOICES } ?: TransactionSettings.DEFAULT_LAST_CHANCE_SECONDS
         return stored.copy(lastChanceSeconds = seconds)
     }
 
+    /** Saves [settings]. A stored record that does not parse is left as it is, and this throws [UnreadableRecordException]. */
     fun write(session: VaultSession, settings: TransactionSettings) {
+        load(session)
         session.putVaultRecord(RECORD, json.encodeToString(TransactionSettings.serializer(), settings).encodeToByteArray())
     }
 }

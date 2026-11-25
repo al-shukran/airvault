@@ -4,6 +4,7 @@ import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.wallet.HdWallet
+import app.lumio.data.config.UnreadableRecordException
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.price.DefiLlamaChains
@@ -75,6 +76,18 @@ class CustomTokenStoreTest {
         assertTrue(CustomTokenStore.holds(listOf(usdc), mainnet, USDC.uppercase()))
         assertTrue(!CustomTokenStore.holds(listOf(usdc), sepolia, USDC))
         assertTrue(!CustomTokenStore.holds(emptyList(), mainnet, USDC))
+    }
+
+    @Test
+    fun anAddOrRemoveOnARecordThatDoesNotParseIsRefusedAndTheRecordKept() {
+        val damaged = """{"tokens":[{"chainId":"one"}]}"""
+        session.putVaultRecord(CustomTokenStore.RECORD, damaged.encodeToByteArray())
+
+        assertEquals(emptyList(), CustomTokenStore.read(session))
+        assertFailsWith<UnreadableRecordException> { CustomTokenStore.add(session, usdc) }
+        assertFailsWith<UnreadableRecordException> { CustomTokenStore.remove(session, usdc.chainId, usdc.contract) }
+
+        assertEquals(damaged, session.getVaultRecord(CustomTokenStore.RECORD)!!.decodeToString())
     }
 }
 

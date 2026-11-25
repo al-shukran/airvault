@@ -16,6 +16,7 @@ import app.lensly.app.VaultHolder
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
+import app.lumio.data.config.UnreadableRecordException
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettingsStore
@@ -52,7 +53,7 @@ private class TokenListState(
 
 /** The owner's words for a failed lookup or save: the message of a refusal or a failed read, and a plain line for anything else. */
 private fun ownerWords(error: Throwable): String = when (error) {
-    is IllegalArgumentException, is RpcFailure -> error.message ?: "The token could not be read. Try again."
+    is IllegalArgumentException, is RpcFailure, is UnreadableRecordException -> error.message ?: "The token could not be read. Try again."
     else -> "The token could not be read. Try again."
 }
 
@@ -184,7 +185,8 @@ internal fun AddTokenRoute(
 
     fun remove(token: Token) {
         scope.launch {
-            withContext(Dispatchers.IO) { runCatching { CustomTokenStore.remove(open, token.chainId, token.contract) } }
+            val failure = withContext(Dispatchers.IO) { runCatching { CustomTokenStore.remove(open, token.chainId, token.contract) }.exceptionOrNull() }
+            failure?.let { problem = ownerWords(it) }
             version++
         }
     }

@@ -2,7 +2,6 @@ package app.lumio.data.config
 
 import app.lensly.core.vault.VaultSession
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 /**
@@ -36,18 +35,24 @@ object FinishSetupStore {
     private val json = Json
 
     /** The checklist as stored in [session], or nothing ticked when none is stored or the record does not parse. */
-    fun read(session: VaultSession): FinishSetup {
-        val bytes = session.getVaultRecord(RECORD) ?: return FinishSetup()
-        return try {
-            json.decodeFromString(FinishSetup.serializer(), bytes.decodeToString())
-        } catch (e: SerializationException) {
-            FinishSetup()
-        }
+    fun read(session: VaultSession): FinishSetup = try {
+        load(session)
+    } catch (e: UnreadableRecordException) {
+        FinishSetup()
     }
 
-    /** Ticks [item] off in [session]. Ticking an item that is already ticked changes nothing. */
+    /** The checklist stored in [session], or nothing ticked when none is stored. @throws UnreadableRecordException when the record does not parse. */
+    private fun load(session: VaultSession): FinishSetup {
+        val bytes = session.getVaultRecord(RECORD) ?: return FinishSetup()
+        return decodeOrRefuse("setup checklist") { json.decodeFromString(FinishSetup.serializer(), bytes.decodeToString()) }
+    }
+
+    /**
+     * Ticks [item] off in [session]. Ticking an item that is already ticked changes nothing. A stored record that does not parse is left as it is, and
+     * this throws [UnreadableRecordException], so one tick never resets the other items.
+     */
     fun tick(session: VaultSession, item: FinishItem) {
-        val current = read(session)
+        val current = load(session)
         if (item in current.done) return
         val next = current.copy(done = current.done + item)
         session.putVaultRecord(RECORD, json.encodeToString(FinishSetup.serializer(), next).encodeToByteArray())
