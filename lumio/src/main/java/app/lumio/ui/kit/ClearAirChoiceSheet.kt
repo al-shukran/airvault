@@ -5,18 +5,20 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.semantics.Role
@@ -64,21 +66,27 @@ fun ClearAirChoiceSheet(title: String, groups: List<ChoiceGroup>) {
         )
         for (group in groups) {
             group.label?.let { ClearAirEyebrow(text = it, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs)) }
-            for (row in group.rows) ChoiceRowItem(row)
+            group.rows.forEachIndexed { index, row -> ChoiceRowItem(row, divider = index > 0) }
         }
     }
 }
 
 @Composable
-private fun ChoiceRowItem(row: ChoiceRow) {
+private fun ChoiceRowItem(row: ChoiceRow, divider: Boolean) {
     val palette = LocalClearAirPalette.current
     val titleColor = if (row.enabled) palette.ink else palette.ink.copy(alpha = DISABLED_ALPHA)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .wrapContentHeight()
+            .drawBehind {
+                if (divider) {
+                    val inset = ClearAirSpacing.gutter.toPx()
+                    drawLine(palette.hairline, Offset(inset, 0f), Offset(size.width - inset, 0f), strokeWidth = 1.dp.toPx())
+                }
+            }
+            .defaultMinSize(minHeight = ROW_HEIGHT)
             .clickable(enabled = row.enabled, role = Role.RadioButton, onClick = row.onPick)
-            .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.sm),
+            .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -108,6 +116,9 @@ fun ClearAirRadio(selected: Boolean, enabled: Boolean = true, modifier: Modifier
         if (selected) drawCircle(color = palette.ink, radius = DOT_RADIUS.toPx())
     }
 }
+
+/** A choice row is 62 dp at least, as the mock's rows. */
+private val ROW_HEIGHT = 62.dp
 
 /** The radio as the mock draws it: 22 dp with a 2 dp ring, and a dot of radius 5 dp. */
 private val RADIO_SIZE = 22.dp
