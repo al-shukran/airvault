@@ -48,6 +48,9 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 
+/** The chain tip that the fake Electrum server reports, apart from the 850000 of the fake Esplora. */
+private const val ELECTRUM_TIP = 850_123L
+
 /**
  * The gap-limit scan through the scheduler, against two local Esplora servers that stand in for mempool.space and blockstream.info. The scan's
  * numbers are checked here; a server that answers 429 is served by the other one, with no wait.
@@ -401,10 +404,16 @@ class BtcScanTest {
      * unconfirmed, in one unspent output. [refused] names a method that the server answers with an error.
      */
     private fun electrumServer(refused: String? = null): FakeElectrum = FakeElectrum(TestIdentities.server, answer = { method, params ->
-        val index = indexOfScripthash[params[0].jsonPrimitive.content]
+        val index = params.firstOrNull()?.let { indexOfScripthash[it.jsonPrimitive.content] }
         val txid = if (index == 0) "a".repeat(64) else "b".repeat(64)
         when (method) {
             refused -> Answer.Fail("refused")
+            "blockchain.headers.subscribe" -> Answer.Reply(
+                buildJsonObject {
+                    put("height", JsonPrimitive(ELECTRUM_TIP))
+                    put("hex", JsonPrimitive("00"))
+                },
+            )
             "blockchain.scripthash.get_history" -> Answer.Reply(
                 JsonArray(
                     when (index) {
@@ -542,6 +551,22 @@ class BtcScanTest {
             assertEquals(1, snapshot.nextReceiveIndex)
             assertEquals(listOf(BtcUtxo("a".repeat(64), 0, 120_000L, 850_000L), BtcUtxo("b".repeat(64), 1, 30_000L, null)), snapshot.utxos)
             assertTrue(first.statsRequests().isEmpty() && second.statsRequests().isEmpty(), "Electrum answered the walk; Esplora was asked no address")
+            assertEquals(ELECTRUM_TIP, snapshot.tipHeight)
+            assertTrue(first.paths.isEmpty() && second.paths.isEmpty(), "Electrum answered the tip too; Esplora was asked nothing")
+        }
+    }
+
+    @Test
+    fun electrumReadsTheAccountWhileEveryEsploraProviderIsDown() = runBlocking {
+        first.status = 500
+        second.status = 429
+        electrumServer().use { fake ->
+            val pool = ElectrumPool(servers = listOf(ElectrumServer("localhost", Trust.Pinned(TestIdentities.server.spkiSha256), port = fake.port)))
+
+            val snapshot = scanAccount(ref, this.scheduler(), Priority.VISIBLE, nowMs = 1L, electrum = pool)
+
+            assertEquals(120_000L, snapshot.confirmedSats)
+            assertEquals(ELECTRUM_TIP, snapshot.tipHeight)
         }
     }
 

@@ -8,39 +8,39 @@ Libraries and fonts:
 
 Apache License 2.0:
 
-Android Jetpack, Jetpack Compose, Material 3 and CameraX (androidx.*): Activity 1.13.0, Navigation 2.9.8, Lifecycle 2.10.0, Compose BOM 2026.06.01, CameraX 1.6.2.
+Android Jetpack, Jetpack Compose, Material 3 and CameraX (androidx.*): Activity 1.13.0, Navigation 2.10.2, Lifecycle 2.10.0, Compose BOM 2026.11.01, CameraX 1.7.0.
 
 Room 2.8.5 (androidx.room) and its SQLite driver (androidx.sqlite), the database under Lumio's cache and scan queue.
 
-Kotlin standard library 2.4.21, kotlinx-coroutines 1.11.0 and kotlinx-serialization 1.12.0 (JetBrains).
+Kotlin standard library 2.4.21, kotlinx-coroutines 1.11.0 and kotlinx-serialization 1.13.0 (JetBrains).
 
 Dagger 2.59 (Google) and atomicfu 0.28.0 (JetBrains).
 
 Guava 33.7.2-android and failureaccess 1.0.3 (Google).
 
-Jackson 2.18.11: jackson-core, jackson-databind and jackson-annotations (FasterXML). Its NOTICE is quoted below.
+Jackson 3.2.3: jackson-core and jackson-databind (tools.jackson), and jackson-annotations 2.22 (FasterXML). Its NOTICE is quoted below.
 
 OkHttp 5.5.1 and Okio 3.18.1 (Square). OkHttp's public suffix data is under the Mozilla Public License 2.0, quoted below.
 
 RxJava 2.2.21 (ReactiveX).
 
-web3j 4.12.3: abi, core, crypto, rlp, tuples and utils (web3j).
+web3j 6.1.0: abi, core, crypto, rlp, tuples and utils (web3j).
 
 Hummingbird 1.7.6 (Sparrow Wallet).
 
 ZXing core 3.5.4 (Google) and zxing-cpp android 3.1.1 (zxing-cpp project), which includes the zxing-cpp native library.
 
-bitcoin-kmp 0.32.0, secp256k1-kmp 0.24.0 and its Android JNI wrapper secp256k1-kmp-jni-android 0.24.0 (ACINQ). The wrapper packages libsecp256k1-jni.so, which is listed under the MIT License below.
+bitcoin-kmp 0.33.0, secp256k1-kmp 0.24.0 and its Android JNI wrapper secp256k1-kmp-jni-android 0.24.0 (ACINQ). The wrapper packages libsecp256k1-jni.so, which is listed under the MIT License below.
 
 cbor 0.9 (Concise Binary Object Representation, co.nstant.in).
 
-jc-kzg-4844 2.0.0 (Consensys).
+jc-kzg-4844 2.1.8 (Consensys).
 
-Apache Tuweni bytes and units 2.4.2 (Apache Software Foundation). Its NOTICE is quoted below.
+Apache Tuweni bytes and units 2.8.0 (Apache Software Foundation). Its NOTICE is quoted below.
 
-jnr-ffi 2.2.16, jnr-constants 0.10.4, jnr-enxio 0.32.17, jnr-unixsocket 0.38.22 and jnr-a64asm 1.0.0 (JNR project).
+jnr-ffi 2.3.3, jnr-constants 0.11.2, jnr-enxio 0.33.3, jnr-unixsocket 0.39.5 and jnr-a64asm 1.0.0 (JNR project).
 
-jffi 1.3.13 (JNR project). Used under the Apache License 2.0. Upstream also offers the GNU Lesser General Public License 3.0.
+jffi 1.4.3 (JNR project). Used under the Apache License 2.0. Upstream also offers the GNU Lesser General Public License 3.0.
 
 Annotation-only libraries: jspecify 1.0.1, error_prone_annotations 2.50.0, j2objc-annotations 3.1, JetBrains annotations 23.0.0, auto-value-annotations 1.6.3, javax.inject 1 and jakarta.inject-api 2.0.1. The jakarta.inject NOTICE is quoted below.
 
@@ -50,7 +50,7 @@ publicsuffixes.gz, the public suffix data inside OkHttp, compiled from The Publi
 
 Eclipse Public License 2.0:
 
-jnr-posix 3.1.19 (JNR project). Used under the Eclipse Public License 2.0, whose text is quoted below. Upstream also offers the GNU General Public License 2.0 and the GNU Lesser General Public License 2.1.
+jnr-posix 3.2.4 (JNR project). Used under the Eclipse Public License 2.0, whose text is quoted below. Upstream also offers the GNU General Public License 2.0 and the GNU Lesser General Public License 2.1.
 
 MIT License:
 
@@ -62,11 +62,11 @@ Brotli 1.2.1 Java decoder (google/brotli, package org.brotli.dec), vendored in :
 
 zxcvbn4j 1.9.0 (com.nulab-inc:zxcvbn), the password strength estimator. Copyright (c) 2014 Nulab Inc.
 
-ens-normalize 0.2.0 (io.github.adraffy). Copyright (c) 2023 Andrew Raffensperger.
+ens-normalize 0.3.1 (io.github.adraffy). Copyright (c) 2023 Andrew Raffensperger.
 
-Java-WebSocket 1.5.6. Copyright (c) 2010-2020 Nathan Rajlich.
+Java-WebSocket 1.6.0. Copyright (c) 2010-2020 Nathan Rajlich.
 
-SLF4J API 2.0.13 (QOS.ch). Copyright (c) 2004-2022 QOS.ch Sarl (Switzerland).
+SLF4J API 2.0.20 (QOS.ch). Copyright (c) 2004-2022 QOS.ch Sarl (Switzerland).
 
 jnr-x86asm 1.0.2 (JNR project). Copyright (C) 2010 Wayne Meissner and Copyright (c) 2008-2009 Petr Kobalicek.
 
@@ -76,11 +76,11 @@ Three token logos (busd, aero and bal) come from Iconify token-icons, which the 
 
 Bouncy Castle Licence (an MIT-style licence):
 
-Bouncy Castle bcprov-jdk18on 1.86. Copyright (c) 2000-2026 The Legion of the Bouncy Castle Inc.
+Bouncy Castle bcprov-jdk18on 1.87. Copyright (c) 2000-2026 The Legion of the Bouncy Castle Inc.
 
 BSD 3-Clause License:
 
-ASM 9.2 (org.ow2.asm), Java bytecode manipulation. Copyright (c) 2000-2011 INRIA, France Telecom.
+ASM 9.10.1 (org.ow2.asm), Java bytecode manipulation. Copyright (c) 2000-2011 INRIA, France Telecom.
 
 MIT No Attribution:
 
@@ -347,9 +347,16 @@ Licence texts:
    See the License for the specific language governing permissions and
    limitations under the License.
 
-==== Apache Tuweni NOTICE (tuweni-bytes and tuweni-units 2.4.2) ====
+==== Apache Tuweni NOTICE (tuweni-bytes and tuweni-units 2.8.0) ====
 
-Apache Tuweni
+Copyright 2024-2026 Consensys Software Inc
+
+This product includes code developed at The Machine Consultancy LLC.
+
+Copyright 2023-2024 The Machine Consultancy LLC
+
+This product includes code developed under the Apache Tuweni incubation project.
+
 Copyright 2019-2023 The Apache Software Foundation
 
 This product includes software developed at
@@ -358,7 +365,7 @@ The Apache Software Foundation (http://www.apache.org/).
 In addition, this product includes software developed by
 Copyright 2018-2019 ConsenSys, Inc.
 
-==== Jackson NOTICE (2.18.11) ====
+==== Jackson NOTICE (3.2.3) ====
 
 # Jackson JSON processor
 
@@ -373,12 +380,12 @@ Copyright 2007-, Tatu Saloranta (tatu.saloranta@iki.fi)
 
 ## Licensing
 
-Jackson 2.x core and extension components are licensed under Apache License 2.0
+Jackson 3.x core and extension components are licensed under Apache License 2.0
 To find the details that apply to this artifact see the accompanying LICENSE file.
 
 ## Credits
 
-A list of contributors may be found from CREDITS(-2.x) file, which is included
+A list of contributors may be found from CREDITS file, which is included
 in some artifacts (usually source distributions); but is always available
 from the source code management (SCM) system project uses.
 
@@ -459,7 +466,7 @@ https://mozilla.org/MPL/2.0/
 
 The Mozilla Public License 2.0 is at https://mozilla.org/MPL/2.0/.
 
-==== Eclipse Public License 2.0 (jnr-posix 3.1.19) ====
+==== Eclipse Public License 2.0 (jnr-posix 3.2.4) ====
 
 Eclipse Public License - v 2.0
 

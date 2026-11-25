@@ -24,4 +24,14 @@ class TokenHoldingTest {
     fun aZeroBalanceShowsZero() {
         assertEquals("0 TINY", holdingText(BigInteger.ZERO, tiny))
     }
+
+    @Test
+    fun dustBelowTheShownPrecisionIsNotShownAsZero() {
+        assertEquals("< 0.0000000001 TINY", holdingText(BigInteger.ONE, tiny))
+    }
+
+    @Test
+    fun theSmallestShownAmountKeepsItsDigits() {
+        assertEquals("0.0000000001 TINY", holdingText(BigInteger.TEN.pow(8), tiny))
+    }
 }
