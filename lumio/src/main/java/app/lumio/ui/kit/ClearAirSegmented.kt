@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 
@@ -26,8 +27,8 @@ private val TRACK_CORNER = 14.dp
 /** The corner radius of a segment inside the track. */
 private val SEGMENT_CORNER = 11.dp
 
-/** The height of a segment: a 48 dp touch target. */
-private val SEGMENT_HEIGHT = 48.dp
+/** The height of a segment: the mock's 8 dp of padding around a 20 dp line, so the track is 42 dp tall. Compose widens a press to 48 dp around it, so the touch target keeps its size. */
+private val SEGMENT_HEIGHT = 36.dp
 
 /**
  * Two or more [options] as one track: the [selected] option is filled with ink and its label is paper, the others sit on the sunk track. Choosing one calls [onSelect] at
@@ -57,7 +58,7 @@ fun <T> ClearAirSegmented(options: List<T>, selected: T, label: (T) -> String, o
             ) {
                 Text(
                     text = label(option),
-                    style = ClearAirType.rowTitle,
+                    style = ClearAirType.rowTitle.copy(fontSize = 14.sp),
                     color = if (active) palette.onPrimary else palette.ink2,
                     maxLines = 1,
                 )

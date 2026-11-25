@@ -102,7 +102,6 @@ class HomeSearchScreenshotTest {
             tab = tab,
             onTab = {},
             sections = sections,
-            onClose = {},
         )
     }
 

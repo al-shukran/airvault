@@ -111,21 +111,21 @@ fun ClearAirPageTopBar(title: String, backLabel: String?, onBack: () -> Unit, on
     }
 }
 
-/** A 44 dp icon button in ink, the mock's box for a top bar's icon, labelled for TalkBack. */
+/** A 44 dp icon button in ink, the mock's box for a top bar's icon, labelled for TalkBack. Not [enabled], it takes no press and turns secondary ink. */
 @Composable
-fun ClearAirIconButton(glyph: ClearAirGlyph, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ClearAirIconButton(glyph: ClearAirGlyph, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val palette = LocalClearAirPalette.current
     Box(
-        modifier = modifier.size(ICON_BOX).pressable(onClick = onClick, label = label),
+        modifier = modifier.size(ICON_BOX).pressable(onClick = onClick, label = label, enabled = enabled),
         contentAlignment = Alignment.Center,
     ) {
-        ClearAirIcon(glyph = glyph, color = palette.ink, size = ICON_SIZE)
+        ClearAirIcon(glyph = glyph, color = if (enabled) palette.ink else palette.ink2, size = ICON_SIZE)
     }
 }
 
 /** A press target with a button role and a spoken [label], which scales as a Clear Air press does. */
-private fun Modifier.pressable(onClick: () -> Unit, label: String): Modifier =
+private fun Modifier.pressable(onClick: () -> Unit, label: String, enabled: Boolean = true): Modifier =
     semantics {
         role = Role.Button
         contentDescription = label
-    }.lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onClick)
+    }.lumioPress(scale = ClearAirMotion.PRESS_SCALE, enabled = enabled, releaseSpring = ClearAirMotion.press, onClick = onClick)
