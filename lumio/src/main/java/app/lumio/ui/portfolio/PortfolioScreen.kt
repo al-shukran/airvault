@@ -109,7 +109,7 @@ fun PortfolioScreen(
     var showSmall by rememberSaveable { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = ClearAirSpacing.xxl)) {
         // The hero is centred over its numerals; the empty state under it reads from the left.
-        val hasTotal = holdings != null && PortfolioView.total(holdings).usd != null
+        val hasTotal = holdings != null && !PortfolioView.isEmpty(holdings)
         ClearAirEyebrow(
             text = "$walletName · Total Balance",
             modifier = Modifier.align(if (hasTotal) Alignment.CenterHorizontally else Alignment.Start).padding(horizontal = ClearAirSpacing.gutter),
@@ -120,11 +120,12 @@ fun PortfolioScreen(
         val total = PortfolioView.total(holdings)
         val usd = total.usd
         val fiat = LocalFiat.current
-        if (usd == null) {
+        if (PortfolioView.isEmpty(holdings)) {
             EmptyBalances(testnet = testnet, showBalance = showBalance, otherSide = otherSide, onReceive = onReceive)
         } else {
             ClearAirAmount(
-                text = fiat.amount(usd),
+                // Funds with no price have no total, so the hero says so and the rows below show the coins.
+                text = usd?.let { fiat.amount(it) } ?: "—",
                 hidden = !showBalance,
                 style = ClearAirType.hero,
                 modifier = Modifier.align(Alignment.CenterHorizontally).padding(horizontal = ClearAirSpacing.gutter),
@@ -182,7 +183,7 @@ fun PortfolioScreen(
 }
 
 /**
- * The empty side: nothing is priced yet, so there is no total to show. It draws the dashed slab, names the side, says why it is empty, and offers the one
+ * The empty side: nothing is held yet, so there is no total to show. It draws the dashed slab, names the side, says why it is empty, and offers the one
  * action that fills the screen. [otherSide] shows under the words when the other side holds funds, and [onReceive] adds the Receive capsule.
  */
 @Composable

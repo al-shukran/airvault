@@ -172,6 +172,12 @@ object PortfolioView {
     }
 
     /**
+     * Whether the side has nothing to show: no holding has a value, and none holds any coins. Funds with no price are not nothing: a testnet coin never
+     * has a price, and a mainnet coin has none until a source answers.
+     */
+    fun isEmpty(holdings: List<PortfolioHolding>): Boolean = total(holdings).usd == null && holdings.none { it.amount.signum() > 0 }
+
+    /**
      * The shares of the three coins with the most value, then "Other" for the rest when there is any. Each coin's value is all its holdings, on every
      * network. Empty when no holding has a price.
      */
