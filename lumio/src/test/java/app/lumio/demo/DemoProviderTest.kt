@@ -3,12 +3,12 @@ package app.lumio.demo
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
+import app.lumio.data.provider.BitcoinMarket
 import app.lumio.data.provider.GasFees
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.NativePrice
 import app.lumio.data.provider.ProviderError
-import app.lumio.data.provider.BitcoinMarket
 import java.io.IOException
 import java.math.BigInteger
 import kotlinx.coroutines.runBlocking

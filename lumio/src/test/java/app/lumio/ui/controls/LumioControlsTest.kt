@@ -1,16 +1,21 @@
 package app.lumio.ui.controls
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirTheme
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettings
@@ -19,6 +24,7 @@ import app.lumio.ui.kit.ClearAirSegmented
 import app.lumio.ui.network.label
 import app.lumio.ui.settings.EvmSettingsSection
 import app.lumio.ui.settings.ProviderPage
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -44,6 +50,22 @@ class LumioControlsTest {
 
         compose.onNodeWithText("Mainnet", ignoreCase = true).assert(hasRole(Role.RadioButton))
         compose.onNodeWithText("Testnet", ignoreCase = true).assert(hasRole(Role.RadioButton))
+    }
+
+    @Test
+    fun aSegmentIsThirtySixDpTallAndPressesInFortyEight() {
+        var chosen = NetworkMode.MAINNET
+        compose.setContent {
+            ClearAirTheme {
+                ClearAirSegmented(options = NetworkMode.entries, selected = chosen, label = { it.label() }, onSelect = { chosen = it })
+            }
+        }
+
+        val segment = compose.onNodeWithText("Testnet", ignoreCase = true)
+        segment.assertHeightIsEqualTo(36.dp)
+        // 5 dp above the 36 dp segment is inside the 48 dp touch target (6 dp on each side) and outside the segment.
+        segment.performTouchInput { click(Offset(center.x, -5.dp.toPx())) }
+        assertEquals(NetworkMode.TESTNET, chosen)
     }
 
     @Test
