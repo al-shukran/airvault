@@ -76,7 +76,7 @@ internal fun FinishSetupCard(setup: FinishSetup, onOpen: (FinishItem) -> Unit, m
                 )
             }
             ClearAirSegments(
-                fractions = FinishItem.entries.map { item -> if (item in setup.done) 1f else 0f },
+                fractions = List(FinishItem.entries.size) { index -> if (index < setup.done.size) 1f else 0f },
                 modifier = Modifier.padding(top = ClearAirSpacing.xs, bottom = 10.dp),
                 thickness = 3.dp,
                 gap = 6.dp,
