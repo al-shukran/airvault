@@ -21,6 +21,7 @@ import app.lumio.evm.EvmEdits
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
+import app.lumio.ui.home.chainIconOf
 import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.network.PanelWallet
 import app.lumio.ui.network.TestNetworksScreen
@@ -146,6 +147,7 @@ internal fun TestNetworksRoute(navController: NavHostController, holder: VaultHo
                 }
             },
             onAddCustom = { navController.navigate(LumioRoute.SETTINGS_ADD_NETWORK) },
+            iconOf = { chain -> chainIconOf(app.registry, chain.chainId, chain.name) },
         )
     }
 }

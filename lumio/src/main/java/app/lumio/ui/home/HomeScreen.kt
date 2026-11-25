@@ -31,13 +31,14 @@ private val TICK_WIDTH = 56.dp
 private val TICK_HEIGHT = 28.dp
 
 /**
- * One watchlist row as Home shows it: its [name], the [detail] line under it such as "BTC · 0.2104 held", its price and 24 h change, and the [ticks] of
+ * One watchlist row as Home shows it: its [name], the [detail] line under it such as "BTC · 0.2104 held", its [icon], its price and 24 h change, and the [ticks] of
  * its day's prices, oldest first. A null [priceUsd] or [change24hPct] is shown as absent, never as zero, and fewer than two [ticks] draw no chart.
  */
 data class WatchlistRow(
     val asset: WatchedAsset,
     val name: String,
     val detail: String,
+    val icon: AssetIconSpec,
     val priceUsd: String?,
     val change24hPct: Double?,
     val ticks: List<Double> = emptyList(),
@@ -102,12 +103,15 @@ fun HomeScreen(
             )
         }
     }
-    rows.forEach { row ->
+    rows.forEachIndexed { index, row ->
         ClearAirRow(
             title = row.name,
             description = row.detail,
+            leading = { AssetDisc(row.icon) },
             trailing = { WatchlistPrice(row = row, testnet = testnet) },
             onClick = { onOpen(row.asset) },
+            divider = index > 0,
+            chevron = false,
         )
     }
 }

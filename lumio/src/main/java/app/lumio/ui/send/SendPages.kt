@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -36,10 +37,12 @@ import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.evm.SendInput
+import app.lumio.receive.monogramOf
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirField
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIconButton
+import app.lumio.ui.kit.ClearAirMonogram
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSheet
@@ -73,11 +76,39 @@ fun SendOptionSheet(visible: Boolean, heading: String, options: List<SendOption>
         Column(modifier = Modifier.fillMaxWidth().padding(ClearAirSpacing.lg)) {
             Text(text = heading, style = ClearAirType.titleL, color = LocalClearAirPalette.current.ink)
             options.forEachIndexed { index, option ->
-                ClearAirRow(title = option.title, description = option.detail, onClick = { onPick(index) })
+                ClearAirRow(title = option.title, description = option.detail, onClick = { onPick(index) }, divider = index > 0)
             }
         }
     }
 }
+
+/** The rows of the addresses a recipient can be picked from: a monogram, the name, its detail and short address, and a chevron. */
+@Composable
+private fun ChoiceRows(choices: List<SendChoice>, onPick: (SendChoice) -> Unit) {
+    choices.forEachIndexed { index, choice ->
+        ClearAirRow(
+            title = choice.title,
+            description = joined(choice.detail, shortOf(choice.address)),
+            leading = { ClearAirMonogram(text = monogramOf(choice.title)) },
+            onClick = { onPick(choice) },
+            divider = index > 0,
+            modifier = Modifier.fullBleed(),
+        )
+    }
+}
+
+/** Lays the content out across the gutter of the send page, so a list row is full-bleed as every list row is. */
+private fun Modifier.fullBleed(): Modifier = layout { measurable, constraints ->
+    val gutter = ClearAirSpacing.gutter.roundToPx()
+    val width = constraints.maxWidth + 2 * gutter
+    val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+    layout(constraints.maxWidth, placeable.height) { placeable.place(-gutter, 0) }
+}
+
+/** An address as a recipient row shows it: its first six and last four characters. */
+private fun shortOf(address: String): String = if (address.length <= SHORT_ADDRESS_KEEP) address else "${address.take(6)}…${address.takeLast(4)}"
+
+private const val SHORT_ADDRESS_KEEP = 14
 
 /** The words of a row's description: the non-blank parts, joined with a middle dot. */
 private fun joined(vararg parts: String): String = parts.filter { it.isNotBlank() }.joinToString(" · ")
@@ -185,15 +216,14 @@ fun SendRecipientPage(
         )
         if (accounts.isNotEmpty()) {
             ClearAirEyebrow(text = "Your Accounts", modifier = Modifier.padding(top = ClearAirSpacing.lg))
-            accounts.forEach { choice ->
-                ClearAirRow(title = choice.title, description = joined(choice.detail, groupAddress(choice.address)), onClick = { onPick(choice) })
-            }
+            ChoiceRows(choices = accounts, onPick = onPick)
         }
         if (addressBook.isNotEmpty()) {
-            ClearAirEyebrow(text = "Address Book", modifier = Modifier.padding(top = ClearAirSpacing.lg))
-            addressBook.forEach { choice ->
-                ClearAirRow(title = choice.title, description = joined(choice.detail, groupAddress(choice.address)), onClick = { onPick(choice) })
+            Row(modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.lg), verticalAlignment = Alignment.CenterVertically) {
+                ClearAirEyebrow(text = "Address Book", modifier = Modifier.weight(1f))
+                Text(text = "from Lensly", style = ClearAirType.body, color = palette.ink2)
             }
+            ChoiceRows(choices = addressBook, onPick = onPick)
         }
     }
 }

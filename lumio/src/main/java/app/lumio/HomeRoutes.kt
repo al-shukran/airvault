@@ -85,7 +85,7 @@ internal fun HomeRoute(
     }
     val fiat = LocalFiat.current
     val rows = watchlist?.ordered { board.prices[it.assetId]?.change24hPct }.orEmpty().map { asset ->
-        rowOf(asset, view, wallet?.id, board.prices[asset.assetId], board.dayChartOf(asset.assetId), testnet, fiat)
+        rowOf(asset, view, wallet?.id, board.prices[asset.assetId], board.dayChartOf(asset.assetId), testnet, fiat, app)
     }
     var sortOpen by remember { mutableStateOf(false) }
     val hero = heroOf(board.market, testnet, nowMs, fiat)
@@ -147,6 +147,7 @@ private fun rowOf(
     day: PriceSeries?,
     testnet: Boolean,
     fiat: Fiat,
+    app: LumioApp,
 ): WatchlistRow {
     val (symbol, name) = coinNames(asset)
     val held = if (view != null && walletId != null) heldOf(asset, view.accountsOf(walletId)) else null
@@ -154,6 +155,7 @@ private fun rowOf(
         asset = asset,
         name = name,
         detail = if (held == null) symbol else "$symbol · ${held.stripTrailingZeros().toPlainString()} held",
+        icon = coinIconOf(asset, symbol, app),
         priceUsd = if (testnet || price == null) null else fiat.amount(price.usd),
         change24hPct = if (testnet) null else price?.change24hPct,
         ticks = if (testnet) emptyList() else day?.points?.map { it.usd }.orEmpty(),
