@@ -49,7 +49,7 @@ internal fun firstWindowOf(usedBelow: Int, window: Int): Int =
 internal class UsedAddress(val index: Int, val address: String, val reading: AddressReading)
 
 /** What a scan read of one address: whether a transaction names it, and the coins it holds, confirmed and unconfirmed. */
-internal class AddressReading(val used: Boolean, val confirmedSats: Long, val unconfirmedSats: Long) {
+class AddressReading(val used: Boolean, val confirmedSats: Long, val unconfirmedSats: Long) {
     val balance: Long get() = confirmedSats + unconfirmedSats
 }
 
@@ -60,8 +60,8 @@ internal fun EsploraAddressStats.reading(): AddressReading = AddressReading(used
 internal class ChainScan(val used: List<UsedAddress>)
 
 /**
- * The address statistics that this session has read, by network. A rescan asks again only for the addresses that need it (see [scanChain]).
- * It is kept in memory and never saved, so a new session starts with an empty one.
+ * The address readings that this session has taken, from Esplora or Electrum, by network. A rescan asks again only for the addresses that
+ * need it (see [scanChain]). It is kept in memory and never saved, so a new session starts with an empty one.
  */
 class AddressStatsCache {
     private val byChain = ConcurrentHashMap<String, ConcurrentMap<String, MemoStats>>()
@@ -69,8 +69,11 @@ class AddressStatsCache {
     internal fun forNetwork(net: NetworkId): ConcurrentMap<String, MemoStats> = byChain.getOrPut(net.name) { ConcurrentHashMap() }
 }
 
-/** An address's statistics as a walk read them, and the wall-clock time of that read. An unused address is trusted only for [DEFAULT_SHORT_TTL_MS]. */
-class MemoStats(val stats: EsploraAddressStats, val readAtMs: Long)
+/**
+ * An address's reading as a walk took it, from Esplora or Electrum, and the wall-clock time of that read. An unused address is trusted only
+ * for [DEFAULT_SHORT_TTL_MS].
+ */
+class MemoStats(val reading: AddressReading, val readAtMs: Long)
 
 /**
  * Walks one chain of an account (receive or change) with the gap limit. It asks for the addresses in windows of [window], every address of a
@@ -98,13 +101,13 @@ internal suspend fun scanChain(
 ): ChainScan = supervisorScope {
     val lastUsed = lastUsedIn(addressAt, memo)
     // The reads started so far, by index. A failed read fails only the walk that awaits it, so the used addresses before it are kept.
-    val reads = ArrayList<Deferred<EsploraAddressStats>>()
-    fun read(index: Int): Deferred<EsploraAddressStats> = async {
+    val reads = ArrayList<Deferred<AddressReading>>()
+    fun read(index: Int): Deferred<AddressReading> = async {
         val address = addressAt(index)
         val fresh = memo[address]?.takeIf {
-            nowMs - it.readAtMs < DEFAULT_SHORT_TTL_MS && (trustWithinTtl || (!it.stats.used && index <= lastUsed))
+            nowMs - it.readAtMs < DEFAULT_SHORT_TTL_MS && (trustWithinTtl || (!it.reading.used && index <= lastUsed))
         }
-        fresh?.stats ?: statsOf(address).also { memo[address] = MemoStats(it, nowMs) }
+        fresh?.reading ?: statsOf(address).reading().also { memo[address] = MemoStats(it, nowMs) }
     }
     var unused = 0
     var index = 0
@@ -117,9 +120,9 @@ internal suspend fun scanChain(
                 repeat(size) { reads += read(reads.size) }
                 size = window
             }
-            val stats = reads[index].await()
-            if (stats.used) {
-                found += UsedAddress(index, addressAt(index), stats.reading())
+            val reading = reads[index].await()
+            if (reading.used) {
+                found += UsedAddress(index, addressAt(index), reading)
                 unused = 0
             } else {
                 unused++
@@ -139,7 +142,7 @@ private fun lastUsedIn(addressAt: (Int) -> String, memo: Map<String, MemoStats>)
     var index = 0
     while (true) {
         val stats = memo[addressAt(index)] ?: return last
-        if (stats.stats.used) last = index
+        if (stats.reading.used) last = index
         index++
     }
 }
@@ -150,8 +153,9 @@ private fun lastUsedIn(addressAt: (Int) -> String, memo: Map<String, MemoStats>)
  * addresses, with the confirmed and the unconfirmed side kept apart. An address with a balance is asked for its unspent outputs. The recent
  * transactions are asked for only when [detail] is set, for the account's own view, so a portfolio scan never asks for them.
  *
- * With [electrum], the walk and the unspent outputs come from Electrum in batches, and the transactions still come from Esplora. An account that
- * Electrum fails to read is read from Esplora instead.
+ * With [electrum], the walk and the unspent outputs come from Electrum in batches, and the transactions still come from Esplora. The walk is kept
+ * in [memo] as an Esplora walk is, so a send after the scan asks Esplora for no address. An account that Electrum fails to read is read from
+ * Esplora instead.
  *
  * A request that fails part way ends the scan with its error. First [onPartial] gets the snapshot of what was read up to then, and the caller keeps
  * it, so the next scan of the account starts from that balance rather than from nothing.
@@ -220,7 +224,7 @@ suspend fun scanAccount(
         )
     }
     // Electrum reads the walk and the unspent outputs when it can. An account that it fails to read is read from Esplora below.
-    val fromElectrum = electrum?.let { electrumRead(it, account, step, usedBelow) }
+    val fromElectrum = electrum?.let { electrumRead(it, account, step, usedBelow, memo, nowMs) }
     try {
         if (fromElectrum != null) {
             receiveUsed += fromElectrum.receive
