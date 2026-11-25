@@ -43,6 +43,7 @@ import app.lumio.watchlist.WatchedAsset
 import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -68,13 +69,17 @@ internal fun PortfolioTab(navController: NavHostController, holder: VaultHolder,
     // The Portfolio covers the wallet the profile panel chose, as Home does, and the first paired wallet until the owner chooses one.
     val active = wallets.active(selection) { it.id }
     LaunchedEffect(board, mode, active?.id, listVersion, transactions.activityIncludesSpam) {
-        board?.readHoldings(mode, active?.id)
-        board?.readActivity(mode, active?.id, ActivityFilter(), includeSpam = transactions.activityIncludesSpam)
+        // The holdings and the activity are read side by side, so a slow price source holds back neither.
+        coroutineScope {
+            launch { board?.readHoldings(mode, active?.id) }
+            launch { board?.readActivity(mode, active?.id, ActivityFilter(), includeSpam = transactions.activityIncludesSpam) }
+        }
     }
     // The first holding with funds on the other side, for the card that an empty side shows. The board keeps only the side it shows.
     LaunchedEffect(board, other, active?.id, listVersion) {
         otherSide = app.lumioVault()?.let { vault ->
-            val held = PortfolioReads.holdings(app, vault, other, active?.id).firstOrNull { it.amount.signum() > 0 } ?: return@let null
+            // Only the amount is shown, so no price is read.
+            val held = PortfolioReads.holdings(app, vault, other, active?.id, live = false).firstOrNull { it.amount.signum() > 0 } ?: return@let null
             otherSideOf(held, withContext(Dispatchers.IO) { vaultChains(app, vault) }, other) { selection.choose(other) }
         }
     }

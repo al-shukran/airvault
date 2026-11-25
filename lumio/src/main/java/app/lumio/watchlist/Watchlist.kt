@@ -69,7 +69,8 @@ object WatchlistStore {
         session.putVaultRecord(RECORD, json.encodeToString(WatchlistRecord.serializer(), WatchlistRecord(wallets)).encodeToByteArray())
     }
 
-    private fun readAll(session: VaultSession): Map<String, WalletWatchlist> {
+    /** The watchlists of every wallet that has one, by wallet id, from one read of the record. */
+    fun readAll(session: VaultSession): Map<String, WalletWatchlist> {
         val bytes = session.getVaultRecord(RECORD) ?: return emptyMap()
         return try {
             json.decodeFromString(WatchlistRecord.serializer(), bytes.decodeToString()).wallets

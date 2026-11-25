@@ -166,7 +166,10 @@ internal fun AssetRoute(
     val vault = app.lumioVault()
     val includeSpam = rememberTransactions(app).activityIncludesSpam
     val coinActivity by produceState<ActivityPage?>(initialValue = null, vault, asset, selection.mode, listVersion, includeSpam) {
-        value = vault?.let { PortfolioReads.activity(app, it, selection.mode, walletId = null, filter = ActivityFilter(coin = asset), includeSpam = includeSpam) }
+        // The rows show with the last prices kept, and the sources' answer replaces them when it lands.
+        val filter = ActivityFilter(coin = asset)
+        value = vault?.let { PortfolioReads.activity(app, it, selection.mode, walletId = null, filter = filter, includeSpam = includeSpam, live = false) }
+        value = vault?.let { PortfolioReads.activity(app, it, selection.mode, walletId = null, filter = filter, includeSpam = includeSpam) }
     }
     AssetPage(
         name = name,
