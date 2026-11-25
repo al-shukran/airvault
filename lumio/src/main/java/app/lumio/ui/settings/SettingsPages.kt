@@ -14,15 +14,10 @@ import app.lensly.ui.flow.PasswordCheck
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.R
 import app.lumio.data.config.AutoLock
-import app.lumio.data.config.DisplaySettings
-import app.lumio.data.config.FiatCurrency
 import app.lumio.data.config.LockSettings
-import app.lumio.data.config.TransactionSettings
-import app.lumio.ui.kit.ClearAirAlertNote
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirNote
 import app.lumio.ui.kit.ClearAirRow
-import app.lumio.ui.kit.ClearAirStopSlider
 import app.lumio.ui.kit.ClearAirSwitchRow
 import app.lumio.ui.shell.LumioPageScreen
 
@@ -66,46 +61,6 @@ fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
     }
 }
 
-/** The Display page: what Home shows. Each control applies as the owner changes it, and [notice] shows a change that the vault refused. */
-@Composable
-fun DisplaySettingsPage(
-    settings: DisplaySettings,
-    notice: String?,
-    onShowTotal: (Boolean) -> Unit,
-    onShowAssets: (Boolean) -> Unit,
-    onCurrency: (FiatCurrency) -> Unit,
-    onSmallBalance: (Double) -> Unit,
-    offline: String?,
-    onBack: () -> Unit,
-    onLock: () -> Unit,
-) {
-    SettingsPageScreen(SettingsPage.DISPLAY, offline, onBack, onLock) {
-        DisplaySettingsSection(
-            settings = settings,
-            notice = notice,
-            onShowTotal = onShowTotal,
-            onShowAssets = onShowAssets,
-            onCurrency = onCurrency,
-            onSmallBalance = onSmallBalance,
-        )
-    }
-}
-
-/** The Networks page: the Esplora server of each Bitcoin network, then the Ethereum chains. Each part draws its own controls. */
-@Composable
-fun NetworksSettingsPage(
-    offline: String?,
-    onBack: () -> Unit,
-    onLock: () -> Unit,
-    bitcoin: @Composable () -> Unit,
-    ethereum: @Composable () -> Unit,
-    backLabel: String = SETTINGS_BACK,
-) {
-    SettingsPageScreen(SettingsPage.NETWORKS, offline, onBack, onLock, backLabel = backLabel) {
-        SettingsGroup(title = "Bitcoin") { bitcoin() }
-        SettingsGroup(title = "Ethereum") { ethereum() }
-    }
-}
 
 /** The Wallets page: the pairing of a wallet from Lensly, and each paired wallet with its delete row. [wallets] draws them. */
 @Composable
@@ -208,49 +163,6 @@ fun AboutSettingsPage(version: String, offline: String?, onLicences: () -> Unit,
                 onClick = onLicences,
             )
         }
-    }
-}
-
-/**
- * The Transactions page: whether spam is hidden from Activity, the Last Chance pause before a send is broadcast, and the backup of the transaction
- * comments, which [comments] draws. Each control applies as the owner changes it, and [notice] shows a change that the vault refused.
- */
-@Composable
-fun TransactionsSettingsPage(
-    settings: TransactionSettings,
-    notice: String?,
-    onHideSpam: (Boolean) -> Unit,
-    onLastChance: (Int) -> Unit,
-    offline: String?,
-    onBack: () -> Unit,
-    onLock: () -> Unit,
-    comments: @Composable () -> Unit,
-) {
-    SettingsPageScreen(SettingsPage.TRANSACTIONS, offline, onBack, onLock) {
-        notice?.let {
-            ClearAirAlertNote(text = it, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs))
-        }
-        ClearAirSwitchRow(
-            title = "Hide Spam",
-            description = "Keeps spam and scam transfers out of Activity. You can still show them there.",
-            checked = settings.hideSpam,
-            onCheckedChange = onHideSpam,
-        )
-        val choices = TransactionSettings.LAST_CHANCE_CHOICES
-        SettingsGroup(title = "Last Chance before Sending · ${settings.lastChanceSeconds} s") {
-            ClearAirStopSlider(
-                // Only the ends are labelled. The title above carries the value, and the track has a stop for each choice.
-                labels = choices.map { if (it == choices.first() || it == choices.last()) "$it s" else "" },
-                selected = choices.indexOf(settings.lastChanceSeconds).coerceAtLeast(0),
-                onSelect = { index -> onLastChance(choices[index]) },
-                modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter),
-            )
-            ClearAirNote(
-                text = "After Lensly signs, Lumio waits this long before sending, so you can still stop it. At 0 s it sends at once.",
-                modifier = Modifier.padding(top = ClearAirSpacing.xs),
-            )
-        }
-        comments()
     }
 }
 

@@ -18,7 +18,6 @@ import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.flow.PasswordCheck
 import app.lensly.ui.theme.LumenTheme
 import app.lumio.PasswordChange
-import app.lumio.btc.EsploraServers
 import app.lumio.data.config.AutoLock
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.LockSettings
@@ -52,7 +51,7 @@ class SettingsPagesTest {
     @Test
     fun theDisplayPageHasNoSave() = assertNoSave {
         DisplaySettingsPage(
-            settings = DisplaySettings(), notice = null, onShowTotal = {}, onShowAssets = {}, onCurrency = {}, onSmallBalance = {},
+            settings = DisplaySettings(), notice = null, onHideBalances = {}, onCurrency = {}, onTheme = {}, onSmallBalance = {},
             offline = null, onLock = {}, onBack = {},
         )
     }
@@ -61,32 +60,20 @@ class SettingsPagesTest {
     fun theNetworksPageHasNoSave() = assertNoSave {
         NetworksSettingsPage(
             offline = null, onLock = {}, onBack = {},
-            bitcoin = {
-                BitcoinServersSettings(
-                    mainnet = EsploraServers.MAINNET_DEFAULT,
-                    testnet4 = EsploraServers.TESTNET4_DEFAULT,
-                    indexer = "",
-                    error = null,
-                    onApply = { _, _ -> },
-                    onIndexer = {},
-                    onReset = {},
-                )
-            },
-            ethereum = {
-                EvmSettingsSection(
-                    settings = EvmSettings(),
-                    chains = emptyList(),
-                    busy = false,
-                    notice = null,
-                    onAddressCount = {},
-                    onEnabled = { _, _ -> },
-                    onNetwork = {},
-                    onTokens = {},
-                    onRemoveCustom = {},
-                    onAddNetwork = {},
-                )
-            },
-        )
+        ) {
+            EvmSettingsSection(
+                settings = EvmSettings(),
+                chains = emptyList(),
+                logos = emptyMap(),
+                busy = false,
+                notice = null,
+                onAddressCount = {},
+                onEnabled = { _, _ -> },
+                onNetwork = {},
+                onAddNetwork = {},
+                onBitcoin = {},
+            )
+        }
     }
 
     @Test
@@ -346,7 +333,7 @@ class SettingsPagesTest {
     }
 
     @Test
-    fun theHideSpamSwitchReportsTheOwnersChoiceAndTheTitleShowsThePause() {
+    fun theHideSpamSwitchReportsTheOwnersChoiceAndTheLineShowsThePause() {
         var hide: Boolean? = null
         compose.setContent {
             ClearAirHarness {
@@ -358,8 +345,9 @@ class SettingsPagesTest {
             }
         }
 
-        // The section title is an eyebrow, so it is drawn in capitals.
-        compose.onNodeWithText("LAST CHANCE BEFORE SENDING · 5 S").performScrollTo().assertIsDisplayed()
+        // The section title is an eyebrow, so it is drawn in capitals, and the pause is its value.
+        compose.onNodeWithText("LAST CHANCE BEFORE SENDING").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("5 s").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Hide Spam").performScrollTo().performClick()
         assertEquals(false, hide)
     }
