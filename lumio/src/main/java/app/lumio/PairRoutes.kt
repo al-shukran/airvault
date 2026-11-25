@@ -145,7 +145,7 @@ internal fun PairReviewRoute(
         }
     }
     if (session == null || pairing == null) {
-        LaunchedEffect(Unit) { navController.popBackStack(LumioRoute.WALLETS, inclusive = false) }
+        LaunchedEffect(Unit) { navController.backToAccounts() }
         return
     }
     PairReviewScreen(
@@ -172,7 +172,7 @@ internal fun PairReviewRoute(
         },
         onCancel = {
             draft.clear()
-            navController.popBackStack(LumioRoute.WALLETS, inclusive = false)
+            navController.backToAccounts()
         },
         onLock = onLock,
     )
@@ -204,7 +204,7 @@ internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolde
     // The import as an earlier visit left it: its rows show on the first frame, and its reads do not run again.
     var imported by remember(session, walletId, mode) { mutableStateOf(imports.get(walletId, mode)) }
     fun finish() {
-        navController.popBackStack(LumioRoute.WALLETS, inclusive = false)
+        navController.backToAccounts()
         navController.navigate(LumioRoute.wallet(walletId))
     }
     fun viewAccounts() {
@@ -213,7 +213,7 @@ internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolde
     // The system back stays on this step, so only Continue leaves the onboarding.
     BackHandler {}
     if (session == null) {
-        LaunchedEffect(Unit) { navController.popBackStack(LumioRoute.WALLETS, inclusive = false) }
+        LaunchedEffect(Unit) { navController.backToAccounts() }
         return
     }
     // Each visit reads the wallet again. The vault may have lost it while the owner was away, and a wallet
@@ -221,7 +221,7 @@ internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolde
     LaunchedEffect(session, walletId, mode) {
         val wallet = onVault(null) { PairedWallets.list(session).firstOrNull { it.id == walletId } }
         if (wallet == null) {
-            navController.popBackStack(LumioRoute.WALLETS, inclusive = false)
+            navController.backToAccounts()
         } else {
             val sync = imports.get(walletId, mode)?.sync ?: FirstSync(firstSyncSteps(app, session, mode, wallet))
             imported = FirstSyncImport(wallet, sync).also { imports.put(walletId, mode, it) }
