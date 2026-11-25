@@ -2,6 +2,7 @@ package app.lumio.ui.firstrun
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,10 +29,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -44,10 +45,10 @@ import app.lumio.ui.kit.ClearAirCheckbox
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
+import app.lumio.ui.kit.ClearAirLineBox
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirSegments
 import app.lumio.ui.kit.ClearAirTextAction
-import app.lumio.ui.pair.IntroStep
 import app.lumio.ui.settings.BIOMETRIC_UNAVAILABLE_REASON
 
 /** The gap between the status bar and the chapter bar: the mock puts the bar 8 dp below the status bar, plus 6 dp of its own padding. */
@@ -61,13 +62,19 @@ private val CHAPTER_BAR_TOP = 14.dp
  */
 internal data class PageSpacing(
     val barTop: Dp = CHAPTER_BAR_TOP,
-    val artTop: Dp = ClearAirSpacing.xl,
+    val artTop: Dp = 0.dp,
     val eyebrowTop: Dp = 18.dp,
-    val titleTop: Dp = ClearAirSpacing.xxs,
+    val titleTop: Dp = 9.2.dp,
     val bodyTop: Dp = ClearAirSpacing.md,
     val centered: Boolean = false,
     val titleStyle: TextStyle? = null,
 )
+
+/** The running text of a first-run page: body type, set in its whole line box as the mock's paragraphs are. */
+internal val PageBody: TextStyle = ClearAirType.body.copy(lineHeightStyle = ClearAirLineBox)
+
+/** The small text of a first-run page, in its whole line box. */
+private val PageSmall: TextStyle = ClearAirType.small.copy(lineHeightStyle = ClearAirLineBox)
 
 /** The space under the foot's last control, above the navigation bar: the mock's 30 dp from the screen's bottom less the 24 dp of the gesture bar. */
 private val FOOT_BOTTOM = 6.dp
@@ -241,19 +248,22 @@ fun NoticeScreen(agreed: Boolean, onAgreedChange: (Boolean) -> Unit, onContinue:
                 )
             }
         },
+        spacing = PageSpacing(eyebrowTop = 29.9.dp, bodyTop = 15.8.dp),
     ) {
         listOf(
             "Your keys never leave your phone",
             "Never share your keys with anyone",
             "The software is provided as is",
         ).forEach { fact ->
-            Row(modifier = Modifier.padding(vertical = ClearAirSpacing.xxs), verticalAlignment = Alignment.Top) {
-                ClearAirIcon(glyph = ClearAirGlyph.CHECK, color = palette.ink, modifier = Modifier.size(18.dp))
+            Row(modifier = Modifier.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                ClearAirIcon(glyph = ClearAirGlyph.CHECK, color = palette.vaultBlue, size = 15.dp, stroke = 2.2f)
                 Spacer(Modifier.width(ClearAirSpacing.xs))
-                Text(text = fact, style = ClearAirType.body, color = palette.ink)
+                Text(text = fact, style = ClearAirType.body.copy(fontSize = 14.sp, lineHeight = 21.sp, lineHeightStyle = ClearAirLineBox), color = palette.ink)
             }
         }
-        Spacer(Modifier.height(ClearAirSpacing.md))
+        Spacer(Modifier.height(12.9.dp))
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(palette.hairline))
+        Spacer(Modifier.height(6.dp))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -261,12 +271,12 @@ fun NoticeScreen(agreed: Boolean, onAgreedChange: (Boolean) -> Unit, onContinue:
                 .toggleable(value = agreed, role = Role.Checkbox, onValueChange = onAgreedChange),
             verticalAlignment = Alignment.Top,
         ) {
-            ClearAirCheckbox(checked = agreed)
-            Spacer(Modifier.width(ClearAirSpacing.xs))
+            ClearAirCheckbox(checked = agreed, modifier = Modifier.padding(top = 1.dp))
+            Spacer(Modifier.width(ClearAirSpacing.sm))
             Text(
                 text = "I understand that AirVault, Lensly, or Lumio has no tokens, public sales, or a support team and that you must not " +
                     "transfer any cryptocurrency to anyone, especially someone claiming to be from alshukran.com.",
-                style = ClearAirType.body,
+                style = ClearAirType.body.copy(fontSize = 14.5.sp, lineHeight = 21.sp, lineHeightStyle = ClearAirLineBox),
                 color = palette.ink,
             )
         }
@@ -282,16 +292,31 @@ fun PrepareScreen(onNext: () -> Unit) {
         eyebrow = "Pair · 1 of 2",
         title = "Prepare Lensly for Pairing",
         footer = { ClearAirPrimaryButton(text = "Next", onClick = onNext) },
+        art = { Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { PrepareArt() } },
+        spacing = PageSpacing(artTop = 52.dp, eyebrowTop = 37.5.dp, bodyTop = 11.5.dp),
     ) {
         Text(
             text = "Keep Lensly nearby. You'll show its pairing code to this phone in a minute.",
-            style = ClearAirType.body,
+            style = PageBody,
             color = palette.ink2,
         )
-        Spacer(Modifier.height(ClearAirSpacing.md))
-        IntroStep(number = 1, text = "Have your Lensly phone with you, charged and unlocked.")
-        IntroStep(number = 2, text = "Set a password for Lumio on the next screens.")
-        IntroStep(number = 3, text = "Then hold Lensly's pairing code up to this phone.")
+        Spacer(Modifier.height(10.9.dp))
+        PrepareStep(number = 1, text = "Have your Lensly phone with you, charged and unlocked.")
+        PrepareStep(number = 2, text = "Set a password for Lumio on the next screens.")
+        PrepareStep(number = 3, text = "Then hold Lensly's pairing code up to this phone.")
+    }
+}
+
+/** One numbered step of the prepare page: the number in an outlined disc, and the words beside it, as the mock draws its steps. */
+@Composable
+private fun PrepareStep(number: Int, text: String) {
+    val palette = LocalClearAirPalette.current
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
+        Box(modifier = Modifier.size(25.dp).border(1.5.dp, palette.ink3, CircleShape), contentAlignment = Alignment.Center) {
+            Text(text = "$number", style = ClearAirType.time.copy(fontWeight = FontWeight.SemiBold), color = palette.ink2)
+        }
+        Spacer(Modifier.width(ClearAirSpacing.sm))
+        Text(text = text, style = ClearAirType.body.copy(fontSize = 14.sp, lineHeight = 20.sp, lineHeightStyle = ClearAirLineBox), color = palette.ink)
     }
 }
 
@@ -333,27 +358,19 @@ fun DeviceProtectionScreen(available: Boolean, onEnable: () -> Unit, onNotNow: (
             ClearAirPrimaryButton(text = "Enable", onClick = onEnable, enabled = available)
             ClearAirTextAction(text = "Not Now", onClick = onNotNow, modifier = Modifier.padding(top = ClearAirSpacing.xs))
         },
-        art = {
-            Box(modifier = Modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.md), contentAlignment = Alignment.Center) {
-                Box(
-                    modifier = Modifier.size(120.dp).clip(CircleShape).background(palette.raised),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    AirVaultMark(size = 56.dp)
-                }
-            }
-        },
+        art = { Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { DeviceProtectionArt() } },
+        spacing = PageSpacing(artTop = 60.dp, eyebrowTop = 39.3.dp, bodyTop = 12.1.dp),
     ) {
-        Text(text = "Use your fingerprint or face to open Lumio.", style = ClearAirType.body, color = palette.ink2)
-        Spacer(Modifier.height(ClearAirSpacing.xs))
+        Text(text = "Use your fingerprint or face to open Lumio.", style = PageBody, color = palette.ink2)
+        Spacer(Modifier.height(10.9.dp))
         Text(
             text = "Your password still works whenever the sensor doesn't. You can change this later in Settings → Security.",
-            style = ClearAirType.label,
+            style = PageSmall,
             color = palette.ink2,
         )
         if (!available) {
             Spacer(Modifier.height(ClearAirSpacing.xs))
-            Text(text = BIOMETRIC_UNAVAILABLE_REASON, style = ClearAirType.label, color = palette.ink2)
+            Text(text = BIOMETRIC_UNAVAILABLE_REASON, style = PageSmall, color = palette.ink2)
         }
     }
 }

@@ -39,9 +39,9 @@ fun PairIntro(onScan: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-/** One numbered step of the intro: the number in ink-3, and the words beside it. The first-run prepare page shares it. */
+/** One numbered step of the intro: the number in ink-3, and the words beside it. */
 @Composable
-internal fun IntroStep(number: Int, text: String) {
+private fun IntroStep(number: Int, text: String) {
     val palette = LocalClearAirPalette.current
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.xxs),
