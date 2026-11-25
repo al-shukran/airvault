@@ -393,6 +393,7 @@ shard-6 :lumio app.lumio.data.price.PriceChartRepositoryTest
 shard-6 :lumio app.lumio.data.price.TokenLogosTest
 shard-6 :lumio app.lumio.data.provider.AddressTxHistoryTest
 shard-6 :lumio app.lumio.portfolio.LastTransactionTest
+shard-6 :lumio app.lumio.portfolio.PartyNamesTest
 shard-6 :lumio app.lumio.send.PaymentCodeTest
 shard-6 :lumio app.lumio.tokens.TokenBalancesTest
 shard-6 :lumio app.lumio.FirstSyncLeftEarlyShowsBalancesTest

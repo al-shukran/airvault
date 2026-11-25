@@ -28,6 +28,7 @@ data class PairedAccount(val index: Int, val address: String, val name: String?,
  * [addressBook] is the Address Book that Lensly sent with the pairing, in the order it was sent. It is empty when there is none.
  * [solana] holds the public key of each Solana account, 32 bytes, in account order. Lumio shows each one's base58 address.
  * [algorand] holds the public key of each Algorand account, 32 bytes, in account order. Lumio shows each one's address.
+ * [bookRank] is how recently the wallet's Address Book was paired: the higher, the later. A wallet with no book has -1.
  */
 data class PairedWallet(
     val id: String,
@@ -39,6 +40,7 @@ data class PairedWallet(
     val addressBook: List<AddressBookEntry> = emptyList(),
     val solana: List<ByteArray> = emptyList(),
     val algorand: List<ByteArray> = emptyList(),
+    val bookRank: Int = -1,
 ) {
     /** The address of each Ethereum account, in account order. Empty when the wallet holds no Ethereum account. */
     val evmAddresses: List<String>
@@ -55,10 +57,10 @@ data class PairedWallet(
 
 /**
  * The Address Book that the Address Book page of Settings shows and its row counts: the books of [wallets] as one, in the order an entry was first seen.
- * An entry that wallets share, which has the same id, shows once, as the most recently paired wallet's copy, so a rename that a re-pair brought is kept.
+ * An entry that wallets share, which has the same id, shows once, as the copy of the wallet whose book was paired last (a re-pair counts), so a rename that a re-pair brought is kept.
  */
 fun sharedAddressBook(wallets: List<PairedWallet>): List<AddressBookEntry> =
-    wallets.sortedBy { it.createdAtMs }.flatMap { it.addressBook }.associateBy { it.id }.values.toList()
+    wallets.sortedBy { it.bookRank }.flatMap { it.addressBook }.associateBy { it.id }.values.toList()
 
 /**
  * The Ethereum accounts of [wallets], each keyed by [addressKeyOf] its address, with the name and label the pairing sent for it. A pairing
@@ -104,7 +106,8 @@ object PairedWallets {
         val writes = session.writeCount
         val wallets = synchronized(kept) { kept[session] }?.takeIf { it.writes == writes && it.ids == ids }?.wallets
             ?: ids.mapNotNull { id -> readOrNull(session, id) }.also { synchronized(kept) { kept[session] = Kept(writes, ids, it) } }
-        return wallets.map { it.copy(addressBook = books[it.id].orEmpty()) }.sortedBy { it.createdAtMs }
+        val rank = books.keys.withIndex().associate { it.value to it.index }
+        return wallets.map { it.copy(addressBook = books[it.id].orEmpty(), bookRank = rank[it.id] ?: -1) }.sortedBy { it.createdAtMs }
     }
 
     /** The wallets read at a write count, for the session that read them. A closed session drops out with its key. */
