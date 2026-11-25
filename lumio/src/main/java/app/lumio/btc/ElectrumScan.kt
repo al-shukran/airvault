@@ -29,7 +29,8 @@ internal class ElectrumRead(val receive: List<UsedAddress>, val change: List<Use
  * Reads [account] from [pool]: the gap-limit walk of both chains at once, then the unspent outputs of the addresses that hold coins. Each window
  * of the walk is one batch, and so are the unspent outputs. [step] reports the addresses asked for so far, as the Esplora walk does. Returns null
  * when Electrum fails, so that the caller reads the account from Esplora. A cancellation is passed on. [usedBelow] is the receive hint of
- * [electrumChain], and [memo] and [nowMs] are those of [scanChain], which the walk fills the same way.
+ * [electrumChain], and [memo] and [nowMs] are those of [scanChain], which the walk fills the same way. A failed read leaves [memo] as it was, so
+ * that the Esplora walk asks for every address.
  */
 internal suspend fun electrumRead(
     pool: ElectrumPool,
@@ -47,12 +48,14 @@ internal suspend fun electrumRead(
     return try {
         val receive = mutableListOf<UsedAddress>()
         val change = mutableListOf<UsedAddress>()
+        val walked = ConcurrentHashMap<String, MemoStats>()
         coroutineScope {
-            launch { electrumChain(account::receiveAddress, read, receive, usedBelow, memo, nowMs) }
-            launch { electrumChain(account::changeAddress, read, change, memo = memo, nowMs = nowMs) }
+            launch { electrumChain(account::receiveAddress, read, receive, usedBelow, walked, nowMs) }
+            launch { electrumChain(account::changeAddress, read, change, memo = walked, nowMs = nowMs) }
         }
         val holders = (receive + change).filter { it.reading.balance != 0L }
         val utxos = if (holders.isEmpty()) emptyList() else pool.unspent(holders.map { scripthash(scriptOf(network, it.address)) })
+        memo.putAll(walked)
         ElectrumRead(receive, change, utxos)
     } catch (e: CancellationException) {
         throw e
