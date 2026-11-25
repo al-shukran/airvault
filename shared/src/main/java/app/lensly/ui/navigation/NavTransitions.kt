@@ -5,6 +5,7 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.ui.unit.IntOffset
 import androidx.navigation.NavBackStackEntry
 import app.lensly.ui.theme.ClearAirMotion
@@ -46,7 +47,12 @@ object LenslyNavTransitions {
 
     val predictivePopExit: AnimatedContentTransitionScope<NavBackStackEntry>.(Int) -> ExitTransition = {
         cutWhenReduced(NavReducedMotion.reduced, ExitTransition.None) {
-            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, swipe)
+            // A rise screen is a sheet: its swipe takes it down, as its pop does, and never slides it sideways.
+            if (initialState.destination.route in riseRoutes) {
+                slideOutVertically(swipe) { it }
+            } else {
+                slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, swipe)
+            }
         }
     }
 }

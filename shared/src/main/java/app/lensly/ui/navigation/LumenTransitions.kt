@@ -19,6 +19,9 @@ import app.lensly.ui.theme.LocalReducedMotion
  */
 enum class NavMotion { ROOT, PUSH, RISE, FADE, COVER }
 
+/** The routes of the [NavMotion.RISE] screens, which [vaultComposable] fills as the graph is built. A back swipe reads it, for it has no per-screen transition. */
+internal val riseRoutes = mutableSetOf<String>()
+
 /**
  * Reduced motion for the NavHost's transitions. Transition lambdas are built outside composition, so they cannot read
  * [LocalReducedMotion]; [MirrorNavMotion] copies the local here, and each transition reads it when it starts.

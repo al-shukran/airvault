@@ -29,6 +29,7 @@ fun NavGraphBuilder.vaultComposable(
             content(entry)
         }
     }
+    if (motion == NavMotion.RISE) riseRoutes += route
     if (motion == NavMotion.ROOT) {
         composable(route = route, arguments = arguments, deepLinks = deepLinks, content = screen)
     } else {
