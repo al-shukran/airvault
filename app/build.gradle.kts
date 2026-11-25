@@ -92,7 +92,7 @@ android {
                 "META-INF/versions/9/module-info.class",
             )
             // DISCLAIMER is shipped by two tuweni jars (both pulled in by web3j); keep one copy.
-            pickFirsts += setOf("META-INF/DISCLAIMER")
+            pickFirsts += setOf("META-INF/DISCLAIMER", "META-INF/FastDoubleParser-LICENSE", "META-INF/FastDoubleParser-NOTICE", "META-INF/FastDoubleParser-ThirdParty-LICENSE")
         }
     }
 

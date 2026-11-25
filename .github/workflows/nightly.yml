@@ -94,6 +94,7 @@ jobs:
         run: |
           ./gradlew :app:assembleRelease
           test -s app/build/outputs/mapping/release/mapping.txt
+          scripts/ci/check-release-classpath.sh
 
       # OWASP dependency-check (guideline 1.8) runs in three steps after the gates, so one run still reports every
       # broken gate. It needs the NVD database. The database is cached per ISO week in the plugin's data directory,
