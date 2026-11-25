@@ -1,0 +1,1 @@
+Settings → Security → Auto-Lock now goes up to After 1 Month, with After 15 Minutes, After 30 Minutes, After 1 Hour, After 1 Day and After 1 Week in between. After 1 Minute stays the default, and Lumio still locks if the system ends it.
