@@ -94,6 +94,7 @@ shard-1 :lumio app.lumio.ui.asset.AssetHoldingsTest
 shard-1 :lumio app.lumio.ui.home.MarketFormatTest
 shard-1 :lumio app.lumio.ui.kit.AddressGroupsTest
 shard-1 :lumio app.lumio.ui.kit.ClearAirFieldEnterTest
+shard-1 :lumio app.lumio.ui.kit.ClearAirFieldGeometryTest
 shard-1 :lumio app.lumio.ui.receive.ReceiveAssetStartTest
 shard-1 :lumio app.lumio.ui.send.ArrivalHapticTest
 shard-1 :lumio app.lumio.ui.settings.DataProvidersScreenTest
