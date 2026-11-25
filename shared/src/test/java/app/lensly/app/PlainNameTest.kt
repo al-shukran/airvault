@@ -123,31 +123,52 @@ class PlainNameTest {
         assertTrue(looksLikeAddressName("9WzDXwBbmkg8ZTbN MqUxvQRAyWQpHk3z"))
         assertTrue(looksLikeAddressName("9WzDXwBbmkg8ZTb NMqUxvQRAy WQpHk3zq"))
         assertTrue(looksLikeAddressName("9WzD, XwBb | mkg8 \u2022 ZTbN MqUx vQRA"))
-        // Plain words around the pieces do not hide them.
-        assertTrue(looksLikeAddressName("International Savings Account 9WzD XwBb mkg8 ZTbN MqUx"))
     }
 
     @Test
-    fun lookalikeLettersInsideAnAddressDoNotHideIt() {
+    fun wordsInTheMiddleDoNotHideTheEndsOfAnAddress() {
+        assertTrue(looksLikeAddressName("9WzD Abcd Efgh Ijkl Mnop Qrst Uvwx Hk3z"))
+        assertTrue(looksLikeAddressName("9WzD abcd 3efg hijk mnop Xy9Z"))
+        assertTrue(looksLikeAddressName("9WzD \u0430bcd 3efg hijk mnop Xy9Z"))
+        assertTrue(looksLikeAddressName("9WzD\u2026Hk3z"))
+        assertTrue(looksLikeAddressName("9WzD...Hk3z"))
+        assertTrue(looksLikeAddressName("1A1zP1\u2026DivfNa"))
+        assertTrue(looksLikeAddressName("0x71\u03F27\u2026976F"))
+    }
+
+    @Test
+    fun lookalikeAndOtherScriptCharactersInsideAnAddressDoNotHideIt() {
         // Cyrillic Х, В and х for the Latin X, B and x.
         assertTrue(looksLikeAddressName("9WzD\u0425w\u0412bmkg8ZTbNMqU\u0445vQRAy"))
         assertTrue(looksLikeAddressName("9WzD\u0425w\u0412bmkg8 ZTbNMqU\u0445vQRAy"))
         // Greek omicron and nu, Cyrillic er, u, i and ka.
         assertTrue(looksLikeAddressName("9WzDXwBbmkg8ZTbNMqUxvQRA\u03BFy\u03BD"))
         assertTrue(looksLikeAddressName("9WzDXwBbmkg8ZT\u0440\u0443\u0456\u043AMqUxvQRAy"))
-        // Greek omicron and Cyrillic ha for "0x".
+        // Greek omicron and Cyrillic ha for "0x", and Cyrillic capitals.
         assertTrue(looksLikeAddressName("\u03BF\u0445" + "71C7656E"))
-        // A Cyrillic name with a digit holds no Latin letter and stays a name.
-        assertFalse(looksLikeAddressName("\u0421\u0435\u0442\u044C2024\u041A\u043E\u0448\u0435\u043B\u0435\u043A\u041E\u0441\u043D\u043E\u0432\u043D\u043E\u0439"))
+        assertTrue(looksLikeAddressName("\u0410\u0412\u0421\u0415\u041D\u041A\u041C\u041E\u0420\u0422\u0425\u0410\u0412\u0421\u0415\u041D\u041A\u041C\u041E\u0420\u0422\u04251234"))
+        // A letter run with no digit, in an irregular case or very long, and an Arabic-Indic digit.
+        assertTrue(looksLikeAddressName("HkzAbcDefGhiJkmNopQrsTuvWxyzAbcdEfghJkmNpqRs"))
+        assertTrue(looksLikeAddressName("A".repeat(57) + "B"))
+        assertTrue(looksLikeAddressName("WzDXwBbmkgZTbNMqUxvQRAyWQp\u0663"))
     }
 
     @Test
-    fun wordsWithAShortModelNumberAreNames() {
+    fun wordsWithModelNumbersAndCodesAreNames() {
         assertFalse(looksLikeAddressName("Samsung Galaxy S24 Ultra 256GB"))
         assertFalse(looksLikeAddressName("Savings2024 Fund Account"))
         assertFalse(looksLikeAddressName("iPhone15 Pro Max 2024 Case"))
         assertFalse(looksLikeAddressName("Ledger Nano X 2024 Backup Wallet"))
         assertFalse(looksLikeAddressName("Family/Savings: 2024 Emergency Fund"))
+        assertFalse(looksLikeAddressName("MAIN WALLET 2024 BACKUP KEY"))
+        assertFalse(looksLikeAddressName("COLD STORAGE USB 2024 SECOND"))
+        assertFalse(looksLikeAddressName("\u6211\u7684\u4EE5\u592A\u574A\u94B1\u5305 ETH \u50A8\u84C4\u8D26\u6237\u5907\u7528 2024"))
+        assertFalse(looksLikeAddressName("Wallet 1 2 3 4 5 6 7 8 9 10 11 12 13 14 ETH"))
+        assertFalse(looksLikeAddressName("Mom iPhone 15 Pro Max 256GB Space Black"))
+        assertFalse(looksLikeAddressName("Room 10 x 2020"))
+        assertFalse(looksLikeAddressName("Toyota Corolla 2019 VIN JTDKB20U"))
+        assertFalse(looksLikeAddressName("SN ABC12345 XYZ67890 LEDGER"))
+        assertFalse(looksLikeAddressName("\u041C\u043E\u0439 \u043A\u043E\u0448\u0435\u043B\u0435\u043A 2024"))
     }
 
     @Test

@@ -51,45 +51,75 @@ fun plainNameOf(name: String, max: Int = PLAIN_NAME_MAX): String {
     }
 }
 
-/** An address as a name: "0x" and 4 hex digits, a bech32 prefix and a body, or a run of 20 or more letters and digits with a digit and 2 letters. */
-private val ADDRESS_START = Regex("""0x\s?[0-9a-f]{4}|\b(?:bc1|tb1)[0-9a-z]{6,}""", RegexOption.IGNORE_CASE)
-private val ALPHANUMERIC_RUN = Regex("""[\p{L}\p{N}]{20,}""")
+/** "0x" and 4 hex digits anywhere after a word break, also spaced ("0x 71C7"). */
+private val HEX_START = Regex("""\b0x\s?[0-9a-f]{4}""", RegexOption.IGNORE_CASE)
 
-/** Anything that is not a letter or a digit, so a space, slash, colon, dot, dash, comma and a combining mark all cut a name into pieces. */
+/** The joined name begins like an address: "0x" (or its look-alike "ox") and 4 hex digits, or a bech32 prefix and a body. */
+private val JOINED_START = Regex("""^(?:[0o]x[0-9a-f]{4}|(?:bc1|tb1)[0-9a-z]{6,})""", RegexOption.IGNORE_CASE)
+
 private val NOT_ALPHANUMERIC = Regex("""[^\p{L}\p{N}]+""")
 
-/** An ordinary word: one capital at most, then 3 or more lowercase letters, as in "Samsung", "Galaxy" or "Case". Address pieces rarely look like this. */
-private val WORD = Regex("""\p{Lu}?\p{Ll}{3,}""")
+/** The longest piece an ordinary word or a Lensly group of 4 reaches: a longer all-lowercase or all-uppercase piece is read as an address. */
+private const val MAX_WORD = 12
 
-/** Cyrillic and Greek letters that look like the Latin ones of "0x" and of hex digits, "ох" and "0х" included. Only the "0x" check reads them. */
-private val CONFUSABLES = mapOf(
-    'о' to '0', 'О' to '0', 'ο' to '0', 'Ο' to '0', 'х' to 'x', 'Х' to 'X', 'Χ' to 'X', 'а' to 'a', 'А' to 'A', 'с' to 'c', 'С' to 'C',
-    'е' to 'e', 'Е' to 'E', 'В' to 'B',
-)
+/** A piece or a joined name this long, with the right look, is an address. */
+private const val ADDRESS_LENGTH = 20
 
-/** A run of [ALPHANUMERIC_RUN] with a digit, 2 letters and an ASCII letter. Letters of another script inside it do not break it, they make it more suspect. */
-private fun hasAddressRun(text: String): Boolean = ALPHANUMERIC_RUN.findAll(text).any { match ->
-    val run = match.value
-    run.any { it in '0'..'9' } && run.count(Char::isLetter) >= 2 && run.any { it in 'A'..'Z' || it in 'a'..'z' }
+/** Cyrillic and Greek letters drawn like Latin ones, each with the Latin letter and the same case it is mapped to. */
+private val CONFUSABLES: Map<Char, Char> =
+    ("аеорсухіѕјһԁԛԝкονκιϲρυ" + "АВСЕНКМОРТХІЅЈΑΒΕΖΗΙΚΜΝΟΡΤΥΧϹ").zip("aeopcyxisjhdqwkovkicpu" + "ABCEHKMOPTXISJABEZHIKMNOPTYXC").toMap()
+
+/** [name] as the address check reads it: NFKC, format characters and combining marks removed, look-alike letters mapped to Latin. */
+private fun foldForAddressCheck(name: String): String = buildString {
+    Normalizer.normalize(name, Normalizer.Form.NFKC).forEach { c ->
+        when (Character.getType(c).toByte()) {
+            Character.FORMAT, Character.NON_SPACING_MARK, Character.ENCLOSING_MARK, Character.COMBINING_SPACING_MARK -> Unit
+            else -> append(CONFUSABLES[c] ?: c)
+        }
+    }
+}
+
+private fun piecesOf(text: String): List<String> = text.split(NOT_ALPHANUMERIC).filter { it.isNotEmpty() }
+
+/**
+ * Whether [piece] looks like a part of an address and not like a word: it holds a digit, its letters are in an irregular case ("XwBb",
+ * "PKTanMKd"; a word is lowercase, Capitalised, UPPERCASE or camel like "iPhone"), or it is a lowercase or uppercase run longer than
+ * [MAX_WORD] (an Algorand address has no digit). Letters without case, such as Chinese or Arabic, are neutral.
+ */
+private fun isAddressLike(piece: String): Boolean {
+    if (piece.any(Char::isDigit)) return true
+    val letters = piece.filter { it.isUpperCase() || it.isLowerCase() }
+    if (letters.isEmpty()) return false
+    val lower = letters.all(Char::isLowerCase)
+    val upper = letters.all(Char::isUpperCase)
+    val capitalised = letters.first().isUpperCase() && letters.drop(1).all(Char::isLowerCase)
+    val camel = letters.length > 2 && letters[0].isLowerCase() && letters[1].isUpperCase() && letters.drop(2).all(Char::isLowerCase)
+    return !(lower || upper || capitalised || camel) || (piece.length > MAX_WORD && (lower || upper))
 }
 
 /**
- * Whether [name] reads as an address, so that shown in bold above the real one it could be taken for it: it holds "0x" and 4 hex digits
- * (also in a spaced form such as "0x71C7 656E … 976F"), a "bc1" or "tb1" address start, or a run of 20 or more letters and digits with a digit and 2
- * letters, which is what a Solana or Algorand address looks like and a word is not. The name is read after NFKC folding (fullwidth "０ｘ").
- * The "0x" start is also read with Cyrillic and Greek lookalikes mapped to Latin. The name is cut into pieces at every character that is not
- * a letter or a digit, so an address split by a space, slash, colon, dot or dash, into any number of pieces of any size, is one run again.
- * Pieces that are plain words ([WORD]) are left out first, so "Samsung Galaxy S24 Ultra 256GB" or "Savings2024 Fund Account" is a name. A
- * letter of another script inside a run that holds Latin letters and a digit counts as part of the run, so a Cyrillic "Х" for an "X" does not hide it.
+ * Whether [name] reads as an address, so that shown in bold above the real one it could be taken for it. People compare the start and the
+ * end of an address, so the name is judged by its ends. It is read after folding (NFKC, format characters and combining marks removed,
+ * Cyrillic and Greek look-alikes mapped to Latin) and cut into pieces at every character that is not a letter or a digit, so any split by
+ * space, slash, colon, dot or dash gives the same pieces (see [isAddressLike]). It is refused when
+ * - it starts with "0x" and 4 hex digits (also spaced, or after other words) or with a "bc1" or "tb1" address start, once joined;
+ * - its first and last pieces both look like address parts and it holds 20 or more letters and digits;
+ * - an ellipsis has an address-like piece on each side ("9WzD…Hk3z");
+ * - one piece of 20 or more characters looks like an address part.
+ * So "Samsung Galaxy S24 Ultra 256GB" or "Room 10 x 2020" is a name.
  */
 fun looksLikeAddressName(name: String): Boolean {
-    val folded = Normalizer.normalize(name, Normalizer.Form.NFKC)
-    val pieces = folded.split(NOT_ALPHANUMERIC).filter { it.isNotEmpty() }
-    return hasAddressStart(folded) || hasAddressStart(pieces.joinToString("")) ||
-        hasAddressRun(pieces.filterNot { WORD.matches(it) }.joinToString(""))
+    val text = foldForAddressCheck(name)
+    val pieces = piecesOf(text)
+    if (pieces.isEmpty()) return false
+    val joined = pieces.joinToString("")
+    return HEX_START.containsMatchIn(text) || JOINED_START.containsMatchIn(joined) ||
+        (joined.length >= ADDRESS_LENGTH && isAddressLike(pieces.first()) && isAddressLike(pieces.last())) ||
+        text.split("...").map(::piecesOf).zipWithNext().any { (before, after) ->
+            before.isNotEmpty() && after.isNotEmpty() && isAddressLike(before.last()) && isAddressLike(after.first())
+        } ||
+        pieces.any { it.length >= ADDRESS_LENGTH && isAddressLike(it) }
 }
-
-private fun hasAddressStart(text: String): Boolean = ADDRESS_START.containsMatchIn(text.map { CONFUSABLES[it] ?: it }.joinToString(""))
 
 /**
  * [plainNameOf] of [name], or null when [name] is null, has nothing visible left, or [looksLikeAddressName]. A caller shows the grouped
