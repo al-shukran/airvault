@@ -1,0 +1,59 @@
+# PR screen recordings
+
+`compose.sh` shows emulator screen recordings for pull requests in one comparison style. A Before and After pair becomes two panels side by side, and a single feature becomes one panel. The phone is Android Studio's Pixel 7 device art, read at run time from `/Applications/Android Studio*.app`. The art is not stored in this repository.
+
+## Usage
+
+```
+# A before/after pair: comparison.mp4, comparison.gif, comparison.png
+compose.sh --before before.mp4 --after after.mp4 \
+  --before-note "Names Lensly inside Lumio" --after-note "Names Lumio" \
+  --before-start 0.6 --after-start 0.6 --key 3 --out pr-1015
+
+# One feature: single.mp4, single.gif, single.png
+compose.sh --clip demo.mp4 --label New --note "Shows the new flow" [--tone neutral|green|red] [--start 0.5] --out pr-945
+
+# A still screen: give PNG inputs, and only single.png is written
+compose.sh --clip shot.png --label New --note "Shows the new screen" --out pr-945
+```
+
+| Option | Meaning |
+| --- | --- |
+| `--before`, `--after` | Input for each side: a 9:20 clip or a PNG. Both sides may mix clips and stills. |
+| `--before-note`, `--after-note` | One line of text under the Before or After label. |
+| `--before-start`, `--after-start` | Seconds to cut from the start of a clip, to line the two sides up on the same moment. |
+| `--clip`, `--label`, `--note`, `--tone`, `--start` | Feature mode: one input, one label, one note, and a tone. Tones are `neutral` (default), `green` and `red`. |
+| `--key` | The second of the video whose frame becomes the PNG. Default 3. |
+| `--out` | Output directory. It is created if needed. |
+
+Trims only cut the start of a clip. To cut the end, trim the clip before running the tool.
+
+## Inputs
+
+Each input is a 9:20 screen, 720x1600 or 1080x2400. Use an emulator capture, which already shows the status bar and the navigation bar. Each screen is scaled to fill the phone's screen exactly. The device art gives the rounded corners and the camera. Nothing is cropped.
+
+## Outputs
+
+- Pair: `comparison.mp4` (H.264, yuv420p, faststart, 2400 px wide), `comparison.gif` (1200 px wide) and `comparison.png` (the key frame).
+- Feature: the same files named `single.*`, 1210 px wide.
+- Each file is at most 10 MB. The MP4 steps its quality down, and the GIF steps its frame rate, width and palette down, until each one fits.
+- A run where every input is a still writes only the PNG.
+- The video is at most 60 seconds long. A shorter side holds its last frame.
+
+## Style rules
+
+Every recording follows these rules, so that all of them read as one set:
+
+- Two rounded panels on a white canvas. The tint is red `#FDECEC` for Before, green `#E8F6EE` for After, and neutral `#EEF2F7` for a feature.
+- Each panel has a pill label at the top, in bold white text: red `#E5484D` for Before, green `#1F9D55` for After, and navy `#1B2A4A` for a feature.
+- Each panel has a one-line callout under its pill: an icon disc and the note. The icon is a red cross, a green check, or a navy dot, drawn as shapes, not as glyphs.
+- Labels and callouts sit outside the phone. Nothing is drawn over the app content.
+- In pair mode, a round navy VS badge sits on the seam between the panels, level with the middle of the phones. It is never drawn in feature mode.
+- The screen fills the phone's cutout exactly, from the status bar to the gesture area. Nothing of the app is cropped.
+- No timer. No overlays on app content.
+- The font is DIN Alternate Bold, which ships with macOS. Arial is never used.
+
+## Requirements
+
+- `ffmpeg`, `ffprobe`, ImageMagick 7 (`magick`), and `awk`. Install with `brew install ffmpeg imagemagick`.
+- Android Studio with its Pixel 7 device art. Set `PR_RECORDING_DEVICE_ART` to point at another copy of that art folder. Set `PR_RECORDING_FONT` to use another bold sans.
