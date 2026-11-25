@@ -40,21 +40,40 @@ fun DisplaySettingsPage(
     onBack: () -> Unit,
     onLock: () -> Unit,
 ) {
-    SettingsPageScreen(SettingsPage.DISPLAY, offline, onBack, onLock) {
+    // The sheets belong to the page, not to its scrolling column: a sheet needs the page's bounds to cover it.
+    var picker by rememberSaveable { mutableStateOf(if (DebugDemoData.flag("currency")) DisplayPicker.CURRENCY else null) }
+    SettingsPageScreen(
+        SettingsPage.DISPLAY,
+        offline,
+        onBack,
+        onLock,
+        sheet = {
+            DisplaySheets(
+                settings = settings,
+                picker = picker,
+                onClose = { picker = null },
+                onCurrency = onCurrency,
+                onTheme = onTheme,
+            )
+        },
+    ) {
         DisplaySettingsSection(
             settings = settings,
             notice = notice,
             onShowTotal = onShowTotal,
             onShowAssets = onShowAssets,
-            onCurrency = onCurrency,
-            onTheme = onTheme,
+            onOpenCurrency = { picker = DisplayPicker.CURRENCY },
+            onOpenTheme = { picker = DisplayPicker.THEME },
             onSmallBalance = onSmallBalance,
         )
     }
 }
 
+/** The radio sheet the Display page has open: at most one. */
+private enum class DisplayPicker { CURRENCY, THEME }
+
 /**
- * The Display settings: the Show Total Balance and Show Individual Asset Balances switches, the Currency and Theme rows, which each open a radio sheet whose choice applies and closes it, and the Hide Small
+ * The Display settings: the Show Total Balance and Show Individual Asset Balances switches, the Currency and Theme rows, which each ask the page to open its radio sheet ([DisplaySheets]), and the Hide Small
  * Balances slider. Each control reports its new value at once. [notice] shows a change that the vault refused.
  */
 @Composable
@@ -63,13 +82,11 @@ fun DisplaySettingsSection(
     notice: String?,
     onShowTotal: (Boolean) -> Unit,
     onShowAssets: (Boolean) -> Unit,
-    onCurrency: (FiatCurrency) -> Unit,
-    onTheme: (ThemeMode) -> Unit,
+    onOpenCurrency: () -> Unit,
+    onOpenTheme: () -> Unit,
     onSmallBalance: (Double) -> Unit,
 ) {
     val palette = LocalClearAirPalette.current
-    var currencyOpen by rememberSaveable { mutableStateOf(DebugDemoData.flag("currency")) }
-    var themeOpen by rememberSaveable { mutableStateOf(false) }
     notice?.let {
         ClearAirAlertNote(text = it, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs))
     }
@@ -91,56 +108,15 @@ fun DisplaySettingsSection(
         divider = true,
         description = "Prices and totals",
         trailing = { Text(text = settings.currency.code, style = ClearAirType.address, color = palette.ink) },
-        onClick = { currencyOpen = true },
+        onClick = onOpenCurrency,
     )
     ClearAirRow(
         title = "Theme",
         divider = true,
         description = "Light, dark or as the phone is set",
         trailing = { Text(text = settings.theme.title, style = ClearAirType.small, color = palette.ink) },
-        onClick = { themeOpen = true },
+        onClick = onOpenTheme,
     )
-    ClearAirSheet(visible = currencyOpen, onClose = { currencyOpen = false }) {
-        ClearAirChoiceSheet(
-            title = "Currency",
-            groups = listOf(
-                ChoiceGroup(
-                    null,
-                    FiatCurrency.entries.map { currency ->
-                        ChoiceRow(
-                            title = currency.title,
-                            detail = if (currency.symbol == currency.code) currency.code else "${currency.code} · ${currency.symbol}",
-                            selected = currency == settings.currency,
-                            onPick = {
-                                currencyOpen = false
-                                onCurrency(currency)
-                            },
-                        )
-                    },
-                ),
-            ),
-        )
-    }
-    ClearAirSheet(visible = themeOpen, onClose = { themeOpen = false }) {
-        ClearAirChoiceSheet(
-            title = "Theme",
-            groups = listOf(
-                ChoiceGroup(
-                    null,
-                    ThemeMode.entries.map { mode ->
-                        ChoiceRow(
-                            title = mode.title,
-                            selected = mode == settings.theme,
-                            onPick = {
-                                themeOpen = false
-                                onTheme(mode)
-                            },
-                        )
-                    },
-                ),
-            ),
-        )
-    }
     val stops = DisplaySettings.SMALL_BALANCE_STOPS
     // The threshold is held in US dollars and shown in the chosen currency, which falls back to US dollars while no rate is known.
     val threshold = LocalFiat.current.amount(settings.smallBalanceUsd)
@@ -160,4 +136,56 @@ fun DisplaySettingsSection(
         },
         modifier = Modifier.padding(top = ClearAirSpacing.xs),
     )
+}
+
+/** The Currency and Theme radio sheets over the Display page. A choice applies and closes the sheet. */
+@Composable
+private fun DisplaySheets(
+    settings: DisplaySettings,
+    picker: DisplayPicker?,
+    onClose: () -> Unit,
+    onCurrency: (FiatCurrency) -> Unit,
+    onTheme: (ThemeMode) -> Unit,
+) {
+    ClearAirSheet(visible = picker == DisplayPicker.CURRENCY, onClose = onClose) {
+        ClearAirChoiceSheet(
+            title = "Currency",
+            groups = listOf(
+                ChoiceGroup(
+                    null,
+                    FiatCurrency.entries.map { currency ->
+                        ChoiceRow(
+                            title = currency.title,
+                            detail = if (currency.symbol == currency.code) currency.code else "${currency.code} · ${currency.symbol}",
+                            selected = currency == settings.currency,
+                            onPick = {
+                                onClose()
+                                onCurrency(currency)
+                            },
+                        )
+                    },
+                ),
+            ),
+        )
+    }
+    ClearAirSheet(visible = picker == DisplayPicker.THEME, onClose = onClose) {
+        ClearAirChoiceSheet(
+            title = "Theme",
+            groups = listOf(
+                ChoiceGroup(
+                    null,
+                    ThemeMode.entries.map { mode ->
+                        ChoiceRow(
+                            title = mode.title,
+                            selected = mode == settings.theme,
+                            onPick = {
+                                onClose()
+                                onTheme(mode)
+                            },
+                        )
+                    },
+                ),
+            ),
+        )
+    }
 }
