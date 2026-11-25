@@ -284,6 +284,8 @@ shard-4 :lumio app.lumio.ui.asset.TickChartTest
 shard-4 :lumio app.lumio.ui.gate.GateCopyTest
 shard-4 :lumio app.lumio.ui.kit.ClearAirOrderRowsTest
 shard-4 :lumio app.lumio.ui.kit.ClearAirStopSliderTest
+shard-4 :lumio app.lumio.ui.kit.ClearAirIconButtonTest
+shard-4 :lumio app.lumio.ui.search.SearchSheetTest
 shard-4 :lumio app.lumio.ui.kit.WalletEmblemToneTest
 shard-4 :lumio app.lumio.ui.portfolio.PortfolioHiddenSmallTest
 shard-4 :lumio app.lumio.ui.receive.ReceiveOptInCapsuleTest

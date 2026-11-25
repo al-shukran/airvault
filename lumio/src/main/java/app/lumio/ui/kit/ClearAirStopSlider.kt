@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -40,10 +41,18 @@ private val THUMB_RADIUS = 11.dp
 /**
  * A discrete slider with one stop per entry of [labels], such as Slow, Normal and Fast. The track has a faint dot at each stop, ink fills it up to
  * [selected], and the ink thumb sits on it. A tap or a drag moves the thumb to the nearest stop, and [onSelect] gets its index. The labels sit under
- * the track, and the selected one is in full ink, so the choice reads in words as well as position.
+ * the track, and the selected one is in full ink, so the choice reads in words as well as position. [showStops] draws the dots; a track of many stops, such
+ * as one per fifty cents, draws none. A [surface] colour gives the thumb the mock's 4 dp ring of the surface under the slider, which parts it from the fill.
  */
 @Composable
-fun ClearAirStopSlider(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun ClearAirStopSlider(
+    labels: List<String>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    showStops: Boolean = true,
+    surface: Color? = null,
+) {
     val palette = LocalClearAirPalette.current
     val last = (labels.size - 1).coerceAtLeast(1)
     var width by remember { mutableFloatStateOf(0f) }
@@ -83,9 +92,10 @@ fun ClearAirStopSlider(labels: List<String>, selected: Int, onSelect: (Int) -> U
                 val thumb = Offset(stopX(selected), y)
                 drawLine(palette.hairline, Offset(inset, y), Offset(inset + span, y), strokeWidth = 4.dp.toPx(), cap = StrokeCap.Round)
                 drawLine(palette.ink, Offset(inset, y), thumb, strokeWidth = 4.dp.toPx(), cap = StrokeCap.Round)
-                labels.indices.forEach { index ->
+                if (showStops) labels.indices.forEach { index ->
                     if (index != selected) drawCircle(color = palette.ink3, radius = 3.dp.toPx(), center = Offset(stopX(index), y))
                 }
+                surface?.let { drawCircle(color = it, radius = inset + 4.dp.toPx(), center = thumb) }
                 drawCircle(color = palette.ink, radius = inset, center = thumb)
             }
         }

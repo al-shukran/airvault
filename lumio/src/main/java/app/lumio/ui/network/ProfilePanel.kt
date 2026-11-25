@@ -66,6 +66,7 @@ private val PANEL_CORNER = 28.dp
 /** A row of the panel is at least as tall as a Clear Air row, and the test networks row is 48 dp, as the mock draws it. */
 private val ROW_MIN_HEIGHT = 62.dp
 private val COMPACT_ROW_MIN_HEIGHT = 48.dp
+private val PAIR_ROW_HEIGHT = 45.dp
 
 /** The divider between two rows starts after a row's disc, at the gutter, the disc and its gap: 20 + 36 + 12 dp. */
 private val DIVIDER_START = 68.dp
@@ -327,7 +328,7 @@ private fun PanelRadio(selected: Boolean) {
 }
 
 /**
- * Pair Another Wallet: a plus and the words in ink, as the mock's text action sets them. It is not underlined, and it is at least 48 dp tall.
+ * Pair Another Wallet: a plus and the words in ink, as the mock's text action sets them. It is not underlined, and it is drawn 45 dp tall as the mock has it. Compose widens a press to 48 dp around it, so the touch target keeps its size.
  */
 @Composable
 private fun PairAction(onClick: () -> Unit) {
@@ -335,7 +336,7 @@ private fun PairAction(onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .padding(horizontal = ClearAirSpacing.gutter)
-            .defaultMinSize(minHeight = ClearAirSpacing.touchTarget)
+            .defaultMinSize(minHeight = PAIR_ROW_HEIGHT)
             .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onClick)
             .padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically,

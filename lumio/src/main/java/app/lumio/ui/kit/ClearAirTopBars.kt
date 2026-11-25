@@ -8,18 +8,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -66,7 +67,7 @@ fun ClearAirRootTopBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            modifier = Modifier.size(ICON_BOX).pressable(onClick = onPanel, label = "Open the profile panel"),
+            modifier = Modifier.iconBox().pressable(onClick = onPanel, label = "Open the profile panel"),
             contentAlignment = Alignment.Center,
         ) {
             ClearAirWalletEmblem(tile = 36.dp, tone = emblem)
@@ -124,21 +125,32 @@ fun ClearAirPageTopBar(
     }
 }
 
-/** A 44 dp icon button in ink, the mock's box for a top bar's icon, labelled for TalkBack. */
+/** An icon button in ink with the mock's 44 dp box, and a 48 dp touch target around it, labelled for TalkBack. Not [enabled], it takes no press and turns secondary ink. */
 @Composable
-fun ClearAirIconButton(glyph: ClearAirGlyph, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ClearAirIconButton(glyph: ClearAirGlyph, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val palette = LocalClearAirPalette.current
     Box(
-        modifier = modifier.size(ICON_BOX).pressable(onClick = onClick, label = label),
+        modifier = modifier.iconBox().pressable(onClick = onClick, label = label, enabled = enabled),
         contentAlignment = Alignment.Center,
     ) {
-        ClearAirIcon(glyph = glyph, color = palette.ink, size = ICON_SIZE)
+        ClearAirIcon(glyph = glyph, color = if (enabled) palette.ink else palette.ink2, size = ICON_SIZE)
     }
 }
 
+/**
+ * The mock's [ICON_BOX] as the layout size, with the 48 dp touch target ([ClearAirSpacing.touchTarget]) measured around it and centred, so the press
+ * lands 2 dp past each edge of the look and the page layout does not move.
+ */
+private fun Modifier.iconBox(): Modifier = layout { measurable, _ ->
+    val box = ICON_BOX.roundToPx()
+    val target = ClearAirSpacing.touchTarget.roundToPx()
+    val placeable = measurable.measure(Constraints.fixed(target, target))
+    layout(box, box) { placeable.place((box - target) / 2, (box - target) / 2) }
+}
+
 /** A press target with a button role and a spoken [label], which scales as a Clear Air press does. */
-private fun Modifier.pressable(onClick: () -> Unit, label: String): Modifier =
+private fun Modifier.pressable(onClick: () -> Unit, label: String, enabled: Boolean = true): Modifier =
     semantics {
         role = Role.Button
         contentDescription = label
-    }.lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onClick)
+    }.lumioPress(scale = ClearAirMotion.PRESS_SCALE, enabled = enabled, releaseSpring = ClearAirMotion.press, onClick = onClick)

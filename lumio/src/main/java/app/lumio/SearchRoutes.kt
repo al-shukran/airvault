@@ -98,7 +98,6 @@ internal fun SearchRoute(
         tab = tab,
         onTab = { tab = it },
         sections = sections,
-        onClose = onClose,
     )
 }
 

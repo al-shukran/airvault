@@ -122,11 +122,13 @@ fun DisplaySettingsSection(
     val threshold = LocalFiat.current.amount(settings.smallBalanceUsd)
     SettingsValueLine(title = "Hide Small Balances", value = threshold, top = 22.dp)
     ClearAirStopSlider(
-        // Only the ends are labelled. The line above carries the value, and the track has a stop for each fifty cents.
+        // Only the ends are labelled. The line above carries the value, and the track has a stop for each fifty cents, which it does not draw.
         labels = stops.map { if (it == stops.first() || it == stops.last()) "\$${it.toInt()}" else "" },
         selected = stops.indexOf(settings.smallBalanceUsd).coerceAtLeast(0),
         onSelect = { index -> onSmallBalance(stops[index]) },
         modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter).padding(top = 6.dp),
+        showStops = false,
+        surface = LocalClearAirPalette.current.background,
     )
     SettingsExplainer(
         text = if (settings.smallBalanceUsd > 0.0) {
