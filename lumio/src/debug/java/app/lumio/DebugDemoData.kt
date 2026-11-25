@@ -116,7 +116,7 @@ internal object DebugDemoData {
         else -> seconds
     }
 
-    /** Opens the frame's route over the Accounts home once the seed has finished, and selects its side. */
+    /** Opens the frame's route over Home once the seed has finished, and selects its side. */
     @Composable
     fun Entry(controller: NavHostController, selection: NetworkSelection, request: Int) {
         val target = screen ?: return
