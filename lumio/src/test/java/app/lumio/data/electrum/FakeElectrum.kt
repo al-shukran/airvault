@@ -4,6 +4,7 @@ import java.io.BufferedReader
 import java.io.BufferedWriter
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import java.net.InetAddress
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -47,7 +48,9 @@ internal class FakeElectrum(
     private val batchOrder: (List<JsonObject>) -> List<JsonObject> = { it },
     private val answer: (method: String, params: JsonArray) -> Answer,
 ) : AutoCloseable {
-    private val server = identity.serverSocketFactory.createServerSocket(0) as SSLServerSocket
+    // Bound to loopback, not the wildcard address. A wildcard bind can take a port that another process holds on 127.0.0.1, and the client
+    // connects to that process instead of this fake.
+    private val server = identity.serverSocketFactory.createServerSocket(0, 50, InetAddress.getLoopbackAddress()) as SSLServerSocket
     private val threads: ExecutorService = Executors.newCachedThreadPool { task -> Thread(task).apply { isDaemon = true } }
 
     val port: Int = server.localPort
