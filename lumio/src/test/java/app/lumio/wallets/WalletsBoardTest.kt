@@ -32,6 +32,10 @@ import app.lumio.network.NetworkMode
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairImport
 import app.lumio.pair.PairedWallets
+import app.lumio.tokens.CachedTokenBalance
+import app.lumio.tokens.CustomTokenStore
+import app.lumio.tokens.Token
+import app.lumio.tokens.TokenBalanceCache
 import app.lumio.watchlist.FIRST_RUN_ASSETS
 import app.lumio.watchlist.WalletWatchlist
 import app.lumio.watchlist.WatchedAsset
@@ -263,6 +267,36 @@ class WalletsBoardTest {
         settle()
         assertNull(reads.activity)
 
+        board.close()
+        database.close()
+        session.close()
+    }
+
+    @Test
+    fun showingTheCachesAgainShowsTheTokensTheFirstSyncWroteAfterTheAccountWasRead() {
+        val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 11 + 5).toByte() })
+        val database = LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "tokens.db"))
+        val vault = LumioVault(session, database)
+        PairedWallets.save(session, pairing(), nowMs = 100L)
+        val wallet = PairedWallets.list(session).single()
+        val address = wallet.evmAddresses.single()
+        val token = Token(10143L, "0x" + "c2".repeat(20), "TST", "Test Token", 6)
+        CustomTokenStore.add(session, token)
+        val board = WalletsBoard(RuntimeEnvironment.getApplication() as LumioApp, vault) { emptyMap<AssetId, Price>() }
+
+        // The wallet page opens while the first sync still runs: the account is read with an empty token cache.
+        board.showSide(mode, listVersion = 0)
+        val account = await { board.view?.accountsOf(wallet.id)?.singleOrNull { it.namespace == Networks.EIP155 } }
+        val reads = board.readsOf(account, mode)
+        await { reads.tokens }
+        assertEquals(emptyList<Any>(), reads.tokens)
+
+        // The first sync writes the token cache, and shows the caches again.
+        TokenBalanceCache.write(session, listOf(CachedTokenBalance(wallet.id, 10143L, address, token.contract, "5000000", 1_000L)))
+        board.showCaches()
+        val shown = await { reads.tokens?.takeIf { it.isNotEmpty() } }
+
+        assertEquals(listOf(token), shown.map { it.token })
         board.close()
         database.close()
         session.close()
