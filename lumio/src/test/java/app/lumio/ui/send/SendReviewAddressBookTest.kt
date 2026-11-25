@@ -3,6 +3,13 @@ package app.lumio.ui.send
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressNotes
 import app.lensly.app.InternalAccount
+import app.lensly.app.plainLabel
+import app.lensly.ui.components.groupAddress
+import app.lumio.isFirstTime
+import app.lumio.lookalikeWarnings
+import app.lumio.nameOrAddress
+import app.lumio.nameWithAddress
+import app.lumio.nameWithStart
 import app.lumio.notesDetail
 import app.lumio.notesName
 import org.junit.Assert.assertEquals
@@ -23,7 +30,30 @@ class SendReviewAddressBookTest {
         val notes = AddressNotes(internal = null, entry = alice)
 
         assertEquals("Alice", notesName(notes))
-        assertEquals("Address Book", notesDetail(notes))
+        assertEquals("Address Book\nSaved for all EVM networks", notesDetail(notes))
+    }
+
+    @Test
+    fun aLabelIsPlainTextInTheDetailAndThePicker() {
+        val entry = alice.copy(label = "\u202ECold\u200B")
+
+        assertEquals("Cold\nSaved for all EVM networks", notesDetail(AddressNotes(internal = null, entry = entry)))
+        assertEquals("Cold", entry.plainLabel())
+        assertEquals("Address Book", alice.copy(label = "\u200B").plainLabel())
+        assertEquals("Address Book", alice.plainLabel())
+    }
+
+    @Test
+    fun aLookalikeOnlyGivesNoNameAndAWarningNamingTheSavedEntry() {
+        val notes = AddressNotes(internal = null, entry = null, lookalike = alice)
+
+        assertEquals("", notesName(notes))
+        assertEquals(true, isFirstTime(notes))
+        assertEquals("0x1234 5678", nameOrAddress(notes, "0x12345678"))
+        assertEquals("Looks like Alice but differs. Alice is saved as ${groupAddress(alice.address)}.", lookalikeWarnings(notes).single())
+        assertEquals("Alice (0x1234 5678)", nameWithAddress(AddressNotes(null, alice), "0x12345678"))
+        assertEquals("Alice (0x1234 5678 …)", nameWithStart(AddressNotes(null, alice), "0x1234567890abcdef"))
+        assertEquals("0x1234 5678 90ab cdef", nameWithStart(notes, "0x1234567890abcdef"))
     }
 
     @Test
