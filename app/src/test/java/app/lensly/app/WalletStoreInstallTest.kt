@@ -27,7 +27,7 @@ import org.junit.rules.TemporaryFolder
 
 /**
  * Installing and uninstalling the Apps of a wallet. An App's accounts derive from the seed, so an uninstalled App installs again with the same
- * addresses, and only the names of its accounts are lost. The secret is never touched.
+ * addresses, and an Ethereum account keeps its name, label and group. The secret is never touched.
  */
 class WalletStoreInstallTest {
     private val keys = MemoryKeystore()
@@ -103,20 +103,36 @@ class WalletStoreInstallTest {
     }
 
     @Test
-    fun uninstallingEthereumErasesTheNamesOfItsAccounts() {
+    fun uninstallingEthereumKeepsTheNamesLabelsAndGroupsOfItsAccountsAndInstallingItAgainBringsThemBack() {
         val id = newWallet()
         store.installApp(id, WalletApp.ETHEREUM)
-        store.renameAccount(id, 0, "Savings")
-        assertNotNull(session.getRecord(id, WalletRecords.accountRecord(0)))
+        val profile = AccountProfile(name = "Savings", label = "Cold", group = "Family")
+        store.saveAccountProfile(id, 0, profile)
 
         store.uninstallApp(id, WalletApp.ETHEREUM)
 
-        assertNull(session.getRecord(id, WalletRecords.accountRecord(0)))
-        // The metadata still reads, with no Ethereum account.
+        // The metadata still reads, with no Ethereum account, and the profile record stays.
         assertEquals(0, assertNotNull(store.meta(id)).accountCount)
+        assertNotNull(session.getRecord(id, WalletRecords.accountRecord(0)))
+        assertEquals(emptyMap<Int, AccountProfile>(), store.ethereumAccounts(id)?.profiles)
 
         store.installApp(id, WalletApp.ETHEREUM)
-        assertEquals(emptyMap<Int, AccountProfile>(), store.ethereumAccounts(id)?.profiles)
+        assertEquals(mapOf(0 to profile), store.ethereumAccounts(id)?.profiles)
+        assertEquals(LEDGER_LIVE_ETHEREUM_0, store.ethereumAccounts(id)?.addresses?.single())
+    }
+
+    @Test
+    fun deletingAWalletWhoseEthereumWasUninstalledErasesTheKeptProfiles() {
+        val id = newWallet()
+        store.installApp(id, WalletApp.ETHEREUM)
+        store.renameAccount(id, 0, "Savings")
+        store.uninstallApp(id, WalletApp.ETHEREUM)
+        assertNotNull(session.getRecord(id, WalletRecords.accountRecord(0)))
+
+        store.delete(id)
+
+        assertNull(session.getRecord(id, WalletRecords.accountRecord(0)))
+        assertEquals(emptyList(), store.list().map { it.id })
     }
 
     @Test
