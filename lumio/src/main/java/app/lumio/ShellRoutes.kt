@@ -25,14 +25,12 @@ import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.network.PanelWallet
 import app.lumio.ui.network.TestNetworksScreen
 import app.lumio.ui.network.testNetworkSentence
+import app.lumio.ui.settings.walletSummary
 import app.lumio.ui.shell.LumioPageScreen
 import app.lumio.ui.shell.LumioRootScreen
 import app.lumio.ui.shell.offlineBand
 import app.lumio.ui.shell.rememberOnline
 import app.lumio.wallets.WalletAccounts
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -66,7 +64,7 @@ internal fun TabRoute(
         title = title,
         mode = selection.mode,
         onMode = { selection.choose(it) },
-        panelWallets = wallets.map { wallet -> PanelWallet(id = wallet.id, name = wallet.name, detail = walletDetail(wallet)) },
+        panelWallets = wallets.map { wallet -> PanelWallet(id = wallet.id, name = wallet.name, detail = walletSummary(wallet)) },
         activeWalletId = active?.id,
         onWallet = { selection.walletId = it },
         testNetworks = networks.count,
@@ -236,12 +234,4 @@ internal fun scanNoteOf(wallet: PairedWallet?, primaryOff: String?): String? = w
     wallet.evmAddresses.isEmpty() -> "This wallet has no Ethereum account to scan to pay"
     primaryOff != null -> "Turn on $primaryOff to scan to pay"
     else -> null
-}
-
-/** A wallet's line in the profile panel: its account count and the day it was paired, such as "30 accounts · paired 21 Nov". */
-private fun walletDetail(wallet: PairedWallet): String {
-    val accounts = wallet.evmAccounts.size + wallet.bitcoin.size + wallet.solana.size + wallet.algorand.size
-    val noun = if (accounts == 1) "account" else "accounts"
-    val paired = SimpleDateFormat("d MMM", Locale.ENGLISH).format(Date(wallet.createdAtMs))
-    return "$accounts $noun · paired $paired"
 }
