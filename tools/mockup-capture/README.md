@@ -29,3 +29,13 @@ that need a vault with no cached reads. An emulator is required: the seeded vaul
 
 Where the code lives: `lumio/src/debug/java/app/lumio/demo/` (fixtures, provider, id table) and `DebugDemoData.kt`. The sources are swapped at the places that already build
 a provider list (`LumioApp`, `NativeBalances`, `EvmReads`). Screens read a few flags from `DebugDemoData.flag(...)` to open a sheet or a step.
+
+## Known limits
+
+- Send frames use a stand-in for Lensly's signature: the Last Chance, On Its Way and failure frames build the signed transaction in the debug build and do not verify a real signed
+  reply. Last Chance holds its countdown long (600 s) so the page can be captured, so its sentence says 599 seconds where the mockup says 2.
+- Prices of Solana and Algorand are not read by the app's price pipeline, so those rows show no value.
+- The global Receive (Choose Asset, Choose Network, Choose Account sheets, `p2-23` to `p2-25`) opens from Home in the mockups, and Home Receive opens the Wallet page in the app, so those
+  three frames open the account Receive sheet instead.
+- The Bitcoin fee sheet frame (`p2-17`) opens the Bitcoin send; its sheet needs an amount first.
+- `ONE_THEME=1` captures one theme per frame, for a quick pass. A frame that needs a vault with no cached reads (`p2-03`, `p2-04`, `p2-15`, the first-run frames) clears the app data first.
