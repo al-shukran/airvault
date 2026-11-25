@@ -394,7 +394,7 @@ internal fun LumioBackdrop(
  */
 @Composable
 fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier, navController: NavHostController = rememberNavController()) {
-    ThemeProvider {
+    ThemeProvider(navController) {
         FiatProvider(navController) {
             LumioNavGraph(debugHiddenRequest = debugHiddenRequest, modifier = modifier, controller = navController)
         }
@@ -407,8 +407,10 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier, nav
  * does a locked vault, which has no choice to read.
  */
 @Composable
-private fun ThemeProvider(content: @Composable () -> Unit) {
+private fun ThemeProvider(navController: NavHostController, content: @Composable () -> Unit) {
     val app = LocalContext.current.applicationContext as LumioApp
+    // The vault opens after the first composition, so the choice is read again on each navigation, as the currency is.
+    navController.currentBackStackEntryAsState().value
     val theme = rememberDisplay(app).theme
     val phone = LocalConfiguration.current
     val configuration = remember(phone, theme) {
