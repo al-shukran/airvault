@@ -85,6 +85,21 @@ class PaymentCodeTest {
     }
 
     @Test
+    fun aCodeForAChainThatIsOnOnTheOtherSideAsksForTheSwitchNotForTheNetwork() {
+        val base = EvmChain(8453L, "Base", "ETH", 18, testnet = false, explorerUrl = null)
+        val mainnet = EvmChain(1L, "Ethereum", "ETH", 18, testnet = false, explorerUrl = null)
+
+        assertEquals(
+            "This code is for chain 1, but Sepolia is selected. Switch to Mainnet to scan it.",
+            refusal { EvmPaymentCode.read("ethereum:$RECIPIENT@1", sepolia, others = listOf(base), otherSide = listOf(mainnet)) },
+        )
+        assertEquals(
+            "This code is for chain 1, but Sepolia is selected. Turn that network on to scan it.",
+            refusal { EvmPaymentCode.read("ethereum:$RECIPIENT@1", sepolia, others = listOf(base)) },
+        )
+    }
+
+    @Test
     fun aScanThatSwitchesTheNetworkDropsTheTypedAmountAndFillsTheCodesOwn() {
         val base = EvmChain(8453L, "Base", "ETH", 18, testnet = false, explorerUrl = null)
 
