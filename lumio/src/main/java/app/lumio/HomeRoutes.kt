@@ -58,7 +58,7 @@ import kotlinx.coroutines.delay
 private const val FRESHNESS_TICK_MS = 15_000L
 
 /**
- * The Home tab: the total market cap, and the watchlist of the active wallet with each asset's price, its 24 h change and its day's tick chart. The
+ * The Home tab: Bitcoin's market cap, and the watchlist of the active wallet with each asset's price, its 24 h change and its day's tick chart. The
  * market figures, the prices and the charts come from the open vault's shared board, so Home shows the last ones kept on its first frame, and each visit
  * asks the sources again. The active wallet is the one the profile panel chose, or the first paired wallet. Send opens the Recipient step of the send
  * from the wallet's first account that holds some coin, and Receive opens the Receive sheet over Home, which asks for the asset first.
@@ -94,7 +94,7 @@ internal fun HomeRoute(
     val rows = watchlist?.ordered { board.prices[it.assetId]?.change24hPct }.orEmpty().map { asset ->
         rowOf(asset, view, wallet?.id, board.prices[asset.assetId], board.dayChartOf(asset.assetId), testnet, fiat, app)
     }
-    var sortOpen by remember { mutableStateOf(false) }
+    var sortOpen by remember { mutableStateOf(DebugDemoData.flag("sort")) }
     var receiveOpen by remember { mutableStateOf(false) }
     var receiveOpening by remember { mutableIntStateOf(0) }
     val accounts = if (view != null && wallet != null) view.accountsOf(wallet.id) else emptyList()
@@ -155,18 +155,18 @@ private fun sendSourceOf(accounts: List<WalletAccount>): WalletAccount? =
     accounts.firstOrNull { (it.balance?.balance?.signum() ?: 0) > 0 } ?: accounts.firstOrNull()
 
 /**
- * The points of the hero's chart. The sources give no history of the whole market's total, so the chart is the day of Bitcoin, which leads the market,
- * when the watchlist watches it and its chart has landed. Without it the hero has no chart.
+ * The points of the hero's chart: the day of Bitcoin, whose market cap the hero shows, when the watchlist watches it and its chart has landed.
+ * Without it the hero has no chart.
  */
 private fun marketTicks(watched: List<WatchedAsset>, dayChartOf: (AssetId) -> PriceSeries?): List<Double> =
     watched.firstOrNull { coinNames(it).first == "BTC" }?.let { dayChartOf(it.assetId) }?.points?.map { it.usd }.orEmpty()
 
-/** The hero as Home shows it: the market's total in dollars, its 24 h change, and when the figure was read. A test network shows no market figure. */
+/** The hero as Home shows it: Bitcoin's market cap in dollars, its 24 h change, and when the figure was read. A test network shows no market figure. */
 private fun heroOf(market: Kept<MarketQuote>?, testnet: Boolean, nowMs: Long, fiat: Fiat, ticks: List<Double>): MarketHero {
     if (testnet || market == null) return MarketHero(total = null, change24hPct = null, freshness = null)
     val quote = market.value
     return MarketHero(
-        total = compactUsd(quote.totalUsd, fiat),
+        total = compactUsd(quote.capUsd, fiat),
         change24hPct = quote.change24hPct,
         freshness = freshnessOf(quote.asOfMs, market.stale, nowMs),
         ticks = ticks,

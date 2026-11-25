@@ -158,12 +158,14 @@ class LumioApp : Application(), CoverApplication {
      * its own network, so its address never reaches another network.
      */
     private val providers: List<Provider> by lazy {
-        listOf(
-            MempoolProvider(),
-            BlockstreamProvider(),
-            BlockchairProvider(fallbackOnly = true),
-            CustomEsploraProvider("mainnet"),
-            CustomEsploraProvider("testnet4"),
+        DebugDemoData.providers(
+            listOf(
+                MempoolProvider(),
+                BlockstreamProvider(),
+                BlockchairProvider(fallbackOnly = true),
+                CustomEsploraProvider("mainnet"),
+                CustomEsploraProvider("testnet4"),
+            ),
         )
     }
 
@@ -186,7 +188,7 @@ class LumioApp : Application(), CoverApplication {
      */
     internal val priceScheduler: Scheduler by lazy {
         Scheduler(
-            providers = ProviderCatalog.priceProviders(),
+            providers = DebugDemoData.providers(ProviderCatalog.priceProviders()),
             configs = { ProviderCatalog.withDefaults(lumioVault()?.configs().orEmpty()) },
             http = http,
             clock = MonotonicClock,
@@ -218,7 +220,7 @@ class LumioApp : Application(), CoverApplication {
     /** The public Electrum pool that reads each Bitcoin network of [vault], or null where the owner has a server of their own (see [publicElectrumFor]). */
     internal fun publicElectrumOf(vault: LumioVault): (BtcNetwork) -> ElectrumPool? {
         val owned = serverOverrides(vault.configs()).keys
-        return { network -> publicElectrumFor(electrum, network, owned) }
+        return { network -> if (DebugDemoData.active) null else publicElectrumFor(electrum, network, owned) }
     }
 
     /**

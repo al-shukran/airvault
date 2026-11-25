@@ -6,7 +6,7 @@ import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.FiatRates
-import app.lumio.data.provider.GlobalMarket
+import app.lumio.data.provider.BitcoinMarket
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.MarketQuote
 import app.lumio.data.provider.NativePrice
@@ -77,9 +77,8 @@ class CoinGeckoProviderTest {
             """"chf":{"name":"Swiss Franc","unit":"CHF","value":25000.0,"type":"fiat"}}}""",
     ).build()
 
-    private fun globalAnswer(total: String = "2621040321355.0405", change: String = "-1.6081983639177684") = MockResponse.Builder().body(
-        """{"data":{"active_cryptocurrencies":17397,"total_market_cap":{"btc":34570737.199462704,"usd":$total},""" +
-            """"market_cap_change_percentage_24h_usd":$change,"updated_at":1779878351}}""",
+    private fun bitcoinAnswer(cap: String = "1175864307874.9705", change: String = "-1.6095249174253978") = MockResponse.Builder().body(
+        """{"bitcoin":{"usd":58451,"usd_market_cap":$cap,"usd_24h_change":$change,"last_updated_at":1795625974}}""",
     ).build()
 
     @Test
@@ -140,35 +139,38 @@ class CoinGeckoProviderTest {
 
     @Test
     fun theMarketAnswersWithoutAKeyAndTheKeyIsSentWhenSet() {
-        server.enqueue(globalAnswer())
-        server.enqueue(globalAnswer())
+        server.enqueue(bitcoinAnswer())
+        server.enqueue(bitcoinAnswer())
 
-        call(GlobalMarket())
+        call(BitcoinMarket())
         assertNull(server.takeRequest().headers["x-cg-demo-api-key"])
-        call(GlobalMarket(), key = DEMO_KEY)
+        call(BitcoinMarket(), key = DEMO_KEY)
         assertEquals(DEMO_KEY, server.takeRequest().headers["x-cg-demo-api-key"])
     }
 
     @Test
-    fun theWholeMarketIsItsTotalCapAndItsChangeAndTime() {
-        server.enqueue(globalAnswer())
+    fun theMarketIsBitcoinsCapAndItsChangeAndTimeFromTheSimplePriceEndpoint() {
+        server.enqueue(bitcoinAnswer())
 
-        assertEquals(MarketQuote(totalUsd = 2621040321355.0405, change24hPct = -1.6081983639177684, asOfMs = 1_779_878_351_000L), call(GlobalMarket()))
-        assertEquals("/api/v3/global", server.takeRequest().url.encodedPath)
+        assertEquals(MarketQuote(capUsd = 1175864307874.9705, change24hPct = -1.6095249174253978, asOfMs = 1_795_625_974_000L), call(BitcoinMarket()))
+        val url = server.takeRequest().url
+        assertEquals("/api/v3/simple/price", url.encodedPath)
+        assertEquals("bitcoin", url.queryParameter("ids"))
+        assertEquals("true", url.queryParameter("include_market_cap"))
     }
 
     @Test
     fun aMarketWithNoChangeHasNoChange() {
-        server.enqueue(globalAnswer(change = "null"))
+        server.enqueue(bitcoinAnswer(change = "null"))
 
-        assertNull(call(GlobalMarket()).change24hPct)
+        assertNull(call(BitcoinMarket()).change24hPct)
     }
 
     @Test
     fun aMarketCapThatIsNotPositiveIsAFatalAnswer() {
-        server.enqueue(globalAnswer(total = "0"))
+        server.enqueue(bitcoinAnswer(cap = "0"))
 
-        assertFailsWith<ProviderError.Fatal> { call(GlobalMarket()) }
+        assertFailsWith<ProviderError.Fatal> { call(BitcoinMarket()) }
     }
 
     @Test
@@ -210,7 +212,7 @@ class CoinGeckoProviderTest {
         assertEquals(setOf(Trait.KEY_OPTIONAL), provider.traits)
         assertFalse(provider.supports(BTC, Ops.PRICE_NATIVE, ProviderConfig()))
         assertTrue(provider.supports(BTC, Ops.PRICE_NATIVE, ProviderConfig(apiKey = DEMO_KEY)))
-        assertTrue(provider.supports(BTC, Ops.MARKET_GLOBAL, ProviderConfig()))
+        assertTrue(provider.supports(BTC, Ops.MARKET_BITCOIN, ProviderConfig()))
         assertTrue(provider.supports(BTC, Ops.MARKET_TRENDING, ProviderConfig()))
         assertFalse(provider.supports(BTC, OpKey.on(BTC, "nativeBalance"), ProviderConfig()))
         assertFalse(provider.defaultLimits(ProviderConfig()) == provider.defaultLimits(ProviderConfig(apiKey = DEMO_KEY)))
