@@ -13,7 +13,6 @@ import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
-import app.lumio.data.config.PreferRpcStore
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.config.configOf
 import app.lumio.data.config.orderedIds
@@ -90,7 +89,7 @@ internal fun DataProvidersRoute(navController: NavHostController, holder: VaultH
         // Each write starts from the defaults-filled settings, so a price provider never saves a default as a plain 0.
         onReorder = { group, order -> change { writable.updateConfigs { saved -> withOrderWithin(ProviderCatalog.withDefaults(saved), group, order) } } },
         preferRpc = current.preferRpc,
-        onPreferRpc = { on -> change { PreferRpcStore.write(writable.session, on) } },
+        onPreferRpc = { on -> change { writable.savePreferRpc(on) } },
         backLabel = navController.backLabel(),
     )
 }
@@ -103,7 +102,7 @@ internal suspend fun readLists(app: LumioApp, vault: LumioVault): ProviderLists 
         data = rowsOf(ProviderCatalog.dataProviders(), configs, healthOf),
         prices = rowsOf(ProviderCatalog.priceProviders(), configs, healthOf),
         rpc = rowsOf(ProviderCatalog.rpcProviders(BuildConfig.DEBUG), configs, healthOf),
-        preferRpc = PreferRpcStore.read(vault.session),
+        preferRpc = vault.preferRpc(),
     )
 }
 

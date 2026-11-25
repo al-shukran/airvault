@@ -9,6 +9,7 @@ import app.lumio.data.cache.Cache
 import app.lumio.data.cache.CacheKeys
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.DisplaySettingsStore
+import app.lumio.data.config.PreferRpcStore
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.config.ProviderConfigStore
 import app.lumio.data.config.TransactionSettings
@@ -61,6 +62,19 @@ class LumioVault(val session: VaultSession, database: LumioDatabase, clock: Cloc
     @Synchronized
     fun updateConfigs(change: (Map<String, ProviderConfig>) -> Map<String, ProviderConfig>) {
         saveConfigs(change(providerConfigs))
+    }
+
+    @Volatile
+    private var preferRpcChoice: Boolean = PreferRpcStore.read(session)
+
+    /** The owner's "Prefer RPC over Explorers" choice, as it was last saved or read. It can be read after the vault has closed. */
+    fun preferRpc(): Boolean = preferRpcChoice
+
+    /** Saves the "Prefer RPC over Explorers" choice. @throws IllegalStateException when the vault has closed. */
+    @Synchronized
+    fun savePreferRpc(on: Boolean) {
+        PreferRpcStore.write(session, on)
+        preferRpcChoice = on
     }
 
     private val displayState = MutableStateFlow(DisplaySettingsStore.read(session))
