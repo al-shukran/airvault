@@ -9,9 +9,6 @@ import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.IOException
 
-/** The most characters an entry's notes take. */
-const val ADDRESS_NOTES_MAX_LENGTH = 200
-
 /** The reason an address the owner gives, typed or scanned, is refused. */
 const val ADDRESS_NOT_VALID_MESSAGE = "Enter a valid Ethereum, Bitcoin, Solana or Algorand address."
 
