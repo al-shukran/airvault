@@ -116,6 +116,99 @@ class PlainNameTest {
     }
 
     @Test
+    fun anAddressSplitAnyWayIsRecognised() {
+        assertTrue(looksLikeAddressName("9WzD/XwBb/mkg8/ZTbN/MqUx/vQRA/yWQp/Hk3z"))
+        assertTrue(looksLikeAddressName("9WzDXwBbmkg8ZTbN:MqUxvQRAyWQpHk3z"))
+        assertTrue(looksLikeAddressName("9WzD:XwBb:mkg8:ZTbN:MqUx:vQRA"))
+        assertTrue(looksLikeAddressName("9WzDXwBbmkg8ZTbN MqUxvQRAyWQpHk3z"))
+        assertTrue(looksLikeAddressName("9WzDXwBbmkg8ZTb NMqUxvQRAy WQpHk3zq"))
+        assertTrue(looksLikeAddressName("9WzD, XwBb | mkg8 \u2022 ZTbN MqUx vQRA"))
+    }
+
+    @Test
+    fun wordsInTheMiddleDoNotHideTheEndsOfAnAddress() {
+        assertTrue(looksLikeAddressName("9WzD Abcd Efgh Ijkl Mnop Qrst Uvwx Hk3z"))
+        assertTrue(looksLikeAddressName("9WzD abcd 3efg hijk mnop Xy9Z"))
+        assertTrue(looksLikeAddressName("International Savings Account 9WzD XwBb mkg8 ZTbN MqUx"))
+        assertTrue(looksLikeAddressName("My wallet 9WzD XwBb mkg8 ZTbN MqUx Hk3z"))
+        assertTrue(looksLikeAddressName("9WzD \u0430bcd 3efg hijk mnop Xy9Z"))
+        assertTrue(looksLikeAddressName("9WzD\u2026Hk3z"))
+        assertTrue(looksLikeAddressName("9WzD...Hk3z"))
+        assertTrue(looksLikeAddressName("1A1zP1\u2026DivfNa"))
+        assertTrue(looksLikeAddressName("0x71\u03F27\u2026976F"))
+    }
+
+    @Test
+    fun anElidedOrOddlySeparatedAddressIsRecognised() {
+        for (gap in listOf("..", " . . . ", "\u22EF", "\u00B7\u00B7\u00B7", "***", "\u2022\u2022\u2022", "\u2025", "\u2192", " - ", "\u2026", "...", "~", ":")) {
+            assertTrue("9WzD${gap}Hk3z", looksLikeAddressName("9WzD${gap}Hk3z"))
+        }
+        assertTrue(looksLikeAddressName("Dad 0x-71C7-976F"))
+        assertTrue(looksLikeAddressName("Dad 0x:71C7:976F"))
+        assertTrue(looksLikeAddressName("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"))
+        // A supplementary combining mark (U+E0100) is removed, not turned into a separator.
+        assertTrue(looksLikeAddressName("9WzDXwBbmkg8ZTb\uDB40\uDD00NMqUxvQRAy"))
+        // One space, dash or slash is a plain gap.
+        assertFalse(looksLikeAddressName("Budget 2024/2025"))
+        assertFalse(looksLikeAddressName("Savings 2024 - 2025"))
+    }
+
+    @Test
+    fun namesWithBrandsOrdinalsAndPrefixesStayNames() {
+        assertFalse(looksLikeAddressName("Bob's MacBook Pro M2 16 inch 2023"))
+        assertFalse(looksLikeAddressName("MacBook Pro 14 inch M3 2024"))
+        assertFalse(looksLikeAddressName("Dad's OnePlus 12 5G 256GB 2024"))
+        assertFalse(looksLikeAddressName("MetaMask Wallet on MacBook"))
+        assertFalse(looksLikeAddressName("GitHub MetaMask PayPal"))
+        assertFalse(looksLikeAddressName("McDonald PancakeSwap WhatsApp"))
+        assertFalse(looksLikeAddressName("2024 Savings Account 2025"))
+        assertFalse(looksLikeAddressName("401k Retirement Fund 2045"))
+        assertFalse(looksLikeAddressName("1st Savings Account 2nd"))
+        assertFalse(looksLikeAddressName("S24 Ultra Samsung Galaxy Phone 5G"))
+        assertFalse(looksLikeAddressName("BC1 Savings"))
+        assertFalse(looksLikeAddressName("TB1 Backup disk"))
+        assertFalse(looksLikeAddressName("Ox Cafe"))
+        assertFalse(looksLikeAddressName("Ox Dead Fish"))
+    }
+
+    @Test
+    fun lookalikeAndOtherScriptCharactersInsideAnAddressDoNotHideIt() {
+        // Cyrillic Х, В and х for the Latin X, B and x.
+        assertTrue(looksLikeAddressName("9WzD\u0425w\u0412bmkg8ZTbNMqU\u0445vQRAy"))
+        assertTrue(looksLikeAddressName("9WzD\u0425w\u0412bmkg8 ZTbNMqU\u0445vQRAy"))
+        // Greek omicron and nu, Cyrillic er, u, i and ka.
+        assertTrue(looksLikeAddressName("9WzDXwBbmkg8ZTbNMqUxvQRA\u03BFy\u03BD"))
+        assertTrue(looksLikeAddressName("9WzDXwBbmkg8ZT\u0440\u0443\u0456\u043AMqUxvQRAy"))
+        // Greek omicron and Cyrillic ha for "0x", and Cyrillic capitals.
+        assertTrue(looksLikeAddressName("\u03BF\u0445" + "71C7656E"))
+        assertTrue(looksLikeAddressName("\u0410\u0412\u0421\u0415\u041D\u041A\u041C\u041E\u0420\u0422\u0425\u0410\u0412\u0421\u0415\u041D\u041A\u041C\u041E\u0420\u0422\u04251234"))
+        // A letter run with no digit, in an irregular case or very long, and an Arabic-Indic digit.
+        assertTrue(looksLikeAddressName("HkzAbcDefGhiJkmNopQrsTuvWxyzAbcdEfghJkmNpqRs"))
+        assertTrue(looksLikeAddressName("A".repeat(57) + "B"))
+        assertTrue(looksLikeAddressName("Abc".repeat(10)))
+        assertFalse(looksLikeAddressName("PancakeSwap"))
+        assertTrue(looksLikeAddressName("WzDXwBbmkgZTbNMqUxvQRAyWQp\u0663"))
+    }
+
+    @Test
+    fun wordsWithModelNumbersAndCodesAreNames() {
+        assertFalse(looksLikeAddressName("Samsung Galaxy S24 Ultra 256GB"))
+        assertFalse(looksLikeAddressName("Savings2024 Fund Account"))
+        assertFalse(looksLikeAddressName("iPhone15 Pro Max 2024 Case"))
+        assertFalse(looksLikeAddressName("Ledger Nano X 2024 Backup Wallet"))
+        assertFalse(looksLikeAddressName("Family/Savings: 2024 Emergency Fund"))
+        assertFalse(looksLikeAddressName("MAIN WALLET 2024 BACKUP KEY"))
+        assertFalse(looksLikeAddressName("COLD STORAGE USB 2024 SECOND"))
+        assertFalse(looksLikeAddressName("\u6211\u7684\u4EE5\u592A\u574A\u94B1\u5305 ETH \u50A8\u84C4\u8D26\u6237\u5907\u7528 2024"))
+        assertFalse(looksLikeAddressName("Wallet 1 2 3 4 5 6 7 8 9 10 11 12 13 14 ETH"))
+        assertFalse(looksLikeAddressName("Mom iPhone 15 Pro Max 256GB Space Black"))
+        assertFalse(looksLikeAddressName("Room 10 x 2020"))
+        assertFalse(looksLikeAddressName("Toyota Corolla 2019 VIN JTDKB20U"))
+        assertFalse(looksLikeAddressName("SN ABC12345 XYZ67890 LEDGER"))
+        assertFalse(looksLikeAddressName("\u041C\u043E\u0439 \u043A\u043E\u0448\u0435\u043B\u0435\u043A 2024"))
+    }
+
+    @Test
     fun anAddressLikeNameShowsAsTheGroupedAddress() {
         val entry = AddressBookEntry(id = "1", address = "0x1234567890abcdef1234567890abcdef12345678", name = "0x71C7 656E \u2026 976F", label = null)
         assertNull(plainNameOrNull(entry.name))

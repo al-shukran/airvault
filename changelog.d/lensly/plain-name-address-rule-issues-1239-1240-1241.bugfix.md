@@ -1,0 +1,1 @@
+A name made of an address cut by slashes, colons or spaces into any pieces, or an address with look-alike letters from another script, is now refused as a name, while ordinary names such as Samsung Galaxy S24 Ultra 256GB are accepted.

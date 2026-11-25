@@ -19,7 +19,7 @@ import org.junit.Test
 class ReviewNamesTest {
     private val address = "0x52908400098527886E0F7030069857D2E4169EE7"
     private val other = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2"
-    private val longName = "Savings " + "x".repeat(60)
+    private val longName = "Savings " + "ab ".repeat(20)
     private val bidiName = "‮Alice​ Smith‬"
     private val signer = SigningAccount(name = "Main", walletName = "Seed wallet", address = address)
 
@@ -56,7 +56,7 @@ class ReviewNamesTest {
     fun theSentenceNamesThePartiesInPlainText() {
         val notes = mapOf(addressKeyOf(other) to AddressNotes(InternalAccount(bidiName, "Key 1", null), entry(longName).copy(address = other)))
         val party = sendPartyOf(other, notes, signer.copy(name = longName))
-        assertEquals("Alice Smith (${isolated("Savings " + "x".repeat(31) + "…")})", party?.text)
+        assertEquals("Alice Smith (${isolated(longName.take(39) + "…")})", party?.text)
         assertEquals(longName.take(39) + "…", sendPartyOf(address, notes, signer.copy(name = longName))?.text)
     }
 
