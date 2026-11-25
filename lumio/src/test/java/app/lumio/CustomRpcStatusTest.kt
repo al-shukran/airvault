@@ -32,17 +32,17 @@ class CustomRpcStatusTest {
     private val ethereum = EvmChain(chainId = 1, name = "Ethereum", symbol = "ETH", decimals = 18, testnet = false, explorerUrl = null)
     private val sepolia = EvmChain(chainId = 11155111, name = "Sepolia", symbol = "ETH", decimals = 18, testnet = true, explorerUrl = null)
     private val address = "0x" + "11".repeat(20)
+    private var settings = EvmSettings(
+        rpc = mapOf(
+            ethereum.chainId to ChainRpcs(custom = listOf("https://one.example"), active = "https://one.example"),
+            sepolia.chainId to ChainRpcs(custom = listOf("https://two.example"), active = "https://two.example"),
+        ),
+    )
 
     /** Reads with a custom address on both chains. [providers] gets the fake behind each chain's scheduler, in the order the chains are first used. */
     private fun TestScope.reads(providers: MutableList<FakeProvider>): EvmReads {
         val clock = Clock { testScheduler.currentTime }
         val http = Http(OkHttpClient())
-        val settings = EvmSettings(
-            rpc = mapOf(
-                ethereum.chainId to ChainRpcs(custom = listOf("https://one.example"), active = "https://one.example"),
-                sepolia.chainId to ChainRpcs(custom = listOf("https://two.example"), active = "https://two.example"),
-            ),
-        )
         val nets = setOf(NetworkId(Networks.evm(ethereum.chainId), false), NetworkId(Networks.evm(sepolia.chainId), true))
         return EvmReads(
             pool = Scheduler(emptyList(), { emptyMap() }, http, clock, Random(3), this),
@@ -92,6 +92,22 @@ class CustomRpcStatusTest {
         runCatching { reads.balance(ethereum, address) }
 
         assertIs<ProviderStatus.CircuitOpen>(status(reads, ethereum))
+    }
+
+    @Test
+    fun aNewAddressOnTheSameChainStartsWithNoFailures() = runTest {
+        val providers = ArrayList<FakeProvider>()
+        val reads = reads(providers)
+        status(reads, sepolia)
+        providers[0].outcomes.addAll(List(6) { ProviderError.Transient() })
+        repeat(2) { runCatching { reads.balance(sepolia, address) } }
+        assertIs<ProviderStatus.CircuitOpen>(status(reads, sepolia))
+
+        settings = EvmSettings(rpc = mapOf(sepolia.chainId to ChainRpcs(custom = listOf("https://three.example"), active = "https://three.example")))
+
+        assertEquals(ProviderStatus.Ready, status(reads, sepolia))
+        reads.balance(sepolia, address)
+        assertIs<ProviderStatus.Healthy>(status(reads, sepolia))
     }
 
     @Test

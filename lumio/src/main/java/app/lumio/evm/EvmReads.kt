@@ -50,9 +50,13 @@ class EvmReads(
     private val rpcOnly: Scheduler = pool,
     private val preferRpc: () -> Boolean = { false },
 ) : ContractReads {
-    private val owners = ConcurrentHashMap<Long, Scheduler>()
+    /** Per chain, the address in use and the scheduler made for it, replaced when the owner changes the address, so a new address starts with no failures. */
+    private val owners = ConcurrentHashMap<Long, Pair<String?, Scheduler>>()
 
-    private fun ownerOf(chainId: Long): Scheduler = owners.getOrPut(chainId, newOwner)
+    private fun ownerOf(chainId: Long): Scheduler {
+        val url = settings().activeRpc(chainId)
+        return owners.compute(chainId) { _, held -> if (held?.first == url) held else url to newOwner() }!!.second
+    }
 
     suspend fun balance(chain: EvmChain, address: String, priority: Priority = Priority.VISIBLE): BigInteger =
         run(chain, priority, NativeBalance(net(chain), address), if (preferRpc()) rpcOnly else pool)
