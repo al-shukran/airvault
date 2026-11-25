@@ -252,9 +252,9 @@ fun SendOnItsWayPage(
                     ClearAirTimelineStep("Confirming", timing, ClearAirStepState.Now, time = "now")
                 },
                 if (arrived) {
-                    ClearAirTimelineStep(withMonoAddress("In $recipient", 12.sp), "Funds reached the recipient", ClearAirStepState.Done)
+                    ClearAirTimelineStep(recipientStep(recipient), "Funds reached the recipient", ClearAirStepState.Done)
                 } else {
-                    ClearAirTimelineStep(withMonoAddress("In $recipient", 12.sp), "Funds reach the recipient", ClearAirStepState.Todo)
+                    ClearAirTimelineStep(recipientStep(recipient), "Funds reach the recipient", ClearAirStepState.Todo)
                 },
             ),
         )
@@ -282,6 +282,12 @@ internal fun withMonoAddress(text: String, size: TextUnit = TextUnit.Unspecified
     val mono = SpanStyle(fontFamily = ClearAirType.address.fontFamily, fontWeight = FontWeight.Normal, fontSize = size, letterSpacing = (-0.02).em, fontFeatureSettings = "tnum")
     return AnnotatedString(text, listOf(AnnotatedString.Range(mono, address.first, address.last + 1)))
 }
+
+private val NAMED_RECIPIENT = Regex("""^(\u2068.+\u2069) \([^()]+\)$""")
+
+/** The timeline step for the recipient: "In Name" for a named recipient, as the mock has it, else the address in mono as [withMonoAddress] sets it. */
+internal fun recipientStep(recipient: String): AnnotatedString =
+    NAMED_RECIPIENT.find(recipient)?.let { AnnotatedString("In ${it.groupValues[1]}") } ?: withMonoAddress("In $recipient", 12.sp)
 
 /** The disc above the heading: the send arrow with an amber diamond at its corner while the transfer is on its way, and a blue check once it has landed. */
 @Composable

@@ -28,6 +28,20 @@ class MonoAddressTest {
     }
 
     @Test
+    fun aNamedRecipientStepIsTheNameOnly() {
+        val step = recipientStep("\u2068FelixStone\u2069 ($address)")
+        assertEquals("In \u2068FelixStone\u2069", step.text)
+        assertTrue(step.spanStyles.isEmpty())
+    }
+
+    @Test
+    fun anUnnamedRecipientStepKeepsTheMonoAddress() {
+        val step = recipientStep(address)
+        assertEquals("In $address", step.text)
+        assertEquals(listOf(address), step.spanStyles.map { step.text.substring(it.start, it.end) })
+    }
+
+    @Test
     fun theTextIsNeverChanged() {
         val text = "0.25 MON to FelixStone ($address)"
         assertEquals(text, withMonoAddress(text).text)
