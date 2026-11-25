@@ -63,9 +63,13 @@ class SubmitMachine<S, Id>(
     }
 }
 
-/** True when [error], or a cause of it, is a failure after which the network may hold the transaction: a transient failure or an unreadable answer. */
-internal fun outcomeUnknown(error: Throwable): Boolean =
-    generateSequence(error) { it.cause?.takeIf { cause -> cause !== it } }.take(MAX_CAUSES).any { it is ProviderError.Transient || it is ProviderError.Unreadable }
+/**
+ * True when [error], or a cause of it, is a failure after which the network may hold the transaction: a transient failure that may have left, or an
+ * unreadable answer. A transient failure that never left, such as no network at all, leaves the transaction with the owner.
+ */
+internal fun outcomeUnknown(error: Throwable): Boolean = generateSequence(error) { it.cause?.takeIf { cause -> cause !== it } }.take(MAX_CAUSES).any {
+    it is ProviderError.Transient && !it.neverSent || it is ProviderError.Unreadable
+}
 
 /**
  * What [error] was, as one line for Technical Details: the type of each error in its chain, and the message of the types whose words are Lumio's own

@@ -206,7 +206,8 @@ object AlgorandSend {
     suspend fun broadcast(scheduler: Scheduler, plan: AlgorandSendPlan, signed: ByteArray): String {
         val expected = AlgoSignedTxn.txid(plan.txnBytes)
         val reported = scheduler.run(Broadcast(plan.network, signed), Priority.FOREGROUND)
-        require(reported == expected) { WRONG_TXID }
+        // The network accepted the broadcast, so the transaction may be on it: the cause marks the outcome unknown.
+        if (reported != expected) throw IllegalArgumentException(WRONG_TXID, ProviderError.Unreadable(WRONG_TXID))
         return reported
     }
 

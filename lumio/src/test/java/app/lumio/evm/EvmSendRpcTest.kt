@@ -2,6 +2,7 @@ package app.lumio.evm
 
 import app.lensly.core.wallet.toHex
 import app.lumio.send.Landing
+import app.lumio.send.outcomeUnknown
 import app.lumio.tokens.Erc20
 import app.lumio.tokens.Token
 import java.math.BigInteger
@@ -17,7 +18,9 @@ import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.web3j.crypto.Hash
@@ -126,6 +129,7 @@ class EvmSendRpcTest {
 
         val failure = assertThrows(RpcFailure::class.java) { runBlocking { EvmSend.broadcast(reads(), chain, byteArrayOf(0x02)) } }
         assertEquals(RpcFailure.Reason.MALFORMED, failure.reason)
+        assertTrue(outcomeUnknown(failure))
     }
 
     @Test
@@ -134,6 +138,7 @@ class EvmSendRpcTest {
 
         val failure = assertThrows(RpcFailure::class.java) { runBlocking { EvmSend.broadcast(reads(), chain, byteArrayOf(0x02)) } }
         assertEquals(RpcFailure.Reason.ERROR, failure.reason)
+        assertFalse(outcomeUnknown(failure))
     }
 
     @Test

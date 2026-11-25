@@ -259,6 +259,12 @@ class SchedulerTest {
     }
 
     @Test
+    fun aBroadcastWhoseRefusedConnectionHidesAnEarlierDroppedOneIsNotSentAgain() = runTest {
+        assertFalse(failsOver(ConnectException("Failed to connect").apply { addSuppressed(IOException("unexpected end of stream")) }))
+        assertTrue(failsOver(ConnectException("Failed to connect").apply { addSuppressed(ConnectException("Connection refused")) }))
+    }
+
+    @Test
     fun aBroadcastWhoseSuccessAnswerCannotBeReadIsNotSentAgain() = runTest {
         val a = provider("a").apply { outcomes.add(ProviderError.Unreadable("The endpoint sent no result.")) }
         val b = provider("b")

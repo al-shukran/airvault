@@ -2,7 +2,10 @@ package app.lumio.send
 
 import app.lumio.data.provider.ProviderError
 import app.lumio.evm.RpcFailure
+import java.io.IOException
+import java.net.ConnectException
 import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -60,6 +63,18 @@ class SubmitMachineTest {
         val wrapped = Harness(listOf { throw RpcFailure(RpcFailure.Reason.UNREACHABLE, "The endpoint did not answer.", ProviderError.Transient()) }).build(byteArrayOf(1))
         wrapped.submit()
         assertTrue(assertIs<SubmitState.Failed>(wrapped.state.value).unknown)
+    }
+
+    @Test
+    fun aFailureThatNeverLeftIsNotUnknown() = runTest {
+        val offline = Harness(listOf { throw ProviderError.Transient(UnknownHostException("rpc.example")) }).build(byteArrayOf(1))
+        offline.submit()
+        assertFalse(assertIs<SubmitState.Failed>(offline.state.value).unknown)
+
+        val hidden = ConnectException("Failed to connect").apply { addSuppressed(IOException("unexpected end of stream")) }
+        val resent = Harness(listOf { throw ProviderError.Transient(hidden) }).build(byteArrayOf(1))
+        resent.submit()
+        assertTrue(assertIs<SubmitState.Failed>(resent.state.value).unknown)
     }
 
     @Test

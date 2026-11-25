@@ -145,7 +145,7 @@ class Scheduler(
             val started = clock.nowMs()
             val result = try {
                 val value = withTimeout(priority.deadlineMs) {
-                    grant.provider.execute(req, grant.cfg, Http(http.client) { takeExtraToken(grant.lane) })
+                    grant.provider.execute(req, grant.cfg, Http(clientFor(req)) { takeExtraToken(grant.lane) })
                 }
                 Result.success(value)
             } catch (e: ProviderError) {
@@ -189,6 +189,12 @@ class Scheduler(
             }
         }
     }
+
+    /**
+     * The client of one call. A [Broadcast] does not retry on a connection failure: OkHttp would send the same POST again on a fresh connection,
+     * and the scheduler could not tell. It shares the pool of [http], so only the retry differs.
+     */
+    private fun clientFor(req: Request<*>) = if (req is Broadcast) http.client.newBuilder().retryOnConnectionFailure(false).build() else http.client
 
     /** True when a provider that this call has not tried can serve it now. Router is not asked, since its rotation would move on. */
     private suspend fun untriedLeft(req: Request<*>, tried: Set<String>, excluded: Set<String>): Boolean = mutex.withLock {

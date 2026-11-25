@@ -15,11 +15,13 @@ sealed class ProviderError(message: String, cause: Throwable? = null) : Exceptio
     class Transient(cause: Throwable? = null) : ProviderError("transient failure", cause) {
         /**
          * True when a cause shows that the request never left: the host did not resolve, the connection was refused, or the TLS handshake failed. It
-         * reads the chain, since a coroutine that recovers a stack trace wraps this error in a copy of itself.
+         * reads the chain, since a coroutine that recovers a stack trace wraps this error in a copy of itself. An error that carries a suppressed
+         * failure of another kind, such as a dropped connection, says an earlier attempt may have sent it, so the answer is false.
          */
         val neverSent: Boolean
-            get() = generateSequence(cause) { it.cause }.take(MAX_CAUSES).any {
-                it is UnknownHostException || it is ConnectException || it is SSLHandshakeException
+            get() {
+                val chain = generateSequence(cause) { it.cause }.take(MAX_CAUSES).toList()
+                return chain.any { it.isUnsent() } && chain.none { error -> error.suppressed.any { !it.isUnsent() } }
             }
     }
 
@@ -40,3 +42,5 @@ sealed class ProviderError(message: String, cause: Throwable? = null) : Exceptio
 }
 
 private const val MAX_CAUSES = 4
+
+private fun Throwable.isUnsent() = this is UnknownHostException || this is ConnectException || this is SSLHandshakeException
