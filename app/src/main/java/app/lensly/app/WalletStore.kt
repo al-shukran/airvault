@@ -152,10 +152,13 @@ sealed interface WalletSecret {
  *   group count (byte) and each group (UTF). A wallet whose fields are all defaults has no record.
  * - `base-name`, version 1: the wallet's name at creation (UTF), which its accounts' Auto-Names are built from. It is
  *   written once, at creation. A wallet without one is not listed.
- * - `bitcoin`, version 2: the count (int), then each Bitcoin account: its network as its BIP44 coin type (byte), its Script Type as
+ * - `bitcoin`, version 3: the count (int), then each Bitcoin account: its network as its BIP44 coin type (byte), its Script Type as
  *   its BIP43 purpose (byte), its index (int), its first receive address (UTF), and a byte that is 1 when it has a profile, which then
- *   follows in the layout of an account record. A wallet with no
- *   record has no Bitcoin account. The record is one fixed size, so the profiles share the room the accounts leave.
+ *   follows in the layout of an account record. Then the kept count (int) and each profile kept for an account that is not installed:
+ *   its network, Script Type and index as above, then its profile in the layout of an account record. Uninstalling Bitcoin moves the
+ *   profiles of its accounts here, and an account that returns takes its profile back. Version 2, which Lensly 1.0.0 to 1.2.0 wrote, has
+ *   no kept profiles, and it is read and then written as version 3. A wallet with no record has no Bitcoin account and no kept profile.
+ *   The record is one fixed size, so the profiles share the room the accounts leave.
  *
  * No record stores which Apps a wallet has installed. An App is installed in a wallet when the wallet holds at least one of its accounts
  * (see [installedApps]).
@@ -343,9 +346,9 @@ class WalletStore(private val session: VaultSession) {
 
     /**
      * Uninstalls [app] from Mnemonic wallet [id]: removes all of its accounts in one atomic write. Nothing else changes, and the secret record
-     * is never touched, so [installApp] derives the same accounts again. The profile records of the removed Ethereum accounts stay, so their
-     * names, labels and groups come back when the accounts do, and only deleting the wallet erases them. A Bitcoin account keeps its profile
-     * inside the Bitcoin record, so that record's removal loses it. An App that is not installed is left as it is.
+     * is never touched, so [installApp] derives the same accounts again. The profile records of the removed Ethereum accounts stay, and the
+     * profiles of the removed Bitcoin accounts move to the Bitcoin record's kept profiles, so their names, labels and groups come back when the
+     * accounts do, and only deleting the wallet erases them. An App that is not installed is left as it is.
      *
      * @throws IllegalArgumentException if the wallet is missing or is a Single Key wallet, whose one account is its Ethereum account.
      */
@@ -355,7 +358,15 @@ class WalletStore(private val session: VaultSession) {
             require(current.kind == WalletKind.MNEMONIC) { SINGLE_KEY_NO_UNINSTALL }
             if (app !in installedApps(id)) return
             when (app) {
-                WalletApp.BITCOIN -> session.putRecords(id, emptyMap(), listOf(WalletRecords.BITCOIN))
+                WalletApp.BITCOIN -> {
+                    val record = bitcoinRecord(id)
+                    val kept = record.kept + record.accounts.filterNot { it.profile.isEmpty }.associate { it.key to it.profile }
+                    if (kept.isEmpty()) {
+                        session.putRecords(id, emptyMap(), listOf(WalletRecords.BITCOIN))
+                    } else {
+                        putBitcoinRecord(id, BitcoinRecord(emptyList(), kept))
+                    }
+                }
                 WalletApp.ETHEREUM -> {
                     val cleared = current.copy(accountCount = 0, accountKeys = emptyList())
                     session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(cleared))
@@ -436,14 +447,17 @@ class WalletStore(private val session: VaultSession) {
      * The Bitcoin accounts of wallet [id], in the order they were added. A wallet with none, or with a record that cannot be read,
      * has an empty list.
      */
-    fun bitcoinAccounts(id: String): List<BitcoinAccountRecord> {
-        val bytes = session.getRecord(id, WalletRecords.BITCOIN) ?: return emptyList()
+    fun bitcoinAccounts(id: String): List<BitcoinAccountRecord> = bitcoinRecord(id).accounts
+
+    /** The Bitcoin record of wallet [id]: its accounts and the profiles kept for uninstalled ones. A missing or unreadable record is empty. */
+    private fun bitcoinRecord(id: String): BitcoinRecord {
+        val bytes = session.getRecord(id, WalletRecords.BITCOIN) ?: return BitcoinRecord()
         return try {
-            WalletRecords.decodeBitcoinAccounts(bytes)
+            WalletRecords.decodeBitcoinRecord(bytes)
         } catch (e: IOException) {
-            emptyList()
+            BitcoinRecord()
         } catch (e: IllegalArgumentException) {
-            emptyList()
+            BitcoinRecord()
         }
     }
 
@@ -488,12 +502,14 @@ class WalletStore(private val session: VaultSession) {
         }
         return synchronized(session) {
             // The profiles are read again here, so a name saved while the run derived is kept. A change of accounts is not.
-            val current = bitcoinAccounts(id)
-            if (current.map { it.key } != existing.map { it.key }) {
+            val record = bitcoinRecord(id)
+            if (record.accounts.map { it.key } != existing.map { it.key }) {
                 null
             } else {
-                putBitcoinAccounts(id, current + derived)
-                derived
+                // An account that returns takes back the profile that its uninstall kept.
+                val restored = derived.map { it.copy(profile = record.kept[it.key] ?: it.profile) }
+                putBitcoinRecord(id, BitcoinRecord(record.accounts + restored, record.kept - restored.map { it.key }.toSet()))
+                restored
             }
         }
     }
@@ -632,18 +648,18 @@ class WalletStore(private val session: VaultSession) {
     fun saveBitcoinProfile(id: String, account: BitcoinAccountRecord, profile: AccountProfile) {
         val clean = profile.checked()
         synchronized(session) {
-            val current = bitcoinAccounts(id)
-            require(current.any { it.key == account.key }) { "Wallet $id holds no such Bitcoin account." }
-            putBitcoinAccounts(id, current.map { if (it.key == account.key) it.copy(profile = clean) else it })
+            val record = bitcoinRecord(id)
+            require(record.accounts.any { it.key == account.key }) { "Wallet $id holds no such Bitcoin account." }
+            putBitcoinRecord(id, record.copy(accounts = record.accounts.map { if (it.key == account.key) it.copy(profile = clean) else it }))
         }
     }
 
     /**
-     * Writes the Bitcoin record of wallet [id] as [accounts]. The record has a fixed size, so a write that would not fit is refused before
+     * Writes the Bitcoin record of wallet [id] as [record]. The record has a fixed size, so a write that would not fit is refused before
      * anything is written, and the record is left as it was.
      */
-    private fun putBitcoinAccounts(id: String, accounts: List<BitcoinAccountRecord>) {
-        val bytes = WalletRecords.encodeBitcoinAccounts(accounts)
+    private fun putBitcoinRecord(id: String, record: BitcoinRecord) {
+        val bytes = WalletRecords.encodeBitcoinRecord(record)
         require(bytes.size <= WalletRecordNames.BITCOIN_CAPACITY) { NO_ROOM_FOR_BITCOIN }
         session.putRecord(id, WalletRecords.BITCOIN, bytes)
     }
@@ -1211,8 +1227,11 @@ internal object WalletRecords {
     private const val ACCOUNT_PROFILE_VERSION = 2
     private const val WALLET_PROFILE_VERSION = 1
 
-    /** The version of the Bitcoin record, which holds each account's profile. */
-    private const val BITCOIN_VERSION = 2
+    /** The version of the Bitcoin record, which holds each account's profile and the profiles kept for uninstalled accounts. */
+    private const val BITCOIN_VERSION = 3
+
+    /** The version of the Bitcoin record that Lensly 1.0.0 to 1.2.0 wrote: no kept profiles. It is read, never written. */
+    private const val BITCOIN_VERSION_2 = 2
 
     /** The fields of an account profile, one bit each. The flags byte says which ones follow, in this order. */
     private const val FIELD_NAME = 1
@@ -1328,51 +1347,76 @@ internal object WalletRecords {
     }
 
     /**
-     * The Bitcoin accounts record: the version byte, the count (int), then each account: its network as its BIP44 coin type (byte),
-     * its Script Type as its BIP43 purpose (byte), its index (int), its first receive address (UTF), and whether it has a profile (a
-     * byte, 1 when it does), with the profile after it. Two accounts with one Script Type, network and index are refused, both when
-     * written and when read.
+     * The Bitcoin record: the version byte, the count (int), then each account: its network as its BIP44 coin type (byte), its Script Type
+     * as its BIP43 purpose (byte), its index (int), its first receive address (UTF), and whether it has a profile (a byte, 1 when it does),
+     * with the profile after it. Then the kept count (int), and for each kept profile the account's network, Script Type and index as above,
+     * with the profile after them. Two accounts, or two kept profiles, with one Script Type, network and index are refused, both when
+     * written and when read, and so is a kept profile for an account the record holds.
      */
-    fun encodeBitcoinAccounts(accounts: List<BitcoinAccountRecord>): ByteArray {
+    fun encodeBitcoinRecord(record: BitcoinRecord): ByteArray {
+        val accounts = record.accounts
         require(accounts.map { it.key }.distinct().size == accounts.size) {
             "A Bitcoin account is unique per Script Type, network and index."
         }
         require(accounts.size <= PairingCodec.MAX_BITCOIN_ACCOUNTS) { "A wallet keeps at most ${PairingCodec.MAX_BITCOIN_ACCOUNTS} Bitcoin accounts." }
+        require(record.kept.size <= PairingCodec.MAX_BITCOIN_ACCOUNTS) { "A wallet keeps at most ${PairingCodec.MAX_BITCOIN_ACCOUNTS} Bitcoin profiles." }
+        require(accounts.none { it.key in record.kept }) { "A Bitcoin account that is installed keeps its profile in its entry." }
         return writeBytes { out ->
             out.writeByte(BITCOIN_VERSION)
             out.writeInt(accounts.size)
             accounts.forEach { account ->
-                out.writeByte(account.network.coinType)
-                out.writeByte(account.scriptType.purpose)
-                out.writeInt(account.index)
+                writeBitcoinKey(out, account.key)
                 out.writeUTF(account.firstReceiveAddress)
                 out.writeBoolean(!account.profile.isEmpty)
                 if (!account.profile.isEmpty) writeAccountProfile(out, account.profile)
             }
+            out.writeInt(record.kept.size)
+            record.kept.forEach { (key, profile) ->
+                writeBitcoinKey(out, key)
+                writeAccountProfile(out, profile)
+            }
         }
     }
 
-    /** The accounts of a Bitcoin record, with their profiles. */
-    fun decodeBitcoinAccounts(bytes: ByteArray): List<BitcoinAccountRecord> = readBytes(bytes) { input ->
+    /** The accounts of a Bitcoin record and the profiles kept for uninstalled ones. A version 2 record has no kept profile. */
+    fun decodeBitcoinRecord(bytes: ByteArray): BitcoinRecord = readBytes(bytes) { input ->
         val version = input.readUnsignedByte()
-        require(version == BITCOIN_VERSION) { "Unknown record version $version." }
+        require(version == BITCOIN_VERSION || version == BITCOIN_VERSION_2) { "Unknown record version $version." }
         val count = input.readInt()
-        require(count >= 0) { "Account count out of range." }
+        require(count in 0..PairingCodec.MAX_BITCOIN_ACCOUNTS) { "Account count out of range." }
         val accounts = List(count) {
-            val coinType = input.readUnsignedByte()
-            val network = BtcNetwork.entries.firstOrNull { it.coinType == coinType }
-                ?: throw IllegalArgumentException("Unknown network.")
-            val purpose = input.readUnsignedByte()
-            val scriptType = ScriptType.entries.firstOrNull { it.purpose == purpose }
-                ?: throw IllegalArgumentException("Unknown script type.")
-            val index = input.readInt()
-            require(index >= 0) { "Account index out of range." }
+            val key = readBitcoinKey(input)
             val address = input.readUTF()
             val profile = if (input.readBoolean()) readAccountProfile(input) else AccountProfile()
-            BitcoinAccountRecord(network, scriptType, index, address, profile)
+            BitcoinAccountRecord(key.second, key.first, key.third, address, profile)
         }
         require(accounts.map { it.key }.distinct().size == accounts.size) { "Duplicate Bitcoin account." }
-        accounts
+        val keptList = if (version == BITCOIN_VERSION_2) {
+            emptyList()
+        } else {
+            val keptCount = input.readInt()
+            require(keptCount in 0..PairingCodec.MAX_BITCOIN_ACCOUNTS) { "Kept profile count out of range." }
+            List(keptCount) { readBitcoinKey(input) to readAccountProfile(input) }
+        }
+        val kept = keptList.toMap()
+        require(kept.size == keptList.size && accounts.none { it.key in kept }) { "Duplicate Bitcoin account." }
+        BitcoinRecord(accounts, kept)
+    }
+
+    private fun writeBitcoinKey(out: DataOutputStream, key: Triple<ScriptType, BtcNetwork, Int>) {
+        out.writeByte(key.second.coinType)
+        out.writeByte(key.first.purpose)
+        out.writeInt(key.third)
+    }
+
+    private fun readBitcoinKey(input: DataInputStream): Triple<ScriptType, BtcNetwork, Int> {
+        val coinType = input.readUnsignedByte()
+        val network = BtcNetwork.entries.firstOrNull { it.coinType == coinType } ?: throw IllegalArgumentException("Unknown network.")
+        val purpose = input.readUnsignedByte()
+        val scriptType = ScriptType.entries.firstOrNull { it.purpose == purpose } ?: throw IllegalArgumentException("Unknown script type.")
+        val index = input.readInt()
+        require(index >= 0) { "Account index out of range." }
+        return Triple(scriptType, network, index)
     }
 
     /** The Solana record: the version byte, the count (int), then the 32-byte public key of each account, in account order. */

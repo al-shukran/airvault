@@ -76,6 +76,8 @@ shard-1 :app app.lensly.ui.settings.FeeWarningScreenTest
 shard-1 :app app.lensly.ui.sign.CounterpartyLookupTest
 shard-1 :app app.lensly.ui.sign.TxFormatTest
 shard-1 :lumio app.lumio.TransactionOwnershipTest
+shard-1 :lumio app.lumio.demo.DemoProviderTest
+shard-1 :lumio app.lumio.demo.DemoScreensTest
 shard-1 :lumio app.lumio.btc.BtcJobsTest
 shard-1 :lumio app.lumio.CustomRpcStatusTest
 shard-1 :lumio app.lumio.data.provider.defillama.DefiLlamaChartTest

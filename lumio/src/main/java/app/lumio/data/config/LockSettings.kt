@@ -13,10 +13,16 @@ enum class AutoLock(val label: String, val idleMinutes: Int, val lockWhenLeaving
     IMMEDIATELY("Immediately", idleMinutes = 1, lockWhenLeaving = true),
     AFTER_ONE_MINUTE("After 1 Minute", idleMinutes = 1, lockWhenLeaving = false),
     AFTER_FIVE_MINUTES("After 5 Minutes", idleMinutes = 5, lockWhenLeaving = false),
+    AFTER_FIFTEEN_MINUTES("After 15 Minutes", idleMinutes = 15, lockWhenLeaving = false),
+    AFTER_THIRTY_MINUTES("After 30 Minutes", idleMinutes = 30, lockWhenLeaving = false),
+    AFTER_ONE_HOUR("After 1 Hour", idleMinutes = 60, lockWhenLeaving = false),
+    AFTER_ONE_DAY("After 1 Day", idleMinutes = 24 * 60, lockWhenLeaving = false),
+    AFTER_ONE_WEEK("After 1 Week", idleMinutes = 7 * 24 * 60, lockWhenLeaving = false),
+    AFTER_ONE_MONTH("After 1 Month", idleMinutes = 30 * 24 * 60, lockWhenLeaving = false),
 }
 
-/** The lock choice of Settings → Security. It is [AutoLock.AFTER_ONE_MINUTE] until the owner picks another. */
-data class LockSettings(val autoLock: AutoLock = AutoLock.AFTER_ONE_MINUTE) {
+/** The lock choice of Settings → Security. It is [AutoLock.AFTER_THIRTY_MINUTES], the default of Lumio 1.0.0, until the owner picks another. */
+data class LockSettings(val autoLock: AutoLock = AutoLock.AFTER_THIRTY_MINUTES) {
     /**
      * The cover's policy for this choice. The launches that Lumio makes itself, such as the document picker and the scanners, never
      * lock: they keep the vault open, and their return counts as a touch.
@@ -38,19 +44,35 @@ data class LockSettings(val autoLock: AutoLock = AutoLock.AFTER_ONE_MINUTE) {
  */
 class LockSettingsStore(private val prefs: SharedPreferences) {
 
-    /** The saved choice, or the default when the value is missing or names no choice. */
+    /**
+     * The saved choice, or the default when the value is missing or names no choice. A value that Lumio 1.0.0 saved, idle minutes and a switch
+     * that locks on a leave, reads as the choice that locks no later than it did.
+     */
     fun load(): LockSettings {
         val name = try {
             prefs.getString(KEY_AUTO_LOCK, null)
         } catch (e: ClassCastException) {
             null
         }
-        return LockSettings(autoLock = AutoLock.entries.firstOrNull { it.name == name } ?: AutoLock.AFTER_ONE_MINUTE)
+        val choice = AutoLock.entries.firstOrNull { it.name == name } ?: if (name == null) released() else null
+        return LockSettings(autoLock = choice ?: LockSettings().autoLock)
+    }
+
+    /** The choice that Lumio 1.0.0's two values stand for, or null when they are missing or damaged. A minutes value between two choices rounds down. */
+    private fun released(): AutoLock? = try {
+        if (prefs.getBoolean(KEY_RELEASED_SWITCHING, false)) {
+            AutoLock.IMMEDIATELY
+        } else {
+            val minutes = prefs.getInt(KEY_RELEASED_IDLE_MINUTES, 0)
+            AutoLock.entries.lastOrNull { !it.lockWhenLeaving && it.idleMinutes <= minutes }
+        }
+    } catch (e: ClassCastException) {
+        null
     }
 
     /** Saves [settings]. The write runs in the background, and the screen shows the new choice at once. */
     fun save(settings: LockSettings) {
-        prefs.edit().putString(KEY_AUTO_LOCK, settings.autoLock.name).apply()
+        prefs.edit().putString(KEY_AUTO_LOCK, settings.autoLock.name).remove(KEY_RELEASED_IDLE_MINUTES).remove(KEY_RELEASED_SWITCHING).apply()
     }
 
     /** Removes every saved choice, so [load] reads the defaults. It waits for the write, because a reset must not leave a choice behind. */
@@ -64,6 +86,10 @@ class LockSettingsStore(private val prefs: SharedPreferences) {
 
         /** The key holding the name of the Auto-Lock choice. */
         const val KEY_AUTO_LOCK = "auto_lock"
+
+        /** The keys of Lumio 1.0.0: the idle minutes, and the switch that locks when the app is switched away from. */
+        private const val KEY_RELEASED_IDLE_MINUTES = "idle_minutes"
+        private const val KEY_RELEASED_SWITCHING = "lock_when_switching"
 
         fun open(context: Context): LockSettingsStore =
             LockSettingsStore(context.getSharedPreferences(FILE, Context.MODE_PRIVATE))

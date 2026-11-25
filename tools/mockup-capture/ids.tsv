@@ -1,0 +1,82 @@
+p1-00	light	Home · Light mainnet
+p1-01	dark	Home · Dark same screen
+p1-02	dark,light	Profile Panel revised · left → right
+p1-03	dark,light	Test Networks new · per-chain choice
+p1-04	dark,light	Search bottom → top sheet
+p1-05	dark,light	Wallet full-screen page
+p1-06	dark,light	Account full-screen page
+p1-07	dark,light	Asset full-screen push
+p1-08	dark,light	Portfolio Consolidated Asset Balances
+p1-09	dark,light	Small Phone, Long Names 360×640 · plain page
+p1-10	dark,light	1 · Recipient global Send
+p1-11	dark,light	2 · Amount network and asset skipped
+p1-12	dark,light	3 · Review redesigned · in order of risk
+p1-13	dark,light	4 · Show to Lensly the handoff
+p1-14	dark,light	5 · Waiting for the Signature empathy moment
+p1-15	dark,light	6 · Last Chance the only honest undo
+p1-16	dark,light	7 · On Its Way transfer complete
+p1-17	dark,light	8 · Failure money first
+p1-18	dark,light	Receive bottom sheet, asset chosen
+p1-19	dark,light	Welcome step 1 · Understand
+p1-20	dark,light	Important Notice step 5
+p1-21	dark,light	Duress Password step 8 · Protect
+p1-22	dark,light	Pair with Lensly step 10 · onboarding ends
+p1-23	dark,light	Import Progress after pairing
+p1-24	dark,light	View Accounts your format, kept
+p1-25	dark,light	Empty Portfolio mainnet, test funds exist
+p1-26	dark,light	Settings sections, auto-apply
+p2-00	dark,light	Offline Band A8 · band
+p2-01	dark	Offline K2 · state · dark
+p2-02	dark,light	Accounts C1 · tab root
+p2-03	dark,light	Wallet Loading C6 · state · after a re-pair
+p2-04	dark	Loading K1 · state · never loaded · dark
+p2-05	dark,light	Filter Picker · Chain D2 · sheet 1 of 3
+p2-06	dark	Filter Picker · Grouping D2 · sheet 2 of 3 · dark
+p2-07	dark,light	Filter Picker · Sort D2 · sheet 3 of 3
+p2-08	dark,light	Activity List E1 · page
+p2-09	light	Activity Detail · Sent E2 · page · light
+p2-10	dark	Activity Detail · Received Token E2 · page · dark
+p2-11	dark,light	Font Scale 2.0 E2 · densest screen · 200%
+p2-12	light	Address-Book Info · Known E3 · sheet · light
+p2-13	dark	Address-Book Info · Unknown E3 · sheet · dark
+p2-14	dark,light	Add on Lensly E3 · handoff · full-screen push
+p2-15	dark,light	Provider Error K3 · state · inline
+p2-16	dark,light	Fee · EVM F3 · sheet · Advanced open
+p2-17	dark	Fee · Bitcoin F3 · sheet · dark
+p2-18	dark,light	Lensly Didn't Sign F10 · page
+p2-19	dark	Signature Mismatch F11 · page · dark
+p2-20	dark,light	Change Recipient? F12 · dialog
+p2-21	dark,light	Field Errors · Recipient K5 · state
+p2-22	dark	Field Errors · Amount K5 · state · dark
+p2-23	dark,light	Choose Asset H1 · sheet · step 1 of 3
+p2-24	dark,light	Choose Network H2 · same sheet · step 2 of 3
+p2-25	dark	Choose Account H2 · same sheet · step 3 of 3 · dark
+p2-26	light	Prepare Lensly for Pairing I6 · page · light
+p2-27	dark	Prepare Lensly for Pairing I6 · page · dark
+p2-28	dark,light	Create Password I7 · page
+p2-29	light	Enable Device Protection I9 · page · light
+p2-30	dark	Enable Device Protection I9 · page · dark
+p2-31	dark,light	Pair Review I11 · page
+p2-32	dark,light	Find More Accounts · Searching I14 · state on Import Progress
+p2-33	dark	Find More Accounts · None Found I14 · state · dark
+p2-34	dark,light	Re-Pair Result I15 · flow end
+p2-35	dark,light	Camera Denied K6 · state · on Pair with Lensly
+p2-36	dark,light	Watchlist Sort B2 · sheet
+p2-37	dark,light	Explore B3 · tab root · landing
+p2-38	dark,light	Network B4 · page
+p2-39	dark	Provider B5 · page · dark
+p2-40	dark,light	Display J2 · page
+p2-41	dark	Display · Currency J2 · radio sheet · dark
+p2-42	dark,light	Transactions J3 · page
+p2-43	dark,light	Networks J4 · page
+p2-44	dark,light	Data Providers J5 · page
+p2-45	dark,light	Wallets J6 · page 1 of 2
+p2-46	dark,light	Wallet Settings J6 · page 2 of 2
+p2-47	dark	Remove Wallet J6 · dialog · dark
+p2-48	dark,light	Address Book J7 · page
+p2-49	dark,light	Security J8 · page
+p2-50	dark,light	Change Password J9 · page
+p2-51	dark,light	Add Token J10 · page · sample token
+p2-52	dark,light	About Lumio J11 · page 1 of 2
+p2-53	dark	Licences J11 · page 2 of 2 · dark
+p2-54	dark,light	Reset Lumio? J12 · dialog

@@ -21,6 +21,7 @@ import app.lensly.ui.theme.ClearAirMotion
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
+import app.lumio.DebugDemoData
 import app.lumio.pair.PairedWallet
 import app.lumio.ui.kit.ClearAirDialog
 import app.lumio.ui.kit.ClearAirGlyph
@@ -101,7 +102,7 @@ fun WalletsSettings(wallets: List<PairedWallet>, activeId: String?, onOpen: (Pai
 @Composable
 fun WalletSettingsPage(wallet: PairedWallet, offline: String?, onRePair: () -> Unit, onRemove: () -> Unit, onBack: () -> Unit, onLock: () -> Unit) {
     val palette = LocalClearAirPalette.current
-    var removing by remember { mutableStateOf(false) }
+    var removing by remember { mutableStateOf(DebugDemoData.flag("wallet:remove")) }
     SettingsFrame(title = wallet.name, offline = offline, onBack = onBack, onLock = onLock, backLabel = SettingsPage.WALLETS.title) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xxs),

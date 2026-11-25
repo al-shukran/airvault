@@ -77,7 +77,7 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
         }
         is DetailLoad.Ready -> {
             val page = current.page
-            var sheet by remember { mutableStateOf<String?>(null) }
+            var sheet by remember { mutableStateOf(page.detail.tx.counterparty.takeIf { DebugDemoData.flag("abinfo") }) }
             TransactionDetailScreen(
                 detail = page.detail,
                 accountNames = page.accounts.mapValues { (_, own) -> own.displayName ?: own.autoName },

@@ -23,12 +23,14 @@ class MainActivity : CoverActivity() {
         // cannot serve. The app reopens on the camera instead, as it does after any lock.
         super.onCreate(if (firstInProcess) null else savedInstanceState)
         DebugEvmFunds.offer(intent)
+        DebugDemoData.offer(intent)
         seedIfAsked(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         DebugEvmFunds.offer(intent)
+        DebugDemoData.offer(intent)
         seedIfAsked(intent)
     }
 

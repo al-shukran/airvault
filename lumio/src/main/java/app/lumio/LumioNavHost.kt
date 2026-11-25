@@ -71,7 +71,7 @@ import kotlinx.coroutines.launch
 
 /** Lumio's own routes inside its Hidden Area. The gate's routes are shared, see `app.lensly.ui.navigation.GateRoutes`. */
 internal object LumioRoute {
-    /** The start screen: the paired wallets. */
+    /** The Accounts tab: the paired wallets. */
     const val WALLETS = "wallets"
     const val SETTINGS = "settings"
     const val PAIR_SCAN = "pair-scan"
@@ -85,7 +85,7 @@ internal object LumioRoute {
 
     fun provider(id: String): String = "settings/providers/$id"
 
-    /** The roots of the tabs, which the tab bar opens. */
+    /** The roots of the tabs, which the tab bar opens. Home is the start screen. */
     const val HOME = "home"
     const val PORTFOLIO = "portfolio"
     const val EXPLORE = "explore"
@@ -446,7 +446,7 @@ private fun FiatProvider(navController: NavHostController, content: @Composable 
 @Composable
 private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controller: NavHostController) {
     val app = LocalContext.current.applicationContext as LumioApp
-    val draft = remember { PairDraft() }
+    val draft = remember { PairDraft().also { it.pairing = DebugDemoData.pairing() } }
     // The side is kept in the vault when the owner picks it, as Settings kept it, so the next open shows the same side.
     val appHolder = LocalContext.current.vaultHolder()
     val scope = rememberCoroutineScope()
@@ -461,6 +461,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
         })
     }
     val lockChoices = remember { LockSettingsState(app.lockSettings) }
+    DebugDemoData.Entry(controller, selection, debugHiddenRequest)
     // Coming back from the background reads the networks again once, when the Wallets home shows. The mark waits for the home, so no pushed screen reads.
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
@@ -490,21 +491,14 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
         hiddenArea(
             navController,
             holder,
-            home = LumioRoute.WALLETS,
+            home = LumioRoute.HOME,
             appName = "Lumio",
             newVault = FirstRunStep.Welcome.route,
             biometric = app.biometricUnlock,
             gateLook = ClearAirGateLook,
         ) {
-            firstRunRoutes(navController, holder, home = LumioRoute.WALLETS)
+            firstRunRoutes(navController, holder, home = LumioRoute.HOME)
             lumioComposable(LumioRoute.WALLETS) {
-                // The Accounts tab is the start screen and has no back arrow. System back locks the vault first, so leaving the app never
-                // leaves the vault open, then closes the app as Android does at a root screen.
-                val activity = LocalActivity.current
-                BackHandler {
-                    lock()
-                    activity?.finish()
-                }
                 LumioBackdrop(selection) {
                     WalletsRoute(
                         navController = navController,
@@ -516,6 +510,13 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                 }
             }
             lumioComposable(LumioRoute.HOME) {
+                // The Home tab is the start screen and has no back arrow. System back locks the vault first, so leaving the app never
+                // leaves the vault open, then closes the app as Android does at a root screen.
+                val activity = LocalActivity.current
+                BackHandler {
+                    lock()
+                    activity?.finish()
+                }
                 LumioBackdrop(selection) {
                     HomeRoute(navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = { lock() })
                 }
@@ -854,7 +855,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
             lumioComposable(LumioRoute.PAIR_REVIEW) {
                 BackHandler {
                     draft.clear()
-                    navController.popBackStack(LumioRoute.WALLETS, inclusive = false)
+                    navController.backToAccounts()
                 }
                 LumioBackdrop(selection) {
                     PairReviewRoute(

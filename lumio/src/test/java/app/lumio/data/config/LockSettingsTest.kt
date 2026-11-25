@@ -8,7 +8,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 
-/** The Auto-Lock choices: after one minute without a touch by default, and the cover's policy each choice makes. */
+/** The Auto-Lock choices: after thirty minutes without a touch by default, as Lumio 1.0.0 had it, and the cover's policy each choice makes. */
 @RunWith(RobolectricTestRunner::class)
 class LockSettingsTest {
 
@@ -19,15 +19,15 @@ class LockSettingsTest {
     private fun prefs() = RuntimeEnvironment.getApplication().getSharedPreferences(LockSettingsStore.FILE, 0)
 
     @Test
-    fun theDefaultIsAfterOneMinute() {
-        assertEquals(AutoLock.AFTER_ONE_MINUTE, LockSettings().autoLock)
+    fun theDefaultIsAfterThirtyMinutes() {
+        assertEquals(AutoLock.AFTER_THIRTY_MINUTES, LockSettings().autoLock)
     }
 
     @Test
-    fun theDefaultPolicyLocksAfterOneMinuteAndNotOnALeave() {
+    fun theDefaultPolicyLocksAfterThirtyMinutesAndNotOnALeave() {
         val policy = LockSettings().policy
-        assertEquals(1 * minute, policy.idleTimeoutMs)
-        assertFalse(policy.lockWhenBackgrounded, "leaving Lumio must not lock under After 1 Minute")
+        assertEquals(30 * minute, policy.idleTimeoutMs)
+        assertFalse(policy.lockWhenBackgrounded, "leaving Lumio must not lock under After 30 Minutes")
         assertTrue(policy.ownLaunchesKeepUnlocked, "Lumio's own launches never lock")
     }
 
@@ -48,6 +48,51 @@ class LockSettingsTest {
         val policy = LockSettings(AutoLock.AFTER_FIVE_MINUTES).policy
         assertEquals(5 * minute, policy.idleTimeoutMs)
         assertFalse(policy.lockWhenBackgrounded)
+    }
+
+    @Test
+    fun theChoicesRunFromOneMinuteUpToOneMonthInOrder() {
+        val timed = AutoLock.entries.filter { !it.lockWhenLeaving }
+        assertEquals(timed.sortedBy { it.idleMinutes }, timed)
+        assertEquals(30 * 24 * 60 * minute, LockSettings(AutoLock.AFTER_ONE_MONTH).policy.idleTimeoutMs)
+        assertEquals(AutoLock.AFTER_ONE_MONTH, AutoLock.entries.last())
+    }
+
+    @Test
+    fun aTimedChoiceNeverLocksOnALeave() {
+        AutoLock.entries.filter { it != AutoLock.IMMEDIATELY }.forEach {
+            assertFalse(LockSettings(it).policy.lockWhenBackgrounded, it.name)
+        }
+    }
+
+    @Test
+    fun lumioOneValuesReadAsTheChoiceThatLocksNoLater() {
+        mapOf(1 to AutoLock.AFTER_ONE_MINUTE, 2 to AutoLock.AFTER_ONE_MINUTE, 5 to AutoLock.AFTER_FIVE_MINUTES, 15 to AutoLock.AFTER_FIFTEEN_MINUTES,
+            30 to AutoLock.AFTER_THIRTY_MINUTES, 60 to AutoLock.AFTER_ONE_HOUR).forEach { (minutes, expected) ->
+            prefs().edit().clear().putInt("idle_minutes", minutes).putBoolean("lock_when_switching", false).commit()
+            assertEquals(LockSettings(expected), store().load(), "$minutes minutes")
+        }
+    }
+
+    @Test
+    fun aLumioOneUserWhoNeverChangedItKeepsThirtyMinutes() {
+        assertEquals(AutoLock.AFTER_THIRTY_MINUTES, store().load().autoLock)
+        prefs().edit().putBoolean("lock_when_switching", false).commit()
+        assertEquals(AutoLock.AFTER_THIRTY_MINUTES, store().load().autoLock)
+    }
+
+    @Test
+    fun lumioOneLockWhenSwitchingReadsAsImmediately() {
+        prefs().edit().putInt("idle_minutes", 30).putBoolean("lock_when_switching", true).commit()
+        assertEquals(LockSettings(AutoLock.IMMEDIATELY), store().load())
+    }
+
+    @Test
+    fun savingAChoiceDropsTheLumioOneValues() {
+        prefs().edit().putInt("idle_minutes", 60).commit()
+        store().save(LockSettings(AutoLock.AFTER_ONE_DAY))
+        assertEquals(setOf(LockSettingsStore.KEY_AUTO_LOCK), prefs().all.keys)
+        assertEquals(LockSettings(AutoLock.AFTER_ONE_DAY), store().load())
     }
 
     @Test
