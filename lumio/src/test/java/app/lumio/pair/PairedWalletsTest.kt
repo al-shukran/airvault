@@ -445,7 +445,11 @@ class PairedWalletsTest {
     /** Waits until [thread] is blocked on the monitor of [lock]. */
     private fun awaitBlockedOn(thread: Thread, lock: Any) {
         val bean = java.lang.management.ManagementFactory.getThreadMXBean()
-        while (bean.getThreadInfo(thread.id).lockInfo?.identityHashCode != System.identityHashCode(lock)) Thread.sleep(1)
+        val deadline = System.nanoTime() + 10_000_000_000L
+        while (bean.getThreadInfo(thread.id)?.lockInfo?.identityHashCode != System.identityHashCode(lock)) {
+            check(System.nanoTime() < deadline) { "${thread.name} never blocked on the lock." }
+            Thread.sleep(1)
+        }
     }
 
     /** A Keystore that counts the folder keys it hands out, one for each unwrap of a wallet's key. */

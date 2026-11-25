@@ -117,6 +117,7 @@ object PairedWallets {
     /** The wallets read at a write count, for the session that read them. A closed session drops out with its key. */
     internal class Kept(val writes: Long, val ids: List<String>, val wallets: List<PairedWallet>)
 
+    /** Internal for tests only: production code must not touch it outside [list] and [forget]. */
     internal val kept = java.util.WeakHashMap<VaultSession, Kept>()
 
     /** How many times [forget] ran, guarded by [kept]. A [list] that began before a forget does not store what it read. */
