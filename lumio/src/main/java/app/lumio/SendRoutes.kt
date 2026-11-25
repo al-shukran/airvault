@@ -274,7 +274,10 @@ internal fun SendRoute(
      */
     fun onRecipientText(text: String) {
         val chain = selectedChain ?: return
-        runCatching { EvmPaymentCode.read(text, chain, others = if (scanFirst) ready.chains else emptyList(), otherSide = ready.otherSide) }
+        // Only Scan to Pay moves to another chain, so only it names the networks to move to or the side to switch to.
+        val others = if (scanFirst) ready.chains else emptyList()
+        val otherSide = if (scanFirst) ready.otherSide else emptyList()
+        runCatching { EvmPaymentCode.read(text, chain, others, otherSide) }
             .onSuccess { payment ->
                 payment.chainId?.let {
                     boundChainId = it
