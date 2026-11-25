@@ -15,7 +15,6 @@ import app.lumio.data.price.PricePoint
 import app.lumio.data.price.PriceSeries
 import app.lumio.data.provider.*
 import app.lumio.data.provider.explorer.ExplorerTx
-import app.lumio.data.provider.requests.*
 import java.io.IOException
 import java.math.BigInteger
 import kotlin.math.sin
@@ -97,7 +96,7 @@ internal class DemoProvider(private val profile: () -> DemoProfile) : Provider {
 
     private fun chainOf(net: NetworkId): Long = net.name.toLong()
 
-    private fun gwei(amount: Double): BigInteger = java.math.BigDecimal(amount).movePointRight(9).toBigInteger()
+    private fun gwei(amount: Number): BigInteger = java.math.BigDecimal(amount.toString()).movePointRight(9).toBigInteger()
 
     private fun tokenBalance(req: ContractCall, emptyMainnet: Boolean): String {
         if (!req.data.startsWith(BALANCE_OF) || emptyMainnet) throw ProviderError.Unsupported()
