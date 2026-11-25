@@ -30,7 +30,8 @@ object BalanceCache {
     /** The vault record that holds the reads. */
     const val RECORD = "lumio-balance-cache"
 
-    private val json = Json
+    // A record Lumio 1.0.0 stored carries a nonce for each read, which is no longer kept.
+    private val json = Json { ignoreUnknownKeys = true }
 
     /** The cached reads, or none when nothing is stored or the record does not parse. */
     fun read(session: VaultSession): List<CachedBalance> {

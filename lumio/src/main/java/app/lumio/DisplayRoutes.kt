@@ -71,8 +71,8 @@ internal fun DisplaySettingsRoute(navController: NavHostController, holder: Vaul
     DisplaySettingsPage(
         settings = display.settings,
         notice = display.notice,
-        // One switch hides or shows every amount, the wallet totals and the balances alike.
-        onHideBalances = { hide -> display.change { it.copy(showTotal = !hide, showAssets = !hide) } },
+        onShowTotal = { on -> display.change { it.copy(showTotal = on) } },
+        onShowAssets = { on -> display.change { it.copy(showAssets = on) } },
         onCurrency = { currency -> display.change { it.copy(currency = currency) } },
         onTheme = { theme -> display.change { it.copy(theme = theme) } },
         onSmallBalance = { usd -> display.change { it.copy(smallBalanceUsd = usd) } },
