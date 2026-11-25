@@ -40,6 +40,7 @@ import app.lumio.transactions.TxFeedItem
 import app.lumio.transactions.TxSync
 import app.lumio.transactions.TxSyncPlan
 import app.lumio.ui.kit.LumioTab
+import app.lumio.ui.kit.WalletEmblemTone
 import app.lumio.ui.receive.ReceiveFlowSheet
 import app.lumio.ui.receive.receiveNativeStartOf
 import app.lumio.ui.receive.receiveStartOf
@@ -211,6 +212,7 @@ internal fun WalletRoute(
                 // A chain that did not answer names itself under its island, with a Retry. The notice is left for a read that failed as a whole.
                 notice = board.notice,
                 pairedAtMs = wallet.createdAtMs,
+                tone = WalletEmblemTone.at(view.wallets.indexOf(wallet)),
                 reads = board.reads,
                 onRetry = board::retry,
                 onAccount = { account -> navController.navigate(LumioRoute.account(walletId, account.id)) },
@@ -522,11 +524,11 @@ internal fun sendRoute(account: WalletAccount, mode: NetworkMode): String = when
 /** The rows of the Wallets list: the active wallet first, tagged ACTIVE, then the others in the vault's order. */
 private fun walletRows(view: WalletsView, selection: NetworkSelection): List<WalletRow> {
     val active = view.wallets.active(selection) { it.id }?.id
-    return view.walletsActiveFirst(active).map { wallet -> walletRow(view, wallet, active = wallet.id == active) }
+    return view.walletsActiveFirst(active).map { wallet -> walletRow(view, wallet, active = wallet.id == active, position = view.wallets.indexOf(wallet)) }
 }
 
-/** One paired wallet as a row of the Wallets list: its name, its summary line, its dollar total and change, and whether it is the active one. */
-private fun walletRow(view: WalletsView, wallet: PairedWallet, active: Boolean): WalletRow {
+/** One paired wallet as a row of the Wallets list: its name, its summary line, its dollar total and change, whether it is the active one, and the emblem tone of its [position] in the vault. */
+private fun walletRow(view: WalletsView, wallet: PairedWallet, active: Boolean, position: Int): WalletRow {
     val total = view.total(wallet.id)
     return WalletRow(
         id = wallet.id,
@@ -535,6 +537,7 @@ private fun walletRow(view: WalletsView, wallet: PairedWallet, active: Boolean):
         usd = total.usd,
         changePct = total.changePct,
         active = active,
+        tone = WalletEmblemTone.at(position),
     )
 }
 
@@ -594,9 +597,11 @@ internal fun WalletSettingsRoute(
 ) {
     val session = holder.openSession()
     val scope = rememberCoroutineScope()
-    val wallet = pairedWallets(navController = navController, holder = holder, listVersion = listVersion).firstOrNull { it.id == walletId } ?: return
+    val wallets = pairedWallets(navController = navController, holder = holder, listVersion = listVersion)
+    val wallet = wallets.firstOrNull { it.id == walletId } ?: return
     WalletSettingsPage(
         wallet = wallet,
+        tone = WalletEmblemTone.at(wallets.indexOf(wallet)),
         offline = rememberSettingsOffline(),
         onRePair = { navController.navigate(LumioRoute.PAIR_SCAN) },
         onRemove = {

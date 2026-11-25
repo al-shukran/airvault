@@ -1,0 +1,1 @@
+Names in the send review stay readable beside the address for Arabic and Hebrew, a saved name that looks like an address shows the address instead, and an address that looks like one of your own accounts is flagged.

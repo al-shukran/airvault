@@ -3,6 +3,8 @@
     <string name="app_name">Lumio</string>
 
     <string name="providers_intro">Lumio asks providers in this order and moves to the next one if a provider fails. Drag to change the order.</string>
+    <string name="reorder_move_up">Move Up</string>
+    <string name="reorder_move_down">Move Down</string>
     <string name="providers_evm_heading">EVM Networks</string>
     <string name="providers_bitcoin_heading">Bitcoin</string>
     <string name="providers_prices_heading">Prices</string>

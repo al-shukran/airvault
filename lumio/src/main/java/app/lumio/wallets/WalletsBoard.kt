@@ -430,8 +430,9 @@ internal class WalletsBoard(
     }
 
     /** The watchlist of each of [wallets], as the vault keeps it, or the first-run list for a wallet that has none. It reads the vault, so run it off the main thread. */
-    private fun watchlistsOf(wallets: List<PairedWallet>): Map<String, WalletWatchlist> = wallets.associate { wallet ->
-        wallet.id to (WatchlistStore.read(session, wallet.id) ?: WalletWatchlist(assets = FIRST_RUN_ASSETS))
+    private fun watchlistsOf(wallets: List<PairedWallet>): Map<String, WalletWatchlist> {
+        val kept = WatchlistStore.readAll(session)
+        return wallets.associate { wallet -> wallet.id to (kept[wallet.id] ?: WalletWatchlist(assets = FIRST_RUN_ASSETS)) }
     }
 
     /** The assets that [watchlists] watch, each once. */

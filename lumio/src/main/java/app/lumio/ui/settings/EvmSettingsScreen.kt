@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
@@ -28,6 +29,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.lensly.core.registry.NetworkEntry
@@ -258,7 +261,14 @@ private fun ChainRow(
             }
         }
         Spacer(Modifier.width(ClearAirSpacing.sm))
-        Box(modifier = Modifier.toggleable(value = on, enabled = !busy, role = Role.Switch, onValueChange = onEnabled)) {
+        // The 46 x 28 dp track sits at the end of a 48 dp box, so the touch target is 48 dp and the track stays where it was drawn. TalkBack names the network.
+        Box(
+            modifier = Modifier
+                .sizeIn(minWidth = ClearAirSpacing.touchTarget, minHeight = ClearAirSpacing.touchTarget)
+                .semantics { contentDescription = "${chain.name} network" }
+                .toggleable(value = on, enabled = !busy, role = Role.Switch, onValueChange = onEnabled),
+            contentAlignment = Alignment.CenterEnd,
+        ) {
             ClearAirSwitch(checked = on, enabled = !busy)
         }
     }

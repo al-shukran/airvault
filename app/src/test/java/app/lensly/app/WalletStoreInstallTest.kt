@@ -155,6 +155,51 @@ class WalletStoreInstallTest {
     }
 
     @Test
+    fun uninstallingBitcoinIsNeverRefusedForKeptProfilesAndDropsTheOldestBeyondTheCap() {
+        val id = newWalletWithNamedBitcoinAccounts(100)
+        store.uninstallApp(id, WalletApp.BITCOIN)
+        store.installApp(id, WalletApp.BITCOIN)
+        // Account 0 took its profile back, so 99 stay kept. A named Taproot account makes 101 with the installed ones.
+        store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.MAINNET, count = 1, cap = 1)
+        store.saveBitcoinProfile(id, store.bitcoinAccounts(id).last(), AccountProfile(name = "Taproot"))
+
+        store.uninstallApp(id, WalletApp.BITCOIN)
+
+        assertEquals(emptySet(), store.installedApps(id))
+        // Reinstalling and adding the Native SegWit accounts again: only the oldest kept profile (index 1) is gone.
+        store.installApp(id, WalletApp.BITCOIN)
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, count = 99, cap = 99)
+        val names = store.bitcoinAccounts(id).associate { it.index to it.profile.name }
+        assertEquals(100, names.size)
+        assertEquals(listOf(1), names.filterValues { it == null }.keys.toList())
+        assertEquals("Account 0", names[0])
+        assertEquals("Account 99", names[99])
+    }
+
+    @Test
+    fun aBulkRunStillFitsTheBitcoinRecordWhenKeptProfilesTakeItsRoom() {
+        val id = newWalletWithNamedBitcoinAccounts(100)
+        store.uninstallApp(id, WalletApp.BITCOIN)
+        store.installApp(id, WalletApp.BITCOIN)
+
+        // 99 kept profiles and 100 accounts of 70 bytes do not fit 8192 bytes together, so the oldest kept profiles go.
+        val added = assertNotNull(store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.MAINNET, count = 99, cap = 99))
+
+        assertEquals(99, added.size)
+        assertEquals(100, store.bitcoinAccounts(id).size)
+        assertEquals("Account 0", store.bitcoinAccounts(id).first().profile.name)
+        assertTrue(assertNotNull(session.getRecord(id, WalletRecords.BITCOIN)).size <= WalletRecordNames.BITCOIN_CAPACITY)
+        // The trim drops the oldest kept profiles first, so the newest (index 99) survives and index 1 is gone.
+        val kept = WalletRecords.decodeBitcoinRecord(assertNotNull(session.getRecord(id, WalletRecords.BITCOIN))).kept
+        assertEquals("Account 99", kept[Triple(ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 99)]?.name)
+        assertNull(kept[Triple(ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 1)])
+        // Naming an account never fails for kept profiles either, and an uninstall still succeeds.
+        store.saveBitcoinProfile(id, store.bitcoinAccounts(id).last(), AccountProfile(name = "Last"))
+        store.uninstallApp(id, WalletApp.BITCOIN)
+        assertEquals(emptySet(), store.installedApps(id))
+    }
+
+    @Test
     fun uninstallingBitcoinWithNoProfileLeavesNoBitcoinRecord() {
         val id = newWallet()
 
@@ -415,6 +460,14 @@ class WalletStoreInstallTest {
 
         assertEquals(0, assertNotNull(store.meta(id)).accountCount)
         assertEquals(setOf(WalletApp.BITCOIN), store.installedApps(id))
+    }
+
+    /** A wallet with [count] Native SegWit mainnet accounts, each named "Account N". */
+    private fun newWalletWithNamedBitcoinAccounts(count: Int): String {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, count = count - 1, cap = count - 1)
+        store.bitcoinAccounts(id).forEach { store.saveBitcoinProfile(id, it, AccountProfile(name = "Account ${it.index}")) }
+        return id
     }
 
     private fun newWallet(): String = store.create(name = "Demo", deviceGenerated = false, words = DEMO_WORDS, passphrase = null, nowMs = 1L)

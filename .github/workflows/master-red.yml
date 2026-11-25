@@ -13,9 +13,10 @@ on:
 permissions:
   contents: read
 
-# One alarm at a time, so two failures that finish together cannot open two issues.
+# One alarm at a time, so two failures that finish together cannot open two issues. Runs for other branches skip in the job below,
+# so each gets its own group and cannot replace a queued master alarm.
 concurrency:
-  group: master-red
+  group: master-red-${{ github.event.workflow_run.head_branch == 'master' && 'master' || github.run_id }}
   cancel-in-progress: false
 
 jobs:

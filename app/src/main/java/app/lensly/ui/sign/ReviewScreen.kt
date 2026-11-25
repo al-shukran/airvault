@@ -26,8 +26,8 @@ import app.airvault.core.model.unaccounted
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
 import app.lensly.app.addressStart
+import app.lensly.app.isolated
 import app.lensly.app.notesOf
-import app.lensly.app.plainNameOf
 import app.lensly.app.plainNameOrNull
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.ui.components.BannerTone
@@ -99,7 +99,7 @@ fun ReviewScreen(
                     networkFact = review.network.row?.let { fact(it) },
                     account = plainNameOrNull(signer.name, Int.MAX_VALUE) ?: groupAddress(signer.address),
                     accountLabel = if (signer.isAddressKey) "Key" else "Account",
-                    wallet = plainNameOf(signer.walletName, Int.MAX_VALUE),
+                    wallet = plainNameOrNull(signer.walletName, Int.MAX_VALUE),
                     address = signer.address,
                     addressLogo = addressLogo,
                     networkIcon = networkIcon,
@@ -249,7 +249,7 @@ private fun AnnotatedString.Builder.appendAddressStart(address: String, mono: Fo
 
 /** Appends [name] in the colour of [role]. */
 private fun AnnotatedString.Builder.appendNamed(name: String, role: NameRole, palette: LumenPalette) {
-    withStyle(SpanStyle(color = role.colourIn(palette))) { append(name) }
+    withStyle(SpanStyle(color = role.colourIn(palette))) { append(isolated(name)) }
 }
 
 /** A row as a summary fact: set in the monospace face when its value is an amount, an address or data, or when the value asks for it. */

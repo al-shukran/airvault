@@ -88,11 +88,12 @@ class EvmReads(
 
     /**
      * What the pool knows about [providerId] now, or null when it does not hold that provider. The owner's own RPC is not in the pool: its status is
-     * the worst of its addresses' ([customStatusOf]), and null while no chain has an address.
+     * the worst of its addresses' ([customStatusOf]) on the chains that are on, and null while none of them has an address.
      */
     suspend fun statusOf(providerId: String): ProviderHealth? {
         if (providerId != CustomRpc.ID) return pool.statusOf(providerId)
-        val all = settings().activeRpcUrls().keys.mapNotNull { customStatusOf(it.toLong()) }
+        val settings = settings()
+        val all = settings.activeRpcUrls().keys.map { it.toLong() }.filter { it in settings.enabled }.mapNotNull { customStatusOf(it) }
         if (all.isEmpty()) return null
         return ProviderHealth(
             score = all.mapNotNull { it.score }.maxOrNull(),

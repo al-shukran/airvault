@@ -188,7 +188,8 @@ suspend fun scanAccount(
         stats
     }
     // The tip comes from Electrum when it answers, so that an account is read with no Esplora request while Esplora is down.
-    val tipHeight = electrum?.let { electrumTip(it) } ?: scheduler.run(
+    // A server that lags behind lists a block above the tip it reports, so [tipHeight] never falls below a block that a listing shows.
+    var tipHeight = electrum?.let { electrumTip(it) } ?: scheduler.run(
         TipHeight(net),
         priority,
         CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "tip/${net.chain}", jsonCodec()),
@@ -242,6 +243,7 @@ suspend fun scanAccount(
                     priority,
                     CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "utxo/${net.chain}/${hit.address}", jsonCodec()),
                 ).map { BtcUtxo(it.txid, it.vout, it.valueSats, it.blockHeight) }
+                    .also { listed -> tipHeight = maxOf(tipHeight, listed.maxOfOrNull { it.blockHeight ?: 0L } ?: 0L) }
             }
         }
         if (detail) {
@@ -251,6 +253,7 @@ suspend fun scanAccount(
                     priority,
                     CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "txs/${net.chain}/$address", jsonCodec()),
                 )
+                tipHeight = maxOf(tipHeight, listed.maxOfOrNull { it.blockHeight ?: 0L } ?: 0L)
                 onTxs(address, listed, tipHeight)
                 listed.forEach { txs.putIfAbsent(it.txid, it) }
             }

@@ -23,6 +23,7 @@ import app.lumio.ui.kit.ClearAirRefreshBox
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.ClearAirWalletEmblem
+import app.lumio.ui.kit.WalletEmblemTone
 import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.pair.PairIntro
 
@@ -37,6 +38,7 @@ data class WalletRow(
     val usd: Double?,
     val changePct: Double? = null,
     val active: Boolean = false,
+    val tone: WalletEmblemTone = WalletEmblemTone.BLUE,
 )
 
 /** The caption under the wallets: what a wallet is, and where its accounts are grouped. */
@@ -93,7 +95,7 @@ fun WalletsScreen(
                             ClearAirRow(
                                 title = row.name,
                                 description = row.summary,
-                                leading = { ClearAirWalletEmblem() },
+                                leading = { ClearAirWalletEmblem(tone = row.tone) },
                                 tag = if (row.active) "ACTIVE" else null,
                                 trailing = if (row.usd == null) null else ({ WalletValue(usd = row.usd, changePct = row.changePct, shown = showTotal) }),
                                 onClick = { onWallet(row.id) },

@@ -48,6 +48,7 @@ import app.lensly.app.headline
 import app.lensly.app.isAddressValue
 import app.lensly.app.lookalikeWarningText
 import app.lensly.app.plainName
+import app.lensly.app.plainNameOf
 import app.lensly.app.plainNameOrNull
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
@@ -84,7 +85,7 @@ internal fun ReviewHeader(
     testnet: Boolean,
     chainDetail: String?,
     account: String,
-    wallet: String,
+    wallet: String?,
     address: String,
     addressLogo: @Composable () -> Unit,
     modifier: Modifier = Modifier,
@@ -115,7 +116,7 @@ internal fun ReviewHeader(
         Spacer(Modifier.height(LenslySpacing.sm))
         networkFact?.let { ReviewFactRow(label = it.label, value = it.value, mono = it.mono) }
         ReviewFactRow(label = accountLabel, value = account, mono = false)
-        ReviewFactRow(label = "Wallet", value = wallet, mono = false)
+        wallet?.let { ReviewFactRow(label = "Wallet", value = it, mono = false) }
         Spacer(Modifier.height(LenslySpacing.xxs))
         Text(text = "Address", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -447,6 +448,9 @@ internal fun ReviewActions(
  * address book" when the Address Book holds no entry for it. The Address Book is read for every counterparty, so a miss is shown, and it
  * is not a warning.
  *
+ * [beforeSigning] is false in the Activity detail of a record already signed: the first-time and lookalike lines are for a review that still
+ * has a decision to make, so they are left out there.
+ *
  * With [onClick] the address is a list row: a tap opens it, and a chevron shows that it does. It is the one address component every review
  * and the Activity detail share.
  */
@@ -457,6 +461,7 @@ internal fun ReviewAddress(
     logo: @Composable () -> Unit = { LetterMonogram(letter = "?", size = 16.dp) },
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    beforeSigning: Boolean = true,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         notes?.headline()?.let { line ->
@@ -473,26 +478,25 @@ internal fun ReviewAddress(
             AddressText(address = address, icon = false, modifier = Modifier.weight(1f), onClick = onClick)
             if (onClick != null) RowArrow()
         }
-        AddressNoteLines(notes = notes)
+        AddressNoteLines(notes = notes, beforeSigning = beforeSigning)
     }
 }
 
 /**
  * The notes of an address that are not its bold line, in sans: the wallet of an account of another wallet, the Address Book name when an
  * account holds the bold line, the Address Book label and notes, and "Not in address book" when the Address Book holds no entry for it.
+ * Before signing, an address in no entry and no account also gets the first-time line and the lookalike warning.
  */
 @Composable
-internal fun AddressNoteLines(notes: AddressNotes?, modifier: Modifier = Modifier) {
+internal fun AddressNoteLines(notes: AddressNotes?, modifier: Modifier = Modifier, beforeSigning: Boolean = true) {
     Column(modifier = modifier.fillMaxWidth()) {
         plainNameOrNull(notes?.internal?.walletName)?.let { ReviewFactRow(label = "Wallet", value = it, mono = false) }
         val entry = notes?.entry
         if (entry == null) {
-            if (notes?.internal == null) {
-                NoteText(NOT_IN_ADDRESS_BOOK)
+            NoteText(NOT_IN_ADDRESS_BOOK)
+            if (beforeSigning && notes?.internal == null) {
                 NoteText(FIRST_TIME_CHECK)
                 notes?.lookalike?.let { LookalikeWarning(it) }
-            } else {
-                NoteText(NOT_IN_ADDRESS_BOOK)
             }
         } else {
             if (notes.internal != null) {
@@ -504,7 +508,7 @@ internal fun AddressNoteLines(notes: AddressNotes?, modifier: Modifier = Modifie
                 )
             }
             plainNameOrNull(entry.label)?.let { ReviewFactRow(label = "Address Label", value = it, mono = false) }
-            plainNameOrNull(entry.notes, ADDRESS_NOTES_MAX_LENGTH)?.let { ReviewFactRow(label = "Address Notes", value = it, mono = false) }
+            plainNameOf(entry.notes.orEmpty(), ADDRESS_NOTES_MAX_LENGTH).takeIf { it.isNotEmpty() }?.let { ReviewFactRow(label = "Address Notes", value = it, mono = false) }
             if (entry.chain?.namespace == EVM_FAMILY.namespace) NoteText(SAVED_FOR_ALL_EVM)
         }
     }
@@ -545,7 +549,7 @@ internal const val NOT_IN_ADDRESS_BOOK = "Not in address book"
  * neither gives one.
  */
 internal fun AddressNotes.shownName(): String? =
-    plainNameOrNull(internal?.let { account -> account.displayName ?: account.autoName }) ?: if (internal == null) plainNameOrNull(entry?.name) else null
+    internal?.plainName() ?: if (internal == null) plainNameOrNull(entry?.name) else null
 
 /** Appends [text] in the mono face, for an amount or an address inside a sentence. */
 internal fun AnnotatedString.Builder.appendMono(text: String, mono: FontFamily) {

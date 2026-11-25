@@ -51,5 +51,52 @@ fun plainNameOf(name: String, max: Int = PLAIN_NAME_MAX): String {
     }
 }
 
-/** [plainNameOf] of [name], or null when [name] is null or has nothing visible left. */
-fun plainNameOrNull(name: String?, max: Int = PLAIN_NAME_MAX): String? = name?.let { plainNameOf(it, max) }?.takeIf { it.isNotEmpty() }
+/** An address as a name: "0x" and 4 hex digits, a bech32 prefix and a body, or a run of 20 or more letters and digits with a digit and 2 letters. */
+private val ADDRESS_START = Regex("""0x\s?[0-9a-f]{4}|\b(?:bc1|tb1)[0-9a-z]{6,}""", RegexOption.IGNORE_CASE)
+private val ALPHANUMERIC_RUN = Regex("[0-9A-Za-z]{20,}")
+private val SEPARATORS = Regex("[\\s\\-._]")
+
+/** The longest piece of a grouped or split address. Lensly groups by 4, a hand split goes to about 12, a word such as "Savings2024Fund" is longer. */
+private const val MAX_ADDRESS_CHUNK = 12
+
+/** Cyrillic letters that look like the Latin ones of "0x" and of hex digits, "ох" and "0х" included. Only the "0x" check reads them. */
+private val CONFUSABLES = mapOf(
+    'о' to '0', 'О' to '0', 'х' to 'x', 'Х' to 'X', 'а' to 'a', 'А' to 'A', 'с' to 'c', 'С' to 'C', 'е' to 'e', 'Е' to 'E', 'В' to 'B',
+)
+
+private fun hasAddressRun(text: String): Boolean =
+    ALPHANUMERIC_RUN.findAll(text).any { run -> run.value.count(Char::isDigit) >= 1 && run.value.count(Char::isLetter) >= 2 }
+
+/**
+ * Whether [name] reads as an address, so that shown in bold above the real one it could be taken for it: it holds "0x" and 4 hex digits
+ * (also in a spaced form such as "0x71C7 656E … 976F"), a "bc1" or "tb1" address start, or a run of 20 or more letters and digits with a digit and 2
+ * letters, which is what a Solana or Algorand address looks like and a word is not. The name is read again after NFKC folding (fullwidth
+ * "０ｘ"), with Cyrillic lookalikes of "0x" and hex digits, and with spaces, "-", "." and "_" removed (a grouped or split address). The
+ * grouped form counts only for 3 or more pieces of at most [MAX_ADDRESS_CHUNK] characters, one of them mixing letters and digits, so
+ * "Rent 2024 March" or "Savings2024Fund" is a name.
+ */
+fun looksLikeAddressName(name: String): Boolean {
+    val folded = Normalizer.normalize(name, Normalizer.Form.NFKC)
+    val chunks = folded.split(SEPARATORS).filter { it.isNotEmpty() }
+    val grouped = chunks.joinToString("")
+    return hasAddressStart(folded) || hasAddressStart(grouped) || hasAddressRun(folded) ||
+        (chunks.size >= 3 && chunks.all { it.length <= MAX_ADDRESS_CHUNK } && chunks.any(::mixesLettersAndDigits) && hasAddressRun(grouped))
+}
+
+private fun hasAddressStart(text: String): Boolean = ADDRESS_START.containsMatchIn(text.map { CONFUSABLES[it] ?: it }.joinToString(""))
+
+private fun mixesLettersAndDigits(chunk: String): Boolean = chunk.any(Char::isDigit) && chunk.any(Char::isLetter)
+
+/**
+ * [plainNameOf] of [name], or null when [name] is null, has nothing visible left, or [looksLikeAddressName]. A caller shows the grouped
+ * address in place of a null. A record saved before the name check keeps its stored name and is shown this way.
+ */
+fun plainNameOrNull(name: String?, max: Int = PLAIN_NAME_MAX): String? =
+    name?.let { plainNameOf(it, max) }?.takeIf { it.isNotEmpty() && !looksLikeAddressName(it) }
+
+/**
+ * [name] set apart from the text around it, for a sentence such as "Send 1 ETH to <name> (0x1234 5678 …)". First-strong isolate and pop
+ * directional isolate make an Arabic or Hebrew name read in its own direction without reordering the address or the words beside it. [name]
+ * has gone through [plainNameOf], which removes every direction character, so these two are the only ones in the sentence.
+ */
+fun isolated(name: String): String = "\u2068$name\u2069"

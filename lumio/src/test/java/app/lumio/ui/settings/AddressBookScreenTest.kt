@@ -47,6 +47,17 @@ class AddressBookScreenTest {
     }
 
     @Test
+    fun aTestnet4EntryNamesItsNetworkSoItIsNotTakenForBitcoin() {
+        compose.setContent {
+            ClearAirTheme {
+                AddressBookScreen(entries = listOf(ADDRESS_BOOK_FAUCET), offline = null, onEdit = {}, onBack = {}, onLock = {})
+            }
+        }
+
+        compose.onNodeWithText("Bitcoin Testnet4 · Testnet4", substring = true).assertIsDisplayed()
+    }
+
+    @Test
     fun aBlankGroupIsNoGroupSoItGetsNoNamelessHeader() {
         compose.setContent {
             ClearAirTheme {

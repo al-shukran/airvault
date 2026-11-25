@@ -24,6 +24,11 @@ on:
 permissions:
   contents: read
 
+# One run per event and ref, never cancelled: a master push cannot replace a queued scheduled run, and a running run finishes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
 # The dependency cache the jobs below restore. These are the paths and the key of pr-fast.yml's deps job.
 env:
   DEPS_CACHE_PATHS: |
@@ -172,7 +177,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
@@ -284,7 +289,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         module: [app, lumio, shared]
     steps:

@@ -3,7 +3,11 @@ package app.lumio.ui.settings
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
@@ -14,6 +18,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.unit.dp
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.flow.PasswordCheck
 import app.lensly.ui.theme.LumenTheme
@@ -23,6 +28,7 @@ import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.LockSettings
 import app.lumio.data.config.TransactionSettings
 import app.lumio.ui.firstrun.NewPasswordProblem
+import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettings
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -73,6 +79,32 @@ class SettingsPagesTest {
                 onBitcoin = {},
             )
         }
+    }
+
+    @Test
+    fun aNetworkSwitchIsNamedForTalkBackAndIsAtLeast48DpHigh() {
+        var turned: Boolean? = null
+        compose.setContent {
+            ClearAirHarness {
+                EvmSettingsSection(
+                    settings = EvmSettings(enabled = setOf(1L)),
+                    chains = listOf(EvmChain(1L, "Ethereum", "ETH", 18, testnet = false, explorerUrl = null)),
+                    logos = emptyMap(),
+                    busy = false,
+                    notice = null,
+                    onAddressCount = {},
+                    onEnabled = { _, on -> turned = on },
+                    onNetwork = {},
+                    onAddNetwork = {},
+                    onBitcoin = {},
+                )
+            }
+        }
+
+        val switch = compose.onNode(hasContentDescription("Ethereum network"))
+        switch.assertIsOn().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
+        switch.performClick()
+        assertEquals(false, turned)
     }
 
     @Test
