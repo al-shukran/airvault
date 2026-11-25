@@ -85,4 +85,12 @@ class PortfolioCacheTest {
         assertEquals(2, kept.size)
         assertTrue(kept.all { it.atMs == 1_000L && it.wei == "1000000000000000000" })
     }
+
+    @Test
+    fun aRecordFromAnOlderLumioThatHeldNoncesReadsAsEmptyInsteadOfFailing() {
+        val old = """{"entries":[{"walletId":"w1","chainId":1,"address":"0xabc","wei":"1","nonce":3,"atMs":1}]}"""
+        session.putVaultRecord(BalanceCache.RECORD, old.encodeToByteArray())
+
+        assertEquals(emptyList<CachedBalance>(), BalanceCache.read(session))
+    }
 }
