@@ -1,5 +1,6 @@
 package app.lumio.ui.shell
 
+import app.lumio.DebugDemoData
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -60,8 +61,8 @@ fun LumioRootScreen(
     search: @Composable (onClose: () -> Unit) -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    var panelOpen by remember { mutableStateOf(false) }
-    var searchOpen by remember { mutableStateOf(false) }
+    var panelOpen by remember { mutableStateOf(DebugDemoData.flag("panel")) }
+    var searchOpen by remember { mutableStateOf(DebugDemoData.flag("search")) }
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             ClearAirRootTopBar(

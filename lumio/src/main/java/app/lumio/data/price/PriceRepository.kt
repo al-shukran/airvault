@@ -8,7 +8,7 @@ import app.lumio.data.cache.jsonCodec
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.FiatQuote
 import app.lumio.data.provider.FiatRates
-import app.lumio.data.provider.GlobalMarket
+import app.lumio.data.provider.BitcoinMarket
 import app.lumio.data.provider.MarketQuote
 import app.lumio.data.provider.NativePrice
 import app.lumio.data.provider.PriceChart
@@ -32,7 +32,7 @@ const val PRICE_TTL_MS = 60_000L
 const val CHART_TTL_MS = 300_000L
 
 /** The cache keys of the whole market's figures and of the trending coins. */
-internal const val MARKET_KEY = "market-global"
+internal const val MARKET_KEY = "market-bitcoin"
 internal const val TRENDING_KEY = "trending-search"
 internal const val FIAT_KEY = "market-fiat"
 
@@ -89,9 +89,9 @@ class PriceRepository(
     }
 
     /**
-     * Whether a switched-on source serves the market's figures. Switched off, no market figure is shown, kept or not, so every read below is null.
+     * Whether a switched-on source serves Bitcoin's market figures. Switched off, no market figure is shown, kept or not, so every read below is null.
      */
-    fun servesMarket(): Boolean = scheduler.serves(GlobalMarket())
+    fun servesMarket(): Boolean = scheduler.serves(BitcoinMarket())
 
     /** Whether a switched-on source serves the trending coins. Switched off, no trending list is shown, kept or not. */
     fun servesTrending(): Boolean = scheduler.serves(TrendingCoins())
@@ -106,9 +106,9 @@ class PriceRepository(
     suspend fun fiatRates(priority: Priority = Priority.VISIBLE): Kept<FiatQuote>? =
         if (servesFiat()) kept(FIAT_KEY, jsonCodec<FiatQuote>(), FiatRates(), priority) else null
 
-    /** The whole market's figures, from a source or from memory within [PRICE_TTL_MS]. When no source answers, the last ones kept, stale. */
+    /** Bitcoin's market figures, from a source or from memory within [PRICE_TTL_MS]. When no source answers, the last ones kept, stale. */
     suspend fun market(priority: Priority = Priority.VISIBLE): Kept<MarketQuote>? =
-        if (servesMarket()) kept(MARKET_KEY, jsonCodec<MarketQuote>(), GlobalMarket(), priority) else null
+        if (servesMarket()) kept(MARKET_KEY, jsonCodec<MarketQuote>(), BitcoinMarket(), priority) else null
 
     /** The trending coins, from a source or from memory within [PRICE_TTL_MS]. When no source answers, the last list kept, stale. */
     suspend fun trending(priority: Priority = Priority.VISIBLE): Kept<TrendingList>? =

@@ -92,14 +92,19 @@ internal fun TabRoute(
 
 /**
  * Opens [tab]'s root in place of the tab that is open. The tab bar shows only on the roots, so a switch always starts from a root, and the start
- * tab stays below the others so that Back from another tab returns to Accounts.
+ * tab, Home, stays below the others so that Back from another tab returns to Home.
  */
 internal fun NavHostController.openTab(tab: LumioTab) {
     navigate(tab.route()) {
-        popUpTo(LumioRoute.WALLETS) { saveState = true }
+        popUpTo(LumioRoute.HOME) { saveState = true }
         launchSingleTop = true
         restoreState = true
     }
+}
+
+/** Returns to the Accounts tab. Pairing starts from any tab, so Accounts may not be on the stack, and then it opens in place of what is above Home. */
+internal fun NavHostController.backToAccounts() {
+    if (!popBackStack(LumioRoute.WALLETS, inclusive = false)) openTab(LumioTab.ACCOUNTS)
 }
 
 /** The route of [tab]'s root. */

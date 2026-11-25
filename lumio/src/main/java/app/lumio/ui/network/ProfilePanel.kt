@@ -98,7 +98,7 @@ private val FIXED_TEST_NETWORKS = listOf("Bitcoin Testnet4", "Solana Devnet", "A
 data class PanelWallet(val id: String, val name: String, val detail: String, val tone: WalletEmblemTone = WalletEmblemTone.BLUE)
 
 /**
- * The sentence under the Mainnet · Testnet control. It names the test network that each chain uses: the EVM test networks that are on, with the default
+ * The sentence under the Mainnet · Testnet control, shown on the Testnet side. It names the test network that each chain uses: the EVM test networks that are on, with the default
  * one marked, then the networks that have no switch. [evmNames] are the names of the EVM test networks that are on.
  */
 fun testNetworkSentence(evmNames: List<String>): String {
@@ -178,7 +178,10 @@ fun ProfilePanel(
                             onDismiss()
                         },
                     )
-                    Text(text = networkSentence, style = CAPTION, color = palette.ink2, modifier = Modifier.padding(top = 10.dp))
+                    // The mock draws the sentence on the Testnet side only, and a paragraph's 13 dp margin under it.
+                    if (mode == NetworkMode.TESTNET) {
+                        Text(text = networkSentence, style = CAPTION, color = palette.ink2, modifier = Modifier.padding(top = 10.dp, bottom = 13.dp))
+                    }
                 }
                 PanelRow(
                     title = "Choose Test Networks",
