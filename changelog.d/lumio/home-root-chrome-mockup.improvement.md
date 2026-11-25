@@ -1,0 +1,1 @@
+Home, the tab top bars and the Finish Setting Up card now match the approved design: a 50 sp market total with a raised currency sign and a tick chart under it, a 52 dp top bar with the wallet switcher chevron on Home only, Send and Receive that open the send recipient and the Receive sheet directly, and a checklist card that shows only the next step.

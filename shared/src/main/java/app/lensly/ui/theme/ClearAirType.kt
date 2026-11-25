@@ -43,8 +43,8 @@ private class ClearAirStep(val size: Float, val line: Float, val tracking: Float
  * change to these lines and nothing else. The sizes are the approved mock's CSS, size, line height and letter spacing alike.
  */
 private object ClearAirScale {
-    /** The hero numeral of an overview, Home and Portfolio. Provisional: the mock has 50 sp at -0.06em, which the Home screen's own change takes. */
-    val hero = ClearAirStep(size = 40f, line = 46f)
+    /** The hero numeral of an overview, Home and Portfolio, and of the Asset page's price. */
+    val hero = ClearAirStep(size = 50f, line = 56f, tracking = -0.06f)
 
     /** A page total, of a wallet or an account. It is left-aligned, under a small label. */
     val total = ClearAirStep(size = 28f, line = 34f, tracking = -0.04f)
@@ -106,10 +106,10 @@ private fun clearAirStyle(family: FontFamily, weight: FontWeight, step: ClearAir
 /** The Clear Air type scale: one style for each role of the proposal. The sizes come from [ClearAirScale]. */
 object ClearAirType {
     /** The hero numeral of an overview: JetBrains Mono Light. */
-    val hero = clearAirStyle(NumberFamily, FontWeight.Light, ClearAirScale.hero)
+    val hero = clearAirStyle(NumberFamily, FontWeight.Light, ClearAirScale.hero).copy(letterSpacing = (-0.06).em)
 
     /** A page total, left-aligned: JetBrains Mono Light. */
-    val total = clearAirStyle(NumberFamily, FontWeight.Light, ClearAirScale.total)
+    val total = clearAirStyle(NumberFamily, FontWeight.Light, ClearAirScale.total).copy(letterSpacing = (-0.04).em)
 
     /** An amount in a flow: JetBrains Mono Light. */
     val amountLarge = clearAirStyle(NumberFamily, FontWeight.Light, ClearAirScale.amountLarge)
