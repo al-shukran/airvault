@@ -59,17 +59,19 @@ data class EvmSettings(
 
 /** Reads and writes [EvmSettings] as the vault record [EvmSettings.RECORD]. */
 object EvmSettingsStore {
-    private val json = Json
+    // Every field is written, so what a stored record means does not follow the defaults of a later version.
+    private val json = Json { encodeDefaults = true }
 
     /** The settings stored in [session], or the defaults when none are stored or the record does not parse. */
-    fun read(session: VaultSession): EvmSettings {
-        val bytes = session.getVaultRecord(EvmSettings.RECORD) ?: return EvmSettings()
-        return try {
-            json.decodeFromString(EvmSettings.serializer(), bytes.decodeToString())
-        } catch (e: SerializationException) {
-            EvmSettings()
-        }
+    fun read(session: VaultSession): EvmSettings = try {
+        load(session)
+    } catch (e: SerializationException) {
+        EvmSettings()
     }
+
+    /** The settings stored in [session], or the defaults when none are stored. @throws SerializationException when the record does not parse. */
+    private fun load(session: VaultSession): EvmSettings =
+        session.getVaultRecord(EvmSettings.RECORD)?.let { json.decodeFromString(EvmSettings.serializer(), it.decodeToString()) } ?: EvmSettings()
 
     /** Saves [settings]. */
     fun write(session: VaultSession, settings: EvmSettings) {
@@ -79,7 +81,8 @@ object EvmSettingsStore {
     /**
      * Runs [transform] on the stored settings, and writes its result only when it succeeds. Returns null when the change is saved, or the owner's
      * words when it is refused. A refused change leaves the stored settings as they were, so an RPC address that did not check keeps the one it
-     * had. [transform] may block on the endpoint, so the caller runs this off the main thread.
+     * had. A stored record that does not parse is left as it is and the change is refused, so the defaults never replace it. [transform] may block
+     * on the endpoint, so the caller runs this off the main thread.
      */
     fun change(session: VaultSession, rpc: EvmRpc, transform: (EvmSettings, EvmRpc) -> EvmSettings): String? = attempt(session, rpc, transform)?.message
 
@@ -90,10 +93,12 @@ object EvmSettingsStore {
     /** Runs one change at a time, so a change made while another checks its endpoint is kept, not overwritten by that check's write. */
     @Synchronized
     private fun attempt(session: VaultSession, rpc: EvmRpc, transform: (EvmSettings, EvmRpc) -> EvmSettings): EvmRefusal? = try {
-        write(session, transform(read(session), rpc))
+        write(session, transform(load(session), rpc))
         null
     } catch (e: EvmRefusal) {
         e
+    } catch (e: SerializationException) {
+        EvmRefusal(null, "Your saved network settings could not be read, so nothing was changed.")
     } catch (e: IllegalArgumentException) {
         EvmRefusal(null, e.message ?: "That change is not valid.")
     } catch (e: RpcFailure) {

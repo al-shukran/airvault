@@ -5,6 +5,7 @@ import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import kotlin.test.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -30,6 +31,30 @@ class DisplaySettingsStoreTest {
         assertEquals(DisplaySettings(), settings)
         assertTrue(settings.showTotal)
         assertTrue(settings.showAssets)
+        session.close()
+    }
+
+    @Test
+    fun aRecordThatDoesNotParseIsKeptAndTheWriteRefused() {
+        val session = open()
+        val damaged = """{"showTotal":"yes","currency":"CHF"}"""
+        session.putVaultRecord(DisplaySettingsStore.RECORD, damaged.encodeToByteArray())
+
+        assertEquals(DisplaySettings(), DisplaySettingsStore.read(session))
+        assertThrows(IllegalStateException::class.java) { DisplaySettingsStore.write(session, DisplaySettings(showAssets = false)) }
+
+        assertEquals(damaged, session.getVaultRecord(DisplaySettingsStore.RECORD)!!.decodeToString())
+        session.close()
+    }
+
+    @Test
+    fun everyFieldIsStoredSoALaterDefaultDoesNotChangeTheRecord() {
+        val session = open()
+        DisplaySettingsStore.write(session, DisplaySettings())
+
+        val record = session.getVaultRecord(DisplaySettingsStore.RECORD)!!.decodeToString()
+        assertTrue(record, """"showTotal":true""" in record)
+        assertTrue(record, """"smallBalanceUsd":1.0""" in record)
         session.close()
     }
 

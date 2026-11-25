@@ -51,6 +51,8 @@ class EvmSettingsTest {
 
     @Test
     fun theDefaultsShowMainnetAndSepolia() {
+        // The value of lumio-v1.0.0. A record stores every field, but a vault of that version stores none of an untouched one and reads it as this.
+        assertEquals(setOf(1L, 10143L, 11155111L), EvmSettings.DEFAULT_ENABLED)
         assertEquals(setOf(1L, 10143L, 11155111L), EvmSettings().enabled)
         assertEquals(5, EvmSettings().addressCount)
     }
@@ -58,6 +60,39 @@ class EvmSettingsTest {
     @Test
     fun aMissingRecordReadsAsTheDefaults() {
         assertEquals(EvmSettings(), EvmSettingsStore.read(session))
+    }
+
+    private val unreadable = """{"addressCount":8,"enabled":[1,999],"rpc":{"1":123},"custom":[{"chainId":999,"name":"Test","symbol":"TST","testnet":true}]}"""
+
+    @Test
+    fun aChangeIsRefusedAndTheStoredRecordKeptWhenTheRecordDoesNotParse() {
+        session.putVaultRecord(EvmSettings.RECORD, unreadable.encodeToByteArray())
+
+        val refusal = EvmSettingsStore.change(session, rpc) { s, _ -> EvmEdits.setEnabled(s, 1L, false) }
+
+        assertNotNull(refusal)
+        assertEquals(unreadable, session.getVaultRecord(EvmSettings.RECORD)!!.decodeToString())
+        assertEquals(EvmSettings(), EvmSettingsStore.read(session))
+    }
+
+    @Test
+    fun aCustomNetworkIsRefusedAndTheStoredRecordKeptWhenTheRecordDoesNotParse() {
+        session.putVaultRecord(EvmSettings.RECORD, unreadable.encodeToByteArray())
+        server.enqueue(answer("0x1"))
+
+        val refusal = EvmSettingsStore.addCustom(session, rpc, setOf(1L), CustomChainInput("1", "Test", "TST", url, testnet = true))
+
+        assertNotNull(refusal)
+        assertEquals(unreadable, session.getVaultRecord(EvmSettings.RECORD)!!.decodeToString())
+    }
+
+    @Test
+    fun everyFieldIsStoredSoALaterDefaultDoesNotChangeTheRecord() {
+        EvmSettingsStore.write(session, EvmSettings())
+
+        val record = session.getVaultRecord(EvmSettings.RECORD)!!.decodeToString()
+        assertTrue(record, """"addressCount":5""" in record)
+        assertTrue(record, """"enabled":[""" in record)
     }
 
     @Test
