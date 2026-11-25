@@ -35,6 +35,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirMotion
@@ -128,12 +130,13 @@ internal fun SendHeading(
     modifier: Modifier = Modifier,
     small: Boolean = false,
     textAlign: TextAlign = TextAlign.Start,
+    fontSize: TextUnit = TextUnit.Unspecified,
 ) {
     Text(
         text = text,
         textAlign = textAlign,
         modifier = modifier.padding(top = top, bottom = bottom),
-        style = if (small) ClearAirType.titleXL.copy(fontSize = 22.sp, lineHeight = 27.sp) else ClearAirType.titleXL,
+        style = if (small) ClearAirType.titleXL.copy(fontSize = 22.sp, lineHeight = 27.sp) else if (fontSize.isSpecified) ClearAirType.titleXL.copy(fontSize = fontSize, lineHeight = fontSize * 1.125f) else ClearAirType.titleXL,
         color = LocalClearAirPalette.current.ink,
     )
 }

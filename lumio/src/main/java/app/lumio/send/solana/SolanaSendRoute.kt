@@ -59,7 +59,6 @@ import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
 import app.lumio.send.solanaOwnChoices
 import app.lumio.ui.send.RECIPIENT_SCAN_HINT
-import app.lumio.ui.send.REPLY_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendAmountPage
 import app.lumio.ui.send.SendChangeRecipientDialog
@@ -70,12 +69,12 @@ import app.lumio.ui.send.SendOptionSheet
 import app.lumio.ui.send.SendRecipientPage
 import app.lumio.ui.send.SendReviewPage
 import app.lumio.ui.send.SendShowPage
+import app.lumio.ui.scan.ReplyReading
 import app.lumio.ui.send.SignatureScanScreen
 import app.lumio.ui.send.SignedSendSteps
 import app.lumio.ui.send.SolanaFeeSheet
 import app.lumio.ui.send.SummaryRow
 import app.lumio.ui.send.rememberSendOffline
-import app.lumio.ui.send.replyProgress
 import app.lumio.wallets.WalletAccounts
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Base58
@@ -194,8 +193,8 @@ internal fun SolanaSendRoute(
     var notice by remember { mutableStateOf<String?>(null) }
     var recipientStatus by remember { mutableStateOf(RECIPIENT_HINT) }
     var scan by remember { mutableStateOf(SignatureScan()) }
-    var scanProgress by remember { mutableStateOf<Float?>(null) }
-    var scanStatus by remember { mutableStateOf(REPLY_SCAN_HINT) }
+    var scanReading by remember { mutableStateOf<ReplyReading?>(null) }
+    var scanNotice by remember { mutableStateOf<String?>(null) }
     var scanBusy by remember { mutableStateOf(false) }
     var sentSignature by remember { mutableStateOf<String?>(null) }
     // The Priority Fee switch of the fee sheet. It is saved, so that a rotation keeps the owner's choice.
@@ -331,8 +330,8 @@ internal fun SolanaSendRoute(
 
     fun startScan(current: SolanaSendStep.Request) {
         scan = SignatureScan()
-        scanProgress = null
-        scanStatus = REPLY_SCAN_HINT
+        scanReading = null
+        scanNotice = null
         notice = null
         step = SolanaSendStep.Scanning(current.plan, current.parts, current.setup)
     }
@@ -340,16 +339,15 @@ internal fun SolanaSendRoute(
     /** Checks Lensly's signature and holds the signed transaction. Nothing is sent until the owner sends it on the next page. */
     fun applySignature(current: SolanaSendStep.Scanning, ur: UR) {
         scanBusy = true
-        scanProgress = 1f
-        scanStatus = SCAN_READ
+        scanNotice = SCAN_READ
         scope.launch {
             val signed = withContext(Dispatchers.IO) { runCatching { SolanaSend.signed(current.plan, ur) } }
             scanBusy = false
             signed.fold(
                 onFailure = { error ->
                     scan = SignatureScan()
-                    scanProgress = null
-                    scanStatus = ownerWords(error, SIGNATURE_FAILED)
+                    scanReading = null
+                    scanNotice = ownerWords(error, SIGNATURE_FAILED)
                 },
                 onSuccess = { send ->
                     val machine = SubmitMachine(
@@ -374,8 +372,7 @@ internal fun SolanaSendRoute(
         if (scanBusy) return
         when (val result = scan.onText(text)) {
             is SignatureStep.Reading -> {
-                scanProgress = result.fraction
-                scanStatus = replyProgress(result.received, result.expected)
+                scanReading = ReplyReading(result.received, result.expected)
             }
             is SignatureStep.Complete -> applySignature(current, result.ur)
             SignatureStep.Ignored -> Unit
@@ -629,13 +626,15 @@ internal fun SolanaSendRoute(
             onLock = onLock,
         )
         is SolanaSendStep.Scanning -> SignatureScanScreen(
-            progress = scanProgress,
-            status = scanStatus,
+            reading = scanReading,
+            notice = scanNotice,
             onText = { text -> onSignatureText(current, text) },
             onBack = { step = SolanaSendStep.Request(current.plan, current.parts, current.setup) },
             onCancel = {
                 step = if (current.setup) SolanaSendStep.Request(current.plan, current.parts, current.setup) else SolanaSendStep.Declined(current.plan)
             },
+            backLabel = backLabel,
+            onLock = onLock,
         )
         is SolanaSendStep.Declined -> SendDeclinedPage(
             amount = solanaAmountText(current.plan, selected.symbol),

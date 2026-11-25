@@ -57,7 +57,6 @@ import app.lumio.send.bitcoinLanding
 import app.lumio.send.bitcoinOwnChoices
 import app.lumio.ui.pair.PairLabels
 import app.lumio.ui.send.RECIPIENT_SCAN_HINT
-import app.lumio.ui.send.REPLY_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendAmountPage
 import app.lumio.ui.send.SendChangeRecipientDialog
@@ -67,11 +66,11 @@ import app.lumio.ui.send.SendFeeRateSheet
 import app.lumio.ui.send.SendRecipientPage
 import app.lumio.ui.send.SendReviewPage
 import app.lumio.ui.send.SendShowPage
+import app.lumio.ui.scan.ReplyReading
 import app.lumio.ui.send.SignatureScanScreen
 import app.lumio.ui.send.SignedSendSteps
 import app.lumio.ui.send.SummaryRow
 import app.lumio.ui.send.rememberSendOffline
-import app.lumio.ui.send.replyProgress
 import app.lumio.wallets.WalletAccounts
 import com.sparrowwallet.hummingbird.UR
 import kotlinx.coroutines.Dispatchers
@@ -174,8 +173,8 @@ internal fun BtcSendRoute(
     var notice by remember { mutableStateOf<String?>(null) }
     var recipientStatus by remember { mutableStateOf(RECIPIENT_SCAN_HINT) }
     var scan by remember { mutableStateOf(SignatureScan()) }
-    var scanProgress by remember { mutableStateOf<Float?>(null) }
-    var scanStatus by remember { mutableStateOf(REPLY_SCAN_HINT) }
+    var scanReading by remember { mutableStateOf<ReplyReading?>(null) }
+    var scanNotice by remember { mutableStateOf<String?>(null) }
     var scanBusy by remember { mutableStateOf(false) }
     // The server's fee estimate for the network, and the coins the send may spend. The fee sheet plans again on these.
     var suggestedRate by remember { mutableStateOf<Double?>(null) }
@@ -290,8 +289,8 @@ internal fun BtcSendRoute(
 
     fun startScan(current: BtcSendStep.Request) {
         scan = SignatureScan()
-        scanProgress = null
-        scanStatus = REPLY_SCAN_HINT
+        scanReading = null
+        scanNotice = null
         notice = null
         step = BtcSendStep.Scanning(current.plan, current.parts)
     }
@@ -299,16 +298,15 @@ internal fun BtcSendRoute(
     /** Checks Lensly's signature and holds the signed transaction. Nothing is sent until the owner sends it on the next page. */
     fun applySignature(current: BtcSendStep.Scanning, ur: UR) {
         scanBusy = true
-        scanProgress = 1f
-        scanStatus = SCAN_READ
+        scanNotice = SCAN_READ
         scope.launch {
             val signed = withContext(Dispatchers.IO) { runCatching { BtcSend.signed(current.plan, ur) } }
             scanBusy = false
             signed.fold(
                 onFailure = { error ->
                     scan = SignatureScan()
-                    scanProgress = null
-                    scanStatus = ownerWords(error, SIGNATURE_FAILED)
+                    scanReading = null
+                    scanNotice = ownerWords(error, SIGNATURE_FAILED)
                 },
                 onSuccess = { tx ->
                     val planNetwork = current.plan.network
@@ -333,8 +331,7 @@ internal fun BtcSendRoute(
         if (scanBusy) return
         when (val result = scan.onText(text)) {
             is SignatureStep.Reading -> {
-                scanProgress = result.fraction
-                scanStatus = replyProgress(result.received, result.expected)
+                scanReading = ReplyReading(result.received, result.expected)
             }
             is SignatureStep.Complete -> applySignature(current, result.ur)
             SignatureStep.Ignored -> Unit
@@ -526,11 +523,13 @@ internal fun BtcSendRoute(
             onLock = onLock,
         )
         is BtcSendStep.Scanning -> SignatureScanScreen(
-            progress = scanProgress,
-            status = scanStatus,
+            reading = scanReading,
+            notice = scanNotice,
             onText = { text -> onSignatureText(current, text) },
             onBack = { step = BtcSendStep.Request(current.plan, current.parts) },
             onCancel = { step = BtcSendStep.Declined(current.plan) },
+            backLabel = backLabel,
+            onLock = onLock,
         )
         is BtcSendStep.Declined -> SendDeclinedPage(
             amount = btcText(current.plan.amountSats),

@@ -23,6 +23,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
@@ -121,9 +130,8 @@ fun SendLastChancePage(
 @Composable
 fun SendDeclinedPage(amount: String, fromName: String, backLabel: String, onBack: () -> Unit, onLock: () -> Unit) {
     SendOutcomePage(
-        title = "",
         heading = "Lensly Didn't Sign, and That's Fine",
-        mark = "◆",
+        failed = false,
         body = "Nothing was sent. Your $amount is still in $fromName.",
         notes = listOf(
             "What Happened" to "You cancelled before Lensly's reply was scanned, so no signature reached Lumio.",
@@ -287,15 +295,14 @@ private val CLOCK: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Loca
 internal fun clockOf(epochMs: Long, zone: ZoneId = ZoneId.systemDefault()): String = CLOCK.withZone(zone).format(Instant.ofEpochMilli(epochMs))
 
 /**
- * One outcome page of a send that did not go through: Lensly Didn't Sign, the signature for another send, or a failed broadcast. [mark] is the
- * glyph in the ring, [body] says what happened, and [notes] say what happened and what to do. [detail] is the network's own words, when there are
- * any. [primary] and [secondary] are the page's actions.
+ * One outcome page of a send that did not go through: Lensly Didn't Sign, the signature for another send, or a failed broadcast. [failed] draws the
+ * mark as a rose outlined alert, and otherwise as a quiet info mark. [body] says where the money is, and [notes] say what happened and what to do.
+ * [detail] is the network's own words, when there are any: the first note folds them under Technical Details, closed until the owner opens it.
+ * [primary] and [secondary] are the page's actions. The page closes with the X, as the mock's failure page does.
  */
 @Composable
 fun SendOutcomePage(
-    title: String,
     heading: String,
-    mark: String,
     body: String,
     notes: List<Pair<String, String>>,
     detail: String?,
@@ -306,12 +313,14 @@ fun SendOutcomePage(
     backLabel: String,
     onBack: () -> Unit,
     onLock: () -> Unit,
+    failed: Boolean = true,
 ) {
     val palette = LocalClearAirPalette.current
     SendPage(
-        title = title,
+        title = "",
         backLabel = backLabel,
         offline = null,
+        close = true,
         onBack = onBack,
         onLock = onLock,
         bottomAction = {
@@ -325,31 +334,67 @@ fun SendOutcomePage(
     ) {
         Box(
             modifier = Modifier
-                .padding(top = ClearAirSpacing.md)
-                .size(OUTCOME_MARK_DP)
-                .border(1.dp, palette.hairline, RoundedCornerShape(OUTCOME_MARK_DP / 2)),
+                .padding(top = ClearAirSpacing.xs)
+                .align(Alignment.CenterHorizontally)
+                .size(TRANSFER_MARK_DP)
+                .then(if (failed) Modifier.border(2.dp, palette.rose, CircleShape) else Modifier.background(palette.raised, CircleShape)),
             contentAlignment = Alignment.Center,
         ) {
-            Text(text = mark, style = ClearAirType.titleL, color = palette.ink)
+            ClearAirIcon(glyph = if (failed) ClearAirGlyph.ALERT else ClearAirGlyph.INFO, color = if (failed) palette.rose else palette.ink, size = 30.dp)
         }
-        Text(text = heading, style = ClearAirType.titleXL, color = palette.ink, modifier = Modifier.padding(top = ClearAirSpacing.md))
-        Text(text = body, style = ClearAirType.body, color = palette.ink2, modifier = Modifier.padding(top = ClearAirSpacing.xs))
-        notes.forEach { (label, text) ->
-            Column(modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.md)) {
-                ClearAirEyebrow(text = label)
-                Text(text = text, style = ClearAirType.body, color = palette.ink)
-            }
-        }
-        detail?.let {
-            Column(modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.md)) {
-                ClearAirEyebrow(text = "Technical Details")
-                Text(text = it, style = ClearAirType.address, color = palette.ink2)
-            }
+        SendHeading(
+            text = heading,
+            top = 18.dp,
+            bottom = 0.dp,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center,
+            fontSize = 24.sp,
+        )
+        Text(
+            text = body,
+            style = ClearAirType.body,
+            color = palette.ink,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        )
+        notes.forEachIndexed { index, (label, text) ->
+            OutcomeNote(label = label, text = text, detail = detail.takeIf { index == 0 }, modifier = Modifier.padding(top = if (index == 0) 16.dp else 10.dp))
         }
     }
 }
 
-private val OUTCOME_MARK_DP = 56.dp
+/** A note of the outcome page: a [label] over its [text] on the sunk layer, with the Technical Details of [detail] folded under the text. */
+@Composable
+private fun OutcomeNote(label: String, text: String, detail: String?, modifier: Modifier = Modifier) {
+    val palette = LocalClearAirPalette.current
+    var open by rememberSaveable { mutableStateOf(false) }
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(NOTE_CORNER))
+            .background(palette.raised)
+            .padding(horizontal = 14.dp, vertical = ClearAirSpacing.sm),
+    ) {
+        ClearAirEyebrow(text = label, top = 0.dp, bottom = 4.dp)
+        Text(text = text, style = ClearAirType.label.copy(fontWeight = FontWeight.Normal), color = palette.ink)
+        detail?.let {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = ClearAirSpacing.xs)
+                    .clickable(role = Role.Button, onClickLabel = if (open) "Hide technical details" else "Show technical details") { open = !open },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(text = "Technical Details", style = ClearAirType.small, color = palette.ink2)
+                ClearAirIcon(glyph = ClearAirGlyph.DOWN, color = palette.ink2, size = 16.dp, modifier = Modifier.rotate(if (open) 180f else 0f))
+            }
+            if (open) Text(text = it, style = ClearAirType.address, color = palette.ink2, modifier = Modifier.padding(top = ClearAirSpacing.xs))
+        }
+    }
+}
+
+private val NOTE_CORNER = 14.dp
 
 /**
  * The one dialog of the send: asked before a chosen recipient is replaced. Change goes to the Recipient page with the amount kept, and the safe answer
