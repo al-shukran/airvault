@@ -105,13 +105,15 @@ val LocalPageScroll = staticCompositionLocalOf<PageScroll?> { null }
  * A column of rows the owner reorders. Pressing a row's handle, or pressing and holding anywhere on the row, lifts it. The lifted row follows the finger,
  * the rows it passes slide out of its way, and the page scrolls when the finger nears its top or bottom. On release the row settles into its place and
  * [onReorder] gets the keys of the rows in their new order, as [key] gives them. [row] draws each row with its [index], its [item] and its [handle], the
- * modifier that makes the handle lift the row. TalkBack gets Move Up and Move Down on each row.
+ * modifier that makes the handle lift the row. [rowModifier] gives the modifier of a row's whole item, which is where a test tag goes: the row's text, number and
+ * handle read as one item to TalkBack, so a tag on a part of it is not found. TalkBack gets Move Up and Move Down on each row.
  */
 @Composable
 fun <T> ClearAirDraggableRows(
     rows: List<T>,
     key: (T) -> String,
     onReorder: (List<String>) -> Unit,
+    rowModifier: (T) -> Modifier = { Modifier },
     row: @Composable (index: Int, item: T, handle: Modifier) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -173,7 +175,7 @@ fun <T> ClearAirDraggableRows(
                     if (index < keys.lastIndex) add(CustomAccessibilityAction(moveDown) { currentOnReorder(keys.moved(index, index + 1)); true })
                 }
                 Box(
-                    modifier = Modifier
+                    modifier = rowModifier(item)
                         .fillMaxWidth()
                         .onGloballyPositioned { state.place(index, it.positionInParent().y, it.size.height.toFloat()) }
                         .zIndex(if (dragged) 1f else 0f)

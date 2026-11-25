@@ -1,5 +1,6 @@
 package app.lumio.ui.settings
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -37,6 +38,7 @@ class DataProvidersScreenTest {
         apiKey = null,
         status = ProviderStatus.Ready,
     )
+    private val routescan = mempool.copy(id = "routescan")
     private val oneRpc = ProviderRow(
         id = "1rpc",
         acceptsKey = true,
@@ -46,19 +48,20 @@ class DataProvidersScreenTest {
     )
 
     private val opened = mutableListOf<String>()
+    private val reordered = mutableListOf<List<String>>()
     private val preferred = mutableListOf<Boolean>()
 
     private fun show() {
         compose.setContent {
             ClearAirTheme {
                 DataProvidersScreen(
-                    data = listOf(etherscan, mempool),
+                    data = listOf(etherscan, routescan, mempool),
                     rpc = listOf(oneRpc),
                     offline = null,
                     onBack = {},
                     onLock = {},
                     onOpen = { opened += it },
-                    onReorder = { _, _ -> },
+                    onReorder = { _, order -> reordered += order },
                     onPreferRpc = { preferred += it },
                 )
             }
@@ -84,5 +87,21 @@ class DataProvidersScreenTest {
         show()
         compose.onNodeWithTag("prefer-rpc").assertIsOff().performClick()
         assertEquals(listOf(true), preferred)
+    }
+
+    @Test
+    fun aRowOffersMoveDownForTalkBackAndMovesOneSlot() {
+        show()
+        val actions = compose.onNodeWithTag("provider-etherscan").fetchSemanticsNode().config[SemanticsActions.CustomActions]
+        assertEquals(listOf("Move Down"), actions.map { it.label })
+        compose.runOnIdle { actions.single().action() }
+        assertEquals(listOf(listOf("routescan", "etherscan", "mempool")), reordered)
+    }
+
+    @Test
+    fun theLastRowOffersOnlyMoveUp() {
+        show()
+        val actions = compose.onNodeWithTag("provider-routescan").fetchSemanticsNode().config[SemanticsActions.CustomActions]
+        assertEquals(listOf("Move Up"), actions.map { it.label })
     }
 }
