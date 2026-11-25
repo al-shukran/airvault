@@ -190,7 +190,7 @@ class LumioResetTest {
         const val PASSWORD = "q7Vn!2Lx#Rb9Tm4Wc8Zp"
         const val WRONG = "Zx8#Vb2!Nm5\$Qw7%Ld4"
         const val WIPE_AFTER = 5
-        const val PROBE = "lumio-reset-probe"
+        const val PROBE = "lumio-watchlist"
         const val PROBE_VALUE = "wiped"
         val KDF = KdfParams(memoryKiB = 8 * 1024, iterations = 1)
     }

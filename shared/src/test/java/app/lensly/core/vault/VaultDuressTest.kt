@@ -104,7 +104,7 @@ class VaultDuressTest {
 
     @Test
     fun theRealVaultsLumioRecordsSurviveSettingAndRemovingDuress() {
-        val lumioRecords = listOf("lumio-watchlist", "lumio-prefer-rpc", "lumio-finish-setup")
+        val lumioRecords = VaultRecordNames.KNOWN - VaultRecordNames.PHOTO_KEY
         createVault()
         val real = unlocked(attempt(APP))
         lumioRecords.forEach { real.putVaultRecord(it, it.encodeToByteArray()) }

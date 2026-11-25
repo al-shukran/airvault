@@ -54,11 +54,11 @@ private const val PAD_FILE_BYTES = 2 * PAD_SECTION_BYTES
 internal object VaultRecordNames {
     /**
      * The record names the apps write. Removing a Decoy Vault keeps the files of these names under the real key and deletes
-     * the other files, and a wipe deletes these files. A new vault record name must be added here: VaultRecordNamesTest reads
-     * the `RECORD` and `NAME` constants of the apps and fails for a name that is missing.
+     * the other files, and a wipe deletes these files. A new vault record name must be added here:
+     * [VaultSession.putVaultRecord] and [VaultSession.getVaultRecord] refuse any other name.
      */
     val KNOWN: List<String> = listOf(
-        "settings", "btc-scan", "btc-servers", "address-book", PHOTO_KEY,
+        "settings", "address-book", PHOTO_KEY,
         "lumio-address-books", "lumio-balance-cache", "lumio-custom-tokens", "lumio-display-settings", "lumio-evm-settings",
         "lumio-finish-setup", "lumio-native-balance-cache", "lumio-network-mode", "lumio-prefer-rpc", "lumio-providers",
         "lumio-token-balances", "lumio-transaction-settings", "lumio-watchlist",
@@ -66,9 +66,6 @@ internal object VaultRecordNames {
 
     /** The private half of a vault's photo key pair. See [VaultSession.ensurePhotoKey]. */
     const val PHOTO_KEY = "photo-key"
-
-    /** A record name the app can write. */
-    val NAME = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 
     /** The file name of record [name] under [vaultKey]. */
     fun fileName(vaultKey: ByteArray, name: String): String {
@@ -583,7 +580,7 @@ class VaultSession constructor(
      * AAD, and its file name is keyed by the Vault Key (see [VaultRecordNames]). [Vault.rekey] keeps the Vault Key, so the
      * record stays readable after a password change, and [Vault.wipe] removes it.
      *
-     * @throws IllegalArgumentException if the name is invalid.
+     * @throws IllegalArgumentException if the name is not in [VaultRecordNames.KNOWN].
      */
     fun putVaultRecord(name: String, bytes: ByteArray): Unit = synchronized(this) {
         val key = requireOpen()
@@ -740,9 +737,9 @@ class VaultSession constructor(
             require(WalletFolder.holds(name)) { "Invalid record name." }
         }
 
-        /** A vault record name. */
+        /** A vault record name must be one of [VaultRecordNames.KNOWN], or a wipe and a Decoy Vault removal would mishandle its file. */
         fun requireRecordName(name: String) {
-            require(VaultRecordNames.NAME.matches(name)) { "Invalid record name." }
+            require(name in VaultRecordNames.KNOWN) { "Unknown record name: add it to VaultRecordNames.KNOWN." }
         }
 
         /** A UUID never starts with "vault-record", so these AADs cannot collide with a wallet record's. */

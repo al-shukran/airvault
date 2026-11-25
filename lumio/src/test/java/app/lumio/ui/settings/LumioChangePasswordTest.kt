@@ -88,7 +88,7 @@ class LumioChangePasswordTest {
         const val OLD = "q7Vn!2Lx#Rb9Tm4Wc8Zp"
         const val NEW = "Hj3\$kP9wQz!Lm6Tn2Ysd"
         const val WEAK = "password1234"
-        const val PROBE = "lumio-change-probe"
+        const val PROBE = "lumio-watchlist"
         const val PROBE_VALUE = "kept"
         const val ONE_DAY_MS = 24 * 60 * 60 * 1000L
         val KDF = KdfParams(memoryKiB = 8 * 1024, iterations = 1)
