@@ -40,4 +40,4 @@ You are not expected to provide support for Your Contributions, except to the ex
 
 ## 8. Miscellaneous
 
-This Agreement is the whole agreement between You and the Project about the license of Your Contributions. If any part of this Agreement is held to be unenforceable, the rest stays in force. This Agreement is governed by the laws that apply to the Project maintainers, without regard to conflict of law rules.
+This Agreement is the whole agreement between You and the Project about the license of Your Contributions. If any part of this Agreement is held to be unenforceable, the rest stays in force. This Agreement is governed by the laws of the United Arab Emirates, without regard to conflict of law rules.
