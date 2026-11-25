@@ -9,8 +9,12 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -32,6 +36,8 @@ import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirStopSlider
 import app.lumio.ui.kit.ClearAirSwitch
 import app.lumio.ui.kit.ClearAirSwitchRow
+import app.lumio.ui.kit.LocalPageScroll
+import app.lumio.ui.kit.PageScroll
 import app.lumio.ui.shell.LumioPageScreen
 import app.lumio.ui.wallets.ROW_DIVIDER_INDENT
 import app.lumio.ui.wallets.RowDivider
@@ -50,7 +56,17 @@ fun SettingsFrame(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     LumioPageScreen(title = title, backLabel = backLabel, offline = offline, onBack = onBack, onLock = onLock) {
-        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), content = content)
+        val scroll = rememberScrollState()
+        val page = remember(scroll) { PageScroll(scroll) }
+        CompositionLocalProvider(LocalPageScroll provides page) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onGloballyPositioned { page.viewport = it.boundsInWindow() }
+                    .verticalScroll(page.state),
+                content = content,
+            )
+        }
     }
 }
 
