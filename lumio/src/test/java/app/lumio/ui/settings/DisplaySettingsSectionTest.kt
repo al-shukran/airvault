@@ -28,7 +28,8 @@ class DisplaySettingsSectionTest {
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
 
-    private var hidden: Boolean? = null
+    private var total: Boolean? = null
+    private var assets: Boolean? = null
     private var theme: ThemeMode? = null
     private var currency: FiatCurrency? = null
     private var opened: String? = null
@@ -41,7 +42,8 @@ class DisplaySettingsSectionTest {
                         DisplaySettingsSection(
                             settings = settings,
                             notice = notice,
-                            onHideBalances = { hidden = it },
+                            onShowTotal = { total = it },
+                            onShowAssets = { assets = it },
                             onOpenCurrency = { opened = "Currency" },
                             onOpenTheme = { opened = "Theme" },
                             onSmallBalance = {},
@@ -59,7 +61,8 @@ class DisplaySettingsSectionTest {
                     DisplaySettingsPage(
                         settings = DisplaySettings(),
                         notice = null,
-                        onHideBalances = {},
+                        onShowTotal = {},
+                        onShowAssets = {},
                         onCurrency = { currency = it },
                         onTheme = { theme = it },
                         onSmallBalance = {},
@@ -87,10 +90,11 @@ class DisplaySettingsSectionTest {
     }
 
     @Test
-    fun theRowsAreHideBalancesCurrencyAndThemeWithTheirValues() {
+    fun theRowsAreTheTwoBalanceSwitchesCurrencyAndThemeWithTheirValues() {
         show()
 
-        compose.onNodeWithText("Hide Balances").assertExists()
+        compose.onNodeWithText("Show Total Balance").assertExists()
+        compose.onNodeWithText("Show Individual Asset Balances").assertExists()
         compose.onNodeWithText("Currency").assertExists()
         compose.onNodeWithText("USD").assertExists()
         compose.onNodeWithText("Theme").assertExists()
@@ -98,12 +102,15 @@ class DisplaySettingsSectionTest {
     }
 
     @Test
-    fun theSwitchReportsItsNewValue() {
+    fun eachSwitchReportsItsOwnNewValue() {
         show()
 
-        compose.onNodeWithText("Hide Balances").performClick()
+        compose.onNodeWithText("Show Total Balance").performClick()
+        assertEquals(true, total)
+        assertEquals(null, assets)
 
-        assertEquals(true, hidden)
+        compose.onNodeWithText("Show Individual Asset Balances").performClick()
+        assertEquals(false, assets)
     }
 
     @Test

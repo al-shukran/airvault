@@ -160,7 +160,7 @@ class LumioScreenshotTest {
         DisplaySettingsPage(
             settings = DisplaySettings(),
             notice = null,
-            onHideBalances = {},
+            onShowTotal = {}, onShowAssets = {},
             onCurrency = {},
             onTheme = {},
             onSmallBalance = {},
@@ -173,7 +173,7 @@ class LumioScreenshotTest {
         DisplaySettingsPage(
             settings = DisplaySettings(currency = FiatCurrency.EUR, smallBalanceUsd = 5.0),
             notice = null,
-            onHideBalances = {},
+            onShowTotal = {}, onShowAssets = {},
             onCurrency = {},
             onTheme = {},
             onSmallBalance = {},
@@ -185,7 +185,7 @@ class LumioScreenshotTest {
     @Test
     fun settingsDisplayCurrencySheet() = compose.lumioSnapshot("settings_display_currency_sheet", beforeCapture = { openDisplaySheet("Currency") }) {
         DisplaySettingsPage(
-            settings = DisplaySettings(), notice = null, onHideBalances = {}, onCurrency = {}, onTheme = {}, onSmallBalance = {},
+            settings = DisplaySettings(), notice = null, onShowTotal = {}, onShowAssets = {}, onCurrency = {}, onTheme = {}, onSmallBalance = {},
             offline = null, onLock = {}, onBack = {},
         )
     }
@@ -193,7 +193,7 @@ class LumioScreenshotTest {
     @Test
     fun settingsDisplayThemeSheet() = compose.lumioSnapshot("settings_display_theme_sheet", beforeCapture = { openDisplaySheet("Theme") }) {
         DisplaySettingsPage(
-            settings = DisplaySettings(), notice = null, onHideBalances = {}, onCurrency = {}, onTheme = {}, onSmallBalance = {},
+            settings = DisplaySettings(), notice = null, onShowTotal = {}, onShowAssets = {}, onCurrency = {}, onTheme = {}, onSmallBalance = {},
             offline = null, onLock = {}, onBack = {},
         )
     }
