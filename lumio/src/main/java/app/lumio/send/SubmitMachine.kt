@@ -1,5 +1,7 @@
 package app.lumio.send
 
+import app.lumio.data.provider.ProviderError
+import app.lumio.evm.RpcFailure
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,8 +15,11 @@ sealed interface SubmitState<out Id> {
     /** The network is asked to accept the signed transaction. */
     data object Submitting : SubmitState<Nothing>
 
-    /** The network refused the transaction, or could not be reached. [retryable] is false when these same bytes can never be accepted. */
-    class Failed(val message: String, val retryable: Boolean) : SubmitState<Nothing>
+    /**
+     * The network refused the transaction, or could not be reached. [retryable] is false when these same bytes can never be accepted. [detail] is what
+     * the failure was, for the page's Technical Details: no key and no address.
+     */
+    class Failed(val message: String, val retryable: Boolean, val detail: String) : SubmitState<Nothing>
 
     /** The network accepted the transaction and reported its id, at [sentAtMs] (epoch milliseconds). */
     class Sent<Id>(val id: Id, val sentAtMs: Long) : SubmitState<Id>
@@ -52,7 +57,20 @@ class SubmitMachine<S, Id>(
             throw e
         } catch (e: Exception) {
             val failure = describe(e)
-            SubmitState.Failed(failure.message, failure.retryable)
+            SubmitState.Failed(failure.message, failure.retryable, technicalDetail(e))
         }
     }
 }
+
+/**
+ * What [error] was, as one line for Technical Details: the type of each error in its chain, and the message of the types whose words are Lumio's own
+ * (a refusal, an endpoint's failure, an invalid input). The message of any other error stays out, since it may carry an address of the endpoint.
+ */
+internal fun technicalDetail(error: Throwable): String =
+    generateSequence(error) { it.cause?.takeIf { cause -> cause !== it } }.take(MAX_CAUSES).joinToString("\n") { cause ->
+        val name = cause::class.simpleName ?: "Error"
+        val words = cause.message?.takeIf { cause is RpcFailure || cause is ProviderError || cause is IllegalArgumentException }
+        if (words == null) name else "$name: $words"
+    }
+
+private const val MAX_CAUSES = 4

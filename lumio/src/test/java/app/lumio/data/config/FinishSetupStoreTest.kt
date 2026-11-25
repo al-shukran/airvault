@@ -4,6 +4,7 @@ import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -74,6 +75,28 @@ class FinishSetupStoreTest {
         session.putVaultRecord(FinishSetupStore.RECORD, "not json".encodeToByteArray())
 
         assertEquals(FinishSetup(), FinishSetupStore.read(session))
+        session.close()
+    }
+
+    @Test
+    fun aTickOnARecordThatDoesNotParseIsRefusedAndTheRecordKept() {
+        val session = open()
+        val damaged = """{"done":["PAIR","NOT_AN_ITEM"]}"""
+        session.putVaultRecord(FinishSetupStore.RECORD, damaged.encodeToByteArray())
+
+        assertFailsWith<UnreadableRecordException> { FinishSetupStore.tick(session, FinishItem.DURESS) }
+
+        assertEquals(damaged, session.getVaultRecord(FinishSetupStore.RECORD)!!.decodeToString())
+        session.close()
+    }
+
+    @Test
+    fun aTickWithNoRecordSucceeds() {
+        val session = open()
+
+        FinishSetupStore.tick(session, FinishItem.DURESS)
+
+        assertEquals(FinishSetup(done = setOf(FinishItem.DURESS)), FinishSetupStore.read(session))
         session.close()
     }
 }

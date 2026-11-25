@@ -205,12 +205,15 @@ private fun AddressCountRow(count: Int, busy: Boolean, onCount: (Int) -> Unit) {
     )
 }
 
+/** The height of a network row in the mockup. The switch's 48 dp touch target fits inside it. */
+private val NETWORK_ROW_HEIGHT = 62.dp
+
 /**
  * One network: its logo, its name with DEFAULT when it is where Send starts, and under it its ID and whether its RPC address is the owner's. The row opens the
  * network, and the switch at its end turns its reads on or off.
  */
 @Composable
-private fun ChainRow(
+internal fun ChainRow(
     chain: EvmChain,
     settings: EvmSettings,
     logo: NetworkEntry?,
@@ -228,7 +231,10 @@ private fun ChainRow(
         else -> "built-in RPC"
     }
     Row(
-        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 62.dp).padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
+        modifier = Modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = NETWORK_ROW_HEIGHT)
+            .padding(horizontal = ClearAirSpacing.gutter, vertical = (NETWORK_ROW_HEIGHT - ClearAirSpacing.touchTarget) / 2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
@@ -261,7 +267,8 @@ private fun ChainRow(
             }
         }
         Spacer(Modifier.width(ClearAirSpacing.sm))
-        // The 46 x 28 dp track sits at the end of a 48 dp box, so the touch target is 48 dp and the track stays where it was drawn. TalkBack names the network.
+        // The 46 x 28 dp track sits at the end of a 48 dp box, so the touch target is 48 dp. The row's padding is what is left of [NETWORK_ROW_HEIGHT]
+        // around that box, so the row stays as tall as the mockup draws it. TalkBack names the network.
         Box(
             modifier = Modifier
                 .sizeIn(minWidth = ClearAirSpacing.touchTarget, minHeight = ClearAirSpacing.touchTarget)

@@ -116,7 +116,7 @@ internal object DebugDemoData {
         else -> seconds
     }
 
-    /** Opens the frame's route over the Accounts home once the seed has finished, and selects its side. */
+    /** Opens the frame's route over Home once the seed has finished, and selects its side. */
     @Composable
     fun Entry(controller: NavHostController, selection: NetworkSelection, request: Int) {
         val target = screen ?: return
@@ -124,7 +124,7 @@ internal object DebugDemoData {
         val app = LocalContext.current.applicationContext as LumioApp
         val holder = LocalContext.current.vaultHolder()
         val entry by controller.currentBackStackEntryAsState()
-        val atHome = entry?.destination?.route == LumioRoute.WALLETS
+        val atHome = entry?.destination?.route in LumioRoute.TAB_ROOTS
         val opened = remember(request) { booleanArrayOf(false) }
         LaunchedEffect(request, atHome) {
             if (!atHome || opened[0]) return@LaunchedEffect

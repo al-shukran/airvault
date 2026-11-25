@@ -103,9 +103,10 @@ internal fun SendPage(
     onBack: () -> Unit,
     onLock: () -> Unit,
     bottomAction: (@Composable () -> Unit)? = null,
+    close: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    LumioPageScreen(title = title, backLabel = backLabel, offline = offline, onBack = onBack, onLock = onLock) {
+    LumioPageScreen(title = title, backLabel = backLabel, offline = offline, onBack = onBack, onLock = onLock, close = close) {
         SendPageFrame(bottomAction = bottomAction, content = content)
     }
 }

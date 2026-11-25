@@ -30,28 +30,26 @@ import kotlinx.coroutines.launch
 /** The error under the password when it is not the App Password. It is the same words the Change Password page uses. */
 internal const val WRONG_CURRENT_PASSWORD = "That isn't your current password"
 
-/**
- * The Auto-Lock row of the Security page: its value in words, and a radio sheet of the choices, like Currency's. A choice other than the
- * current one asks for the App Password in a dialog first, and [onChoose] runs only once [checkPassword] accepts it. A wrong password keeps the
- * dialog open with its error. An unavailable vault closes the dialog, since the change cannot be checked there.
- */
+/** The Auto-Lock row of the Security page: its value in words. [onOpen] asks the page to open [AutoLockSheet]. */
 @Composable
-fun AutoLockRow(
-    current: AutoLock,
-    checkPassword: suspend (CharArray) -> PasswordCheck,
-    onChoose: (AutoLock) -> Unit,
-) {
+fun AutoLockRow(current: AutoLock, onOpen: () -> Unit) {
     val palette = LocalClearAirPalette.current
-    var sheetOpen by remember { mutableStateOf(false) }
-    var pending by remember { mutableStateOf<AutoLock?>(null) }
     ClearAirRow(
         title = "Auto-Lock",
         description = "When Lumio locks itself",
         leading = { ClearAirGlyphDisc(ClearAirGlyph.CLOCK, size = 19.dp) },
         trailing = { Text(text = current.label, style = ClearAirType.body, color = palette.ink) },
-        onClick = { sheetOpen = true },
+        onClick = onOpen,
     )
-    ClearAirSheet(visible = sheetOpen, onClose = { sheetOpen = false }) {
+}
+
+/**
+ * The radio sheet of the Auto-Lock choices, like Currency's, over the Security page. It closes on a choice, and [onPick] gets a choice other than the
+ * [current] one. The page asks for the App Password in [AutoLockPasswordDialog] before it applies that choice.
+ */
+@Composable
+fun AutoLockSheet(visible: Boolean, current: AutoLock, onClose: () -> Unit, onPick: (AutoLock) -> Unit) {
+    ClearAirSheet(visible = visible, onClose = onClose) {
         ClearAirChoiceSheet(
             title = "Auto-Lock",
             groups = listOf(
@@ -62,24 +60,13 @@ fun AutoLockRow(
                             title = choice.label,
                             selected = choice == current,
                             onPick = {
-                                sheetOpen = false
-                                if (choice != current) pending = choice
+                                onClose()
+                                if (choice != current) onPick(choice)
                             },
                         )
                     },
                 ),
             ),
-        )
-    }
-    pending?.let { choice ->
-        AutoLockPasswordDialog(
-            choice = choice,
-            checkPassword = checkPassword,
-            onClose = { pending = null },
-            onAccepted = {
-                pending = null
-                onChoose(choice)
-            },
         )
     }
 }

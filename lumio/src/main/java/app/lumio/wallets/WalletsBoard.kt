@@ -130,6 +130,9 @@ internal class WalletsBoard(
     /** Takes turns between the reads that show the balances, so a read that began earlier never shows over one that began later. */
     private val shows = Mutex()
 
+    /** Takes turns between the watchlist changes, so each one starts from the list the one before it stored. */
+    private val writes = Mutex()
+
     /** Counts the forgotten watchlists. A read that began before a forget may hold the forgotten wallet, so [show] drops it. */
     private var forgets = 0
 
@@ -395,11 +398,21 @@ internal class WalletsBoard(
         }
     }
 
-    /** Stores [watchlist] for [walletId] in the vault, shows it, and reads the prices of the assets it adds. */
-    fun putWatchlist(walletId: String, watchlist: WalletWatchlist) {
-        watchlists = watchlists + (walletId to watchlist)
-        scope.launch(Dispatchers.IO) { WatchlistStore.write(session, walletId, watchlist) }
-        refreshMarket()
+    /**
+     * Applies [change] to the watchlist of [walletId], stores the result in the vault, shows it, and reads the prices of the assets it adds. Changes take
+     * turns, and each starts from the list the one before it left, so two taps in quick succession both land. A vault that refuses the write, because
+     * the stored watchlists do not parse, keeps what it holds, and the board shows the same.
+     */
+    fun changeWatchlist(walletId: String, change: (WalletWatchlist) -> WalletWatchlist) {
+        scope.launch {
+            writes.withLock {
+                val next = change(watchlists[walletId] ?: WalletWatchlist(assets = FIRST_RUN_ASSETS))
+                val saved = withContext(Dispatchers.IO) { runCatching { WatchlistStore.write(session, walletId, next) }.isSuccess }
+                if (!saved) return@launch
+                watchlists = watchlists + (walletId to next)
+            }
+            refreshMarket()
+        }
     }
 
     /**

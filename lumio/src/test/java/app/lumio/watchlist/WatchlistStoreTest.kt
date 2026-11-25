@@ -3,10 +3,12 @@ package app.lumio.watchlist
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
-import app.lumio.data.net.Networks
+import app.lumio.data.config.UnreadableRecordException
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -32,5 +34,27 @@ class WatchlistStoreTest {
 
         assertNull(WatchlistStore.read(session, "removed"))
         assertEquals(other, WatchlistStore.read(session, "kept"))
+    }
+
+    @Test
+    fun aWriteOrRemoveOnARecordThatDoesNotParseIsRefusedAndTheRecordKept() {
+        val damaged = """{"wallets":{"kept":{"assets":"all"}}}"""
+        session.putVaultRecord(WatchlistStore.RECORD, damaged.encodeToByteArray())
+
+        assertEquals(emptyMap<String, WalletWatchlist>(), WatchlistStore.readAll(session))
+        assertNull(WatchlistStore.read(session, "kept"))
+        assertThrows(UnreadableRecordException::class.java) { WatchlistStore.write(session, "new", WalletWatchlist()) }
+        assertThrows(UnreadableRecordException::class.java) { WatchlistStore.remove(session, "kept") }
+
+        assertEquals(damaged, session.getVaultRecord(WatchlistStore.RECORD)!!.decodeToString())
+    }
+
+    @Test
+    fun aWriteWithNoRecordSucceeds() {
+        val list = WalletWatchlist(assets = listOf(WatchedAsset(NetworkId(Networks.BTC_MAINNET, testnet = false))))
+
+        WatchlistStore.write(session, "first", list)
+
+        assertEquals(mapOf("first" to list), WatchlistStore.readAll(session))
     }
 }

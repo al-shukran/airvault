@@ -14,6 +14,7 @@ import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
+import app.lumio.data.config.saveFailureWords
 import app.lumio.data.config.withApiKey
 import app.lumio.data.config.withEnabled
 import app.lumio.data.provider.ProviderCatalog
@@ -58,11 +59,10 @@ internal fun ProviderRoute(navController: NavHostController, holder: VaultHolder
     val current = state ?: return
     var keyError by remember { mutableStateOf<String?>(null) }
 
-    // Runs one write off the main thread, then reads the provider again. [onFailure] runs when the write throws.
-    fun change(onFailure: () -> Unit = {}, write: () -> Unit) {
+    // Runs one write off the main thread, then reads the provider again. [onFailure] runs with the failure when the write throws.
+    fun change(onFailure: (Throwable) -> Unit = {}, write: () -> Unit) {
         scope.launch {
-            val failed = withContext(Dispatchers.IO) { runCatching(write).isFailure }
-            if (failed) onFailure()
+            withContext(Dispatchers.IO) { runCatching(write).exceptionOrNull() }?.let(onFailure)
             version++
         }
     }
@@ -82,7 +82,7 @@ internal fun ProviderRoute(navController: NavHostController, holder: VaultHolder
         offline = rememberSettingsOffline(),
         onSaveKey = { key ->
             keyError = null
-            change(onFailure = { keyError = KEY_SAVE_FAILED }) {
+            change(onFailure = { keyError = it.saveFailureWords(KEY_SAVE_FAILED) }) {
                 vault.updateConfigs { saved -> withApiKey(ProviderCatalog.withDefaults(saved), id, key, keyRequired = current.keyRequired) }
             }
         },

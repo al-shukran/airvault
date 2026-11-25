@@ -11,6 +11,7 @@ import app.lensly.ui.navigation.MirrorNavMotion
 import app.lensly.ui.navigation.NavReducedMotion
 import app.lensly.ui.navigation.cutWhenReduced
 import app.lensly.ui.theme.LumenTheme
+import app.lumio.FirstRunBackdrop
 import app.lumio.LumioRoute
 import app.lumio.backToAccounts
 import app.lumio.openTab
@@ -70,6 +71,16 @@ class LumioNavigationTest {
         showScreens()
 
         assertFalse(NavReducedMotion.reduced)
+    }
+
+    @Test
+    fun theFirstRunBackdropMirrorsReducedMotionBeforeAnyOtherScreenHasComposed() {
+        setAnimatorScale(0f)
+
+        compose.setContent { FirstRunBackdrop { Text("First run") } }
+        compose.waitForIdle()
+
+        assertTrue(NavReducedMotion.reduced)
     }
 
     @Test

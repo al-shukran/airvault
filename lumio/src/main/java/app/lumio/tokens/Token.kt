@@ -1,9 +1,10 @@
 package app.lumio.tokens
 
 import app.lensly.core.vault.VaultSession
+import app.lumio.data.config.UnreadableRecordException
+import app.lumio.data.config.decodeOrRefuse
 import app.lumio.data.net.NetworkId
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 /**
@@ -45,18 +46,24 @@ object CustomTokenStore {
     private class StoreFile(val tokens: List<Token> = emptyList())
 
     /** The owner's tokens in [session], on every chain. A record that does not parse reads as none. */
-    fun read(session: VaultSession): List<Token> {
-        val bytes = session.getVaultRecord(RECORD) ?: return emptyList()
-        return try {
-            json.decodeFromString(StoreFile.serializer(), bytes.decodeToString()).tokens
-        } catch (e: SerializationException) {
-            emptyList()
-        }
+    fun read(session: VaultSession): List<Token> = try {
+        load(session)
+    } catch (e: UnreadableRecordException) {
+        emptyList()
     }
 
-    /** Adds [token] to [session]. Throws IllegalArgumentException, with the owner's words, when the chain already lists the contract. */
+    /** The owner's tokens in [session]. Empty when none are stored. @throws UnreadableRecordException when the record does not parse. */
+    private fun load(session: VaultSession): List<Token> {
+        val bytes = session.getVaultRecord(RECORD) ?: return emptyList()
+        return decodeOrRefuse("tokens") { json.decodeFromString(StoreFile.serializer(), bytes.decodeToString()).tokens }
+    }
+
+    /**
+     * Adds [token] to [session]. Throws IllegalArgumentException, with the owner's words, when the chain already lists the contract. A stored record
+     * that does not parse is left as it is, and this throws [UnreadableRecordException].
+     */
     fun add(session: VaultSession, token: Token) {
-        val current = read(session)
+        val current = load(session)
         require(current.none { it.chainId == token.chainId && it.contract == token.contract }) { "That token is already in your list." }
         write(session, current + token)
     }
@@ -65,9 +72,12 @@ object CustomTokenStore {
     fun holds(tokens: List<Token>, network: NetworkId, contract: String): Boolean =
         tokens.any { it.chainId.toString() == network.name && it.contract.equals(contract, ignoreCase = true) }
 
-    /** Removes the token at [contract] on [chainId] from [session]. A token that is not there is left as it is. */
+    /**
+     * Removes the token at [contract] on [chainId] from [session]. A token that is not there is left as it is. A stored record that does not parse is
+     * left as it is, and this throws [UnreadableRecordException].
+     */
     fun remove(session: VaultSession, chainId: Long, contract: String) {
-        write(session, read(session).filterNot { it.chainId == chainId && it.contract == contract })
+        write(session, load(session).filterNot { it.chainId == chainId && it.contract == contract })
     }
 
     private fun write(session: VaultSession, tokens: List<Token>) {

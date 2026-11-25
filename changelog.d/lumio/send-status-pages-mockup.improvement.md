@@ -1,0 +1,1 @@
+The four send status pages (Waiting for the Signature, Last Chance, On Its Way and the failure pages) now match the Lumio mockups. A failed send shows a Technical Details row that opens to what went wrong.
