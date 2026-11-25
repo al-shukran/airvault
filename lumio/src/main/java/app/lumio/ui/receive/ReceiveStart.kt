@@ -2,6 +2,7 @@ package app.lumio.ui.receive
 
 import app.lensly.app.addressKeyOf
 import app.lensly.app.autoAccountName
+import app.lensly.app.plainName
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.pair.PairedWallet
@@ -106,7 +107,7 @@ private fun receiveAccountOf(account: WalletAccount, wallets: List<PairedWallet>
     val key = addressKeyOf(account.address)
     val named = ownAccountsOf(wallets)[key]
     return ReceiveAccount(
-        name = named?.displayName ?: named?.autoName ?: autoAccountName(wallet?.name.orEmpty(), account.index),
+        name = named?.plainName() ?: autoAccountName(wallet?.name.orEmpty(), account.index),
         label = named?.label,
         group = wallet?.evmAccounts?.firstOrNull { addressKeyOf(it.address) == key }?.group,
         address = account.address,

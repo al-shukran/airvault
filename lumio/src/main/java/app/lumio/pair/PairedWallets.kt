@@ -6,6 +6,7 @@ import app.lensly.app.addressKeyOf
 import app.lensly.app.autoAccountName
 import app.lensly.app.export.PairingCodec
 import app.lensly.app.export.PairingPayload
+import app.lensly.app.plainName
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
@@ -74,6 +75,9 @@ fun ownAccountsOf(wallets: List<PairedWallet>): Map<String, InternalAccount> = b
         }
     }
 }
+
+/** The name each account shows as plain text. An account whose names have nothing visible left is left out, so a screen falls back to the address. */
+fun Map<String, InternalAccount>.plainNames(): Map<String, String> = mapNotNull { (key, account) -> account.plainName()?.let { key to it } }.toMap()
 
 /** The result of a save: the wallet that now holds the pairing, and whether this save created it. False means an update. */
 data class PairSaved(val id: String, val created: Boolean)

@@ -54,10 +54,8 @@ class EvmReads(
     /** Per chain, the address in use and the scheduler made for it, replaced when the owner changes the address, so a new address starts with no failures. */
     private val owners = ConcurrentHashMap<Long, Pair<String?, Scheduler>>()
 
-    private fun ownerOf(chainId: Long): Scheduler {
-        val url = settings().activeRpc(chainId)
-        return owners.compute(chainId) { _, held -> if (held?.first == url) held else url to newOwner() }!!.second
-    }
+    private fun ownerOf(chainId: Long, url: String? = settings().activeRpc(chainId)): Scheduler =
+        owners.compute(chainId) { _, held -> if (held?.first == url) held else url to newOwner() }!!.second
 
     suspend fun balance(chain: EvmChain, address: String, priority: Priority = Priority.VISIBLE): BigInteger =
         run(chain, priority, NativeBalance(net(chain), address), if (preferRpc()) rpcOnly else pool)
@@ -105,12 +103,20 @@ class EvmReads(
     /** What the scheduler of the owner's address on [chainId] knows about it now. A chain with no reads yet is ready. */
     suspend fun customStatusOf(chainId: Long): ProviderHealth? = ownerOf(chainId).statusOf(CustomRpc.ID)
 
+    /**
+     * A read that finishes after the owner changed the chain's address is dropped and sent again to the new address's scheduler: its outcome was
+     * recorded on the old scheduler, so it would leave the new address looking untried (Ready) while it fails.
+     */
     private suspend fun <T> run(chain: EvmChain, priority: Priority, req: Request<T>, publicPool: Scheduler = pool): T {
-        val scheduler = if (settings().activeRpc(chain.chainId) != null) ownerOf(chain.chainId) else publicPool
-        return try {
-            scheduler.run(req, priority)
-        } catch (e: ProviderError) {
-            throw e.toRpcFailure()
+        while (true) {
+            val url = settings().activeRpc(chain.chainId)
+            val scheduler = if (url != null) ownerOf(chain.chainId, url) else publicPool
+            try {
+                val result = scheduler.run(req, priority)
+                if (settings().activeRpc(chain.chainId) == url) return result
+            } catch (e: ProviderError) {
+                if (settings().activeRpc(chain.chainId) == url) throw e.toRpcFailure()
+            }
         }
     }
 

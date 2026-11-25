@@ -570,8 +570,10 @@ jobs:
   report:
     # Guideline 2.5: one issue per failing check, named for the check. A run that fails a check with an open issue comments on
     # that issue instead. Parallel jobs cannot open a dozen issues, because this one job reads the needs results.
+    # Only master reports: a manual run on a branch cannot restore master's dependency cache once the branch changes a Gradle file
+    # (fuzz fails on that miss by design), and it checks code that is not on master, so its failures are not master's.
     needs: [deps, shard, full, screenshots, lint, android, fuzz, instrumented, e2e, benchmark]
-    if: failure()
+    if: failure() && github.ref == 'refs/heads/master'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

@@ -20,9 +20,12 @@ import app.lumio.ui.settings.providerStatus
 import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import org.junit.Test
@@ -42,7 +45,7 @@ class CustomRpcStatusTest {
     )
 
     /** Reads with a custom address on both chains. [providers] gets the fake behind each chain's scheduler, in the order the chains are first used. */
-    private fun TestScope.reads(providers: MutableList<FakeProvider>): EvmReads {
+    private fun TestScope.reads(providers: MutableList<FakeProvider>, latencyMs: Long = 0L): EvmReads {
         val clock = Clock { testScheduler.currentTime }
         val http = Http(OkHttpClient())
         val nets = setOf(NetworkId(Networks.evm(ethereum.chainId), false), NetworkId(Networks.evm(sepolia.chainId), true))
@@ -54,6 +57,7 @@ class CustomRpcStatusTest {
                     kind = Kind.RPC,
                     networks = nets,
                     ops = setOf(Ops.EVM_NATIVE_BALANCE),
+                    latencyMs = latencyMs,
                     now = { testScheduler.currentTime },
                 )
                 providers += provider
@@ -113,6 +117,22 @@ class CustomRpcStatusTest {
         assertEquals(ProviderStatus.Ready, status(reads, sepolia))
         reads.balance(sepolia, address)
         assertIs<ProviderStatus.Healthy>(status(reads, sepolia))
+    }
+
+    @Test
+    fun aReadInFlightDuringAnAddressSwapDoesNotMakeTheNewAddressReady() = runTest {
+        val providers = ArrayList<FakeProvider>()
+        val reads = reads(providers, latencyMs = 100)
+        status(reads, sepolia)
+        val stale = async { runCatching { reads.balance(sepolia, address) } }
+        advanceTimeBy(50)
+        settings = EvmSettings(rpc = mapOf(sepolia.chainId to ChainRpcs(custom = listOf("https://three.example"), active = "https://three.example")))
+        assertEquals(ProviderStatus.Ready, status(reads, sepolia))
+        providers[1].outcomes.addAll(List(6) { ProviderError.Transient() })
+
+        stale.await()
+
+        assertNotEquals(ProviderStatus.Ready, status(reads, sepolia))
     }
 
     @Test

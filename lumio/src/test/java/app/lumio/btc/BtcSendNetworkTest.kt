@@ -9,6 +9,7 @@ import app.lensly.core.btc.ScriptType
 import app.lensly.core.wallet.toHex
 import app.lumio.data.Clock
 import app.lumio.data.MonotonicClock
+import app.lumio.data.cache.DEFAULT_SHORT_TTL_MS
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.electrum.Answer
@@ -256,6 +257,64 @@ class BtcSendNetworkTest {
 
         assertEquals(0, first.changeIndex)
         assertEquals(1, second.changeIndex)
+    }
+
+    /** A broadcast send's change address, reserved at [reservedMs], then a refresh at [refreshMs] while the server lists nothing of the send. */
+    private suspend fun CoroutineScope.reserveThenRefresh(memo: ConcurrentHashMap<String, MemoStats>, refreshMs: Long, electrum: ElectrumPool? = null): BtcSendPlan {
+        val recipient = BtcAccount.fromSeed(PairFixtures.seed, testnet4, ScriptType.NATIVE_SEGWIT, accountIndex = 1).receiveAddress(5)
+        val first = BtcSend.plan(watch, BtcSend.spendable(watch, scheduler(), memo, nowMs = 1_000L), recipient, 30_000L, 2.0)
+        BtcSend.reserveChange(first, memo, nowMs = 2_000L)
+        scanAccount(BtcAccountRef("wallet-1", watch), scheduler(), Priority.VISIBLE, nowMs = refreshMs, memo = memo, electrum = electrum)
+        return first
+    }
+
+    @Test
+    fun aRefreshBeforeTheServerListsTheSendKeepsItsChangeAddressReserved() = runBlocking<Unit> {
+        fund()
+        val memo = ConcurrentHashMap<String, MemoStats>()
+        val first = reserveThenRefresh(memo, refreshMs = 3_000L)
+
+        val second = BtcSend.plan(watch, BtcSend.spendable(watch, scheduler(), memo, nowMs = 4_000L), first.recipient, 30_000L, 2.0)
+
+        assertEquals(0, first.changeIndex)
+        assertEquals(1, second.changeIndex)
+    }
+
+    @Test
+    fun aRefreshThatTheServerAnswersWithTheSendReleasesTheReservationToTheServersReading() = runBlocking<Unit> {
+        fund()
+        val memo = ConcurrentHashMap<String, MemoStats>()
+        reserveThenRefresh(memo, refreshMs = 3_000L)
+        fake.stats[watch.changeAddress(0)] = addressJson(mempool = side(fundedCount = 1, fundedSum = 25_000L, txCount = 1))
+
+        scanAccount(BtcAccountRef("wallet-1", watch), scheduler(), Priority.VISIBLE, nowMs = 5_000L, memo = memo)
+
+        val held = memo.getValue(watch.changeAddress(0))
+        assertEquals(25_000L, held.reading.unconfirmedSats, "the server's reading of the listed send replaces the reservation")
+        assertEquals(5_000L, held.readAtMs)
+    }
+
+    @Test
+    fun aReservationEndsAfterTheTtlWhenTheServerNeverListsTheSend() = runBlocking<Unit> {
+        fund()
+        val memo = ConcurrentHashMap<String, MemoStats>()
+        reserveThenRefresh(memo, refreshMs = 3_000L)
+
+        scanAccount(BtcAccountRef("wallet-1", watch), scheduler(), Priority.VISIBLE, nowMs = 2_000L + DEFAULT_SHORT_TTL_MS + 1L, memo = memo)
+
+        assertEquals(false, memo.getValue(watch.changeAddress(0)).reading.used)
+    }
+
+    @Test
+    fun anElectrumRefreshBeforeTheServerListsTheSendKeepsItsChangeAddressReserved() = runBlocking<Unit> {
+        val spend = fund()
+        val memo = ConcurrentHashMap<String, MemoStats>()
+        electrumHolding(spend.funding).use { electrum ->
+            val server = ElectrumServer("localhost", Trust.Pinned(TestIdentities.server.spkiSha256), port = electrum.port)
+            reserveThenRefresh(memo, refreshMs = 3_000L, electrum = ElectrumPool(servers = listOf(server)))
+        }
+
+        assertEquals(true, memo.getValue(watch.changeAddress(0)).reading.used)
     }
 
     @Test
