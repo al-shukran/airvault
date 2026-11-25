@@ -91,16 +91,28 @@ fun ClearAirRootTopBar(
 
 /**
  * The top bar of a page: a back arrow labelled "Back to [backLabel]", or just "Back" when [backLabel] is null, the page's [title], which wraps rather
- * than clips, and the lock. Back and the system back both return one page.
+ * than clips, and the lock. Back and the system back both return one page. A page that ends the flow rather than going back ([close]) shows a ×
+ * labelled "Close" in place of the arrow.
  */
 @Composable
-fun ClearAirPageTopBar(title: String, backLabel: String?, onBack: () -> Unit, onLock: () -> Unit, modifier: Modifier = Modifier) {
+fun ClearAirPageTopBar(
+    title: String,
+    backLabel: String?,
+    onBack: () -> Unit,
+    onLock: () -> Unit,
+    modifier: Modifier = Modifier,
+    close: Boolean = false,
+) {
     val palette = LocalClearAirPalette.current
     Row(
         modifier = modifier.fillMaxWidth().heightIn(min = TOP_BAR_HEIGHT).padding(horizontal = TOP_BAR_SIDE),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ClearAirIconButton(glyph = ClearAirGlyph.BACK, label = backLabel?.let { "Back to $it" } ?: "Back", onClick = onBack)
+        if (close) {
+            ClearAirIconButton(glyph = ClearAirGlyph.CLOSE, label = "Close", onClick = onBack)
+        } else {
+            ClearAirIconButton(glyph = ClearAirGlyph.BACK, label = backLabel?.let { "Back to $it" } ?: "Back", onClick = onBack)
+        }
         Text(
             text = title,
             modifier = Modifier.weight(1f).padding(start = TITLE_START),

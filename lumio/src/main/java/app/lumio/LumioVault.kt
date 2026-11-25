@@ -19,6 +19,7 @@ import app.lumio.data.scan.ScanRows
 import app.lumio.data.tx.TxKeys
 import app.lumio.data.tx.TxStore
 import app.lumio.pair.FirstSyncImports
+import app.lumio.portfolio.ActivityPage
 import app.lumio.portfolio.PortfolioBoard
 import app.lumio.wallets.WalletsBoard
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -115,7 +116,12 @@ class LumioVault(val session: VaultSession, database: LumioDatabase, clock: Cloc
     /** The balances and the activity of the Portfolio tab. [LumioApp] sets it with [wallets], and [wipe] closes it with them. */
     internal var portfolio: PortfolioBoard? = null
 
+    /** The coin activity page read ahead of a push to the Asset page, see [CoinActivityPreload]. It belongs to this vault, so [wipe] drops it. */
+    @Volatile
+    internal var keptCoinActivity: Pair<CoinActivityKey, ActivityPage>? = null
+
     override fun wipe() {
+        keptCoinActivity = null
         wallets?.close()
         wallets = null
         portfolio?.close()

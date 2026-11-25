@@ -15,6 +15,7 @@ import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.TransactionSettings
+import app.lumio.data.config.saveFailureWords
 import app.lumio.ui.settings.DisplaySettingsPage
 import app.lumio.ui.settings.TransactionsSettingsPage
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +35,7 @@ private class SettingChange<T>(
 
 /**
  * A setting of the open vault, with a way to change it through [update]. A change is written off the main thread, after the changes made before it, and a
- * write that the vault refuses sets the notice. Null while the vault is not open.
+ * write that the vault refuses sets the notice, in the words of the refusal when the stored record is unreadable. Null while the vault is not open.
  */
 @Composable
 private fun <T> rememberSettingChange(
@@ -58,8 +59,8 @@ private fun <T> rememberSettingChange(
     if (vault == null) return null
     return SettingChange(settings, notice) { transform ->
         scope.launch {
-            val saved = writes.withLock { withContext(Dispatchers.IO) { runCatching { update(vault, transform) }.isSuccess } }
-            notice = if (saved) null else "The setting could not be saved. Try again."
+            val failure = writes.withLock { withContext(Dispatchers.IO) { runCatching { update(vault, transform) }.exceptionOrNull() } }
+            notice = failure?.saveFailureWords("The setting could not be saved. Try again.")
         }
     }
 }

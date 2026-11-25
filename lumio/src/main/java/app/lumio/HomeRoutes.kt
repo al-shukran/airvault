@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -53,6 +54,7 @@ import app.lumio.watchlist.WatchlistSort
 import app.lumio.watchlist.ordered
 import java.math.BigDecimal
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** How often the freshness line counts its age again, so "8 s ago" keeps counting while Home is open. */
 private const val FRESHNESS_TICK_MS = 15_000L
@@ -79,6 +81,8 @@ internal fun HomeRoute(
     if (session == null) return
     val board = rememberWalletsBoard(app, selection.mode, listVersion) ?: return
     LaunchedEffect(board) { board.refreshMarket() }
+    val scope = rememberCoroutineScope()
+    val includeSpam = rememberTransactions(app).activityIncludesSpam
     val view = board.view
     val wallet = view?.wallets?.active(selection) { it.id }
     val testnet = selection.mode == NetworkMode.TESTNET
@@ -121,7 +125,15 @@ internal fun HomeRoute(
                         receiveOpen = true
                     },
                     onSort = { sortOpen = true },
-                    onOpen = { asset -> wallet?.let { navController.navigate(LumioRoute.coin(it.id, asset)) } },
+                    onOpen = { asset ->
+                        wallet?.let {
+                            scope.launch {
+                                val vault = app.lumioVault()
+                                if (vault != null) CoinActivityPreload.preload(app, vault, CoinActivityKey(asset, selection.mode, includeSpam))
+                                navController.navigate(LumioRoute.coin(it.id, asset))
+                            }
+                        }
+                    },
                 )
             }
             ReceiveFlowSheet(
@@ -136,7 +148,7 @@ internal fun HomeRoute(
                 selected = sort,
                 onSelect = { next ->
                     sortOpen = false
-                    watchlist?.let { list -> wallet?.let { board.putWatchlist(it.id, list.copy(sort = next)) } }
+                    wallet?.let { board.changeWatchlist(it.id) { list -> list.copy(sort = next) } }
                 },
                 onClose = { sortOpen = false },
             )

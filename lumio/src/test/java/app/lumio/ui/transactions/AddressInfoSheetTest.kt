@@ -94,4 +94,17 @@ class AddressInfoSheetTest {
 
         assertEquals(listOf("edit"), actions)
     }
+
+    @Test
+    fun aNameWithHiddenCharactersIsShownAsPlainTextAboveTheFullAddress() {
+        val entry = AddressBookEntry(id = "entry-1", address = address, name = "Lena\u202E Park\u200B", label = null)
+        compose.setContent {
+            ClearAirTheme {
+                AddressInfoSheet(address = address, entry = entry, walletName = "Air 1", seenIn = null, onEdit = {}, onAdd = {}, onClose = {})
+            }
+        }
+
+        compose.onNodeWithText("Lena Park").assertIsDisplayed()
+        compose.onNodeWithText("0x5c5c 5c5c 5c5c 5c5c 5c5c 5c5c 5c5c 5c5c 5c5c 5c5c").assertIsDisplayed()
+    }
 }

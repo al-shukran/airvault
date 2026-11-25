@@ -32,13 +32,14 @@ internal object PairAddressBooks {
 
     /**
      * Replaces the book of wallet [walletId] with [entries]. The earlier book is not merged in, and an empty list removes it. The books of
-     * the other wallets are kept.
+     * the other wallets are kept. The book moves to the end of the record, so the record's order is the order the books were last paired in.
      *
      * @throws VaultException when the record cannot be read, so a save never replaces a book it could not read.
      */
     fun replace(session: VaultSession, walletId: String, entries: List<AddressBookEntry>) {
         val books = LinkedHashMap(load(session))
-        if (entries.isEmpty()) books.remove(walletId) else books[walletId] = entries
+        books.remove(walletId)
+        if (entries.isNotEmpty()) books[walletId] = entries
         session.putVaultRecord(NAME, encode(books))
     }
 

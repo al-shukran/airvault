@@ -90,9 +90,7 @@ internal fun SignedSendSteps(
             if (landing == Landing.REFUSED) {
                 LaunchedEffect(now.id) { haptics.failure() }
                 SendOutcomePage(
-                    title = "",
                     heading = "It Did Not Go Through",
-                    mark = "!",
                     body = "The network did not complete this transaction, so the amount did not arrive.",
                     notes = listOf(
                         "What Happened" to "The network took the transaction, then did not complete it.",
@@ -129,9 +127,7 @@ internal fun SignedSendSteps(
         is SubmitState.Failed -> {
             LaunchedEffect(Unit) { haptics.failure() }
             SendOutcomePage(
-                title = "",
                 heading = "Nothing Left Your Account",
-                mark = "!",
                 body = now.message,
                 notes = listOf(
                     "What Happened" to now.message,
@@ -141,7 +137,7 @@ internal fun SignedSendSteps(
                         "This signed transaction can no longer be sent. Start the send again, and Lensly signs it afresh."
                     },
                 ),
-                detail = null,
+                detail = now.detail,
                 primary = "Try Again",
                 onPrimary = {
                     if (now.retryable) scope.launch { machine.submit() } else onReview()

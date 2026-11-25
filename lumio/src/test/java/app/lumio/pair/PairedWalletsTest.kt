@@ -353,6 +353,26 @@ class PairedWalletsTest {
     }
 
     @Test
+    fun aRepairedWalletKeepsItsPlaceAndItsRenamedEntryWinsTheSharedAddressBook() {
+        val otherSeed = ByteArray(16) { (it * 13 + 5).toByte() }
+        val renamed = ADDRESS_BOOK_ALICE.copy(name = "Alice B.")
+        PairedWallets.save(session, payload(name = "Demo", accounts = listOf(account(0, "Savings")), addressBook = listOf(ADDRESS_BOOK_ALICE)), nowMs = 100L)
+        PairedWallets.save(
+            session,
+            payload(name = "Other", accounts = listOf(account(0, "Savings")), seed = otherSeed, addressBook = listOf(ADDRESS_BOOK_ALICE)),
+            nowMs = 200L,
+        )
+        assertEquals(listOf(ADDRESS_BOOK_ALICE), sharedAddressBook(PairedWallets.list(session)))
+
+        PairedWallets.save(session, payload(name = "Demo", accounts = listOf(account(0, "Savings")), addressBook = listOf(renamed)), nowMs = 300L)
+
+        val wallets = PairedWallets.list(session)
+        assertEquals(listOf("Demo", "Other"), wallets.map { it.name })
+        assertEquals(100L, wallets.first().createdAtMs)
+        assertEquals(listOf(renamed), sharedAddressBook(wallets))
+    }
+
+    @Test
     fun deletingAWalletRemovesItsAddressBook() {
         val saved = PairedWallets.save(
             session,

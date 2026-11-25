@@ -14,6 +14,7 @@ import app.lumio.tokens.Erc20
 import app.lumio.tokens.Token
 import app.lumio.ui.send.SendAmountPage
 import app.lumio.ui.send.SendChoice
+import app.lumio.ui.send.SendDeclinedPage
 import app.lumio.ui.send.SendFeeSheet
 import app.lumio.ui.send.SendLastChancePage
 import app.lumio.ui.send.SendOnItsWayPage
@@ -362,10 +363,10 @@ class SendScreenshotTest {
     fun ethereumSendOnItsWay() = compose.lumioSnapshot("ethereum_send_on_its_way") {
         SendOnItsWayPage(
             headline = "Your MON Is on Its Way",
-            summary = "0.25 MON to FelixStone",
+            summary = "0.25 MON to FelixStone (0x1020 7a3e 98bc 41d5 e62f 0b87 c3a1 5d94 6e2b 122D)",
             network = monad.name,
             timing = "Usually about 1 second on Monad Testnet",
-            recipient = "FelixStone",
+            recipient = "FelixStone (0x1020 7a3e 98bc 41d5 e62f 0b87 c3a1 5d94 6e2b 122D)",
             signedAtMs = GOLDEN_CLOCK_MS,
             sentAtMs = GOLDEN_CLOCK_MS,
             arrived = false,
@@ -382,9 +383,7 @@ class SendScreenshotTest {
     @Test
     fun ethereumSendFailed() = compose.lumioSnapshot("ethereum_send_failed") {
         SendOutcomePage(
-            title = "",
             heading = "Nothing Left Your Account",
-            mark = "!",
             body = "The transaction could not be sent. Check the balance, then try again.",
             notes = listOf(
                 "What Happened" to "The transaction could not be sent. Check the balance, then try again.",
@@ -403,33 +402,14 @@ class SendScreenshotTest {
 
     @Test
     fun ethereumSendLenslyDidntSign() = compose.lumioSnapshot("ethereum_send_lensly_didnt_sign") {
-        SendOutcomePage(
-            title = "",
-            heading = "Lensly Didn't Sign, and That's Fine",
-            mark = "◆",
-            body = "Nothing was sent. Your 0.25 MON is still in PulsarNova.",
-            notes = listOf(
-                "What Happened" to "You cancelled before Lensly's reply was scanned, so no signature reached Lumio.",
-                "What You Can Do" to "Start a new send whenever you're ready. Lensly shows every detail again before it signs.",
-            ),
-            detail = null,
-            primary = "Back to PulsarNova",
-            onPrimary = {},
-            secondary = null,
-            onSecondary = null,
-            backLabel = "",
-            onBack = {},
-            onLock = {},
-        )
+        SendDeclinedPage(amount = "0.25 MON", fromName = "PulsarNova", backLabel = "", onBack = {}, onLock = {})
     }
 
     /** Lensly's reply answers another send, so the page says so and never broadcasts it. Scan Again is the one way on. */
     @Test
     fun ethereumSendSignatureMismatch() = compose.lumioSnapshot("ethereum_send_signature_mismatch") {
         SendOutcomePage(
-            title = "",
             heading = "This Signature Is for a Different Send",
-            mark = "!",
             body = "Lensly's reply doesn't match this send. Nothing was sent, and your 0.25 MON is still in PulsarNova.",
             notes = listOf(
                 "What Happened" to "Lensly's reply doesn't match this send. Lumio never sends a signature that doesn't match.",

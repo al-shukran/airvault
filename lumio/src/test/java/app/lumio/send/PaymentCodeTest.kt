@@ -100,6 +100,14 @@ class PaymentCodeTest {
     }
 
     @Test
+    fun aNormalSendHasNoOtherChainsAndAsksToChooseTheNetworkNotToSwitchTheSide() {
+        assertEquals(
+            "This code is for chain 1, but Sepolia is selected. Choose that network to scan it.",
+            refusal { EvmPaymentCode.read("ethereum:$RECIPIENT@1", sepolia, others = emptyList(), otherSide = emptyList()) },
+        )
+    }
+
+    @Test
     fun aScanThatSwitchesTheNetworkDropsTheTypedAmountAndFillsTheCodesOwn() {
         val base = EvmChain(8453L, "Base", "ETH", 18, testnet = false, explorerUrl = null)
 

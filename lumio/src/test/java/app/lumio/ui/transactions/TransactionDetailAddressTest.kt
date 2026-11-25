@@ -107,4 +107,27 @@ class TransactionDetailAddressTest {
         compose.onNodeWithText("Lena Park").assertIsDisplayed()
         compose.onNodeWithText("Address book · Group Friends").assertIsDisplayed()
     }
+
+    @Test
+    fun aCounterpartyNameWithHiddenCharactersIsShownAsPlainTextAboveItsFullAddress() {
+        val book = listOf(AddressBookEntry(id = "entry-1", address = friend, name = "Lena\u202E Park\u200B", label = null))
+        compose.setContent {
+            ClearAirTheme {
+                TransactionDetailScreen(
+                    detail = detail(),
+                    accountNames = emptyMap(),
+                    book = book,
+                    backLabel = "Activity",
+                    showBalance = true,
+                    onAddress = {},
+                    onExplorer = {},
+                    onBack = {},
+                    onLock = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Lena Park").assertIsDisplayed()
+        compose.onNodeWithText("0x5c5c 5c5c 5c5c 5c5c 5c5c 5c5c 5c5c 5c5c 5c5c 5c5c").assertIsDisplayed()
+    }
 }

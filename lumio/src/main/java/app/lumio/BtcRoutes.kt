@@ -22,6 +22,7 @@ import app.lumio.btc.indexerUrlOf
 import app.lumio.btc.networkId
 import app.lumio.btc.withIndexerUrl
 import app.lumio.data.config.ProviderConfig
+import app.lumio.data.config.saveFailureWords
 import app.lumio.data.esplora.CustomEsploraProvider
 import app.lumio.data.net.NetworkId
 import app.lumio.data.scan.ScanJob
@@ -74,18 +75,18 @@ internal fun BitcoinSettingsRoute(navController: NavHostController, holder: Vaul
     // Saves the settings that [edit] makes of the ones saved now, and shows the saved ones as the servers in use.
     fun change(edit: (Map<String, ProviderConfig>) -> Map<String, ProviderConfig>) {
         scope.launch {
-            val next = saves.withLock {
+            val result = saves.withLock {
                 withContext(Dispatchers.IO) {
-                    val vault = app.lumioVault() ?: return@withContext null
-                    runCatching { edit(vault.configs()).also(vault::saveConfigs) }.getOrNull()
+                    runCatching {
+                        val vault = checkNotNull(app.lumioVault()) { "The vault is closed." }
+                        edit(vault.configs()).also(vault::saveConfigs)
+                    }
                 }
             }
-            if (next != null) {
+            result.onSuccess { next ->
                 configs = next
                 error = null
-            } else {
-                error = "The servers could not be saved. Try again."
-            }
+            }.onFailure { error = it.saveFailureWords("The servers could not be saved. Try again.") }
         }
     }
 
