@@ -8,16 +8,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.lensly.core.vault.PasswordPolicy
 import app.lensly.core.vault.PolicyReason
 import app.lensly.core.vault.PolicyResult
@@ -28,7 +27,8 @@ import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.ui.kit.ClearAirEyeToggle
 import app.lumio.ui.kit.ClearAirField
 import app.lumio.ui.kit.ClearAirGlyph
-import app.lumio.ui.kit.ClearAirIcon
+import app.lumio.ui.kit.ClearAirLineBox
+import app.lumio.ui.kit.NoteCard
 import app.lumio.ui.kit.ClearAirPrimaryButton
 
 /** The first problem with a new App Password. Null means the password is acceptable and the repeat matches it. */
@@ -82,13 +82,15 @@ fun FirstRunPasswordScreen(
         eyebrow = "Protect · 1 of 3",
         title = "Create Password",
         footer = { ClearAirPrimaryButton(text = "Next", onClick = onNext, enabled = !busy) },
+        spacing = PageSpacing(eyebrowTop = 25.5.dp, bodyTop = 9.2.dp),
     ) {
         Text(
             text = "It opens Lumio and locks the pairing data on this phone.",
-            style = ClearAirType.body,
+            style = PageBody,
             color = palette.ink2,
         )
-        Spacer(Modifier.height(ClearAirSpacing.lg))
+        // A field's label reaches 9 dp above its outline, so the mock's 22 dp above the first field and 20 dp above the second come out as these.
+        Spacer(Modifier.height(11.3.dp))
         ClearAirField(
             label = "Password",
             value = password,
@@ -98,9 +100,9 @@ fun FirstRunPasswordScreen(
             error = policyMessage(problem),
             trailing = { ClearAirEyeToggle(shown = shown, onToggle = onToggleShown) },
         )
-        Spacer(Modifier.height(ClearAirSpacing.xs))
+        Spacer(Modifier.height(7.5.dp))
         StrengthLine(segments = strengthSegments(password))
-        Spacer(Modifier.height(ClearAirSpacing.lg))
+        Spacer(Modifier.height(9.8.dp))
         ClearAirField(
             label = "Repeat Password",
             value = repeat,
@@ -109,9 +111,14 @@ fun FirstRunPasswordScreen(
             masked = !shown,
             onSubmit = onNext,
             error = if (problem == NewPasswordProblem.Mismatch) "The passwords don't match" else null,
+            trailing = { ClearAirEyeToggle(shown = shown, onToggle = onToggleShown) },
         )
-        Spacer(Modifier.height(ClearAirSpacing.md))
-        NoteLine(text = "Lumio can't recover this password. If you forget it, reset Lumio and pair again. Your keys stay safe on Lensly.")
+        Spacer(Modifier.height(18.dp))
+        NoteCard(
+            glyph = ClearAirGlyph.INFO,
+            text = "Lumio can't recover this password. If you forget it, reset Lumio and pair again. Your keys stay safe on Lensly.",
+            modifier = Modifier,
+        )
     }
 }
 
@@ -126,33 +133,23 @@ internal fun policyMessage(problem: NewPasswordProblem?): String? = when (proble
 @Composable
 private fun StrengthLine(segments: Int) {
     val palette = LocalClearAirPalette.current
+    val hint = ClearAirType.small.copy(fontSize = 12.5.sp, lineHeight = 17.sp, lineHeightStyle = ClearAirLineBox)
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(horizontalArrangement = Arrangement.spacedBy(ClearAirSpacing.xxs)) {
             repeat(STRENGTH_STEPS) { index ->
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(1.5.dp))
                         .background(if (index < segments) palette.ink else palette.hairline),
                 )
             }
         }
-        Spacer(Modifier.height(ClearAirSpacing.xxs))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(text = "Use at least $MIN_PASSWORD_LENGTH characters", style = ClearAirType.label, color = palette.ink2)
-            if (segments == STRENGTH_STEPS) Text(text = "Strong", style = ClearAirType.label, color = palette.ink)
+        Spacer(Modifier.height(6.dp))
+        Row(modifier = Modifier.fillMaxWidth().padding(start = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(text = "Use at least $MIN_PASSWORD_LENGTH characters", style = hint, color = palette.ink2)
+            if (segments == STRENGTH_STEPS) Text(text = "Strong", style = hint, color = palette.ink)
         }
-    }
-}
-
-/** A calm note: an info mark beside the words, so the note never relies on colour alone. */
-@Composable
-private fun NoteLine(text: String) {
-    val palette = LocalClearAirPalette.current
-    Row(verticalAlignment = Alignment.Top) {
-        ClearAirIcon(glyph = ClearAirGlyph.INFO, color = palette.ink2, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(ClearAirSpacing.xs))
-        Text(text = text, style = ClearAirType.label, color = palette.ink2)
     }
 }
