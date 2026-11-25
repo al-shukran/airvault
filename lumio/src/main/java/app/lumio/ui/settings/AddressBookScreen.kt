@@ -9,7 +9,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.lensly.app.AddressBookEntry
-import app.lensly.app.familyLabel
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -17,6 +16,7 @@ import app.lumio.ui.kit.ClearAirAddressGrid
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirStatusBand
 import app.lumio.ui.shell.LumioPageScreen
+import app.lumio.wallets.WalletAccounts
 
 /**
  * The Address Book of one paired wallet: each saved name, its chain and label, and its address, grouped by the Group each entry has. Names are added and changed
@@ -53,7 +53,7 @@ private fun AddressEntry(entry: AddressBookEntry) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs)) {
         Text(entry.name, style = ClearAirType.rowTitle, color = palette.ink)
         // The chain family the address is on, then the label. An EVM address is one account on every EVM network, so it names the family, Ethereum.
-        val subtitle = listOfNotNull(entry.chain?.let { familyLabel(it.namespace) }, entry.label).joinToString(" · ")
+        val subtitle = listOfNotNull(entry.chain?.let { WalletAccounts.familyLabel(it.namespace) }, entry.label).joinToString(" · ")
         if (subtitle.isNotEmpty()) Text(subtitle, style = ClearAirType.body, color = palette.ink2)
         ClearAirAddressGrid(address = entry.address, modifier = Modifier.padding(top = ClearAirSpacing.xxs))
     }
