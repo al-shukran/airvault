@@ -42,7 +42,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import app.lensly.app.isolated
@@ -232,7 +235,7 @@ fun SendOnItsWayPage(
         TransferMark(arrived = arrived, modifier = Modifier.align(Alignment.CenterHorizontally))
         SendHeading(text = headline, top = 18.dp, bottom = 0.dp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
         Text(
-            text = summary,
+            text = withMonoAddress(summary),
             style = ClearAirType.small,
             color = palette.ink2,
             textAlign = TextAlign.Center,
@@ -249,9 +252,9 @@ fun SendOnItsWayPage(
                     ClearAirTimelineStep("Confirming", timing, ClearAirStepState.Now, time = "now")
                 },
                 if (arrived) {
-                    ClearAirTimelineStep("In $recipient", "Funds reached the recipient", ClearAirStepState.Done)
+                    ClearAirTimelineStep(withMonoAddress("In $recipient", 12.sp), "Funds reached the recipient", ClearAirStepState.Done)
                 } else {
-                    ClearAirTimelineStep("In $recipient", "Funds reach the recipient", ClearAirStepState.Todo)
+                    ClearAirTimelineStep(withMonoAddress("In $recipient", 12.sp), "Funds reach the recipient", ClearAirStepState.Todo)
                 },
             ),
         )
@@ -265,6 +268,19 @@ fun SendOnItsWayPage(
             )
         }
     }
+}
+
+private val ADDRESS_TAIL = Regex("""\(([^()]+)\)$|(?<= )(?:0x)?[0-9A-Za-z]{4}(?: [0-9A-Za-z]{1,4}){5,}$""")
+
+/**
+ * [text] with its address set in the mono face of the mock's recipient line: the part in brackets at the end, as in "Name (0x12 34 ...)", or a bare
+ * address in groups of four at the end. The words around it stay as they are. [size] sets the address smaller than the words, as a step title needs, so a long address
+ * wraps in two lines of the card.
+ */
+internal fun withMonoAddress(text: String, size: TextUnit = TextUnit.Unspecified): AnnotatedString {
+    val address = ADDRESS_TAIL.find(text)?.let { it.groups[1]?.range ?: it.range } ?: return AnnotatedString(text)
+    val mono = SpanStyle(fontFamily = ClearAirType.address.fontFamily, fontWeight = FontWeight.Normal, fontSize = size, letterSpacing = (-0.02).em, fontFeatureSettings = "tnum")
+    return AnnotatedString(text, listOf(AnnotatedString.Range(mono, address.first, address.last + 1)))
 }
 
 /** The disc above the heading: the send arrow with an amber diamond at its corner while the transfer is on its way, and a blue check once it has landed. */

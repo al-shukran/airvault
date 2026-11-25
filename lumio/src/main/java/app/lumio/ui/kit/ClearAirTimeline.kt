@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -28,7 +29,9 @@ import app.lensly.ui.theme.LocalClearAirPalette
 enum class ClearAirStepState { Done, Now, Todo }
 
 /** One step of a [ClearAirTimeline]: its [title], a [detail] under it, its [state], and the clock [time] at its right, when it has one. */
-class ClearAirTimelineStep(val title: String, val detail: String, val state: ClearAirStepState, val time: String? = null)
+class ClearAirTimelineStep(val title: AnnotatedString, val detail: String, val state: ClearAirStepState, val time: String? = null) {
+    constructor(title: String, detail: String, state: ClearAirStepState, time: String? = null) : this(AnnotatedString(title), detail, state, time)
+}
 
 private val MARK = 22.dp
 private val LINE_WIDTH = 1.5.dp
