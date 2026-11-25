@@ -18,6 +18,7 @@ import java.io.DataOutputStream
 import java.util.UUID
 import javax.crypto.SecretKey
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -409,6 +410,42 @@ class PairedWalletsTest {
 
         assertEquals(1, counting.opened)
         assertEquals("Renamed", third.single().evmAccounts[1].name)
+    }
+
+    @Test
+    fun aListThatFinishesAfterTheLockKeepsNothing() {
+        val keep = PairedWallets.kept
+        PairedWallets.save(session, payload(accounts = listOf(account(0, "A"))), nowMs = 100L)
+        PairedWallets.forget(session)
+        val readHeld = java.util.concurrent.CountDownLatch(1)
+        val readFree = java.util.concurrent.CountDownLatch(1)
+        val loader = Thread { PairedWallets.list(session) }
+        val holder = Thread { synchronized(session) { readHeld.countDown(); readFree.await() } }
+
+        synchronized(keep) {
+            loader.start()
+            awaitBlockedOn(loader, keep)
+            holder.start()
+            readHeld.await()
+        }
+        // The loader passed the check of the kept wallets and waits to read the folders: let it read, and stop it where it would store them.
+        awaitBlockedOn(loader, session)
+        synchronized(keep) {
+            readFree.countDown()
+            awaitBlockedOn(loader, keep)
+            session.close()
+            PairedWallets.forget(session)
+        }
+        loader.join()
+        holder.join()
+
+        assertFalse("A lock that ran during a list leaves nothing kept.", PairedWallets.isKept(session))
+    }
+
+    /** Waits until [thread] is blocked on the monitor of [lock]. */
+    private fun awaitBlockedOn(thread: Thread, lock: Any) {
+        val bean = java.lang.management.ManagementFactory.getThreadMXBean()
+        while (bean.getThreadInfo(thread.id).lockInfo?.identityHashCode != System.identityHashCode(lock)) Thread.sleep(1)
     }
 
     /** A Keystore that counts the folder keys it hands out, one for each unwrap of a wallet's key. */
