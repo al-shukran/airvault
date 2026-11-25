@@ -29,12 +29,13 @@ sealed interface ProviderStatus {
 }
 
 /**
- * The status of one provider, from its traits, its settings and what its scheduler knows. A switched-off provider is [ProviderStatus.Off] whatever else
- * holds. A key-required provider with no key needs one. Then the scheduler decides: an open circuit, a cooldown, a score, or no call yet.
+ * The status of one provider, from its traits, its settings and what its scheduler knows. A key-required provider with no key needs one, whether it is
+ * switched on or off, so the status says why it does not work. A switched-off provider is [ProviderStatus.Off] whatever else holds. Then the scheduler
+ * decides: an open circuit, a cooldown, a score, or no call yet.
  */
 fun providerStatus(traits: Set<Trait>, config: ProviderConfig, health: ProviderHealth?): ProviderStatus = when {
-    !config.enabled -> ProviderStatus.Off
     Trait.KEY_REQUIRED in traits && config.apiKey.isNullOrBlank() -> ProviderStatus.NeedsKey
+    !config.enabled -> ProviderStatus.Off
     health == null -> ProviderStatus.NotActive
     health.circuitOpenMs > 0 -> ProviderStatus.CircuitOpen(health.circuitOpenMs)
     health.coolingMs > 0 -> ProviderStatus.CoolingDown(health.coolingMs)

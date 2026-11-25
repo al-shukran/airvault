@@ -38,7 +38,7 @@ private const val BREATH_LOW = 0.5f
 /**
  * A pull to refresh for a list of balances. The spark draws in under the top bar as the owner pulls, and gives a select haptic at the threshold. While a
  * pulled refresh runs it breathes, and under reduced motion it holds still. A refresh the owner did not pull draws no spark over the list: its
- * freshness line says "Updating…" instead.
+ * freshness line says "Checking…" instead.
  */
 @Composable
 fun ClearAirRefreshBox(

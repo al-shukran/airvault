@@ -7,16 +7,14 @@ import app.lumio.data.net.Networks
  * What a wallet screen shows of the reads of its chains. [checking] names the chain families whose read runs now, by namespace (such as [Networks.BIP122]).
  * [landed] names the families whose read has answered or failed since the side was shown: until then an account with no balance is still being checked.
  * [startedAtMs] is when the latest read of each family began, so a kept balance read before it is the last known one. [unreachable] names the chains
- * whose last read did not answer. [bitcoinDone] of [bitcoinTotal] Bitcoin accounts have a result in the running refresh. [pricing] is true while the
- * prices of the side's coins are read, and [priced] once that read has ended, so the total says "No price yet" only after it.
+ * whose last read did not answer. [pricing] is true while the prices of the side's coins are read, and [priced] once that read has ended, so the
+ * total says "No price yet" only after it.
  */
 data class WalletReads(
     val checking: Set<String> = emptySet(),
     val landed: Set<String> = emptySet(),
     val startedAtMs: Map<String, Long> = emptyMap(),
     val unreachable: Set<ChainId> = emptySet(),
-    val bitcoinDone: Int = 0,
-    val bitcoinTotal: Int = 0,
     val pricing: Boolean = false,
     val priced: Boolean = false,
 )
@@ -67,19 +65,11 @@ fun failureShown(accounts: List<WalletAccount>, family: String, reads: WalletRea
 fun isCheckingPrice(reads: WalletReads): Boolean = reads.pricing || !reads.priced
 
 /**
- * The status line of a wallet screen while a read runs: "Checking Bitcoin · 3 of 8 accounts" for the first family in chain order that is still checked,
- * and "Checking Ethereum" for a family whose read has no count. Null when no family is checked, and the screen then shows the age of the last complete read.
+ * The note under a chain's island when its read did not answer, and the screen puts its Retry link after it. It says the last known balance is shown
+ * only when the chain keeps one: "Couldn't reach Bitcoin. Showing the last known balance." or "Couldn't reach Bitcoin."
  */
-fun checkingLine(reads: WalletReads): String? {
-    val family = WalletAccounts.FAMILIES.firstOrNull { it in reads.checking } ?: return null
-    val label = WalletAccounts.familyLabel(family)
-    if (family != Networks.BIP122) return "Checking $label"
-    val accounts = if (reads.bitcoinTotal == 1) "1 account" else "${reads.bitcoinTotal} accounts"
-    return "Checking $label · ${reads.bitcoinDone} of $accounts"
-}
-
-/** The note under a chain's island when its read did not answer. The screen puts its Retry link after it: "Couldn't reach Bitcoin servers". */
-fun unreachableNote(networkName: String): String = "Couldn't reach $networkName servers"
+fun unreachableNote(networkName: String, keptBalance: Boolean): String =
+    if (keptBalance) "Couldn't reach $networkName. Showing the last known balance." else "Couldn't reach $networkName."
 
 /** The chain namespaces that one read covers. Solana and Algorand are read together, so a Retry on either reads both. */
 fun readFamilies(namespace: String): Set<String> = when (namespace) {

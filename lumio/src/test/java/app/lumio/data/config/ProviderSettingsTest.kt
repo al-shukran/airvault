@@ -32,10 +32,27 @@ class ProviderSettingsTest {
 
     @Test
     fun aTypedKeyIsTrimmedAndABlankKeyRemovesIt() {
-        val keyed = withApiKey(emptyMap(), "etherscan", "  k-123  ")
+        val keyed = withApiKey(emptyMap(), "etherscan", "  k-123  ", keyRequired = true)
 
         assertEquals("k-123", keyed["etherscan"]?.apiKey)
-        assertNull(withApiKey(keyed, "etherscan", "   ")["etherscan"]?.apiKey)
+        assertNull(withApiKey(keyed, "etherscan", "   ", keyRequired = true)["etherscan"]?.apiKey)
+    }
+
+    @Test
+    fun aKeyRequiredProviderIsSwitchedOnByItsKeyAndOffWhenItIsRemoved() {
+        val keyed = withApiKey(mapOf("etherscan" to ProviderConfig(enabled = false)), "etherscan", " k-123 ", keyRequired = true)
+
+        assertEquals(ProviderConfig(enabled = true, apiKey = "k-123"), keyed["etherscan"])
+        assertEquals(ProviderConfig(enabled = false), withApiKey(keyed, "etherscan", "   ", keyRequired = true)["etherscan"])
+    }
+
+    @Test
+    fun aKeyOptionalProviderKeepsItsSwitchWhenItsKeyChanges() {
+        val cleared = withApiKey(mapOf("blockscout" to ProviderConfig(apiKey = "k-1")), "blockscout", "", keyRequired = false)
+        val keyedOff = withApiKey(mapOf("blockscout" to ProviderConfig(enabled = false)), "blockscout", "k-2", keyRequired = false)
+
+        assertEquals(ProviderConfig(), cleared["blockscout"])
+        assertFalse(keyedOff.getValue("blockscout").enabled)
     }
 
     @Test
@@ -65,7 +82,7 @@ class ProviderSettingsTest {
     @Test
     fun aKeySavedThroughTheSettingsSurvivesTheStoreAndStaysSealed() {
         val store = ProviderConfigStore(session)
-        store.save(withApiKey(withEnabled(emptyMap(), "etherscan", on = true), "etherscan", "k-marker-42"))
+        store.save(withApiKey(withEnabled(emptyMap(), "etherscan", on = true), "etherscan", "k-marker-42", keyRequired = true))
 
         assertEquals("k-marker-42", store.load()["etherscan"]?.apiKey)
         val file = session.vaultRecordFileForTesting(ProviderConfigStore.RECORD).readBytes()

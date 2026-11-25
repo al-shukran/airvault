@@ -56,6 +56,8 @@ class ElectrumConnection private constructor(
     @Volatile
     private var failure: ElectrumError.Transport? = null
 
+    private val closed = CompletableDeferred<Unit>()
+
     init {
         val input = BufferedReader(InputStreamReader(socket.inputStream, Charsets.UTF_8))
         scope.launch { readReplies(input) }
@@ -63,6 +65,9 @@ class ElectrumConnection private constructor(
 
     /** False once the connection has failed or been closed. */
     val isAlive: Boolean get() = failure == null
+
+    /** Suspends until the connection has failed or been closed. */
+    internal suspend fun awaitClosed() = closed.await()
 
     /**
      * Sends [calls] and returns each call's reply, in the order of [calls]. A call that the server answered with an error gets a failure in its own
@@ -165,6 +170,7 @@ class ElectrumConnection private constructor(
     private fun fail(cause: ElectrumError.Transport): ElectrumError.Transport {
         failure?.let { return it }
         failure = cause
+        closed.complete(Unit)
         runCatching { socket.close() }
         scope.cancel()
         waiting.values.forEach { it.completeExceptionally(cause) }

@@ -195,7 +195,7 @@ object BtcSend {
             receive.await() to change.await()
         }
         val funded = receive.used.map { RECEIVE_BRANCH to it } + change.used.map { CHANGE_BRANCH to it }
-        val listed = funded.filter { it.second.stats.balance != 0L }.flatMap { (branch, hit) ->
+        val listed = funded.filter { it.second.reading.balance != 0L }.flatMap { (branch, hit) ->
             readStep(BtcReadStep.UNSPENT_OUTPUTS) { scheduler.run(AddressUtxos(net, hit.address), Priority.FOREGROUND) }
                 .filter { it.blockHeight != null }
                 .map { Triple(branch, hit.index, it) }

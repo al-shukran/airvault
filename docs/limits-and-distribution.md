@@ -29,7 +29,7 @@ Erasing a vault deletes the vault's data. It does not remove every trace that th
 - **QR codes.** A code shown on either screen can be photographed with another camera. Lensly's pairing codes carry only public keys (`shared/src/main/java/app/lensly/app/export/PairingExport.kt`), but they show the addresses of your accounts. A signing request shows the transaction it asks you to sign. The Android reference for `FLAG_SECURE` covers screenshots and non-secure displays, not a photo taken with a second camera ([WindowManager.LayoutParams](https://developer.android.com/reference/android/view/WindowManager.LayoutParams#FLAG_SECURE)).
 - **The download.** Downloading the APK from GitHub sends a request from your network to GitHub, which can see your IP address and the time of the download.
 
-AirVault does not claim that an erased phone looks like one that never held a vault. Two open checks in [auditing-airvault.md](auditing-airvault.md) ask whether a vault can be detected: the on-disk file names, and photo capture before and after setup. Neither check is settled.
+AirVault does not claim that an erased phone looks like one that never held a vault. Two open checks in [auditing-airvault.md](auditing-airvault.md) ask whether a vault can be detected: the on-disk file names and the app's other stored data. Neither check is settled.
 
 ## Installing and Updating
 

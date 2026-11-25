@@ -1,0 +1,60 @@
+name: Bug Report
+description: Report a problem in Lensly or Lumio
+title: ""
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never paste a recovery phrase, private key, passphrase or pairing code into an issue. AirVault never asks for them, and anyone who does is a scammer.
+
+  - type: dropdown
+    id: app
+    attributes:
+      label: App
+      description: Which app shows the problem?
+      options:
+        - Lensly
+        - Lumio
+        - Both
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App Version
+      description: The version shown in the app's About screen, or the release tag, for example lensly-v1.2.0.
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Android Version and Device
+      placeholder: "for example Android 15 on a Pixel 8"
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What Happened
+      description: What you saw, and what went wrong.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: The exact steps, numbered, from a fresh start of the app if you can.
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behaviour
+      description: What you expected to happen instead.

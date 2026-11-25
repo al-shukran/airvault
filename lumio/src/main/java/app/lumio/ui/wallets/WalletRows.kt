@@ -36,6 +36,7 @@ import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lensly.ui.theme.LocalReducedMotion
 import app.lumio.data.Clock
+import app.lumio.ui.home.agoText
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
@@ -65,9 +66,12 @@ private fun plural(count: Int, noun: String): String = if (count == 1) "1 $noun"
 internal fun accountsByChain(accounts: List<WalletAccount>): List<Pair<String, List<WalletAccount>>> =
     WalletAccounts.FAMILIES.mapNotNull { family -> accounts.filter { it.namespace == family }.takeIf { it.isNotEmpty() }?.let { family to it } }
 
-/** The line under a total: "Updating…" while a read runs, else the age of the last complete read. A read that did not answer keeps the time before it. */
+/**
+ * The line under a total: "Checking…" while a read runs, else the age of the last complete read. A read that did not answer keeps the time before it.
+ * Every screen that shows a total says it this way.
+ */
 internal fun freshnessLine(refreshing: Boolean, updatedAtMs: Long?, nowMs: Long): String = when {
-    refreshing -> "Updating…"
+    refreshing -> "Checking…"
     updatedAtMs == null -> "Not updated yet"
     else -> updatedAgo(nowMs - updatedAtMs)
 }
@@ -156,11 +160,10 @@ internal fun foldSummary(fold: AccountFold): String = listOfNotNull(
 ).joinToString(", ")
 
 /**
- * The freshness line of a total, which ages once a minute. Its text changes as a read starts and ends, and nothing else on the page moves. [checking],
- * when set, is the line instead: what a read that runs has counted so far.
+ * The freshness line of a total, which ages once a minute. Its text changes as a read starts and ends, and nothing else on the page moves.
  */
 @Composable
-internal fun FreshnessLine(refreshing: Boolean, updatedAtMs: Long?, clock: Clock, modifier: Modifier = Modifier, checking: String? = null) {
+internal fun FreshnessLine(refreshing: Boolean, updatedAtMs: Long?, clock: Clock, modifier: Modifier = Modifier) {
     val nowMs by produceState(clock.nowMs(), clock) {
         while (true) {
             value = clock.nowMs()
@@ -168,11 +171,23 @@ internal fun FreshnessLine(refreshing: Boolean, updatedAtMs: Long?, clock: Clock
         }
     }
     Text(
-        text = checking ?: freshnessLine(refreshing, updatedAtMs, nowMs),
+        text = freshnessLine(refreshing, updatedAtMs, nowMs),
         modifier = modifier,
         style = ClearAirType.body,
         color = LocalClearAirPalette.current.ink2,
     )
+}
+
+/** The age of a kept balance under its value, "as of 4 min ago", while the latest read has not reached it. It counts again each minute, as [FreshnessLine] does. */
+@Composable
+internal fun AsOfLine(readAtMs: Long, clock: Clock) {
+    val nowMs by produceState(clock.nowMs(), clock) {
+        while (true) {
+            value = clock.nowMs()
+            delay(MINUTE_MS)
+        }
+    }
+    Text(text = "as of ${agoText(nowMs - readAtMs)}", style = ClearAirType.label, color = LocalClearAirPalette.current.ink2)
 }
 
 /** The sweep of a checking line's sheen, in milliseconds: the same crossing as a bar's sheen. */
@@ -230,7 +245,9 @@ internal fun ChainFailureNote(text: String, onRetry: () -> Unit, modifier: Modif
     ) {
         Canvas(Modifier.size(8.dp)) { drawCircle(color = palette.spark) }
         Spacer(Modifier.width(ClearAirSpacing.xs))
-        Text(text = "$text · ", style = ClearAirType.body, color = palette.ink2)
+        // The note takes the width the Retry action leaves, so a long network name wraps and the action stays in view.
+        Text(text = text, style = ClearAirType.body, color = palette.ink2, modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(ClearAirSpacing.xs))
         ClearAirTextAction(text = "Retry", onClick = onRetry)
     }
 }

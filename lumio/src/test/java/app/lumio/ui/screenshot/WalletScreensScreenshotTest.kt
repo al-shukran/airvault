@@ -113,6 +113,8 @@ class WalletScreensScreenshotTest {
         networkName = "Solana Devnet",
         coin = AccountCoin("SOL", "Solana Devnet", SOLANA_DEVNET),
         balance = NativeAsset("SOL-devnet", "SOL", "Solana Devnet", SOLANA_DEVNET, BigDecimal("0.4")),
+        // Read before the latest Solana read began, so the kept balance says how old it is.
+        readAtMs = FIXED_NOW - 4 * 60_000L,
     )
     private val algorand = WalletAccount(
         walletId = "wallet-demo",
@@ -209,14 +211,14 @@ class WalletScreensScreenshotTest {
         )
     }
 
-    /** A read that did not answer: its note says so, the balances kept from before stay, and the freshness line says the page is updating. */
+    /** A read that did not answer: its note says so beside the age of the last complete read, and the balances kept from before stay. */
     @Test
     fun walletsNotice() = compose.lumioSnapshot("wallets_notice") {
         WalletsScreen(
             rows = listOf(WalletRow("wallet-demo", "Demo", summary = "4 accounts · 4 apps", usd = null)),
             totalUsd = null,
             showTotal = true,
-            refreshing = true,
+            refreshing = false,
             updatedAtMs = UPDATED_3_MIN_AGO,
             notice = "Some balances could not be refreshed. The last known balances are shown.",
             onWallet = {},
@@ -403,6 +405,7 @@ class WalletScreensScreenshotTest {
             showTotal = false,
             showBalances = false,
             reads = WalletReads(checking = setOf(Networks.EIP155)),
+            refreshing = true,
             updatedAtMs = null,
             notice = null,
             onAccount = {},

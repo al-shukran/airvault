@@ -21,8 +21,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -41,6 +43,9 @@ fun Context.openAppSettings() {
     )
 }
 
+/** The name of the app that hosts this screen, from its launcher label: "Lensly" or "Lumio". */
+fun Context.hostAppName(): String = applicationInfo.loadLabel(packageManager).toString()
+
 /**
  * Request screen shown until camera access is granted. Before the first ask it says why the camera is needed. Once the
  * system prompt has been shown ([canOpenSettings]), it says access is off and offers the route to system settings, which
@@ -54,6 +59,8 @@ fun CameraPermissionRationale(
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
+    val context = LocalContext.current
+    val appName = remember(context) { context.hostAppName() }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -81,9 +88,9 @@ fun CameraPermissionRationale(
         Spacer(Modifier.height(LenslySpacing.sm))
         Text(
             text = if (canOpenSettings) {
-                "Camera access is off for Lensly. Turn it on in Settings, or allow it again here."
+                "Camera access is off for $appName. Turn it on in Settings, or allow it again here."
             } else {
-                "Lensly needs the camera to take photos. Photos stay on this phone."
+                "$appName needs the camera to take photos. Photos stay on this phone."
             },
             style = MaterialTheme.typography.bodyMedium,
             color = colors.onSurfaceVariant,

@@ -70,7 +70,8 @@ fun ChangePasswordSettingsPage(
         scope.launch {
             val outcome = onSubmit(current, password, repeat)
             busy = false
-            clearFields()
+            // A wrong current password keeps the three fields as they were typed, so the owner corrects the one that is wrong.
+            if (outcome != PasswordChange.WrongCurrent) clearFields()
             when (outcome) {
                 PasswordChange.Changed -> onChanged()
                 PasswordChange.Locked -> onLocked()

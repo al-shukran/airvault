@@ -40,7 +40,6 @@ import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
 import app.lumio.wallets.WalletReads
 import app.lumio.wallets.balanceSlotOf
-import app.lumio.wallets.checkingLine
 import app.lumio.wallets.failureShown
 import app.lumio.wallets.isCheckingPrice
 import app.lumio.wallets.unreachableNote
@@ -79,6 +78,7 @@ fun WalletScreen(
     tokenUsd: Map<WalletAccount, Double> = emptyMap(),
     changePct: Double? = null,
     changeUsd: Double? = null,
+    refreshing: Boolean = false,
     refreshByPull: Boolean = false,
     pairedAtMs: Long? = null,
     reads: WalletReads = WalletReads(),
@@ -96,6 +96,7 @@ fun WalletScreen(
                     changeUsd = changeUsd,
                     showTotal = showTotal,
                     reads = reads,
+                    refreshing = refreshing,
                     updatedAtMs = updatedAtMs,
                     clock = clock,
                 )
@@ -126,6 +127,7 @@ fun WalletScreen(
                         showTotal = showTotal,
                         showBalances = showBalances,
                         reads = reads,
+                        clock = clock,
                         onRetry = onRetry,
                         onAccount = onAccount,
                     )
@@ -147,6 +149,7 @@ private fun WalletHero(
     changeUsd: Double?,
     showTotal: Boolean,
     reads: WalletReads,
+    refreshing: Boolean,
     updatedAtMs: Long?,
     clock: Clock,
 ) {
@@ -169,13 +172,11 @@ private fun WalletHero(
             ClearAirAmount(text = LocalFiat.current.amount(totalUsd), hidden = !showTotal, style = ClearAirType.total)
         }
         ClearAirChangeLine(changePct = changePct, changeUsd = changeUsd, shown = showTotal, modifier = Modifier.padding(top = ClearAirSpacing.xxs))
-        // The status line counts what a read that runs has checked, and else says how old the last complete read is. It never says "Updating".
         FreshnessLine(
-            refreshing = false,
+            refreshing = refreshing,
             updatedAtMs = updatedAtMs,
             clock = clock,
             modifier = Modifier.padding(top = ClearAirSpacing.xxs),
-            checking = checkingLine(reads),
         )
     }
 }
@@ -194,6 +195,7 @@ private fun ChainIsland(
     showTotal: Boolean,
     showBalances: Boolean,
     reads: WalletReads,
+    clock: Clock,
     onRetry: (String) -> Unit,
     onAccount: (WalletAccount) -> Unit,
 ) {
@@ -212,7 +214,7 @@ private fun ChainIsland(
         // because of it. The rest of the island stays live.
         if (failureShown(group, family, reads)) {
             ChainFailureNote(
-                text = unreachableNote(group.first().networkName),
+                text = unreachableNote(group.first().networkName, keptBalance = group.any { it.balance != null }),
                 onRetry = { onRetry(family) },
                 modifier = Modifier.padding(bottom = ClearAirSpacing.xs),
             )
@@ -226,6 +228,7 @@ private fun ChainIsland(
                 showTotal = showTotal,
                 showBalances = showBalances,
                 slot = balanceSlotOf(account, reads),
+                clock = clock,
                 onClick = { onAccount(account) },
             )
         }
@@ -254,23 +257,25 @@ private fun AccountItem(
     showTotal: Boolean,
     showBalances: Boolean,
     slot: BalanceSlot,
+    clock: Clock,
     onClick: () -> Unit,
 ) {
     ClearAirListRow(
         title = accountTitle(account),
         description = accountLine(account, tokens),
         leading = { ClearAirMonogram(text = monogramOf(account)) },
-        trailing = { AccountValue(account = account, usd = usd, showTotal = showTotal, showBalances = showBalances, slot = slot) },
+        trailing = { AccountValue(account = account, usd = usd, showTotal = showTotal, showBalances = showBalances, slot = slot, clock = clock) },
         onClick = onClick,
     )
 }
 
 /**
  * The value of an account at the right of its row: its dollars over its coins, or only its coins without a price. Without a kept balance it says what the
- * read is doing: "Checking…" while its chain is read, or "Not checked" when its chain did not answer. An incomplete Bitcoin balance says so under it.
+ * read is doing: "Checking…" while its chain is read, or "Not checked" when its chain did not answer. An incomplete Bitcoin balance says so under it, and a
+ * last known balance says how old it is.
  */
 @Composable
-private fun AccountValue(account: WalletAccount, usd: Double?, showTotal: Boolean, showBalances: Boolean, slot: BalanceSlot) {
+private fun AccountValue(account: WalletAccount, usd: Double?, showTotal: Boolean, showBalances: Boolean, slot: BalanceSlot, clock: Clock) {
     val balance = account.balance
     Column(horizontalAlignment = Alignment.End) {
         if (balance == null) {
@@ -291,6 +296,7 @@ private fun AccountValue(account: WalletAccount, usd: Double?, showTotal: Boolea
         if (slot is BalanceSlot.Value && slot.incomplete) {
             Text(text = "Incomplete", style = ClearAirType.label, color = LocalClearAirPalette.current.ink2)
         }
+        account.readAtMs?.takeIf { slot is BalanceSlot.Value && slot.stale }?.let { AsOfLine(readAtMs = it, clock = clock) }
     }
 }
 

@@ -1,0 +1,1 @@
+While balances are read, the Wallets and wallet pages say "Checking…" in place of "Updating…" or a count of accounts, and a wallet page shows the same freshness line as the Wallets home. A read that did not answer still shows its notice beside the "Updated" line.

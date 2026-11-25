@@ -41,6 +41,27 @@ class CustomTokenLookupTest {
     }
 
     @Test
+    fun aMixedCaseAddressWithAWrongChecksumIsRefusedBeforeAnyCall() {
+        val reads = erc20()
+
+        assertEquals(
+            "This address has a typo: its capital letters don't match its checksum.",
+            assertFailsWith<IllegalArgumentException> { lookup(reads, "0x5aAeb6053f3E94C9b9A09f33669435E7Ef1BeAed") }.message,
+        )
+        assertEquals(0, reads.calls.size)
+    }
+
+    @Test
+    fun aMixedCaseAddressWithAValidChecksumIsAccepted() {
+        assertEquals("0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed", lookup(erc20(), "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed").contract)
+    }
+
+    @Test
+    fun aLowercaseAddressIsAccepted() {
+        assertEquals("0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed", lookup(erc20(), "0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed").contract)
+    }
+
+    @Test
     fun aNameThatRevertsIsTheSymbol() {
         val reads = ScriptedReads { _, data ->
             when (data) {

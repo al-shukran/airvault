@@ -31,6 +31,9 @@ import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.scan.LumioScanScreen
 
+/** The Camera Denied words on Pair, which reads Lensly's code. */
+const val PAIR_CAMERA_DENIED_TEXT = "Lumio needs the camera to read Lensly's code. Nothing is recorded."
+
 /** The camera scan for a pairing code. [progress] shows for an animated code, and [status] says what the scan is doing. [complete] closes the ring. */
 @Composable
 fun PairScanScreen(progress: Float?, status: String, onText: (String) -> Unit, onCancel: () -> Unit, complete: Boolean = false) {
@@ -42,6 +45,7 @@ fun PairScanScreen(progress: Float?, status: String, onText: (String) -> Unit, o
         onCancel = onCancel,
         complete = complete,
         footer = { PairHelp() },
+        deniedText = PAIR_CAMERA_DENIED_TEXT,
     )
 }
 
