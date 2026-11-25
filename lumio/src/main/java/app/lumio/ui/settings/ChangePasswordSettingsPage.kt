@@ -22,9 +22,9 @@ import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.PasswordChange
 import app.lumio.ui.firstrun.NewPasswordProblem
 import app.lumio.ui.firstrun.policyMessage
+import app.lumio.ui.kit.ClearAirEyeToggle
 import app.lumio.ui.kit.ClearAirField
 import app.lumio.ui.kit.ClearAirPrimaryButton
-import app.lumio.ui.kit.ClearAirTextAction
 import kotlinx.coroutines.launch
 
 /**
@@ -82,7 +82,7 @@ fun ChangePasswordSettingsPage(
     }
 
     val reveal: @Composable () -> Unit = {
-        ClearAirTextAction(text = if (shown) "Hide" else "Show", onClick = { shown = !shown })
+        ClearAirEyeToggle(shown = shown, onToggle = { shown = !shown })
     }
 
     SettingsFrame(title = "Change Password", offline = offline, onBack = onBack, onLock = onLock) {

@@ -26,8 +26,9 @@ private val BAND_HEIGHT = 24.dp
 /** The test tag of the testnet band, so a screen test can find it. */
 const val TESTNET_HATCH_TAG = "testnet-hatch"
 
-/** The distance between two hatch lines, measured along the band. */
-private val HATCH_STEP = 8.dp
+/** The mock's hatch: stripes 5 dp wide, one every 10 dp across the stripes, at 45 degrees. */
+private val HATCH_STRIPE = 5.dp
+private val HATCH_PERIOD = 10.dp
 
 /**
  * The testnet band: diagonal hatch lines across the full width, with [text] set over them in small mono capitals. The hatch is a texture, not
@@ -48,19 +49,21 @@ fun ClearAirTestnetHatch(text: String, modifier: Modifier = Modifier) {
         Text(
             text = text,
             style = ClearAirType.address.copy(fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.1.em),
-            color = palette.ink,
+            color = palette.ink2,
             maxLines = 1,
         )
     }
 }
 
-/** Lines at 45 degrees, from the bottom left to the top right, one every [HATCH_STEP]. The band clips the ends that run past its edges. */
+/** Stripes at 45 degrees, from the bottom left to the top right. The band clips the ends that run past its edges. */
 private fun DrawScope.drawHatch(color: Color) {
-    val step = HATCH_STEP.toPx()
-    val stroke = 1.dp.toPx()
+    val step = HATCH_PERIOD.toPx() * SQRT2
+    val stroke = HATCH_STRIPE.toPx()
     var x = -size.height
     while (x < size.width) {
         drawLine(color = color, start = Offset(x, size.height), end = Offset(x + size.height, 0f), strokeWidth = stroke)
         x += step
     }
 }
+
+private const val SQRT2 = 1.4142135f

@@ -13,6 +13,8 @@ import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.tokens.Token
 import app.lumio.ui.kit.AddressGroups
 import app.lumio.ui.kit.ClearAirField
+import app.lumio.ui.kit.ClearAirGlyph
+import app.lumio.ui.kit.ClearAirIconButton
 import app.lumio.ui.kit.ClearAirListRow
 import app.lumio.ui.kit.ClearAirNote
 import app.lumio.ui.kit.ClearAirPrimaryButton
@@ -74,10 +76,10 @@ fun AddTokenScreen(
                 onCommit = { if (address.isNotBlank() && !busy) onLookUp() },
                 inputTag = "token-address",
                 trailing = {
-                    ClearAirTextAction(
-                        text = "Paste",
-                        onClick = { clipboard.getText()?.text?.let { addressChanged(it); onLookUp() } },
-                        enabled = !busy,
+                    ClearAirIconButton(
+                        glyph = ClearAirGlyph.PASTE,
+                        label = "Paste",
+                        onClick = { if (!busy) clipboard.getText()?.text?.let { addressChanged(it); onLookUp() } },
                         modifier = Modifier.testTag("token-paste"),
                     )
                 },

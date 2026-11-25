@@ -42,6 +42,16 @@ enum class ClearAirGlyph(private val data: List<String>) {
     SCAN(listOf("M4 9V6.5A2.5 2.5 0 0 1 6.5 4H9M15 4h2.5A2.5 2.5 0 0 1 20 6.5V9M20 15v2.5a2.5 2.5 0 0 1-2.5 2.5H15M9 20H6.5A2.5 2.5 0 0 1 4 17.5V15M7.5 12h9")),
     PLUS(listOf("M12 5v14M5 12h14")),
     DRAG(listOf("M5 9h14M5 15h14")),
+    SEND(listOf("M7 17L17 7M9 7h8v8")),
+    RECEIVE(listOf("M17 7L7 17M15 17H7V9")),
+    SHARE(listOf("M12 3.5v11M7.5 8L12 3.5 16.5 8M5 13v4.6A2.4 2.4 0 0 0 7.4 20h9.2a2.4 2.4 0 0 0 2.4-2.4V13")),
+    PASTE(listOf("M7.9 5h8.2a2.4 2.4 0 0 1 2.4 2.4v10.7a2.4 2.4 0 0 1-2.4 2.4H7.9a2.4 2.4 0 0 1-2.4-2.4V7.4A2.4 2.4 0 0 1 7.9 5z", "M9 5V3.8h6V5M9 11h6M9 14.5h4")),
+    EYE(listOf("M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z", circle(12f, 12f, 3f))),
+    EYE_OFF(
+        listOf(
+            "M4.5 9.6a11 11 0 0 1 4.2-2.5M14 6.6a11 11 0 0 1 5.5 3M7.6 12.9a6.5 6.5 0 0 1 2.7-1.7M16.4 12.9a6.5 6.5 0 0 0-1.4-1M10.4 16.2a2.4 2.4 0 0 1 3.2 0M4 4l16 16",
+        ),
+    ),
     ;
 
     /** The glyph's paths on the 24 unit grid, parsed once. */

@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -150,6 +151,7 @@ fun SendRecipientPage(
     onLock: () -> Unit,
 ) {
     val palette = LocalClearAirPalette.current
+    val clipboard = LocalClipboardManager.current
     SendPage(
         title = "Send",
         backLabel = backLabel,
@@ -174,6 +176,11 @@ fun SendRecipientPage(
             monospace = true,
             trailing = {
                 if (value.isNotEmpty()) ClearAirIconButton(glyph = ClearAirGlyph.CLOSE, label = "Clear", onClick = { onValueChange("") })
+                ClearAirIconButton(
+                    glyph = ClearAirGlyph.PASTE,
+                    label = "Paste",
+                    onClick = { clipboard.getText()?.text?.trim()?.takeIf { it.isNotEmpty() }?.let(onValueChange) },
+                )
                 ClearAirIconButton(glyph = ClearAirGlyph.SCAN, label = "Scan", onClick = onScan)
             },
         )
