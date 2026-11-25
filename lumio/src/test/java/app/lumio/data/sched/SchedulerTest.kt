@@ -6,6 +6,7 @@ import app.lumio.data.ETH
 import app.lumio.data.FakeProvider
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
+import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.Ops
@@ -201,6 +202,54 @@ class SchedulerTest {
 
         assertTrue(failureOf { s.run(TipHeight(ETH)) } is ProviderError.Transient)
         assertEquals(3, a.calls + b.calls)
+    }
+
+    @Test
+    fun aBroadcastIsNotSentAgainAfterATransientFailure() = runTest {
+        val a = provider("a").apply { outcomes.add(ProviderError.Transient()) }
+        val b = provider("b")
+        val s = scheduler(a, b, configs = PREFER_A)
+
+        assertTrue(failureOf { s.run(Broadcast(ETH, byteArrayOf(1))) } is ProviderError.Transient)
+
+        assertEquals(1, a.calls)
+        assertEquals(0, b.calls)
+    }
+
+    @Test
+    fun aBroadcastThatTimesOutIsNotSentAgain() = runTest {
+        val a = provider("a", latencyMs = Priority.FOREGROUND.deadlineMs + 1)
+        val b = provider("b")
+        val s = scheduler(a, b, configs = PREFER_A)
+
+        assertTrue(failureOf { s.run(Broadcast(ETH, byteArrayOf(1)), Priority.FOREGROUND) } is ProviderError.Transient)
+
+        assertEquals(1, a.calls)
+        assertEquals(0, b.calls)
+    }
+
+    @Test
+    fun aBroadcastThatAProviderRefusesMovesToTheNextCandidate() = runTest {
+        val a = provider("a").apply { outcomes.add(ProviderError.Fatal("The key was rejected.")) }
+        val b = provider("b")
+        val s = scheduler(a, b, configs = PREFER_A)
+
+        assertEquals("0xtx", s.run(Broadcast(ETH, byteArrayOf(1))))
+
+        assertEquals(1, a.calls)
+        assertEquals(1, b.calls)
+    }
+
+    @Test
+    fun aBroadcastThatAProviderRateLimitsMovesToTheNextCandidate() = runTest {
+        val a = provider("a").apply { outcomes.add(ProviderError.RateLimited(retryAfterMs = 5_000)) }
+        val b = provider("b")
+        val s = scheduler(a, b, configs = PREFER_A)
+
+        assertEquals("0xtx", s.run(Broadcast(ETH, byteArrayOf(1))))
+
+        assertEquals(1, a.calls)
+        assertEquals(1, b.calls)
     }
 
     @Test
