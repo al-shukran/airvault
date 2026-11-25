@@ -187,7 +187,8 @@ suspend fun scanAccount(
         step(asked.incrementAndGet())
         stats
     }
-    val tipHeight = scheduler.run(
+    // The tip comes from Electrum when it answers, so that an account is read with no Esplora request while Esplora is down.
+    val tipHeight = electrum?.let { electrumTip(it) } ?: scheduler.run(
         TipHeight(net),
         priority,
         CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "tip/${net.chain}", jsonCodec()),
