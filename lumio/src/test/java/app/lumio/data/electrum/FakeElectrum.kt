@@ -56,6 +56,7 @@ internal class FakeElectrum(
     val port: Int = server.localPort
     val lineSizes = CopyOnWriteArrayList<Int>()
     val connections = AtomicInteger()
+    private val accepted = CopyOnWriteArrayList<SSLSocket>()
 
     init {
         threads.execute {
@@ -66,6 +67,7 @@ internal class FakeElectrum(
                     break
                 }
                 connections.incrementAndGet()
+                accepted += socket
                 threads.execute { serve(socket) }
             }
         }
@@ -131,8 +133,10 @@ internal class FakeElectrum(
         }
     }
 
+    /** Closes the listener and every connection it accepted, so no client is left reading from a server that is gone. */
     override fun close() {
         server.close()
+        accepted.forEach { runCatching { it.close() } }
         threads.shutdownNow()
     }
 
