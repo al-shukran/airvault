@@ -36,7 +36,7 @@ NON_EVM_SLUGS = {"bitcoin"}  # a logo that is not an EVM chain
 MAJOR_CHAIN_IDS = [1, 42161, 10, 8453, 137, 56, 43114]
 REQUESTED_SYMBOLS = ["USDT", "USDC", "DAI", "XAUT", "USDP", "PAXG"]
 PROVIDER_ORDER = ["uniswap", "superchain", "coingecko"]
-NETWORK_FIELDS = ["chainId", "name", "nativeSymbol", "nativeDecimals", "feeModel", "explorerName", "testnet", "icon"]
+NETWORK_FIELDS = ["chainId", "name", "nativeSymbol", "nativeDecimals", "feeModel", "explorerName", "testnet", "icon", "featured", "kind", "parentChainId"]
 TOKEN_FIELDS = ["chainId", "contract", "symbol", "name", "decimals", "icon"]
 FEE_MODELS = {"L1", "L2_ROLLUP"}
 # Explore's chains group lists these networks even when no account sits on them (Base, Arbitrum One, Optimism, Polygon PoS, BNB Smart Chain, Avalanche C-Chain, and Monad testnet).
@@ -192,7 +192,7 @@ def build_networks(chains, existing, manual, chain_keys, feemodel):
     for m in manual:
         cid = m["chainId"]
         # A manual entry is the source of truth for its chain, including one already shipped as a baseline row.
-        rows[cid] = {f: m[f] for f in NETWORK_FIELDS}
+        rows[cid] = {f: m[f] for f in NETWORK_FIELDS if f in m}
         manual_ids.add(cid)
         notes["manual"].append(f"{m['name']} ({cid}): from manual-networks.json")
     excluded = {x["slug"]: x for x in load_json(EXCLUSIONS_FILE)["exclusions"]}

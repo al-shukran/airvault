@@ -30,10 +30,11 @@ done
 
 adbs() { adb -s "$serial" "$@"; }
 demo() { adbs shell am broadcast -a com.android.systemui.demo -e command "$@" >/dev/null; }
-adbs get-state >/dev/null || { echo "no device $serial" >&2; exit 1; }
+adbs get-state >/dev/null 2>&1 && [[ $serial == emulator-* ]] || { echo "no connected emulator $serial. Start one, or pass its serial from adb devices (emulator-NNNN)." >&2; exit 1; }
 
 adbs shell settings put global sysui_demo_allowed 1
-trap 'demo exit || true' EXIT
+leave() { demo exit || true; adbs shell settings put global sysui_demo_allowed 0 || true; }
+trap leave EXIT
 demo enter
 demo clock -e hhmm 1200
 demo battery -e level 100 -e plugged false
@@ -44,7 +45,7 @@ sleep 1
 
 mkdir -p "$(dirname "$out")"
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/capture.XXXXXX")
-trap 'demo exit || true; rm -rf "$tmp"' EXIT
+trap 'leave; rm -rf "$tmp"' EXIT
 case $out in
   *.png) adbs exec-out screencap -p >"$tmp/raw.png" ;;
   *.mp4)

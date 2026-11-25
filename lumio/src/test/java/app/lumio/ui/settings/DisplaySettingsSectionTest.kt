@@ -1,14 +1,13 @@
 package app.lumio.ui.settings
 
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performSemanticsAction
 import app.lensly.ui.theme.LumenTheme
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.Fiat
@@ -27,11 +26,13 @@ import org.robolectric.RobolectricTestRunner
 class DisplaySettingsSectionTest {
 
     @get:Rule
-    val compose = createComposeRule()
+    val compose = createAndroidComposeRule<ComponentActivity>()
 
     private var total: Boolean? = null
     private var assets: Boolean? = null
     private var theme: ThemeMode? = null
+    private var currency: FiatCurrency? = null
+    private var opened: String? = null
 
     private fun show(settings: DisplaySettings = DisplaySettings(), notice: String? = null, fiat: Fiat = Fiat.USD) {
         compose.setContent {
@@ -43,11 +44,32 @@ class DisplaySettingsSectionTest {
                             notice = notice,
                             onShowTotal = { total = it },
                             onShowAssets = { assets = it },
-                            onCurrency = {},
-                            onTheme = { theme = it },
+                            onOpenCurrency = { opened = "Currency" },
+                            onOpenTheme = { opened = "Theme" },
                             onSmallBalance = {},
                         )
                     }
+                }
+            }
+        }
+    }
+
+    private fun showPage() {
+        compose.setContent {
+            ClearAirHarness {
+                CompositionLocalProvider(LocalFiat provides Fiat.USD) {
+                    DisplaySettingsPage(
+                        settings = DisplaySettings(),
+                        notice = null,
+                        onShowTotal = {},
+                        onShowAssets = {},
+                        onCurrency = { currency = it },
+                        onTheme = { theme = it },
+                        onSmallBalance = {},
+                        offline = null,
+                        onBack = {},
+                        onLock = {},
+                    )
                 }
             }
         }
@@ -92,14 +114,47 @@ class DisplaySettingsSectionTest {
     }
 
     @Test
-    fun aThemeChoiceAppliesAndIsReported() {
+    fun theCurrencyAndThemeRowsAskThePageToOpenTheirSheets() {
         show()
 
+        compose.onNodeWithText("Currency").performClick()
+        assertEquals("Currency", opened)
         compose.onNodeWithText("Theme").performClick()
-        // The sheet sits in the page column here, below the visible window, so the row is chosen by its action, not by a tap.
-        compose.onNodeWithText("Dark").performSemanticsAction(SemanticsActions.OnClick)
+        assertEquals("Theme", opened)
+    }
+
+    @Test
+    fun aThemeChoiceAppliesAndIsReported() {
+        showPage()
+
+        compose.onNodeWithText("Theme").performClick()
+        // The sheet is over the page, so its row is tapped where it shows.
+        compose.onNodeWithText("Dark").performClick()
 
         assertEquals(ThemeMode.DARK, theme)
+    }
+
+    @Test
+    fun aCurrencyChoiceAppliesAndIsReported() {
+        showPage()
+
+        compose.onNodeWithText("Currency").performClick()
+        compose.onNodeWithText("Euro").performClick()
+
+        assertEquals(FiatCurrency.EUR, currency)
+    }
+
+    @Test
+    fun backClosesTheSheetWithoutChoosing() {
+        showPage()
+
+        compose.onNodeWithText("Theme").performClick()
+        compose.onNodeWithText("Dark").assertExists()
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Dark").assertDoesNotExist()
+        assertEquals(null, theme)
     }
 }
 

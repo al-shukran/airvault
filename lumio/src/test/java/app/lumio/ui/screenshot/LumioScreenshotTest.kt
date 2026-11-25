@@ -2,6 +2,8 @@ package app.lumio.ui.screenshot
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import app.lensly.app.export.PairingPayload
 import app.lensly.ui.components.groupAddress
 import app.lensly.core.btc.BtcNetwork
@@ -177,6 +179,29 @@ class LumioScreenshotTest {
             onSmallBalance = {},
             offline = null, onLock = {}, onBack = {},
         )
+    }
+
+    /** The Currency and Theme sheets open over the Display page, with its scrim, as the mock draws them. */
+    @Test
+    fun settingsDisplayCurrencySheet() = compose.lumioSnapshot("settings_display_currency_sheet", beforeCapture = { openDisplaySheet("Currency") }) {
+        DisplaySettingsPage(
+            settings = DisplaySettings(), notice = null, onShowTotal = {}, onShowAssets = {}, onCurrency = {}, onTheme = {}, onSmallBalance = {},
+            offline = null, onLock = {}, onBack = {},
+        )
+    }
+
+    @Test
+    fun settingsDisplayThemeSheet() = compose.lumioSnapshot("settings_display_theme_sheet", beforeCapture = { openDisplaySheet("Theme") }) {
+        DisplaySettingsPage(
+            settings = DisplaySettings(), notice = null, onShowTotal = {}, onShowAssets = {}, onCurrency = {}, onTheme = {}, onSmallBalance = {},
+            offline = null, onLock = {}, onBack = {},
+        )
+    }
+
+    private fun androidx.compose.ui.test.junit4.ComposeContentTestRule.openDisplaySheet(row: String) {
+        onNodeWithText(row).performClick()
+        waitForIdle()
+        mainClock.advanceTimeBy(1_000)
     }
 
     @Test
