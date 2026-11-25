@@ -85,13 +85,13 @@ data class WatchlistRow(
 )
 
 /**
- * The whole market as the hero shows it: its total in dollars ([total], null when it is not read), its 24 h change, and the [freshness] line, such as
- * "Live · updated 8 s ago". [ticks] are the points of the chart under the total, oldest first, and fewer than two draw no chart.
+ * Bitcoin's market as the hero shows it: its market cap in dollars ([total], null when it is not read), its 24 h change, and the [freshness] line, such as
+ * "Live · updated 8 s ago". [ticks] are the points of the chart under the figure, oldest first, and fewer than two draw no chart.
  */
 data class MarketHero(val total: String?, val change24hPct: Double?, val freshness: String?, val ticks: List<Double> = emptyList())
 
 /**
- * The Home tab's body: the hero with the total market cap, Send and Receive under it, and the wallet's watchlist with its sort control. [rows] are already
+ * The Home tab's body: the hero with Bitcoin's market cap, Send and Receive under it, and the wallet's watchlist with its sort control. [rows] are already
  * in the order the list shows them. A test network shows no prices, because test coins have no value. [onSend] and [onReceive] open the wallet's Send and
  * Receive, and [onSort] opens the sort sheet. The header parts keep the page gutter; the rows are full-bleed, as every list row is.
  */
@@ -111,7 +111,7 @@ fun HomeScreen(
         modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        ClearAirEyebrow(text = "Total Market Cap", top = 0.dp, bottom = ClearAirSpacing.xxs)
+        ClearAirEyebrow(text = "Bitcoin Market Cap", top = 0.dp, bottom = ClearAirSpacing.xxs)
         hero.total?.let { ClearAirAmount(text = it, style = ClearAirType.hero, dimUnit = true) }
             ?: Text(text = "—", style = ClearAirType.hero, color = palette.ink)
         hero.change24hPct?.let { change ->

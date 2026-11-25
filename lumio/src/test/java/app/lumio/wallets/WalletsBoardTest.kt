@@ -97,7 +97,7 @@ class WalletsBoardTest {
         val vault = LumioVault(session, database)
         PairedWallets.save(session, pairing(), nowMs = 100L)
         val wallet = PairedWallets.list(session).single()
-        val kept = MarketQuote(totalUsd = 2.6e12, change24hPct = 2.14, asOfMs = 1_000L)
+        val kept = MarketQuote(capUsd = 2.6e12, change24hPct = 2.14, asOfMs = 1_000L)
         runBlocking { vault.cache.put(CachePolicy.LastKnown, MARKET_KEY, jsonCodec<MarketQuote>().encode(kept)) }
 
         // No source is asked: the market and the watchlist come from the vault, so Home shows them on its first frame.
