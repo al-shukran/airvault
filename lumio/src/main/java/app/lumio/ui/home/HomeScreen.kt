@@ -110,7 +110,8 @@ fun HomeScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         ClearAirEyebrow(text = "Total Market Cap", top = 0.dp, bottom = ClearAirSpacing.xxs)
-        ClearAirAmount(text = hero.total ?: "—", style = ClearAirType.hero, dimUnit = true)
+        hero.total?.let { ClearAirAmount(text = it, style = ClearAirType.hero, dimUnit = true) }
+            ?: Text(text = "—", style = ClearAirType.hero, color = palette.ink)
         hero.change24hPct?.let { change ->
             Text(
                 text = "${changeText(change)} Today",
