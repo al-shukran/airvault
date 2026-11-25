@@ -192,6 +192,8 @@ class FirstSyncLeftEarlyShowsBalancesTest {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (!condition()) {
             shadowOf(Looper.getMainLooper()).idle()
+            // The rule's effects, such as the one that starts the first sync, wait on its test dispatcher until the rule runs.
+            compose.waitForIdle()
             if (System.currentTimeMillis() >= deadline) return false
             Thread.sleep(5)
         }
