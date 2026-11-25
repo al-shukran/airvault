@@ -1,5 +1,6 @@
 package app.lumio.evm
 
+import app.lumio.DebugDemoData
 import app.lensly.core.vault.VaultSession
 import app.lumio.data.MonotonicClock
 import app.lumio.data.config.PreferRpcStore
@@ -85,8 +86,20 @@ class EvmReads(
     override suspend fun call(chain: EvmChain, to: String, data: String): String =
         run(chain, Priority.VISIBLE, ContractCall(net(chain), to, data))
 
-    /** What the pool knows about [providerId] now, or null when it does not hold that provider. */
-    suspend fun statusOf(providerId: String): ProviderHealth? = pool.statusOf(providerId)
+    /**
+     * What the pool knows about [providerId] now, or null when it does not hold that provider. The owner's own RPC is not in the pool: its status is
+     * the worst of its addresses' ([customStatusOf]), and null while no chain has an address.
+     */
+    suspend fun statusOf(providerId: String): ProviderHealth? {
+        if (providerId != CustomRpc.ID) return pool.statusOf(providerId)
+        val all = settings().activeRpcUrls().keys.mapNotNull { customStatusOf(it.toLong()) }
+        if (all.isEmpty()) return null
+        return ProviderHealth(
+            score = all.mapNotNull { it.score }.maxOrNull(),
+            coolingMs = all.maxOf { it.coolingMs },
+            circuitOpenMs = all.maxOf { it.circuitOpenMs },
+        )
+    }
 
     /** What the scheduler of the owner's address on [chainId] knows about it now. A chain with no reads yet is ready. */
     suspend fun customStatusOf(chainId: Long): ProviderHealth? = ownerOf(chainId).statusOf(CustomRpc.ID)
@@ -113,11 +126,11 @@ class EvmReads(
                 saved + (CustomRpc.ID to (saved[CustomRpc.ID] ?: ProviderConfig()).copy(chainUrls = owner))
             }
             return EvmReads(
-                pool = Scheduler(DataPlugins.evm() + RpcPlugins.pool(), configs, http, MonotonicClock, Random.Default, scope),
+                pool = Scheduler(DebugDemoData.providers(DataPlugins.evm() + RpcPlugins.pool()), configs, http, MonotonicClock, Random.Default, scope),
                 newOwner = { Scheduler(listOf(CustomRpc(allowLocalHttp)), configs, http, MonotonicClock, Random.Default, scope) },
                 settings = settings,
                 rpcOnly = Scheduler(
-                    DataPlugins.evm(preferRpc = true) + RpcPlugins.pool(), configs, http, MonotonicClock, Random.Default, scope,
+                    DebugDemoData.providers(DataPlugins.evm(preferRpc = true) + RpcPlugins.pool()), configs, http, MonotonicClock, Random.Default, scope,
                 ),
                 preferRpc = { PreferRpcStore.read(session) },
             )

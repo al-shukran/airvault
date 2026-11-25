@@ -39,7 +39,7 @@ fun TransactionsSettingsPage(
         val choices = TransactionSettings.LAST_CHANCE_CHOICES
         SettingsValueLine(title = "Last Chance before Sending", value = "${settings.lastChanceSeconds} s", top = 22.dp)
         ClearAirStopSlider(
-            // Only the ends are labelled. The line above carries the value, and the track has a stop for each second.
+            // Only the ends are labelled. The line above carries the value, and the track has a stop for each choice.
             labels = choices.map { if (it == choices.first() || it == choices.last()) "$it s" else "" },
             selected = choices.indexOf(settings.lastChanceSeconds).coerceAtLeast(0),
             onSelect = { index -> onLastChance(choices[index]) },

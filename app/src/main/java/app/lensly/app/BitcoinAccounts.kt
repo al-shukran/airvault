@@ -54,6 +54,16 @@ data class BitcoinAccountRecord(
 }
 
 /**
+ * What a wallet's `bitcoin` record holds: its [accounts], and the [kept] profiles of accounts that were uninstalled, by account key. An
+ * account that returns takes its kept profile back, so uninstalling the Bitcoin app does not lose a name, label or group. Only a profile that
+ * is not the default is kept. Every field is public.
+ */
+data class BitcoinRecord(
+    val accounts: List<BitcoinAccountRecord> = emptyList(),
+    val kept: Map<Triple<ScriptType, BtcNetwork, Int>, AccountProfile> = emptyMap(),
+)
+
+/**
  * The records of the Bitcoin accounts of [scriptType] on [network] at [indices], derived from [seed]. Each one carries its first
  * receive address. [onProgress] receives the number of accounts derived so far, so a long run can show how far it has got.
  */

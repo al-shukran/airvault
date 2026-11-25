@@ -1,0 +1,1 @@
+The Home hero now shows the market capitalisation of Bitcoin, labelled "Bitcoin Market Cap", beside the Bitcoin chart it already drew; before, it showed the total of the whole crypto market under that chart.

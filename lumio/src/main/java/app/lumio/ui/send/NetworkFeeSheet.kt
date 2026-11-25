@@ -1,5 +1,7 @@
 package app.lumio.ui.send
 
+import app.lumio.DebugDemoData
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -54,7 +56,7 @@ fun SendFeeSheet(
 ) {
     val palette = LocalClearAirPalette.current
     var fields by remember(visible, current) { mutableStateOf(EvmAdvanced.fieldsOf(current)) }
-    var advanced by remember(visible, current) { mutableStateOf(false) }
+    var advanced by remember(visible, current) { mutableStateOf(DebugDemoData.flag("fee:advanced")) }
     val check = EvmAdvanced.check(suggested, fields)
     val valid = check as? EvmAdvancedCheck.Valid
     val errors = (check as? EvmAdvancedCheck.Invalid)?.errors.orEmpty()
