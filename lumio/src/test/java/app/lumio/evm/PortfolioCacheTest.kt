@@ -35,14 +35,13 @@ class PortfolioCacheTest {
         server.close()
     }
 
-    /** Answers the reads from a fake endpoint: one ETH on each address in one Multicall3 call, and three transactions on chain 1. */
+    /** Answers the reads from a fake endpoint: one ETH on each address in one Multicall3 call. */
     private fun answerWithOneEther() {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val body = request.body?.utf8().orEmpty()
                 val result = when {
                     body.contains("eth_call") -> Reply.aggregate(listOf(true to Reply.uint(1_000_000_000_000_000_000L), true to Reply.uint(1_000_000_000_000_000_000L)))
-                    body.contains("eth_getTransactionCount") -> "0x3"
                     else -> return MockResponse.Builder().code(400).build()
                 }
                 return MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":"$result"}""").build()
@@ -74,7 +73,7 @@ class PortfolioCacheTest {
         assertEquals(emptyList<ChainFailure>(), online["w1"])
         val stored = BalanceCache.read(session)
         assertEquals(2, stored.size)
-        assertTrue(stored.all { it.wei == "1000000000000000000" && it.nonce == 3L && it.atMs == 1_000L })
+        assertTrue(stored.all { it.wei == "1000000000000000000" && it.atMs == 1_000L })
 
         server.close()
         val offline = runBlocking {
