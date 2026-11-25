@@ -1,0 +1,1 @@
+The send review now warns in amber when the recipient is not saved but shares its first and last 4 characters with a saved entry, names an EVM entry as saved for all EVM networks, and never shows a name in place of the full address. Names are shown as plain text.
