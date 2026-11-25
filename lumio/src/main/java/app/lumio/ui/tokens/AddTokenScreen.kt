@@ -11,20 +11,25 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.tokens.Token
+import app.lumio.ui.kit.AddressGroups
 import app.lumio.ui.kit.ClearAirField
 import app.lumio.ui.kit.ClearAirListRow
 import app.lumio.ui.kit.ClearAirNote
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
+import app.lumio.ui.kit.ClearAirStatusMark
 import app.lumio.ui.kit.ClearAirTextAction
+import app.lumio.ui.kit.ClearAirTone
 import app.lumio.ui.settings.SettingsFrame
 import app.lumio.ui.settings.SettingsGroup
 
 /**
- * Add Token (J10): a token of one chain, found by its contract address. The address is looked up when the owner leaves the field or presses
- * Done, and the token it names shows with its symbol, name and decimals above the Add Token button. A note sits above the button, because a token's
- * name proves nothing. Below, the chain's bundled tokens and the owner's own, and Remove on the owner's. The screen keeps no state of its own:
- * [address], [found] and [problem] come from the caller, and each action goes back to it. [busy] holds the controls while a read is running.
+ * Add Token (J10): a token of one chain, found by its contract address. The address is looked up once it is valid: a moment after it is typed or
+ * pasted, or when the owner leaves the field or presses Done. A token it finds shows a line that says so, then its name, symbol and decimals, and the owner's [holding] of it, above the Add Token
+ * button. A note sits above the button, because a token's name proves nothing. Below, the chain's bundled tokens and the owner's own, and Remove on
+ * the owner's. [onChangeNetwork] opens the choice of network. The screen keeps no state of its own:
+ * [address], [found], [holding] and [problem] come from the caller, and each action goes back to it. [busy] holds the controls while a token is saved.
+ * While a lookup runs, [checking] shows a line that says so, and holds only Add: Paste, Change and Cancel still change the address or the choice.
  */
 @Composable
 fun AddTokenScreen(
@@ -33,49 +38,76 @@ fun AddTokenScreen(
     custom: List<Token>,
     address: String,
     busy: Boolean,
+    checking: Boolean,
     found: Token?,
+    holding: TokenHolding?,
     problem: String?,
     offline: String?,
     onAddress: (String) -> Unit,
     onLookUp: () -> Unit,
     onAdd: (Token) -> Unit,
     onCancel: () -> Unit,
+    onChangeNetwork: () -> Unit,
     onRemove: (Token) -> Unit,
     onBack: () -> Unit,
     onLock: () -> Unit,
 ) {
     val clipboard = LocalClipboardManager.current
+    // A pasted address may arrive grouped, as the app writes it, so its spaces go before the lookup reads it.
+    val addressChanged: (String) -> Unit = { onAddress(it.filterNot(Char::isWhitespace)) }
     SettingsFrame(title = "Add Token", offline = offline, onBack = onBack, onLock = onLock, backLabel = "Networks") {
-        ClearAirRow(title = chainName, description = "Network for this token", modifier = Modifier.padding(top = ClearAirSpacing.md))
+        ClearAirRow(
+            title = chainName,
+            description = "Network for this token",
+            modifier = Modifier.padding(top = ClearAirSpacing.md),
+            trailing = { ClearAirTextAction(text = "Change", onClick = onChangeNetwork, enabled = !busy) },
+        )
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md)) {
             ClearAirField(
                 label = "Token Contract Address",
                 value = address,
-                onValueChange = onAddress,
+                onValueChange = addressChanged,
                 placeholder = "0x…",
                 monospace = true,
+                transformation = AddressGroups,
                 error = problem,
                 onCommit = { if (address.isNotBlank() && !busy) onLookUp() },
                 inputTag = "token-address",
                 trailing = {
                     ClearAirTextAction(
                         text = "Paste",
-                        onClick = { clipboard.getText()?.text?.let(onAddress) },
+                        onClick = { clipboard.getText()?.text?.let(addressChanged) },
                         enabled = !busy,
                         modifier = Modifier.testTag("token-paste"),
                     )
                 },
             )
+            if (checking) {
+                ClearAirStatusMark(
+                    glyph = "…",
+                    text = "Checking…",
+                    tone = ClearAirTone.Pending,
+                    modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.xs).testTag("token-checking"),
+                )
+            } else {
+                found?.let {
+                    ClearAirStatusMark(
+                        glyph = "✓",
+                        text = "Found on $chainName",
+                        tone = ClearAirTone.Settled,
+                        modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.xs).testTag("token-found"),
+                    )
+                }
+            }
         }
         found?.let { token ->
-            SettingsGroup(title = "Found on $chainName") {
-                ClearAirRow(title = "Symbol", description = token.symbol, modifier = Modifier.testTag("token-found"))
-                ClearAirRow(title = "Name", description = token.name)
-                ClearAirRow(title = "Decimals", description = token.decimals.toString())
-            }
+            ClearAirRow(title = "Name", description = token.name)
+            ClearAirRow(title = "Symbol", description = token.symbol)
+            ClearAirRow(title = "Decimals", description = token.decimals.toString())
+            holding?.let { ClearAirRow(title = it.label, description = it.amount) }
             ClearAirNote(text = "Anyone can create a token with any name. Add only tokens you trust.", modifier = Modifier.padding(top = ClearAirSpacing.md))
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md)) {
-                ClearAirPrimaryButton(text = "Add Token", onClick = { onAdd(token) }, enabled = !busy, modifier = Modifier.testTag("token-add"))
+                ClearAirPrimaryButton(text = "Add Token", onClick = { onAdd(token) }, enabled = !busy && !checking, modifier = Modifier.testTag("token-add"))
                 ClearAirTextAction(text = "Cancel", onClick = onCancel, enabled = !busy)
             }
         }
@@ -96,6 +128,9 @@ fun AddTokenScreen(
         }
     }
 }
+
+/** The owner's balance of a found token: the [label] names the account that holds it, and the [amount] is the balance as words. */
+data class TokenHolding(val label: String, val amount: String)
 
 /** A token's name and decimals, as its list row says them. */
 private fun tokenWords(token: Token): String = "${token.name} · ${token.decimals} decimals"

@@ -48,13 +48,16 @@ class AddTokenScreenTest {
     private var added: Token? = null
     private var removed: Token? = null
     private var cancelled = 0
+    private var changed = 0
 
     private fun show(
         defaults: List<Token> = listOf(usdc),
         custom: List<Token> = listOf(dai),
         found: Token? = null,
+        holding: TokenHolding? = null,
         problem: String? = null,
         busy: Boolean = false,
+        checking: Boolean = false,
     ) {
         compose.setContent {
             LumenTheme {
@@ -65,13 +68,16 @@ class AddTokenScreenTest {
                     custom = custom,
                     address = address,
                     busy = busy,
+                    checking = checking,
                     found = found,
+                    holding = holding,
                     problem = problem,
                     offline = null,
                     onAddress = { address = it },
                     onLookUp = { looked++ },
                     onAdd = { added = it },
                     onCancel = { cancelled++ },
+                    onChangeNetwork = { changed++ },
                     onRemove = { removed = it },
                     onBack = {},
                     onLock = {},
@@ -114,7 +120,7 @@ class AddTokenScreenTest {
     fun aFoundTokenShowsItsDetailsAndAddOrCancelReportBack() {
         show(found = pepe)
 
-        compose.onNodeWithTag("token-found").assertExists()
+        compose.onNodeWithTag("token-found").assertTextContains("Found on Ethereum", substring = true)
         compose.onNodeWithText("Pepe").assertExists()
         compose.onNodeWithTag("token-add").performClick()
         compose.onNodeWithText("Cancel", ignoreCase = true).performClick()
@@ -124,28 +130,65 @@ class AddTokenScreenTest {
     }
 
     @Test
-    fun aRefusalIsShownInItsOwnWords() {
-        show(problem = "No contract is at this address on Ethereum.")
+    fun theOwnersHoldingOfTheFoundTokenShowsItsLabelAndAmount() {
+        show(found = pepe, holding = TokenHolding("PulsarNova Holds", "1,200 PEPE"))
 
-        compose.onNodeWithText("No contract is at this address on Ethereum.", substring = true).assertExists()
+        compose.onNodeWithText("PulsarNova Holds").assertExists()
+        compose.onNodeWithText("1,200 PEPE").assertExists()
     }
 
     @Test
-    fun whileALookupRunsTheFieldAndButtonsAreHeld() {
-        show(busy = true)
+    fun changeOpensTheNetworkChoice() {
+        show()
+
+        compose.onNodeWithText("Change").performClick()
+
+        assertEquals(1, changed)
+    }
+
+    @Test
+    fun aRefusalIsShownInItsOwnWords() {
+        show(problem = "No token found at this address on Ethereum.")
+
+        compose.onNodeWithText("No token found at this address on Ethereum.", substring = true).assertExists()
+    }
+
+    @Test
+    fun whileALookupRunsALineSaysSoAndPasteAndChangeStayOpen() {
+        show(checking = true)
+
+        compose.onNodeWithTag("token-checking").assertTextContains("Checking…", substring = true)
+        compose.onNodeWithTag("token-paste").assertIsEnabled()
+        compose.onNodeWithText("Change").assertIsEnabled()
+    }
+
+    @Test
+    fun whileALookupRunsOnlyAddIsHeld() {
+        show(found = pepe, checking = true)
+
+        compose.onNodeWithTag("token-add").assertIsNotEnabled()
+        compose.onNodeWithText("Cancel", ignoreCase = true).assertIsEnabled()
+    }
+
+    @Test
+    fun whileATokenIsSavedThePasteAndButtonsAreHeld() {
+        show(found = pepe, busy = true)
 
         compose.onNodeWithTag("token-paste").assertIsNotEnabled()
+        compose.onNodeWithTag("token-add").assertIsNotEnabled()
     }
 
     @Test
     fun pasteFillsTheAddressFromTheClipboard() {
         val clipboard = RuntimeEnvironment.getApplication().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("address", "0x6b175474e89094c44da98b954eedeac495271d0f"))
+        clipboard.setPrimaryClip(ClipData.newPlainText("address", "0x6b17 5474 e890 94c4 4da9 8b95 4eed eac4 9527 1d0f"))
         show()
 
         compose.onNodeWithTag("token-paste").performClick()
 
-        compose.onNodeWithTag("token-address").assertTextContains("0x6b175474e89094c44da98b954eedeac495271d0f")
+        // The pasted groups are read without their spaces, and the field shows them in groups of four.
+        assertEquals("0x6b175474e89094c44da98b954eedeac495271d0f", address)
+        compose.onNodeWithTag("token-address").assertTextContains("0x6b17 5474 e890 94c4 4da9 8b95 4eed eac4 9527 1d0f")
         assertNull(added)
     }
 }
