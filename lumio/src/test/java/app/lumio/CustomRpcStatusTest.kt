@@ -16,6 +16,7 @@ import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmReads
 import app.lumio.evm.EvmSettings
 import app.lumio.ui.settings.ProviderStatus
+import app.lumio.ui.settings.providerStatus
 import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -60,6 +61,9 @@ class CustomRpcStatusTest {
             settings = { settings },
         )
     }
+
+    /** The status of the Custom RPC row of Data Providers, which reads the scheduler by provider id. */
+    private suspend fun listed(reads: EvmReads) = providerStatus(emptySet(), ProviderConfig(), reads.statusOf(CustomRpc.ID))
 
     private suspend fun status(reads: EvmReads, chain: EvmChain) = customRpcStatus(reads, emptyMap<String, ProviderConfig>(), chain.chainId)
 
@@ -108,6 +112,29 @@ class CustomRpcStatusTest {
         assertEquals(ProviderStatus.Ready, status(reads, sepolia))
         reads.balance(sepolia, address)
         assertIs<ProviderStatus.Healthy>(status(reads, sepolia))
+    }
+
+    @Test
+    fun theProviderListShowsTheWorstStatusOfTheAddresses() = runTest {
+        val providers = ArrayList<FakeProvider>()
+        val reads = reads(providers)
+        status(reads, ethereum)
+        status(reads, sepolia)
+        assertEquals(ProviderStatus.Ready, listed(reads))
+
+        reads.balance(ethereum, address)
+        assertIs<ProviderStatus.Healthy>(listed(reads))
+
+        providers[1].outcomes.addAll(List(6) { ProviderError.Transient() })
+        repeat(2) { runCatching { reads.balance(sepolia, address) } }
+        assertIs<ProviderStatus.CircuitOpen>(listed(reads))
+    }
+
+    @Test
+    fun theProviderListHasNoStatusForCustomRpcWithoutAnAddress() = runTest {
+        settings = EvmSettings()
+
+        assertEquals(ProviderStatus.NotActive, listed(reads(ArrayList())))
     }
 
     @Test

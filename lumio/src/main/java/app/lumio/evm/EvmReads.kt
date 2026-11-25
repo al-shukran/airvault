@@ -85,8 +85,20 @@ class EvmReads(
     override suspend fun call(chain: EvmChain, to: String, data: String): String =
         run(chain, Priority.VISIBLE, ContractCall(net(chain), to, data))
 
-    /** What the pool knows about [providerId] now, or null when it does not hold that provider. */
-    suspend fun statusOf(providerId: String): ProviderHealth? = pool.statusOf(providerId)
+    /**
+     * What the pool knows about [providerId] now, or null when it does not hold that provider. The owner's own RPC is not in the pool: its status is
+     * the worst of its addresses' ([customStatusOf]), and null while no chain has an address.
+     */
+    suspend fun statusOf(providerId: String): ProviderHealth? {
+        if (providerId != CustomRpc.ID) return pool.statusOf(providerId)
+        val all = settings().activeRpcUrls().keys.mapNotNull { customStatusOf(it.toLong()) }
+        if (all.isEmpty()) return null
+        return ProviderHealth(
+            score = all.mapNotNull { it.score }.maxOrNull(),
+            coolingMs = all.maxOf { it.coolingMs },
+            circuitOpenMs = all.maxOf { it.circuitOpenMs },
+        )
+    }
 
     /** What the scheduler of the owner's address on [chainId] knows about it now. A chain with no reads yet is ready. */
     suspend fun customStatusOf(chainId: Long): ProviderHealth? = ownerOf(chainId).statusOf(CustomRpc.ID)
