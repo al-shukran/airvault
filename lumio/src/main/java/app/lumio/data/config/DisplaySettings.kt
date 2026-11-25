@@ -1,9 +1,15 @@
 package app.lumio.data.config
 
 import app.lensly.core.vault.VaultSession
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonTransformingSerializer
 
 /**
  * What the wallet screens show, as the owner set it. It is a vault record, so it is encrypted under the vault key. A missing field reads as its default.
@@ -14,7 +20,8 @@ import kotlinx.serialization.json.Json
  */
 @Serializable
 data class DisplaySettings(
-    val showTotal: Boolean = true,
+    // Always stored: Lumio 1.0.0 left it out for false, so a stored record without it means false (see [DisplaySettingsStore.read]).
+    @OptIn(ExperimentalSerializationApi::class) @EncodeDefault val showTotal: Boolean = true,
     val showAssets: Boolean = true,
     val currency: FiatCurrency = FiatCurrency.USD,
     val theme: ThemeMode = ThemeMode.SYSTEM,
@@ -51,14 +58,28 @@ object DisplaySettingsStore {
 
     private val json = Json
 
-    /** The settings stored in [session], or the defaults when none are stored or the record does not parse. */
+    /**
+     * Reads a record that may be a Lumio 1.0.0 one. That version kept the total hidden by default and left a default out of the record, so a record
+     * without [DisplaySettings.showTotal] means the total is hidden.
+     */
+    private object Stored : JsonTransformingSerializer<DisplaySettings>(DisplaySettings.serializer()) {
+        override fun transformDeserialize(element: JsonElement): JsonElement =
+            if (element is JsonObject && "showTotal" !in element) JsonObject(element + ("showTotal" to JsonPrimitive(false))) else element
+    }
+
+    /**
+     * The settings stored in [session], or the defaults when none are stored or the record does not parse. Lumio 1.0.0 had a switch for the total and
+     * one for the balances, and now one switch sets both, so a record with either hidden reads with both hidden.
+     */
     fun read(session: VaultSession): DisplaySettings {
         val bytes = session.getVaultRecord(RECORD) ?: return DisplaySettings()
-        val stored = try {
-            json.decodeFromString(DisplaySettings.serializer(), bytes.decodeToString())
+        val decoded = try {
+            json.decodeFromString(Stored, bytes.decodeToString())
         } catch (e: SerializationException) {
             return DisplaySettings()
         }
+        val shown = decoded.showTotal && decoded.showAssets
+        val stored = decoded.copy(showTotal = shown, showAssets = shown)
         // A threshold off the slider's stops reads as the default, as an out-of-range Last Chance pause does.
         return stored.takeIf { it.smallBalanceUsd in DisplaySettings.SMALL_BALANCE_STOPS }
             ?: stored.copy(smallBalanceUsd = DisplaySettings.DEFAULT_SMALL_BALANCE_USD)

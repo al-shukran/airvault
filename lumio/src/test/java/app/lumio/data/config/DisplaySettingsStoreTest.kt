@@ -36,11 +36,11 @@ class DisplaySettingsStoreTest {
     @Test
     fun aSavedChangeIsReadBackAfterTheVaultReopens() {
         val session = open()
-        DisplaySettingsStore.write(session, DisplaySettings(showTotal = true, showAssets = false))
+        DisplaySettingsStore.write(session, DisplaySettings(showTotal = false, showAssets = false))
         session.close()
 
         val reopened = open()
-        assertEquals(DisplaySettings(showTotal = true, showAssets = false), DisplaySettingsStore.read(reopened))
+        assertEquals(DisplaySettings(showTotal = false, showAssets = false), DisplaySettingsStore.read(reopened))
         reopened.close()
     }
 
@@ -63,6 +63,59 @@ class DisplaySettingsStoreTest {
 
         val reopened = open()
         assertEquals(DisplaySettings(showTotal = true), DisplaySettingsStore.read(reopened))
+        reopened.close()
+    }
+
+    // The records below are what Lumio 1.0.0 stored: its Json left out a field equal to its default (showTotal false, showAssets true).
+    private fun stored(record: String): DisplaySettings {
+        val session = open()
+        session.putVaultRecord(DisplaySettingsStore.RECORD, record.encodeToByteArray())
+        return DisplaySettingsStore.read(session).also { session.close() }
+    }
+
+    @Test
+    fun aVersion1RecordWithOnlyTheBalancesHiddenKeepsTheTotalHidden() {
+        val settings = stored("""{"showAssets":false}""")
+
+        assertFalse(settings.showTotal)
+        assertFalse(settings.showAssets)
+        assertTrue(settings.balancesHidden)
+    }
+
+    @Test
+    fun aVersion1RecordWithTheTotalHiddenAndBalancesShownReadsAsEverythingHidden() {
+        val settings = stored("{}")
+
+        assertFalse(settings.showTotal)
+        assertFalse(settings.showAssets)
+        assertTrue(settings.balancesHidden)
+    }
+
+    @Test
+    fun aVersion1RecordWithTheTotalShownAndBalancesShownReadsAsEverythingShown() {
+        val settings = stored("""{"showTotal":true}""")
+
+        assertTrue(settings.showTotal)
+        assertTrue(settings.showAssets)
+        assertFalse(settings.balancesHidden)
+    }
+
+    @Test
+    fun aVersion1RecordWithTheTotalShownAndBalancesHiddenReadsAsEverythingHidden() {
+        val settings = stored("""{"showTotal":true,"showAssets":false}""")
+
+        assertFalse(settings.showTotal)
+        assertFalse(settings.showAssets)
+    }
+
+    @Test
+    fun aSavedRecordWithTheTotalShownIsNotReadAsAVersion1Record() {
+        val session = open()
+        DisplaySettingsStore.write(session, DisplaySettings(currency = FiatCurrency.CHF))
+        session.close()
+
+        val reopened = open()
+        assertEquals(DisplaySettings(currency = FiatCurrency.CHF), DisplaySettingsStore.read(reopened))
         reopened.close()
     }
 }

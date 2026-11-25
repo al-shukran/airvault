@@ -36,7 +36,7 @@ class DisplaySettingsFlowTest {
         val vault = LumioVault(session, database)
         assertEquals(DisplaySettings(), vault.display.value)
 
-        vault.updateDisplay { it.copy(showTotal = true, showAssets = false) }
+        vault.updateDisplay { it.copy(showTotal = false, showAssets = false) }
 
         assertEquals(vault.display.value, DisplaySettingsStore.read(session))
         database.close()
@@ -45,7 +45,7 @@ class DisplaySettingsFlowTest {
         val reopenedSession = open()
         val reopenedDatabase = database()
         val reopened = LumioVault(reopenedSession, reopenedDatabase)
-        assertTrue(reopened.display.value.showTotal)
+        assertEquals(false, reopened.display.value.showTotal)
         assertEquals(false, reopened.display.value.showAssets)
         reopenedDatabase.close()
         reopenedSession.close()

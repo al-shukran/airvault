@@ -61,6 +61,35 @@ class EvmSettingsTest {
     }
 
     @Test
+    fun aVersion1RecordWithAnRpcAddressAndACustomNetworkKeepsEveryField() {
+        // What Lumio 1.0.0 stored: one RPC address per chain as text, and a custom chain without an explorer.
+        session.putVaultRecord(
+            EvmSettings.RECORD,
+            """{"addressCount":8,"enabled":[1,999],"rpc":{"1":"https://rpc.example","999":"https://rpc.test"},"custom":[{"chainId":999,"name":"Test","symbol":"TST","testnet":true}]}""".encodeToByteArray(),
+        )
+
+        assertEquals(
+            EvmSettings(
+                addressCount = 8,
+                enabled = setOf(1L, 999L),
+                rpc = mapOf(
+                    1L to ChainRpcs(custom = listOf("https://rpc.example"), active = "https://rpc.example"),
+                    999L to ChainRpcs(custom = listOf("https://rpc.test"), active = "https://rpc.test"),
+                ),
+                custom = listOf(CustomChain(999L, "Test", "TST", testnet = true)),
+            ),
+            EvmSettingsStore.read(session),
+        )
+    }
+
+    @Test
+    fun aVersion1RecordWithoutAnRpcAddressStillReads() {
+        session.putVaultRecord(EvmSettings.RECORD, """{"addressCount":3}""".encodeToByteArray())
+
+        assertEquals(EvmSettings(addressCount = 3), EvmSettingsStore.read(session))
+    }
+
+    @Test
     fun aDamagedRecordReadsAsTheDefaults() {
         session.putVaultRecord(EvmSettings.RECORD, "not json".encodeToByteArray())
 
