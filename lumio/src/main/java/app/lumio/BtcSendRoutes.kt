@@ -164,7 +164,7 @@ internal fun BtcSendRoute(
     var recipient by rememberSaveable { mutableStateOf("") }
     var amount by rememberSaveable { mutableStateOf("") }
     var feeRate by rememberSaveable { mutableStateOf("") }
-    var feeSheet by remember { mutableStateOf(false) }
+    var feeSheet by remember { mutableStateOf(DebugDemoData.flag("fee:bitcoin")) }
     var changeRecipient by remember { mutableStateOf(false) }
     // Whether the owner has changed the fee field. Once they have, no suggestion replaces what they typed.
     var feeEdited by remember { mutableStateOf(false) }

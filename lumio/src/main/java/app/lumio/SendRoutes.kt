@@ -155,6 +155,8 @@ private const val NO_BROWSER = "No browser can open the explorer."
 private const val REQUEST_ID_BYTES = 16
 private const val PAUSE_BEFORE_PREPARE_MS = 350L
 private const val SETTLE_MS = 700L
+private const val REPLY_DEMO_READ = 6
+private const val REPLY_DEMO_PARTS = 9
 private const val BITCOIN_PREFIX_MAIN = "bc1"
 private const val BITCOIN_PREFIX_TEST = "tb1"
 
@@ -339,6 +341,43 @@ internal fun SendRoute(
             }
             is SignatureStep.Complete -> applySignature(scanning, result.ur)
             SignatureStep.Ignored -> Unit
+        }
+    }
+
+    // Debug demo mode: a frame opens the send at one of its steps with the form filled in, and the signature of Lensly stands in. Release builds have no stage.
+    val demoStage = remember { DebugDemoData.sendStage() }
+    LaunchedEffect(demoStage) {
+        if (demoStage == null) return@LaunchedEffect
+        if (demoStage == "recipient") return@LaunchedEffect
+        recipient = if (demoStage == "recipientError") "0x12" else ready.wallet.evmAccounts[1].address
+        if (demoStage == "recipientError") return@LaunchedEffect
+        amount = if (demoStage == "amountError") "9999" else "0.25"
+        step = SendStep.Amount
+    }
+    LaunchedEffect(edited, step, demoStage) {
+        val send = edited
+        val now = step
+        when {
+            demoStage == null -> Unit
+            send != null && now is SendStep.Amount -> when (demoStage) {
+                "changeRecipient" -> changeRecipient = true
+                "feeAdvanced" -> feeSheet = true
+                "amount", "amountError" -> Unit
+                else -> step = SendStep.Review(send)
+            }
+            now is SendStep.Review -> when (demoStage) {
+                "show", "scan", "declined", "mismatch" -> confirm(now.send)
+                "signed", "sent", "failed" -> step = SendStep.Signed(now.send, DebugDemoData.signedMachine(failed = demoStage == "failed"))
+            }
+            now is SendStep.Show -> if (demoStage != "show") startScan(now.send, now.requestId, now.parts)
+            now is SendStep.Scanning -> when (demoStage) {
+                "scan" -> {
+                    scanProgress = REPLY_DEMO_READ / REPLY_DEMO_PARTS.toFloat()
+                    scanStatus = replyProgress(REPLY_DEMO_READ, REPLY_DEMO_PARTS)
+                }
+                "declined" -> step = SendStep.Declined(now.send)
+                "mismatch" -> step = SendStep.Mismatch(now.send, now.requestId, now.parts)
+            }
         }
     }
 
@@ -575,7 +614,7 @@ internal fun SendRoute(
             onStop = { navController.popBackStack() },
             onDone = { navController.popBackStack() },
             onReview = { step = SendStep.Review(now.send) },
-            lastChanceSeconds = transactions.lastChanceSeconds,
+            lastChanceSeconds = DebugDemoData.lastChanceSeconds(transactions.lastChanceSeconds, demoStage),
             backLabel = backLabel,
             offline = offline,
             onLock = onLock,
