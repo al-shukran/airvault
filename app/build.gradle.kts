@@ -70,8 +70,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     buildFeatures {
@@ -160,7 +160,7 @@ dependencyCheck {
 
 // Robolectric reads FileDescriptor state through jdk.internal.access, which the JDK does not export to unnamed
 // modules. Export it to the unit-test JVM so Robolectric starts on the JDK 26 this project builds with locally.
-// The export is harmless on JDK 17, which CI uses.
+// The export is harmless on JDK 21, which CI uses.
 // The unit-test JVM runs the JUnit Platform, and Vintage runs every JUnit 4 test in this module (unit, Robolectric,
 // Compose, Roborazzi). The fuzz targets, which need Jupiter, live in :shared.
 val junitJupiter = "5.14.4"
