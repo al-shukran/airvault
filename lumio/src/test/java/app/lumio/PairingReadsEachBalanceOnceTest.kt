@@ -173,11 +173,15 @@ class PairingReadsEachBalanceOnceTest {
 
     private fun currentRoute(): String? = nav.currentBackStackEntry?.destination?.route
 
-    /** Runs the main looper until [condition] holds, as the board's own tests do: its reads resume on the main thread. */
+    /**
+     * Runs the main looper until [condition] holds, as the board's own tests do: its reads resume on the main thread. It also runs the
+     * compose rule's pending work, because the rule's effects (the one that starts the first sync) wait on its test dispatcher.
+     */
     private fun awaitUntil(timeoutMs: Long = 60_000, condition: () -> Boolean) {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (!condition()) {
             shadowOf(Looper.getMainLooper()).idle()
+            compose.waitForIdle()
             check(System.currentTimeMillis() < deadline) { "the condition did not hold in time" }
             Thread.sleep(5)
         }
