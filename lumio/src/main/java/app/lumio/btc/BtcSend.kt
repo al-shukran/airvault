@@ -293,7 +293,11 @@ object BtcSend {
         val reported = readStep(BtcReadStep.BROADCAST, retry = false) {
             scheduler.run(Broadcast(network.networkId(), Transaction.write(tx)), Priority.FOREGROUND)
         }
-        require(reported == expected) { "The server reported a different transaction id. Check the explorer before you send again." }
+        if (reported != expected) {
+            // The server accepted the broadcast, so the transaction may be on the network: the cause marks the outcome unknown.
+            val words = "The server reported a different transaction id. Check the explorer before you send again."
+            throw IllegalArgumentException(words, ProviderError.Unreadable(words))
+        }
         return reported
     }
 

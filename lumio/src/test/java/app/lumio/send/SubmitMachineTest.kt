@@ -1,8 +1,15 @@
 package app.lumio.send
 
+import app.lumio.data.provider.ProviderError
+import app.lumio.evm.RpcFailure
+import java.io.IOException
+import java.net.ConnectException // CI_ALLOW_NETWORK_REFERENCE: exception type only, used as a fixture; no network access
+import java.net.SocketTimeoutException // CI_ALLOW_NETWORK_REFERENCE: exception type only, used as a fixture; no network access
+import java.net.UnknownHostException // CI_ALLOW_NETWORK_REFERENCE: exception type only, used as a fixture; no network access
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -41,6 +48,42 @@ class SubmitMachineTest {
         machine.submit()
         val failed = assertIs<SubmitState.Failed>(machine.state.value)
         assertEquals("IllegalArgumentException: fee too low\nException", failed.detail)
+    }
+
+    @Test
+    fun aFailureAfterWhichTheNetworkMayHoldTheTransactionIsUnknown() = runTest {
+        val timeout = Harness(listOf { throw ProviderError.Transient(SocketTimeoutException("timeout")) }).build(byteArrayOf(1))
+        timeout.submit()
+        assertTrue(assertIs<SubmitState.Failed>(timeout.state.value).unknown)
+
+        val unreadable = Harness(listOf { throw ProviderError.Unreadable("The endpoint sent no result.") }).build(byteArrayOf(1))
+        unreadable.submit()
+        assertTrue(assertIs<SubmitState.Failed>(unreadable.state.value).unknown)
+
+        val wrapped = Harness(listOf { throw RpcFailure(RpcFailure.Reason.UNREACHABLE, "The endpoint did not answer.", ProviderError.Transient()) }).build(byteArrayOf(1))
+        wrapped.submit()
+        assertTrue(assertIs<SubmitState.Failed>(wrapped.state.value).unknown)
+    }
+
+    @Test
+    fun aFailureThatNeverLeftIsNotUnknown() = runTest {
+        val offline = Harness(listOf { throw ProviderError.Transient(UnknownHostException("rpc.example")) }).build(byteArrayOf(1))
+        offline.submit()
+        assertFalse(assertIs<SubmitState.Failed>(offline.state.value).unknown)
+
+        val hidden = ConnectException("Failed to connect").apply { addSuppressed(IOException("unexpected end of stream")) }
+        val resent = Harness(listOf { throw ProviderError.Transient(hidden) }).build(byteArrayOf(1))
+        resent.submit()
+        assertTrue(assertIs<SubmitState.Failed>(resent.state.value).unknown)
+    }
+
+    @Test
+    fun aRefusalIsNotUnknown() = runTest {
+        for (refusal in listOf<Exception>(ProviderError.Fatal("refused"), ProviderError.RateLimited(), Refused("insufficient fee"))) {
+            val machine = Harness(listOf { throw refusal }).build(byteArrayOf(1))
+            machine.submit()
+            assertFalse(assertIs<SubmitState.Failed>(machine.state.value).unknown)
+        }
     }
 
     @Test

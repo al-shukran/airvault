@@ -17,9 +17,10 @@ sealed interface SubmitState<out Id> {
 
     /**
      * The network refused the transaction, or could not be reached. [retryable] is false when these same bytes can never be accepted. [detail] is what
-     * the failure was, for the page's Technical Details: no key and no address.
+     * the failure was, for the page's Technical Details: no key and no address. [unknown] is true when the network may have taken the transaction
+     * before the failure: a timeout, a dropped connection, or an answer that could not be read.
      */
-    class Failed(val message: String, val retryable: Boolean, val detail: String) : SubmitState<Nothing>
+    class Failed(val message: String, val retryable: Boolean, val detail: String, val unknown: Boolean = false) : SubmitState<Nothing>
 
     /** The network accepted the transaction and reported its id, at [sentAtMs] (epoch milliseconds). */
     class Sent<Id>(val id: Id, val sentAtMs: Long) : SubmitState<Id>
@@ -57,9 +58,17 @@ class SubmitMachine<S, Id>(
             throw e
         } catch (e: Exception) {
             val failure = describe(e)
-            SubmitState.Failed(failure.message, failure.retryable, technicalDetail(e))
+            SubmitState.Failed(failure.message, failure.retryable, technicalDetail(e), outcomeUnknown(e))
         }
     }
+}
+
+/**
+ * True when [error], or a cause of it, is a failure after which the network may hold the transaction: a transient failure that may have left, or an
+ * unreadable answer. A transient failure that never left, such as no network at all, leaves the transaction with the owner.
+ */
+internal fun outcomeUnknown(error: Throwable): Boolean = generateSequence(error) { it.cause?.takeIf { cause -> cause !== it } }.take(MAX_CAUSES).any {
+    it is ProviderError.Transient && !it.neverSent || it is ProviderError.Unreadable
 }
 
 /**

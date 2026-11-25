@@ -331,7 +331,7 @@ class SolanaProviderTest {
         assertFailsWith<ProviderError.Fatal> { call(RecentBlockhash(devnet)) }
 
         server.enqueue(answer("\"0xdeadbeef\""))
-        assertFailsWith<ProviderError.Fatal> { call(Broadcast(devnet, byteArrayOf(1))) }
+        assertFailsWith<ProviderError.Unreadable> { call(Broadcast(devnet, byteArrayOf(1))) }
     }
 
     @Test

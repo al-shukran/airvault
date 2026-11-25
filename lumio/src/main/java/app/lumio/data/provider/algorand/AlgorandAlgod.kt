@@ -193,7 +193,7 @@ class AlgorandAlgod(
             .post(req.raw.toRequestBody(MSGPACK))
             .build()
         val txid = answerObject(send(http, request))["txId"].text()
-        if (!ALGORAND_TXID.matches(txid)) throw ProviderError.Fatal(SHAPE)
+        if (!ALGORAND_TXID.matches(txid)) throw ProviderError.Unreadable(SHAPE)
         return txid
     }
 

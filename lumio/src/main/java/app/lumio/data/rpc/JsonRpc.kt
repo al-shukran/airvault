@@ -122,7 +122,7 @@ object JsonRpc {
         } catch (e: IOException) {
             throw ProviderError.Transient(e)
         }
-        if (text.length > MAX_RESPONSE_BYTES) throw ProviderError.Fatal("The endpoint's answer is too large.")
+        if (text.length > MAX_RESPONSE_BYTES) throw ProviderError.Unreadable("The endpoint's answer is too large.")
         return resultOf(text, nullIsAnswer)
     }
 
@@ -135,7 +135,7 @@ object JsonRpc {
             Json.parseToJsonElement(text) as? JsonObject
         } catch (e: Exception) {
             null
-        } ?: throw ProviderError.Fatal("The endpoint sent something that is not JSON-RPC.")
+        } ?: throw ProviderError.Unreadable("The endpoint sent something that is not JSON-RPC.")
         val error = root["error"]
         if (error != null && error !is JsonNull) {
             val fields = error as? JsonObject
@@ -147,8 +147,8 @@ object JsonRpc {
             if (BLOCKHASH_UNKNOWN.containsMatchIn(message)) throw ProviderError.Fatal(BLOCKHASH_REFUSED_MESSAGE)
             throw ProviderError.Fatal("The endpoint returned a JSON-RPC error.")
         }
-        val result = root["result"] ?: throw ProviderError.Fatal("The endpoint sent no result.")
-        if (result is JsonNull && !nullIsAnswer) throw ProviderError.Fatal("The endpoint sent no result.")
+        val result = root["result"] ?: throw ProviderError.Unreadable("The endpoint sent no result.")
+        if (result is JsonNull && !nullIsAnswer) throw ProviderError.Unreadable("The endpoint sent no result.")
         return result
     }
 }

@@ -274,7 +274,7 @@ private fun JsonElement?.present(): JsonElement? = this?.takeUnless { it is Json
 /** The text of this value, when it fits [pattern]. Any other value is a malformed answer. */
 private fun JsonElement?.matching(pattern: Regex): String {
     val value = text()
-    if (!pattern.matches(value)) throw ProviderError.Fatal(NOT_A_SOLANA_VALUE)
+    if (!pattern.matches(value)) throw ProviderError.Unreadable(NOT_A_SOLANA_VALUE)
     return value
 }
 

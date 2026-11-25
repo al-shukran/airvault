@@ -122,7 +122,7 @@ internal object EvmCalls {
 
     private fun hash(element: JsonElement): String {
         val hash = stringOf(element).lowercase()
-        if (!HASH.matches(hash)) throw ProviderError.Fatal("The endpoint sent a value that is not a transaction hash.")
+        if (!HASH.matches(hash)) throw ProviderError.Unreadable("The endpoint sent a value that is not a transaction hash.")
         return hash
     }
 
@@ -130,7 +130,7 @@ internal object EvmCalls {
 
     private fun stringOf(element: JsonElement): String {
         val primitive = element as? JsonPrimitive
-        if (primitive == null || !primitive.isString) throw ProviderError.Fatal("The endpoint sent no result.")
+        if (primitive == null || !primitive.isString) throw ProviderError.Unreadable("The endpoint sent no result.")
         return primitive.content
     }
 

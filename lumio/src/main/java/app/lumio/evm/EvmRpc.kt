@@ -6,17 +6,17 @@ import app.lumio.data.rpc.JsonRpc
 import okhttp3.OkHttpClient
 
 /** A read that Lumio could not complete. The message is for the owner, and it holds no key and no address. */
-class RpcFailure(val reason: Reason, message: String) : Exception(message) {
+class RpcFailure(val reason: Reason, message: String, cause: Throwable? = null) : Exception(message, cause) {
     enum class Reason { UNREACHABLE, REFUSED, MALFORMED, ERROR, WRONG_CHAIN }
 }
 
 /** The owner's words for a failed provider call. */
 internal fun ProviderError.toRpcFailure(): RpcFailure = when (this) {
-    is ProviderError.RateLimited -> RpcFailure(RpcFailure.Reason.UNREACHABLE, "The endpoint is rate limited. Try again in a moment.")
-    is ProviderError.Transient -> RpcFailure(RpcFailure.Reason.UNREACHABLE, "The endpoint did not answer.")
-    is ProviderError.Unsupported -> RpcFailure(RpcFailure.Reason.REFUSED, "No RPC address serves this chain. Set one in EVM settings.")
-    is ProviderError.NotFound -> RpcFailure(RpcFailure.Reason.ERROR, "The endpoint has no answer for this request.")
-    is ProviderError.Fatal -> RpcFailure(RpcFailure.Reason.ERROR, message ?: "The endpoint failed.")
+    is ProviderError.RateLimited -> RpcFailure(RpcFailure.Reason.UNREACHABLE, "The endpoint is rate limited. Try again in a moment.", this)
+    is ProviderError.Transient -> RpcFailure(RpcFailure.Reason.UNREACHABLE, "The endpoint did not answer.", this)
+    is ProviderError.Unsupported -> RpcFailure(RpcFailure.Reason.REFUSED, "No RPC address serves this chain. Set one in EVM settings.", this)
+    is ProviderError.NotFound -> RpcFailure(RpcFailure.Reason.ERROR, "The endpoint has no answer for this request.", this)
+    is ProviderError.Fatal -> RpcFailure(RpcFailure.Reason.ERROR, message ?: "The endpoint failed.", this)
 }
 
 /**

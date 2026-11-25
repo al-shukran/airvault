@@ -30,7 +30,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
  * transport and the status rules are [fetchText] and [failureFor], shared with every provider:
  * - HTTP 429 is [ProviderError.RateLimited], with the Retry-After in milliseconds (seconds, or an HTTP date), or null when none was sent;
  * - HTTP 404 is [ProviderError.NotFound] for a block or a transaction, which the server answers that way when it does not know it;
- * - other 4xx answers, and an answer that is not in the Esplora format, are [ProviderError.Fatal];
+ * - other 4xx answers are [ProviderError.Fatal], and an answer that is not in the Esplora format is [ProviderError.Unreadable];
  * - 5xx and 408 answers, and an answer over 4 MiB, are [ProviderError.Transient]. A request that gets no answer fails with an [IOException],
  *   which the scheduler retries.
  *
@@ -62,7 +62,7 @@ object EsploraProtocol {
                 else -> throw ProviderError.Unsupported()
             }
         } catch (e: EsploraException) {
-            throw ProviderError.Fatal(e.message ?: "The server's answer is not in the Esplora format.")
+            throw ProviderError.Unreadable(e.message ?: "The server's answer is not in the Esplora format.")
         }
         @Suppress("UNCHECKED_CAST")
         return answer as T

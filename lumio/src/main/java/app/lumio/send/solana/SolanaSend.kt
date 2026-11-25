@@ -303,7 +303,11 @@ object SolanaSend {
      */
     suspend fun broadcast(scheduler: Scheduler, network: NetworkId, signed: SolanaSignedSend): String {
         val reported = scheduler.run(Broadcast(network, signed.raw), Priority.FOREGROUND)
-        require(reported == signed.signature) { "The server reported a different signature. Check the explorer before you send again." }
+        if (reported != signed.signature) {
+            // The network accepted the broadcast, so the transaction may be on it: the cause marks the outcome unknown.
+            val words = "The server reported a different signature. Check the explorer before you send again."
+            throw IllegalArgumentException(words, ProviderError.Unreadable(words))
+        }
         return reported
     }
 

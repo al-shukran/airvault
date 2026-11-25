@@ -9,6 +9,7 @@ import app.lensly.core.evm.TxSigner
 import app.lensly.core.ur.EthSignature
 import app.lensly.core.wallet.toHex
 import app.lumio.DebugEvmFunds
+import app.lumio.data.provider.ProviderError
 import app.lumio.data.sched.Priority
 import app.lumio.tokens.Erc20
 import app.lumio.tokens.Token
@@ -99,6 +100,8 @@ private fun callOf(to: String, valueWei: BigInteger, token: Token?): Call =
 
 /** A send from one address of a paired wallet, as the owner builds it, and the sign request and answer that go with it. */
 object EvmSend {
+    private const val MISMATCH = "The endpoint reported a different transaction hash. Check the explorer before you send again."
+
     /** The gas of a plain transfer. It is the fallback when the endpoint refuses to estimate the gas. */
     const val TRANSFER_GAS = 21_000L
 
@@ -193,7 +196,8 @@ object EvmSend {
         val expected = "0x" + Hash.sha3(raw).toHex()
         val reported = reads.broadcast(chain, raw)
         if (reported != expected) {
-            throw RpcFailure(RpcFailure.Reason.MALFORMED, "The endpoint reported a different transaction hash. Check the explorer before you send again.")
+            // The endpoint accepted the broadcast, so the transaction may be on the network: the cause marks the outcome unknown.
+            throw RpcFailure(RpcFailure.Reason.MALFORMED, MISMATCH, ProviderError.Unreadable(MISMATCH))
         }
         return reported
     }

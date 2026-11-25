@@ -171,7 +171,7 @@ internal fun JsonElement?.decimal(): Double {
 }
 
 /** The text of a JSON value, whether it was written as a string or a number. */
-internal fun JsonElement?.text(): String = (this as? JsonPrimitive)?.contentOrNull ?: throw ProviderError.Fatal(SHAPE_MESSAGE)
+internal fun JsonElement?.text(): String = (this as? JsonPrimitive)?.contentOrNull ?: throw ProviderError.Unreadable(SHAPE_MESSAGE)
 
 /**
  * A non-negative amount in base units, read from its digits only. A decimal point, a sign or an exponent is refused, so no float can round a
