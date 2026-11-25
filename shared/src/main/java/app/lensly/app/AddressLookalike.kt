@@ -39,3 +39,6 @@ fun lookalikeEntryFor(address: String, chain: ChainId, book: List<AddressBookEnt
     if (addressBookEntryFor(address, chain, book) != null) return null
     return book.firstOrNull { it.chain?.namespace == chain.namespace && looksLikeAddress(address, it.address, chain) }
 }
+
+/** The headline of the amber warning of an address that looks like the saved entry [saved] but differs. Both apps show it. */
+fun lookalikeWarningText(saved: AddressBookEntry): String = "Looks like ${displayNameOf(saved.name)} but differs"

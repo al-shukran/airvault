@@ -418,7 +418,7 @@ internal fun BtcSendRoute(
             val pool = spendable
             val total = pool?.coins?.sumOf { it.valueSats }
             val notes = addressNotesOf(recipient, BITCOIN_FAMILY, emptyMap(), addressBook)
-            val toName = notes?.let(::notesName) ?: groupAddress(recipient)
+            val toName = nameOrAddress(notes, recipient)
             val sent = preview
             SendAmountPage(
                 symbol = "BTC",
@@ -478,15 +478,15 @@ internal fun BtcSendRoute(
         }
         is BtcSendStep.Review -> {
             val notes = addressNotesOf(current.plan.recipient, BITCOIN_FAMILY, emptyMap(), addressBook)
-            val toName = notes?.let(::notesName) ?: groupAddress(current.plan.recipient)
-            val warnings = BtcAdvanced.warnings(suggestedRate ?: current.plan.feeRateSatPerVb, current.plan.feeRateSatPerVb)
+            val toName = nameOrAddress(notes, current.plan.recipient)
+            val warnings = lookalikeWarnings(notes) + BtcAdvanced.warnings(suggestedRate ?: current.plan.feeRateSatPerVb, current.plan.feeRateSatPerVb)
             SendReviewPage(
                 heading = "Send ${btcText(current.plan.amountSats)} from $fromName to $toName?",
                 toTitle = toName,
                 toDetail = notes?.let(::notesDetail).orEmpty(),
                 toAddress = current.plan.recipient,
                 validLine = "Address is valid on ${btcNetworkName(network)}",
-                firstTime = if (notes == null) "First time sending here. Compare every group with where you got it." else null,
+                firstTime = if (isFirstTime(notes)) "First time sending here. Compare every group with where you got it." else null,
                 rows = btcRows(current.plan, fromName, fromPath),
                 warnings = warnings,
                 notice = notice,
@@ -531,8 +531,7 @@ internal fun BtcSendRoute(
             onLock = onLock,
         )
         is BtcSendStep.Submit -> {
-            val toName = addressNotesOf(current.plan.recipient, BITCOIN_FAMILY, emptyMap(), addressBook)?.let(::notesName)
-                ?: groupAddress(current.plan.recipient)
+            val toName = nameWithAddress(addressNotesOf(current.plan.recipient, BITCOIN_FAMILY, emptyMap(), addressBook), current.plan.recipient)
             SignedSendSteps(
                 machine = current.machine,
                 headline = "Your BTC Is on Its Way",

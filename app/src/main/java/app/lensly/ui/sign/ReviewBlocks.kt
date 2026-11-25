@@ -46,6 +46,7 @@ import app.lensly.app.AddressNotes
 import app.lensly.app.EVM_FAMILY
 import app.lensly.app.displayNameOf
 import app.lensly.app.headline
+import app.lensly.app.lookalikeWarningText
 import app.lensly.app.isAddressValue
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
@@ -520,7 +521,7 @@ private fun LookalikeWarning(saved: AddressBookEntry) {
         Icon(Icons.Filled.Warning, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(LenslySpacing.xs))
         Text(
-            text = lookalikeWarning(displayNameOf(saved.name)),
+            text = lookalikeWarningText(saved),
             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
             color = color,
         )
@@ -534,9 +535,6 @@ internal const val FIRST_TIME_CHECK = "First time. Check every group."
 
 /** The line under an address that a saved EVM entry names. An EVM address is the same account on every EVM network. */
 internal const val SAVED_FOR_ALL_EVM = "Saved for all EVM networks"
-
-/** The amber warning of an address that looks like the saved entry named [name] but differs. */
-internal fun lookalikeWarning(name: String): String = "Looks like $name but differs"
 
 /** The line a counterparty shows when the Address Book holds no entry for it. It is plain text, not a warning. */
 internal const val NOT_IN_ADDRESS_BOOK = "Not in address book"

@@ -42,7 +42,9 @@ import app.lumio.evm.SignatureScan
 import app.lumio.evm.SignatureStep
 import app.lumio.network.NetworkMode
 import app.lumio.notesDetail
-import app.lumio.notesName
+import app.lumio.isFirstTime
+import app.lumio.lookalikeWarnings
+import app.lumio.nameOrAddress
 import app.lumio.onVault
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
@@ -482,7 +484,7 @@ internal fun SolanaSendRoute(
         )
         SolanaSendStep.Amount -> {
             val notes = addressNotesOf(recipient, SOLANA_FAMILY, emptyMap(), addressBook)
-            val toName = notes?.let(::notesName) ?: groupAddress(recipient)
+            val toName = nameOrAddress(notes, recipient)
             val amountError = SolanaAssets.amountError(amount, selected, if (token == null) balance else token.amount)
             val leaves = if (token == null && balance != null && amountError == null && amount.isNotBlank()) {
                 runCatching { SolanaSendInput.lamports(amount) }.getOrNull()?.let { lamports ->
@@ -552,16 +554,16 @@ internal fun SolanaSendRoute(
         }
         is SolanaSendStep.Review -> {
             val notes = addressNotesOf(current.plan.recipientAddress, SOLANA_FAMILY, emptyMap(), addressBook)
-            val toName = notes?.let(::notesName) ?: groupAddress(current.plan.recipientAddress)
+            val toName = nameOrAddress(notes, current.plan.recipientAddress)
             SendReviewPage(
                 heading = "Send ${solanaAmountText(current.plan, selected.symbol)} from $fromName to $toName?",
                 toTitle = toName,
                 toDetail = notes?.let(::notesDetail).orEmpty(),
                 toAddress = current.plan.recipientAddress,
                 validLine = "Address is valid on $networkLabel",
-                firstTime = if (notes == null) "First time sending here. Compare every group with where you got it." else null,
+                firstTime = if (isFirstTime(notes)) "First time sending here. Compare every group with where you got it." else null,
                 rows = solanaRows(current.plan, selected.symbol),
-                warnings = if (current.newTokenAccountRent > 0) {
+                warnings = lookalikeWarnings(notes) + if (current.newTokenAccountRent > 0) {
                     listOf("Creates their token account (≈ ${solAmountText(current.newTokenAccountRent)} SOL)")
                 } else {
                     emptyList()
