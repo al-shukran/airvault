@@ -537,6 +537,7 @@ internal fun AlgorandSendRoute(
             headline = "Your ${selected.symbol} Is on Its Way",
             amount = AlgorandAssets.amountText(current.plan, selected.symbol, selected.decimals),
             recipient = if (current.plan is AsaSendPlan && current.plan.isOptIn) fromName else groupAddress(current.plan.toAddress),
+            recipientAddress = current.plan.toAddress.takeUnless { current.plan is AsaSendPlan && current.plan.isOptIn },
             network = networkLabel,
             timing = PENDING_TEXT,
             fromName = fromName,

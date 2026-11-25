@@ -96,16 +96,23 @@ private const val GLYPH_GRID = 24f
 
 /**
  * A glyph in [color], drawn to fill [size], which is 24 dp unless a mock draws it smaller. A [filled] glyph is solid, as the watched star is; the others
- * are strokes.
+ * are strokes of [stroke] grid units, which a mock sets heavier for a small mark.
  */
 @Composable
-fun ClearAirIcon(glyph: ClearAirGlyph, color: Color, modifier: Modifier = Modifier, filled: Boolean = false, size: Dp = 24.dp) {
-    Canvas(modifier.size(size)) { drawGlyph(glyph, color, filled) }
+fun ClearAirIcon(
+    glyph: ClearAirGlyph,
+    color: Color,
+    modifier: Modifier = Modifier,
+    filled: Boolean = false,
+    size: Dp = 24.dp,
+    stroke: Float = GLYPH_STROKE,
+) {
+    Canvas(modifier.size(size)) { drawGlyph(glyph, color, filled, stroke) }
 }
 
-private fun DrawScope.drawGlyph(glyph: ClearAirGlyph, color: Color, filled: Boolean) {
+private fun DrawScope.drawGlyph(glyph: ClearAirGlyph, color: Color, filled: Boolean, stroke: Float) {
     val unit = size.width / GLYPH_GRID
-    val style = if (filled) Fill else Stroke(width = GLYPH_STROKE, cap = StrokeCap.Round, join = StrokeJoin.Round)
+    val style = if (filled) Fill else Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
     withTransform({ scale(unit, unit, pivot = Offset.Zero) }) {
         glyph.paths.forEach { path -> drawPath(path = path, color = color, style = style) }
     }

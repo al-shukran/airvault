@@ -42,6 +42,7 @@ internal fun SubmitFixture(
         headline = headline,
         amount = amount,
         recipient = recipient,
+        recipientAddress = null,
         network = network,
         timing = timing,
         fromName = "Account 1",

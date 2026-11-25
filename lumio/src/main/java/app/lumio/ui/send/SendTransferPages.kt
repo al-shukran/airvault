@@ -15,13 +15,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -39,7 +47,9 @@ import app.lumio.ui.kit.ClearAirStepState
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.ClearAirTimeline
 import app.lumio.ui.kit.ClearAirTimelineStep
-import app.lumio.ui.kit.StepThread
+import app.lumio.ui.kit.ClearAirGlyph
+import app.lumio.ui.kit.ClearAirIcon
+import app.lumio.receive.shortAddress
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -80,13 +90,12 @@ fun SendLastChancePage(
             }
         },
     ) {
-        StepThread(current = STEP_SEND, steps = 5)
-        Spacer(Modifier.height(ClearAirSpacing.sm))
-        ClearAirEyebrow(text = "Send · 5 of 5")
-        Box(modifier = Modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.md), contentAlignment = Alignment.Center) {
+        SendStepper(current = STEP_SEND)
+        SendStepLabel(name = "Send", number = STEP_SEND + 1)
+        Box(modifier = Modifier.fillMaxWidth().padding(top = 28.dp), contentAlignment = Alignment.Center) {
             CountdownRing(remaining = remaining, total = total)
         }
-        Text(text = "Signed by Lensly", style = ClearAirType.titleXL, color = palette.ink, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        SendHeading(text = "Signed by Lensly", top = 22.dp, bottom = 0.dp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
         Text(
             text = if (sendingNow) {
                 "Sending $amount to $recipient."
@@ -94,16 +103,16 @@ fun SendLastChancePage(
                 "Sending $amount to $recipient in $remaining ${if (remaining == 1) "second" else "seconds"}."
             },
             style = ClearAirType.body,
-            color = palette.ink2,
+            color = palette.ink,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.xs),
         )
         Text(
             text = "Changed your mind? This is the last moment you can stop it. After this, no one can.",
-            style = ClearAirType.body,
+            style = ClearAirType.small,
             color = palette.ink2,
             textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.sm),
+            modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.xxs),
         )
     }
 }
@@ -141,8 +150,8 @@ private fun CountdownRing(remaining: Int, total: Int) {
     Box(modifier = Modifier.size(RING_SIZE_DP), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val stroke = RING_STROKE_DP.toPx()
-            val inset = stroke / 2
-            val arcSize = Size(size.width - stroke, size.height - stroke)
+            val inset = RING_INSET_DP.toPx()
+            val arcSize = Size(size.width - 2 * inset, size.height - 2 * inset)
             drawArc(
                 color = palette.hairline,
                 startAngle = 0f,
@@ -162,23 +171,28 @@ private fun CountdownRing(remaining: Int, total: Int) {
                 style = Stroke(width = stroke, cap = StrokeCap.Round),
             )
         }
-        Text(text = remaining.toString(), style = ClearAirType.hero, color = palette.ink)
+        Text(text = remaining.toString(), style = ClearAirType.hero.copy(fontSize = 52.sp, letterSpacing = (-0.04).em), color = palette.ink)
     }
 }
 
 private val RING_SIZE_DP = 132.dp
 private val RING_STROKE_DP = 3.dp
 
+/** The ring's circle has a radius of 60 dp in the mock's 132 dp box. */
+private val RING_INSET_DP = 6.dp
+
 /**
- * On Its Way, after the send: the steps of the transfer with the state of each, and the words that say the screen can be closed. [timing] is how
+ * On Its Way, after the send: the steps of the transfer with the state of each, and the words that say the screen can be closed. [summary] says what
+ * went to whom, and [address] is the recipient's short address after it, when the recipient has a name. [timing] is how
  * long the network usually takes, for the step that is confirming. [signedAtMs] and [sentAtMs] are the clock times of the first two steps, and the
- * confirming step reads "now" while it waits. [arrived] says the transfer has landed: the last two steps are done, the words about
+ * confirming step reads "now" while it waits. [arrived] says the transfer has landed: the mark becomes a check, the last two steps are done, the words about
  * closing the screen go, and no step shows a time, since the landing time is not kept. Done goes back to the account; the explorer link is offered when the chain has one.
  */
 @Composable
 fun SendOnItsWayPage(
     headline: String,
     summary: String,
+    address: String?,
     network: String,
     timing: String,
     recipient: String,
@@ -197,6 +211,7 @@ fun SendOnItsWayPage(
         title = "",
         backLabel = backLabel,
         offline = null,
+        close = true,
         onBack = onBack,
         onLock = onLock,
         bottomAction = {
@@ -208,37 +223,73 @@ fun SendOnItsWayPage(
             }
         },
     ) {
-        StepThread(current = STEP_SEND, steps = 5)
-        Spacer(Modifier.height(ClearAirSpacing.md))
-        Text(text = headline, style = ClearAirType.titleXL, color = palette.ink)
-        Text(text = summary, style = ClearAirType.body, color = palette.ink2, modifier = Modifier.padding(top = ClearAirSpacing.xxs))
-        Spacer(Modifier.height(ClearAirSpacing.lg))
+        Spacer(Modifier.height(ClearAirSpacing.xs))
+        TransferMark(arrived = arrived, modifier = Modifier.align(Alignment.CenterHorizontally))
+        SendHeading(text = headline, top = 18.dp, bottom = 0.dp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+        Text(
+            text = buildAnnotatedString {
+                append(summary)
+                address?.let {
+                    append(" · ")
+                    withStyle(ClearAirType.address.toSpanStyle().copy(letterSpacing = (-0.02).em)) { append(shortAddress(it)) }
+                }
+            },
+            style = ClearAirType.small,
+            color = palette.ink2,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+        )
+        Spacer(Modifier.height(18.dp))
         ClearAirTimeline(
             steps = listOf(
-                ClearAirTimelineStep("Signed on Lensly", "Your keys never left it.", ClearAirStepState.Done, clockOf(signedAtMs)),
-                ClearAirTimelineStep("Sent to $network", "The network accepted it.", ClearAirStepState.Done, clockOf(sentAtMs)),
+                ClearAirTimelineStep("Signed on Lensly", "Your keys never left it", ClearAirStepState.Done, clockOf(signedAtMs)),
+                ClearAirTimelineStep("Sent to $network", "The network accepted it", ClearAirStepState.Done, clockOf(sentAtMs)),
                 if (arrived) {
-                    ClearAirTimelineStep("Confirming", "Confirmed by the network.", ClearAirStepState.Done)
+                    ClearAirTimelineStep("Confirming", "Confirmed by the network", ClearAirStepState.Done)
                 } else {
                     ClearAirTimelineStep("Confirming", timing, ClearAirStepState.Now, time = "now")
                 },
                 if (arrived) {
-                    ClearAirTimelineStep("In $recipient", "Funds reached the recipient.", ClearAirStepState.Done)
+                    ClearAirTimelineStep("In $recipient", "Funds reached the recipient", ClearAirStepState.Done)
                 } else {
-                    ClearAirTimelineStep("In $recipient", "Funds reach the recipient.", ClearAirStepState.Todo)
+                    ClearAirTimelineStep("In $recipient", "Funds reach the recipient", ClearAirStepState.Todo)
                 },
             ),
         )
-        Spacer(Modifier.height(ClearAirSpacing.md))
         if (!arrived) {
             Text(
                 text = "You can close this screen. Lumio keeps watching and will tell you when it lands.",
-                style = ClearAirType.body,
+                style = ClearAirType.small,
                 color = palette.ink2,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
             )
         }
     }
 }
+
+/** The disc above the heading: the send arrow with an amber diamond at its corner while the transfer is on its way, and a blue check once it has landed. */
+@Composable
+private fun TransferMark(arrived: Boolean, modifier: Modifier = Modifier) {
+    val palette = LocalClearAirPalette.current
+    Box(modifier = modifier.size(TRANSFER_MARK_DP)) {
+        Box(modifier = Modifier.fillMaxSize().clip(CircleShape).background(palette.raised), contentAlignment = Alignment.Center) {
+            ClearAirIcon(
+                glyph = if (arrived) ClearAirGlyph.CHECK else ClearAirGlyph.SEND,
+                color = if (arrived) palette.vaultBlue else palette.ink,
+                size = 30.dp,
+            )
+        }
+        if (!arrived) {
+            Box(modifier = Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 8.dp).size(10.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.requiredSize(18.dp).rotate(45f).background(palette.background))
+                Box(modifier = Modifier.requiredSize(10.dp).rotate(45f).background(palette.spark))
+            }
+        }
+    }
+}
+
+private val TRANSFER_MARK_DP = 76.dp
 
 private val CLOCK: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH)
 

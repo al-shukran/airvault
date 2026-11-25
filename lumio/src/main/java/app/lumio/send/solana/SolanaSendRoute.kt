@@ -642,6 +642,7 @@ internal fun SolanaSendRoute(
             headline = if (current.setup) "Offline Signing Is on Its Way" else "Your ${selected.symbol} Is on Its Way",
             amount = solanaAmountText(current.plan, selected.symbol),
             recipient = if (current.setup) "your nonce account" else groupAddress(current.plan.recipientAddress),
+            recipientAddress = current.plan.recipientAddress.takeUnless { current.setup },
             network = networkLabel,
             timing = "About 1 second on $networkLabel",
             fromName = fromName,

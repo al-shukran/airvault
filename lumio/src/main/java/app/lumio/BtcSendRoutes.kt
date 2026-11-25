@@ -543,6 +543,7 @@ internal fun BtcSendRoute(
                 headline = "Your BTC Is on Its Way",
                 amount = btcText(current.plan.amountSats),
                 recipient = toName,
+                recipientAddress = current.plan.recipient,
                 network = btcNetworkName(network),
                 timing = TIMING,
                 fromName = fromName,

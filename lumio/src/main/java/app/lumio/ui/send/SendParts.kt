@@ -121,9 +121,17 @@ internal fun SendStepLabel(name: String, number: Int, modifier: Modifier = Modif
 
 /** The page title of a send step: a 26 sp heading, [top] below what is above it and [bottom] above what follows. */
 @Composable
-internal fun SendHeading(text: String, top: Dp, bottom: Dp, modifier: Modifier = Modifier, small: Boolean = false) {
+internal fun SendHeading(
+    text: String,
+    top: Dp,
+    bottom: Dp,
+    modifier: Modifier = Modifier,
+    small: Boolean = false,
+    textAlign: TextAlign = TextAlign.Start,
+) {
     Text(
         text = text,
+        textAlign = textAlign,
         modifier = modifier.padding(top = top, bottom = bottom),
         style = if (small) ClearAirType.titleXL.copy(fontSize = 22.sp, lineHeight = 27.sp) else ClearAirType.titleXL,
         color = LocalClearAirPalette.current.ink,

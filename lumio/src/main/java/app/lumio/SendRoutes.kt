@@ -599,6 +599,7 @@ internal fun SendRoute(
             headline = "Your ${now.send.chain.symbol} Is on Its Way",
             amount = amountText(now.send),
             recipient = notesFor(now.send.to, ready.accounts, ready.wallet.addressBook)?.let(::notesName) ?: groupAddress(now.send.to),
+            recipientAddress = now.send.to,
             network = now.send.chain.name,
             timing = "Usually about 1 second on ${now.send.chain.name}",
             fromName = fromName,

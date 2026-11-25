@@ -363,6 +363,7 @@ class SendScreenshotTest {
         SendOnItsWayPage(
             headline = "Your MON Is on Its Way",
             summary = "0.25 MON to FelixStone",
+            address = "0x1020304050607080901121314151617181910122D",
             network = monad.name,
             timing = "Usually about 1 second on Monad Testnet",
             recipient = "FelixStone",

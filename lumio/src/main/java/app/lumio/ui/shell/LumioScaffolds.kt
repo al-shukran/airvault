@@ -100,7 +100,7 @@ fun LumioRootScreen(
 /**
  * A page of the shell: its page top bar with a back arrow to [backLabel] (a plain back arrow when [backLabel] is null), the offline band when [offline] is
  * set, and the page's [content]. A page has no tab bar, and its back arrow, the system back and predictive back all return one page. [sheet] is the
- * page's one sheet, drawn over the whole page.
+ * page's one sheet, drawn over the whole page. A page that ends its flow shows a × ([close]) in place of the arrow.
  */
 @Composable
 fun LumioPageScreen(
@@ -110,11 +110,12 @@ fun LumioPageScreen(
     onBack: () -> Unit,
     onLock: () -> Unit,
     sheet: @Composable () -> Unit = {},
+    close: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            ClearAirPageTopBar(title = title, backLabel = backLabel, onBack = onBack, onLock = onLock)
+            ClearAirPageTopBar(title = title, backLabel = backLabel, onBack = onBack, onLock = onLock, close = close)
             offline?.let { ClearAirStatusBand(text = it) }
             Column(modifier = Modifier.weight(1f).fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars), content = content)
         }
