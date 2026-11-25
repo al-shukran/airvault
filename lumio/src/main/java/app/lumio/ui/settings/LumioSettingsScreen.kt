@@ -12,9 +12,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirSpacing
+import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.data.config.FinishItem
 import app.lumio.data.config.FinishSetup
+import app.lumio.ui.kit.ClearAirGlyph
+import app.lumio.ui.kit.ClearAirGlyphDisc
 import app.lumio.ui.kit.ClearAirRow
 
 /** The pages of Lumio's settings. Each one is a row of the top-level list, and opens its own screen under its [title]. */
@@ -28,6 +32,22 @@ enum class SettingsPage(val title: String) {
     SECURITY("Security"),
     ABOUT("About"),
 }
+
+/** The glyph on the disc of a page's row. */
+private val SettingsPage.glyph: ClearAirGlyph
+    get() = when (this) {
+        SettingsPage.DISPLAY -> ClearAirGlyph.SUN
+        SettingsPage.TRANSACTIONS -> ClearAirGlyph.SEND
+        SettingsPage.NETWORKS -> ClearAirGlyph.EXPLORE
+        SettingsPage.PROVIDERS -> ClearAirGlyph.INFO
+        SettingsPage.WALLETS -> ClearAirGlyph.SCAN
+        SettingsPage.ADDRESS_BOOK -> ClearAirGlyph.ACCOUNTS
+        SettingsPage.SECURITY -> ClearAirGlyph.LOCK
+        SettingsPage.ABOUT -> ClearAirGlyph.INFO
+    }
+
+/** The size of the glyph on a settings row's disc, a little under the 21 dp of a logo. */
+private val GLYPH = 19.dp
 
 /** One row of the top-level list: the [page] it opens, and the one-line [summary] that shows the page's state under its title. */
 data class SettingsRowState(val page: SettingsPage, val summary: String)
@@ -57,14 +77,24 @@ fun LumioSettingsScreen(
         if (!finish.complete) {
             FinishSetupCard(setup = finish, onOpen = onFinish, modifier = Modifier.padding(bottom = ClearAirSpacing.xs))
         }
-        rows.forEach { row ->
-            ClearAirRow(title = row.page.title, description = row.summary, onClick = { onOpen(row.page) })
+        rows.forEachIndexed { index, row ->
+            ClearAirRow(
+                title = row.page.title,
+                description = row.summary,
+                leading = { ClearAirGlyphDisc(row.page.glyph, size = GLYPH) },
+                onClick = { onOpen(row.page) },
+                divider = index > 0,
+                compact = true,
+            )
         }
         ClearAirRow(
             title = "Reset Lumio",
             description = "Erase pairings and settings on this phone",
+            leading = { ClearAirGlyphDisc(ClearAirGlyph.ALERT, color = LocalClearAirPalette.current.rose, size = GLYPH) },
             onClick = { resetting = true },
             destructive = true,
+            divider = rows.isNotEmpty(),
+            compact = true,
         )
     }
     if (resetting) {

@@ -5,7 +5,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -15,11 +15,11 @@ import app.lensly.ui.theme.LocalClearAirPalette
  * are its space above and below, which a panel's sections set to their own mock values.
  */
 @Composable
-fun ClearAirEyebrow(text: String, modifier: Modifier = Modifier, top: Dp = ClearAirSpacing.sm, bottom: Dp = ClearAirSpacing.xs) {
+fun ClearAirEyebrow(text: String, modifier: Modifier = Modifier, top: Dp = 18.dp, bottom: Dp = ClearAirSpacing.xxs) {
     Text(
         text = text.uppercase(),
         modifier = modifier.padding(top = top, bottom = bottom),
-        style = ClearAirType.eyebrow.copy(letterSpacing = 0.09.em),
+        style = ClearAirType.eyebrow,
         color = LocalClearAirPalette.current.ink2,
     )
 }

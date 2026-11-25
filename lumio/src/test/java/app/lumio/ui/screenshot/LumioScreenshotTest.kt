@@ -39,23 +39,22 @@ import app.lumio.pair.PairedWallet
 import app.lumio.ui.send.SendAmountPage
 import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.settings.AboutSettingsPage
-import app.lumio.ui.settings.AddressBookRows
-import app.lumio.ui.settings.AddressBookSettingsPage
 import app.lumio.ui.settings.BiometricSwitch
 import app.lumio.ui.settings.BitcoinServersSettings
 import app.lumio.ui.settings.CommentBackupRows
 import app.lumio.ui.settings.DataProvidersScreen
-import app.lumio.ui.settings.DeviceProtectionSettingsPage
 import app.lumio.ui.settings.DisplaySettingsPage
 import app.lumio.ui.settings.EvmSettingsSection
 import app.lumio.ui.settings.LumioSettingsScreen
 import app.lumio.ui.settings.NetworksSettingsPage
+import app.lumio.ui.settings.SettingsFrame
 import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.ProviderStatus
 import app.lumio.ui.settings.SecuritySettingsPage
 import app.lumio.ui.settings.SettingsFacts
 import app.lumio.ui.settings.TransactionsSettingsPage
 import app.lumio.ui.settings.WalletsSettings
+import app.lumio.ui.settings.WalletSettingsPage
 import app.lumio.ui.settings.WalletsSettingsPage
 import app.lumio.ui.settings.settingsRows
 import java.io.File
@@ -156,11 +155,11 @@ class LumioScreenshotTest {
     @Test
     fun settingsDisplay() = compose.lumioSnapshot("settings_display") {
         DisplaySettingsPage(
-            settings = DisplaySettings(showTotal = true),
+            settings = DisplaySettings(),
             notice = null,
-            onShowTotal = {},
-            onShowAssets = {},
+            onHideBalances = {},
             onCurrency = {},
+            onTheme = {},
             onSmallBalance = {},
             offline = null, onLock = {}, onBack = {},
         )
@@ -171,9 +170,9 @@ class LumioScreenshotTest {
         DisplaySettingsPage(
             settings = DisplaySettings(currency = FiatCurrency.EUR, smallBalanceUsd = 5.0),
             notice = null,
-            onShowTotal = {},
-            onShowAssets = {},
+            onHideBalances = {},
             onCurrency = {},
+            onTheme = {},
             onSmallBalance = {},
             offline = null, onLock = {}, onBack = {},
         )
@@ -207,32 +206,35 @@ class LumioScreenshotTest {
     fun settingsNetworks() = compose.lumioSnapshot("settings_networks") {
         NetworksSettingsPage(
             offline = null, onLock = {}, onBack = {},
-            bitcoin = {
-                BitcoinServersSettings(
-                    mainnet = "https://mempool.space/api",
-                    testnet4 = "https://mempool.space/testnet4/api",
-                    indexer = "",
-                    error = null,
-                    onApply = { _, _ -> },
-                    onIndexer = {},
-                    onReset = {},
-                )
-            },
-            ethereum = {
-                EvmSettingsSection(
-                    settings = EvmSettings(),
-                    chains = chains,
-                    busy = false,
-                    notice = null,
-                    onAddressCount = {},
-                    onEnabled = { _, _ -> },
-                    onNetwork = {},
-                    onTokens = {},
-                    onRemoveCustom = {},
-                    onAddNetwork = {},
-                )
-            },
-        )
+        ) {
+            EvmSettingsSection(
+                settings = EvmSettings(),
+                chains = chains,
+                logos = emptyMap(),
+                busy = false,
+                notice = null,
+                onAddressCount = {},
+                onEnabled = { _, _ -> },
+                onNetwork = {},
+                onAddNetwork = {},
+                onBitcoin = {},
+            )
+        }
+    }
+
+    @Test
+    fun settingsBitcoinServers() = compose.lumioSnapshot("settings_bitcoin_servers") {
+        SettingsFrame(title = "Bitcoin Servers", offline = null, onBack = {}, onLock = {}, backLabel = "Networks") {
+            BitcoinServersSettings(
+                mainnet = "https://mempool.space/api",
+                testnet4 = "https://mempool.space/testnet4/api",
+                indexer = "",
+                error = null,
+                onApply = { _, _ -> },
+                onIndexer = {},
+                onReset = {},
+            )
+        }
     }
 
     @Test
@@ -241,36 +243,34 @@ class LumioScreenshotTest {
             offline = null, onLock = {}, onBack = {},
             wallets = {
                 WalletsSettings(
-                    wallets = listOf(PairedWallet(id = "wallet-Demo", name = "Demo", fingerprint = 0x1a2b3c4dL, createdAtMs = NOW, evmAccounts = emptyList(), bitcoin = emptyList())),
+                    wallets = listOf(
+                        PairedWallet(id = "wallet-Demo", name = "Air 1", fingerprint = 0x1a2b3c4dL, createdAtMs = NOW, evmAccounts = emptyList(), bitcoin = emptyList()),
+                        PairedWallet(id = "wallet-Two", name = "Air 2", fingerprint = 0x2b3c4d5eL, createdAtMs = NOW, evmAccounts = emptyList(), bitcoin = emptyList()),
+                    ),
+                    activeId = "wallet-Demo",
+                    onOpen = {},
                     onPair = {},
-                    onDelete = {},
                 )
             },
         )
     }
 
     @Test
-    fun settingsAddressBook() = compose.lumioSnapshot("settings_address_book") {
-        AddressBookSettingsPage(
-            offline = null, onLock = {}, onBack = {},
-            wallets = {
-                AddressBookRows(
-                    wallets = listOf(PairedWallet(id = "wallet-Demo", name = "Demo", fingerprint = 0x1a2b3c4dL, createdAtMs = NOW, evmAccounts = emptyList(), bitcoin = emptyList())),
-                    onAddressBook = {},
-                )
-            },
+    fun settingsWallet() = compose.lumioSnapshot("settings_wallet") {
+        WalletSettingsPage(
+            wallet = PairedWallet(id = "wallet-Demo", name = "Air 1", fingerprint = 0x1a2b3c4dL, createdAtMs = NOW, evmAccounts = emptyList(), bitcoin = emptyList()),
+            offline = null, onRePair = {}, onRemove = {}, onBack = {}, onLock = {},
         )
     }
 
     @Test
     fun settingsSecurity() = compose.lumioSnapshot("settings_security") {
         SecuritySettingsPage(
-            entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE,
             lock = LockSettings(),
-            deviceProtectionOn = false,
+            biometric = BiometricSwitch(on = true, canEnable = true),
             onEntryGesture = {},
             onChangePassword = {},
-            onDeviceProtection = {},
+            onBiometric = {},
             checkPassword = { PasswordCheck.Accepted },
             onAutoLock = {},
             offline = null, onLock = {}, onBack = {},
@@ -280,26 +280,15 @@ class LumioScreenshotTest {
     @Test
     fun settingsSecuritySwitching() = compose.lumioSnapshot("settings_security_switching") {
         SecuritySettingsPage(
-            entryGesture = EntryGesture.THUMBNAIL_HOLD_SWIPE,
             lock = LockSettings(AutoLock.IMMEDIATELY),
-            deviceProtectionOn = false,
+            biometric = BiometricSwitch(on = true, canEnable = true),
             onEntryGesture = {},
             onChangePassword = {},
-            onDeviceProtection = {},
+            onBiometric = {},
             checkPassword = { PasswordCheck.Accepted },
             onAutoLock = {},
             offline = null, onLock = {}, onBack = {},
         )
-    }
-
-    @Test
-    fun settingsDeviceProtection() = compose.lumioSnapshot("settings_device_protection") {
-        DeviceProtectionSettingsPage(biometric = BiometricSwitch(on = false, canEnable = true), onBiometric = {}, offline = null, onLock = {}, onBack = {})
-    }
-
-    @Test
-    fun settingsDeviceProtectionUnavailable() = compose.lumioSnapshot("settings_device_protection_unavailable") {
-        DeviceProtectionSettingsPage(biometric = BiometricSwitch(on = false, canEnable = false), onBiometric = {}, offline = null, onLock = {}, onBack = {})
     }
 
     /** The App Password change that Security opens: its first step, a refused new password, and the finished change. */

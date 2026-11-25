@@ -20,10 +20,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.ui.kit.ClearAirDraggableRows
 import app.lumio.ui.kit.ClearAirField
-import app.lumio.ui.kit.ClearAirListRow
 import app.lumio.ui.kit.ClearAirNote
 import app.lumio.ui.kit.ClearAirNumberedRow
 import app.lumio.ui.kit.ClearAirRadio
+import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirTextAction
 
 /**
@@ -31,7 +31,8 @@ import app.lumio.ui.kit.ClearAirTextAction
  * addresses follow, one radio row each: the one in use is filled, shows [inUseLine], and tapping a row makes it the one in use at once. [custom] lists
  * those addresses and [active] is the one in use, or null for the built-in address. A new address is typed in the field and checked when the owner presses
  * Add or leaves the field, and a refusal shows under the field with the typed address kept. [providers] are the data providers that serve the chain, in
- * the order they are asked, and [onReorder] gets their new order when the owner drags one. [busy] holds the page while a change runs.
+ * the order they are asked, and [onReorder] gets their new order when the owner drags one. [onTokens] opens the chain's tokens, and [onRemoveNetwork]
+ * drops a chain the owner added, which is null for a built-in chain. [busy] holds the page while a change runs.
  */
 @Composable
 fun NetworkPage(
@@ -52,6 +53,8 @@ fun NetworkPage(
     onReorder: (List<String>) -> Unit,
     onBack: () -> Unit,
     onLock: () -> Unit,
+    onTokens: () -> Unit = {},
+    onRemoveNetwork: (() -> Unit)? = null,
 ) {
     var draft by remember { mutableStateOf("") }
     // The typed address clears once the list or the address in use changes, which a saved address does.
@@ -62,7 +65,7 @@ fun NetworkPage(
     SettingsFrame(title = chainName, offline = offline, onBack = onBack, onLock = onLock, backLabel = "Networks") {
         ClearAirNote(text = chainLine, modifier = Modifier.padding(top = ClearAirSpacing.md))
         SettingsGroup(title = "Default RPC") {
-            ClearAirListRow(
+            ClearAirRow(
                 title = builtInUrl ?: "Built-in RPC",
                 tag = "Built In",
                 description = "Can't be deleted",
@@ -73,7 +76,7 @@ fun NetworkPage(
         if (custom.isNotEmpty()) {
             SettingsGroup(title = "Custom RPCs") {
                 custom.forEach { url ->
-                    ClearAirListRow(
+                    ClearAirRow(
                         title = url,
                         description = if (url == active) inUseLine else null,
                         modifier = Modifier.selectable(
@@ -117,6 +120,12 @@ fun NetworkPage(
                         dragHandle = handle,
                     )
                 }
+            }
+        }
+        SettingsGroup(title = "Network") {
+            ClearAirRow(title = "Tokens", description = "The tokens Lumio lists on $chainName", onClick = onTokens)
+            if (onRemoveNetwork != null) {
+                ClearAirRow(title = "Remove Network", description = "Drops this network you added", onClick = if (busy) null else onRemoveNetwork, destructive = true)
             }
         }
     }

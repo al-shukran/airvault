@@ -76,7 +76,7 @@ class LumioSettingsScreenTest {
     }
 
     @Test
-    fun theChecklistCountsTheTickedItemsAndListsTheOpenOnes() {
+    fun theChecklistCountsTheTickedItemsAndShowsOnlyTheNextOpenOne() {
         compose.setContent {
             ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(setOf(FinishItem.PAIR)), onFinish = {}, onOpen = {}, onReset = {}) }
         }
@@ -84,15 +84,15 @@ class LumioSettingsScreenTest {
         compose.onNodeWithText("Finish Setting Up").assertExists()
         compose.onNodeWithText("1 of 3").assertExists()
         compose.onNodeWithText("Set a Duress Password").assertExists()
-        compose.onNodeWithText("Enable Device Protection").assertExists()
+        compose.onNodeWithText("Enable Device Protection").assertDoesNotExist()
         compose.onNodeWithText("Pair with Lensly").assertDoesNotExist()
     }
 
     @Test
-    fun tappingAnOpenChecklistItemOpensThePageWhereItIsDone() {
+    fun tappingTheChecklistOpensThePageWhereTheNextItemIsDone() {
         var opened: FinishItem? = null
         compose.setContent {
-            ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(), onFinish = { opened = it }, onOpen = {}, onReset = {}) }
+            ClearAirTheme { LumioSettingsScreen(rows = rows, finish = FinishSetup(setOf(FinishItem.DURESS)), onFinish = { opened = it }, onOpen = {}, onReset = {}) }
         }
 
         compose.onNodeWithText("Enable Device Protection").performScrollTo().performClick()

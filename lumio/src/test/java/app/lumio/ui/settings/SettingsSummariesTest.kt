@@ -5,6 +5,7 @@ import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.FiatCurrency
 import app.lumio.data.config.FinishSetup
 import app.lumio.data.config.ProviderConfig
+import app.lumio.data.config.ThemeMode
 import app.lumio.data.config.TransactionSettings
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -14,15 +15,16 @@ import org.junit.Test
 class SettingsSummariesTest {
 
     @Test
-    fun theDisplayRowNamesTheTotalAndTheBalances() {
-        assertEquals("Total hidden · balances shown · USD", displaySummary(DisplaySettings()))
-        assertEquals("Total hidden · balances shown · EUR", displaySummary(DisplaySettings(currency = FiatCurrency.EUR)))
-        assertEquals("Total shown · balances shown · USD", displaySummary(DisplaySettings(showTotal = true)))
+    fun theDisplayRowNamesTheBalancesTheCurrencyAndTheTheme() {
+        assertEquals("Balances shown · USD · Follow system theme", displaySummary(DisplaySettings()))
+        assertEquals("Balances shown · EUR · Follow system theme", displaySummary(DisplaySettings(currency = FiatCurrency.EUR)))
+        assertEquals("Balances hidden · USD · Follow system theme", displaySummary(DisplaySettings(showAssets = false)))
+        assertEquals("Balances shown · USD · Dark theme", displaySummary(DisplaySettings(theme = ThemeMode.DARK)))
     }
 
     @Test
     fun theTransactionsRowNamesTheSpamAndTheLastChancePause() {
-        assertEquals("Spam hidden · 60 s last chance before sending", transactionsSummary(TransactionSettings()))
+        assertEquals("Spam hidden · 3 s last chance before sending", transactionsSummary(TransactionSettings()))
         assertEquals("Spam shown · 10 s last chance before sending", transactionsSummary(TransactionSettings(hideSpam = false, lastChanceSeconds = 10)))
         assertEquals("Spam hidden · sends at once", transactionsSummary(TransactionSettings(lastChanceSeconds = 0)))
     }
@@ -115,7 +117,7 @@ class SettingsSummariesTest {
     fun eachRowCarriesItsSummary() {
         val rows = settingsRows(facts, EntryGesture.DEFAULT, version = "0.1.0").associateBy { it.page }
 
-        assertEquals("Total hidden · balances shown · USD", rows.getValue(SettingsPage.DISPLAY).summary)
+        assertEquals("Balances shown · USD · Follow system theme", rows.getValue(SettingsPage.DISPLAY).summary)
         assertEquals("3 chains on · Bitcoin default", rows.getValue(SettingsPage.NETWORKS).summary)
         assertEquals("7 of 9 sources on", rows.getValue(SettingsPage.PROVIDERS).summary)
         assertEquals("1 wallet · 2 saved addresses", rows.getValue(SettingsPage.ADDRESS_BOOK).summary)

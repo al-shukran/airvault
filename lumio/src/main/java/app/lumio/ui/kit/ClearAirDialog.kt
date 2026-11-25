@@ -18,7 +18,7 @@ import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 
 /** The corner of a dialog card, as the spec draws the cards that sit over a page. */
-private val DIALOG_CORNER = 24.dp
+private val DIALOG_CORNER = 28.dp
 
 /**
  * A Clear Air dialog: a card over the page with its [title], a [text] line under it when it has one, and the [actions] below, which are one capsule and one

@@ -30,9 +30,9 @@ import app.lumio.network.NetworkMode
 import app.lumio.ui.kit.ClearAirAmount
 import app.lumio.ui.kit.ClearAirChangeLine
 import app.lumio.ui.kit.ClearAirEyebrow
-import app.lumio.ui.kit.ClearAirListRow
 import app.lumio.ui.kit.ClearAirMonogram
 import app.lumio.ui.kit.ClearAirRefreshBox
+import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirWalletEmblem
 import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.network.label
@@ -223,7 +223,6 @@ private fun ChainIsland(
             )
         }
         rows.forEachIndexed { index, account ->
-            if (index > 0) RowDivider(indent = ROW_DIVIDER_INDENT)
             AccountItem(
                 account = account,
                 tokens = tokenCounts[account] ?: 0,
@@ -232,16 +231,17 @@ private fun ChainIsland(
                 showBalances = showBalances,
                 slot = balanceSlotOf(account, reads),
                 clock = clock,
+                divider = index > 0,
                 onClick = { onAccount(account) },
             )
         }
         if (fold.folded.isNotEmpty()) {
-            if (rows.isNotEmpty()) RowDivider(indent = ROW_DIVIDER_INDENT)
             FoldRow(
                 count = fold.folded.size,
                 summary = foldSummary(fold),
                 usd = groupUsd(fold.folded, usdOf),
                 showTotal = showTotal,
+                divider = rows.isNotEmpty(),
                 onClick = { expanded = !expanded },
             )
         }
@@ -261,14 +261,18 @@ private fun AccountItem(
     showBalances: Boolean,
     slot: BalanceSlot,
     clock: Clock,
+    divider: Boolean,
     onClick: () -> Unit,
 ) {
-    ClearAirListRow(
+    ClearAirRow(
         title = accountTitle(account),
+        index = accountIndex(account),
         description = accountLine(account, tokens),
         leading = { ClearAirMonogram(text = monogramOf(account)) },
         trailing = { AccountValue(account = account, usd = usd, showTotal = showTotal, showBalances = showBalances, slot = slot, clock = clock) },
         onClick = onClick,
+        divider = divider,
+        chevron = false,
     )
 }
 
@@ -305,13 +309,15 @@ private fun AccountValue(account: WalletAccount, usd: Double?, showTotal: Boolea
 
 /** The row that holds an island's folded accounts: "+7" as its monogram, "7 More Accounts", what they hold, and their total. Opening it shows them. */
 @Composable
-private fun FoldRow(count: Int, summary: String, usd: Double?, showTotal: Boolean, onClick: () -> Unit) {
-    ClearAirListRow(
+private fun FoldRow(count: Int, summary: String, usd: Double?, showTotal: Boolean, divider: Boolean, onClick: () -> Unit) {
+    ClearAirRow(
         title = moreAccountsTitle(count),
         description = summary,
         leading = { ClearAirMonogram(text = "+$count") },
         trailing = if (usd == null) null else ({ ClearAirAmount(text = LocalFiat.current.amount(usd), hidden = !showTotal, style = ClearAirType.rowValue) }),
         onClick = onClick,
+        divider = divider,
+        chevron = false,
     )
 }
 

@@ -8,6 +8,7 @@ import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.Registry
 import app.lumio.data.net.Networks
 import app.lumio.network.NetworkMode
+import app.lumio.ui.home.AssetIconSpec
 import app.lumio.wallets.WalletAccount
 import kotlin.test.assertEquals
 import org.junit.Test
@@ -44,6 +45,8 @@ class ExploreChainsTest {
         parentChainId = parent,
     )
 
+    private fun row(chainId: Long, description: String) = registry.network(chainId)!!.let { ChainRow(it.name, description, AssetIconSpec.Chain(it)) }
+
     private fun account(chain: ChainId, index: Int) = WalletAccount(
         walletId = "wallet-demo",
         id = AccountId.of(chain, "0x" + "%040x".format(index + 1)),
@@ -59,10 +62,10 @@ class ExploreChainsTest {
 
         assertEquals(
             listOf(
-                ChainRow("Ethereum", "Layer 1 · 4 of your accounts"),
-                ChainRow("Polygon PoS", "Layer 1 · ID 137"),
-                ChainRow("Base", "L2 on Ethereum · ID 8453"),
-                ChainRow("Solana", "Layer 1 · 1 of your accounts"),
+                row(1L, "Layer 1 · 4 of your accounts"),
+                row(137L, "Layer 1 · ID 137"),
+                row(8453L, "L2 on Ethereum · ID 8453"),
+                ChainRow("Solana", "Layer 1 · 1 of your accounts", AssetIconSpec.Solana),
             ),
             chainRows(registry, NetworkMode.MAINNET, accounts),
         )
@@ -71,14 +74,14 @@ class ExploreChainsTest {
     @Test
     fun aSideWithoutAccountsShowsItsFeaturedNetworksWithTheirChainIds() {
         assertEquals(
-            listOf(ChainRow("Polygon PoS", "Layer 1 · ID 137"), ChainRow("Base", "L2 on Ethereum · ID 8453")),
+            listOf(row(137L, "Layer 1 · ID 137"), row(8453L, "L2 on Ethereum · ID 8453")),
             chainRows(registry, NetworkMode.MAINNET, emptyList()),
         )
     }
 
     @Test
     fun theTestnetSideShowsItsOwnFeaturedNetworkOnly() {
-        assertEquals(listOf(ChainRow("Monad Testnet", "Layer 1 · ID 10143")), chainRows(registry, NetworkMode.TESTNET, emptyList()))
+        assertEquals(listOf(row(10143L, "Layer 1 · ID 10143")), chainRows(registry, NetworkMode.TESTNET, emptyList()))
     }
 
     @Test

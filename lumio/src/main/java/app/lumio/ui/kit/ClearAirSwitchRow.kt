@@ -6,43 +6,29 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import app.lensly.ui.theme.ClearAirSpacing
-import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lensly.ui.theme.LocalReducedMotion
 
-/** The height of a switch row with a one-line subtitle, as the rows of a settings page are drawn. */
-private val ROW_HEIGHT = 62.dp
-
-/** The switch as the mock draws it: a 46 by 28 track with a 1.5 dp edge, and an 18 dp knob 5.5 dp in from the track's outer edge. */
 private val TRACK_WIDTH = 46.dp
 private val TRACK_HEIGHT = 28.dp
-private val TRACK_EDGE = 1.5.dp
 private val KNOB = 18.dp
-private val KNOB_INSET_X = 5.5.dp
-private val KNOB_INSET_Y = 5.dp
+
+/** The knob's place from the track's edge, with the 1.5 dp edge of an off track counted in: 4 dp inside it, and 3.5 dp from its top. */
+private val KNOB_START = 5.5.dp
+private val KNOB_END = 22.5.dp
+private val KNOB_TOP = 5.dp
 
 /** The knob's travel is the press spring of Clear Air (ζ1.0, k1400): no bounce, so the switch settles as the owner sees it turn. */
 private val knobSpring = spring<Dp>(dampingRatio = 1f, stiffness = 1400f)
@@ -55,7 +41,7 @@ private val knobSpring = spring<Dp>(dampingRatio = 1f, stiffness = 1400f)
 fun ClearAirSwitch(checked: Boolean, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val palette = LocalClearAirPalette.current
     val knobX by animateDpAsState(
-        targetValue = if (checked) TRACK_WIDTH - KNOB - KNOB_INSET_X else KNOB_INSET_X,
+        targetValue = if (checked) KNOB_END else KNOB_START,
         animationSpec = if (LocalReducedMotion.current) snap<Dp>() else knobSpring,
         label = "switch knob",
     )
@@ -65,11 +51,11 @@ fun ClearAirSwitch(checked: Boolean, modifier: Modifier = Modifier, enabled: Boo
             .alpha(if (enabled) 1f else DISABLED_ALPHA)
             .clip(CircleShape)
             .background(if (checked) palette.primary else palette.raised)
-            .border(TRACK_EDGE, if (checked) palette.primary else palette.ink3, CircleShape),
+            .then(if (checked) Modifier else Modifier.border(1.5.dp, palette.ink3, CircleShape)),
     ) {
         Box(
             modifier = Modifier
-                .offset(x = knobX, y = KNOB_INSET_Y)
+                .offset(x = knobX, y = KNOB_TOP)
                 .size(KNOB)
                 .clip(CircleShape)
                 .background(if (checked) palette.onPrimary else palette.ink3),
@@ -78,8 +64,8 @@ fun ClearAirSwitch(checked: Boolean, modifier: Modifier = Modifier, enabled: Boo
 }
 
 /**
- * A row of a settings page with a [title], an optional [description] under it, and a [ClearAirSwitch] at its end. The whole row is the switch, so a tap
- * anywhere on it toggles the setting, and a row that is not [enabled] ignores the tap.
+ * A [ClearAirRow] with a [ClearAirSwitch] at its end, for a setting. The whole row is the switch, so a tap anywhere on it toggles the setting, and a
+ * row that is not [enabled] ignores the tap. It takes the row's [leading] disc, [tag], [divider] and [compact] height.
  */
 @Composable
 fun ClearAirSwitchRow(
@@ -89,32 +75,23 @@ fun ClearAirSwitchRow(
     modifier: Modifier = Modifier,
     description: String? = null,
     enabled: Boolean = true,
+    leading: (@Composable () -> Unit)? = null,
+    tag: String? = null,
+    divider: Boolean = false,
+    compact: Boolean = false,
 ) {
-    val palette = LocalClearAirPalette.current
-    Row(
+    ClearAirRow(
+        title = title,
         modifier = modifier
-            .fillMaxWidth()
-            .defaultMinSize(minHeight = ROW_HEIGHT)
             .alpha(if (enabled) 1f else DISABLED_ALPHA)
-            .padding(horizontal = ClearAirSpacing.gutter)
             .toggleableRow(checked = checked, enabled = enabled, onCheckedChange = onCheckedChange),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = ClearAirType.rowTitle,
-                color = palette.ink,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (description != null) {
-                Text(text = description, style = ClearAirType.body, color = palette.ink2)
-            }
-        }
-        Spacer(Modifier.width(ClearAirSpacing.sm))
-        ClearAirSwitch(checked = checked)
-    }
+        description = description,
+        leading = leading,
+        trailing = { ClearAirSwitch(checked = checked) },
+        tag = tag,
+        divider = divider,
+        compact = compact,
+    )
 }
 
 /** The switch row's tap: a toggle with the switch's role, so TalkBack reads it as a switch. */

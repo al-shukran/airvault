@@ -89,7 +89,7 @@ internal object DebugDemoData {
     fun flag(key: String): Boolean = screen?.flags?.contains(key) == true
 
     /** The text a frame prefills for the field [key], so the secure keyboard is never typed. Empty when there is none. */
-    fun text(key: String): String = if (flag("prefill")) PASSWORD else ""
+    fun text(key: String): String = if (flag("prefill")) DebugDemoSeed.SEED_UNLOCK else ""
 
     /** The pairing that a Pair Review frame shows before any scan: the wallet again for a re-pair, else another wallet. Null for any other frame. */
     fun pairing(): PairingPayload? = if (!flag("pair:review")) null else DemoFixtures.payload().let { demo ->
@@ -161,8 +161,6 @@ internal object DebugDemoData {
         return DemoContext(wallet.id, mode, evm, btcId, sent, token)
     }
 
-    /** The App Password that the demo vault and the password pages of a frame show filled in. It is the public demo password. */
-    private const val PASSWORD = "Vq7m-Lp2x-Tz9w-Kd4n"
     private const val HOLD_SECONDS = 600
     private const val NEW_FINGERPRINT = 0x1A2B3C4DL
     private const val HISTORY_TRIES = 6

@@ -41,7 +41,7 @@ internal object DebugDemoSeed {
     private const val TAG = "DebugDemoSeed"
 
     /** The App Password of the demo vault. It is public, and it guards only the demo vault of an emulator. */
-    private const val SEED_UNLOCK = "Vq7m-Lp2x-Tz9w-Kd4n"
+    const val SEED_UNLOCK = "Vq7m-Lp2x-Tz9w-Kd4n"
 
     /** The throwaway test mnemonic that [intent] carries in the seed extra, or null when it asks for no seed. */
     fun mnemonicOf(intent: Intent?): String? =
