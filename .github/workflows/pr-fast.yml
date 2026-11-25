@@ -142,8 +142,9 @@ jobs:
             bc-shard-
 
       # Every shard compiles the same code, and a master push adds its new outputs to the entry, so an unpruned entry grows with
-      # each push (2.3 GB per shard after two days). The entries this run does not read or store are dropped before the save.
+      # each push (2.3 GB per shard after two days). On a master push, the entries the run does not read or store are dropped before the save.
       - name: Mark the build-cache entries as unused
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: ./scripts/ci/prune-build-cache.sh age
 
       - name: Run shard-${{ matrix.shard }}
@@ -155,7 +156,7 @@ jobs:
 
       # Only a push to master saves. A pull request and a merge-queue entry save nothing.
       - name: Drop the build-cache entries this run did not use
-        if: always()
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: ./scripts/ci/prune-build-cache.sh prune
 
       - name: Delete the build cache this lane replaces
