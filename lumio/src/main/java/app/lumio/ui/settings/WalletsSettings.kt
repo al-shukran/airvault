@@ -30,6 +30,7 @@ import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.ClearAirWalletEmblem
+import app.lumio.ui.kit.WalletEmblemTone
 import app.lumio.ui.wallets.ROW_DIVIDER_INDENT
 import app.lumio.ui.wallets.RowDivider
 import java.text.SimpleDateFormat
@@ -73,7 +74,7 @@ fun WalletsSettings(wallets: List<PairedWallet>, activeId: String?, onOpen: (Pai
             ClearAirRow(
                 title = wallet.name,
                 description = walletSummary(wallet),
-                leading = { ClearAirWalletEmblem() },
+                leading = { ClearAirWalletEmblem(tone = WalletEmblemTone.at(index)) },
                 tag = if (wallet.id == activeId) "ACTIVE" else null,
                 onClick = { onOpen(wallet) },
                 modifier = Modifier.testTag(walletRowTag(wallet.id)),
@@ -100,7 +101,7 @@ fun WalletsSettings(wallets: List<PairedWallet>, activeId: String?, onOpen: (Pai
  * keys are not changed.
  */
 @Composable
-fun WalletSettingsPage(wallet: PairedWallet, offline: String?, onRePair: () -> Unit, onRemove: () -> Unit, onBack: () -> Unit, onLock: () -> Unit) {
+fun WalletSettingsPage(wallet: PairedWallet, tone: WalletEmblemTone, offline: String?, onRePair: () -> Unit, onRemove: () -> Unit, onBack: () -> Unit, onLock: () -> Unit) {
     val palette = LocalClearAirPalette.current
     var removing by remember { mutableStateOf(DebugDemoData.flag("wallet:remove")) }
     SettingsFrame(title = wallet.name, offline = offline, onBack = onBack, onLock = onLock, backLabel = SettingsPage.WALLETS.title) {
@@ -108,7 +109,7 @@ fun WalletSettingsPage(wallet: PairedWallet, offline: String?, onRePair: () -> U
             modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xxs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ClearAirWalletEmblem(tile = 56.dp)
+            ClearAirWalletEmblem(tile = 56.dp, tone = tone)
             Spacer(Modifier.width(14.dp))
             Column {
                 Text(text = wallet.name, style = ClearAirType.titleL, color = palette.ink)

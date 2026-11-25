@@ -597,9 +597,11 @@ internal fun WalletSettingsRoute(
 ) {
     val session = holder.openSession()
     val scope = rememberCoroutineScope()
-    val wallet = pairedWallets(navController = navController, holder = holder, listVersion = listVersion).firstOrNull { it.id == walletId } ?: return
+    val wallets = pairedWallets(navController = navController, holder = holder, listVersion = listVersion)
+    val wallet = wallets.firstOrNull { it.id == walletId } ?: return
     WalletSettingsPage(
         wallet = wallet,
+        tone = WalletEmblemTone.at(wallets.indexOf(wallet)),
         offline = rememberSettingsOffline(),
         onRePair = { navController.navigate(LumioRoute.PAIR_SCAN) },
         onRemove = {
