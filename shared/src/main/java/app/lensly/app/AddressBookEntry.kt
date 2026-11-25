@@ -2,6 +2,9 @@ package app.lensly.app
 
 import app.airvault.core.model.ChainId
 
+/** The most characters an entry's notes take. */
+const val ADDRESS_NOTES_MAX_LENGTH = 200
+
 /**
  * One Address Book entry: a name, an optional label and optional notes for an address the owner saved. It is for display only. No
  * signing rule or policy reads it. [address] is canonical: an EVM address in its checksum form, a Bitcoin address as bitcoin-kmp writes

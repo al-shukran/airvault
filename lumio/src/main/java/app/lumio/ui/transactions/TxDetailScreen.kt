@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.addressKeyOf
+import app.lensly.app.plainName
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirMotion
 import app.lensly.ui.theme.ClearAirPalette
@@ -200,9 +201,9 @@ private fun titleOf(detail: TxDetail, zone: ZoneId, shown: Boolean): String {
 private fun entryOf(address: String, book: List<AddressBookEntry>): AddressBookEntry? =
     book.firstOrNull { addressKeyOf(it.address) == addressKeyOf(address) }
 
-/** The other side's line: its entry's name when the address book has it, and otherwise "Not in Address Book", with the invitation to add it. */
+/** The other side's line: its entry's name, as plain text, when the address book has it, and otherwise "Not in Address Book", with the invitation to add it. */
 private fun counterpartyLine(entry: AddressBookEntry?): AddressLine = if (entry != null) {
-    AddressLine(name = entry.name, detail = addressBookSourceOf(entry), named = true)
+    AddressLine(name = entry.plainName(), detail = addressBookSourceOf(entry), named = true)
 } else {
     AddressLine(name = "Not in Address Book", detail = "Tap to add it on Lensly", named = false)
 }
