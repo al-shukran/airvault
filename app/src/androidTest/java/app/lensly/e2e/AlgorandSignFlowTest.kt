@@ -4,7 +4,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.airvault.chains.algorand.AlgoSignType
 import app.airvault.chains.algorand.bytesToSign
-import app.lensly.app.addressStart
+import app.lensly.app.addressEnds
 import app.lensly.app.export.partsOf
 import app.lensly.app.isolated
 import app.lensly.core.algorand.AlgorandAccount
@@ -47,8 +47,8 @@ class AlgorandSignFlowTest : SignFlowE2eBase() {
         // 1,500,000 microAlgos is 1.5 ALGO, sent from the signing account to the receiver of the vector. The receiver is an account of this
         // device, so the sentence names it, as it names the signer.
         // Each named party is followed by the start of its address.
-        val from = "${isolated(ready.signer.name)} (${addressStart(ready.signer.address)})"
-        val to = "${isolated("E2E Wallet 1")} (${addressStart(AlgorandAccount.addressOf(RECEIVER))})"
+        val from = "${isolated(ready.signer.name)} (${addressEnds(ready.signer.address)})"
+        val to = "${isolated("E2E Wallet 1")} (${addressEnds(AlgorandAccount.addressOf(RECEIVER))})"
         compose.onNodeWithText("Send 1.5 ALGO from $from to $to?").assertExists()
         driver.readToTheEnd()
         assertTrue(driver.approvable())

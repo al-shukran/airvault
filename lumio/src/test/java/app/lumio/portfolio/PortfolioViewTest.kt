@@ -175,4 +175,12 @@ class PortfolioViewTest {
         assertEquals("0.00%", PortfolioFormat.change(0.0))
         assertNull(PortfolioView.total(emptyList()).usd)
     }
+
+    @Test
+    fun fundsWithNoPriceAreNotEmptyButZeroBalancesAre() {
+        assertEquals(true, PortfolioView.isEmpty(emptyList()))
+        assertEquals(true, PortfolioView.isEmpty(listOf(native(ethereum, "ETH", "0", null))))
+        assertEquals(false, PortfolioView.isEmpty(listOf(native(ethereum, "ETH", "15", null))))
+        assertEquals(false, PortfolioView.isEmpty(listOf(native(ethereum, "ETH", "0", 0.0))))
+    }
 }

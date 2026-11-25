@@ -29,7 +29,7 @@ import app.lensly.app.InternalAccount
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressKeyOf
 import app.lensly.app.addressNotesOf
-import app.lensly.app.addressStart
+import app.lensly.app.addressEnds
 import app.lensly.app.isolated
 import app.lensly.app.lookalikeWarningText
 import app.lensly.app.plainLabel
@@ -537,7 +537,7 @@ internal fun SendRoute(
             val notes = remember(now.send.to, ready.accounts, ready.wallet.addressBook) { notesFor(now.send.to, ready.accounts, ready.wallet.addressBook) }
             val toName = nameOrAddress(notes, now.send.to)
             SendReviewPage(
-                heading = reviewHeading(now.send, fromName, nameWithStart(notes, now.send.to)),
+                heading = reviewHeading(now.send, fromName, nameWithEnds(notes, now.send.to)),
                 toTitle = toName,
                 toDetail = notes?.let(::notesDetail).orEmpty(),
                 toAddress = now.send.to,
@@ -651,9 +651,9 @@ internal fun nameOrAddress(notes: AddressNotes?, address: String): String =
 internal fun nameWithAddress(notes: AddressNotes?, address: String): String =
     notes?.let(::notesName)?.takeIf { it.isNotEmpty() }?.let { "${isolated(it)} (${groupAddress(address)})" } ?: groupAddress(address)
 
-/** The recipient in a heading: "Name (start of the address)" when [notes] name it, else the address in groups. The full address is on the page. */
-internal fun nameWithStart(notes: AddressNotes?, address: String): String =
-    notes?.let(::notesName)?.takeIf { it.isNotEmpty() }?.let { "${isolated(it)} (${addressStart(address)})" } ?: groupAddress(address)
+/** The recipient in a heading: "Name (start and end of the address)" when [notes] name it, else the address in groups. The full address is on the page. */
+internal fun nameWithEnds(notes: AddressNotes?, address: String): String =
+    notes?.let(::notesName)?.takeIf { it.isNotEmpty() }?.let { "${isolated(it)} (${addressEnds(address)})" } ?: groupAddress(address)
 
 /** Whether neither the device nor the Address Book names the address, so it is the first time it shows here. */
 internal fun isFirstTime(notes: AddressNotes?): Boolean = notes?.internal == null && notes?.entry == null
@@ -685,7 +685,8 @@ private fun reviewHeading(send: PreparedSend, fromName: String, toName: String):
     "Send ${amountText(send)} from ${isolated(fromName)} to $toName?"
 
 /**
- * The rows under the recipient on the Review page, in the order Lensly shows them: the amount, the most the fee can be, the network and the sender.
+ * The rows under the recipient on the Review page, in the order Lensly shows them: the amount, the most the fee can be, the network and the sender,
+ * named with its full address.
  * A send ends with the hash of its calldata only when Lensly cannot read that calldata, the same condition under which Lensly shows the hash row.
  */
 internal fun reviewRows(send: PreparedSend, fromName: String): List<SummaryRow> = buildList {
@@ -693,7 +694,7 @@ internal fun reviewRows(send: PreparedSend, fromName: String): List<SummaryRow> 
     add(SummaryRow("Max Fee", EvmFormat.amount(send.maxFeeWei, send.chain.decimals, send.chain.symbol)))
     if (send.token == null) add(SummaryRow("Total at Most", EvmFormat.amount(send.maxCostWei, send.chain.decimals, send.chain.symbol)))
     add(SummaryRow("Network", "${send.chain.name} · ID ${send.chain.chainId}"))
-    add(SummaryRow("From", fromName))
+    add(SummaryRow("From", "${isolated(fromName)} (${groupAddress(send.from)})"))
     val calldata = Numeric.hexStringToByteArray(send.tx.data)
     if (showsCalldataHash(calldata)) add(SummaryRow(CALLDATA_HASH_LABEL, calldataHash(calldata), mono = true))
 }

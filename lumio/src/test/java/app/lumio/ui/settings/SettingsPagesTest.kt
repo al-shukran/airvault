@@ -33,6 +33,9 @@ import app.lumio.evm.EvmSettings
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -276,6 +279,38 @@ class SettingsPagesTest {
         compose.onNode(hasSetTextAction()).performTextInput("the right one")
         compose.onNodeWithText("Change").performClick()
         assertTrue(accepted)
+    }
+
+    /** Cancel during the password check closes the dialog, and the check that finishes after it must not apply the choice. */
+    @Test
+    fun cancellingTheAutoLockStepDuringTheCheckDoesNotApplyTheChoice() {
+        val gate = CompletableDeferred<Unit>()
+        var chosen: AutoLock? = null
+        compose.setContent {
+            ClearAirHarness {
+                SecuritySettingsPage(
+                    lock = LockSettings(AutoLock.AFTER_ONE_MINUTE),
+                    biometric = BiometricSwitch(on = false, canEnable = true),
+                    onEntryGesture = {},
+                    onChangePassword = {},
+                    onBiometric = {},
+                    checkPassword = { withContext(NonCancellable) { gate.await(); PasswordCheck.Accepted } },
+                    onAutoLock = { chosen = it },
+                    offline = null, onLock = {}, onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Auto-Lock").performScrollTo().performClick()
+        compose.onNodeWithText("Immediately").performClick()
+        compose.onNode(hasSetTextAction()).performTextInput("the password")
+        compose.onNodeWithText("Change").performClick()
+        compose.onNodeWithText("Cancel").performClick()
+        compose.onNodeWithText("Enter your current password to set Auto-Lock to Immediately.").assertDoesNotExist()
+        gate.complete(Unit)
+        compose.waitForIdle()
+
+        assertEquals(null, chosen)
     }
 
     /** A wrong current password leaves all three fields as typed, so the owner corrects the one that is wrong and only the error shows. */

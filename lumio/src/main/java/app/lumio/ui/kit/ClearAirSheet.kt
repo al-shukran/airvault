@@ -15,6 +15,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,7 +45,7 @@ private val sheetShape = RoundedCornerShape(topStart = SHEET_CORNER, topEnd = SH
 
 /**
  * The one modal sheet of Lumio. It rises from the bottom on the sheet spring over a scrim that fades in, and the page beneath stays still. It has
- * no place of its own: a short task opens it over a page, and [onClose] closes it. Tapping the scrim and the system back close it too, so a back swipe never moves the page beneath. A caller holds at most one
+ * no place of its own: a short task opens it over a page, and [onClose] closes it. Tapping the scrim and the system back close it too, so a back swipe never moves the page beneath. A sheet is as tall as its content, up to the page's height less a 44 dp gap, and a content that fills its height fills that. A caller holds at most one
  * sheet, so a sheet never opens over another one. Reduced motion cuts the rise to a cross-fade.
  */
 @Composable
@@ -62,20 +63,21 @@ fun ClearAirSheet(visible: Boolean, onClose: () -> Unit, modifier: Modifier = Mo
         ) {
             Box(modifier = Modifier.fillMaxSize().background(palette.scrim).clickable(onClick = onClose))
         }
+        // The sheet sits at the bottom and is as tall as its content, up to the gap [top] below the page's top, as the mock draws it.
         transition.AnimatedVisibility(
             visible = { it },
+            modifier = Modifier.align(Alignment.BottomCenter).padding(top = top),
             enter = if (reduced) fadeIn(tween(ClearAirMotion.CROSS_FADE_MS)) else slideInVertically(sheetOffset) { it },
             exit = if (reduced) fadeOut(tween(ClearAirMotion.CROSS_FADE_MS)) else slideOutVertically(sheetOffset) { it },
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = top)
+                    .fillMaxWidth()
                     .then(if (isSystemInDarkTheme()) Modifier else Modifier.shadow(SHEET_SHADOW, sheetShape, ambientColor = SHADOW_INK, spotColor = SHADOW_INK))
                     .clip(sheetShape)
                     .background(palette.sheet),
             ) {
-                Column(modifier = Modifier.fillMaxSize()) {
+                Column {
                     Box(
                         modifier = Modifier
                             .padding(top = 8.dp, bottom = 2.dp)

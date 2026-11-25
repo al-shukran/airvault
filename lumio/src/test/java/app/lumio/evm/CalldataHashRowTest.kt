@@ -8,6 +8,7 @@ import app.lensly.core.wallet.AccountAddresses
 import app.lensly.core.wallet.HdWallet
 import app.lensly.core.wallet.Mnemonic
 import app.lensly.core.wallet.toHex
+import app.lensly.ui.components.groupAddress
 import app.lumio.reviewRows
 import app.lumio.tokens.Token
 import java.math.BigInteger
@@ -68,6 +69,7 @@ class CalldataHashRowTest {
         assertFalse(showsCalldataHash(Numeric.hexStringToByteArray(send(null).tx.data)))
         assertNull(rows.singleOrNull { it.label == CALLDATA_HASH_LABEL })
         assertEquals(listOf("Amount", "Max Fee", "Total at Most", "Network", "From"), rows.map { it.label })
+        assertEquals("\u2068PulsarNova\u2069 (${groupAddress(from)})", rows.single { it.label == "From" }.value)
     }
 
     private companion object {

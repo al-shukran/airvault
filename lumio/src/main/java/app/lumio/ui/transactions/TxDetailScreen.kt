@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.app.AddressBookEntry
+import app.lensly.app.addressEnds
 import app.lensly.app.addressKeyOf
 import app.lensly.app.plainName
 import app.lensly.ui.components.lumioPress
@@ -208,10 +209,10 @@ private fun counterpartyLine(entry: AddressBookEntry?): AddressLine = if (entry 
     AddressLine(name = "Not in Address Book", detail = "Tap to add it on Lensly", named = false)
 }
 
-/** The wallet's own account: its name when it has one, and the line that says it is the owner's, with its short address. */
+/** The wallet's own account: its name when it has one, and the line that says it is the owner's, with the ends of its address. */
 private fun ownLine(address: String, name: String?): AddressLine = AddressLine(
     name = name ?: ActivityText.shortAddress(address),
-    detail = "Your account · ${ActivityText.shortAddress(address)}",
+    detail = "Your account · ${addressEnds(address)}",
     named = true,
 )
 

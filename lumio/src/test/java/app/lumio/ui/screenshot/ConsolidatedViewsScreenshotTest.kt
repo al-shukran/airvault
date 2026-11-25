@@ -21,6 +21,7 @@ import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.kit.ChoiceGroup
 import app.lumio.ui.kit.ChoiceRow
 import app.lumio.ui.kit.ClearAirChoiceSheet
+import app.lumio.ui.kit.ClearAirSheet
 import app.lumio.ui.portfolio.PortfolioScreen
 import app.lumio.ui.transactions.ActivityList
 import app.lumio.ui.transactions.AddOnLenslyScreen
@@ -58,6 +59,13 @@ class ConsolidatedViewsScreenshotTest {
 
     @Test
     fun chainChoices() = compose.lumioSnapshot("portfolio_chain_sheet") { ChainChoices() }
+
+    /** The chain sheet open over the Portfolio: as tall as its rows, at the bottom, with inset dividers between the rows. */
+    @Test
+    fun chainSheetOpen() = compose.lumioSnapshot("portfolio_chain_sheet_open") {
+        PortfolioSample(PortfolioFilter())
+        ClearAirSheet(visible = true, onClose = {}) { ChainChoices() }
+    }
 
     @Test
     fun groupingDisabledForOneChain() = compose.lumioSnapshot("portfolio_grouping_sheet") { GroupingChoices() }

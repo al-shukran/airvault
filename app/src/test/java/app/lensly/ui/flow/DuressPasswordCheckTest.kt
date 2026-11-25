@@ -12,6 +12,10 @@ import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultLayout
 import java.io.File
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Rule
@@ -58,6 +62,20 @@ class DuressPasswordCheckTest {
         assertEquals(PasswordCheck.Accepted, runBlocking { checkAppPassword(holder, DURESS.toCharArray()) })
         // The real App Password opens the real vault, but it is refused inside the decoy, so the decoy shows nothing of it.
         assertEquals(PasswordCheck.Rejected, runBlocking { checkAppPassword(holder, APP.toCharArray()) })
+    }
+
+    @Test
+    fun aCheckThatItsCallerCancelledGivesTheCancellationNotAnAcceptance() {
+        runBlocking { holder.adopt(open(APP), holder.unlockEpoch()) }
+        var result: PasswordCheck? = null
+        runBlocking {
+            launch(start = CoroutineStart.UNDISPATCHED) {
+                coroutineContext.job.cancel()
+                result = checkAppPassword(holder, APP.toCharArray())
+            }.join()
+        }
+
+        assertNull(result)
     }
 
     private fun open(password: String) = runBlocking {

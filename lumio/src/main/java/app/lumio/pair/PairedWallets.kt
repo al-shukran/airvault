@@ -104,20 +104,31 @@ object PairedWallets {
         // The wallets are read once per write: each read costs a Keystore call, and every screen asks for them.
         val ids = session.listWallets()
         val writes = session.writeCount
-        val wallets = synchronized(kept) { kept[session] }?.takeIf { it.writes == writes && it.ids == ids }?.wallets
-            ?: ids.mapNotNull { id -> readOrNull(session, id) }.also { synchronized(kept) { kept[session] = Kept(writes, ids, it) } }
+        val (cached, forgotten) = synchronized(kept) { kept[session] to forgets }
+        val wallets = cached?.takeIf { it.writes == writes && it.ids == ids }?.wallets
+            ?: ids.mapNotNull { id -> readOrNull(session, id) }.also {
+                // A forget since this read began means the session was locked: keep nothing, or a lock would not drop it.
+                synchronized(kept) { if (forgets == forgotten) kept[session] = Kept(writes, ids, it) }
+            }
         val rank = books.keys.withIndex().associate { it.value to it.index }
         return wallets.map { it.copy(addressBook = books[it.id].orEmpty(), bookRank = rank[it.id] ?: -1) }.sortedBy { it.createdAtMs }
     }
 
     /** The wallets read at a write count, for the session that read them. A closed session drops out with its key. */
-    private class Kept(val writes: Long, val ids: List<String>, val wallets: List<PairedWallet>)
+    internal class Kept(val writes: Long, val ids: List<String>, val wallets: List<PairedWallet>)
 
-    private val kept = java.util.WeakHashMap<VaultSession, Kept>()
+    /** Internal for tests only: production code must not touch it outside [list] and [forget]. */
+    internal val kept = java.util.WeakHashMap<VaultSession, Kept>()
+
+    /** How many times [forget] ran, guarded by [kept]. A [list] that began before a forget does not store what it read. */
+    private var forgets = 0L
 
     /** Drops the wallets kept for [session], so no read of them outlives a lock. [LumioVault.wipe] calls it. */
     fun forget(session: VaultSession) {
-        synchronized(kept) { kept.remove(session) }
+        synchronized(kept) {
+            forgets++
+            kept.remove(session)
+        }
     }
 
     internal fun isKept(session: VaultSession): Boolean = synchronized(kept) { kept.containsKey(session) }
