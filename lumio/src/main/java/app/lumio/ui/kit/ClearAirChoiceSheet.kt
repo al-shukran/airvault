@@ -83,7 +83,7 @@ private fun ChoiceRowItem(row: ChoiceRow) {
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(text = row.title, style = ClearAirType.rowTitle, color = titleColor)
-            row.detail?.let { Text(text = it, style = ClearAirType.body, color = palette.ink2) }
+            row.detail?.let { Text(text = it, style = ClearAirType.caption, color = palette.ink2) }
         }
         row.trailing?.let {
             Spacer(Modifier.width(ClearAirSpacing.sm))
@@ -104,14 +104,15 @@ fun ClearAirRadio(selected: Boolean, enabled: Boolean = true, modifier: Modifier
         val stroke = RING_WIDTH.toPx()
         val radius = size.minDimension / 2 - stroke / 2
         val dash = if (enabled) null else PathEffect.dashPathEffect(floatArrayOf(DASH_ON, DASH_OFF))
-        drawCircle(color = palette.ink3, radius = radius, style = Stroke(width = stroke, pathEffect = dash))
-        if (selected) drawCircle(color = palette.ink, radius = radius - DOT_INSET.toPx())
+        drawCircle(color = if (selected) palette.ink else palette.ink3, radius = radius, style = Stroke(width = stroke, pathEffect = dash))
+        if (selected) drawCircle(color = palette.ink, radius = DOT_RADIUS.toPx())
     }
 }
 
-private val RADIO_SIZE = 24.dp
-private val RING_WIDTH = 1.6.dp
-private val DOT_INSET = 6.dp
+/** The radio as the mock draws it: 22 dp with a 2 dp ring, and a dot of radius 5 dp. */
+private val RADIO_SIZE = 22.dp
+private val RING_WIDTH = 2.dp
+private val DOT_RADIUS = 5.dp
 private const val DASH_ON = 4f
 private const val DASH_OFF = 3f
 private const val DISABLED_ALPHA = 0.38f

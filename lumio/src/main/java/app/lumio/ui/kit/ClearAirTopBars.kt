@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,19 +20,22 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirMotion
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 
-/** The height of a top bar's row, which holds the 48 dp touch targets of its icons. */
-private val TOP_BAR_HEIGHT = 56.dp
+/** The height of a top bar's row, as the mock draws it: 52 dp, with 6 dp either side so the 48 dp touch targets centre their icons where the mock does. */
+private val TOP_BAR_HEIGHT = 52.dp
+private val TOP_BAR_SIDE = 6.dp
 
-/** The top bar's title: 18 sp, bold, one step under a row title. */
+/** The gap between a top bar's icon and its title. */
+private val TOP_BAR_TITLE_GAP = 4.dp
+
+/** The top bar's title: 18 sp, bold, with the mock's tracking. */
 private val topBarTitle
-    get() = ClearAirType.titleL.copy(fontSize = 18.sp, lineHeight = 23.sp)
+    get() = ClearAirType.topBar
 
 /**
  * The root top bar of a tab: the wallet emblem, the tab's [title] with its ▾, the search and the lock. The emblem and the title open the profile
@@ -41,7 +45,7 @@ private val topBarTitle
 fun ClearAirRootTopBar(title: String, onPanel: () -> Unit, onSearch: () -> Unit, onLock: () -> Unit, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
     Row(
-        modifier = modifier.fillMaxWidth().height(TOP_BAR_HEIGHT).padding(horizontal = ClearAirSpacing.xs),
+        modifier = modifier.fillMaxWidth().height(TOP_BAR_HEIGHT).padding(horizontal = TOP_BAR_SIDE),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -51,12 +55,12 @@ fun ClearAirRootTopBar(title: String, onPanel: () -> Unit, onSearch: () -> Unit,
             ClearAirWalletEmblem(tile = 36.dp)
         }
         Row(
-            modifier = Modifier.weight(1f).pressable(onClick = onPanel, label = "Open the profile panel").padding(start = ClearAirSpacing.xs),
+            modifier = Modifier.weight(1f).pressable(onClick = onPanel, label = "Open the profile panel").padding(start = TOP_BAR_TITLE_GAP),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(text = title, style = topBarTitle, color = palette.ink)
-            Spacer(Modifier.width(ClearAirSpacing.xxs))
-            ClearAirIcon(glyph = ClearAirGlyph.DOWN, color = palette.ink2)
+            Spacer(Modifier.width(6.dp))
+            ClearAirIcon(glyph = ClearAirGlyph.DOWN, color = palette.ink2, size = 16.dp)
         }
         ClearAirIconButton(glyph = ClearAirGlyph.SEARCH, label = "Search", onClick = onSearch)
         ClearAirIconButton(glyph = ClearAirGlyph.LOCK, label = "Lock", onClick = onLock)
@@ -71,13 +75,13 @@ fun ClearAirRootTopBar(title: String, onPanel: () -> Unit, onSearch: () -> Unit,
 fun ClearAirPageTopBar(title: String, backLabel: String?, onBack: () -> Unit, onLock: () -> Unit, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
     Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.xs, vertical = ClearAirSpacing.xxs),
+        modifier = modifier.fillMaxWidth().heightIn(min = TOP_BAR_HEIGHT).padding(horizontal = TOP_BAR_SIDE, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ClearAirIconButton(glyph = ClearAirGlyph.BACK, label = backLabel?.let { "Back to $it" } ?: "Back", onClick = onBack)
         Text(
             text = title,
-            modifier = Modifier.weight(1f).padding(horizontal = ClearAirSpacing.xs),
+            modifier = Modifier.weight(1f).padding(horizontal = TOP_BAR_TITLE_GAP),
             style = topBarTitle,
             color = palette.ink,
             textAlign = TextAlign.Start,
@@ -94,7 +98,7 @@ fun ClearAirIconButton(glyph: ClearAirGlyph, label: String, onClick: () -> Unit,
         modifier = modifier.size(ClearAirSpacing.touchTarget).pressable(onClick = onClick, label = label),
         contentAlignment = Alignment.Center,
     ) {
-        ClearAirIcon(glyph = glyph, color = palette.ink)
+        ClearAirIcon(glyph = glyph, color = palette.ink, size = 22.dp)
     }
 }
 

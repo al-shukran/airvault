@@ -36,10 +36,13 @@ import app.lensly.ui.theme.LocalReducedMotion
 /** The height of a switch row with a one-line subtitle, as the rows of a settings page are drawn. */
 private val ROW_HEIGHT = 62.dp
 
-private val TRACK_WIDTH = 51.dp
-private val TRACK_HEIGHT = 31.dp
-private val KNOB = 27.dp
-private val KNOB_INSET = 2.dp
+/** The switch as the mock draws it: a 46 by 28 track with a 1.5 dp edge, and an 18 dp knob 5.5 dp in from the track's outer edge. */
+private val TRACK_WIDTH = 46.dp
+private val TRACK_HEIGHT = 28.dp
+private val TRACK_EDGE = 1.5.dp
+private val KNOB = 18.dp
+private val KNOB_INSET_X = 5.5.dp
+private val KNOB_INSET_Y = 5.dp
 
 /** The knob's travel is the press spring of Clear Air (ζ1.0, k1400): no bounce, so the switch settles as the owner sees it turn. */
 private val knobSpring = spring<Dp>(dampingRatio = 1f, stiffness = 1400f)
@@ -52,7 +55,7 @@ private val knobSpring = spring<Dp>(dampingRatio = 1f, stiffness = 1400f)
 fun ClearAirSwitch(checked: Boolean, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val palette = LocalClearAirPalette.current
     val knobX by animateDpAsState(
-        targetValue = if (checked) TRACK_WIDTH - KNOB - KNOB_INSET else KNOB_INSET,
+        targetValue = if (checked) TRACK_WIDTH - KNOB - KNOB_INSET_X else KNOB_INSET_X,
         animationSpec = if (LocalReducedMotion.current) snap<Dp>() else knobSpring,
         label = "switch knob",
     )
@@ -62,14 +65,14 @@ fun ClearAirSwitch(checked: Boolean, modifier: Modifier = Modifier, enabled: Boo
             .alpha(if (enabled) 1f else DISABLED_ALPHA)
             .clip(CircleShape)
             .background(if (checked) palette.primary else palette.raised)
-            .then(if (checked) Modifier else Modifier.border(1.dp, palette.hairline, CircleShape)),
+            .border(TRACK_EDGE, if (checked) palette.primary else palette.ink3, CircleShape),
     ) {
         Box(
             modifier = Modifier
-                .offset(x = knobX, y = KNOB_INSET)
+                .offset(x = knobX, y = KNOB_INSET_Y)
                 .size(KNOB)
                 .clip(CircleShape)
-                .background(if (checked) palette.onPrimary else palette.ink2),
+                .background(if (checked) palette.onPrimary else palette.ink3),
         )
     }
 }
@@ -106,7 +109,7 @@ fun ClearAirSwitchRow(
                 overflow = TextOverflow.Ellipsis,
             )
             if (description != null) {
-                Text(text = description, style = ClearAirType.body, color = palette.ink2)
+                Text(text = description, style = ClearAirType.caption, color = palette.ink2)
             }
         }
         Spacer(Modifier.width(ClearAirSpacing.sm))

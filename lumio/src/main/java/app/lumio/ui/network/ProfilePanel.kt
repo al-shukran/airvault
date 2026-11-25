@@ -10,7 +10,6 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -62,10 +61,6 @@ private val PANEL_WIDTH = 304.dp
 
 /** The corner radius of the panel's open edge. */
 private val PANEL_CORNER = 28.dp
-
-/** The scrim's opacity over the page beneath the panel, in the light theme and in the dark one. */
-private const val SCRIM_LIGHT = 0.34f
-private const val SCRIM_DARK = 0.58f
 
 /** A row of the panel is at least as tall as a Clear Air row, and the test networks row is 48 dp, as the mock draws it. */
 private val ROW_MIN_HEIGHT = 62.dp
@@ -136,14 +131,13 @@ fun ProfilePanel(
 ) {
     val palette = LocalClearAirPalette.current
     val reduced = LocalReducedMotion.current
-    val scrim = Color.Black.copy(alpha = if (isSystemInDarkTheme()) SCRIM_DARK else SCRIM_LIGHT)
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedVisibility(
             visible = visible,
             enter = fadeIn(tween(ClearAirMotion.SCRIM_MS)),
             exit = fadeOut(tween(ClearAirMotion.SCRIM_MS)),
         ) {
-            Box(modifier = Modifier.fillMaxSize().background(scrim).clickable(onClick = onDismiss))
+            Box(modifier = Modifier.fillMaxSize().background(palette.scrim).clickable(onClick = onDismiss))
         }
         AnimatedVisibility(
             visible = visible,
