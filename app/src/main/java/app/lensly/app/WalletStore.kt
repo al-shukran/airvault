@@ -348,7 +348,8 @@ class WalletStore(private val session: VaultSession) {
      * Uninstalls [app] from Mnemonic wallet [id]: removes all of its accounts in one atomic write. Nothing else changes, and the secret record
      * is never touched, so [installApp] derives the same accounts again. The profile records of the removed Ethereum accounts stay, and the
      * profiles of the removed Bitcoin accounts move to the Bitcoin record's kept profiles, so their names, labels and groups come back when the
-     * accounts do, and only deleting the wallet erases them. An App that is not installed is left as it is.
+     * accounts do, and only deleting the wallet erases them. Only the newest [PairingCodec.MAX_BITCOIN_ACCOUNTS]
+     * fit, and when the record is full the oldest are dropped, so an uninstall is never refused for them. An App that is not installed is left as it is.
      *
      * @throws IllegalArgumentException if the wallet is missing or is a Single Key wallet, whose one account is its Ethereum account.
      */
@@ -655,11 +656,18 @@ class WalletStore(private val session: VaultSession) {
     }
 
     /**
-     * Writes the Bitcoin record of wallet [id] as [record]. The record has a fixed size, so a write that would not fit is refused before
-     * anything is written, and the record is left as it was.
+     * Writes the Bitcoin record of wallet [id] as [record]. The record has a fixed size. The kept profiles are only nice to have, so when
+     * there are more than [PairingCodec.MAX_BITCOIN_ACCOUNTS], or they do not fit with the accounts, the oldest are dropped, and a write
+     * of the accounts never fails because of them. A write whose accounts and their own profiles do not fit is refused before anything is
+     * written, and the record is left as it was.
      */
     private fun putBitcoinRecord(id: String, record: BitcoinRecord) {
-        val bytes = WalletRecords.encodeBitcoinRecord(record)
+        var kept = record.kept.toList().takeLast(PairingCodec.MAX_BITCOIN_ACCOUNTS)
+        var bytes = WalletRecords.encodeBitcoinRecord(record.copy(kept = kept.toMap()))
+        while (bytes.size > WalletRecordNames.BITCOIN_CAPACITY && kept.isNotEmpty()) {
+            kept = kept.drop(1)
+            bytes = WalletRecords.encodeBitcoinRecord(record.copy(kept = kept.toMap()))
+        }
         require(bytes.size <= WalletRecordNames.BITCOIN_CAPACITY) { NO_ROOM_FOR_BITCOIN }
         session.putRecord(id, WalletRecords.BITCOIN, bytes)
     }
