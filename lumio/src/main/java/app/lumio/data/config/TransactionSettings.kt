@@ -22,10 +22,10 @@ data class TransactionSettings(
 
     companion object {
         /** The default pause before a send is broadcast, in seconds. */
-        const val DEFAULT_LAST_CHANCE_SECONDS = 3
+        const val DEFAULT_LAST_CHANCE_SECONDS = 60
 
-        /** The choices of the Last Chance pause, in seconds: from 0 to 10, a tick for every second. */
-        val LAST_CHANCE_CHOICES: List<Int> = (0..10).toList()
+        /** The choices of the Last Chance pause, in seconds, up to five minutes, so there is ample time to stop a signed send. */
+        val LAST_CHANCE_CHOICES: List<Int> = listOf(0, 1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 300)
     }
 }
 

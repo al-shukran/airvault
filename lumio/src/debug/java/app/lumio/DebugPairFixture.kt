@@ -62,10 +62,10 @@ internal object DebugPairFixture {
      * The pairing that Lensly exports for the wallet of [seed], named "Demo": its accounts on each chain and an Address Book. [DebugDemoSeed] pairs
      * the same export for its own mnemonic.
      */
-    internal fun payloadOf(seed: ByteArray): PairingPayload {
+    internal fun payloadOf(seed: ByteArray, evmAccounts: Int = 2): PairingPayload {
         val wallet = HdWallet(seed)
         val fingerprint = wallet.masterFingerprint
-        val ethereum = (0..1).map { account ->
+        val ethereum = (0 until evmAccounts).map { account ->
             val key = AccountAddresses.addressXpub(wallet.accountXpub(account), 0)
             PairingAccount(
                 export = AccountExport(

@@ -266,7 +266,8 @@ class LumioScreenshotTest {
     @Test
     fun settingsSecurity() = compose.lumioSnapshot("settings_security") {
         SecuritySettingsPage(
-            lock = LockSettings(),
+            // The locked mockup frame shows After 1 Minute, which is not the default, so the frame names it.
+            lock = LockSettings(AutoLock.AFTER_ONE_MINUTE),
             biometric = BiometricSwitch(on = true, canEnable = true),
             onEntryGesture = {},
             onChangePassword = {},
