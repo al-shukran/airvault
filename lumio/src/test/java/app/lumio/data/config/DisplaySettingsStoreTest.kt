@@ -7,6 +7,7 @@ import kotlin.test.assertEquals
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -32,6 +33,30 @@ class DisplaySettingsStoreTest {
         assertEquals(DisplaySettings(), settings)
         assertFalse(settings.showTotal)
         assertTrue(settings.showAssets)
+        session.close()
+    }
+
+    @Test
+    fun aRecordThatDoesNotParseIsKeptAndTheWriteRefused() {
+        val session = open()
+        val damaged = """{"showTotal":"yes","currency":"CHF"}"""
+        session.putVaultRecord(DisplaySettingsStore.RECORD, damaged.encodeToByteArray())
+
+        assertEquals(DisplaySettings(), DisplaySettingsStore.read(session))
+        assertThrows(IllegalStateException::class.java) { DisplaySettingsStore.write(session, DisplaySettings(showAssets = false)) }
+
+        assertEquals(damaged, session.getVaultRecord(DisplaySettingsStore.RECORD)!!.decodeToString())
+        session.close()
+    }
+
+    @Test
+    fun everyFieldIsStoredSoALaterDefaultDoesNotChangeTheRecord() {
+        val session = open()
+        DisplaySettingsStore.write(session, DisplaySettings())
+
+        val record = session.getVaultRecord(DisplaySettingsStore.RECORD)!!.decodeToString()
+        assertTrue(record, """"showTotal":false""" in record)
+        assertTrue(record, """"smallBalanceUsd":1.0""" in record)
         session.close()
     }
 
@@ -114,6 +139,20 @@ class DisplaySettingsStoreTest {
                 assertEquals(DisplaySettings(showTotal = showTotal, showAssets = showAssets), stored(bytes))
             }
         }
+    }
+
+    @Test
+    fun aVersion1RecordIsReadAndAChangeOnItIsWritten() {
+        val session = open()
+        val bytes = Json.encodeToString(Version1Display.serializer(), Version1Display(showTotal = true, showAssets = false))
+        session.putVaultRecord(DisplaySettingsStore.RECORD, bytes.encodeToByteArray())
+        val read = DisplaySettingsStore.read(session)
+        assertEquals(DisplaySettings(showTotal = true, showAssets = false), read)
+
+        DisplaySettingsStore.write(session, read.copy(currency = FiatCurrency.CHF))
+
+        assertEquals(DisplaySettings(showTotal = true, showAssets = false, currency = FiatCurrency.CHF), DisplaySettingsStore.read(session))
+        session.close()
     }
 
     /** The record class of Lumio 1.0.0, with the same fields, defaults and Json settings, so its encoder produces the bytes a 1.0.0 vault holds. */

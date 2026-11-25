@@ -45,24 +45,35 @@ object DisplaySettingsStore {
     /** The vault record that holds these settings. */
     const val RECORD = "lumio-display-settings"
 
-    private val json = Json
+    // Every field is written, so what a stored record means does not follow the defaults of a later version.
+    private val json = Json { encodeDefaults = true }
 
-    /**
-     * The settings stored in [session], or the defaults when none are stored or the record does not parse.
-     */
-    fun read(session: VaultSession): DisplaySettings {
+    /** The settings stored in [session], or the defaults when none are stored or the record does not parse. */
+    fun read(session: VaultSession): DisplaySettings = try {
+        load(session)
+    } catch (e: SerializationException) {
+        DisplaySettings()
+    }
+
+    /** The settings stored in [session], or the defaults when none are stored. @throws SerializationException when the record does not parse. */
+    private fun load(session: VaultSession): DisplaySettings {
         val bytes = session.getVaultRecord(RECORD) ?: return DisplaySettings()
-        val stored = try {
-            json.decodeFromString(DisplaySettings.serializer(), bytes.decodeToString())
-        } catch (e: SerializationException) {
-            return DisplaySettings()
-        }
+        val stored = json.decodeFromString(DisplaySettings.serializer(), bytes.decodeToString())
         // A threshold off the slider's stops reads as the default, as an out-of-range Last Chance pause does.
         return stored.takeIf { it.smallBalanceUsd in DisplaySettings.SMALL_BALANCE_STOPS }
             ?: stored.copy(smallBalanceUsd = DisplaySettings.DEFAULT_SMALL_BALANCE_USD)
     }
 
+    /**
+     * Saves [settings]. A stored record that does not parse is left as it is, and this throws [IllegalStateException], so the defaults that [read]
+     * returned in its place never replace the owner's settings.
+     */
     fun write(session: VaultSession, settings: DisplaySettings) {
+        try {
+            load(session)
+        } catch (e: SerializationException) {
+            throw IllegalStateException("The stored display settings cannot be read, so they are left as they are.", e)
+        }
         session.putVaultRecord(RECORD, json.encodeToString(DisplaySettings.serializer(), settings).encodeToByteArray())
     }
 }

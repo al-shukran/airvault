@@ -53,6 +53,8 @@ class EvmSettingsTest {
 
     @Test
     fun theDefaultsShowMainnetAndSepolia() {
+        // The value of lumio-v1.0.0. A record stores every field, but a vault of that version stores none of an untouched one and reads it as this.
+        assertEquals(setOf(1L, 10143L, 11155111L), EvmSettings.DEFAULT_ENABLED)
         assertEquals(setOf(1L, 10143L, 11155111L), EvmSettings().enabled)
         assertEquals(5, EvmSettings().addressCount)
     }
@@ -60,6 +62,39 @@ class EvmSettingsTest {
     @Test
     fun aMissingRecordReadsAsTheDefaults() {
         assertEquals(EvmSettings(), EvmSettingsStore.read(session))
+    }
+
+    private val unreadable = """{"addressCount":8,"enabled":[1,999],"rpc":{"1":123},"custom":[{"chainId":999,"name":"Test","symbol":"TST","testnet":true}]}"""
+
+    @Test
+    fun aChangeIsRefusedAndTheStoredRecordKeptWhenTheRecordDoesNotParse() {
+        session.putVaultRecord(EvmSettings.RECORD, unreadable.encodeToByteArray())
+
+        val refusal = EvmSettingsStore.change(session, rpc) { s, _ -> EvmEdits.setEnabled(s, 1L, false) }
+
+        assertNotNull(refusal)
+        assertEquals(unreadable, session.getVaultRecord(EvmSettings.RECORD)!!.decodeToString())
+        assertEquals(EvmSettings(), EvmSettingsStore.read(session))
+    }
+
+    @Test
+    fun aCustomNetworkIsRefusedAndTheStoredRecordKeptWhenTheRecordDoesNotParse() {
+        session.putVaultRecord(EvmSettings.RECORD, unreadable.encodeToByteArray())
+        server.enqueue(answer("0x1"))
+
+        val refusal = EvmSettingsStore.addCustom(session, rpc, setOf(1L), CustomChainInput("1", "Test", "TST", url, testnet = true))
+
+        assertNotNull(refusal)
+        assertEquals(unreadable, session.getVaultRecord(EvmSettings.RECORD)!!.decodeToString())
+    }
+
+    @Test
+    fun everyFieldIsStoredSoALaterDefaultDoesNotChangeTheRecord() {
+        EvmSettingsStore.write(session, EvmSettings())
+
+        val record = session.getVaultRecord(EvmSettings.RECORD)!!.decodeToString()
+        assertTrue(record, """"addressCount":5""" in record)
+        assertTrue(record, """"enabled":[""" in record)
     }
 
     @Test
@@ -111,6 +146,24 @@ class EvmSettingsTest {
 
         val stored = EvmSettingsStore.read(session)
         assertEquals(8, stored.addressCount)
+        assertEquals(setOf(999L), stored.enabled)
+        assertEquals(ChainRpcs(custom = listOf("https://rpc.example"), active = "https://rpc.example"), stored.rpc[1L])
+        assertEquals(listOf(999L), stored.custom.map { it.chainId })
+    }
+
+    @Test
+    fun aRecordEncodedByTheVersion1ClassIsReadAndAChangeOnItIsWritten() {
+        val version1 = Version1Evm(
+            enabled = setOf(1L, 999L),
+            rpc = mapOf(1L to "https://rpc.example"),
+            custom = listOf(Version1Chain(999L, "Test", "TST", testnet = true)),
+        )
+        session.putVaultRecord(EvmSettings.RECORD, Json.encodeToString(Version1Evm.serializer(), version1).encodeToByteArray())
+        assertEquals(setOf(1L, 999L), EvmSettingsStore.read(session).enabled)
+
+        assertNull(EvmSettingsStore.change(session, rpc) { s, _ -> EvmEdits.setEnabled(s, 1L, false) })
+
+        val stored = EvmSettingsStore.read(session)
         assertEquals(setOf(999L), stored.enabled)
         assertEquals(ChainRpcs(custom = listOf("https://rpc.example"), active = "https://rpc.example"), stored.rpc[1L])
         assertEquals(listOf(999L), stored.custom.map { it.chainId })
