@@ -79,9 +79,30 @@ class PaymentCodeTest {
         assertNull(EvmPaymentCode.read("ethereum:$RECIPIENT@11155111", sepolia, others = listOf(base, monad)).chainId)
         assertNull(EvmPaymentCode.read(RECIPIENT, sepolia, others = listOf(base)).chainId)
         assertEquals(
-            "This code is for chain 1, but Sepolia is selected. Choose that network to scan it.",
+            "This code is for chain 1, but Sepolia is selected. Turn that network on to scan it.",
             refusal { EvmPaymentCode.read("ethereum:$RECIPIENT@1", sepolia, others = listOf(base, monad)) },
         )
+    }
+
+    @Test
+    fun aScanThatSwitchesTheNetworkDropsTheTypedAmountAndFillsTheCodesOwn() {
+        val base = EvmChain(8453L, "Base", "ETH", 18, testnet = false, explorerUrl = null)
+
+        val switched = EvmPaymentCode.read("ethereum:$RECIPIENT@8453?value=1e16", sepolia, others = listOf(base))
+        assertEquals("0.01", switched.amountAfter("100", native = false))
+        assertEquals("0.01", switched.amountAfter("100", native = true))
+
+        val bare = EvmPaymentCode.read("ethereum:$RECIPIENT@8453", sepolia, others = listOf(base))
+        assertEquals("", bare.amountAfter("100", native = false))
+    }
+
+    @Test
+    fun aScanThatStaysKeepsTheTypedAmountAndFillsOnlyABlankOneForTheNativeCoin() {
+        val withValue = evm("ethereum:$RECIPIENT?value=1e16")
+        assertEquals("100", withValue.amountAfter("100", native = true))
+        assertEquals("0.01", withValue.amountAfter("", native = true))
+        assertEquals("", withValue.amountAfter("", native = false))
+        assertEquals("100", evm(RECIPIENT).amountAfter("100", native = true))
     }
 
     @Test

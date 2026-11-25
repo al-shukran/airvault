@@ -11,7 +11,16 @@ import java.math.BigInteger
  * What a scanned code asks for: the address it pays, and the amount in the chain's units when it names one. [chainId] is the other network that an
  * Ethereum code names, when the send may move to it, else null.
  */
-class ScannedPayment(val address: String, val amount: String?, val chainId: Long? = null)
+class ScannedPayment(val address: String, val amount: String?, val chainId: Long? = null) {
+    /**
+     * The amount the form holds after this scan. A scan that moves the send to another network drops the typed amount, which was for the old network's
+     * asset, and fills the code's own, which is in the new network's native coin. A scan that stays fills the code's only into a blank amount for the native coin.
+     */
+    fun amountAfter(typed: String, native: Boolean): String {
+        val kept = if (chainId != null) "" else typed
+        return if (amount != null && kept.isBlank() && (chainId != null || native)) amount else kept
+    }
+}
 
 /**
  * Reads a code that the camera sees on an Ethereum send: a plain address, or an EIP-681 `ethereum:` request with an optional chain and an
@@ -48,7 +57,7 @@ object EvmPaymentCode {
                 ?: throw IllegalArgumentException("This code names a chain that is not a number.")
             if (id != selected.chainId) {
                 chain = others.firstOrNull { it.chainId == id }
-                    ?: throw IllegalArgumentException("This code is for chain $id, but ${selected.name} is selected. Choose that network to scan it.")
+                    ?: throw IllegalArgumentException("This code is for chain $id, but ${selected.name} is selected. ${if (others.isEmpty()) "Choose that network to scan it." else "Turn that network on to scan it."}")
             }
         }
         val value = query.split('&').firstOrNull { it.startsWith("value=", ignoreCase = true) }?.substringAfter('=')
