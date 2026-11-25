@@ -157,10 +157,11 @@ tasks.register("resolveAll") {
     dependsOn(rootProject.allprojects.map { it.path.trimEnd(':') + ":resolveConfigurations" })
     doLast {
         // AGP runs aapt2 from a detached configuration that no project lists, and the configuration cache stores that task input,
-        // so the artifact must be cached. CI runs linux; a build on macOS runs osx. Version: AGP 9.5.1's bundled aapt2, as
-        // verification-metadata.xml pins it. A new AGP names the new version when this artifact is missing offline.
+        // so the artifact must be cached. CI runs linux; a build on macOS runs osx. The aapt2 version follows the AGP version in
+        // gradle/libs.versions.toml; the build number is the one AGP ships with (16666295 for AGP 9.5.x).
+        val aapt2Version = "${libs.versions.agp.get()}-16666295"
         listOf("linux", "osx").forEach { platform ->
-            configurations.detachedConfiguration(dependencies.create("com.android.tools.build:aapt2:9.5.1-16666295:$platform")).resolve()
+            configurations.detachedConfiguration(dependencies.create("com.android.tools.build:aapt2:$aapt2Version:$platform")).resolve()
         }
     }
 }
