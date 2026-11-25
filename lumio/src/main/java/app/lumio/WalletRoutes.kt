@@ -43,6 +43,7 @@ import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.receive.ReceiveFlowSheet
 import app.lumio.ui.receive.receiveNativeStartOf
 import app.lumio.ui.receive.receiveStartOf
+import app.lumio.ui.settings.WalletSettingsPage
 import app.lumio.ui.settings.WalletsSettings
 import app.lumio.ui.shell.LumioPageScreen
 import app.lumio.ui.shell.offlineBand
@@ -562,23 +563,49 @@ internal suspend fun removeWalletHistory(vault: LumioVault, wallet: PairedWallet
     vault.wallets?.forgetWatchlist(wallet.id)
 }
 
-/** The Wallets page of Settings: the pairing of a wallet from Lensly, and the paired wallets with deletion. A deletion is saved, then the lists read again. */
+/** The Wallets page of Settings: the paired wallets, each opening its own settings, and the pairing of one more. [selection] says which wallet is the active one. */
 @Composable
-internal fun WalletsSettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, onChanged: () -> Unit) {
-    val session = holder.openSession()
-    val scope = rememberCoroutineScope()
+internal fun WalletsSettingsRoute(navController: NavHostController, holder: VaultHolder, selection: NetworkSelection, listVersion: Int) {
     val wallets = pairedWallets(navController = navController, holder = holder, listVersion = listVersion)
     WalletsSettings(
         wallets = wallets,
+        activeId = wallets.active(selection) { it.id }?.id,
+        onOpen = { wallet -> navController.navigate(LumioRoute.settingsWallet(wallet.id)) },
         onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
-        onDelete = { wallet ->
+    )
+}
+
+/**
+ * The settings of the paired wallet [walletId]: re-pairing it, and removing it. A removal is saved, then the lists read again, and the page returns to the
+ * Wallets page.
+ */
+@Composable
+internal fun WalletSettingsRoute(
+    navController: NavHostController,
+    holder: VaultHolder,
+    walletId: String,
+    listVersion: Int,
+    onChanged: () -> Unit,
+    onLock: () -> Unit,
+) {
+    val session = holder.openSession()
+    val scope = rememberCoroutineScope()
+    val wallet = pairedWallets(navController = navController, holder = holder, listVersion = listVersion).firstOrNull { it.id == walletId } ?: return
+    WalletSettingsPage(
+        wallet = wallet,
+        offline = rememberSettingsOffline(),
+        onRePair = { navController.navigate(LumioRoute.PAIR_SCAN) },
+        onRemove = {
             if (session != null) {
                 scope.launch {
                     onVault(Unit) { PairedWallets.delete(session, wallet.id) }
                     (holder.sessionAttachment() as? LumioVault)?.let { vault -> onVault(Unit) { removeWalletHistory(vault, wallet) } }
                     onChanged()
+                    navController.popBackStack()
                 }
             }
         },
+        onBack = { navController.popBackStack() },
+        onLock = onLock,
     )
 }

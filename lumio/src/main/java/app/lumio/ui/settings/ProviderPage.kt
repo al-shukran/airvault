@@ -11,7 +11,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.ui.kit.ClearAirField
-import app.lumio.ui.kit.ClearAirListRow
 import app.lumio.ui.kit.ClearAirNote
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSwitchRow
@@ -60,13 +59,13 @@ fun ProviderPage(
         }
         if (networks.isNotEmpty()) {
             SettingsGroup(title = "Supported Networks · ${networks.size}") {
-                ClearAirNote(text = networkSummary(networks), modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
+                ClearAirNote(text = networkSummary(networks))
             }
         }
         if (keyed) {
             SettingsGroup(title = "Configure API Key") {
                 if (savedTail != null) {
-                    ClearAirListRow(
+                    ClearAirRow(
                         title = "API Key",
                         description = "Saved · ends in $savedTail",
                         trailing = { ClearAirTextAction(text = "Remove", onClick = { onSaveKey("") }) },

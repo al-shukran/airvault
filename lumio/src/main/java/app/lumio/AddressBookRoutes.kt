@@ -24,11 +24,24 @@ internal fun AddressBookRoute(navController: NavHostController, holder: VaultHol
     }
     wallet?.let { paired ->
         AddressBookScreen(
-            walletName = paired.name,
             entries = paired.addressBook,
             offline = rememberSettingsOffline(),
+            onEdit = { address -> navController.navigate(LumioRoute.addressHandoff(address, edit = true)) },
             onBack = { navController.popBackStack() },
             onLock = onLock,
         )
     }
+}
+
+/** The Address Book page of Settings: the books of every paired wallet as one, read again when [listVersion] changes. An entry two wallets share shows once. */
+@Composable
+internal fun AddressBookSettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, onLock: () -> Unit) {
+    val wallets = pairedWallets(navController = navController, holder = holder, listVersion = listVersion)
+    AddressBookScreen(
+        entries = wallets.flatMap { it.addressBook }.distinctBy { it.id },
+        offline = rememberSettingsOffline(),
+        onEdit = { address -> navController.navigate(LumioRoute.addressHandoff(address, edit = true)) },
+        onBack = { navController.popBackStack() },
+        onLock = onLock,
+    )
 }

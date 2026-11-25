@@ -38,20 +38,19 @@ import app.lumio.data.WallClock
 import app.lumio.data.net.Networks
 import app.lumio.home.HomeFormat
 import app.lumio.transactions.TxFeedItem
-import app.lumio.ui.home.AssetIcon
+import app.lumio.ui.home.AssetDisc
 import app.lumio.ui.kit.ClearAirAmount
 import app.lumio.ui.kit.ClearAirCapsuleSmall
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
-import app.lumio.ui.kit.ClearAirListRow
 import app.lumio.ui.kit.ClearAirRefreshBox
+import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSkeleton
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.ClearAirTextTabs
 import app.lumio.ui.kit.HiddenSmallLine
 import app.lumio.ui.kit.LocalFiat
-import app.lumio.ui.kit.LumioAssetIcon
 import app.lumio.ui.kit.rememberCopyAction
 import app.lumio.ui.transactions.ActivityRowItem
 import app.lumio.wallets.WalletAccount
@@ -103,7 +102,6 @@ internal fun AccountScreen(
     online: Boolean = true,
 ) {
     val balance = account.balance
-    val empty = assets.isNotEmpty() && assets.all { it.zero }
     val heroText = balance?.let { "${HomeFormat.coins(it.balance)} ${it.symbol}" }
     val usd = assets.firstOrNull { it.isNative }?.usd
     var tab by rememberSaveable { mutableStateOf(AccountTab.ASSETS) }
@@ -126,7 +124,7 @@ internal fun AccountScreen(
                 )
             }
             item(key = "actions") {
-                AccountActions(empty = empty, online = online, onSend = onSend, onReceive = onReceive)
+                AccountActions(online = online, onSend = onSend, onReceive = onReceive)
             }
             notice?.let { message ->
                 item(key = "notice") {
@@ -233,22 +231,16 @@ private fun AccountTotal(heroText: String?, usd: Double?, showBalance: Boolean, 
 }
 
 /**
- * Send and Receive, side by side under the total: Send is the compact capsule and Receive the text action. An account that holds nothing makes
- * Receive the capsule and Send the text action. Offline, Send is disabled and says why under it, and Receive stays live.
+ * Send and Receive, side by side under the total: Send is the compact capsule and Receive the text action, each with its arrow. Offline, Send is
+ * disabled and says why under it, and Receive stays live.
  */
 @Composable
-private fun AccountActions(empty: Boolean, online: Boolean, onSend: () -> Unit, onReceive: () -> Unit) {
+private fun AccountActions(online: Boolean, onSend: () -> Unit, onReceive: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (empty) {
-                ClearAirCapsuleSmall(text = "Receive", onClick = onReceive)
-                Spacer(Modifier.width(ClearAirSpacing.md))
-                ClearAirTextAction(text = "Send", onClick = onSend, enabled = online)
-            } else {
-                ClearAirCapsuleSmall(text = "Send", onClick = onSend, enabled = online)
-                Spacer(Modifier.width(ClearAirSpacing.md))
-                ClearAirTextAction(text = "Receive", onClick = onReceive)
-            }
+            ClearAirCapsuleSmall(text = "Send", onClick = onSend, enabled = online, icon = ClearAirGlyph.SEND)
+            Spacer(Modifier.width(ClearAirSpacing.md))
+            ClearAirTextAction(text = "Receive", onClick = onReceive, icon = ClearAirGlyph.RECEIVE)
         }
         if (!online) {
             Text(text = "Sending needs a connection", style = ClearAirType.body, color = LocalClearAirPalette.current.ink2)
@@ -285,13 +277,14 @@ private fun LazyListScope.assetItems(
         }
     } else {
         itemsIndexed(assets, key = { _, asset -> asset.assetKey }) { index, asset ->
-            if (index > 0) RowDivider(indent = ROW_DIVIDER_INDENT)
-            ClearAirListRow(
+            ClearAirRow(
                 title = asset.symbol,
                 description = asset.network,
-                leading = { LumioAssetIcon(testnet = asset.testnet) { AssetIcon(spec = asset.icon, size = 24.dp) } },
+                leading = { AssetDisc(asset.icon) },
                 trailing = { AssetValue(asset = asset, shown = showBalance) },
                 onClick = { onAsset(asset) },
+                divider = index > 0,
+                chevron = false,
             )
         }
         if (loadingAssets) {
@@ -299,7 +292,7 @@ private fun LazyListScope.assetItems(
         }
     }
     onAddAsset?.let { addAsset ->
-        item(key = "add-asset") { ClearAirListRow(title = "Add Asset", onClick = addAsset) }
+        item(key = "add-asset") { ClearAirRow(title = "Add Asset", onClick = addAsset, divider = assets.isNotEmpty()) }
     }
 }
 

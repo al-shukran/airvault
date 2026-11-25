@@ -3,13 +3,6 @@
 # The test lanes come from scripts/ci/shards.txt. A test class the file does not list runs in its default lane (unlisted_units).
 set -euo pipefail
 
-# Gradle encrypts configuration-cache entries with GRADLE_ENCRYPTION_KEY when it is set, and otherwise with a keystore in the
-# runner's Gradle user home. A fresh runner has a new keystore, so it cannot read an entry another runner saved. An empty value
-# is not a key (a fork's pull request gets no secret), so it is unset and Gradle uses its own keystore.
-if [ -z "${GRADLE_ENCRYPTION_KEY:-}" ]; then
-    unset GRADLE_ENCRYPTION_KEY
-fi
-
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 SHARDS="$ROOT/scripts/ci/shards.txt"

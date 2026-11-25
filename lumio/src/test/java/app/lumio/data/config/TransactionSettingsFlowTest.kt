@@ -57,7 +57,7 @@ class TransactionSettingsFlowTest {
         vault.updateTransactions { it.copy(lastChanceSeconds = 5) }
         session.close()
 
-        assertFailsWith<IllegalStateException> { vault.updateTransactions { it.copy(lastChanceSeconds = 9) } }
+        assertFailsWith<IllegalStateException> { vault.updateTransactions { it.copy(lastChanceSeconds = 11) } }
 
         assertEquals(5, vault.transactions.value.lastChanceSeconds)
         database.close()

@@ -13,7 +13,6 @@ import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.tokens.Token
 import app.lumio.ui.kit.AddressGroups
 import app.lumio.ui.kit.ClearAirField
-import app.lumio.ui.kit.ClearAirListRow
 import app.lumio.ui.kit.ClearAirNote
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
@@ -113,13 +112,13 @@ fun AddTokenScreen(
         }
         SettingsGroup(title = "Default Tokens") {
             if (defaults.isEmpty()) ClearAirNote(text = "No default tokens on this chain.")
-            defaults.forEach { token -> ClearAirListRow(title = token.symbol, description = tokenWords(token)) }
+            defaults.forEach { token -> ClearAirRow(title = token.symbol, description = tokenWords(token)) }
         }
         Spacer(Modifier.height(ClearAirSpacing.md))
         SettingsGroup(title = "Your Tokens") {
             if (custom.isEmpty()) ClearAirNote(text = "No tokens added yet.")
             custom.forEach { token ->
-                ClearAirListRow(
+                ClearAirRow(
                     title = token.symbol,
                     description = tokenWords(token),
                     trailing = { ClearAirTextAction(text = "Remove", onClick = { onRemove(token) }, enabled = !busy) },

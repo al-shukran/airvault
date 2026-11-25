@@ -1,0 +1,1 @@
+The Send pages follow the approved Clear Air mock: the step thread is five diamonds with the amber step name under it, the recipient field has a notched label with Paste and Scan, accounts show monograms, the amount is large and centred, and Review reads as a bordered recipient card over a column of facts.

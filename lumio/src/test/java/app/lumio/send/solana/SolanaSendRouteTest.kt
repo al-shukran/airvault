@@ -104,7 +104,7 @@ class SolanaSendRouteTest {
         }
         compose.onAllNodes(hasSetTextAction())[0].performTextInput(RECIPIENT)
         compose.onNodeWithText("Continue").performClick()
-        compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithText("Amount · 2 of 5").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithText("AMOUNT · 2 OF 5").fetchSemanticsNodes().isNotEmpty() }
         compose.onAllNodes(hasSetTextAction())[0].performTextInput("0.1")
         compose.onNodeWithText("Review").performClick()
         compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithText("Show to Lensly").fetchSemanticsNodes().isNotEmpty() }

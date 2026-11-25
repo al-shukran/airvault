@@ -26,11 +26,11 @@ class AddressBookScreenshotTest {
 
     @Test
     fun addressBook() = compose.lumioSnapshot("address_book") {
-        AddressBookScreen(walletName = "Demo", entries = listOf(ADDRESS_BOOK_ALICE, ADDRESS_BOOK_COLD, ADDRESS_BOOK_FAUCET), offline = null, onBack = {}, onLock = {})
+        AddressBookScreen(entries = listOf(ADDRESS_BOOK_ALICE, ADDRESS_BOOK_COLD, ADDRESS_BOOK_FAUCET), offline = null, onEdit = {}, onBack = {}, onLock = {})
     }
 
     @Test
     fun addressBookEmpty() = compose.lumioSnapshot("address_book_empty") {
-        AddressBookScreen(walletName = "Demo", entries = emptyList(), offline = null, onBack = {}, onLock = {})
+        AddressBookScreen(entries = emptyList(), offline = null, onEdit = {}, onBack = {}, onLock = {})
     }
 }

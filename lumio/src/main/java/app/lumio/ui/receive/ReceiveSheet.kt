@@ -85,11 +85,12 @@ internal fun ReceiveSheetStep(step: ReceiveStep.Receive, optedIn: Boolean?, onOp
         bottom = {
             when (val capsule = receiveCapsuleOf(step.coin, optedIn)) {
                 is ReceiveCapsule.OptInFirst -> ClearAirPrimaryButton(text = "Opt In First", onClick = { onOptIn(capsule.assetId) })
-                ReceiveCapsule.CopyAddress -> ClearAirPrimaryButton(text = if (copy.copied) "Copied ✓" else "Copy Address", onClick = copy.copy)
+                ReceiveCapsule.CopyAddress -> ClearAirPrimaryButton(text = if (copy.copied) "Copied ✓" else "Copy Address", onClick = copy.copy, icon = ClearAirGlyph.COPY)
             }
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 ClearAirTextAction(
                     text = "Share",
+                    icon = ClearAirGlyph.SHARE,
                     onClick = {
                         val sentence = receiveShareText(symbol, address, network)
                         scope.launch {

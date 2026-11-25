@@ -12,7 +12,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.navArgument
 import app.lensly.app.VaultHolder
 import app.lensly.app.entryGestureHolder
 import app.lensly.core.vault.VaultSession
@@ -29,13 +31,13 @@ import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.kit.lumioComposable
 import app.lumio.ui.settings.AboutSettingsPage
 import app.lumio.ui.settings.AddCustomNetworkScreen
-import app.lumio.ui.settings.AddressBookRows
-import app.lumio.ui.settings.AddressBookSettingsPage
 import app.lumio.ui.settings.CustomNetworkForm
 import app.lumio.ui.settings.LumioSettingsScreen
 import app.lumio.ui.settings.NetworksSettingsPage
+import app.lumio.ui.settings.BiometricSwitch
 import app.lumio.ui.settings.SecuritySettingsPage
 import app.lumio.ui.settings.SettingsFacts
+import app.lumio.ui.settings.SettingsFrame
 import app.lumio.ui.settings.WalletsSettingsPage
 import app.lumio.ui.settings.page
 import app.lumio.ui.settings.providerCounts
@@ -183,6 +185,9 @@ internal fun NavGraphBuilder.settingsPageRoutes(
     lumioComposable(LumioRoute.SETTINGS_NETWORKS) {
         LumioBackdrop(selection) { NetworksSettingsRoute(navController = navController, holder = holder, onLock = onLock) }
     }
+    lumioComposable(LumioRoute.SETTINGS_BITCOIN) {
+        LumioBackdrop(selection) { BitcoinServersRoute(navController = navController, holder = holder, onLock = onLock) }
+    }
     lumioComposable(LumioRoute.SETTINGS_ADD_NETWORK) {
         LumioBackdrop(selection) { AddCustomNetworkRoute(navController = navController, holder = holder, onLock = onLock) }
     }
@@ -192,8 +197,17 @@ internal fun NavGraphBuilder.settingsPageRoutes(
                 offline = rememberSettingsOffline(),
                 onBack = { navController.popBackStack() },
                 onLock = onLock,
-                wallets = { WalletsSettingsRoute(navController = navController, holder = holder, listVersion = listVersion, onChanged = onChanged) },
+                wallets = { WalletsSettingsRoute(navController = navController, holder = holder, selection = selection, listVersion = listVersion) },
             )
+        }
+    }
+    lumioComposable(
+        route = LumioRoute.SETTINGS_WALLET,
+        arguments = listOf(navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType }),
+    ) { entry ->
+        val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
+        LumioBackdrop(selection) {
+            WalletSettingsRoute(navController = navController, holder = holder, walletId = walletId, listVersion = listVersion, onChanged = onChanged, onLock = onLock)
         }
     }
     lumioComposable(LumioRoute.SETTINGS_ADDRESSES) {
@@ -209,17 +223,31 @@ internal fun NavGraphBuilder.settingsPageRoutes(
     }
 }
 
-/** The Networks page: the Bitcoin servers and the Ethereum chains, each read and written by its own route. */
+/** The Networks page: the EVM networks, with the way to the Bitcoin servers, read and written by [EvmSettingsRoute]. */
 @Composable
 private fun NetworksSettingsRoute(navController: NavHostController, holder: VaultHolder, onLock: () -> Unit) {
     NetworksSettingsPage(
         offline = rememberSettingsOffline(),
         onBack = { navController.popBackStack() },
         onLock = onLock,
-        bitcoin = { BitcoinSettingsRoute(navController = navController, holder = holder) },
-        ethereum = { EvmSettingsRoute(navController = navController, holder = holder) },
         backLabel = navController.backLabel(),
-    )
+    ) {
+        EvmSettingsRoute(navController = navController, holder = holder)
+    }
+}
+
+/** The Bitcoin servers page, pushed from the Networks page. [BitcoinSettingsRoute] reads and writes its fields. */
+@Composable
+private fun BitcoinServersRoute(navController: NavHostController, holder: VaultHolder, onLock: () -> Unit) {
+    SettingsFrame(
+        title = "Bitcoin Servers",
+        offline = rememberSettingsOffline(),
+        onBack = { navController.popBackStack() },
+        onLock = onLock,
+        backLabel = "Networks",
+    ) {
+        BitcoinSettingsRoute(navController = navController, holder = holder)
+    }
 }
 
 /**
@@ -258,40 +286,36 @@ private fun AddCustomNetworkRoute(navController: NavHostController, holder: Vaul
     )
 }
 
-/** The Address book page: each paired wallet, which opens that wallet's address book. The wallets are read again when the list changes. */
-@Composable
-private fun AddressBookSettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, onLock: () -> Unit) {
-    val wallets = pairedWallets(navController = navController, holder = holder, listVersion = listVersion)
-    AddressBookSettingsPage(
-        offline = rememberSettingsOffline(),
-        onBack = { navController.popBackStack() },
-        onLock = onLock,
-        wallets = {
-            AddressBookRows(wallets = wallets, onAddressBook = { wallet -> navController.navigate(LumioRoute.addressBook(wallet.id)) })
-        },
-    )
-}
-
 /**
- * The Security page: the Hidden Entry Gesture, whose row opens the choice shared through :shared, the App Password, whose row opens its
- * change, Device Protection, whose row opens its page, and the lock. Each choice applies as the owner makes it.
+ * The Security page: the App Password, whose row opens its change, Device Protection, whose switch turns Biometric Unlock off, or on through the App
+ * Password step, the Hidden Entry Gesture, whose row opens the choice shared through :shared, and the lock. Each choice applies as the owner makes it.
+ * In a Decoy Vault session the switch shows too, or its absence would tell that session apart, and turning it on there seals nothing.
  */
 @Composable
 private fun SecuritySettingsRoute(navController: NavHostController, holder: VaultHolder, lockChoices: LockSettingsState, onLock: () -> Unit) {
     val session = holder.openSession() ?: return
     val biometric = (LocalContext.current.applicationContext as LumioApp).biometricUnlock
     val top by navController.currentBackStackEntryAsState()
-    // Read again each time this page comes back to the top, because the Device Protection page may have turned the setting on or off.
-    val biometricOn = remember(top) { biometric.isOn(session) }
+    val scope = rememberCoroutineScope()
+    val canEnable = remember { biometric.canEnable() }
+    // Read again each time this page comes back to the top, because the App Password step may have turned the setting on.
+    var on by remember(top) { mutableStateOf(biometric.isOn(session)) }
     SecuritySettingsPage(
-        entryGesture = LocalContext.current.entryGestureHolder().current,
         lock = lockChoices.settings,
-        // A Duress Password session shows the row too, or its absence would tell that session apart. Turning it on there seals nothing.
-        deviceProtectionOn = biometricOn,
+        biometric = BiometricSwitch(on = on, canEnable = canEnable),
         offline = rememberSettingsOffline(),
-        onEntryGesture = { navController.navigate(LumioRoute.ENTRY_GESTURE) },
         onChangePassword = { navController.navigate(LumioRoute.CHANGE_PASSWORD) },
-        onDeviceProtection = { navController.navigate(LumioRoute.SETTINGS_DEVICE_PROTECTION) },
+        onBiometric = { want ->
+            if (want) {
+                if (turningOnOpensPasswordStep(session)) navController.navigate(LumioRoute.DEVICE_PROTECTION_ENABLE)
+            } else {
+                scope.launch {
+                    biometric.disable(session)
+                    on = biometric.isOn(session)
+                }
+            }
+        },
+        onEntryGesture = { navController.navigate(LumioRoute.ENTRY_GESTURE) },
         checkPassword = { password -> checkAppPassword(holder, password) },
         onAutoLock = { choice -> lockChoices.change { it.copy(autoLock = choice) } },
         onBack = { navController.popBackStack() },

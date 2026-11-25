@@ -1,21 +1,22 @@
 package app.lumio.ui.settings
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import app.lensly.ui.theme.LumenTheme
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.Fiat
 import app.lumio.data.config.FiatCurrency
 import app.lumio.data.config.FiatRate
+import app.lumio.data.config.ThemeMode
 import app.lumio.ui.kit.LocalFiat
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,20 +29,20 @@ class DisplaySettingsSectionTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private var showTotal: Boolean? = null
-    private var showAssets: Boolean? = null
+    private var hidden: Boolean? = null
+    private var theme: ThemeMode? = null
 
     private fun show(settings: DisplaySettings = DisplaySettings(), notice: String? = null, fiat: Fiat = Fiat.USD) {
         compose.setContent {
             ClearAirHarness {
                 CompositionLocalProvider(LocalFiat provides fiat) {
-                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Column(modifier = Modifier.fillMaxSize()) {
                         DisplaySettingsSection(
                             settings = settings,
                             notice = notice,
-                            onShowTotal = { showTotal = it },
-                            onShowAssets = { showAssets = it },
+                            onHideBalances = { hidden = it },
                             onCurrency = {},
+                            onTheme = { theme = it },
                             onSmallBalance = {},
                         )
                     }
@@ -54,33 +55,45 @@ class DisplaySettingsSectionTest {
     fun theSmallBalanceThresholdIsWrittenInTheChosenCurrency() {
         show(DisplaySettings(currency = FiatCurrency.EUR, smallBalanceUsd = 1.0), fiat = Fiat.of(FiatCurrency.EUR, FiatRate(FiatCurrency.EUR, 0.5)))
 
-        compose.onNodeWithText("HIDE SMALL BALANCES · €0.50").assertExists()
+        compose.onNodeWithText("€0.50").assertExists()
     }
 
     @Test
     fun theSmallBalanceThresholdIsInDollarsWhileNoRateIsKnown() {
         show(DisplaySettings(currency = FiatCurrency.EUR, smallBalanceUsd = 1.0), fiat = Fiat.of(FiatCurrency.EUR, null))
 
-        compose.onNodeWithText("HIDE SMALL BALANCES · \$1.00").assertExists()
+        compose.onNodeWithText("\$1.00").assertExists()
     }
 
     @Test
-    fun theSwitchesShowTheirValuesAndNoMinimumIsAsked() {
+    fun theRowsAreHideBalancesCurrencyAndThemeWithTheirValues() {
         show()
 
-        compose.onNodeWithText("Show Total Balance").assertExists()
-        compose.onNodeWithText("Show Individual Asset Balances").assertExists()
-        compose.onNodeWithText("Minimum balance (USD)").assertDoesNotExist()
+        compose.onNodeWithText("Hide Balances").assertExists()
+        compose.onNodeWithText("Currency").assertExists()
+        compose.onNodeWithText("USD").assertExists()
+        compose.onNodeWithText("Theme").assertExists()
+        compose.onNodeWithText("Follow System").assertExists()
     }
 
     @Test
-    fun aSwitchReportsItsNewValue() {
+    fun theSwitchReportsItsNewValue() {
         show()
 
-        compose.onNodeWithText("Show Total Balance").performClick()
+        compose.onNodeWithText("Hide Balances").performClick()
 
-        assertEquals(true, showTotal)
-        assertNull(showAssets)
+        assertEquals(true, hidden)
+    }
+
+    @Test
+    fun aThemeChoiceAppliesAndIsReported() {
+        show()
+
+        compose.onNodeWithText("Theme").performClick()
+        // The sheet sits in the page column here, below the visible window, so the row is chosen by its action, not by a tap.
+        compose.onNodeWithText("Dark").performSemanticsAction(SemanticsActions.OnClick)
+
+        assertEquals(ThemeMode.DARK, theme)
     }
 }
 

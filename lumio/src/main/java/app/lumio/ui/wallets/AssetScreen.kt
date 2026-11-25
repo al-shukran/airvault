@@ -24,6 +24,7 @@ import app.lumio.ui.home.AssetIcon
 import app.lumio.ui.kit.ClearAirAmount
 import app.lumio.ui.kit.ClearAirCapsuleSmall
 import app.lumio.ui.kit.ClearAirEyebrow
+import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.kit.LumioAssetIcon
@@ -106,11 +107,11 @@ private fun AssetActions(asset: AssetRowModel, onSend: () -> Unit, onReceive: ()
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (asset.zero) {
-            ClearAirCapsuleSmall(text = "Receive", onClick = onReceive)
+            ClearAirCapsuleSmall(text = "Receive", onClick = onReceive, icon = ClearAirGlyph.RECEIVE)
         } else {
-            ClearAirCapsuleSmall(text = "Send ${asset.symbol}", onClick = onSend)
+            ClearAirCapsuleSmall(text = "Send ${asset.symbol}", onClick = onSend, icon = ClearAirGlyph.SEND)
             Spacer(Modifier.width(ClearAirSpacing.md))
-            ClearAirTextAction(text = "Receive", onClick = onReceive)
+            ClearAirTextAction(text = "Receive", onClick = onReceive, icon = ClearAirGlyph.RECEIVE)
         }
     }
 }
