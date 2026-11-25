@@ -221,7 +221,55 @@ class BtcSendNetworkTest {
         val spendable = BtcSend.spendable(watch, scheduler, memo, nowMs = 1_000L + 5_000L)
 
         assertEquals(1, spendable.coins.size)
-        assertEquals(emptyList(), fake.statsRequests(), "the scan read every address a minute ago, so the send asks for none")
+        assertEquals(
+            listOf(watch.changeAddress(0)),
+            fake.statsRequests(),
+            "the scan read every address a minute ago, so the send asks only for the change address that it pays to",
+        )
+    }
+
+    @Test
+    fun aStaleUnusedReadingOfTheChangeAddressIsAskedAgain() = runBlocking<Unit> {
+        fund()
+        val memo = ConcurrentHashMap<String, MemoStats>()
+        val scheduler = scheduler()
+        scanAccount(BtcAccountRef("wallet-1", watch), scheduler, Priority.VISIBLE, nowMs = 1_000L, memo = memo)
+        // Another send has paid change to address 0 since the scan, and the scan's reading of it, within the TTL, still says unused.
+        fake.stats[watch.changeAddress(0)] = addressJson(mempool = side(txCount = 1))
+
+        val spendable = BtcSend.spendable(watch, scheduler, memo, nowMs = 1_000L + 5_000L)
+
+        assertEquals(1, spendable.nextChangeIndex)
+    }
+
+    @Test
+    fun twoSendsWithinTheTtlNeverPayChangeToTheSameAddress() = runBlocking<Unit> {
+        fund()
+        val memo = ConcurrentHashMap<String, MemoStats>()
+        val scheduler = scheduler()
+        val recipient = BtcAccount.fromSeed(PairFixtures.seed, testnet4, ScriptType.NATIVE_SEGWIT, accountIndex = 1).receiveAddress(5)
+
+        val first = BtcSend.plan(watch, BtcSend.spendable(watch, scheduler, memo, nowMs = 1_000L), recipient, 30_000L, 2.0)
+        // The server has not listed the first send yet, so only the reservation tells the second one.
+        BtcSend.reserveChange(first, memo, nowMs = 2_000L)
+        val second = BtcSend.plan(watch, BtcSend.spendable(watch, scheduler, memo, nowMs = 3_000L), recipient, 30_000L, 2.0)
+
+        assertEquals(0, first.changeIndex)
+        assertEquals(1, second.changeIndex)
+    }
+
+    @Test
+    fun aSendWithNoChangeReservesNothing() = runBlocking<Unit> {
+        val spend = fund()
+        val memo = ConcurrentHashMap<String, MemoStats>()
+        val recipient = BtcAccount.fromSeed(PairFixtures.seed, testnet4, ScriptType.NATIVE_SEGWIT, accountIndex = 1).receiveAddress(5)
+        val coin = BtcCoin(spend.funding, 0, 0, 0)
+        val spendable = BtcSpendable(listOf(coin), nextChangeIndex = 0)
+        val plan = BtcSend.plan(watch, spendable, recipient, BtcSend.maxAmountSats(watch, spendable, recipient, 2.0), 2.0)
+
+        BtcSend.reserveChange(plan, memo, nowMs = 1_000L)
+
+        assertEquals(emptyMap(), memo.toMap())
     }
 
     /** An Electrum server that holds the funding of [funding] at receive address 0, and nothing else, as the Esplora fake does. */
@@ -238,8 +286,11 @@ class BtcSendNetworkTest {
             }),
         )
         return FakeElectrum(TestIdentities.server, answer = { method, params ->
-            val holds = params[0].jsonPrimitive.content == funded
+            val holds = params.firstOrNull()?.jsonPrimitive?.content == funded
             when (method) {
+                "blockchain.headers.subscribe" -> Answer.Reply(
+                    buildJsonObject { put("height", JsonPrimitive(850_000)); put("hex", JsonPrimitive("00")) },
+                )
                 "blockchain.scripthash.get_history" -> Answer.Reply(if (holds) history else JsonArray(emptyList()))
                 "blockchain.scripthash.get_balance" -> Answer.Reply(
                     buildJsonObject { put("confirmed", JsonPrimitive(if (holds) 100_000L else 0L)); put("unconfirmed", JsonPrimitive(0L)) },
@@ -266,7 +317,11 @@ class BtcSendNetworkTest {
         val spendable = BtcSend.spendable(watch, scheduler(), memo, nowMs = 1_000L + 5_000L)
 
         assertEquals(1, spendable.coins.size)
-        assertEquals(emptyList(), fake.statsRequests(), "the scan's readings are within the TTL, so the send asks Esplora for no address")
+        assertEquals(
+            listOf(watch.changeAddress(0)),
+            fake.statsRequests(),
+            "the scan's readings are within the TTL, so the send asks Esplora only for the change address that it pays to",
+        )
     }
 
     @Test

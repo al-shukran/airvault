@@ -39,8 +39,8 @@ PROVIDER_ORDER = ["uniswap", "superchain", "coingecko"]
 NETWORK_FIELDS = ["chainId", "name", "nativeSymbol", "nativeDecimals", "feeModel", "explorerName", "testnet", "icon"]
 TOKEN_FIELDS = ["chainId", "contract", "symbol", "name", "decimals", "icon"]
 FEE_MODELS = {"L1", "L2_ROLLUP"}
-# Explore's chains group lists these networks even when no account sits on them (Base, Arbitrum One, Optimism, Polygon PoS, and Monad testnet).
-FEATURED_CHAIN_IDS = {10, 137, 8453, 42161, 10143}
+# Explore's chains group lists these networks even when no account sits on them (Base, Arbitrum One, Optimism, Polygon PoS, BNB Smart Chain, Avalanche C-Chain, and Monad testnet).
+FEATURED_CHAIN_IDS = {10, 56, 137, 8453, 42161, 43114, 10143}
 ETHEREUM_CHAIN_ID = 1
 
 # Logo slug -> exact chainlist name, where the slug does not normalise to the chainlist name.
