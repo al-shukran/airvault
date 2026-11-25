@@ -4,12 +4,15 @@ import app.lensly.app.VaultHolder
 import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.VaultException
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
 /**
  * Checks the App Password through the vault's unlock, so the Failure Delay applies. The unlock opens a session only to prove
  * the password, and that session is closed at once. The open session is left alone. NonCancellable, so a session that was
- * opened is always closed, even if the screen left during the check. [password] is zeroed by the vault.
+ * opened is always closed, even if the screen left during the check. A caller that was cancelled meanwhile gets the cancellation
+ * instead of the result, so a cancelled step never applies its change. [password] is zeroed by the vault.
  *
  * A password is accepted only when it opens the same vault as the open session. In a decoy, the password is the Duress
  * Password, and the real App Password is refused, so the check gives nothing away about the real vault.
@@ -34,4 +37,4 @@ suspend fun checkAppPassword(holder: VaultHolder, password: CharArray): Password
         } catch (e: VaultException) {
             PasswordCheck.Unavailable
         }
-    }
+    }.also { currentCoroutineContext().ensureActive() }
