@@ -91,6 +91,7 @@ still=()
 for ((i = 0; i < n; i++)); do
   f=${inputs[i]}
   case $f in *.png | *.PNG) still[i]=1 ;; *) still[i]=0 ;; esac
+  check_capture "$f" || exit 1
   check_screen "$f" "${starts[i]}" || exit 1
 done
 

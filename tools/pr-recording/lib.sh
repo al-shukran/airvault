@@ -27,3 +27,16 @@ check_screen() {
     return 1
   }
 }
+
+# stamp_capture FILE: called by capture.sh only. Writes FILE.capture, the SHA-256 of FILE, next to it.
+stamp_capture() { shasum -a 256 <"$1" | cut -d' ' -f1 >"$1.capture"; }
+
+# check_capture FILE: FILE must carry the stamp capture.sh wrote for it, and must not have changed since.
+# Prints the problem and returns 1 otherwise. This is what keeps test goldens and edited shots out.
+check_capture() {
+  if [ ! -f "$1.capture" ] || [ "$(cat "$1.capture")" != "$(shasum -a 256 <"$1" | cut -d' ' -f1)" ]; then
+    echo "$1 has no matching $1.capture stamp. Only an unmodified capture.sh screen is accepted." >&2
+    echo "Take it with capture.sh on an emulator. Test goldens and edited shots are not accepted." >&2
+    return 1
+  fi
+}
