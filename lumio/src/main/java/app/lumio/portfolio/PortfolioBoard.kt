@@ -31,6 +31,7 @@ import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
 import app.lumio.pair.ownAccountsOf
+import app.lumio.pair.sharedAddressBook
 import app.lumio.rowsOf
 import app.lumio.tokens.CustomTokenStore
 import app.lumio.tokens.TokenBalanceCache
@@ -248,7 +249,7 @@ internal object PortfolioReads {
 
     /** The names of the parties that the address book and the wallets' own accounts name, by their key. */
     fun partyNames(wallets: List<PairedWallet>): Map<String, String> {
-        val book = wallets.flatMap { it.addressBook }.associate { addressKeyOf(it.address) to it.name }
+        val book = sharedAddressBook(wallets).associate { addressKeyOf(it.address) to it.name }
         val own = ownAccountsOf(wallets).mapValues { (_, account) -> account.displayName ?: account.autoName }
         return own + book
     }

@@ -28,4 +28,12 @@ class SharedAddressBookTest {
         assertEquals(listOf(renamed, other), sharedAddressBook(listOf(older, newer)))
         assertEquals(listOf(renamed, other), sharedAddressBook(listOf(newer, older)))
     }
+
+    @Test
+    fun aWalletWithNoBookRanksBelowOneWithABookAndAddsNothing() {
+        val renamed = shared.copy(name = "Alice B.")
+
+        assertEquals(listOf(renamed), sharedAddressBook(listOf(wallet("a", -1), wallet("b", 0, renamed))))
+        assertEquals(listOf(renamed), sharedAddressBook(listOf(wallet("b", 0, renamed), wallet("a", -1))))
+    }
 }
