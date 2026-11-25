@@ -51,6 +51,7 @@ import app.lumio.pair.PairImport
 import app.lumio.tokens.Token
 import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.pair.PairScanScreen
+import app.lumio.ui.scan.ReplyReading
 import app.lumio.ui.send.SignatureScanScreen
 import app.lumio.ui.send.SendFeeRateSheet
 import app.lumio.ui.send.SendReviewPage
@@ -326,12 +327,12 @@ class LumioCoverageScreenshotTest {
 
     @Test
     fun bitcoinBroadcastIdle() = compose.lumioSnapshot("bitcoin_broadcast_idle") {
-        SignatureScanScreen(progress = null, status = SCAN_HINT, onText = {}, onBack = {}, onCancel = {})
+        SignatureScanScreen(reading = null, notice = null, onText = {}, onBack = {}, onCancel = {}, backLabel = "Review", onLock = {})
     }
 
     @Test
     fun bitcoinBroadcastSending() = compose.lumioSnapshot("bitcoin_broadcast_sending") {
-        SignatureScanScreen(progress = 1f, status = SCAN_READ, onText = {}, onBack = {}, onCancel = {})
+        SignatureScanScreen(reading = ReplyReading(9, 9), notice = SCAN_READ, onText = {}, onBack = {}, onCancel = {}, backLabel = "Review", onLock = {})
     }
 
     @Test
@@ -363,12 +364,12 @@ class LumioCoverageScreenshotTest {
 
     @Test
     fun ethereumBroadcastIdle() = compose.lumioSnapshot("ethereum_broadcast_idle") {
-        SignatureScanScreen(progress = null, status = SCAN_HINT, onText = {}, onBack = {}, onCancel = {})
+        SignatureScanScreen(reading = null, notice = null, onText = {}, onBack = {}, onCancel = {}, backLabel = "Review", onLock = {})
     }
 
     @Test
     fun ethereumBroadcastSending() = compose.lumioSnapshot("ethereum_broadcast_sending") {
-        SignatureScanScreen(progress = 1f, status = SCAN_READ, onText = {}, onBack = {}, onCancel = {})
+        SignatureScanScreen(reading = ReplyReading(9, 9), notice = SCAN_READ, onText = {}, onBack = {}, onCancel = {}, backLabel = "Review", onLock = {})
     }
 
     // Pairing: the scan, and the import result
@@ -492,7 +493,6 @@ class LumioCoverageScreenshotTest {
         /** The time of the cached Ethereum reads of the portfolio, fixed so the goldens do not change from day to day. */
         const val PORTFOLIO_READ = 1_800_000_000_000L
         // The words the send and pairing routes show. They are copied from SendRoutes, BtcSendRoutes and PairRoutes.
-        const val SCAN_HINT = "Point at Lensly's Reply"
         const val SCAN_READ = "Signature read. Check the transaction, then submit it."
         const val REQUEST_FAILED = "The sign request could not be made. Try again."
         const val BROADCAST_FAILED = "The transaction could not be sent. Check the balance, then try again."
