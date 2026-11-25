@@ -139,6 +139,39 @@ class PlainNameTest {
     }
 
     @Test
+    fun anElidedOrOddlySeparatedAddressIsRecognised() {
+        for (gap in listOf("..", " . . . ", "\u22EF", "\u00B7\u00B7\u00B7", "***", "\u2022\u2022\u2022", "\u2025", "\u2192", " - ", "\u2026", "...", "~", ":")) {
+            assertTrue("9WzD${gap}Hk3z", looksLikeAddressName("9WzD${gap}Hk3z"))
+        }
+        assertTrue(looksLikeAddressName("Dad 0x-71C7-976F"))
+        assertTrue(looksLikeAddressName("Dad 0x:71C7:976F"))
+        assertTrue(looksLikeAddressName("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"))
+        // A supplementary combining mark (U+E0100) is removed, not turned into a separator.
+        assertTrue(looksLikeAddressName("9WzDXwBbmkg8ZTb\uDB40\uDD00NMqUxvQRAy"))
+        // One space, dash or slash is a plain gap.
+        assertFalse(looksLikeAddressName("Budget 2024/2025"))
+        assertFalse(looksLikeAddressName("Savings 2024 - 2025"))
+    }
+
+    @Test
+    fun namesWithBrandsOrdinalsAndPrefixesStayNames() {
+        assertFalse(looksLikeAddressName("Bob's MacBook Pro M2 16 inch 2023"))
+        assertFalse(looksLikeAddressName("MacBook Pro 14 inch M3 2024"))
+        assertFalse(looksLikeAddressName("Dad's OnePlus 12 5G 256GB 2024"))
+        assertFalse(looksLikeAddressName("MetaMask Wallet on MacBook"))
+        assertFalse(looksLikeAddressName("GitHub MetaMask PayPal"))
+        assertFalse(looksLikeAddressName("McDonald PancakeSwap WhatsApp"))
+        assertFalse(looksLikeAddressName("2024 Savings Account 2025"))
+        assertFalse(looksLikeAddressName("401k Retirement Fund 2045"))
+        assertFalse(looksLikeAddressName("1st Savings Account 2nd"))
+        assertFalse(looksLikeAddressName("S24 Ultra Samsung Galaxy Phone 5G"))
+        assertFalse(looksLikeAddressName("BC1 Savings"))
+        assertFalse(looksLikeAddressName("TB1 Backup disk"))
+        assertFalse(looksLikeAddressName("Ox Cafe"))
+        assertFalse(looksLikeAddressName("Ox Dead Fish"))
+    }
+
+    @Test
     fun lookalikeAndOtherScriptCharactersInsideAnAddressDoNotHideIt() {
         // Cyrillic Х, В and х for the Latin X, B and x.
         assertTrue(looksLikeAddressName("9WzD\u0425w\u0412bmkg8ZTbNMqU\u0445vQRAy"))

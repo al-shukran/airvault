@@ -51,13 +51,23 @@ fun plainNameOf(name: String, max: Int = PLAIN_NAME_MAX): String {
     }
 }
 
-/** "0x" and 4 hex digits anywhere after a word break, also spaced ("0x 71C7"). */
-private val HEX_START = Regex("""\b0x\s?[0-9a-f]{4}""", RegexOption.IGNORE_CASE)
+/** "0x" and 4 hex digits anywhere after a word break, also after one separator ("0x 71C7", "0x-71C7"). */
+private val HEX_START = Regex("""\b0x[^\p{L}\p{N}]?[0-9a-f]{4}""", RegexOption.IGNORE_CASE)
 
-/** The joined name begins like an address: "0x" (or its look-alike "ox") and 4 hex digits, or a bech32 prefix and a body. */
-private val JOINED_START = Regex("""^(?:[0o]x[0-9a-f]{4}|(?:bc1|tb1)[0-9a-z]{6,})""", RegexOption.IGNORE_CASE)
+/** A name whose joined text begins with "0x" and 4 hex digits, whatever splits them ("0x71 C7 656E"). */
+private val JOINED_HEX_START = Regex("""^0x[0-9a-f]{4}""", RegexOption.IGNORE_CASE)
 
+/** A first piece that begins like an address: "ox" (the look-alike of "0x") and 4 hex digits, or a bech32 prefix and a body. "Ox Cafe" and "BC1 Savings" are names. */
+private val FIRST_PIECE_START = Regex("""^(?:ox[0-9a-f]{4}|(?:bc1|tb1)[0-9a-z]{6,})""", RegexOption.IGNORE_CASE)
+
+private val ALPHANUMERIC = Regex("""[\p{L}\p{N}]+""")
 private val NOT_ALPHANUMERIC = Regex("""[^\p{L}\p{N}]+""")
+
+/** Capitalised humps of 3 or more letters, after an optional lowercase letter and an optional 2-letter hump: "MetaMask", "iPhone", "McDonald". */
+private val HUMPS = Regex("""\p{Ll}?(?:\p{Lu}\p{Ll})?(?:\p{Lu}\p{Ll}{2,})+""")
+
+/** What may stand between two address-like pieces of a name: one space, one dash or one slash. Anything else reads as an elision or a split address. */
+private val PLAIN_GAPS = setOf(" ", "-", "/")
 
 /** The longest piece an ordinary word or a Lensly group of 4 reaches: a longer all-lowercase or all-uppercase piece is read as an address. */
 private const val MAX_WORD = 12
@@ -65,7 +75,10 @@ private const val MAX_WORD = 12
 /** A piece this short or shorter can be one group of an address, whatever its look. */
 private const val MAX_GROUP = 5
 
-/** A piece or a joined name this long, with the right look, is an address. */
+/** A piece this long or longer can be the end of an elided address ("9WzD…Hk3z"). */
+private const val MIN_END = 4
+
+/** A joined name or a span of an address-like stretch this long is an address. */
 private const val ADDRESS_LENGTH = 20
 
 /** Cyrillic and Greek letters drawn like Latin ones, each with the Latin letter and the same case it is mapped to. */
@@ -74,10 +87,10 @@ private val CONFUSABLES: Map<Char, Char> =
 
 /** [name] as the address check reads it: NFKC, format characters and combining marks removed, look-alike letters mapped to Latin. */
 private fun foldForAddressCheck(name: String): String = buildString {
-    Normalizer.normalize(name, Normalizer.Form.NFKC).forEach { c ->
-        when (Character.getType(c).toByte()) {
+    Normalizer.normalize(name, Normalizer.Form.NFKC).codePoints().forEach { cp ->
+        when (Character.getType(cp).toByte()) {
             Character.FORMAT, Character.NON_SPACING_MARK, Character.ENCLOSING_MARK, Character.COMBINING_SPACING_MARK -> Unit
-            else -> append(CONFUSABLES[c] ?: c)
+            else -> appendCodePoint(if (cp <= 0xFFFF) CONFUSABLES[cp.toChar()]?.code ?: cp else cp)
         }
     }
 }
@@ -86,8 +99,9 @@ private fun piecesOf(text: String): List<String> = text.split(NOT_ALPHANUMERIC).
 
 /**
  * Whether [piece] looks like a part of an address and not like a word: it holds a digit, its letters are in an irregular case ("XwBb",
- * "PKTanMKd"; a word is lowercase, Capitalised, UPPERCASE or camel like "iPhone"), or it is a lowercase or uppercase run longer than
- * [MAX_WORD] (an Algorand address has no digit). Letters without case, such as Chinese or Arabic, are neutral.
+ * "PKTanMKd"; a word is lowercase, Capitalised, UPPERCASE or made of humps of 3 or more letters such as "MetaMask", "iPhone" or
+ * "McDonald"), or it is a lowercase or uppercase run longer than [MAX_WORD] (an Algorand address has no digit). Letters without case, such
+ * as Chinese or Arabic, are neutral.
  */
 private fun isAddressLike(piece: String): Boolean {
     if (piece.any(Char::isDigit)) return true
@@ -96,9 +110,12 @@ private fun isAddressLike(piece: String): Boolean {
     val lower = letters.all(Char::isLowerCase)
     val upper = letters.all(Char::isUpperCase)
     val capitalised = letters.first().isUpperCase() && letters.drop(1).all(Char::isLowerCase)
-    val camel = letters.length > 2 && letters[0].isLowerCase() && letters[1].isUpperCase() && letters.drop(2).all(Char::isLowerCase)
-    return !(lower || upper || capitalised || camel) || (piece.length > MAX_WORD && (lower || upper))
+    return !(lower || upper || capitalised || HUMPS.matches(letters)) || (piece.length > MAX_WORD && (lower || upper))
 }
+
+/** Whether [piece] can be an end of an address for the first-and-last rule: address-like, and not a number or ordinal such as "2024", "401k" or "1st". */
+private fun isAddressEnd(piece: String): Boolean =
+    isAddressLike(piece) && !(piece.all(Char::isDigit) || (piece.length <= 4 && piece.first().isDigit()))
 
 /**
  * Whether [pieces] hold a stretch of 20 or more characters that reads as an address: in every run of consecutive pieces that are address-like
@@ -117,15 +134,21 @@ private fun hasAddressSpan(pieces: List<String>): Boolean {
     return false
 }
 
+/** Whether two neighbouring address-like pieces of [text], each with a letter and [MIN_END] or more characters, have anything but a [PLAIN_GAPS] between them. */
+private fun hasElidedAddress(text: String): Boolean = ALPHANUMERIC.findAll(text).zipWithNext().any { (before, after) ->
+    listOf(before.value, after.value).all { it.length >= MIN_END && it.any(Char::isLetter) && isAddressLike(it) } &&
+        text.substring(before.range.last + 1, after.range.first) !in PLAIN_GAPS
+}
+
 /**
  * Whether [name] reads as an address, so that shown in bold above the real one it could be taken for it. People compare the start and the
  * end of an address, so the name is judged by its ends. It is read after folding (NFKC, format characters and combining marks removed,
  * Cyrillic and Greek look-alikes mapped to Latin) and cut into pieces at every character that is not a letter or a digit, so any split by
  * space, slash, colon, dot or dash gives the same pieces (see [isAddressLike]). It is refused when
- * - it starts with "0x" and 4 hex digits (also spaced, or after other words) or with a "bc1" or "tb1" address start, once joined;
- * - its first and last pieces both look like address parts and it holds 20 or more letters and digits;
- * - an ellipsis has an address-like piece on each side ("9WzD…Hk3z");
- * - one piece of 20 or more characters looks like an address part;
+ * - it starts with "0x" and 4 hex digits (also spaced or split by one separator, or after other words), or its first piece starts with
+ *   "ox" and 4 hex digits or with a "bc1" or "tb1" address start;
+ * - its first and last pieces both look like address ends ([isAddressEnd]) and it holds 20 or more letters and digits;
+ * - two address-like pieces of 4 or more characters are separated by anything but one space, dash or slash ([hasElidedAddress]): "9WzD…Hk3z";
  * - [hasAddressSpan] finds a stretch of 20 or more characters of address-like pieces and short pieces, however many words come before it.
  * So "Samsung Galaxy S24 Ultra 256GB" or "Room 10 x 2020" is a name.
  */
@@ -134,12 +157,9 @@ fun looksLikeAddressName(name: String): Boolean {
     val pieces = piecesOf(text)
     if (pieces.isEmpty()) return false
     val joined = pieces.joinToString("")
-    return HEX_START.containsMatchIn(text) || JOINED_START.containsMatchIn(joined) ||
-        (joined.length >= ADDRESS_LENGTH && isAddressLike(pieces.first()) && isAddressLike(pieces.last())) ||
-        text.split("...").map(::piecesOf).zipWithNext().any { (before, after) ->
-            before.isNotEmpty() && after.isNotEmpty() && isAddressLike(before.last()) && isAddressLike(after.first())
-        } ||
-        pieces.any { it.length >= ADDRESS_LENGTH && isAddressLike(it) } || hasAddressSpan(pieces)
+    return HEX_START.containsMatchIn(text) || JOINED_HEX_START.containsMatchIn(joined) || FIRST_PIECE_START.containsMatchIn(pieces.first()) ||
+        (joined.length >= ADDRESS_LENGTH && isAddressEnd(pieces.first()) && isAddressEnd(pieces.last())) ||
+        hasElidedAddress(text) || hasAddressSpan(pieces)
 }
 
 /**
