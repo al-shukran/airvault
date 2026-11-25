@@ -136,7 +136,7 @@ internal fun HomeRoute(
                 selected = sort,
                 onSelect = { next ->
                     sortOpen = false
-                    watchlist?.let { list -> wallet?.let { board.putWatchlist(it.id, list.copy(sort = next)) } }
+                    wallet?.let { board.changeWatchlist(it.id) { list -> list.copy(sort = next) } }
                 },
                 onClose = { sortOpen = false },
             )

@@ -181,7 +181,7 @@ internal fun AssetRoute(
         range = range,
         onRange = { range = it },
         watched = watched,
-        onWatch = { board.putWatchlist(walletId, current.toggled(asset)) },
+        onWatch = { board.changeWatchlist(walletId) { it.toggled(asset) } },
         held = held,
         onHoldings = { navController.navigate(LumioRoute.holdings(walletId, asset)) },
         accounts = coinAccounts,

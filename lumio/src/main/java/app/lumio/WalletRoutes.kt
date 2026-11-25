@@ -23,6 +23,7 @@ import app.lumio.btc.BtcAccountRef
 import app.lumio.data.asset.AssetId
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.TransactionSettings
+import app.lumio.data.config.UnreadableRecordException
 import app.lumio.data.net.Networks
 import app.lumio.data.price.ChartFrame
 import app.lumio.data.price.PriceSeries
@@ -567,7 +568,7 @@ internal suspend fun removeWalletHistory(vault: LumioVault, wallet: PairedWallet
     val bitcoin = wallet.bitcoin.flatMap { vault.store.snapshot(BtcAccountRef(wallet.id, it).key)?.addresses.orEmpty() }
     vault.txs.removeAccounts(wallet.evmAddresses + bitcoin)
     // A watchlist record that does not parse is left as it is, and the wallet goes all the same.
-    runCatching { WatchlistStore.remove(vault.session, wallet.id) }
+    runCatching { WatchlistStore.remove(vault.session, wallet.id) }.onFailure { if (it !is UnreadableRecordException) throw it }
     vault.wallets?.forgetWatchlist(wallet.id)
 }
 
