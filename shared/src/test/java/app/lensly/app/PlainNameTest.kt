@@ -21,8 +21,22 @@ class PlainNameTest {
     }
 
     @Test
-    fun combiningMarksAreRemoved() {
-        assertEquals("Zalgo", plainNameOf("Z\u0300\u0301\u0302a\u0489l\u0316g\u0317o\u0318"))
+    fun arabicAndHindiNamesKeepTheirMarks() {
+        val arabic = "\u0645\u064F\u062D\u064E\u0645\u064E\u0651\u062F"
+        val hindi = "\u0928\u092E\u0938\u094D\u0924\u0947 \u0915\u093F\u0930\u0923"
+        assertEquals(arabic, plainNameOf(arabic))
+        assertEquals(hindi, plainNameOf(hindi))
+    }
+
+    @Test
+    fun stackedMarksAreCappedAtTwoPerBase() {
+        val zalgo = "Z" + "\u0300\u0301\u0302\u0303\u0304\u0305\u0306\u0307\u0308\u0309" + "algo\u0489\u0316\u0317\u0318"
+        assertEquals("Z\u0300\u0301algo\u0489\u0316", plainNameOf(zalgo))
+    }
+
+    @Test
+    fun marksWithNoBaseAreDropped() {
+        assertEquals("Alice Bob", plainNameOf("\u0301\u0302Alice \u0301Bob"))
     }
 
     @Test
