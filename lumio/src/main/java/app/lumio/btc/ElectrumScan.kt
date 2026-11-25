@@ -65,7 +65,7 @@ internal suspend fun electrumRead(
         }
         val holders = (receive + change).filter { it.reading.balance != 0L }
         val utxos = if (holders.isEmpty()) emptyList() else pool.unspent(holders.map { scripthash(scriptOf(network, it.address)) })
-        memo.putAll(walked)
+        walked.forEach { (address, read) -> memo.remember(address, read.reading, read.readAtMs) }
         ElectrumRead(receive, change, utxos)
     } catch (e: CancellationException) {
         throw e

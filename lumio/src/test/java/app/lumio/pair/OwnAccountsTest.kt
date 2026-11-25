@@ -43,6 +43,28 @@ class OwnAccountsTest {
     }
 
     @Test
+    fun aNameWithNothingVisibleFallsBackToTheAutoNameAndNeverShowsBlank() {
+        val accounts = ownAccountsOf(
+            listOf(
+                wallet(
+                    "Vault",
+                    PairedAccount(0, savings, "\u200B \u200D", null, null),
+                    PairedAccount(1, trading, "Trading", null, null),
+                ),
+            ),
+        )
+
+        assertEquals(mapOf(addressKeyOf(savings) to "Vault 0", addressKeyOf(trading) to "Trading"), accounts.plainNames())
+    }
+
+    @Test
+    fun anAccountWithNoVisibleNameIsLeftOutSoTheScreenFallsBackToTheAddress() {
+        val blank = mapOf("a" to InternalAccount(displayName = "\u200B", autoName = "\u200B  ", label = null))
+
+        assertEquals(emptyMap<String, String>(), blank.plainNames())
+    }
+
+    @Test
     fun anAddressOfNoPairedAccountIsNotNamed() {
         val accounts = ownAccountsOf(listOf(wallet("Vault", PairedAccount(0, savings, "Savings", null, null))))
 
