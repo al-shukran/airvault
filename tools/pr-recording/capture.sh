@@ -30,7 +30,7 @@ done
 
 adbs() { adb -s "$serial" "$@"; }
 demo() { adbs shell am broadcast -a com.android.systemui.demo -e command "$@" >/dev/null; }
-adbs get-state >/dev/null || { echo "no device $serial" >&2; exit 1; }
+adbs get-state >/dev/null 2>&1 && [[ $serial == emulator-* ]] || { echo "no connected emulator $serial. Start one, or pass its serial from adb devices (emulator-NNNN)." >&2; exit 1; }
 
 adbs shell settings put global sysui_demo_allowed 1
 trap 'demo exit || true' EXIT
