@@ -1,4 +1,4 @@
-# Shared by capture.sh and compose.sh: the one definition of an acceptable screen. Sourced, not run.
+# Shared by capture.sh, compose.sh and post.sh: the one definition of an acceptable screen. Sourced, not run.
 
 # check_screen FILE [START]: FILE is a PNG or a clip. It must be 9:20 and at least 720 px wide, and its
 # top (status bar) and bottom (navigation bar) bands must hold something. For a clip, the frame at START
@@ -37,6 +37,18 @@ check_capture() {
   if [ ! -f "$1.capture" ] || [ "$(cat "$1.capture")" != "$(shasum -a 256 <"$1" | cut -d' ' -f1)" ]; then
     echo "$1 has no matching $1.capture stamp. Only an unmodified capture.sh screen is accepted." >&2
     echo "Take it with capture.sh on an emulator. Test goldens and edited shots are not accepted." >&2
+    return 1
+  fi
+}
+
+# stamp_compose FILE: called by compose.sh only. Writes FILE.compose, the SHA-256 of FILE, next to it.
+stamp_compose() { shasum -a 256 <"$1" | cut -d' ' -f1 >"$1.compose"; }
+
+# check_compose FILE: FILE must carry the stamp compose.sh wrote for it, and must not have changed since.
+# Prints the problem and returns 1 otherwise. This is what keeps raw captures and hand-made media out of post.sh.
+check_compose() {
+  if [ ! -f "$1.compose" ] || [ "$(cat "$1.compose")" != "$(shasum -a 256 <"$1" | cut -d' ' -f1)" ]; then
+    echo "$1 has no matching $1.compose stamp. Only an unmodified compose.sh output is accepted." >&2
     return 1
   fi
 }

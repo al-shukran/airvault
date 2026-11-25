@@ -22,6 +22,7 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$pr" ] && [ -n "$dir" ] && [ -n "$title" ] || usage
 command -v gh >/dev/null || { echo "gh not found" >&2; exit 1; }
+. "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
 name=''
 for n in comparison single; do
@@ -33,10 +34,12 @@ work=$(mktemp -d "${TMPDIR:-/tmp}/pr-post.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 image=$name.png
 [ -f "$dir/$name.gif" ] && image=$name.gif
+check_compose "$dir/$image" || exit 1
 cp "$dir/$image" "$work/"
 files=("./$image")
 printf '### %s\n\n![image](./%s)\n' "$title" "$image" >"$work/body.md"
 if [ -f "$dir/$name.mp4" ]; then
+  check_compose "$dir/$name.mp4" || exit 1
   cp "$dir/$name.mp4" "$work/"
   files+=("./$name.mp4")
   printf '\n![video](./%s)\n' "$name.mp4" >>"$work/body.md"

@@ -262,5 +262,6 @@ for ext in mp4 gif png; do
   [ -f "$work/$name.$ext" ] || continue
   [ "$(size_of "$work/$name.$ext")" -le "$max_bytes" ] || { echo "$name.$ext is larger than 10 MB" >&2; exit 1; }
   cp "$work/$name.$ext" "$out/$name.$ext"
+  stamp_compose "$out/$name.$ext"
   echo "wrote $out/$name.$ext ($(size_of "$out/$name.$ext") bytes)"
 done
