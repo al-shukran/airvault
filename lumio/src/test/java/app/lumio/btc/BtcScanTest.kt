@@ -575,6 +575,22 @@ class BtcScanTest {
     }
 
     @Test
+    fun theFallbackAfterAFailedElectrumReadAsksEsploraForEveryAddress() = runBlocking {
+        fund(sats = 120_000L)
+        // Electrum answers the walk (index 1 unused, below the used index 2), then fails on the unspent outputs.
+        electrumServer(refused = "blockchain.scripthash.listunspent").use { fake ->
+            val pool = ElectrumPool(servers = listOf(ElectrumServer("localhost", Trust.Pinned(TestIdentities.server.spkiSha256), port = fake.port)))
+
+            val snapshot = scanAccount(ref, this.scheduler(), Priority.VISIBLE, nowMs = 1L, electrum = pool)
+
+            assertEquals(120_000L, snapshot.confirmedSats)
+            val asked = first.statsRequests() + second.statsRequests()
+            val walked = receive.take(BtcAccount.GAP_LIMIT + 1)
+            assertEquals(walked, walked.filter { it in asked }, "Esplora was asked for every address of the fallback walk")
+        }
+    }
+
+    @Test
     fun thePublicElectrumServersAreNotUsedForAnOwnerServerOrForTestnet() {
         val pool = ElectrumPool(servers = emptyList())
         assertSame(pool, publicElectrumFor(pool, BtcNetwork.MAINNET, owned = emptySet()))

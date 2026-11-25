@@ -5,15 +5,15 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-// Android modules that depend on this code compile to Java 17, so the pure-JVM chain modules do too.
+// Android modules that depend on this code compile to Java 21, so the pure-JVM chain modules do too.
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 kotlin {
     compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_17)
+        jvmTarget.set(JvmTarget.JVM_21)
     }
 }
 

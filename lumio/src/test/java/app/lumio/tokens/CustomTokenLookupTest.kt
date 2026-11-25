@@ -91,7 +91,7 @@ class CustomTokenLookupTest {
     fun anAddressWithNoContractIsRefusedWithThatWords() {
         val reads = ScriptedReads { _, _ -> "0x" }
 
-        assertEquals("No contract is at this address on Ethereum.", assertFailsWith<IllegalArgumentException> { lookup(reads) }.message)
+        assertEquals("No token found at this address on Ethereum.", assertFailsWith<IllegalArgumentException> { lookup(reads) }.message)
     }
 
     @Test

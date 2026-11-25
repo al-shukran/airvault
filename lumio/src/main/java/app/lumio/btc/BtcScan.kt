@@ -210,7 +210,6 @@ suspend fun scanAccount(
             confirmedSats = used.sumOf { it.reading.confirmedSats },
             unconfirmedSats = used.sumOf { it.reading.unconfirmedSats },
             nextReceiveIndex = nextIndex,
-            nextReceiveAddress = account.receiveAddress(nextIndex),
             utxos = utxos.toList(),
             transactions = if (!detail) emptyList() else txs.values
                 .map { tx -> BtcTx(tx.txid, netSats(tx, owned), tx.blockHeight, tx.blockTimeSec) }
