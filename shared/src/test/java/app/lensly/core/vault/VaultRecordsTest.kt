@@ -72,11 +72,11 @@ class VaultRecordsTest {
     fun aVaultRecordCannotBeMovedUnderAnotherName() {
         val session = open()
         session.putVaultRecord("settings", byteArrayOf(4, 4))
-        session.vaultRecordFileForTesting("other")
+        session.vaultRecordFileForTesting("address-book")
             .writeBytes(session.vaultRecordFileForTesting("settings").readBytes())
 
         // The AAD names the record, so a copy under another name fails authentication.
-        assertFailsWith<VaultException> { session.getVaultRecord("other") }
+        assertFailsWith<VaultException> { session.getVaultRecord("address-book") }
         session.close()
     }
 
@@ -108,6 +108,9 @@ class VaultRecordsTest {
 
         assertFailsWith<IllegalArgumentException> { session.putVaultRecord("../escape", byteArrayOf(1)) }
         assertFailsWith<IllegalArgumentException> { session.getVaultRecord("") }
+        // A name that no store lists in VaultRecordNames.KNOWN would be deleted by a Decoy Vault removal and left behind by a wipe.
+        assertFailsWith<IllegalArgumentException> { session.putVaultRecord("not-listed", byteArrayOf(1)) }
+        assertFailsWith<IllegalArgumentException> { session.getVaultRecord("btc-scan/1") }
         session.close()
     }
 
