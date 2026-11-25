@@ -1,0 +1,1 @@
+Address Book, Wallets, Security and About now match the approved design: the Address Book has a search and its contacts under their groups, each wallet opens its own settings page, Device Protection is a switch on Security, and About shows the app mark and version.
