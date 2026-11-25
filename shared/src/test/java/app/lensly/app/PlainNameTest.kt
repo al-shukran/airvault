@@ -185,6 +185,8 @@ class PlainNameTest {
         // A letter run with no digit, in an irregular case or very long, and an Arabic-Indic digit.
         assertTrue(looksLikeAddressName("HkzAbcDefGhiJkmNopQrsTuvWxyzAbcdEfghJkmNpqRs"))
         assertTrue(looksLikeAddressName("A".repeat(57) + "B"))
+        assertTrue(looksLikeAddressName("Abc".repeat(10)))
+        assertFalse(looksLikeAddressName("PancakeSwap"))
         assertTrue(looksLikeAddressName("WzDXwBbmkgZTbNMqUxvQRAyWQp\u0663"))
     }
 

@@ -100,7 +100,7 @@ private fun piecesOf(text: String): List<String> = text.split(NOT_ALPHANUMERIC).
 /**
  * Whether [piece] looks like a part of an address and not like a word: it holds a digit, its letters are in an irregular case ("XwBb",
  * "PKTanMKd"; a word is lowercase, Capitalised, UPPERCASE or made of humps of 3 or more letters such as "MetaMask", "iPhone" or
- * "McDonald"), or it is a lowercase or uppercase run longer than [MAX_WORD] (an Algorand address has no digit). Letters without case, such
+ * "McDonald"), or it is longer than [MAX_WORD] letters, whatever its case (an Algorand address has no digit). Letters without case, such
  * as Chinese or Arabic, are neutral.
  */
 private fun isAddressLike(piece: String): Boolean {
@@ -110,7 +110,7 @@ private fun isAddressLike(piece: String): Boolean {
     val lower = letters.all(Char::isLowerCase)
     val upper = letters.all(Char::isUpperCase)
     val capitalised = letters.first().isUpperCase() && letters.drop(1).all(Char::isLowerCase)
-    return !(lower || upper || capitalised || HUMPS.matches(letters)) || (piece.length > MAX_WORD && (lower || upper))
+    return !(lower || upper || capitalised || HUMPS.matches(letters)) || piece.length > MAX_WORD
 }
 
 /** Whether [piece] can be an end of an address for the first-and-last rule: address-like, and not a number or ordinal such as "2024", "401k" or "1st". */
