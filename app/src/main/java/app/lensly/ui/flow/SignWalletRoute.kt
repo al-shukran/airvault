@@ -20,6 +20,7 @@ import app.airvault.core.model.ChainId
 import app.lensly.DebugBtcFixture
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressNotes
+import app.lensly.app.InternalAccount
 import app.lensly.app.RegistryHolder
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
@@ -31,6 +32,7 @@ import app.lensly.ui.navigation.HiddenRoute
 import app.lensly.ui.navigation.openAddressBookFor
 import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.navigation.rememberAddressBook
+import app.lensly.ui.navigation.rememberInternalAccounts
 import app.lensly.ui.qr.ScanScreen
 import app.lensly.ui.qr.ShowQrScreen
 import app.lensly.ui.sign.ReviewScreen
@@ -67,6 +69,9 @@ internal fun SignWalletRoute(
     // The Address Book is read again each time this screen is shown, so an entry saved on the form shows on the review it came from.
     val book = session?.let { rememberAddressBook(navController, it) }
     val openAddress: (String, ChainId) -> Unit = { address, chain -> navController.openAddressBookFor(book.orEmpty(), address, chain) }
+    // Every account of the vault, so an address that looks like one of them is flagged. Null until read, and when the read fails, so the
+    // review keeps the notes it was made with and a failure never reads as "no accounts".
+    val ownAccounts = session?.let { rememberInternalAccounts(navController, it, walletId) }?.getOrNull()
 
     val flow: SignFlowViewModel = viewModel(
         key = walletId ?: ANY_WALLET_KEY,
@@ -104,18 +109,23 @@ internal fun SignWalletRoute(
             networks = networks,
             onDone = flow::leave,
         )
-        is SignStep.AppReview -> ReviewScreen(
-            review = shown.ready.review,
-            signer = shown.ready.signer,
-            addressNotes = notesNow(shown.ready.addressNotes, shown.ready.counterparties, shown.ready.addressChain, book),
-            addressChain = shown.ready.addressChain,
-            networks = networks,
-            ticked = ticked,
-            onTick = flow::tick,
-            onApprove = flow::approve,
-            onReject = flow::leave,
-            onOpenAddress = openAddress,
-        )
+        is SignStep.AppReview -> {
+            val ready = shown.ready
+            // The lookalike scan runs once per change of its inputs, not on every recomposition.
+            val notes = remember(ready.addressNotes, book, ownAccounts) { notesNow(ready.addressNotes, ready.counterparties, ready.addressChain, book, ownAccounts) }
+            ReviewScreen(
+                review = ready.review,
+                signer = ready.signer,
+                addressNotes = notes,
+                addressChain = ready.addressChain,
+                networks = networks,
+                ticked = ticked,
+                onTick = flow::tick,
+                onApprove = flow::approve,
+                onReject = flow::leave,
+                onOpenAddress = openAddress,
+            )
+        }
         is SignStep.AppConfirming -> ConfirmPasswordRoute(busy = shown.busy, holder = holder, onConfirm = flow::confirm)
         is SignStep.Signature -> ShowQrScreen(
             title = "Signature",
@@ -129,16 +139,18 @@ internal fun SignWalletRoute(
 
 /**
  * The notes of [addresses] on [chain] as the Address Book holds them now. The device's accounts keep the notes [read] took when the review
- * was made, since they do not change while a request is open. Until the Address Book is read, [read] is shown as it is.
+ * was made, since they do not change while a request is open. [own] are all the accounts of the vault, which an address is compared with for a
+ * lookalike, and [read] wins for the accounts it names. Until the Address Book and [own] are read, [read] is shown as it is.
  */
 private fun notesNow(
     read: Map<String, AddressNotes>,
     addresses: List<String>,
     chain: ChainId,
     book: List<AddressBookEntry>?,
+    own: Map<String, InternalAccount>?,
 ): Map<String, AddressNotes> {
-    if (book == null) return read
-    val internal = read.mapNotNull { (key, notes) -> notes.internal?.let { key to it } }.toMap()
+    if (book == null || own == null) return read
+    val internal = own + read.mapNotNull { (key, notes) -> notes.internal?.let { key to it } }.toMap()
     return addressNotesOf(addresses, chain, internal, book)
 }
 

@@ -29,7 +29,7 @@ fun addressNotesOf(
 ): AddressNotes? {
     val account = internal[addressKeyOf(address)]
     val entry = addressBookEntryFor(address, chain, book)
-    val lookalike = if (account == null && entry == null) lookalikeEntryFor(address, chain, book) else null
+    val lookalike = if (account == null && entry == null) lookalikeEntryFor(address, chain, book, internal) else null
     return if (account == null && entry == null && lookalike == null) null else AddressNotes(account, entry, lookalike)
 }
 

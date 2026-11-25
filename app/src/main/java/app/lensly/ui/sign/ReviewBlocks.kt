@@ -48,6 +48,7 @@ import app.lensly.app.headline
 import app.lensly.app.isAddressValue
 import app.lensly.app.lookalikeWarningText
 import app.lensly.app.plainName
+import app.lensly.app.plainNameOf
 import app.lensly.app.plainNameOrNull
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
@@ -84,7 +85,7 @@ internal fun ReviewHeader(
     testnet: Boolean,
     chainDetail: String?,
     account: String,
-    wallet: String,
+    wallet: String?,
     address: String,
     addressLogo: @Composable () -> Unit,
     modifier: Modifier = Modifier,
@@ -115,7 +116,7 @@ internal fun ReviewHeader(
         Spacer(Modifier.height(LenslySpacing.sm))
         networkFact?.let { ReviewFactRow(label = it.label, value = it.value, mono = it.mono) }
         ReviewFactRow(label = accountLabel, value = account, mono = false)
-        ReviewFactRow(label = "Wallet", value = wallet, mono = false)
+        wallet?.let { ReviewFactRow(label = "Wallet", value = it, mono = false) }
         Spacer(Modifier.height(LenslySpacing.xxs))
         Text(text = "Address", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -507,7 +508,7 @@ internal fun AddressNoteLines(notes: AddressNotes?, modifier: Modifier = Modifie
                 )
             }
             plainNameOrNull(entry.label)?.let { ReviewFactRow(label = "Address Label", value = it, mono = false) }
-            plainNameOrNull(entry.notes, ADDRESS_NOTES_MAX_LENGTH)?.let { ReviewFactRow(label = "Address Notes", value = it, mono = false) }
+            plainNameOf(entry.notes.orEmpty(), ADDRESS_NOTES_MAX_LENGTH).takeIf { it.isNotEmpty() }?.let { ReviewFactRow(label = "Address Notes", value = it, mono = false) }
             if (entry.chain?.namespace == EVM_FAMILY.namespace) NoteText(SAVED_FOR_ALL_EVM)
         }
     }

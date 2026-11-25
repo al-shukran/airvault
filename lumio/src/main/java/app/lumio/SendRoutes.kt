@@ -30,6 +30,7 @@ import app.lensly.app.VaultHolder
 import app.lensly.app.addressKeyOf
 import app.lensly.app.addressNotesOf
 import app.lensly.app.addressStart
+import app.lensly.app.isolated
 import app.lensly.app.lookalikeWarningText
 import app.lensly.app.plainLabel
 import app.lensly.app.plainName
@@ -579,7 +580,7 @@ internal fun SendRoute(
                 title = "",
                 heading = "This Signature Is for a Different Send",
                 mark = "!",
-                body = "Lensly's reply doesn't match this send. Nothing was sent, and your ${amountText(now.send)} is still in $fromName.",
+                body = "Lensly's reply doesn't match this send. Nothing was sent, and your ${amountText(now.send)} is still in ${isolated(fromName)}.",
                 notes = listOf(
                     "What Happened" to "Lensly's reply doesn't match this send. Lumio never sends a signature that doesn't match.",
                     "What You Can Do" to "On Lensly, check that it shows ${amountText(now.send)} to $toName, then scan its reply again.",
@@ -649,18 +650,18 @@ internal fun nameOrAddress(notes: AddressNotes?, address: String): String =
 
 /** [address] in a sentence: "Name (address in groups)" when [notes] name it, else the address in groups. A name never stands for it alone. */
 internal fun nameWithAddress(notes: AddressNotes?, address: String): String =
-    notes?.let(::notesName)?.takeIf { it.isNotEmpty() }?.let { "$it (${groupAddress(address)})" } ?: groupAddress(address)
+    notes?.let(::notesName)?.takeIf { it.isNotEmpty() }?.let { "${isolated(it)} (${groupAddress(address)})" } ?: groupAddress(address)
 
 /** The recipient in a heading: "Name (start of the address)" when [notes] name it, else the address in groups. The full address is on the page. */
 internal fun nameWithStart(notes: AddressNotes?, address: String): String =
-    notes?.let(::notesName)?.takeIf { it.isNotEmpty() }?.let { "$it (${addressStart(address)})" } ?: groupAddress(address)
+    notes?.let(::notesName)?.takeIf { it.isNotEmpty() }?.let { "${isolated(it)} (${addressStart(address)})" } ?: groupAddress(address)
 
 /** Whether neither the device nor the Address Book names the address, so it is the first time it shows here. */
 internal fun isFirstTime(notes: AddressNotes?): Boolean = notes?.internal == null && notes?.entry == null
 
 /** The warning of an address that looks like a saved entry but differs, with the saved address to compare. Empty when it does not. */
 internal fun lookalikeWarnings(notes: AddressNotes?): List<String> =
-    notes?.lookalike?.let { listOf("${lookalikeWarningText(it)}. ${it.plainName()} is saved as ${groupAddress(it.address)}.") }.orEmpty()
+    notes?.lookalike?.let { listOf("${lookalikeWarningText(it)}. ${isolated(it.plainName())} is saved as ${groupAddress(it.address)}.") }.orEmpty()
 
 internal fun notesDetail(notes: AddressNotes): String {
     if (notes.internal != null) return "Your account"
@@ -682,7 +683,7 @@ private fun amountText(send: PreparedSend): String {
 }
 
 private fun reviewHeading(send: PreparedSend, fromName: String, toName: String): String =
-    "Send ${amountText(send)} from $fromName to $toName?"
+    "Send ${amountText(send)} from ${isolated(fromName)} to $toName?"
 
 /**
  * The rows under the recipient on the Review page, in the order Lensly shows them: the amount, the most the fee can be, the network and the sender.
