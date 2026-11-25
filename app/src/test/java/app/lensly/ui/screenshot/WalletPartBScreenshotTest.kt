@@ -31,6 +31,10 @@ import org.robolectric.annotation.GraphicsMode
  */
 private val TEST_WORDS = List(23) { "abandon" } + "art"
 private val INVALID_WORDS = List(24) { "abandon" }
+private val LONGEST_WORDS = listOf(
+    "abandon", "broccoli", "champion", "congress", "december", "exercise",
+    "hedgehog", "midnight", "mushroom", "question", "remember", "together",
+)
 private const val TEST_PASSPHRASE = "TREZOR"
 private const val TEST_KEY_HEX = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 private const val NAME_AT_LIMIT = "Cold storage, family vault 2026!"
@@ -112,6 +116,17 @@ class WalletPartBScreenshotTest {
         RestoreState(words = TEST_WORDS, activeIndex = 24),
     )
 
+    /** The longest BIP39 words (8 letters) in the widest tiles, at the default font scale and at 1.3x. */
+    @Test
+    fun restoreLongestWordsScreen() = restore("restore_longest_words_screen", RestoreState(words = LONGEST_WORDS, activeIndex = 12))
+
+    @Test
+    fun restoreLongestWordsScreenLargeFont() = restore(
+        "restore_longest_words_screen_font_1_3",
+        RestoreState(words = LONGEST_WORDS, activeIndex = 12),
+        fontScale = 1.3f,
+    )
+
     @Test
     fun showSecretPasswordScreen() = showSecret(
         "show_secret_password_screen",
@@ -191,7 +206,7 @@ class WalletPartBScreenshotTest {
         )
     }
 
-    private fun restore(name: String, state: RestoreState) = compose.snapshot(name) {
+    private fun restore(name: String, state: RestoreState, fontScale: Float = 1f) = compose.snapshot(name, fontScale = fontScale) {
         RestoreEntryScreen(
             state = state,
             onKey = {},
