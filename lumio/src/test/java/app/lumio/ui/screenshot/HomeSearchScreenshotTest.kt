@@ -10,6 +10,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lensly.ui.theme.ClearAirSpacing
 import app.airvault.core.model.ChainId
 import app.lumio.data.net.NetworkId
+import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.home.HomeScreen
 import app.lumio.ui.home.MarketHero
 import app.lumio.ui.home.WatchlistRow
@@ -20,6 +21,8 @@ import app.lumio.ui.search.SearchSheet
 import app.lumio.ui.search.SearchTab
 import app.lumio.watchlist.WatchedAsset
 import app.lumio.watchlist.WatchlistSort
+import kotlin.math.cos
+import kotlin.math.sin
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -108,6 +111,7 @@ class HomeSearchScreenshotTest {
             asset = coin("bip122:000000000019d6689c085ae165831e93"),
             name = "Bitcoin",
             detail = "BTC · 0.2104 held",
+            icon = AssetIconSpec.Bitcoin,
             priceUsd = "$108,420.35",
             change24hPct = 1.82,
             ticks = listOf(104_200.0, 105_900.0, 105_100.0, 106_800.0, 107_300.0, 106_500.0, 108_000.0, 108_420.35),
@@ -116,12 +120,13 @@ class HomeSearchScreenshotTest {
             asset = coin("eip155:1"),
             name = "Ethereum",
             detail = "ETH · 22.23 held",
+            icon = AssetIconSpec.Chain(null),
             priceUsd = "$4,285.70",
             change24hPct = -2.41,
             ticks = listOf(4_390.0, 4_360.0, 4_340.0, 4_310.0, 4_330.0, 4_300.0, 4_290.0, 4_285.70),
         ),
-        WatchlistRow(asset = coin("solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"), name = "Solana", detail = "SOL · 31.5 held", priceUsd = "$184.20", change24hPct = 4.10),
-        WatchlistRow(asset = coin("algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k"), name = "Algorand", detail = "ALGO", priceUsd = null, change24hPct = null),
+        WatchlistRow(asset = coin("solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"), name = "Solana", detail = "SOL · 31.5 held", icon = AssetIconSpec.Solana, priceUsd = "$184.20", change24hPct = 4.10),
+        WatchlistRow(asset = coin("algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k"), name = "Algorand", detail = "ALGO", icon = AssetIconSpec.Algorand, priceUsd = null, change24hPct = null),
     )
 
     private fun coin(chain: String): WatchedAsset = WatchedAsset(NetworkId(ChainId(chain), testnet = false))
@@ -143,8 +148,9 @@ class HomeSearchScreenshotTest {
     )
 
     private companion object {
-        val LIVE_HERO = MarketHero(total = "\$3.41 T", change24hPct = 2.14, freshness = "Live · updated 8 s ago")
-        val KEPT_HERO = MarketHero(total = "\$3.41 T", change24hPct = 2.14, freshness = "Last known · updated 3 h ago")
+        val TICKS = List(71) { i -> 100.0 + i * 0.3 + sin(i * 0.9) * 1.6 + cos(i * 0.37) * 2.2 }
+        val LIVE_HERO = MarketHero(total = "\$3.41T", change24hPct = 2.14, freshness = "Live · updated 8 s ago", ticks = TICKS)
+        val KEPT_HERO = MarketHero(total = "\$3.41T", change24hPct = 2.14, freshness = "Last known · updated 3 h ago", ticks = TICKS)
         val NO_HERO = MarketHero(total = null, change24hPct = null, freshness = null)
     }
 }

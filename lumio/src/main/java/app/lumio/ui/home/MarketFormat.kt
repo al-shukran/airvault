@@ -7,13 +7,13 @@ private const val BILLION = 1e9
 private const val TRILLION = 1e12
 
 /**
- * A dollar total as the hero writes it, in the owner's currency: trillions or billions to two places, such as "$3.41 T", and a smaller total in full.
+ * A dollar total as the hero writes it, in the owner's currency: trillions or billions to two places, such as "$3.41T", and a smaller total in full.
  */
 internal fun compactUsd(usd: Double, fiat: Fiat): String {
     val value = fiat.convert(usd)
     return when {
-        value >= TRILLION -> String.format(Locale.ROOT, "%s%.2f T", fiat.currency.prefix, value / TRILLION)
-        value >= BILLION -> String.format(Locale.ROOT, "%s%.2f B", fiat.currency.prefix, value / BILLION)
+        value >= TRILLION -> String.format(Locale.ROOT, "%s%.2fT", fiat.currency.prefix, value / TRILLION)
+        value >= BILLION -> String.format(Locale.ROOT, "%s%.2fB", fiat.currency.prefix, value / BILLION)
         else -> fiat.amount(usd)
     }
 }

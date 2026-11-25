@@ -65,6 +65,7 @@ fun LumioRootScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             ClearAirRootTopBar(
                 title = title,
+                switcher = tab == LumioTab.HOME,
                 onPanel = { panelOpen = true },
                 onSearch = { searchOpen = true },
                 onLock = onLock,

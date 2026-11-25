@@ -41,7 +41,9 @@ import app.lumio.data.price.ChartFrame
 import app.lumio.data.price.PriceSeries
 import app.lumio.ui.kit.ChoiceGroup
 import app.lumio.ui.kit.ChoiceRow
+import app.lumio.ui.kit.ClearAirAmount
 import app.lumio.ui.kit.ClearAirCapsuleSmall
+import app.lumio.ui.kit.ClearAirChangeLineStyle
 import app.lumio.ui.kit.ClearAirChoiceSheet
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
@@ -121,11 +123,11 @@ internal fun AssetPage(
                 icon()
                 Spacer(Modifier.height(ClearAirSpacing.xs))
                 ClearAirEyebrow(text = "$name · $symbol")
-                Text(text = priceText ?: "—", style = ClearAirType.hero, color = palette.ink)
+                ClearAirAmount(text = priceText ?: "—", style = ClearAirType.hero)
                 change?.let { value ->
                     Text(
                         text = value.text,
-                        style = ClearAirType.body,
+                        style = ClearAirChangeLineStyle,
                         color = if (value.rising) palette.vaultBlue else palette.rose,
                     )
                 }

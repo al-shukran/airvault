@@ -50,7 +50,7 @@ internal fun bitcoinRefs(session: VaultSession): List<BtcAccountRef> = try {
 }
 
 /**
- * The Bitcoin part of the Networks page: the Esplora server of each Bitcoin network, and the Ordinals indexer, which is off until the owner sets one. Each
+ * The Bitcoin Servers page, pushed from the Networks page: the Esplora server of each Bitcoin network, and the Ordinals indexer, which is off until the owner sets one. Each
  * valid address is saved as the owner sets it, and a save that the vault refuses shows its reason under the fields. Saves run one after another under
  * a lock, and each reads the settings it changes, so one field's save never overwrites another's.
  */

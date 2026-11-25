@@ -133,6 +133,8 @@ internal object AssetRows {
     fun nativeIcon(network: NetworkId, symbol: String, lookup: (Long) -> NetworkEntry?): AssetIconSpec = when {
         network.isBtc -> AssetIconSpec.Bitcoin
         network.isEvm -> AssetIconSpec.Chain(network.name.toLongOrNull()?.let(lookup))
+        network.isSol -> AssetIconSpec.Solana
+        network.isAlgo -> AssetIconSpec.Algorand
         else -> AssetIconSpec.Letter(letterOf(symbol))
     }
 

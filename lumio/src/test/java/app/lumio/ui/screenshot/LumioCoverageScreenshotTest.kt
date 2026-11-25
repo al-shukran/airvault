@@ -105,14 +105,14 @@ class LumioCoverageScreenshotTest {
                     custom = listOf(CustomChain(424242L, "Demo Chain", "DEMO", testnet = false)),
                 ),
                 chains = chains,
+                logos = emptyMap(),
                 busy = false,
                 notice = null,
                 onAddressCount = {},
                 onEnabled = { _, _ -> },
                 onNetwork = {},
-                onTokens = {},
-                onRemoveCustom = {},
                 onAddNetwork = {},
+                onBitcoin = {},
             )
         }
     }

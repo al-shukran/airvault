@@ -40,6 +40,8 @@ data class PortfolioHolding(
     val change24h: Double?,
     val mergeKey: String?,
     val bridged: Boolean,
+    /** The token's contract, or null for a native coin. A row's logo comes from it. */
+    val contract: String? = null,
 ) {
     val family: ChainFamily get() = ChainFamily.of(network)
 }
@@ -73,6 +75,7 @@ fun holdingOf(asset: HomeAsset, title: String? = null): PortfolioHolding = when 
             change24h = asset.change24h,
             mergeKey = if (asset.known && !asset.custom && !bridged) "token:${asset.symbol}" else null,
             bridged = bridged,
+            contract = asset.contract,
         )
     }
 }
@@ -105,6 +108,8 @@ data class PortfolioRow(
     val usd: Double?,
     val change24h: Double?,
     val bridged: Boolean,
+    /** The contract of the token, or null for a native coin. */
+    val contract: String? = null,
 ) {
     val merged: Boolean get() = networks.size > 1
 }
@@ -192,6 +197,7 @@ object PortfolioView {
             usd = priced.takeIf { it.isNotEmpty() }?.sumOf { it.usd!! },
             change24h = changeOf(priced),
             bridged = first.bridged,
+            contract = first.contract,
         )
     }
 

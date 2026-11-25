@@ -6,7 +6,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -14,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.currentBackStackEntryAsState
 import app.lensly.app.VaultHolder
 import app.lensly.core.vault.BiometricUnlock
 import app.lensly.core.vault.VaultSession
@@ -27,19 +25,14 @@ import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.wallet.PasswordStep
 import app.lumio.ui.kit.lumioComposable
-import app.lumio.ui.settings.BiometricSwitch
-import app.lumio.ui.settings.DeviceProtectionSettingsPage
 import kotlinx.coroutines.launch
 
 /**
- * Device Protection: the page under Settings → Security that holds the Biometric Unlock switch, and the App Password step that turning the
- * switch on asks for first. Turning it off needs no password: it deletes the sealed Vault Key and the biometric key. In a Duress Password
- * session the switch reads off and neither change is made, as turning it on there seals nothing.
+ * Device Protection: the App Password step that turning the Biometric Unlock switch of Settings → Security on asks for first. Turning it off needs no
+ * password: it deletes the sealed Vault Key and the biometric key. In a Duress Password session the switch reads off and neither change is made, as
+ * turning it on there seals nothing.
  */
-internal fun NavGraphBuilder.deviceProtectionRoutes(navController: NavHostController, holder: VaultHolder, selection: NetworkSelection, onLock: () -> Unit) {
-    lumioComposable(LumioRoute.SETTINGS_DEVICE_PROTECTION) {
-        LumioBackdrop(selection) { DeviceProtectionRoute(navController = navController, holder = holder, onLock = onLock) }
-    }
+internal fun NavGraphBuilder.deviceProtectionRoutes(navController: NavHostController, holder: VaultHolder, selection: NetworkSelection) {
     lumioComposable(LumioRoute.DEVICE_PROTECTION_ENABLE) {
         LumioBackdrop(selection) { DeviceProtectionEnableRoute(navController = navController, holder = holder) }
     }
@@ -50,34 +43,6 @@ internal fun NavGraphBuilder.deviceProtectionRoutes(navController: NavHostContro
  * as turning it off does nothing. The step would take the real password on screen, and an observer could learn that a real vault exists.
  */
 internal fun turningOnOpensPasswordStep(session: VaultSession): Boolean = !session.isDecoy
-
-/** The switch. It is read from the phone again each time the page comes to the top, so a change made on the password step shows here. */
-@Composable
-private fun DeviceProtectionRoute(navController: NavHostController, holder: VaultHolder, onLock: () -> Unit) {
-    if (!rememberGateSession(navController, holder)) return
-    val session = holder.openSession() ?: return
-    val biometric = (LocalContext.current.applicationContext as LumioApp).biometricUnlock
-    val top by navController.currentBackStackEntryAsState()
-    val scope = rememberCoroutineScope()
-    val canEnable = remember { biometric.canEnable() }
-    var on by remember(top) { mutableStateOf(biometric.isOn(session)) }
-    DeviceProtectionSettingsPage(
-        biometric = BiometricSwitch(on = on, canEnable = canEnable),
-        onBiometric = { want ->
-            if (want) {
-                if (turningOnOpensPasswordStep(session)) navController.navigate(LumioRoute.DEVICE_PROTECTION_ENABLE)
-            } else {
-                scope.launch {
-                    biometric.disable(session)
-                    on = biometric.isOn(session)
-                }
-            }
-        },
-        offline = rememberSettingsOffline(),
-        onBack = { navController.popBackStack() },
-        onLock = onLock,
-    )
-}
 
 /** The App Password step of turning Biometric Unlock on. Either outcome returns to the page, which reads the switch again. */
 @Composable

@@ -93,6 +93,9 @@ internal fun shortAddress(address: String): String = "${address.take(8)}…${add
 /** The title of an account: the name the owner gave it in Lensly, or "Account" and its place in the wallet. */
 internal fun accountTitle(account: WalletAccount): String = account.name ?: "Account ${account.index + 1}"
 
+/** The index that follows a named account's title, such as "#5": its place among the accounts of its app, from 0. An unnamed account's title has it already. */
+internal fun accountIndex(account: WalletAccount): String? = if (account.name == null) null else "#${account.index}"
+
 /**
  * The two letters of an account's monogram: the capitals of its name, else the name's first two letters. An account with no name has its chain's
  * letter and its place, such as "E1" for the first Ethereum account.
@@ -269,7 +272,7 @@ internal fun WalletNotice(message: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** The hairline between two rows of an island, from [indent] to the gutter on the right, so it begins where the row's text does. */
+/** The hairline between two rows of the activity list, from [indent] to the gutter on the right, so it begins where the row's text does. */
 @Composable
 internal fun RowDivider(indent: Dp) {
     Box(

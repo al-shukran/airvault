@@ -48,9 +48,9 @@ private class SettingsState(val settings: EvmSettings, val chains: List<EvmChain
 private fun catalogOf(app: LumioApp, settings: EvmSettings): List<EvmChain> = EvmCatalog.chains(app.registry, settings)
 
 /**
- * The Ethereum section of the settings: how many addresses each wallet shows, which chains are read, the RPC address of each chain, and the
- * custom chains. Each change is written to the vault when it is valid. A change that needs the endpoint waits for it, and the section says
- * why it failed.
+ * The networks of the Networks page: which chains are read, how many addresses each wallet shows, and the custom chains. A chain's row opens its Network
+ * page, and the Bitcoin row opens the Bitcoin servers. Each change is written to the vault when it is valid. A change that needs the endpoint waits for
+ * it, and the section says why it failed.
  */
 @Composable
 internal fun EvmSettingsRoute(navController: NavHostController, holder: VaultHolder) {
@@ -97,17 +97,18 @@ internal fun EvmSettingsRoute(navController: NavHostController, holder: VaultHol
         }
     }
 
+    val logos = remember(app) { app.registry.networks().associateBy { it.chainId } }
     EvmSettingsSection(
         settings = current.settings,
         chains = current.chains,
+        logos = logos,
         busy = busy,
         notice = notice,
         onAddressCount = { count -> change({ s, _ -> EvmEdits.setAddressCount(s, count) }) },
         onEnabled = { chainId, on -> change({ s, _ -> EvmEdits.setEnabled(s, chainId, on) }) },
-        onRemoveCustom = { chainId -> change({ s, _ -> EvmEdits.removeCustom(s, chainId) }) },
         onNetwork = { chainId -> navController.navigate(LumioRoute.network(chainId)) },
         onAddNetwork = { navController.navigate(LumioRoute.SETTINGS_ADD_NETWORK) },
-        onTokens = { chainId -> navController.navigate(LumioRoute.tokens(chainId)) },
+        onBitcoin = { navController.navigate(LumioRoute.SETTINGS_BITCOIN) },
     )
 }
 
@@ -182,7 +183,7 @@ internal fun EvmNetworkRoute(navController: NavHostController, holder: VaultHold
     val status = rpcStatus ?: return
     val writable = vault ?: return
 
-    fun change(transform: (EvmSettings, EvmRpc) -> EvmSettings) {
+    fun change(onSaved: () -> Unit = {}, transform: (EvmSettings, EvmRpc) -> EvmSettings) {
         if (session == null || busy) return
         busy = true
         notice = null
@@ -190,7 +191,10 @@ internal fun EvmNetworkRoute(navController: NavHostController, holder: VaultHold
             val error = withContext(Dispatchers.IO) { EvmSettingsStore.change(session, app.evmRpc, transform) }
             busy = false
             notice = error
-            if (error == null) version++
+            if (error == null) {
+                version++
+                onSaved()
+            }
         }
     }
 
@@ -223,5 +227,11 @@ internal fun EvmNetworkRoute(navController: NavHostController, holder: VaultHold
         onReorder = ::reorderProviders,
         onBack = { navController.popBackStack() },
         onLock = onLock,
+        onTokens = { navController.navigate(LumioRoute.tokens(chainId)) },
+        onRemoveNetwork = if (current.settings.custom.any { it.chainId == chainId }) {
+            { change(onSaved = { navController.popBackStack() }) { s, _ -> EvmEdits.removeCustom(s, chainId) } }
+        } else {
+            null
+        },
     )
 }

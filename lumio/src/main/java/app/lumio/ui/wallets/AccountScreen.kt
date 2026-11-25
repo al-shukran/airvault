@@ -38,20 +38,19 @@ import app.lumio.data.WallClock
 import app.lumio.data.net.Networks
 import app.lumio.home.HomeFormat
 import app.lumio.transactions.TxFeedItem
-import app.lumio.ui.home.AssetIcon
+import app.lumio.ui.home.AssetDisc
 import app.lumio.ui.kit.ClearAirAmount
 import app.lumio.ui.kit.ClearAirCapsuleSmall
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
-import app.lumio.ui.kit.ClearAirListRow
 import app.lumio.ui.kit.ClearAirRefreshBox
+import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSkeleton
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.ClearAirTextTabs
 import app.lumio.ui.kit.HiddenSmallLine
 import app.lumio.ui.kit.LocalFiat
-import app.lumio.ui.kit.LumioAssetIcon
 import app.lumio.ui.kit.rememberCopyAction
 import app.lumio.ui.transactions.ActivityRowItem
 import app.lumio.wallets.WalletAccount
@@ -278,13 +277,14 @@ private fun LazyListScope.assetItems(
         }
     } else {
         itemsIndexed(assets, key = { _, asset -> asset.assetKey }) { index, asset ->
-            if (index > 0) RowDivider(indent = ROW_DIVIDER_INDENT)
-            ClearAirListRow(
+            ClearAirRow(
                 title = asset.symbol,
                 description = asset.network,
-                leading = { LumioAssetIcon(testnet = asset.testnet) { AssetIcon(spec = asset.icon, size = 24.dp) } },
+                leading = { AssetDisc(asset.icon) },
                 trailing = { AssetValue(asset = asset, shown = showBalance) },
                 onClick = { onAsset(asset) },
+                divider = index > 0,
+                chevron = false,
             )
         }
         if (loadingAssets) {
@@ -292,7 +292,7 @@ private fun LazyListScope.assetItems(
         }
     }
     onAddAsset?.let { addAsset ->
-        item(key = "add-asset") { ClearAirListRow(title = "Add Asset", onClick = addAsset) }
+        item(key = "add-asset") { ClearAirRow(title = "Add Asset", onClick = addAsset, divider = assets.isNotEmpty()) }
     }
 }
 
