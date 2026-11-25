@@ -37,6 +37,7 @@ import app.lumio.ui.settings.NetworksSettingsPage
 import app.lumio.ui.settings.BiometricSwitch
 import app.lumio.ui.settings.SecuritySettingsPage
 import app.lumio.ui.settings.SettingsFacts
+import app.lumio.ui.settings.SettingsFrame
 import app.lumio.ui.settings.WalletsSettingsPage
 import app.lumio.ui.settings.page
 import app.lumio.ui.settings.providerCounts
@@ -184,6 +185,9 @@ internal fun NavGraphBuilder.settingsPageRoutes(
     lumioComposable(LumioRoute.SETTINGS_NETWORKS) {
         LumioBackdrop(selection) { NetworksSettingsRoute(navController = navController, holder = holder, onLock = onLock) }
     }
+    lumioComposable(LumioRoute.SETTINGS_BITCOIN) {
+        LumioBackdrop(selection) { BitcoinServersRoute(navController = navController, holder = holder, onLock = onLock) }
+    }
     lumioComposable(LumioRoute.SETTINGS_ADD_NETWORK) {
         LumioBackdrop(selection) { AddCustomNetworkRoute(navController = navController, holder = holder, onLock = onLock) }
     }
@@ -219,17 +223,31 @@ internal fun NavGraphBuilder.settingsPageRoutes(
     }
 }
 
-/** The Networks page: the Bitcoin servers and the Ethereum chains, each read and written by its own route. */
+/** The Networks page: the EVM networks, with the way to the Bitcoin servers, read and written by [EvmSettingsRoute]. */
 @Composable
 private fun NetworksSettingsRoute(navController: NavHostController, holder: VaultHolder, onLock: () -> Unit) {
     NetworksSettingsPage(
         offline = rememberSettingsOffline(),
         onBack = { navController.popBackStack() },
         onLock = onLock,
-        bitcoin = { BitcoinSettingsRoute(navController = navController, holder = holder) },
-        ethereum = { EvmSettingsRoute(navController = navController, holder = holder) },
         backLabel = navController.backLabel(),
-    )
+    ) {
+        EvmSettingsRoute(navController = navController, holder = holder)
+    }
+}
+
+/** The Bitcoin servers page, pushed from the Networks page. [BitcoinSettingsRoute] reads and writes its fields. */
+@Composable
+private fun BitcoinServersRoute(navController: NavHostController, holder: VaultHolder, onLock: () -> Unit) {
+    SettingsFrame(
+        title = "Bitcoin Servers",
+        offline = rememberSettingsOffline(),
+        onBack = { navController.popBackStack() },
+        onLock = onLock,
+        backLabel = "Networks",
+    ) {
+        BitcoinSettingsRoute(navController = navController, holder = holder)
+    }
 }
 
 /**

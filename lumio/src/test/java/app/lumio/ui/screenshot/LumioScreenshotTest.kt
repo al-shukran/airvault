@@ -47,6 +47,7 @@ import app.lumio.ui.settings.DisplaySettingsPage
 import app.lumio.ui.settings.EvmSettingsSection
 import app.lumio.ui.settings.LumioSettingsScreen
 import app.lumio.ui.settings.NetworksSettingsPage
+import app.lumio.ui.settings.SettingsFrame
 import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.ProviderStatus
 import app.lumio.ui.settings.SecuritySettingsPage
@@ -154,11 +155,11 @@ class LumioScreenshotTest {
     @Test
     fun settingsDisplay() = compose.lumioSnapshot("settings_display") {
         DisplaySettingsPage(
-            settings = DisplaySettings(showTotal = true),
+            settings = DisplaySettings(),
             notice = null,
-            onShowTotal = {},
-            onShowAssets = {},
+            onHideBalances = {},
             onCurrency = {},
+            onTheme = {},
             onSmallBalance = {},
             offline = null, onLock = {}, onBack = {},
         )
@@ -169,9 +170,9 @@ class LumioScreenshotTest {
         DisplaySettingsPage(
             settings = DisplaySettings(currency = FiatCurrency.EUR, smallBalanceUsd = 5.0),
             notice = null,
-            onShowTotal = {},
-            onShowAssets = {},
+            onHideBalances = {},
             onCurrency = {},
+            onTheme = {},
             onSmallBalance = {},
             offline = null, onLock = {}, onBack = {},
         )
@@ -205,32 +206,35 @@ class LumioScreenshotTest {
     fun settingsNetworks() = compose.lumioSnapshot("settings_networks") {
         NetworksSettingsPage(
             offline = null, onLock = {}, onBack = {},
-            bitcoin = {
-                BitcoinServersSettings(
-                    mainnet = "https://mempool.space/api",
-                    testnet4 = "https://mempool.space/testnet4/api",
-                    indexer = "",
-                    error = null,
-                    onApply = { _, _ -> },
-                    onIndexer = {},
-                    onReset = {},
-                )
-            },
-            ethereum = {
-                EvmSettingsSection(
-                    settings = EvmSettings(),
-                    chains = chains,
-                    busy = false,
-                    notice = null,
-                    onAddressCount = {},
-                    onEnabled = { _, _ -> },
-                    onNetwork = {},
-                    onTokens = {},
-                    onRemoveCustom = {},
-                    onAddNetwork = {},
-                )
-            },
-        )
+        ) {
+            EvmSettingsSection(
+                settings = EvmSettings(),
+                chains = chains,
+                logos = emptyMap(),
+                busy = false,
+                notice = null,
+                onAddressCount = {},
+                onEnabled = { _, _ -> },
+                onNetwork = {},
+                onAddNetwork = {},
+                onBitcoin = {},
+            )
+        }
+    }
+
+    @Test
+    fun settingsBitcoinServers() = compose.lumioSnapshot("settings_bitcoin_servers") {
+        SettingsFrame(title = "Bitcoin Servers", offline = null, onBack = {}, onLock = {}, backLabel = "Networks") {
+            BitcoinServersSettings(
+                mainnet = "https://mempool.space/api",
+                testnet4 = "https://mempool.space/testnet4/api",
+                indexer = "",
+                error = null,
+                onApply = { _, _ -> },
+                onIndexer = {},
+                onReset = {},
+            )
+        }
     }
 
     @Test

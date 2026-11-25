@@ -1,5 +1,6 @@
 package app.lumio
 
+import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
@@ -48,6 +50,7 @@ import app.lumio.data.config.FiatCurrency
 import app.lumio.data.config.FiatRate
 import app.lumio.data.config.LockSettings
 import app.lumio.data.config.LockSettingsStore
+import app.lumio.data.config.ThemeMode
 import app.lumio.data.config.fiatRateOf
 import app.lumio.network.NetworkMode
 import app.lumio.network.NetworkModeStore
@@ -100,6 +103,9 @@ internal object LumioRoute {
     const val SETTINGS_DISPLAY = "settings/display"
     const val SETTINGS_TRANSACTIONS = "settings/transactions"
     const val SETTINGS_NETWORKS = "settings/networks"
+
+    /** The Bitcoin servers page, opened from the Networks page: the Esplora server of each Bitcoin network, and the Ordinals indexer. */
+    const val SETTINGS_BITCOIN = "settings/networks/bitcoin"
 
     /** The Add Custom Network page, opened from the Networks page and from the Test Networks page. */
     const val SETTINGS_ADD_NETWORK = "settings/networks/add"
@@ -392,9 +398,34 @@ internal fun LumioBackdrop(
  */
 @Composable
 fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier, navController: NavHostController = rememberNavController()) {
-    FiatProvider(navController) {
-        LumioNavGraph(debugHiddenRequest = debugHiddenRequest, modifier = modifier, controller = navController)
+    ThemeProvider(navController) {
+        FiatProvider(navController) {
+            LumioNavGraph(debugHiddenRequest = debugHiddenRequest, modifier = modifier, controller = navController)
+        }
     }
+}
+
+/**
+ * Gives every screen below it the theme the owner chose on the Display page. A chosen Light or Dark replaces the phone's night setting in the configuration
+ * that the themes read, so each of them, and the sheets and the status bar icons, follow it. Follow System leaves the configuration as the phone has it, and so
+ * does a locked vault, which has no choice to read.
+ */
+@Composable
+private fun ThemeProvider(navController: NavHostController, content: @Composable () -> Unit) {
+    val app = LocalContext.current.applicationContext as LumioApp
+    // The vault opens after the first composition, so the choice is read again on each navigation, as the currency is.
+    navController.currentBackStackEntryAsState().value
+    val theme = rememberDisplay(app).theme
+    val phone = LocalConfiguration.current
+    val configuration = remember(phone, theme) {
+        val night = when (theme) {
+            ThemeMode.SYSTEM -> return@remember phone
+            ThemeMode.LIGHT -> Configuration.UI_MODE_NIGHT_NO
+            ThemeMode.DARK -> Configuration.UI_MODE_NIGHT_YES
+        }
+        Configuration(phone).apply { uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or night }
+    }
+    CompositionLocalProvider(LocalConfiguration provides configuration, content = content)
 }
 
 /**

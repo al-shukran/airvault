@@ -23,18 +23,18 @@ class TransactionSettingsStoreTest {
     fun theDefaultsAreWhatTheOwnerSeesBeforeAnyChange() {
         val session = open()
 
-        assertEquals(TransactionSettings(hideSpam = true, lastChanceSeconds = 60), TransactionSettingsStore.read(session))
+        assertEquals(TransactionSettings(hideSpam = true, lastChanceSeconds = 3), TransactionSettingsStore.read(session))
         session.close()
     }
 
     @Test
     fun aSavedChangeIsReadBackAfterTheVaultReopens() {
         val session = open()
-        TransactionSettingsStore.write(session, TransactionSettings(hideSpam = false, lastChanceSeconds = 120))
+        TransactionSettingsStore.write(session, TransactionSettings(hideSpam = false, lastChanceSeconds = 10))
         session.close()
 
         val reopened = open()
-        assertEquals(TransactionSettings(hideSpam = false, lastChanceSeconds = 120), TransactionSettingsStore.read(reopened))
+        assertEquals(TransactionSettings(hideSpam = false, lastChanceSeconds = 10), TransactionSettingsStore.read(reopened))
         reopened.close()
     }
 
@@ -43,7 +43,7 @@ class TransactionSettingsStoreTest {
         val session = open()
         session.putVaultRecord(TransactionSettingsStore.RECORD, """{"hideSpam":false,"lastChanceSeconds":99}""".encodeToByteArray())
 
-        assertEquals(TransactionSettings(hideSpam = false, lastChanceSeconds = 60), TransactionSettingsStore.read(session))
+        assertEquals(TransactionSettings(hideSpam = false, lastChanceSeconds = 3), TransactionSettingsStore.read(session))
         session.close()
     }
 }

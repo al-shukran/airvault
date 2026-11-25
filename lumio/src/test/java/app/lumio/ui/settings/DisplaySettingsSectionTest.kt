@@ -13,9 +13,9 @@ import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.Fiat
 import app.lumio.data.config.FiatCurrency
 import app.lumio.data.config.FiatRate
+import app.lumio.data.config.ThemeMode
 import app.lumio.ui.kit.LocalFiat
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,8 +28,8 @@ class DisplaySettingsSectionTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private var showTotal: Boolean? = null
-    private var showAssets: Boolean? = null
+    private var hidden: Boolean? = null
+    private var theme: ThemeMode? = null
 
     private fun show(settings: DisplaySettings = DisplaySettings(), notice: String? = null, fiat: Fiat = Fiat.USD) {
         compose.setContent {
@@ -39,9 +39,9 @@ class DisplaySettingsSectionTest {
                         DisplaySettingsSection(
                             settings = settings,
                             notice = notice,
-                            onShowTotal = { showTotal = it },
-                            onShowAssets = { showAssets = it },
+                            onHideBalances = { hidden = it },
                             onCurrency = {},
+                            onTheme = { theme = it },
                             onSmallBalance = {},
                         )
                     }
@@ -54,33 +54,44 @@ class DisplaySettingsSectionTest {
     fun theSmallBalanceThresholdIsWrittenInTheChosenCurrency() {
         show(DisplaySettings(currency = FiatCurrency.EUR, smallBalanceUsd = 1.0), fiat = Fiat.of(FiatCurrency.EUR, FiatRate(FiatCurrency.EUR, 0.5)))
 
-        compose.onNodeWithText("HIDE SMALL BALANCES · €0.50").assertExists()
+        compose.onNodeWithText("€0.50").assertExists()
     }
 
     @Test
     fun theSmallBalanceThresholdIsInDollarsWhileNoRateIsKnown() {
         show(DisplaySettings(currency = FiatCurrency.EUR, smallBalanceUsd = 1.0), fiat = Fiat.of(FiatCurrency.EUR, null))
 
-        compose.onNodeWithText("HIDE SMALL BALANCES · \$1.00").assertExists()
+        compose.onNodeWithText("\$1.00").assertExists()
     }
 
     @Test
-    fun theSwitchesShowTheirValuesAndNoMinimumIsAsked() {
+    fun theRowsAreHideBalancesCurrencyAndThemeWithTheirValues() {
         show()
 
-        compose.onNodeWithText("Show Total Balance").assertExists()
-        compose.onNodeWithText("Show Individual Asset Balances").assertExists()
-        compose.onNodeWithText("Minimum balance (USD)").assertDoesNotExist()
+        compose.onNodeWithText("Hide Balances").assertExists()
+        compose.onNodeWithText("Currency").assertExists()
+        compose.onNodeWithText("USD").assertExists()
+        compose.onNodeWithText("Theme").assertExists()
+        compose.onNodeWithText("Follow System").assertExists()
     }
 
     @Test
-    fun aSwitchReportsItsNewValue() {
+    fun theSwitchReportsItsNewValue() {
         show()
 
-        compose.onNodeWithText("Show Total Balance").performClick()
+        compose.onNodeWithText("Hide Balances").performClick()
 
-        assertEquals(true, showTotal)
-        assertNull(showAssets)
+        assertEquals(true, hidden)
+    }
+
+    @Test
+    fun aThemeChoiceAppliesAndIsReported() {
+        show()
+
+        compose.onNodeWithText("Theme").performClick()
+        compose.onNodeWithText("Dark").performClick()
+
+        assertEquals(ThemeMode.DARK, theme)
     }
 }
 
