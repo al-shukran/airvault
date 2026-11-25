@@ -35,7 +35,7 @@ buildscript {
                 // Alerts 25, 26, 35: arrives at 1.23.1, below every fixed line (1.14.2, 1.15.3, 1.23.2).
                 "org.jsoup:jsoup:1.24.1",
                 // Alert 36: arrives at 20260522; 20260719 is the fixed build.
-                "org.json:json:20260719",
+                "org.json:json:20260814",
                 // Alerts 1 and 2: arrives below the fixed lines 4.5.13 and 3.18.0. These pinned versions are the
                 // latest patched releases, so an explicit pin keeps the classpath from dropping back.
                 "org.apache.httpcomponents:httpclient:4.5.14",
