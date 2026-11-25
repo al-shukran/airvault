@@ -28,9 +28,11 @@ on:
         type: string
         default: ""
 
+# A run asked for on a pull request is per pull request, and a newer request supersedes it. Schedule and master runs share one
+# group per ref and finish: each writes the rolling codeql issue.
 concurrency:
-  group: codeql
-  cancel-in-progress: false
+  group: codeql-${{ inputs.request_is_pr == 'true' && format('pr-{0}', inputs.request_number) || github.ref }}
+  cancel-in-progress: ${{ inputs.request_is_pr == 'true' }}
 
 permissions:
   contents: read

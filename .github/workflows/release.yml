@@ -18,6 +18,11 @@ permissions:
   id-token: write
   attestations: write
 
+# Its own group per tag, never cancelled: a publish that started always finishes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     name: release ${{ github.ref_name }}
