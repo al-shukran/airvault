@@ -179,7 +179,7 @@ object BtcSend {
         // A read that may be answered from the scheduler's cache, which the session's scan fills, or one that always asks the server.
         fun statsOf(cached: Boolean): suspend (String) -> EsploraAddressStats = { address ->
             readStep(BtcReadStep.ADDRESS_HISTORY) {
-                val cache = if (cached) CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "stats/${net.chain}/$address", jsonCodec()) else null
+                val cache: CacheUse<EsploraAddressStats>? = if (cached) CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "stats/${net.chain}/$address", jsonCodec()) else null
                 scheduler.run(AddressStats(net, address), Priority.FOREGROUND, cache)
             }
         }
