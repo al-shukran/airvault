@@ -25,6 +25,7 @@ import app.airvault.core.model.text
 import app.airvault.core.model.unaccounted
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
+import app.lensly.app.addressStart
 import app.lensly.app.notesOf
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.ui.components.BannerTone
@@ -243,9 +244,6 @@ private fun AnnotatedString.Builder.appendAddressStart(address: String, mono: Fo
     appendMono(addressStart(address), mono)
     append(")")
 }
-
-/** The first two groups of 4 of [address] and an ellipsis, as "0x1234 5678 …". */
-internal fun addressStart(address: String): String = groupAddress(address).split(" ").take(2).joinToString(" ") + " …"
 
 /** Appends [name] in the colour of [role]. */
 private fun AnnotatedString.Builder.appendNamed(name: String, role: NameRole, palette: LumenPalette) {

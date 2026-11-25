@@ -9,6 +9,7 @@ import app.lensly.app.AddressNotes
 import app.lensly.app.InternalAccount
 import app.lensly.app.SigningAccount
 import app.lensly.app.addressKeyOf
+import app.lensly.app.addressStart
 import app.lensly.ui.theme.LumenPalette
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

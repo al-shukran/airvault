@@ -486,7 +486,7 @@ internal fun BtcSendRoute(
             val toName = nameOrAddress(notes, current.plan.recipient)
             val warnings = lookalikeWarnings(notes) + BtcAdvanced.warnings(suggestedRate ?: current.plan.feeRateSatPerVb, current.plan.feeRateSatPerVb)
             SendReviewPage(
-                heading = "Send ${btcText(current.plan.amountSats)} from $fromName to $toName?",
+                heading = "Send ${btcText(current.plan.amountSats)} from $fromName to ${nameWithStart(notes, current.plan.recipient)}?",
                 toTitle = toName,
                 toDetail = notes?.let(::notesDetail).orEmpty(),
                 toAddress = current.plan.recipient,

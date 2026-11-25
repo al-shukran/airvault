@@ -1,6 +1,7 @@
 package app.lensly.app
 
 import app.airvault.core.model.ChainId
+import app.lensly.ui.components.groupAddress
 
 /**
  * The internal account of this device that an address is: its Display Name when it has one, its Auto-Name, and its label when it has
@@ -57,3 +58,6 @@ fun AddressNotes.headline(): String? {
     return listOfNotNull(YOUR_ACCOUNT, (account.displayName ?: account.autoName).let(::displayNameOf), account.label?.let(::displayNameOf))
         .joinToString(" · ")
 }
+
+/** The first two groups of 4 of [address] and an ellipsis, as "0x1234 5678 …". A sentence shows it after a name, so a name never stands for its address. */
+fun addressStart(address: String): String = groupAddress(address).split(" ").take(2).joinToString(" ") + " …"

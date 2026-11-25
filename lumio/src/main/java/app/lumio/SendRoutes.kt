@@ -29,6 +29,7 @@ import app.lensly.app.InternalAccount
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressKeyOf
 import app.lensly.app.addressNotesOf
+import app.lensly.app.addressStart
 import app.lensly.app.displayNameOf
 import app.lensly.app.lookalikeWarningText
 import app.lensly.app.export.partsOf
@@ -486,7 +487,7 @@ internal fun SendRoute(
             val notes = notesFor(now.send.to, ready.accounts, ready.wallet.addressBook)
             val toName = nameOrAddress(notes, now.send.to)
             SendReviewPage(
-                heading = reviewHeading(now.send, fromName, toName),
+                heading = reviewHeading(now.send, fromName, nameWithStart(notes, now.send.to)),
                 toTitle = toName,
                 toDetail = notes?.let(::notesDetail).orEmpty(),
                 toAddress = now.send.to,
@@ -599,6 +600,10 @@ internal fun nameOrAddress(notes: AddressNotes?, address: String): String =
 /** [address] in a sentence: "Name (address in groups)" when [notes] name it, else the address in groups. A name never stands for it alone. */
 internal fun nameWithAddress(notes: AddressNotes?, address: String): String =
     notes?.let(::notesName)?.takeIf { it.isNotEmpty() }?.let { "$it (${groupAddress(address)})" } ?: groupAddress(address)
+
+/** The recipient in a heading: "Name (start of the address)" when [notes] name it, else the address in groups. The full address is on the page. */
+internal fun nameWithStart(notes: AddressNotes?, address: String): String =
+    notes?.let(::notesName)?.takeIf { it.isNotEmpty() }?.let { "$it (${addressStart(address)})" } ?: groupAddress(address)
 
 /** Whether neither the device nor the Address Book names the address, so it is the first time it shows here. */
 internal fun isFirstTime(notes: AddressNotes?): Boolean = notes?.internal == null && notes?.entry == null

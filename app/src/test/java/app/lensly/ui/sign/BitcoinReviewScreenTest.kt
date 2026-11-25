@@ -20,6 +20,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import app.lensly.app.BITCOIN_FAMILY
+import app.lensly.app.addressStart
 import app.lensly.core.btc.BtcNetwork
 import app.airvault.chains.bitcoin.signer.BtcReview
 import app.airvault.chains.bitcoin.signer.BtcReviewInput

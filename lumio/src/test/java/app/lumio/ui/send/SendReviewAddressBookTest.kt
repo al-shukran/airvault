@@ -8,6 +8,7 @@ import app.lumio.isFirstTime
 import app.lumio.lookalikeWarnings
 import app.lumio.nameOrAddress
 import app.lumio.nameWithAddress
+import app.lumio.nameWithStart
 import app.lumio.notesDetail
 import app.lumio.notesName
 import org.junit.Assert.assertEquals
@@ -40,6 +41,8 @@ class SendReviewAddressBookTest {
         assertEquals("0x1234 5678", nameOrAddress(notes, "0x12345678"))
         assertEquals("Looks like Alice but differs. Alice is saved as ${groupAddress(alice.address)}.", lookalikeWarnings(notes).single())
         assertEquals("Alice (0x1234 5678)", nameWithAddress(AddressNotes(null, alice), "0x12345678"))
+        assertEquals("Alice (0x1234 5678 …)", nameWithStart(AddressNotes(null, alice), "0x1234567890abcdef"))
+        assertEquals("0x1234 5678 90ab cdef", nameWithStart(notes, "0x1234567890abcdef"))
     }
 
     @Test
