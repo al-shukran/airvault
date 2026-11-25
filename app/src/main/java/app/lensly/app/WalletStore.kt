@@ -348,8 +348,8 @@ class WalletStore(private val session: VaultSession) {
      * Uninstalls [app] from Mnemonic wallet [id]: removes all of its accounts in one atomic write. Nothing else changes, and the secret record
      * is never touched, so [installApp] derives the same accounts again. The profile records of the removed Ethereum accounts stay, and the
      * profiles of the removed Bitcoin accounts move to the Bitcoin record's kept profiles, so their names, labels and groups come back when the
-     * accounts do, and only deleting the wallet erases them. Only the newest [PairingCodec.MAX_BITCOIN_ACCOUNTS]
-     * fit, and when the record is full the oldest are dropped, so an uninstall is never refused for them. An App that is not installed is left as it is.
+     * accounts do, and only deleting the wallet erases them. Only the newest [PairingCodec.MAX_BITCOIN_ACCOUNTS] fit, and when the record is
+     * full the oldest are dropped, so an uninstall is never refused for them. An App that is not installed is left as it is.
      *
      * @throws IllegalArgumentException if the wallet is missing or is a Single Key wallet, whose one account is its Ethereum account.
      */

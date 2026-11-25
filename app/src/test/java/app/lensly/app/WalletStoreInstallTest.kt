@@ -189,6 +189,10 @@ class WalletStoreInstallTest {
         assertEquals(100, store.bitcoinAccounts(id).size)
         assertEquals("Account 0", store.bitcoinAccounts(id).first().profile.name)
         assertTrue(assertNotNull(session.getRecord(id, WalletRecords.BITCOIN)).size <= WalletRecordNames.BITCOIN_CAPACITY)
+        // The trim drops the oldest kept profiles first, so the newest (index 99) survives and index 1 is gone.
+        val kept = WalletRecords.decodeBitcoinRecord(assertNotNull(session.getRecord(id, WalletRecords.BITCOIN))).kept
+        assertEquals("Account 99", kept[Triple(ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 99)]?.name)
+        assertNull(kept[Triple(ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 1)])
         // Naming an account never fails for kept profiles either, and an uninstall still succeeds.
         store.saveBitcoinProfile(id, store.bitcoinAccounts(id).last(), AccountProfile(name = "Last"))
         store.uninstallApp(id, WalletApp.BITCOIN)
