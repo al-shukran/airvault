@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.lensly.app.familyLabel
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -105,7 +106,7 @@ internal fun monogramOf(account: WalletAccount): String {
         else -> ""
     }
     if (letters.isNotEmpty()) return letters.uppercase()
-    return "${WalletAccounts.familyLabel(account.namespace).first()}${account.index + 1}"
+    return "${familyLabel(account.namespace).first()}${account.index + 1}"
 }
 
 /**
