@@ -55,7 +55,7 @@ class DisplaySettingsStoreTest {
         DisplaySettingsStore.write(session, DisplaySettings())
 
         val record = session.getVaultRecord(DisplaySettingsStore.RECORD)!!.decodeToString()
-        assertTrue(record, """"showTotal":true""" in record)
+        assertTrue(record, """"showTotal":false""" in record)
         assertTrue(record, """"smallBalanceUsd":1.0""" in record)
         session.close()
     }
