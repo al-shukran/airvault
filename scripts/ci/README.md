@@ -30,14 +30,13 @@ Every Gradle call runs with `--offline`, except `resolve`. A missing artifact th
 ## Test classes — `shards.txt`
 
 One line per test class: `<lane> <gradle module> <fully qualified class>`. A pure JVM module is one line, with the class `*`.
-The lines balance the lanes. A test class with no line still runs, so adding a test never needs an edit here:
+The lines balance the lanes. A unit with no line goes to `shard-6`, so `check-partitions.sh` fails until the unit gets a line. The two cases below need none:
 
-- `shard-6` runs every unlisted unit, except the two cases below. Its log names each one (`run-partition: shard-6 runs the unlisted ...`).
 - `verify-app` and `verify-lumio` take an unlisted `*ScreenshotTest` of their module, so its golden is checked. A lane runs only its
   own module's pixel tests, and `run-partition.sh` fails when a line names another module. `fuzz` takes an unlisted
   `app.lensly.fuzz` target, because the shard runs leave that package out (`shared/build.gradle.kts`).
-- `scripts/ci/test-units.sh` lists every unit. `check-partitions.sh` (the `ci` lane) fails when a class is listed twice or is
-  listed but no longer exists. Remove or rename such a line.
+- `scripts/ci/test-units.sh` lists every unit. `check-partitions.sh` (the `ci` lane) fails when a class is listed twice, is
+  listed but no longer exists, or is unlisted and not one of the two cases above. Remove or rename such a line, or add one.
 - Keep the ten shards balanced. Each test lane uploads its JUnit XML as `junit-shard-N` (kept 3 days). Sum the `time` attribute of
   each class, and move classes between lanes until the shard totals are close.
 - A verify lane passes its `--tests` filter to the test task before `verifyRoborazziDebug`. The verify task depends on the whole

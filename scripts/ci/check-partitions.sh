@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Checks scripts/ci/shards.txt against the test units (scripts/ci/test-units.sh). Fails when a line is malformed, a class is listed
-# twice, or a listed class no longer exists. A test class that no line lists is not an error: run-partition.sh runs it in its
-# default lane, so a new test needs no line in shards.txt.
+# twice, a listed class no longer exists, or a unit no line lists would fall into shard-6, the catch-all lane (issue #1054). The
+# verify and fuzz routing of run-partition.sh takes the screenshot tests of :app and :lumio and the fuzz targets by name, so those
+# need no line.
 #
 # Usage: scripts/ci/check-partitions.sh
 
@@ -61,6 +62,8 @@ listed_sorted=$(sort "$listed")
 stale=$(comm -13 <(printf '%s\n' "$known") <(printf '%s\n' "$listed_sorted" | sort -u))
 doubled=$(printf '%s\n' "$listed_sorted" | uniq -d)
 unlisted=$(comm -23 <(printf '%s\n' "$known") <(printf '%s\n' "$listed_sorted" | sort -u) | grep -c . || true)
+catch_all=$(comm -23 <(printf '%s\n' "$known") <(printf '%s\n' "$listed_sorted" | sort -u) \
+  | grep -v -E '^:shared app\.lensly\.fuzz\. |^:(app|lumio) [^ ]*ScreenshotTest$' || true)
 
 status=0
 if [ -n "$doubled" ]; then
@@ -71,6 +74,12 @@ fi
 if [ -n "$stale" ]; then
   echo "check-partitions: $lanes_file lists classes that no longer exist. Remove or rename them:" >&2
   printf '%s\n' "$stale" | sed 's/^/  /' >&2
+  status=1
+fi
+if [ -n "$catch_all" ]; then
+  echo "check-partitions: test classes that no line of $lanes_file lists would run in shard-6, the catch-all lane. Add a line" >&2
+  echo "  '<lane> <module> <class>' to $lanes_file for each, naming the lane it belongs in:" >&2
+  printf '%s\n' "$catch_all" | sed 's/^/  /' >&2
   status=1
 fi
 if [ "$status" -ne 0 ]; then
