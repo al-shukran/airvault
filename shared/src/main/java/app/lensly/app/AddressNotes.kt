@@ -68,5 +68,13 @@ fun AddressBookEntry.plainName(): String = plainNameOrNull(name) ?: groupAddress
 /** The label of an entry as plain text, or "Address Book" when it has none that shows. */
 fun AddressBookEntry.plainLabel(): String = plainNameOrNull(label) ?: "Address Book"
 
-/** The first two groups of 4 of [address] and an ellipsis, as "0x1234 5678 …". A sentence shows it after a name, so a name never stands for its address. */
-fun addressStart(address: String): String = groupAddress(address).split(" ").take(2).joinToString(" ") + " …"
+/**
+ * [address] in groups of 4, cut to its first two and its last two groups around an ellipsis, as "0x1234 5678 … 9abc def0", and in full when it has
+ * no more than four groups. A sentence shows it after a name, so a name never stands for its address, and a lookalike that shares the start still differs at the end.
+ */
+fun addressEnds(address: String): String {
+    val groups = groupAddress(address).split(" ")
+    return if (groups.size <= ADDRESS_ENDS_GROUPS * 2) groups.joinToString(" ") else (groups.take(ADDRESS_ENDS_GROUPS) + "…" + groups.takeLast(ADDRESS_ENDS_GROUPS)).joinToString(" ")
+}
+
+private const val ADDRESS_ENDS_GROUPS = 2
