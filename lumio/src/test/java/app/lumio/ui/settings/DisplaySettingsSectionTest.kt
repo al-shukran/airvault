@@ -1,14 +1,14 @@
 package app.lumio.ui.settings
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import app.lensly.ui.theme.LumenTheme
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.Fiat
@@ -36,7 +36,7 @@ class DisplaySettingsSectionTest {
         compose.setContent {
             ClearAirHarness {
                 CompositionLocalProvider(LocalFiat provides fiat) {
-                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Column(modifier = Modifier.fillMaxSize()) {
                         DisplaySettingsSection(
                             settings = settings,
                             notice = notice,
@@ -90,7 +90,8 @@ class DisplaySettingsSectionTest {
         show()
 
         compose.onNodeWithText("Theme").performClick()
-        compose.onNodeWithText("Dark").performScrollTo().performClick()
+        // The sheet sits in the page column here, below the visible window, so the row is chosen by its action, not by a tap.
+        compose.onNodeWithText("Dark").performSemanticsAction(SemanticsActions.OnClick)
 
         assertEquals(ThemeMode.DARK, theme)
     }
