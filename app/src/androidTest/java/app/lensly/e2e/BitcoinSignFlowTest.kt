@@ -2,6 +2,7 @@ package app.lensly.e2e
 
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import app.lensly.app.addressStart
 import app.lensly.app.isolated
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcFixtures
@@ -54,7 +55,7 @@ class BitcoinSignFlowTest : SignFlowE2eBase() {
         assertTrue(facts.outputs[1].isOwnChange)
 
         // The summary sentence names the amount sent and the recipient's full address: a shortened one could pass a look-alike (R26).
-        compose.onNodeWithText("Send 0.0015 BTC from ${isolated(ready.signer.name)} to $recipient?").assertExists()
+        compose.onNodeWithText("Send 0.0015 BTC from ${isolated(ready.signer.name)} (${addressStart(ready.signer.address)}) to $recipient?").assertExists()
         compose.onNodeWithText("Bitcoin Testnet4").assertExists()
         driver.readToTheEnd()
         assertTrue(driver.approvable())

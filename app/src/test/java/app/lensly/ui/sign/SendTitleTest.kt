@@ -66,8 +66,8 @@ class SendTitleTest {
         )
         val title = titleOf(send("0.4", "ALGO", TO_BOOK), notes)
 
-        assertEquals("Send 0.4 ALGO from ${isolated("VelvetEcho (0xElectric)")}${at(SENDER)} to ${isolated("ElectricDusk")}${at(TO_BOOK)}?", title.text)
-        assertEquals(testPalette.positive, colourOf(title, "VelvetEcho (0xElectric)"))
+        assertEquals("Send 0.4 ALGO from ${isolated("VelvetEcho (${isolated("0xElectric")})")}${at(SENDER)} to ${isolated("ElectricDusk")}${at(TO_BOOK)}?", title.text)
+        assertEquals(testPalette.positive, colourOf(title, "VelvetEcho ("))
         assertEquals(testPalette.info, colourOf(title, "ElectricDusk"))
     }
 
@@ -113,8 +113,8 @@ class SendTitleTest {
         )
         val title = titleOf(send("1", "MON", TO_ACCOUNT), notes, signer.copy(name = "Wallet 1 0"))
 
-        assertEquals("Send 1 MON from ${isolated("Wallet 1 0")}${at(SENDER)} to ${isolated("Wallet 1 3 (Carol)")}${at(TO_ACCOUNT)}?", title.text)
-        assertEquals(testPalette.positive, colourOf(title, "Wallet 1 3 (Carol)"))
+        assertEquals("Send 1 MON from ${isolated("Wallet 1 0")}${at(SENDER)} to ${isolated("Wallet 1 3 (${isolated("Carol")})")}${at(TO_ACCOUNT)}?", title.text)
+        assertEquals(testPalette.positive, colourOf(title, "Wallet 1 3 ("))
     }
 
     @Test
@@ -164,7 +164,7 @@ class SendTitleTest {
 
     @Test
     fun aPartyWithAccountAndBookNamesIsAccountBook() {
-        assertEquals(PartyName("Savings (Bob)", NameRole.ACCOUNT), partyNameOf("Savings", "Bob"))
+        assertEquals(PartyName("Savings (\u2068Bob\u2069)", NameRole.ACCOUNT), partyNameOf("Savings", "Bob"))
         assertEquals(PartyName("Savings", NameRole.ACCOUNT), partyNameOf("Savings", null))
         assertEquals(PartyName("Bob", NameRole.BOOK), partyNameOf(null, "Bob"))
         assertNull(partyNameOf(null, null))

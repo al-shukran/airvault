@@ -6,6 +6,7 @@ import app.lensly.app.InternalAccount
 import app.lensly.app.SigningAccount
 import app.lensly.app.addressKeyOf
 import app.lensly.app.headline
+import app.lensly.app.isolated
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import org.junit.Test
@@ -55,7 +56,7 @@ class ReviewNamesTest {
     fun theSentenceNamesThePartiesInPlainText() {
         val notes = mapOf(addressKeyOf(other) to AddressNotes(InternalAccount(bidiName, "Key 1", null), entry(longName).copy(address = other)))
         val party = sendPartyOf(other, notes, signer.copy(name = longName))
-        assertEquals("Alice Smith (${"Savings " + "x".repeat(31)}…)", party?.text)
+        assertEquals("Alice Smith (${isolated("Savings " + "x".repeat(31) + "…")})", party?.text)
         assertEquals(longName.take(39) + "…", sendPartyOf(address, notes, signer.copy(name = longName))?.text)
     }
 

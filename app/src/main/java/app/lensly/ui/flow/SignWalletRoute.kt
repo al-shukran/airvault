@@ -69,8 +69,9 @@ internal fun SignWalletRoute(
     // The Address Book is read again each time this screen is shown, so an entry saved on the form shows on the review it came from.
     val book = session?.let { rememberAddressBook(navController, it) }
     val openAddress: (String, ChainId) -> Unit = { address, chain -> navController.openAddressBookFor(book.orEmpty(), address, chain) }
-    // Every account of the vault, so an address that looks like one of them is flagged. Null until read.
-    val ownAccounts = session?.let { rememberInternalAccounts(navController, it, walletId) }
+    // Every account of the vault, so an address that looks like one of them is flagged. Null until read, and when the read fails, so the
+    // review keeps the notes it was made with and a failure never reads as "no accounts".
+    val ownAccounts = session?.let { rememberInternalAccounts(navController, it, walletId) }?.getOrNull()
 
     val flow: SignFlowViewModel = viewModel(
         key = walletId ?: ANY_WALLET_KEY,

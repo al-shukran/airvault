@@ -137,7 +137,8 @@ class AddressBookStore(private val session: VaultSession) {
                     val label = input.readText().ifEmpty { null }
                     val group = if (version == VERSION) input.readText() else ""
                     val notes = input.readText().ifEmpty { null }
-                    // An entry is read through the checks that saving runs. A record that fails them is refused, not shown.
+                    // An entry is read through the checks that saving runs, except the address-like name check, which a stored entry skips on purpose so an
+                    // older book stays readable: a review shows such a name as the grouped address. A record that fails the others is refused, not shown.
                     require(isValidDisplayName(name)) { "An Address Book name is not a valid name." }
                     require(label == null || isValidProfileText(label)) { "An Address Book label is not valid text." }
                     require(group.isEmpty() || isValidProfileText(group)) { "An Address Book group is not valid text." }

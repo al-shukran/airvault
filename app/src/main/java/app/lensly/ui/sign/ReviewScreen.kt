@@ -28,7 +28,6 @@ import app.lensly.app.SigningAccount
 import app.lensly.app.addressStart
 import app.lensly.app.isolated
 import app.lensly.app.notesOf
-import app.lensly.app.plainNameOf
 import app.lensly.app.plainNameOrNull
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.ui.components.BannerTone
@@ -100,7 +99,7 @@ fun ReviewScreen(
                     networkFact = review.network.row?.let { fact(it) },
                     account = plainNameOrNull(signer.name, Int.MAX_VALUE) ?: groupAddress(signer.address),
                     accountLabel = if (signer.isAddressKey) "Key" else "Account",
-                    wallet = plainNameOf(signer.walletName, Int.MAX_VALUE),
+                    wallet = plainNameOrNull(signer.walletName, Int.MAX_VALUE),
                     address = signer.address,
                     addressLogo = addressLogo,
                     networkIcon = networkIcon,
