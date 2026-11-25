@@ -35,6 +35,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirMotion
@@ -121,11 +123,20 @@ internal fun SendStepLabel(name: String, number: Int, modifier: Modifier = Modif
 
 /** The page title of a send step: a 26 sp heading, [top] below what is above it and [bottom] above what follows. */
 @Composable
-internal fun SendHeading(text: String, top: Dp, bottom: Dp, modifier: Modifier = Modifier, small: Boolean = false) {
+internal fun SendHeading(
+    text: String,
+    top: Dp,
+    bottom: Dp,
+    modifier: Modifier = Modifier,
+    small: Boolean = false,
+    textAlign: TextAlign = TextAlign.Start,
+    fontSize: TextUnit = TextUnit.Unspecified,
+) {
     Text(
         text = text,
+        textAlign = textAlign,
         modifier = modifier.padding(top = top, bottom = bottom),
-        style = if (small) ClearAirType.titleXL.copy(fontSize = 22.sp, lineHeight = 27.sp) else ClearAirType.titleXL,
+        style = if (small) ClearAirType.titleXL.copy(fontSize = 22.sp, lineHeight = 27.sp) else if (fontSize.isSpecified) ClearAirType.titleXL.copy(fontSize = fontSize, lineHeight = fontSize * 1.125f) else ClearAirType.titleXL,
         color = LocalClearAirPalette.current.ink,
     )
 }

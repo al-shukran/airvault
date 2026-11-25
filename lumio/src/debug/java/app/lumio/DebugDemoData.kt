@@ -124,7 +124,7 @@ internal object DebugDemoData {
         val app = LocalContext.current.applicationContext as LumioApp
         val holder = LocalContext.current.vaultHolder()
         val entry by controller.currentBackStackEntryAsState()
-        val atHome = entry?.destination?.route == LumioRoute.HOME
+        val atHome = entry?.destination?.route in LumioRoute.TAB_ROOTS
         val opened = remember(request) { booleanArrayOf(false) }
         LaunchedEffect(request, atHome) {
             if (!atHome || opened[0]) return@LaunchedEffect

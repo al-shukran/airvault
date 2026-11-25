@@ -80,10 +80,42 @@ import java.time.ZoneId
 import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 
 /** The newest activity rows of the coin that the Asset page lists. The page's All link opens the whole activity of the coin. */
 private const val COIN_ACTIVITY_ROWS = 10
+
+/** What one read of a coin's activity depends on. */
+internal data class CoinActivityKey(val asset: WatchedAsset, val mode: NetworkMode, val includeSpam: Boolean)
+
+/**
+ * The coin activity read ahead of the push to the Asset page, so the page lists its activity on its first frame. The vault keeps the last page read, and
+ * drops it when it locks or is erased. The Asset page reads again behind it, so a kept page is only ever a first frame.
+ */
+internal object CoinActivityPreload {
+    /** How long a tap waits for the activity before it pushes the page without it. */
+    const val WAIT_MS = 150L
+
+    fun pageOf(vault: LumioVault?, key: CoinActivityKey): ActivityPage? = vault?.keptCoinActivity?.takeIf { it.first == key }?.second
+
+    /** Reads the activity of [key], with the last prices kept unless [live], and keeps it in [vault]. Returns null when the vault locked during the read. */
+    suspend fun read(app: LumioApp, vault: LumioVault, key: CoinActivityKey, live: Boolean = true): ActivityPage? = try {
+        PortfolioReads.activity(app, vault, key.mode, walletId = null, filter = ActivityFilter(coin = key.asset), includeSpam = key.includeSpam, live = live)
+            .also { vault.keptCoinActivity = key to it }
+    } catch (_: IllegalStateException) {
+        null
+    }
+
+    /**
+     * Reads the activity on the application's scope and waits [WAIT_MS] for it. A read that takes longer goes on and keeps its page for the Asset page's
+     * first frame, as only the wait ends.
+     */
+    suspend fun preload(app: LumioApp, vault: LumioVault, key: CoinActivityKey) {
+        val read = app.runInAppScope { read(app, vault, key, live = false) }
+        withTimeoutOrNull(WAIT_MS) { read.join() }
+    }
+}
 
 /**
  * The Asset page (C4) of [asset] across the wallet [walletId]. The price, the day's chart, the watchlist and the holdings come from the hoisted board
@@ -165,11 +197,13 @@ internal fun AssetRoute(
     }
     val vault = app.lumioVault()
     val includeSpam = rememberTransactions(app).activityIncludesSpam
-    val coinActivity by produceState<ActivityPage?>(initialValue = null, vault, asset, selection.mode, listVersion, includeSpam) {
-        // The rows show with the last prices kept, and the sources' answer replaces them when it lands.
-        val filter = ActivityFilter(coin = asset)
-        value = vault?.let { PortfolioReads.activity(app, it, selection.mode, walletId = null, filter = filter, includeSpam = includeSpam, live = false) }
-        value = vault?.let { PortfolioReads.activity(app, it, selection.mode, walletId = null, filter = filter, includeSpam = includeSpam) }
+    val activityKey = CoinActivityKey(asset, selection.mode, includeSpam)
+    val coinActivity by produceState(initialValue = CoinActivityPreload.pageOf(vault, activityKey), vault, activityKey, listVersion) {
+        if (vault != null) {
+            // The rows show with the last prices kept, and the sources' answer replaces them when it lands.
+            if (value == null) CoinActivityPreload.read(app, vault, activityKey, live = false)?.let { value = it }
+            CoinActivityPreload.read(app, vault, activityKey)?.let { value = it }
+        }
     }
     AssetPage(
         name = name,

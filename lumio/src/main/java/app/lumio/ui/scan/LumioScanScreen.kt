@@ -53,7 +53,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -79,7 +78,7 @@ private val VIEWFINDER_RADIUS = 28.dp
 private val RING_WIDTH = 3.dp
 private val RING_GAP = 6.dp
 
-/** The height of the viewfinder of a pairing code, as the Clear Air mock draws it (I10). The reply scan passes its own height. */
+/** The height of the viewfinder of a pairing code, as the Clear Air mock draws it (I10). */
 private val SCAN_FRAME_HEIGHT = 300.dp
 
 /** The corner brackets: how far they sit inside the viewfinder, how long each arm is, and their stroke. */
@@ -115,16 +114,41 @@ fun LumioScanScreen(
     complete: Boolean = false,
     frameSource: FrameSource? = null,
     footer: (@Composable () -> Unit)? = null,
-    frameHeight: Dp = SCAN_FRAME_HEIGHT,
     deniedText: String = CAMERA_DENIED_TEXT,
 ) {
-    // The camera is a launch of its own: while the scanner is shown, a policy that keeps own launches unlocked waits on the idle lock.
+    val camera = rememberCameraAccess(frameSource)
+    val context = LocalContext.current
+    LumioScanFrame(
+        title = title,
+        progress = progress,
+        // The camera's hint says what to point it at. While the camera is refused, the note says what is needed instead.
+        statusText = if (camera.refused && !camera.granted) "" else statusText,
+        complete = complete,
+        onCancel = onCancel,
+        modifier = modifier,
+        footer = footer,
+    ) { viewport ->
+        when {
+            camera.granted -> QrScanner(onText = onText, modifier = viewport, frameSource = frameSource)
+            camera.refused -> CameraDeniedNote(text = deniedText, onOpenSettings = { context.openAppSettings() }, modifier = viewport)
+        }
+    }
+}
+
+/** Whether the camera may be used: [granted] once the owner allowed it, and [refused] once the owner said no. */
+class CameraAccess(val granted: Boolean, val refused: Boolean)
+
+/**
+ * Asks for the camera when a scanner is shown, and reads the answer again each time the app comes back from Settings. It holds the idle lock while the
+ * scanner is shown, since the camera is a launch of its own. A test's own [frameSource] needs no camera.
+ */
+@Composable
+fun rememberCameraAccess(frameSource: FrameSource? = null): CameraAccess {
     DisposableEffect(Unit) {
         PickerStop.hold()
         onDispose { PickerStop.release() }
     }
     val context = LocalContext.current
-    // The camera is asked for here, so a refusal shows the Camera Denied note in place of the viewfinder. A test's own frames need no camera.
     var granted by remember { mutableStateOf(frameSource != null || context.hasCameraPermission()) }
     var refused by rememberSaveable { mutableStateOf(false) }
     val askCamera = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { answer ->
@@ -134,7 +158,6 @@ fun LumioScanScreen(
     LaunchedEffect(Unit) {
         if (!granted) askCamera.launch(Manifest.permission.CAMERA)
     }
-    // Settings may have changed while the app was away, so the permission is read again each time the app comes back.
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
@@ -143,22 +166,7 @@ fun LumioScanScreen(
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
     }
-    LumioScanFrame(
-        title = title,
-        progress = progress,
-        // The camera's hint says what to point it at. While the camera is refused, the note says what is needed instead.
-        statusText = if (refused && !granted) "" else statusText,
-        complete = complete,
-        onCancel = onCancel,
-        modifier = modifier,
-        footer = footer,
-        frameHeight = frameHeight,
-    ) { viewport ->
-        when {
-            granted -> QrScanner(onText = onText, modifier = viewport, frameSource = frameSource)
-            refused -> CameraDeniedNote(text = deniedText, onOpenSettings = { context.openAppSettings() }, modifier = viewport)
-        }
-    }
+    return CameraAccess(granted = granted, refused = refused)
 }
 
 /** The Camera Denied words wherever the camera reads any code. Pair names the code it reads, Lensly's, instead. */
@@ -226,7 +234,6 @@ fun LumioScanFrame(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
     footer: (@Composable () -> Unit)? = null,
-    frameHeight: Dp = SCAN_FRAME_HEIGHT,
     viewport: @Composable (Modifier) -> Unit,
 ) {
     val haptics = rememberLumioHaptics()
@@ -244,7 +251,7 @@ fun LumioScanFrame(
         if (complete) haptics.success()
     }
     LenslyScreen(title = title, modifier = modifier, onBack = onCancel, scrollable = false) {
-        Box(modifier = Modifier.fillMaxWidth().height(frameHeight)) {
+        Box(modifier = Modifier.fillMaxWidth().height(SCAN_FRAME_HEIGHT)) {
             viewport(Modifier.fillMaxSize().padding(RING_GAP).clip(RoundedCornerShape(VIEWFINDER_RADIUS)))
             ViewfinderCorners(modifier = Modifier.fillMaxSize().padding(RING_GAP))
             PerimeterRing(fraction = if (complete) 1f else progress ?: 0f, modifier = Modifier.fillMaxSize())

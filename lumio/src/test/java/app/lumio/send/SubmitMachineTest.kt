@@ -34,6 +34,16 @@ class SubmitMachineTest {
     }
 
     @Test
+    fun aFailureKeepsItsTypeAndOnlyTheMessagesThatAreLumiosOwn() = runTest {
+        val secret = Exception("https://rpc.example/key-123")
+        val harness = Harness(listOf { throw IllegalArgumentException("fee too low", secret) })
+        val machine = harness.build(byteArrayOf(1))
+        machine.submit()
+        val failed = assertIs<SubmitState.Failed>(machine.state.value)
+        assertEquals("IllegalArgumentException: fee too low\nException", failed.detail)
+    }
+
+    @Test
     fun nothingIsBroadcastUntilSubmit() = runTest {
         val harness = Harness(listOf { "txid" })
         val machine = harness.build(byteArrayOf(1, 2, 3))
