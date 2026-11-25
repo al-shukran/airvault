@@ -20,7 +20,10 @@ data class ScanJob(val walletId: String, val net: NetworkId, val accountRef: Str
 /** A queued job and the id the queue gave it. */
 data class QueuedJob(val id: Long, val job: ScanJob)
 
-/** What a running job reports. [Progress] comes first, then [Finished] or [Failed]. Subscribe to [ScanQueue.events] to follow it. */
+/**
+ * What a running job reports. [Progress] comes first, then [Finished] or [Failed]. Subscribe to [ScanQueue.events] to follow it. [Finished] and [Failed]
+ * carry the [NetworkId] the job scans, so a screen can tell the result of one network from the network it shows.
+ */
 sealed interface ScanEvent {
     val jobId: Long
 
@@ -28,10 +31,10 @@ sealed interface ScanEvent {
     data class Progress(override val jobId: Long, val checked: Int) : ScanEvent
 
     /** The account's scan has finished, and its result is stored. The job has left the queue. */
-    data class Finished(override val jobId: Long, val accountKey: String) : ScanEvent
+    data class Finished(override val jobId: Long, val net: NetworkId, val accountKey: String) : ScanEvent
 
     /** The scan failed with [message]. The job stays queued, and the next pass runs it again. */
-    data class Failed(override val jobId: Long, val accountKey: String, val message: String) : ScanEvent
+    data class Failed(override val jobId: Long, val net: NetworkId, val accountKey: String, val message: String) : ScanEvent
 }
 
 /** The rows of the open vault's scan queue: the table, and the key that seals each job. */

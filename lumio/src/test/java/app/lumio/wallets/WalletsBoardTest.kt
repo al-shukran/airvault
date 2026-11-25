@@ -1,6 +1,7 @@
 package app.lumio.wallets
 
 import android.os.Looper
+import app.airvault.core.model.ChainId
 import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingCodec
 import app.lensly.app.export.PairingPayload
@@ -22,6 +23,7 @@ import app.lumio.data.price.MARKET_KEY
 import app.lumio.data.price.PriceRepository
 import app.lumio.data.price.Price
 import app.lumio.data.provider.MarketQuote
+import app.lumio.data.scan.ScanEvent
 import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.TxAsset
 import app.lumio.data.tx.TxDirection
@@ -105,6 +107,33 @@ class WalletsBoardTest {
 
         assertEquals(Kept(kept, stale = true), await { board.market })
         assertEquals(WalletWatchlist(assets = FIRST_RUN_ASSETS), await { board.watchlists[wallet.id] })
+
+        board.close()
+        database.close()
+        session.close()
+    }
+
+    @Test
+    fun aBitcoinScanOfTheOtherNetworkLeavesTheShownSideReachable() {
+        val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 11 + 5).toByte() })
+        val database = LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "scan.db"))
+        val vault = LumioVault(session, database)
+        val app = RuntimeEnvironment.getApplication() as LumioApp
+        PairedWallets.save(session, pairing(), nowMs = 100L)
+        val board = WalletsBoard(app, vault, repository = PriceRepository(app.priceScheduler) { vault.cache }) { emptyMap<AssetId, Price>() }
+        board.showSide(mode, listVersion = 0)
+        val mainnet = NetworkId(Networks.BTC_MAINNET, testnet = false)
+        val testnet4 = NetworkId(Networks.BTC_TESTNET4, testnet = true)
+
+        // A mainnet scan fails after the owner switched to testnet: the shown testnet Bitcoin chain did not fail, so it stays reachable.
+        runBlocking { app.scanQueue.publish(ScanEvent.Failed(jobId = 1L, net = mainnet, accountKey = "account-a", message = "Could not reach the servers.")) }
+        settle()
+        assertEquals(emptySet<ChainId>(), board.reads.unreachable)
+
+        // A testnet scan that fails on the shown side makes its chain unreachable.
+        runBlocking { app.scanQueue.publish(ScanEvent.Failed(jobId = 2L, net = testnet4, accountKey = "account-b", message = "Could not reach the servers.")) }
+        settle()
+        assertEquals(setOf(testnet4.chain), board.reads.unreachable)
 
         board.close()
         database.close()
