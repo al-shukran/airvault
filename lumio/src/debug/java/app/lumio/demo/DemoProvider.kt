@@ -80,7 +80,7 @@ internal class DemoProvider(private val profile: () -> DemoProfile) : Provider {
             is NativePrice -> quoteOf(net, null, now)
             is TokenPrice -> quoteOf(net, req.contract, now)
             is PriceChart -> chartOf(req, now)
-            is GlobalMarket -> MarketQuote(3.41e12, 2.14, now)
+            is BitcoinMarket -> MarketQuote(3.41e12, 2.14, now)
             is TrendingCoins -> TrendingList(TRENDING, now)
             is FiatRates -> FiatQuote(mapOf("USD" to 1.0, "EUR" to 0.92, "GBP" to 0.79, "JPY" to 151.2, "INR" to 83.1), now)
             is TokenLogo -> throw ProviderError.NotFound()
