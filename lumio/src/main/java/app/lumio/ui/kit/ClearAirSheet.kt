@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -30,9 +31,10 @@ private val SHEET_TOP = 44.dp
 /** The corner radius of a sheet's top, the proposal's 28 dp. */
 private val SHEET_CORNER = 28.dp
 
-/** The scrim's opacity over the page beneath a sheet, in the light theme and in the dark one. */
-private const val SCRIM_LIGHT = 0.34f
-private const val SCRIM_DARK = 0.58f
+/** The light theme lifts a sheet with a faint ink shadow, and the dark theme has none. */
+private val SHEET_SHADOW = 10.dp
+private val SHADOW_INK = Color(0xFF2B2530).copy(alpha = 0.10f)
+private val sheetShape = RoundedCornerShape(topStart = SHEET_CORNER, topEnd = SHEET_CORNER)
 
 /**
  * The one modal sheet of Lumio. It rises from the bottom on the sheet spring over a scrim that fades in, and the page beneath stays still. It has
@@ -43,14 +45,13 @@ private const val SCRIM_DARK = 0.58f
 fun ClearAirSheet(visible: Boolean, onClose: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val palette = LocalClearAirPalette.current
     val reduced = LocalReducedMotion.current
-    val scrim = Color.Black.copy(alpha = if (isSystemInDarkTheme()) SCRIM_DARK else SCRIM_LIGHT)
     Box(modifier = modifier.fillMaxSize()) {
         AnimatedVisibility(
             visible = visible,
             enter = fadeIn(tween(ClearAirMotion.SCRIM_MS)),
             exit = fadeOut(tween(ClearAirMotion.SCRIM_MS)),
         ) {
-            Box(modifier = Modifier.fillMaxSize().background(scrim).clickable(onClick = onClose))
+            Box(modifier = Modifier.fillMaxSize().background(palette.scrim).clickable(onClick = onClose))
         }
         AnimatedVisibility(
             visible = visible,
@@ -61,7 +62,8 @@ fun ClearAirSheet(visible: Boolean, onClose: () -> Unit, modifier: Modifier = Mo
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(top = SHEET_TOP)
-                    .clip(RoundedCornerShape(topStart = SHEET_CORNER, topEnd = SHEET_CORNER))
+                    .then(if (isSystemInDarkTheme()) Modifier else Modifier.shadow(SHEET_SHADOW, sheetShape, ambientColor = SHADOW_INK, spotColor = SHADOW_INK))
+                    .clip(sheetShape)
                     .background(palette.sheet),
             ) {
                 content()

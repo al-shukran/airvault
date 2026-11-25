@@ -19,6 +19,7 @@ import app.lensly.shared.R
 @OptIn(ExperimentalTextApi::class)
 private fun archivo(width: Float) = FontFamily(
     Font(R.font.archivo_variable, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400), FontVariation.width(width))),
+    Font(R.font.archivo_variable, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500), FontVariation.width(width))),
     Font(R.font.archivo_variable, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600), FontVariation.width(width))),
     Font(R.font.archivo_variable, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700), FontVariation.width(width))),
 )
@@ -34,41 +35,52 @@ private val NumberFamily = FontFamily(
     Font(R.font.jetbrains_mono_variable, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
 )
 
-/** A size and a line height, in sp. */
-private class ClearAirStep(val size: Float, val line: Float)
+/** A size and a line height, in sp, and the letter spacing of the mock's CSS, in em. */
+private class ClearAirStep(val size: Float, val line: Float, val tracking: Float = 0f)
 
 /**
  * Every size of the Clear Air type scale, in sp, in one place. [ClearAirType] builds each style from one of these steps, so a revised scale is a
- * change to these lines and nothing else. The sizes are the designer's revision 2, except the hero: it stays at 40 sp, provisionally, until the
- * designer confirms the size of the tab heroes.
+ * change to these lines and nothing else. The sizes are the approved mock's CSS, size, line height and letter spacing alike.
  */
 private object ClearAirScale {
-    /** The hero numeral of an overview, Home and Portfolio. Provisional: revision 2 has 50 sp. */
+    /** The hero numeral of an overview, Home and Portfolio. Provisional: the mock has 50 sp at -0.06em, which the Home screen's own change takes. */
     val hero = ClearAirStep(size = 40f, line = 46f)
 
     /** A page total, of a wallet or an account. It is left-aligned, under a small label. */
-    val total = ClearAirStep(size = 28f, line = 34f)
+    val total = ClearAirStep(size = 28f, line = 34f, tracking = -0.04f)
 
     /** An amount in a flow, "Amount L". */
-    val amountLarge = ClearAirStep(size = 38f, line = 44f)
+    val amountLarge = ClearAirStep(size = 38f, line = 44f, tracking = -0.05f)
 
     /** The question of a screen. */
-    val titleXL = ClearAirStep(size = 26f, line = 30f)
+    val titleXL = ClearAirStep(size = 26f, line = 30f, tracking = -0.025f)
 
     /** The title of a sheet or a pushed screen. */
-    val titleL = ClearAirStep(size = 20f, line = 25f)
+    val titleL = ClearAirStep(size = 20f, line = 25f, tracking = -0.02f)
 
-    /** A row's title, and the label of a button. */
+    /** The title of a top bar. */
+    val topBar = ClearAirStep(size = 18f, line = 21f, tracking = -0.015f)
+
+    /** A row's title, and the label of a small button. */
     val rowTitle = ClearAirStep(size = 15f, line = 20f)
+
+    /** The label of the primary capsule. */
+    val button = ClearAirStep(size = 15.5f, line = 20f)
 
     /** Running text. */
     val body = ClearAirStep(size = 15f, line = 22f)
 
     /** A row's value. */
-    val rowValue = ClearAirStep(size = 14f, line = 20f)
+    val rowValue = ClearAirStep(size = 14f, line = 20f, tracking = -0.02f)
+
+    /** Secondary text of a screen. */
+    val small = ClearAirStep(size = 13f, line = 18f)
+
+    /** The line under a row's title. */
+    val caption = ClearAirStep(size = 12.5f, line = 17f)
 
     /** An address, set in groups of four. */
-    val address = ClearAirStep(size = 13f, line = 19f)
+    val address = ClearAirStep(size = 13f, line = 19f, tracking = -0.01f)
 
     /** A status in words, and the testnet band. */
     val label = ClearAirStep(size = 13f, line = 18f)
@@ -77,10 +89,10 @@ private object ClearAirScale {
     val time = ClearAirStep(size = 12f, line = 17f)
 
     /** An eyebrow, which is the one ALL CAPS style. */
-    val eyebrow = ClearAirStep(size = 11f, line = 14f)
+    val eyebrow = ClearAirStep(size = 11f, line = 14f, tracking = 0.09f)
 
     /** The size of a currency sign, as a share of the figures beside it. */
-    const val CURRENCY_SIGN_SHARE = 0.5f
+    const val CURRENCY_SIGN_SHARE = 0.46f
 }
 
 private fun clearAirStyle(family: FontFamily, weight: FontWeight, step: ClearAirStep) = TextStyle(
@@ -88,6 +100,7 @@ private fun clearAirStyle(family: FontFamily, weight: FontWeight, step: ClearAir
     fontWeight = weight,
     fontSize = step.size.sp,
     lineHeight = step.line.sp,
+    letterSpacing = step.tracking.em,
 )
 
 /** The Clear Air type scale: one style for each role of the proposal. The sizes come from [ClearAirScale]. */
@@ -107,11 +120,23 @@ object ClearAirType {
     /** The title of a sheet or a pushed screen: Archivo 114 Bold. */
     val titleL = clearAirStyle(HeadingFamily, FontWeight.Bold, ClearAirScale.titleL)
 
-    /** A row's title, and the label of a button: Archivo 114 SemiBold. */
+    /** The title of a top bar: Archivo 114 Bold. */
+    val topBar = clearAirStyle(HeadingFamily, FontWeight.Bold, ClearAirScale.topBar)
+
+    /** A row's title, and the label of a small button: Archivo 114 SemiBold. */
     val rowTitle = clearAirStyle(HeadingFamily, FontWeight.SemiBold, ClearAirScale.rowTitle)
+
+    /** The label of the primary capsule: Archivo 114 SemiBold. */
+    val button = clearAirStyle(HeadingFamily, FontWeight.SemiBold, ClearAirScale.button)
 
     /** Running text: Archivo 92 Regular. */
     val body = clearAirStyle(BodyFamily, FontWeight.Normal, ClearAirScale.body)
+
+    /** Secondary text of a screen: Archivo 92 Regular. */
+    val small = clearAirStyle(BodyFamily, FontWeight.Normal, ClearAirScale.small)
+
+    /** The line under a row's title: Archivo 92 Regular. */
+    val caption = clearAirStyle(BodyFamily, FontWeight.Normal, ClearAirScale.caption)
 
     /** A row's value: JetBrains Mono Medium. */
     val rowValue = clearAirStyle(NumberFamily, FontWeight.Medium, ClearAirScale.rowValue)
