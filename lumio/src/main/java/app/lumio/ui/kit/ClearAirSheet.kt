@@ -79,7 +79,8 @@ fun ClearAirSheet(visible: Boolean, onClose: () -> Unit, modifier: Modifier = Mo
                             .clip(RoundedCornerShape(2.dp))
                             .background(palette.ink3.copy(alpha = 0.55f)),
                     )
-                    Box(modifier = Modifier.weight(1f)) { content() }
+                    // No weight: a sheet that a scrolling page hosts has no height to share out, and a weighted child would get none.
+                    content()
                 }
             }
         }

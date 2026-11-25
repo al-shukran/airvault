@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import app.lensly.ui.theme.LumenTheme
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.Fiat
@@ -89,7 +90,7 @@ class DisplaySettingsSectionTest {
         show()
 
         compose.onNodeWithText("Theme").performClick()
-        compose.onNodeWithText("Dark").performClick()
+        compose.onNodeWithText("Dark").performScrollTo().performClick()
 
         assertEquals(ThemeMode.DARK, theme)
     }
