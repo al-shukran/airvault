@@ -51,7 +51,7 @@ The lines balance the lanes. A unit with no line goes to `shard-6`, so `check-pa
   `scripts`, `generated-gradle-jars`, `jars-9`). The hash covers the version catalog, `verification-metadata.xml`, the wrapper
   properties, every `*.gradle.kts`, `settings.gradle.kts` and `gradle.properties`. The `deps` job saves it on a miss in any event, so a
   pull request that changes the dependency files saves its own key, which `cache-cleanup.yml` deletes when the pull request closes.
-- `bc-<lane>-master` holds `~/.gradle/caches/build-cache-1` and `.gradle/configuration-cache`, one key per lane: `bc-shard-N-master`,
+- `bc-<lane>-master` holds `~/.gradle/caches/build-cache-1`, one key per lane: `bc-shard-N-master`,
   `bc-verify-<module>-master`, `bc-fuzz-master`, `bc-android-master`, `bc-lint-<module>-master`. Only a push to master saves it, even
   when a lane fails or is cancelled. GitHub cache entries cannot be overwritten, so the push deletes the lane's key and saves it again.
   Master pushes queue in one `pr-fast-master` concurrency group, so no two of them replace a key at once. A pull request and a
@@ -73,9 +73,9 @@ The lines balance the lanes. A unit with no line goes to `shard-6`, so `check-pa
   goes to the step summary, a job over 4 minutes (240 s) gets a warning, and a job over 5 minutes gets a warning too. On a push
   to master it opens, or comments on, the open `ci-budget` issue for each job over 5 minutes. It never fails the gate: fix a
   slow lane in a pull request, never rerun a run to make it green.
-- The configuration cache is encrypted with `GRADLE_ENCRYPTION_KEY`, a repository secret. Without it, each runner encrypts with its
-  own keystore, a restored entry reads as absent ("no cached configuration is available"), and no lane reuses the configuration.
-  Empty means no key, which is how a fork's pull request runs.
+- The configuration cache is never saved or restored. It records the JDK home path of the runner that stored it, and runner images
+  install the same Temurin build under different directories (`21.0.13-9` and `21.0.13-9.0.LTS`), so a restored entry failed
+  `:shared:compileDebugKotlin` with "JDK home directory does not exist". Each run configures from scratch.
 - `lintAnalyze*` tasks are cacheable (root `build.gradle.kts`). AGP leaves them uncacheable by default.
 - `setup-gradle` runs with `cache-disabled: true`: its own cache cleanup purged plugin marker POMs, which made later runs fail with
   "plugin not found".
