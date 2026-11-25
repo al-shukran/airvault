@@ -28,15 +28,18 @@ class BtcStore(private val cache: Cache) {
         cache.put(CachePolicy.LastKnown, nameOf(snapshot.key), SnapshotCodec.encode(listOf(snapshot)))
     }
 
-    /** Drops the stored scans of accounts that are no longer paired, so a deleted wallet leaves no balance behind. [keys] are the paired accounts. */
+    /**
+     * Drops the stored scans of accounts that are no longer paired, so a deleted wallet leaves no balance behind. [keys] are the paired accounts. The
+     * last-known entries that are not scans, such as the prices, are not this store's to drop, so they stay.
+     */
     suspend fun retain(keys: Set<String>) {
         cache.retainStored(CachePolicy.LastKnown) { bytes ->
             try {
                 SnapshotCodec.decode(bytes).keys.all { it in keys }
             } catch (e: IOException) {
-                false
+                true
             } catch (e: IllegalArgumentException) {
-                false
+                true
             }
         }
     }
