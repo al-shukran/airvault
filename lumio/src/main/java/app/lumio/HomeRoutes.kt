@@ -48,7 +48,6 @@ import app.lumio.watchlist.ordered
 import java.math.BigDecimal
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 
 /** How often the freshness line counts its age again, so "8 s ago" keeps counting while Home is open. */
 private const val FRESHNESS_TICK_MS = 15_000L
@@ -117,11 +116,7 @@ internal fun HomeRoute(
                         wallet?.let {
                             scope.launch {
                                 val vault = app.lumioVault()
-                                if (vault != null) {
-                                    withTimeoutOrNull(CoinActivityPreload.WAIT_MS) {
-                                        CoinActivityPreload.read(app, vault, CoinActivityKey(asset, selection.mode, includeSpam))
-                                    }
-                                }
+                                if (vault != null) CoinActivityPreload.preload(app, vault, CoinActivityKey(asset, selection.mode, includeSpam))
                                 navController.navigate(LumioRoute.coin(it.id, asset))
                             }
                         }

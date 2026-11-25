@@ -80,6 +80,7 @@ import java.time.ZoneId
 import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 
 /** The newest activity rows of the coin that the Asset page lists. The page's All link opens the whole activity of the coin. */
@@ -89,21 +90,31 @@ private const val COIN_ACTIVITY_ROWS = 10
 internal data class CoinActivityKey(val asset: WatchedAsset, val mode: NetworkMode, val includeSpam: Boolean)
 
 /**
- * The coin activity read ahead of the push to the Asset page, so the page lists its activity on its first frame. It keeps the last page read, and the
- * Asset page reads again behind it, so a kept page is only ever a first frame.
+ * The coin activity read ahead of the push to the Asset page, so the page lists its activity on its first frame. The vault keeps the last page read, and
+ * drops it when it locks or is erased. The Asset page reads again behind it, so a kept page is only ever a first frame.
  */
 internal object CoinActivityPreload {
     /** How long a tap waits for the activity before it pushes the page without it. */
     const val WAIT_MS = 150L
 
-    @Volatile
-    private var kept: Pair<CoinActivityKey, ActivityPage>? = null
+    fun pageOf(vault: LumioVault?, key: CoinActivityKey): ActivityPage? = vault?.keptCoinActivity?.takeIf { it.first == key }?.second
 
-    fun pageOf(key: CoinActivityKey): ActivityPage? = kept?.takeIf { it.first == key }?.second
-
-    suspend fun read(app: LumioApp, vault: LumioVault, key: CoinActivityKey): ActivityPage =
+    /** Reads the activity of [key] and keeps it in [vault]. Returns null when the vault locked during the read. */
+    suspend fun read(app: LumioApp, vault: LumioVault, key: CoinActivityKey): ActivityPage? = try {
         PortfolioReads.activity(app, vault, key.mode, walletId = null, filter = ActivityFilter(coin = key.asset), includeSpam = key.includeSpam)
-            .also { kept = key to it }
+            .also { vault.keptCoinActivity = key to it }
+    } catch (_: IllegalStateException) {
+        null
+    }
+
+    /**
+     * Reads the activity on the application's scope and waits [WAIT_MS] for it. A read that takes longer goes on and keeps its page for the Asset page's
+     * first frame, as only the wait ends.
+     */
+    suspend fun preload(app: LumioApp, vault: LumioVault, key: CoinActivityKey) {
+        val read = app.runInAppScope { read(app, vault, key) }
+        withTimeoutOrNull(WAIT_MS) { read.join() }
+    }
 }
 
 /**
@@ -187,8 +198,8 @@ internal fun AssetRoute(
     val vault = app.lumioVault()
     val includeSpam = rememberTransactions(app).activityIncludesSpam
     val activityKey = CoinActivityKey(asset, selection.mode, includeSpam)
-    val coinActivity by produceState(initialValue = CoinActivityPreload.pageOf(activityKey), vault, activityKey, listVersion) {
-        if (vault != null) value = CoinActivityPreload.read(app, vault, activityKey)
+    val coinActivity by produceState(initialValue = CoinActivityPreload.pageOf(vault, activityKey), vault, activityKey, listVersion) {
+        if (vault != null) CoinActivityPreload.read(app, vault, activityKey)?.let { value = it }
     }
     AssetPage(
         name = name,
