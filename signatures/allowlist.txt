@@ -1,0 +1,4 @@
+# Logins that never need to sign the CLA (matched case-insensitively, exact match).
+dependabot[bot]
+github-actions[bot]
+renovate[bot]
