@@ -159,7 +159,7 @@ dependencies {
         api("com.google.guava:guava:33.7.2-android") { because("Dependabot alert 24") }
         // Alerts 37-39: web3j asks for bcprov 1.78.1. 1.86 is the version this module ships (libs.versions.toml),
         // and it is also above the 1.85 floor of alerts 13 and 14.
-        api("org.bouncycastle:bcprov-jdk18on:1.86") { because("Dependabot alerts 37-39") }
+        api("org.bouncycastle:bcprov-jdk18on:1.87") { because("Dependabot alerts 37-39") }
         // OWASP CVE-2026-53914 matched kotlin-stdlib-jdk7 and -jdk8 at 1.9.10, which a dependency still pulls in. Since
         // Kotlin 2.x both artifacts are empty shims over kotlin-stdlib, so they follow the project's Kotlin version (fixed
         // in 2.4.20).
