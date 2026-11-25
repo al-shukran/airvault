@@ -26,8 +26,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -42,6 +45,28 @@ import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.pair.IntroStep
 import app.lumio.ui.settings.BIOMETRIC_UNAVAILABLE_REASON
 
+/** The gap between the status bar and the chapter bar: the mock puts the bar 8 dp below the status bar, plus 6 dp of its own padding. */
+private val CHAPTER_BAR_TOP = 14.dp
+
+/**
+ * How a first-run page spaces its parts, in dp as the locked mock measures them. [barTop] is the gap from the status bar to the chapter bar, which
+ * the mock draws 14 dp down on most pages and 15 dp down on the duress page. [artTop] is the gap from the chapter bar to the art, [eyebrowTop]
+ * from the art (or the bar) to the eyebrow, [titleTop] from the eyebrow to the title, and [bodyTop] from the title to the content. A [centered] page
+ * centres its text. The [titleStyle] is the question's type.
+ */
+internal data class PageSpacing(
+    val barTop: Dp = CHAPTER_BAR_TOP,
+    val artTop: Dp = ClearAirSpacing.xl,
+    val eyebrowTop: Dp = 18.dp,
+    val titleTop: Dp = ClearAirSpacing.xxs,
+    val bodyTop: Dp = ClearAirSpacing.md,
+    val centered: Boolean = false,
+    val titleStyle: TextStyle? = null,
+)
+
+/** The space under the foot's last control, above the navigation bar: the mock's 30 dp from the screen's bottom less the 24 dp of the gesture bar. */
+private val FOOT_BOTTOM = 6.dp
+
 /**
  * A first-run page: the chapter bar, the page's [art], its eyebrow and title, then [content]. The [footer] holds the page's actions and sits at
  * the foot, under the content, which scrolls when a small phone cannot show it all. Every first-run page has this shape.
@@ -53,31 +78,50 @@ internal fun FirstRunPage(
     title: String,
     footer: @Composable () -> Unit,
     art: (@Composable () -> Unit)? = null,
+    spacing: PageSpacing = PageSpacing(),
     content: @Composable () -> Unit = {},
 ) {
     val palette = LocalClearAirPalette.current
-    Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+    val side = if (spacing.centered) Alignment.CenterHorizontally else Alignment.Start
+    val align = if (spacing.centered) TextAlign.Center else TextAlign.Start
+    Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
         Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter).padding(top = spacing.barTop),
+                horizontalAlignment = side,
+            ) {
                 ChapterBar(step = step)
-                Spacer(Modifier.height(ClearAirSpacing.xl))
+                Spacer(Modifier.height(spacing.artTop))
                 art?.invoke()
-                ClearAirEyebrow(text = eyebrow)
-                Text(text = title, style = ClearAirType.titleXL, color = palette.ink)
-                Spacer(Modifier.height(ClearAirSpacing.md))
+                ClearAirEyebrow(text = eyebrow, top = spacing.eyebrowTop, bottom = spacing.titleTop, modifier = Modifier.fillMaxWidth(), textAlign = align)
+                Text(
+                    text = title,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = spacing.titleStyle ?: ClearAirType.titleXL,
+                    color = palette.ink,
+                    textAlign = align,
+                )
+                Spacer(Modifier.height(spacing.bodyTop))
                 content()
             }
         }
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = ClearAirSpacing.gutter)
+                .navigationBarsPadding()
+                .padding(top = ClearAirSpacing.md, bottom = FOOT_BOTTOM),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
             footer()
         }
     }
 }
 
-/** The three-segment chapter bar, filled as [chapterFills] says for the step. */
+/** The three-segment chapter bar, filled as [chapterFills] says for the step. It is 3 dp thick, with 6 dp between its segments, as the mock draws it. */
 @Composable
 private fun ChapterBar(step: FirstRunStep) {
-    ClearAirSegments(fractions = chapterFills(step).map { it.fraction })
+    ClearAirSegments(fractions = chapterFills(step).map { it.fraction }, thickness = 3.dp, gap = 6.dp)
 }
 
 /** The AirVault mark, drawn at [size]. The first-run pages show it in place of per-step art. */
@@ -90,7 +134,16 @@ private fun AirVaultMark(size: Dp) {
     )
 }
 
-/** One fact per page, with its [art] above it. [action] is "Get Started" on the first page and "Next" after it. */
+/** The question of a statement page: 30 sp, a size up from the other first-run pages' 26 sp, as the Welcome mock sets it. */
+private val FactTitle: TextStyle @Composable get() = ClearAirType.titleXL.copy(fontSize = 30.sp, lineHeight = 34.sp)
+
+/** The art slot of a statement page: 132 dp tall, the size of the mark on Welcome, with the art centred in it. */
+private val FACT_ART_SLOT = 132.dp
+
+/**
+ * One fact per page, centred, with its [art] above it, as the Welcome mock draws it: the pages after Welcome use the same layout. [action] is
+ * "Get Started" on the first page and "Next" after it.
+ */
 @Composable
 private fun FactPage(
     step: FirstRunStep,
@@ -107,13 +160,10 @@ private fun FactPage(
         eyebrow = eyebrow,
         title = title,
         footer = { ClearAirPrimaryButton(text = action, onClick = onNext) },
-        art = {
-            Box(modifier = Modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.md), contentAlignment = Alignment.Center) {
-                art()
-            }
-        },
+        art = { Box(modifier = Modifier.fillMaxWidth().height(FACT_ART_SLOT), contentAlignment = Alignment.Center) { art() } },
+        spacing = PageSpacing(artTop = 96.dp, eyebrowTop = 33.1.dp, titleTop = 9.8.dp, bodyTop = 15.dp, centered = true, titleStyle = FactTitle),
     ) {
-        Text(text = body, style = ClearAirType.body, color = palette.ink2)
+        Text(text = body, style = ClearAirType.body, color = palette.ink2, textAlign = TextAlign.Center)
     }
 }
 
@@ -240,7 +290,8 @@ fun PrepareScreen(onNext: () -> Unit) {
 }
 
 /**
- * Step I8: the duress question. Only "Maybe Later" is offered: Lumio has no duress password flow yet, so "Set Up Now" is not shown.
+ * Step I8: the duress question. Only "Maybe Later" is offered: Lumio has no duress password flow yet, so the mock's "Set Up Now" capsule and the
+ * line about Settings → Security, which has no duress row, are not shown. They come with the flow (#732).
  */
 @Composable
 fun DuressScreen(onMaybeLater: () -> Unit) {
@@ -250,11 +301,8 @@ fun DuressScreen(onMaybeLater: () -> Unit) {
         eyebrow = "Protect · 2 of 3",
         title = "Create Duress Password Now?",
         footer = { ClearAirTextAction(text = "Maybe Later", onClick = onMaybeLater) },
-        art = {
-            Box(modifier = Modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.md), contentAlignment = Alignment.Center) {
-                DuressArt()
-            }
-        },
+        art = { Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { DuressArt() } },
+        spacing = PageSpacing(barTop = 15.dp, artTop = 64.dp, eyebrowTop = 37.1.dp, titleTop = 10.dp, bodyTop = 13.7.dp),
     ) {
         Text(
             text = "A second password that opens an empty Lumio. Use it if someone forces you to unlock your phone.",
