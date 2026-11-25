@@ -124,7 +124,7 @@ fun WalletSettingsPage(wallet: PairedWallet, offline: String?, onRePair: () -> U
             description = "Adds new accounts, names and address-book entries. Keeps your watchlist and settings.",
             leading = { SettingsDisc(SettingsGlyph.REFRESH) },
             onClick = onRePair,
-            modifier = Modifier.padding(top = ClearAirSpacing.sm),
+            modifier = Modifier.padding(top = ClearAirSpacing.sm, bottom = ClearAirSpacing.xxs),
         )
         RowDivider(indent = ROW_DIVIDER_INDENT)
         ClearAirRow(
@@ -132,7 +132,7 @@ fun WalletSettingsPage(wallet: PairedWallet, offline: String?, onRePair: () -> U
             description = "Lensly and your keys are not affected",
             leading = { SettingsDisc(SettingsGlyph.TRASH, destructive = true) },
             destructive = true,
-            modifier = Modifier.testTag(DELETE_WALLET_TAG).lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = { removing = true }),
+            modifier = Modifier.padding(top = ClearAirSpacing.xxs).testTag(DELETE_WALLET_TAG).lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = { removing = true }),
         )
     }
     if (removing) {

@@ -92,7 +92,7 @@ internal fun SettingsInfoNote(text: String, modifier: Modifier = Modifier) {
             .clip(RoundedCornerShape(NOTE_CORNER))
             .background(palette.raised)
             .padding(horizontal = 14.dp, vertical = ClearAirSpacing.sm),
-        verticalAlignment = Alignment.Top,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         ClearAirIcon(glyph = ClearAirGlyph.INFO, color = palette.ink2)
         Spacer(Modifier.width(ClearAirSpacing.xs))
