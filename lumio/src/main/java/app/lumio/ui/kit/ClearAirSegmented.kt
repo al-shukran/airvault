@@ -26,8 +26,8 @@ private val TRACK_CORNER = 14.dp
 /** The corner radius of a segment inside the track. */
 private val SEGMENT_CORNER = 11.dp
 
-/** The height of a segment, as the proposal draws it. */
-private val SEGMENT_HEIGHT = 36.dp
+/** The height of a segment: a 48 dp touch target. */
+private val SEGMENT_HEIGHT = 48.dp
 
 /**
  * Two or more [options] as one track: the [selected] option is filled with ink and its label is paper, the others sit on the sunk track. Choosing one calls [onSelect] at
