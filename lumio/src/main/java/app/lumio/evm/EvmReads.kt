@@ -26,6 +26,7 @@ import app.lumio.data.sched.Priority
 import app.lumio.data.sched.ProviderHealth
 import app.lumio.data.sched.Scheduler
 import java.math.BigInteger
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 import kotlinx.coroutines.CoroutineScope
 
@@ -42,12 +43,17 @@ interface ContractReads {
  */
 class EvmReads(
     private val pool: Scheduler,
-    private val owner: Scheduler,
+    /** Makes the scheduler for one chain's custom address. Each chain gets its own, so a failing address cannot trip the circuit of another chain's. */
+    private val newOwner: () -> Scheduler,
     private val settings: () -> EvmSettings,
     /** The pool that balance reads use while [preferRpc] holds. It has no explorers. Without it, [pool] serves every read. */
     private val rpcOnly: Scheduler = pool,
     private val preferRpc: () -> Boolean = { false },
 ) : ContractReads {
+    private val owners = ConcurrentHashMap<Long, Scheduler>()
+
+    private fun ownerOf(chainId: Long): Scheduler = owners.getOrPut(chainId, newOwner)
+
     suspend fun balance(chain: EvmChain, address: String, priority: Priority = Priority.VISIBLE): BigInteger =
         run(chain, priority, NativeBalance(net(chain), address), if (preferRpc()) rpcOnly else pool)
 
@@ -75,11 +81,14 @@ class EvmReads(
     override suspend fun call(chain: EvmChain, to: String, data: String): String =
         run(chain, Priority.VISIBLE, ContractCall(net(chain), to, data))
 
-    /** What the pool, or else the owner's scheduler, knows about [providerId] now, or null when neither holds that provider. */
-    suspend fun statusOf(providerId: String): ProviderHealth? = pool.statusOf(providerId) ?: owner.statusOf(providerId)
+    /** What the pool knows about [providerId] now, or null when it does not hold that provider. */
+    suspend fun statusOf(providerId: String): ProviderHealth? = pool.statusOf(providerId)
+
+    /** What the scheduler of the owner's address on [chainId] knows about it now. A chain with no reads yet is ready. */
+    suspend fun customStatusOf(chainId: Long): ProviderHealth? = ownerOf(chainId).statusOf(CustomRpc.ID)
 
     private suspend fun <T> run(chain: EvmChain, priority: Priority, req: Request<T>, publicPool: Scheduler = pool): T {
-        val scheduler = if (settings().activeRpc(chain.chainId) != null) owner else publicPool
+        val scheduler = if (settings().activeRpc(chain.chainId) != null) ownerOf(chain.chainId) else publicPool
         return try {
             scheduler.run(req, priority)
         } catch (e: ProviderError) {
@@ -89,7 +98,7 @@ class EvmReads(
 
     companion object {
         /**
-         * The reads of the open vault [session]. The pool and the owner's addresses are two schedulers over one HTTP stack, so each keeps its
+         * The reads of the open vault [session]. The pool and each chain's owner address are separate schedulers over one HTTP stack, so each keeps its
          * own health and rates. The owner's addresses come from the vault's EVM settings, read on each call, so a change takes effect at once.
          */
         fun open(session: VaultSession, http: Http, scope: CoroutineScope, allowLocalHttp: Boolean): EvmReads {
@@ -101,7 +110,7 @@ class EvmReads(
             }
             return EvmReads(
                 pool = Scheduler(DataPlugins.evm() + RpcPlugins.pool(), configs, http, MonotonicClock, Random.Default, scope),
-                owner = Scheduler(listOf(CustomRpc(allowLocalHttp)), configs, http, MonotonicClock, Random.Default, scope),
+                newOwner = { Scheduler(listOf(CustomRpc(allowLocalHttp)), configs, http, MonotonicClock, Random.Default, scope) },
                 settings = settings,
                 rpcOnly = Scheduler(
                     DataPlugins.evm(preferRpc = true) + RpcPlugins.pool(), configs, http, MonotonicClock, Random.Default, scope,
