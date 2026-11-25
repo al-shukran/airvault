@@ -129,6 +129,8 @@ class PlainNameTest {
     fun wordsInTheMiddleDoNotHideTheEndsOfAnAddress() {
         assertTrue(looksLikeAddressName("9WzD Abcd Efgh Ijkl Mnop Qrst Uvwx Hk3z"))
         assertTrue(looksLikeAddressName("9WzD abcd 3efg hijk mnop Xy9Z"))
+        assertTrue(looksLikeAddressName("International Savings Account 9WzD XwBb mkg8 ZTbN MqUx"))
+        assertTrue(looksLikeAddressName("My wallet 9WzD XwBb mkg8 ZTbN MqUx Hk3z"))
         assertTrue(looksLikeAddressName("9WzD \u0430bcd 3efg hijk mnop Xy9Z"))
         assertTrue(looksLikeAddressName("9WzD\u2026Hk3z"))
         assertTrue(looksLikeAddressName("9WzD...Hk3z"))

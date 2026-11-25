@@ -62,6 +62,9 @@ private val NOT_ALPHANUMERIC = Regex("""[^\p{L}\p{N}]+""")
 /** The longest piece an ordinary word or a Lensly group of 4 reaches: a longer all-lowercase or all-uppercase piece is read as an address. */
 private const val MAX_WORD = 12
 
+/** A piece this short or shorter can be one group of an address, whatever its look. */
+private const val MAX_GROUP = 5
+
 /** A piece or a joined name this long, with the right look, is an address. */
 private const val ADDRESS_LENGTH = 20
 
@@ -98,6 +101,23 @@ private fun isAddressLike(piece: String): Boolean {
 }
 
 /**
+ * Whether [pieces] hold a stretch of 20 or more characters that reads as an address: in every run of consecutive pieces that are address-like
+ * or at most [MAX_GROUP] characters long, the span from the first to the last address-like piece. Words of 6 or more characters end a run, so
+ * "Samsung Galaxy S24 Ultra 256GB" is a name, and words before an address do not hide it.
+ */
+private fun hasAddressSpan(pieces: List<String>): Boolean {
+    var i = 0
+    while (i < pieces.size) {
+        val end = (i until pieces.size).firstOrNull { pieces[it].length > MAX_GROUP && !isAddressLike(pieces[it]) } ?: pieces.size
+        val run = pieces.subList(i, end)
+        val from = run.indexOfFirst(::isAddressLike)
+        if (from >= 0 && run.subList(from, run.indexOfLast(::isAddressLike) + 1).sumOf { it.length } >= ADDRESS_LENGTH) return true
+        i = end + 1
+    }
+    return false
+}
+
+/**
  * Whether [name] reads as an address, so that shown in bold above the real one it could be taken for it. People compare the start and the
  * end of an address, so the name is judged by its ends. It is read after folding (NFKC, format characters and combining marks removed,
  * Cyrillic and Greek look-alikes mapped to Latin) and cut into pieces at every character that is not a letter or a digit, so any split by
@@ -105,7 +125,8 @@ private fun isAddressLike(piece: String): Boolean {
  * - it starts with "0x" and 4 hex digits (also spaced, or after other words) or with a "bc1" or "tb1" address start, once joined;
  * - its first and last pieces both look like address parts and it holds 20 or more letters and digits;
  * - an ellipsis has an address-like piece on each side ("9WzD…Hk3z");
- * - one piece of 20 or more characters looks like an address part.
+ * - one piece of 20 or more characters looks like an address part;
+ * - [hasAddressSpan] finds a stretch of 20 or more characters of address-like pieces and short pieces, however many words come before it.
  * So "Samsung Galaxy S24 Ultra 256GB" or "Room 10 x 2020" is a name.
  */
 fun looksLikeAddressName(name: String): Boolean {
@@ -118,7 +139,7 @@ fun looksLikeAddressName(name: String): Boolean {
         text.split("...").map(::piecesOf).zipWithNext().any { (before, after) ->
             before.isNotEmpty() && after.isNotEmpty() && isAddressLike(before.last()) && isAddressLike(after.first())
         } ||
-        pieces.any { it.length >= ADDRESS_LENGTH && isAddressLike(it) }
+        pieces.any { it.length >= ADDRESS_LENGTH && isAddressLike(it) } || hasAddressSpan(pieces)
 }
 
 /**
