@@ -488,7 +488,7 @@ class VaultSession constructor(
         val key = requireOpen()
         writes++
         requireWalletId(walletId)
-        requireRecordName(name)
+        requireReviewName(name)
         val walletKey = unwrapWalletKey(key, walletId)
             ?: throw IllegalArgumentException("No wallet with id $walletId.")
         try {
@@ -502,7 +502,7 @@ class VaultSession constructor(
     fun getReview(walletId: String, name: String): ByteArray? = synchronized(this) {
         val key = requireOpen()
         requireWalletId(walletId)
-        requireRecordName(name)
+        requireReviewName(name)
         val pool = ReviewPool(layout.reviewPool, key)
         // A record with no slot is absent. Checking that first means a deleted wallet's key file is never needed to say so.
         if (pool.fileOf(walletId, name) == null) return@synchronized null
@@ -728,6 +728,8 @@ class VaultSession constructor(
     }
 
     private companion object {
+        val REVIEW_NAME = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+
         fun requireWalletId(id: String) {
             require(WALLET_ID.matches(id)) { "Malformed wallet id." }
         }
@@ -735,6 +737,11 @@ class VaultSession constructor(
         /** A wallet record must be one that a wallet folder holds, so no other name can add a file to the folder. */
         fun requireWalletRecord(name: String) {
             require(WalletFolder.holds(name)) { "Invalid record name." }
+        }
+
+        /** A Review Record name. */
+        fun requireReviewName(name: String) {
+            require(REVIEW_NAME.matches(name)) { "Invalid record name." }
         }
 
         /** A vault record name must be one of [VaultRecordNames.KNOWN], or a wipe and a Decoy Vault removal would mishandle its file. */
