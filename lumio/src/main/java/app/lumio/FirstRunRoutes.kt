@@ -16,6 +16,7 @@ import app.lensly.ui.flow.BiometricEnableAppPorts
 import app.lensly.ui.navigation.GateOutcome
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.HiddenBackdrop
+import app.lensly.ui.navigation.MirrorNavMotion
 import app.lensly.ui.navigation.createVault
 import app.lensly.ui.navigation.leaveHidden
 import app.lensly.ui.navigation.openHidden
@@ -160,9 +161,10 @@ private fun NavGraphBuilder.firstRunScreen(step: FirstRunStep, content: @Composa
 
 /** The Clear Air look over the hidden backdrop. The first-run screens are Lumio's alone, so they take the Lumio theme here, not from the shared gate. */
 @Composable
-private fun FirstRunBackdrop(content: @Composable () -> Unit) {
+internal fun FirstRunBackdrop(content: @Composable () -> Unit) {
     LumenTheme {
         ClearAirTheme {
+            MirrorNavMotion()
             HiddenBackdrop(content = content)
         }
     }

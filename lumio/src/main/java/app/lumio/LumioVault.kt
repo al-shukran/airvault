@@ -19,6 +19,7 @@ import app.lumio.data.scan.ScanRows
 import app.lumio.data.tx.TxKeys
 import app.lumio.data.tx.TxStore
 import app.lumio.pair.FirstSyncImports
+import app.lumio.pair.PairedWallets
 import app.lumio.portfolio.PortfolioBoard
 import app.lumio.wallets.WalletsBoard
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -120,6 +121,7 @@ class LumioVault(val session: VaultSession, database: LumioDatabase, clock: Cloc
         wallets = null
         portfolio?.close()
         portfolio = null
+        PairedWallets.forget(session)
     }
 
     /** The facts the Settings list shows, read when the vault opens and again when the list is shown. */

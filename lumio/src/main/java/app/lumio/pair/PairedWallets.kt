@@ -108,6 +108,13 @@ object PairedWallets {
 
     private val kept = java.util.WeakHashMap<VaultSession, Kept>()
 
+    /** Drops the wallets kept for [session], so no read of them outlives a lock. [LumioVault.wipe] calls it. */
+    fun forget(session: VaultSession) {
+        synchronized(kept) { kept.remove(session) }
+    }
+
+    internal fun isKept(session: VaultSession): Boolean = synchronized(kept) { kept.containsKey(session) }
+
     /**
      * The paired wallet in folder [id], or null when the folder is not paired. It reads that folder only, where [list] reads every folder. Its
      * [PairedWallet.addressBook] is empty: [list] is the read that holds the Address Book.
