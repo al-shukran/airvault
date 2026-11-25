@@ -69,8 +69,11 @@ private val HUMPS = Regex("""\p{Ll}?(?:\p{Lu}\p{Ll})?(?:\p{Lu}\p{Ll}{2,})+""")
 /** What may stand between two address-like pieces of a name: one space, one dash or one slash. Anything else reads as an elision or a split address. */
 private val PLAIN_GAPS = setOf(" ", "-", "/")
 
-/** The longest piece an ordinary word or a Lensly group of 4 reaches: a longer all-lowercase or all-uppercase piece is read as an address. */
+/** The longest piece an upper-case or hump-case ("MetaMaskWallet") piece reaches before it is read as an address. */
 private const val MAX_WORD = 12
+
+/** The longest lowercase or Capitalised letters-only piece that is still a word ("Internationalization" has 20, "Counterrevolutionaries" 22); a longer one is read as an address. */
+private const val MAX_LONG_WORD = 24
 
 /** A piece this short or shorter can be one group of an address, whatever its look. */
 private const val MAX_GROUP = 5
@@ -100,8 +103,9 @@ private fun piecesOf(text: String): List<String> = text.split(NOT_ALPHANUMERIC).
 /**
  * Whether [piece] looks like a part of an address and not like a word: it holds a digit, its letters are in an irregular case ("XwBb",
  * "PKTanMKd"; a word is lowercase, Capitalised, UPPERCASE or made of humps of 3 or more letters such as "MetaMask", "iPhone" or
- * "McDonald"), or it is longer than [MAX_WORD] letters, whatever its case (an Algorand address has no digit). Letters without case, such
- * as Chinese or Arabic, are neutral.
+ * "McDonald"), or it is longer than a word of its case: a lowercase or Capitalised piece ("International", "Opportunities") is a word up to
+ * [MAX_LONG_WORD] letters, an upper-case or hump-case piece only up to [MAX_WORD] (an Algorand address is upper-case letters and has no
+ * digit about once in 100,000). Letters without case, such as Chinese or Arabic, are neutral.
  */
 private fun isAddressLike(piece: String): Boolean {
     if (piece.any(Char::isDigit)) return true
@@ -110,7 +114,8 @@ private fun isAddressLike(piece: String): Boolean {
     val lower = letters.all(Char::isLowerCase)
     val upper = letters.all(Char::isUpperCase)
     val capitalised = letters.first().isUpperCase() && letters.drop(1).all(Char::isLowerCase)
-    return !(lower || upper || capitalised || HUMPS.matches(letters)) || piece.length > MAX_WORD
+    val longest = if (lower || capitalised) MAX_LONG_WORD else MAX_WORD
+    return !(lower || upper || capitalised || HUMPS.matches(letters)) || piece.length > longest
 }
 
 /** Whether [piece] can be an end of an address for the first-and-last rule: address-like, and not a number or ordinal such as "2024", "401k" or "1st". */

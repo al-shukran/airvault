@@ -209,6 +209,35 @@ class PlainNameTest {
     }
 
     @Test
+    fun namesOfLongOrdinaryWordsStayNames() {
+        assertFalse(looksLikeAddressName("International Opportunities"))
+        assertFalse(looksLikeAddressName("Extraordinary Circumstances"))
+        assertFalse(looksLikeAddressName("Communications International"))
+        assertFalse(looksLikeAddressName("Internationalization"))
+        assertFalse(looksLikeAddressName("Counterrevolutionaries"))
+        assertFalse(looksLikeAddressName("Pharmaceutical Distribution"))
+        assertFalse(looksLikeAddressName("Telecommunications"))
+        assertFalse(looksLikeAddressName("International Business Machines"))
+    }
+
+    @Test
+    fun letterOnlyPaddingStillReadsAsAnAddress() {
+        // Irregular case is address-like at any length, whatever the digits.
+        assertTrue(looksLikeAddressName("HkzqXwBbmkgZTbNMqUxvm"))
+        assertTrue(looksLikeAddressName("HkzqXwBbmkgZTbNMqUxvm Hkzqwbmkgztbnm"))
+        // A lowercase or Capitalised run past the longest word is an address, so is an upper-case or hump-case one past 12 that fills 20.
+        assertTrue(looksLikeAddressName("Hkzqwbmkgztbnmqxvmabcdefg"))
+        assertTrue(looksLikeAddressName("hkzqwbmkgztbnmqxvmabcdefg"))
+        assertTrue(looksLikeAddressName("HKZQWBMKGZTBNMQXVMAB"))
+        assertTrue(looksLikeAddressName("INTERNATIONAL OPPORTUNITIES"))
+        assertTrue(looksLikeAddressName("HkzAbcDefGhiJkmNopQrsTuv"))
+        assertTrue(looksLikeAddressName("HkzAbcDefGhiJkm\u2026NopQrsTuvWxyzAb"))
+        // A long word before address groups does not hide them.
+        assertTrue(looksLikeAddressName("Internationalization 9WzD XwBb mkg8 ZTbN MqUx"))
+        assertTrue(looksLikeAddressName("HkzqXwBbmkgZTbNMqUxvQRAyWQpHk3zq"))
+    }
+
+    @Test
     fun anAddressLikeNameShowsAsTheGroupedAddress() {
         val entry = AddressBookEntry(id = "1", address = "0x1234567890abcdef1234567890abcdef12345678", name = "0x71C7 656E \u2026 976F", label = null)
         assertNull(plainNameOrNull(entry.name))
