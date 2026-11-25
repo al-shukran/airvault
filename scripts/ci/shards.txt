@@ -133,6 +133,7 @@ shard-2 :app app.lensly.ui.home.HistoryDetailSheetTest
 shard-2 :app app.lensly.ui.home.HistoryOriginTest
 shard-2 :app app.lensly.ui.home.HomeBackupTest
 shard-2 :app app.lensly.ui.home.WalletHistoryScreenTest
+shard-2 :app app.lensly.ui.settings.AddressBookScreenTest
 shard-2 :app app.lensly.ui.sign.ReviewScreenTest
 shard-2 :app app.lensly.ui.sign.SendTitleTest
 shard-2 :app app.lensly.ui.wallet.Bip39AutocompleteTest
