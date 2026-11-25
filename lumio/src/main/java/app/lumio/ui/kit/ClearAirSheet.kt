@@ -37,7 +37,7 @@ private val SHEET_CORNER = 28.dp
 
 /** The light theme lifts a sheet with a faint ink shadow, and the dark theme has none. */
 private val SHEET_SHADOW = 10.dp
-private val SHADOW_INK = Color(0xFF2B2530).copy(alpha = 0.10f)
+internal val SHADOW_INK = Color(0xFF2B2530).copy(alpha = 0.10f)
 private val sheetShape = RoundedCornerShape(topStart = SHEET_CORNER, topEnd = SHEET_CORNER)
 
 /**
