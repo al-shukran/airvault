@@ -2,9 +2,10 @@
 # A pure JVM module runs whole, so its line names the class `*`. Lanes: shard-1..shard-10 run the unit tests (--offline);
 # verify-app and verify-lumio run the Roborazzi pixel tests of one module each, with verifyRoborazziDebug; fuzz replays the Jazzer
 # seeds with -PfuzzLane.
-# A test class with no line is not an error: it runs in its default lane (shard-6, verify-app or verify-lumio by name, or
-# fuzz), so a new test needs no line here. scripts/ci/check-partitions.sh fails when a class is listed twice or no longer exists. The balance comes
-# from measured durations (JUnit XML of the shard runs), see scripts/ci/README.md.
+# A unit with no line goes to shard-6, the catch-all lane, unless it is a screenshot test of :app or :lumio (verify-app or
+# verify-lumio by name) or a fuzz target (fuzz). scripts/ci/check-partitions.sh fails when a class is listed twice, no longer
+# exists, or would fall into shard-6 unlisted. The balance comes from measured durations (JUnit XML of the shard runs), see
+# scripts/ci/README.md.
 fuzz :shared app.lensly.fuzz.AlgorandRequestFuzzTest
 fuzz :shared app.lensly.fuzz.CborFuzzTest
 fuzz :shared app.lensly.fuzz.EthSignRequestFuzzTest
@@ -384,6 +385,7 @@ shard-6 :lumio app.lumio.data.provider.AddressTxHistoryTest
 shard-6 :lumio app.lumio.portfolio.LastTransactionTest
 shard-6 :lumio app.lumio.send.PaymentCodeTest
 shard-6 :lumio app.lumio.tokens.TokenBalancesTest
+shard-6 :lumio app.lumio.FirstSyncLeftEarlyShowsBalancesTest
 shard-6 :lumio app.lumio.ui.home.WatchlistSortSheetTest
 shard-6 :shared app.lensly.core.algorand.AlgoSignedTxnTest
 shard-6 :shared app.lensly.core.solana.SolanaRequestCheckTest
