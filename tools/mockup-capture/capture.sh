@@ -4,7 +4,7 @@
 #
 #   tools/mockup-capture/capture.sh <serial> <outdir> [id ...]
 #   SKIP_INSTALL=1   use the APK that is already on the emulator
-#   SETTLE=6         seconds to wait after a frame opens (default 6)
+#   SETTLE=6         seconds to wait after a frame opens (default 3)
 #
 # Emulators only. See README.md.
 set -euo pipefail
@@ -13,7 +13,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG=app.lumio
 APK="$ROOT/lumio/build/outputs/apk/debug/lumio-debug.apk"
-SETTLE="${SETTLE:-6}"
+SETTLE="${SETTLE:-3}"
 
 serial="${1:?usage: capture.sh <serial> <outdir> [id ...]}"
 out="${2:?usage: capture.sh <serial> <outdir> [id ...]}"
@@ -22,7 +22,7 @@ case "$serial" in
     emulator-*) ;;
     *) echo "capture: $serial is not an emulator" >&2; exit 1 ;;
 esac
-adb_() { adb -s "$serial" "$@"; }
+adb_() { adb -s "$serial" "$@" </dev/null; }
 mkdir -p "$out"
 
 if [ "${SKIP_INSTALL:-0}" != 1 ]; then
@@ -75,8 +75,19 @@ while IFS=$'\t' read -r id themes _title; do
         if [ -n "$size" ]; then adb_ shell wm size "$size"; else adb_ shell wm size reset; fi
         adb_ shell am force-stop "$PKG"
         if [ "$(fresh_of "$id")" = 1 ]; then adb_ shell pm clear "$PKG" >/dev/null; adb_ shell pm grant "$PKG" android.permission.CAMERA >/dev/null 2>&1 || true; fi
-        adb_ logcat -c
-        adb_ shell am start -W -n "$PKG/.MainActivity" --ez debugDemoData true --es debugScreen "$id" --es debugProfile "$(profile_of "$id")" >/dev/null
+        # The launch logs "opened <id>" when the frame is on screen, or why the seed did not run (an old process still dying). Then one retry.
+        for attempt in 1 2 3; do
+            adb_ logcat -c
+            adb_ shell am start -W -n "$PKG/.MainActivity" --ez debugDemoData true --es debugScreen "$id" --es debugProfile "$(profile_of "$id")" >/dev/null
+            for _ in $(seq 1 60); do
+                log="$(adb_ logcat -d -s DebugDemoData:I DebugDemoSeed:E || true)"
+                case "$log" in *"opened $id"*|*"not seeded"*|*"could not be seeded"*) break ;; esac
+                sleep 1
+            done
+            case "$log" in *"opened $id"*) break ;; esac
+            adb_ shell am force-stop "$PKG"
+            sleep 2
+        done
         sleep "$SETTLE"
         file="$out/$id-$theme.png"
         if adb_ exec-out screencap -p > "$file" && [ -s "$file" ]; then

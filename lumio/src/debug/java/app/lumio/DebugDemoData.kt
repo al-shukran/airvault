@@ -1,6 +1,7 @@
 package app.lumio
 
 import android.content.Intent
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,6 +42,7 @@ import kotlinx.coroutines.withContext
  * contain the extras' names or the fixtures.
  */
 internal object DebugDemoData {
+    private const val TAG = "DebugDemoData"
     private const val EXTRA_DATA = "debugDemoData"
     private const val EXTRA_SCREEN = "debugScreen"
     private const val EXTRA_PROFILE = "debugProfile"
@@ -120,6 +122,7 @@ internal object DebugDemoData {
             selection.mode = target.mode
             val context = withContext(Dispatchers.IO) { contextOf(app, holder, target.mode) } ?: return@LaunchedEffect
             controller.navigate(target.route(context)) { launchSingleTop = true }
+            Log.i(TAG, "opened ${target.id}")
         }
     }
 
