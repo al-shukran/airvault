@@ -11,7 +11,7 @@ Pull request media is produced only with these three scripts, in this order. Do 
 
    Take Before on a build of the commit before your change, and After on your branch, with the same app state, the same text, and the same font scale. A clip is a loop of screencaps, because `screenrecord` stops early on the emulator, so move the screen while it runs.
 2. **Compose** the pair into the one Before/After design: `compose.sh --before before.png --after after.png --before-note "..." --after-note "..." --out out-1.0`.
-3. **Post** it: `post.sh --pr 1030 --dir out-1.0 --title "Font Scale 1.0"`. This is the only way media reaches a pull request. It uploads the files with `gh pr comment --attach` and writes the fixed block: a `###` title, the comparison as `<img width="760">`, and the MP4 for clips. Run it once per comparison, then link the comments from the PR description.
+3. **Post** it: `post.sh --pr 1030 --dir out-1.0 --title "Font Scale 1.0"`. This is the only way media reaches a pull request. It uploads the files with `gh pr comment --attach` and writes the fixed block: a `###` title, the image (a Before/After pair as full-width `![](url)` with no width, a single device as `<img width="380">`), and the MP4 for clips. Run it once per comparison, then link the comments from the PR description.
 
 `compose.sh` and `capture.sh` share one screen check (`lib.sh`), so stills and clips look the same.
 

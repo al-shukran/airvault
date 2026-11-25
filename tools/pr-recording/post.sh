@@ -4,8 +4,9 @@
 #   post.sh --pr 1030 --dir out-1.3 --title "Font Scale 1.3"
 #
 # The comment is "### TITLE", then the comparison (or single) GIF if the directory has one and otherwise the
-# PNG, as <img width="760">, then the MP4 on its own line when there is one. The files are uploaded with
-# gh pr comment --attach (gh 2.99 or later). Run it once per comparison. See README.md.
+# PNG, then the MP4 on its own line when there is one. A Before/After pair is a full-width Markdown image; a
+# single device is <img width="380">. The files are uploaded with gh pr comment --attach (gh 2.99 or later).
+# Run it once per comparison. See README.md.
 set -euo pipefail
 
 usage() { echo 'usage: post.sh --pr NUMBER --dir COMPOSE_OUT_DIR --title "Font Scale 1.3"' >&2; exit 2; }
@@ -52,7 +53,11 @@ id=${comment_url##*issuecomment-}
 urls=($(gh api "repos/$repo/issues/comments/$id" --jq .body | grep -o 'https://github.com/user-attachments/assets/[0-9a-f-]*'))
 [ "${#urls[@]}" -eq "${#files[@]}" ] || { echo "expected ${#files[@]} uploaded files, found ${#urls[@]}; see $comment_url" >&2; exit 1; }
 {
-  printf '### %s\n\n<img width="760" src="%s">\n' "$title" "${urls[0]}"
+  if [ "$name" = single ]; then
+    printf '### %s\n\n<img width="380" src="%s">\n' "$title" "${urls[0]}"
+  else
+    printf '### %s\n\n![%s](%s)\n' "$title" "$title" "${urls[0]}"
+  fi
   [ "${#urls[@]}" -lt 2 ] || printf '\n%s\n' "${urls[1]}"
 } >body.md
 gh api -X PATCH "repos/$repo/issues/comments/$id" -F body=@body.md --silent
