@@ -100,7 +100,7 @@ fun FirstRunPasswordScreen(
             error = policyMessage(problem),
             trailing = { ClearAirEyeToggle(shown = shown, onToggle = onToggleShown) },
         )
-        Spacer(Modifier.height(7.5.dp))
+        Spacer(Modifier.height(8.4.dp))
         StrengthLine(segments = strengthSegments(password))
         Spacer(Modifier.height(9.8.dp))
         ClearAirField(
@@ -113,7 +113,7 @@ fun FirstRunPasswordScreen(
             error = if (problem == NewPasswordProblem.Mismatch) "The passwords don't match" else null,
             trailing = { ClearAirEyeToggle(shown = shown, onToggle = onToggleShown) },
         )
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(18.7.dp))
         NoteCard(
             glyph = ClearAirGlyph.INFO,
             text = "Lumio can't recover this password. If you forget it, reset Lumio and pair again. Your keys stay safe on Lensly.",
@@ -146,7 +146,7 @@ private fun StrengthLine(segments: Int) {
                 )
             }
         }
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(6.7.dp))
         Row(modifier = Modifier.fillMaxWidth().padding(start = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(text = "Use at least $MIN_PASSWORD_LENGTH characters", style = hint, color = palette.ink2)
             if (segments == STRENGTH_STEPS) Text(text = "Strong", style = hint, color = palette.ink)
