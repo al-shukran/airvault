@@ -177,7 +177,6 @@ class WalletAccountsTest {
         confirmedSats = confirmed,
         unconfirmedSats = 0L,
         nextReceiveIndex = 1,
-        nextReceiveAddress = "tb1qexample",
         utxos = emptyList(),
         transactions = emptyList(),
     )

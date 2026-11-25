@@ -83,7 +83,6 @@ class HomeBalancesTest {
         confirmedSats = confirmed,
         unconfirmedSats = pending,
         nextReceiveIndex = 0,
-        nextReceiveAddress = "",
         utxos = emptyList(),
         transactions = emptyList(),
     )
