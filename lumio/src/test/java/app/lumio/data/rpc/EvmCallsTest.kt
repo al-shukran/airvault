@@ -156,10 +156,10 @@ class EvmCallsTest {
     }
 
     @Test
-    fun aBroadcastAnswerThatIsNotAHashIsFatal() {
+    fun aBroadcastAnswerThatIsNotAHashIsUnreadable() {
         answers["eth_sendRawTransaction"] = "\"0x1234\""
 
-        assertTrue(assertThrows(ProviderError::class.java) { run(Broadcast(ETH, byteArrayOf(0x02))) } is ProviderError.Fatal)
+        assertTrue(assertThrows(ProviderError::class.java) { run(Broadcast(ETH, byteArrayOf(0x02))) } is ProviderError.Unreadable)
     }
 
     @Test

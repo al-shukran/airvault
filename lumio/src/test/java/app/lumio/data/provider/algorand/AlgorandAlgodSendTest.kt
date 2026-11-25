@@ -114,17 +114,17 @@ class AlgorandAlgodSendTest {
     }
 
     @Test
-    fun aTransactionIdThatIsNotBase32IsMalformed() {
+    fun aTransactionIdThatIsNotBase32IsUnreadable() {
         server.enqueue(MockResponse.Builder().body("""{"txId":"not-a-transaction-id"}""").build())
 
-        assertFailsWith<ProviderError.Fatal> { call(Broadcast(ALGORAND_TESTNET, raw)) }
+        assertFailsWith<ProviderError.Unreadable> { call(Broadcast(ALGORAND_TESTNET, raw)) }
     }
 
     @Test
     fun aBroadcastThatTheNodeRefusesIsFatal() {
         server.enqueue(MockResponse.Builder().code(400).body("""{"message":"overspend"}""").build())
 
-        assertFailsWith<ProviderError.Fatal> { call(Broadcast(ALGORAND_TESTNET, raw)) }
+        assertTrue(assertFailsWith<ProviderError.Fatal> { call(Broadcast(ALGORAND_TESTNET, raw)) } !is ProviderError.Unreadable)
     }
 
     @Test

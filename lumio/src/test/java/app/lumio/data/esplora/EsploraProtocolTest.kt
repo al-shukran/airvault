@@ -8,6 +8,7 @@ import app.lumio.data.net.Networks
 import app.lumio.data.provider.AddressStats
 import app.lumio.data.provider.AddressTxs
 import app.lumio.data.provider.Block
+import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.FeeEstimates
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
@@ -154,6 +155,13 @@ class EsploraProtocolTest {
         reply(200, "<html>not json</html>")
 
         assertFailsWith<ProviderError.Fatal> { EsploraProtocol.execute(AddressStats(testnet4, address), base(), http) }
+    }
+
+    @Test
+    fun aBroadcastAnswerThatIsNotATransactionIdIsUnreadable(): Unit = runBlocking {
+        reply(200, "<html>not a txid</html>")
+
+        assertFailsWith<ProviderError.Unreadable> { EsploraProtocol.execute(Broadcast(testnet4, byteArrayOf(1)), base(), http) }
     }
 
     @Test

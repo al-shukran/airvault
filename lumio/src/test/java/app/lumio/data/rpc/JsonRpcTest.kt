@@ -114,21 +114,21 @@ class JsonRpcTest {
     }
 
     @Test
-    fun anAnswerThatIsNotJsonIsFatal() {
-        assertTrue(refusal(MockResponse.Builder().body("<html>").build()) is ProviderError.Fatal)
+    fun anAnswerThatIsNotJsonIsUnreadable() {
+        assertTrue(refusal(MockResponse.Builder().body("<html>").build()) is ProviderError.Unreadable)
     }
 
     @Test
-    fun aMissingOrNullResultIsFatal() {
-        assertTrue(refusal(MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1}""").build()) is ProviderError.Fatal)
-        assertTrue(refusal(MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":null}""").build()) is ProviderError.Fatal)
+    fun aMissingOrNullResultIsUnreadable() {
+        assertTrue(refusal(MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1}""").build()) is ProviderError.Unreadable)
+        assertTrue(refusal(MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":null}""").build()) is ProviderError.Unreadable)
     }
 
     @Test
-    fun anAnswerLargerThanTheLimitIsFatal() {
+    fun anAnswerLargerThanTheLimitIsUnreadable() {
         val large = "{\"result\":\"" + "a".repeat(65_600) + "\"}"
 
-        assertTrue(refusal(MockResponse.Builder().body(large).build()) is ProviderError.Fatal)
+        assertTrue(refusal(MockResponse.Builder().body(large).build()) is ProviderError.Unreadable)
     }
 
     @Test

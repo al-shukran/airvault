@@ -14,7 +14,13 @@ import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.TipHeight
 import app.lumio.data.provider.Trait
+import java.io.IOException
 import java.io.InterruptedIOException
+import java.net.ConnectException
+import java.net.SocketException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import javax.net.ssl.SSLHandshakeException
 import kotlin.random.Random
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
@@ -24,6 +30,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -226,6 +233,52 @@ class SchedulerTest {
 
         assertEquals(1, a.calls)
         assertEquals(0, b.calls)
+    }
+
+    /** Sends a broadcast whose first provider fails with [cause], and says whether the second provider was asked. */
+    private suspend fun TestScope.failsOver(cause: IOException): Boolean {
+        val a = provider("a").apply { outcomes.add(ProviderError.Transient(cause)) }
+        val b = provider("b")
+        failureOf { scheduler(a, b, configs = PREFER_A).run(Broadcast(ETH, byteArrayOf(1))) }
+        assertEquals(1, a.calls)
+        return b.calls == 1
+    }
+
+    @Test
+    fun aBroadcastThatNeverLeftMovesToTheNextCandidate() = runTest {
+        assertTrue(failsOver(UnknownHostException("rpc.example")))
+        assertTrue(failsOver(ConnectException("Connection refused")))
+        assertTrue(failsOver(SSLHandshakeException("Handshake failed")))
+    }
+
+    @Test
+    fun aBroadcastThatMayHaveLeftIsNotSentAgain() = runTest {
+        assertFalse(failsOver(SocketTimeoutException("timeout")))
+        assertFalse(failsOver(SocketException("Connection reset")))
+        assertFalse(failsOver(IOException("unexpected end of stream")))
+    }
+
+    @Test
+    fun aBroadcastWhoseSuccessAnswerCannotBeReadIsNotSentAgain() = runTest {
+        val a = provider("a").apply { outcomes.add(ProviderError.Unreadable("The endpoint sent no result.")) }
+        val b = provider("b")
+        val s = scheduler(a, b, configs = PREFER_A)
+
+        assertTrue(failureOf { s.run(Broadcast(ETH, byteArrayOf(1))) } is ProviderError.Unreadable)
+
+        assertEquals(1, a.calls)
+        assertEquals(0, b.calls)
+    }
+
+    @Test
+    fun aReadWhoseAnswerCannotBeReadMovesToTheNextCandidate() = runTest {
+        val a = provider("a").apply { outcomes.add(ProviderError.Unreadable("The endpoint sent no result.")) }
+        val b = provider("b")
+        val s = scheduler(a, b, configs = PREFER_A)
+
+        assertEquals(100L, s.run(TipHeight(ETH)))
+
+        assertEquals(1, b.calls)
     }
 
     @Test

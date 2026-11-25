@@ -127,11 +127,14 @@ internal fun SignedSendSteps(
         is SubmitState.Failed -> {
             LaunchedEffect(Unit) { haptics.failure() }
             SendOutcomePage(
-                heading = "Nothing Left Your Account",
+                heading = if (now.unknown) "We Couldn't Confirm It Was Sent" else "Nothing Left Your Account",
                 body = now.message,
                 notes = listOf(
                     "What Happened" to now.message,
-                    "What You Can Do" to if (now.retryable) {
+                    "What You Can Do" to if (now.unknown) {
+                        "The network may have taken the transaction. Check the account's activity before you try again. " +
+                            "Try again sends the same signed transaction, and the network may answer that it already has it."
+                    } else if (now.retryable) {
                         "Try again sends the same signed transaction. Nothing was sent."
                     } else {
                         "This signed transaction can no longer be sent. Start the send again, and Lensly signs it afresh."
