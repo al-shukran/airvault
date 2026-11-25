@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,7 +25,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
@@ -52,7 +50,7 @@ import app.lumio.ui.kit.ClearAirIconButton
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSheet
 import app.lumio.ui.kit.ClearAirTextAction
-import app.lumio.ui.home.AssetIcon
+import app.lumio.ui.home.ChainDots
 import app.lumio.ui.home.AssetIconSpec
 
 /**
@@ -254,23 +252,6 @@ private fun HeldRow(coin: CoinHeld, icon: @Composable () -> Unit, onClick: () ->
         )
     }
 }
-
-/** The logo of each chain a coin sits on, small and overlapping, in the order the holdings list gives them. */
-@Composable
-private fun ChainDots(icons: List<AssetIconSpec>) {
-    val palette = LocalClearAirPalette.current
-    Row(horizontalArrangement = Arrangement.spacedBy(-CHAIN_DOT_OVERLAP)) {
-        icons.forEach { icon ->
-            Box(modifier = Modifier.size(CHAIN_DOT).clip(CircleShape).background(palette.background), contentAlignment = Alignment.Center) {
-                AssetIcon(spec = icon, size = CHAIN_DOT)
-            }
-        }
-    }
-}
-
-/** A chain's logo in the holdings row, and how far each one overlaps the one before it. */
-private val CHAIN_DOT = 15.dp
-private val CHAIN_DOT_OVERLAP = 4.dp
 
 /** The chart time frames as mono text. The chosen one is bold with the spark's diamond under it, and tapping one chooses it. */
 @Composable

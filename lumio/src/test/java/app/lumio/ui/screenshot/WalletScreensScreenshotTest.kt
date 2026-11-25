@@ -31,6 +31,7 @@ import app.lumio.tokens.Token
 import app.lumio.tokens.TokenHolding
 import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.home.AssetIconSpec
+import app.lumio.ui.kit.WalletEmblemTone
 import app.lumio.ui.wallets.AccountScreen
 import app.lumio.ui.wallets.AssetRowModel
 import app.lumio.ui.wallets.AssetRows
@@ -148,7 +149,7 @@ class WalletScreensScreenshotTest {
     /** The wallets of the Accounts tab: the testnet side's two wallets, with their totals. */
     private val walletRows = listOf(
         WalletRow("wallet-demo", "Demo", summary = "4 accounts · 4 apps", usd = 1234.56),
-        WalletRow("wallet-second", "Savings", summary = "2 accounts · 1 app", usd = 980.0),
+        WalletRow("wallet-second", "Savings", summary = "2 accounts · 1 app", usd = 980.0, tone = WalletEmblemTone.STONE),
     )
 
     /** The dollar values the wallet goldens show: the Monad coin at $2.50, and no price for the other chains. */
