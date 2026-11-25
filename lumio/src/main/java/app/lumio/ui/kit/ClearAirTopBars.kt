@@ -47,7 +47,7 @@ private val topBarTitle
     get() = ClearAirType.titleL.copy(fontSize = 18.sp, lineHeight = 23.sp, letterSpacing = (-0.015).em)
 
 /**
- * The root top bar of a tab: the wallet emblem, the tab's [title], the search and the lock. The emblem opens the profile panel, search opens the
+ * The root top bar of a tab: the wallet emblem, the tab's [title], the search and the lock. The emblem, in the [emblem] tone of the active wallet, opens the profile panel, search opens the
  * search sheet, and the lock locks Lumio at once. Only Home's title is the wallet switcher, so only it ([switcher]) has the ▾ and opens the panel.
  */
 @Composable
@@ -58,6 +58,7 @@ fun ClearAirRootTopBar(
     onLock: () -> Unit,
     modifier: Modifier = Modifier,
     switcher: Boolean = false,
+    emblem: WalletEmblemTone = WalletEmblemTone.BLUE,
 ) {
     val palette = LocalClearAirPalette.current
     Row(
@@ -68,7 +69,7 @@ fun ClearAirRootTopBar(
             modifier = Modifier.size(ICON_BOX).pressable(onClick = onPanel, label = "Open the profile panel"),
             contentAlignment = Alignment.Center,
         ) {
-            ClearAirWalletEmblem(tile = 36.dp)
+            ClearAirWalletEmblem(tile = 36.dp, tone = emblem)
         }
         Row(
             modifier = Modifier

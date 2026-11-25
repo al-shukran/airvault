@@ -20,6 +20,7 @@ import app.airvault.core.model.AccountId
 import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
+import app.lensly.app.isolated
 import app.lensly.app.plainLabel
 import app.lensly.app.plainName
 import app.lensly.core.solana.SolanaNonce
@@ -558,7 +559,7 @@ internal fun SolanaSendRoute(
             }
             val toName = nameOrAddress(notes, current.plan.recipientAddress)
             SendReviewPage(
-                heading = "Send ${solanaAmountText(current.plan, selected.symbol)} from $fromName to ${nameWithStart(notes, current.plan.recipientAddress)}?",
+                heading = "Send ${solanaAmountText(current.plan, selected.symbol)} from ${isolated(fromName)} to ${nameWithStart(notes, current.plan.recipientAddress)}?",
                 toTitle = toName,
                 toDetail = notes?.let(::notesDetail).orEmpty(),
                 toAddress = current.plan.recipientAddress,

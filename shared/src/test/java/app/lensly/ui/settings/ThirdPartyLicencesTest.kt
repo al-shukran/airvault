@@ -48,7 +48,7 @@ class ThirdPartyLicencesTest {
         val listed = noticeBlocks(File("../licenses/THIRD-PARTY-NOTICES.txt").readText()).joinToString("\n") { it.text }
         val bundled = listOf(
             "OkHttp", "Okio", "Room", "kotlinx-serialization", "Hummingbird", "bitcoin-kmp", "secp256k1-kmp", "web3j",
-            "Bouncy Castle", "zxcvbn4j", "ZXing core", "zxing-cpp", "CameraX", "Jackson", "Dagger", "atomicfu", "Tuweni",
+            "Bouncy Castle", "bcutil", "zxcvbn4j", "ZXing core", "zxing-cpp", "CameraX", "Jackson", "Dagger", "atomicfu", "Tuweni",
             "cbor", "jc-kzg-4844", "jnr-posix", "Reactive Streams", "SLF4J", "web3icons", "Space Mono", "JetBrains Mono", "Archivo",
         )
         for (library in bundled) {

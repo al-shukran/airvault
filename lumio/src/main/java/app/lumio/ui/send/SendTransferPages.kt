@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import app.lensly.app.isolated
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -132,13 +133,13 @@ fun SendDeclinedPage(amount: String, fromName: String, backLabel: String, onBack
     SendOutcomePage(
         heading = "Lensly Didn't Sign, and That's Fine",
         failed = false,
-        body = "Nothing was sent. Your $amount is still in $fromName.",
+        body = "Nothing was sent. Your $amount is still in ${isolated(fromName)}.",
         notes = listOf(
             "What Happened" to "You cancelled before Lensly's reply was scanned, so no signature reached Lumio.",
             "What You Can Do" to "Start a new send whenever you're ready. Lensly shows every detail again before it signs.",
         ),
         detail = null,
-        primary = "Back to $fromName",
+        primary = "Back to ${isolated(fromName)}",
         onPrimary = onBack,
         secondary = null,
         onSecondary = null,

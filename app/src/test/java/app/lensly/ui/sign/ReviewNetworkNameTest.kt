@@ -1,6 +1,7 @@
 package app.lensly.ui.sign
 
 import app.airvault.chains.algorand.AlgorandNetwork
+import app.lensly.app.bitcoinNetworkName
 import app.lensly.core.btc.BtcNetwork
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

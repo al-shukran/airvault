@@ -6,6 +6,7 @@ import app.airvault.chains.bitcoin.signer.toReview
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.NetworkLabel
 import app.airvault.core.model.Review
+import app.lensly.app.bitcoinNetworkName
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 

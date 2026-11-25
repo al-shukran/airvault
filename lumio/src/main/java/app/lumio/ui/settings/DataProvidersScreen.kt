@@ -89,7 +89,7 @@ private fun ProviderGroup(
     if (rows.isEmpty()) return
     SettingsHeading(title = heading, top = top)
     val inUse = rows.indexOfFirst { it.status.working() }
-    ClearAirDraggableRows(rows = rows, key = { it.id }, onReorder = onReorder) { index, row, handle ->
+    ClearAirDraggableRows(rows = rows, key = { it.id }, onReorder = onReorder, rowModifier = { Modifier.testTag("provider-${it.id}") }) { index, row, handle ->
         Column {
             if (index > 0) SettingsDivider()
             ProviderOrderRow(
@@ -99,7 +99,6 @@ private fun ProviderGroup(
                 detail = providerStatusDetail(row.status, inUse = index == inUse),
                 onClick = { onOpen(row.id) },
                 dragHandle = if (rows.size > 1) handle else null,
-                modifier = Modifier.testTag("provider-${row.id}"),
             )
         }
     }

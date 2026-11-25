@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -45,6 +46,9 @@ internal val FinishItem.page: SettingsPage
         FinishItem.PAIR -> SettingsPage.WALLETS
     }
 
+/** The fill of the card's segments: segment `i` is full when the `i`-th item of the checklist is ticked, whichever items those are. */
+internal fun FinishSetup.segments(): List<Float> = FinishItem.entries.map { if (it in done) 1f else 0f }
+
 /**
  * The "Finish Setting Up" checklist, the card at the top of Settings. It shows how many items are ticked, a segment for each item, and the next item
  * still open, and the whole card opens the page where that item is done. [LumioSettingsScreen] shows it only until every item is ticked.
@@ -64,19 +68,24 @@ internal fun FinishSetupCard(setup: FinishSetup, onOpen: (FinishItem) -> Unit, m
                 .padding(horizontal = ClearAirSpacing.md, vertical = 14.dp),
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(21.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom,
             ) {
-                Text(text = "Finish Setting Up", style = ClearAirType.rowTitle, color = palette.ink)
+                Text(
+                    text = "Finish Setting Up",
+                    modifier = Modifier.alignByBaseline(),
+                    style = ClearAirType.rowTitle.copy(fontWeight = FontWeight.Bold, lineHeight = 21.sp),
+                    color = palette.ink,
+                )
                 Text(
                     text = "${setup.done.size} of ${FinishItem.entries.size}",
+                    modifier = Modifier.alignByBaseline(),
                     style = ClearAirType.rowValue.copy(fontSize = 13.sp, lineHeight = 18.sp, letterSpacing = (-0.02).em, fontWeight = FontWeight.Normal),
                     color = palette.ink2,
                 )
             }
             ClearAirSegments(
-                fractions = List(FinishItem.entries.size) { index -> if (index < setup.done.size) 1f else 0f },
+                fractions = setup.segments(),
                 modifier = Modifier.padding(top = ClearAirSpacing.xs, bottom = 10.dp),
                 thickness = 3.dp,
                 gap = 6.dp,
@@ -86,7 +95,7 @@ internal fun FinishSetupCard(setup: FinishSetup, onOpen: (FinishItem) -> Unit, m
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(text = next.title, style = ClearAirType.body.copy(fontSize = 14.sp, lineHeight = 20.sp), color = palette.ink)
+                Text(text = next.title, style = ClearAirType.body.copy(fontSize = 14.sp, lineHeight = 21.sp), color = palette.ink)
                 ClearAirIcon(glyph = ClearAirGlyph.CHEVRON, color = palette.ink2, size = 16.dp)
             }
         }

@@ -55,6 +55,7 @@ import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.ClearAirSegmented
 import app.lumio.ui.kit.ClearAirWalletEmblem
+import app.lumio.ui.kit.WalletEmblemTone
 
 /** The width of the profile panel, from the proposal. */
 private val PANEL_WIDTH = 304.dp
@@ -94,7 +95,7 @@ private val FIXED_TEST_NETWORKS = listOf("Bitcoin Testnet4", "Solana Devnet", "A
 /**
  * A Lensly wallet as the panel lists it: its [id], its [name], and its [detail] line, such as "30 accounts · paired 21 Nov".
  */
-data class PanelWallet(val id: String, val name: String, val detail: String)
+data class PanelWallet(val id: String, val name: String, val detail: String, val tone: WalletEmblemTone = WalletEmblemTone.BLUE)
 
 /**
  * The sentence under the Mainnet · Testnet control, shown on the Testnet side. It names the test network that each chain uses: the EVM test networks that are on, with the default
@@ -198,7 +199,7 @@ fun ProfilePanel(
                     PanelRow(
                         title = wallet.name,
                         description = wallet.detail,
-                        leading = { ClearAirWalletEmblem(tile = 36.dp) },
+                        leading = { ClearAirWalletEmblem(tile = 36.dp, tone = wallet.tone) },
                         trailing = { PanelRadio(selected = chosen) },
                         selected = chosen,
                         divider = index > 0,

@@ -283,6 +283,7 @@ shard-4 :lumio app.lumio.ui.asset.TickChartTest
 shard-4 :lumio app.lumio.ui.gate.GateCopyTest
 shard-4 :lumio app.lumio.ui.kit.ClearAirOrderRowsTest
 shard-4 :lumio app.lumio.ui.kit.ClearAirStopSliderTest
+shard-4 :lumio app.lumio.ui.kit.WalletEmblemToneTest
 shard-4 :lumio app.lumio.ui.portfolio.PortfolioHiddenSmallTest
 shard-4 :lumio app.lumio.ui.receive.ReceiveOptInCapsuleTest
 shard-4 :lumio app.lumio.ui.send.RecipientErrorTest
@@ -338,6 +339,7 @@ shard-5 :lumio app.lumio.evm.PortfolioCacheTest
 shard-5 :lumio app.lumio.evm.PortfolioMergeTest
 shard-5 :lumio app.lumio.network.NetworkModeTest
 shard-5 :lumio app.lumio.pair.PairAddressBookTest
+shard-5 :lumio app.lumio.pair.SharedAddressBookTest
 shard-5 :lumio app.lumio.portfolio.PortfolioViewTest
 shard-5 :lumio app.lumio.send.SendArrivalsTest
 shard-5 :lumio app.lumio.send.solana.SolanaSendRouteTest

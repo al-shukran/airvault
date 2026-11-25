@@ -3,6 +3,7 @@ package app.lumio.ui.settings
 import app.lensly.ui.camera.EntryGesture
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.FiatCurrency
+import app.lumio.data.config.FinishItem
 import app.lumio.data.config.FinishSetup
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.config.ThemeMode
@@ -20,6 +21,14 @@ class SettingsSummariesTest {
         assertEquals("Balances shown · EUR · Follow system theme", displaySummary(DisplaySettings(currency = FiatCurrency.EUR)))
         assertEquals("Balances hidden · USD · Follow system theme", displaySummary(DisplaySettings(showAssets = false)))
         assertEquals("Balances shown · USD · Dark theme", displaySummary(DisplaySettings(theme = ThemeMode.DARK)))
+    }
+
+    @Test
+    fun theFinishSetupSegmentsFillForTheItemsThatAreDoneNotByCount() {
+        assertEquals(listOf(0f, 0f, 0f), FinishSetup().segments())
+        assertEquals(listOf(0f, 0f, 1f), FinishSetup(setOf(FinishItem.PAIR)).segments())
+        assertEquals(listOf(1f, 0f, 1f), FinishSetup(setOf(FinishItem.DURESS, FinishItem.PAIR)).segments())
+        assertEquals(listOf(1f, 1f, 1f), FinishSetup(FinishItem.entries.toSet()).segments())
     }
 
     @Test

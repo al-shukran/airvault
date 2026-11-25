@@ -1,0 +1,1 @@
+Reordering data providers now works like a native Android list: press the handle or hold a row to lift it, it follows your finger, the other rows slide out of the way, the page scrolls near its edges, and the row settles into its place with a tick for each step. TalkBack gets Move Up and Move Down on each row.

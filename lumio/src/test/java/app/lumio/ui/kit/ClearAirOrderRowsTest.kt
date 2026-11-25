@@ -3,28 +3,48 @@ package app.lumio.ui.kit
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** Where a dragged row lands: the row whose centre is nearest to where the drag has moved the dragged row's centre. */
+/** Where a dragged row is over, how the rows it passes make way, and where it settles. Three rows of 60, 60 and 80 lie at 0, 60 and 120. */
 class ClearAirOrderRowsTest {
 
-    private val centres = listOf(10f, 70f, 130f)
+    private val tops = floatArrayOf(0f, 60f, 120f)
+    private val heights = floatArrayOf(60f, 60f, 80f)
 
     @Test
-    fun aRowDraggedDownLandsOnTheRowBelow() {
-        assertEquals(1, dropIndex(centres, from = 0, offset = 60f))
+    fun aRowStaysInItsSlotUntilItCrossesTheMiddleOfANeighbour() {
+        assertEquals(0, hoverIndex(tops, heights, from = 0, offset = 59f))
     }
 
     @Test
-    fun aRowDraggedUpLandsOnTheRowAbove() {
-        assertEquals(0, dropIndex(centres, from = 1, offset = -60f))
+    fun aRowDraggedDownPastTheMiddleOfTheRowBelowHoversOverIt() {
+        assertEquals(1, hoverIndex(tops, heights, from = 0, offset = 61f))
     }
 
     @Test
-    fun aRowMovedLessThanHalfARowStaysWhereItIs() {
-        assertEquals(1, dropIndex(centres, from = 1, offset = 4f))
+    fun aRowDraggedUpPastTheMiddleOfTheRowAboveHoversOverIt() {
+        assertEquals(0, hoverIndex(tops, heights, from = 1, offset = -61f))
     }
 
     @Test
-    fun aRowDraggedPastTheEndLandsOnTheLastRow() {
-        assertEquals(2, dropIndex(centres, from = 0, offset = 500f))
+    fun aRowDraggedPastTheEndHoversOverTheLastRow() {
+        assertEquals(2, hoverIndex(tops, heights, from = 0, offset = 500f))
+    }
+
+    @Test
+    fun aRowDraggedDownMakesTheRowsItPassesMoveUp() {
+        val shifts = (0..2).map { shiftOf(it, from = 0, hover = 2, heights = heights) }
+        assertEquals(listOf(0f, -60f, -60f), shifts)
+    }
+
+    @Test
+    fun aRowDraggedUpMakesTheRowsItPassesMoveDown() {
+        val shifts = (0..2).map { shiftOf(it, from = 2, hover = 1, heights = heights) }
+        assertEquals(listOf(0f, 80f, 0f), shifts)
+    }
+
+    @Test
+    fun aRowSettlesByTheHeightsOfTheRowsItPassed() {
+        assertEquals(140f, slotOffset(heights, from = 0, slot = 2), 0f)
+        assertEquals(-120f, slotOffset(heights, from = 2, slot = 0), 0f)
+        assertEquals(0f, slotOffset(heights, from = 1, slot = 1), 0f)
     }
 }

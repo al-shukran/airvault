@@ -1,5 +1,6 @@
 package app.lumio.ui.kit
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -37,18 +38,19 @@ private val SHEET_CORNER = 28.dp
 
 /** The light theme lifts a sheet with a faint ink shadow, and the dark theme has none. */
 private val SHEET_SHADOW = 10.dp
-private val SHADOW_INK = Color(0xFF2B2530).copy(alpha = 0.10f)
+internal val SHADOW_INK = Color(0xFF2B2530).copy(alpha = 0.10f)
 private val sheetShape = RoundedCornerShape(topStart = SHEET_CORNER, topEnd = SHEET_CORNER)
 
 /**
  * The one modal sheet of Lumio. It rises from the bottom on the sheet spring over a scrim that fades in, and the page beneath stays still. It has
- * no place of its own: a short task opens it over a page, and [onClose] closes it. Tapping the scrim closes it too. A caller holds at most one
+ * no place of its own: a short task opens it over a page, and [onClose] closes it. Tapping the scrim and the system back close it too, so a back swipe never moves the page beneath. A caller holds at most one
  * sheet, so a sheet never opens over another one. Reduced motion cuts the rise to a cross-fade.
  */
 @Composable
 fun ClearAirSheet(visible: Boolean, onClose: () -> Unit, modifier: Modifier = Modifier, top: Dp = SHEET_TOP, content: @Composable () -> Unit) {
     val palette = LocalClearAirPalette.current
     val reduced = LocalReducedMotion.current
+    BackHandler(enabled = visible, onBack = onClose)
     Box(modifier = modifier.fillMaxSize()) {
         AnimatedVisibility(
             visible = visible,

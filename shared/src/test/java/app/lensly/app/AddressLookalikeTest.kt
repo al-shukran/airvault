@@ -96,7 +96,39 @@ class AddressLookalikeTest {
     @Test
     fun theWarningNamesTheSavedEntryAsPlainText() {
         val entry = AddressBookEntry(id = "1", address = evmSaved, name = "\u202EAlice\n", label = null)
-        assertEquals("Looks like Alice but differs", lookalikeWarningText(entry))
-        assertEquals("Looks like ${groupAddress(evmSaved)} but differs", lookalikeWarningText(entry.copy(name = "\u200B")))
+        assertEquals("Looks like ${isolated("Alice")} but differs", lookalikeWarningText(entry))
+        assertEquals("Looks like ${isolated(groupAddress(evmSaved))} but differs", lookalikeWarningText(entry.copy(name = "\u200B")))
+    }
+
+    @Test
+    fun anAccountOfThisDeviceIsALookalikeCandidateUnderItsName() {
+        val own = mapOf(addressKeyOf(evmSaved) to InternalAccount(displayName = null, autoName = "Account 1", label = null))
+        val found = lookalikeEntryFor(evmFake, EVM_FAMILY, emptyList(), own)
+        assertEquals("Account 1", found?.name)
+        assertEquals(addressKeyOf(evmSaved), found?.address)
+        // The account itself, another family, and an address that is not close are no lookalike.
+        assertNull(lookalikeEntryFor(evmSaved, EVM_FAMILY, emptyList(), own))
+        assertNull(lookalikeEntryFor(evmFake, SOLANA_FAMILY, emptyList(), own))
+        assertNull(lookalikeEntryFor("0x9999999999999999999999999999999999999999", EVM_FAMILY, emptyList(), own))
+        // A saved entry that looks alike is named before an account.
+        val entry = AddressBookEntry(id = "1", address = "0x1234" + "b".repeat(32) + "5678", name = "Bob", label = null)
+        assertEquals(entry, lookalikeEntryFor(evmFake, EVM_FAMILY, listOf(entry), own))
+    }
+
+    @Test
+    fun addressNotesFlagALookalikeOfAnOwnAccount() {
+        val own = mapOf(addressKeyOf(evmSaved) to InternalAccount(displayName = "Main", autoName = "Account 1", label = null))
+        assertEquals("Main", addressNotesOf(evmFake, EVM_FAMILY, own, emptyList())?.lookalike?.name)
+    }
+
+    @Test
+    fun aSolanaAddressStartingWithBc1KeepsItsCase() {
+        // 43 base58 characters starting with "b" decode to 32 bytes, so this is a valid Solana address that starts like a bech32 one.
+        val solana = "bc1ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopq"
+        assertEquals(SOLANA_FAMILY.namespace, chainOfAddress(solana)?.namespace)
+        assertEquals(solana, addressKeyOf(solana))
+        assertNotEquals(addressKeyOf(solana), addressKeyOf(solana.lowercase()))
+        val bech32 = "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"
+        assertEquals(bech32, addressKeyOf(bech32.uppercase()))
     }
 }

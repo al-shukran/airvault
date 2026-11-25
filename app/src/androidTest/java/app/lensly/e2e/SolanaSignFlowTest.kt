@@ -2,7 +2,9 @@ package app.lensly.e2e
 
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import app.lensly.app.addressStart
 import app.lensly.app.export.partsOf
+import app.lensly.app.isolated
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
@@ -46,7 +48,7 @@ class SolanaSignFlowTest : SignFlowE2eBase() {
         assertEquals(SolanaAccount.addressOf(signer), ready.signer.address)
         // One SOL transfer of 1,000 lamports, which is 0.000001 SOL, to the recipient. The signer is an account of this device, so the
         // sentence names it.
-        compose.onNodeWithText("Send 0.000001 SOL from ${ready.signer.name} to ${SolanaAccount.addressOf(recipient)}?").assertExists()
+        compose.onNodeWithText("Send 0.000001 SOL from ${isolated(ready.signer.name)} (${addressStart(ready.signer.address)}) to ${SolanaAccount.addressOf(recipient)}?").assertExists()
         driver.readToTheEnd()
         assertTrue(driver.approvable())
 

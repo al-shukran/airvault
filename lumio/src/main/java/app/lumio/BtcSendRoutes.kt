@@ -21,6 +21,7 @@ import app.lensly.DebugBtcFixture
 import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
+import app.lensly.app.isolated
 import app.lensly.app.plainLabel
 import app.lensly.app.plainName
 import app.lensly.core.btc.BtcNetwork
@@ -487,7 +488,7 @@ internal fun BtcSendRoute(
             val toName = nameOrAddress(notes, current.plan.recipient)
             val warnings = lookalikeWarnings(notes) + BtcAdvanced.warnings(suggestedRate ?: current.plan.feeRateSatPerVb, current.plan.feeRateSatPerVb)
             SendReviewPage(
-                heading = "Send ${btcText(current.plan.amountSats)} from $fromName to ${nameWithStart(notes, current.plan.recipient)}?",
+                heading = "Send ${btcText(current.plan.amountSats)} from ${isolated(fromName)} to ${nameWithStart(notes, current.plan.recipient)}?",
                 toTitle = toName,
                 toDetail = notes?.let(::notesDetail).orEmpty(),
                 toAddress = current.plan.recipient,

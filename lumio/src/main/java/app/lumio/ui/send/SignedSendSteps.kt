@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import app.lensly.app.isolated
 import app.lumio.send.ArrivalWatch
 import app.lumio.send.Landing
 import app.lumio.send.SubmitMachine
@@ -96,7 +97,7 @@ internal fun SignedSendSteps(
                         "What You Can Do" to "The explorer shows the reason. A new send shows every detail again before Lensly signs it.",
                     ),
                     detail = null,
-                    primary = "Back to $fromName",
+                    primary = "Back to ${isolated(fromName)}",
                     onPrimary = onDone,
                     secondary = explorerUrl(now.id)?.let { "View on Explorer" },
                     onSecondary = { onExplorer(now.id) },
@@ -141,7 +142,7 @@ internal fun SignedSendSteps(
                 onPrimary = {
                     if (now.retryable) scope.launch { machine.submit() } else onReview()
                 },
-                secondary = "Back to $fromName",
+                secondary = "Back to ${isolated(fromName)}",
                 onSecondary = onDone,
                 backLabel = backLabel,
                 onBack = onDone,
