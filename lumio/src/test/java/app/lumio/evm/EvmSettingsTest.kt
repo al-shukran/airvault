@@ -6,6 +6,8 @@ import app.lensly.core.vault.VaultSession
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -454,4 +456,51 @@ class EvmSettingsTest {
         assertEquals(listOf(999L), stored.custom.map { it.chainId })
         assertFalse(10143L in stored.enabled)
     }
+
+    @Test
+    fun aRecordEncodedByTheVersion1ClassesKeepsEveryFieldAndReadsBackAfterAWrite() {
+        val bytes = Json.encodeToString(
+            Version1Evm.serializer(),
+            Version1Evm(
+                addressCount = 8,
+                enabled = setOf(1L, 999L),
+                rpc = mapOf(1L to "https://rpc.example", 999L to "https://rpc.test"),
+                custom = listOf(Version1Chain(999L, "Test", "TST", true)),
+            ),
+        )
+        session.putVaultRecord(EvmSettings.RECORD, bytes.encodeToByteArray())
+
+        val expected = EvmSettings(
+            addressCount = 8,
+            enabled = setOf(1L, 999L),
+            rpc = mapOf(
+                1L to ChainRpcs(custom = listOf("https://rpc.example"), active = "https://rpc.example"),
+                999L to ChainRpcs(custom = listOf("https://rpc.test"), active = "https://rpc.test"),
+            ),
+            custom = listOf(CustomChain(999L, "Test", "TST", testnet = true)),
+        )
+        assertEquals(expected, EvmSettingsStore.read(session))
+
+        EvmSettingsStore.write(session, EvmSettingsStore.read(session))
+        assertEquals(expected, EvmSettingsStore.read(session))
+    }
+
+    @Test
+    fun aVersion1RecordWithDefaultsOnlyReadsAsTheDefaults() {
+        session.putVaultRecord(EvmSettings.RECORD, Json.encodeToString(Version1Evm.serializer(), Version1Evm()).encodeToByteArray())
+
+        assertEquals(EvmSettings(), EvmSettingsStore.read(session))
+    }
 }
+
+/** The record classes of Lumio 1.0.0, with the same fields and defaults, so their encoder produces the bytes a 1.0.0 vault holds. */
+@Serializable
+private data class Version1Chain(val chainId: Long, val name: String, val symbol: String, val testnet: Boolean)
+
+@Serializable
+private data class Version1Evm(
+    val addressCount: Int = EvmSettings.DEFAULT_ADDRESS_COUNT,
+    val enabled: Set<Long> = EvmSettings.DEFAULT_ENABLED,
+    val rpc: Map<Long, String> = emptyMap(),
+    val custom: List<Version1Chain> = emptyList(),
+)

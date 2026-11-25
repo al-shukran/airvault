@@ -4,6 +4,8 @@ import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import kotlin.test.assertEquals
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -103,4 +105,18 @@ class DisplaySettingsStoreTest {
         assertEquals(DisplaySettings(showTotal = true, currency = FiatCurrency.CHF), DisplaySettingsStore.read(reopened))
         reopened.close()
     }
+
+    @Test
+    fun everyVersion1RecordEncodedByTheVersion1ClassKeepsBothSwitches() {
+        for (showTotal in listOf(false, true)) {
+            for (showAssets in listOf(false, true)) {
+                val bytes = Json.encodeToString(Version1Display.serializer(), Version1Display(showTotal, showAssets))
+                assertEquals(DisplaySettings(showTotal = showTotal, showAssets = showAssets), stored(bytes))
+            }
+        }
+    }
 }
+
+/** The record class of Lumio 1.0.0, with the same fields, defaults and Json settings, so its encoder produces the bytes a 1.0.0 vault holds. */
+@Serializable
+private data class Version1Display(val showTotal: Boolean = false, val showAssets: Boolean = true)

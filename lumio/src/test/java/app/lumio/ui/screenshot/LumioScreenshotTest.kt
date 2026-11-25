@@ -132,7 +132,7 @@ class LumioScreenshotTest {
         LumioSettingsScreen(
             rows = settingsRows(
                 facts = SettingsFacts(
-                    display = DisplaySettings(showTotal = true),
+                    display = DisplaySettings(),
                     transactions = TransactionSettings(),
                     chainsOn = 3,
                     customBitcoin = false,

@@ -16,10 +16,10 @@ class SettingsSummariesTest {
 
     @Test
     fun theDisplayRowNamesTheBalancesTheCurrencyAndTheTheme() {
-        assertEquals("Total hidden · balances shown · USD · Follow system theme", displaySummary(DisplaySettings()))
-        assertEquals("Total shown · balances shown · EUR · Follow system theme", displaySummary(DisplaySettings(showTotal = true, currency = FiatCurrency.EUR)))
-        assertEquals("Total shown · balances hidden · USD · Follow system theme", displaySummary(DisplaySettings(showTotal = true, showAssets = false)))
-        assertEquals("Total hidden · balances hidden · USD · Dark theme", displaySummary(DisplaySettings(showAssets = false, theme = ThemeMode.DARK)))
+        assertEquals("Balances shown · USD · Follow system theme", displaySummary(DisplaySettings()))
+        assertEquals("Balances shown · EUR · Follow system theme", displaySummary(DisplaySettings(currency = FiatCurrency.EUR)))
+        assertEquals("Balances hidden · USD · Follow system theme", displaySummary(DisplaySettings(showAssets = false)))
+        assertEquals("Balances shown · USD · Dark theme", displaySummary(DisplaySettings(theme = ThemeMode.DARK)))
     }
 
     @Test

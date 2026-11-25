@@ -8,10 +8,9 @@ import app.lumio.data.config.TransactionSettings
 import app.lumio.data.config.configOf
 import app.lumio.data.provider.ProviderCatalog
 
-/** The one-line state under the Display row: whether the total and the balances show, the currency, and the theme. */
+/** The one-line state under the Display row: whether the asset balances show, the currency, and the theme. */
 fun displaySummary(settings: DisplaySettings): String =
-    "${if (settings.showTotal) "Total shown" else "Total hidden"} · ${if (settings.showAssets) "balances shown" else "balances hidden"} · " +
-        "${settings.currency.code} · " +
+    "${if (settings.showAssets) "Balances shown" else "Balances hidden"} · ${settings.currency.code} · " +
         if (settings.theme == ThemeMode.SYSTEM) "Follow system theme" else "${settings.theme.title} theme"
 
 /** The one-line state under the Transactions row: whether spam is hidden, and the Last Chance pause before a send. */

@@ -7,6 +7,8 @@ import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairedWallet
 import app.lumio.tokens.Reply
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -87,14 +89,6 @@ class PortfolioCacheTest {
     }
 
     @Test
-    fun aRecordFromAnOlderLumioThatHeldNoncesReadsAsEmptyInsteadOfFailing() {
-        val old = """{"entries":[{"walletId":"w1","chainId":1,"address":"0xabc","wei":"1","nonce":3,"atMs":1}]}"""
-        session.putVaultRecord(BalanceCache.RECORD, old.encodeToByteArray())
-
-        assertEquals(emptyList<CachedBalance>(), BalanceCache.read(session))
-    }
-
-    @Test
     fun aVersion1RecordWithNoncesReadsWithItsBalances() {
         // What Lumio 1.0.0 stored: each read carried the nonce of the address, which is no longer kept.
         session.putVaultRecord(
@@ -104,4 +98,25 @@ class PortfolioCacheTest {
 
         assertEquals(listOf(CachedBalance("w1", 1L, "0xabc", "5", 1234L)), BalanceCache.read(session))
     }
+
+    @Test
+    fun aRecordEncodedByTheVersion1ClassKeepsEveryRead() {
+        val reads = listOf(
+            Version1Read("w1", 1L, "0xabc", "5", 7L, 1234L),
+            Version1Read("w2", 10L, "0xdef", "900000000000000000", 0L, 99L),
+        )
+        session.putVaultRecord(BalanceCache.RECORD, Json.encodeToString(Version1Cache.serializer(), Version1Cache(reads)).encodeToByteArray())
+
+        assertEquals(
+            listOf(CachedBalance("w1", 1L, "0xabc", "5", 1234L), CachedBalance("w2", 10L, "0xdef", "900000000000000000", 99L)),
+            BalanceCache.read(session),
+        )
+    }
 }
+
+/** The record classes of Lumio 1.0.0, with the same fields, so their encoder produces the bytes a 1.0.0 vault holds. */
+@Serializable
+private data class Version1Read(val walletId: String, val chainId: Long, val address: String, val wei: String, val nonce: Long, val atMs: Long)
+
+@Serializable
+private class Version1Cache(val entries: List<Version1Read> = emptyList())
