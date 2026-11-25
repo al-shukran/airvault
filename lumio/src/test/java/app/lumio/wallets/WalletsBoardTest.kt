@@ -36,6 +36,7 @@ import app.lumio.watchlist.FIRST_RUN_ASSETS
 import app.lumio.watchlist.WalletWatchlist
 import app.lumio.watchlist.WatchedAsset
 import app.lumio.watchlist.WatchlistStore
+import app.lumio.watchlist.toggled
 import com.sparrowwallet.hummingbird.UR
 import java.io.File
 import java.math.BigInteger
@@ -238,6 +239,79 @@ class WalletsBoardTest {
         assertNull(board.watchlists[wallet.id])
 
         board.close()
+        database.close()
+        session.close()
+    }
+
+    @Test
+    fun twoStarsTappedBeforeTheFirstWriteEndsBothStay() {
+        val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 17 + 3).toByte() })
+        val database = LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "stars.db"))
+        val vault = LumioVault(session, database)
+        val app = RuntimeEnvironment.getApplication() as LumioApp
+        PairedWallets.save(session, pairing(), nowMs = 100L)
+        val wallet = PairedWallets.list(session).single()
+        val board = WalletsBoard(app, vault, repository = PriceRepository(app.priceScheduler) { vault.cache }) { emptyMap<AssetId, Price>() }
+        vault.wallets = board
+        board.showSide(mode, listVersion = 0)
+        await { board.watchlists[wallet.id] }
+        val first = WatchedAsset(NetworkId(Networks.evm(10143), testnet = true))
+        val second = WatchedAsset(NetworkId(Networks.evm(1), testnet = true))
+
+        // Both taps come before the main looper runs, so neither has seen the other's write.
+        board.changeWatchlist(wallet.id) { it.toggled(first) }
+        board.changeWatchlist(wallet.id) { it.toggled(second) }
+        val both = WalletWatchlist(assets = FIRST_RUN_ASSETS + first + second)
+        assertEquals(both, await { board.watchlists[wallet.id]?.takeIf { it == both } })
+        assertEquals(both, WatchlistStore.read(session, wallet.id))
+
+        board.close()
+        database.close()
+        session.close()
+    }
+
+    @Test
+    fun aStarOnAWatchlistRecordThatDoesNotParseChangesNothingOnScreen() {
+        val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 19 + 1).toByte() })
+        val database = LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "refused.db"))
+        val vault = LumioVault(session, database)
+        val app = RuntimeEnvironment.getApplication() as LumioApp
+        PairedWallets.save(session, pairing(), nowMs = 100L)
+        val wallet = PairedWallets.list(session).single()
+        val damaged = """{"wallets":{"kept":{"assets":"all"}}}"""
+        session.putVaultRecord(WatchlistStore.RECORD, damaged.encodeToByteArray())
+        val board = WalletsBoard(app, vault, repository = PriceRepository(app.priceScheduler) { vault.cache }) { emptyMap<AssetId, Price>() }
+        vault.wallets = board
+        board.showSide(mode, listVersion = 0)
+        val shown = await { board.watchlists[wallet.id] }
+
+        board.changeWatchlist(wallet.id) { it.toggled(WatchedAsset(NetworkId(Networks.evm(10143), testnet = true))) }
+        settle()
+
+        assertEquals(shown, board.watchlists[wallet.id])
+        assertEquals(damaged, session.getVaultRecord(WatchlistStore.RECORD)?.decodeToString())
+
+        board.close()
+        database.close()
+        session.close()
+    }
+
+    @Test
+    fun aWalletWhoseWatchlistRecordDoesNotParseIsDeletedAllTheSame() {
+        val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 23 + 9).toByte() })
+        val database = LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "damaged.db"))
+        val vault = LumioVault(session, database)
+        PairedWallets.save(session, pairing(), nowMs = 100L)
+        val wallet = PairedWallets.list(session).single()
+        val damaged = """{"wallets":{"kept":{"assets":"all"}}}"""
+        session.putVaultRecord(WatchlistStore.RECORD, damaged.encodeToByteArray())
+
+        PairedWallets.delete(session, wallet.id)
+        runBlocking { removeWalletHistory(vault, wallet) }
+
+        assertEquals(emptyList<String>(), PairedWallets.list(session).map { it.id })
+        assertEquals(damaged, session.getVaultRecord(WatchlistStore.RECORD)?.decodeToString())
+
         database.close()
         session.close()
     }
