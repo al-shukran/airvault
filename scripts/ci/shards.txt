@@ -386,6 +386,7 @@ shard-6 :chains:evm:common *
 shard-6 :core:signer-api *
 shard-6 :lumio app.lumio.ExploreNetworkCountTest
 shard-6 :lumio app.lumio.FirstSyncNavigationTest
+shard-6 :lumio app.lumio.LumioVaultWipeTest
 shard-6 :lumio app.lumio.PairingReadsEachBalanceOnceTest
 shard-6 :lumio app.lumio.data.electrum.ElectrumConnectionTest
 shard-6 :lumio app.lumio.data.price.PriceChartRepositoryTest
