@@ -89,13 +89,13 @@ class ProfilePanelTest {
     }
 
     @Test
-    fun scanToPayTellsTheOwnerWhichNetworkToTurnOnAndOpensNothingWhileItIsOff() {
-        compose.setContent { Shell(scanNote = "Turn on Monad Testnet to scan to pay") }
+    fun scanToPayTellsTheOwnerToTurnOnANetworkAndOpensNothingWhileNoneIsOn() {
+        compose.setContent { Shell(scanNote = "Turn on a network to scan to pay") }
         openPanel()
-        compose.onNodeWithText("Turn on Monad Testnet to scan to pay").assertIsDisplayed()
+        compose.onNodeWithText("Turn on a network to scan to pay").assertIsDisplayed()
         compose.onNodeWithText("Scan to Pay").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("Turn on Monad Testnet to scan to pay").assertIsDisplayed()
+        compose.onNodeWithText("Turn on a network to scan to pay").assertIsDisplayed()
         compose.onAllNodesWithText("Scanned: air1").assertCountEquals(0)
     }
 

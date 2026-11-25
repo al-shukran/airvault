@@ -99,6 +99,20 @@ class WalletAppsScreenTest {
     }
 
     @Test
+    fun uninstallingEthereumSaysTheNamesAreKept() {
+        compose.setContent {
+            LumenTheme {
+                Apps(Route(), accounts = mapOf(WalletApp.ETHEREUM to 2))
+            }
+        }
+
+        compose.onNodeWithText("Uninstall").performClick()
+
+        compose.onNodeWithText("Uninstall Ethereum?").assertIsDisplayed()
+        compose.onNodeWithText("Their names, labels and groups are kept.", substring = true).assertIsDisplayed()
+    }
+
+    @Test
     fun confirmingTheUninstallRemovesTheApp() {
         val route = Route()
         compose.setContent {

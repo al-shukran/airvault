@@ -25,6 +25,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import app.lensly.app.familyLabel
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirMotion
@@ -54,7 +55,6 @@ import app.lumio.ui.kit.LumioAssetIcon
 import app.lumio.ui.kit.rememberCopyAction
 import app.lumio.ui.transactions.ActivityRowItem
 import app.lumio.wallets.WalletAccount
-import app.lumio.wallets.WalletAccounts
 import java.time.ZoneId
 
 /** The bar a total takes while no read of the account's balance is kept. */
@@ -315,7 +315,7 @@ private fun LazyListScope.activityItems(
 ) {
     when {
         account.namespace == Networks.SOLANA || account.namespace == Networks.ALGORAND ->
-            item(key = "activity-none") { EmptyLine("Activity is not read for ${WalletAccounts.familyLabel(account.namespace)} yet.") }
+            item(key = "activity-none") { EmptyLine("Activity is not read for ${familyLabel(account.namespace)} yet.") }
         activity.isEmpty() && loadingActivity -> item(key = "activity-loading") { LoadingRow() }
         activity.isEmpty() -> item(key = "activity-empty") { EmptyLine("No activity yet. Your first receive will appear here.") }
         else -> itemsIndexed(activity, key = { _, entry -> entry.tx.id }) { index, entry ->

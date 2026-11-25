@@ -157,7 +157,6 @@ class WalletAccountsTest {
         chainId = chainId,
         address = ethereumAddress,
         wei = wei,
-        nonce = 0L,
         atMs = 1L,
     )
 

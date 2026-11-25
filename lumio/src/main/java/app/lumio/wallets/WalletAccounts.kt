@@ -8,6 +8,7 @@ import app.airvault.core.model.Curve
 import app.airvault.core.signer.AccountExport
 import app.airvault.core.signer.PublicKey
 import app.airvault.core.signer.SignerRef
+import app.lensly.app.familyLabel
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.ScriptType
 import app.lumio.btc.BtcRow
@@ -67,15 +68,6 @@ data class WalletAccount(
 object WalletAccounts {
     /** The chain families a wallet keeps accounts on, by CAIP-2 namespace, in the order the Wallet screen lists them. */
     val FAMILIES: List<String> = listOf(Networks.BIP122, Networks.EIP155, Networks.SOLANA, Networks.ALGORAND)
-
-    /** The name of a family as the screens show it: "Bitcoin", "Ethereum", "Solana" or "Algorand". */
-    fun familyLabel(namespace: String): String = when (namespace) {
-        Networks.BIP122 -> "Bitcoin"
-        Networks.EIP155 -> "Ethereum"
-        Networks.SOLANA -> "Solana"
-        Networks.ALGORAND -> "Algorand"
-        else -> error("Lumio shows no accounts on $namespace")
-    }
 
     /** The network whose native coin an Ethereum account shows on [mode]: Ethereum on mainnet, and Monad testnet on testnet. */
     fun primaryEvmChainId(mode: NetworkMode): Long = EvmCatalog.primaryChainId(testnet = mode == NetworkMode.TESTNET)

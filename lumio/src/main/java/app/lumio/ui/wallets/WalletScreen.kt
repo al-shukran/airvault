@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.lensly.app.familyLabel
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -37,7 +38,6 @@ import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.network.label
 import app.lumio.wallets.BalanceSlot
 import app.lumio.wallets.WalletAccount
-import app.lumio.wallets.WalletAccounts
 import app.lumio.wallets.WalletReads
 import app.lumio.wallets.balanceSlotOf
 import app.lumio.wallets.failureShown
@@ -209,7 +209,7 @@ private fun ChainIsland(
             modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ClearAirEyebrow(text = "${WalletAccounts.familyLabel(family)} App · ${group.size}", modifier = Modifier.weight(1f))
+            ClearAirEyebrow(text = "${familyLabel(family)} App · ${group.size}", modifier = Modifier.weight(1f))
             groupUsd(group, usdOf)?.let { usd -> ClearAirAmount(text = LocalFiat.current.amount(usd), hidden = !showTotal, style = ClearAirType.rowValue) }
         }
         // A chain that did not answer says so once, under the eyebrow, with a Retry. It says so only while a value is missing, last known or incomplete

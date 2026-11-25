@@ -343,8 +343,9 @@ class WalletStore(private val session: VaultSession) {
 
     /**
      * Uninstalls [app] from Mnemonic wallet [id]: removes all of its accounts in one atomic write. Nothing else changes, and the secret record
-     * is never touched, so [installApp] derives the same accounts again. The names, labels and groups of the removed accounts are lost. An App
-     * that is not installed is left as it is.
+     * is never touched, so [installApp] derives the same accounts again. The profile records of the removed Ethereum accounts stay, so their
+     * names, labels and groups come back when the accounts do, and only deleting the wallet erases them. A Bitcoin account keeps its profile
+     * inside the Bitcoin record, so that record's removal loses it. An App that is not installed is left as it is.
      *
      * @throws IllegalArgumentException if the wallet is missing or is a Single Key wallet, whose one account is its Ethereum account.
      */
@@ -357,8 +358,7 @@ class WalletStore(private val session: VaultSession) {
                 WalletApp.BITCOIN -> session.putRecords(id, emptyMap(), listOf(WalletRecords.BITCOIN))
                 WalletApp.ETHEREUM -> {
                     val cleared = current.copy(accountCount = 0, accountKeys = emptyList())
-                    val profiles = (0 until current.accountCount).map { WalletRecords.accountRecord(it) }
-                    session.putRecords(id, mapOf(WalletRecords.META to WalletRecords.encodeMeta(cleared)), profiles)
+                    session.putRecord(id, WalletRecords.META, WalletRecords.encodeMeta(cleared))
                 }
                 WalletApp.SOLANA -> session.putRecords(id, emptyMap(), listOf(WalletRecordNames.SOLANA))
                 WalletApp.ALGORAND -> session.putRecords(id, emptyMap(), listOf(WalletRecordNames.ALGORAND))

@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import app.lensly.app.familyLabel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.Registry
@@ -42,7 +43,7 @@ internal fun chainRows(registry: Registry, mode: NetworkMode, accounts: List<Wal
                 .map { network -> evmRow(registry, network, onChain[Networks.evm(network.chainId)] ?: 0) }
         } else {
             onChain.filterKeys { it.namespace == family }
-                .map { (_, count) -> ChainRow(WalletAccounts.familyLabel(family), "Layer 1 · $count of your accounts") }
+                .map { (_, count) -> ChainRow(familyLabel(family), "Layer 1 · $count of your accounts") }
         }
     }
 }
