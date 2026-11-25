@@ -103,6 +103,20 @@ class VaultDuressTest {
     }
 
     @Test
+    fun theRealVaultsLumioRecordsSurviveSettingAndRemovingDuress() {
+        val lumioRecords = VaultRecordNames.KNOWN - VaultRecordNames.PHOTO_KEY
+        createVault()
+        val real = unlocked(attempt(APP))
+        lumioRecords.forEach { real.putVaultRecord(it, it.encodeToByteArray()) }
+        assertEquals(DuressResult.Enabled, setDuress(real))
+        lumioRecords.forEach { assertContentEquals(it.encodeToByteArray(), real.getVaultRecord(it), "$it after setDuress") }
+
+        runBlocking { vault.removeDuress(real) }
+        lumioRecords.forEach { assertContentEquals(it.encodeToByteArray(), real.getVaultRecord(it), "$it after removeDuress") }
+        real.close()
+    }
+
+    @Test
     fun aDuressPasswordEqualToTheAppPasswordIsRefused() {
         createVault()
         val real = unlocked(attempt(APP))

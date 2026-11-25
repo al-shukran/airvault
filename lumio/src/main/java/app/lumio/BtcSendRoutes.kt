@@ -312,7 +312,12 @@ internal fun BtcSendRoute(
                     val planNetwork = current.plan.network
                     val machine = SubmitMachine(
                         signed = tx,
-                        broadcast = { signedTx -> withContext(Dispatchers.IO) { BtcSend.broadcast(app.scheduler, planNetwork, signedTx) } },
+                        broadcast = { signedTx ->
+                            withContext(Dispatchers.IO) {
+                                BtcSend.broadcast(app.scheduler, planNetwork, signedTx)
+                                    .also { BtcSend.reserveChange(current.plan, app.addressStats.forNetwork(planNetwork.networkId())) }
+                            }
+                        },
                         describe = { error -> SubmitFailure(ownerWords(error, BROADCAST_FAILED)) },
                     )
                     notice = null

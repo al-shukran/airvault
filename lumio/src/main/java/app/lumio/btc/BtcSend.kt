@@ -176,13 +176,11 @@ object BtcSend {
         indexer: OrdIndexer? = null,
     ): BtcSpendable {
         val net = account.network.networkId()
-        val statsOf: suspend (String) -> EsploraAddressStats = { address ->
+        // A read that may be answered from the scheduler's cache, which the session's scan fills, or one that always asks the server.
+        fun statsOf(cached: Boolean): suspend (String) -> EsploraAddressStats = { address ->
             readStep(BtcReadStep.ADDRESS_HISTORY) {
-                scheduler.run(
-                    AddressStats(net, address),
-                    Priority.FOREGROUND,
-                    CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "stats/${net.chain}/$address", jsonCodec()),
-                )
+                val cache: CacheUse<EsploraAddressStats>? = if (cached) CacheUse(CachePolicy.ShortTtl(DEFAULT_SHORT_TTL_MS), "stats/${net.chain}/$address", jsonCodec()) else null
+                scheduler.run(AddressStats(net, address), Priority.FOREGROUND, cache)
             }
         }
         // The walk trusts what the session's scan read within the TTL, so a send right after a scan asks the server for little or nothing. The two
@@ -190,8 +188,8 @@ object BtcSend {
         // time: the budget of a read counts its wait in the scheduler's queue, so reads of a window would be cut short behind each other, and a
         // read past the stop would be a request the scan did not need.
         val (receive, change) = coroutineScope {
-            val receive = async { scanChain(account::receiveAddress, statsOf, memo, nowMs, trustWithinTtl = true, window = 1) }
-            val change = async { scanChain(account::changeAddress, statsOf, memo, nowMs, trustWithinTtl = true, window = 1) }
+            val receive = async { scanChain(account::receiveAddress, statsOf(cached = true), memo, nowMs, trustWithinTtl = true, window = 1) }
+            val change = async { scanChain(account::changeAddress, statsOf(cached = true), memo, nowMs, trustWithinTtl = true, window = 1) }
             receive.await() to change.await()
         }
         val funded = receive.used.map { RECEIVE_BRANCH to it } + change.used.map { CHANGE_BRANCH to it }
@@ -210,8 +208,22 @@ object BtcSend {
         val coins = listed.map { (branch, index, utxo) ->
             BtcCoin(previous.getValue(utxo.txid), utxo.vout, branch, index, riskMarked = (utxo.txid to utxo.vout) in marked)
         }
+        // The walk above may trust a reading a minute old, so the address that the change goes to is asked of the server itself, as other wallets
+        // do at send time: a send that another send or another wallet has just paid change to must not pay change there again.
         val usedChange = change.used.map { it.index }.toSet()
-        return BtcSpendable(coins, nextChangeIndex = generateSequence(0) { it + 1 }.first { it !in usedChange })
+        val fresh = statsOf(cached = false)
+        val nextChangeIndex = generateSequence(0) { it + 1 }.first { it !in usedChange && !fresh(account.changeAddress(it)).used }
+        return BtcSpendable(coins, nextChangeIndex)
+    }
+
+    /**
+     * Marks the change address of [plan] as used in [memo], once the send has been broadcast, so the next send within the TTL pays its change to
+     * another address even when the server has not yet listed the transaction. A plan with no change output reserves nothing. [memo] is the
+     * session's in memory memo, so nothing is stored.
+     */
+    fun reserveChange(plan: BtcSendPlan, memo: ConcurrentMap<String, MemoStats>, nowMs: Long = System.currentTimeMillis()) {
+        val index = plan.changeIndex ?: return
+        memo[plan.account.changeAddress(index)] = MemoStats(AddressReading(used = true, confirmedSats = 0L, unconfirmedSats = 0L), nowMs)
     }
 
     /**

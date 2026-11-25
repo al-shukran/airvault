@@ -237,7 +237,7 @@ internal class WalletsBoard(
      */
     fun showCaches() {
         val mode = side ?: return
-        scope.launch { showLoaded(mode, withAccounts = true) }
+        scope.launch { showLoaded(mode, withAccounts = false) }
     }
 
     /**
