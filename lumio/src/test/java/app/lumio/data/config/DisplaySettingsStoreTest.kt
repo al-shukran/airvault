@@ -28,7 +28,7 @@ class DisplaySettingsStoreTest {
         val settings = DisplaySettingsStore.read(session)
 
         assertEquals(DisplaySettings(), settings)
-        assertFalse(settings.showTotal)
+        assertTrue(settings.showTotal)
         assertTrue(settings.showAssets)
         session.close()
     }

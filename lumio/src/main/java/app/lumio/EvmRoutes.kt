@@ -168,7 +168,7 @@ internal fun EvmNetworkRoute(navController: NavHostController, holder: VaultHold
     val current = state ?: return
     val writable = vault ?: return
 
-    fun change(transform: (EvmSettings, EvmRpc) -> EvmSettings, onSaved: () -> Unit = {}) {
+    fun change(onSaved: () -> Unit = {}, transform: (EvmSettings, EvmRpc) -> EvmSettings) {
         if (session == null || busy) return
         busy = true
         notice = null
@@ -214,7 +214,7 @@ internal fun EvmNetworkRoute(navController: NavHostController, holder: VaultHold
         onLock = onLock,
         onTokens = { navController.navigate(LumioRoute.tokens(chainId)) },
         onRemoveNetwork = if (current.settings.custom.any { it.chainId == chainId }) {
-            { change({ s, _ -> EvmEdits.removeCustom(s, chainId) }, onSaved = { navController.popBackStack() }) }
+            { change(onSaved = { navController.popBackStack() }) { s, _ -> EvmEdits.removeCustom(s, chainId) } }
         } else {
             null
         },
