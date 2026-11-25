@@ -25,10 +25,14 @@ import app.airvault.core.model.text
 import app.airvault.core.model.unaccounted
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
+import app.lensly.app.addressStart
 import app.lensly.app.notesOf
+import app.lensly.app.plainNameOf
+import app.lensly.app.plainNameOrNull
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.groupAddress
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalLumenPalette
 import app.lensly.ui.theme.LocalMonoFamily
@@ -93,9 +97,9 @@ fun ReviewScreen(
                     testnet = review.network.testnet,
                     chainDetail = review.network.detail,
                     networkFact = review.network.row?.let { fact(it) },
-                    account = signer.name,
+                    account = plainNameOrNull(signer.name, Int.MAX_VALUE) ?: groupAddress(signer.address),
                     accountLabel = if (signer.isAddressKey) "Key" else "Account",
-                    wallet = signer.walletName,
+                    wallet = plainNameOf(signer.walletName, Int.MAX_VALUE),
                     address = signer.address,
                     addressLogo = addressLogo,
                     networkIcon = networkIcon,
@@ -206,7 +210,12 @@ internal fun summarySentence(
                 val known = notes.notesOf(part.address)
                 val name = known?.shownName()
                 val role = nameRoleOf(known)
-                if (name != null && role != null) appendNamed(name, role, palette) else appendMono(shortAddress(part.address), mono)
+                if (name != null && role != null) {
+                    appendNamed(name, role, palette)
+                    appendAddressStart(part.address, mono)
+                } else {
+                    appendMono(shortAddress(part.address), mono)
+                }
             }
             is SummaryPart.Send -> {
                 append("Send ")
@@ -223,7 +232,19 @@ internal fun summarySentence(
 
 /** A party of a send: its name in its role's colour, or its address in full in mono when no name is known. */
 private fun AnnotatedString.Builder.appendParty(address: String, name: PartyName?, mono: FontFamily, palette: LumenPalette) {
-    if (name == null) appendMono(address, mono) else appendNamed(name.text, name.role, palette)
+    if (name == null) {
+        appendMono(address, mono)
+    } else {
+        appendNamed(name.text, name.role, palette)
+        appendAddressStart(address, mono)
+    }
+}
+
+/** Appends " (" and the first two groups of [address] and " …)" in mono: a name in a sentence never stands for its address alone. */
+private fun AnnotatedString.Builder.appendAddressStart(address: String, mono: FontFamily) {
+    append(" (")
+    appendMono(addressStart(address), mono)
+    append(")")
 }
 
 /** Appends [name] in the colour of [role]. */
