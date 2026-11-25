@@ -1,5 +1,6 @@
 package app.lumio.ui.settings
 
+import app.lumio.DebugDemoData
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,7 +38,7 @@ fun DisplaySettingsSection(
     onCurrency: (FiatCurrency) -> Unit,
     onSmallBalance: (Double) -> Unit,
 ) {
-    var currencyOpen by rememberSaveable { mutableStateOf(false) }
+    var currencyOpen by rememberSaveable { mutableStateOf(DebugDemoData.flag("currency")) }
     notice?.let {
         ClearAirAlertNote(text = it, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs))
     }

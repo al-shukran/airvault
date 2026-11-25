@@ -1,5 +1,6 @@
 package app.lumio.ui.settings
 
+import app.lumio.DebugDemoData
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -46,7 +47,7 @@ fun LumioSettingsScreen(
     onReset: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var resetting by rememberSaveable { mutableStateOf(false) }
+    var resetting by rememberSaveable { mutableStateOf(DebugDemoData.flag("reset")) }
     Column(
         modifier = modifier
             .fillMaxSize()

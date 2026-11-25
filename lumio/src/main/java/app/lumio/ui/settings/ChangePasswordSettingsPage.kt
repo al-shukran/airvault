@@ -1,5 +1,6 @@
 package app.lumio.ui.settings
 
+import app.lumio.DebugDemoData
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,9 +46,9 @@ fun ChangePasswordSettingsPage(
 ) {
     val palette = LocalClearAirPalette.current
     val scope = rememberCoroutineScope()
-    var current by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var repeat by remember { mutableStateOf("") }
+    var current by remember { mutableStateOf(DebugDemoData.text("current")) }
+    var password by remember { mutableStateOf(DebugDemoData.text("new")) }
+    var repeat by remember { mutableStateOf(DebugDemoData.text("repeat")) }
     var shown by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     // What the last submit found and left on the page. Editing a field clears it, so an old problem does not stay on screen.

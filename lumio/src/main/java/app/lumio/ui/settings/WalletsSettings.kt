@@ -1,5 +1,6 @@
 package app.lumio.ui.settings
 
+import app.lumio.DebugDemoData
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,7 +43,7 @@ private fun addressBookDescription(count: Int): String = when (count) {
  */
 @Composable
 fun WalletsSettings(wallets: List<PairedWallet>, onPair: () -> Unit, onDelete: (PairedWallet) -> Unit) {
-    var pendingDelete by remember { mutableStateOf<PairedWallet?>(null) }
+    var pendingDelete by remember { mutableStateOf(wallets.firstOrNull().takeIf { DebugDemoData.flag("wallet:remove") }) }
     ClearAirRow(
         title = "Pair from Lensly",
         description = "Add a wallet's watch-only copy. Lensly keeps the keys.",

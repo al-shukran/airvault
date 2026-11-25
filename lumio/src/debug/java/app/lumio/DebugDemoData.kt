@@ -23,6 +23,9 @@ import app.lumio.demo.DemoProvider
 import app.lumio.demo.DemoScreen
 import app.lumio.demo.DemoScreens
 import app.lumio.network.NetworkMode
+import app.lumio.send.SubmitFailure
+import app.lumio.send.SubmitMachine
+import java.io.IOException
 import app.lumio.pair.PairedWallets
 import app.lensly.core.btc.ScriptType
 import kotlinx.coroutines.Dispatchers
@@ -85,6 +88,22 @@ internal object DebugDemoData {
     /** The text a frame prefills for the field [key], so the secure keyboard is never typed. Empty when there is none. */
     fun text(key: String): String = if (flag("prefill")) PASSWORD else ""
 
+    /** The step of the send that the open frame asks for: the part of its `send:` flag after the colon, or null. */
+    fun sendStage(): String? = screen?.flags?.lastOrNull { it.startsWith("send:") }?.removePrefix("send:")?.let { stage ->
+        // A fee sheet frame opens the amount step with its sheet.
+        if (stage == "amount" && flag("fee:advanced")) "feeAdvanced" else stage
+    } ?: if (screen?.id == "p1-10") "recipient" else null
+
+    /** A signed send of the demo: its broadcast answers with the transaction's hash, or fails as a refused one does. */
+    fun signedMachine(failed: Boolean): SubmitMachine<ByteArray, String> = SubmitMachine(
+        signed = ByteArray(1),
+        broadcast = { raw -> if (failed) throw IOException("The demo network refused the transaction.") else "0x" + raw.joinToString("") { "%02x".format(it) }.padEnd(64, 'a') },
+        describe = { SubmitFailure("The transaction could not be sent. Check the balance, then try again.") },
+    )
+
+    /** The Last Chance countdown: held long while the frame is Last Chance, so the page can be captured. */
+    fun lastChanceSeconds(seconds: Int, hold: Boolean): Int = if (hold) HOLD_SECONDS else seconds
+
     /** Opens the frame's route over the Accounts home once the seed has finished, and selects its side. */
     @Composable
     fun Entry(controller: NavHostController, selection: NetworkSelection, request: Int) {
@@ -131,6 +150,7 @@ internal object DebugDemoData {
 
     /** The App Password that the demo vault and the password pages of a frame show filled in. It is the public demo password. */
     private const val PASSWORD = "Vq7m-Lp2x-Tz9w-Kd4n"
+    private const val HOLD_SECONDS = 600
     private const val HISTORY_TRIES = 6
     private const val HISTORY_PAGE = 100
     private const val HISTORY_WAIT_MS = 500L

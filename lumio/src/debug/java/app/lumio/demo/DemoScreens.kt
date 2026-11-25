@@ -138,7 +138,7 @@ internal object DemoScreens {
         DemoScreen("p2-51", both, main) { LumioRoute.tokens(DemoFixtures.ETHEREUM) },
         DemoScreen("p2-52", both, main) { LumioRoute.SETTINGS_ABOUT },
         DemoScreen("p2-53", dark, main) { LumioRoute.LICENCES },
-        DemoScreen("p2-54", both, main, setOf("reset")) { LumioRoute.SETTINGS_SECURITY },
+        DemoScreen("p2-54", both, main, setOf("reset")) { LumioRoute.SETTINGS },
     )
 
     private val byId = all.associateBy { it.id }

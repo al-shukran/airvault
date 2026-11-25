@@ -58,8 +58,8 @@ internal fun NavGraphBuilder.firstRunRoutes(navController: NavHostController, ho
     firstRunScreen(FirstRunStep.CreatePassword) {
         val context = LocalContext.current.applicationContext
         val scope = rememberCoroutineScope()
-        var password by remember { mutableStateOf("") }
-        var repeat by remember { mutableStateOf("") }
+        var password by remember { mutableStateOf(DebugDemoData.text("new")) }
+        var repeat by remember { mutableStateOf(DebugDemoData.text("repeat")) }
         var shown by remember { mutableStateOf(false) }
         var problem by remember { mutableStateOf<NewPasswordProblem?>(null) }
         var busy by remember { mutableStateOf(false) }

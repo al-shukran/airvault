@@ -1,5 +1,6 @@
 package app.lumio.ui.portfolio
 
+import app.lumio.DebugDemoData
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -88,7 +89,16 @@ fun PortfolioScreen(
     otherSide: OtherSide? = null,
     onReceive: (() -> Unit)? = null,
 ) {
-    var picker by remember { mutableStateOf<SentencePicker?>(null) }
+    var picker by remember {
+        mutableStateOf<SentencePicker?>(
+            when {
+                DebugDemoData.flag("filter:chain") -> SentencePicker.CHAIN
+                DebugDemoData.flag("filter:group") -> SentencePicker.GROUPING
+                DebugDemoData.flag("filter:sort") -> SentencePicker.SORT
+                else -> null
+            },
+        )
+    }
     var showSmall by rememberSaveable { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = ClearAirSpacing.xxl)) {
         ClearAirEyebrow(text = "$walletName · Total Balance", modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs))
