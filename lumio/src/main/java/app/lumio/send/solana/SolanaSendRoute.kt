@@ -20,6 +20,7 @@ import app.airvault.core.model.AccountId
 import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
+import app.lensly.app.plainName
 import app.lensly.core.solana.SolanaNonce
 import app.lensly.core.solana.SolanaTokenAccounts
 import app.lensly.ui.components.groupAddress
@@ -465,7 +466,7 @@ internal fun SolanaSendRoute(
                 accounts = paired?.let { solanaOwnChoices(it, from.address) }.orEmpty(),
                 addressBook = addressBook
                     .filter { solanaRecipientError(it.address) == null }
-                    .map { entry -> SendChoice(title = entry.name, detail = entry.label ?: "Address Book", address = entry.address) },
+                    .map { entry -> SendChoice(title = entry.plainName(), detail = entry.label ?: "Address Book", address = entry.address) },
                 onPick = { choice -> recipient = choice.address },
                 onScan = {
                     recipientStatus = RECIPIENT_HINT
@@ -484,7 +485,7 @@ internal fun SolanaSendRoute(
             onCancel = { step = SolanaSendStep.Recipient },
         )
         SolanaSendStep.Amount -> {
-            val notes = addressNotesOf(recipient, SOLANA_FAMILY, emptyMap(), addressBook)
+            val notes = remember(recipient, addressBook) { addressNotesOf(recipient, SOLANA_FAMILY, emptyMap(), addressBook) }
             val toName = nameOrAddress(notes, recipient)
             val amountError = SolanaAssets.amountError(amount, selected, if (token == null) balance else token.amount)
             val leaves = if (token == null && balance != null && amountError == null && amount.isNotBlank()) {
@@ -554,7 +555,9 @@ internal fun SolanaSendRoute(
             }
         }
         is SolanaSendStep.Review -> {
-            val notes = addressNotesOf(current.plan.recipientAddress, SOLANA_FAMILY, emptyMap(), addressBook)
+            val notes = remember(current.plan.recipientAddress, addressBook) {
+                addressNotesOf(current.plan.recipientAddress, SOLANA_FAMILY, emptyMap(), addressBook)
+            }
             val toName = nameOrAddress(notes, current.plan.recipientAddress)
             SendReviewPage(
                 heading = "Send ${solanaAmountText(current.plan, selected.symbol)} from $fromName to ${nameWithStart(notes, current.plan.recipientAddress)}?",

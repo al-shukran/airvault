@@ -51,13 +51,16 @@ const val YOUR_ACCOUNT = "Your account"
 
 /**
  * The bold line above an address. An account of this device takes it, as "Your account · <name> · <label>", and the label is left out when the
- * account has none. Otherwise it is the Address Book name. Null when neither gives one.
+ * account has none. Names are plain text, see [plainNameOf]. Otherwise it is the Address Book name. Null when neither gives one.
  */
 fun AddressNotes.headline(): String? {
-    val account = internal ?: return entry?.name?.let(::displayNameOf)
-    return listOfNotNull(YOUR_ACCOUNT, (account.displayName ?: account.autoName).let(::displayNameOf), account.label?.let(::displayNameOf))
+    val account = internal ?: return plainNameOrNull(entry?.name)
+    return listOfNotNull(YOUR_ACCOUNT, plainNameOrNull(account.displayName ?: account.autoName), plainNameOrNull(account.label))
         .joinToString(" · ")
 }
+
+/** The name of [entry] as a title: plain text, or its address in groups when the name has nothing visible left. */
+fun AddressBookEntry.plainName(): String = plainNameOrNull(name) ?: groupAddress(address)
 
 /** The first two groups of 4 of [address] and an ellipsis, as "0x1234 5678 …". A sentence shows it after a name, so a name never stands for its address. */
 fun addressStart(address: String): String = groupAddress(address).split(" ").take(2).joinToString(" ") + " …"

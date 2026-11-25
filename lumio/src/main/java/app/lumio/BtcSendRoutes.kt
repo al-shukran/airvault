@@ -21,6 +21,7 @@ import app.lensly.DebugBtcFixture
 import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
+import app.lensly.app.plainName
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.navigation.GateRoutes
@@ -401,7 +402,7 @@ internal fun BtcSendRoute(
                 accounts = paired?.let { bitcoinOwnChoices(it, network, selected.account.receiveAddress(0)) }.orEmpty(),
                 addressBook = addressBook
                     .filter { btcRecipientError(it.address, network) == null }
-                    .map { entry -> SendChoice(title = entry.name, detail = entry.label ?: "Address Book", address = entry.address) },
+                    .map { entry -> SendChoice(title = entry.plainName(), detail = entry.label ?: "Address Book", address = entry.address) },
                 onPick = { choice -> recipient = choice.address },
                 onScan = {
                     recipientStatus = RECIPIENT_SCAN_HINT
@@ -422,7 +423,7 @@ internal fun BtcSendRoute(
         BtcSendStep.Amount -> {
             val pool = spendable
             val total = pool?.coins?.sumOf { it.valueSats }
-            val notes = addressNotesOf(recipient, BITCOIN_FAMILY, emptyMap(), addressBook)
+            val notes = remember(recipient, addressBook) { addressNotesOf(recipient, BITCOIN_FAMILY, emptyMap(), addressBook) }
             val toName = nameOrAddress(notes, recipient)
             val sent = preview
             SendAmountPage(
@@ -482,7 +483,9 @@ internal fun BtcSendRoute(
             }
         }
         is BtcSendStep.Review -> {
-            val notes = addressNotesOf(current.plan.recipient, BITCOIN_FAMILY, emptyMap(), addressBook)
+            val notes = remember(current.plan.recipient, addressBook) {
+                addressNotesOf(current.plan.recipient, BITCOIN_FAMILY, emptyMap(), addressBook)
+            }
             val toName = nameOrAddress(notes, current.plan.recipient)
             val warnings = lookalikeWarnings(notes) + BtcAdvanced.warnings(suggestedRate ?: current.plan.feeRateSatPerVb, current.plan.feeRateSatPerVb)
             SendReviewPage(

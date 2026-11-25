@@ -20,6 +20,7 @@ import app.airvault.core.model.AccountId
 import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
+import app.lensly.app.plainName
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.navigation.GateRoutes
@@ -398,7 +399,7 @@ internal fun AlgorandSendRoute(
                 accounts = algorandOwnChoices(wallet, address),
                 addressBook = wallet.addressBook
                     .filter { AlgorandSend.recipientError(it.address) == null }
-                    .map { entry -> SendChoice(title = entry.name, detail = entry.label ?: "Address Book", address = entry.address) },
+                    .map { entry -> SendChoice(title = entry.plainName(), detail = entry.label ?: "Address Book", address = entry.address) },
                 onPick = { choice -> recipient = choice.address },
                 onScan = {
                     recipientStatus = RECIPIENT_HINT
@@ -417,7 +418,7 @@ internal fun AlgorandSendRoute(
             onCancel = { step = AlgorandSendStep.Recipient },
         )
         AlgorandSendStep.Amount -> {
-            val notes = addressNotesOf(recipient, ALGORAND_FAMILY, emptyMap(), wallet.addressBook)
+            val notes = remember(recipient, wallet.addressBook) { addressNotesOf(recipient, ALGORAND_FAMILY, emptyMap(), wallet.addressBook) }
             val toName = nameOrAddress(notes, recipient)
             val fee = feeEstimate
             val leaves = if (loaded != null && isAlgo && fee != null) {
@@ -484,7 +485,9 @@ internal fun AlgorandSendRoute(
         }
         is AlgorandSendStep.Review -> {
             val optIn = current.plan is AsaSendPlan && current.plan.isOptIn
-            val notes = if (optIn) null else addressNotesOf(current.plan.toAddress, ALGORAND_FAMILY, emptyMap(), wallet.addressBook)
+            val notes = remember(optIn, current.plan.toAddress, wallet.addressBook) {
+                if (optIn) null else addressNotesOf(current.plan.toAddress, ALGORAND_FAMILY, emptyMap(), wallet.addressBook)
+            }
             val toName = if (optIn) fromName else nameOrAddress(notes, current.plan.toAddress)
             val toAddress = if (optIn) current.plan.fromAddress else current.plan.toAddress
             SendReviewPage(

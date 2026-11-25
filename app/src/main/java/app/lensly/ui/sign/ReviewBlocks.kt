@@ -40,14 +40,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import app.airvault.core.model.ChainId
-import app.lensly.app.AddressBookEntry
 import app.lensly.app.ADDRESS_NOTES_MAX_LENGTH
+import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressNotes
 import app.lensly.app.EVM_FAMILY
-import app.lensly.app.displayNameOf
 import app.lensly.app.headline
-import app.lensly.app.lookalikeWarningText
 import app.lensly.app.isAddressValue
+import app.lensly.app.lookalikeWarningText
+import app.lensly.app.plainName
+import app.lensly.app.plainNameOrNull
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.LetterMonogram
@@ -483,7 +484,7 @@ internal fun ReviewAddress(
 @Composable
 internal fun AddressNoteLines(notes: AddressNotes?, modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth()) {
-        notes?.internal?.walletName?.let { ReviewFactRow(label = "Wallet", value = it, mono = false) }
+        plainNameOrNull(notes?.internal?.walletName)?.let { ReviewFactRow(label = "Wallet", value = it, mono = false) }
         val entry = notes?.entry
         if (entry == null) {
             if (notes?.internal == null) {
@@ -497,13 +498,13 @@ internal fun AddressNoteLines(notes: AddressNotes?, modifier: Modifier = Modifie
             if (notes.internal != null) {
                 ReviewFactRow(
                     label = "Address Name",
-                    value = displayNameOf(entry.name),
+                    value = entry.plainName(),
                     mono = false,
                     valueColor = NameRole.ACCOUNT.colourIn(LocalLumenPalette.current),
                 )
             }
-            entry.label?.let { ReviewFactRow(label = "Address Label", value = displayNameOf(it), mono = false) }
-            entry.notes?.let { ReviewFactRow(label = "Address Notes", value = displayNameOf(it, ADDRESS_NOTES_MAX_LENGTH), mono = false) }
+            plainNameOrNull(entry.label)?.let { ReviewFactRow(label = "Address Label", value = it, mono = false) }
+            plainNameOrNull(entry.notes, ADDRESS_NOTES_MAX_LENGTH)?.let { ReviewFactRow(label = "Address Notes", value = it, mono = false) }
             if (entry.chain?.namespace == EVM_FAMILY.namespace) NoteText(SAVED_FOR_ALL_EVM)
         }
     }
@@ -544,7 +545,7 @@ internal const val NOT_IN_ADDRESS_BOOK = "Not in address book"
  * neither gives one.
  */
 internal fun AddressNotes.shownName(): String? =
-    (internal?.let { account -> account.displayName ?: account.autoName } ?: entry?.name)?.let(::displayNameOf)
+    plainNameOrNull(internal?.let { account -> account.displayName ?: account.autoName }) ?: if (internal == null) plainNameOrNull(entry?.name) else null
 
 /** Appends [text] in the mono face, for an amount or an address inside a sentence. */
 internal fun AnnotatedString.Builder.appendMono(text: String, mono: FontFamily) {

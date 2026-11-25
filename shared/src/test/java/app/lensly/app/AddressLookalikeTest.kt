@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.lensly.ui.components.groupAddress
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -33,6 +34,16 @@ class AddressLookalikeTest {
     }
 
     @Test
+    fun anUppercaseBech32AddressIsStillCaughtAndIsNeverALookalikeOfItself() {
+        val saved = "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"
+        assertTrue(looksLikeAddress(("bc1qar0s" + "x".repeat(26) + "5mdq").uppercase(), saved, BITCOIN_FAMILY))
+        assertFalse(looksLikeAddress(saved.uppercase(), saved, BITCOIN_FAMILY))
+        val entry = AddressBookEntry(id = "1", address = saved, name = "Alice", label = null)
+        assertNull(lookalikeEntryFor(saved.uppercase(), BITCOIN_FAMILY, listOf(entry)))
+        assertEquals(entry, lookalikeEntryFor(("bc1qar0s" + "x".repeat(26) + "5mdq").uppercase(), BITCOIN_FAMILY, listOf(entry)))
+    }
+
+    @Test
     fun bitcoinBase58DropsTheVersionCharacter() {
         val saved = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2"
         assertTrue(looksLikeAddress("1BvBM" + "x".repeat(24) + "NVN2", saved, BITCOIN_FAMILY))
@@ -61,8 +72,17 @@ class AddressLookalikeTest {
     }
 
     @Test
+    fun onlyTheFirstSimilarEntryIsReturned() {
+        val first = AddressBookEntry(id = "1", address = evmSaved, name = "First", label = null)
+        val second = AddressBookEntry(id = "2", address = "0x1234" + "b".repeat(32) + "5678", name = "Second", label = null)
+        assertEquals(first, lookalikeEntryFor("0x1234" + "c".repeat(32) + "5678", EVM_FAMILY, listOf(first, second)))
+        assertEquals(second, lookalikeEntryFor("0x1234" + "c".repeat(32) + "5678", EVM_FAMILY, listOf(second, first)))
+    }
+
+    @Test
     fun theWarningNamesTheSavedEntryAsPlainText() {
         val entry = AddressBookEntry(id = "1", address = evmSaved, name = "\u202EAlice\n", label = null)
         assertEquals("Looks like Alice but differs", lookalikeWarningText(entry))
+        assertEquals("Looks like ${groupAddress(evmSaved)} but differs", lookalikeWarningText(entry.copy(name = "\u200B")))
     }
 }

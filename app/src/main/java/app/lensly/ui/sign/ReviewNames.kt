@@ -4,8 +4,8 @@ import androidx.compose.ui.graphics.Color
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
 import app.lensly.app.addressKeyOf
-import app.lensly.app.displayNameOf
 import app.lensly.app.notesOf
+import app.lensly.app.plainNameOrNull
 import app.lensly.ui.theme.LumenPalette
 
 /**
@@ -54,5 +54,5 @@ internal fun sendPartyOf(address: String, notes: Map<String, AddressNotes>, sign
     } else {
         known?.internal?.let { it.displayName ?: it.autoName }
     }
-    return partyNameOf(account?.let(::displayNameOf), known?.entry?.name?.let(::displayNameOf))
+    return partyNameOf(plainNameOrNull(account), plainNameOrNull(known?.entry?.name))
 }
