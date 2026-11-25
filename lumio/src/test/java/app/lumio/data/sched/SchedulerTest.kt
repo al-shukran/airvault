@@ -241,6 +241,18 @@ class SchedulerTest {
     }
 
     @Test
+    fun aBroadcastThatAProviderRateLimitsMovesToTheNextCandidate() = runTest {
+        val a = provider("a").apply { outcomes.add(ProviderError.RateLimited(retryAfterMs = 5_000)) }
+        val b = provider("b")
+        val s = scheduler(a, b, configs = PREFER_A)
+
+        assertEquals("0xtx", s.run(Broadcast(ETH, byteArrayOf(1))))
+
+        assertEquals(1, a.calls)
+        assertEquals(1, b.calls)
+    }
+
+    @Test
     fun aTimedOutProviderIsPassedOverAtOnceAndForThirtySeconds() = runTest {
         val a = provider("a").apply { outcomes.add(ProviderError.Transient(InterruptedIOException("The call timed out."))) }
         val b = provider("b")
