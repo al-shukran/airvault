@@ -6,6 +6,7 @@ import app.lumio.data.FakeProvider
 import app.lumio.data.MonotonicClock
 import app.lumio.data.cache.Cache
 import app.lumio.data.cache.CacheKeys
+import app.lumio.data.cache.CachePolicy
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.Http
@@ -85,6 +86,20 @@ class BtcJobsTest {
 
         assertEquals(5L, store.snapshot("wallet-1_TESTNET4_NATIVE_SEGWIT")?.confirmedSats)
         assertEquals(null, store.snapshot("wallet-2_TESTNET4_NATIVE_SEGWIT"), "a deleted wallet leaves no balance behind")
+    }
+
+    @Test
+    fun retainingTheScansLeavesTheOtherLastKnownEntriesAlone() = runBlocking {
+        val cache = cache()
+        val price = "{\"usd\":3000.0}".toByteArray()
+        cache.put(CachePolicy.LastKnown, "native-price:ETH", price)
+        val store = BtcStore(cache)
+        store.save(lastKnown("wallet-1_TESTNET4_NATIVE_SEGWIT"))
+
+        store.retain(emptySet())
+
+        assertEquals(null, store.snapshot("wallet-1_TESTNET4_NATIVE_SEGWIT"))
+        assertEquals(price.decodeToString(), cache.get(CachePolicy.LastKnown, "native-price:ETH")?.value?.decodeToString(), "a kept price is not a scan")
     }
 
     private fun lastKnown(key: String) = BtcSnapshot(
