@@ -68,6 +68,23 @@ class PaymentCodeTest {
     }
 
     @Test
+    fun anEip681RequestForAnotherChainThatIsOnNamesThatChainAndReadsItsAmountInItsUnits() {
+        val base = EvmChain(8453L, "Base", "ETH", 18, testnet = false, explorerUrl = null)
+        val monad = EvmChain(10143L, "Monad Testnet", "MON", 6, testnet = true, explorerUrl = null)
+
+        val payment = EvmPaymentCode.read("ethereum:$RECIPIENT@10143?value=1e6", sepolia, others = listOf(base, monad))
+
+        assertEquals(10143L, payment.chainId)
+        assertEquals("1", payment.amount)
+        assertNull(EvmPaymentCode.read("ethereum:$RECIPIENT@11155111", sepolia, others = listOf(base, monad)).chainId)
+        assertNull(EvmPaymentCode.read(RECIPIENT, sepolia, others = listOf(base)).chainId)
+        assertEquals(
+            "This code is for chain 1, but Sepolia is selected. Choose that network to scan it.",
+            refusal { EvmPaymentCode.read("ethereum:$RECIPIENT@1", sepolia, others = listOf(base, monad)) },
+        )
+    }
+
+    @Test
     fun theSchemeIsReadWhateverItsCase() {
         assertEquals("0.01", evm("ETHEREUM:$RECIPIENT@11155111?value=1e16").amount)
     }
