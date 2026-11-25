@@ -12,8 +12,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.lensly.app.AddressBookEntry
+import app.lensly.app.addressChainLabel
 import app.lensly.app.export.PairingCodec
-import app.lensly.app.familyLabel
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.EmptyState
@@ -77,8 +77,8 @@ fun AddressBookScreen(
                     ListRow(onClick = { onOpen(entry) }) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(text = entry.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-                            // The chain family the address is on, then the label. An EVM address is one account on every EVM network, so it names the family.
-                            val subtitle = listOfNotNull(entry.chain?.let { familyLabel(it.namespace) }, entry.label).joinToString(" · ")
+                            // The chain the address is on, then the label. An EVM address is one account on every EVM network, so it names the family.
+                            val subtitle = listOfNotNull(addressChainLabel(entry.address), entry.label).joinToString(" · ")
                             if (subtitle.isNotEmpty()) MutedText(subtitle)
                             AddressText(address = entry.address, icon = false)
                         }

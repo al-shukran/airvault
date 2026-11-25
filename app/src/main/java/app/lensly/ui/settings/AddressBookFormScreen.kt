@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import app.lensly.app.ADDRESS_NOTES_MAX_LENGTH
 import app.lensly.app.DISPLAY_NAME_MAX_LENGTH
 import app.lensly.app.PROFILE_TEXT_MAX_LENGTH
+import app.lensly.app.bitcoinNetworkName
 import app.lensly.app.btcNetworkOf
 import app.lensly.app.chainOfAddress
 import app.lensly.ui.components.BannerTone
@@ -22,7 +23,6 @@ import app.lensly.ui.components.SecureKeyboard
 import app.lensly.ui.components.SettingsIsland
 import app.lensly.ui.components.SettingsRow
 import app.lensly.ui.profile.ProfileFieldRow
-import app.lensly.ui.sign.bitcoinNetworkName
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalMonoFamily
 import app.lensly.ui.wallet.WalletEyebrow

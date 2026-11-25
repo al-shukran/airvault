@@ -26,11 +26,14 @@ class AddressBookScreenTest {
             AddressBookEntry("e1", "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed", "Alice", "Exchange deposit"),
             AddressBookEntry("e2", "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4", "Bob", null),
             AddressBookEntry("e3", "11111111111111111111111111111111", "Sol", null),
+            AddressBookEntry("e4", "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx", "Test", "Faucet"),
         )
         compose.setContent { LumenTheme { AddressBookScreen(entries = entries, onOpen = {}, onAdd = {}, onScan = {}, onBack = {}) } }
 
         compose.onNodeWithText("Ethereum · Exchange deposit").assertIsDisplayed()
         compose.onNodeWithText("Bitcoin").assertIsDisplayed()
         compose.onNodeWithText("Solana").assertIsDisplayed()
+        // A Bitcoin address is on one network, so a testnet4 entry is not listed as Bitcoin.
+        compose.onNodeWithText("Bitcoin Testnet4 · Faucet").assertIsDisplayed()
     }
 }
