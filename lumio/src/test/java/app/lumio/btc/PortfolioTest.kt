@@ -117,7 +117,6 @@ class PortfolioTest {
         confirmedSats = confirmed,
         unconfirmedSats = unconfirmed,
         nextReceiveIndex = 0,
-        nextReceiveAddress = ref.account.receiveAddress(0),
         utxos = emptyList(),
         transactions = emptyList(),
     )

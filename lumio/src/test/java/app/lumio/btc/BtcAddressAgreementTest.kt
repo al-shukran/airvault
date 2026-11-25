@@ -134,7 +134,6 @@ class BtcAddressAgreementTest {
         confirmedSats = 0L,
         unconfirmedSats = 0L,
         nextReceiveIndex = 5,
-        nextReceiveAddress = account.receiveAddress(5),
         utxos = emptyList(),
         transactions = emptyList(),
     )
