@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import app.lensly.ui.flow.PasswordCheck
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -18,6 +19,8 @@ import app.lumio.ui.kit.ChoiceRow
 import app.lumio.ui.kit.ClearAirChoiceSheet
 import app.lumio.ui.kit.ClearAirDialog
 import app.lumio.ui.kit.ClearAirField
+import app.lumio.ui.kit.ClearAirGlyph
+import app.lumio.ui.kit.ClearAirGlyphDisc
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSheet
@@ -44,6 +47,8 @@ fun AutoLockRow(
     ClearAirRow(
         title = "Auto-Lock",
         description = "When Lumio locks itself",
+        leading = { ClearAirGlyphDisc(ClearAirGlyph.CLOCK, size = 19.dp) },
+        compact = true,
         trailing = { Text(text = current.label, style = ClearAirType.label, color = palette.ink2) },
         onClick = { sheetOpen = true },
     )

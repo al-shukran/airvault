@@ -20,10 +20,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.ui.kit.ClearAirDraggableRows
 import app.lumio.ui.kit.ClearAirField
-import app.lumio.ui.kit.ClearAirListRow
 import app.lumio.ui.kit.ClearAirNote
 import app.lumio.ui.kit.ClearAirNumberedRow
 import app.lumio.ui.kit.ClearAirRadio
+import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirTextAction
 
 /**
@@ -62,7 +62,7 @@ fun NetworkPage(
     SettingsFrame(title = chainName, offline = offline, onBack = onBack, onLock = onLock, backLabel = "Networks") {
         ClearAirNote(text = chainLine, modifier = Modifier.padding(top = ClearAirSpacing.md))
         SettingsGroup(title = "Default RPC") {
-            ClearAirListRow(
+            ClearAirRow(
                 title = builtInUrl ?: "Built-in RPC",
                 tag = "Built In",
                 description = "Can't be deleted",
@@ -73,7 +73,7 @@ fun NetworkPage(
         if (custom.isNotEmpty()) {
             SettingsGroup(title = "Custom RPCs") {
                 custom.forEach { url ->
-                    ClearAirListRow(
+                    ClearAirRow(
                         title = url,
                         description = if (url == active) inUseLine else null,
                         modifier = Modifier.selectable(

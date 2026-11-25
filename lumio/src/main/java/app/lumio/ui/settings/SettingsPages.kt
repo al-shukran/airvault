@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.flow.PasswordCheck
 import app.lensly.ui.theme.ClearAirSpacing
@@ -20,6 +21,8 @@ import app.lumio.data.config.LockSettings
 import app.lumio.data.config.TransactionSettings
 import app.lumio.ui.kit.ClearAirAlertNote
 import app.lumio.ui.kit.ClearAirEyebrow
+import app.lumio.ui.kit.ClearAirGlyph
+import app.lumio.ui.kit.ClearAirGlyphDisc
 import app.lumio.ui.kit.ClearAirNote
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirStopSlider
@@ -148,14 +151,26 @@ fun SecuritySettingsPage(
 ) {
     SettingsPageScreen(SettingsPage.SECURITY, offline, onBack, onLock) {
         SettingsGroup(title = "Entry") {
-            ClearAirRow(title = "Hidden Entry Gesture", description = entryGesture.title, onClick = onEntryGesture)
+            ClearAirRow(title = "Hidden Entry Gesture", description = entryGesture.title, leading = { SecurityGlyph(ClearAirGlyph.HAND) }, onClick = onEntryGesture, compact = true)
             ClearAirNote(text = "Choosing another gesture asks for the App Password first.", modifier = Modifier.padding(top = ClearAirSpacing.xs))
         }
         SettingsGroup(title = "Password") {
-            ClearAirRow(title = "Change Password", description = "Change your Lumio password", onClick = onChangePassword)
+            ClearAirRow(
+                title = "Change Password",
+                description = "Change your Lumio password",
+                leading = { SecurityGlyph(ClearAirGlyph.KEY) },
+                onClick = onChangePassword,
+                compact = true,
+            )
         }
         SettingsGroup(title = "Unlock") {
-            ClearAirRow(title = "Device Protection", description = if (deviceProtectionOn) "On" else "Off", onClick = onDeviceProtection)
+            ClearAirRow(
+                title = "Device Protection",
+                description = if (deviceProtectionOn) "On" else "Off",
+                leading = { SecurityGlyph(ClearAirGlyph.FINGERPRINT) },
+                onClick = onDeviceProtection,
+                compact = true,
+            )
         }
         SettingsGroup(title = "Lock") {
             AutoLockRow(current = lock.autoLock, checkPassword = checkPassword, onChoose = onAutoLock)
@@ -163,6 +178,10 @@ fun SecuritySettingsPage(
         }
     }
 }
+
+/** The glyph on the disc of a Security row. */
+@Composable
+private fun SecurityGlyph(glyph: ClearAirGlyph) = ClearAirGlyphDisc(glyph, size = 19.dp)
 
 /**
  * The Device Protection page: the Biometric Unlock switch. Turning it on asks for the App Password first, on the step that opens from here.

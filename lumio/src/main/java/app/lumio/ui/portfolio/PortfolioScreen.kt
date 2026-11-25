@@ -48,6 +48,9 @@ import app.lumio.portfolio.PortfolioView
 import app.lumio.portfolio.SentencePicker
 import app.lumio.portfolio.sentence
 import app.lumio.transactions.TxFeedItem
+import app.lumio.ui.home.AssetDisc
+import app.lumio.ui.home.AssetIconSpec
+import app.lumio.ui.home.letterOf
 import app.lumio.ui.kit.ChoiceGroup
 import app.lumio.ui.kit.ChoiceRow
 import app.lumio.ui.kit.ClearAirAmount
@@ -87,6 +90,7 @@ fun PortfolioScreen(
     onOpenRow: (TxFeedItem) -> Unit,
     otherSide: OtherSide? = null,
     onReceive: (() -> Unit)? = null,
+    iconOf: (PortfolioRow) -> AssetIconSpec = { AssetIconSpec.Letter(letterOf(it.coin)) },
 ) {
     var picker by remember { mutableStateOf<SentencePicker?>(null) }
     var showSmall by rememberSaveable { mutableStateOf(false) }
@@ -120,11 +124,13 @@ fun PortfolioScreen(
             // Small balances are left out of the list only: the total above still counts every asset.
             val rows = PortfolioView.rows(holdings, filter)
             val listed = if (showSmall) rows else rows.filterNot { hidesSmall(it.usd) }
-            for (row in listed) {
+            listed.forEachIndexed { index, row ->
                 ClearAirRow(
                     title = row.title,
                     description = describe(row, showBalance),
+                    leading = { AssetDisc(iconOf(row)) },
                     trailing = { RowValue(row = row, shown = showBalance) },
+                    divider = index > 0,
                 )
             }
             if (listed.isEmpty() && rows.isNotEmpty()) HiddenSmallLine(count = rows.size, onShow = { showSmall = true })

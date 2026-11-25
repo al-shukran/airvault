@@ -318,8 +318,8 @@ private fun namesOf(asset: WatchedAsset, app: LumioApp, held: Collection<List<To
     return token?.let { it.symbol to it.name } ?: coinNames(asset)
 }
 
-/** The logo of [asset] at 48 dp: a native coin's icon, or a token's own logo when Lensly ships one, else the letter of its [symbol]. */
-private fun coinIconOf(asset: WatchedAsset, symbol: String, app: LumioApp): AssetIconSpec {
+/** The logo of [asset]: a native coin's icon, or a token's own logo when Lensly ships one, else the letter of its [symbol]. */
+internal fun coinIconOf(asset: WatchedAsset, symbol: String, app: LumioApp): AssetIconSpec {
     val contract = asset.contract ?: return AssetRows.nativeIcon(asset.network, symbol, app.registry::network)
     val chainId = Networks.evmIdOf(asset.network.chain)
     return tokenIcon(app.registry.token(chainId, contract), app.registry.network(chainId), symbol)
