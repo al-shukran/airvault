@@ -94,7 +94,7 @@ internal fun HomeRoute(
     val rows = watchlist?.ordered { board.prices[it.assetId]?.change24hPct }.orEmpty().map { asset ->
         rowOf(asset, view, wallet?.id, board.prices[asset.assetId], board.dayChartOf(asset.assetId), testnet, fiat, app)
     }
-    var sortOpen by remember { mutableStateOf(false) }
+    var sortOpen by remember { mutableStateOf(DebugDemoData.flag("sort")) }
     var receiveOpen by remember { mutableStateOf(false) }
     var receiveOpening by remember { mutableIntStateOf(0) }
     val accounts = if (view != null && wallet != null) view.accountsOf(wallet.id) else emptyList()

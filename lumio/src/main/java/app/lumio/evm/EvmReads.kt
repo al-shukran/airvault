@@ -1,5 +1,6 @@
 package app.lumio.evm
 
+import app.lumio.DebugDemoData
 import app.lensly.core.vault.VaultSession
 import app.lumio.data.MonotonicClock
 import app.lumio.data.config.PreferRpcStore
@@ -125,11 +126,11 @@ class EvmReads(
                 saved + (CustomRpc.ID to (saved[CustomRpc.ID] ?: ProviderConfig()).copy(chainUrls = owner))
             }
             return EvmReads(
-                pool = Scheduler(DataPlugins.evm() + RpcPlugins.pool(), configs, http, MonotonicClock, Random.Default, scope),
+                pool = Scheduler(DebugDemoData.providers(DataPlugins.evm() + RpcPlugins.pool()), configs, http, MonotonicClock, Random.Default, scope),
                 newOwner = { Scheduler(listOf(CustomRpc(allowLocalHttp)), configs, http, MonotonicClock, Random.Default, scope) },
                 settings = settings,
                 rpcOnly = Scheduler(
-                    DataPlugins.evm(preferRpc = true) + RpcPlugins.pool(), configs, http, MonotonicClock, Random.Default, scope,
+                    DebugDemoData.providers(DataPlugins.evm(preferRpc = true) + RpcPlugins.pool()), configs, http, MonotonicClock, Random.Default, scope,
                 ),
                 preferRpc = { PreferRpcStore.read(session) },
             )

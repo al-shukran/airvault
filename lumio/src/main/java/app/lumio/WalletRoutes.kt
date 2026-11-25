@@ -251,6 +251,17 @@ internal fun AccountRoute(
     val view = board.view
     val account = view?.accountsOf(walletId)?.firstOrNull { it.id == accountId }
     if (view != null && account == null) LaunchedEffect(Unit) { navController.popBackStack() }
+    val openReceive = {
+        account?.coin?.let { coin ->
+            val icon = AssetRows.nativeIcon(coin.network, coin.symbol, app.registry::network)
+            receive = receiveNativeStartOf(account, coin, icon, view?.wallets.orEmpty())
+            receiveOpening++
+            receiveOpen = true
+        }
+        Unit
+    }
+    // Debug demo mode: a Receive frame opens the sheet at once. Release builds never ask.
+    LaunchedEffect(account != null) { if (account != null && DebugDemoData.flag("receive")) openReceive() }
     LumioPageScreen(
         title = account?.let(::accountTitle).orEmpty(),
         backLabel = navController.backLabel(),
@@ -292,14 +303,7 @@ internal fun AccountRoute(
                 notice = board.notice,
                 onRefresh = { board.refresh(pulled = true) },
                 onSend = { navController.navigate(sendRoute(account, mode)) },
-                onReceive = {
-                    account.coin?.let { coin ->
-                        val icon = AssetRows.nativeIcon(coin.network, coin.symbol, app.registry::network)
-                        receive = receiveNativeStartOf(account, coin, icon, view.wallets)
-                        receiveOpening++
-                        receiveOpen = true
-                    }
-                },
+                onReceive = openReceive,
                 onAsset = { asset -> navController.navigate(LumioRoute.asset(walletId, account.id, asset.assetKey)) },
                 onAddAsset = if (account.namespace == Networks.ALGORAND) {
                     { navController.navigate(LumioRoute.algorandAddAsset(walletId, account.id)) }
