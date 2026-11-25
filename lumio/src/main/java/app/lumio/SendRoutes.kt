@@ -217,8 +217,10 @@ internal fun SendRoute(
     var preparing by remember { mutableStateOf(false) }
     var amountError by remember { mutableStateOf<String?>(null) }
 
-    // The network the send is bound to. Null when that network is off, and the page then says so.
-    val selectedChain = ready.chains.firstOrNull { it.chainId == chainId }
+    // The network the send is bound to. It is the route's, or the one that a scanned code names when Scan to Pay opened the send. Null when that network is off, and the page then says so.
+    var boundChainId by rememberSaveable { mutableStateOf(chainId) }
+    var chosenByCode by rememberSaveable { mutableStateOf(false) }
+    val selectedChain = ready.chains.firstOrNull { it.chainId == boundChainId }
     // The coins the chain offers: the native coin, and the tokens held here. The send moves the chosen one, native by default.
     val assets = selectedChain?.let { chain -> SendAssets.onChain(chain, ready.held) }.orEmpty()
     val asset = assets.firstOrNull { contract != null && it.token?.contract.equals(contract, ignoreCase = true) } ?: assets.firstOrNull()
@@ -258,14 +260,19 @@ internal fun SendRoute(
 
     /**
      * A scanned recipient fills To, and the amount when the form has none. A payment code's amount is in the native coin, so it fills the amount
-     * only for the native coin. A code that is refused keeps the camera on, with the words why.
+     * only for the native coin. Scan to Pay moves the send to the network that the code names, when that network is on. A code that is refused keeps the camera on, with the words why.
      */
     fun onRecipientText(text: String) {
         val chain = selectedChain ?: return
-        runCatching { EvmPaymentCode.read(text, chain) }
+        runCatching { EvmPaymentCode.read(text, chain, others = if (scanFirst) ready.chains else emptyList()) }
             .onSuccess { payment ->
+                payment.chainId?.let {
+                    boundChainId = it
+                    contract = null
+                    chosenByCode = true
+                }
                 recipient = payment.address
-                if (payment.amount != null && amount.isBlank() && asset?.token == null) amount = payment.amount
+                amount = payment.amountAfter(amount, native = asset?.token == null)
                 notice = null
                 step = SendStep.Recipient
             }
@@ -436,7 +443,7 @@ internal fun SendRoute(
                 networkName = chain?.name.orEmpty(),
                 feeText = send?.let { "Up to ${EvmFormat.amount(it.maxFeeWei, it.chain.decimals, it.chain.symbol)}" },
                 onFee = { feeSheet = true },
-                note = if (assets.size > 1) null else chain?.let { "Chosen for you: ${it.name}, the network this account sends on." },
+                note = if (assets.size > 1) null else chain?.let { if (chosenByCode) "Chosen by the code: ${it.name}." else "Chosen for you: ${it.name}, the network this account sends on." },
                 canReview = send != null && !preparing && amountError == null,
                 onReview = { send?.let { step = SendStep.Review(it) } },
                 onChangeRecipient = { changeRecipient = true },
