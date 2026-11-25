@@ -372,6 +372,7 @@ private fun AddressBlock(
         notes = addressNotesOf(address, chain, accounts, book),
         logo = logo,
         onClick = open?.let { tap -> { tap(address) } },
+        beforeSigning = false,
     )
 }
 

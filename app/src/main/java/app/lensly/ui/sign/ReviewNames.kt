@@ -5,6 +5,7 @@ import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
 import app.lensly.app.addressKeyOf
 import app.lensly.app.notesOf
+import app.lensly.app.plainName
 import app.lensly.app.plainNameOrNull
 import app.lensly.ui.theme.LumenPalette
 
@@ -52,7 +53,7 @@ internal fun sendPartyOf(address: String, notes: Map<String, AddressNotes>, sign
     val account = if (addressKeyOf(address) == addressKeyOf(signer.address)) {
         signer.name
     } else {
-        known?.internal?.let { it.displayName ?: it.autoName }
+        known?.internal?.plainName()
     }
     return partyNameOf(plainNameOrNull(account), plainNameOrNull(known?.entry?.name))
 }

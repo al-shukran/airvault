@@ -632,14 +632,14 @@ private fun notesFor(address: String, accounts: Map<String, InternalAccount>, ad
     addressNotesOf(address, EVM_FAMILY, accounts, addressBook)
 
 /** The name an account goes by on the screens: its own name, else the name the app gave it. */
-private fun accountName(account: InternalAccount?): String = plainNameOrNull(account?.let { it.displayName ?: it.autoName }).orEmpty()
+private fun accountName(account: InternalAccount?): String = account?.plainName().orEmpty()
 
 /** The name of the account the send is from, or "Account" with its place when the account has no name. */
 private fun fromNameOf(ready: SendContext): String = accountName(ready.accounts[addressKeyOf(ready.from)]).ifBlank { "Account ${ready.index + 1}" }
 
 /** The name of an address as a title: its Address Book name, else its account's name, as plain text. Empty when neither gives one. */
 internal fun notesName(notes: AddressNotes): String =
-    plainNameOrNull(notes.entry?.name) ?: plainNameOrNull(notes.internal?.let { it.displayName ?: it.autoName }).orEmpty()
+    plainNameOrNull(notes.entry?.name) ?: notes.internal?.plainName().orEmpty()
 
 /** The title of [address]: its name when [notes] give one, else the address in groups. The address is in full on the page, never replaced. */
 internal fun nameOrAddress(notes: AddressNotes?, address: String): String =
