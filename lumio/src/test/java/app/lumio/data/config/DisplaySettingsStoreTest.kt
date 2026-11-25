@@ -22,13 +22,13 @@ class DisplaySettingsStoreTest {
     private fun open(): VaultSession = VaultSession(VaultLayout(tmp.root), keys, ByteArray(32) { (it * 9 + 2).toByte() })
 
     @Test
-    fun theDefaultsAreWhatTheOwnerSeesBeforeAnyChange() {
+    fun theDefaultsAreTheLumio1Defaults() {
         val session = open()
 
         val settings = DisplaySettingsStore.read(session)
 
         assertEquals(DisplaySettings(), settings)
-        assertTrue(settings.showTotal)
+        assertFalse(settings.showTotal)
         assertTrue(settings.showAssets)
         session.close()
     }
@@ -36,11 +36,11 @@ class DisplaySettingsStoreTest {
     @Test
     fun aSavedChangeIsReadBackAfterTheVaultReopens() {
         val session = open()
-        DisplaySettingsStore.write(session, DisplaySettings(showTotal = false, showAssets = false))
+        DisplaySettingsStore.write(session, DisplaySettings(showTotal = true, showAssets = false))
         session.close()
 
         val reopened = open()
-        assertEquals(DisplaySettings(showTotal = false, showAssets = false), DisplaySettingsStore.read(reopened))
+        assertEquals(DisplaySettings(showTotal = true, showAssets = false), DisplaySettingsStore.read(reopened))
         reopened.close()
     }
 
@@ -75,47 +75,32 @@ class DisplaySettingsStoreTest {
 
     @Test
     fun aVersion1RecordWithOnlyTheBalancesHiddenKeepsTheTotalHidden() {
-        val settings = stored("""{"showAssets":false}""")
-
-        assertFalse(settings.showTotal)
-        assertFalse(settings.showAssets)
-        assertTrue(settings.balancesHidden)
+        assertEquals(DisplaySettings(showTotal = false, showAssets = false), stored("""{"showAssets":false}"""))
     }
 
     @Test
-    fun aVersion1RecordWithTheTotalHiddenAndBalancesShownReadsAsEverythingHidden() {
-        val settings = stored("{}")
-
-        assertFalse(settings.showTotal)
-        assertFalse(settings.showAssets)
-        assertTrue(settings.balancesHidden)
+    fun aVersion1RecordWithTheTotalHiddenAndBalancesShownKeepsBothAsTheyWere() {
+        assertEquals(DisplaySettings(showTotal = false, showAssets = true), stored("{}"))
     }
 
     @Test
-    fun aVersion1RecordWithTheTotalShownAndBalancesShownReadsAsEverythingShown() {
-        val settings = stored("""{"showTotal":true}""")
-
-        assertTrue(settings.showTotal)
-        assertTrue(settings.showAssets)
-        assertFalse(settings.balancesHidden)
+    fun aVersion1RecordWithTheTotalShownAndBalancesShownKeepsBoth() {
+        assertEquals(DisplaySettings(showTotal = true, showAssets = true), stored("""{"showTotal":true}"""))
     }
 
     @Test
-    fun aVersion1RecordWithTheTotalShownAndBalancesHiddenReadsAsEverythingHidden() {
-        val settings = stored("""{"showTotal":true,"showAssets":false}""")
-
-        assertFalse(settings.showTotal)
-        assertFalse(settings.showAssets)
+    fun aVersion1RecordWithTheTotalShownAndBalancesHiddenKeepsBothAsTheyWere() {
+        assertEquals(DisplaySettings(showTotal = true, showAssets = false), stored("""{"showTotal":true,"showAssets":false}"""))
     }
 
     @Test
-    fun aSavedRecordWithTheTotalShownIsNotReadAsAVersion1Record() {
+    fun aSavedRecordWithTheTotalShownKeepsItShown() {
         val session = open()
-        DisplaySettingsStore.write(session, DisplaySettings(currency = FiatCurrency.CHF))
+        DisplaySettingsStore.write(session, DisplaySettings(showTotal = true, currency = FiatCurrency.CHF))
         session.close()
 
         val reopened = open()
-        assertEquals(DisplaySettings(currency = FiatCurrency.CHF), DisplaySettingsStore.read(reopened))
+        assertEquals(DisplaySettings(showTotal = true, currency = FiatCurrency.CHF), DisplaySettingsStore.read(reopened))
         reopened.close()
     }
 }

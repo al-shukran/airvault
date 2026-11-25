@@ -93,4 +93,15 @@ class PortfolioCacheTest {
 
         assertEquals(emptyList<CachedBalance>(), BalanceCache.read(session))
     }
+
+    @Test
+    fun aVersion1RecordWithNoncesReadsWithItsBalances() {
+        // What Lumio 1.0.0 stored: each read carried the nonce of the address, which is no longer kept.
+        session.putVaultRecord(
+            BalanceCache.RECORD,
+            """{"entries":[{"walletId":"w1","chainId":1,"address":"0xabc","wei":"5","nonce":7,"atMs":1234}]}""".encodeToByteArray(),
+        )
+
+        assertEquals(listOf(CachedBalance("w1", 1L, "0xabc", "5", 1234L)), BalanceCache.read(session))
+    }
 }

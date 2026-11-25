@@ -83,6 +83,38 @@ class EvmSettingsTest {
     }
 
     @Test
+    fun aRecordMixingTextAndObjectRpcAddressesReadsBoth() {
+        session.putVaultRecord(
+            EvmSettings.RECORD,
+            """{"rpc":{"1":"https://rpc.example","10":{"custom":["https://a","https://b"],"active":"https://b","activeSince":5}}}""".encodeToByteArray(),
+        )
+
+        assertEquals(
+            mapOf(
+                1L to ChainRpcs(custom = listOf("https://rpc.example"), active = "https://rpc.example"),
+                10L to ChainRpcs(custom = listOf("https://a", "https://b"), active = "https://b", activeSince = 5L),
+            ),
+            EvmSettingsStore.read(session).rpc,
+        )
+    }
+
+    @Test
+    fun aVersion1RecordChangedAndReadAgainKeepsTheRestOfIt() {
+        session.putVaultRecord(
+            EvmSettings.RECORD,
+            """{"addressCount":8,"enabled":[1,999],"rpc":{"1":"https://rpc.example"},"custom":[{"chainId":999,"name":"Test","symbol":"TST","testnet":true}]}""".encodeToByteArray(),
+        )
+
+        assertNull(EvmSettingsStore.change(session, rpc) { s, _ -> EvmEdits.setEnabled(s, 1L, false) })
+
+        val stored = EvmSettingsStore.read(session)
+        assertEquals(8, stored.addressCount)
+        assertEquals(setOf(999L), stored.enabled)
+        assertEquals(ChainRpcs(custom = listOf("https://rpc.example"), active = "https://rpc.example"), stored.rpc[1L])
+        assertEquals(listOf(999L), stored.custom.map { it.chainId })
+    }
+
+    @Test
     fun aVersion1RecordWithoutAnRpcAddressStillReads() {
         session.putVaultRecord(EvmSettings.RECORD, """{"addressCount":3}""".encodeToByteArray())
 

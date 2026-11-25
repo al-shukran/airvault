@@ -132,7 +132,7 @@ class LumioScreenshotTest {
         LumioSettingsScreen(
             rows = settingsRows(
                 facts = SettingsFacts(
-                    display = DisplaySettings(),
+                    display = DisplaySettings(showTotal = true),
                     transactions = TransactionSettings(),
                     chainsOn = 3,
                     customBitcoin = false,
@@ -157,7 +157,7 @@ class LumioScreenshotTest {
         DisplaySettingsPage(
             settings = DisplaySettings(),
             notice = null,
-            onHideBalances = {},
+            onShowTotal = {}, onShowAssets = {},
             onCurrency = {},
             onTheme = {},
             onSmallBalance = {},
@@ -170,7 +170,7 @@ class LumioScreenshotTest {
         DisplaySettingsPage(
             settings = DisplaySettings(currency = FiatCurrency.EUR, smallBalanceUsd = 5.0),
             notice = null,
-            onHideBalances = {},
+            onShowTotal = {}, onShowAssets = {},
             onCurrency = {},
             onTheme = {},
             onSmallBalance = {},
