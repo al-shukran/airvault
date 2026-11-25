@@ -396,6 +396,7 @@ shard-6 :lumio app.lumio.send.PaymentCodeTest
 shard-6 :lumio app.lumio.tokens.TokenBalancesTest
 shard-6 :lumio app.lumio.FirstSyncLeftEarlyShowsBalancesTest
 shard-6 :lumio app.lumio.ui.home.WatchlistSortSheetTest
+shard-6 :lumio app.lumio.ui.send.MonoAddressTest
 shard-6 :shared app.lensly.core.algorand.AlgoSignedTxnTest
 shard-6 :shared app.lensly.core.solana.SolanaRequestCheckTest
 shard-6 :shared app.lensly.core.ur.SolSignRequestTest
