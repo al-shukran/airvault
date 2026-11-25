@@ -363,10 +363,10 @@ class SendScreenshotTest {
     fun ethereumSendOnItsWay() = compose.lumioSnapshot("ethereum_send_on_its_way") {
         SendOnItsWayPage(
             headline = "Your MON Is on Its Way",
-            summary = "0.25 MON to FelixStone",
+            summary = "0.25 MON to FelixStone (0x1020 7a3e 98bc 41d5 e62f 0b87 c3a1 5d94 6e2b 122D)",
             network = monad.name,
             timing = "Usually about 1 second on Monad Testnet",
-            recipient = "FelixStone",
+            recipient = "FelixStone (0x1020 7a3e 98bc 41d5 e62f 0b87 c3a1 5d94 6e2b 122D)",
             signedAtMs = GOLDEN_CLOCK_MS,
             sentAtMs = GOLDEN_CLOCK_MS,
             arrived = false,
