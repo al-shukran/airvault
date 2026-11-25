@@ -99,7 +99,9 @@ internal class DemoProvider(private val profile: () -> DemoProfile) : Provider {
     private fun gwei(amount: Number): BigInteger = java.math.BigDecimal(amount.toString()).movePointRight(9).toBigInteger()
 
     private fun tokenBalance(req: ContractCall, emptyMainnet: Boolean): String {
-        if (!req.data.startsWith(BALANCE_OF) || emptyMainnet) throw ProviderError.Unsupported()
+        // Any other call (the batched Multicall3 read of balances) answers "no code here", so the app reads address by address as it does on a chain without Multicall3.
+        if (!req.data.startsWith(BALANCE_OF)) return "0x"
+        if (emptyMainnet) return "0x" + "0".repeat(64)
         val owner = "0x" + req.data.takeLast(40)
         val units = DemoFixtures.tokenUnits(chainOf(req.net), req.to, owner)
         return "0x" + units.toString(16).padStart(64, '0')

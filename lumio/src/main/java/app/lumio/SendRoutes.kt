@@ -348,8 +348,9 @@ internal fun SendRoute(
     val demoStage = remember { DebugDemoData.sendStage() }
     LaunchedEffect(demoStage) {
         if (demoStage == null) return@LaunchedEffect
+        if (demoStage == "recipient") return@LaunchedEffect
         recipient = if (demoStage == "recipientError") "0x12" else ready.wallet.evmAccounts[1].address
-        if (demoStage == "recipient" || demoStage == "recipientError") return@LaunchedEffect
+        if (demoStage == "recipientError") return@LaunchedEffect
         amount = if (demoStage == "amountError") "9999" else "0.25"
         step = SendStep.Amount
     }

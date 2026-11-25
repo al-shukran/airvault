@@ -4,6 +4,7 @@
 #
 #   tools/mockup-capture/capture.sh <serial> <outdir> [id ...]
 #   SKIP_INSTALL=1   use the APK that is already on the emulator
+#   ONE_THEME=1      only one theme per frame (the light one where there is one), for a quick pass
 #   SETTLE=6         seconds to wait after a frame opens (default 3)
 #
 # Emulators only. See README.md.
@@ -36,6 +37,7 @@ adb_ shell settings put global animator_duration_scale 0
 restore() {
     adb_ shell settings put system font_scale 1.0 || true
     adb_ shell wm size reset || true
+    adb_ shell wm density reset || true
     adb_ shell cmd connectivity airplane-mode disable || true
     adb_ shell cmd uimode night no || true
 }
@@ -68,12 +70,14 @@ failed=0
 total=0
 while IFS=$'\t' read -r id themes _title; do
     wanted "$id" || continue
+    [ "${ONE_THEME:-0}" = 1 ] && themes="${themes##*,}"
     for theme in ${themes//,/ }; do
         total=$((total + 1))
         adb_ shell cmd uimode night "$([ "$theme" = dark ] && echo yes || echo no)" >/dev/null
         adb_ shell settings put system font_scale "$(font_of "$id")"
         size="$(size_of "$id")"
-        if [ -n "$size" ]; then adb_ shell wm size "$size"; else adb_ shell wm size reset; fi
+        # The small phone is 360x640 dp, so its density is 160.
+        if [ -n "$size" ]; then adb_ shell wm size "$size"; adb_ shell wm density 160; else adb_ shell wm size reset; adb_ shell wm density reset; fi
         adb_ shell am force-stop "$PKG"
         # An offline frame turns the real connection off, so the offline band shows as it does on a phone. Camera Denied revokes the permission.
         if [ "$(profile_of "$id")" = offline ]; then adb_ shell cmd connectivity airplane-mode enable; else adb_ shell cmd connectivity airplane-mode disable; fi
@@ -90,6 +94,8 @@ while IFS=$'\t' read -r id themes _title; do
             done
             case "$log" in *"opened $id"*) break ;; esac
             adb_ shell am force-stop "$PKG"
+            # A vault left half made by an interrupted run cannot be opened or made again: start from empty data.
+            case "$log" in *"could not be seeded"*) adb_ shell pm clear "$PKG" >/dev/null; adb_ shell pm grant "$PKG" android.permission.CAMERA >/dev/null 2>&1 || true ;; esac
             sleep 2
         done
         sleep "$SETTLE"

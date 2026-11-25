@@ -29,7 +29,7 @@ internal object DebugDemoData {
     /** The pairing that a Pair Review frame shows before any scan, or null. */
     fun pairing(): PairingPayload? = null
 
-    fun signedMachine(failed: Boolean): SubmitMachine<ByteArray, String> = error("No demo send in this build.")
+    fun signedMachine(failed: Boolean): SubmitMachine<ByteArray, String> = throw UnsupportedOperationException()
 
     fun lastChanceSeconds(seconds: Int, hold: Boolean): Int = seconds
 
