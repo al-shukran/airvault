@@ -10,6 +10,7 @@ import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
+import app.lumio.pair.sharedAddressBook
 import app.lumio.ui.settings.AddressBookScreen
 
 /** The Address Book of the paired wallet [walletId]. The wallet's book is replaced by its next pairing from Lensly. */
@@ -24,11 +25,24 @@ internal fun AddressBookRoute(navController: NavHostController, holder: VaultHol
     }
     wallet?.let { paired ->
         AddressBookScreen(
-            walletName = paired.name,
             entries = paired.addressBook,
             offline = rememberSettingsOffline(),
+            onEdit = { address -> navController.navigate(LumioRoute.addressHandoff(address, edit = true)) },
             onBack = { navController.popBackStack() },
             onLock = onLock,
         )
     }
+}
+
+/** The Address Book page of Settings: the books of every paired wallet as one, read again when [listVersion] changes. An entry two wallets share shows once. */
+@Composable
+internal fun AddressBookSettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, onLock: () -> Unit) {
+    val wallets = pairedWallets(navController = navController, holder = holder, listVersion = listVersion)
+    AddressBookScreen(
+        entries = sharedAddressBook(wallets),
+        offline = rememberSettingsOffline(),
+        onEdit = { address -> navController.navigate(LumioRoute.addressHandoff(address, edit = true)) },
+        onBack = { navController.popBackStack() },
+        onLock = onLock,
+    )
 }

@@ -75,9 +75,9 @@ class FirstSyncLeftEarlyShowsBalancesTest {
     private val draft = PairDraft()
     private lateinit var nav: NavHostController
 
-    /** The owner's own RPC endpoint for the testnet chain, which answers every read locally and counts the nonce reads. */
+    /** The owner's own RPC endpoint for the testnet chain, which answers every read locally and counts the balance reads. */
     private val rpc = MockWebServer()
-    private val nonceReads = AtomicInteger(0)
+    private val balanceReads = AtomicInteger(0)
 
     /** Holds every RPC answer back until the test opens it, so the sync is still running when the owner leaves it. */
     private val gate = CountDownLatch(1)
@@ -89,11 +89,10 @@ class FirstSyncLeftEarlyShowsBalancesTest {
                 gate.await()
                 val body = request.body?.utf8().orEmpty()
                 val result = when {
-                    body.contains("eth_getTransactionCount") -> {
-                        nonceReads.incrementAndGet()
-                        "0x3"
+                    body.contains("eth_getBalance") -> {
+                        balanceReads.incrementAndGet()
+                        "0x1"
                     }
-                    body.contains("eth_getBalance") -> "0x1"
                     // No Multicall3 answer, so each balance is read on its own.
                     body.contains("eth_call") -> "0x"
                     else -> return MockResponse.Builder().code(400).build()
@@ -147,7 +146,7 @@ class FirstSyncLeftEarlyShowsBalancesTest {
         val shown = eventually(timeoutMs = 10_000) { board.view?.accountsOf(walletId)?.single()?.balance != null }
 
         assertTrue(shown, "The wallet page shows the balance the first sync read")
-        assertEquals(1, nonceReads.get(), "The Ethereum address is read once for the pairing")
+        assertEquals(1, balanceReads.get(), "The Ethereum address is read once for the pairing")
     }
 
     private fun setGraph() {

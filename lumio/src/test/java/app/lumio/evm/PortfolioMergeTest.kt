@@ -8,7 +8,7 @@ import org.junit.Test
 class PortfolioMergeTest {
 
     private fun read(wallet: String, address: String, wei: String, atMs: Long) =
-        CachedBalance(walletId = wallet, chainId = 1L, address = address, wei = wei, nonce = 0L, atMs = atMs)
+        CachedBalance(walletId = wallet, chainId = 1L, address = address, wei = wei, atMs = atMs)
 
     @Test
     fun aFreshReadReplacesTheOldOneForTheSameAddressAndChain() {

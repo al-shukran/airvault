@@ -1,5 +1,6 @@
 package app.lumio.ui.shell
 
+import app.lumio.DebugDemoData
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -20,12 +21,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import app.lumio.network.NetworkMode
 import app.lumio.ui.kit.ClearAirPageTopBar
 import app.lumio.ui.kit.ClearAirRootTopBar
 import app.lumio.ui.kit.ClearAirStatusBand
 import app.lumio.ui.kit.ClearAirTabBar
 import app.lumio.ui.kit.LumioTab
+import app.lumio.ui.kit.WalletEmblemTone
 import app.lumio.ui.network.PanelWallet
 import app.lumio.ui.network.ProfilePanel
 import app.lumio.ui.kit.ClearAirSheet
@@ -58,12 +61,14 @@ fun LumioRootScreen(
     search: @Composable (onClose: () -> Unit) -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    var panelOpen by remember { mutableStateOf(false) }
-    var searchOpen by remember { mutableStateOf(false) }
+    var panelOpen by remember { mutableStateOf(DebugDemoData.flag("panel")) }
+    var searchOpen by remember { mutableStateOf(DebugDemoData.flag("search")) }
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             ClearAirRootTopBar(
                 title = title,
+                switcher = tab == LumioTab.HOME,
+                emblem = panelWallets.firstOrNull { it.id == activeWalletId }?.tone ?: WalletEmblemTone.BLUE,
                 onPanel = { panelOpen = true },
                 onSearch = { searchOpen = true },
                 onLock = onLock,
@@ -88,7 +93,7 @@ fun LumioRootScreen(
             onPair = onPair,
             onDismiss = { panelOpen = false },
         )
-        ClearAirSheet(visible = searchOpen, onClose = { searchOpen = false }) {
+        ClearAirSheet(visible = searchOpen, onClose = { searchOpen = false }, top = 0.dp) {
             search { searchOpen = false }
         }
     }

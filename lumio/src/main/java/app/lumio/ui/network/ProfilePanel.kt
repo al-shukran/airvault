@@ -10,7 +10,6 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -56,16 +55,13 @@ import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.ClearAirSegmented
 import app.lumio.ui.kit.ClearAirWalletEmblem
+import app.lumio.ui.kit.WalletEmblemTone
 
 /** The width of the profile panel, from the proposal. */
 private val PANEL_WIDTH = 304.dp
 
 /** The corner radius of the panel's open edge. */
 private val PANEL_CORNER = 28.dp
-
-/** The scrim's opacity over the page beneath the panel, in the light theme and in the dark one. */
-private const val SCRIM_LIGHT = 0.34f
-private const val SCRIM_DARK = 0.58f
 
 /** A row of the panel is at least as tall as a Clear Air row, and the test networks row is 48 dp, as the mock draws it. */
 private val ROW_MIN_HEIGHT = 62.dp
@@ -99,10 +95,10 @@ private val FIXED_TEST_NETWORKS = listOf("Bitcoin Testnet4", "Solana Devnet", "A
 /**
  * A Lensly wallet as the panel lists it: its [id], its [name], and its [detail] line, such as "30 accounts · paired 21 Nov".
  */
-data class PanelWallet(val id: String, val name: String, val detail: String)
+data class PanelWallet(val id: String, val name: String, val detail: String, val tone: WalletEmblemTone = WalletEmblemTone.BLUE)
 
 /**
- * The sentence under the Mainnet · Testnet control. It names the test network that each chain uses: the EVM test networks that are on, with the default
+ * The sentence under the Mainnet · Testnet control, shown on the Testnet side. It names the test network that each chain uses: the EVM test networks that are on, with the default
  * one marked, then the networks that have no switch. [evmNames] are the names of the EVM test networks that are on.
  */
 fun testNetworkSentence(evmNames: List<String>): String {
@@ -136,14 +132,13 @@ fun ProfilePanel(
 ) {
     val palette = LocalClearAirPalette.current
     val reduced = LocalReducedMotion.current
-    val scrim = Color.Black.copy(alpha = if (isSystemInDarkTheme()) SCRIM_DARK else SCRIM_LIGHT)
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedVisibility(
             visible = visible,
             enter = fadeIn(tween(ClearAirMotion.SCRIM_MS)),
             exit = fadeOut(tween(ClearAirMotion.SCRIM_MS)),
         ) {
-            Box(modifier = Modifier.fillMaxSize().background(scrim).clickable(onClick = onDismiss))
+            Box(modifier = Modifier.fillMaxSize().background(palette.scrim).clickable(onClick = onDismiss))
         }
         AnimatedVisibility(
             visible = visible,
@@ -183,7 +178,10 @@ fun ProfilePanel(
                             onDismiss()
                         },
                     )
-                    Text(text = networkSentence, style = CAPTION, color = palette.ink2, modifier = Modifier.padding(top = 10.dp))
+                    // The mock draws the sentence on the Testnet side only, and a paragraph's 13 dp margin under it.
+                    if (mode == NetworkMode.TESTNET) {
+                        Text(text = networkSentence, style = CAPTION, color = palette.ink2, modifier = Modifier.padding(top = 10.dp, bottom = 13.dp))
+                    }
                 }
                 PanelRow(
                     title = "Choose Test Networks",
@@ -201,7 +199,7 @@ fun ProfilePanel(
                     PanelRow(
                         title = wallet.name,
                         description = wallet.detail,
-                        leading = { ClearAirWalletEmblem(tile = 36.dp) },
+                        leading = { ClearAirWalletEmblem(tile = 36.dp, tone = wallet.tone) },
                         trailing = { PanelRadio(selected = chosen) },
                         selected = chosen,
                         divider = index > 0,

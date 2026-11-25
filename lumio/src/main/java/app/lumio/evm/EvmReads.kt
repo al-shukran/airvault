@@ -1,5 +1,6 @@
 package app.lumio.evm
 
+import app.lumio.DebugDemoData
 import app.lensly.core.vault.VaultSession
 import app.lumio.data.MonotonicClock
 import app.lumio.data.config.PreferRpcStore
@@ -26,6 +27,7 @@ import app.lumio.data.sched.Priority
 import app.lumio.data.sched.ProviderHealth
 import app.lumio.data.sched.Scheduler
 import java.math.BigInteger
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 import kotlinx.coroutines.CoroutineScope
 
@@ -42,12 +44,19 @@ interface ContractReads {
  */
 class EvmReads(
     private val pool: Scheduler,
-    private val owner: Scheduler,
+    /** Makes the scheduler for one chain's custom address. Each chain gets its own, so a failing address cannot trip the circuit of another chain's. */
+    private val newOwner: () -> Scheduler,
     private val settings: () -> EvmSettings,
     /** The pool that balance reads use while [preferRpc] holds. It has no explorers. Without it, [pool] serves every read. */
     private val rpcOnly: Scheduler = pool,
     private val preferRpc: () -> Boolean = { false },
 ) : ContractReads {
+    /** Per chain, the address in use and the scheduler made for it, replaced when the owner changes the address, so a new address starts with no failures. */
+    private val owners = ConcurrentHashMap<Long, Pair<String?, Scheduler>>()
+
+    private fun ownerOf(chainId: Long, url: String? = settings().activeRpc(chainId)): Scheduler =
+        owners.compute(chainId) { _, held -> if (held?.first == url) held else url to newOwner() }!!.second
+
     suspend fun balance(chain: EvmChain, address: String, priority: Priority = Priority.VISIBLE): BigInteger =
         run(chain, priority, NativeBalance(net(chain), address), if (preferRpc()) rpcOnly else pool)
 
@@ -75,21 +84,45 @@ class EvmReads(
     override suspend fun call(chain: EvmChain, to: String, data: String): String =
         run(chain, Priority.VISIBLE, ContractCall(net(chain), to, data))
 
-    /** What the pool, or else the owner's scheduler, knows about [providerId] now, or null when neither holds that provider. */
-    suspend fun statusOf(providerId: String): ProviderHealth? = pool.statusOf(providerId) ?: owner.statusOf(providerId)
+    /**
+     * What the pool knows about [providerId] now, or null when it does not hold that provider. The owner's own RPC is not in the pool: its status is
+     * the worst of its addresses' ([customStatusOf]) on the chains that are on, and null while none of them has an address.
+     */
+    suspend fun statusOf(providerId: String): ProviderHealth? {
+        if (providerId != CustomRpc.ID) return pool.statusOf(providerId)
+        val settings = settings()
+        val all = settings.activeRpcUrls().keys.map { it.toLong() }.filter { it in settings.enabled }.mapNotNull { customStatusOf(it) }
+        if (all.isEmpty()) return null
+        return ProviderHealth(
+            score = all.mapNotNull { it.score }.maxOrNull(),
+            coolingMs = all.maxOf { it.coolingMs },
+            circuitOpenMs = all.maxOf { it.circuitOpenMs },
+        )
+    }
 
+    /** What the scheduler of the owner's address on [chainId] knows about it now. A chain with no reads yet is ready. */
+    suspend fun customStatusOf(chainId: Long): ProviderHealth? = ownerOf(chainId).statusOf(CustomRpc.ID)
+
+    /**
+     * A read that finishes after the owner changed the chain's address is dropped and sent again to the new address's scheduler: its outcome was
+     * recorded on the old scheduler, so it would leave the new address looking untried (Ready) while it fails.
+     */
     private suspend fun <T> run(chain: EvmChain, priority: Priority, req: Request<T>, publicPool: Scheduler = pool): T {
-        val scheduler = if (settings().activeRpc(chain.chainId) != null) owner else publicPool
-        return try {
-            scheduler.run(req, priority)
-        } catch (e: ProviderError) {
-            throw e.toRpcFailure()
+        while (true) {
+            val url = settings().activeRpc(chain.chainId)
+            val scheduler = if (url != null) ownerOf(chain.chainId, url) else publicPool
+            try {
+                val result = scheduler.run(req, priority)
+                if (settings().activeRpc(chain.chainId) == url) return result
+            } catch (e: ProviderError) {
+                if (settings().activeRpc(chain.chainId) == url) throw e.toRpcFailure()
+            }
         }
     }
 
     companion object {
         /**
-         * The reads of the open vault [session]. The pool and the owner's addresses are two schedulers over one HTTP stack, so each keeps its
+         * The reads of the open vault [session]. The pool and each chain's owner address are separate schedulers over one HTTP stack, so each keeps its
          * own health and rates. The owner's addresses come from the vault's EVM settings, read on each call, so a change takes effect at once.
          */
         fun open(session: VaultSession, http: Http, scope: CoroutineScope, allowLocalHttp: Boolean): EvmReads {
@@ -100,11 +133,11 @@ class EvmReads(
                 saved + (CustomRpc.ID to (saved[CustomRpc.ID] ?: ProviderConfig()).copy(chainUrls = owner))
             }
             return EvmReads(
-                pool = Scheduler(DataPlugins.evm() + RpcPlugins.pool(), configs, http, MonotonicClock, Random.Default, scope),
-                owner = Scheduler(listOf(CustomRpc(allowLocalHttp)), configs, http, MonotonicClock, Random.Default, scope),
+                pool = Scheduler(DebugDemoData.providers(DataPlugins.evm() + RpcPlugins.pool()), configs, http, MonotonicClock, Random.Default, scope),
+                newOwner = { Scheduler(listOf(CustomRpc(allowLocalHttp)), configs, http, MonotonicClock, Random.Default, scope) },
                 settings = settings,
                 rpcOnly = Scheduler(
-                    DataPlugins.evm(preferRpc = true) + RpcPlugins.pool(), configs, http, MonotonicClock, Random.Default, scope,
+                    DebugDemoData.providers(DataPlugins.evm(preferRpc = true) + RpcPlugins.pool()), configs, http, MonotonicClock, Random.Default, scope,
                 ),
                 preferRpc = { PreferRpcStore.read(session) },
             )

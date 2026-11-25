@@ -1,5 +1,6 @@
 package app.lumio.ui.kit
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -11,13 +12,18 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirMotion
@@ -30,27 +36,28 @@ private val SHEET_TOP = 44.dp
 /** The corner radius of a sheet's top, the proposal's 28 dp. */
 private val SHEET_CORNER = 28.dp
 
-/** The scrim's opacity over the page beneath a sheet, in the light theme and in the dark one. */
-private const val SCRIM_LIGHT = 0.34f
-private const val SCRIM_DARK = 0.58f
+/** The light theme lifts a sheet with a faint ink shadow, and the dark theme has none. */
+private val SHEET_SHADOW = 10.dp
+internal val SHADOW_INK = Color(0xFF2B2530).copy(alpha = 0.10f)
+private val sheetShape = RoundedCornerShape(topStart = SHEET_CORNER, topEnd = SHEET_CORNER)
 
 /**
  * The one modal sheet of Lumio. It rises from the bottom on the sheet spring over a scrim that fades in, and the page beneath stays still. It has
- * no place of its own: a short task opens it over a page, and [onClose] closes it. Tapping the scrim closes it too. A caller holds at most one
+ * no place of its own: a short task opens it over a page, and [onClose] closes it. Tapping the scrim and the system back close it too, so a back swipe never moves the page beneath. A caller holds at most one
  * sheet, so a sheet never opens over another one. Reduced motion cuts the rise to a cross-fade.
  */
 @Composable
-fun ClearAirSheet(visible: Boolean, onClose: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun ClearAirSheet(visible: Boolean, onClose: () -> Unit, modifier: Modifier = Modifier, top: Dp = SHEET_TOP, content: @Composable () -> Unit) {
     val palette = LocalClearAirPalette.current
     val reduced = LocalReducedMotion.current
-    val scrim = Color.Black.copy(alpha = if (isSystemInDarkTheme()) SCRIM_DARK else SCRIM_LIGHT)
+    BackHandler(enabled = visible, onBack = onClose)
     Box(modifier = modifier.fillMaxSize()) {
         AnimatedVisibility(
             visible = visible,
             enter = fadeIn(tween(ClearAirMotion.SCRIM_MS)),
             exit = fadeOut(tween(ClearAirMotion.SCRIM_MS)),
         ) {
-            Box(modifier = Modifier.fillMaxSize().background(scrim).clickable(onClick = onClose))
+            Box(modifier = Modifier.fillMaxSize().background(palette.scrim).clickable(onClick = onClose))
         }
         AnimatedVisibility(
             visible = visible,
@@ -60,11 +67,23 @@ fun ClearAirSheet(visible: Boolean, onClose: () -> Unit, modifier: Modifier = Mo
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = SHEET_TOP)
-                    .clip(RoundedCornerShape(topStart = SHEET_CORNER, topEnd = SHEET_CORNER))
+                    .padding(top = top)
+                    .then(if (isSystemInDarkTheme()) Modifier else Modifier.shadow(SHEET_SHADOW, sheetShape, ambientColor = SHADOW_INK, spotColor = SHADOW_INK))
+                    .clip(sheetShape)
                     .background(palette.sheet),
             ) {
-                content()
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 8.dp, bottom = 2.dp)
+                            .align(Alignment.CenterHorizontally)
+                            .size(width = 36.dp, height = 4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(palette.ink3.copy(alpha = 0.55f)),
+                    )
+                    // No weight: a sheet that a scrolling page hosts has no height to share out, and a weighted child would get none.
+                    content()
+                }
             }
         }
     }

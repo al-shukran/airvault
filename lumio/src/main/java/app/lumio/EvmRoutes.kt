@@ -14,6 +14,7 @@ import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
+import app.lumio.data.config.ProviderConfig
 import app.lumio.data.config.configOf
 import app.lumio.data.config.withOrderWithin
 import app.lumio.data.net.NetworkId
@@ -25,6 +26,7 @@ import app.lumio.evm.ChainRpcs
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmEdits
+import app.lumio.evm.EvmReads
 import app.lumio.evm.EvmRpc
 import app.lumio.evm.EvmSettings
 import app.lumio.evm.EvmSettingsStore
@@ -46,9 +48,9 @@ private class SettingsState(val settings: EvmSettings, val chains: List<EvmChain
 private fun catalogOf(app: LumioApp, settings: EvmSettings): List<EvmChain> = EvmCatalog.chains(app.registry, settings)
 
 /**
- * The Ethereum section of the settings: how many addresses each wallet shows, which chains are read, the RPC address of each chain, and the
- * custom chains. Each change is written to the vault when it is valid. A change that needs the endpoint waits for it, and the section says
- * why it failed.
+ * The networks of the Networks page: which chains are read, how many addresses each wallet shows, and the custom chains. A chain's row opens its Network
+ * page, and the Bitcoin row opens the Bitcoin servers. Each change is written to the vault when it is valid. A change that needs the endpoint waits for
+ * it, and the section says why it failed.
  */
 @Composable
 internal fun EvmSettingsRoute(navController: NavHostController, holder: VaultHolder) {
@@ -95,17 +97,18 @@ internal fun EvmSettingsRoute(navController: NavHostController, holder: VaultHol
         }
     }
 
+    val logos = remember(app) { app.registry.networks().associateBy { it.chainId } }
     EvmSettingsSection(
         settings = current.settings,
         chains = current.chains,
+        logos = logos,
         busy = busy,
         notice = notice,
         onAddressCount = { count -> change({ s, _ -> EvmEdits.setAddressCount(s, count) }) },
         onEnabled = { chainId, on -> change({ s, _ -> EvmEdits.setEnabled(s, chainId, on) }) },
-        onRemoveCustom = { chainId -> change({ s, _ -> EvmEdits.removeCustom(s, chainId) }) },
         onNetwork = { chainId -> navController.navigate(LumioRoute.network(chainId)) },
         onAddNetwork = { navController.navigate(LumioRoute.SETTINGS_ADD_NETWORK) },
-        onTokens = { chainId -> navController.navigate(LumioRoute.tokens(chainId)) },
+        onBitcoin = { navController.navigate(LumioRoute.SETTINGS_BITCOIN) },
     )
 }
 
@@ -118,8 +121,15 @@ private class NetworkState(
     val chain: EvmChain,
     val providers: List<ProviderRow>,
     val builtInUrl: String?,
-    val rpcStatus: ProviderStatus,
 )
+
+/** The status of the owner's own address on [chainId], from the health of that chain's scheduler alone, as the Data providers rows read it. */
+internal suspend fun customRpcStatus(reads: EvmReads, saved: Map<String, ProviderConfig>, chainId: Long): ProviderStatus =
+    providerStatus(
+        traits = emptySet(),
+        config = configOf(ProviderCatalog.withDefaults(saved), CustomRpc.ID),
+        health = reads.customStatusOf(chainId),
+    )
 
 /**
  * The Network page (B4) of chain [chainId]: its built-in RPC address, the custom addresses the owner set with the one in use, and the order of the data
@@ -153,21 +163,27 @@ internal fun EvmNetworkRoute(navController: NavHostController, holder: VaultHold
                             chain = it,
                             providers = readChainProviders(app, vault, it),
                             builtInUrl = RpcPlugins.builtInEndpoint(NetworkId(Networks.evm(chainId), it.testnet)),
-                            rpcStatus = providerStatus(
-                                traits = emptySet(),
-                                config = configOf(ProviderCatalog.withDefaults(vault.configs()), CustomRpc.ID),
-                                health = app.evmReadsFor(vault.session).statusOf(CustomRpc.ID),
-                            ),
                         )
                     }
                 }.getOrNull()
             }
         }
     }
+    // The status of this chain's custom address is read again every few seconds, so a failure that opens its circuit shows without a new visit.
+    val rpcStatus by produceState<ProviderStatus?>(initialValue = null, session, vault) {
+        if (session == null || vault == null) return@produceState
+        polled(STATUS_POLL_MS) {
+            withContext(Dispatchers.IO) {
+                runCatching { customRpcStatus(app.evmReadsFor(vault.session), vault.configs(), chainId) }.getOrNull()
+            }
+        }
+            .collect { value = it }
+    }
     val current = state ?: return
+    val status = rpcStatus ?: return
     val writable = vault ?: return
 
-    fun change(transform: (EvmSettings, EvmRpc) -> EvmSettings) {
+    fun change(onSaved: () -> Unit = {}, transform: (EvmSettings, EvmRpc) -> EvmSettings) {
         if (session == null || busy) return
         busy = true
         notice = null
@@ -175,7 +191,10 @@ internal fun EvmNetworkRoute(navController: NavHostController, holder: VaultHold
             val error = withContext(Dispatchers.IO) { EvmSettingsStore.change(session, app.evmRpc, transform) }
             busy = false
             notice = error
-            if (error == null) version++
+            if (error == null) {
+                version++
+                onSaved()
+            }
         }
     }
 
@@ -196,7 +215,7 @@ internal fun EvmNetworkRoute(navController: NavHostController, holder: VaultHold
         builtInUrl = current.builtInUrl,
         custom = rpcs.custom,
         active = rpcs.active,
-        inUseLine = rpcInUseLine(current.rpcStatus, rpcs.activeSince),
+        inUseLine = rpcInUseLine(status, rpcs.activeSince),
         providers = current.providers,
         busy = busy,
         notice = notice,
@@ -208,5 +227,11 @@ internal fun EvmNetworkRoute(navController: NavHostController, holder: VaultHold
         onReorder = ::reorderProviders,
         onBack = { navController.popBackStack() },
         onLock = onLock,
+        onTokens = { navController.navigate(LumioRoute.tokens(chainId)) },
+        onRemoveNetwork = if (current.settings.custom.any { it.chainId == chainId }) {
+            { change(onSaved = { navController.popBackStack() }) { s, _ -> EvmEdits.removeCustom(s, chainId) } }
+        } else {
+            null
+        },
     )
 }

@@ -4,6 +4,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -78,19 +79,19 @@ class LumioControlsTest {
                 EvmSettingsSection(
                     settings = EvmSettings(enabled = setOf(1L)),
                     chains = listOf(EvmChain(1L, "Ethereum", "ETH", 18, false, null)),
+                    logos = emptyMap(),
                     busy = false,
                     notice = null,
                     onAddressCount = {},
                     onEnabled = { _, _ -> },
                     onNetwork = {},
-                    onTokens = {},
-                    onRemoveCustom = {},
                     onAddNetwork = {},
+                    onBitcoin = {},
                 )
             }
         }
 
-        compose.onNodeWithText("Ethereum").assert(hasRole(Role.Switch))
+        compose.onAllNodes(hasRole(Role.Switch)).assertCountEquals(1)
         compose.onNodeWithText("Add Custom Network", ignoreCase = true).assertIsEnabled()
     }
 
@@ -101,14 +102,14 @@ class LumioControlsTest {
                 EvmSettingsSection(
                     settings = EvmSettings(addressCount = EvmSettings.MAX_ADDRESS_COUNT),
                     chains = emptyList(),
+                    logos = emptyMap(),
                     busy = false,
                     notice = null,
                     onAddressCount = {},
                     onEnabled = { _, _ -> },
                     onNetwork = {},
-                    onTokens = {},
-                    onRemoveCustom = {},
                     onAddNetwork = {},
+                    onBitcoin = {},
                 )
             }
         }

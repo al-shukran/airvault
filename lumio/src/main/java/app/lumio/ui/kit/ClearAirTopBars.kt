@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -18,7 +19,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirMotion
@@ -26,37 +29,60 @@ import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 
-/** The height of a top bar's row, which holds the 48 dp touch targets of its icons. */
-private val TOP_BAR_HEIGHT = 56.dp
+/** The height of a top bar's row, as the mock draws it, and the space at its sides. */
+private val TOP_BAR_HEIGHT = 52.dp
+private val TOP_BAR_SIDE = 8.dp
+
+/** The box of a top bar's icon and the icon in it, as the mock draws them. */
+private val ICON_BOX = 44.dp
+private val ICON_SIZE = 22.dp
+
+/** The space before the root title, and between it and the switcher's chevron, and the chevron's size. */
+private val TITLE_START = 6.dp
+private val TITLE_GAP = 6.dp
+private val SWITCHER_CHEVRON = 16.dp
 
 /** The top bar's title: 18 sp, bold, one step under a row title. */
 private val topBarTitle
-    get() = ClearAirType.titleL.copy(fontSize = 18.sp, lineHeight = 23.sp)
+    get() = ClearAirType.titleL.copy(fontSize = 18.sp, lineHeight = 23.sp, letterSpacing = (-0.015).em)
 
 /**
- * The root top bar of a tab: the wallet emblem, the tab's [title] with its ▾, the search and the lock. The emblem and the title open the profile
- * panel, search opens the search sheet, and the lock locks Lumio at once.
+ * The root top bar of a tab: the wallet emblem, the tab's [title], the search and the lock. The emblem, in the [emblem] tone of the active wallet, opens the profile panel, search opens the
+ * search sheet, and the lock locks Lumio at once. Only Home's title is the wallet switcher, so only it ([switcher]) has the ▾ and opens the panel.
  */
 @Composable
-fun ClearAirRootTopBar(title: String, onPanel: () -> Unit, onSearch: () -> Unit, onLock: () -> Unit, modifier: Modifier = Modifier) {
+fun ClearAirRootTopBar(
+    title: String,
+    onPanel: () -> Unit,
+    onSearch: () -> Unit,
+    onLock: () -> Unit,
+    modifier: Modifier = Modifier,
+    switcher: Boolean = false,
+    emblem: WalletEmblemTone = WalletEmblemTone.BLUE,
+) {
     val palette = LocalClearAirPalette.current
     Row(
-        modifier = modifier.fillMaxWidth().height(TOP_BAR_HEIGHT).padding(horizontal = ClearAirSpacing.xs),
+        modifier = modifier.fillMaxWidth().height(TOP_BAR_HEIGHT).padding(horizontal = TOP_BAR_SIDE),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            modifier = Modifier.size(ClearAirSpacing.touchTarget).pressable(onClick = onPanel, label = "Open the profile panel"),
+            modifier = Modifier.size(ICON_BOX).pressable(onClick = onPanel, label = "Open the profile panel"),
             contentAlignment = Alignment.Center,
         ) {
-            ClearAirWalletEmblem(tile = 36.dp)
+            ClearAirWalletEmblem(tile = 36.dp, tone = emblem)
         }
         Row(
-            modifier = Modifier.weight(1f).pressable(onClick = onPanel, label = "Open the profile panel").padding(start = ClearAirSpacing.xs),
+            modifier = Modifier
+                .weight(1f)
+                .then(if (switcher) Modifier.pressable(onClick = onPanel, label = "Open the profile panel") else Modifier)
+                .padding(start = TITLE_START),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(text = title, style = topBarTitle, color = palette.ink)
-            Spacer(Modifier.width(ClearAirSpacing.xxs))
-            ClearAirIcon(glyph = ClearAirGlyph.DOWN, color = palette.ink2)
+            Text(text = title, style = topBarTitle, color = palette.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            if (switcher) {
+                Spacer(Modifier.width(TITLE_GAP))
+                ClearAirIcon(glyph = ClearAirGlyph.DOWN, size = SWITCHER_CHEVRON, color = palette.ink2)
+            }
         }
         ClearAirIconButton(glyph = ClearAirGlyph.SEARCH, label = "Search", onClick = onSearch)
         ClearAirIconButton(glyph = ClearAirGlyph.LOCK, label = "Lock", onClick = onLock)
@@ -71,13 +97,13 @@ fun ClearAirRootTopBar(title: String, onPanel: () -> Unit, onSearch: () -> Unit,
 fun ClearAirPageTopBar(title: String, backLabel: String?, onBack: () -> Unit, onLock: () -> Unit, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
     Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.xs, vertical = ClearAirSpacing.xxs),
+        modifier = modifier.fillMaxWidth().heightIn(min = TOP_BAR_HEIGHT).padding(horizontal = TOP_BAR_SIDE),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ClearAirIconButton(glyph = ClearAirGlyph.BACK, label = backLabel?.let { "Back to $it" } ?: "Back", onClick = onBack)
         Text(
             text = title,
-            modifier = Modifier.weight(1f).padding(horizontal = ClearAirSpacing.xs),
+            modifier = Modifier.weight(1f).padding(start = TITLE_START),
             style = topBarTitle,
             color = palette.ink,
             textAlign = TextAlign.Start,
@@ -86,15 +112,15 @@ fun ClearAirPageTopBar(title: String, backLabel: String?, onBack: () -> Unit, on
     }
 }
 
-/** A 48 dp icon button in ink: the touch target of a top bar's icon, labelled for TalkBack. */
+/** A 44 dp icon button in ink, the mock's box for a top bar's icon, labelled for TalkBack. */
 @Composable
 fun ClearAirIconButton(glyph: ClearAirGlyph, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
     Box(
-        modifier = modifier.size(ClearAirSpacing.touchTarget).pressable(onClick = onClick, label = label),
+        modifier = modifier.size(ICON_BOX).pressable(onClick = onClick, label = label),
         contentAlignment = Alignment.Center,
     ) {
-        ClearAirIcon(glyph = glyph, color = palette.ink)
+        ClearAirIcon(glyph = glyph, color = palette.ink, size = ICON_SIZE)
     }
 }
 

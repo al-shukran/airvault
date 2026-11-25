@@ -27,7 +27,7 @@ import org.junit.rules.TemporaryFolder
 
 /**
  * Installing and uninstalling the Apps of a wallet. An App's accounts derive from the seed, so an uninstalled App installs again with the same
- * addresses, and only the names of its accounts are lost. The secret is never touched.
+ * addresses, and an Ethereum account keeps its name, label and group. The secret is never touched.
  */
 class WalletStoreInstallTest {
     private val keys = MemoryKeystore()
@@ -103,20 +103,203 @@ class WalletStoreInstallTest {
     }
 
     @Test
-    fun uninstallingEthereumErasesTheNamesOfItsAccounts() {
+    fun uninstallingEthereumKeepsTheNamesLabelsAndGroupsOfItsAccountsAndInstallingItAgainBringsThemBack() {
         val id = newWallet()
         store.installApp(id, WalletApp.ETHEREUM)
-        store.renameAccount(id, 0, "Savings")
-        assertNotNull(session.getRecord(id, WalletRecords.accountRecord(0)))
+        val profile = AccountProfile(name = "Savings", label = "Cold", group = "Family")
+        store.saveAccountProfile(id, 0, profile)
 
         store.uninstallApp(id, WalletApp.ETHEREUM)
 
-        assertNull(session.getRecord(id, WalletRecords.accountRecord(0)))
-        // The metadata still reads, with no Ethereum account.
+        // The metadata still reads, with no Ethereum account, and the profile record stays.
         assertEquals(0, assertNotNull(store.meta(id)).accountCount)
+        assertNotNull(session.getRecord(id, WalletRecords.accountRecord(0)))
+        assertEquals(emptyMap<Int, AccountProfile>(), store.ethereumAccounts(id)?.profiles)
 
         store.installApp(id, WalletApp.ETHEREUM)
-        assertEquals(emptyMap<Int, AccountProfile>(), store.ethereumAccounts(id)?.profiles)
+        assertEquals(mapOf(0 to profile), store.ethereumAccounts(id)?.profiles)
+        assertEquals(LEDGER_LIVE_ETHEREUM_0, store.ethereumAccounts(id)?.addresses?.single())
+    }
+
+    @Test
+    fun uninstallingBitcoinKeepsTheNamesLabelsAndGroupsOfItsAccountsAndInstallingItAgainBringsThemBack() {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, count = 1, cap = 1)
+        store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.TESTNET4, count = 1, cap = 1)
+        val accounts = store.bitcoinAccounts(id)
+        val savings = AccountProfile(name = "Savings", label = "Cold", group = "Family")
+        val spending = AccountProfile(name = "Spending")
+        val test = AccountProfile(group = "Tests")
+        store.saveBitcoinProfile(id, accounts[0], savings)
+        store.saveBitcoinProfile(id, accounts[1], spending)
+        store.saveBitcoinProfile(id, accounts[2], test)
+
+        store.uninstallApp(id, WalletApp.BITCOIN)
+
+        assertEquals(emptySet(), store.installedApps(id))
+        assertEquals(emptyList(), store.bitcoinAccounts(id))
+        assertNotNull(session.getRecord(id, WalletRecords.BITCOIN), "The record stays, with the kept profiles.")
+
+        // Installing adds account 0, which takes its profile back. The others come back as they are added again.
+        store.installApp(id, WalletApp.BITCOIN)
+        assertEquals(listOf(savings), store.bitcoinAccounts(id).map { it.profile })
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, count = 1, cap = 1)
+        store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.TESTNET4, count = 1, cap = 1)
+        assertEquals(accounts.map { it.key to it.firstReceiveAddress }, store.bitcoinAccounts(id).map { it.key to it.firstReceiveAddress })
+        assertEquals(listOf(savings, spending, test), store.bitcoinAccounts(id).map { it.profile })
+
+        // Once an account has its profile back, uninstalling and installing again keeps it, and no profile is kept twice.
+        store.uninstallApp(id, WalletApp.BITCOIN)
+        store.installApp(id, WalletApp.BITCOIN)
+        assertEquals(listOf(savings), store.bitcoinAccounts(id).map { it.profile })
+    }
+
+    @Test
+    fun uninstallingBitcoinIsNeverRefusedForKeptProfilesAndDropsTheOldestBeyondTheCap() {
+        val id = newWalletWithNamedBitcoinAccounts(100)
+        store.uninstallApp(id, WalletApp.BITCOIN)
+        store.installApp(id, WalletApp.BITCOIN)
+        // Account 0 took its profile back, so 99 stay kept. A named Taproot account makes 101 with the installed ones.
+        store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.MAINNET, count = 1, cap = 1)
+        store.saveBitcoinProfile(id, store.bitcoinAccounts(id).last(), AccountProfile(name = "Taproot"))
+
+        store.uninstallApp(id, WalletApp.BITCOIN)
+
+        assertEquals(emptySet(), store.installedApps(id))
+        // Reinstalling and adding the Native SegWit accounts again: only the oldest kept profile (index 1) is gone.
+        store.installApp(id, WalletApp.BITCOIN)
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, count = 99, cap = 99)
+        val names = store.bitcoinAccounts(id).associate { it.index to it.profile.name }
+        assertEquals(100, names.size)
+        assertEquals(listOf(1), names.filterValues { it == null }.keys.toList())
+        assertEquals("Account 0", names[0])
+        assertEquals("Account 99", names[99])
+    }
+
+    @Test
+    fun aBulkRunStillFitsTheBitcoinRecordWhenKeptProfilesTakeItsRoom() {
+        val id = newWalletWithNamedBitcoinAccounts(100)
+        store.uninstallApp(id, WalletApp.BITCOIN)
+        store.installApp(id, WalletApp.BITCOIN)
+
+        // 99 kept profiles and 100 accounts of 70 bytes do not fit 8192 bytes together, so the oldest kept profiles go.
+        val added = assertNotNull(store.addBitcoinAccounts(id, ScriptType.TAPROOT, BtcNetwork.MAINNET, count = 99, cap = 99))
+
+        assertEquals(99, added.size)
+        assertEquals(100, store.bitcoinAccounts(id).size)
+        assertEquals("Account 0", store.bitcoinAccounts(id).first().profile.name)
+        assertTrue(assertNotNull(session.getRecord(id, WalletRecords.BITCOIN)).size <= WalletRecordNames.BITCOIN_CAPACITY)
+        // The trim drops the oldest kept profiles first, so the newest (index 99) survives and index 1 is gone.
+        val kept = WalletRecords.decodeBitcoinRecord(assertNotNull(session.getRecord(id, WalletRecords.BITCOIN))).kept
+        assertEquals("Account 99", kept[Triple(ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 99)]?.name)
+        assertNull(kept[Triple(ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, 1)])
+        // Naming an account never fails for kept profiles either, and an uninstall still succeeds.
+        store.saveBitcoinProfile(id, store.bitcoinAccounts(id).last(), AccountProfile(name = "Last"))
+        store.uninstallApp(id, WalletApp.BITCOIN)
+        assertEquals(emptySet(), store.installedApps(id))
+    }
+
+    @Test
+    fun uninstallingBitcoinWithNoProfileLeavesNoBitcoinRecord() {
+        val id = newWallet()
+
+        store.uninstallApp(id, WalletApp.BITCOIN)
+
+        assertNull(session.getRecord(id, WalletRecords.BITCOIN))
+    }
+
+    @Test
+    fun theKeptBitcoinProfilesAreAFileTheWalletFolderAlreadyHasAndDeletingTheWalletErasesThem() {
+        val id = newWallet()
+        store.saveBitcoinProfile(id, store.bitcoinAccounts(id).single(), AccountProfile(name = "Savings"))
+        val folder = tmp.root.walkTopDown().filter { it.isFile }.map { it.relativeTo(tmp.root).path to it.length() }.toSet()
+
+        store.uninstallApp(id, WalletApp.BITCOIN)
+
+        // The record is one of the wallet folder's fixed files, so no file name appears that a Decoy Vault removal or a wipe would not know.
+        assertEquals(folder, tmp.root.walkTopDown().filter { it.isFile }.map { it.relativeTo(tmp.root).path to it.length() }.toSet())
+        store.delete(id)
+        assertNull(session.getRecord(id, WalletRecords.BITCOIN))
+        assertEquals(emptyList(), store.bitcoinAccounts(id))
+        assertEquals(emptyList(), store.list().map { it.id })
+    }
+
+    @Test
+    fun aBitcoinRecordThatLensly120WroteLoadsWithItsNamesAndIsWrittenBackAsVersion3() {
+        // The bytes Lensly 1.0.0 to 1.2.0 wrote for one account with a name, a label and a group, one with a name, and one with none. They are
+        // written here by hand, in that release's layout, and not by the encoder under test.
+        val seed = seed()
+        val first = BtcAccount.fromSeed(seed, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT, 0).receiveAddress(0)
+        val second = BtcAccount.fromSeed(seed, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT, 1).receiveAddress(0)
+        val third = BtcAccount.fromSeed(seed, BtcNetwork.MAINNET, ScriptType.TAPROOT, 0).receiveAddress(0)
+        val released = WalletRecords.writeBytes { out ->
+            out.writeByte(2)
+            out.writeInt(3)
+            out.writeByte(BtcNetwork.MAINNET.coinType)
+            out.writeByte(ScriptType.NATIVE_SEGWIT.purpose)
+            out.writeInt(0)
+            out.writeUTF(first)
+            out.writeBoolean(true)
+            out.writeByte(2) // the account profile version
+            out.writeByte(1 or 8 or 16) // a name, a label and a group
+            out.writeUTF("Savings")
+            out.writeUTF("Cold")
+            out.writeUTF("Family")
+            out.writeByte(BtcNetwork.MAINNET.coinType)
+            out.writeByte(ScriptType.NATIVE_SEGWIT.purpose)
+            out.writeInt(1)
+            out.writeUTF(second)
+            out.writeBoolean(true)
+            out.writeByte(2)
+            out.writeByte(1)
+            out.writeUTF("Spending")
+            out.writeByte(BtcNetwork.MAINNET.coinType)
+            out.writeByte(ScriptType.TAPROOT.purpose)
+            out.writeInt(0)
+            out.writeUTF(third)
+            out.writeBoolean(false)
+        }
+        val id = newWallet()
+        session.putRecord(id, WalletRecords.BITCOIN, released)
+
+        val loaded = store.bitcoinAccounts(id)
+
+        assertEquals(listOf(first, second, third), loaded.map { it.firstReceiveAddress })
+        assertEquals(
+            listOf(AccountProfile(name = "Savings", label = "Cold", group = "Family"), AccountProfile(name = "Spending"), AccountProfile()),
+            loaded.map { it.profile },
+        )
+
+        // The next write is version 3 and keeps them, and an uninstall keeps them for a reinstall.
+        store.saveBitcoinProfile(id, loaded[2], AccountProfile(name = "Taproot"))
+        assertEquals(3, assertNotNull(session.getRecord(id, WalletRecords.BITCOIN))[0].toInt())
+        assertEquals(listOf("Savings", "Spending", "Taproot"), store.bitcoinAccounts(id).map { it.profile.name })
+        store.uninstallApp(id, WalletApp.BITCOIN)
+        store.installApp(id, WalletApp.BITCOIN)
+        assertEquals(listOf("Savings"), store.bitcoinAccounts(id).map { it.profile.name })
+    }
+
+    @Test
+    fun aBitcoinRecordWithAKeptProfileForAnInstalledAccountIsRefused() {
+        val account = BitcoinAccountRecord(BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT, 0, "bc1qexample")
+
+        assertFailsWith<IllegalArgumentException> {
+            WalletRecords.encodeBitcoinRecord(BitcoinRecord(listOf(account), mapOf(account.key to AccountProfile(name = "Savings"))))
+        }
+    }
+
+    @Test
+    fun deletingAWalletWhoseEthereumWasUninstalledErasesTheKeptProfiles() {
+        val id = newWallet()
+        store.installApp(id, WalletApp.ETHEREUM)
+        store.renameAccount(id, 0, "Savings")
+        store.uninstallApp(id, WalletApp.ETHEREUM)
+        assertNotNull(session.getRecord(id, WalletRecords.accountRecord(0)))
+
+        store.delete(id)
+
+        assertNull(session.getRecord(id, WalletRecords.accountRecord(0)))
+        assertEquals(emptyList(), store.list().map { it.id })
     }
 
     @Test
@@ -203,7 +386,7 @@ class WalletStoreInstallTest {
             index = 0,
             firstReceiveAddress = BtcAccount.fromSeed(seed, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT, 0).receiveAddress(0),
         )
-        session.putRecord(id, WalletRecords.BITCOIN, WalletRecords.encodeBitcoinAccounts(listOf(bitcoin)))
+        session.putRecord(id, WalletRecords.BITCOIN, WalletRecords.encodeBitcoinRecord(BitcoinRecord(listOf(bitcoin))))
         session.putRecord(id, WalletRecordNames.SOLANA, WalletRecords.encodeSolanaKeys(listOf(SolanaAccount.publicKey(seed, 0))))
         session.putRecord(id, WalletRecordNames.ALGORAND, WalletRecords.encodeAlgorandKeys(listOf(AlgorandAccount.publicKey(seed, 0))))
 
@@ -277,6 +460,14 @@ class WalletStoreInstallTest {
 
         assertEquals(0, assertNotNull(store.meta(id)).accountCount)
         assertEquals(setOf(WalletApp.BITCOIN), store.installedApps(id))
+    }
+
+    /** A wallet with [count] Native SegWit mainnet accounts, each named "Account N". */
+    private fun newWalletWithNamedBitcoinAccounts(count: Int): String {
+        val id = newWallet()
+        store.addBitcoinAccounts(id, ScriptType.NATIVE_SEGWIT, BtcNetwork.MAINNET, count = count - 1, cap = count - 1)
+        store.bitcoinAccounts(id).forEach { store.saveBitcoinProfile(id, it, AccountProfile(name = "Account ${it.index}")) }
+        return id
     }
 
     private fun newWallet(): String = store.create(name = "Demo", deviceGenerated = false, words = DEMO_WORDS, passphrase = null, nowMs = 1L)

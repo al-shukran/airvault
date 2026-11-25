@@ -76,7 +76,10 @@ shard-1 :app app.lensly.ui.settings.FeeWarningScreenTest
 shard-1 :app app.lensly.ui.sign.CounterpartyLookupTest
 shard-1 :app app.lensly.ui.sign.TxFormatTest
 shard-1 :lumio app.lumio.TransactionOwnershipTest
+shard-1 :lumio app.lumio.demo.DemoProviderTest
+shard-1 :lumio app.lumio.demo.DemoScreensTest
 shard-1 :lumio app.lumio.btc.BtcJobsTest
+shard-1 :lumio app.lumio.CustomRpcStatusTest
 shard-1 :lumio app.lumio.data.provider.defillama.DefiLlamaChartTest
 shard-1 :lumio app.lumio.data.provider.etherscan.EtherscanTxHistoryTest
 shard-1 :lumio app.lumio.data.route.OwnServerRouteTest
@@ -120,6 +123,8 @@ shard-1 :shared app.lensly.core.vault.VaultDuressTest
 shard-1 :shared app.lensly.core.wallet.BulkRunTest
 shard-1 :shared app.lensly.ui.camera.RecordingFileTest
 shard-1 :shared app.lensly.ui.components.SecureHexKeyboardTest
+shard-2 :shared app.lensly.app.AddressLookalikeTest
+shard-2 :shared app.lensly.app.PlainNameTest
 shard-2 :app app.lensly.app.AddressBookScanTest
 shard-2 :app app.lensly.app.AddressNotesTest
 shard-2 :app app.lensly.app.WalletStoreKindTest
@@ -133,6 +138,7 @@ shard-2 :app app.lensly.ui.home.HistoryDetailSheetTest
 shard-2 :app app.lensly.ui.home.HistoryOriginTest
 shard-2 :app app.lensly.ui.home.HomeBackupTest
 shard-2 :app app.lensly.ui.home.WalletHistoryScreenTest
+shard-2 :app app.lensly.ui.settings.AddressBookScreenTest
 shard-2 :app app.lensly.ui.sign.ReviewScreenTest
 shard-2 :app app.lensly.ui.sign.SendTitleTest
 shard-2 :app app.lensly.ui.wallet.Bip39AutocompleteTest
@@ -184,6 +190,7 @@ shard-3 :app app.lensly.ui.home.BulkRunTest
 shard-3 :app app.lensly.ui.home.HomeChartTest
 shard-3 :app app.lensly.ui.settings.EntryGestureScreenTest
 shard-3 :app app.lensly.ui.sign.OwnAccountHeadlineTest
+shard-3 :app app.lensly.ui.sign.ReviewNamesTest
 shard-3 :lumio app.lumio.LumioBarIconsTest
 shard-3 :lumio app.lumio.LumioNavGraphTest
 shard-3 :lumio app.lumio.PasswordChangeTest
@@ -277,6 +284,7 @@ shard-4 :lumio app.lumio.ui.asset.TickChartTest
 shard-4 :lumio app.lumio.ui.gate.GateCopyTest
 shard-4 :lumio app.lumio.ui.kit.ClearAirOrderRowsTest
 shard-4 :lumio app.lumio.ui.kit.ClearAirStopSliderTest
+shard-4 :lumio app.lumio.ui.kit.WalletEmblemToneTest
 shard-4 :lumio app.lumio.ui.portfolio.PortfolioHiddenSmallTest
 shard-4 :lumio app.lumio.ui.receive.ReceiveOptInCapsuleTest
 shard-4 :lumio app.lumio.ui.send.RecipientErrorTest
@@ -332,6 +340,7 @@ shard-5 :lumio app.lumio.evm.PortfolioCacheTest
 shard-5 :lumio app.lumio.evm.PortfolioMergeTest
 shard-5 :lumio app.lumio.network.NetworkModeTest
 shard-5 :lumio app.lumio.pair.PairAddressBookTest
+shard-5 :lumio app.lumio.pair.SharedAddressBookTest
 shard-5 :lumio app.lumio.portfolio.PortfolioViewTest
 shard-5 :lumio app.lumio.send.SendArrivalsTest
 shard-5 :lumio app.lumio.send.solana.SolanaSendRouteTest

@@ -99,9 +99,9 @@ internal object CoinActivityPreload {
 
     fun pageOf(vault: LumioVault?, key: CoinActivityKey): ActivityPage? = vault?.keptCoinActivity?.takeIf { it.first == key }?.second
 
-    /** Reads the activity of [key] and keeps it in [vault]. Returns null when the vault locked during the read. */
-    suspend fun read(app: LumioApp, vault: LumioVault, key: CoinActivityKey): ActivityPage? = try {
-        PortfolioReads.activity(app, vault, key.mode, walletId = null, filter = ActivityFilter(coin = key.asset), includeSpam = key.includeSpam)
+    /** Reads the activity of [key], with the last prices kept unless [live], and keeps it in [vault]. Returns null when the vault locked during the read. */
+    suspend fun read(app: LumioApp, vault: LumioVault, key: CoinActivityKey, live: Boolean = true): ActivityPage? = try {
+        PortfolioReads.activity(app, vault, key.mode, walletId = null, filter = ActivityFilter(coin = key.asset), includeSpam = key.includeSpam, live = live)
             .also { vault.keptCoinActivity = key to it }
     } catch (_: IllegalStateException) {
         null
@@ -112,7 +112,7 @@ internal object CoinActivityPreload {
      * first frame, as only the wait ends.
      */
     suspend fun preload(app: LumioApp, vault: LumioVault, key: CoinActivityKey) {
-        val read = app.runInAppScope { read(app, vault, key) }
+        val read = app.runInAppScope { read(app, vault, key, live = false) }
         withTimeoutOrNull(WAIT_MS) { read.join() }
     }
 }
@@ -199,7 +199,11 @@ internal fun AssetRoute(
     val includeSpam = rememberTransactions(app).activityIncludesSpam
     val activityKey = CoinActivityKey(asset, selection.mode, includeSpam)
     val coinActivity by produceState(initialValue = CoinActivityPreload.pageOf(vault, activityKey), vault, activityKey, listVersion) {
-        if (vault != null) CoinActivityPreload.read(app, vault, activityKey)?.let { value = it }
+        if (vault != null) {
+            // The rows show with the last prices kept, and the sources' answer replaces them when it lands.
+            if (value == null) CoinActivityPreload.read(app, vault, activityKey, live = false)?.let { value = it }
+            CoinActivityPreload.read(app, vault, activityKey)?.let { value = it }
+        }
     }
     AssetPage(
         name = name,
@@ -351,8 +355,8 @@ private fun namesOf(asset: WatchedAsset, app: LumioApp, held: Collection<List<To
     return token?.let { it.symbol to it.name } ?: coinNames(asset)
 }
 
-/** The logo of [asset] at 48 dp: a native coin's icon, or a token's own logo when Lensly ships one, else the letter of its [symbol]. */
-private fun coinIconOf(asset: WatchedAsset, symbol: String, app: LumioApp): AssetIconSpec {
+/** The logo of [asset]: a native coin's icon, or a token's own logo when Lensly ships one, else the letter of its [symbol]. */
+internal fun coinIconOf(asset: WatchedAsset, symbol: String, app: LumioApp): AssetIconSpec {
     val contract = asset.contract ?: return AssetRows.nativeIcon(asset.network, symbol, app.registry::network)
     val chainId = Networks.evmIdOf(asset.network.chain)
     return tokenIcon(app.registry.token(chainId, contract), app.registry.network(chainId), symbol)

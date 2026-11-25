@@ -22,7 +22,7 @@ import org.robolectric.annotation.Config
 
 /**
  * The Apps screen. Each App is a row with one text action: Install for an App the wallet lacks, which installs it at once, and Uninstall for an
- * installed App, which asks first and says what is lost.
+ * installed App, which asks first and says what is kept.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = SCREENSHOT_QUALIFIERS)
@@ -80,7 +80,7 @@ class WalletAppsScreenTest {
     }
 
     @Test
-    fun uninstallingAsksFirstAndSaysWhatIsLost() {
+    fun uninstallingAsksFirstAndSaysWhatIsKept() {
         val route = Route()
         compose.setContent {
             LumenTheme {
@@ -92,7 +92,7 @@ class WalletAppsScreenTest {
 
         compose.onNodeWithText("Uninstall Bitcoin?").assertIsDisplayed()
         compose.onNodeWithText("This removes 2 accounts from this wallet.", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("Their names, labels and groups are lost.", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Their names, labels and groups are kept.", substring = true).assertIsDisplayed()
         compose.onNodeWithText("Lumio keeps its copy of these accounts until you pair again.", substring = true).assertIsDisplayed()
         compose.onNodeWithText("Cancel").performClick()
         assertNull(route.uninstalled)

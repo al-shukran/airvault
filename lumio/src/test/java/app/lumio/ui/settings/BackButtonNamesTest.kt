@@ -32,7 +32,7 @@ class BackButtonNamesTest {
     fun theAddressBookBacksOutAsBack() {
         compose.setContent {
             ClearAirTheme {
-                AddressBookScreen(walletName = "Air 1", entries = emptyList(), offline = null, onBack = {}, onLock = {})
+                AddressBookScreen(entries = emptyList(), offline = null, onEdit = {}, onBack = {}, onLock = {})
             }
         }
         compose.onNodeWithContentDescription("Back").assertExists()

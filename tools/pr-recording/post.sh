@@ -53,8 +53,13 @@ attach=()
 for f in "${files[@]}"; do attach+=(--attach "$f"); done
 comment_url=$(gh pr comment "$pr" --repo "$repo" --body-file body.md "${attach[@]}")
 id=${comment_url##*issuecomment-}
-urls=($(gh api "repos/$repo/issues/comments/$id" --jq .body | grep -o 'https://github.com/user-attachments/assets/[0-9a-f-]*'))
-[ "${#urls[@]}" -eq "${#files[@]}" ] || { echo "expected ${#files[@]} uploaded files, found ${#urls[@]}; see $comment_url" >&2; exit 1; }
+# A failure after the post removes the comment, so a rerun posts once. The title is line 1 and is skipped, so a URL in it is not counted.
+drop_comment() {
+  gh api -X DELETE "repos/$repo/issues/comments/$id" --silent && echo "$1; removed $comment_url, so a rerun posts once" >&2 || echo "$1; could not remove $comment_url, delete it before a rerun" >&2
+  exit 1
+}
+urls=($(gh api "repos/$repo/issues/comments/$id" --jq .body | tail -n +2 | grep -o 'https://github.com/user-attachments/assets/[0-9a-f-]*' || true))
+[ "${#urls[@]}" -eq "${#files[@]}" ] || drop_comment "expected ${#files[@]} uploaded files, found ${#urls[@]}"
 {
   if [ "$name" = single ]; then
     printf '### %s\n\n<img width="380" src="%s">\n' "$title" "${urls[0]}"
@@ -63,5 +68,5 @@ urls=($(gh api "repos/$repo/issues/comments/$id" --jq .body | grep -o 'https://g
   fi
   [ "${#urls[@]}" -lt 2 ] || printf '\n%s\n' "${urls[1]}"
 } >body.md
-gh api -X PATCH "repos/$repo/issues/comments/$id" -F body=@body.md --silent
+gh api -X PATCH "repos/$repo/issues/comments/$id" -F body=@body.md --silent || drop_comment "could not rewrite the comment"
 echo "$comment_url"

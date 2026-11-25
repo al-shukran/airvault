@@ -35,6 +35,7 @@ import app.airvault.core.model.Warning
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressNotes
 import app.lensly.app.addressKeyOf
+import app.lensly.app.addressStart
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LumenTheme
 import org.junit.Rule
@@ -106,12 +107,26 @@ class ReviewScreenTest {
             SummaryPart.Text(" to "),
             SummaryPart.Counterparty(receiver),
         )
-        assertEquals("Send 1.5 USDC to Alice", summarySentence(named, notes, SAMPLE_SIGNER, FontFamily.Monospace, testPalette).text)
+        assertEquals("Send 1.5 USDC to \u2068Alice\u2069 (${addressStart(receiver)})", summarySentence(named, notes, SAMPLE_SIGNER, FontFamily.Monospace, testPalette).text)
         val unnamed = named.dropLast(1) + SummaryPart.Counterparty(other)
         assertEquals(
             "Send 1.5 USDC to ${shortAddress(other)}",
             summarySentence(unnamed, notes, SAMPLE_SIGNER, FontFamily.Monospace, testPalette).text,
         )
+    }
+
+    @Test
+    fun anArabicOrHebrewNameIsIsolatedAndAnAddressLikeNameIsNotShown() {
+        val parts = listOf(SummaryPart.Text("Send "), SummaryPart.Mono("1.5 USDC"), SummaryPart.Text(" to "), SummaryPart.Counterparty(receiver))
+        fun sentence(name: String): String {
+            val notes = mapOf(addressKeyOf(receiver) to AddressNotes(internal = null, entry = AddressBookEntry("entry-1", receiver, name, null)))
+            return summarySentence(parts, notes, SAMPLE_SIGNER, FontFamily.Monospace, testPalette).text
+        }
+        listOf("\u0645\u064F\u062D\u064E\u0645\u064E\u0651\u062F", "\u05D3\u05D5\u05D3").forEach { name ->
+            // A direction character in the saved name is removed, so the two isolates are the only ones in the sentence.
+            assertEquals("Send 1.5 USDC to \u2068$name\u2069 (${addressStart(receiver)})", sentence("\u202E$name\u2067"))
+        }
+        assertEquals("Send 1.5 USDC to ${shortAddress(receiver)}", sentence("0x71C7 656E \u2026 976F"))
     }
 
     @Test

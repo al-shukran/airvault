@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import app.lensly.ui.flow.PasswordCheck
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -18,6 +19,8 @@ import app.lumio.ui.kit.ChoiceRow
 import app.lumio.ui.kit.ClearAirChoiceSheet
 import app.lumio.ui.kit.ClearAirDialog
 import app.lumio.ui.kit.ClearAirField
+import app.lumio.ui.kit.ClearAirGlyph
+import app.lumio.ui.kit.ClearAirGlyphDisc
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSheet
@@ -28,7 +31,7 @@ import kotlinx.coroutines.launch
 internal const val WRONG_CURRENT_PASSWORD = "That isn't your current password"
 
 /**
- * The Auto-Lock row of the Security page: its value in words, and a radio sheet of the three choices, like Currency's. A choice other than the
+ * The Auto-Lock row of the Security page: its value in words, and a radio sheet of the choices, like Currency's. A choice other than the
  * current one asks for the App Password in a dialog first, and [onChoose] runs only once [checkPassword] accepts it. A wrong password keeps the
  * dialog open with its error. An unavailable vault closes the dialog, since the change cannot be checked there.
  */
@@ -44,7 +47,8 @@ fun AutoLockRow(
     ClearAirRow(
         title = "Auto-Lock",
         description = "When Lumio locks itself",
-        trailing = { Text(text = current.label, style = ClearAirType.label, color = palette.ink2) },
+        leading = { ClearAirGlyphDisc(ClearAirGlyph.CLOCK, size = 19.dp) },
+        trailing = { Text(text = current.label, style = ClearAirType.body, color = palette.ink) },
         onClick = { sheetOpen = true },
     )
     ClearAirSheet(visible = sheetOpen, onClose = { sheetOpen = false }) {

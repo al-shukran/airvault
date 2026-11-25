@@ -23,9 +23,6 @@ permissions:
 # the key before it saves. A pull request and a merge-queue entry restore master's entry and save nothing. GitHub evicts the
 # least recently used entries past the repository's 10 GB limit (scripts/ci/README.md).
 env:
-  # Gradle encrypts configuration-cache entries with this key. Without a shared key, each runner's own keystore encrypts them, so
-  # no lane can read an entry another lane saved. The repository secret must exist for this to take effect (see the PR body).
-  GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
   # The Gradle user-home directories the deps cache holds. The configuration cache names the generated ones (version-catalog
   # accessors, transformed and instrumented jars, compiled build scripts) as inputs, so a restore must bring them back too.
   # The directory names carry the Gradle version that gradle-wrapper.properties pins (9.9.2).
@@ -94,7 +91,8 @@ jobs:
       contents: read
       actions: write
     strategy:
-      fail-fast: false
+      # A failing shard cancels its siblings on a pull request. A master push lets every shard finish and save its build cache.
+      fail-fast: ${{ github.event_name != 'push' }}
       matrix:
         shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
@@ -127,19 +125,23 @@ jobs:
           key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
           fail-on-cache-miss: true
 
-      # The build cache and the configuration cache of this lane. The restore-keys line reads an entry of the per-commit keys
+      # The build cache of this lane. The configuration cache is not saved: it records the JDK home path, which differs between runner images. The restore-keys line reads an entry of the per-commit keys
       # that earlier master pushes saved, until the fixed key exists.
       - name: Restore the Gradle build cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
+          path: ~/.gradle/caches/build-cache-1
           key: bc-shard-${{ matrix.shard }}-master
           # A lane with no entry of its own yet (lanes 9 and 10 at first) takes the newest shard entry: the compiled outputs match.
           restore-keys: |
             bc-shard-${{ matrix.shard }}-master-
             bc-shard-
+
+      # Every shard compiles the same code, and a master push adds its new outputs to the entry, so an unpruned entry grows with
+      # each push (2.3 GB per shard after two days). On a master push, the entries the run does not read or store are dropped before the save.
+      - name: Mark the build-cache entries as unused
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: ./scripts/ci/prune-build-cache.sh age
 
       - name: Run shard-${{ matrix.shard }}
         run: ./scripts/ci/run-partition.sh shard-${{ matrix.shard }}
@@ -149,6 +151,10 @@ jobs:
         run: ./gradlew --stop
 
       # Only a push to master saves. A pull request and a merge-queue entry save nothing.
+      - name: Drop the build-cache entries this run did not use
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: ./scripts/ci/prune-build-cache.sh prune
+
       - name: Delete the build cache this lane replaces
         id: replace
         if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
@@ -162,9 +168,7 @@ jobs:
         if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.replace.outcome == 'success'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
+          path: ~/.gradle/caches/build-cache-1
           key: bc-shard-${{ matrix.shard }}-master
 
       - name: Upload the JUnit results
@@ -209,9 +213,7 @@ jobs:
       - name: Restore the Gradle build cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
+          path: ~/.gradle/caches/build-cache-1
           key: bc-fuzz-master
           restore-keys: bc-fuzz-master-
 
@@ -235,9 +237,7 @@ jobs:
         if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.replace.outcome == 'success'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-            .gradle/configuration-cache
+          path: ~/.gradle/caches/build-cache-1
           key: bc-fuzz-master
 
   # No Gradle: every script's syntax, the test-class coverage of the lanes, and the test-network guard (guideline 3).

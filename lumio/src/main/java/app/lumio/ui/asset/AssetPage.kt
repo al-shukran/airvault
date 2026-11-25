@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,7 +24,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
@@ -40,7 +38,9 @@ import app.lumio.data.price.ChartFrame
 import app.lumio.data.price.PriceSeries
 import app.lumio.ui.kit.ChoiceGroup
 import app.lumio.ui.kit.ChoiceRow
+import app.lumio.ui.kit.ClearAirAmount
 import app.lumio.ui.kit.ClearAirCapsuleSmall
+import app.lumio.ui.kit.ClearAirChangeLineStyle
 import app.lumio.ui.kit.ClearAirChoiceSheet
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
@@ -49,7 +49,7 @@ import app.lumio.ui.kit.ClearAirIconButton
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSheet
 import app.lumio.ui.kit.ClearAirTextAction
-import app.lumio.ui.home.AssetIcon
+import app.lumio.ui.home.ChainDots
 import app.lumio.ui.home.AssetIconSpec
 
 /**
@@ -122,11 +122,11 @@ internal fun AssetPage(
                     icon()
                     Spacer(Modifier.height(ClearAirSpacing.xs))
                     ClearAirEyebrow(text = "$name · $symbol")
-                    Text(text = priceText ?: "—", style = ClearAirType.hero, color = palette.ink)
+                    ClearAirAmount(text = priceText ?: "—", style = ClearAirType.hero)
                     change?.let { value ->
                         Text(
                             text = value.text,
-                            style = ClearAirType.body,
+                            style = ClearAirChangeLineStyle,
                             color = if (value.rising) palette.vaultBlue else palette.rose,
                         )
                     }
@@ -138,13 +138,13 @@ internal fun AssetPage(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (held == null) {
-                        ClearAirCapsuleSmall(text = "Receive", onClick = { open(CoinPicker.RECEIVE) })
+                        ClearAirCapsuleSmall(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE)
                         Spacer(Modifier.width(ClearAirSpacing.md))
-                        ClearAirTextAction(text = "Send $symbol", onClick = { open(CoinPicker.SEND) })
+                        ClearAirTextAction(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND)
                     } else {
-                        ClearAirCapsuleSmall(text = "Send $symbol", onClick = { open(CoinPicker.SEND) })
+                        ClearAirCapsuleSmall(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND)
                         Spacer(Modifier.width(ClearAirSpacing.md))
-                        ClearAirTextAction(text = "Receive", onClick = { open(CoinPicker.RECEIVE) })
+                        ClearAirTextAction(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE)
                     }
                 }
             }
@@ -258,23 +258,6 @@ private fun HeldRow(coin: CoinHeld, icon: @Composable () -> Unit, onClick: () ->
         )
     }
 }
-
-/** The logo of each chain a coin sits on, small and overlapping, in the order the holdings list gives them. */
-@Composable
-private fun ChainDots(icons: List<AssetIconSpec>) {
-    val palette = LocalClearAirPalette.current
-    Row(horizontalArrangement = Arrangement.spacedBy(-CHAIN_DOT_OVERLAP)) {
-        icons.forEach { icon ->
-            Box(modifier = Modifier.size(CHAIN_DOT).clip(CircleShape).background(palette.background), contentAlignment = Alignment.Center) {
-                AssetIcon(spec = icon, size = CHAIN_DOT)
-            }
-        }
-    }
-}
-
-/** A chain's logo in the holdings row, and how far each one overlaps the one before it. */
-private val CHAIN_DOT = 15.dp
-private val CHAIN_DOT_OVERLAP = 4.dp
 
 /** The chart time frames as mono text. The chosen one is bold with the spark's diamond under it, and tapping one chooses it. */
 @Composable

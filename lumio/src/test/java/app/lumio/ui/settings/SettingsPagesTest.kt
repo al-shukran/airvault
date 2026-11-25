@@ -3,7 +3,11 @@ package app.lumio.ui.settings
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
@@ -14,18 +18,18 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.unit.dp
 import app.lensly.ui.camera.EntryGesture
 import app.lensly.ui.flow.PasswordCheck
 import app.lensly.ui.theme.LumenTheme
 import app.lumio.PasswordChange
-import app.lumio.btc.EsploraServers
 import app.lumio.data.config.AutoLock
 import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.LockSettings
 import app.lumio.data.config.TransactionSettings
 import app.lumio.ui.firstrun.NewPasswordProblem
+import app.lumio.evm.EvmChain
 import app.lumio.evm.EvmSettings
-import app.lumio.pair.PairedWallet
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -52,7 +56,7 @@ class SettingsPagesTest {
     @Test
     fun theDisplayPageHasNoSave() = assertNoSave {
         DisplaySettingsPage(
-            settings = DisplaySettings(), notice = null, onShowTotal = {}, onShowAssets = {}, onCurrency = {}, onSmallBalance = {},
+            settings = DisplaySettings(), notice = null, onShowTotal = {}, onShowAssets = {}, onCurrency = {}, onTheme = {}, onSmallBalance = {},
             offline = null, onLock = {}, onBack = {},
         )
     }
@@ -61,32 +65,46 @@ class SettingsPagesTest {
     fun theNetworksPageHasNoSave() = assertNoSave {
         NetworksSettingsPage(
             offline = null, onLock = {}, onBack = {},
-            bitcoin = {
-                BitcoinServersSettings(
-                    mainnet = EsploraServers.MAINNET_DEFAULT,
-                    testnet4 = EsploraServers.TESTNET4_DEFAULT,
-                    indexer = "",
-                    error = null,
-                    onApply = { _, _ -> },
-                    onIndexer = {},
-                    onReset = {},
-                )
-            },
-            ethereum = {
+        ) {
+            EvmSettingsSection(
+                settings = EvmSettings(),
+                chains = emptyList(),
+                logos = emptyMap(),
+                busy = false,
+                notice = null,
+                onAddressCount = {},
+                onEnabled = { _, _ -> },
+                onNetwork = {},
+                onAddNetwork = {},
+                onBitcoin = {},
+            )
+        }
+    }
+
+    @Test
+    fun aNetworkSwitchIsNamedForTalkBackAndIsAtLeast48DpHigh() {
+        var turned: Boolean? = null
+        compose.setContent {
+            ClearAirHarness {
                 EvmSettingsSection(
-                    settings = EvmSettings(),
-                    chains = emptyList(),
+                    settings = EvmSettings(enabled = setOf(1L)),
+                    chains = listOf(EvmChain(1L, "Ethereum", "ETH", 18, testnet = false, explorerUrl = null)),
+                    logos = emptyMap(),
                     busy = false,
                     notice = null,
                     onAddressCount = {},
-                    onEnabled = { _, _ -> },
+                    onEnabled = { _, on -> turned = on },
                     onNetwork = {},
-                    onTokens = {},
-                    onRemoveCustom = {},
                     onAddNetwork = {},
+                    onBitcoin = {},
                 )
-            },
-        )
+            }
+        }
+
+        val switch = compose.onNode(hasContentDescription("Ethereum network"))
+        switch.assertIsOn().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
+        switch.performClick()
+        assertEquals(false, turned)
     }
 
     @Test
@@ -95,41 +113,16 @@ class SettingsPagesTest {
     }
 
     @Test
-    fun theAddressBookPageHasNoSave() = assertNoSave {
-        AddressBookSettingsPage(offline = null, onLock = {}, onBack = {}, wallets = { Text("No wallets paired yet.") })
-    }
-
-    @Test
-    fun theAddressBookPageHasNoPairingOrDeletionButOpensEachBook() {
-        var opened: String? = null
-        val wallet = PairedWallet(id = "w1", name = "Demo", fingerprint = 1L, createdAtMs = 0L, evmAccounts = emptyList(), bitcoin = emptyList())
-        compose.setContent {
-            ClearAirHarness {
-                AddressBookSettingsPage(
-                    offline = null, onLock = {}, onBack = {},
-                    wallets = { AddressBookRows(wallets = listOf(wallet), onAddressBook = { opened = it.id }) },
-                )
-            }
-        }
-
-        compose.onAllNodesWithText("Pair from Lensly").assertCountEquals(0)
-        compose.onAllNodesWithText("Delete", substring = true).assertCountEquals(0)
-        compose.onNodeWithText("Demo").performClick()
-        assertEquals("w1", opened)
-    }
-
-    @Test
     fun theSecurityPageHasNoSaveAndOpensTheGestureChoice() {
         var opened = false
         compose.setContent {
             ClearAirHarness {
                 SecuritySettingsPage(
-                    entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
-                    deviceProtectionOn = false,
+                    biometric = BiometricSwitch(on = false, canEnable = true),
                     onEntryGesture = { opened = true },
                     onChangePassword = {},
-                    onDeviceProtection = {},
+                    onBiometric = {},
                     checkPassword = { PasswordCheck.Accepted },
                     onAutoLock = {},
                     offline = null, onLock = {}, onBack = {},
@@ -148,12 +141,11 @@ class SettingsPagesTest {
         compose.setContent {
             ClearAirHarness {
                 SecuritySettingsPage(
-                    entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
-                    deviceProtectionOn = false,
+                    biometric = BiometricSwitch(on = false, canEnable = true),
                     onEntryGesture = {},
                     onChangePassword = { opened = true },
-                    onDeviceProtection = {},
+                    onBiometric = {},
                     checkPassword = { PasswordCheck.Accepted },
                     onAutoLock = {},
                     offline = null, onLock = {}, onBack = {},
@@ -161,48 +153,29 @@ class SettingsPagesTest {
             }
         }
 
-        compose.onNodeWithText("Change Password").performScrollTo().performClick()
+        compose.onNodeWithText("Password").performScrollTo().performClick()
         assertEquals(true, opened)
     }
 
     @Test
-    fun theSecurityRowOpensDeviceProtectionAndTheSwitchIsNotOnSecurity() {
-        var opened = false
-        compose.setContent {
-            ClearAirHarness {
-                SecuritySettingsPage(
-                    entryGesture = EntryGesture.DEFAULT,
-                    lock = LockSettings(),
-                    deviceProtectionOn = false,
-                    onEntryGesture = {},
-                    onChangePassword = {},
-                    onDeviceProtection = { opened = true },
-                    checkPassword = { PasswordCheck.Accepted },
-                    onAutoLock = {},
-                    offline = null, onLock = {}, onBack = {},
-                )
-            }
-        }
-
-        compose.onNodeWithText("Biometric Unlock").assertDoesNotExist()
-        compose.onNodeWithText("Device Protection").performScrollTo().performClick()
-        assertEquals(true, opened)
-    }
-
-    @Test
-    fun theDeviceProtectionSwitchReportsTheOwnersChoice() {
+    fun theDeviceProtectionSwitchOnSecurityReportsTheOwnersChoice() {
         var changed: Boolean? = null
         compose.setContent {
             ClearAirHarness {
-                DeviceProtectionSettingsPage(
+                SecuritySettingsPage(
+                    lock = LockSettings(),
                     biometric = BiometricSwitch(on = false, canEnable = true),
+                    onEntryGesture = {},
+                    onChangePassword = {},
                     onBiometric = { changed = it },
+                    checkPassword = { PasswordCheck.Accepted },
+                    onAutoLock = {},
                     offline = null, onLock = {}, onBack = {},
                 )
             }
         }
 
-        compose.onNodeWithText("Biometric Unlock").performScrollTo().performClick()
+        compose.onNodeWithText("Device Protection").performScrollTo().performClick()
         assertEquals(true, changed)
     }
 
@@ -210,9 +183,14 @@ class SettingsPagesTest {
     fun theDeviceProtectionSwitchSaysWhyItCannotBeTurnedOn() {
         compose.setContent {
             ClearAirHarness {
-                DeviceProtectionSettingsPage(
+                SecuritySettingsPage(
+                    lock = LockSettings(),
                     biometric = BiometricSwitch(on = false, canEnable = false),
+                    onEntryGesture = {},
+                    onChangePassword = {},
                     onBiometric = {},
+                    checkPassword = { PasswordCheck.Accepted },
+                    onAutoLock = {},
                     offline = null, onLock = {}, onBack = {},
                 )
             }
@@ -226,12 +204,11 @@ class SettingsPagesTest {
         compose.setContent {
             ClearAirHarness {
                 SecuritySettingsPage(
-                    entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(AutoLock.IMMEDIATELY),
-                    deviceProtectionOn = false,
+                    biometric = BiometricSwitch(on = false, canEnable = true),
                     onEntryGesture = {},
                     onChangePassword = {},
-                    onDeviceProtection = {},
+                    onBiometric = {},
                     checkPassword = { PasswordCheck.Accepted },
                     onAutoLock = {},
                     offline = null, onLock = {}, onBack = {},
@@ -346,7 +323,7 @@ class SettingsPagesTest {
     }
 
     @Test
-    fun theHideSpamSwitchReportsTheOwnersChoiceAndTheTitleShowsThePause() {
+    fun theHideSpamSwitchReportsTheOwnersChoiceAndTheLineShowsThePause() {
         var hide: Boolean? = null
         compose.setContent {
             ClearAirHarness {
@@ -358,8 +335,9 @@ class SettingsPagesTest {
             }
         }
 
-        // The section title is an eyebrow, so it is drawn in capitals.
-        compose.onNodeWithText("LAST CHANCE BEFORE SENDING · 5 S").performScrollTo().assertIsDisplayed()
+        // The section title is an eyebrow, so it is drawn in capitals, and the pause is its value.
+        compose.onNodeWithText("LAST CHANCE BEFORE SENDING").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("5 s").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Hide Spam").performScrollTo().performClick()
         assertEquals(false, hide)
     }

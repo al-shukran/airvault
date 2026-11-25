@@ -105,8 +105,8 @@ class PriceChart(val asset: AssetId, val range: ChartFrame, val nowMs: Long) : R
  */
 val MARKET_NET: NetworkId = NetworkId(Networks.BTC_MAINNET, testnet = false)
 
-/** The whole crypto market's figures in USD, from the source's global figures. */
-class GlobalMarket : Request<MarketQuote>(MARKET_NET, Ops.MARKET_GLOBAL)
+/** Bitcoin's market capitalisation in USD, which the Home hero shows beside Bitcoin's chart. */
+class BitcoinMarket : Request<MarketQuote>(MARKET_NET, Ops.MARKET_BITCOIN)
 
 /** The coins the source lists as trending now, in the source's order. */
 class TrendingCoins : Request<TrendingList>(MARKET_NET, Ops.MARKET_TRENDING)
@@ -122,11 +122,11 @@ class FiatRates : Request<FiatQuote>(MARKET_NET, Ops.MARKET_FIAT)
 data class FiatQuote(val perUsd: Map<String, Double>, val asOfMs: Long)
 
 /**
- * The whole market in USD: [totalUsd] is the total market cap, [change24hPct] its change over the last 24 hours in percent (null when the source gives
+ * Bitcoin's market in USD: [capUsd] is its market capitalisation, [change24hPct] its change over the last 24 hours in percent (null when the source gives
  * none), and [asOfMs] the time the source gives for it, in epoch milliseconds. It is stored in the cache, so it is serializable.
  */
 @Serializable
-data class MarketQuote(val totalUsd: Double, val change24hPct: Double?, val asOfMs: Long)
+data class MarketQuote(val capUsd: Double, val change24hPct: Double?, val asOfMs: Long)
 
 /**
  * One trending coin: its [name] and [symbol], its [rank] by market cap (null when the source gives none), and its USD [priceUsd] and [change24hPct],

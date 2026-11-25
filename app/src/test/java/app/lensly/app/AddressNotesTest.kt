@@ -20,6 +20,23 @@ class AddressNotesTest {
     }
 
     @Test
+    fun anInvisibleDisplayNameFallsBackToTheAutoNameInTheHeadline() {
+        val account = InternalAccount(displayName = "\u3164", autoName = "Key 0", label = null)
+
+        assertEquals("Key 0", account.plainName())
+        assertEquals("Your account · Key 0", AddressNotes(internal = account, entry = null).headline())
+    }
+
+    @Test
+    fun anUnsavedAddressThatSharesTheEndsOfAnEntryGivesItAsALookalikeAndNoName() {
+        val lookalike = "0x" + otherAddress.substring(2, 6) + "a".repeat(32) + otherAddress.takeLast(4)
+        assertEquals(
+            AddressNotes(internal = null, entry = null, lookalike = entry),
+            addressNotesOf(lookalike, EVM_FAMILY, internal, listOf(entry)),
+        )
+    }
+
+    @Test
     fun anAddressBookEntryOnlyGivesItsNames() {
         assertEquals(AddressNotes(internal = null, entry = entry), addressNotesOf(otherAddress, EVM_FAMILY, internal, listOf(entry)))
     }

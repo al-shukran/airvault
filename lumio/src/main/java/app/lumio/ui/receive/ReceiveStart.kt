@@ -2,6 +2,7 @@ package app.lumio.ui.receive
 
 import app.lensly.app.addressKeyOf
 import app.lensly.app.autoAccountName
+import app.lensly.app.plainName
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.pair.PairedWallet
@@ -80,13 +81,33 @@ internal fun receiveCoinStartOf(
     return ReceiveAnswers(coin = coin, network = receiveNetwork, account = receiveAccount)
 }
 
+/**
+ * The coins that Home's Receive offers: the native coin of each of [accounts], in the order they first appear, with the accounts that take it. A coin
+ * is under Your Assets when one of its accounts holds some. [icon] draws a coin on its network, and an account with no coin on the side is left out.
+ */
+internal fun receiveCoinsOf(accounts: List<WalletAccount>, wallets: List<PairedWallet>, icon: (AccountCoin) -> AssetIconSpec): List<ReceiveCoin> =
+    accounts.filter { it.coin != null }.groupBy { it.coin!!.symbol }.map { (symbol, group) ->
+        val coin = group.first().coin!!
+        val coinIcon = icon(coin)
+        val receiveAccounts = group.map { receiveAccountOf(it, wallets) }
+        val count = group.size
+        ReceiveCoin(
+            symbol = symbol,
+            name = coin.name,
+            subtitle = "$symbol · $count ${if (count == 1) "account" else "accounts"}",
+            held = group.any { (it.balance?.balance?.signum() ?: 0) > 0 },
+            icon = coinIcon,
+            networks = listOf(ReceiveNetwork(name = group.first().networkName, icon = coinIcon, accounts = receiveAccounts)),
+        )
+    }
+
 /** The account as Lensly names it, with the label and group that its pairing sent. */
 private fun receiveAccountOf(account: WalletAccount, wallets: List<PairedWallet>): ReceiveAccount {
     val wallet = wallets.firstOrNull { it.id == account.walletId }
     val key = addressKeyOf(account.address)
     val named = ownAccountsOf(wallets)[key]
     return ReceiveAccount(
-        name = named?.displayName ?: named?.autoName ?: autoAccountName(wallet?.name.orEmpty(), account.index),
+        name = named?.plainName() ?: autoAccountName(wallet?.name.orEmpty(), account.index),
         label = named?.label,
         group = wallet?.evmAccounts?.firstOrNull { addressKeyOf(it.address) == key }?.group,
         address = account.address,

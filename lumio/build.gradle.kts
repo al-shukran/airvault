@@ -82,6 +82,9 @@ android {
             // web3j's EIP-4844 blob code ships jc-kzg-4844's desktop libraries and a 800 KB trusted setup. Neither app builds
             // blob transactions or loads that code, so the files stay out of the APK.
             excludes += setOf("ethereum/ckzg4844/**", "trusted_setup.txt")
+            // jffi (a jnr dependency) ships desktop natives under jni/ for Darwin, Windows, AIX, Linux and the BSDs. Android
+            // loads native code only from lib/<abi>/, so the jni/ entries stay out of the APK.
+            excludes += setOf("jni/**")
             // DISCLAIMER is shipped by two tuweni jars (both pulled in by web3j); keep one copy.
             pickFirsts += setOf("META-INF/DISCLAIMER", "META-INF/FastDoubleParser-LICENSE", "META-INF/FastDoubleParser-NOTICE", "META-INF/FastDoubleParser-ThirdParty-LICENSE")
         }

@@ -1,5 +1,6 @@
 package app.lumio.ui.settings
 
+import app.lumio.DebugDemoData
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,9 +23,9 @@ import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.PasswordChange
 import app.lumio.ui.firstrun.NewPasswordProblem
 import app.lumio.ui.firstrun.policyMessage
+import app.lumio.ui.kit.ClearAirEyeToggle
 import app.lumio.ui.kit.ClearAirField
 import app.lumio.ui.kit.ClearAirPrimaryButton
-import app.lumio.ui.kit.ClearAirTextAction
 import kotlinx.coroutines.launch
 
 /**
@@ -45,9 +46,9 @@ fun ChangePasswordSettingsPage(
 ) {
     val palette = LocalClearAirPalette.current
     val scope = rememberCoroutineScope()
-    var current by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var repeat by remember { mutableStateOf("") }
+    var current by remember { mutableStateOf(DebugDemoData.text("current")) }
+    var password by remember { mutableStateOf(DebugDemoData.text("new")) }
+    var repeat by remember { mutableStateOf(DebugDemoData.text("repeat")) }
     var shown by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     // What the last submit found and left on the page. Editing a field clears it, so an old problem does not stay on screen.
@@ -82,7 +83,7 @@ fun ChangePasswordSettingsPage(
     }
 
     val reveal: @Composable () -> Unit = {
-        ClearAirTextAction(text = if (shown) "Hide" else "Show", onClick = { shown = !shown })
+        ClearAirEyeToggle(shown = shown, onToggle = { shown = !shown })
     }
 
     SettingsFrame(title = "Change Password", offline = offline, onBack = onBack, onLock = onLock) {

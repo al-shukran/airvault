@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.lensly.app.AddressBookEntry
+import app.lensly.app.addressChainLabel
 import app.lensly.app.export.PairingCodec
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
@@ -28,7 +29,7 @@ import app.lensly.ui.wallet.WalletPill
 import app.lensly.ui.wallet.WalletPillStyle
 
 /**
- * The Address Book: each saved address with its name and label, by name. A tap opens the entry to edit or delete it. Add Address opens the
+ * The Address Book: each saved address with its name, its chain and label, by name. A tap opens the entry to edit or delete it. Add Address opens the
  * form for a new one, and Add by Scanning reads one from the code that Lumio shows. The book is for display only, and no signing rule reads
  * it. [error] is shown when the book could not be read.
  */
@@ -76,7 +77,9 @@ fun AddressBookScreen(
                     ListRow(onClick = { onOpen(entry) }) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(text = entry.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-                            entry.label?.let { MutedText(it) }
+                            // The chain the address is on, then the label. An EVM address is one account on every EVM network, so it names the family.
+                            val subtitle = listOfNotNull(addressChainLabel(entry.address), entry.label).joinToString(" · ")
+                            if (subtitle.isNotEmpty()) MutedText(subtitle)
                             AddressText(address = entry.address, icon = false)
                         }
                         RowArrow()

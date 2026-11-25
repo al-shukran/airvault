@@ -40,9 +40,11 @@ import app.lumio.transactions.TxFeedItem
 import app.lumio.transactions.TxSync
 import app.lumio.transactions.TxSyncPlan
 import app.lumio.ui.kit.LumioTab
+import app.lumio.ui.kit.WalletEmblemTone
 import app.lumio.ui.receive.ReceiveFlowSheet
 import app.lumio.ui.receive.receiveNativeStartOf
 import app.lumio.ui.receive.receiveStartOf
+import app.lumio.ui.settings.WalletSettingsPage
 import app.lumio.ui.settings.WalletsSettings
 import app.lumio.ui.shell.LumioPageScreen
 import app.lumio.ui.shell.offlineBand
@@ -210,6 +212,7 @@ internal fun WalletRoute(
                 // A chain that did not answer names itself under its island, with a Retry. The notice is left for a read that failed as a whole.
                 notice = board.notice,
                 pairedAtMs = wallet.createdAtMs,
+                tone = WalletEmblemTone.at(view.wallets.indexOf(wallet)),
                 reads = board.reads,
                 onRetry = board::retry,
                 onAccount = { account -> navController.navigate(LumioRoute.account(walletId, account.id)) },
@@ -250,6 +253,17 @@ internal fun AccountRoute(
     val view = board.view
     val account = view?.accountsOf(walletId)?.firstOrNull { it.id == accountId }
     if (view != null && account == null) LaunchedEffect(Unit) { navController.popBackStack() }
+    val openReceive = {
+        account?.coin?.let { coin ->
+            val icon = AssetRows.nativeIcon(coin.network, coin.symbol, app.registry::network)
+            receive = receiveNativeStartOf(account, coin, icon, view?.wallets.orEmpty())
+            receiveOpening++
+            receiveOpen = true
+        }
+        Unit
+    }
+    // Debug demo mode: a Receive frame opens the sheet at once. Release builds never ask.
+    LaunchedEffect(account != null) { if (account != null && DebugDemoData.flag("receive")) openReceive() }
     LumioPageScreen(
         title = account?.let(::accountTitle).orEmpty(),
         backLabel = navController.backLabel(),
@@ -291,14 +305,7 @@ internal fun AccountRoute(
                 notice = board.notice,
                 onRefresh = { board.refresh(pulled = true) },
                 onSend = { navController.navigate(sendRoute(account, mode)) },
-                onReceive = {
-                    account.coin?.let { coin ->
-                        val icon = AssetRows.nativeIcon(coin.network, coin.symbol, app.registry::network)
-                        receive = receiveNativeStartOf(account, coin, icon, view.wallets)
-                        receiveOpening++
-                        receiveOpen = true
-                    }
-                },
+                onReceive = openReceive,
                 onAsset = { asset -> navController.navigate(LumioRoute.asset(walletId, account.id, asset.assetKey)) },
                 onAddAsset = if (account.namespace == Networks.ALGORAND) {
                     { navController.navigate(LumioRoute.algorandAddAsset(walletId, account.id)) }
@@ -517,11 +524,11 @@ internal fun sendRoute(account: WalletAccount, mode: NetworkMode): String = when
 /** The rows of the Wallets list: the active wallet first, tagged ACTIVE, then the others in the vault's order. */
 private fun walletRows(view: WalletsView, selection: NetworkSelection): List<WalletRow> {
     val active = view.wallets.active(selection) { it.id }?.id
-    return view.walletsActiveFirst(active).map { wallet -> walletRow(view, wallet, active = wallet.id == active) }
+    return view.walletsActiveFirst(active).map { wallet -> walletRow(view, wallet, active = wallet.id == active, position = view.wallets.indexOf(wallet)) }
 }
 
-/** One paired wallet as a row of the Wallets list: its name, its summary line, its dollar total and change, and whether it is the active one. */
-private fun walletRow(view: WalletsView, wallet: PairedWallet, active: Boolean): WalletRow {
+/** One paired wallet as a row of the Wallets list: its name, its summary line, its dollar total and change, whether it is the active one, and the emblem tone of its [position] in the vault. */
+private fun walletRow(view: WalletsView, wallet: PairedWallet, active: Boolean, position: Int): WalletRow {
     val total = view.total(wallet.id)
     return WalletRow(
         id = wallet.id,
@@ -530,6 +537,7 @@ private fun walletRow(view: WalletsView, wallet: PairedWallet, active: Boolean):
         usd = total.usd,
         changePct = total.changePct,
         active = active,
+        tone = WalletEmblemTone.at(position),
     )
 }
 
@@ -562,23 +570,51 @@ internal suspend fun removeWalletHistory(vault: LumioVault, wallet: PairedWallet
     vault.wallets?.forgetWatchlist(wallet.id)
 }
 
-/** The Wallets page of Settings: the pairing of a wallet from Lensly, and the paired wallets with deletion. A deletion is saved, then the lists read again. */
+/** The Wallets page of Settings: the paired wallets, each opening its own settings, and the pairing of one more. [selection] says which wallet is the active one. */
 @Composable
-internal fun WalletsSettingsRoute(navController: NavHostController, holder: VaultHolder, listVersion: Int, onChanged: () -> Unit) {
-    val session = holder.openSession()
-    val scope = rememberCoroutineScope()
+internal fun WalletsSettingsRoute(navController: NavHostController, holder: VaultHolder, selection: NetworkSelection, listVersion: Int) {
     val wallets = pairedWallets(navController = navController, holder = holder, listVersion = listVersion)
     WalletsSettings(
         wallets = wallets,
+        activeId = wallets.active(selection) { it.id }?.id,
+        onOpen = { wallet -> navController.navigate(LumioRoute.settingsWallet(wallet.id)) },
         onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
-        onDelete = { wallet ->
+    )
+}
+
+/**
+ * The settings of the paired wallet [walletId]: re-pairing it, and removing it. A removal is saved, then the lists read again, and the page returns to the
+ * Wallets page.
+ */
+@Composable
+internal fun WalletSettingsRoute(
+    navController: NavHostController,
+    holder: VaultHolder,
+    walletId: String,
+    listVersion: Int,
+    onChanged: () -> Unit,
+    onLock: () -> Unit,
+) {
+    val session = holder.openSession()
+    val scope = rememberCoroutineScope()
+    val wallets = pairedWallets(navController = navController, holder = holder, listVersion = listVersion)
+    val wallet = wallets.firstOrNull { it.id == walletId } ?: return
+    WalletSettingsPage(
+        wallet = wallet,
+        tone = WalletEmblemTone.at(wallets.indexOf(wallet)),
+        offline = rememberSettingsOffline(),
+        onRePair = { navController.navigate(LumioRoute.PAIR_SCAN) },
+        onRemove = {
             if (session != null) {
                 scope.launch {
                     onVault(Unit) { PairedWallets.delete(session, wallet.id) }
                     (holder.sessionAttachment() as? LumioVault)?.let { vault -> onVault(Unit) { removeWalletHistory(vault, wallet) } }
                     onChanged()
+                    navController.popBackStack()
                 }
             }
         },
+        onBack = { navController.popBackStack() },
+        onLock = onLock,
     )
 }

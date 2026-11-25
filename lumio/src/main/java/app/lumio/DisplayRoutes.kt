@@ -64,7 +64,7 @@ private fun <T> rememberSettingChange(
     }
 }
 
-/** The Display page of the settings: what Home shows. */
+/** The Display page of the settings: whether balances show, the currency, the theme and the smallest balance a list shows. */
 @Composable
 internal fun DisplaySettingsRoute(navController: NavHostController, holder: VaultHolder, onLock: () -> Unit) {
     val display = rememberSettingChange(navController, holder, DisplaySettings(), LumioVault::display, LumioVault::updateDisplay) ?: return
@@ -74,6 +74,7 @@ internal fun DisplaySettingsRoute(navController: NavHostController, holder: Vaul
         onShowTotal = { on -> display.change { it.copy(showTotal = on) } },
         onShowAssets = { on -> display.change { it.copy(showAssets = on) } },
         onCurrency = { currency -> display.change { it.copy(currency = currency) } },
+        onTheme = { theme -> display.change { it.copy(theme = theme) } },
         onSmallBalance = { usd -> display.change { it.copy(smallBalanceUsd = usd) } },
         offline = rememberSettingsOffline(),
         onBack = { navController.popBackStack() },

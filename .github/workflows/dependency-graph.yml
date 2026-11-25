@@ -17,6 +17,11 @@ on:
 permissions:
   contents: read
 
+# The newest push on a branch carries the graph that counts, so it supersedes a running submission.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   submit:
     # Neither half can work without the other: the submission API is off while the graph is off,

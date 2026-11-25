@@ -25,7 +25,7 @@ class EvmReadsQueueTest {
         val http = Http(OkHttpClient())
         return EvmReads(
             pool = Scheduler(listOf(provider), { emptyMap() }, http, clock, Random(3), this),
-            owner = Scheduler(emptyList(), { emptyMap() }, http, clock, Random(3), this),
+            newOwner = { Scheduler(emptyList(), { emptyMap() }, http, clock, Random(3), this) },
             settings = { EvmSettings() },
         )
     }

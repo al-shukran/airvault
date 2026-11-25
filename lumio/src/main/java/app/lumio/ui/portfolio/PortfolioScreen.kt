@@ -1,5 +1,6 @@
 package app.lumio.ui.portfolio
 
+import app.lumio.DebugDemoData
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -48,6 +49,10 @@ import app.lumio.portfolio.PortfolioView
 import app.lumio.portfolio.SentencePicker
 import app.lumio.portfolio.sentence
 import app.lumio.transactions.TxFeedItem
+import app.lumio.ui.home.AssetDisc
+import app.lumio.ui.home.ChainDots
+import app.lumio.ui.home.AssetIconSpec
+import app.lumio.ui.home.letterOf
 import app.lumio.ui.kit.ChoiceGroup
 import app.lumio.ui.kit.ChoiceRow
 import app.lumio.ui.kit.ClearAirAmount
@@ -68,7 +73,8 @@ import java.time.ZoneId
 
 /**
  * The Portfolio tab: the total of the side, what it is made of, and the balances that the filter sentence describes. Each underlined phrase opens a
- * radio sheet, and a choice applies and closes it. [holdings] is null until the side is read, so the tab shows its frame and no number.
+ * radio sheet, and a choice applies and closes it. [holdings] is null until the side is read, so the tab shows its frame and no number. A row that adds up
+ * several networks shows their logos ([chainIconsOf]) after its description.
  */
 @Composable
 fun PortfolioScreen(
@@ -87,11 +93,29 @@ fun PortfolioScreen(
     onOpenRow: (TxFeedItem) -> Unit,
     otherSide: OtherSide? = null,
     onReceive: (() -> Unit)? = null,
+    iconOf: (PortfolioRow) -> AssetIconSpec = { AssetIconSpec.Letter(letterOf(it.coin)) },
+    chainIconsOf: (PortfolioRow) -> List<AssetIconSpec> = { emptyList() },
 ) {
-    var picker by remember { mutableStateOf<SentencePicker?>(null) }
+    var picker by remember {
+        mutableStateOf<SentencePicker?>(
+            when {
+                DebugDemoData.flag("filter:chain") -> SentencePicker.CHAIN
+                DebugDemoData.flag("filter:group") -> SentencePicker.GROUPING
+                DebugDemoData.flag("filter:sort") -> SentencePicker.SORT
+                else -> null
+            },
+        )
+    }
     var showSmall by rememberSaveable { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = ClearAirSpacing.xxl)) {
-        ClearAirEyebrow(text = "$walletName · Total Balance", modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs))
+        // The hero is centred over its numerals; the empty state under it reads from the left.
+        val hasTotal = holdings != null && PortfolioView.total(holdings).usd != null
+        ClearAirEyebrow(
+            text = "$walletName · Total Balance",
+            modifier = Modifier.align(if (hasTotal) Alignment.CenterHorizontally else Alignment.Start).padding(horizontal = ClearAirSpacing.gutter),
+            top = ClearAirSpacing.xs,
+            bottom = ClearAirSpacing.xxs,
+        )
         if (holdings == null) return@Column
         val total = PortfolioView.total(holdings)
         val usd = total.usd
@@ -103,13 +127,13 @@ fun PortfolioScreen(
                 text = fiat.amount(usd),
                 hidden = !showBalance,
                 style = ClearAirType.hero,
-                modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter),
+                modifier = Modifier.align(Alignment.CenterHorizontally).padding(horizontal = ClearAirSpacing.gutter),
             )
             ClearAirChangeLine(
                 changePct = total.changePct,
                 changeUsd = total.changeUsd,
                 shown = showBalance,
-                modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter),
+                modifier = Modifier.align(Alignment.CenterHorizontally).padding(horizontal = ClearAirSpacing.gutter),
             )
             AllocationLine(slices = PortfolioView.allocation(holdings))
             ClearAirFilterSentence(
@@ -120,11 +144,14 @@ fun PortfolioScreen(
             // Small balances are left out of the list only: the total above still counts every asset.
             val rows = PortfolioView.rows(holdings, filter)
             val listed = if (showSmall) rows else rows.filterNot { hidesSmall(it.usd) }
-            for (row in listed) {
+            listed.forEachIndexed { index, row ->
                 ClearAirRow(
                     title = row.title,
                     description = describe(row, showBalance),
+                    descriptionSuffix = if (row.merged) ({ ChainDots(chainIconsOf(row)) }) else null,
+                    leading = { AssetDisc(iconOf(row)) },
                     trailing = { RowValue(row = row, shown = showBalance) },
+                    divider = index > 0,
                 )
             }
             if (listed.isEmpty() && rows.isNotEmpty()) HiddenSmallLine(count = rows.size, onShow = { showSmall = true })

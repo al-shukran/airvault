@@ -6,7 +6,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 /**
- * One native balance and one nonce that Lumio read for an address on a chain. [wei] is the balance in wei, as a decimal string, and [atMs]
+ * One native balance that Lumio read for an address on a chain. [wei] is the balance in wei, as a decimal string, and [atMs]
  * is when the read was made, in epoch milliseconds. The address is one of the paired wallet [walletId].
  */
 @Serializable
@@ -15,7 +15,6 @@ data class CachedBalance(
     val chainId: Long,
     val address: String,
     val wei: String,
-    val nonce: Long,
     val atMs: Long,
 ) {
     /** The identity of a read: one wallet's address on one chain. A later read with the same identity replaces this one. */
@@ -31,7 +30,8 @@ object BalanceCache {
     /** The vault record that holds the reads. */
     const val RECORD = "lumio-balance-cache"
 
-    private val json = Json
+    // A record Lumio 1.0.0 stored carries a nonce for each read, which is no longer kept.
+    private val json = Json { ignoreUnknownKeys = true }
 
     /** The cached reads, or none when nothing is stored or the record does not parse. */
     fun read(session: VaultSession): List<CachedBalance> {

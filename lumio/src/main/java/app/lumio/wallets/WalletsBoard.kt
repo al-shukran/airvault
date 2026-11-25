@@ -232,12 +232,18 @@ internal class WalletsBoard(
     }
 
     /**
-     * Shows the vault's caches again for the side the board shows, with no network read. A read that writes the caches outside [refresh], as the first sync
-     * does, calls it, since [showSide] returns early on a side and version it has shown.
+     * Shows the vault's caches again for the side the board shows, with no network read: the balances, and the tokens of each account. A read that writes
+     * the caches outside [refresh], as the first sync does, calls it, since [showSide] returns early on a side and version it has shown.
      */
     fun showCaches() {
         val mode = side ?: return
-        scope.launch { showLoaded(mode, withAccounts = false) }
+        scope.launch {
+            showLoaded(mode, withAccounts = false)
+            val shown = view?.takeIf { mode == side } ?: return@launch
+            for (wallet in shown.wallets) {
+                for (account in shown.accountsOf(wallet.id)) readTokens(mode, account)
+            }
+        }
     }
 
     /**
@@ -430,8 +436,9 @@ internal class WalletsBoard(
     }
 
     /** The watchlist of each of [wallets], as the vault keeps it, or the first-run list for a wallet that has none. It reads the vault, so run it off the main thread. */
-    private fun watchlistsOf(wallets: List<PairedWallet>): Map<String, WalletWatchlist> = wallets.associate { wallet ->
-        wallet.id to (WatchlistStore.read(session, wallet.id) ?: WalletWatchlist(assets = FIRST_RUN_ASSETS))
+    private fun watchlistsOf(wallets: List<PairedWallet>): Map<String, WalletWatchlist> {
+        val kept = WatchlistStore.readAll(session)
+        return wallets.associate { wallet -> wallet.id to (kept[wallet.id] ?: WalletWatchlist(assets = FIRST_RUN_ASSETS)) }
     }
 
     /** The assets that [watchlists] watch, each once. */
@@ -507,10 +514,16 @@ internal class WalletsBoard(
         }
     }
 
-    private suspend fun readAccount(mode: NetworkMode, account: WalletAccount) {
+    /** Reads the tokens of [account] from the vault's caches, and keeps the ones it had when the read fails. */
+    private suspend fun readTokens(mode: NetworkMode, account: WalletAccount) {
         val reads = readsOf(account, mode)
         reads.tokens = readOrNull { withContext(Dispatchers.IO) { AccountReadsLoader.tokensOf(app, session, mode, account) } }
             ?: reads.tokens ?: emptyList()
+    }
+
+    private suspend fun readAccount(mode: NetworkMode, account: WalletAccount) {
+        val reads = readsOf(account, mode)
+        readTokens(mode, account)
         reads.holdings = readOrNull { withContext(Dispatchers.IO) { AccountReadsLoader.holdingsOf(app, session, mode, account) } }
             ?: reads.holdings ?: emptyList()
         val ids = AssetRows.pricedIds(account, reads.tokens.orEmpty())

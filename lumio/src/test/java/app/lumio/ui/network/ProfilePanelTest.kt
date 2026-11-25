@@ -22,6 +22,7 @@ import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.theme.LumenTheme
 import app.lumio.network.NetworkMode
 import app.lumio.ui.kit.LumioTab
+import app.lumio.ui.kit.WalletEmblemTone
 import app.lumio.ui.shell.LumioRootScreen
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -63,6 +64,20 @@ class ProfilePanelTest {
     }
 
     @Test
+    fun theTestNetworkSentenceShowsOnTheTestnetSide() {
+        compose.setContent { Shell(mode = NetworkMode.TESTNET) }
+        openPanel()
+        compose.onNodeWithText(testNetworkSentence(listOf("Monad Testnet"))).assertIsDisplayed()
+    }
+
+    @Test
+    fun theTestNetworkSentenceIsNotOnTheMainnetSide() {
+        compose.setContent { Shell() }
+        openPanel()
+        compose.onAllNodesWithText(testNetworkSentence(listOf("Monad Testnet"))).assertCountEquals(0)
+    }
+
+    @Test
     fun choosingAWalletSetsTheScopeAndTheRadio() {
         compose.setContent { Shell() }
         openPanel()
@@ -89,13 +104,13 @@ class ProfilePanelTest {
     }
 
     @Test
-    fun scanToPayTellsTheOwnerWhichNetworkToTurnOnAndOpensNothingWhileItIsOff() {
-        compose.setContent { Shell(scanNote = "Turn on Monad Testnet to scan to pay") }
+    fun scanToPayTellsTheOwnerToTurnOnANetworkAndOpensNothingWhileNoneIsOn() {
+        compose.setContent { Shell(scanNote = "Turn on a network to scan to pay") }
         openPanel()
-        compose.onNodeWithText("Turn on Monad Testnet to scan to pay").assertIsDisplayed()
+        compose.onNodeWithText("Turn on a network to scan to pay").assertIsDisplayed()
         compose.onNodeWithText("Scan to Pay").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("Turn on Monad Testnet to scan to pay").assertIsDisplayed()
+        compose.onNodeWithText("Turn on a network to scan to pay").assertIsDisplayed()
         compose.onAllNodesWithText("Scanned: air1").assertCountEquals(0)
     }
 
@@ -117,22 +132,22 @@ class ProfilePanelTest {
     private fun row(name: String) = compose.onNode(isSelectable() and hasText(name, substring = true))
 
     @Composable
-    private fun Shell(scanNote: String? = null, scanReady: Boolean = true) {
+    private fun Shell(scanNote: String? = null, scanReady: Boolean = true, mode: NetworkMode = NetworkMode.MAINNET) {
         LumenTheme {
             ClearAirTheme {
-                Root(scanNote, scanReady)
+                Root(scanNote, scanReady, mode)
             }
         }
     }
 
     @Composable
-    private fun Root(scanNote: String?, scanReady: Boolean) {
+    private fun Root(scanNote: String?, scanReady: Boolean, mode: NetworkMode) {
         var active by remember { mutableStateOf("air1") }
         var scanned by remember { mutableStateOf<String?>(null) }
         LumioRootScreen(
             tab = LumioTab.HOME,
             title = WALLETS.first { it.id == active }.name,
-            mode = NetworkMode.MAINNET,
+            mode = mode,
             onMode = {},
             panelWallets = WALLETS,
             activeWalletId = active,
@@ -159,5 +174,5 @@ class ProfilePanelTest {
 /** The two Lensly wallets that the panel tests list, as the mock names them. */
 internal val WALLETS = listOf(
     PanelWallet("air1", "Air 1", "30 accounts · paired 21 Nov"),
-    PanelWallet("air2", "Air 2", "3 accounts · paired 18 Nov"),
+    PanelWallet("air2", "Air 2", "3 accounts · paired 18 Nov", WalletEmblemTone.STONE),
 )

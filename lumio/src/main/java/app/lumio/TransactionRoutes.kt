@@ -33,6 +33,7 @@ import app.lumio.data.tx.TxKeys
 import app.lumio.data.tx.TxQuery
 import app.lumio.data.tx.TxStore
 import app.lumio.pair.PairedWallet
+import app.lumio.pair.plainNames
 import app.lumio.portfolio.TransactionPage
 import app.lumio.ui.settings.CommentBackupRows
 import app.lumio.ui.transactions.AddressInfoSheet
@@ -77,10 +78,10 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
         }
         is DetailLoad.Ready -> {
             val page = current.page
-            var sheet by remember { mutableStateOf<String?>(null) }
+            var sheet by remember { mutableStateOf(page.detail.tx.counterparty.takeIf { DebugDemoData.flag("abinfo") }) }
             TransactionDetailScreen(
                 detail = page.detail,
-                accountNames = page.accounts.mapValues { (_, own) -> own.displayName ?: own.autoName },
+                accountNames = page.accounts.plainNames(),
                 book = page.book,
                 backLabel = navController.backLabel(),
                 showBalance = display.showAssets,

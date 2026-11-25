@@ -23,7 +23,7 @@ internal fun testReads(settings: EvmSettings): EvmReads {
     val http = JsonRpc.newHttp(timeoutMs = 2_000L)
     return EvmReads(
         pool = Scheduler(emptyList(), configs, http, MonotonicClock, Random(7), scope),
-        owner = Scheduler(listOf(CustomRpc(allowLocalHttp = true)), configs, http, MonotonicClock, Random(7), scope),
+        newOwner = { Scheduler(listOf(CustomRpc(allowLocalHttp = true)), configs, http, MonotonicClock, Random(7), scope) },
         settings = { settings },
     )
 }

@@ -1,11 +1,11 @@
 package app.lumio.ui.settings
 
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import app.lensly.ui.theme.LumenTheme
@@ -13,9 +13,9 @@ import app.lumio.data.config.DisplaySettings
 import app.lumio.data.config.Fiat
 import app.lumio.data.config.FiatCurrency
 import app.lumio.data.config.FiatRate
+import app.lumio.data.config.ThemeMode
 import app.lumio.ui.kit.LocalFiat
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,25 +26,50 @@ import org.robolectric.RobolectricTestRunner
 class DisplaySettingsSectionTest {
 
     @get:Rule
-    val compose = createComposeRule()
+    val compose = createAndroidComposeRule<ComponentActivity>()
 
-    private var showTotal: Boolean? = null
-    private var showAssets: Boolean? = null
+    private var total: Boolean? = null
+    private var assets: Boolean? = null
+    private var theme: ThemeMode? = null
+    private var currency: FiatCurrency? = null
+    private var opened: String? = null
 
     private fun show(settings: DisplaySettings = DisplaySettings(), notice: String? = null, fiat: Fiat = Fiat.USD) {
         compose.setContent {
             ClearAirHarness {
                 CompositionLocalProvider(LocalFiat provides fiat) {
-                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Column(modifier = Modifier.fillMaxSize()) {
                         DisplaySettingsSection(
                             settings = settings,
                             notice = notice,
-                            onShowTotal = { showTotal = it },
-                            onShowAssets = { showAssets = it },
-                            onCurrency = {},
+                            onShowTotal = { total = it },
+                            onShowAssets = { assets = it },
+                            onOpenCurrency = { opened = "Currency" },
+                            onOpenTheme = { opened = "Theme" },
                             onSmallBalance = {},
                         )
                     }
+                }
+            }
+        }
+    }
+
+    private fun showPage() {
+        compose.setContent {
+            ClearAirHarness {
+                CompositionLocalProvider(LocalFiat provides Fiat.USD) {
+                    DisplaySettingsPage(
+                        settings = DisplaySettings(),
+                        notice = null,
+                        onShowTotal = {},
+                        onShowAssets = {},
+                        onCurrency = { currency = it },
+                        onTheme = { theme = it },
+                        onSmallBalance = {},
+                        offline = null,
+                        onBack = {},
+                        onLock = {},
+                    )
                 }
             }
         }
@@ -54,33 +79,82 @@ class DisplaySettingsSectionTest {
     fun theSmallBalanceThresholdIsWrittenInTheChosenCurrency() {
         show(DisplaySettings(currency = FiatCurrency.EUR, smallBalanceUsd = 1.0), fiat = Fiat.of(FiatCurrency.EUR, FiatRate(FiatCurrency.EUR, 0.5)))
 
-        compose.onNodeWithText("HIDE SMALL BALANCES · €0.50").assertExists()
+        compose.onNodeWithText("€0.50").assertExists()
     }
 
     @Test
     fun theSmallBalanceThresholdIsInDollarsWhileNoRateIsKnown() {
         show(DisplaySettings(currency = FiatCurrency.EUR, smallBalanceUsd = 1.0), fiat = Fiat.of(FiatCurrency.EUR, null))
 
-        compose.onNodeWithText("HIDE SMALL BALANCES · \$1.00").assertExists()
+        compose.onNodeWithText("\$1.00").assertExists()
     }
 
     @Test
-    fun theSwitchesShowTheirValuesAndNoMinimumIsAsked() {
+    fun theRowsAreTheTwoBalanceSwitchesCurrencyAndThemeWithTheirValues() {
         show()
 
         compose.onNodeWithText("Show Total Balance").assertExists()
         compose.onNodeWithText("Show Individual Asset Balances").assertExists()
-        compose.onNodeWithText("Minimum balance (USD)").assertDoesNotExist()
+        compose.onNodeWithText("Currency").assertExists()
+        compose.onNodeWithText("USD").assertExists()
+        compose.onNodeWithText("Theme").assertExists()
+        compose.onNodeWithText("Follow System").assertExists()
     }
 
     @Test
-    fun aSwitchReportsItsNewValue() {
+    fun eachSwitchReportsItsOwnNewValue() {
         show()
 
         compose.onNodeWithText("Show Total Balance").performClick()
+        assertEquals(true, total)
+        assertEquals(null, assets)
 
-        assertEquals(true, showTotal)
-        assertNull(showAssets)
+        compose.onNodeWithText("Show Individual Asset Balances").performClick()
+        assertEquals(false, assets)
+    }
+
+    @Test
+    fun theCurrencyAndThemeRowsAskThePageToOpenTheirSheets() {
+        show()
+
+        compose.onNodeWithText("Currency").performClick()
+        assertEquals("Currency", opened)
+        compose.onNodeWithText("Theme").performClick()
+        assertEquals("Theme", opened)
+    }
+
+    @Test
+    fun aThemeChoiceAppliesAndIsReported() {
+        showPage()
+
+        compose.onNodeWithText("Theme").performClick()
+        // The sheet is over the page, so its row is tapped where it shows.
+        compose.onNodeWithText("Dark").performClick()
+
+        assertEquals(ThemeMode.DARK, theme)
+    }
+
+    @Test
+    fun aCurrencyChoiceAppliesAndIsReported() {
+        showPage()
+
+        compose.onNodeWithText("Currency").performClick()
+        compose.onNodeWithText("Euro").performClick()
+
+        assertEquals(FiatCurrency.EUR, currency)
+    }
+
+    @Test
+    fun backClosesTheSheetWithoutChoosing() {
+        showPage()
+
+        compose.onNodeWithText("Theme").performClick()
+        compose.onNodeWithText("Dark").assertExists()
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Dark").assertDoesNotExist()
+        assertEquals(null, theme)
     }
 }
 

@@ -18,21 +18,33 @@ import app.lensly.ui.theme.LocalClearAirPalette
 /** The side of the emblem's artwork grid, in units. The slab and its spark are drawn on it as the brand has them. */
 private const val EMBLEM_GRID = 36f
 
-/** The emblem's three faces and its spark, as the brand draws a wallet: the top face lightest, the right face darkest. */
-private val EMBLEM_TOP = Color(0xFF8DBBFF)
-private val EMBLEM_LEFT = Color(0xFF3F7BE0)
-private val EMBLEM_RIGHT = Color(0xFF2A56A8)
+/** The emblem's spark, the same on every wallet. */
 private val EMBLEM_SPARK = Color(0xFFF2A14A)
+
+/**
+ * The two palettes of a wallet's emblem, as the brand draws them: [BLUE], and [STONE] in warm greys. Each has a top face, the lightest, a left face and a
+ * right face, the darkest. A wallet takes the tone of its place in the vault's order, so it keeps it from one launch to the next.
+ */
+enum class WalletEmblemTone(val top: Color, val left: Color, val right: Color) {
+    BLUE(Color(0xFF8DBBFF), Color(0xFF3F7BE0), Color(0xFF2A56A8)),
+    STONE(Color(0xFFD8CDBB), Color(0xFF9C8F7E), Color(0xFF6E6357)),
+    ;
+
+    companion object {
+        /** The tone of the wallet at [position] in the vault's order: the first is blue, the second stone, and the tones alternate after that. */
+        fun at(position: Int): WalletEmblemTone = entries[position.coerceAtLeast(0) % entries.size]
+    }
+}
 
 /** The slab's share of its tile: the slab is 28 units of a 36 unit tile. */
 private const val SLAB_SHARE = 28f / 36f
 
 /**
- * A wallet's emblem: an isometric slab with the spark on its top face, on a raised tile of [tile]. The slab fills 28 of the tile's 36 units, so it
+ * A wallet's emblem: an isometric slab in [tone] with the spark on its top face, on a raised tile of [tile]. The slab fills 28 of the tile's 36 units, so it
  * keeps its proportion at any size. A wallet has one emblem, and it is never a picture of the owner's data.
  */
 @Composable
-fun ClearAirWalletEmblem(modifier: Modifier = Modifier, tile: Dp = 36.dp) {
+fun ClearAirWalletEmblem(modifier: Modifier = Modifier, tile: Dp = 36.dp, tone: WalletEmblemTone = WalletEmblemTone.BLUE) {
     val raised = LocalClearAirPalette.current.raised
     Box(
         modifier = modifier.size(tile).clip(RoundedCornerShape(tile * 0.33f)).background(raised),
@@ -48,9 +60,9 @@ fun ClearAirWalletEmblem(modifier: Modifier = Modifier, tile: Dp = 36.dp) {
                 }
                 drawPath(path = path, color = color)
             }
-            face(EMBLEM_TOP, 18f to 6.5f, 29.2f to 12.9f, 18f to 19.3f, 6.8f to 12.9f)
-            face(EMBLEM_LEFT, 6.8f to 12.9f, 18f to 19.3f, 18f to 29.5f, 6.8f to 23.1f)
-            face(EMBLEM_RIGHT, 29.2f to 12.9f, 18f to 19.3f, 18f to 29.5f, 29.2f to 23.1f)
+            face(tone.top, 18f to 6.5f, 29.2f to 12.9f, 18f to 19.3f, 6.8f to 12.9f)
+            face(tone.left, 6.8f to 12.9f, 18f to 19.3f, 18f to 29.5f, 6.8f to 23.1f)
+            face(tone.right, 29.2f to 12.9f, 18f to 19.3f, 18f to 29.5f, 29.2f to 23.1f)
             face(EMBLEM_SPARK, 18f to 16.3f, 19.7f to 18.9f, 18f to 21.5f, 16.3f to 18.9f)
         }
     }

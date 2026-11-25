@@ -78,7 +78,7 @@ fun WalletAppsScreen(
     }
 }
 
-/** Asks before an App is uninstalled, and says what is lost and what Lumio keeps. */
+/** Asks before an App is uninstalled, and says what happens to the names and what Lumio keeps. */
 @Composable
 private fun UninstallDialog(app: WalletApp, count: Int, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
@@ -92,7 +92,7 @@ private fun UninstallDialog(app: WalletApp, count: Int, onConfirm: () -> Unit, o
         },
         text = {
             Text(
-                text = "This removes ${accountCountLabel(count)} from this wallet. Their names, labels and groups are lost. " +
+                text = "This removes ${accountCountLabel(count)} from this wallet. Their names, labels and groups are kept. " +
                     "Installing the app again creates the same addresses, and your recovery phrase is not touched. " +
                     "Lumio keeps its copy of these accounts until you pair again.",
                 style = MaterialTheme.typography.bodyMedium,

@@ -13,6 +13,7 @@ import app.lensly.app.VaultHolder
 import app.lensly.app.addressKeyOf
 import app.lumio.chains.NativeBalances
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.algorand.ALGORAND_MAINNET
 import app.lumio.data.provider.solana.SOLANA_MAINNET
 import app.lumio.evm.EvmChain
@@ -24,20 +25,25 @@ import app.lumio.portfolio.PortfolioFilter
 import app.lumio.portfolio.PortfolioFormat
 import app.lumio.portfolio.PortfolioHolding
 import app.lumio.portfolio.PortfolioReads
+import app.lumio.portfolio.PortfolioRow
 import app.lumio.transactions.ActivityFilter
 import app.lumio.transactions.TxFeedItem
 import app.lumio.transactions.chainLabel
 import app.lumio.transactions.vaultChains
+import app.lumio.ui.home.AssetIconSpec
+import app.lumio.ui.home.tokenIcon
 import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.portfolio.OtherSide
 import app.lumio.ui.portfolio.PortfolioScreen
 import app.lumio.ui.shell.LumioPageScreen
 import app.lumio.ui.transactions.ActivityList
 import app.lumio.ui.transactions.AddOnLenslyScreen
+import app.lumio.ui.wallets.AssetRows
 import app.lumio.watchlist.WatchedAsset
 import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -63,13 +69,17 @@ internal fun PortfolioTab(navController: NavHostController, holder: VaultHolder,
     // The Portfolio covers the wallet the profile panel chose, as Home does, and the first paired wallet until the owner chooses one.
     val active = wallets.active(selection) { it.id }
     LaunchedEffect(board, mode, active?.id, listVersion, transactions.activityIncludesSpam) {
-        board?.readHoldings(mode, active?.id)
-        board?.readActivity(mode, active?.id, ActivityFilter(), includeSpam = transactions.activityIncludesSpam)
+        // The holdings and the activity are read side by side, so a slow price source holds back neither.
+        coroutineScope {
+            launch { board?.readHoldings(mode, active?.id) }
+            launch { board?.readActivity(mode, active?.id, ActivityFilter(), includeSpam = transactions.activityIncludesSpam) }
+        }
     }
     // The first holding with funds on the other side, for the card that an empty side shows. The board keeps only the side it shows.
     LaunchedEffect(board, other, active?.id, listVersion) {
         otherSide = app.lumioVault()?.let { vault ->
-            val held = PortfolioReads.holdings(app, vault, other, active?.id).firstOrNull { it.amount.signum() > 0 } ?: return@let null
+            // Only the amount is shown, so no price is read.
+            val held = PortfolioReads.holdings(app, vault, other, active?.id, live = false).firstOrNull { it.amount.signum() > 0 } ?: return@let null
             otherSideOf(held, withContext(Dispatchers.IO) { vaultChains(app, vault) }, other) { selection.choose(other) }
         }
     }
@@ -91,6 +101,8 @@ internal fun PortfolioTab(navController: NavHostController, holder: VaultHolder,
             onOpenRow = { item -> openTransaction(scope, navController, board, wallets, item) },
             otherSide = otherSide,
             onReceive = receive,
+            iconOf = { row -> portfolioIcon(app, row) },
+            chainIconsOf = { row -> row.networks.map { AssetRows.nativeIcon(it, row.coin, app.registry::network) } },
         )
     }
 }
@@ -208,3 +220,18 @@ internal fun walletIdOf(wallets: List<PairedWallet>, account: String): String {
 internal fun ownedAddressesOf(wallet: PairedWallet): List<String> =
     wallet.evmAddresses + wallet.bitcoin.map { it.receiveAddress(0) } +
         NativeBalances.addresses(wallet, SOLANA_MAINNET) + NativeBalances.addresses(wallet, ALGORAND_MAINNET)
+
+/**
+ * The logo of a Portfolio row: a token's own logo, else the coin's. A coin that adds up over several networks shows its home logo, which is Ethereum's
+ * for ETH, and any other row shows the logo of its network.
+ */
+private fun portfolioIcon(app: LumioApp, row: PortfolioRow): AssetIconSpec {
+    val network = row.networks.first()
+    val contract = row.contract
+    if (contract != null) {
+        val chainId = Networks.evmIdOf(network.chain)
+        return tokenIcon(app.registry.token(chainId, contract), app.registry.network(chainId), row.coin)
+    }
+    if (row.merged && row.coin == "ETH") return AssetIconSpec.Chain(app.registry.network(1L))
+    return AssetRows.nativeIcon(network, row.coin, app.registry::network)
+}

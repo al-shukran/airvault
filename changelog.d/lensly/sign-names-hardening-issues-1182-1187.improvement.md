@@ -1,0 +1,1 @@
+Names in the signing review stay readable beside the address for Arabic and Hebrew, a name that looks like an address is refused when saved and shown as the address, and an address that looks like one of your own accounts is flagged.
