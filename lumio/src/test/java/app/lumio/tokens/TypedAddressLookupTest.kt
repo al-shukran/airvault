@@ -123,6 +123,22 @@ class TypedAddressLookupTest {
     }
 
     @Test
+    fun pastingTheSameAddressAfterCancelLooksItUpAgain() = runTest {
+        val reads = mutableListOf<String>()
+        val lookup = TypedAddressLookup(this, read = { reads += it; pepe }, onState = { states += it })
+
+        lookup.changed(pepeAddress)
+        advanceUntilIdle()
+        lookup.forget()
+        lookup.changed(pepeAddress)
+        lookup.commit()
+        advanceUntilIdle()
+
+        assertEquals(2, reads.size)
+        assertEquals(pepe, lastDone().getOrNull())
+    }
+
+    @Test
     fun aDismissedTokenIsLookedUpAgainOnDone() = runTest {
         val reads = mutableListOf<String>()
         val lookup = TypedAddressLookup(this, read = { reads += it; pepe }, onState = { states += it })

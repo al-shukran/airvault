@@ -35,7 +35,7 @@ buildscript {
                 // Alerts 25, 26, 35: arrives at 1.23.1, below every fixed line (1.14.2, 1.15.3, 1.23.2).
                 "org.jsoup:jsoup:1.24.1",
                 // Alert 36: arrives at 20260522; 20260719 is the fixed build.
-                "org.json:json:20260719",
+                "org.json:json:20260814",
                 // Alerts 1 and 2: arrives below the fixed lines 4.5.13 and 3.18.0. These pinned versions are the
                 // latest patched releases, so an explicit pin keeps the classpath from dropping back.
                 "org.apache.httpcomponents:httpclient:4.5.14",
@@ -157,10 +157,11 @@ tasks.register("resolveAll") {
     dependsOn(rootProject.allprojects.map { it.path.trimEnd(':') + ":resolveConfigurations" })
     doLast {
         // AGP runs aapt2 from a detached configuration that no project lists, and the configuration cache stores that task input,
-        // so the artifact must be cached. CI runs linux; a build on macOS runs osx. Version: AGP 9.5.1's bundled aapt2, as
-        // verification-metadata.xml pins it. A new AGP names the new version when this artifact is missing offline.
+        // so the artifact must be cached. CI runs linux; a build on macOS runs osx. The aapt2 version follows the AGP version in
+        // gradle/libs.versions.toml; the build number is the one AGP ships with (16666295 for AGP 9.5.x).
+        val aapt2Version = "${libs.versions.agp.get()}-16666295"
         listOf("linux", "osx").forEach { platform ->
-            configurations.detachedConfiguration(dependencies.create("com.android.tools.build:aapt2:9.5.1-16666295:$platform")).resolve()
+            configurations.detachedConfiguration(dependencies.create("com.android.tools.build:aapt2:$aapt2Version:$platform")).resolve()
         }
     }
 }

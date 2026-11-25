@@ -242,6 +242,32 @@ class WalletsBoardTest {
         session.close()
     }
 
+    @Test
+    fun showingTheCachesAgainStartsNoAccountRead() {
+        val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 13 + 7).toByte() })
+        val database = LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "caches.db"))
+        val vault = LumioVault(session, database)
+        PairedWallets.save(session, pairing(), nowMs = 100L)
+        val wallet = PairedWallets.list(session).single()
+        runBlocking { vault.txs.put(listOf(transfer(wallet.evmAddresses.single()))) }
+        val board = WalletsBoard(RuntimeEnvironment.getApplication() as LumioApp, vault) { emptyMap<AssetId, Price>() }
+        board.showSide(mode, listVersion = 0)
+        val account = await { board.view?.accountsOf(wallet.id)?.singleOrNull { it.namespace == Networks.EIP155 } }
+        val reads = board.readsOf(account, mode)
+        await { reads.activity }
+
+        // An account read ends in the activity, and it reads the holdings of a Solana or an Algorand account from the network first, so no activity
+        // after the caches show again means no account read began.
+        reads.activity = null
+        board.showCaches()
+        settle()
+        assertNull(reads.activity)
+
+        board.close()
+        database.close()
+        session.close()
+    }
+
     /** A paired wallet with one Ethereum account, as the pairing carries it. */
     private fun pairing(): PairingPayload {
         val payload = PairingPayload(
