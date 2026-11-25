@@ -120,6 +120,8 @@ shard-1 :shared app.lensly.core.vault.VaultDuressTest
 shard-1 :shared app.lensly.core.wallet.BulkRunTest
 shard-1 :shared app.lensly.ui.camera.RecordingFileTest
 shard-1 :shared app.lensly.ui.components.SecureHexKeyboardTest
+shard-2 :shared app.lensly.app.AddressLookalikeTest
+shard-2 :shared app.lensly.app.DisplayNameTest
 shard-2 :app app.lensly.app.AddressBookScanTest
 shard-2 :app app.lensly.app.AddressNotesTest
 shard-2 :app app.lensly.app.WalletStoreKindTest
