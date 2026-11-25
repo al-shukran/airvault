@@ -16,9 +16,10 @@ import app.lumio.ui.kit.ClearAirAddressGrid
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirStatusBand
 import app.lumio.ui.shell.LumioPageScreen
+import app.lumio.wallets.WalletAccounts
 
 /**
- * The Address Book of one paired wallet: each saved name, its label and its address, grouped by the Group each entry has. Names are added and changed
+ * The Address Book of one paired wallet: each saved name, its chain and label, and its address, grouped by the Group each entry has. Names are added and changed
  * on Lensly, so this screen is read only and has no edit action. A pairing from Lensly again replaces the book. With no entry, it says how to add one.
  */
 @Composable
@@ -51,7 +52,9 @@ private fun AddressEntry(entry: AddressBookEntry) {
     val palette = LocalClearAirPalette.current
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs)) {
         Text(entry.name, style = ClearAirType.rowTitle, color = palette.ink)
-        entry.label?.let { Text(it, style = ClearAirType.body, color = palette.ink2) }
+        // The chain family the address is on, then the label. An EVM address is one account on every EVM network, so it names the family, Ethereum.
+        val subtitle = listOfNotNull(entry.chain?.let { WalletAccounts.familyLabel(it.namespace) }, entry.label).joinToString(" · ")
+        if (subtitle.isNotEmpty()) Text(subtitle, style = ClearAirType.body, color = palette.ink2)
         ClearAirAddressGrid(address = entry.address, modifier = Modifier.padding(top = ClearAirSpacing.xxs))
     }
 }
