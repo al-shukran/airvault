@@ -1,6 +1,21 @@
 # PR screen recordings
 
-`compose.sh` shows emulator screen recordings for pull requests in one comparison style. A Before and After pair becomes two panels side by side, and a single feature becomes one panel. The phone is Android Studio's Pixel 7 device art, read at run time from `/Applications/Android Studio*.app`. The art is not stored in this repository.
+Pull request media is produced only with these three scripts, in this order. Do not hand-frame, crop or hand-post anything: not Robolectric goldens, not cropped captures, not your own phone frame, not hand-written image markdown.
+
+1. **Capture** each state on an emulator. `capture.sh` puts SystemUI in demo mode (12:00, full battery, wifi with 4 bars, no notifications), takes the shot, and refuses anything that is not 9:20 at 720 px wide or more with a real status bar and navigation bar:
+
+   ```
+   capture.sh --serial emulator-5554 --out before.png
+   capture.sh --serial emulator-5554 --out clip.mp4 --seconds 10    # a clip
+   ```
+
+   Take Before on a build of the commit before your change, and After on your branch, with the same app state, the same text, and the same font scale. A clip is a loop of screencaps, because `screenrecord` stops early on the emulator, so move the screen while it runs.
+2. **Compose** the pair into the one Before/After design: `compose.sh --before before.png --after after.png --before-note "..." --after-note "..." --out out-1.0`.
+3. **Post** it: `post.sh --pr 1030 --dir out-1.0 --title "Font Scale 1.0"`. This is the only way media reaches a pull request. It uploads the files with `gh pr comment --attach` and writes the fixed block: a `###` title, the image (a Before/After pair as full-width `![](url)` with no width, a single device as `<img width="380">`), and the MP4 for clips. Run it once per comparison, then link the comments from the PR description.
+
+`compose.sh` and `capture.sh` share one screen check (`lib.sh`), so stills and clips look the same.
+
+The phone is Android Studio's Pixel 7 device art, read at run time from `/Applications/Android Studio*.app`. The art is not stored in this repository.
 
 ## Usage
 
@@ -30,7 +45,7 @@ Trims only cut the start of a clip. To cut the end, trim the clip before running
 
 ## Inputs
 
-Each input is a 9:20 screen, 720x1600 or 1080x2400. Use an emulator capture, which already shows the status bar and the navigation bar. Each screen is scaled to fill the phone's screen exactly. The device art gives the rounded corners and the camera. Nothing is cropped.
+Each input is a `capture.sh` file: 9:20, at least 720 px wide, with a real status bar and navigation bar. `compose.sh` rejects anything else. Each screen is scaled to fill the phone's screen exactly. The device art gives the rounded corners and the camera. Nothing is cropped.
 
 ## Outputs
 
@@ -55,5 +70,5 @@ Every recording follows these rules, so that all of them read as one set:
 
 ## Requirements
 
-- `ffmpeg`, `ffprobe`, ImageMagick 7 (`magick`), and `awk`. Install with `brew install ffmpeg imagemagick`.
+- `adb`, `ffmpeg`, `ffprobe`, ImageMagick 7 (`magick`), `awk`, and GitHub CLI 2.99 or later. Install with `brew install ffmpeg imagemagick`.
 - Android Studio with its Pixel 7 device art. Set `PR_RECORDING_DEVICE_ART` to point at another copy of that art folder. Set `PR_RECORDING_FONT` to use another bold sans.
