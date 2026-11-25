@@ -45,6 +45,9 @@ internal val FinishItem.page: SettingsPage
         FinishItem.PAIR -> SettingsPage.WALLETS
     }
 
+/** The fill of the card's segments: segment `i` is full when the `i`-th item of the checklist is ticked, whichever items those are. */
+internal fun FinishSetup.segments(): List<Float> = FinishItem.entries.map { if (it in done) 1f else 0f }
+
 /**
  * The "Finish Setting Up" checklist, the card at the top of Settings. It shows how many items are ticked, a segment for each item, and the next item
  * still open, and the whole card opens the page where that item is done. [LumioSettingsScreen] shows it only until every item is ticked.
@@ -76,7 +79,7 @@ internal fun FinishSetupCard(setup: FinishSetup, onOpen: (FinishItem) -> Unit, m
                 )
             }
             ClearAirSegments(
-                fractions = List(FinishItem.entries.size) { index -> if (index < setup.done.size) 1f else 0f },
+                fractions = setup.segments(),
                 modifier = Modifier.padding(top = ClearAirSpacing.xs, bottom = 10.dp),
                 thickness = 3.dp,
                 gap = 6.dp,
