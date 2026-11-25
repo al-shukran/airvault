@@ -30,6 +30,7 @@ import app.lensly.app.VaultHolder
 import app.lensly.app.addressKeyOf
 import app.lensly.app.addressNotesOf
 import app.lensly.app.addressStart
+import app.lensly.app.isolated
 import app.lensly.app.lookalikeWarningText
 import app.lensly.app.plainLabel
 import app.lensly.app.plainName
@@ -110,6 +111,8 @@ private class SendContext(
     val from: String,
     val settings: EvmSettings,
     val chains: List<EvmChain>,
+    /** The chains that are on but on the other side of the mainnet/testnet switch, which a payment code may name. */
+    val otherSide: List<EvmChain>,
     val held: List<TokenHolding>,
     /** The Ethereum accounts of every paired wallet, which the send names. */
     val accounts: Map<String, InternalAccount>,
@@ -271,7 +274,7 @@ internal fun SendRoute(
      */
     fun onRecipientText(text: String) {
         val chain = selectedChain ?: return
-        runCatching { EvmPaymentCode.read(text, chain, others = if (scanFirst) ready.chains else emptyList()) }
+        runCatching { EvmPaymentCode.read(text, chain, others = if (scanFirst) ready.chains else emptyList(), otherSide = ready.otherSide) }
             .onSuccess { payment ->
                 payment.chainId?.let {
                     boundChainId = it
@@ -577,7 +580,7 @@ internal fun SendRoute(
                 title = "",
                 heading = "This Signature Is for a Different Send",
                 mark = "!",
-                body = "Lensly's reply doesn't match this send. Nothing was sent, and your ${amountText(now.send)} is still in $fromName.",
+                body = "Lensly's reply doesn't match this send. Nothing was sent, and your ${amountText(now.send)} is still in ${isolated(fromName)}.",
                 notes = listOf(
                     "What Happened" to "Lensly's reply doesn't match this send. Lumio never sends a signature that doesn't match.",
                     "What You Can Do" to "On Lensly, check that it shows ${amountText(now.send)} to $toName, then scan its reply again.",
@@ -632,14 +635,14 @@ private fun notesFor(address: String, accounts: Map<String, InternalAccount>, ad
     addressNotesOf(address, EVM_FAMILY, accounts, addressBook)
 
 /** The name an account goes by on the screens: its own name, else the name the app gave it. */
-private fun accountName(account: InternalAccount?): String = plainNameOrNull(account?.let { it.displayName ?: it.autoName }).orEmpty()
+private fun accountName(account: InternalAccount?): String = account?.plainName().orEmpty()
 
 /** The name of the account the send is from, or "Account" with its place when the account has no name. */
 private fun fromNameOf(ready: SendContext): String = accountName(ready.accounts[addressKeyOf(ready.from)]).ifBlank { "Account ${ready.index + 1}" }
 
 /** The name of an address as a title: its Address Book name, else its account's name, as plain text. Empty when neither gives one. */
 internal fun notesName(notes: AddressNotes): String =
-    plainNameOrNull(notes.entry?.name) ?: plainNameOrNull(notes.internal?.let { it.displayName ?: it.autoName }).orEmpty()
+    plainNameOrNull(notes.entry?.name) ?: notes.internal?.plainName().orEmpty()
 
 /** The title of [address]: its name when [notes] give one, else the address in groups. The address is in full on the page, never replaced. */
 internal fun nameOrAddress(notes: AddressNotes?, address: String): String =
@@ -647,18 +650,18 @@ internal fun nameOrAddress(notes: AddressNotes?, address: String): String =
 
 /** [address] in a sentence: "Name (address in groups)" when [notes] name it, else the address in groups. A name never stands for it alone. */
 internal fun nameWithAddress(notes: AddressNotes?, address: String): String =
-    notes?.let(::notesName)?.takeIf { it.isNotEmpty() }?.let { "$it (${groupAddress(address)})" } ?: groupAddress(address)
+    notes?.let(::notesName)?.takeIf { it.isNotEmpty() }?.let { "${isolated(it)} (${groupAddress(address)})" } ?: groupAddress(address)
 
 /** The recipient in a heading: "Name (start of the address)" when [notes] name it, else the address in groups. The full address is on the page. */
 internal fun nameWithStart(notes: AddressNotes?, address: String): String =
-    notes?.let(::notesName)?.takeIf { it.isNotEmpty() }?.let { "$it (${addressStart(address)})" } ?: groupAddress(address)
+    notes?.let(::notesName)?.takeIf { it.isNotEmpty() }?.let { "${isolated(it)} (${addressStart(address)})" } ?: groupAddress(address)
 
 /** Whether neither the device nor the Address Book names the address, so it is the first time it shows here. */
 internal fun isFirstTime(notes: AddressNotes?): Boolean = notes?.internal == null && notes?.entry == null
 
 /** The warning of an address that looks like a saved entry but differs, with the saved address to compare. Empty when it does not. */
 internal fun lookalikeWarnings(notes: AddressNotes?): List<String> =
-    notes?.lookalike?.let { listOf("${lookalikeWarningText(it)}. ${it.plainName()} is saved as ${groupAddress(it.address)}.") }.orEmpty()
+    notes?.lookalike?.let { listOf("${lookalikeWarningText(it)}. ${isolated(it.plainName())} is saved as ${groupAddress(it.address)}.") }.orEmpty()
 
 internal fun notesDetail(notes: AddressNotes): String {
     if (notes.internal != null) return "Your account"
@@ -680,7 +683,7 @@ private fun amountText(send: PreparedSend): String {
 }
 
 private fun reviewHeading(send: PreparedSend, fromName: String, toName: String): String =
-    "Send ${amountText(send)} from $fromName to $toName?"
+    "Send ${amountText(send)} from ${isolated(fromName)} to $toName?"
 
 /**
  * The rows under the recipient on the Review page, in the order Lensly shows them: the amount, the most the fee can be, the network and the sender.
@@ -720,10 +723,11 @@ private fun loadSend(app: LumioApp, session: VaultSession, walletId: String, acc
     val from = wallet.evmAccounts.getOrNull(index)?.address ?: return@runCatching SendLoad.Missing
     val settings = EvmSettingsStore.read(session)
     if (index !in 0 until settings.addressCount) return@runCatching SendLoad.Missing
-    val chains = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
+    val enabled = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled }
+    val chains = enabled.filter { mode.holds(it) }
     val tokensOf = app.tokensFor(session)
     val held = TokenPortfolio.holdingsAt(wallet.id, from, chains, tokensOf, TokenBalanceCache.read(session))
-    SendLoad.Ready(SendContext(wallet, index, from, settings, chains, held, ownAccountsOf(wallets)))
+    SendLoad.Ready(SendContext(wallet, index, from, settings, chains, enabled.filterNot { mode.holds(it) }, held, ownAccountsOf(wallets)))
 }.getOrDefault(SendLoad.Missing)
 
 /** The words a failure shows: the owner's words for a refusal (an invalid input, a signature that is not this one, an endpoint's answer), else [fallback]. */

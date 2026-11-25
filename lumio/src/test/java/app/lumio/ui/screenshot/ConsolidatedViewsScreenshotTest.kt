@@ -17,6 +17,7 @@ import app.lumio.portfolio.PortfolioHolding
 import app.lumio.portfolio.holdingOf
 import app.lumio.transactions.ActivityFilter
 import app.lumio.transactions.TxFeedItem
+import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.kit.ChoiceGroup
 import app.lumio.ui.kit.ChoiceRow
 import app.lumio.ui.kit.ClearAirChoiceSheet
@@ -121,6 +122,7 @@ internal fun PortfolioSample(filter: PortfolioFilter) {
         zone = ZoneOffset.UTC,
         onOpenActivity = {},
         onOpenRow = {},
+        chainIconsOf = { row -> row.networks.map { AssetIconSpec.Chain(null) } },
     )
 }
 

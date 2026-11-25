@@ -23,24 +23,34 @@ private fun lookalikeBody(address: String, chain: ChainId): String = when {
  * never one.
  */
 fun looksLikeAddress(a: String, b: String, chain: ChainId): Boolean {
-    if (addressKeyOf(a) == addressKeyOf(b)) return false
     val x = lookalikeBody(a, chain)
     val y = lookalikeBody(b, chain)
     if (x.length < 2 * LOOKALIKE_ENDS || y.length < 2 * LOOKALIKE_ENDS) return false
-    return x.take(LOOKALIKE_ENDS) == y.take(LOOKALIKE_ENDS) && x.takeLast(LOOKALIKE_ENDS) == y.takeLast(LOOKALIKE_ENDS)
+    // The ends are compared first: the key of a bech32 address parses it, so it is taken only for the few that share their ends.
+    return x.take(LOOKALIKE_ENDS) == y.take(LOOKALIKE_ENDS) && x.takeLast(LOOKALIKE_ENDS) == y.takeLast(LOOKALIKE_ENDS) &&
+        addressKeyOf(a) != addressKeyOf(b)
 }
 
 /**
- * The saved entry of [book] that [address] on [chain] looks like, or null. An address that is a saved entry is not a lookalike of
+ * The saved entry of [book] that [address] on [chain] looks like, or an account of [internal] as an entry named as the account, or null. An address that is a saved entry is not a lookalike of
  * another, so it returns null for it. The entry must be on the same chain family as [chain], and one on [chain] itself wins over another of the family. A review shows the entry beside the address
  * and never gives the lookalike the entry's name.
  */
-fun lookalikeEntryFor(address: String, chain: ChainId, book: List<AddressBookEntry>): AddressBookEntry? {
+fun lookalikeEntryFor(
+    address: String,
+    chain: ChainId,
+    book: List<AddressBookEntry>,
+    internal: Map<String, InternalAccount> = emptyMap(),
+): AddressBookEntry? {
     if (addressBookEntryFor(address, chain, book) != null) return null
     // The cheap end test runs before the chain, which parses and checksums the entry's address.
     val similar = book.filter { looksLikeAddress(address, it.address, chain) && it.chain?.namespace == chain.namespace }
-    return similar.firstOrNull { it.chain == chain } ?: similar.firstOrNull()
+    similar.firstOrNull { it.chain == chain }?.let { return it }
+    similar.firstOrNull()?.let { return it }
+    // An account of this device is another target: a lookalike of it is what an address poisoning sends. It shows as an entry under its name.
+    return internal.entries.firstOrNull { (key, _) -> looksLikeAddress(address, key, chain) && chainOfAddress(key)?.namespace == chain.namespace }
+        ?.let { (key, account) -> AddressBookEntry(id = "", address = key, name = account.displayName ?: account.autoName, label = null) }
 }
 
 /** The headline of the amber warning of an address that looks like the saved entry [saved] but differs. Both apps show it. */
-fun lookalikeWarningText(saved: AddressBookEntry): String = "Looks like ${saved.plainName()} but differs"
+fun lookalikeWarningText(saved: AddressBookEntry): String = "Looks like ${isolated(saved.plainName())} but differs"

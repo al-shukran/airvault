@@ -23,6 +23,7 @@ import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import app.lumio.ui.home.chainIconOf
 import app.lumio.ui.kit.LumioTab
+import app.lumio.ui.kit.WalletEmblemTone
 import app.lumio.ui.network.PanelWallet
 import app.lumio.ui.network.TestNetworksScreen
 import app.lumio.ui.network.testNetworkSentence
@@ -65,7 +66,9 @@ internal fun TabRoute(
         title = title,
         mode = selection.mode,
         onMode = { selection.choose(it) },
-        panelWallets = wallets.map { wallet -> PanelWallet(id = wallet.id, name = wallet.name, detail = walletSummary(wallet)) },
+        panelWallets = wallets.mapIndexed { position, wallet ->
+            PanelWallet(id = wallet.id, name = wallet.name, detail = walletSummary(wallet), tone = WalletEmblemTone.at(position))
+        },
         activeWalletId = active?.id,
         onWallet = { selection.walletId = it },
         testNetworks = networks.count,

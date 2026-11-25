@@ -7,8 +7,10 @@ on:
 permissions:
   contents: read
 
+# A new /run- command supersedes the running one on the same pull request. Any other comment gets its own group, so it cannot
+# cancel a running command (its gate job skips it).
 concurrency:
-  group: comment-run-${{ github.event.issue.number }}
+  group: comment-run-${{ github.event.issue.number }}-${{ startsWith(github.event.comment.body, '/run-') && 'command' || github.run_id }}
   cancel-in-progress: true
 
 jobs:

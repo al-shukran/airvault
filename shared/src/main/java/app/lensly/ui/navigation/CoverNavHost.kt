@@ -83,6 +83,8 @@ fun CoverNavHost(
                 exitTransition = LenslyNavTransitions.exit,
                 popEnterTransition = LenslyNavTransitions.popEnter,
                 popExitTransition = LenslyNavTransitions.popExit,
+                predictivePopEnterTransition = LenslyNavTransitions.predictivePopEnter,
+                predictivePopExitTransition = LenslyNavTransitions.predictivePopExit,
             ) {
                 composable(LenslyRoute.CAMERA) {
                     CameraScreen(

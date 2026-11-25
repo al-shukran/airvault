@@ -36,6 +36,7 @@ import app.lumio.evm.EvmSettings
 import app.lumio.home.TokenAsset
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairedWallet
+import app.lumio.ui.kit.WalletEmblemTone
 import app.lumio.ui.send.SendAmountPage
 import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.settings.AboutSettingsPage
@@ -259,7 +260,7 @@ class LumioScreenshotTest {
     fun settingsWallet() = compose.lumioSnapshot("settings_wallet") {
         WalletSettingsPage(
             wallet = PairedWallet(id = "wallet-Demo", name = "Air 1", fingerprint = 0x1a2b3c4dL, createdAtMs = NOW, evmAccounts = emptyList(), bitcoin = emptyList()),
-            offline = null, onRePair = {}, onRemove = {}, onBack = {}, onLock = {},
+            tone = WalletEmblemTone.BLUE, offline = null, onRePair = {}, onRemove = {}, onBack = {}, onLock = {},
         )
     }
 

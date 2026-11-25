@@ -2,7 +2,7 @@ package app.lumio.ui.firstrun
 
 import app.lumio.ui.firstrun.ChapterFill.Empty
 import app.lumio.ui.firstrun.ChapterFill.Full
-import app.lumio.ui.firstrun.ChapterFill.Half
+import app.lumio.ui.firstrun.ChapterFill.Started
 import app.lumio.ui.firstrun.FirstRunStep.CreatePassword
 import app.lumio.ui.firstrun.FirstRunStep.DeviceProtection
 import app.lumio.ui.firstrun.FirstRunStep.Duress
@@ -32,10 +32,10 @@ class FirstRunStepTest {
 
     @Test
     fun understandFillsAsTheOwnerReadsItAndIsFullFromTheNoticeOn() {
-        assertEquals(listOf(Half, Empty, Empty), chapterFills(Welcome))
-        assertEquals(listOf(Half, Empty, Empty), chapterFills(Keys))
-        assertEquals(listOf(Half, Empty, Empty), chapterFills(NeverShare))
-        assertEquals(listOf(Half, Empty, Empty), chapterFills(ProvidedAsIs))
+        assertEquals(listOf(Started, Empty, Empty), chapterFills(Welcome))
+        assertEquals(listOf(Started, Empty, Empty), chapterFills(Keys))
+        assertEquals(listOf(Started, Empty, Empty), chapterFills(NeverShare))
+        assertEquals(listOf(Started, Empty, Empty), chapterFills(ProvidedAsIs))
         assertEquals(listOf(Full, Empty, Empty), chapterFills(Notice))
     }
 
@@ -46,8 +46,8 @@ class FirstRunStepTest {
 
     @Test
     fun protectFillsAcrossItsScreens() {
-        assertEquals(listOf(Full, Half, Empty), chapterFills(CreatePassword))
-        assertEquals(listOf(Full, Half, Empty), chapterFills(Duress))
+        assertEquals(listOf(Full, Started, Empty), chapterFills(CreatePassword))
+        assertEquals(listOf(Full, Started, Empty), chapterFills(Duress))
         assertEquals(listOf(Full, Full, Empty), chapterFills(DeviceProtection))
     }
 }

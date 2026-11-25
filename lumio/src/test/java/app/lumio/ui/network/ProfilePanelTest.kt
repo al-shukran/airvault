@@ -22,6 +22,7 @@ import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.theme.LumenTheme
 import app.lumio.network.NetworkMode
 import app.lumio.ui.kit.LumioTab
+import app.lumio.ui.kit.WalletEmblemTone
 import app.lumio.ui.shell.LumioRootScreen
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -173,5 +174,5 @@ class ProfilePanelTest {
 /** The two Lensly wallets that the panel tests list, as the mock names them. */
 internal val WALLETS = listOf(
     PanelWallet("air1", "Air 1", "30 accounts · paired 21 Nov"),
-    PanelWallet("air2", "Air 2", "3 accounts · paired 18 Nov"),
+    PanelWallet("air2", "Air 2", "3 accounts · paired 18 Nov", WalletEmblemTone.STONE),
 )

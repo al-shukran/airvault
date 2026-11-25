@@ -89,17 +89,18 @@ internal fun rememberAddressBook(navController: NavHostController, session: Vaul
 
 /**
  * The accounts of every wallet of the vault on every chain, read again each time the screen is shown, so an account renamed or added on
- * another screen shows here. [signingWalletId] is the wallet the screen is for, or null for every wallet. Null until the first read.
+ * another screen shows here. [signingWalletId] is the wallet the screen is for, or null for every wallet. Null until the first read, and a
+ * failed read is a failure, not an empty map: a caller that checks an address against the accounts must not take it as "read, none".
  */
 @Composable
 internal fun rememberInternalAccounts(
     navController: NavHostController,
     session: VaultSession,
     signingWalletId: String?,
-): Map<String, InternalAccount>? {
+): Result<Map<String, InternalAccount>>? {
     val shown by navController.currentBackStackEntryAsState()
-    val read by produceState<Map<String, InternalAccount>?>(initialValue = null, session, signingWalletId, shown) {
-        value = withContext(Dispatchers.IO) { runCatching { internalAccountsOf(WalletStore(session), signingWalletId) }.getOrDefault(emptyMap()) }
+    val read by produceState<Result<Map<String, InternalAccount>>?>(initialValue = null, session, signingWalletId, shown) {
+        value = withContext(Dispatchers.IO) { runCatching { internalAccountsOf(WalletStore(session), signingWalletId) } }
     }
     return read
 }

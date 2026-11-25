@@ -117,6 +117,14 @@ class HistoryDetailSheetTest {
         compose.onAllNodesWithText("Add to Address Book").assertCountEquals(0)
     }
 
+    @Test
+    fun anUnsavedAddressInAnAlreadySignedRecordHasNoFirstTimeInstruction() {
+        setSheet(evmRecord(), emptyList())
+
+        compose.onAllNodesWithText("Not in address book").assertCountEquals(2)
+        compose.onAllNodesWithText("First time. Check every group.").assertCountEquals(0)
+    }
+
     /** An address row takes the logo of the registry network its record names. A network the registry does not list shows a letter instead. */
     @Test
     fun aRecordOnARegisteredNetworkShowsItsLogoNotALetter() {

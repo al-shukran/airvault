@@ -18,11 +18,14 @@ object ClearAirMotion {
     /** The press release: spring ζ1.0, k1400, about 90 ms. */
     val press: SpringSpec<Float> = spring(dampingRatio = 1f, stiffness = 1400f)
 
+    /** A dragged row's neighbours making way, and the row settling into its slot: spring ζ1.0, k700, about 190 ms. */
+    val reorder: SpringSpec<Float> = spring(dampingRatio = 1f, stiffness = 700f)
+
     /** A sheet rising from the bottom: spring ζ0.9, k520, about 280 ms. Its scrim fades in over [SCRIM_MS]. */
     val sheet: SpringSpec<Float> = spring(dampingRatio = 0.9f, stiffness = 520f)
     const val SCRIM_MS = 200
 
-    /** A full-screen push, which is a new place: 240 ms on a decelerating curve, with a 1/12-width slide and a fade. */
+    /** A full-screen push, which is a new place: 240 ms on a decelerating curve, sliding in from the right over a still screen. */
     const val PUSH_MS = 240
     val pushEasing: Easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
 

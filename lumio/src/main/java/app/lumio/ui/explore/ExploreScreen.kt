@@ -10,12 +10,19 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import app.lensly.app.familyLabel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.Registry
 import app.lensly.ui.theme.ClearAirSpacing
+import app.lensly.ui.theme.ClearAirType
+import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.data.net.Networks
 import app.lumio.network.NetworkMode
 import app.lumio.ui.home.AssetDisc
@@ -26,6 +33,7 @@ import app.lumio.ui.kit.ClearAirGlyphDisc
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.settings.ProviderRow
+import app.lumio.ui.settings.ProviderStatus
 import app.lumio.ui.settings.providerName
 import app.lumio.ui.settings.providerStatusNote
 import app.lumio.ui.settings.providerStatusWord
@@ -106,13 +114,33 @@ fun ExploreScreen(
             providers.forEachIndexed { index, row ->
                 ClearAirRow(
                     title = providerName(row.id),
-                    description = listOfNotNull(providerStatusWord(row.status), providerStatusNote(row.status)).joinToString(" · "),
+                    styledDescription = providerLine(row.status),
                     leading = { ClearAirGlyphDisc(ClearAirGlyph.NODE, size = 19.dp) },
                     onClick = { onProvider(row.id) },
                     divider = index > 0,
                 )
             }
         }
+    }
+}
+
+/**
+ * The line under a provider: its status word in the colour of its state, blue for Working, amber for Rate-Limited and the quiet grey for Off, then the
+ * note that says why, when there is one. The word carries its glyph, so the colour is never alone.
+ */
+@Composable
+private fun providerLine(status: ProviderStatus): AnnotatedString {
+    val palette = LocalClearAirPalette.current
+    val color = when (status) {
+        ProviderStatus.Ready, is ProviderStatus.Healthy -> palette.vaultBlue
+        is ProviderStatus.CircuitOpen, is ProviderStatus.CoolingDown -> palette.sparkText
+        ProviderStatus.Off, ProviderStatus.NotActive, ProviderStatus.NeedsKey -> palette.ink2
+    }
+    return buildAnnotatedString {
+        withStyle(SpanStyle(fontFamily = ClearAirType.rowTitle.fontFamily, fontWeight = FontWeight.SemiBold, color = color)) {
+            append(providerStatusWord(status))
+        }
+        providerStatusNote(status)?.let { append(" · $it") }
     }
 }
 

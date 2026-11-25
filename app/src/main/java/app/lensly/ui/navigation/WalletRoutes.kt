@@ -935,7 +935,8 @@ private fun HistoryRoute(navController: NavHostController, holder: VaultHolder, 
     val list = records ?: return
     val known = networks ?: return
     val entries = book ?: return
-    val accounts = owned ?: return
+    // A past record is only shown here, no review waits on the check: a failed read shows addresses without account names.
+    val accounts = (owned ?: return).getOrDefault(emptyMap())
     WalletHistoryScreen(
         walletName = shown.name,
         records = list,
@@ -967,7 +968,7 @@ private fun ActivityRoute(navController: NavHostController, holder: VaultHolder)
     val known = networks ?: return
     val wallets = listing ?: return
     val entries = book ?: return
-    val accounts = owned ?: return
+    val accounts = (owned ?: return).getOrDefault(emptyMap())
     ActivityScreen(
         records = list,
         wallets = wallets.wallets,

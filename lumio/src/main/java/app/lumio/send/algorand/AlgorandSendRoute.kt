@@ -20,6 +20,7 @@ import app.airvault.core.model.AccountId
 import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
+import app.lensly.app.isolated
 import app.lensly.app.plainLabel
 import app.lensly.app.plainName
 import app.lensly.core.algorand.AlgorandAccount
@@ -495,7 +496,7 @@ internal fun AlgorandSendRoute(
                 heading = if (optIn) {
                     "Opt In to ${selected.symbol} (ASA ${selected.assetId})?"
                 } else {
-                    "Send ${AlgorandAssets.amountText(current.plan, selected.symbol, selected.decimals)} from $fromName to ${nameWithStart(notes, current.plan.toAddress)}?"
+                    "Send ${AlgorandAssets.amountText(current.plan, selected.symbol, selected.decimals)} from ${isolated(fromName)} to ${nameWithStart(notes, current.plan.toAddress)}?"
                 },
                 toTitle = toName,
                 toDetail = if (optIn) "Your account" else notes?.let(::notesDetail).orEmpty(),

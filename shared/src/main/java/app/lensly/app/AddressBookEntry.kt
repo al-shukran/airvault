@@ -27,14 +27,14 @@ data class AddressBookEntry(
 /**
  * The key an address is matched by. An EVM address matches in any letter case, since its case only carries the checksum, and so does a
  * Bitcoin bech32 address ("bc1" or "tb1"), which a QR code writes in capitals. Solana, Algorand and base58 Bitcoin addresses match exactly, as
- * their canonical form is kept.
+ * their canonical form is kept. A Solana address can start with "bc1" too, so a bech32 key is taken only when the address is a Bitcoin one.
  */
-fun addressKeyOf(address: String): String =
-    if (address.startsWith("0x") || address.startsWith("bc1", ignoreCase = true) || address.startsWith("tb1", ignoreCase = true)) {
-        address.lowercase()
-    } else {
-        address
-    }
+fun addressKeyOf(address: String): String = when {
+    address.startsWith("0x") -> address.lowercase()
+    (address.startsWith("bc1", ignoreCase = true) || address.startsWith("tb1", ignoreCase = true)) &&
+        chainOfAddress(address)?.namespace == BITCOIN_FAMILY.namespace -> address.lowercase()
+    else -> address
+}
 
 /**
  * The entry of [book] that is [address] on [chain], or null when the book has none. The address is matched by [addressKeyOf], and the entry

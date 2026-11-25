@@ -1,0 +1,1 @@
+The first-run Welcome and statement pages, the duress page and the Finish Setting Up card are closer to the Clear Air mock: centred statement pages, a 3 dp chapter bar that fills 40 percent of a chapter under way, and the mock's spacing.

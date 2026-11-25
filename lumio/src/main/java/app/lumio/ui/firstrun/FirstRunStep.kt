@@ -16,14 +16,14 @@ enum class FirstRunStep(val route: String) {
     DeviceProtection("first-run/device-protection"),
 }
 
-/** One segment of the chapter bar: nothing yet, half way through, or done. [fraction] is how much of the segment is filled. */
-enum class ChapterFill(val fraction: Float) { Empty(0f), Half(0.5f), Full(1f) }
+/** One segment of the chapter bar: nothing yet, under way, or done. [fraction] is how much of the segment is filled; the mock fills 40 percent of a chapter under way. */
+enum class ChapterFill(val fraction: Float) { Empty(0f), Started(0.4f), Full(1f) }
 
 private val UNDERSTAND = FirstRunStep.Welcome.ordinal..FirstRunStep.Notice.ordinal
 private val PROTECT = FirstRunStep.CreatePassword.ordinal..FirstRunStep.DeviceProtection.ordinal
 
 /**
- * The three segments of the chapter bar for [step]: Understand, Protect and Pair. A chapter is Half while the owner is inside it and Full
+ * The three segments of the chapter bar for [step]: Understand, Protect and Pair. A chapter is Started while the owner is inside it and Full
  * from its last screen on. Before its first screen it is Empty, so preparing Lensly (I6) leaves Protect empty. Pair fills only once
  * scanning starts, which is after these screens, so it is always empty here.
  */
@@ -36,5 +36,5 @@ fun chapterFills(step: FirstRunStep): List<ChapterFill> = listOf(
 private fun chapterFill(chapter: IntRange, step: FirstRunStep): ChapterFill = when {
     step.ordinal < chapter.first -> ChapterFill.Empty
     step.ordinal >= chapter.last -> ChapterFill.Full
-    else -> ChapterFill.Half
+    else -> ChapterFill.Started
 }

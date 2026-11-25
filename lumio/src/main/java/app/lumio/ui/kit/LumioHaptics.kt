@@ -7,10 +7,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalView
 
 /**
- * Lumen's haptics (section 3.5): a tick for each part of a scan, a select for a choice, a copy, a success and a failure. They never fire on a scroll
+ * Lumen's haptics (section 3.5): a tick for each part of a scan and each slot a dragged row passes, a lift for a row picked up, a select for a choice, a copy, a success and a failure. They never fire on a scroll
  * or on a recomposition, and Lumio's minimum Android version has all of them.
  */
 class LumioHaptics internal constructor(private val view: View) {
+    fun lift() = perform(HapticFeedbackConstants.GESTURE_START)
     fun tick() = perform(HapticFeedbackConstants.CLOCK_TICK)
     fun select() = perform(HapticFeedbackConstants.KEYBOARD_TAP)
     fun copy() = perform(HapticFeedbackConstants.LONG_PRESS)

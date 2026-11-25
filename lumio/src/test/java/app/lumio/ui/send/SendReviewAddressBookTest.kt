@@ -50,9 +50,9 @@ class SendReviewAddressBookTest {
         assertEquals("", notesName(notes))
         assertEquals(true, isFirstTime(notes))
         assertEquals("0x1234 5678", nameOrAddress(notes, "0x12345678"))
-        assertEquals("Looks like Alice but differs. Alice is saved as ${groupAddress(alice.address)}.", lookalikeWarnings(notes).single())
-        assertEquals("Alice (0x1234 5678)", nameWithAddress(AddressNotes(null, alice), "0x12345678"))
-        assertEquals("Alice (0x1234 5678 …)", nameWithStart(AddressNotes(null, alice), "0x1234567890abcdef"))
+        assertEquals("Looks like \u2068Alice\u2069 but differs. \u2068Alice\u2069 is saved as ${groupAddress(alice.address)}.", lookalikeWarnings(notes).single())
+        assertEquals("\u2068Alice\u2069 (0x1234 5678)", nameWithAddress(AddressNotes(null, alice), "0x12345678"))
+        assertEquals("\u2068Alice\u2069 (0x1234 5678 …)", nameWithStart(AddressNotes(null, alice), "0x1234567890abcdef"))
         assertEquals("0x1234 5678 90ab cdef", nameWithStart(notes, "0x1234567890abcdef"))
     }
 
@@ -70,5 +70,24 @@ class SendReviewAddressBookTest {
 
         assertEquals("Alice", notesName(notes))
         assertEquals("Your account", notesDetail(notes))
+    }
+
+    @Test
+    fun anArabicOrHebrewNameIsIsolatedFromTheAddressBesideIt() {
+        val arabic = "\u0645\u064F\u062D\u064E\u0645\u064E\u0651\u062F"
+        val hebrew = "\u05D3\u05D5\u05D3"
+        listOf(arabic, hebrew).forEach { name ->
+            // A direction character in the saved name is removed, so the two isolates are the only ones in the sentence.
+            val notes = AddressNotes(null, alice.copy(name = "\u202E$name\u2067"))
+            assertEquals("\u2068$name\u2069 (0x1234 5678 …)", nameWithStart(notes, "0x1234567890abcdef"))
+            assertEquals("\u2068$name\u2069 (0x1234 5678)", nameWithAddress(notes, "0x12345678"))
+        }
+    }
+
+    @Test
+    fun anAddressLikeNameShowsTheGroupedAddressAndNoName() {
+        val notes = AddressNotes(null, alice.copy(name = "0x71C7 656E \u2026 976F"))
+        assertEquals("", notesName(notes))
+        assertEquals("0x1234 5678 90ab cdef", nameWithStart(notes, "0x1234567890abcdef"))
     }
 }

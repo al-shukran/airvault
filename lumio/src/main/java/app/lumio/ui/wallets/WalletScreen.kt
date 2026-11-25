@@ -34,6 +34,7 @@ import app.lumio.ui.kit.ClearAirMonogram
 import app.lumio.ui.kit.ClearAirRefreshBox
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirWalletEmblem
+import app.lumio.ui.kit.WalletEmblemTone
 import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.network.label
 import app.lumio.wallets.BalanceSlot
@@ -81,6 +82,7 @@ fun WalletScreen(
     refreshing: Boolean = false,
     refreshByPull: Boolean = false,
     pairedAtMs: Long? = null,
+    tone: WalletEmblemTone = WalletEmblemTone.BLUE,
     reads: WalletReads = WalletReads(),
     onRetry: (String) -> Unit = {},
     clock: Clock = WallClock,
@@ -91,6 +93,7 @@ fun WalletScreen(
             item(key = "hero") {
                 WalletHero(
                     detail = walletDetailLine(accounts, pairedAtMs, zone),
+                    tone = tone,
                     totalUsd = totalUsd,
                     changePct = changePct,
                     changeUsd = changeUsd,
@@ -145,6 +148,7 @@ fun WalletScreen(
 @Composable
 private fun WalletHero(
     detail: String?,
+    tone: WalletEmblemTone,
     totalUsd: Double?,
     changePct: Double?,
     changeUsd: Double?,
@@ -157,7 +161,7 @@ private fun WalletHero(
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.sm)) {
         if (detail != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                ClearAirWalletEmblem(tile = DETAIL_EMBLEM)
+                ClearAirWalletEmblem(tile = DETAIL_EMBLEM, tone = tone)
                 Spacer(Modifier.width(ClearAirSpacing.xs))
                 Text(text = detail, style = ClearAirType.body, color = LocalClearAirPalette.current.ink2)
             }

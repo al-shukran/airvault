@@ -27,6 +27,7 @@ import app.lumio.data.config.FinishSetupStore
 import app.lumio.evm.CustomChainInput
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.pair.PairedWallets
+import app.lumio.pair.sharedAddressBook
 import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.kit.lumioComposable
 import app.lumio.ui.settings.AboutSettingsPage
@@ -151,7 +152,7 @@ private fun readFacts(vault: LumioVault, session: VaultSession): SettingsFacts {
         providersOn = providersOn,
         providersTotal = providersTotal,
         wallets = wallets.size,
-        addresses = wallets.sumOf { it.addressBook.size },
+        addresses = sharedAddressBook(wallets).size,
         finish = FinishSetupStore.read(session),
     )
 }
