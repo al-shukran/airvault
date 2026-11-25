@@ -110,6 +110,8 @@ private class SendContext(
     val from: String,
     val settings: EvmSettings,
     val chains: List<EvmChain>,
+    /** The chains that are on but on the other side of the mainnet/testnet switch, which a payment code may name. */
+    val otherSide: List<EvmChain>,
     val held: List<TokenHolding>,
     /** The Ethereum accounts of every paired wallet, which the send names. */
     val accounts: Map<String, InternalAccount>,
@@ -271,7 +273,7 @@ internal fun SendRoute(
      */
     fun onRecipientText(text: String) {
         val chain = selectedChain ?: return
-        runCatching { EvmPaymentCode.read(text, chain, others = if (scanFirst) ready.chains else emptyList()) }
+        runCatching { EvmPaymentCode.read(text, chain, others = if (scanFirst) ready.chains else emptyList(), otherSide = ready.otherSide) }
             .onSuccess { payment ->
                 payment.chainId?.let {
                     boundChainId = it
@@ -720,10 +722,11 @@ private fun loadSend(app: LumioApp, session: VaultSession, walletId: String, acc
     val from = wallet.evmAccounts.getOrNull(index)?.address ?: return@runCatching SendLoad.Missing
     val settings = EvmSettingsStore.read(session)
     if (index !in 0 until settings.addressCount) return@runCatching SendLoad.Missing
-    val chains = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
+    val enabled = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled }
+    val chains = enabled.filter { mode.holds(it) }
     val tokensOf = app.tokensFor(session)
     val held = TokenPortfolio.holdingsAt(wallet.id, from, chains, tokensOf, TokenBalanceCache.read(session))
-    SendLoad.Ready(SendContext(wallet, index, from, settings, chains, held, ownAccountsOf(wallets)))
+    SendLoad.Ready(SendContext(wallet, index, from, settings, chains, enabled.filterNot { mode.holds(it) }, held, ownAccountsOf(wallets)))
 }.getOrDefault(SendLoad.Missing)
 
 /** The words a failure shows: the owner's words for a refusal (an invalid input, a signature that is not this one, an endpoint's answer), else [fallback]. */
