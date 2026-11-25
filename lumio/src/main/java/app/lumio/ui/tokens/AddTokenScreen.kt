@@ -76,7 +76,7 @@ fun AddTokenScreen(
                 trailing = {
                     ClearAirTextAction(
                         text = "Paste",
-                        onClick = { clipboard.getText()?.text?.let(addressChanged) },
+                        onClick = { clipboard.getText()?.text?.let { addressChanged(it); onLookUp() } },
                         enabled = !busy,
                         modifier = Modifier.testTag("token-paste"),
                     )
