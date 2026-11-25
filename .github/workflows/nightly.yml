@@ -79,7 +79,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      # The app compiles to Java 17 (compileOptions in app/build.gradle.kts); the JDK here is 21, as in pr-fast.yml.
+      # The app compiles to Java 21 (compileOptions in app/build.gradle.kts); the JDK here is 21, as in pr-fast.yml.
       - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
@@ -94,6 +94,7 @@ jobs:
         run: |
           ./gradlew :app:assembleRelease
           test -s app/build/outputs/mapping/release/mapping.txt
+          scripts/ci/check-release-classpath.sh
 
       # OWASP dependency-check (guideline 1.8) runs in three steps after the gates, so one run still reports every
       # broken gate. It needs the NVD database. The database is cached per ISO week in the plugin's data directory,

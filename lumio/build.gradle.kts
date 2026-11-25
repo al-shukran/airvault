@@ -57,8 +57,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     buildFeatures {
@@ -80,7 +80,7 @@ android {
                 "META-INF/versions/9/module-info.class",
             )
             // DISCLAIMER is shipped by two tuweni jars (both pulled in by web3j); keep one copy.
-            pickFirsts += setOf("META-INF/DISCLAIMER")
+            pickFirsts += setOf("META-INF/DISCLAIMER", "META-INF/FastDoubleParser-LICENSE", "META-INF/FastDoubleParser-NOTICE", "META-INF/FastDoubleParser-ThirdParty-LICENSE")
         }
     }
 
