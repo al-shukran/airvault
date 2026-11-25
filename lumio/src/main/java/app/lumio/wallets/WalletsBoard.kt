@@ -232,6 +232,15 @@ internal class WalletsBoard(
     }
 
     /**
+     * Shows the vault's caches again for the side the board shows, with no network read. A read that writes the caches outside [refresh], as the first sync
+     * does, calls it, since [showSide] returns early on a side and version it has shown.
+     */
+    fun showCaches() {
+        val mode = side ?: return
+        scope.launch { showLoaded(mode, withAccounts = true) }
+    }
+
+    /**
      * Reads the networks of the side, then shows the balances they give. [pulled] is true when the owner pulled to start it. A refresh that runs already
      * is not started again, and a pull then shows the pull indicator for the one that runs.
      */

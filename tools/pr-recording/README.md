@@ -76,3 +76,7 @@ Every recording follows these rules, so that all of them read as one set:
 ## Capture Stamp
 
 `capture.sh` writes a stamp next to each screen it takes: `FILE.capture`, the SHA-256 of `FILE`. `compose.sh` refuses any input without a matching stamp, so a test golden, a hand-made image or an edited capture cannot enter a comparison. Keep the stamp beside its file when you move it. `compose.sh` stamps its own outputs the same way (`FILE.compose`), and `post.sh` refuses any file without a matching stamp, so a raw capture or hand-made media cannot be posted.
+
+## Self-check
+
+`selftest.sh` checks the stamp guards in `lib.sh` and that `check_screen` leaves no temp files behind. It needs `ffmpeg` and `magick`, not a device. Run it after changing any of the scripts.

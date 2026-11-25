@@ -229,7 +229,8 @@ internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolde
     }
     val current = imported ?: return
     val sync = current.sync
-    LaunchedEffect(sync) { app.runInAppScope { sync.run() } }
+    // The reads write the vault's caches, so the board shows them as each step ends, even when the owner left for the wallet page in the meantime.
+    LaunchedEffect(sync) { app.runInAppScope { sync.run { (holder.sessionAttachment() as? LumioVault)?.wallets?.showCaches() } } }
     val rows by sync.rows.collectAsState()
     val wallet = current.wallet
     val families = listOf<List<*>>(wallet.evmAddresses, wallet.bitcoin, wallet.solana, wallet.algorand)
