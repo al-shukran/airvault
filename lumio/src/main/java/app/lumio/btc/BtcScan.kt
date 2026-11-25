@@ -76,6 +76,17 @@ class AddressStatsCache {
 class MemoStats(val reading: AddressReading, val readAtMs: Long)
 
 /**
+ * Writes a reading of [address] into the memo. A reading of unused does not replace a reading of used that is still within the TTL: that is
+ * either a transaction the server has listed, which does not unlist, or the change address of a send that was broadcast and that the server
+ * has not listed yet (see [BtcSend.reserveChange]). A refresh in that gap must not erase it. Past the TTL the entry is replaced as any other.
+ */
+internal fun ConcurrentMap<String, MemoStats>.remember(address: String, reading: AddressReading, nowMs: Long) {
+    compute(address) { _, held ->
+        if (held != null && held.reading.used && !reading.used && nowMs - held.readAtMs < DEFAULT_SHORT_TTL_MS) held else MemoStats(reading, nowMs)
+    }
+}
+
+/**
  * Walks one chain of an account (receive or change) with the gap limit. It asks for the addresses in windows of [window], every address of a
  * window at once, and it stops once [BtcAccount.GAP_LIMIT] addresses in a row have no history. A used address resets that count, so a gap
  * shorter than the limit never ends the walk. The walk finds the same used addresses for any window: a window is asked for only while the walk
@@ -107,7 +118,7 @@ internal suspend fun scanChain(
         val fresh = memo[address]?.takeIf {
             nowMs - it.readAtMs < DEFAULT_SHORT_TTL_MS && (trustWithinTtl || (!it.reading.used && index <= lastUsed))
         }
-        fresh?.reading ?: statsOf(address).reading().also { memo[address] = MemoStats(it, nowMs) }
+        fresh?.reading ?: statsOf(address).reading().also { memo.remember(address, it, nowMs) }
     }
     var unused = 0
     var index = 0
