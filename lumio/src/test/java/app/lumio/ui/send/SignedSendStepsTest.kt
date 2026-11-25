@@ -9,7 +9,7 @@ import app.lensly.ui.theme.LumenTheme
 import app.lumio.data.provider.ProviderError
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
-import java.net.SocketTimeoutException
+import java.net.SocketTimeoutException // CI_ALLOW_NETWORK_REFERENCE: exception type only, used as a fixture; no network access
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import org.junit.Rule

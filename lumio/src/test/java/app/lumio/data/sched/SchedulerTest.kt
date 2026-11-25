@@ -16,10 +16,10 @@ import app.lumio.data.provider.TipHeight
 import app.lumio.data.provider.Trait
 import java.io.IOException
 import java.io.InterruptedIOException
-import java.net.ConnectException
-import java.net.SocketException
-import java.net.SocketTimeoutException
-import java.net.UnknownHostException
+import java.net.ConnectException // CI_ALLOW_NETWORK_REFERENCE: exception type only, used as a fixture; no network access
+import java.net.SocketException // CI_ALLOW_NETWORK_REFERENCE: exception type only, used as a fixture; no network access
+import java.net.SocketTimeoutException // CI_ALLOW_NETWORK_REFERENCE: exception type only, used as a fixture; no network access
+import java.net.UnknownHostException // CI_ALLOW_NETWORK_REFERENCE: exception type only, used as a fixture; no network access
 import javax.net.ssl.SSLHandshakeException
 import kotlin.random.Random
 import kotlinx.coroutines.cancelAndJoin

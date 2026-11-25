@@ -3,9 +3,9 @@ package app.lumio.send
 import app.lumio.data.provider.ProviderError
 import app.lumio.evm.RpcFailure
 import java.io.IOException
-import java.net.ConnectException
-import java.net.SocketTimeoutException
-import java.net.UnknownHostException
+import java.net.ConnectException // CI_ALLOW_NETWORK_REFERENCE: exception type only, used as a fixture; no network access
+import java.net.SocketTimeoutException // CI_ALLOW_NETWORK_REFERENCE: exception type only, used as a fixture; no network access
+import java.net.UnknownHostException // CI_ALLOW_NETWORK_REFERENCE: exception type only, used as a fixture; no network access
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
