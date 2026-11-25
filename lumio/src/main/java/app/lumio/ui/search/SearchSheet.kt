@@ -23,9 +23,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -132,8 +129,8 @@ fun SearchSheet(
             }
         }
         val tabRow = rememberLazyListState()
-        val hidden by remember { derivedStateOf { hiddenTabs(tabRow) } }
-        val more by remember { derivedStateOf { tabRow.canScrollForward } }
+        val hidden = hiddenTabs(tabRow)
+        val more = tabRow.canScrollForward
         Row(
             modifier = Modifier
                 .padding(top = ClearAirSpacing.xs)
