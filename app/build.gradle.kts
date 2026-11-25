@@ -14,7 +14,11 @@ val gitCommitCount = providers.exec {
 
 android {
     namespace = "app.lensly"
-    compileSdk = 36
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 1
+        }
+    }
 
     defaultConfig {
         applicationId = "app.lensly"

@@ -9,7 +9,11 @@ plugins {
 // overlays are the same in every variant of each app.
 android {
     namespace = "app.lensly.shared"
-    compileSdk = 36
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 1
+        }
+    }
 
     defaultConfig {
         minSdk = 31
