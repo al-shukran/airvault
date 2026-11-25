@@ -616,3 +616,66 @@ internal fun notesDetail(notes: AddressNotes): String {
 
 /** The line under the label of an EVM entry: the same account is on every EVM network. */
 internal const val SAVED_FOR_ALL_EVM = "Saved for all EVM networks"
+
+private fun amountText(send: PreparedSend): String {
+    val token = send.token
+    return if (token == null) {
+        EvmFormat.amount(send.valueWei, send.chain.decimals, send.chain.symbol)
+    } else {
+        EvmFormat.amount(send.valueWei, token.decimals, token.symbol)
+    }
+}
+
+private fun reviewHeading(send: PreparedSend, fromName: String, toName: String): String =
+    "Send ${amountText(send)} from $fromName to $toName?"
+
+/**
+ * The rows under the recipient on the Review page, in the order Lensly shows them: the amount, the most the fee can be, the network and the sender.
+ * A send ends with the hash of its calldata only when Lensly cannot read that calldata, the same condition under which Lensly shows the hash row.
+ */
+internal fun reviewRows(send: PreparedSend, fromName: String): List<SummaryRow> = buildList {
+    add(SummaryRow("Amount", amountText(send)))
+    add(SummaryRow("Max Fee", EvmFormat.amount(send.maxFeeWei, send.chain.decimals, send.chain.symbol)))
+    if (send.token == null) add(SummaryRow("Total at Most", EvmFormat.amount(send.maxCostWei, send.chain.decimals, send.chain.symbol)))
+    add(SummaryRow("Network", "${send.chain.name} · ID ${send.chain.chainId}"))
+    add(SummaryRow("From", fromName))
+    val calldata = Numeric.hexStringToByteArray(send.tx.data)
+    if (showsCalldataHash(calldata)) add(SummaryRow(CALLDATA_HASH_LABEL, calldataHash(calldata), mono = true))
+}
+
+private fun assetDetail(asset: SendAsset): String {
+    val token = asset.token ?: return "Native Coin"
+    val balance = asset.balance ?: return "No balance on this address"
+    return "Balance " + EvmFormat.amount(balance, token.decimals, token.symbol)
+}
+
+private fun bitcoinHint(text: String): String? =
+    if (text.startsWith(BITCOIN_PREFIX_MAIN) || text.startsWith(BITCOIN_PREFIX_TEST)) {
+        "It looks like a Bitcoin address. To send BTC, start from a Bitcoin account."
+    } else {
+        null
+    }
+
+/**
+ * Reads the send's wallet, address and chains from the open vault, with the tokens each chain lists and the tokens the address holds in the
+ * balance cache. The chains are the enabled ones on the side [mode] chooses, as on the wallet's portfolio. It runs off the main thread.
+ */
+private fun loadSend(app: LumioApp, session: VaultSession, walletId: String, account: AccountId, mode: NetworkMode): SendLoad = runCatching {
+    val wallets = PairedWallets.list(session)
+    val wallet = wallets.firstOrNull { it.id == walletId } ?: return@runCatching SendLoad.Missing
+    val index = WalletAccounts.indexOf(wallet, account) ?: return@runCatching SendLoad.Missing
+    val from = wallet.evmAccounts.getOrNull(index)?.address ?: return@runCatching SendLoad.Missing
+    val settings = EvmSettingsStore.read(session)
+    if (index !in 0 until settings.addressCount) return@runCatching SendLoad.Missing
+    val chains = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
+    val tokensOf = app.tokensFor(session)
+    val held = TokenPortfolio.holdingsAt(wallet.id, from, chains, tokensOf, TokenBalanceCache.read(session))
+    SendLoad.Ready(SendContext(wallet, index, from, settings, chains, held, ownAccountsOf(wallets)))
+}.getOrDefault(SendLoad.Missing)
+
+/** The words a failure shows: the owner's words for a refusal (an invalid input, a signature that is not this one, an endpoint's answer), else [fallback]. */
+private fun ownerWords(error: Throwable, fallback: String): String = when (error) {
+    is IllegalArgumentException -> error.message ?: fallback
+    is RpcFailure -> error.message ?: fallback
+    else -> fallback
+}
