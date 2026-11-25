@@ -54,13 +54,13 @@ class ScanRunnerTest {
             listOf(
                 ScanEvent.Progress(foreground, 1),
                 ScanEvent.Progress(foreground, 2),
-                ScanEvent.Finished(foreground, "account-a"),
+                ScanEvent.Finished(foreground, mainnet, "account-a"),
                 ScanEvent.Progress(visible, 1),
                 ScanEvent.Progress(visible, 2),
-                ScanEvent.Finished(visible, "account-b"),
+                ScanEvent.Finished(visible, mainnet, "account-b"),
                 ScanEvent.Progress(background, 1),
                 ScanEvent.Progress(background, 2),
-                ScanEvent.Finished(background, "account-c"),
+                ScanEvent.Finished(background, mainnet, "account-c"),
             ),
             events,
         )
@@ -92,12 +92,12 @@ class ScanRunnerTest {
 
         val first = eventsWhile(queue) { runner.pass(mainnet) }
 
-        assertEquals(listOf<ScanEvent>(ScanEvent.Failed(id, "account-a", "Could not reach the servers.")), first)
+        assertEquals(listOf<ScanEvent>(ScanEvent.Failed(id, mainnet, "account-a", "Could not reach the servers.")), first)
         assertEquals(listOf(id), queue.pending().map { it.id })
 
         val second = eventsWhile(queue) { runner.pass(mainnet) }
 
-        assertEquals(listOf<ScanEvent>(ScanEvent.Finished(id, "account-a")), second)
+        assertEquals(listOf<ScanEvent>(ScanEvent.Finished(id, mainnet, "account-a")), second)
         assertEquals(emptyList(), queue.pending())
     }
 

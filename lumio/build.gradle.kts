@@ -17,8 +17,12 @@ val gitCommitCount = providers.exec {
 // navigation and Home. It holds no key material. The network permission is its own: check-manifest.sh holds its manifest to an allow-list.
 android {
     namespace = "app.lumio"
-    // okhttp-android 5.5.1 requires libraries and applications that depend on it to compile against API 37. targetSdk stays 36.
-    compileSdk = 37
+    // okhttp-android 5.5.1 needs API 37, and Compose 1.13 needs API 37.1. targetSdk stays 36.
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 1
+        }
+    }
 
     defaultConfig {
         applicationId = "app.lumio"
@@ -53,8 +57,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     buildFeatures {
@@ -76,7 +80,7 @@ android {
                 "META-INF/versions/9/module-info.class",
             )
             // DISCLAIMER is shipped by two tuweni jars (both pulled in by web3j); keep one copy.
-            pickFirsts += setOf("META-INF/DISCLAIMER")
+            pickFirsts += setOf("META-INF/DISCLAIMER", "META-INF/FastDoubleParser-LICENSE", "META-INF/FastDoubleParser-NOTICE", "META-INF/FastDoubleParser-ThirdParty-LICENSE")
         }
     }
 

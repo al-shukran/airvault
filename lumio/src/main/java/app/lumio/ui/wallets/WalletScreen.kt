@@ -59,7 +59,7 @@ private val DETAIL_EMBLEM = 24.dp
  * balances again. The page's top bar is the shell's, so this has none. [tokenCounts] holds the tokens each Ethereum account holds, and [usdOf] gives an
  * account's value in dollars. [tokenUsd] gives the dollars of the tokens an account holds, which count toward its fold. [notice] names a read that failed as a
  * whole. [reads] says which chains are checked and which did not answer: an island that has a value missing, last known or incomplete because of a chain
- * that did not answer says so under its eyebrow, with a Retry that calls [onRetry] with the chain's family.
+ * that did not answer says so under its eyebrow, with a Retry that calls [onRetry] with the chain's family. That Retry is hidden while [refreshing].
  */
 @Composable
 fun WalletScreen(
@@ -127,6 +127,7 @@ fun WalletScreen(
                         showTotal = showTotal,
                         showBalances = showBalances,
                         reads = reads,
+                        refreshing = refreshing,
                         clock = clock,
                         onRetry = onRetry,
                         onAccount = onAccount,
@@ -195,6 +196,7 @@ private fun ChainIsland(
     showTotal: Boolean,
     showBalances: Boolean,
     reads: WalletReads,
+    refreshing: Boolean,
     clock: Clock,
     onRetry: (String) -> Unit,
     onAccount: (WalletAccount) -> Unit,
@@ -211,10 +213,11 @@ private fun ChainIsland(
             groupUsd(group, usdOf)?.let { usd -> ClearAirAmount(text = LocalFiat.current.amount(usd), hidden = !showTotal, style = ClearAirType.rowValue) }
         }
         // A chain that did not answer says so once, under the eyebrow, with a Retry. It says so only while a value is missing, last known or incomplete
-        // because of it. The rest of the island stays live.
+        // because of it. The rest of the island stays live. The Retry waits while a refresh runs, since that refresh reads the chain already.
         if (failureShown(group, family, reads)) {
             ChainFailureNote(
                 text = unreachableNote(group.first().networkName, keptBalance = group.any { it.balance != null }),
+                showRetry = !refreshing,
                 onRetry = { onRetry(family) },
                 modifier = Modifier.padding(bottom = ClearAirSpacing.xs),
             )

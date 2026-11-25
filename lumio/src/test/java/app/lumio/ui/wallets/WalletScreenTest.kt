@@ -109,6 +109,15 @@ class WalletScreenTest {
     }
 
     @Test
+    fun retryIsHiddenWhileARefreshRunsAndTheNoteStays() {
+        render(reads = WalletReads(unreachable = setOf(ethereum)), refreshing = true)
+
+        // A Retry tapped during a refresh would do nothing, so the link is not shown until the refresh ends.
+        compose.onNodeWithText("Couldn't reach Ethereum.").assertIsDisplayed()
+        assertTrue(compose.onAllNodesWithText("Retry").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
     fun aReadThatRunsSaysCheckingInPlaceOfTheAge() {
         render(refreshing = true, updatedAtMs = NOW_MS - 3 * MINUTE_MS)
 

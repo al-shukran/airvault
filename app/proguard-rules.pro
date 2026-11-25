@@ -32,3 +32,7 @@
     public static *** e(...);
     public static *** wtf(...);
 }
+
+# jackson 3 (web3j 6) references java.beans annotations that Android lacks.
+-dontwarn java.beans.ConstructorProperties
+-dontwarn java.beans.Transient

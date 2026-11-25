@@ -46,7 +46,7 @@ import app.lensly.ui.theme.LocalClearAirPalette
  * the value as dots, for a password, and makes the field secret: its keyboard gets the secret input flags. On a secret field Enter, typed or on a
  * hardware keyboard, moves focus to the next field, or runs [onSubmit] on the last one, and never adds a line break. [onCommit] runs when the
  * owner leaves the field or presses Done, so a value can be applied once it is complete rather than on every key. [inputTag] tags the text
- * input itself, for tests.
+ * input itself, for tests. [transformation] shows the value in another form, such as an address in groups of four, and leaves the value as it is.
  */
 @Composable
 fun ClearAirField(
@@ -59,6 +59,7 @@ fun ClearAirField(
     keyboard: KeyboardType = KeyboardType.Text,
     monospace: Boolean = false,
     masked: Boolean = false,
+    transformation: VisualTransformation = VisualTransformation.None,
     onSubmit: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     onCommit: (() -> Unit)? = null,
@@ -120,7 +121,7 @@ fun ClearAirField(
                         },
                     ),
                     keyboardActions = KeyboardActions(onNext = { enter() }, onDone = { enter() }),
-                    visualTransformation = if (masked) PasswordVisualTransformation() else VisualTransformation.None,
+                    visualTransformation = if (masked) PasswordVisualTransformation() else transformation,
                     cursorBrush = SolidColor(palette.ink),
                     decorationBox = { inner ->
                         if (value.isEmpty() && placeholder.isNotEmpty()) {

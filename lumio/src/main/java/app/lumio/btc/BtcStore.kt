@@ -46,7 +46,7 @@ class BtcStore(private val cache: Cache) {
 
 /** The snapshot record: a version byte, the count, then each snapshot in full, in DataOutputStream style. */
 private object SnapshotCodec {
-    private const val VERSION = 4
+    private const val VERSION = 5
     private const val MAX_ENTRIES = 256
     private const val MAX_LIST = 100_000
 
@@ -63,7 +63,6 @@ private object SnapshotCodec {
                 out.writeLong(s.confirmedSats)
                 out.writeLong(s.unconfirmedSats)
                 out.writeInt(s.nextReceiveIndex)
-                out.writeUTF(s.nextReceiveAddress)
                 out.writeInt(s.utxos.size)
                 for (u in s.utxos) {
                     out.writeUTF(u.txid)
@@ -98,7 +97,6 @@ private object SnapshotCodec {
             val confirmedSats = input.readLong()
             val unconfirmedSats = input.readLong()
             val nextReceiveIndex = input.readInt()
-            val nextReceiveAddress = input.readUTF()
             val utxoCount = input.readInt()
             require(utxoCount in 0..MAX_LIST) { "utxo count out of range" }
             val utxos = List(utxoCount) {
@@ -118,7 +116,6 @@ private object SnapshotCodec {
                 confirmedSats = confirmedSats,
                 unconfirmedSats = unconfirmedSats,
                 nextReceiveIndex = nextReceiveIndex,
-                nextReceiveAddress = nextReceiveAddress,
                 utxos = utxos,
                 transactions = txs,
                 addresses = addresses,

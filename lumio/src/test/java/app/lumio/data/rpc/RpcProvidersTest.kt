@@ -177,4 +177,11 @@ class RpcProvidersTest {
         assertEquals(BigInteger.valueOf(42), balance)
         assertEquals("POST", server.takeRequest().method)
     }
+
+    @Test
+    fun theBuiltInAddressIsTheFirstPoolAddressOfTheChainAndNoneWhenNoPoolProviderServesIt() {
+        assertEquals("https://public.1rpc.io/base", RpcPlugins.builtInEndpoint(base))
+        assertEquals("https://testnet-rpc.monad.xyz", RpcPlugins.builtInEndpoint(NetworkId(Networks.evm(10143), testnet = true)))
+        assertNull(RpcPlugins.builtInEndpoint(NetworkId(Networks.evm(999_999), testnet = false)))
+    }
 }

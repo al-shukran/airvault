@@ -185,6 +185,8 @@ internal fun SendRoute(
     LaunchedEffect(session == null) {
         if (session == null) navController.openHidden(GateRoutes.GATE)
     }
+    // A lock closes the session while this route is still composed for its exit transition; nothing below may read it.
+    if (session == null) return
     val scope = rememberCoroutineScope()
     val load by produceState<SendLoad?>(initialValue = null, session, walletId, account, mode) {
         value = if (session == null) null else withContext(Dispatchers.IO) { loadSend(app, session, walletId, account, mode) }

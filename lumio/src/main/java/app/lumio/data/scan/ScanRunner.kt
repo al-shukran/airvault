@@ -50,11 +50,11 @@ class ScanRunner(
         try {
             scanAccount(job) { checked -> queue.publish(ScanEvent.Progress(job.id, checked)) }
             queue.complete(job.id)
-            queue.publish(ScanEvent.Finished(job.id, account))
+            queue.publish(ScanEvent.Finished(job.id, job.job.net, account))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            queue.publish(ScanEvent.Failed(job.id, account, messageOf(e)))
+            queue.publish(ScanEvent.Failed(job.id, job.job.net, account, messageOf(e)))
         } finally {
             withContext(NonCancellable) { lock.withLock { running -= job.id } }
         }

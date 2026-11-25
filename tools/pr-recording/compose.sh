@@ -6,7 +6,7 @@
 #              [--before-start S] [--after-start S] [--key S]
 #   compose.sh --clip c.mp4 --label TEXT --note TEXT [--tone neutral|green|red] [--start S] [--key S] --out DIR
 #
-# An input is a 9:20 emulator screen (720x1600 or 1080x2400), as a clip or as a PNG still. Each one fills
+# An input is a capture.sh screen (9:20, at least 720 px wide, real bars), as a clip or as a PNG still. Each one fills
 # the phone's screen exactly. The device art gives the rounded corners and the camera. The start offsets
 # trim the clips, so that both sides line up on the same moment.
 #
@@ -62,6 +62,9 @@ for t in "${tones[@]}"; do
 done
 n=${#inputs[@]}
 
+here=$(cd "$(dirname "$0")" && pwd)
+. "$here/lib.sh"
+
 for tool in ffmpeg ffprobe magick awk; do
   command -v "$tool" >/dev/null || { echo "$tool not found (brew install ffmpeg imagemagick)" >&2; exit 1; }
 done
@@ -80,21 +83,20 @@ for file in "${art:-/nonexistent}/back.webp" "${art:-/nonexistent}/mask.webp"; d
   }
 done
 
-for f in "${inputs[@]}"; do [ -f "$f" ] || { echo "no such file: $f" >&2; exit 1; }; done
+# A name that starts with a dash would be read as an option by ffprobe, ffmpeg and magick.
+for ((i = 0; i < n; i++)); do
+  case ${inputs[i]} in -*) inputs[i]=./${inputs[i]} ;; esac
+  [ -f "${inputs[i]}" ] || { echo "no such file: ${inputs[i]}" >&2; exit 1; }
+done
 
-# Each input must be a 9:20 screen. still[i] is 1 for a PNG.
+# Each input must be a real screen: 9:20, at least 720 px wide, with its status bar and navigation bar.
+# still[i] is 1 for a PNG.
 still=()
 for ((i = 0; i < n; i++)); do
   f=${inputs[i]}
-  case $f in
-    *.png | *.PNG)
-      still[i]=1
-      read -r w h < <(magick identify -format '%w %h\n' "$f" | head -1) ;;
-    *)
-      still[i]=0
-      read -r w h < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$f" | tr ',' ' ') ;;
-  esac
-  [ $((w * 20)) -eq $((h * 9)) ] || { echo "$f is ${w}x${h}; a screen must be 9:20 (720x1600 or 1080x2400)" >&2; exit 1; }
+  case $f in *.png | *.PNG) still[i]=1 ;; *) still[i]=0 ;; esac
+  check_capture "$f" || exit 1
+  check_screen "$f" "${starts[i]}" || exit 1
 done
 
 # Length: the longest clip after its start offset, capped at max_seconds. Stills take any length.
@@ -226,7 +228,7 @@ build_graph() {
     if [ "${still[i]}" -eq 1 ]; then
       parts+=("[$((i + 1)):v]format=rgba,scale=$scr_w:$scr_h:flags=lanczos[c$i]")
     else
-      parts+=("[$((i + 1)):v]fps=30,scale=$scr_w:$scr_h:flags=lanczos,format=rgba,tpad=stop_mode=clone:stop_duration=$max_seconds[c$i]")
+      parts+=("[$((i + 1)):v]fps=30,setpts=PTS-STARTPTS,scale=$scr_w:$scr_h:flags=lanczos,format=rgba,tpad=stop_mode=clone:stop_duration=$max_seconds[c$i]")
     fi
     at=(${screens_at[i]})
     parts+=("[$cur][c$i]overlay=${at[0]}:${at[1]}:format=rgb[s$((i + 1))]")
@@ -264,5 +266,6 @@ for ext in mp4 gif png; do
   [ -f "$work/$name.$ext" ] || continue
   [ "$(size_of "$work/$name.$ext")" -le "$max_bytes" ] || { echo "$name.$ext is larger than 10 MB" >&2; exit 1; }
   cp "$work/$name.$ext" "$out/$name.$ext"
+  stamp_compose "$out/$name.$ext"
   echo "wrote $out/$name.$ext ($(size_of "$out/$name.$ext") bytes)"
 done

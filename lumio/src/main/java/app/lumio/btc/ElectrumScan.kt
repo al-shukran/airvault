@@ -8,6 +8,8 @@ import app.lumio.data.electrum.scripthash
 import app.lumio.data.electrum.scripthashBalances
 import app.lumio.data.electrum.scripthashHistories
 import app.lumio.data.electrum.scripthashUnspent
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
@@ -26,13 +28,17 @@ internal class ElectrumRead(val receive: List<UsedAddress>, val change: List<Use
 /**
  * Reads [account] from [pool]: the gap-limit walk of both chains at once, then the unspent outputs of the addresses that hold coins. Each window
  * of the walk is one batch, and so are the unspent outputs. [step] reports the addresses asked for so far, as the Esplora walk does. Returns null
- * when Electrum fails, so that the caller reads the account from Esplora. A cancellation is passed on. [usedBelow] is the receive hint of [electrumChain].
+ * when Electrum fails, so that the caller reads the account from Esplora. A cancellation is passed on. [usedBelow] is the receive hint of
+ * [electrumChain], and [memo] and [nowMs] are those of [scanChain], which the walk fills the same way. A failed read leaves [memo] as it was, so
+ * that the Esplora walk asks for every address.
  */
 internal suspend fun electrumRead(
     pool: ElectrumPool,
     account: BtcWatchOnlyAccount,
     step: suspend (Int) -> Unit,
     usedBelow: Int = 0,
+    memo: ConcurrentMap<String, MemoStats>,
+    nowMs: Long,
 ): ElectrumRead? {
     val network = account.network
     val asked = AtomicInteger(0)
@@ -42,12 +48,14 @@ internal suspend fun electrumRead(
     return try {
         val receive = mutableListOf<UsedAddress>()
         val change = mutableListOf<UsedAddress>()
+        val walked = ConcurrentHashMap<String, MemoStats>()
         coroutineScope {
-            launch { electrumChain(account::receiveAddress, read, receive, usedBelow) }
-            launch { electrumChain(account::changeAddress, read, change) }
+            launch { electrumChain(account::receiveAddress, read, receive, usedBelow, walked, nowMs) }
+            launch { electrumChain(account::changeAddress, read, change, memo = walked, nowMs = nowMs) }
         }
         val holders = (receive + change).filter { it.reading.balance != 0L }
         val utxos = if (holders.isEmpty()) emptyList() else pool.unspent(holders.map { scripthash(scriptOf(network, it.address)) })
+        memo.putAll(walked)
         ElectrumRead(receive, change, utxos)
     } catch (e: CancellationException) {
         throw e
@@ -59,13 +67,16 @@ internal suspend fun electrumRead(
 /**
  * Walks one chain with the gap limit, as [scanChain] does, and finds the same used addresses. [read] answers one window at a time, in one batch: windows
  * of [BtcAccount.GAP_LIMIT] addresses, except that the first one reaches the gap after [usedBelow] (see [firstWindowOf]). The walk stops in the window
- * where the gap closes, so no address past the stop is counted.
+ * where the gap closes, so no address past the stop is counted. Each address up to the stop is remembered in [memo] at [nowMs], as [scanChain]
+ * remembers the addresses it reads, so a send after the scan trusts these readings within the TTL.
  */
 internal suspend fun electrumChain(
     addressAt: (Int) -> String,
     read: suspend (List<String>) -> List<AddressReading>,
     found: MutableList<UsedAddress> = mutableListOf(),
     usedBelow: Int = 0,
+    memo: ConcurrentMap<String, MemoStats> = ConcurrentHashMap(),
+    nowMs: Long = 0L,
 ): ChainScan {
     var index = 0
     var unused = 0
@@ -73,6 +84,7 @@ internal suspend fun electrumChain(
     while (unused < BtcAccount.GAP_LIMIT) {
         val window = List(size) { addressAt(index + it) }
         for ((offset, reading) in read(window).withIndex()) {
+            memo[window[offset]] = MemoStats(reading, nowMs)
             if (reading.used) {
                 found += UsedAddress(index + offset, window[offset], reading)
                 unused = 0

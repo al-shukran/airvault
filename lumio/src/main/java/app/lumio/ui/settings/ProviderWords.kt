@@ -1,6 +1,12 @@
 package app.lumio.ui.settings
 
 import app.lumio.data.provider.Trait
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+private val SINCE_DAY: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
 
 /**
  * The word a provider's status reads as on the Clear Air pages, with its glyph: Working, Rate-Limited or Off. The glyph comes with the word, so the status
@@ -17,6 +23,12 @@ fun providerStatusNote(status: ProviderStatus): String? = if (status == Provider
 
 /** The status word and, when there is one, the line that says why: Working, Rate-Limited or Off, as the Clear Air pages read them. */
 fun providerStatusLine(status: ProviderStatus): String = listOfNotNull(providerStatusWord(status), providerStatusNote(status)).joinToString(" · ")
+
+/** The line of a custom RPC in use: its status, then the day it was set, as "✓ Working · in use since 19 Nov". [sinceMs] is null when the day is not on file. */
+fun rpcInUseLine(status: ProviderStatus, sinceMs: Long?): String {
+    val since = sinceMs?.let { " since " + SINCE_DAY.format(Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault())) }.orEmpty()
+    return "${providerStatusLine(status)} · in use$since"
+}
 
 /** The name a provider goes by on the Clear Air pages. A provider with no name here shows its catalogue ID. */
 fun providerName(id: String): String = when (id) {

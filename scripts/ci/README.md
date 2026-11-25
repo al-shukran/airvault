@@ -87,6 +87,11 @@ Builds the merged debug manifests of `:app` and `:lumio` (offline), then checks 
 must be `"false"` in both. The `manifest` lane also checks the release manifest of `:app` for `INTERNET` and `ACCESS_NETWORK_STATE`, and the release runtime
 classpath for OkHttp.
 
+## Release classpath guard — `check-release-classpath.sh`
+
+Runs in the nightly workflow after `:app:assembleRelease`. It fails when Netty or Vert.x (web3j 6 declares both) is on the release
+runtime classpath of `:app`. `shared/build.gradle.kts` excludes them from web3j.
+
 ## Mnemonic guard — `check-mnemonics.sh`
 
 Runs in the `ci` job of `pr-fast.yml`, with no Gradle and no build. It fails when a tracked text file holds 12 or more consecutive

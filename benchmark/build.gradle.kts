@@ -10,7 +10,11 @@ plugins {
 
 android {
     namespace = "app.lensly.benchmark"
-    compileSdk = 36
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 1
+        }
+    }
 
     defaultConfig {
         minSdk = 31

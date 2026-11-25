@@ -95,7 +95,6 @@ class BtcJobsTest {
         confirmedSats = 5L,
         unconfirmedSats = 0L,
         nextReceiveIndex = 0,
-        nextReceiveAddress = "tb1qnext",
         utxos = emptyList(),
         transactions = emptyList(),
     )

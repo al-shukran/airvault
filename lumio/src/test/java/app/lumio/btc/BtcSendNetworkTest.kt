@@ -11,6 +11,13 @@ import app.lumio.data.Clock
 import app.lumio.data.MonotonicClock
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
+import app.lumio.data.electrum.Answer
+import app.lumio.data.electrum.ElectrumPool
+import app.lumio.data.electrum.ElectrumServer
+import app.lumio.data.electrum.FakeElectrum
+import app.lumio.data.electrum.TestIdentities
+import app.lumio.data.electrum.Trust
+import app.lumio.data.electrum.scripthash
 import app.lumio.data.esplora.BlockstreamProvider
 import app.lumio.data.esplora.MempoolProvider
 import app.lumio.data.net.NetworkId
@@ -37,6 +44,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
@@ -211,6 +222,51 @@ class BtcSendNetworkTest {
 
         assertEquals(1, spendable.coins.size)
         assertEquals(emptyList(), fake.statsRequests(), "the scan read every address a minute ago, so the send asks for none")
+    }
+
+    /** An Electrum server that holds the funding of [funding] at receive address 0, and nothing else, as the Esplora fake does. */
+    private fun electrumHolding(funding: Transaction): FakeElectrum {
+        val funded = scripthash(scriptOf(testnet4, watch.receiveAddress(0)))
+        val txid = funding.txid.toString()
+        val history = JsonArray(listOf(buildJsonObject { put("tx_hash", JsonPrimitive(txid)); put("height", JsonPrimitive(850_000)) }))
+        val unspent = JsonArray(
+            listOf(buildJsonObject {
+                put("tx_hash", JsonPrimitive(txid))
+                put("tx_pos", JsonPrimitive(0))
+                put("height", JsonPrimitive(850_000))
+                put("value", JsonPrimitive(100_000L))
+            }),
+        )
+        return FakeElectrum(TestIdentities.server, answer = { method, params ->
+            val holds = params[0].jsonPrimitive.content == funded
+            when (method) {
+                "blockchain.scripthash.get_history" -> Answer.Reply(if (holds) history else JsonArray(emptyList()))
+                "blockchain.scripthash.get_balance" -> Answer.Reply(
+                    buildJsonObject { put("confirmed", JsonPrimitive(if (holds) 100_000L else 0L)); put("unconfirmed", JsonPrimitive(0L)) },
+                )
+                "blockchain.scripthash.listunspent" -> Answer.Reply(if (holds) unspent else JsonArray(emptyList()))
+                else -> Answer.Fail("no such method: $method")
+            }
+        })
+    }
+
+    @Test
+    fun aSendAfterAnElectrumScanAsksEsploraForNoAddressHistory() = runBlocking<Unit> {
+        val spend = fund()
+        val memo = ConcurrentHashMap<String, MemoStats>()
+        electrumHolding(spend.funding).use { electrum ->
+            val server = ElectrumServer("localhost", Trust.Pinned(TestIdentities.server.spkiSha256), port = electrum.port)
+            val pool = ElectrumPool(servers = listOf(server))
+            val scanned = scanAccount(BtcAccountRef("wallet-1", watch), scheduler(), Priority.VISIBLE, nowMs = 1_000L, memo = memo, electrum = pool)
+            assertEquals(100_000L, scanned.confirmedSats)
+        }
+        assertEquals(emptyList(), fake.statsRequests(), "Electrum read the walk, so Esplora was asked no address by the scan")
+        fake.paths.clear()
+
+        val spendable = BtcSend.spendable(watch, scheduler(), memo, nowMs = 1_000L + 5_000L)
+
+        assertEquals(1, spendable.coins.size)
+        assertEquals(emptyList(), fake.statsRequests(), "the scan's readings are within the TTL, so the send asks Esplora for no address")
     }
 
     @Test
