@@ -17,7 +17,7 @@
     <string name="settings_sources_explorers_title">Explorers</string>
     <string name="settings_sources_explorers_body">Blockscout, Routescan and 3xpl</string>
     <string name="settings_sources_rpc_title">Public RPC</string>
-    <string name="settings_sources_rpc_body">1RPC, PublicNode, Ankr, dRPC, Alchemy, Tenderly, Chainlist, Solana and Algonode</string>
+    <string name="settings_sources_rpc_body">1RPC, PublicNode, dRPC, Alchemy, Tenderly, Chainlist, Solana and Algonode</string>
     <string name="settings_sources_prices_title">Prices</string>
     <string name="settings_sources_prices_body">DefiLlama</string>
     <string name="providers_privacy_heading">Explorers and Privacy</string>
