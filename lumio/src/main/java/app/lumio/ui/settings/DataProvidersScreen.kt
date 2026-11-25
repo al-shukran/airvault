@@ -44,7 +44,7 @@ fun DataProvidersScreen(
     SettingsFrame(title = "Data Providers", offline = offline, onBack = onBack, onLock = onLock, backLabel = backLabel) {
         ClearAirNote(
             text = stringResource(R.string.providers_intro),
-            modifier = Modifier.padding(top = ClearAirSpacing.md, start = ClearAirSpacing.gutter, end = ClearAirSpacing.gutter),
+            modifier = Modifier.padding(top = ClearAirSpacing.md),
         )
         ProviderGroup(stringResource(R.string.providers_data_heading), data, onOpen, onReorder)
         if (prices.isNotEmpty()) {
@@ -52,7 +52,7 @@ fun DataProvidersScreen(
         }
         ProviderGroup(stringResource(R.string.providers_rpc_heading), rpc, onOpen, onReorder)
         SettingsGroup(title = stringResource(R.string.providers_privacy_heading)) {
-            ClearAirNote(text = stringResource(R.string.providers_privacy_body), modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
+            ClearAirNote(text = stringResource(R.string.providers_privacy_body))
             ClearAirSwitchRow(
                 title = stringResource(R.string.providers_prefer_rpc_title),
                 description = stringResource(R.string.providers_prefer_rpc_body),

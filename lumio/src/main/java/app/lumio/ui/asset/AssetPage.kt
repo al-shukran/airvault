@@ -139,13 +139,13 @@ internal fun AssetPage(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (held == null) {
-                    ClearAirCapsuleSmall(text = "Receive", onClick = { open(CoinPicker.RECEIVE) })
+                    ClearAirCapsuleSmall(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE)
                     Spacer(Modifier.width(ClearAirSpacing.md))
-                    ClearAirTextAction(text = "Send $symbol", onClick = { open(CoinPicker.SEND) })
+                    ClearAirTextAction(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND)
                 } else {
-                    ClearAirCapsuleSmall(text = "Send $symbol", onClick = { open(CoinPicker.SEND) })
+                    ClearAirCapsuleSmall(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND)
                     Spacer(Modifier.width(ClearAirSpacing.md))
-                    ClearAirTextAction(text = "Receive", onClick = { open(CoinPicker.RECEIVE) })
+                    ClearAirTextAction(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE)
                 }
             }
             held?.let { coin ->

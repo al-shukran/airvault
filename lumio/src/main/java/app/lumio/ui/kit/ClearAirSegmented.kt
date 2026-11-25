@@ -1,6 +1,7 @@
 package app.lumio.ui.kit
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,7 +17,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 
@@ -30,7 +30,7 @@ private val SEGMENT_CORNER = 11.dp
 private val SEGMENT_HEIGHT = 48.dp
 
 /**
- * Two or more [options] as one track: the [selected] option sits on the sheet colour, the others on the sunk track. Choosing one calls [onSelect] at
+ * Two or more [options] as one track: the [selected] option is filled with ink and its label is paper, the others sit on the sunk track. Choosing one calls [onSelect] at
  * once. Each option is a radio button in TalkBack.
  */
 @Composable
@@ -41,7 +41,8 @@ fun <T> ClearAirSegmented(options: List<T>, selected: T, label: (T) -> String, o
             .fillMaxWidth()
             .clip(RoundedCornerShape(TRACK_CORNER))
             .background(palette.raised)
-            .padding(ClearAirSpacing.xxs),
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         options.forEach { option ->
             val active = option == selected
@@ -50,14 +51,14 @@ fun <T> ClearAirSegmented(options: List<T>, selected: T, label: (T) -> String, o
                     .weight(1f)
                     .height(SEGMENT_HEIGHT)
                     .clip(RoundedCornerShape(SEGMENT_CORNER))
-                    .background(if (active) palette.sheet else Color.Transparent)
+                    .background(if (active) palette.primary else Color.Transparent)
                     .selectable(selected = active, role = Role.RadioButton, onClick = { onSelect(option) }),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = label(option),
                     style = ClearAirType.rowTitle,
-                    color = if (active) palette.ink else palette.ink2,
+                    color = if (active) palette.onPrimary else palette.ink2,
                     maxLines = 1,
                 )
             }

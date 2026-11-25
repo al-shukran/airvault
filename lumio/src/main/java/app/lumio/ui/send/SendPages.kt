@@ -25,7 +25,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
@@ -37,8 +39,10 @@ import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.evm.SendInput
 import app.lumio.receive.monogramOf
 import app.lumio.receive.shortAddress
+import app.lumio.ui.kit.ClearAirField
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
+import app.lumio.ui.kit.ClearAirIconButton
 import app.lumio.ui.kit.ClearAirMonogram
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
@@ -164,6 +168,7 @@ fun SendRecipientPage(
     onLock: () -> Unit,
 ) {
     val palette = LocalClearAirPalette.current
+    val clipboard = LocalClipboardManager.current
     SendPage(
         title = "Send",
         backLabel = backLabel,
@@ -178,13 +183,23 @@ fun SendRecipientPage(
         SendStepper(current = STEP_RECIPIENT)
         SendStepLabel(name = "Recipient", number = STEP_RECIPIENT + 1)
         SendHeading(text = "Who Are You Sending To?", top = 18.dp, bottom = 18.dp)
-        SendRecipientField(
+        ClearAirField(
             label = "Address or Name",
             value = value,
             onValueChange = onValueChange,
             placeholder = "0x…, bc1…, or a name",
             error = error,
-            onScan = onScan,
+            monospace = true,
+            keyboard = KeyboardType.Uri,
+            trailing = {
+                if (value.isNotEmpty()) ClearAirIconButton(glyph = ClearAirGlyph.CLOSE, label = "Clear", onClick = { onValueChange("") })
+                ClearAirIconButton(
+                    glyph = ClearAirGlyph.PASTE,
+                    label = "Paste",
+                    onClick = { clipboard.getText()?.text?.trim()?.takeIf { it.isNotEmpty() }?.let(onValueChange) },
+                )
+                ClearAirIconButton(glyph = ClearAirGlyph.SCAN, label = "Scan", onClick = onScan)
+            },
         )
         if (accounts.isNotEmpty()) {
             SendGroupHeading(text = "Your Accounts", top = 22.dp)
@@ -488,7 +503,7 @@ fun SendShowPage(
             horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SendMarkIcon(mark = SendMark.SUN, color = palette.ink2, size = 15.dp)
+            ClearAirIcon(glyph = ClearAirGlyph.SUN, color = palette.ink2, size = 15.dp)
             Text(text = "Brightness raised while the code shows", style = ClearAirType.label.copy(fontWeight = FontWeight.Normal), color = palette.ink2)
         }
     }
@@ -504,7 +519,7 @@ private fun CrossingLine() {
         horizontalArrangement = Arrangement.spacedBy(ClearAirSpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SendMarkIcon(mark = SendMark.PHONE, color = palette.ink, size = 18.dp)
+        ClearAirIcon(glyph = ClearAirGlyph.PHONE, color = palette.ink, size = 18.dp)
         Text(text = "Lumio", style = side, color = palette.ink2)
         Row(modifier = Modifier.weight(1f).padding(horizontal = ClearAirSpacing.xxs), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             repeat(CROSSING_DOTS) { index ->
@@ -516,7 +531,7 @@ private fun CrossingLine() {
             }
         }
         Text(text = "Lensly", style = side, color = palette.ink2)
-        SendMarkIcon(mark = SendMark.PHONE, color = palette.ink, size = 18.dp)
+        ClearAirIcon(glyph = ClearAirGlyph.PHONE, color = palette.ink, size = 18.dp)
     }
 }
 

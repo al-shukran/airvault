@@ -102,7 +102,6 @@ internal fun AccountScreen(
     online: Boolean = true,
 ) {
     val balance = account.balance
-    val empty = assets.isNotEmpty() && assets.all { it.zero }
     val heroText = balance?.let { "${HomeFormat.coins(it.balance)} ${it.symbol}" }
     val usd = assets.firstOrNull { it.isNative }?.usd
     var tab by rememberSaveable { mutableStateOf(AccountTab.ASSETS) }
@@ -125,7 +124,7 @@ internal fun AccountScreen(
                 )
             }
             item(key = "actions") {
-                AccountActions(empty = empty, online = online, onSend = onSend, onReceive = onReceive)
+                AccountActions(online = online, onSend = onSend, onReceive = onReceive)
             }
             notice?.let { message ->
                 item(key = "notice") {
@@ -232,22 +231,16 @@ private fun AccountTotal(heroText: String?, usd: Double?, showBalance: Boolean, 
 }
 
 /**
- * Send and Receive, side by side under the total: Send is the compact capsule and Receive the text action. An account that holds nothing makes
- * Receive the capsule and Send the text action. Offline, Send is disabled and says why under it, and Receive stays live.
+ * Send and Receive, side by side under the total: Send is the compact capsule and Receive the text action, each with its arrow. Offline, Send is
+ * disabled and says why under it, and Receive stays live.
  */
 @Composable
-private fun AccountActions(empty: Boolean, online: Boolean, onSend: () -> Unit, onReceive: () -> Unit) {
+private fun AccountActions(online: Boolean, onSend: () -> Unit, onReceive: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (empty) {
-                ClearAirCapsuleSmall(text = "Receive", onClick = onReceive)
-                Spacer(Modifier.width(ClearAirSpacing.md))
-                ClearAirTextAction(text = "Send", onClick = onSend, enabled = online)
-            } else {
-                ClearAirCapsuleSmall(text = "Send", onClick = onSend, enabled = online)
-                Spacer(Modifier.width(ClearAirSpacing.md))
-                ClearAirTextAction(text = "Receive", onClick = onReceive)
-            }
+            ClearAirCapsuleSmall(text = "Send", onClick = onSend, enabled = online, icon = ClearAirGlyph.SEND)
+            Spacer(Modifier.width(ClearAirSpacing.md))
+            ClearAirTextAction(text = "Receive", onClick = onReceive, icon = ClearAirGlyph.RECEIVE)
         }
         if (!online) {
             Text(text = "Sending needs a connection", style = ClearAirType.body, color = LocalClearAirPalette.current.ink2)

@@ -2,17 +2,12 @@ package app.lumio.ui.send
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,31 +16,16 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -56,7 +36,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.PathParser
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirMotion
 import app.lensly.ui.theme.ClearAirSpacing
@@ -64,9 +43,6 @@ import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
-import app.lumio.ui.kit.ClearAirIconButton
-import app.lumio.ui.kit.ClearAirStatusMark
-import app.lumio.ui.kit.ClearAirTone
 import app.lumio.ui.kit.rejectOf
 
 /** The side of a step diamond, and the width of the line between two of them. */
@@ -260,76 +236,6 @@ internal fun SendInfoNote(text: String, modifier: Modifier = Modifier) {
 }
 
 /**
- * The recipient field: a 16 dp outline with its label notched into the top edge, the placeholder in ink3, and a paste and a scan action at the end.
- * The outline is 1.5 dp until the field has focus, and then 2 dp in ink. [error] turns it rose and says why under it.
- */
-@Composable
-internal fun SendRecipientField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String,
-    error: String?,
-    onScan: () -> Unit,
-) {
-    val palette = LocalClearAirPalette.current
-    val clipboard = LocalClipboardManager.current
-    var focused by remember { mutableStateOf(false) }
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(rejectOf(failed = error != null))
-                    .defaultMinSize(minHeight = 56.dp)
-                    .border(
-                        width = if (focused) 2.dp else 1.5.dp,
-                        color = when {
-                            error != null -> palette.rose
-                            focused -> palette.ink
-                            else -> palette.ink3
-                        },
-                        shape = RoundedCornerShape(16.dp),
-                    )
-                    .padding(start = 16.dp, top = 6.dp, end = 6.dp, bottom = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                BasicTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    modifier = Modifier.weight(1f).onFocusChanged { focused = it.isFocused },
-                    textStyle = ClearAirType.address.copy(color = palette.ink),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    cursorBrush = SolidColor(palette.ink),
-                    decorationBox = { inner ->
-                        if (value.isEmpty()) Text(text = placeholder, style = ClearAirType.body, color = palette.ink3)
-                        inner()
-                    },
-                )
-                if (value.isNotEmpty()) ClearAirIconButton(glyph = ClearAirGlyph.CLOSE, label = "Clear", onClick = { onValueChange("") })
-                SendIconButton(mark = SendMark.PASTE, label = "Paste") {
-                    clipboard.getText()?.text?.trim()?.takeIf { it.isNotEmpty() }?.let(onValueChange)
-                }
-                ClearAirIconButton(glyph = ClearAirGlyph.SCAN, label = "Scan", onClick = onScan)
-            }
-            Text(
-                text = label,
-                modifier = Modifier
-                    .offset(x = 12.dp, y = (-9).dp)
-                    .background(palette.background)
-                    .padding(horizontal = 5.dp),
-                style = ClearAirType.label.copy(fontSize = 11.5.sp, lineHeight = 18.sp),
-                color = palette.ink2,
-            )
-        }
-        error?.let {
-            Spacer(Modifier.height(ClearAirSpacing.xxs))
-            ClearAirStatusMark(glyph = "!", text = it, tone = ClearAirTone.Failed)
-        }
-    }
-}
-
-/**
  * The amount of a send, large and centred on the system's decimal keyboard, its [symbol] after it in ink2 and the caret the amber spark. The figure
  * is 46 sp, and shrinks only when a long amount would not fit the width.
  */
@@ -368,58 +274,3 @@ private const val AMOUNT_LINE = 52f
 private const val AMOUNT_MIN = 24f
 private const val AMOUNT_WIDTH = 300f
 private const val AMOUNT_ADVANCE = 0.55f
-
-/** The marks the send pages draw that the shared glyph set does not have. Each is on the 24 unit grid, as the mock draws them. */
-internal enum class SendMark(private val data: List<String>) {
-    PASTE(
-        listOf(
-            "M7.9 5h8.2a2.4 2.4 0 0 1 2.4 2.4v10.7a2.4 2.4 0 0 1-2.4 2.4H7.9a2.4 2.4 0 0 1-2.4-2.4V7.4A2.4 2.4 0 0 1 7.9 5z",
-            "M9 5V3.8h6V5M9 11h6M9 14.5h4",
-        ),
-    ),
-    PHONE(
-        listOf(
-            "M9.1 3h5.8a2.6 2.6 0 0 1 2.6 2.6v12.8a2.6 2.6 0 0 1-2.6 2.6H9.1a2.6 2.6 0 0 1-2.6-2.6V5.6A2.6 2.6 0 0 1 9.1 3z",
-            "M10.5 18h3",
-        ),
-    ),
-    SUN(
-        listOf(
-            "M15.6 12a3.6 3.6 0 1 0-7.2 0a3.6 3.6 0 1 0 7.2 0z",
-            "M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4",
-        ),
-    ),
-    ;
-
-    val paths by lazy { data.map { PathParser.createPathFromPathData(it).asComposePath() } }
-}
-
-/** A [SendMark] in [color] at [size], stroked at 1.6 units with round caps like every Clear Air glyph. */
-@Composable
-internal fun SendMarkIcon(mark: SendMark, color: Color, size: Dp = 24.dp, modifier: Modifier = Modifier) {
-    Canvas(modifier.size(size)) {
-        val unit = this.size.width / 24f
-        withTransform({ scale(unit, unit, pivot = Offset.Zero) }) {
-            mark.paths.forEach { path ->
-                drawPath(path = path, color = color, style = Stroke(width = 1.6f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-            }
-        }
-    }
-}
-
-/** A 48 dp icon button in ink that draws a [SendMark]. */
-@Composable
-private fun SendIconButton(mark: SendMark, label: String, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(ClearAirSpacing.touchTarget)
-            .semantics {
-                role = Role.Button
-                contentDescription = label
-            }
-            .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        SendMarkIcon(mark = mark, color = LocalClearAirPalette.current.ink)
-    }
-}

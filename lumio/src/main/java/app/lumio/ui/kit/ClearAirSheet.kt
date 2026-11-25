@@ -11,14 +11,18 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirMotion
@@ -42,7 +46,7 @@ private val sheetShape = RoundedCornerShape(topStart = SHEET_CORNER, topEnd = SH
  * sheet, so a sheet never opens over another one. Reduced motion cuts the rise to a cross-fade.
  */
 @Composable
-fun ClearAirSheet(visible: Boolean, onClose: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun ClearAirSheet(visible: Boolean, onClose: () -> Unit, modifier: Modifier = Modifier, top: Dp = SHEET_TOP, content: @Composable () -> Unit) {
     val palette = LocalClearAirPalette.current
     val reduced = LocalReducedMotion.current
     Box(modifier = modifier.fillMaxSize()) {
@@ -61,12 +65,22 @@ fun ClearAirSheet(visible: Boolean, onClose: () -> Unit, modifier: Modifier = Mo
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = SHEET_TOP)
+                    .padding(top = top)
                     .then(if (isSystemInDarkTheme()) Modifier else Modifier.shadow(SHEET_SHADOW, sheetShape, ambientColor = SHADOW_INK, spotColor = SHADOW_INK))
                     .clip(sheetShape)
                     .background(palette.sheet),
             ) {
-                content()
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 8.dp, bottom = 2.dp)
+                            .align(Alignment.CenterHorizontally)
+                            .size(width = 36.dp, height = 4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(palette.ink3.copy(alpha = 0.55f)),
+                    )
+                    Box(modifier = Modifier.weight(1f)) { content() }
+                }
             }
         }
     }

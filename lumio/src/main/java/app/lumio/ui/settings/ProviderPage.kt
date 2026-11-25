@@ -59,7 +59,7 @@ fun ProviderPage(
         }
         if (networks.isNotEmpty()) {
             SettingsGroup(title = "Supported Networks · ${networks.size}") {
-                ClearAirNote(text = networkSummary(networks), modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
+                ClearAirNote(text = networkSummary(networks))
             }
         }
         if (keyed) {
