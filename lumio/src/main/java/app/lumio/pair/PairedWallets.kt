@@ -88,10 +88,18 @@ object PairedWallets {
             PairAddressBooks.clear(session)
             emptyMap()
         }
-        return session.listWallets()
-            .mapNotNull { id -> readOrNull(session, id)?.copy(addressBook = books[id].orEmpty()) }
-            .sortedBy { it.createdAtMs }
+        // The wallets are read once per write: each read costs a Keystore call, and every screen asks for them.
+        val ids = session.listWallets()
+        val writes = session.writeCount
+        val wallets = synchronized(kept) { kept[session] }?.takeIf { it.writes == writes && it.ids == ids }?.wallets
+            ?: ids.mapNotNull { id -> readOrNull(session, id) }.also { synchronized(kept) { kept[session] = Kept(writes, ids, it) } }
+        return wallets.map { it.copy(addressBook = books[it.id].orEmpty()) }.sortedBy { it.createdAtMs }
     }
+
+    /** The wallets read at a write count, for the session that read them. A closed session drops out with its key. */
+    private class Kept(val writes: Long, val ids: List<String>, val wallets: List<PairedWallet>)
+
+    private val kept = java.util.WeakHashMap<VaultSession, Kept>()
 
     /**
      * The paired wallet in folder [id], or null when the folder is not paired. It reads that folder only, where [list] reads every folder. Its
@@ -186,16 +194,22 @@ object PairedWallets {
 
     /** The paired wallet in folder [id], or null when the folder has no META record. A record that does not read in full throws. */
     private fun read(session: VaultSession, id: String): PairedWallet? {
-        val meta = session.getRecord(id, WalletRecordNames.META)?.let { PairRecords.decodeMeta(it) } ?: return null
+        // One call reads every record of the folder, so the wallet's key is unwrapped once, not once per record.
+        val records = session.getRecords(
+            id,
+            listOf(WalletRecordNames.META, WalletRecordNames.BITCOIN, WalletRecordNames.SOLANA, WalletRecordNames.ALGORAND) +
+                (0 until PairingCodec.MAX_ETHEREUM_ACCOUNTS).map { WalletRecordNames.account(it) },
+        )
+        val meta = records[WalletRecordNames.META]?.let { PairRecords.decodeMeta(it) } ?: return null
         val accounts = meta.addresses.mapIndexed { index, address ->
-            val account = PairRecords.decodeAccount(session.getRecord(id, WalletRecordNames.account(index)) ?: return null)
+            val account = PairRecords.decodeAccount(records[WalletRecordNames.account(index)] ?: return null)
             PairedAccount(index, address, account.name, account.label, account.group)
         }
-        val bitcoin = session.getRecord(id, WalletRecordNames.BITCOIN)
+        val bitcoin = records[WalletRecordNames.BITCOIN]
             ?.let { PairRecords.decodeBitcoin(it, meta.fingerprint) }
             .orEmpty()
-        val solana = session.getRecord(id, WalletRecordNames.SOLANA)?.let { PairRecords.decodeSolana(it) }.orEmpty()
-        val algorand = session.getRecord(id, WalletRecordNames.ALGORAND)?.let { PairRecords.decodeAlgorand(it) }.orEmpty()
+        val solana = records[WalletRecordNames.SOLANA]?.let { PairRecords.decodeSolana(it) }.orEmpty()
+        val algorand = records[WalletRecordNames.ALGORAND]?.let { PairRecords.decodeAlgorand(it) }.orEmpty()
         return PairedWallet(
             id = id,
             name = meta.name,
