@@ -4,6 +4,7 @@ import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
+import app.lensly.ui.components.groupAddress
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import kotlin.test.assertContentEquals
@@ -176,5 +177,19 @@ class AddressBookStoreTest {
         assertFailsWith<IllegalArgumentException> {
             addressBookEntryOf("new", carol, "Carol", "x".repeat(PROFILE_TEXT_MAX_LENGTH + 1), emptyList())
         }
+    }
+
+    @Test
+    fun anAddressLikeNameIsRefusedAtSaveButAStoredOneStillReads() {
+        val carol = "0x52908400098527886E0F7030069857D2E4169EE7"
+        listOf("0x71C7 656E \u2026 976F", "0x71C7656EC7ab88b098defB751B7401B5f6d8976F", "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM").forEach { name ->
+            assertFailsWith<IllegalArgumentException> { addressBookEntryOf("new", carol, name.take(DISPLAY_NAME_MAX_LENGTH), "", emptyList()) }
+        }
+        // Lensly 1.2.0 saved such a name. It reads back unchanged, and a review shows the grouped address instead of it.
+        val store = AddressBookStore(open())
+        val old = alice.copy(name = "0x71C7 656E \u2026 976F")
+        store.put(old)
+        assertEquals(listOf(old), store.load())
+        assertEquals(groupAddress(old.address), old.plainName())
     }
 }

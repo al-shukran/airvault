@@ -26,7 +26,7 @@ fun isValidAddressNotes(notes: String): Boolean = notes.length <= ADDRESS_NOTES_
  * address is in the book once on its chain. The chain is the one the address is valid on.
  *
  * @throws IllegalArgumentException with the reason, when the address is not a valid Ethereum, Bitcoin, Solana or Algorand address, another
- * entry of [book] has the address on the same chain, the name is not a Display Name, the label or group is too long or has a control or
+ * entry of [book] has the address on the same chain, the name is not a Display Name or looks like an address, the label or group is too long or has a control or
  * hidden character, or the notes are too long or have one.
  */
 fun addressBookEntryOf(
@@ -47,6 +47,7 @@ fun addressBookEntryOf(
     require(isValidDisplayName(shownName)) {
         "Enter a name of 1 to $DISPLAY_NAME_MAX_LENGTH characters, with no control, hidden or question mark character."
     }
+    require(!looksLikeAddressName(shownName)) { "Enter a name that does not look like an address." }
     val shownLabel = label.trim()
     require(shownLabel.isEmpty() || isValidProfileText(shownLabel)) { "Enter a label of up to $PROFILE_TEXT_MAX_LENGTH characters." }
     val shownNotes = notes.trim()

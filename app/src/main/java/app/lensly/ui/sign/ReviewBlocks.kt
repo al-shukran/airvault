@@ -48,6 +48,7 @@ import app.lensly.app.headline
 import app.lensly.app.isAddressValue
 import app.lensly.app.lookalikeWarningText
 import app.lensly.app.plainName
+import app.lensly.app.plainNameOf
 import app.lensly.app.plainNameOrNull
 import app.lensly.ui.components.AddressText
 import app.lensly.ui.components.BannerTone
@@ -504,7 +505,7 @@ internal fun AddressNoteLines(notes: AddressNotes?, modifier: Modifier = Modifie
                 )
             }
             plainNameOrNull(entry.label)?.let { ReviewFactRow(label = "Address Label", value = it, mono = false) }
-            plainNameOrNull(entry.notes, ADDRESS_NOTES_MAX_LENGTH)?.let { ReviewFactRow(label = "Address Notes", value = it, mono = false) }
+            plainNameOf(entry.notes.orEmpty(), ADDRESS_NOTES_MAX_LENGTH).takeIf { it.isNotEmpty() }?.let { ReviewFactRow(label = "Address Notes", value = it, mono = false) }
             if (entry.chain?.namespace == EVM_FAMILY.namespace) NoteText(SAVED_FOR_ALL_EVM)
         }
     }
