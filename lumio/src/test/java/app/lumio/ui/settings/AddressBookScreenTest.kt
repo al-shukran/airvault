@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import app.lensly.ui.theme.ClearAirTheme
 import app.lumio.pair.ADDRESS_BOOK_ALICE
 import app.lumio.pair.ADDRESS_BOOK_COLD
@@ -61,6 +62,6 @@ class AddressBookScreenTest {
 
         compose.onNodeWithText("Ethereum", substring = true).assertIsDisplayed()
         compose.onNodeWithText("Bitcoin").assertIsDisplayed()
-        compose.onNodeWithText("Solana").assertIsDisplayed()
+        compose.onNodeWithText("Solana").performScrollTo().assertIsDisplayed()
     }
 }
