@@ -35,6 +35,7 @@ import app.airvault.core.model.Warning
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressNotes
 import app.lensly.app.addressKeyOf
+import app.lensly.app.addressStart
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.theme.LumenTheme
 import org.junit.Rule
@@ -106,7 +107,7 @@ class ReviewScreenTest {
             SummaryPart.Text(" to "),
             SummaryPart.Counterparty(receiver),
         )
-        assertEquals("Send 1.5 USDC to Alice", summarySentence(named, notes, SAMPLE_SIGNER, FontFamily.Monospace, testPalette).text)
+        assertEquals("Send 1.5 USDC to Alice (${addressStart(receiver)})", summarySentence(named, notes, SAMPLE_SIGNER, FontFamily.Monospace, testPalette).text)
         val unnamed = named.dropLast(1) + SummaryPart.Counterparty(other)
         assertEquals(
             "Send 1.5 USDC to ${shortAddress(other)}",

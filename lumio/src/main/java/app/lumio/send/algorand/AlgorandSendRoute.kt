@@ -20,6 +20,8 @@ import app.airvault.core.model.AccountId
 import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
+import app.lensly.app.plainLabel
+import app.lensly.app.plainName
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.navigation.GateRoutes
@@ -40,7 +42,10 @@ import app.lumio.evm.SignatureScan
 import app.lumio.evm.SignatureStep
 import app.lumio.network.NetworkMode
 import app.lumio.notesDetail
-import app.lumio.notesName
+import app.lumio.isFirstTime
+import app.lumio.lookalikeWarnings
+import app.lumio.nameOrAddress
+import app.lumio.nameWithStart
 import app.lumio.onVault
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
@@ -247,7 +252,7 @@ internal fun AlgorandSendRoute(
         busy = true
         notice = null
         scope.launch {
-            val name = addressNotesOf(recipient, ALGORAND_FAMILY, emptyMap(), wallet.addressBook)?.let(::notesName) ?: groupAddress(recipient)
+            val name = nameOrAddress(addressNotesOf(recipient, ALGORAND_FAMILY, emptyMap(), wallet.addressBook), recipient)
             val outcome = withContext(Dispatchers.IO) {
                 runCatching { reviewPlan(scheduler, network, address, asset, recipient, amount, wallet.fingerprint, accountIndex, signer, name) }
             }
@@ -395,7 +400,7 @@ internal fun AlgorandSendRoute(
                 accounts = algorandOwnChoices(wallet, address),
                 addressBook = wallet.addressBook
                     .filter { AlgorandSend.recipientError(it.address) == null }
-                    .map { entry -> SendChoice(title = entry.name, detail = entry.label ?: "Address Book", address = entry.address) },
+                    .map { entry -> SendChoice(title = entry.plainName(), detail = entry.plainLabel(), address = entry.address) },
                 onPick = { choice -> recipient = choice.address },
                 onScan = {
                     recipientStatus = RECIPIENT_HINT
@@ -414,8 +419,8 @@ internal fun AlgorandSendRoute(
             onCancel = { step = AlgorandSendStep.Recipient },
         )
         AlgorandSendStep.Amount -> {
-            val notes = addressNotesOf(recipient, ALGORAND_FAMILY, emptyMap(), wallet.addressBook)
-            val toName = notes?.let(::notesName) ?: groupAddress(recipient)
+            val notes = remember(recipient, wallet.addressBook) { addressNotesOf(recipient, ALGORAND_FAMILY, emptyMap(), wallet.addressBook) }
+            val toName = nameOrAddress(notes, recipient)
             val fee = feeEstimate
             val leaves = if (loaded != null && isAlgo && fee != null) {
                 runCatching { AlgorandAssets.units(amount, selected.decimals, selected.symbol) }.getOrNull()
@@ -481,22 +486,24 @@ internal fun AlgorandSendRoute(
         }
         is AlgorandSendStep.Review -> {
             val optIn = current.plan is AsaSendPlan && current.plan.isOptIn
-            val notes = if (optIn) null else addressNotesOf(current.plan.toAddress, ALGORAND_FAMILY, emptyMap(), wallet.addressBook)
-            val toName = if (optIn) fromName else notes?.let(::notesName) ?: groupAddress(current.plan.toAddress)
+            val notes = remember(optIn, current.plan.toAddress, wallet.addressBook) {
+                if (optIn) null else addressNotesOf(current.plan.toAddress, ALGORAND_FAMILY, emptyMap(), wallet.addressBook)
+            }
+            val toName = if (optIn) fromName else nameOrAddress(notes, current.plan.toAddress)
             val toAddress = if (optIn) current.plan.fromAddress else current.plan.toAddress
             SendReviewPage(
                 heading = if (optIn) {
                     "Opt In to ${selected.symbol} (ASA ${selected.assetId})?"
                 } else {
-                    "Send ${AlgorandAssets.amountText(current.plan, selected.symbol, selected.decimals)} from $fromName to $toName?"
+                    "Send ${AlgorandAssets.amountText(current.plan, selected.symbol, selected.decimals)} from $fromName to ${nameWithStart(notes, current.plan.toAddress)}?"
                 },
                 toTitle = toName,
                 toDetail = if (optIn) "Your account" else notes?.let(::notesDetail).orEmpty(),
                 toAddress = toAddress,
                 validLine = "Address is valid on $networkLabel",
-                firstTime = if (!optIn && notes == null) "First time sending here. Compare every group with where you got it." else null,
+                firstTime = if (!optIn && isFirstTime(notes)) "First time sending here. Compare every group with where you got it." else null,
                 rows = algorandRows(current.plan, selected.symbol, selected.decimals, networkLabel),
-                warnings = emptyList(),
+                warnings = lookalikeWarnings(notes),
                 notice = notice,
                 onShow = { confirm(current.plan) },
                 onEdit = { backToStart() },
