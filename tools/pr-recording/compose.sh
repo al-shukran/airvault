@@ -6,7 +6,7 @@
 #              [--before-start S] [--after-start S] [--key S]
 #   compose.sh --clip c.mp4 --label TEXT --note TEXT [--tone neutral|green|red] [--start S] [--key S] --out DIR
 #
-# An input is a 9:20 emulator screen (720x1600 or 1080x2400), as a clip or as a PNG still. Each one fills
+# An input is a capture.sh screen (9:20, at least 720 px wide, real bars), as a clip or as a PNG still. Each one fills
 # the phone's screen exactly. The device art gives the rounded corners and the camera. The start offsets
 # trim the clips, so that both sides line up on the same moment.
 #
@@ -62,6 +62,9 @@ for t in "${tones[@]}"; do
 done
 n=${#inputs[@]}
 
+here=$(cd "$(dirname "$0")" && pwd)
+. "$here/lib.sh"
+
 for tool in ffmpeg ffprobe magick awk; do
   command -v "$tool" >/dev/null || { echo "$tool not found (brew install ffmpeg imagemagick)" >&2; exit 1; }
 done
@@ -82,19 +85,13 @@ done
 
 for f in "${inputs[@]}"; do [ -f "$f" ] || { echo "no such file: $f" >&2; exit 1; }; done
 
-# Each input must be a 9:20 screen. still[i] is 1 for a PNG.
+# Each input must be a real screen: 9:20, at least 720 px wide, with its status bar and navigation bar.
+# still[i] is 1 for a PNG.
 still=()
 for ((i = 0; i < n; i++)); do
   f=${inputs[i]}
-  case $f in
-    *.png | *.PNG)
-      still[i]=1
-      read -r w h < <(magick identify -format '%w %h\n' "$f" | head -1) ;;
-    *)
-      still[i]=0
-      read -r w h < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$f" | tr ',' ' ') ;;
-  esac
-  [ $((w * 20)) -eq $((h * 9)) ] || { echo "$f is ${w}x${h}; a screen must be 9:20 (720x1600 or 1080x2400)" >&2; exit 1; }
+  case $f in *.png | *.PNG) still[i]=1 ;; *) still[i]=0 ;; esac
+  check_screen "$f" "${starts[i]}" || exit 1
 done
 
 # Length: the longest clip after its start offset, capped at max_seconds. Stills take any length.
