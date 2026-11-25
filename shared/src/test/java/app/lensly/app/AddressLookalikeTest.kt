@@ -59,4 +59,10 @@ class AddressLookalikeTest {
         assertNull(lookalikeEntryFor(evmFake, SOLANA_FAMILY, listOf(entry)))
         assertNull(lookalikeEntryFor("0x9999999999999999999999999999999999999999", EVM_FAMILY, listOf(entry)))
     }
+
+    @Test
+    fun theWarningNamesTheSavedEntryAsPlainText() {
+        val entry = AddressBookEntry(id = "1", address = evmSaved, name = "\u202EAlice\n", label = null)
+        assertEquals("Looks like Alice but differs", lookalikeWarningText(entry))
+    }
 }
