@@ -6,6 +6,8 @@ import app.lensly.core.vault.VaultSession
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -93,6 +95,85 @@ class EvmSettingsTest {
         val record = session.getVaultRecord(EvmSettings.RECORD)!!.decodeToString()
         assertTrue(record, """"addressCount":5""" in record)
         assertTrue(record, """"enabled":[""" in record)
+    }
+
+    @Test
+    fun aVersion1RecordWithAnRpcAddressAndACustomNetworkKeepsEveryField() {
+        // What Lumio 1.0.0 stored: one RPC address per chain as text, and a custom chain without an explorer.
+        session.putVaultRecord(
+            EvmSettings.RECORD,
+            """{"addressCount":8,"enabled":[1,999],"rpc":{"1":"https://rpc.example","999":"https://rpc.test"},"custom":[{"chainId":999,"name":"Test","symbol":"TST","testnet":true}]}""".encodeToByteArray(),
+        )
+
+        assertEquals(
+            EvmSettings(
+                addressCount = 8,
+                enabled = setOf(1L, 999L),
+                rpc = mapOf(
+                    1L to ChainRpcs(custom = listOf("https://rpc.example"), active = "https://rpc.example"),
+                    999L to ChainRpcs(custom = listOf("https://rpc.test"), active = "https://rpc.test"),
+                ),
+                custom = listOf(CustomChain(999L, "Test", "TST", testnet = true)),
+            ),
+            EvmSettingsStore.read(session),
+        )
+    }
+
+    @Test
+    fun aRecordMixingTextAndObjectRpcAddressesReadsBoth() {
+        session.putVaultRecord(
+            EvmSettings.RECORD,
+            """{"rpc":{"1":"https://rpc.example","10":{"custom":["https://a","https://b"],"active":"https://b","activeSince":5}}}""".encodeToByteArray(),
+        )
+
+        assertEquals(
+            mapOf(
+                1L to ChainRpcs(custom = listOf("https://rpc.example"), active = "https://rpc.example"),
+                10L to ChainRpcs(custom = listOf("https://a", "https://b"), active = "https://b", activeSince = 5L),
+            ),
+            EvmSettingsStore.read(session).rpc,
+        )
+    }
+
+    @Test
+    fun aVersion1RecordChangedAndReadAgainKeepsTheRestOfIt() {
+        session.putVaultRecord(
+            EvmSettings.RECORD,
+            """{"addressCount":8,"enabled":[1,999],"rpc":{"1":"https://rpc.example"},"custom":[{"chainId":999,"name":"Test","symbol":"TST","testnet":true}]}""".encodeToByteArray(),
+        )
+
+        assertNull(EvmSettingsStore.change(session, rpc) { s, _ -> EvmEdits.setEnabled(s, 1L, false) })
+
+        val stored = EvmSettingsStore.read(session)
+        assertEquals(8, stored.addressCount)
+        assertEquals(setOf(999L), stored.enabled)
+        assertEquals(ChainRpcs(custom = listOf("https://rpc.example"), active = "https://rpc.example"), stored.rpc[1L])
+        assertEquals(listOf(999L), stored.custom.map { it.chainId })
+    }
+
+    @Test
+    fun aRecordEncodedByTheVersion1ClassIsReadAndAChangeOnItIsWritten() {
+        val version1 = Version1Evm(
+            enabled = setOf(1L, 999L),
+            rpc = mapOf(1L to "https://rpc.example"),
+            custom = listOf(Version1Chain(999L, "Test", "TST", testnet = true)),
+        )
+        session.putVaultRecord(EvmSettings.RECORD, Json.encodeToString(Version1Evm.serializer(), version1).encodeToByteArray())
+        assertEquals(setOf(1L, 999L), EvmSettingsStore.read(session).enabled)
+
+        assertNull(EvmSettingsStore.change(session, rpc) { s, _ -> EvmEdits.setEnabled(s, 1L, false) })
+
+        val stored = EvmSettingsStore.read(session)
+        assertEquals(setOf(999L), stored.enabled)
+        assertEquals(ChainRpcs(custom = listOf("https://rpc.example"), active = "https://rpc.example"), stored.rpc[1L])
+        assertEquals(listOf(999L), stored.custom.map { it.chainId })
+    }
+
+    @Test
+    fun aVersion1RecordWithoutAnRpcAddressStillReads() {
+        session.putVaultRecord(EvmSettings.RECORD, """{"addressCount":3}""".encodeToByteArray())
+
+        assertEquals(EvmSettings(addressCount = 3), EvmSettingsStore.read(session))
     }
 
     @Test
@@ -428,4 +509,51 @@ class EvmSettingsTest {
         assertEquals(listOf(999L), stored.custom.map { it.chainId })
         assertFalse(10143L in stored.enabled)
     }
+
+    @Test
+    fun aRecordEncodedByTheVersion1ClassesKeepsEveryFieldAndReadsBackAfterAWrite() {
+        val bytes = Json.encodeToString(
+            Version1Evm.serializer(),
+            Version1Evm(
+                addressCount = 8,
+                enabled = setOf(1L, 999L),
+                rpc = mapOf(1L to "https://rpc.example", 999L to "https://rpc.test"),
+                custom = listOf(Version1Chain(999L, "Test", "TST", true)),
+            ),
+        )
+        session.putVaultRecord(EvmSettings.RECORD, bytes.encodeToByteArray())
+
+        val expected = EvmSettings(
+            addressCount = 8,
+            enabled = setOf(1L, 999L),
+            rpc = mapOf(
+                1L to ChainRpcs(custom = listOf("https://rpc.example"), active = "https://rpc.example"),
+                999L to ChainRpcs(custom = listOf("https://rpc.test"), active = "https://rpc.test"),
+            ),
+            custom = listOf(CustomChain(999L, "Test", "TST", testnet = true)),
+        )
+        assertEquals(expected, EvmSettingsStore.read(session))
+
+        EvmSettingsStore.write(session, EvmSettingsStore.read(session))
+        assertEquals(expected, EvmSettingsStore.read(session))
+    }
+
+    @Test
+    fun aVersion1RecordWithDefaultsOnlyReadsAsTheDefaults() {
+        session.putVaultRecord(EvmSettings.RECORD, Json.encodeToString(Version1Evm.serializer(), Version1Evm()).encodeToByteArray())
+
+        assertEquals(EvmSettings(), EvmSettingsStore.read(session))
+    }
+
+    /** The record classes of Lumio 1.0.0, with the same fields and defaults, so their encoder produces the bytes a 1.0.0 vault holds. */
+    @Serializable
+    private data class Version1Chain(val chainId: Long, val name: String, val symbol: String, val testnet: Boolean)
+
+    @Serializable
+    private data class Version1Evm(
+        val addressCount: Int = EvmSettings.DEFAULT_ADDRESS_COUNT,
+        val enabled: Set<Long> = EvmSettings.DEFAULT_ENABLED,
+        val rpc: Map<Long, String> = emptyMap(),
+        val custom: List<Version1Chain> = emptyList(),
+    )
 }

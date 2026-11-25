@@ -158,7 +158,7 @@ class LumioScreenshotTest {
         DisplaySettingsPage(
             settings = DisplaySettings(),
             notice = null,
-            onHideBalances = {},
+            onShowTotal = {}, onShowAssets = {},
             onCurrency = {},
             onTheme = {},
             onSmallBalance = {},
@@ -171,7 +171,7 @@ class LumioScreenshotTest {
         DisplaySettingsPage(
             settings = DisplaySettings(currency = FiatCurrency.EUR, smallBalanceUsd = 5.0),
             notice = null,
-            onHideBalances = {},
+            onShowTotal = {}, onShowAssets = {},
             onCurrency = {},
             onTheme = {},
             onSmallBalance = {},

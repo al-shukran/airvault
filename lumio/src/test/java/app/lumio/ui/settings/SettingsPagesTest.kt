@@ -56,7 +56,7 @@ class SettingsPagesTest {
     @Test
     fun theDisplayPageHasNoSave() = assertNoSave {
         DisplaySettingsPage(
-            settings = DisplaySettings(), notice = null, onHideBalances = {}, onCurrency = {}, onTheme = {}, onSmallBalance = {},
+            settings = DisplaySettings(), notice = null, onShowTotal = {}, onShowAssets = {}, onCurrency = {}, onTheme = {}, onSmallBalance = {},
             offline = null, onLock = {}, onBack = {},
         )
     }

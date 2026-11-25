@@ -8,22 +8,18 @@ import kotlinx.serialization.json.Json
 /**
  * What the wallet screens show, as the owner set it. It is a vault record, so it is encrypted under the vault key. A missing field reads as its default.
  *
- * [showTotal] shows the combined balance of a wallet, and [showAssets] shows each account's balance. The Display page's one Hide Balances switch sets
- * both, so every amount shows or none does. [currency] is the currency that prices and totals show in. [theme] is whether Lumio follows the phone's light
+ * [showTotal] shows the combined balance of a wallet, and it is off until the owner turns it on, as in Lumio 1.0.0. [showAssets] shows each account's balance. The Display page has one switch for each.
+ * [currency] is the currency that prices and totals show in. [theme] is whether Lumio follows the phone's light
  * or dark setting, or keeps one. [smallBalanceUsd] leaves out a balance worth less than it, and zero shows every balance.
  */
 @Serializable
 data class DisplaySettings(
-    val showTotal: Boolean = true,
+    val showTotal: Boolean = false,
     val showAssets: Boolean = true,
     val currency: FiatCurrency = FiatCurrency.USD,
     val theme: ThemeMode = ThemeMode.SYSTEM,
     val smallBalanceUsd: Double = DEFAULT_SMALL_BALANCE_USD,
 ) {
-    /** Whether any amount is masked. The Hide Balances switch is on while one is. */
-    val balancesHidden: Boolean
-        get() = !showTotal || !showAssets
-
     /** Whether a balance worth [usd] dollars is left out of the balance lists. A balance whose value is not known is never left out. */
     fun hidesSmallBalance(usd: Double?): Boolean = usd != null && smallBalanceUsd > 0.0 && usd < smallBalanceUsd
 

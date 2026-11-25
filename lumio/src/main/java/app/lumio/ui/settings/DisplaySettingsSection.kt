@@ -31,7 +31,8 @@ import app.lumio.ui.kit.LocalFiat
 fun DisplaySettingsPage(
     settings: DisplaySettings,
     notice: String?,
-    onHideBalances: (Boolean) -> Unit,
+    onShowTotal: (Boolean) -> Unit,
+    onShowAssets: (Boolean) -> Unit,
     onCurrency: (FiatCurrency) -> Unit,
     onTheme: (ThemeMode) -> Unit,
     onSmallBalance: (Double) -> Unit,
@@ -43,7 +44,8 @@ fun DisplaySettingsPage(
         DisplaySettingsSection(
             settings = settings,
             notice = notice,
-            onHideBalances = onHideBalances,
+            onShowTotal = onShowTotal,
+            onShowAssets = onShowAssets,
             onCurrency = onCurrency,
             onTheme = onTheme,
             onSmallBalance = onSmallBalance,
@@ -52,14 +54,15 @@ fun DisplaySettingsPage(
 }
 
 /**
- * The Display settings: Hide Balances, the Currency and Theme rows, which each open a radio sheet whose choice applies and closes it, and the Hide Small
+ * The Display settings: the Show Total Balance and Show Individual Asset Balances switches, the Currency and Theme rows, which each open a radio sheet whose choice applies and closes it, and the Hide Small
  * Balances slider. Each control reports its new value at once. [notice] shows a change that the vault refused.
  */
 @Composable
 fun DisplaySettingsSection(
     settings: DisplaySettings,
     notice: String?,
-    onHideBalances: (Boolean) -> Unit,
+    onShowTotal: (Boolean) -> Unit,
+    onShowAssets: (Boolean) -> Unit,
     onCurrency: (FiatCurrency) -> Unit,
     onTheme: (ThemeMode) -> Unit,
     onSmallBalance: (Double) -> Unit,
@@ -71,10 +74,17 @@ fun DisplaySettingsSection(
         ClearAirAlertNote(text = it, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs))
     }
     ClearAirSwitchRow(
-        title = "Hide Balances",
-        description = "Shows •••• in place of every amount",
-        checked = settings.balancesHidden,
-        onCheckedChange = onHideBalances,
+        title = "Show Total Balance",
+        description = "Shows the combined balance of your assets",
+        checked = settings.showTotal,
+        onCheckedChange = onShowTotal,
+    )
+    ClearAirSwitchRow(
+        title = "Show Individual Asset Balances",
+        divider = true,
+        description = "Shows each asset's balance",
+        checked = settings.showAssets,
+        onCheckedChange = onShowAssets,
     )
     ClearAirRow(
         title = "Currency",
