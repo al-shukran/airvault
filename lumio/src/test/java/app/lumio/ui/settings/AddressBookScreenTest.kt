@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import app.lensly.ui.theme.ClearAirTheme
 import app.lumio.pair.ADDRESS_BOOK_ALICE
 import app.lumio.pair.ADDRESS_BOOK_COLD
@@ -48,5 +49,19 @@ class AddressBookScreenTest {
 
         compose.onNodeWithText("Cold storage").assertIsDisplayed()
         compose.onAllNodes(hasText("· 1", substring = true)).assertCountEquals(0)
+    }
+
+    @Test
+    fun everyRowNamesTheChainOfItsAddressBesideTheLabel() {
+        val solana = ADDRESS_BOOK_COLD.copy(id = "5f0c2a1e-0005", name = "Sol", address = "11111111111111111111111111111111", label = null)
+        compose.setContent {
+            ClearAirTheme {
+                AddressBookScreen(walletName = "Air 1", entries = listOf(ADDRESS_BOOK_ALICE, ADDRESS_BOOK_COLD, solana), offline = null, onBack = {}, onLock = {})
+            }
+        }
+
+        compose.onNodeWithText("Ethereum", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Bitcoin").assertIsDisplayed()
+        compose.onNodeWithText("Solana").performScrollTo().assertIsDisplayed()
     }
 }
