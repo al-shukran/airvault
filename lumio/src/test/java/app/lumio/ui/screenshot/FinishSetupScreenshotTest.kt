@@ -33,4 +33,10 @@ class FinishSetupScreenshotTest {
     fun finishSetupCardPairedLight() = compose.lumioSnapshot("finish_setup_card_paired_light") {
         FinishSetupCard(setup = FinishSetup(setOf(FinishItem.PAIR)), onOpen = {})
     }
+
+    /** At the largest font size the title row grows with its text, so the segments below do not sit on it. */
+    @Test
+    fun finishSetupCardLargeFont() = compose.lumioSnapshot("finish_setup_card_font_2", fontScale = 2f) {
+        FinishSetupCard(setup = FinishSetup(), onOpen = {})
+    }
 }
