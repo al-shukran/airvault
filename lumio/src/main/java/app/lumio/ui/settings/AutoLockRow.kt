@@ -25,6 +25,7 @@ import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSheet
 import app.lumio.ui.kit.ClearAirTextAction
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 
 /** The error under the password when it is not the App Password. It is the same words the Change Password page uses. */
@@ -93,6 +94,8 @@ internal fun AutoLockPasswordDialog(
         busy = true
         scope.launch {
             val check = checkPassword(entered)
+            // A Cancel during the check has closed the dialog: the choice is not applied.
+            ensureActive()
             busy = false
             when (check) {
                 PasswordCheck.Accepted -> onAccepted()
