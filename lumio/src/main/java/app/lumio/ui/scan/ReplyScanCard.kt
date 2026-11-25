@@ -74,7 +74,7 @@ fun ReplyScanCard(
                 )
             },
     ) {
-        if (camera.granted) QrScanner(onText = onText, modifier = Modifier.fillMaxSize(), frameSource = frameSource)
+        if (camera.granted) QrScanner(onText = onText, modifier = Modifier.fillMaxSize(), frameSource = frameSource, viewfinder = false)
         Box(modifier = Modifier.fillMaxSize().drawBehind { drawBrackets(palette.paper.copy(alpha = BRACKET_ALPHA)) })
         reading?.let {
             Text(

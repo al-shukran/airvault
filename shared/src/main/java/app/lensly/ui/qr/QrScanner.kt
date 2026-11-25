@@ -92,12 +92,15 @@ private const val SCRIM_ALPHA = 0.6f
  * [frameSource] is the only thing that bypasses the camera: a test passes a source of generated frames, and then no
  * permission is asked for and no preview is drawn. It is null everywhere in the app, which runs the camera path exactly
  * as it did before the seam existed.
+ *
+ * [viewfinder] draws the dimmed frame and square outline over the camera. A caller that draws its own frame turns it off.
  */
 @Composable
 fun QrScanner(
     onText: (String) -> Unit,
     modifier: Modifier = Modifier,
     frameSource: FrameSource? = null,
+    viewfinder: Boolean = true,
 ) {
     val context = LocalContext.current
     val injected = frameSource
@@ -121,10 +124,10 @@ fun QrScanner(
     ) {
         if (injected != null) {
             FixtureDecoder(frameSource = injected, onText = onText, onFailed = { decodeFailed = it })
-            ViewfinderOverlay(modifier = Modifier.fillMaxSize())
+            if (viewfinder) ViewfinderOverlay(modifier = Modifier.fillMaxSize())
         } else if (granted) {
             CameraDecoder(onText = onText, onFailed = { decodeFailed = it }, modifier = Modifier.fillMaxSize())
-            ViewfinderOverlay(modifier = Modifier.fillMaxSize())
+            if (viewfinder) ViewfinderOverlay(modifier = Modifier.fillMaxSize())
         } else {
             ScanPermissionPrompt(
                 refused = refused,
