@@ -53,6 +53,13 @@ data class PairedWallet(
 }
 
 /**
+ * The Address Book that the Address Book page of Settings shows and its row counts: the books of [wallets] as one, in the order an entry was first seen.
+ * An entry that wallets share, which has the same id, shows once, as the most recently paired wallet's copy, so a rename that a re-pair brought is kept.
+ */
+fun sharedAddressBook(wallets: List<PairedWallet>): List<AddressBookEntry> =
+    wallets.sortedBy { it.createdAtMs }.flatMap { it.addressBook }.associateBy { it.id }.values.toList()
+
+/**
  * The Ethereum accounts of [wallets], each keyed by [addressKeyOf] its address, with the name and label the pairing sent for it. A pairing
  * names only its Ethereum accounts, so the Solana, Algorand and Bitcoin accounts of a wallet are not named here. An account with no name
  * keeps its Auto-Name, as Lensly names it.
