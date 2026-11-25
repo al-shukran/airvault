@@ -109,8 +109,12 @@ internal object DebugDemoData {
         describe = { SubmitFailure("The transaction could not be sent. Check the balance, then try again.") },
     )
 
-    /** The Last Chance countdown: held long while the frame is Last Chance, so the page can be captured. */
-    fun lastChanceSeconds(seconds: Int, hold: Boolean): Int = if (hold) HOLD_SECONDS else seconds
+    /** The Last Chance countdown: held long while the frame is Last Chance, so the page can be captured, and zero for the frames after it, which send at once. */
+    fun lastChanceSeconds(seconds: Int, stage: String?): Int = when (stage) {
+        "signed" -> HOLD_SECONDS
+        "sent", "failed" -> 0
+        else -> seconds
+    }
 
     /** Opens the frame's route over the Accounts home once the seed has finished, and selects its side. */
     @Composable

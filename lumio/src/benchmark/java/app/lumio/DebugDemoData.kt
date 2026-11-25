@@ -31,7 +31,7 @@ internal object DebugDemoData {
 
     fun signedMachine(failed: Boolean): SubmitMachine<ByteArray, String> = throw UnsupportedOperationException()
 
-    fun lastChanceSeconds(seconds: Int, hold: Boolean): Int = seconds
+    fun lastChanceSeconds(seconds: Int, stage: String?): Int = seconds
 
     @Composable
     fun Entry(controller: NavHostController, selection: NetworkSelection, request: Int) = Unit

@@ -614,7 +614,7 @@ internal fun SendRoute(
             onStop = { navController.popBackStack() },
             onDone = { navController.popBackStack() },
             onReview = { step = SendStep.Review(now.send) },
-            lastChanceSeconds = DebugDemoData.lastChanceSeconds(transactions.lastChanceSeconds, hold = demoStage == "signed"),
+            lastChanceSeconds = DebugDemoData.lastChanceSeconds(transactions.lastChanceSeconds, demoStage),
             backLabel = backLabel,
             offline = offline,
             onLock = onLock,
