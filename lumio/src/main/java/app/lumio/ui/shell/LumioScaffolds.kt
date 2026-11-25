@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import app.lumio.network.NetworkMode
 import app.lumio.ui.kit.ClearAirPageTopBar
 import app.lumio.ui.kit.ClearAirRootTopBar
@@ -89,7 +90,7 @@ fun LumioRootScreen(
             onPair = onPair,
             onDismiss = { panelOpen = false },
         )
-        ClearAirSheet(visible = searchOpen, onClose = { searchOpen = false }) {
+        ClearAirSheet(visible = searchOpen, onClose = { searchOpen = false }, top = 0.dp) {
             search { searchOpen = false }
         }
     }

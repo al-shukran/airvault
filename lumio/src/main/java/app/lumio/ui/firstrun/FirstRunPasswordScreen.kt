@@ -25,11 +25,11 @@ import app.lensly.ui.gate.MIN_PASSWORD_LENGTH
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
+import app.lumio.ui.kit.ClearAirEyeToggle
 import app.lumio.ui.kit.ClearAirField
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.ClearAirPrimaryButton
-import app.lumio.ui.kit.ClearAirTextAction
 
 /** The first problem with a new App Password. Null means the password is acceptable and the repeat matches it. */
 enum class NewPasswordProblem { TooShort, TooWeak, Mismatch }
@@ -96,7 +96,7 @@ fun FirstRunPasswordScreen(
             keyboard = KeyboardType.Password,
             masked = !shown,
             error = policyMessage(problem),
-            trailing = { ClearAirTextAction(text = if (shown) "Hide" else "Show", onClick = onToggleShown) },
+            trailing = { ClearAirEyeToggle(shown = shown, onToggle = onToggleShown) },
         )
         Spacer(Modifier.height(ClearAirSpacing.xs))
         StrengthLine(segments = strengthSegments(password))

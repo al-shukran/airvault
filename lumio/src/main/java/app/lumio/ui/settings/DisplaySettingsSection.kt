@@ -98,7 +98,7 @@ fun DisplaySettingsSection(
             } else {
                 "Every asset shows in balance lists."
             },
-            modifier = Modifier.padding(top = ClearAirSpacing.xs).padding(horizontal = ClearAirSpacing.gutter),
+            modifier = Modifier.padding(top = ClearAirSpacing.xs),
         )
     }
 }

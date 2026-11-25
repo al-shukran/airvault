@@ -18,6 +18,7 @@ import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.ui.kit.ClearAirAmount
 import app.lumio.ui.kit.ClearAirEyebrow
+import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirTextAction
@@ -80,10 +81,11 @@ fun HomeScreen(
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
         ) {
-            ClearAirPrimaryButton(text = "Send", onClick = onSend, modifier = Modifier.weight(1f))
+            ClearAirPrimaryButton(text = "Send", onClick = onSend, icon = ClearAirGlyph.SEND, fullWidth = false)
             Spacer(Modifier.width(ClearAirSpacing.md))
-            ClearAirTextAction(text = "Receive", onClick = onReceive)
+            ClearAirTextAction(text = "Receive", onClick = onReceive, icon = ClearAirGlyph.RECEIVE)
         }
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.lg),

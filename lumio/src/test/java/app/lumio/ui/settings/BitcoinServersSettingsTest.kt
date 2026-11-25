@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.ui.theme.ClearAirTheme
@@ -85,7 +86,7 @@ class BitcoinServersSettingsTest {
     fun resetPutsTheFieldBackOnThePublicServer() {
         show(mainnet = custom)
 
-        compose.onNodeWithText("Reset to Defaults").performClick()
+        compose.onNodeWithText("Reset to Defaults").performScrollTo().performClick()
 
         assertEquals(1, resets)
         compose.onNodeWithText(EsploraServers.MAINNET_DEFAULT).assertExists()
