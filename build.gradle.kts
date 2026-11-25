@@ -83,7 +83,7 @@ val robolectricSdk by configurations.creating {
 }
 
 dependencies {
-    robolectricSdk("org.robolectric:android-all-instrumented:16-robolectric-13921718-2-i7")
+    robolectricSdk("org.robolectric:android-all-instrumented:17-robolectric-16653203-i7")
 }
 
 val robolectricSdkDir = layout.buildDirectory.dir("robolectric-sdk")
