@@ -55,8 +55,9 @@ The lines balance the lanes. A unit with no line goes to `shard-6`, so `check-pa
   `bc-verify-<module>-master`, `bc-fuzz-master`, `bc-android-master`, `bc-lint-<module>-master`. Only a push to master saves it, even
   when a lane fails or is cancelled. GitHub cache entries cannot be overwritten, so the push deletes the lane's key and saves it again.
   Master pushes queue in one `pr-fast-master` concurrency group, so no two of them replace a key at once. A pull request and a
-  merge-queue entry restore the key and save nothing. Each entry holds the outputs of recent master pushes, because Gradle removes
-  build-cache entries unused for 7 days.
+  merge-queue entry restore the key and save nothing. A master push saves only the entries its run read or stored
+  (`prune-build-cache.sh`: every entry gets an access time of 1970 after the restore, and the entries not read since are deleted
+  before the save). Unpruned, each of the ten entries grew to 2.3 GB in two days (#1115); pruned, one is about 0.4 GB.
 - The restore also names the prefix `bc-<lane>-master-`, which reads the per-commit keys of the scheme before this one until each fixed
   key exists. Drop that restore key once those entries have expired (GitHub deletes an entry unused for 7 days).
 - Eviction: nothing in CI deletes a build cache except the push that replaces its own lane key. GitHub evicts least recently used
