@@ -3,12 +3,12 @@ package app.lumio.demo
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
+import app.lumio.data.provider.BitcoinMarket
 import app.lumio.data.provider.GasFees
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.NativePrice
 import app.lumio.data.provider.ProviderError
-import app.lumio.data.provider.GlobalMarket
 import java.io.IOException
 import java.math.BigInteger
 import kotlinx.coroutines.runBlocking
@@ -44,7 +44,7 @@ class DemoProviderTest {
     @Test
     fun pricesAndMarketAreTheMockupValues() {
         assertEquals(DemoFixtures.ETH_USD, run(DemoProfile.FULL, NativePrice(ethereum)).usd, 0.0)
-        assertEquals(3.41e12, run(DemoProfile.FULL, GlobalMarket()).totalUsd, 0.0)
+        assertEquals(3.41e12, run(DemoProfile.FULL, BitcoinMarket()).capUsd, 0.0)
     }
 
     @Test

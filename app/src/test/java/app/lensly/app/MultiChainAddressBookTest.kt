@@ -139,15 +139,19 @@ class MultiChainAddressBookTest {
         val book = listOf(
             entry("e", evm, "Alice"),
             entry("b", p2wpkhMain, "Bob"),
+            entry("p", p2pkhMain, "Carol"),
             entry("s", solana, "Token"),
             entry("a", algorand, "Payroll"),
         )
         // An EVM address matches in any letter case.
         assertEquals("Alice", addressBookEntryFor(evm.lowercase(), EVM_FAMILY, book)?.name)
         assertEquals("Alice", addressBookEntryFor(evm.uppercase().replace("0X", "0x"), EVM_FAMILY, book)?.name)
-        // A Bitcoin, Solana or Algorand address matches exactly.
+        // A Bitcoin bech32 address matches in any letter case, as a QR code writes it in capitals.
         assertEquals("Bob", addressBookEntryFor(p2wpkhMain, BITCOIN_FAMILY, book)?.name)
-        assertNull(addressBookEntryFor(p2wpkhMain.uppercase(), BITCOIN_FAMILY, book))
+        assertEquals("Bob", addressBookEntryFor(p2wpkhMain.uppercase(), BITCOIN_FAMILY, book)?.name)
+        // A base58 Bitcoin, Solana or Algorand address matches exactly.
+        assertEquals("Carol", addressBookEntryFor(p2pkhMain, BITCOIN_FAMILY, book)?.name)
+        assertNull(addressBookEntryFor(p2pkhMain.lowercase(), BITCOIN_FAMILY, book))
         assertEquals("Token", addressBookEntryFor(solana, SOLANA_FAMILY, book)?.name)
         assertNull(addressBookEntryFor(solana.lowercase(), SOLANA_FAMILY, book))
         assertEquals("Payroll", addressBookEntryFor(algorand, ALGORAND_FAMILY, book)?.name)
