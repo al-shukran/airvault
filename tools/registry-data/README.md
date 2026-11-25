@@ -57,7 +57,7 @@ not fetched by `build.py`.
 6. `parentChainId` follows `feeModel`: an `L2_ROLLUP` chain settles to Ethereum (chain 1), so its parent is 1, and every
    other chain has a null parent. `kind` follows the parent: a chain with a parent is a Layer 2 on it, and a chain without
    one is a Layer 1. `featured` marks the networks that Lumio's Explore chains group lists
-   without an account on them: Base, Arbitrum One, Optimism, Polygon PoS and Monad testnet (`FEATURED_CHAIN_IDS` in
+   without an account on them: Base, Arbitrum One, Optimism, Polygon PoS, BNB Smart Chain, Avalanche C-Chain and Monad testnet (`FEATURED_CHAIN_IDS` in
    `build.py`). `build.py` sets all three, and `verify_onchain.py` keeps them.
 
 ### feeModel
