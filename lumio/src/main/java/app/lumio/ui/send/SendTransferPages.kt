@@ -283,7 +283,7 @@ internal fun withMonoAddress(text: String, size: TextUnit = TextUnit.Unspecified
     return AnnotatedString(text, listOf(AnnotatedString.Range(mono, address.first, address.last + 1)))
 }
 
-private val NAMED_RECIPIENT = Regex("""^(\u2068.+\u2069) \([^()]+\)$""")
+private val NAMED_RECIPIENT = Regex("""^(\u2068?.+?\u2069?) \([^()]+\)$""")
 
 /** The timeline step for the recipient: "In Name" for a named recipient, as the mock has it, else the address in mono as [withMonoAddress] sets it. */
 internal fun recipientStep(recipient: String): AnnotatedString =

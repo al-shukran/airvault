@@ -32,6 +32,7 @@ class MonoAddressTest {
         val step = recipientStep("\u2068FelixStone\u2069 ($address)")
         assertEquals("In \u2068FelixStone\u2069", step.text)
         assertTrue(step.spanStyles.isEmpty())
+        assertEquals("In FelixStone", recipientStep("FelixStone ($address)").text)
     }
 
     @Test
