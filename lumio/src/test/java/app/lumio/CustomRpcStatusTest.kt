@@ -34,6 +34,7 @@ class CustomRpcStatusTest {
     private val sepolia = EvmChain(chainId = 11155111, name = "Sepolia", symbol = "ETH", decimals = 18, testnet = true, explorerUrl = null)
     private val address = "0x" + "11".repeat(20)
     private var settings = EvmSettings(
+        enabled = setOf(ethereum.chainId, sepolia.chainId),
         rpc = mapOf(
             ethereum.chainId to ChainRpcs(custom = listOf("https://one.example"), active = "https://one.example"),
             sepolia.chainId to ChainRpcs(custom = listOf("https://two.example"), active = "https://two.example"),
@@ -128,6 +129,22 @@ class CustomRpcStatusTest {
         providers[1].outcomes.addAll(List(6) { ProviderError.Transient() })
         repeat(2) { runCatching { reads.balance(sepolia, address) } }
         assertIs<ProviderStatus.CircuitOpen>(listed(reads))
+    }
+
+    @Test
+    fun theProviderListLeavesOutTheAddressesOfNetworksThatAreOff() = runTest {
+        val providers = ArrayList<FakeProvider>()
+        val reads = reads(providers)
+        status(reads, ethereum)
+        status(reads, sepolia)
+        providers[1].outcomes.addAll(List(6) { ProviderError.Transient() })
+        repeat(2) { runCatching { reads.balance(sepolia, address) } }
+        reads.balance(ethereum, address)
+        assertIs<ProviderStatus.CircuitOpen>(listed(reads))
+
+        settings = settings.copy(enabled = setOf(ethereum.chainId))
+
+        assertIs<ProviderStatus.Healthy>(listed(reads))
     }
 
     @Test
