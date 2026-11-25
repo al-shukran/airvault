@@ -75,4 +75,18 @@ class ProviderWordsTest {
             networkSummary(listOf("Ethereum", "Base", "Arbitrum", "Optimism") + List(10) { "Chain $it" }),
         )
     }
+
+    @Test
+    fun theRpcInUseReadsItsStatusAndTheDayItWasSet() {
+        // 19 Nov 2026, 12:00 UTC: the same day in every time zone from UTC-11 to UTC+11.
+        val sinceMs = 1_795_089_650_000L
+
+        assertEquals("✓ Working · in use since 19 Nov", rpcInUseLine(ProviderStatus.Ready, sinceMs))
+        assertEquals("◆ Rate-Limited · in use since 19 Nov", rpcInUseLine(ProviderStatus.CoolingDown(inMs = 4_000), sinceMs))
+    }
+
+    @Test
+    fun theRpcInUseWithNoDayOnFileReadsWithoutOne() {
+        assertEquals("✓ Working · in use", rpcInUseLine(ProviderStatus.Ready, sinceMs = null))
+    }
 }

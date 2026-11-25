@@ -30,15 +30,23 @@ class NetworkPageTest {
     private val selected = mutableListOf<String>()
     private val removed = mutableListOf<String>()
 
-    private fun show(custom: List<String> = emptyList(), active: String? = null, notice: String? = null) {
+    private fun show(
+        custom: List<String> = emptyList(),
+        active: String? = null,
+        builtInUrl: String? = "https://public.1rpc.io/base",
+        inUseLine: String = "",
+        notice: String? = null,
+    ) {
         compose.setContent {
             LumenTheme {
                 ClearAirTheme {
                     NetworkPage(
                         chainName = "Base",
                         chainLine = "Chain 8453 · ETH",
+                        builtInUrl = builtInUrl,
                         custom = custom,
                         active = active,
+                        inUseLine = inUseLine,
                         providers = emptyList(),
                         busy = false,
                         notice = notice,
@@ -60,9 +68,25 @@ class NetworkPageTest {
     fun theBuiltInRowReturnsToItWhenACustomAddressIsInUse() {
         show(custom = listOf("https://base.example.org"), active = "https://base.example.org")
 
-        compose.onNodeWithText("Built-in RPC").performClick()
+        compose.onNodeWithText("https://public.1rpc.io/base").performClick()
 
         assertEquals(1, builtIn)
+    }
+
+    @Test
+    fun theBuiltInRowShowsItsAddressAndCannotBeDeleted() {
+        show()
+
+        compose.onNodeWithText("https://public.1rpc.io/base").assertExists()
+        compose.onNodeWithText("Built In").assertExists()
+        compose.onNodeWithText("Can't be deleted").assertExists()
+    }
+
+    @Test
+    fun theCustomAddressInUseReadsItsStatusAndTheDayItWasSet() {
+        show(custom = listOf("https://base.example.org"), active = "https://base.example.org", inUseLine = "✓ Working · in use since 19 Nov")
+
+        compose.onNodeWithText("✓ Working · in use since 19 Nov").assertExists()
     }
 
     @Test

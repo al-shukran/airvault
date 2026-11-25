@@ -219,7 +219,15 @@ class CustomRpc(override val allowLocalHttp: Boolean) : EvmRpcProvider(ID, empty
     }
 }
 
-/** The providers of the public pool. The router ranks them, so their order here does not matter. */
+/** The providers of the public pool. The router ranks them by its own rules, so their order here only decides [builtInEndpoint]. */
 object RpcPlugins {
     fun pool(): List<Provider> = listOf(OneRpc(), PublicNode(), Ankr(), DRpc(), Alchemy(), Tenderly(), ChainlistRpc())
+
+    /**
+     * The address shown as the built-in RPC of [net]: the first address that a pool provider has for it, in the order [pool] lists them, read with no
+     * key set, so no key can reach the screen. The pool rotates among its providers, so this is one of the addresses it calls. Null when no pool
+     * provider serves [net].
+     */
+    fun builtInEndpoint(net: NetworkId): String? =
+        pool().filterIsInstance<EvmRpcProvider>().firstNotNullOfOrNull { it.endpoint(net, ProviderConfig()) }
 }

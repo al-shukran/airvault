@@ -100,7 +100,7 @@ class EvmSettingsTest {
     fun aCustomChainWithABuiltInIdIsRefusedBeforeAnyRequest() {
         val input = CustomChainInput(chainId = "1", name = "Copy", symbol = "ETH", rpc = "https://rpc.example.org", testnet = false)
 
-        assertThrows(IllegalArgumentException::class.java) { EvmEdits.addCustom(EvmSettings(), setOf(1L), input, rpc) }
+        assertThrows(IllegalArgumentException::class.java) { EvmEdits.addCustom(EvmSettings(), setOf(1L), input, rpc, nowMs) }
         assertEquals(0, server.requestCount)
     }
 
@@ -108,10 +108,10 @@ class EvmSettingsTest {
     fun aCustomChainNeedsAWholeChainIdNameAndSymbol() {
         val base = CustomChainInput(chainId = "999", name = "Example", symbol = "EXM", rpc = "https://rpc.example.org", testnet = false)
 
-        assertThrows(IllegalArgumentException::class.java) { EvmEdits.addCustom(EvmSettings(), emptySet(), base.copy(chainId = "0"), rpc) }
-        assertThrows(IllegalArgumentException::class.java) { EvmEdits.addCustom(EvmSettings(), emptySet(), base.copy(chainId = "x1"), rpc) }
-        assertThrows(IllegalArgumentException::class.java) { EvmEdits.addCustom(EvmSettings(), emptySet(), base.copy(name = " "), rpc) }
-        assertThrows(IllegalArgumentException::class.java) { EvmEdits.addCustom(EvmSettings(), emptySet(), base.copy(symbol = "E-X"), rpc) }
+        assertThrows(IllegalArgumentException::class.java) { EvmEdits.addCustom(EvmSettings(), emptySet(), base.copy(chainId = "0"), rpc, nowMs) }
+        assertThrows(IllegalArgumentException::class.java) { EvmEdits.addCustom(EvmSettings(), emptySet(), base.copy(chainId = "x1"), rpc, nowMs) }
+        assertThrows(IllegalArgumentException::class.java) { EvmEdits.addCustom(EvmSettings(), emptySet(), base.copy(name = " "), rpc, nowMs) }
+        assertThrows(IllegalArgumentException::class.java) { EvmEdits.addCustom(EvmSettings(), emptySet(), base.copy(symbol = "E-X"), rpc, nowMs) }
         assertEquals(0, server.requestCount)
     }
 
@@ -120,7 +120,7 @@ class EvmSettingsTest {
         server.enqueue(answer("0x1"))
         val input = CustomChainInput(chainId = "999", name = "Example", symbol = "EXM", rpc = url, testnet = false)
 
-        val failure = assertThrows(RpcFailure::class.java) { EvmEdits.addCustom(EvmSettings(), emptySet(), input, rpc) }
+        val failure = assertThrows(RpcFailure::class.java) { EvmEdits.addCustom(EvmSettings(), emptySet(), input, rpc, nowMs) }
         assertEquals(RpcFailure.Reason.WRONG_CHAIN, failure.reason)
     }
 
@@ -129,11 +129,12 @@ class EvmSettingsTest {
         server.enqueue(answer("0x3e7"))
         val input = CustomChainInput(chainId = "999", name = "Example", symbol = "EXM", rpc = url, testnet = true)
 
-        val updated = EvmEdits.addCustom(EvmSettings(), emptySet(), input, rpc)
+        val updated = EvmEdits.addCustom(EvmSettings(), emptySet(), input, rpc, nowMs)
 
         assertEquals(listOf(CustomChain(999L, "Example", "EXM", testnet = true)), updated.custom)
         assertTrue(999L in updated.enabled)
         assertEquals(url, updated.activeRpc(999L))
+        assertEquals(nowMs, updated.rpc[999L]?.activeSince)
     }
 
     @Test
@@ -169,9 +170,9 @@ class EvmSettingsTest {
         val first = server.url("/first").toString()
         val second = server.url("/second").toString()
 
-        val updated = EvmEdits.setRpc(EvmEdits.setRpc(EvmSettings(), 1L, first, rpc), 1L, second, rpc)
+        val updated = EvmEdits.setRpc(EvmEdits.setRpc(EvmSettings(), 1L, first, rpc, nowMs), 1L, second, rpc, nowMs)
 
-        assertEquals(ChainRpcs(custom = listOf(first, second), active = second), updated.rpc[1L])
+        assertEquals(ChainRpcs(custom = listOf(first, second), active = second, activeSince = nowMs), updated.rpc[1L])
     }
 
     @Test
@@ -181,14 +182,14 @@ class EvmSettingsTest {
         val second = server.url("/second").toString()
         val settings = EvmSettings(rpc = mapOf(1L to ChainRpcs(custom = listOf(first, second), active = second)))
 
-        val updated = EvmEdits.setRpc(settings, 1L, first, rpc)
+        val updated = EvmEdits.setRpc(settings, 1L, first, rpc, nowMs)
 
-        assertEquals(ChainRpcs(custom = listOf(first, second), active = first), updated.rpc[1L])
+        assertEquals(ChainRpcs(custom = listOf(first, second), active = first, activeSince = nowMs), updated.rpc[1L])
     }
 
     @Test
     fun anAddressTheChainDoesNotListCannotBeSelected() {
-        assertThrows(IllegalArgumentException::class.java) { EvmEdits.useRpc(EvmSettings(), 1L, "https://rpc.example.org") }
+        assertThrows(IllegalArgumentException::class.java) { EvmEdits.useRpc(EvmSettings(), 1L, "https://rpc.example.org", nowMs) }
     }
 
     @Test
@@ -203,8 +204,8 @@ class EvmSettingsTest {
             ),
         )
 
-        val selected = EvmEdits.useRpc(settings, 1L, first)
-        assertEquals(ChainRpcs(custom = listOf(first, second), active = first), selected.rpc[1L])
+        val selected = EvmEdits.useRpc(settings, 1L, first, nowMs)
+        assertEquals(ChainRpcs(custom = listOf(first, second), active = first, activeSince = nowMs), selected.rpc[1L])
         assertEquals(settings.rpc[10143L], selected.rpc[10143L])
 
         val removedInUse = EvmEdits.removeRpc(selected, 1L, first)
@@ -213,6 +214,30 @@ class EvmSettingsTest {
         val removedLast = EvmEdits.removeRpc(removedInUse, 1L, second)
         assertFalse(removedLast.rpc.containsKey(1L))
         assertEquals(settings.rpc[10143L], removedLast.rpc[10143L])
+    }
+
+    @Test
+    fun anAddressInUseKeepsTheTimeItWasSetWhileItStaysInUse() {
+        val first = "https://first.example.org"
+        val second = "https://second.example.org"
+        val settings = EvmSettings(rpc = mapOf(1L to ChainRpcs(custom = listOf(first, second), active = first, activeSince = nowMs)))
+
+        val again = EvmEdits.useRpc(settings, 1L, first, nowMs + 5_000L)
+        assertEquals(nowMs, again.rpc[1L]?.activeSince)
+
+        val switched = EvmEdits.useRpc(again, 1L, second, nowMs + 5_000L)
+        assertEquals(nowMs + 5_000L, switched.rpc[1L]?.activeSince)
+    }
+
+    @Test
+    fun resettingOrRemovingTheAddressInUseClearsItsTime() {
+        val first = "https://first.example.org"
+        val second = "https://second.example.org"
+        val settings = EvmSettings(rpc = mapOf(1L to ChainRpcs(custom = listOf(first, second), active = first, activeSince = nowMs)))
+
+        assertEquals(ChainRpcs(custom = listOf(first, second)), EvmEdits.resetRpc(settings, 1L).rpc[1L])
+        assertEquals(ChainRpcs(custom = listOf(second)), EvmEdits.removeRpc(settings, 1L, first).rpc[1L])
+        assertEquals(nowMs, EvmEdits.removeRpc(settings, 1L, second).rpc[1L]?.activeSince)
     }
 
     @Test
@@ -243,12 +268,15 @@ class EvmSettingsTest {
 
     private val oldRpc = "https://old.example.org"
 
+    /** 2026-11-19 12:00 UTC, the time an address goes into use in these tests. */
+    private val nowMs = 1_795_089_650_000L
+
     @Test
     fun anRpcThatServesTheChainIsSavedAfterTheCheck() {
         EvmSettingsStore.write(session, EvmSettings(rpc = mapOf(1L to rpcInUse(oldRpc))))
         server.enqueue(answer("0x1"))
 
-        val refusal = EvmSettingsStore.change(session, rpc) { s, r -> EvmEdits.setRpc(s, 1L, url, r) }
+        val refusal = EvmSettingsStore.change(session, rpc) { s, r -> EvmEdits.setRpc(s, 1L, url, r, nowMs) }
 
         assertNull(refusal)
         assertEquals(url, EvmSettingsStore.read(session).activeRpc(1L))
@@ -259,7 +287,7 @@ class EvmSettingsTest {
         EvmSettingsStore.write(session, EvmSettings(rpc = mapOf(1L to rpcInUse(oldRpc))))
         server.enqueue(answer("0x2"))
 
-        val refusal = EvmSettingsStore.change(session, rpc) { s, r -> EvmEdits.setRpc(s, 1L, url, r) }
+        val refusal = EvmSettingsStore.change(session, rpc) { s, r -> EvmEdits.setRpc(s, 1L, url, r, nowMs) }
 
         assertEquals("The endpoint reports chain 2, not 1.", refusal)
         assertEquals(oldRpc, EvmSettingsStore.read(session).activeRpc(1L))
@@ -270,7 +298,7 @@ class EvmSettingsTest {
         EvmSettingsStore.write(session, EvmSettings(rpc = mapOf(1L to rpcInUse(oldRpc))))
         val releaseRpc = EvmRpc(allowLocalHttp = false, timeoutMs = 2_000L)
 
-        val refusal = EvmSettingsStore.change(session, releaseRpc) { s, r -> EvmEdits.setRpc(s, 1L, url, r) }
+        val refusal = EvmSettingsStore.change(session, releaseRpc) { s, r -> EvmEdits.setRpc(s, 1L, url, r, nowMs) }
 
         assertNotNull(refusal)
         assertEquals(0, server.requestCount)
@@ -284,7 +312,7 @@ class EvmSettingsTest {
         server.enqueue(answer("0x3e7"))
         val input = newNetwork.copy(rpc = url, explorer = "https://explorer.example.org")
 
-        val updated = EvmEdits.addCustom(EvmSettings(), emptySet(), input, rpc)
+        val updated = EvmEdits.addCustom(EvmSettings(), emptySet(), input, rpc, nowMs)
 
         assertEquals(CustomChain(999L, "Example", "EXM", testnet = false, explorer = "https://explorer.example.org/"), updated.custom.single())
     }
@@ -292,7 +320,7 @@ class EvmSettingsTest {
     @Test
     fun anExplorerIsAnHttpsAddressOrNone() {
         val refusal = assertThrows(EvmRefusal::class.java) {
-            EvmEdits.addCustom(EvmSettings(), emptySet(), newNetwork.copy(explorer = "http://explorer.example.org"), rpc)
+            EvmEdits.addCustom(EvmSettings(), emptySet(), newNetwork.copy(explorer = "http://explorer.example.org"), rpc, nowMs)
         }
 
         assertEquals(CustomNetworkField.EXPLORER, refusal.field)
@@ -302,7 +330,7 @@ class EvmSettingsTest {
     @Test
     fun aRefusalNamesTheFieldItConcerns() {
         fun fieldOf(input: CustomChainInput, builtInIds: Set<Long> = emptySet()): CustomNetworkField? =
-            assertThrows(EvmRefusal::class.java) { EvmEdits.addCustom(EvmSettings(), builtInIds, input, rpc) }.field
+            assertThrows(EvmRefusal::class.java) { EvmEdits.addCustom(EvmSettings(), builtInIds, input, rpc, nowMs) }.field
 
         assertEquals(CustomNetworkField.CHAIN_ID, fieldOf(newNetwork.copy(chainId = "0")))
         assertEquals(CustomNetworkField.CHAIN_ID, fieldOf(newNetwork.copy(chainId = "1"), builtInIds = setOf(1L)))
@@ -316,7 +344,7 @@ class EvmSettingsTest {
     fun aChainIdAlreadyAddedIsRefusedBeforeAnyRequest() {
         val current = EvmSettings(custom = listOf(CustomChain(999L, "Example", "EXM", testnet = false)))
 
-        val refusal = assertThrows(EvmRefusal::class.java) { EvmEdits.addCustom(current, emptySet(), newNetwork, rpc) }
+        val refusal = assertThrows(EvmRefusal::class.java) { EvmEdits.addCustom(current, emptySet(), newNetwork, rpc, nowMs) }
 
         assertEquals(CustomNetworkField.CHAIN_ID, refusal.field)
         assertEquals(0, server.requestCount)
