@@ -84,7 +84,8 @@ internal object WalletFolder {
 
     /**
      * The plaintext each fixed record can hold. A record that does not fit is refused. The Bitcoin record holds 100 accounts, the largest
-     * a wallet keeps, at up to 70 bytes each with its header, and what is left of [BITCOIN_CAPACITY] is for their profiles.
+     * a wallet keeps, at up to 70 bytes each with its header, and what is left of [BITCOIN_CAPACITY] is for their profiles and the profiles kept for
+     * uninstalled accounts.
      */
     private val CAPACITY: Map<String, Int> = mapOf(
         META to META_CAPACITY,
