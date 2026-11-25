@@ -105,17 +105,19 @@ class EvmReads(
 
     /**
      * A read that finishes after the owner changed the chain's address is dropped and sent again to the new address's scheduler: its outcome was
-     * recorded on the old scheduler, so it would leave the new address looking untried (Ready) while it fails.
+     * recorded on the old scheduler, so it would leave the new address looking untried (Ready) while it fails. A [Broadcast] is never sent again:
+     * the first address may have accepted it, and the second would answer "already known", so the owner would see a failure for a sent transaction.
      */
     private suspend fun <T> run(chain: EvmChain, priority: Priority, req: Request<T>, publicPool: Scheduler = pool): T {
         while (true) {
             val url = settings().activeRpc(chain.chainId)
             val scheduler = if (url != null) ownerOf(chain.chainId, url) else publicPool
+            val again = req !is Broadcast
             try {
                 val result = scheduler.run(req, priority)
-                if (settings().activeRpc(chain.chainId) == url) return result
+                if (!again || settings().activeRpc(chain.chainId) == url) return result
             } catch (e: ProviderError) {
-                if (settings().activeRpc(chain.chainId) == url) throw e.toRpcFailure()
+                if (!again || settings().activeRpc(chain.chainId) == url) throw e.toRpcFailure()
             }
         }
     }

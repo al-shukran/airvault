@@ -56,7 +56,7 @@ class CustomRpcStatusTest {
                     CustomRpc.ID,
                     kind = Kind.RPC,
                     networks = nets,
-                    ops = setOf(Ops.EVM_NATIVE_BALANCE),
+                    ops = setOf(Ops.EVM_NATIVE_BALANCE, Ops.EVM_BROADCAST),
                     latencyMs = latencyMs,
                     now = { testScheduler.currentTime },
                 )
@@ -133,6 +133,21 @@ class CustomRpcStatusTest {
         stale.await()
 
         assertNotEquals(ProviderStatus.Ready, status(reads, sepolia))
+    }
+
+    @Test
+    fun aBroadcastInFlightDuringAnAddressSwapIsNotSentAgain() = runTest {
+        val providers = ArrayList<FakeProvider>()
+        val reads = reads(providers, latencyMs = 100)
+        status(reads, sepolia)
+        providers[0].outcomes.add("0xfirst")
+        val sent = async { reads.broadcast(sepolia, byteArrayOf(1, 2, 3)) }
+        advanceTimeBy(50)
+        settings = EvmSettings(rpc = mapOf(sepolia.chainId to ChainRpcs(custom = listOf("https://three.example"), active = "https://three.example")))
+
+        assertEquals("0xfirst", sent.await())
+        // The new address's scheduler is never made, and the first address got the one call.
+        assertEquals(listOf(1), providers.map { it.calls })
     }
 
     @Test
