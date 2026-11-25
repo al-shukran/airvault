@@ -159,8 +159,10 @@ class LumioCoverageScreenshotTest {
         NetworkPage(
             chainName = "Ethereum",
             chainLine = "Chain 1 · ETH",
+            builtInUrl = "https://public.1rpc.io/eth",
             custom = listOf("https://rpc.example.org"),
             active = "https://rpc.example.org",
+            inUseLine = "✓ Working · in use since 19 Nov",
             providers = emptyList(),
             busy = false,
             notice = null,

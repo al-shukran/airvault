@@ -27,18 +27,20 @@ import app.lumio.ui.kit.ClearAirRadio
 import app.lumio.ui.kit.ClearAirTextAction
 
 /**
- * The Network page (B4) of one chain. The built-in RPC address comes first, and it cannot be deleted. The owner's own addresses follow, one radio row
- * each: the one in use is filled, and tapping a row makes it the one in use at once. [custom] lists those addresses and [active] is the one in use, or
- * null for the built-in address. A new address is typed in the field and checked when the owner presses Add or leaves the field, and a refusal shows under
- * the field with the typed address kept. [providers] are the data providers that serve the chain, in the order they are asked, and [onReorder] gets their
- * new order when the owner drags one. [busy] holds the page while a change runs.
+ * The Network page (B4) of one chain. The built-in RPC row shows [builtInUrl], the address the built-in RPC reads from, and it cannot be deleted. The owner's own
+ * addresses follow, one radio row each: the one in use is filled, shows [inUseLine], and tapping a row makes it the one in use at once. [custom] lists
+ * those addresses and [active] is the one in use, or null for the built-in address. A new address is typed in the field and checked when the owner presses
+ * Add or leaves the field, and a refusal shows under the field with the typed address kept. [providers] are the data providers that serve the chain, in
+ * the order they are asked, and [onReorder] gets their new order when the owner drags one. [busy] holds the page while a change runs.
  */
 @Composable
 fun NetworkPage(
     chainName: String,
     chainLine: String,
+    builtInUrl: String?,
     custom: List<String>,
     active: String?,
+    inUseLine: String,
     providers: List<ProviderRow>,
     busy: Boolean,
     notice: String?,
@@ -61,7 +63,7 @@ fun NetworkPage(
         ClearAirNote(text = chainLine, modifier = Modifier.padding(top = ClearAirSpacing.md))
         SettingsGroup(title = "Default RPC") {
             ClearAirListRow(
-                title = "Built-in RPC",
+                title = builtInUrl ?: "Built-in RPC",
                 tag = "Built In",
                 description = "Can't be deleted",
                 modifier = Modifier.selectable(selected = active == null, enabled = !busy, role = Role.RadioButton, onClick = onUseBuiltIn),
@@ -73,7 +75,7 @@ fun NetworkPage(
                 custom.forEach { url ->
                     ClearAirListRow(
                         title = url,
-                        description = if (url == active) "In use" else null,
+                        description = if (url == active) inUseLine else null,
                         modifier = Modifier.selectable(
                             selected = url == active,
                             enabled = !busy,
