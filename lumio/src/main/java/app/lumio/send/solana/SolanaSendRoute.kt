@@ -48,7 +48,7 @@ import app.lumio.notesDetail
 import app.lumio.isFirstTime
 import app.lumio.lookalikeWarnings
 import app.lumio.nameOrAddress
-import app.lumio.nameWithStart
+import app.lumio.nameWithEnds
 import app.lumio.onVault
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
@@ -559,7 +559,7 @@ internal fun SolanaSendRoute(
             }
             val toName = nameOrAddress(notes, current.plan.recipientAddress)
             SendReviewPage(
-                heading = "Send ${solanaAmountText(current.plan, selected.symbol)} from ${isolated(fromName)} to ${nameWithStart(notes, current.plan.recipientAddress)}?",
+                heading = "Send ${solanaAmountText(current.plan, selected.symbol)} from ${isolated(fromName)} to ${nameWithEnds(notes, current.plan.recipientAddress)}?",
                 toTitle = toName,
                 toDetail = notes?.let(::notesDetail).orEmpty(),
                 toAddress = current.plan.recipientAddress,

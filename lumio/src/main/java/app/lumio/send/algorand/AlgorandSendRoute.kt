@@ -46,7 +46,7 @@ import app.lumio.notesDetail
 import app.lumio.isFirstTime
 import app.lumio.lookalikeWarnings
 import app.lumio.nameOrAddress
-import app.lumio.nameWithStart
+import app.lumio.nameWithEnds
 import app.lumio.onVault
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
@@ -493,7 +493,7 @@ internal fun AlgorandSendRoute(
                 heading = if (optIn) {
                     "Opt In to ${selected.symbol} (ASA ${selected.assetId})?"
                 } else {
-                    "Send ${AlgorandAssets.amountText(current.plan, selected.symbol, selected.decimals)} from ${isolated(fromName)} to ${nameWithStart(notes, current.plan.toAddress)}?"
+                    "Send ${AlgorandAssets.amountText(current.plan, selected.symbol, selected.decimals)} from ${isolated(fromName)} to ${nameWithEnds(notes, current.plan.toAddress)}?"
                 },
                 toTitle = toName,
                 toDetail = if (optIn) "Your account" else notes?.let(::notesDetail).orEmpty(),

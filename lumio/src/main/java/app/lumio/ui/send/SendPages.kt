@@ -32,13 +32,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import app.lensly.app.addressEnds
 import app.lensly.ui.qr.AnimatedQr
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.evm.SendInput
 import app.lumio.receive.monogramOf
-import app.lumio.receive.shortAddress
 import app.lumio.ui.kit.ClearAirField
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
@@ -208,7 +208,7 @@ fun SendRecipientPage(
             accounts.forEachIndexed { index, choice ->
                 ClearAirRow(
                     title = choice.title,
-                    description = joined(choice.detail, shortAddress(choice.address)),
+                    description = joined(choice.detail, addressEnds(choice.address)),
                     leading = { ClearAirMonogram(text = monogramOf(choice.title)) },
                     onClick = { onPick(choice) },
                     divider = index > 0,
@@ -221,7 +221,7 @@ fun SendRecipientPage(
             addressBook.forEachIndexed { index, choice ->
                 ClearAirRow(
                     title = choice.title,
-                    description = joined(choice.detail, shortAddress(choice.address)),
+                    description = joined(choice.detail, addressEnds(choice.address)),
                     leading = { ClearAirMonogram(text = monogramOf(choice.title)) },
                     onClick = { onPick(choice) },
                     divider = index > 0,
@@ -283,7 +283,7 @@ fun SendAmountPage(
         SendGroupHeading(text = "To", top = ClearAirSpacing.md)
         ClearAirRow(
             title = toTitle,
-            description = joined(toDetail, shortAddress(toAddress)),
+            description = joined(toDetail, addressEnds(toAddress)),
             leading = { ClearAirMonogram(text = monogramOf(toTitle)) },
             trailing = { ClearAirTextAction(text = "Change", onClick = onChangeRecipient) },
             compact = true,

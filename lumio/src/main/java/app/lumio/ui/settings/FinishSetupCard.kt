@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -29,6 +28,7 @@ import app.lumio.data.config.FinishItem
 import app.lumio.data.config.FinishSetup
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
+import app.lumio.ui.kit.ClearAirLineBox
 import app.lumio.ui.kit.ClearAirSegments
 
 /** The title of a checklist item, in CMOS title case like every label. */
@@ -68,13 +68,13 @@ internal fun FinishSetupCard(setup: FinishSetup, onOpen: (FinishItem) -> Unit, m
                 .padding(horizontal = ClearAirSpacing.md, vertical = 14.dp),
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 21.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
                     text = "Finish Setting Up",
                     modifier = Modifier.alignByBaseline(),
-                    style = ClearAirType.rowTitle.copy(fontWeight = FontWeight.Bold, lineHeight = 21.sp),
+                    style = ClearAirType.rowTitle.copy(fontWeight = FontWeight.Bold, lineHeight = 21.sp, lineHeightStyle = ClearAirLineBox),
                     color = palette.ink,
                 )
                 Text(
@@ -95,7 +95,7 @@ internal fun FinishSetupCard(setup: FinishSetup, onOpen: (FinishItem) -> Unit, m
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(text = next.title, style = ClearAirType.body.copy(fontSize = 14.sp, lineHeight = 21.sp), color = palette.ink)
+                Text(text = next.title, style = ClearAirType.body.copy(fontSize = 14.sp, lineHeight = 21.sp, lineHeightStyle = ClearAirLineBox), color = palette.ink)
                 ClearAirIcon(glyph = ClearAirGlyph.CHEVRON, color = palette.ink2, size = 16.dp)
             }
         }

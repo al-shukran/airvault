@@ -109,10 +109,10 @@ internal object CoinActivityPreload {
 
     /**
      * Reads the activity on the application's scope and waits [WAIT_MS] for it. A read that takes longer goes on and keeps its page for the Asset page's
-     * first frame, as only the wait ends.
+     * first frame, as only the wait ends. [load] is the read, which a test replaces to make it slow.
      */
-    suspend fun preload(app: LumioApp, vault: LumioVault, key: CoinActivityKey) {
-        val read = app.runInAppScope { read(app, vault, key, live = false) }
+    suspend fun preload(app: LumioApp, vault: LumioVault, key: CoinActivityKey, load: suspend () -> Unit = { read(app, vault, key, live = false) }) {
+        val read = app.runInAppScope(load)
         withTimeoutOrNull(WAIT_MS) { read.join() }
     }
 }

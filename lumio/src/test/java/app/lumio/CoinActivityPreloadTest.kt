@@ -18,7 +18,13 @@ import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -80,7 +86,30 @@ class CoinActivityPreloadTest {
         }
     }
 
+    /** A read that outlasts the wait does not hold the tap: preload returns after [CoinActivityPreload.WAIT_MS] of virtual time, and the read goes on to keep its page. */
+    @Test
+    fun aSlowReadDoesNotHoldTheTapBeyondTheWaitAndKeepsItsPageWhenItFinishes() = runTest {
+        val open = open()
+        val gate = CompletableDeferred<Unit>()
+
+        val started = testScheduler.currentTime
+        withTimeout(CoinActivityPreload.WAIT_MS + SLACK_MS) {
+            CoinActivityPreload.preload(app, open, key) {
+                gate.await()
+                CoinActivityPreload.read(app, open, key, live = false)
+            }
+        }
+
+        assertEquals(CoinActivityPreload.WAIT_MS, testScheduler.currentTime - started)
+        assertNull(CoinActivityPreload.pageOf(open, key))
+        gate.complete(Unit)
+        withContext(Dispatchers.Default) {
+            withTimeout(10_000) { while (CoinActivityPreload.pageOf(open, key) == null) delay(10) }
+        }
+    }
+
     private companion object {
+        const val SLACK_MS = 50L
         const val PASSWORD = "q7Vn!2Lx#Rb9Tm4Wc8Zp"
         val KDF = KdfParams(memoryKiB = 8 * 1024, iterations = 1)
     }

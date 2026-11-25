@@ -16,25 +16,21 @@ enum class FirstRunStep(val route: String) {
     DeviceProtection("first-run/device-protection"),
 }
 
-/** One segment of the chapter bar: nothing yet, under way, or done. [fraction] is how much of the segment is filled; the mock fills 40 percent of a chapter under way. */
-enum class ChapterFill(val fraction: Float) { Empty(0f), Started(0.4f), Full(1f) }
-
-private val UNDERSTAND = FirstRunStep.Welcome.ordinal..FirstRunStep.Notice.ordinal
-private val PROTECT = FirstRunStep.CreatePassword.ordinal..FirstRunStep.DeviceProtection.ordinal
+/**
+ * One segment of the chapter bar: nothing yet, or how much of it is filled. [fraction] is the share of the segment in ink. The mock fills 40 percent of
+ * Understand while the owner reads its statements, and Protect 15, 40 and 80 percent on its three screens.
+ */
+enum class ChapterFill(val fraction: Float) { Empty(0f), Early(0.15f), Started(0.4f), Late(0.8f), Full(1f) }
 
 /**
- * The three segments of the chapter bar for [step]: Understand, Protect and Pair. A chapter is Started while the owner is inside it and Full
- * from its last screen on. Before its first screen it is Empty, so preparing Lensly (I6) leaves Protect empty. Pair fills only once
- * scanning starts, which is after these screens, so it is always empty here.
+ * The three segments of the chapter bar for [step]: Understand, Protect and Pair. Understand is Full from the Important Notice on, so preparing
+ * Lensly (I6) leaves Protect empty, and Protect fills as the mock draws it across its screens. Pair fills only once scanning starts, which is
+ * after these screens, so it is always empty here.
  */
-fun chapterFills(step: FirstRunStep): List<ChapterFill> = listOf(
-    chapterFill(UNDERSTAND, step),
-    chapterFill(PROTECT, step),
-    ChapterFill.Empty,
-)
-
-private fun chapterFill(chapter: IntRange, step: FirstRunStep): ChapterFill = when {
-    step.ordinal < chapter.first -> ChapterFill.Empty
-    step.ordinal >= chapter.last -> ChapterFill.Full
-    else -> ChapterFill.Started
+fun chapterFills(step: FirstRunStep): List<ChapterFill> = when (step) {
+    FirstRunStep.Welcome, FirstRunStep.Keys, FirstRunStep.NeverShare, FirstRunStep.ProvidedAsIs -> listOf(ChapterFill.Started, ChapterFill.Empty, ChapterFill.Empty)
+    FirstRunStep.Notice, FirstRunStep.PrepareLensly -> listOf(ChapterFill.Full, ChapterFill.Empty, ChapterFill.Empty)
+    FirstRunStep.CreatePassword -> listOf(ChapterFill.Full, ChapterFill.Early, ChapterFill.Empty)
+    FirstRunStep.Duress -> listOf(ChapterFill.Full, ChapterFill.Started, ChapterFill.Empty)
+    FirstRunStep.DeviceProtection -> listOf(ChapterFill.Full, ChapterFill.Late, ChapterFill.Empty)
 }

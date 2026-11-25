@@ -6,6 +6,7 @@ import app.lumio.data.cache.CachePolicy
 import app.lumio.data.cache.CacheUse
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
+import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.OpKey
 import app.lumio.data.provider.Provider
@@ -50,6 +51,8 @@ enum class Priority(internal val rank: Int, val deadlineMs: Long) {
  * - [ProviderError.Transient], and an [IOException] such as a timeout, passes the provider over: the other candidates go first, for an exponential
  *   penalty from 30 s (cap 5 min) that counts the transient failures in a row. The call moves to the next candidate at once, or after a jittered
  *   backoff when no other provider is left for it. A call makes at most three attempts that fail, rate-limited or transient.
+ * - A [Broadcast] is never sent again after a transient failure or a timeout: the provider may have accepted it, and a second send would be refused
+ *   as already known. It fails with that error, and a rate-limited or refused broadcast still moves to the next candidate.
  * - Five transient failures in a row open the provider's circuit for 60 s. Then one probe call goes out. A successful probe closes the circuit,
  *   and a failed one opens it again.
  * - [ProviderError.Unsupported] and [ProviderError.Fatal] skip the provider for that call only. [ProviderError.NotFound] is an answer.
@@ -166,6 +169,8 @@ class Scheduler(
             }
             settle(grant, Outcome.Failed(failure))
             lastError = failure
+            // A broadcast that ends unanswered may have been accepted, and a second send of it would come back "already known". The owner sees the failure.
+            if (req is Broadcast && failure is ProviderError.Transient) throw failure
             // A rate-limited attempt waits for a cooldown, and that wait is not timed, so every failed attempt counts toward MAX_ATTEMPTS.
             if (failure is ProviderError.RateLimited || failure is ProviderError.Transient) {
                 failedAttempts++

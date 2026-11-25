@@ -1,7 +1,9 @@
 package app.lumio.ui.firstrun
 
+import app.lumio.ui.firstrun.ChapterFill.Early
 import app.lumio.ui.firstrun.ChapterFill.Empty
 import app.lumio.ui.firstrun.ChapterFill.Full
+import app.lumio.ui.firstrun.ChapterFill.Late
 import app.lumio.ui.firstrun.ChapterFill.Started
 import app.lumio.ui.firstrun.FirstRunStep.CreatePassword
 import app.lumio.ui.firstrun.FirstRunStep.DeviceProtection
@@ -46,8 +48,8 @@ class FirstRunStepTest {
 
     @Test
     fun protectFillsAcrossItsScreens() {
-        assertEquals(listOf(Full, Started, Empty), chapterFills(CreatePassword))
+        assertEquals(listOf(Full, Early, Empty), chapterFills(CreatePassword))
         assertEquals(listOf(Full, Started, Empty), chapterFills(Duress))
-        assertEquals(listOf(Full, Full, Empty), chapterFills(DeviceProtection))
+        assertEquals(listOf(Full, Late, Empty), chapterFills(DeviceProtection))
     }
 }
