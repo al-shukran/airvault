@@ -106,10 +106,10 @@ private fun clearAirStyle(family: FontFamily, weight: FontWeight, step: ClearAir
 /** The Clear Air type scale: one style for each role of the proposal. The sizes come from [ClearAirScale]. */
 object ClearAirType {
     /** The hero numeral of an overview: JetBrains Mono Light. */
-    val hero = clearAirStyle(NumberFamily, FontWeight.Light, ClearAirScale.hero).copy(letterSpacing = (-0.06).em)
+    val hero = clearAirStyle(NumberFamily, FontWeight.Light, ClearAirScale.hero)
 
     /** A page total, left-aligned: JetBrains Mono Light. */
-    val total = clearAirStyle(NumberFamily, FontWeight.Light, ClearAirScale.total).copy(letterSpacing = (-0.04).em)
+    val total = clearAirStyle(NumberFamily, FontWeight.Light, ClearAirScale.total)
 
     /** An amount in a flow: JetBrains Mono Light. */
     val amountLarge = clearAirStyle(NumberFamily, FontWeight.Light, ClearAirScale.amountLarge)
