@@ -557,6 +557,28 @@ class BtcScanTest {
     }
 
     @Test
+    fun anElectrumTipBehindTheListedTransactionsDoesNotMakeThemPending() = runBlocking {
+        // Esplora lists a transaction in a block that is above the tip Electrum reports, as when Electrum lags by 77 blocks.
+        val block = ELECTRUM_TIP + 77
+        val tx = """[{"txid":"${"a".repeat(64)}","vin":[],"vout":[{"scriptpubkey_address":"${receive[0]}","value":120000}],""" +
+            """"status":{"confirmed":true,"block_height":$block,"block_time":1700000000}}]"""
+        for (server in listOf(first, second)) server.txs[receive[0]] = tx
+        electrumServer().use { fake ->
+            val pool = ElectrumPool(servers = listOf(ElectrumServer("localhost", Trust.Pinned(TestIdentities.server.spkiSha256), port = fake.port)))
+            val seen = mutableListOf<Long>()
+
+            val snapshot = scanAccount(
+                ref, this.scheduler(), Priority.VISIBLE, nowMs = 1L, detail = true, electrum = pool,
+                onTxs = { _, _, tipHeight -> seen += tipHeight },
+            )
+
+            assertEquals(block, snapshot.tipHeight)
+            assertEquals(1L, snapshot.confirmations(snapshot.transactions.single()), "the transaction is in the tip block, not pending")
+            assertTrue(seen.all { it >= block }, "the stored history is counted from a tip that is not below its blocks: $seen")
+        }
+    }
+
+    @Test
     fun electrumReadsTheAccountWhileEveryEsploraProviderIsDown() = runBlocking {
         first.status = 500
         second.status = 429
