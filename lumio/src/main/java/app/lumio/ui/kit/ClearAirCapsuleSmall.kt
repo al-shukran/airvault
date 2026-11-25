@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -12,7 +11,6 @@ import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirCapsule
 import app.lensly.ui.theme.ClearAirMotion
-import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 
 /** The visible height of the compact capsule, and the 48 dp touch target it sits in. */
@@ -24,10 +22,10 @@ private val CAPSULE_PADDING = 22.dp
 
 /**
  * The compact capsule: a filled action beside another action, such as Send beside Receive under a total. It is 44 dp high inside a 48 dp touch target,
- * scales to 0.98 while pressed, and gives a light tick. Disabled, it sits on the raised layer with secondary text, and the reason is said beside it.
+ * scales to 0.98 while pressed, and gives a light tick. Disabled, it sits on the raised layer with secondary text, and the reason is said beside it. An [icon] sits before the label.
  */
 @Composable
-fun ClearAirCapsuleSmall(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+fun ClearAirCapsuleSmall(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, icon: ClearAirGlyph? = null) {
     val haptics = rememberLumioHaptics()
     val palette = LocalClearAirPalette.current
     Box(
@@ -51,12 +49,7 @@ fun ClearAirCapsuleSmall(text: String, onClick: () -> Unit, modifier: Modifier =
                 .padding(horizontal = CAPSULE_PADDING),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = text,
-                style = ClearAirType.rowTitle,
-                color = if (enabled) palette.onPrimary else palette.ink2,
-                maxLines = 1,
-            )
+            CapsuleLabel(text = text, icon = icon, color = if (enabled) palette.onPrimary else palette.ink2)
         }
     }
 }

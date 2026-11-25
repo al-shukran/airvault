@@ -118,7 +118,7 @@ internal fun ReceiveFlowSheet(
 }
 
 /**
- * The body of one step of the Receive sheet: the grabber, the step's [content] in a column that scrolls, and the step's [bottom] action at the foot. The
+ * The body of one step of the Receive sheet: the step's [content] in a column that scrolls, and the step's [bottom] action at the foot. The
  * content carries its own gutter, so a choice row sits full width as a kit row does, and every heading and note pads itself to the same gutter.
  */
 @Composable
@@ -127,7 +127,6 @@ internal fun ReceiveSheetFrame(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)) {
-        Grabber()
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -141,20 +140,6 @@ internal fun ReceiveSheetFrame(
                 content = bottom,
             )
         }
-    }
-}
-
-/** The grabber at the top of the sheet: a short bar, dimmed. */
-@Composable
-private fun Grabber() {
-    val palette = LocalClearAirPalette.current
-    Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp), contentAlignment = Alignment.Center) {
-        Box(
-            modifier = Modifier
-                .size(width = 36.dp, height = 4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(palette.ink3.copy(alpha = GRABBER_ALPHA)),
-        )
     }
 }
 
@@ -368,5 +353,3 @@ private fun ReceiveCoin.matches(query: String): Boolean {
     return needle.isEmpty() || name.contains(needle, ignoreCase = true) || symbol.contains(needle, ignoreCase = true)
 }
 
-/** The grabber's dimming, the proposal's 55 percent of the ink. */
-private const val GRABBER_ALPHA = 0.55f

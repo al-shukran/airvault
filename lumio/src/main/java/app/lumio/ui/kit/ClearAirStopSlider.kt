@@ -1,7 +1,6 @@
 package app.lumio.ui.kit
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -20,9 +19,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
@@ -34,17 +34,21 @@ import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import kotlin.math.roundToInt
 
+/** The thumb's radius, which is also how far the track and its stops sit in from each edge. */
+private val THUMB_RADIUS = 11.dp
+
 /**
- * A discrete slider with one stop per entry of [labels], such as Slow, Normal and Fast. The track has a tick at each stop and the spark thumb sits
- * on [selected]. A tap or a drag moves the thumb to the nearest stop, and [onSelect] gets its index. The labels sit under the track, and the
- * selected one is in full ink, so the choice reads in words as well as position.
+ * A discrete slider with one stop per entry of [labels], such as Slow, Normal and Fast. The track has a faint dot at each stop, ink fills it up to
+ * [selected], and the ink thumb sits on it. A tap or a drag moves the thumb to the nearest stop, and [onSelect] gets its index. The labels sit under
+ * the track, and the selected one is in full ink, so the choice reads in words as well as position.
  */
 @Composable
 fun ClearAirStopSlider(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
     val last = (labels.size - 1).coerceAtLeast(1)
     var width by remember { mutableFloatStateOf(0f) }
-    fun stopAt(x: Float): Int = if (width <= 0f) selected else ((x / width).coerceIn(0f, 1f) * last).roundToInt()
+    val inset = with(LocalDensity.current) { THUMB_RADIUS.toPx() }
+    fun stopAt(x: Float): Int = if (width <= 2 * inset) selected else (((x - inset) / (width - 2 * inset)).coerceIn(0f, 1f) * last).roundToInt()
     Column(modifier = modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
@@ -72,25 +76,17 @@ fun ClearAirStopSlider(labels: List<String>, selected: Int, onSelect: (Int) -> U
                     )
                 },
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(2.dp)
-                    .align(Alignment.Center)
-                    .background(palette.hairline),
-            )
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val y = size.height / 2
+                val span = size.width - 2 * inset
+                fun stopX(index: Int) = inset + span * index / last
+                val thumb = Offset(stopX(selected), y)
+                drawLine(palette.hairline, Offset(inset, y), Offset(inset + span, y), strokeWidth = 4.dp.toPx(), cap = StrokeCap.Round)
+                drawLine(palette.ink, Offset(inset, y), thumb, strokeWidth = 4.dp.toPx(), cap = StrokeCap.Round)
                 labels.indices.forEach { index ->
-                    drawCircle(
-                        color = if (index <= selected) palette.ink else palette.ink2,
-                        radius = 3.dp.toPx(),
-                        center = Offset(size.width * index / last, y),
-                    )
+                    if (index != selected) drawCircle(color = palette.ink3, radius = 3.dp.toPx(), center = Offset(stopX(index), y))
                 }
-                val thumb = Offset(size.width * selected / last, y)
-                drawCircle(color = palette.spark, radius = 11.dp.toPx(), center = thumb)
-                drawCircle(color = palette.ink, radius = 11.dp.toPx(), center = thumb, style = Stroke(width = 1.dp.toPx()))
+                drawCircle(color = palette.ink, radius = inset, center = thumb)
             }
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

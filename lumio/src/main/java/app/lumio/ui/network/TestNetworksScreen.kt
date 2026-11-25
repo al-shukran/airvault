@@ -26,7 +26,7 @@ import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSwitch
-import app.lumio.ui.kit.LumioTag
+import app.lumio.ui.kit.ClearAirTag
 
 /** The chain ID of Monad Testnet, the EVM default: where Send starts. */
 private const val MONAD_TESTNET = 10143L
@@ -103,7 +103,7 @@ private fun SwitchRow(title: String, description: String, tag: String?, checked:
                 Text(text = title, style = ClearAirType.rowTitle, color = palette.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (tag != null) {
                     Spacer(Modifier.width(ClearAirSpacing.xs))
-                    LumioTag(text = tag)
+                    ClearAirTag(text = tag)
                 }
             }
             Text(text = description, style = ClearAirType.body, color = palette.ink2)
