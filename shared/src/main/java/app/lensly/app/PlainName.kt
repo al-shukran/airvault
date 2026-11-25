@@ -53,39 +53,43 @@ fun plainNameOf(name: String, max: Int = PLAIN_NAME_MAX): String {
 
 /** An address as a name: "0x" and 4 hex digits, a bech32 prefix and a body, or a run of 20 or more letters and digits with a digit and 2 letters. */
 private val ADDRESS_START = Regex("""0x\s?[0-9a-f]{4}|\b(?:bc1|tb1)[0-9a-z]{6,}""", RegexOption.IGNORE_CASE)
-private val ALPHANUMERIC_RUN = Regex("[0-9A-Za-z]{20,}")
-private val SEPARATORS = Regex("[\\s\\-._]")
+private val ALPHANUMERIC_RUN = Regex("""[\p{L}\p{N}]{20,}""")
 
-/** The longest piece of a grouped or split address. Lensly groups by 4, a hand split goes to about 12, a word such as "Savings2024Fund" is longer. */
-private const val MAX_ADDRESS_CHUNK = 12
+/** Anything that is not a letter or a digit, so a space, slash, colon, dot, dash, comma and a combining mark all cut a name into pieces. */
+private val NOT_ALPHANUMERIC = Regex("""[^\p{L}\p{N}]+""")
 
-/** Cyrillic letters that look like the Latin ones of "0x" and of hex digits, "ох" and "0х" included. Only the "0x" check reads them. */
+/** An ordinary word: one capital at most, then 3 or more lowercase letters, as in "Samsung", "Galaxy" or "Case". Address pieces rarely look like this. */
+private val WORD = Regex("""\p{Lu}?\p{Ll}{3,}""")
+
+/** Cyrillic and Greek letters that look like the Latin ones of "0x" and of hex digits, "ох" and "0х" included. Only the "0x" check reads them. */
 private val CONFUSABLES = mapOf(
-    'о' to '0', 'О' to '0', 'х' to 'x', 'Х' to 'X', 'а' to 'a', 'А' to 'A', 'с' to 'c', 'С' to 'C', 'е' to 'e', 'Е' to 'E', 'В' to 'B',
+    'о' to '0', 'О' to '0', 'ο' to '0', 'Ο' to '0', 'х' to 'x', 'Х' to 'X', 'Χ' to 'X', 'а' to 'a', 'А' to 'A', 'с' to 'c', 'С' to 'C',
+    'е' to 'e', 'Е' to 'E', 'В' to 'B',
 )
 
-private fun hasAddressRun(text: String): Boolean =
-    ALPHANUMERIC_RUN.findAll(text).any { run -> run.value.count(Char::isDigit) >= 1 && run.value.count(Char::isLetter) >= 2 }
+/** A run of [ALPHANUMERIC_RUN] with a digit, 2 letters and an ASCII letter. Letters of another script inside it do not break it, they make it more suspect. */
+private fun hasAddressRun(text: String): Boolean = ALPHANUMERIC_RUN.findAll(text).any { match ->
+    val run = match.value
+    run.any { it in '0'..'9' } && run.count(Char::isLetter) >= 2 && run.any { it in 'A'..'Z' || it in 'a'..'z' }
+}
 
 /**
  * Whether [name] reads as an address, so that shown in bold above the real one it could be taken for it: it holds "0x" and 4 hex digits
  * (also in a spaced form such as "0x71C7 656E … 976F"), a "bc1" or "tb1" address start, or a run of 20 or more letters and digits with a digit and 2
- * letters, which is what a Solana or Algorand address looks like and a word is not. The name is read again after NFKC folding (fullwidth
- * "０ｘ"), with Cyrillic lookalikes of "0x" and hex digits, and with spaces, "-", "." and "_" removed (a grouped or split address). The
- * grouped form counts only for 3 or more pieces of at most [MAX_ADDRESS_CHUNK] characters, one of them mixing letters and digits, so
- * "Rent 2024 March" or "Savings2024Fund" is a name.
+ * letters, which is what a Solana or Algorand address looks like and a word is not. The name is read after NFKC folding (fullwidth "０ｘ").
+ * The "0x" start is also read with Cyrillic and Greek lookalikes mapped to Latin. The name is cut into pieces at every character that is not
+ * a letter or a digit, so an address split by a space, slash, colon, dot or dash, into any number of pieces of any size, is one run again.
+ * Pieces that are plain words ([WORD]) are left out first, so "Samsung Galaxy S24 Ultra 256GB" or "Savings2024 Fund Account" is a name. A
+ * letter of another script inside a run that holds Latin letters and a digit counts as part of the run, so a Cyrillic "Х" for an "X" does not hide it.
  */
 fun looksLikeAddressName(name: String): Boolean {
     val folded = Normalizer.normalize(name, Normalizer.Form.NFKC)
-    val chunks = folded.split(SEPARATORS).filter { it.isNotEmpty() }
-    val grouped = chunks.joinToString("")
-    return hasAddressStart(folded) || hasAddressStart(grouped) || hasAddressRun(folded) ||
-        (chunks.size >= 3 && chunks.all { it.length <= MAX_ADDRESS_CHUNK } && chunks.any(::mixesLettersAndDigits) && hasAddressRun(grouped))
+    val pieces = folded.split(NOT_ALPHANUMERIC).filter { it.isNotEmpty() }
+    return hasAddressStart(folded) || hasAddressStart(pieces.joinToString("")) ||
+        hasAddressRun(pieces.filterNot { WORD.matches(it) }.joinToString(""))
 }
 
 private fun hasAddressStart(text: String): Boolean = ADDRESS_START.containsMatchIn(text.map { CONFUSABLES[it] ?: it }.joinToString(""))
-
-private fun mixesLettersAndDigits(chunk: String): Boolean = chunk.any(Char::isDigit) && chunk.any(Char::isLetter)
 
 /**
  * [plainNameOf] of [name], or null when [name] is null, has nothing visible left, or [looksLikeAddressName]. A caller shows the grouped

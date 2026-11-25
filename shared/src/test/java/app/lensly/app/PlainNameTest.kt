@@ -116,6 +116,41 @@ class PlainNameTest {
     }
 
     @Test
+    fun anAddressSplitAnyWayIsRecognised() {
+        assertTrue(looksLikeAddressName("9WzD/XwBb/mkg8/ZTbN/MqUx/vQRA/yWQp/Hk3z"))
+        assertTrue(looksLikeAddressName("9WzDXwBbmkg8ZTbN:MqUxvQRAyWQpHk3z"))
+        assertTrue(looksLikeAddressName("9WzD:XwBb:mkg8:ZTbN:MqUx:vQRA"))
+        assertTrue(looksLikeAddressName("9WzDXwBbmkg8ZTbN MqUxvQRAyWQpHk3z"))
+        assertTrue(looksLikeAddressName("9WzDXwBbmkg8ZTb NMqUxvQRAy WQpHk3zq"))
+        assertTrue(looksLikeAddressName("9WzD, XwBb | mkg8 \u2022 ZTbN MqUx vQRA"))
+        // Plain words around the pieces do not hide them.
+        assertTrue(looksLikeAddressName("International Savings Account 9WzD XwBb mkg8 ZTbN MqUx"))
+    }
+
+    @Test
+    fun lookalikeLettersInsideAnAddressDoNotHideIt() {
+        // Cyrillic Х, В and х for the Latin X, B and x.
+        assertTrue(looksLikeAddressName("9WzD\u0425w\u0412bmkg8ZTbNMqU\u0445vQRAy"))
+        assertTrue(looksLikeAddressName("9WzD\u0425w\u0412bmkg8 ZTbNMqU\u0445vQRAy"))
+        // Greek omicron and nu, Cyrillic er, u, i and ka.
+        assertTrue(looksLikeAddressName("9WzDXwBbmkg8ZTbNMqUxvQRA\u03BFy\u03BD"))
+        assertTrue(looksLikeAddressName("9WzDXwBbmkg8ZT\u0440\u0443\u0456\u043AMqUxvQRAy"))
+        // Greek omicron and Cyrillic ha for "0x".
+        assertTrue(looksLikeAddressName("\u03BF\u0445" + "71C7656E"))
+        // A Cyrillic name with a digit holds no Latin letter and stays a name.
+        assertFalse(looksLikeAddressName("\u0421\u0435\u0442\u044C2024\u041A\u043E\u0448\u0435\u043B\u0435\u043A\u041E\u0441\u043D\u043E\u0432\u043D\u043E\u0439"))
+    }
+
+    @Test
+    fun wordsWithAShortModelNumberAreNames() {
+        assertFalse(looksLikeAddressName("Samsung Galaxy S24 Ultra 256GB"))
+        assertFalse(looksLikeAddressName("Savings2024 Fund Account"))
+        assertFalse(looksLikeAddressName("iPhone15 Pro Max 2024 Case"))
+        assertFalse(looksLikeAddressName("Ledger Nano X 2024 Backup Wallet"))
+        assertFalse(looksLikeAddressName("Family/Savings: 2024 Emergency Fund"))
+    }
+
+    @Test
     fun anAddressLikeNameShowsAsTheGroupedAddress() {
         val entry = AddressBookEntry(id = "1", address = "0x1234567890abcdef1234567890abcdef12345678", name = "0x71C7 656E \u2026 976F", label = null)
         assertNull(plainNameOrNull(entry.name))
