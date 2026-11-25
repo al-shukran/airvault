@@ -95,6 +95,7 @@ still=()
 for ((i = 0; i < n; i++)); do
   f=${inputs[i]}
   case $f in *.png | *.PNG) still[i]=1 ;; *) still[i]=0 ;; esac
+  check_capture "$f" || exit 1
   check_screen "$f" "${starts[i]}" || exit 1
 done
 
@@ -265,5 +266,6 @@ for ext in mp4 gif png; do
   [ -f "$work/$name.$ext" ] || continue
   [ "$(size_of "$work/$name.$ext")" -le "$max_bytes" ] || { echo "$name.$ext is larger than 10 MB" >&2; exit 1; }
   cp "$work/$name.$ext" "$out/$name.$ext"
+  stamp_compose "$out/$name.$ext"
   echo "wrote $out/$name.$ext ($(size_of "$out/$name.$ext") bytes)"
 done

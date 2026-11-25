@@ -72,3 +72,7 @@ Every recording follows these rules, so that all of them read as one set:
 
 - `adb`, `ffmpeg`, `ffprobe`, ImageMagick 7 (`magick`), `awk`, and GitHub CLI 2.99 or later. Install with `brew install ffmpeg imagemagick`.
 - Android Studio with its Pixel 7 device art. Set `PR_RECORDING_DEVICE_ART` to point at another copy of that art folder. Set `PR_RECORDING_FONT` to use another bold sans.
+
+## Capture Stamp
+
+`capture.sh` writes a stamp next to each screen it takes: `FILE.capture`, the SHA-256 of `FILE`. `compose.sh` refuses any input without a matching stamp, so a test golden, a hand-made image or an edited capture cannot enter a comparison. Keep the stamp beside its file when you move it. `compose.sh` stamps its own outputs the same way (`FILE.compose`), and `post.sh` refuses any file without a matching stamp, so a raw capture or hand-made media cannot be posted.

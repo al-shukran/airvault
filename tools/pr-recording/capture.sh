@@ -62,4 +62,5 @@ esac
 raw="$tmp/raw.${out##*.}"
 check_screen "$raw" || exit 1
 cp "$raw" "$out"
+stamp_capture "$out"
 echo "wrote $out"
