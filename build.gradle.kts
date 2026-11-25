@@ -29,7 +29,7 @@ buildscript {
                 "org.bouncycastle:bcprov-jdk18on:1.87",
                 "org.bouncycastle:bcpkix-jdk18on:1.87",
                 // Alert 4: arrives at 0.9.5.
-                "org.bitbucket.b_c:jose4j:0.9.6",
+                "org.bitbucket.b_c:jose4j:0.9.7",
                 // Alert 3: arrives at 2.0.6.
                 "org.jdom:jdom2:2.0.6.1",
                 // Alerts 25, 26, 35: arrives at 1.23.1, below every fixed line (1.14.2, 1.15.3, 1.23.2).
@@ -39,20 +39,20 @@ buildscript {
                 // Alerts 1 and 2: arrives below the fixed lines 4.5.13 and 3.18.0. These pinned versions are the
                 // latest patched releases, so an explicit pin keeps the classpath from dropping back.
                 "org.apache.httpcomponents:httpclient:4.5.14",
-                "org.apache.commons:commons-lang3:3.21.0",
+                "org.apache.commons:commons-lang3:3.22.0",
             )
         }
     }
 }
 
 // Alert 27: androidx.benchmark pulls wire-runtime 6.4.0 onto the app's benchmark androidTest classpath, not
-// the shipped runtime. 6.4.5 is the first patched release; pin the latest 6.4.x patch. wire has no entry on
+// the shipped runtime. 6.4.5 is the first patched release; pin Wire 7.2.2, the latest release. wire has no entry on
 // releaseRuntimeClasspath, so the app's shipped dependencies stay exactly as they are.
 subprojects {
     configurations.configureEach {
         resolutionStrategy.force(
-            "com.squareup.wire:wire-runtime:6.4.7",
-            "com.squareup.wire:wire-runtime-jvm:6.4.7",
+            "com.squareup.wire:wire-runtime:7.2.2",
+            "com.squareup.wire:wire-runtime-jvm:7.2.2",
         )
     }
 }
@@ -83,7 +83,7 @@ val robolectricSdk by configurations.creating {
 }
 
 dependencies {
-    robolectricSdk("org.robolectric:android-all-instrumented:16-robolectric-13921718-i7")
+    robolectricSdk("org.robolectric:android-all-instrumented:16-robolectric-13921718-2-i7")
 }
 
 val robolectricSdkDir = layout.buildDirectory.dir("robolectric-sdk")

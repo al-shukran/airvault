@@ -57,7 +57,7 @@ data class RestoreState(
 )
 
 private const val TITLE = "Restore Wallet"
-private const val SLOTS_PER_ROW = 3
+private const val SLOTS_PER_ROW = 2
 private val SLOT_HEIGHT = 40.dp
 private val SLOT_GAP = 8.dp
 private val INPUT_HEIGHT = 56.dp

@@ -15,10 +15,11 @@ data class CustomChain(val chainId: Long, val name: String, val symbol: String, 
 
 /**
  * The RPC addresses the owner set for one chain. [custom] holds the addresses the owner added, in the order added. [active] is the one the chain reads
- * from, or null for the built-in address. [active] is always null or one of [custom].
+ * from, or null for the built-in address. [active] is always null or one of [custom]. [activeSince] is when [active] was set, in epoch milliseconds,
+ * and it is null whenever [active] is.
  */
 @Serializable
-data class ChainRpcs(val custom: List<String> = emptyList(), val active: String? = null)
+data class ChainRpcs(val custom: List<String> = emptyList(), val active: String? = null, val activeSince: Long? = null)
 
 /**
  * Lumio's EVM settings. They are kept as a vault record, so they are encrypted under the vault key: how many addresses of each wallet are
@@ -84,7 +85,7 @@ object EvmSettingsStore {
 
     /** [change] for a new custom network: a refusal names the form field it concerns. Null when the network is saved. */
     fun addCustom(session: VaultSession, rpc: EvmRpc, builtIn: Set<Long>, input: CustomChainInput): EvmRefusal? =
-        attempt(session, rpc) { current, endpoint -> EvmEdits.addCustom(current, builtIn, input, endpoint) }
+        attempt(session, rpc) { current, endpoint -> EvmEdits.addCustom(current, builtIn, input, endpoint, System.currentTimeMillis()) }
 
     /** Runs one change at a time, so a change made while another checks its endpoint is kept, not overwritten by that check's write. */
     @Synchronized
@@ -131,8 +132,9 @@ object EvmEdits {
     /**
      * [current] with a custom chain added and enabled. The chain ID must be new, its RPC must answer with that chain ID, and an explorer, when
      * given, must be an https address. Each refusal names the field it concerns, and an endpoint that serves another chain is an [RpcFailure].
+     * [nowMs] is when the address goes into use.
      */
-    fun addCustom(current: EvmSettings, builtInIds: Set<Long>, input: CustomChainInput, rpc: EvmRpc): EvmSettings {
+    fun addCustom(current: EvmSettings, builtInIds: Set<Long>, input: CustomChainInput, rpc: EvmRpc, nowMs: Long): EvmSettings {
         val chainId = input.chainId.trim().toLongOrNull()?.takeIf { it > 0 }
             ?: refuse(CustomNetworkField.CHAIN_ID, "Enter a chain ID: a whole number above zero.")
         if (chainId in builtInIds) refuse(CustomNetworkField.CHAIN_ID, "Chain $chainId is already in the registry. Change its RPC address instead.")
@@ -151,7 +153,7 @@ object EvmEdits {
         return current.copy(
             custom = current.custom + CustomChain(chainId, name, symbol, input.testnet, explorer),
             enabled = current.enabled + chainId,
-            rpc = current.rpc + (chainId to ChainRpcs(custom = listOf(url), active = url)),
+            rpc = current.rpc + (chainId to ChainRpcs(custom = listOf(url), active = url, activeSince = nowMs)),
         )
     }
 
@@ -164,26 +166,36 @@ object EvmEdits {
 
     private fun refuse(field: CustomNetworkField, message: String): Nothing = throw EvmRefusal(field, message)
 
-    /** [current] with [raw] added to the custom RPC addresses of [chainId] and in use, once the endpoint answers with that chain ID. */
-    fun setRpc(current: EvmSettings, chainId: Long, raw: String, rpc: EvmRpc): EvmSettings {
+    /**
+     * [current] with [raw] added to the custom RPC addresses of [chainId] and in use, once the endpoint answers with that chain ID. [nowMs] is when it
+     * goes into use.
+     */
+    fun setRpc(current: EvmSettings, chainId: Long, raw: String, rpc: EvmRpc, nowMs: Long): EvmSettings {
         val url = RpcUrl.validate(raw, rpc.allowLocalHttp)
         rpc.requireChain(url, chainId)
-        return current.withRpcs(chainId) { it.copy(custom = if (url in it.custom) it.custom else it.custom + url, active = url) }
+        return current.withRpcs(chainId) { rpcs ->
+            rpcs.copy(custom = if (url in rpcs.custom) rpcs.custom else rpcs.custom + url).withActive(url, nowMs)
+        }
     }
 
     /** [current] with the built-in RPC address of [chainId] in use. Its custom addresses stay in the list. */
-    fun resetRpc(current: EvmSettings, chainId: Long): EvmSettings = current.withRpcs(chainId) { it.copy(active = null) }
+    fun resetRpc(current: EvmSettings, chainId: Long): EvmSettings = current.withRpcs(chainId) { it.copy(active = null, activeSince = null) }
 
-    /** [current] with [url], one of the custom RPC addresses of [chainId], in use. */
-    fun useRpc(current: EvmSettings, chainId: Long, url: String): EvmSettings {
+    /** [current] with [url], one of the custom RPC addresses of [chainId], in use from [nowMs]. */
+    fun useRpc(current: EvmSettings, chainId: Long, url: String, nowMs: Long): EvmSettings {
         require(url in (current.rpc[chainId]?.custom ?: emptyList())) { "That address is not one of the chain's custom RPCs." }
-        return current.withRpcs(chainId) { it.copy(active = url) }
+        return current.withRpcs(chainId) { it.withActive(url, nowMs) }
     }
 
     /** [current] without the custom RPC address [url] of [chainId]. When [url] was in use, the built-in address is in use instead. */
     fun removeRpc(current: EvmSettings, chainId: Long, url: String): EvmSettings = current.withRpcs(chainId) {
-        it.copy(custom = it.custom - url, active = if (it.active == url) null else it.active)
+        val inUse = it.active == url
+        it.copy(custom = it.custom - url, active = if (inUse) null else it.active, activeSince = if (inUse) null else it.activeSince)
     }
+
+    /** This with [url] in use. Selecting the address already in use keeps the time it was set, so the owner's count does not restart. */
+    private fun ChainRpcs.withActive(url: String, nowMs: Long): ChainRpcs =
+        copy(active = url, activeSince = if (active == url) activeSince else nowMs)
 
     /** [current] with the RPC addresses of [chainId] changed by [change]. A chain left with none drops its entry, so it reads as it does by default. */
     private fun EvmSettings.withRpcs(chainId: Long, change: (ChainRpcs) -> ChainRpcs): EvmSettings {

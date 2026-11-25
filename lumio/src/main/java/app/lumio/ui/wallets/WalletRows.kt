@@ -235,9 +235,12 @@ internal fun ShimmerText(text: String, style: TextStyle, modifier: Modifier = Mo
     )
 }
 
-/** A chain that did not answer, under its island: a spark, its failure in [text], and a Retry that reads that chain again. */
+/**
+ * A chain that did not answer, under its island: a spark, its failure in [text], and a Retry that reads that chain again. The Retry is shown only when
+ * [showRetry] is true.
+ */
 @Composable
-internal fun ChainFailureNote(text: String, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+internal fun ChainFailureNote(text: String, showRetry: Boolean, onRetry: () -> Unit, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
     Row(
         modifier = modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter),
@@ -247,8 +250,10 @@ internal fun ChainFailureNote(text: String, onRetry: () -> Unit, modifier: Modif
         Spacer(Modifier.width(ClearAirSpacing.xs))
         // The note takes the width the Retry action leaves, so a long network name wraps and the action stays in view.
         Text(text = text, style = ClearAirType.body, color = palette.ink2, modifier = Modifier.weight(1f))
-        Spacer(Modifier.width(ClearAirSpacing.xs))
-        ClearAirTextAction(text = "Retry", onClick = onRetry)
+        if (showRetry) {
+            Spacer(Modifier.width(ClearAirSpacing.xs))
+            ClearAirTextAction(text = "Retry", onClick = onRetry)
+        }
     }
 }
 

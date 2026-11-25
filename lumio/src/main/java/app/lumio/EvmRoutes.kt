@@ -14,8 +14,13 @@ import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
+import app.lumio.data.config.configOf
 import app.lumio.data.config.withOrderWithin
+import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.data.provider.ProviderCatalog
+import app.lumio.data.rpc.CustomRpc
+import app.lumio.data.rpc.RpcPlugins
 import app.lumio.evm.ChainRpcs
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmChain
@@ -26,6 +31,9 @@ import app.lumio.evm.EvmSettingsStore
 import app.lumio.ui.settings.EvmSettingsSection
 import app.lumio.ui.settings.NetworkPage
 import app.lumio.ui.settings.ProviderRow
+import app.lumio.ui.settings.ProviderStatus
+import app.lumio.ui.settings.providerStatus
+import app.lumio.ui.settings.rpcInUseLine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -101,8 +109,17 @@ internal fun EvmSettingsRoute(navController: NavHostController, holder: VaultHol
     )
 }
 
-/** What the Network page shows of one chain: the settings, the chain, and the data providers that serve it in the order they are asked. */
-private class NetworkState(val settings: EvmSettings, val chain: EvmChain, val providers: List<ProviderRow>)
+/**
+ * What the Network page shows of one chain: the settings, the chain, the data providers that serve it in the order they are asked, the address the
+ * built-in RPC reads from, and the status of the owner's RPC addresses.
+ */
+private class NetworkState(
+    val settings: EvmSettings,
+    val chain: EvmChain,
+    val providers: List<ProviderRow>,
+    val builtInUrl: String?,
+    val rpcStatus: ProviderStatus,
+)
 
 /**
  * The Network page (B4) of chain [chainId]: its built-in RPC address, the custom addresses the owner set with the one in use, and the order of the data
@@ -130,7 +147,19 @@ internal fun EvmNetworkRoute(navController: NavHostController, holder: VaultHold
                 runCatching {
                     val settings = EvmSettingsStore.read(session)
                     val chain = catalogOf(app, settings).firstOrNull { it.chainId == chainId }
-                    chain?.let { NetworkState(settings, it, readChainProviders(app, vault, it)) }
+                    chain?.let {
+                        NetworkState(
+                            settings = settings,
+                            chain = it,
+                            providers = readChainProviders(app, vault, it),
+                            builtInUrl = RpcPlugins.builtInEndpoint(NetworkId(Networks.evm(chainId), it.testnet)),
+                            rpcStatus = providerStatus(
+                                traits = emptySet(),
+                                config = configOf(ProviderCatalog.withDefaults(vault.configs()), CustomRpc.ID),
+                                health = app.evmReadsFor(vault.session).statusOf(CustomRpc.ID),
+                            ),
+                        )
+                    }
                 }.getOrNull()
             }
         }
@@ -164,16 +193,18 @@ internal fun EvmNetworkRoute(navController: NavHostController, holder: VaultHold
     NetworkPage(
         chainName = current.chain.name,
         chainLine = "Chain ${current.chain.chainId} · ${current.chain.symbol}${if (current.chain.testnet) " · Testnet" else ""}",
+        builtInUrl = current.builtInUrl,
         custom = rpcs.custom,
         active = rpcs.active,
+        inUseLine = rpcInUseLine(current.rpcStatus, rpcs.activeSince),
         providers = current.providers,
         busy = busy,
         notice = notice,
         offline = rememberSettingsOffline(),
         onUseBuiltIn = { change { s, _ -> EvmEdits.resetRpc(s, chainId) } },
-        onUseCustom = { url -> change { s, _ -> EvmEdits.useRpc(s, chainId, url) } },
+        onUseCustom = { url -> change { s, _ -> EvmEdits.useRpc(s, chainId, url, System.currentTimeMillis()) } },
         onRemoveCustom = { url -> change { s, _ -> EvmEdits.removeRpc(s, chainId, url) } },
-        onAddCustom = { raw -> change { s, rpc -> EvmEdits.setRpc(s, chainId, raw, rpc) } },
+        onAddCustom = { raw -> change { s, rpc -> EvmEdits.setRpc(s, chainId, raw, rpc, System.currentTimeMillis()) } },
         onReorder = ::reorderProviders,
         onBack = { navController.popBackStack() },
         onLock = onLock,
