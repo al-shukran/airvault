@@ -92,19 +92,34 @@ class ElectrumPoolTest {
 
     @Test
     fun aConnectionThatTheServerClosedIsReopenedWithoutCoolingTheServer(): Unit = runBlocking {
-        // The server answers the handshake and one request, then closes the connection.
-        FakeElectrum(identity, closeAfterLines = 2, answer = echoOnly).use { fake ->
-            val opened = mutableListOf<ElectrumConnection>()
-            val pool = ElectrumPool(
-                servers = listOf(server(fake.port)),
-                clock = { 0L },
-                open = { s -> ElectrumConnection.open(s, 5_000, 5_000).also { opened += it } },
-            )
-            assertEquals("a", pool.echo("a"))
-            // The pool only reopens a connection it has seen close. Wait for that close instead of sleeping for it.
-            withTimeout(5_000) { opened.single().awaitClosed() }
-            assertEquals("b", pool.echo("b"))
-            assertEquals(2, opened.size)
+        val repeat = (System.getenv("PROOF_REPEAT") ?: "1").toInt()
+        var failed = 0
+        for (i in 1..repeat) {
+            var phase = "start"
+            try {
+                FakeElectrum(identity, closeAfterLines = 2, answer = echoOnly).use { fake ->
+                    val opened = mutableListOf<ElectrumConnection>()
+                    val pool = ElectrumPool(
+                        servers = listOf(server(fake.port)),
+                        clock = { 0L },
+                        open = { s -> ElectrumConnection.open(s, 5_000, 5_000).also { opened += it } },
+                    )
+                    phase = "echo-a"
+                    assertEquals("a", pool.echo("a"))
+                    phase = "await-closed"
+                    withTimeout(5_000) { opened.single().awaitClosed() }
+                    phase = "echo-b"
+                    assertEquals("b", pool.echo("b"))
+                    assertEquals(2, opened.size)
+                }
+            } catch (e: Throwable) {
+                failed++
+                println("PROOF-FAIL iteration=$i phase=$phase ${e}")
+                if (e is ElectrumError.Unavailable) e.failures.forEach { it.printStackTrace(System.out) }
+                e.printStackTrace(System.out)
+            }
         }
+        println("PROOF-RESULT repeat=$repeat failed=$failed")
+        if (failed > 0) throw AssertionError("failed=$failed of $repeat")
     }
 }
