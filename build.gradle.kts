@@ -46,13 +46,13 @@ buildscript {
 }
 
 // Alert 27: androidx.benchmark pulls wire-runtime 6.4.0 onto the app's benchmark androidTest classpath, not
-// the shipped runtime. 6.4.5 is the first patched release; pin the latest 6.4.x patch. wire has no entry on
+// the shipped runtime. 6.4.5 is the first patched release; pin Wire 7.2.2, the latest release. wire has no entry on
 // releaseRuntimeClasspath, so the app's shipped dependencies stay exactly as they are.
 subprojects {
     configurations.configureEach {
         resolutionStrategy.force(
-            "com.squareup.wire:wire-runtime:6.4.7",
-            "com.squareup.wire:wire-runtime-jvm:6.4.7",
+            "com.squareup.wire:wire-runtime:7.2.2",
+            "com.squareup.wire:wire-runtime-jvm:7.2.2",
         )
     }
 }
