@@ -85,7 +85,7 @@ internal fun ReviewHeader(
     testnet: Boolean,
     chainDetail: String?,
     account: String,
-    wallet: String,
+    wallet: String?,
     address: String,
     addressLogo: @Composable () -> Unit,
     modifier: Modifier = Modifier,
@@ -116,7 +116,7 @@ internal fun ReviewHeader(
         Spacer(Modifier.height(LenslySpacing.sm))
         networkFact?.let { ReviewFactRow(label = it.label, value = it.value, mono = it.mono) }
         ReviewFactRow(label = accountLabel, value = account, mono = false)
-        ReviewFactRow(label = "Wallet", value = wallet, mono = false)
+        wallet?.let { ReviewFactRow(label = "Wallet", value = it, mono = false) }
         Spacer(Modifier.height(LenslySpacing.xxs))
         Text(text = "Address", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

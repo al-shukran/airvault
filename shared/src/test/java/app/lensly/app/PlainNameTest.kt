@@ -95,6 +95,27 @@ class PlainNameTest {
     }
 
     @Test
+    fun anAddressLikeNameIsRecognisedWhenGroupedSplitOrDisguised() {
+        // Grouped by 4 the way Lensly shows an address, and split by "-", "." or "_".
+        assertTrue(looksLikeAddressName("9WzD XpeB QKTk gTrj PKTa nMKd"))
+        assertTrue(looksLikeAddressName("71C7 656E C7ab 88b3 20be"))
+        assertTrue(looksLikeAddressName("9WzDXpeB-QKTkgTrj-PKTanMKd"))
+        assertTrue(looksLikeAddressName("9WzDXpeB.QKTkgTrj.PKTanMKd"))
+        assertTrue(looksLikeAddressName("9WzDXpeB_QKTkgTrj_PKTanMKd"))
+        // "0x" split from its digits, spaced after the prefix, fullwidth, and with a Cyrillic "х" or "ох".
+        assertTrue(looksLikeAddressName("0x-71C7656E"))
+        assertTrue(looksLikeAddressName("0x.71C7"))
+        assertTrue(looksLikeAddressName("0x71 C7 656E"))
+        assertTrue(looksLikeAddressName("\uFF10\uFF58\uFF17\uFF11\uFF23\uFF17\uFF16\uFF15\uFF16\uFF25"))
+        assertTrue(looksLikeAddressName("0\u044571C7656E"))
+        assertTrue(looksLikeAddressName("\u043E\u044571C7656E"))
+        // Words with a year stay names, spaced or not.
+        assertFalse(looksLikeAddressName("Rent 2024 March"))
+        assertFalse(looksLikeAddressName("My Savings Account 2024 Fund"))
+        assertFalse(looksLikeAddressName("\u041E\u0442\u043F\u0443\u0441\u043A 2024"))
+    }
+
+    @Test
     fun anAddressLikeNameShowsAsTheGroupedAddress() {
         val entry = AddressBookEntry(id = "1", address = "0x1234567890abcdef1234567890abcdef12345678", name = "0x71C7 656E \u2026 976F", label = null)
         assertNull(plainNameOrNull(entry.name))

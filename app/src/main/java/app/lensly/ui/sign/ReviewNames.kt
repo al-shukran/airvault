@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
 import app.lensly.app.addressKeyOf
+import app.lensly.app.isolated
 import app.lensly.app.notesOf
 import app.lensly.app.plainNameOrNull
 import app.lensly.ui.theme.LumenPalette
@@ -38,7 +39,7 @@ internal data class PartyName(val text: String, val role: NameRole)
  * when neither does, so the address is shown in full.
  */
 internal fun partyNameOf(account: String?, book: String?): PartyName? = when {
-    account != null -> PartyName(if (book != null) "$account ($book)" else account, NameRole.ACCOUNT)
+    account != null -> PartyName(if (book != null) "$account (${isolated(book)})" else account, NameRole.ACCOUNT)
     book != null -> PartyName(book, NameRole.BOOK)
     else -> null
 }

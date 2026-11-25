@@ -578,7 +578,7 @@ internal fun SendRoute(
                 title = "",
                 heading = "This Signature Is for a Different Send",
                 mark = "!",
-                body = "Lensly's reply doesn't match this send. Nothing was sent, and your ${amountText(now.send)} is still in $fromName.",
+                body = "Lensly's reply doesn't match this send. Nothing was sent, and your ${amountText(now.send)} is still in ${isolated(fromName)}.",
                 notes = listOf(
                     "What Happened" to "Lensly's reply doesn't match this send. Lumio never sends a signature that doesn't match.",
                     "What You Can Do" to "On Lensly, check that it shows ${amountText(now.send)} to $toName, then scan its reply again.",
