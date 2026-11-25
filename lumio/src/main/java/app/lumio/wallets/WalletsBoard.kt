@@ -12,6 +12,7 @@ import app.lumio.btc.networkId
 import app.lumio.chains.ChainHolding
 import app.lumio.data.WallClock
 import app.lumio.data.asset.AssetId
+import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.price.ChartFrame
 import app.lumio.data.price.Kept
@@ -195,15 +196,9 @@ internal class WalletsBoard(
         scope.launch {
             app.scanQueue.events.collect { event ->
                 when (event) {
-                    is ScanEvent.Finished -> {
-                        scanLanded(event.accountKey, failed = false)
-                        side?.let { mode -> showLoaded(mode, withAccounts = false) }
-                    }
+                    is ScanEvent.Finished -> scanLanded(event.net, event.accountKey, failed = false)
                     // A failed scan keeps what it read before it failed, so the side shows that partial balance as incomplete.
-                    is ScanEvent.Failed -> {
-                        scanLanded(event.accountKey, failed = true)
-                        side?.let { mode -> showLoaded(mode, withAccounts = false) }
-                    }
+                    is ScanEvent.Failed -> scanLanded(event.net, event.accountKey, failed = true)
                     is ScanEvent.Progress -> Unit
                 }
             }
@@ -305,13 +300,18 @@ internal class WalletsBoard(
         showLoaded(mode, withAccounts = false)
     }
 
-    /** A Bitcoin scan of [accountKey] ended, with a result or with a failure. The side's Bitcoin chain is unreachable while an account's scan has failed. */
-    private fun scanLanded(accountKey: String, failed: Boolean) {
-        bitcoinFailed = if (failed) bitcoinFailed + accountKey else bitcoinFailed - accountKey
+    /**
+     * A Bitcoin scan of [accountKey] on [net] ended, with a result or with a failure. The side's Bitcoin chain is unreachable while an account's scan has
+     * failed. A scan of the other side's network is ignored, so it cannot change what the side shows.
+     */
+    private suspend fun scanLanded(net: NetworkId, accountKey: String, failed: Boolean) {
         val mode = side ?: return
+        if (net != mode.btcNetwork().networkId()) return
+        bitcoinFailed = if (failed) bitcoinFailed + accountKey else bitcoinFailed - accountKey
         reads = reads.copy(
             unreachable = landedUnreachable(reads.unreachable, setOf(Networks.BIP122), bitcoinChainIfFailing(mode)),
         )
+        showLoaded(mode, withAccounts = false)
     }
 
     /** The Bitcoin chain of [mode]'s side when a scan of it has failed, and no chain otherwise. */
