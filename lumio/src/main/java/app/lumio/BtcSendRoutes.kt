@@ -21,6 +21,7 @@ import app.lensly.DebugBtcFixture
 import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
+import app.lensly.app.plainLabel
 import app.lensly.app.plainName
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.ui.components.groupAddress
@@ -402,7 +403,7 @@ internal fun BtcSendRoute(
                 accounts = paired?.let { bitcoinOwnChoices(it, network, selected.account.receiveAddress(0)) }.orEmpty(),
                 addressBook = addressBook
                     .filter { btcRecipientError(it.address, network) == null }
-                    .map { entry -> SendChoice(title = entry.plainName(), detail = entry.label ?: "Address Book", address = entry.address) },
+                    .map { entry -> SendChoice(title = entry.plainName(), detail = entry.plainLabel(), address = entry.address) },
                 onPick = { choice -> recipient = choice.address },
                 onScan = {
                     recipientStatus = RECIPIENT_SCAN_HINT

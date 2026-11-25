@@ -31,6 +31,7 @@ import app.lensly.app.addressKeyOf
 import app.lensly.app.addressNotesOf
 import app.lensly.app.addressStart
 import app.lensly.app.lookalikeWarningText
+import app.lensly.app.plainLabel
 import app.lensly.app.plainName
 import app.lensly.app.plainNameOrNull
 import app.lensly.app.export.partsOf
@@ -397,7 +398,7 @@ internal fun SendRoute(
                     SendChoice(title = accountName(account), detail = "Your account", address = address)
                 },
                 addressBook = ready.wallet.addressBook.map { entry ->
-                    SendChoice(title = entry.plainName(), detail = entry.label ?: "Address Book", address = entry.address)
+                    SendChoice(title = entry.plainName(), detail = entry.plainLabel(), address = entry.address)
                 },
                 onPick = { choice -> recipient = choice.address },
                 onScan = {
@@ -623,7 +624,7 @@ internal fun lookalikeWarnings(notes: AddressNotes?): List<String> =
 internal fun notesDetail(notes: AddressNotes): String {
     if (notes.internal != null) return "Your account"
     val entry = notes.entry ?: return ""
-    val saved = plainNameOrNull(entry.label) ?: "Address Book"
+    val saved = entry.plainLabel()
     return if (entry.chain?.namespace == EVM_FAMILY.namespace) "$saved\n$SAVED_FOR_ALL_EVM" else saved
 }
 

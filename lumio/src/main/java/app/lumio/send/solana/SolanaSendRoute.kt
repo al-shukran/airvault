@@ -20,6 +20,7 @@ import app.airvault.core.model.AccountId
 import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
+import app.lensly.app.plainLabel
 import app.lensly.app.plainName
 import app.lensly.core.solana.SolanaNonce
 import app.lensly.core.solana.SolanaTokenAccounts
@@ -466,7 +467,7 @@ internal fun SolanaSendRoute(
                 accounts = paired?.let { solanaOwnChoices(it, from.address) }.orEmpty(),
                 addressBook = addressBook
                     .filter { solanaRecipientError(it.address) == null }
-                    .map { entry -> SendChoice(title = entry.plainName(), detail = entry.label ?: "Address Book", address = entry.address) },
+                    .map { entry -> SendChoice(title = entry.plainName(), detail = entry.plainLabel(), address = entry.address) },
                 onPick = { choice -> recipient = choice.address },
                 onScan = {
                     recipientStatus = RECIPIENT_HINT

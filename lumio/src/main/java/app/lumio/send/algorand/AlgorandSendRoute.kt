@@ -20,6 +20,7 @@ import app.airvault.core.model.AccountId
 import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
+import app.lensly.app.plainLabel
 import app.lensly.app.plainName
 import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.ui.components.groupAddress
@@ -399,7 +400,7 @@ internal fun AlgorandSendRoute(
                 accounts = algorandOwnChoices(wallet, address),
                 addressBook = wallet.addressBook
                     .filter { AlgorandSend.recipientError(it.address) == null }
-                    .map { entry -> SendChoice(title = entry.plainName(), detail = entry.label ?: "Address Book", address = entry.address) },
+                    .map { entry -> SendChoice(title = entry.plainName(), detail = entry.plainLabel(), address = entry.address) },
                 onPick = { choice -> recipient = choice.address },
                 onScan = {
                     recipientStatus = RECIPIENT_HINT

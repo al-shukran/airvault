@@ -3,6 +3,7 @@ package app.lumio.ui.send
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.AddressNotes
 import app.lensly.app.InternalAccount
+import app.lensly.app.plainLabel
 import app.lensly.ui.components.groupAddress
 import app.lumio.isFirstTime
 import app.lumio.lookalikeWarnings
@@ -30,6 +31,16 @@ class SendReviewAddressBookTest {
 
         assertEquals("Alice", notesName(notes))
         assertEquals("Address Book\nSaved for all EVM networks", notesDetail(notes))
+    }
+
+    @Test
+    fun aLabelIsPlainTextInTheDetailAndThePicker() {
+        val entry = alice.copy(label = "\u202ECold\u200B")
+
+        assertEquals("Cold\nSaved for all EVM networks", notesDetail(AddressNotes(internal = null, entry = entry)))
+        assertEquals("Cold", entry.plainLabel())
+        assertEquals("Address Book", alice.copy(label = "\u200B").plainLabel())
+        assertEquals("Address Book", alice.plainLabel())
     }
 
     @Test

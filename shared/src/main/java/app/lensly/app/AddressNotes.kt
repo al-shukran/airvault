@@ -62,5 +62,8 @@ fun AddressNotes.headline(): String? {
 /** The name of [entry] as a title: plain text, or its address in groups when the name has nothing visible left. */
 fun AddressBookEntry.plainName(): String = plainNameOrNull(name) ?: groupAddress(address)
 
+/** The label of an entry as plain text, or "Address Book" when it has none that shows. */
+fun AddressBookEntry.plainLabel(): String = plainNameOrNull(label) ?: "Address Book"
+
 /** The first two groups of 4 of [address] and an ellipsis, as "0x1234 5678 …". A sentence shows it after a name, so a name never stands for its address. */
 fun addressStart(address: String): String = groupAddress(address).split(" ").take(2).joinToString(" ") + " …"

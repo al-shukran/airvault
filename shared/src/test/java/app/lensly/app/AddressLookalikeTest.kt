@@ -3,6 +3,8 @@ package app.lensly.app
 import app.lensly.ui.components.groupAddress
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -77,6 +79,18 @@ class AddressLookalikeTest {
         val second = AddressBookEntry(id = "2", address = "0x1234" + "b".repeat(32) + "5678", name = "Second", label = null)
         assertEquals(first, lookalikeEntryFor("0x1234" + "c".repeat(32) + "5678", EVM_FAMILY, listOf(first, second)))
         assertEquals(second, lookalikeEntryFor("0x1234" + "c".repeat(32) + "5678", EVM_FAMILY, listOf(second, first)))
+    }
+
+    @Test
+    fun anEntryOnTheExactChainWinsOverAnotherOfTheFamily() {
+        // The two share the first and last 4 characters of their bodies, and sit on Bitcoin mainnet and testnet.
+        val mainnet = AddressBookEntry(id = "1", address = "bc1qpzry9x8gf2tvdw0s3jn54khce6mupzrywnvy0t", name = "Main", label = null)
+        val testnet = AddressBookEntry(id = "2", address = "tb1qpzry9x8gf2tvdw0s3jn54khce6mudn9ewfvy0t", name = "Test", label = null)
+        assertNotNull(testnet.chain)
+        assertNotEquals(mainnet.chain, testnet.chain)
+        val fake = "bc1qpzry" + "x".repeat(26) + "vy0t"
+        assertEquals(mainnet, lookalikeEntryFor(fake, mainnet.chain!!, listOf(testnet, mainnet)))
+        assertEquals(testnet, lookalikeEntryFor(fake, testnet.chain!!, listOf(mainnet, testnet)))
     }
 
     @Test
