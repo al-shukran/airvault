@@ -141,9 +141,10 @@ jobs:
             bc-shard-${{ matrix.shard }}-master-
             bc-shard-
 
-      # Gradle sets the modification time of a build-cache entry it stores or reads. The prune step below keeps only those.
-      - name: Mark the start of the run
-        run: touch "$RUNNER_TEMP/bc-run-start"
+      # Every shard compiles the same code, and a master push adds its new outputs to the entry, so an unpruned entry grows with
+      # each push (2.3 GB per shard after two days). The entries this run does not read or store are dropped before the save.
+      - name: Mark the build-cache entries as unused
+        run: ./scripts/ci/prune-build-cache.sh age
 
       - name: Run shard-${{ matrix.shard }}
         run: ./scripts/ci/run-partition.sh shard-${{ matrix.shard }}
@@ -153,10 +154,9 @@ jobs:
         run: ./gradlew --stop
 
       # Only a push to master saves. A pull request and a merge-queue entry save nothing.
-      # Every shard compiles the same code, so the entries it did not use (outputs of older pushes) would be saved ten times over.
       - name: Drop the build-cache entries this run did not use
-        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
-        run: find ~/.gradle/caches/build-cache-1 -type f ! -newer "$RUNNER_TEMP/bc-run-start" -delete
+        if: always()
+        run: ./scripts/ci/prune-build-cache.sh prune
 
       - name: Delete the build cache this lane replaces
         id: replace
