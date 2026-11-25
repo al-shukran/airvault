@@ -187,13 +187,14 @@ A vendor may ship a signer without a wallet side (for example, when the vendor r
 
 ### 2.6 Per-Wallet Install
 
-Chain apps are installed per wallet, using the Install and Uninstall actions on the wallet's Apps screen. The term follows the Ledger model.
+Chain apps are installed per wallet, using the Install and Uninstall actions on the Apps screen of a Mnemonic wallet. The term follows the Ledger model. The rules below apply to Mnemonic wallets, and the last bullet describes a Single Key wallet.
 
 - A chain app is installed in a wallet when the wallet holds at least one account of that app. No record stores the set, so vaults from earlier versions open with their existing apps installed.
-- A new, restored or decoy wallet holds one Bitcoin account. The user installs the other apps they want.
+- A new, restored or decoy Mnemonic wallet holds one Bitcoin account. The user installs the other apps they want.
 - Installing an app creates its account 0. Uninstalling removes all of its accounts. Keys come from the seed, so reinstalling restores the same addresses, but the names, labels and groups of the removed accounts are lost. The uninstall dialog says so.
-- Any app can be uninstalled, Bitcoin included. A wallet with no apps shows an empty state with a Manage Apps action.
+- Any app of a Mnemonic wallet can be uninstalled, Bitcoin included. A Mnemonic wallet with no apps shows an empty state with a Manage Apps action.
 - Lumio and Rabby pairing share only installed apps. A signing request for an app that is not installed is refused, with a prompt to install that app.
+- A Single Key wallet, made by importing one private key, holds one account, which is its Ethereum account. It has no Apps screen and no Manage Apps row, so its Ethereum cannot be uninstalled and no other app can be installed in it. A signing request for an app it does not have is refused, and the refusal has no prompt to install that app.
 
 ---
 
