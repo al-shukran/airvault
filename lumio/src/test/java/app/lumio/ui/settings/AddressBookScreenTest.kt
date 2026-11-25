@@ -68,8 +68,8 @@ class AddressBookScreenTest {
         }
 
         compose.onNodeWithText("Ethereum", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("Bitcoin").assertIsDisplayed()
-        compose.onNodeWithText("Solana").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Bitcoin", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Solana", substring = true).performScrollTo().assertIsDisplayed()
     }
 
     @Test
