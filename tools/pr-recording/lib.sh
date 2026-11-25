@@ -13,6 +13,7 @@ check_screen() {
       png=$(mktemp "${TMPDIR:-/tmp}/screen-check.XXXXXX").png
       ffmpeg -v error -y -ss "$start" -i "$f" -frames:v 1 "$png" || { echo "$f: cannot read a frame at ${start}s" >&2; return 1; } ;;
   esac
+  [ -n "${w:-}" ] && [ -n "${h:-}" ] || { echo "$f: cannot read its size" >&2; return 1; }
   if [ $((w * 20)) -ne $((h * 9)) ] || [ "$w" -lt 720 ]; then
     echo "$f is ${w}x${h}. A screen must be 9:20 and at least 720 px wide (720x1600 or 1080x2400)." >&2
     echo "Take it with capture.sh on an emulator. Test goldens and cropped shots are not accepted." >&2
