@@ -1,7 +1,6 @@
 package app.lumio.ui.send
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -11,14 +10,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -210,28 +207,6 @@ internal fun SendFactRow(
             textAlign = TextAlign.End,
         )
         if (onClick != null) ClearAirIcon(glyph = ClearAirGlyph.CHEVRON, color = palette.ink, size = 18.dp)
-    }
-}
-
-/** A note on the raised layer with an info mark, for what the app chose for the owner. */
-@Composable
-internal fun SendInfoNote(text: String, modifier: Modifier = Modifier) {
-    val palette = LocalClearAirPalette.current
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(palette.raised)
-            .padding(horizontal = 14.dp, vertical = ClearAirSpacing.sm),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        ClearAirIcon(glyph = ClearAirGlyph.INFO, color = palette.ink2, size = 18.dp)
-        Text(
-            text = text,
-            style = ClearAirType.label.copy(fontWeight = FontWeight.Normal),
-            color = palette.ink,
-        )
     }
 }
 

@@ -44,6 +44,7 @@ import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.ClearAirIconButton
 import app.lumio.ui.kit.ClearAirMonogram
+import app.lumio.ui.kit.NoteCard
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSheet
@@ -317,7 +318,7 @@ fun SendAmountPage(
         SendFactRow(label = "Network", value = networkName, text = true)
         if (asset != null && onAsset != null) SendFactRow(label = "Asset", value = asset, text = true, onClick = onAsset)
         SendFactRow(label = "Network Fee", value = feeText ?: "Reading the network", hairline = false, onClick = onFee)
-        note?.let { SendInfoNote(text = it, modifier = Modifier.padding(top = ClearAirSpacing.xs)) }
+        note?.let { NoteCard(glyph = ClearAirGlyph.INFO, text = it, modifier = Modifier.padding(top = ClearAirSpacing.xs)) }
     }
 }
 

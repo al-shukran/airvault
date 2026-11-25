@@ -39,8 +39,9 @@ fun ClearAirAlertNote(text: String, modifier: Modifier = Modifier) {
     NoteCard(glyph = ClearAirGlyph.ALERT, text = text, modifier = modifier)
 }
 
+/** The note card itself, with no page gutter: for a note that sits inside a column the caller already padded. */
 @Composable
-private fun NoteCard(glyph: ClearAirGlyph, text: String, modifier: Modifier) {
+internal fun NoteCard(glyph: ClearAirGlyph, text: String, modifier: Modifier) {
     val palette = LocalClearAirPalette.current
     Row(
         modifier = modifier
