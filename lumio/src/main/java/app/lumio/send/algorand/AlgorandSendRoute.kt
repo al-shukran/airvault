@@ -56,7 +56,6 @@ import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
 import app.lumio.send.algorandOwnChoices
-import app.lumio.ui.send.REPLY_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendAmountPage
 import app.lumio.ui.send.SendChangeRecipientDialog
@@ -68,11 +67,11 @@ import app.lumio.ui.send.SendReadingPage
 import app.lumio.ui.send.SendRecipientPage
 import app.lumio.ui.send.SendReviewPage
 import app.lumio.ui.send.SendShowPage
+import app.lumio.ui.scan.ReplyReading
 import app.lumio.ui.send.SignatureScanScreen
 import app.lumio.ui.send.SignedSendSteps
 import app.lumio.ui.send.SummaryRow
 import app.lumio.ui.send.rememberSendOffline
-import app.lumio.ui.send.replyProgress
 import app.lumio.wallets.WalletAccounts
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
@@ -175,8 +174,8 @@ internal fun AlgorandSendRoute(
     var notice by remember { mutableStateOf<String?>(null) }
     var recipientStatus by remember { mutableStateOf(RECIPIENT_HINT) }
     var scan by remember { mutableStateOf(SignatureScan()) }
-    var scanProgress by remember { mutableStateOf<Float?>(null) }
-    var scanStatus by remember { mutableStateOf(REPLY_SCAN_HINT) }
+    var scanReading by remember { mutableStateOf<ReplyReading?>(null) }
+    var scanNotice by remember { mutableStateOf<String?>(null) }
     var scanBusy by remember { mutableStateOf(false) }
 
     val selected = assets.firstOrNull { it.key == selectedKey } ?: AlgorandAssets.native
@@ -292,8 +291,8 @@ internal fun AlgorandSendRoute(
 
     fun startScan(current: AlgorandSendStep.Request) {
         scan = SignatureScan()
-        scanProgress = null
-        scanStatus = REPLY_SCAN_HINT
+        scanReading = null
+        scanNotice = null
         notice = null
         step = AlgorandSendStep.Scanning(current.plan, current.requestId, current.parts)
     }
@@ -301,8 +300,7 @@ internal fun AlgorandSendRoute(
     /** The signature is checked before anything is held. A refused signature keeps the scan open, with the words why. */
     fun applySignature(current: AlgorandSendStep.Scanning, ur: UR) {
         scanBusy = true
-        scanProgress = 1f
-        scanStatus = SCAN_READ
+        scanNotice = SCAN_READ
         scope.launch {
             val signed = withContext(Dispatchers.Default) {
                 runCatching { AlgorandSend.signed(current.plan, current.requestId, ur) }
@@ -311,8 +309,8 @@ internal fun AlgorandSendRoute(
             signed.fold(
                 onFailure = { error ->
                     scan = SignatureScan()
-                    scanProgress = null
-                    scanStatus = AlgorandSend.ownerWords(error, SIGNATURE_FAILED)
+                    scanReading = null
+                    scanNotice = AlgorandSend.ownerWords(error, SIGNATURE_FAILED)
                 },
                 onSuccess = { bytes ->
                     val machine = SubmitMachine(
@@ -333,8 +331,7 @@ internal fun AlgorandSendRoute(
         if (scanBusy) return
         when (val result = scan.onText(text)) {
             is SignatureStep.Reading -> {
-                scanProgress = result.fraction
-                scanStatus = replyProgress(result.received, result.expected)
+                scanReading = ReplyReading(result.received, result.expected)
             }
             is SignatureStep.Complete -> applySignature(current, result.ur)
             SignatureStep.Ignored -> Unit
@@ -527,11 +524,13 @@ internal fun AlgorandSendRoute(
             onLock = onLock,
         )
         is AlgorandSendStep.Scanning -> SignatureScanScreen(
-            progress = scanProgress,
-            status = scanStatus,
+            reading = scanReading,
+            notice = scanNotice,
             onText = { text -> onSignatureText(current, text) },
             onBack = { step = AlgorandSendStep.Request(current.plan, current.requestId, current.parts) },
             onCancel = { step = AlgorandSendStep.Declined(current.plan) },
+            backLabel = backLabel,
+            onLock = onLock,
         )
         is AlgorandSendStep.Declined -> SendDeclinedPage(
             amount = AlgorandAssets.amountText(current.plan, selected.symbol, selected.decimals),

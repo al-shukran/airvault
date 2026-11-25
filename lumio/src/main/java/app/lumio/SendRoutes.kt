@@ -71,7 +71,6 @@ import app.lumio.tokens.TokenBalanceCache
 import app.lumio.tokens.TokenHolding
 import app.lumio.tokens.TokenPortfolio
 import app.lumio.ui.send.RECIPIENT_SCAN_HINT
-import app.lumio.ui.send.REPLY_SCAN_HINT
 import app.lumio.ui.send.RecipientScanScreen
 import app.lumio.ui.send.SendAmountPage
 import app.lumio.ui.send.recipientError
@@ -85,11 +84,11 @@ import app.lumio.ui.send.SendOutcomePage
 import app.lumio.ui.send.SendRecipientPage
 import app.lumio.ui.send.SendReviewPage
 import app.lumio.ui.send.SendShowPage
+import app.lumio.ui.scan.ReplyReading
 import app.lumio.ui.send.SignatureScanScreen
 import app.lumio.ui.send.SignedSendSteps
 import app.lumio.ui.send.SummaryRow
 import app.lumio.ui.send.rememberSendOffline
-import app.lumio.ui.send.replyProgress
 import app.lumio.wallets.WalletAccounts
 import com.sparrowwallet.hummingbird.UR
 import java.math.BigInteger
@@ -215,8 +214,8 @@ internal fun SendRoute(
     var notice by remember { mutableStateOf<String?>(null) }
     var recipientScanStatus by remember { mutableStateOf(RECIPIENT_SCAN_HINT) }
     var scan by remember { mutableStateOf(SignatureScan()) }
-    var scanProgress by remember { mutableStateOf<Float?>(null) }
-    var scanStatus by remember { mutableStateOf(REPLY_SCAN_HINT) }
+    var scanReading by remember { mutableStateOf<ReplyReading?>(null) }
+    var scanNotice by remember { mutableStateOf<String?>(null) }
     var scanBusy by remember { mutableStateOf(false) }
     var changeRecipient by remember { mutableStateOf(false) }
     var assetSheet by remember { mutableStateOf(false) }
@@ -304,8 +303,8 @@ internal fun SendRoute(
 
     fun startScan(send: PreparedSend, requestId: ByteArray, parts: List<String>) {
         scan = SignatureScan()
-        scanProgress = null
-        scanStatus = REPLY_SCAN_HINT
+        scanReading = null
+        scanNotice = null
         notice = null
         step = SendStep.Scanning(send, requestId, parts)
     }
@@ -313,19 +312,18 @@ internal fun SendRoute(
     /** Checks Lensly's signature and holds the signed transaction. Nothing is sent until Last Chance is over or the owner sends it now. */
     fun applySignature(scanning: SendStep.Scanning, ur: UR) {
         scanBusy = true
-        scanProgress = 1f
-        scanStatus = SCAN_READ
+        scanNotice = SCAN_READ
         scope.launch {
             val signed = withContext(Dispatchers.IO) { runCatching { EvmSend.signed(scanning.send, scanning.requestId, ur) } }
             scanBusy = false
             signed.fold(
                 onFailure = { error ->
                     scan = SignatureScan()
-                    scanProgress = null
+                    scanReading = null
                     if (error is EvmSend.SignatureForAnotherSend) {
                         step = SendStep.Mismatch(scanning.send, scanning.requestId, scanning.parts)
                     } else {
-                        scanStatus = ownerWords(error, SIGNATURE_FAILED)
+                        scanNotice = ownerWords(error, SIGNATURE_FAILED)
                     }
                 },
                 onSuccess = { raw ->
@@ -347,8 +345,7 @@ internal fun SendRoute(
         if (scanBusy) return
         when (val result = scan.onText(text)) {
             is SignatureStep.Reading -> {
-                scanProgress = result.fraction
-                scanStatus = replyProgress(result.received, result.expected)
+                scanReading = ReplyReading(result.received, result.expected)
             }
             is SignatureStep.Complete -> applySignature(scanning, result.ur)
             SignatureStep.Ignored -> Unit
@@ -383,8 +380,7 @@ internal fun SendRoute(
             now is SendStep.Show -> if (demoStage != "show") startScan(now.send, now.requestId, now.parts)
             now is SendStep.Scanning -> when (demoStage) {
                 "scan" -> {
-                    scanProgress = REPLY_DEMO_READ / REPLY_DEMO_PARTS.toFloat()
-                    scanStatus = replyProgress(REPLY_DEMO_READ, REPLY_DEMO_PARTS)
+                    scanReading = ReplyReading(REPLY_DEMO_READ, REPLY_DEMO_PARTS)
                 }
                 "declined" -> step = SendStep.Declined(now.send)
                 "mismatch" -> step = SendStep.Mismatch(now.send, now.requestId, now.parts)
@@ -571,18 +567,18 @@ internal fun SendRoute(
             onLock = onLock,
         )
         is SendStep.Scanning -> SignatureScanScreen(
-            progress = scanProgress,
-            status = scanStatus,
+            reading = scanReading,
+            notice = scanNotice,
             onText = { text -> onSignatureText(now, text) },
             onBack = { step = SendStep.Show(now.send, now.requestId, now.parts) },
             onCancel = { step = SendStep.Declined(now.send) },
+            backLabel = backLabel,
+            onLock = onLock,
         )
         is SendStep.Mismatch -> {
             val toName = nameWithAddress(notesFor(now.send.to, ready.accounts, ready.wallet.addressBook), now.send.to)
             SendOutcomePage(
-                title = "",
                 heading = "This Signature Is for a Different Send",
-                mark = "!",
                 body = "Lensly's reply doesn't match this send. Nothing was sent, and your ${amountText(now.send)} is still in ${isolated(fromName)}.",
                 notes = listOf(
                     "What Happened" to "Lensly's reply doesn't match this send. Lumio never sends a signature that doesn't match.",

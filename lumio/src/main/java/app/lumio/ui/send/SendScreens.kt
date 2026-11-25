@@ -2,24 +2,24 @@ package app.lumio.ui.send
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.scan.LumioScanScreen
+import app.lumio.ui.scan.ReplyReading
+import app.lumio.ui.scan.ReplyScanCard
 
 /** What the recipient scan says before a code is read. It stays on screen while the camera looks for one. */
 internal const val RECIPIENT_SCAN_HINT = "Point the camera at an address or a payment code."
-
-/** What the reply scan says before a part of Lensly's reply is read (F6). */
-internal const val REPLY_SCAN_HINT = "Point at Lensly's Reply"
-
-/** What the reply scan says once parts are read: how many of how many (F6). */
-internal fun replyProgress(received: Int, expected: Int): String = "Reading Lensly's reply · $received of $expected"
 
 /** The camera scan of a recipient: an address or a payment code. [status] says what to scan, or why the last code was refused. */
 @Composable
@@ -28,29 +28,54 @@ fun RecipientScanScreen(status: String, onText: (String) -> Unit, onCancel: () -
 }
 
 /**
- * The camera scan of Lensly's reply (F6). [progress] shows for an animated code, and [status] says what the scan is doing. Back returns to the code
- * on Show to Lensly, and Cancel Send ends the send.
+ * The camera scan of Lensly's reply (F6), the fourth step of the send. [reading] says how many parts are read, and [notice] says what the last scan did,
+ * such as a code that could not be used, under the words that tell the owner what to do. Back returns to the code on Show to Lensly, and Cancel Send ends
+ * the send.
  */
 @Composable
-fun SignatureScanScreen(progress: Float?, status: String, onText: (String) -> Unit, onBack: () -> Unit, onCancel: () -> Unit) {
+fun SignatureScanScreen(
+    reading: ReplyReading?,
+    notice: String?,
+    onText: (String) -> Unit,
+    onBack: () -> Unit,
+    onCancel: () -> Unit,
+    backLabel: String,
+    onLock: () -> Unit,
+) {
     val palette = LocalClearAirPalette.current
-    LumioScanScreen(
+    SendPage(
         title = "Lensly Signs",
-        progress = progress,
-        statusText = status,
-        onText = onText,
-        onCancel = onBack,
-        // The reply's viewfinder is taller than a pairing code's (F6).
-        frameHeight = 316.dp,
-        footer = {
+        backLabel = backLabel,
+        offline = null,
+        onBack = onBack,
+        onLock = onLock,
+        bottomAction = {
             Text(
                 text = "Lensly showed something you didn't expect? Reject it there.",
-                style = ClearAirType.body,
+                style = ClearAirType.small.copy(fontSize = 12.5.sp),
                 color = palette.ink2,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
             )
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                ClearAirTextAction(text = "Cancel Send", onClick = onCancel)
-            }
+            ClearAirTextAction(text = "Cancel Send", onClick = onCancel)
         },
-    )
+    ) {
+        SendStepper(current = STEP_SEND - 1)
+        ReplyScanCard(reading = reading, onText = onText, modifier = Modifier.padding(top = 14.dp))
+        Text(
+            text = "Point at Lensly's Reply",
+            style = ClearAirType.titleL,
+            color = palette.ink,
+            modifier = Modifier.padding(top = 16.dp),
+        )
+        Text(
+            text = "Take your time. Lensly shows every detail before it signs, so read it there. Nothing is sent until this reply is scanned.",
+            style = ClearAirType.body,
+            color = palette.ink2,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        notice?.let {
+            Text(text = it, style = ClearAirType.small, color = palette.ink, modifier = Modifier.padding(top = ClearAirSpacing.xs))
+        }
+    }
 }

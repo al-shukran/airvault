@@ -94,13 +94,6 @@ class LumioKitScreenshotTest {
         }
     }
 
-    @Test
-    fun stepThreadAtEachNode() = compose.lumioSnapshot("kit_step_thread") {
-        KitColumn {
-            for (node in 0..3) StepThread(current = node)
-        }
-    }
-
     /** The column every kit sample sits in: the page gutter on each side, from the top of the frame. */
     @Composable
     private fun KitColumn(content: @Composable ColumnScope.() -> Unit) {
