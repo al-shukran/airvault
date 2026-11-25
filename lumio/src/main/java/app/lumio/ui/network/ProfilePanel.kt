@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
@@ -328,7 +329,8 @@ private fun PanelRadio(selected: Boolean) {
 }
 
 /**
- * Pair Another Wallet: a plus and the words in ink, as the mock's text action sets them. It is not underlined, and it is drawn 45 dp tall as the mock has it. Compose widens a press to 48 dp around it, so the touch target keeps its size.
+ * Pair Another Wallet: a plus and the words in ink, as the mock's text action sets them. It is not underlined, and it is drawn 45 dp tall as the mock has it, with
+ * its press measured at the 48 dp touch target ([pairTouchTarget]).
  */
 @Composable
 private fun PairAction(onClick: () -> Unit) {
@@ -336,8 +338,7 @@ private fun PairAction(onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .padding(horizontal = ClearAirSpacing.gutter)
-            .defaultMinSize(minHeight = PAIR_ROW_HEIGHT)
-            .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onClick)
+            .pairTouchTarget(Modifier.lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onClick))
             .padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -346,6 +347,26 @@ private fun PairAction(onClick: () -> Unit) {
         Text(text = "Pair Another Wallet", style = ClearAirType.rowTitle, color = palette.ink)
     }
 }
+
+/**
+ * Lays the pair row out [PAIR_ROW_HEIGHT] tall and gives its [press] the 48 dp touch target centred on it, so a tap 1.5 dp past either edge still counts. The
+ * press box reaches over the rows beside it, and the content inside keeps the exact pixels of a [PAIR_ROW_HEIGHT] row: the outer layout moves the box up by
+ * the same inset that the inner one moves the content down.
+ */
+private fun Modifier.pairTouchTarget(press: Modifier): Modifier = this
+    .layout { measurable, constraints ->
+        val height = PAIR_ROW_HEIGHT.roundToPx()
+        val target = ClearAirSpacing.touchTarget.roundToPx()
+        val placeable = measurable.measure(constraints.copy(minHeight = target, maxHeight = target))
+        layout(placeable.width, height) { placeable.place(0, (height - target) / 2) }
+    }
+    .then(press)
+    .layout { measurable, constraints ->
+        val height = PAIR_ROW_HEIGHT.roundToPx()
+        val target = ClearAirSpacing.touchTarget.roundToPx()
+        val placeable = measurable.measure(constraints.copy(minHeight = height, maxHeight = height))
+        layout(placeable.width, target) { placeable.place(0, (target - height) / 2) }
+    }
 
 /** The panel's slide: spring ζ1.0, k400, a critically damped move that settles in about 300 ms. */
 private val panelOffset = spring<IntOffset>(dampingRatio = 1f, stiffness = 400f)

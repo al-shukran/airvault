@@ -6,10 +6,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -17,7 +20,10 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.theme.LumenTheme
 import app.lumio.network.NetworkMode
@@ -123,6 +129,25 @@ class ProfilePanelTest {
         compose.onAllNodesWithText("Scanned: air1").assertCountEquals(0)
     }
 
+    @Test
+    fun aTapJustAboveThePairRowPairs() = assertPairRowTapPairs(above = true)
+
+    @Test
+    fun aTapJustBelowThePairRowPairs() = assertPairRowTapPairs(above = false)
+
+    /** A tap 1 dp past the visible 45 dp row, on the side [above] names, still runs Pair Another Wallet. */
+    private fun assertPairRowTapPairs(above: Boolean) {
+        compose.setContent { Shell() }
+        openPanel()
+        val bounds = compose.onNode(hasClickAction() and hasText("Pair Another Wallet")).fetchSemanticsNode().boundsInRoot
+        compose.onRoot().performTouchInput {
+            val reach = (45.dp / 2 + 1.dp).toPx()
+            click(Offset(bounds.center.x, if (above) bounds.center.y - reach else bounds.center.y + reach))
+        }
+        compose.waitForIdle()
+        compose.onNodeWithText("Pairing opened").assertIsDisplayed()
+    }
+
     private fun openPanel() {
         compose.onAllNodesWithContentDescription("Open the profile panel").onFirst().performClick()
         compose.waitForIdle()
@@ -144,6 +169,7 @@ class ProfilePanelTest {
     private fun Root(scanNote: String?, scanReady: Boolean, mode: NetworkMode) {
         var active by remember { mutableStateOf("air1") }
         var scanned by remember { mutableStateOf<String?>(null) }
+        var paired by remember { mutableStateOf(false) }
         LumioRootScreen(
             tab = LumioTab.HOME,
             title = WALLETS.first { it.id == active }.name,
@@ -160,12 +186,13 @@ class ProfilePanelTest {
             scanNote = scanNote,
             scanReady = scanReady,
             onTestNetworks = {},
-            onPair = {},
+            onPair = { paired = true },
             onLock = {},
             search = { _ -> },
             content = {
                 Text("Scope: $active")
                 scanned?.let { Text("Scanned: $it") }
+                if (paired) Text("Pairing opened")
             },
         )
     }
