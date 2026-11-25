@@ -8,7 +8,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 
-/** The Auto-Lock choices: after one minute without a touch by default, and the cover's policy each choice makes. */
+/** The Auto-Lock choices: after thirty minutes without a touch by default, as Lumio 1.0.0 had it, and the cover's policy each choice makes. */
 @RunWith(RobolectricTestRunner::class)
 class LockSettingsTest {
 
@@ -19,15 +19,15 @@ class LockSettingsTest {
     private fun prefs() = RuntimeEnvironment.getApplication().getSharedPreferences(LockSettingsStore.FILE, 0)
 
     @Test
-    fun theDefaultIsAfterOneMinute() {
-        assertEquals(AutoLock.AFTER_ONE_MINUTE, LockSettings().autoLock)
+    fun theDefaultIsAfterThirtyMinutes() {
+        assertEquals(AutoLock.AFTER_THIRTY_MINUTES, LockSettings().autoLock)
     }
 
     @Test
-    fun theDefaultPolicyLocksAfterOneMinuteAndNotOnALeave() {
+    fun theDefaultPolicyLocksAfterThirtyMinutesAndNotOnALeave() {
         val policy = LockSettings().policy
-        assertEquals(1 * minute, policy.idleTimeoutMs)
-        assertFalse(policy.lockWhenBackgrounded, "leaving Lumio must not lock under After 1 Minute")
+        assertEquals(30 * minute, policy.idleTimeoutMs)
+        assertFalse(policy.lockWhenBackgrounded, "leaving Lumio must not lock under After 30 Minutes")
         assertTrue(policy.ownLaunchesKeepUnlocked, "Lumio's own launches never lock")
     }
 
@@ -72,6 +72,13 @@ class LockSettingsTest {
             prefs().edit().clear().putInt("idle_minutes", minutes).putBoolean("lock_when_switching", false).commit()
             assertEquals(LockSettings(expected), store().load(), "$minutes minutes")
         }
+    }
+
+    @Test
+    fun aLumioOneUserWhoNeverChangedItKeepsThirtyMinutes() {
+        assertEquals(AutoLock.AFTER_THIRTY_MINUTES, store().load().autoLock)
+        prefs().edit().putBoolean("lock_when_switching", false).commit()
+        assertEquals(AutoLock.AFTER_THIRTY_MINUTES, store().load().autoLock)
     }
 
     @Test

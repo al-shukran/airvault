@@ -21,8 +21,8 @@ enum class AutoLock(val label: String, val idleMinutes: Int, val lockWhenLeaving
     AFTER_ONE_MONTH("After 1 Month", idleMinutes = 30 * 24 * 60, lockWhenLeaving = false),
 }
 
-/** The lock choice of Settings → Security. It is [AutoLock.AFTER_ONE_MINUTE] until the owner picks another. */
-data class LockSettings(val autoLock: AutoLock = AutoLock.AFTER_ONE_MINUTE) {
+/** The lock choice of Settings → Security. It is [AutoLock.AFTER_THIRTY_MINUTES], the default of Lumio 1.0.0, until the owner picks another. */
+data class LockSettings(val autoLock: AutoLock = AutoLock.AFTER_THIRTY_MINUTES) {
     /**
      * The cover's policy for this choice. The launches that Lumio makes itself, such as the document picker and the scanners, never
      * lock: they keep the vault open, and their return counts as a touch.
@@ -55,7 +55,7 @@ class LockSettingsStore(private val prefs: SharedPreferences) {
             null
         }
         val choice = AutoLock.entries.firstOrNull { it.name == name } ?: if (name == null) released() else null
-        return LockSettings(autoLock = choice ?: AutoLock.AFTER_ONE_MINUTE)
+        return LockSettings(autoLock = choice ?: LockSettings().autoLock)
     }
 
     /** The choice that Lumio 1.0.0's two values stand for, or null when they are missing or damaged. A minutes value between two choices rounds down. */

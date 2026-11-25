@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
 internal const val WRONG_CURRENT_PASSWORD = "That isn't your current password"
 
 /**
- * The Auto-Lock row of the Security page: its value in words, and a radio sheet of the three choices, like Currency's. A choice other than the
+ * The Auto-Lock row of the Security page: its value in words, and a radio sheet of the choices, like Currency's. A choice other than the
  * current one asks for the App Password in a dialog first, and [onChoose] runs only once [checkPassword] accepts it. A wrong password keeps the
  * dialog open with its error. An unavailable vault closes the dialog, since the change cannot be checked there.
  */
