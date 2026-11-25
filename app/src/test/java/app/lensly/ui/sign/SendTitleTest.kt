@@ -33,6 +33,9 @@ internal val testPalette = LumenPalette(
     glowEdge = Color.Transparent,
 )
 
+/** The start of an address a sentence shows after its name. */
+private fun at(address: String) = " (${addressStart(address)})"
+
 private fun book(id: String, address: String, name: String) = AddressBookEntry(id, address, name, null)
 
 /** The account that signs, as the review names it: the sender's account name. */
@@ -61,7 +64,7 @@ class SendTitleTest {
         )
         val title = titleOf(send("0.4", "ALGO", TO_BOOK), notes)
 
-        assertEquals("Send 0.4 ALGO from VelvetEcho (0xElectric) to ElectricDusk?", title.text)
+        assertEquals("Send 0.4 ALGO from VelvetEcho (0xElectric)${at(SENDER)} to ElectricDusk${at(TO_BOOK)}?", title.text)
         assertEquals(testPalette.positive, colourOf(title, "VelvetEcho (0xElectric)"))
         assertEquals(testPalette.info, colourOf(title, "ElectricDusk"))
     }
@@ -72,7 +75,7 @@ class SendTitleTest {
         val notes = mapOf(addressKeyOf(TO_BOOK) to AddressNotes(null, book("r", TO_BOOK, "ElectricDusk")))
         val title = titleOf(send("0.4", "ALGO", TO_BOOK), notes, signer.copy(name = "Wallet 1 0"))
 
-        assertEquals("Send 0.4 ALGO from Wallet 1 0 to ElectricDusk?", title.text)
+        assertEquals("Send 0.4 ALGO from Wallet 1 0${at(SENDER)} to ElectricDusk${at(TO_BOOK)}?", title.text)
         assertEquals(testPalette.info, colourOf(title, "ElectricDusk"))
         assertEquals(testPalette.positive, colourOf(title, "Wallet 1 0"))
     }
@@ -85,7 +88,7 @@ class SendTitleTest {
         )
         val title = titleOf(send("0.4", "ALGO", TO_ACCOUNT), notes, signer.copy(name = "Wallet 1 0"))
 
-        assertEquals("Send 0.4 ALGO from Wallet 1 0 to Wallet 1 3?", title.text)
+        assertEquals("Send 0.4 ALGO from Wallet 1 0${at(SENDER)} to Wallet 1 3${at(TO_ACCOUNT)}?", title.text)
         assertEquals(testPalette.positive, colourOf(title, "Wallet 1 3"))
     }
 
@@ -94,7 +97,7 @@ class SendTitleTest {
         // Case 4: no account and no entry, so the full address is shown in the monospace face and no colour is set.
         val title = titleOf(send("0.4", "ALGO", TO_UNKNOWN), emptyMap(), signer.copy(name = "Wallet 1 0"))
 
-        assertEquals("Send 0.4 ALGO from Wallet 1 0 to $TO_UNKNOWN?", title.text)
+        assertEquals("Send 0.4 ALGO from Wallet 1 0${at(SENDER)} to $TO_UNKNOWN?", title.text)
         assertEquals(Color.Unspecified, colourOf(title, TO_UNKNOWN))
     }
 
@@ -108,7 +111,7 @@ class SendTitleTest {
         )
         val title = titleOf(send("1", "MON", TO_ACCOUNT), notes, signer.copy(name = "Wallet 1 0"))
 
-        assertEquals("Send 1 MON from Wallet 1 0 to Wallet 1 3 (Carol)?", title.text)
+        assertEquals("Send 1 MON from Wallet 1 0${at(SENDER)} to Wallet 1 3 (Carol)${at(TO_ACCOUNT)}?", title.text)
         assertEquals(testPalette.positive, colourOf(title, "Wallet 1 3 (Carol)"))
     }
 
@@ -116,7 +119,7 @@ class SendTitleTest {
     fun theSigningAccountIsNamedAsTheReviewNamesItEvenWithoutANote() {
         val title = titleOf(send("0.4", "ALGO", TO_UNKNOWN), emptyMap())
 
-        assertEquals("Send 0.4 ALGO from VelvetEcho to $TO_UNKNOWN?", title.text)
+        assertEquals("Send 0.4 ALGO from VelvetEcho${at(SENDER)} to $TO_UNKNOWN?", title.text)
         assertEquals(testPalette.positive, colourOf(title, "VelvetEcho"))
     }
 
@@ -135,7 +138,7 @@ class SendTitleTest {
         )
         val sentence = summarySentence(parts, notes, signer, FontFamily.Monospace, testPalette)
 
-        assertEquals("Calls a contract on ElectricDusk and Wallet 1 3.", sentence.text)
+        assertEquals("Calls a contract on ElectricDusk${at(TO_BOOK)} and Wallet 1 3${at(TO_ACCOUNT)}.", sentence.text)
         assertEquals(testPalette.info, colourOf(sentence, "ElectricDusk"))
         assertEquals(testPalette.positive, colourOf(sentence, "Wallet 1 3"))
     }
@@ -169,5 +172,10 @@ class SendTitleTest {
     fun aSendNamesTheSignerAndOnlyTheAddressesItsNotesHold() {
         assertEquals(PartyName("VelvetEcho", NameRole.ACCOUNT), sendPartyOf(SENDER, emptyMap(), signer))
         assertNull(sendPartyOf(TO_BOOK, emptyMap(), signer))
+    }
+
+    @Test
+    fun aNameIsFollowedByTheStartOfItsAddress() {
+        assertEquals("0x5aAe b605 …", addressStart(TO_ACCOUNT))
     }
 }

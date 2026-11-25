@@ -161,7 +161,7 @@ class BitcoinReviewScreenTest {
     fun theSummarySaysWhatIsSentAndToWhomWithTheTotal() {
         show(cleanRequest())
 
-        compose.onNodeWithText("Send 0.0003 BTC from OfPixelBlaze to tb1qexampleexampleexampleexampleexample0?").assertExists()
+        compose.onNodeWithText("Send 0.0003 BTC from OfPixelBlaze (${addressStart(SAMPLE_SIGNER.address)}) to tb1qexampleexampleexampleexampleexample0?").assertExists()
         compose.onNodeWithText("Total").assertExists()
     }
 
@@ -178,7 +178,7 @@ class BitcoinReviewScreenTest {
             ),
         )
 
-        compose.onNodeWithText("Send 0.0003 BTC from OfPixelBlaze to $taproot?").assertExists()
+        compose.onNodeWithText("Send 0.0003 BTC from OfPixelBlaze (${addressStart(SAMPLE_SIGNER.address)}) to $taproot?").assertExists()
     }
 
     @Test

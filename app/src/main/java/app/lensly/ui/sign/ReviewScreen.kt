@@ -29,6 +29,7 @@ import app.lensly.app.notesOf
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.ui.components.BannerTone
 import app.lensly.ui.components.LenslyScreen
+import app.lensly.ui.components.groupAddress
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalLumenPalette
 import app.lensly.ui.theme.LocalMonoFamily
@@ -206,7 +207,12 @@ internal fun summarySentence(
                 val known = notes.notesOf(part.address)
                 val name = known?.shownName()
                 val role = nameRoleOf(known)
-                if (name != null && role != null) appendNamed(name, role, palette) else appendMono(shortAddress(part.address), mono)
+                if (name != null && role != null) {
+                    appendNamed(name, role, palette)
+                    appendAddressStart(part.address, mono)
+                } else {
+                    appendMono(shortAddress(part.address), mono)
+                }
             }
             is SummaryPart.Send -> {
                 append("Send ")
@@ -223,8 +229,23 @@ internal fun summarySentence(
 
 /** A party of a send: its name in its role's colour, or its address in full in mono when no name is known. */
 private fun AnnotatedString.Builder.appendParty(address: String, name: PartyName?, mono: FontFamily, palette: LumenPalette) {
-    if (name == null) appendMono(address, mono) else appendNamed(name.text, name.role, palette)
+    if (name == null) {
+        appendMono(address, mono)
+    } else {
+        appendNamed(name.text, name.role, palette)
+        appendAddressStart(address, mono)
+    }
 }
+
+/** Appends " (" and the first two groups of [address] and " …)" in mono: a name in a sentence never stands for its address alone. */
+private fun AnnotatedString.Builder.appendAddressStart(address: String, mono: FontFamily) {
+    append(" (")
+    appendMono(addressStart(address), mono)
+    append(")")
+}
+
+/** The first two groups of 4 of [address] and an ellipsis, as "0x1234 5678 …". */
+internal fun addressStart(address: String): String = groupAddress(address).split(" ").take(2).joinToString(" ") + " …"
 
 /** Appends [name] in the colour of [role]. */
 private fun AnnotatedString.Builder.appendNamed(name: String, role: NameRole, palette: LumenPalette) {
