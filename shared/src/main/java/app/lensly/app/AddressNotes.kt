@@ -11,9 +11,10 @@ data class InternalAccount(val displayName: String?, val autoName: String, val l
 
 /**
  * What the device's accounts and the Address Book say of one address. Either part can be absent, and both can be present. A review shows
- * both, so an address that is an account of this device and also an entry shows its internal names and the entry's names.
+ * both, so an address that is an account of this device and also an entry shows its internal names and the entry's names. [lookalike] is
+ * the saved entry that an address which is neither an account nor an entry looks like, see [lookalikeEntryFor]. It never names the address.
  */
-data class AddressNotes(val internal: InternalAccount?, val entry: AddressBookEntry?)
+data class AddressNotes(val internal: InternalAccount?, val entry: AddressBookEntry?, val lookalike: AddressBookEntry? = null)
 
 /**
  * The notes of [address] on [chain], or null when neither the device's [internal] accounts nor the Address Book [book] know it. The entry
@@ -27,7 +28,8 @@ fun addressNotesOf(
 ): AddressNotes? {
     val account = internal[addressKeyOf(address)]
     val entry = addressBookEntryFor(address, chain, book)
-    return if (account == null && entry == null) null else AddressNotes(account, entry)
+    val lookalike = if (account == null && entry == null) lookalikeEntryFor(address, chain, book) else null
+    return if (account == null && entry == null && lookalike == null) null else AddressNotes(account, entry, lookalike)
 }
 
 /** The notes of each of [addresses] on [chain] that either source knows, keyed by [addressKeyOf]. */
@@ -51,6 +53,7 @@ const val YOUR_ACCOUNT = "Your account"
  * account has none. Otherwise it is the Address Book name. Null when neither gives one.
  */
 fun AddressNotes.headline(): String? {
-    val account = internal ?: return entry?.name
-    return listOfNotNull(YOUR_ACCOUNT, account.displayName ?: account.autoName, account.label).joinToString(" · ")
+    val account = internal ?: return entry?.name?.let(::displayNameOf)
+    return listOfNotNull(YOUR_ACCOUNT, (account.displayName ?: account.autoName).let(::displayNameOf), account.label?.let(::displayNameOf))
+        .joinToString(" · ")
 }

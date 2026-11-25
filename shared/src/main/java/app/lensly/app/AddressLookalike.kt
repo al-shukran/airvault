@@ -7,13 +7,13 @@ private const val LOOKALIKE_ENDS = 4
 
 /**
  * The part of [address] that a lookalike is judged on: the address without its prefix. An EVM address drops "0x" and is lowercased, since
- * its case only carries the checksum. A Bitcoin address drops "bc1" or "tb1" (bech32, lowercased) or its first character (base58). A
- * Solana or Algorand address is taken exactly as written.
+ * its case only carries the checksum. A Bitcoin address drops "bc1" or "tb1" (bech32) or its first character (base58). A
+ * Bitcoin, Solana or Algorand address is otherwise taken exactly as written.
  */
 private fun lookalikeBody(address: String, chain: ChainId): String = when {
     chain.namespace == EVM_FAMILY.namespace -> address.removePrefix("0x").removePrefix("0X").lowercase()
     chain.namespace != BITCOIN_FAMILY.namespace -> address
-    address.startsWith("bc1", ignoreCase = true) || address.startsWith("tb1", ignoreCase = true) -> address.drop(3).lowercase()
+    address.startsWith("bc1", ignoreCase = true) || address.startsWith("tb1", ignoreCase = true) -> address.drop(3)
     else -> address.drop(1)
 }
 

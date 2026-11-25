@@ -6,10 +6,10 @@ const val DISPLAY_NAME_MAX = 40
 /**
  * [name] as a review shows it: plain text. Control characters (line breaks and tabs among them), the format characters that reorder or hide
  * text (bidirectional marks and isolates, zero-width characters) and the line and paragraph separators are removed, the ends are
- * trimmed, and the name is cut to [DISPLAY_NAME_MAX] characters. Every name of the Address Book, an account or a label goes through it
+ * trimmed, and the name is cut to [max] characters, [DISPLAY_NAME_MAX] by default. Every name of the Address Book, an account or a label goes through it
  * before a review shows it.
  */
-fun displayNameOf(name: String): String {
+fun displayNameOf(name: String, max: Int = DISPLAY_NAME_MAX): String {
     val plain = buildString {
         name.codePoints().forEach { cp ->
             when (Character.getType(cp).toByte()) {
@@ -20,9 +20,9 @@ fun displayNameOf(name: String): String {
             }
         }
     }.trim()
-    return if (plain.codePointCount(0, plain.length) <= DISPLAY_NAME_MAX) {
+    return if (plain.codePointCount(0, plain.length) <= max) {
         plain
     } else {
-        plain.substring(0, plain.offsetByCodePoints(0, DISPLAY_NAME_MAX - 1)).trimEnd() + "…"
+        plain.substring(0, plain.offsetByCodePoints(0, max - 1)).trimEnd() + "…"
     }
 }
