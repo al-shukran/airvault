@@ -55,9 +55,12 @@ const val YOUR_ACCOUNT = "Your account"
  */
 fun AddressNotes.headline(): String? {
     val account = internal ?: return plainNameOrNull(entry?.name)
-    return listOfNotNull(YOUR_ACCOUNT, plainNameOrNull(account.displayName ?: account.autoName), plainNameOrNull(account.label))
+    return listOfNotNull(YOUR_ACCOUNT, account.plainName(), plainNameOrNull(account.label))
         .joinToString(" · ")
 }
+
+/** The name of an account as plain text: its Display Name, or its Auto-Name when the Display Name has nothing visible left. */
+fun InternalAccount.plainName(): String? = plainNameOrNull(displayName) ?: plainNameOrNull(autoName)
 
 /** The name of [entry] as a title: plain text, or its address in groups when the name has nothing visible left. */
 fun AddressBookEntry.plainName(): String = plainNameOrNull(name) ?: groupAddress(address)
