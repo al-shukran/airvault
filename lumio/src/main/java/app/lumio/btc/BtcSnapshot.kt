@@ -34,7 +34,6 @@ data class BtcSnapshot(
     val confirmedSats: Long,
     val unconfirmedSats: Long,
     val nextReceiveIndex: Int,
-    val nextReceiveAddress: String,
     val utxos: List<BtcUtxo>,
     val transactions: List<BtcTx>,
     /** The addresses the scan found in use. Their stored transactions are the account's activity, which a screen reads before any scan runs. */

@@ -41,9 +41,9 @@ class FirstSync(private val steps: List<SyncStep>) {
 
     /**
      * Runs the reads in order. The reads run once: a call made while they are going, or after they have run, returns at once, so a screen that
-     * opens the sync again reattaches to it.
+     * opens the sync again reattaches to it. [afterStep] runs as each step ends, whether its rows are done or failed.
      */
-    suspend fun run() {
+    suspend fun run(afterStep: () -> Unit = {}) {
         if (!started.compareAndSet(false, true)) return
         coroutineScope {
             for (step in steps) {
@@ -61,6 +61,7 @@ class FirstSync(private val steps: List<SyncStep>) {
                 }
                 slow.cancel()
                 update(step.rows) { row, _ -> if (row in failed) SyncState.Failed else SyncState.Done }
+                afterStep()
             }
         }
     }

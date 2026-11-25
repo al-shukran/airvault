@@ -83,7 +83,11 @@ for file in "${art:-/nonexistent}/back.webp" "${art:-/nonexistent}/mask.webp"; d
   }
 done
 
-for f in "${inputs[@]}"; do [ -f "$f" ] || { echo "no such file: $f" >&2; exit 1; }; done
+# A name that starts with a dash would be read as an option by ffprobe, ffmpeg and magick.
+for ((i = 0; i < n; i++)); do
+  case ${inputs[i]} in -*) inputs[i]=./${inputs[i]} ;; esac
+  [ -f "${inputs[i]}" ] || { echo "no such file: ${inputs[i]}" >&2; exit 1; }
+done
 
 # Each input must be a real screen: 9:20, at least 720 px wide, with its status bar and navigation bar.
 # still[i] is 1 for a PNG.
@@ -91,6 +95,7 @@ still=()
 for ((i = 0; i < n; i++)); do
   f=${inputs[i]}
   case $f in *.png | *.PNG) still[i]=1 ;; *) still[i]=0 ;; esac
+  check_capture "$f" || exit 1
   check_screen "$f" "${starts[i]}" || exit 1
 done
 
@@ -223,7 +228,7 @@ build_graph() {
     if [ "${still[i]}" -eq 1 ]; then
       parts+=("[$((i + 1)):v]format=rgba,scale=$scr_w:$scr_h:flags=lanczos[c$i]")
     else
-      parts+=("[$((i + 1)):v]fps=30,scale=$scr_w:$scr_h:flags=lanczos,format=rgba,tpad=stop_mode=clone:stop_duration=$max_seconds[c$i]")
+      parts+=("[$((i + 1)):v]fps=30,setpts=PTS-STARTPTS,scale=$scr_w:$scr_h:flags=lanczos,format=rgba,tpad=stop_mode=clone:stop_duration=$max_seconds[c$i]")
     fi
     at=(${screens_at[i]})
     parts+=("[$cur][c$i]overlay=${at[0]}:${at[1]}:format=rgb[s$((i + 1))]")
@@ -261,5 +266,6 @@ for ext in mp4 gif png; do
   [ -f "$work/$name.$ext" ] || continue
   [ "$(size_of "$work/$name.$ext")" -le "$max_bytes" ] || { echo "$name.$ext is larger than 10 MB" >&2; exit 1; }
   cp "$work/$name.$ext" "$out/$name.$ext"
+  stamp_compose "$out/$name.$ext"
   echo "wrote $out/$name.$ext ($(size_of "$out/$name.$ext") bytes)"
 done
