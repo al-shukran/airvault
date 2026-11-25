@@ -72,7 +72,7 @@ private val PLAIN_GAPS = setOf(" ", "-", "/")
 /** The longest piece an upper-case or hump-case ("MetaMaskWallet") piece reaches before it is read as an address. */
 private const val MAX_WORD = 12
 
-/** The longest lowercase or Capitalised letters-only piece that is still a word ("Internationalization" has 20, "Counterrevolutionaries" 22); a longer one is read as an address. */
+/** The longest lowercase or Capitalised letters-only piece that is still a word ("Internationalization" has 20, "Counterrevolutionaries" 22); a longer one is read as an address. The accepted gap is described on [isAddressLike]. */
 private const val MAX_LONG_WORD = 24
 
 /** A piece this short or shorter can be one group of an address, whatever its look. */
@@ -104,8 +104,11 @@ private fun piecesOf(text: String): List<String> = text.split(NOT_ALPHANUMERIC).
  * Whether [piece] looks like a part of an address and not like a word: it holds a digit, its letters are in an irregular case ("XwBb",
  * "PKTanMKd"; a word is lowercase, Capitalised, UPPERCASE or made of humps of 3 or more letters such as "MetaMask", "iPhone" or
  * "McDonald"), or it is longer than a word of its case: a lowercase or Capitalised piece ("International", "Opportunities") is a word up to
- * [MAX_LONG_WORD] letters, an upper-case or hump-case piece only up to [MAX_WORD] (an Algorand address is upper-case letters and has no
- * digit about once in 100,000). Letters without case, such as Chinese or Arabic, are neutral.
+ * [MAX_LONG_WORD] letters, an upper-case or hump-case piece only up to [MAX_WORD] (an Algorand address is upper-case letters, so
+ * the shorter limit keeps it refused). A 13 to 24 letter lowercase or Capitalised run can pass: a 13-character window of a lowercase Algorand
+ * address is letters-only about 7% of the time, of a bech32 body about 0.8%, of base58 negligibly, so a user-typed lowercase copy of an address
+ * start or end can pass, as it already could at 12 letters. That is accepted because every signing and summary screen shows the real address
+ * beside the name (#1089, #1253). Letters without case, such as Chinese or Arabic, are neutral.
  */
 private fun isAddressLike(piece: String): Boolean {
     if (piece.any(Char::isDigit)) return true
