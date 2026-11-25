@@ -8,7 +8,7 @@ Libraries and fonts:
 
 Apache License 2.0:
 
-Android Jetpack, Jetpack Compose, Material 3 and CameraX (androidx.*): Activity 1.13.0, Navigation 2.10.2, Lifecycle 2.10.0, Compose BOM 2026.11.01, CameraX 1.7.0.
+Android Jetpack, Jetpack Compose, Material 3 and CameraX (androidx.*): Activity 1.13.0, Navigation 2.10.2, Lifecycle 2.11.0, Compose BOM 2026.11.01, CameraX 1.7.0.
 
 Room 2.8.5 (androidx.room) and its SQLite driver (androidx.sqlite), the database under Lumio's cache and scan queue.
 
@@ -36,7 +36,7 @@ cbor 0.9 (Concise Binary Object Representation, co.nstant.in).
 
 jc-kzg-4844 2.1.8 (Consensys).
 
-Apache Tuweni bytes and units 2.8.0 (Apache Software Foundation). Its NOTICE is quoted below.
+Apache Tuweni bytes and units 2.8.0 (Apache Software Foundation). Its NOTICE is quoted below. Tuweni names the ConnId framework (CDDL 1.0) as a dependency, but no Tuweni class uses it, so the release build leaves it out and it needs no entry.
 
 jnr-ffi 2.3.3, jnr-constants 0.11.2, jnr-enxio 0.33.3, jnr-unixsocket 0.39.5 and jnr-a64asm 1.0.0 (JNR project).
 
@@ -66,7 +66,7 @@ ens-normalize 0.3.1 (io.github.adraffy). Copyright (c) 2023 Andrew Raffensperger
 
 Java-WebSocket 1.6.0. Copyright (c) 2010-2020 Nathan Rajlich.
 
-SLF4J API 2.0.20 (QOS.ch). Copyright (c) 2004-2022 QOS.ch Sarl (Switzerland).
+SLF4J API 2.0.20 (QOS.ch). Copyright (c) 2004-2023 QOS.ch.
 
 jnr-x86asm 1.0.2 (JNR project). Copyright (C) 2010 Wayne Meissner and Copyright (c) 2008-2009 Petr Kobalicek.
 
@@ -76,7 +76,7 @@ Three token logos (busd, aero and bal) come from Iconify token-icons, which the 
 
 Bouncy Castle Licence (an MIT-style licence):
 
-Bouncy Castle bcprov-jdk18on 1.87. Copyright (c) 2000-2026 The Legion of the Bouncy Castle Inc.
+Bouncy Castle bcprov-jdk18on 1.87 and bcutil-jdk18on 1.86. Copyright (c) 2000-2026 The Legion of the Bouncy Castle Inc.
 
 BSD 3-Clause License:
 
@@ -863,9 +863,9 @@ SOFTWARE.
  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  OTHER DEALINGS IN THE SOFTWARE.
 
-==== MIT License: SLF4J API (Copyright (c) 2004-2022 QOS.ch Sarl) ====
+==== MIT License: SLF4J API (Copyright (c) 2004-2023 QOS.ch) ====
 
-Copyright (c) 2004-2022 QOS.ch Sarl (Switzerland)
+Copyright (c) 2004-2023 QOS.ch
 All rights reserved.
 
 Permission is hereby granted, free  of charge, to any person obtaining
@@ -937,7 +937,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-==== Bouncy Castle Licence: bcprov-jdk18on (The Legion of the Bouncy Castle Inc.) ====
+==== Bouncy Castle Licence: bcprov-jdk18on and bcutil-jdk18on (The Legion of the Bouncy Castle Inc.) ====
 
 MIT License (https://opensource.org/licenses/MIT)
 
