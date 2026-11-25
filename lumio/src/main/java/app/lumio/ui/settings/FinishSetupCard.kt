@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -64,13 +65,18 @@ internal fun FinishSetupCard(setup: FinishSetup, onOpen: (FinishItem) -> Unit, m
                 .padding(horizontal = ClearAirSpacing.md, vertical = 14.dp),
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(21.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom,
             ) {
-                Text(text = "Finish Setting Up", style = ClearAirType.rowTitle, color = palette.ink)
+                Text(
+                    text = "Finish Setting Up",
+                    modifier = Modifier.alignByBaseline(),
+                    style = ClearAirType.rowTitle.copy(fontWeight = FontWeight.Bold, lineHeight = 21.sp),
+                    color = palette.ink,
+                )
                 Text(
                     text = "${setup.done.size} of ${FinishItem.entries.size}",
+                    modifier = Modifier.alignByBaseline(),
                     style = ClearAirType.rowValue.copy(fontSize = 13.sp, lineHeight = 18.sp, letterSpacing = (-0.02).em, fontWeight = FontWeight.Normal),
                     color = palette.ink2,
                 )
@@ -86,7 +92,7 @@ internal fun FinishSetupCard(setup: FinishSetup, onOpen: (FinishItem) -> Unit, m
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(text = next.title, style = ClearAirType.body.copy(fontSize = 14.sp, lineHeight = 20.sp), color = palette.ink)
+                Text(text = next.title, style = ClearAirType.body.copy(fontSize = 14.sp, lineHeight = 21.sp), color = palette.ink)
                 ClearAirIcon(glyph = ClearAirGlyph.CHEVRON, color = palette.ink2, size = 16.dp)
             }
         }
