@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.lensly.app.familyLabel
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -29,15 +30,14 @@ import app.lumio.network.NetworkMode
 import app.lumio.ui.kit.ClearAirAmount
 import app.lumio.ui.kit.ClearAirChangeLine
 import app.lumio.ui.kit.ClearAirEyebrow
-import app.lumio.ui.kit.ClearAirListRow
 import app.lumio.ui.kit.ClearAirMonogram
 import app.lumio.ui.kit.ClearAirRefreshBox
+import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirWalletEmblem
 import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.network.label
 import app.lumio.wallets.BalanceSlot
 import app.lumio.wallets.WalletAccount
-import app.lumio.wallets.WalletAccounts
 import app.lumio.wallets.WalletReads
 import app.lumio.wallets.balanceSlotOf
 import app.lumio.wallets.failureShown
@@ -209,7 +209,7 @@ private fun ChainIsland(
             modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ClearAirEyebrow(text = "${WalletAccounts.familyLabel(family)} App · ${group.size}", modifier = Modifier.weight(1f))
+            ClearAirEyebrow(text = "${familyLabel(family)} App · ${group.size}", modifier = Modifier.weight(1f))
             groupUsd(group, usdOf)?.let { usd -> ClearAirAmount(text = LocalFiat.current.amount(usd), hidden = !showTotal, style = ClearAirType.rowValue) }
         }
         // A chain that did not answer says so once, under the eyebrow, with a Retry. It says so only while a value is missing, last known or incomplete
@@ -223,7 +223,6 @@ private fun ChainIsland(
             )
         }
         rows.forEachIndexed { index, account ->
-            if (index > 0) RowDivider(indent = ROW_DIVIDER_INDENT)
             AccountItem(
                 account = account,
                 tokens = tokenCounts[account] ?: 0,
@@ -232,16 +231,17 @@ private fun ChainIsland(
                 showBalances = showBalances,
                 slot = balanceSlotOf(account, reads),
                 clock = clock,
+                divider = index > 0,
                 onClick = { onAccount(account) },
             )
         }
         if (fold.folded.isNotEmpty()) {
-            if (rows.isNotEmpty()) RowDivider(indent = ROW_DIVIDER_INDENT)
             FoldRow(
                 count = fold.folded.size,
                 summary = foldSummary(fold),
                 usd = groupUsd(fold.folded, usdOf),
                 showTotal = showTotal,
+                divider = rows.isNotEmpty(),
                 onClick = { expanded = !expanded },
             )
         }
@@ -261,14 +261,18 @@ private fun AccountItem(
     showBalances: Boolean,
     slot: BalanceSlot,
     clock: Clock,
+    divider: Boolean,
     onClick: () -> Unit,
 ) {
-    ClearAirListRow(
+    ClearAirRow(
         title = accountTitle(account),
+        index = accountIndex(account),
         description = accountLine(account, tokens),
         leading = { ClearAirMonogram(text = monogramOf(account)) },
         trailing = { AccountValue(account = account, usd = usd, showTotal = showTotal, showBalances = showBalances, slot = slot, clock = clock) },
         onClick = onClick,
+        divider = divider,
+        chevron = false,
     )
 }
 
@@ -305,13 +309,15 @@ private fun AccountValue(account: WalletAccount, usd: Double?, showTotal: Boolea
 
 /** The row that holds an island's folded accounts: "+7" as its monogram, "7 More Accounts", what they hold, and their total. Opening it shows them. */
 @Composable
-private fun FoldRow(count: Int, summary: String, usd: Double?, showTotal: Boolean, onClick: () -> Unit) {
-    ClearAirListRow(
+private fun FoldRow(count: Int, summary: String, usd: Double?, showTotal: Boolean, divider: Boolean, onClick: () -> Unit) {
+    ClearAirRow(
         title = moreAccountsTitle(count),
         description = summary,
         leading = { ClearAirMonogram(text = "+$count") },
         trailing = if (usd == null) null else ({ ClearAirAmount(text = LocalFiat.current.amount(usd), hidden = !showTotal, style = ClearAirType.rowValue) }),
         onClick = onClick,
+        divider = divider,
+        chevron = false,
     )
 }
 

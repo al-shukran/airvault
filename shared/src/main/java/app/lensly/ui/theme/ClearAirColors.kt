@@ -40,6 +40,8 @@ data class ClearAirPalette(
     val vaultBlue: Color,
     /** Losses and errors. */
     val rose: Color,
+    /** The veil over the page beneath a sheet or the profile panel. */
+    val scrim: Color,
     /** The hatch lines of the testnet band. A texture, not a colour. */
     val testHatch: Color,
     /** Paper in both themes: the scan brackets and their caption, which sit on the dark camera. */
@@ -63,6 +65,7 @@ internal val ClearAirPaperPalette = ClearAirPalette(
     sparkText = Color(0xFF94500C),
     vaultBlue = Color(0xFF2A56A8),
     rose = Color(0xFFB3261E),
+    scrim = Color(0xFF2B2530).copy(alpha = 0.34f),
     testHatch = Color(0xFF2B2530).copy(alpha = 0.08f),
     paper = Color(0xFFFBF6EC),
 )
@@ -70,7 +73,7 @@ internal val ClearAirPaperPalette = ClearAirPalette(
 internal val ClearAirInkPalette = ClearAirPalette(
     background = Color(0xFF151317),
     sheet = Color(0xFF1F1C22),
-    raised = Color(0xFF2B2530),
+    raised = Color(0xFF2A262E),
     hairline = Color(0xFF36313B),
     ink = Color(0xFFF5EFE4),
     ink2 = Color(0xFFABA3AE),
@@ -81,6 +84,7 @@ internal val ClearAirInkPalette = ClearAirPalette(
     sparkText = Color(0xFFF2A14A),
     vaultBlue = Color(0xFF8DBBFF),
     rose = Color(0xFFFF8A80),
+    scrim = Color(0xFF050406).copy(alpha = 0.58f),
     testHatch = Color(0xFFF5EFE4).copy(alpha = 0.075f),
     paper = Color(0xFFFBF6EC),
 )

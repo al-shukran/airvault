@@ -134,7 +134,7 @@ class ShippedRegistryDataTest {
 
     @Test
     fun theExploreChainsGroupFeaturesTheNamedNetworksAndEveryLayerTwoSettlesToEthereum() {
-        assertEquals(listOf(10L, 137L, 8453L, MONAD_TESTNET, 42161L), registry.networks().filter { it.featured }.map { it.chainId })
+        assertEquals(listOf(10L, 56L, 137L, 8453L, MONAD_TESTNET, 42161L, 43114L), registry.networks().filter { it.featured }.map { it.chainId })
         assertTrue(registry.networks().filter { it.kind == NetworkKind.LAYER_2 }.all { it.parentChainId == 1L })
     }
 

@@ -11,12 +11,12 @@ import org.junit.Test
 class MarketFormatTest {
     @Test
     fun aTotalInTrillionsIsWrittenToTwoPlacesInTrillions() {
-        assertEquals("\$3.41 T", compactUsd(3.41e12, Fiat.USD))
+        assertEquals("\$3.41T", compactUsd(3.41e12, Fiat.USD))
     }
 
     @Test
     fun aTotalInBillionsIsWrittenInBillions() {
-        assertEquals("\$2.62 B", compactUsd(2.62e9, Fiat.USD))
+        assertEquals("\$2.62B", compactUsd(2.62e9, Fiat.USD))
     }
 
     @Test
@@ -26,7 +26,7 @@ class MarketFormatTest {
 
     @Test
     fun aTotalIsWrittenInTheOwnersCurrency() {
-        assertEquals("€1.80 T", compactUsd(3.6e12, Fiat.of(FiatCurrency.EUR, FiatRate(FiatCurrency.EUR, 0.5))))
+        assertEquals("€1.80T", compactUsd(3.6e12, Fiat.of(FiatCurrency.EUR, FiatRate(FiatCurrency.EUR, 0.5))))
     }
 
     @Test

@@ -10,13 +10,19 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import app.lensly.app.familyLabel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.Registry
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.data.net.Networks
 import app.lumio.network.NetworkMode
+import app.lumio.ui.home.AssetDisc
+import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.kit.ClearAirEyebrow
+import app.lumio.ui.kit.ClearAirGlyph
+import app.lumio.ui.kit.ClearAirGlyphDisc
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.settings.ProviderRow
@@ -26,8 +32,11 @@ import app.lumio.ui.settings.providerStatusWord
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
 
-/** A row of the chains group: a network's [title] and its [description], such as "Layer 1 · 4 of your accounts" or "L2 on Ethereum · ID 8453". */
-data class ChainRow(val title: String, val description: String)
+/**
+ * A row of the chains group: a network's [title], its [description], such as "Layer 1 · 4 of your accounts" or "L2 on Ethereum · ID 8453", and its
+ * logo [icon].
+ */
+data class ChainRow(val title: String, val description: String, val icon: AssetIconSpec)
 
 /**
  * The rows of the chains group on [mode]'s side, in family order. Each Ethereum network that is featured or holds one of [accounts] has a row, in
@@ -42,7 +51,7 @@ internal fun chainRows(registry: Registry, mode: NetworkMode, accounts: List<Wal
                 .map { network -> evmRow(registry, network, onChain[Networks.evm(network.chainId)] ?: 0) }
         } else {
             onChain.filterKeys { it.namespace == family }
-                .map { (_, count) -> ChainRow(WalletAccounts.familyLabel(family), "Layer 1 · $count of your accounts") }
+                .map { (_, count) -> ChainRow(familyLabel(family), "Layer 1 · $count of your accounts", familyIcon(family)) }
         }
     }
 }
@@ -51,7 +60,14 @@ internal fun chainRows(registry: Registry, mode: NetworkMode, accounts: List<Wal
 private fun evmRow(registry: Registry, network: NetworkEntry, accounts: Int): ChainRow {
     val kind = kindOf(registry, network)
     val line = if (accounts > 0) "$kind · $accounts of your accounts" else "$kind · ID ${network.chainId}"
-    return ChainRow(network.name, line)
+    return ChainRow(network.name, line, AssetIconSpec.Chain(network))
+}
+
+/** The logo of a chain family that is not Ethereum: its one Layer 1 chain. */
+private fun familyIcon(family: String): AssetIconSpec = when (family) {
+    Networks.BIP122 -> AssetIconSpec.Bitcoin
+    Networks.SOLANA -> AssetIconSpec.Solana
+    else -> AssetIconSpec.Algorand
 }
 
 /** "Layer 1", or "L2 on" the name of the parent chain, such as "L2 on Ethereum". */
@@ -76,16 +92,24 @@ fun ExploreScreen(
 ) {
     Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
         ExploreGroup(title = "Chains and L2s", action = "All $networks", onAction = onChains) {
-            chains.forEach { chain ->
-                ClearAirRow(title = chain.title, description = chain.description, onClick = onChains)
+            chains.forEachIndexed { index, chain ->
+                ClearAirRow(
+                    title = chain.title,
+                    description = chain.description,
+                    leading = { AssetDisc(chain.icon) },
+                    onClick = onChains,
+                    divider = index > 0,
+                )
             }
         }
         ExploreGroup(title = "Data Providers", action = "All ${providers.size}", onAction = onProviders) {
-            providers.forEach { row ->
+            providers.forEachIndexed { index, row ->
                 ClearAirRow(
                     title = providerName(row.id),
                     description = listOfNotNull(providerStatusWord(row.status), providerStatusNote(row.status)).joinToString(" · "),
+                    leading = { ClearAirGlyphDisc(ClearAirGlyph.NODE, size = 19.dp) },
                     onClick = { onProvider(row.id) },
+                    divider = index > 0,
                 )
             }
         }

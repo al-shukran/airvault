@@ -27,10 +27,9 @@ data class Holding(val chain: EvmChain, val wei: BigInteger, val atMs: Long)
 private const val BATCH_SIZE = 50
 
 /**
- * Reads the native balances and nonces of one wallet's addresses on the given chains through [reads]. A chain that the pool cannot serve, or whose
- * endpoint fails, is reported as a [ChainFailure] and gives no reads. Chains run side by side. Within a chain, the balances come in one Multicall3
- * call and the nonces are read side by side. An address whose balance or nonce does not answer gives no read and does not stop the others; the
- * chain reports its first failure.
+ * Reads the native balances of one wallet's addresses on the given chains through [reads]. A chain that the pool cannot serve, or whose endpoint
+ * fails, is reported as a [ChainFailure] and gives no reads. Chains run side by side. Within a chain, the balances come in one Multicall3 call. An
+ * address whose balance does not answer gives no read and does not stop the others; the chain reports its first failure.
  */
 class PortfolioRefresh(
     private val reads: EvmReads,
@@ -45,35 +44,25 @@ class PortfolioRefresh(
     }
 
     private suspend fun readChain(walletId: String, addresses: List<String>, chain: EvmChain): ChainResult = try {
-        coroutineScope {
-            val nonces = addresses.map { address -> async { nonceOf(chain, address) } }
-            val balances = readBalances(
-                addresses,
-                call = { to, data -> reads.call(chain, to, data) },
-                single = { address -> reads.balance(chain, address) },
-            )
-            val fresh = ArrayList<CachedBalance>()
-            var failure: String? = null
-            for ((address, nonce) in addresses.zip(nonces.awaitAll())) {
-                val wei = balances.getValue(address)
-                val error = wei.exceptionOrNull() ?: nonce.exceptionOrNull()
-                if (error != null) {
-                    failure = failure ?: error.message ?: "The endpoint failed."
-                } else {
-                    fresh.add(CachedBalance(walletId, chain.chainId, address, wei.getOrThrow().toString(), nonce.getOrThrow(), nowMs()))
-                }
+        val balances = readBalances(
+            addresses,
+            call = { to, data -> reads.call(chain, to, data) },
+            single = { address -> reads.balance(chain, address) },
+        )
+        val fresh = ArrayList<CachedBalance>()
+        var failure: String? = null
+        for (address in addresses) {
+            val wei = balances.getValue(address)
+            val error = wei.exceptionOrNull()
+            if (error != null) {
+                failure = failure ?: error.message ?: "The endpoint failed."
+            } else {
+                fresh.add(CachedBalance(walletId, chain.chainId, address, wei.getOrThrow().toString(), nowMs()))
             }
-            ChainResult(fresh, failure?.let { ChainFailure(chain.chainId, it) })
         }
+        ChainResult(fresh, failure?.let { ChainFailure(chain.chainId, it) })
     } catch (e: RpcFailure) {
         ChainResult(emptyList(), ChainFailure(chain.chainId, e.message ?: "The endpoint failed."))
-    }
-
-    /** The nonce of [address] on [chain], or the failure of its read. */
-    private suspend fun nonceOf(chain: EvmChain, address: String): Result<Long> = try {
-        Result.success(reads.nonce(chain, address, pending = false))
-    } catch (e: RpcFailure) {
-        Result.failure(e)
     }
 
     private class ChainResult(val reads: List<CachedBalance>, val failure: ChainFailure?)

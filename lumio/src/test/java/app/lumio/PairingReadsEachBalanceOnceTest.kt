@@ -52,7 +52,7 @@ import org.robolectric.annotation.Config
 
 /**
  * Pairing a wallet reads each Ethereum balance once: the first sync that the pairing opens is the only read of it, so the Wallets home does not read
- * the same chain again when the pairing is saved. The owner's RPC endpoint counts the nonce reads, one per shown address per refresh.
+ * the same chain again when the pairing is saved. The owner's RPC endpoint counts the balance reads, one per shown address per refresh.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = LumioApp::class)
@@ -73,9 +73,9 @@ class PairingReadsEachBalanceOnceTest {
     private val draft = PairDraft()
     private lateinit var nav: NavHostController
 
-    /** The owner's own RPC endpoint for the testnet chain, which answers every read locally and counts the nonce reads. */
+    /** The owner's own RPC endpoint for the testnet chain, which answers every read locally and counts the balance reads. */
     private val rpc = MockWebServer()
-    private val nonceReads = AtomicInteger(0)
+    private val balanceReads = AtomicInteger(0)
 
     @Before
     fun serveRpc() {
@@ -83,11 +83,10 @@ class PairingReadsEachBalanceOnceTest {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val body = request.body?.utf8().orEmpty()
                 val result = when {
-                    body.contains("eth_getTransactionCount") -> {
-                        nonceReads.incrementAndGet()
-                        "0x3"
+                    body.contains("eth_getBalance") -> {
+                        balanceReads.incrementAndGet()
+                        "0x1"
                     }
-                    body.contains("eth_getBalance") -> "0x1"
                     // No Multicall3 answer, so each balance is read on its own.
                     body.contains("eth_call") -> "0x"
                     else -> return MockResponse.Builder().code(400).build()
@@ -131,7 +130,7 @@ class PairingReadsEachBalanceOnceTest {
         val sync = checkNotNull(imports.get(walletId, NetworkMode.TESTNET)).sync
         awaitUntil { FirstSync.isSettled(sync.rows.value) && !home.refreshing }
 
-        assertEquals(1, nonceReads.get(), "The Ethereum address is read once for the pairing, not once by the home and again by the first sync")
+        assertEquals(1, balanceReads.get(), "The Ethereum address is read once for the pairing, not once by the home and again by the first sync")
     }
 
     /** An open vault with one paired wallet, saved as the pairing review saves it. */

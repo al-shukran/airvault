@@ -71,7 +71,7 @@ class EvmBalanceFallbackTest {
         val http = JsonRpc.newHttp(timeoutMs = 2_000L)
         return EvmReads(
             pool = Scheduler(listOf(RoutescanProvider(), CustomRpc(allowLocalHttp = true)), { configs }, http, clock, Random(7), scope),
-            owner = Scheduler(emptyList(), { configs }, http, clock, Random(7), scope),
+            newOwner = { Scheduler(emptyList(), { configs }, http, clock, Random(7), scope) },
             settings = { EvmSettings() },
             rpcOnly = Scheduler(listOf(CustomRpc(allowLocalHttp = true)), { configs }, http, clock, Random(7), scope),
             preferRpc = { preferRpc },

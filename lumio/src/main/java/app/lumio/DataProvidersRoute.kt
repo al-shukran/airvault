@@ -26,13 +26,23 @@ import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.providerStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** How often the screen reads the schedulers again, so a cooldown or an open circuit counts down on screen. */
-private const val STATUS_POLL_MS = 2_000L
+internal const val STATUS_POLL_MS = 2_000L
+
+/** [read] now, and again every [everyMs], for as long as the flow is collected. */
+internal fun <T> polled(everyMs: Long, read: suspend () -> T): Flow<T> = flow {
+    while (true) {
+        emit(read())
+        delay(everyMs)
+    }
+}
 
 /** The three groups of rows, read in one pass. */
 internal class ProviderLists(

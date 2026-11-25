@@ -21,18 +21,17 @@ import app.lumio.evm.EvmEdits
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
+import app.lumio.ui.home.chainIconOf
 import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.network.PanelWallet
 import app.lumio.ui.network.TestNetworksScreen
 import app.lumio.ui.network.testNetworkSentence
+import app.lumio.ui.settings.walletSummary
 import app.lumio.ui.shell.LumioPageScreen
 import app.lumio.ui.shell.LumioRootScreen
 import app.lumio.ui.shell.offlineBand
 import app.lumio.ui.shell.rememberOnline
 import app.lumio.wallets.WalletAccounts
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -60,23 +59,23 @@ internal fun TabRoute(
     val wallets = pairedWallets(navController, holder, listVersion)
     val active = wallets.active(selection) { it.id }
     val networks = testNetworkSummary(app, holder, listVersion)
-    val primary = primaryNetwork(app, holder, selection.mode, listVersion)
+    val scanChain = scanChain(app, holder, selection.mode, listVersion)
     LumioRootScreen(
         tab = tab,
         title = title,
         mode = selection.mode,
         onMode = { selection.choose(it) },
-        panelWallets = wallets.map { wallet -> PanelWallet(id = wallet.id, name = wallet.name, detail = walletDetail(wallet)) },
+        panelWallets = wallets.map { wallet -> PanelWallet(id = wallet.id, name = wallet.name, detail = walletSummary(wallet)) },
         activeWalletId = active?.id,
         onWallet = { selection.walletId = it },
         testNetworks = networks.count,
         networkSentence = testNetworkSentence(networks.evmNames),
-        scanNote = scanNoteOf(active, primary?.offName),
-        scanReady = primary != null,
+        scanNote = scanNoteOf(active, scanChain?.chainId),
+        scanReady = scanChain != null,
         offline = if (online) null else offlineBand(app.lumioVault()?.wallets?.updatedAtMs),
         onTab = { navController.openTab(it) },
         onScan = {
-            if (primary != null) active?.let { scanToPayRoute(it, selection.mode, primaryOn = primary.offName == null) }?.let { navController.navigate(it) }
+            if (scanChain != null) active?.let { scanToPayRoute(it, scanChain.chainId) }?.let { navController.navigate(it) }
         },
         onTestNetworks = { navController.navigate(LumioRoute.TEST_NETWORKS) },
         onPair = { navController.navigate(LumioRoute.PAIR_SCAN) },
@@ -146,6 +145,7 @@ internal fun TestNetworksRoute(navController: NavHostController, holder: VaultHo
                 }
             },
             onAddCustom = { navController.navigate(LumioRoute.SETTINGS_ADD_NETWORK) },
+            iconOf = { chain -> chainIconOf(app.registry, chain.chainId, chain.name) },
         )
     }
 }
@@ -173,26 +173,25 @@ internal fun backLabelOf(route: String?): String = when (route) {
 /** The test networks in use: how many there are, and the names of the EVM ones that are switched on. */
 private data class TestNetworkSummary(val count: Int, val evmNames: List<String>)
 
-/** The side's primary network, read from the settings: [offName] is its name while it is switched off, else null. Scan to Pay needs that network on. */
-private class PrimaryNetwork(val offName: String?)
+/** The network Scan to Pay opens on, or null while the side has no EVM network on. */
+private class ScanChain(val chainId: Long?)
 
-/** The side's primary network once the settings are read, and null before that, so Scan to Pay stays inert until the switch is known. */
+/** The network Scan to Pay opens on once the settings are read, and null before that, so Scan to Pay stays inert until the switches are known. */
 @Composable
-private fun primaryNetwork(app: LumioApp, holder: VaultHolder, mode: NetworkMode, listVersion: Int): PrimaryNetwork? {
+private fun scanChain(app: LumioApp, holder: VaultHolder, mode: NetworkMode, listVersion: Int): ScanChain? {
     val session = holder.openSession()
-    val primary by produceState<PrimaryNetwork?>(initialValue = null, session, mode, listVersion) {
+    val scanChain by produceState<ScanChain?>(initialValue = null, session, mode, listVersion) {
         value = if (session == null) {
             null
         } else {
             withContext(Dispatchers.IO) {
                 val settings = EvmSettingsStore.read(session)
-                val chainId = WalletAccounts.primaryEvmChainId(mode)
-                val chain = EvmCatalog.chains(app.registry, settings).firstOrNull { it.chainId == chainId }
-                PrimaryNetwork(offName = if (chainId in settings.enabled) null else chain?.name)
+                val on = EvmCatalog.chains(app.registry, settings).filter { it.chainId in settings.enabled && mode.holds(it) }
+                ScanChain(scanChainOf(on.map { it.chainId }, mode))
             }
         }
     }
-    return primary
+    return scanChain
 }
 
 /** The test networks in use: the EVM ones that are switched on, and the networks that have no switch. */
@@ -216,32 +215,27 @@ private fun testNetworkSummary(app: LumioApp, holder: VaultHolder, listVersion: 
 /** The wallet the shell shows: the one the profile panel chose, or the first paired wallet until the owner chooses one. */
 internal fun <T> List<T>.active(selection: NetworkSelection, id: (T) -> String): T? = firstOrNull { id(it) == selection.walletId } ?: firstOrNull()
 
+/** The network Scan to Pay opens on among the side's networks that are [on]: the primary network when it is on, else the first one that is. Null when none is. */
+internal fun scanChainOf(on: List<Long>, mode: NetworkMode): Long? = WalletAccounts.primaryEvmChainId(mode).takeIf { it in on } ?: on.firstOrNull()
+
 /**
- * The send that Scan to Pay opens: the wallet's first Ethereum account on the side's primary network, with the camera on for the recipient. A wallet
- * with no Ethereum account has no such send, and neither does a side whose primary network is switched off ([primaryOn] false). The panel says why.
+ * The send that Scan to Pay opens: the wallet's first Ethereum account on [chainId], with the camera on for the recipient. A scanned code that names
+ * another network that is on moves the send there. A wallet with no Ethereum account has no such send, and neither does a side with no network on
+ * ([chainId] null). The panel says why.
  */
-internal fun scanToPayRoute(wallet: PairedWallet, mode: NetworkMode, primaryOn: Boolean): String? {
+internal fun scanToPayRoute(wallet: PairedWallet, chainId: Long?): String? {
     val address = wallet.evmAddresses.firstOrNull() ?: return null
-    if (!primaryOn) return null
-    val chainId = WalletAccounts.primaryEvmChainId(mode)
+    chainId ?: return null
     return LumioRoute.send(wallet.id, AccountId.of(Networks.evm(chainId), address), chainId, scan = true)
 }
 
 /**
  * The note Scan to Pay shows in place of its description when it cannot open a send, or null when it can: the wallet must be paired, it must have an
- * Ethereum account, and the side's primary network [primaryOff] must be on.
+ * Ethereum account, and the side must have an Ethereum network on ([chainId] not null).
  */
-internal fun scanNoteOf(wallet: PairedWallet?, primaryOff: String?): String? = when {
+internal fun scanNoteOf(wallet: PairedWallet?, chainId: Long?): String? = when {
     wallet == null -> "Pair a wallet to scan to pay"
     wallet.evmAddresses.isEmpty() -> "This wallet has no Ethereum account to scan to pay"
-    primaryOff != null -> "Turn on $primaryOff to scan to pay"
+    chainId == null -> "Turn on a network to scan to pay"
     else -> null
-}
-
-/** A wallet's line in the profile panel: its account count and the day it was paired, such as "30 accounts · paired 21 Nov". */
-private fun walletDetail(wallet: PairedWallet): String {
-    val accounts = wallet.evmAccounts.size + wallet.bitcoin.size + wallet.solana.size + wallet.algorand.size
-    val noun = if (accounts == 1) "account" else "accounts"
-    val paired = SimpleDateFormat("d MMM", Locale.ENGLISH).format(Date(wallet.createdAtMs))
-    return "$accounts $noun · paired $paired"
 }

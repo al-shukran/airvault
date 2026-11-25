@@ -41,7 +41,9 @@ import app.lumio.data.price.ChartFrame
 import app.lumio.data.price.PriceSeries
 import app.lumio.ui.kit.ChoiceGroup
 import app.lumio.ui.kit.ChoiceRow
+import app.lumio.ui.kit.ClearAirAmount
 import app.lumio.ui.kit.ClearAirCapsuleSmall
+import app.lumio.ui.kit.ClearAirChangeLineStyle
 import app.lumio.ui.kit.ClearAirChoiceSheet
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
@@ -121,11 +123,11 @@ internal fun AssetPage(
                 icon()
                 Spacer(Modifier.height(ClearAirSpacing.xs))
                 ClearAirEyebrow(text = "$name · $symbol")
-                Text(text = priceText ?: "—", style = ClearAirType.hero, color = palette.ink)
+                ClearAirAmount(text = priceText ?: "—", style = ClearAirType.hero)
                 change?.let { value ->
                     Text(
                         text = value.text,
-                        style = ClearAirType.body,
+                        style = ClearAirChangeLineStyle,
                         color = if (value.rising) palette.vaultBlue else palette.rose,
                     )
                 }
@@ -137,13 +139,13 @@ internal fun AssetPage(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (held == null) {
-                    ClearAirCapsuleSmall(text = "Receive", onClick = { open(CoinPicker.RECEIVE) })
+                    ClearAirCapsuleSmall(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE)
                     Spacer(Modifier.width(ClearAirSpacing.md))
-                    ClearAirTextAction(text = "Send $symbol", onClick = { open(CoinPicker.SEND) })
+                    ClearAirTextAction(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND)
                 } else {
-                    ClearAirCapsuleSmall(text = "Send $symbol", onClick = { open(CoinPicker.SEND) })
+                    ClearAirCapsuleSmall(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND)
                     Spacer(Modifier.width(ClearAirSpacing.md))
-                    ClearAirTextAction(text = "Receive", onClick = { open(CoinPicker.RECEIVE) })
+                    ClearAirTextAction(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE)
                 }
             }
             held?.let { coin ->

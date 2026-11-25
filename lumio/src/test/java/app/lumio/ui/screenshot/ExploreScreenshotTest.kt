@@ -3,6 +3,7 @@ package app.lumio.ui.screenshot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lumio.ui.explore.ChainRow
 import app.lumio.ui.explore.ExploreScreen
+import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.ProviderStatus
 import org.junit.Rule
@@ -28,9 +29,9 @@ class ExploreScreenshotTest {
     fun explore() = compose.lumioSnapshot("explore") {
         ExploreScreen(
             chains = listOf(
-                ChainRow("Ethereum", "Layer 1 · 4 of your accounts"),
-                ChainRow("Base", "L2 on Ethereum · ID 8453"),
-                ChainRow("Solana", "Layer 1 · 1 of your accounts"),
+                ChainRow("Ethereum", "Layer 1 · 4 of your accounts", AssetIconSpec.Chain(null)),
+                ChainRow("Base", "L2 on Ethereum · ID 8453", AssetIconSpec.Chain(null)),
+                ChainRow("Solana", "Layer 1 · 1 of your accounts", AssetIconSpec.Solana),
             ),
             networks = 55,
             providers = listOf(

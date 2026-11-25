@@ -19,8 +19,8 @@ import app.lumio.data.WallClock
 import app.lumio.ui.kit.ClearAirAmount
 import app.lumio.ui.kit.ClearAirChangePercent
 import app.lumio.ui.kit.ClearAirEyebrow
-import app.lumio.ui.kit.ClearAirListRow
 import app.lumio.ui.kit.ClearAirRefreshBox
+import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.ClearAirWalletEmblem
 import app.lumio.ui.kit.LocalFiat
@@ -90,14 +90,14 @@ fun WalletsScreen(
                 item(key = "wallets") {
                     Column {
                         rows.forEachIndexed { index, row ->
-                            if (index > 0) RowDivider(indent = ROW_DIVIDER_INDENT)
-                            ClearAirListRow(
+                            ClearAirRow(
                                 title = row.name,
                                 description = row.summary,
                                 leading = { ClearAirWalletEmblem() },
                                 tag = if (row.active) "ACTIVE" else null,
                                 trailing = if (row.usd == null) null else ({ WalletValue(usd = row.usd, changePct = row.changePct, shown = showTotal) }),
                                 onClick = { onWallet(row.id) },
+                                divider = index > 0,
                             )
                         }
                     }
