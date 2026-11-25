@@ -667,3 +667,4 @@ shard-10 :shared app.lensly.ui.camera.HiddenGestureDetectorTest
 shard-10 :shared app.lensly.ui.camera.ModeShutterHoldDetectorTest
 shard-10 :shared app.lensly.ui.components.KeyAlternatesTest
 shard-10 :shared app.lensly.ui.gate.UnlockScreenTest
+shard-1 :shared app.lensly.core.vault.VaultRecordNamesTest

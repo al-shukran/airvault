@@ -53,10 +53,16 @@ private const val PAD_FILE_BYTES = 2 * PAD_SECTION_BYTES
  */
 internal object VaultRecordNames {
     /**
-     * The record names the app writes. Removing a Decoy Vault keeps the files of these names under the real key and deletes
-     * the other files. A new vault record name must be added here.
+     * The record names the apps write. Removing a Decoy Vault keeps the files of these names under the real key and deletes
+     * the other files, and a wipe deletes these files. A new vault record name must be added here: VaultRecordNamesTest reads
+     * the `RECORD` and `NAME` constants of the apps and fails for a name that is missing.
      */
-    val KNOWN: List<String> = listOf("settings", "btc-scan", "btc-servers", "lumio-evm-settings", "lumio-balance-cache", "lumio-providers", "address-book", "lumio-address-books", PHOTO_KEY)
+    val KNOWN: List<String> = listOf(
+        "settings", "btc-scan", "btc-servers", "address-book", PHOTO_KEY,
+        "lumio-address-books", "lumio-balance-cache", "lumio-custom-tokens", "lumio-display-settings", "lumio-evm-settings",
+        "lumio-finish-setup", "lumio-native-balance-cache", "lumio-network-mode", "lumio-prefer-rpc", "lumio-providers",
+        "lumio-token-balances", "lumio-transaction-settings", "lumio-watchlist",
+    )
 
     /** The private half of a vault's photo key pair. See [VaultSession.ensurePhotoKey]. */
     const val PHOTO_KEY = "photo-key"
