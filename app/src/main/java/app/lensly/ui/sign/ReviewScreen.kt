@@ -25,7 +25,7 @@ import app.airvault.core.model.text
 import app.airvault.core.model.unaccounted
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
-import app.lensly.app.addressStart
+import app.lensly.app.addressEnds
 import app.lensly.app.isolated
 import app.lensly.app.notesOf
 import app.lensly.app.plainNameOrNull
@@ -240,10 +240,10 @@ private fun AnnotatedString.Builder.appendParty(address: String, name: PartyName
     }
 }
 
-/** Appends " (" and the first two groups of [address] and " …)" in mono: a name in a sentence never stands for its address alone. */
+/** Appends " (" and the first and last two groups of [address] and ")" in mono: a name in a sentence never stands for its address alone. */
 private fun AnnotatedString.Builder.appendAddressStart(address: String, mono: FontFamily) {
     append(" (")
-    appendMono(addressStart(address), mono)
+    appendMono(addressEnds(address), mono)
     append(")")
 }
 

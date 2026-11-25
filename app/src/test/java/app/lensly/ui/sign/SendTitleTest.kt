@@ -9,7 +9,7 @@ import app.lensly.app.AddressNotes
 import app.lensly.app.InternalAccount
 import app.lensly.app.SigningAccount
 import app.lensly.app.addressKeyOf
-import app.lensly.app.addressStart
+import app.lensly.app.addressEnds
 import app.lensly.app.isolated
 import app.lensly.ui.theme.LumenPalette
 import org.junit.Assert.assertEquals
@@ -36,7 +36,7 @@ internal val testPalette = LumenPalette(
 )
 
 /** The start of an address a sentence shows after its name. */
-private fun at(address: String) = " (${addressStart(address)})"
+private fun at(address: String) = " (${addressEnds(address)})"
 
 private fun book(id: String, address: String, name: String) = AddressBookEntry(id, address, name, null)
 
@@ -177,7 +177,8 @@ class SendTitleTest {
     }
 
     @Test
-    fun aNameIsFollowedByTheStartOfItsAddress() {
-        assertEquals("0x5aAe b605 …", addressStart(TO_ACCOUNT))
+    fun aNameIsFollowedByTheStartAndEndOfItsAddress() {
+        assertEquals("0x5aAe b605 … Ef1B eAed", addressEnds(TO_ACCOUNT))
+        assertEquals("0x1234 5678 90ab cdef", addressEnds("0x1234567890abcdef"))
     }
 }
