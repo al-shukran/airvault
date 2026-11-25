@@ -4,6 +4,7 @@ import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -44,6 +45,30 @@ class TransactionSettingsStoreTest {
         session.putVaultRecord(TransactionSettingsStore.RECORD, """{"hideSpam":false,"lastChanceSeconds":99}""".encodeToByteArray())
 
         assertEquals(TransactionSettings(hideSpam = false, lastChanceSeconds = 60), TransactionSettingsStore.read(session))
+        session.close()
+    }
+
+    @Test
+    fun aRecordThatDoesNotParseIsKeptAndTheWriteRefused() {
+        val session = open()
+        val damaged = """{"hideSpam":"maybe","lastChanceSeconds":5}"""
+        session.putVaultRecord(TransactionSettingsStore.RECORD, damaged.encodeToByteArray())
+
+        assertEquals(TransactionSettings(), TransactionSettingsStore.read(session))
+        val refusal = assertFailsWith<UnreadableRecordException> { TransactionSettingsStore.write(session, TransactionSettings(hideSpam = false)) }
+
+        assertEquals("Your saved transaction settings could not be read, so nothing was changed.", refusal.message)
+        assertEquals(damaged, session.getVaultRecord(TransactionSettingsStore.RECORD)!!.decodeToString())
+        session.close()
+    }
+
+    @Test
+    fun aWriteWithNoRecordSucceeds() {
+        val session = open()
+
+        TransactionSettingsStore.write(session, TransactionSettings(hideSpam = false))
+
+        assertEquals(TransactionSettings(hideSpam = false), TransactionSettingsStore.read(session))
         session.close()
     }
 }

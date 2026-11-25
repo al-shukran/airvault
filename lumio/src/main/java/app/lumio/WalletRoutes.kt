@@ -64,10 +64,10 @@ import app.lumio.wallets.AccountReads
 import app.lumio.wallets.AccountReadsLoader
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletAccounts
-import app.lumio.watchlist.WatchlistStore
 import app.lumio.wallets.WalletsBoard
 import app.lumio.wallets.WalletsLoader
 import app.lumio.wallets.WalletsView
+import app.lumio.watchlist.WatchlistStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -566,7 +566,8 @@ internal fun pairedWallets(navController: NavHostController, holder: VaultHolder
 internal suspend fun removeWalletHistory(vault: LumioVault, wallet: PairedWallet) {
     val bitcoin = wallet.bitcoin.flatMap { vault.store.snapshot(BtcAccountRef(wallet.id, it).key)?.addresses.orEmpty() }
     vault.txs.removeAccounts(wallet.evmAddresses + bitcoin)
-    WatchlistStore.remove(vault.session, wallet.id)
+    // A watchlist record that does not parse is left as it is, and the wallet goes all the same.
+    runCatching { WatchlistStore.remove(vault.session, wallet.id) }
     vault.wallets?.forgetWatchlist(wallet.id)
 }
 

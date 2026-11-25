@@ -2,10 +2,11 @@ package app.lumio.watchlist
 
 import app.lensly.core.vault.VaultSession
 import app.lumio.data.asset.AssetId
-import app.lumio.data.net.Networks
+import app.lumio.data.config.UnreadableRecordException
+import app.lumio.data.config.decodeOrRefuse
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 /** The order of a watchlist: by market cap (the default), or by the 24 h change with the biggest gain first. */
@@ -59,23 +60,32 @@ object WatchlistStore {
     /** The watchlist of [walletId] as the vault stores it, or null when the wallet has none yet, so it shows [FIRST_RUN_ASSETS]. */
     fun read(session: VaultSession, walletId: String): WalletWatchlist? = readAll(session)[walletId]
 
-    /** Stores [watchlist] for [walletId] and keeps the lists of the other wallets. */
-    fun write(session: VaultSession, walletId: String, watchlist: WalletWatchlist) = saveAll(session, readAll(session) + (walletId to watchlist))
+    /**
+     * Stores [watchlist] for [walletId] and keeps the lists of the other wallets. A stored record that does not parse is left as it is, and this throws
+     * [UnreadableRecordException].
+     */
+    fun write(session: VaultSession, walletId: String, watchlist: WalletWatchlist) = saveAll(session, load(session) + (walletId to watchlist))
 
-    /** Deletes the watchlist of [walletId] and keeps the lists of the other wallets. */
-    fun remove(session: VaultSession, walletId: String) = saveAll(session, readAll(session) - walletId)
+    /**
+     * Deletes the watchlist of [walletId] and keeps the lists of the other wallets. A stored record that does not parse is left as it is, and this throws
+     * [UnreadableRecordException].
+     */
+    fun remove(session: VaultSession, walletId: String) = saveAll(session, load(session) - walletId)
 
     private fun saveAll(session: VaultSession, wallets: Map<String, WalletWatchlist>) {
         session.putVaultRecord(RECORD, json.encodeToString(WatchlistRecord.serializer(), WatchlistRecord(wallets)).encodeToByteArray())
     }
 
     /** The watchlists of every wallet that has one, by wallet id, from one read of the record. */
-    fun readAll(session: VaultSession): Map<String, WalletWatchlist> {
+    fun readAll(session: VaultSession): Map<String, WalletWatchlist> = try {
+        load(session)
+    } catch (e: UnreadableRecordException) {
+        emptyMap()
+    }
+
+    /** The watchlists of every wallet that has one. Empty when none is stored. @throws UnreadableRecordException when the record does not parse. */
+    private fun load(session: VaultSession): Map<String, WalletWatchlist> {
         val bytes = session.getVaultRecord(RECORD) ?: return emptyMap()
-        return try {
-            json.decodeFromString(WatchlistRecord.serializer(), bytes.decodeToString()).wallets
-        } catch (e: SerializationException) {
-            emptyMap()
-        }
+        return decodeOrRefuse("watchlists") { json.decodeFromString(WatchlistRecord.serializer(), bytes.decodeToString()).wallets }
     }
 }

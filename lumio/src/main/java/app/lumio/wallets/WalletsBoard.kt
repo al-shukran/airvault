@@ -389,11 +389,17 @@ internal class WalletsBoard(
         }
     }
 
-    /** Stores [watchlist] for [walletId] in the vault, shows it, and reads the prices of the assets it adds. */
+    /**
+     * Stores [watchlist] for [walletId] in the vault, shows it, and reads the prices of the assets it adds. A vault that refuses the write, because the
+     * stored watchlists do not parse, keeps what it holds, and the board shows the same.
+     */
     fun putWatchlist(walletId: String, watchlist: WalletWatchlist) {
-        watchlists = watchlists + (walletId to watchlist)
-        scope.launch(Dispatchers.IO) { WatchlistStore.write(session, walletId, watchlist) }
-        refreshMarket()
+        scope.launch {
+            val saved = withContext(Dispatchers.IO) { runCatching { WatchlistStore.write(session, walletId, watchlist) }.isSuccess }
+            if (!saved) return@launch
+            watchlists = watchlists + (walletId to watchlist)
+            refreshMarket()
+        }
     }
 
     /**

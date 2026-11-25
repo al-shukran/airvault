@@ -2,7 +2,6 @@ package app.lumio.data.config
 
 import app.lensly.core.vault.VaultSession
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 /**
@@ -51,29 +50,25 @@ object DisplaySettingsStore {
     /** The settings stored in [session], or the defaults when none are stored or the record does not parse. */
     fun read(session: VaultSession): DisplaySettings = try {
         load(session)
-    } catch (e: SerializationException) {
+    } catch (e: UnreadableRecordException) {
         DisplaySettings()
     }
 
-    /** The settings stored in [session], or the defaults when none are stored. @throws SerializationException when the record does not parse. */
+    /** The settings stored in [session], or the defaults when none are stored. @throws UnreadableRecordException when the record does not parse. */
     private fun load(session: VaultSession): DisplaySettings {
         val bytes = session.getVaultRecord(RECORD) ?: return DisplaySettings()
-        val stored = json.decodeFromString(DisplaySettings.serializer(), bytes.decodeToString())
+        val stored = decodeOrRefuse("display settings") { json.decodeFromString(DisplaySettings.serializer(), bytes.decodeToString()) }
         // A threshold off the slider's stops reads as the default, as an out-of-range Last Chance pause does.
         return stored.takeIf { it.smallBalanceUsd in DisplaySettings.SMALL_BALANCE_STOPS }
             ?: stored.copy(smallBalanceUsd = DisplaySettings.DEFAULT_SMALL_BALANCE_USD)
     }
 
     /**
-     * Saves [settings]. A stored record that does not parse is left as it is, and this throws [IllegalStateException], so the defaults that [read]
+     * Saves [settings]. A stored record that does not parse is left as it is, and this throws [UnreadableRecordException], so the defaults that [read]
      * returned in its place never replace the owner's settings.
      */
     fun write(session: VaultSession, settings: DisplaySettings) {
-        try {
-            load(session)
-        } catch (e: SerializationException) {
-            throw IllegalStateException("The stored display settings cannot be read, so they are left as they are.", e)
-        }
+        load(session)
         session.putVaultRecord(RECORD, json.encodeToString(DisplaySettings.serializer(), settings).encodeToByteArray())
     }
 }
