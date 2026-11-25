@@ -29,7 +29,8 @@ class DisplaySettingsSectionTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private var hidden: Boolean? = null
+    private var total: Boolean? = null
+    private var assets: Boolean? = null
     private var theme: ThemeMode? = null
 
     private fun show(settings: DisplaySettings = DisplaySettings(), notice: String? = null, fiat: Fiat = Fiat.USD) {
@@ -40,7 +41,8 @@ class DisplaySettingsSectionTest {
                         DisplaySettingsSection(
                             settings = settings,
                             notice = notice,
-                            onHideBalances = { hidden = it },
+                            onShowTotal = { total = it },
+                            onShowAssets = { assets = it },
                             onCurrency = {},
                             onTheme = { theme = it },
                             onSmallBalance = {},
@@ -66,10 +68,11 @@ class DisplaySettingsSectionTest {
     }
 
     @Test
-    fun theRowsAreHideBalancesCurrencyAndThemeWithTheirValues() {
+    fun theRowsAreTheTwoBalanceSwitchesCurrencyAndThemeWithTheirValues() {
         show()
 
-        compose.onNodeWithText("Hide Balances").assertExists()
+        compose.onNodeWithText("Show Total Balance").assertExists()
+        compose.onNodeWithText("Show Individual Asset Balances").assertExists()
         compose.onNodeWithText("Currency").assertExists()
         compose.onNodeWithText("USD").assertExists()
         compose.onNodeWithText("Theme").assertExists()
@@ -77,12 +80,15 @@ class DisplaySettingsSectionTest {
     }
 
     @Test
-    fun theSwitchReportsItsNewValue() {
+    fun eachSwitchReportsItsOwnNewValue() {
         show()
 
-        compose.onNodeWithText("Hide Balances").performClick()
+        compose.onNodeWithText("Show Total Balance").performClick()
+        assertEquals(true, total)
+        assertEquals(null, assets)
 
-        assertEquals(true, hidden)
+        compose.onNodeWithText("Show Individual Asset Balances").performClick()
+        assertEquals(false, assets)
     }
 
     @Test
