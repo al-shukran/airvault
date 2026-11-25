@@ -1,0 +1,1 @@
+Uninstalling Bitcoin is no longer refused when many names of uninstalled accounts are kept, and a Bitcoin Bulk Run still fits. When the kept names do not fit, the oldest are dropped first, and the accounts stay as they are.
