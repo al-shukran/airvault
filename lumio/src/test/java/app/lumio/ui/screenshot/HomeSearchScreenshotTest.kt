@@ -20,6 +20,8 @@ import app.lumio.ui.search.SearchSheet
 import app.lumio.ui.search.SearchTab
 import app.lumio.watchlist.WatchedAsset
 import app.lumio.watchlist.WatchlistSort
+import kotlin.math.cos
+import kotlin.math.sin
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -143,8 +145,9 @@ class HomeSearchScreenshotTest {
     )
 
     private companion object {
-        val LIVE_HERO = MarketHero(total = "\$3.41 T", change24hPct = 2.14, freshness = "Live · updated 8 s ago")
-        val KEPT_HERO = MarketHero(total = "\$3.41 T", change24hPct = 2.14, freshness = "Last known · updated 3 h ago")
+        val TICKS = List(71) { i -> 100.0 + i * 0.3 + sin(i * 0.9) * 1.6 + cos(i * 0.37) * 2.2 }
+        val LIVE_HERO = MarketHero(total = "\$3.41T", change24hPct = 2.14, freshness = "Live · updated 8 s ago", ticks = TICKS)
+        val KEPT_HERO = MarketHero(total = "\$3.41T", change24hPct = 2.14, freshness = "Last known · updated 3 h ago", ticks = TICKS)
         val NO_HERO = MarketHero(total = null, change24hPct = null, freshness = null)
     }
 }

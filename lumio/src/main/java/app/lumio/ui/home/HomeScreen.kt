@@ -1,22 +1,36 @@
 package app.lumio.ui.home
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.lensly.ui.components.lumioPress
+import app.lensly.ui.theme.ClearAirMotion
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.ui.kit.ClearAirAmount
+import app.lumio.ui.kit.ClearAirChangeLineStyle
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
@@ -29,6 +43,31 @@ import kotlin.math.abs
 /** The width and height of a row's tick chart. */
 private val TICK_WIDTH = 56.dp
 private val TICK_HEIGHT = 28.dp
+
+/** The height of the hero's tick chart, which fills the page gutters. */
+private val HERO_CHART_HEIGHT = 92.dp
+
+/** The space from the hero's numeral to its change line, to the freshness line, and to the chart. */
+private val CHANGE_TOP = 4.dp
+private val FRESHNESS_TOP = 2.dp
+private val CHART_TOP = 10.dp
+
+/** The freshness line's dot, and its gap to the words. */
+private val FRESHNESS_DOT = 6.dp
+private val FRESHNESS_GAP = 6.dp
+
+/** The width of the Send capsule, which hugs "Send", and the gap between it and Receive. */
+private val SEND_WIDTH = 129.dp
+private val ACTIONS_GAP = 18.dp
+
+/** The size of the sort arrow beside the sort control. */
+private val SORT_ARROW = 14.dp
+
+/** The hero's freshness line, and the sort control: 12 sp body text, and 13 sp semibold. */
+private val freshnessStyle
+    get() = ClearAirType.body.copy(fontSize = 12.sp, lineHeight = 16.sp)
+private val sortStyle
+    get() = ClearAirType.rowTitle.copy(fontSize = 13.sp, lineHeight = 18.sp)
 
 /**
  * One watchlist row as Home shows it: its [name], the [detail] line under it such as "BTC · 0.2104 held", its price and 24 h change, and the [ticks] of
@@ -45,9 +84,9 @@ data class WatchlistRow(
 
 /**
  * The whole market as the hero shows it: its total in dollars ([total], null when it is not read), its 24 h change, and the [freshness] line, such as
- * "Live · updated 8 s ago".
+ * "Live · updated 8 s ago". [ticks] are the points of the chart under the total, oldest first, and fewer than two draw no chart.
  */
-data class MarketHero(val total: String?, val change24hPct: Double?, val freshness: String?)
+data class MarketHero(val total: String?, val change24hPct: Double?, val freshness: String?, val ticks: List<Double> = emptyList())
 
 /**
  * The Home tab's body: the hero with the total market cap, Send and Receive under it, and the wallet's watchlist with its sort control. [rows] are already
@@ -70,28 +109,36 @@ fun HomeScreen(
         modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        ClearAirEyebrow(text = "Total Market Cap")
-        Spacer(Modifier.height(ClearAirSpacing.xxs))
-        Text(text = hero.total ?: "—", style = ClearAirType.hero, color = palette.ink)
+        ClearAirEyebrow(text = "Total Market Cap", top = 0.dp, bottom = ClearAirSpacing.xxs)
+        ClearAirAmount(text = hero.total ?: "—", style = ClearAirType.hero, dimUnit = true)
         hero.change24hPct?.let { change ->
-            Text(text = "${changeText(change)} Today", style = ClearAirType.label, color = if (change >= 0) palette.vaultBlue else palette.rose)
+            Text(
+                text = "${changeText(change)} Today",
+                modifier = Modifier.padding(top = CHANGE_TOP),
+                style = ClearAirChangeLineStyle,
+                color = if (change >= 0) palette.vaultBlue else palette.rose,
+            )
         }
-        hero.freshness?.let { Text(text = it, style = ClearAirType.label, color = palette.ink2) }
+        hero.freshness?.let { Freshness(text = it) }
+        if (hero.ticks.size >= 2) {
+            val up = hero.change24hPct?.let { it >= 0 } ?: (hero.ticks.last() >= hero.ticks.first())
+            TickChart(values = hero.ticks, up = up, modifier = Modifier.padding(top = CHART_TOP).fillMaxWidth().height(HERO_CHART_HEIGHT))
+        }
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.md),
+            modifier = Modifier.padding(top = CHART_TOP),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(ACTIONS_GAP),
         ) {
-            ClearAirPrimaryButton(text = "Send", onClick = onSend, modifier = Modifier.weight(1f))
-            Spacer(Modifier.width(ClearAirSpacing.md))
+            ClearAirPrimaryButton(text = "Send", onClick = onSend, modifier = Modifier.width(SEND_WIDTH))
             ClearAirTextAction(text = "Receive", onClick = onReceive)
         }
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.lg),
+            modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.lg - ClearAirSpacing.xxs),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            ClearAirEyebrow(text = "Watchlist · ${rows.size}")
-            ClearAirTextAction(text = "${sort.label} ↓", onClick = onSort)
+            ClearAirEyebrow(text = "Watchlist · ${rows.size}", top = 0.dp, bottom = 0.dp)
+            SortControl(label = sort.label, onClick = onSort)
         }
         if (rows.isEmpty()) {
             Text(
@@ -109,6 +156,47 @@ fun HomeScreen(
             trailing = { WatchlistPrice(row = row, testnet = testnet) },
             onClick = { onOpen(row.asset) },
         )
+    }
+}
+
+/** The freshness line under the hero: a grey dot, then the words. */
+@Composable
+private fun Freshness(text: String) {
+    val palette = LocalClearAirPalette.current
+    Row(modifier = Modifier.padding(top = FRESHNESS_TOP), verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.size(FRESHNESS_DOT).clip(CircleShape).background(palette.ink3))
+        Spacer(Modifier.width(FRESHNESS_GAP))
+        Text(text = text, style = freshnessStyle, color = palette.ink2)
+    }
+}
+
+/** The sort control of the watchlist: the order's name in ink, then a down arrow. It is a 48 dp touch target. */
+@Composable
+private fun SortControl(label: String, onClick: () -> Unit) {
+    val palette = LocalClearAirPalette.current
+    Row(
+        modifier = Modifier
+            .defaultMinSize(minHeight = ClearAirSpacing.touchTarget)
+            .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = label, style = sortStyle, color = palette.ink, maxLines = 1)
+        Spacer(Modifier.width(ClearAirSpacing.xxs))
+        SortArrow(color = palette.ink)
+    }
+}
+
+/** The sort arrow of the proposal: a stem and a head, on the 24 unit grid at [SORT_ARROW]. */
+@Composable
+private fun SortArrow(color: Color) {
+    Canvas(Modifier.size(SORT_ARROW)) {
+        val unit = size.width / 24f
+        val stroke = 1.6f * unit
+        fun line(x1: Float, y1: Float, x2: Float, y2: Float) =
+            drawLine(color = color, start = Offset(x1 * unit, y1 * unit), end = Offset(x2 * unit, y2 * unit), strokeWidth = stroke, cap = StrokeCap.Round)
+        line(12f, 5f, 12f, 19f)
+        line(7f, 14f, 12f, 19f)
+        line(17f, 14f, 12f, 19f)
     }
 }
 

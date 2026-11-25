@@ -19,18 +19,20 @@ const val HIDDEN_AMOUNT = "••••"
 
 /**
  * An amount, such as a balance, set in JetBrains Mono Light. Its currency sign is small and raised, and its decimal fraction is dimmed, so the whole
- * number reads first. A hidden amount shows [HIDDEN_AMOUNT], which never shows how large the amount is.
+ * number reads first. With [dimUnit], the unit after the number is dimmed instead, as the hero's "T" is: a compact figure keeps its fraction in ink. A
+ * hidden amount shows [HIDDEN_AMOUNT], which never shows how large the amount is.
  */
 @Composable
 fun ClearAirAmount(
     text: String,
     modifier: Modifier = Modifier,
     hidden: Boolean = false,
+    dimUnit: Boolean = false,
     style: TextStyle = ClearAirType.total,
     color: Color = LocalClearAirPalette.current.ink,
 ) {
     Text(
-        text = if (hidden) AnnotatedString(HIDDEN_AMOUNT) else amountText(text, LocalClearAirPalette.current.ink2),
+        text = if (hidden) AnnotatedString(HIDDEN_AMOUNT) else amountText(text, LocalClearAirPalette.current.ink2, dimUnit),
         modifier = modifier,
         style = style,
         color = color,
@@ -38,13 +40,14 @@ fun ClearAirAmount(
     )
 }
 
-private fun amountText(text: String, fraction: Color): AnnotatedString {
+private fun amountText(text: String, dim: Color, dimUnit: Boolean): AnnotatedString {
     val parts = splitAmount(text)
+    val dimmed = SpanStyle(color = dim)
     return buildAnnotatedString {
         withStyle(ClearAirType.currencySign) { append(parts.prefix) }
         append(parts.whole)
-        withStyle(SpanStyle(color = fraction)) { append(parts.fraction) }
-        append(parts.suffix)
+        withStyle(if (dimUnit) SpanStyle() else dimmed) { append(parts.fraction) }
+        withStyle(if (dimUnit) dimmed else SpanStyle()) { append(parts.suffix) }
     }
 }
 
