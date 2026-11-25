@@ -115,8 +115,8 @@ class DisplaySettingsStoreTest {
             }
         }
     }
-}
 
-/** The record class of Lumio 1.0.0, with the same fields, defaults and Json settings, so its encoder produces the bytes a 1.0.0 vault holds. */
-@Serializable
-private data class Version1Display(val showTotal: Boolean = false, val showAssets: Boolean = true)
+    /** The record class of Lumio 1.0.0, with the same fields, defaults and Json settings, so its encoder produces the bytes a 1.0.0 vault holds. */
+    @Serializable
+    private data class Version1Display(val showTotal: Boolean = false, val showAssets: Boolean = true)
+}

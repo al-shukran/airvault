@@ -491,16 +491,16 @@ class EvmSettingsTest {
 
         assertEquals(EvmSettings(), EvmSettingsStore.read(session))
     }
+
+    /** The record classes of Lumio 1.0.0, with the same fields and defaults, so their encoder produces the bytes a 1.0.0 vault holds. */
+    @Serializable
+    private data class Version1Chain(val chainId: Long, val name: String, val symbol: String, val testnet: Boolean)
+
+    @Serializable
+    private data class Version1Evm(
+        val addressCount: Int = EvmSettings.DEFAULT_ADDRESS_COUNT,
+        val enabled: Set<Long> = EvmSettings.DEFAULT_ENABLED,
+        val rpc: Map<Long, String> = emptyMap(),
+        val custom: List<Version1Chain> = emptyList(),
+    )
 }
-
-/** The record classes of Lumio 1.0.0, with the same fields and defaults, so their encoder produces the bytes a 1.0.0 vault holds. */
-@Serializable
-private data class Version1Chain(val chainId: Long, val name: String, val symbol: String, val testnet: Boolean)
-
-@Serializable
-private data class Version1Evm(
-    val addressCount: Int = EvmSettings.DEFAULT_ADDRESS_COUNT,
-    val enabled: Set<Long> = EvmSettings.DEFAULT_ENABLED,
-    val rpc: Map<Long, String> = emptyMap(),
-    val custom: List<Version1Chain> = emptyList(),
-)

@@ -112,11 +112,11 @@ class PortfolioCacheTest {
             BalanceCache.read(session),
         )
     }
+
+    /** The record classes of Lumio 1.0.0, with the same fields, so their encoder produces the bytes a 1.0.0 vault holds. */
+    @Serializable
+    private data class Version1Read(val walletId: String, val chainId: Long, val address: String, val wei: String, val nonce: Long, val atMs: Long)
+
+    @Serializable
+    private class Version1Cache(val entries: List<Version1Read> = emptyList())
 }
-
-/** The record classes of Lumio 1.0.0, with the same fields, so their encoder produces the bytes a 1.0.0 vault holds. */
-@Serializable
-private data class Version1Read(val walletId: String, val chainId: Long, val address: String, val wei: String, val nonce: Long, val atMs: Long)
-
-@Serializable
-private class Version1Cache(val entries: List<Version1Read> = emptyList())
