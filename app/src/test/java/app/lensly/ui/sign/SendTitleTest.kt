@@ -181,4 +181,19 @@ class SendTitleTest {
         assertEquals("0x5aAe b605 … Ef1B eAed", addressEnds(TO_ACCOUNT))
         assertEquals("0x1234 5678 90ab cdef", addressEnds("0x1234567890abcdef"))
     }
+
+    @Test
+    fun theEndsOfEveryChainsAddressAreItsFirstAndLastTwoGroups() {
+        // Five groups is the first length that is cut; four or fewer show in full.
+        assertEquals("0x1234 5678 … cdef 1234", addressEnds("0x1234567890abcdef1234"))
+        assertEquals("bc1q ar0s … wf5m dq", addressEnds("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"))
+        assertEquals("tb1q w508 … xpjz sx", addressEnds("tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"))
+        assertEquals("bc1p 5cyx … 72nd jz", addressEnds("bc1p5cyxnuxmeuwuvkwfem96lxx5ctpfg0qzlpgxnl3ydkwq6fs74uhq72ndjz"))
+        assertEquals("9WzD XwBb … 9zYt AWWM", addressEnds("9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"))
+        // An Algorand address ends in a group of two characters, so its tail is shorter than the other end.
+        assertEquals("7ZUE CA7H … AIOF 6Q", addressEnds("7ZUECA7HFLZTXENRV24SHLU4AVPUTMTTDUFUBNBD64C73F3UHRTHAIOF6Q"))
+        assertEquals("0x1234 5678 … cdef 12", addressEnds("0x1234567890abcdef12"))
+        assertEquals("abcd efgh … qrst u", addressEnds("abcdefghijklmnopqrstu"))
+        assertEquals("", addressEnds(""))
+    }
 }
