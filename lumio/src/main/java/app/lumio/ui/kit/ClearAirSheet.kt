@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -50,17 +51,19 @@ private val sheetShape = RoundedCornerShape(topStart = SHEET_CORNER, topEnd = SH
 fun ClearAirSheet(visible: Boolean, onClose: () -> Unit, modifier: Modifier = Modifier, top: Dp = SHEET_TOP, content: @Composable () -> Unit) {
     val palette = LocalClearAirPalette.current
     val reduced = LocalReducedMotion.current
-    BackHandler(enabled = visible, onBack = onClose)
+    val transition = updateTransition(visible, label = "ClearAirSheet")
+    // Back stays consumed until the exit animation ends, so a second Back during it does not reach the page behind. It closes the sheet only while it is open.
+    BackHandler(enabled = transition.currentState || transition.targetState) { if (visible) onClose() }
     Box(modifier = modifier.fillMaxSize()) {
-        AnimatedVisibility(
-            visible = visible,
+        transition.AnimatedVisibility(
+            visible = { it },
             enter = fadeIn(tween(ClearAirMotion.SCRIM_MS)),
             exit = fadeOut(tween(ClearAirMotion.SCRIM_MS)),
         ) {
             Box(modifier = Modifier.fillMaxSize().background(palette.scrim).clickable(onClick = onClose))
         }
-        AnimatedVisibility(
-            visible = visible,
+        transition.AnimatedVisibility(
+            visible = { it },
             enter = if (reduced) fadeIn(tween(ClearAirMotion.CROSS_FADE_MS)) else slideInVertically(sheetOffset) { it },
             exit = if (reduced) fadeOut(tween(ClearAirMotion.CROSS_FADE_MS)) else slideOutVertically(sheetOffset) { it },
         ) {
