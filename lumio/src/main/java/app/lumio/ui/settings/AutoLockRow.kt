@@ -48,8 +48,7 @@ fun AutoLockRow(
         title = "Auto-Lock",
         description = "When Lumio locks itself",
         leading = { ClearAirGlyphDisc(ClearAirGlyph.CLOCK, size = 19.dp) },
-        compact = true,
-        trailing = { Text(text = current.label, style = ClearAirType.label, color = palette.ink2) },
+        trailing = { Text(text = current.label, style = ClearAirType.body, color = palette.ink) },
         onClick = { sheetOpen = true },
     )
     ClearAirSheet(visible = sheetOpen, onClose = { sheetOpen = false }) {

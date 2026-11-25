@@ -25,7 +25,6 @@ import app.lumio.data.config.LockSettings
 import app.lumio.data.config.TransactionSettings
 import app.lumio.ui.firstrun.NewPasswordProblem
 import app.lumio.evm.EvmSettings
-import app.lumio.pair.PairedWallet
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -95,41 +94,16 @@ class SettingsPagesTest {
     }
 
     @Test
-    fun theAddressBookPageHasNoSave() = assertNoSave {
-        AddressBookSettingsPage(offline = null, onLock = {}, onBack = {}, wallets = { Text("No wallets paired yet.") })
-    }
-
-    @Test
-    fun theAddressBookPageHasNoPairingOrDeletionButOpensEachBook() {
-        var opened: String? = null
-        val wallet = PairedWallet(id = "w1", name = "Demo", fingerprint = 1L, createdAtMs = 0L, evmAccounts = emptyList(), bitcoin = emptyList())
-        compose.setContent {
-            ClearAirHarness {
-                AddressBookSettingsPage(
-                    offline = null, onLock = {}, onBack = {},
-                    wallets = { AddressBookRows(wallets = listOf(wallet), onAddressBook = { opened = it.id }) },
-                )
-            }
-        }
-
-        compose.onAllNodesWithText("Pair from Lensly").assertCountEquals(0)
-        compose.onAllNodesWithText("Delete", substring = true).assertCountEquals(0)
-        compose.onNodeWithText("Demo").performClick()
-        assertEquals("w1", opened)
-    }
-
-    @Test
     fun theSecurityPageHasNoSaveAndOpensTheGestureChoice() {
         var opened = false
         compose.setContent {
             ClearAirHarness {
                 SecuritySettingsPage(
-                    entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
-                    deviceProtectionOn = false,
+                    biometric = BiometricSwitch(on = false, canEnable = true),
                     onEntryGesture = { opened = true },
                     onChangePassword = {},
-                    onDeviceProtection = {},
+                    onBiometric = {},
                     checkPassword = { PasswordCheck.Accepted },
                     onAutoLock = {},
                     offline = null, onLock = {}, onBack = {},
@@ -148,12 +122,11 @@ class SettingsPagesTest {
         compose.setContent {
             ClearAirHarness {
                 SecuritySettingsPage(
-                    entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(),
-                    deviceProtectionOn = false,
+                    biometric = BiometricSwitch(on = false, canEnable = true),
                     onEntryGesture = {},
                     onChangePassword = { opened = true },
-                    onDeviceProtection = {},
+                    onBiometric = {},
                     checkPassword = { PasswordCheck.Accepted },
                     onAutoLock = {},
                     offline = null, onLock = {}, onBack = {},
@@ -161,48 +134,29 @@ class SettingsPagesTest {
             }
         }
 
-        compose.onNodeWithText("Change Password").performScrollTo().performClick()
+        compose.onNodeWithText("Password").performScrollTo().performClick()
         assertEquals(true, opened)
     }
 
     @Test
-    fun theSecurityRowOpensDeviceProtectionAndTheSwitchIsNotOnSecurity() {
-        var opened = false
-        compose.setContent {
-            ClearAirHarness {
-                SecuritySettingsPage(
-                    entryGesture = EntryGesture.DEFAULT,
-                    lock = LockSettings(),
-                    deviceProtectionOn = false,
-                    onEntryGesture = {},
-                    onChangePassword = {},
-                    onDeviceProtection = { opened = true },
-                    checkPassword = { PasswordCheck.Accepted },
-                    onAutoLock = {},
-                    offline = null, onLock = {}, onBack = {},
-                )
-            }
-        }
-
-        compose.onNodeWithText("Biometric Unlock").assertDoesNotExist()
-        compose.onNodeWithText("Device Protection").performScrollTo().performClick()
-        assertEquals(true, opened)
-    }
-
-    @Test
-    fun theDeviceProtectionSwitchReportsTheOwnersChoice() {
+    fun theDeviceProtectionSwitchOnSecurityReportsTheOwnersChoice() {
         var changed: Boolean? = null
         compose.setContent {
             ClearAirHarness {
-                DeviceProtectionSettingsPage(
+                SecuritySettingsPage(
+                    lock = LockSettings(),
                     biometric = BiometricSwitch(on = false, canEnable = true),
+                    onEntryGesture = {},
+                    onChangePassword = {},
                     onBiometric = { changed = it },
+                    checkPassword = { PasswordCheck.Accepted },
+                    onAutoLock = {},
                     offline = null, onLock = {}, onBack = {},
                 )
             }
         }
 
-        compose.onNodeWithText("Biometric Unlock").performScrollTo().performClick()
+        compose.onNodeWithText("Device Protection").performScrollTo().performClick()
         assertEquals(true, changed)
     }
 
@@ -210,9 +164,14 @@ class SettingsPagesTest {
     fun theDeviceProtectionSwitchSaysWhyItCannotBeTurnedOn() {
         compose.setContent {
             ClearAirHarness {
-                DeviceProtectionSettingsPage(
+                SecuritySettingsPage(
+                    lock = LockSettings(),
                     biometric = BiometricSwitch(on = false, canEnable = false),
+                    onEntryGesture = {},
+                    onChangePassword = {},
                     onBiometric = {},
+                    checkPassword = { PasswordCheck.Accepted },
+                    onAutoLock = {},
                     offline = null, onLock = {}, onBack = {},
                 )
             }
@@ -226,12 +185,11 @@ class SettingsPagesTest {
         compose.setContent {
             ClearAirHarness {
                 SecuritySettingsPage(
-                    entryGesture = EntryGesture.DEFAULT,
                     lock = LockSettings(AutoLock.IMMEDIATELY),
-                    deviceProtectionOn = false,
+                    biometric = BiometricSwitch(on = false, canEnable = true),
                     onEntryGesture = {},
                     onChangePassword = {},
-                    onDeviceProtection = {},
+                    onBiometric = {},
                     checkPassword = { PasswordCheck.Accepted },
                     onAutoLock = {},
                     offline = null, onLock = {}, onBack = {},

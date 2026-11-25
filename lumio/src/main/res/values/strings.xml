@@ -6,8 +6,8 @@
     <string name="providers_data_heading">Data</string>
     <string name="providers_prices_heading">Prices</string>
     <string name="providers_rpc_heading">RPC</string>
-    <string name="settings_licences_body">Every library and font AirVault ships, with the licence each one is used under.</string>
-    <string name="settings_licences_open">Third-Party Licences</string>
+    <string name="settings_licences_body">Open-source software in Lumio</string>
+    <string name="settings_licences_open">Licences</string>
     <string name="settings_sources_heading">Data Sources</string>
     <string name="settings_sources_thanks">Lumio reads balances from free public servers. Thank you to the people who run them.</string>
     <string name="settings_sources_bitcoin_title">Bitcoin</string>
