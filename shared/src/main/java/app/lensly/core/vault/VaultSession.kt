@@ -53,16 +53,19 @@ private const val PAD_FILE_BYTES = 2 * PAD_SECTION_BYTES
  */
 internal object VaultRecordNames {
     /**
-     * The record names the app writes. Removing a Decoy Vault keeps the files of these names under the real key and deletes
-     * the other files. A new vault record name must be added here.
+     * The record names the apps write. Removing a Decoy Vault keeps the files of these names under the real key and deletes
+     * the other files, and a wipe deletes these files. A new vault record name must be added here:
+     * [VaultSession.putVaultRecord] and [VaultSession.getVaultRecord] refuse any other name.
      */
-    val KNOWN: List<String> = listOf("settings", "btc-scan", "btc-servers", "lumio-evm-settings", "lumio-balance-cache", "lumio-providers", "address-book", "lumio-address-books", PHOTO_KEY)
+    val KNOWN: List<String> = listOf(
+        "settings", "address-book", PHOTO_KEY,
+        "lumio-address-books", "lumio-balance-cache", "lumio-custom-tokens", "lumio-display-settings", "lumio-evm-settings",
+        "lumio-finish-setup", "lumio-native-balance-cache", "lumio-network-mode", "lumio-prefer-rpc", "lumio-providers",
+        "lumio-token-balances", "lumio-transaction-settings", "lumio-watchlist",
+    )
 
     /** The private half of a vault's photo key pair. See [VaultSession.ensurePhotoKey]. */
     const val PHOTO_KEY = "photo-key"
-
-    /** A record name the app can write. */
-    val NAME = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 
     /** The file name of record [name] under [vaultKey]. */
     fun fileName(vaultKey: ByteArray, name: String): String {
@@ -485,7 +488,7 @@ class VaultSession constructor(
         val key = requireOpen()
         writes++
         requireWalletId(walletId)
-        requireRecordName(name)
+        requireReviewName(name)
         val walletKey = unwrapWalletKey(key, walletId)
             ?: throw IllegalArgumentException("No wallet with id $walletId.")
         try {
@@ -499,7 +502,7 @@ class VaultSession constructor(
     fun getReview(walletId: String, name: String): ByteArray? = synchronized(this) {
         val key = requireOpen()
         requireWalletId(walletId)
-        requireRecordName(name)
+        requireReviewName(name)
         val pool = ReviewPool(layout.reviewPool, key)
         // A record with no slot is absent. Checking that first means a deleted wallet's key file is never needed to say so.
         if (pool.fileOf(walletId, name) == null) return@synchronized null
@@ -577,7 +580,7 @@ class VaultSession constructor(
      * AAD, and its file name is keyed by the Vault Key (see [VaultRecordNames]). [Vault.rekey] keeps the Vault Key, so the
      * record stays readable after a password change, and [Vault.wipe] removes it.
      *
-     * @throws IllegalArgumentException if the name is invalid.
+     * @throws IllegalArgumentException if the name is not in [VaultRecordNames.KNOWN].
      */
     fun putVaultRecord(name: String, bytes: ByteArray): Unit = synchronized(this) {
         val key = requireOpen()
@@ -725,6 +728,8 @@ class VaultSession constructor(
     }
 
     private companion object {
+        val REVIEW_NAME = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+
         fun requireWalletId(id: String) {
             require(WALLET_ID.matches(id)) { "Malformed wallet id." }
         }
@@ -734,9 +739,14 @@ class VaultSession constructor(
             require(WalletFolder.holds(name)) { "Invalid record name." }
         }
 
-        /** A vault record name. */
+        /** A Review Record name. */
+        fun requireReviewName(name: String) {
+            require(REVIEW_NAME.matches(name)) { "Invalid record name." }
+        }
+
+        /** A vault record name must be one of [VaultRecordNames.KNOWN], or a wipe and a Decoy Vault removal would mishandle its file. */
         fun requireRecordName(name: String) {
-            require(VaultRecordNames.NAME.matches(name)) { "Invalid record name." }
+            require(name in VaultRecordNames.KNOWN) { "Unknown record name: add it to VaultRecordNames.KNOWN." }
         }
 
         /** A UUID never starts with "vault-record", so these AADs cannot collide with a wallet record's. */
