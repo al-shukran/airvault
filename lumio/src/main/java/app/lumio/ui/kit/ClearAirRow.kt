@@ -61,7 +61,7 @@ fun ClearAirRow(
                     Modifier
                 },
             )
-            .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
+            .padding(horizontal = ClearAirSpacing.gutter),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (leading != null) {
@@ -80,7 +80,7 @@ fun ClearAirRow(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = description,
-                        style = ClearAirType.caption,
+                        style = ClearAirType.body,
                         color = palette.ink2,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -98,24 +98,24 @@ fun ClearAirRow(
             trailing()
         }
         if (onClick != null) {
-            Spacer(Modifier.width(ClearAirSpacing.sm))
+            Spacer(Modifier.width(ClearAirSpacing.xs))
             ClearAirChevron(color = palette.ink3)
         }
     }
 }
 
-/** The row chevron: 16 dp, as the mock draws it, on the 24 unit grid with a 1.6 unit round stroke. It mirrors in a right-to-left layout. */
+/** The row chevron, drawn on the 24 dp grid with a 1.6 dp round stroke. It mirrors in a right-to-left layout. */
 @Composable
 private fun ClearAirChevron(color: Color) {
     val mirrored = LocalLayoutDirection.current == LayoutDirection.Rtl
-    Canvas(Modifier.size(16.dp).graphicsLayer { scaleX = if (mirrored) -1f else 1f }) {
+    Canvas(Modifier.size(24.dp).graphicsLayer { scaleX = if (mirrored) -1f else 1f }) {
         val unit = size.width / GRID
         val path = Path().apply {
             moveTo(9f * unit, 6f * unit)
             lineTo(15f * unit, 12f * unit)
             lineTo(9f * unit, 18f * unit)
         }
-        drawPath(path = path, color = color, style = Stroke(width = 1.6f * unit, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawPath(path = path, color = color, style = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
 }
 

@@ -39,12 +39,8 @@ import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 
-/** The field as the mock draws it: 56 dp tall with a 16 dp corner, a 1.5 dp edge in ink3 that is 2 dp in ink when focused and in rose when it has failed. */
-private val FIELD_HEIGHT = 56.dp
-private val FIELD_CORNER = 16.dp
-
 /**
- * A text field of a Clear Air form: its [label] above it, the value inside an edge, and an optional [trailing] action such as Paste or
+ * A text field of a Clear Air form: its [label] above it, the value inside a hairline border, and an optional [trailing] action such as Paste or
  * Scan. Empty, it shows [placeholder] in secondary ink. With an [error] the border turns rose and the words sit under the field with a mark, so
  * colour is never the only signal. [monospace] sets an address in the address style, and a long value wraps inside the field. [masked] shows
  * the value as dots, for a password, and makes the field secret: its keyboard gets the secret input flags. On a secret field Enter, typed or on a
@@ -89,16 +85,8 @@ fun ClearAirField(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(rejectOf(failed = error != null))
-                .heightIn(min = FIELD_HEIGHT)
-                .border(
-                    width = if (error != null || focused) 2.dp else 1.5.dp,
-                    color = when {
-                        error != null -> palette.rose
-                        focused -> palette.ink
-                        else -> palette.ink3
-                    },
-                    shape = RoundedCornerShape(FIELD_CORNER),
-                )
+                .heightIn(min = ClearAirSpacing.touchTarget)
+                .border(1.dp, if (error != null) palette.rose else palette.hairline, RoundedCornerShape(ClearAirSpacing.sm))
                 .padding(horizontal = ClearAirSpacing.md, vertical = ClearAirSpacing.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {

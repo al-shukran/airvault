@@ -43,8 +43,8 @@ private class ClearAirStep(val size: Float, val line: Float, val tracking: Float
  * change to these lines and nothing else. The sizes are the approved mock's CSS, size, line height and letter spacing alike.
  */
 private object ClearAirScale {
-    /** The hero numeral of an overview, Home and Portfolio. */
-    val hero = ClearAirStep(size = 50f, line = 56f, tracking = -0.06f)
+    /** The hero numeral of an overview, Home and Portfolio. Provisional: the mock has 50 sp at -0.06em, which the Home screen's own change takes. */
+    val hero = ClearAirStep(size = 40f, line = 46f)
 
     /** A page total, of a wallet or an account. It is left-aligned, under a small label. */
     val total = ClearAirStep(size = 28f, line = 34f, tracking = -0.04f)

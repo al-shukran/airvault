@@ -63,7 +63,7 @@ fun ClearAirListRow(
                 }
             }
             if (description != null) {
-                Text(text = description, style = ClearAirType.caption, color = palette.ink2)
+                Text(text = description, style = ClearAirType.body, color = palette.ink2)
             }
         }
         if (trailing != null) {
@@ -71,8 +71,8 @@ fun ClearAirListRow(
             trailing()
         }
         if (onClick != null) {
-            Spacer(Modifier.width(ClearAirSpacing.sm))
-            ClearAirIcon(glyph = ClearAirGlyph.CHEVRON, color = palette.ink3, size = 16.dp)
+            Spacer(Modifier.width(ClearAirSpacing.xxs))
+            ClearAirIcon(glyph = ClearAirGlyph.CHEVRON, color = palette.ink3)
         }
     }
 }

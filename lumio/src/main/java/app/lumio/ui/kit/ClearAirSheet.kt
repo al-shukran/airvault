@@ -11,13 +11,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -69,17 +66,7 @@ fun ClearAirSheet(visible: Boolean, onClose: () -> Unit, modifier: Modifier = Mo
                     .clip(sheetShape)
                     .background(palette.sheet),
             ) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 8.dp, bottom = 2.dp)
-                            .align(Alignment.CenterHorizontally)
-                            .size(width = 36.dp, height = 4.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(palette.ink3.copy(alpha = 0.55f)),
-                    )
-                    Box(modifier = Modifier.weight(1f)) { content() }
-                }
+                content()
             }
         }
     }

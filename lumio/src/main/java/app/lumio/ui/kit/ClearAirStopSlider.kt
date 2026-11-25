@@ -1,6 +1,7 @@
 package app.lumio.ui.kit
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -16,10 +17,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -71,21 +72,25 @@ fun ClearAirStopSlider(labels: List<String>, selected: Int, onSelect: (Int) -> U
                     )
                 },
         ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.dp)
+                    .align(Alignment.Center)
+                    .background(palette.hairline),
+            )
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val y = size.height / 2
-                val track = 4.dp.toPx()
-                val thumb = Offset(size.width * selected / last, y)
-                drawRoundRect(color = palette.hairline, topLeft = Offset(0f, y - track / 2), size = Size(size.width, track), cornerRadius = CornerRadius(track / 2))
-                drawRoundRect(color = palette.ink, topLeft = Offset(0f, y - track / 2), size = Size(thumb.x, track), cornerRadius = CornerRadius(track / 2))
                 labels.indices.forEach { index ->
                     drawCircle(
-                        color = palette.ink3,
+                        color = if (index <= selected) palette.ink else palette.ink2,
                         radius = 3.dp.toPx(),
                         center = Offset(size.width * index / last, y),
                     )
                 }
-                drawCircle(color = palette.sheet, radius = 15.dp.toPx(), center = thumb)
-                drawCircle(color = palette.ink, radius = 11.dp.toPx(), center = thumb)
+                val thumb = Offset(size.width * selected / last, y)
+                drawCircle(color = palette.spark, radius = 11.dp.toPx(), center = thumb)
+                drawCircle(color = palette.ink, radius = 11.dp.toPx(), center = thumb, style = Stroke(width = 1.dp.toPx()))
             }
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

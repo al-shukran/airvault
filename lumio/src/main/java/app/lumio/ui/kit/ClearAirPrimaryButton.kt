@@ -16,7 +16,7 @@ import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 
 /** The height of the primary capsule. */
-private val CAPSULE_HEIGHT = 52.dp
+private val CAPSULE_HEIGHT = 56.dp
 
 /**
  * The one filled action of a screen: a full-width capsule, ink on paper in the light theme and paper on ink in the dark one. It scales to 0.98 while
@@ -52,7 +52,7 @@ fun ClearAirPrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier 
     ) {
         Text(
             text = text,
-            style = ClearAirType.button,
+            style = ClearAirType.rowTitle,
             color = if (enabled) palette.onPrimary else palette.ink2,
             maxLines = 1,
         )

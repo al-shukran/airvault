@@ -1,1 +1,1 @@
-Lumio's type, spacing and controls now follow the approved Clear Air design to the pixel: the top bar, rows, tab bar, buttons, switches, radios and sheets take the measurements, weights and letter spacing of the mock.
+Lumio's type, colours and sheet follow the approved Clear Air design more closely: headings and numbers carry the mock's letter spacing, secondary lines have their own sizes, sheets sit over an ink-tinted scrim, and the dark theme's field layer takes the mock's colour.

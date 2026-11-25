@@ -9,10 +9,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -30,7 +28,7 @@ fun ClearAirMonogram(text: String, modifier: Modifier = Modifier, tile: Dp = 36.
     ) {
         Text(
             text = text,
-            style = ClearAirType.rowTitle.copy(fontSize = 12.5.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.02.em),
+            style = ClearAirType.rowTitle.copy(fontSize = 12.5.sp, lineHeight = 16.sp),
             color = palette.ink,
             maxLines = 1,
         )

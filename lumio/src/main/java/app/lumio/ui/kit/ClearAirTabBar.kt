@@ -16,9 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -37,17 +35,10 @@ enum class LumioTab(val label: String, val glyph: ClearAirGlyph) {
 }
 
 /** The height of the tab bar's row, above the navigation bar. */
-private val TAB_BAR_HEIGHT = 58.dp
-
-/** The tab icon, as the mock draws it. */
-private val TAB_ICON = 23.dp
+private val TAB_BAR_HEIGHT = 64.dp
 
 /** The amber diamond that marks the active tab, above its icon. */
 private val SPARK_SIZE = 6.dp
-
-/** The spark sits 4 dp under the bar's top edge and 4 dp over its icon, as the mock lays it out. */
-private val SPARK_TOP = 4.dp
-private val SPARK_TO_ICON = 4.dp
 
 /**
  * The tab bar at the foot of a tab's root screen. The active tab is ink with the amber spark above its icon; the others are ink2. Each tab is a
@@ -57,12 +48,8 @@ private val SPARK_TO_ICON = 4.dp
 fun ClearAirTabBar(selected: LumioTab, onSelect: (LumioTab) -> Unit, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .navigationBarsPadding()
-            .height(TAB_BAR_HEIGHT)
-            .background(palette.background)
-            .drawBehind { drawRect(color = palette.hairline, size = Size(size.width, 1.dp.toPx())) },
+        modifier = modifier.fillMaxWidth().navigationBarsPadding().height(TAB_BAR_HEIGHT).background(palette.background),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         LumioTab.entries.forEach { tab ->
             val active = tab == selected
@@ -73,16 +60,14 @@ fun ClearAirTabBar(selected: LumioTab, onSelect: (LumioTab) -> Unit, modifier: M
                     .fillMaxSize()
                     .selectable(selected = active, role = Role.Tab, onClick = { onSelect(tab) }),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Top,
+                verticalArrangement = Arrangement.Center,
             ) {
-                Spacer(Modifier.height(SPARK_TOP))
                 Box(modifier = Modifier.size(SPARK_SIZE).rotate(45f).background(if (active) palette.spark else Color.Transparent))
-                Spacer(Modifier.height(SPARK_TO_ICON))
-                ClearAirIcon(glyph = tab.glyph, color = tint, size = TAB_ICON)
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
+                ClearAirIcon(glyph = tab.glyph, color = tint)
                 Text(
                     text = tab.label,
-                    style = ClearAirType.label.copy(fontSize = 11.sp, lineHeight = 13.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Medium),
+                    style = ClearAirType.label.copy(fontSize = 11.sp, lineHeight = 14.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
                     color = tint,
                     maxLines = 1,
                 )

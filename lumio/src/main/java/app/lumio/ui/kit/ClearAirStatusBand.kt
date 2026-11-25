@@ -31,7 +31,7 @@ fun ClearAirStatusBand(text: String, modifier: Modifier = Modifier) {
     ) {
         Text(
             text = text,
-            style = ClearAirType.caption.copy(lineHeight = 16.sp),
+            style = ClearAirType.body.copy(fontSize = 13.sp, lineHeight = 18.sp),
             color = palette.ink2,
             maxLines = 1,
         )
