@@ -7,7 +7,6 @@ import app.lensly.app.ALGORAND_FAMILY
 import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.app.EVM_FAMILY
 import app.lensly.app.SOLANA_FAMILY
-import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.ui.components.AlgorandIcon
 import app.lensly.ui.components.BitcoinIcon
@@ -16,12 +15,6 @@ import app.lensly.ui.components.SolanaIcon
 
 /** The name of a chain ID that the registry does not hold. */
 internal fun unknownNetworkName(chainId: Long): String = "Unknown network (chain id $chainId)"
-
-/** The name of a Bitcoin network a review is for. Testnet4 is named as the test network. */
-internal fun bitcoinNetworkName(network: BtcNetwork): String = when (network) {
-    BtcNetwork.MAINNET -> "Bitcoin Mainnet"
-    BtcNetwork.TESTNET4 -> "Bitcoin Testnet4"
-}
 
 /** The registry network of an EVM [chain], by its chain id, or null when the chain is not EVM or the registry does not list it. */
 internal fun networkOf(chain: ChainId, networks: List<NetworkEntry>): NetworkEntry? =

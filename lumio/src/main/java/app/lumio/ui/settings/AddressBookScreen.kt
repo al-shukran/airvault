@@ -27,7 +27,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import app.lensly.app.AddressBookEntry
-import app.lensly.app.familyLabel
+import app.lensly.app.addressChainLabel
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -170,11 +170,11 @@ private fun AddressBookEntry.matches(query: String): Boolean {
 }
 
 /**
- * The line under a name: the chain family the address is on, the label, and the address short. An EVM address is one account on every EVM network, so
+ * The line under a name: the chain the address is on (a testnet4 address names its network), the label, and the address short. An EVM address is one account on every EVM network, so
  * it names the family, Ethereum.
  */
 private fun AddressBookEntry.subtitle(): String =
-    listOfNotNull(chain?.let { familyLabel(it.namespace) }, label, shortAddress(address)).joinToString(" · ")
+    listOfNotNull(addressChainLabel(address), label, shortAddress(address)).joinToString(" · ")
 
 /** [address] cut to its first and last characters, such as 0x9f3c…41d0: the 0x and four characters, or four, then the last four. */
 private fun shortAddress(address: String): String {
