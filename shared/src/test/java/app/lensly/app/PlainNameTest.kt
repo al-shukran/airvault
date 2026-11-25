@@ -3,7 +3,7 @@ package app.lensly.app
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class DisplayNameTest {
+class PlainNameTest {
     @Test
     fun plainNamesAreKept() {
         assertEquals("Alice Müller 🙂", displayNameOf("Alice Müller 🙂"))

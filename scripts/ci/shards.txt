@@ -121,7 +121,7 @@ shard-1 :shared app.lensly.core.wallet.BulkRunTest
 shard-1 :shared app.lensly.ui.camera.RecordingFileTest
 shard-1 :shared app.lensly.ui.components.SecureHexKeyboardTest
 shard-2 :shared app.lensly.app.AddressLookalikeTest
-shard-2 :shared app.lensly.app.DisplayNameTest
+shard-2 :shared app.lensly.app.PlainNameTest
 shard-2 :app app.lensly.app.AddressBookScanTest
 shard-2 :app app.lensly.app.AddressNotesTest
 shard-2 :app app.lensly.app.WalletStoreKindTest
@@ -468,7 +468,7 @@ shard-7 :shared app.lensly.ui.components.SettingControlsTest
 shard-7 :shared app.lensly.ui.components.TokenBadgeTest
 shard-7 :shared app.lensly.ui.navigation.GalleryGateTest
 shard-7 :shared app.lensly.ui.theme.ContrastTest
-shard-8 :app app.lensly.app.DisplayNameTest
+shard-8 :app app.lensly.app.PlainNameTest
 shard-8 :app app.lensly.app.InternalAccountsTest
 shard-8 :app app.lensly.app.ProfileStoreTest
 shard-8 :app app.lensly.app.SettingChangesTest
