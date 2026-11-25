@@ -13,9 +13,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -113,54 +112,61 @@ internal fun AssetPage(
     }
     Column(modifier = Modifier.fillMaxSize().padding(vertical = ClearAirSpacing.md)) {
         AssetTopBar(name = name, watched = watched, onWatch = onWatch, onBack = onBack, onLock = onLock)
-        Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                icon()
-                Spacer(Modifier.height(ClearAirSpacing.xs))
-                ClearAirEyebrow(text = "$name · $symbol")
-                Text(text = priceText ?: "—", style = ClearAirType.hero, color = palette.ink)
-                change?.let { value ->
-                    Text(
-                        text = value.text,
-                        style = ClearAirType.body,
-                        color = if (value.rising) palette.vaultBlue else palette.rose,
-                    )
+        // A lazy list, so the sections below the fold are composed when they scroll in, not on the page's first frame.
+        LazyColumn(modifier = Modifier.weight(1f)) {
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    icon()
+                    Spacer(Modifier.height(ClearAirSpacing.xs))
+                    ClearAirEyebrow(text = "$name · $symbol")
+                    Text(text = priceText ?: "—", style = ClearAirType.hero, color = palette.ink)
+                    change?.let { value ->
+                        Text(
+                            text = value.text,
+                            style = ClearAirType.body,
+                            color = if (value.rising) palette.vaultBlue else palette.rose,
+                        )
+                    }
+                }
+                TickChart(series = series ?: PriceSeries(emptyList()), modifier = Modifier.padding(top = ClearAirSpacing.md))
+                RangeRow(selected = range, onSelect = onRange, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (held == null) {
+                        ClearAirCapsuleSmall(text = "Receive", onClick = { open(CoinPicker.RECEIVE) })
+                        Spacer(Modifier.width(ClearAirSpacing.md))
+                        ClearAirTextAction(text = "Send $symbol", onClick = { open(CoinPicker.SEND) })
+                    } else {
+                        ClearAirCapsuleSmall(text = "Send $symbol", onClick = { open(CoinPicker.SEND) })
+                        Spacer(Modifier.width(ClearAirSpacing.md))
+                        ClearAirTextAction(text = "Receive", onClick = { open(CoinPicker.RECEIVE) })
+                    }
                 }
             }
-            TickChart(series = series ?: PriceSeries(emptyList()), modifier = Modifier.padding(top = ClearAirSpacing.md))
-            RangeRow(selected = range, onSelect = onRange, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (held == null) {
-                    ClearAirCapsuleSmall(text = "Receive", onClick = { open(CoinPicker.RECEIVE) })
-                    Spacer(Modifier.width(ClearAirSpacing.md))
-                    ClearAirTextAction(text = "Send $symbol", onClick = { open(CoinPicker.SEND) })
-                } else {
-                    ClearAirCapsuleSmall(text = "Send $symbol", onClick = { open(CoinPicker.SEND) })
-                    Spacer(Modifier.width(ClearAirSpacing.md))
-                    ClearAirTextAction(text = "Receive", onClick = { open(CoinPicker.RECEIVE) })
+            item {
+                held?.let { coin ->
+                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter)) {
+                        ClearAirEyebrow(text = "Your $symbol")
+                    }
+                    HeldRow(coin = coin, icon = icon, onClick = onHoldings)
                 }
             }
-            held?.let { coin ->
-                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter)) {
-                    ClearAirEyebrow(text = "Your $symbol")
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    ClearAirEyebrow(text = "Activity")
+                    ClearAirTextAction(text = "All", onClick = onAllActivity)
                 }
-                HeldRow(coin = coin, icon = icon, onClick = onHoldings)
             }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                ClearAirEyebrow(text = "Activity")
-                ClearAirTextAction(text = "All", onClick = onAllActivity)
-            }
-            activity()
+            item { activity() }
         }
     }
     if (sheetsComposed) {

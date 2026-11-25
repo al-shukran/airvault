@@ -85,6 +85,27 @@ import kotlinx.coroutines.withContext
 /** The newest activity rows of the coin that the Asset page lists. The page's All link opens the whole activity of the coin. */
 private const val COIN_ACTIVITY_ROWS = 10
 
+/** What one read of a coin's activity depends on. */
+internal data class CoinActivityKey(val asset: WatchedAsset, val mode: NetworkMode, val includeSpam: Boolean)
+
+/**
+ * The coin activity read ahead of the push to the Asset page, so the page lists its activity on its first frame. It keeps the last page read, and the
+ * Asset page reads again behind it, so a kept page is only ever a first frame.
+ */
+internal object CoinActivityPreload {
+    /** How long a tap waits for the activity before it pushes the page without it. */
+    const val WAIT_MS = 150L
+
+    @Volatile
+    private var kept: Pair<CoinActivityKey, ActivityPage>? = null
+
+    fun pageOf(key: CoinActivityKey): ActivityPage? = kept?.takeIf { it.first == key }?.second
+
+    suspend fun read(app: LumioApp, vault: LumioVault, key: CoinActivityKey): ActivityPage =
+        PortfolioReads.activity(app, vault, key.mode, walletId = null, filter = ActivityFilter(coin = key.asset), includeSpam = key.includeSpam)
+            .also { kept = key to it }
+}
+
 /**
  * The Asset page (C4) of [asset] across the wallet [walletId]. The price, the day's chart, the watchlist and the holdings come from the hoisted board
  * and the vault, so the page is populated on its first frame. A range the board lacks, and the coin's activity, load in their places when their reads
@@ -165,8 +186,9 @@ internal fun AssetRoute(
     }
     val vault = app.lumioVault()
     val includeSpam = rememberTransactions(app).activityIncludesSpam
-    val coinActivity by produceState<ActivityPage?>(initialValue = null, vault, asset, selection.mode, listVersion, includeSpam) {
-        value = vault?.let { PortfolioReads.activity(app, it, selection.mode, walletId = null, filter = ActivityFilter(coin = asset), includeSpam = includeSpam) }
+    val activityKey = CoinActivityKey(asset, selection.mode, includeSpam)
+    val coinActivity by produceState(initialValue = CoinActivityPreload.pageOf(activityKey), vault, activityKey, listVersion) {
+        if (vault != null) value = CoinActivityPreload.read(app, vault, activityKey)
     }
     AssetPage(
         name = name,

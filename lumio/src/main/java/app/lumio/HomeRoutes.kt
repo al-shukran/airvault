@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -46,6 +47,8 @@ import app.lumio.watchlist.WatchlistSort
 import app.lumio.watchlist.ordered
 import java.math.BigDecimal
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** How often the freshness line counts its age again, so "8 s ago" keeps counting while Home is open. */
 private const val FRESHNESS_TICK_MS = 15_000L
@@ -72,6 +75,8 @@ internal fun HomeRoute(
     if (session == null) return
     val board = rememberWalletsBoard(app, selection.mode, listVersion) ?: return
     LaunchedEffect(board) { board.refreshMarket() }
+    val scope = rememberCoroutineScope()
+    val includeSpam = rememberTransactions(app).activityIncludesSpam
     val view = board.view
     val wallet = view?.wallets?.active(selection) { it.id }
     val testnet = selection.mode == NetworkMode.TESTNET
@@ -108,7 +113,19 @@ internal fun HomeRoute(
                     onSend = { wallet?.let { navController.navigate(LumioRoute.wallet(it.id)) } },
                     onReceive = { wallet?.let { navController.navigate(LumioRoute.wallet(it.id)) } },
                     onSort = { sortOpen = true },
-                    onOpen = { asset -> wallet?.let { navController.navigate(LumioRoute.coin(it.id, asset)) } },
+                    onOpen = { asset ->
+                        wallet?.let {
+                            scope.launch {
+                                val vault = app.lumioVault()
+                                if (vault != null) {
+                                    withTimeoutOrNull(CoinActivityPreload.WAIT_MS) {
+                                        CoinActivityPreload.read(app, vault, CoinActivityKey(asset, selection.mode, includeSpam))
+                                    }
+                                }
+                                navController.navigate(LumioRoute.coin(it.id, asset))
+                            }
+                        }
+                    },
                 )
             }
             WatchlistSortSheet(
