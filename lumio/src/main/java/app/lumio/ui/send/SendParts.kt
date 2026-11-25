@@ -269,20 +269,20 @@ internal fun SendFactRow(
         horizontalArrangement = Arrangement.spacedBy(ClearAirSpacing.sm),
         verticalAlignment = Alignment.Top,
     ) {
-        Text(text = label, style = ClearAirType.body.copy(fontSize = 14.sp, lineHeight = 20.sp), color = palette.ink2)
-        Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.Top) {
-            Text(
-                text = value,
-                style = if (figureSize > 0f) base.copy(fontSize = figureSize.sp) else base,
-                color = palette.ink,
-                textAlign = TextAlign.End,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            if (onClick != null) {
-                Spacer(Modifier.width(ClearAirSpacing.xxs))
-                ClearAirIcon(glyph = ClearAirGlyph.CHEVRON, color = palette.ink, size = 18.dp)
-            }
-        }
+        Text(
+            text = label,
+            modifier = Modifier.alignByBaseline(),
+            style = ClearAirType.body.copy(fontSize = 14.sp, lineHeight = 20.sp),
+            color = palette.ink2,
+        )
+        Text(
+            text = value,
+            modifier = Modifier.weight(1f).alignByBaseline(),
+            style = if (figureSize > 0f) base.copy(fontSize = figureSize.sp) else base,
+            color = palette.ink,
+            textAlign = TextAlign.End,
+        )
+        if (onClick != null) ClearAirIcon(glyph = ClearAirGlyph.CHEVRON, color = palette.ink, size = 18.dp)
     }
 }
 
