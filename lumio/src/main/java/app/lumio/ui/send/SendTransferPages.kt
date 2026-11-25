@@ -26,8 +26,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.geometry.Offset
@@ -49,7 +47,6 @@ import app.lumio.ui.kit.ClearAirTimeline
 import app.lumio.ui.kit.ClearAirTimelineStep
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
-import app.lumio.receive.shortAddress
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -183,7 +180,7 @@ private val RING_INSET_DP = 6.dp
 
 /**
  * On Its Way, after the send: the steps of the transfer with the state of each, and the words that say the screen can be closed. [summary] says what
- * went to whom, and [address] is the recipient's short address after it, when the recipient has a name. [timing] is how
+ * went to whom. [timing] is how
  * long the network usually takes, for the step that is confirming. [signedAtMs] and [sentAtMs] are the clock times of the first two steps, and the
  * confirming step reads "now" while it waits. [arrived] says the transfer has landed: the mark becomes a check, the last two steps are done, the words about
  * closing the screen go, and no step shows a time, since the landing time is not kept. Done goes back to the account; the explorer link is offered when the chain has one.
@@ -192,7 +189,6 @@ private val RING_INSET_DP = 6.dp
 fun SendOnItsWayPage(
     headline: String,
     summary: String,
-    address: String?,
     network: String,
     timing: String,
     recipient: String,
@@ -227,13 +223,7 @@ fun SendOnItsWayPage(
         TransferMark(arrived = arrived, modifier = Modifier.align(Alignment.CenterHorizontally))
         SendHeading(text = headline, top = 18.dp, bottom = 0.dp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
         Text(
-            text = buildAnnotatedString {
-                append(summary)
-                address?.let {
-                    append(" · ")
-                    withStyle(ClearAirType.address.toSpanStyle().copy(letterSpacing = (-0.02).em)) { append(shortAddress(it)) }
-                }
-            },
+            text = summary,
             style = ClearAirType.small,
             color = palette.ink2,
             textAlign = TextAlign.Center,

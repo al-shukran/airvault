@@ -21,6 +21,8 @@ import app.lensly.DebugBtcFixture
 import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
+import app.lensly.app.plainLabel
+import app.lensly.app.plainName
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.navigation.GateRoutes
@@ -401,7 +403,7 @@ internal fun BtcSendRoute(
                 accounts = paired?.let { bitcoinOwnChoices(it, network, selected.account.receiveAddress(0)) }.orEmpty(),
                 addressBook = addressBook
                     .filter { btcRecipientError(it.address, network) == null }
-                    .map { entry -> SendChoice(title = entry.name, detail = entry.label ?: "Address Book", address = entry.address) },
+                    .map { entry -> SendChoice(title = entry.plainName(), detail = entry.plainLabel(), address = entry.address) },
                 onPick = { choice -> recipient = choice.address },
                 onScan = {
                     recipientStatus = RECIPIENT_SCAN_HINT
@@ -422,8 +424,8 @@ internal fun BtcSendRoute(
         BtcSendStep.Amount -> {
             val pool = spendable
             val total = pool?.coins?.sumOf { it.valueSats }
-            val notes = addressNotesOf(recipient, BITCOIN_FAMILY, emptyMap(), addressBook)
-            val toName = notes?.let(::notesName) ?: groupAddress(recipient)
+            val notes = remember(recipient, addressBook) { addressNotesOf(recipient, BITCOIN_FAMILY, emptyMap(), addressBook) }
+            val toName = nameOrAddress(notes, recipient)
             val sent = preview
             SendAmountPage(
                 symbol = "BTC",
@@ -482,16 +484,18 @@ internal fun BtcSendRoute(
             }
         }
         is BtcSendStep.Review -> {
-            val notes = addressNotesOf(current.plan.recipient, BITCOIN_FAMILY, emptyMap(), addressBook)
-            val toName = notes?.let(::notesName) ?: groupAddress(current.plan.recipient)
-            val warnings = BtcAdvanced.warnings(suggestedRate ?: current.plan.feeRateSatPerVb, current.plan.feeRateSatPerVb)
+            val notes = remember(current.plan.recipient, addressBook) {
+                addressNotesOf(current.plan.recipient, BITCOIN_FAMILY, emptyMap(), addressBook)
+            }
+            val toName = nameOrAddress(notes, current.plan.recipient)
+            val warnings = lookalikeWarnings(notes) + BtcAdvanced.warnings(suggestedRate ?: current.plan.feeRateSatPerVb, current.plan.feeRateSatPerVb)
             SendReviewPage(
-                heading = "Send ${btcText(current.plan.amountSats)} from $fromName to $toName?",
+                heading = "Send ${btcText(current.plan.amountSats)} from $fromName to ${nameWithStart(notes, current.plan.recipient)}?",
                 toTitle = toName,
                 toDetail = notes?.let(::notesDetail).orEmpty(),
                 toAddress = current.plan.recipient,
                 validLine = "Address is valid on ${btcNetworkName(network)}",
-                firstTime = if (notes == null) "First time sending here. Compare every group with where you got it." else null,
+                firstTime = if (isFirstTime(notes)) "First time sending here. Compare every group with where you got it." else null,
                 rows = btcRows(current.plan, fromName, fromPath),
                 warnings = warnings,
                 notice = notice,
@@ -536,14 +540,12 @@ internal fun BtcSendRoute(
             onLock = onLock,
         )
         is BtcSendStep.Submit -> {
-            val toName = addressNotesOf(current.plan.recipient, BITCOIN_FAMILY, emptyMap(), addressBook)?.let(::notesName)
-                ?: groupAddress(current.plan.recipient)
+            val toName = nameWithAddress(addressNotesOf(current.plan.recipient, BITCOIN_FAMILY, emptyMap(), addressBook), current.plan.recipient)
             SignedSendSteps(
                 machine = current.machine,
                 headline = "Your BTC Is on Its Way",
                 amount = btcText(current.plan.amountSats),
                 recipient = toName,
-                recipientAddress = current.plan.recipient,
                 network = btcNetworkName(network),
                 timing = TIMING,
                 fromName = fromName,

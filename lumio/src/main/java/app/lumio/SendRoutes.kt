@@ -29,6 +29,11 @@ import app.lensly.app.InternalAccount
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressKeyOf
 import app.lensly.app.addressNotesOf
+import app.lensly.app.addressStart
+import app.lensly.app.lookalikeWarningText
+import app.lensly.app.plainLabel
+import app.lensly.app.plainName
+import app.lensly.app.plainNameOrNull
 import app.lensly.app.export.partsOf
 import app.lensly.core.registry.Amounts
 import app.lensly.core.ur.EthSignRequestEncoder
@@ -432,7 +437,7 @@ internal fun SendRoute(
                     SendChoice(title = accountName(account), detail = "Your account", address = address)
                 },
                 addressBook = ready.wallet.addressBook.map { entry ->
-                    SendChoice(title = entry.name, detail = entry.label ?: "Address Book", address = entry.address)
+                    SendChoice(title = entry.plainName(), detail = entry.plainLabel(), address = entry.address)
                 },
                 onPick = { choice -> recipient = choice.address },
                 onScan = {
@@ -454,8 +459,8 @@ internal fun SendRoute(
         SendStep.Amount -> {
             val chain = selectedChain
             val send = edited
-            val notes = notesFor(recipient, ready.accounts, ready.wallet.addressBook)
-            val toName = notes?.let(::notesName) ?: groupAddress(recipient)
+            val notes = remember(recipient, ready.accounts, ready.wallet.addressBook) { notesFor(recipient, ready.accounts, ready.wallet.addressBook) }
+            val toName = nameOrAddress(notes, recipient)
             val leaves = send?.takeIf { asset?.token == null }?.let { s ->
                 val left = s.balanceWei - s.valueWei - s.maxFeeWei
                 if (left.signum() < 0) null else "Leaves ${EvmFormat.amount(left, s.chain.decimals, s.chain.symbol)} after the fee"
@@ -527,17 +532,17 @@ internal fun SendRoute(
             }
         }
         is SendStep.Review -> {
-            val notes = notesFor(now.send.to, ready.accounts, ready.wallet.addressBook)
-            val toName = notes?.let(::notesName) ?: groupAddress(now.send.to)
+            val notes = remember(now.send.to, ready.accounts, ready.wallet.addressBook) { notesFor(now.send.to, ready.accounts, ready.wallet.addressBook) }
+            val toName = nameOrAddress(notes, now.send.to)
             SendReviewPage(
-                heading = reviewHeading(now.send, fromName, toName),
+                heading = reviewHeading(now.send, fromName, nameWithStart(notes, now.send.to)),
                 toTitle = toName,
                 toDetail = notes?.let(::notesDetail).orEmpty(),
                 toAddress = now.send.to,
                 validLine = "Address is valid on ${now.send.chain.name}",
-                firstTime = if (notes == null) "First time sending here. Compare every group with where you got it." else null,
+                firstTime = if (isFirstTime(notes)) "First time sending here. Compare every group with where you got it." else null,
                 rows = reviewRows(now.send, fromName),
-                warnings = EvmAdvanced.warnings(suggested ?: now.send, now.send),
+                warnings = lookalikeWarnings(notes) + EvmAdvanced.warnings(suggested ?: now.send, now.send),
                 notice = notice,
                 onShow = { confirm(now.send) },
                 onEdit = {
@@ -567,7 +572,7 @@ internal fun SendRoute(
             onCancel = { step = SendStep.Declined(now.send) },
         )
         is SendStep.Mismatch -> {
-            val toName = notesFor(now.send.to, ready.accounts, ready.wallet.addressBook)?.let(::notesName) ?: groupAddress(now.send.to)
+            val toName = nameWithAddress(notesFor(now.send.to, ready.accounts, ready.wallet.addressBook), now.send.to)
             SendOutcomePage(
                 title = "",
                 heading = "This Signature Is for a Different Send",
@@ -598,8 +603,7 @@ internal fun SendRoute(
             machine = now.machine,
             headline = "Your ${now.send.chain.symbol} Is on Its Way",
             amount = amountText(now.send),
-            recipient = notesFor(now.send.to, ready.accounts, ready.wallet.addressBook)?.let(::notesName) ?: groupAddress(now.send.to),
-            recipientAddress = now.send.to,
+            recipient = nameWithAddress(notesFor(now.send.to, ready.accounts, ready.wallet.addressBook), now.send.to),
             network = now.send.chain.name,
             timing = "Usually about 1 second on ${now.send.chain.name}",
             fromName = fromName,
@@ -628,18 +632,43 @@ private fun notesFor(address: String, accounts: Map<String, InternalAccount>, ad
     addressNotesOf(address, EVM_FAMILY, accounts, addressBook)
 
 /** The name an account goes by on the screens: its own name, else the name the app gave it. */
-private fun accountName(account: InternalAccount?): String = account?.let { it.displayName ?: it.autoName }.orEmpty()
+private fun accountName(account: InternalAccount?): String = plainNameOrNull(account?.let { it.displayName ?: it.autoName }).orEmpty()
 
 /** The name of the account the send is from, or "Account" with its place when the account has no name. */
 private fun fromNameOf(ready: SendContext): String = accountName(ready.accounts[addressKeyOf(ready.from)]).ifBlank { "Account ${ready.index + 1}" }
 
-internal fun notesName(notes: AddressNotes): String =notes.entry?.name ?: notes.internal?.let { it.displayName ?: it.autoName }.orEmpty()
+/** The name of an address as a title: its Address Book name, else its account's name, as plain text. Empty when neither gives one. */
+internal fun notesName(notes: AddressNotes): String =
+    plainNameOrNull(notes.entry?.name) ?: plainNameOrNull(notes.internal?.let { it.displayName ?: it.autoName }).orEmpty()
+
+/** The title of [address]: its name when [notes] give one, else the address in groups. The address is in full on the page, never replaced. */
+internal fun nameOrAddress(notes: AddressNotes?, address: String): String =
+    notes?.let(::notesName)?.takeIf { it.isNotEmpty() } ?: groupAddress(address)
+
+/** [address] in a sentence: "Name (address in groups)" when [notes] name it, else the address in groups. A name never stands for it alone. */
+internal fun nameWithAddress(notes: AddressNotes?, address: String): String =
+    notes?.let(::notesName)?.takeIf { it.isNotEmpty() }?.let { "$it (${groupAddress(address)})" } ?: groupAddress(address)
+
+/** The recipient in a heading: "Name (start of the address)" when [notes] name it, else the address in groups. The full address is on the page. */
+internal fun nameWithStart(notes: AddressNotes?, address: String): String =
+    notes?.let(::notesName)?.takeIf { it.isNotEmpty() }?.let { "$it (${addressStart(address)})" } ?: groupAddress(address)
+
+/** Whether neither the device nor the Address Book names the address, so it is the first time it shows here. */
+internal fun isFirstTime(notes: AddressNotes?): Boolean = notes?.internal == null && notes?.entry == null
+
+/** The warning of an address that looks like a saved entry but differs, with the saved address to compare. Empty when it does not. */
+internal fun lookalikeWarnings(notes: AddressNotes?): List<String> =
+    notes?.lookalike?.let { listOf("${lookalikeWarningText(it)}. ${it.plainName()} is saved as ${groupAddress(it.address)}.") }.orEmpty()
 
 internal fun notesDetail(notes: AddressNotes): String {
     if (notes.internal != null) return "Your account"
     val entry = notes.entry ?: return ""
-    return entry.label ?: "Address Book"
+    val saved = entry.plainLabel()
+    return if (entry.chain?.namespace == EVM_FAMILY.namespace) "$saved\n$SAVED_FOR_ALL_EVM" else saved
 }
+
+/** The line under the label of an EVM entry: the same account is on every EVM network. */
+internal const val SAVED_FOR_ALL_EVM = "Saved for all EVM networks"
 
 private fun amountText(send: PreparedSend): String {
     val token = send.token

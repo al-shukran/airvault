@@ -20,6 +20,8 @@ import app.airvault.core.model.AccountId
 import app.lensly.app.SOLANA_FAMILY
 import app.lensly.app.VaultHolder
 import app.lensly.app.addressNotesOf
+import app.lensly.app.plainLabel
+import app.lensly.app.plainName
 import app.lensly.core.solana.SolanaNonce
 import app.lensly.core.solana.SolanaTokenAccounts
 import app.lensly.ui.components.groupAddress
@@ -42,7 +44,10 @@ import app.lumio.evm.SignatureScan
 import app.lumio.evm.SignatureStep
 import app.lumio.network.NetworkMode
 import app.lumio.notesDetail
-import app.lumio.notesName
+import app.lumio.isFirstTime
+import app.lumio.lookalikeWarnings
+import app.lumio.nameOrAddress
+import app.lumio.nameWithStart
 import app.lumio.onVault
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
@@ -462,7 +467,7 @@ internal fun SolanaSendRoute(
                 accounts = paired?.let { solanaOwnChoices(it, from.address) }.orEmpty(),
                 addressBook = addressBook
                     .filter { solanaRecipientError(it.address) == null }
-                    .map { entry -> SendChoice(title = entry.name, detail = entry.label ?: "Address Book", address = entry.address) },
+                    .map { entry -> SendChoice(title = entry.plainName(), detail = entry.plainLabel(), address = entry.address) },
                 onPick = { choice -> recipient = choice.address },
                 onScan = {
                     recipientStatus = RECIPIENT_HINT
@@ -481,8 +486,8 @@ internal fun SolanaSendRoute(
             onCancel = { step = SolanaSendStep.Recipient },
         )
         SolanaSendStep.Amount -> {
-            val notes = addressNotesOf(recipient, SOLANA_FAMILY, emptyMap(), addressBook)
-            val toName = notes?.let(::notesName) ?: groupAddress(recipient)
+            val notes = remember(recipient, addressBook) { addressNotesOf(recipient, SOLANA_FAMILY, emptyMap(), addressBook) }
+            val toName = nameOrAddress(notes, recipient)
             val amountError = SolanaAssets.amountError(amount, selected, if (token == null) balance else token.amount)
             val leaves = if (token == null && balance != null && amountError == null && amount.isNotBlank()) {
                 runCatching { SolanaSendInput.lamports(amount) }.getOrNull()?.let { lamports ->
@@ -551,17 +556,19 @@ internal fun SolanaSendRoute(
             }
         }
         is SolanaSendStep.Review -> {
-            val notes = addressNotesOf(current.plan.recipientAddress, SOLANA_FAMILY, emptyMap(), addressBook)
-            val toName = notes?.let(::notesName) ?: groupAddress(current.plan.recipientAddress)
+            val notes = remember(current.plan.recipientAddress, addressBook) {
+                addressNotesOf(current.plan.recipientAddress, SOLANA_FAMILY, emptyMap(), addressBook)
+            }
+            val toName = nameOrAddress(notes, current.plan.recipientAddress)
             SendReviewPage(
-                heading = "Send ${solanaAmountText(current.plan, selected.symbol)} from $fromName to $toName?",
+                heading = "Send ${solanaAmountText(current.plan, selected.symbol)} from $fromName to ${nameWithStart(notes, current.plan.recipientAddress)}?",
                 toTitle = toName,
                 toDetail = notes?.let(::notesDetail).orEmpty(),
                 toAddress = current.plan.recipientAddress,
                 validLine = "Address is valid on $networkLabel",
-                firstTime = if (notes == null) "First time sending here. Compare every group with where you got it." else null,
+                firstTime = if (isFirstTime(notes)) "First time sending here. Compare every group with where you got it." else null,
                 rows = solanaRows(current.plan, selected.symbol),
-                warnings = if (current.newTokenAccountRent > 0) {
+                warnings = lookalikeWarnings(notes) + if (current.newTokenAccountRent > 0) {
                     listOf("Creates their token account (≈ ${solAmountText(current.newTokenAccountRent)} SOL)")
                 } else {
                     emptyList()
@@ -642,7 +649,6 @@ internal fun SolanaSendRoute(
             headline = if (current.setup) "Offline Signing Is on Its Way" else "Your ${selected.symbol} Is on Its Way",
             amount = solanaAmountText(current.plan, selected.symbol),
             recipient = if (current.setup) "your nonce account" else groupAddress(current.plan.recipientAddress),
-            recipientAddress = current.plan.recipientAddress.takeUnless { current.setup },
             network = networkLabel,
             timing = "About 1 second on $networkLabel",
             fromName = fromName,

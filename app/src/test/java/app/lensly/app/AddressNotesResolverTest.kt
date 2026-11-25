@@ -49,9 +49,9 @@ class AddressNotesResolverTest {
     }
 
     @Test
-    fun aBitcoinAddressMatchesExactly() {
+    fun aBitcoinBech32AddressMatchesInAnyLetterCase() {
         assertEquals(bob, addressNotesOf(bitcoinAddress, BITCOIN_FAMILY, emptyMap(), book)?.entry)
-        assertNull(addressNotesOf(bitcoinAddress.uppercase(), BITCOIN_FAMILY, emptyMap(), book))
+        assertEquals(bob, addressNotesOf(bitcoinAddress.uppercase(), BITCOIN_FAMILY, emptyMap(), book)?.entry)
     }
 
     @Test

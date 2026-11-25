@@ -41,7 +41,6 @@ class SignedSendStepsTest {
                         headline = "Your MON Is on Its Way",
                         amount = "0.25 MON",
                         recipient = "FelixStone",
-                        recipientAddress = null,
                         network = "Monad Testnet",
                         timing = "About 1 second",
                         fromName = "Account 1",

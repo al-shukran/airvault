@@ -36,7 +36,6 @@ internal fun SignedSendSteps(
     headline: String,
     amount: String,
     recipient: String,
-    recipientAddress: String?,
     network: String,
     timing: String,
     fromName: String,
@@ -111,7 +110,6 @@ internal fun SignedSendSteps(
                 SendOnItsWayPage(
                     headline = arrival?.arrivedHeadline?.takeIf { landing == Landing.LANDED } ?: headline,
                     summary = summary,
-                    address = recipientAddress?.takeIf { address -> recipient.filterNot { it.isWhitespace() } != address },
                     network = network,
                     timing = timing,
                     recipient = recipient,
