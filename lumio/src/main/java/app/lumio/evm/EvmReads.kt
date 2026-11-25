@@ -112,12 +112,11 @@ class EvmReads(
         while (true) {
             val url = settings().activeRpc(chain.chainId)
             val scheduler = if (url != null) ownerOf(chain.chainId, url) else publicPool
-            val again = req !is Broadcast
             try {
                 val result = scheduler.run(req, priority)
-                if (!again || settings().activeRpc(chain.chainId) == url) return result
+                if (req is Broadcast || settings().activeRpc(chain.chainId) == url) return result
             } catch (e: ProviderError) {
-                if (!again || settings().activeRpc(chain.chainId) == url) throw e.toRpcFailure()
+                if (req is Broadcast || settings().activeRpc(chain.chainId) == url) throw e.toRpcFailure()
             }
         }
     }

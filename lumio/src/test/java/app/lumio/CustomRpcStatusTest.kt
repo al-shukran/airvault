@@ -151,6 +151,22 @@ class CustomRpcStatusTest {
     }
 
     @Test
+    fun aBroadcastThatFailsAfterAnAddressSwapShowsTheFirstFailureAndIsNotSentAgain() = runTest {
+        val providers = ArrayList<FakeProvider>()
+        val reads = reads(providers, latencyMs = 100)
+        status(reads, sepolia)
+        providers[0].outcomes.add(ProviderError.Fatal("first address refused"))
+        val sent = async { runCatching { reads.broadcast(sepolia, byteArrayOf(1, 2, 3)) } }
+        advanceTimeBy(50)
+        settings = EvmSettings(rpc = mapOf(sepolia.chainId to ChainRpcs(custom = listOf("https://three.example"), active = "https://three.example")))
+
+        val failure = sent.await().exceptionOrNull()
+
+        assertEquals("first address refused", failure?.message)
+        assertEquals(listOf(1), providers.map { it.calls })
+    }
+
+    @Test
     fun theProviderListShowsTheWorstStatusOfTheAddresses() = runTest {
         val providers = ArrayList<FakeProvider>()
         val reads = reads(providers)
