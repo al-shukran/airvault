@@ -23,11 +23,12 @@ private fun lookalikeBody(address: String, chain: ChainId): String = when {
  * never one.
  */
 fun looksLikeAddress(a: String, b: String, chain: ChainId): Boolean {
-    if (addressKeyOf(a) == addressKeyOf(b)) return false
     val x = lookalikeBody(a, chain)
     val y = lookalikeBody(b, chain)
     if (x.length < 2 * LOOKALIKE_ENDS || y.length < 2 * LOOKALIKE_ENDS) return false
-    return x.take(LOOKALIKE_ENDS) == y.take(LOOKALIKE_ENDS) && x.takeLast(LOOKALIKE_ENDS) == y.takeLast(LOOKALIKE_ENDS)
+    // The ends are compared first: the key of a bech32 address parses it, so it is taken only for the few that share their ends.
+    return x.take(LOOKALIKE_ENDS) == y.take(LOOKALIKE_ENDS) && x.takeLast(LOOKALIKE_ENDS) == y.takeLast(LOOKALIKE_ENDS) &&
+        addressKeyOf(a) != addressKeyOf(b)
 }
 
 /**
