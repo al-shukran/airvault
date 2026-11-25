@@ -9,6 +9,7 @@ import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.debugEmulatorVault
 import app.lensly.core.wallet.Mnemonic
+import app.lumio.demo.DemoFixtures
 import app.lumio.home.HomeLoader
 import app.lumio.network.NetworkMode
 import app.lumio.network.NetworkModeStore
@@ -41,7 +42,9 @@ internal object DebugDemoSeed {
     private const val SEED_UNLOCK = "Vq7m-Lp2x-Tz9w-Kd4n"
 
     /** The throwaway test mnemonic that [intent] carries in the seed extra, or null when it asks for no seed. */
-    fun mnemonicOf(intent: Intent?): String? = intent?.getStringExtra(EXTRA)?.trim()?.takeIf { it.isNotEmpty() }
+    fun mnemonicOf(intent: Intent?): String? =
+        intent?.getStringExtra(EXTRA)?.trim()?.takeIf { it.isNotEmpty() }
+            ?: DemoFixtures.MNEMONIC.takeIf { intent?.getBooleanExtra("debugDemoData", false) == true || intent?.hasExtra("debugScreen") == true }
 
     /**
      * Pairs the demo wallet in the demo vault, then calls [showHome], which opens the hidden area on the Accounts home. Nothing opens on a device
@@ -67,10 +70,12 @@ internal object DebugDemoSeed {
             }
             val session = (vault.unlock(SEED_UNLOCK.toCharArray()) as? UnlockResult.Unlocked)?.session
                 ?: return@coroutineScope refused("the vault does not open with the demo password")
-            NetworkModeStore.write(session, NetworkMode.TESTNET)
+            NetworkModeStore.write(session, DebugDemoData.mode ?: NetworkMode.TESTNET)
             val saved = PairedWallets.save(session, pairing.await().getOrThrow(), System.currentTimeMillis())
             if (!holder.adopt(session, epoch)) return@coroutineScope refused("the vault was locked while it was seeded")
-            readBalances(app, session)
+            // A frame that shows a screen which never loaded keeps its caches empty. The others read the demo balances first.
+            if (!DebugDemoData.flag("fresh")) readBalances(app, session)
+            DebugDemoData.settle()
             Log.i(TAG, "The demo vault is seeded in ${(System.nanoTime() - started) / 1_000_000} ms.")
             saved.id
         } catch (e: Exception) {
@@ -84,13 +89,17 @@ internal object DebugDemoSeed {
      * so the prices are not read. The Bitcoin scans run after the wallet opens, as they do on Home, and the Bitcoin balances show when they land.
      */
     private suspend fun readBalances(app: LumioApp, session: VaultSession) = coroutineScope {
-        launch {
-            runCatching { HomeLoader.refreshEvm(app, session, NetworkMode.TESTNET) }
-                .onFailure { Log.w(TAG, "The Ethereum balances did not read.", it) }
-        }
-        launch {
-            runCatching { HomeLoader.refreshNative(app, session, NetworkMode.TESTNET) }
-                .onFailure { Log.w(TAG, "The native balances did not read.", it) }
+        // The demo data mode fills both sides, so a frame of either side opens on its balances.
+        val sides = if (DebugDemoData.active) NetworkMode.entries else listOf(NetworkMode.TESTNET)
+        for (side in sides) {
+            launch {
+                runCatching { HomeLoader.refreshEvm(app, session, side) }
+                    .onFailure { Log.w(TAG, "The Ethereum balances did not read.", it) }
+            }
+            launch {
+                runCatching { HomeLoader.refreshNative(app, session, side) }
+                    .onFailure { Log.w(TAG, "The native balances did not read.", it) }
+            }
         }
     }
 
@@ -106,7 +115,7 @@ internal object DebugDemoSeed {
     private fun pairingOf(mnemonic: String): PairingPayload {
         val seed = Mnemonic.of(mnemonic.split(Regex("\\s+"))).use { it.deriveSeed("") }
         val scan = PairScan()
-        PairingCodec.urParts(DebugPairFixture.payloadOf(seed), brotli = null).forEach { frame ->
+        PairingCodec.urParts(if (DebugDemoData.active) DemoFixtures.payload() else DebugPairFixture.payloadOf(seed), brotli = null).forEach { frame ->
             when (val step = scan.onText(frame)) {
                 is ScanStep.Complete -> return step.pairing
                 is ScanStep.Refused -> error(step.reason)

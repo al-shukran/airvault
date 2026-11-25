@@ -87,7 +87,7 @@ internal fun HomeRoute(
     val rows = watchlist?.ordered { board.prices[it.assetId]?.change24hPct }.orEmpty().map { asset ->
         rowOf(asset, view, wallet?.id, board.prices[asset.assetId], board.dayChartOf(asset.assetId), testnet, fiat)
     }
-    var sortOpen by remember { mutableStateOf(false) }
+    var sortOpen by remember { mutableStateOf(DebugDemoData.flag("sort")) }
     val hero = heroOf(board.market, testnet, nowMs, fiat)
     TabRoute(
         tab = LumioTab.HOME,

@@ -1,0 +1,26 @@
+package app.lumio
+
+import android.content.Intent
+import androidx.compose.runtime.Composable
+import androidx.navigation.NavHostController
+import app.lumio.data.provider.Provider
+import app.lumio.network.NetworkMode
+
+/** Stub: this build has no demo data mode, so every source is the real one and no extra opens a screen. */
+internal object DebugDemoData {
+    val active: Boolean get() = false
+
+    fun offer(intent: Intent) = Unit
+
+    fun providers(real: List<Provider>): List<Provider> = real
+
+    /** The side the demo seed selects, or null when this build has no demo mode. */
+    val mode: NetworkMode? get() = null
+
+    fun flag(key: String): Boolean = false
+
+    fun text(key: String): String = ""
+
+    @Composable
+    fun Entry(controller: NavHostController, selection: NetworkSelection, request: Int) = Unit
+}

@@ -426,6 +426,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
         })
     }
     val lockChoices = remember { LockSettingsState(app.lockSettings) }
+    DebugDemoData.Entry(controller, selection, debugHiddenRequest)
     // Coming back from the background reads the networks again once, when the Wallets home shows. The mark waits for the home, so no pushed screen reads.
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
