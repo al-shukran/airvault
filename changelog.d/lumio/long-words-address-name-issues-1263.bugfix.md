@@ -1,0 +1,1 @@
+A name made of long ordinary words, such as "International Opportunities" or "Counterrevolutionaries", can now be saved in the Address Book and shows as itself on the review screens instead of as an address.
