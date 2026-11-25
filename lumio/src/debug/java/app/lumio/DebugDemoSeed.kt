@@ -9,6 +9,8 @@ import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.debugEmulatorVault
 import app.lensly.core.wallet.Mnemonic
+import app.lumio.data.config.DisplaySettings
+import app.lumio.data.config.DisplaySettingsStore
 import app.lumio.demo.DemoFixtures
 import app.lumio.home.HomeLoader
 import app.lumio.network.NetworkMode
@@ -71,6 +73,8 @@ internal object DebugDemoSeed {
             val session = (vault.unlock(SEED_UNLOCK.toCharArray()) as? UnlockResult.Unlocked)?.session
                 ?: return@coroutineScope refused("the vault does not open with the demo password")
             NetworkModeStore.write(session, DebugDemoData.mode ?: NetworkMode.TESTNET)
+            // The mockups show the totals, which the owner's default hides.
+            if (DebugDemoData.active) DisplaySettingsStore.write(session, DisplaySettings(showTotal = true))
             val saved = PairedWallets.save(session, pairing.await().getOrThrow(), System.currentTimeMillis())
             if (!holder.adopt(session, epoch)) return@coroutineScope refused("the vault was locked while it was seeded")
             // A frame that shows a screen which never loaded keeps its caches empty. The others read the demo balances first.

@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import app.airvault.core.model.AccountId
+import app.lensly.app.export.PairingPayload
 import app.lensly.app.vaultHolder
 import app.lumio.btc.networkId
 import app.lumio.data.net.NetworkId
@@ -90,6 +91,11 @@ internal object DebugDemoData {
     /** The text a frame prefills for the field [key], so the secure keyboard is never typed. Empty when there is none. */
     fun text(key: String): String = if (flag("prefill")) PASSWORD else ""
 
+    /** The pairing that a Pair Review frame shows before any scan: the wallet again for a re-pair, else another wallet. Null for any other frame. */
+    fun pairing(): PairingPayload? = if (!flag("pair:review")) null else DemoFixtures.payload().let { demo ->
+        if (flag("pair:repair")) demo else demo.copy(fingerprint = NEW_FINGERPRINT, name = "Air 2", autoNameBase = "Air 2")
+    }
+
     /** The step of the send that the open frame asks for: the part of its `send:` flag after the colon, or null. */
     fun sendStage(): String? = screen?.flags?.lastOrNull { it.startsWith("send:") }?.removePrefix("send:")?.let { stage ->
         // A fee sheet frame opens the amount step with its sheet.
@@ -154,6 +160,7 @@ internal object DebugDemoData {
     /** The App Password that the demo vault and the password pages of a frame show filled in. It is the public demo password. */
     private const val PASSWORD = "Vq7m-Lp2x-Tz9w-Kd4n"
     private const val HOLD_SECONDS = 600
+    private const val NEW_FINGERPRINT = 0x1A2B3C4DL
     private const val HISTORY_TRIES = 6
     private const val HISTORY_PAGE = 100
     private const val HISTORY_WAIT_MS = 500L

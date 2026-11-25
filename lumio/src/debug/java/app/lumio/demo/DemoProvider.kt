@@ -189,7 +189,7 @@ internal class DemoProvider(private val profile: () -> DemoProfile) : Provider {
                 ExplorerTx.Token(
                     hash = "0x" + "33".repeat(32),
                     timestampSec = nowS - 3 * DAY_S,
-                    from = DemoFixtures.LENA_PARK,
+                    from = DemoFixtures.STRANGER,
                     to = me,
                     confirmations = 500L,
                     blockNumber = 19_990_000L,

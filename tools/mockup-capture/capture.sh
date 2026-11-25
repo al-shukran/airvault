@@ -36,6 +36,7 @@ adb_ shell settings put global animator_duration_scale 0
 restore() {
     adb_ shell settings put system font_scale 1.0 || true
     adb_ shell wm size reset || true
+    adb_ shell cmd connectivity airplane-mode disable || true
     adb_ shell cmd uimode night no || true
 }
 trap restore EXIT
@@ -74,6 +75,9 @@ while IFS=$'\t' read -r id themes _title; do
         size="$(size_of "$id")"
         if [ -n "$size" ]; then adb_ shell wm size "$size"; else adb_ shell wm size reset; fi
         adb_ shell am force-stop "$PKG"
+        # An offline frame turns the real connection off, so the offline band shows as it does on a phone. Camera Denied revokes the permission.
+        if [ "$(profile_of "$id")" = offline ]; then adb_ shell cmd connectivity airplane-mode enable; else adb_ shell cmd connectivity airplane-mode disable; fi
+        case "$id" in p2-35) adb_ shell pm revoke "$PKG" android.permission.CAMERA ;; *) adb_ shell pm grant "$PKG" android.permission.CAMERA ;; esac
         if [ "$(fresh_of "$id")" = 1 ]; then adb_ shell pm clear "$PKG" >/dev/null; adb_ shell pm grant "$PKG" android.permission.CAMERA >/dev/null 2>&1 || true; fi
         # The launch logs "opened <id>" when the frame is on screen, or why the seed did not run (an old process still dying). Then one retry.
         for attempt in 1 2 3; do

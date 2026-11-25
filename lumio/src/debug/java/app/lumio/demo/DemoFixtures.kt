@@ -29,6 +29,8 @@ internal object DemoFixtures {
 
     const val EXCHANGE_DEPOSIT = "0x9f3c8a1d2b7e4f60a5c91d3e8b2f7a6c000041d0"
     const val LENA_PARK = "0x4b1e9d0c7a3f5e2186b4d9a0c3e7f1250000a07c"
+    /** An address that is in no Address Book: the sender of the token receipt, so its Address-Book Info sheet is the Unknown one. */
+    const val STRANGER = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045"
     const val EXTERNAL_BTC = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
 
     /** The Monad Testnet chain id and the mainnet chains that hold demo balances. */

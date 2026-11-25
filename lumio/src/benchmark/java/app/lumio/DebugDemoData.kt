@@ -1,6 +1,7 @@
 package app.lumio
 
 import android.content.Intent
+import app.lensly.app.export.PairingPayload
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import app.lumio.data.provider.Provider
@@ -24,6 +25,9 @@ internal object DebugDemoData {
 
     /** The step of the send that the open frame asks for, or null. */
     fun sendStage(): String? = null
+
+    /** The pairing that a Pair Review frame shows before any scan, or null. */
+    fun pairing(): PairingPayload? = null
 
     fun signedMachine(failed: Boolean): SubmitMachine<ByteArray, String> = error("No demo send in this build.")
 

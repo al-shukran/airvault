@@ -411,7 +411,7 @@ private fun FiatProvider(navController: NavHostController, content: @Composable 
 @Composable
 private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controller: NavHostController) {
     val app = LocalContext.current.applicationContext as LumioApp
-    val draft = remember { PairDraft() }
+    val draft = remember { PairDraft().also { it.pairing = DebugDemoData.pairing() } }
     // The side is kept in the vault when the owner picks it, as Settings kept it, so the next open shows the same side.
     val appHolder = LocalContext.current.vaultHolder()
     val scope = rememberCoroutineScope()
