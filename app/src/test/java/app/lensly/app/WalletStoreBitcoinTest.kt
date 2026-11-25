@@ -154,20 +154,22 @@ class WalletStoreBitcoinTest {
     fun aRecordNeverHoldsOneKeyTwice() {
         val account = BitcoinAccountRecord(BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT, 0, "bc1qexample")
         val twin = account.copy(firstReceiveAddress = "bc1qother")
-        assertFailsWith<IllegalArgumentException> { WalletRecords.encodeBitcoinAccounts(listOf(account, twin)) }
+        assertFailsWith<IllegalArgumentException> { WalletRecords.encodeBitcoinRecord(BitcoinRecord(listOf(account, twin))) }
 
         // A record that a writer put together with a repeated key is refused when it is read too.
         val repeated = WalletRecords.writeBytes { out ->
-            out.writeByte(1)
+            out.writeByte(3)
             out.writeInt(2)
             repeat(2) {
                 out.writeByte(BtcNetwork.MAINNET.coinType)
                 out.writeByte(ScriptType.NATIVE_SEGWIT.purpose)
                 out.writeInt(0)
                 out.writeUTF("bc1qexample")
+                out.writeBoolean(false)
             }
+            out.writeInt(0)
         }
-        assertFailsWith<IllegalArgumentException> { WalletRecords.decodeBitcoinAccounts(repeated) }
+        assertFailsWith<IllegalArgumentException> { WalletRecords.decodeBitcoinRecord(repeated) }
     }
 
     @Test
@@ -279,7 +281,7 @@ class WalletStoreBitcoinTest {
         val read = WalletStore(session).bitcoinAccounts(id)
         assertEquals(listOf(AccountProfile(), profile, AccountProfile()), read.map { it.profile })
         // The record reads back to the same accounts and profiles.
-        assertEquals(read, WalletRecords.decodeBitcoinAccounts(WalletRecords.encodeBitcoinAccounts(read)))
+        assertEquals(BitcoinRecord(read), WalletRecords.decodeBitcoinRecord(WalletRecords.encodeBitcoinRecord(BitcoinRecord(read))))
     }
 
     @Test
