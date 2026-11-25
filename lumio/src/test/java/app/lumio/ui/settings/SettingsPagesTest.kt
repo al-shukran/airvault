@@ -221,7 +221,37 @@ class SettingsPagesTest {
         compose.onNodeWithText("Each change asks for your current password first.").performScrollTo().assertIsDisplayed()
     }
 
-    /** A change of Auto-Lock is kept only when the App Password is typed in the step that the row opens. The sheet itself is not driven here. */
+    /** The Auto-Lock sheet opens over the page, so its choices are tapped where they show, and a choice asks for the App Password before it applies. */
+    @Test
+    fun theAutoLockSheetOpensOverThePageAndAsksForThePassword() {
+        var chosen: AutoLock? = null
+        compose.setContent {
+            ClearAirHarness {
+                SecuritySettingsPage(
+                    lock = LockSettings(AutoLock.AFTER_ONE_MINUTE),
+                    biometric = BiometricSwitch(on = false, canEnable = true),
+                    onEntryGesture = {},
+                    onChangePassword = {},
+                    onBiometric = {},
+                    checkPassword = { PasswordCheck.Accepted },
+                    onAutoLock = { chosen = it },
+                    offline = null, onLock = {}, onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Auto-Lock").performScrollTo().performClick()
+        compose.onNodeWithText("Immediately").performClick()
+        assertEquals(null, chosen)
+        compose.onNodeWithText("Enter your current password to set Auto-Lock to Immediately.").assertExists()
+        compose.onNode(hasSetTextAction()).performTextInput("the password")
+        compose.onNodeWithText("Change").performClick()
+        compose.waitForIdle()
+
+        assertEquals(AutoLock.IMMEDIATELY, chosen)
+    }
+
+    /** A change of Auto-Lock is kept only when the App Password is typed in the step that its sheet's choice opens. */
     @Test
     fun theAutoLockChangeAcceptsOnlyTheAppPassword() {
         var accepted = false

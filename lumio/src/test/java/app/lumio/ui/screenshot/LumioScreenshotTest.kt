@@ -183,7 +183,7 @@ class LumioScreenshotTest {
 
     /** The Currency and Theme sheets open over the Display page, with its scrim, as the mock draws them. */
     @Test
-    fun settingsDisplayCurrencySheet() = compose.lumioSnapshot("settings_display_currency_sheet", beforeCapture = { openDisplaySheet("Currency") }) {
+    fun settingsDisplayCurrencySheet() = compose.lumioSnapshot("settings_display_currency_sheet", beforeCapture = { openSheet("Currency") }) {
         DisplaySettingsPage(
             settings = DisplaySettings(), notice = null, onShowTotal = {}, onShowAssets = {}, onCurrency = {}, onTheme = {}, onSmallBalance = {},
             offline = null, onLock = {}, onBack = {},
@@ -191,14 +191,14 @@ class LumioScreenshotTest {
     }
 
     @Test
-    fun settingsDisplayThemeSheet() = compose.lumioSnapshot("settings_display_theme_sheet", beforeCapture = { openDisplaySheet("Theme") }) {
+    fun settingsDisplayThemeSheet() = compose.lumioSnapshot("settings_display_theme_sheet", beforeCapture = { openSheet("Theme") }) {
         DisplaySettingsPage(
             settings = DisplaySettings(), notice = null, onShowTotal = {}, onShowAssets = {}, onCurrency = {}, onTheme = {}, onSmallBalance = {},
             offline = null, onLock = {}, onBack = {},
         )
     }
 
-    private fun androidx.compose.ui.test.junit4.ComposeContentTestRule.openDisplaySheet(row: String) {
+    private fun androidx.compose.ui.test.junit4.ComposeContentTestRule.openSheet(row: String) {
         onNodeWithText(row).performClick()
         waitForIdle()
         mainClock.advanceTimeBy(1_000)
@@ -308,6 +308,21 @@ class LumioScreenshotTest {
     fun settingsSecuritySwitching() = compose.lumioSnapshot("settings_security_switching") {
         SecuritySettingsPage(
             lock = LockSettings(AutoLock.IMMEDIATELY),
+            biometric = BiometricSwitch(on = true, canEnable = true),
+            onEntryGesture = {},
+            onChangePassword = {},
+            onBiometric = {},
+            checkPassword = { PasswordCheck.Accepted },
+            onAutoLock = {},
+            offline = null, onLock = {}, onBack = {},
+        )
+    }
+
+    /** The Auto-Lock sheet opens over the Security page, with its scrim, as the Currency sheet does over Display. */
+    @Test
+    fun settingsSecurityAutoLockSheet() = compose.lumioSnapshot("settings_security_auto_lock_sheet", beforeCapture = { openSheet("Auto-Lock") }) {
+        SecuritySettingsPage(
+            lock = LockSettings(AutoLock.AFTER_ONE_MINUTE),
             biometric = BiometricSwitch(on = true, canEnable = true),
             onEntryGesture = {},
             onChangePassword = {},

@@ -10,7 +10,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.boundsInWindow
@@ -127,7 +130,27 @@ fun SecuritySettingsPage(
     onLock: () -> Unit,
 ) {
     val enabled = biometric.on || biometric.canEnable
-    SettingsPageScreen(SettingsPage.SECURITY, offline, onBack, onLock) {
+    // The sheet belongs to the page, not to its scrolling column: a sheet needs the page's bounds to cover it. The dialog is a window of its own.
+    var sheetOpen by remember { mutableStateOf(false) }
+    var pending by remember { mutableStateOf<AutoLock?>(null) }
+    pending?.let { choice ->
+        AutoLockPasswordDialog(
+            choice = choice,
+            checkPassword = checkPassword,
+            onClose = { pending = null },
+            onAccepted = {
+                pending = null
+                onAutoLock(choice)
+            },
+        )
+    }
+    SettingsPageScreen(
+        SettingsPage.SECURITY,
+        offline,
+        onBack,
+        onLock,
+        sheet = { AutoLockSheet(visible = sheetOpen, current = lock.autoLock, onClose = { sheetOpen = false }, onPick = { pending = it }) },
+    ) {
         ClearAirRow(
             title = "Password",
             description = "Change your Lumio password",
@@ -150,7 +173,7 @@ fun SecuritySettingsPage(
             onClick = onEntryGesture,
         )
         RowDivider(indent = ROW_DIVIDER_INDENT)
-        AutoLockRow(current = lock.autoLock, checkPassword = checkPassword, onChoose = onAutoLock)
+        AutoLockRow(current = lock.autoLock, onOpen = { sheetOpen = true })
         ClearAirNote(text = "Each change asks for your current password first.", modifier = Modifier.padding(top = ClearAirSpacing.sm))
     }
 }
