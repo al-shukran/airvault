@@ -8,12 +8,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,6 +28,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -34,8 +38,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.lensly.ui.components.lumioPress
+import app.lensly.ui.theme.ClearAirMotion
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -51,9 +58,9 @@ import app.lumio.ui.kit.ClearAirChoiceSheet
 import app.lumio.ui.kit.ClearAirDisc
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
+import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.ClearAirIconButton
 import app.lumio.ui.kit.ClearAirPrimaryButton
-import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSheet
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.cssLine
@@ -160,12 +167,12 @@ internal fun AssetPage(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         if (held == null || senders.isEmpty()) {
-                            ClearAirPrimaryButton(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE, fullWidth = false)
+                            ClearAirPrimaryButton(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE, fullWidth = false, labelStyle = ClearAirType.button)
                             if (senders.isNotEmpty()) {
                                 ClearAirTextAction(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND, modifier = textActionModifier)
                             }
                         } else {
-                            ClearAirPrimaryButton(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND, fullWidth = false)
+                            ClearAirPrimaryButton(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND, fullWidth = false, labelStyle = ClearAirType.button)
                             ClearAirTextAction(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE, modifier = textActionModifier)
                         }
                     }
@@ -271,22 +278,47 @@ private fun AssetTopBar(name: String, watched: Boolean, onWatch: () -> Unit, onB
     }
 }
 
-/** The coin's holdings row, which opens Holdings Breakdown. Its value sits on the right when a price is read, and its chains' logos follow the count. */
+/**
+ * The coin's holdings row, which opens Holdings Breakdown, as the approved frame sets it: a 36 dp disc, the amount in the mono face over the summary, its
+ * chains' logos after the summary, the value in dollars when a price is read, and a chevron. The row is 62 dp at least.
+ */
 @Composable
 private fun HeldRow(coin: CoinHeld, icon: @Composable (Dp) -> Unit, onClick: () -> Unit) {
     val palette = LocalClearAirPalette.current
-    val value = coin.value
-    val chains: (@Composable () -> Unit)? = if (coin.chainIcons.isEmpty()) null else { { ChainDots(coin.chainIcons) } }
-    val trailing: (@Composable () -> Unit)? = if (value == null) null else { { Text(text = value, style = ClearAirType.rowValue, color = palette.ink) } }
-    ClearAirRow(
-        title = coin.amount,
-        titleStyle = HELD_TITLE,
-        description = coin.summary,
-        descriptionSuffix = chains,
-        leading = { ClearAirDisc { icon(ROW_LOGO) } },
-        trailing = trailing,
-        onClick = onClick,
-    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = ROW_HEIGHT)
+            .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onClick)
+            .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ClearAirDisc { icon(ROW_LOGO) }
+        Spacer(Modifier.width(ClearAirSpacing.sm))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = coin.amount, style = HELD_TITLE, color = palette.ink, maxLines = 1, modifier = Modifier.cssLine(ROW_TITLE_LINE))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = coin.summary,
+                    style = HELD_CAPTION,
+                    color = palette.ink2,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f, fill = false).cssLine(ROW_CAPTION_LINE, lift = ROW_CAPTION_LIFT),
+                )
+                if (coin.chainIcons.isNotEmpty()) {
+                    Spacer(Modifier.width(CHAINS_GAP))
+                    ChainDots(coin.chainIcons)
+                }
+            }
+        }
+        coin.value?.let { value ->
+            Spacer(Modifier.width(ClearAirSpacing.sm))
+            Text(text = value, style = ClearAirType.rowValue, color = palette.ink)
+        }
+        Spacer(Modifier.width(ClearAirSpacing.sm))
+        val mirrored = LocalLayoutDirection.current == LayoutDirection.Rtl
+        ClearAirIcon(glyph = ClearAirGlyph.CHEVRON, color = palette.ink3, size = CHEVRON, modifier = Modifier.graphicsLayer { scaleX = if (mirrored) -1f else 1f })
+    }
 }
 
 /**
@@ -365,6 +397,13 @@ private val TEXT_ACTION_LIFT = 1.dp
 private val SECTION_TOP = 18.dp
 private val ALL_STYLE = ClearAirType.rowTitle.copy(fontSize = 13.sp, lineHeight = 21.sp)
 private val HELD_TITLE = ClearAirType.rowValue.copy(fontSize = 15.sp)
+private val HELD_CAPTION = ClearAirType.caption
+private val ROW_HEIGHT = 62.dp
+private val ROW_TITLE_LINE = 20.dp
+private val ROW_CAPTION_LINE = 17.dp
+private val ROW_CAPTION_LIFT = 1.5.dp
+private val CHAINS_GAP = 2.dp
+private val CHEVRON = 16.dp
 
 /** The test tag of the price chart. */
 internal const val CHART_TAG = "asset-chart"

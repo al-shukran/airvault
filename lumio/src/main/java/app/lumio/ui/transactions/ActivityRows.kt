@@ -55,15 +55,19 @@ private val SMALL_LIFT = 1.5.dp
 private val USD_STYLE = ClearAirType.time.copy(fontWeight = FontWeight.Normal, letterSpacing = (-0.02).em)
 
 /** The height of an activity row with a one-line detail. A two-line detail takes the row a little taller. */
-private val ROW_MIN_HEIGHT = 62.dp
+private val ROW_MIN_HEIGHT = 64.dp
+
+/** The height of a [frame] row, which is the mock's 62 dp. */
+private val FRAME_ROW_MIN_HEIGHT = 62.dp
 
 /**
  * One row of the activity: its direction mark in a sunk disc, what it is and to or from whom, and the amount with its value in dollars on the right.
  * Money in is vault blue and money out is ink, never red. A pending row leads its line with the spark, and says "Confirming" in that line. [names] names
- * the parties by their address key, and [shown] hides the amounts.
+ * the parties by their address key, and [shown] hides the amounts. A [frame] row is set at the approved Asset frame's measures: a 62 dp row, an ink mark on
+ * the disc, the detail in the caption face and the value in dollars in the mono face, each in the frame's line box.
  */
 @Composable
-fun ActivityRowItem(item: TxFeedItem, names: Map<String, String>, zone: ZoneId, shown: Boolean, onClick: () -> Unit) {
+fun ActivityRowItem(item: TxFeedItem, names: Map<String, String>, zone: ZoneId, shown: Boolean, onClick: () -> Unit, frame: Boolean = false) {
     val palette = LocalClearAirPalette.current
     val tx = item.tx
     val party = tx.counterparty?.let { names[addressKeyOf(it)] }
@@ -71,7 +75,7 @@ fun ActivityRowItem(item: TxFeedItem, names: Map<String, String>, zone: ZoneId, 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = ROW_MIN_HEIGHT)
+            .defaultMinSize(minHeight = if (frame) FRAME_ROW_MIN_HEIGHT else ROW_MIN_HEIGHT)
             .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onClick)
             .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
@@ -82,13 +86,13 @@ fun ActivityRowItem(item: TxFeedItem, names: Map<String, String>, zone: ZoneId, 
         ) {
             TxGlyphIcon(
                 glyph = glyphOf(tx.direction),
-                color = palette.ink,
+                color = if (line.incoming && !frame) palette.vaultBlue else palette.ink,
                 size = MARK,
             )
         }
         Spacer(Modifier.width(ClearAirSpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = line.title, style = ClearAirType.rowTitle, color = palette.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.cssLine(TITLE_LINE))
+            Text(text = line.title, style = ClearAirType.rowTitle, color = palette.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = if (frame) Modifier.cssLine(TITLE_LINE) else Modifier)
             Row(verticalAlignment = Alignment.Top) {
                 if (tx.status == TxStatus.PENDING) {
                     SparkMark(side = SPARK, modifier = Modifier.padding(top = SPARK_TOP))
@@ -96,11 +100,11 @@ fun ActivityRowItem(item: TxFeedItem, names: Map<String, String>, zone: ZoneId, 
                 }
                 Text(
                     text = line.detail,
-                    style = ClearAirType.caption,
+                    style = if (frame) ClearAirType.caption else ClearAirType.body,
                     color = palette.ink2,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f).cssLine(DETAIL_LINE, lift = SMALL_LIFT),
+                    modifier = Modifier.weight(1f).then(if (frame) Modifier.cssLine(DETAIL_LINE, lift = SMALL_LIFT) else Modifier),
                 )
             }
         }
@@ -111,10 +115,10 @@ fun ActivityRowItem(item: TxFeedItem, names: Map<String, String>, zone: ZoneId, 
                 style = ClearAirType.rowValue,
                 color = if (line.incoming) palette.vaultBlue else palette.ink,
                 textAlign = TextAlign.End,
-                modifier = Modifier.cssLine(TITLE_LINE),
+                modifier = if (frame) Modifier.cssLine(TITLE_LINE) else Modifier,
             )
             line.usd?.let {
-                Text(text = Masking.amount(LocalFiat.current.amount(it), hidden = !shown), style = USD_STYLE, color = palette.ink2, textAlign = TextAlign.End, modifier = Modifier.cssLine(DETAIL_LINE, lift = SMALL_LIFT))
+                Text(text = Masking.amount(LocalFiat.current.amount(it), hidden = !shown), style = if (frame) USD_STYLE else ClearAirType.body, color = palette.ink2, textAlign = TextAlign.End, modifier = if (frame) Modifier.cssLine(DETAIL_LINE, lift = SMALL_LIFT) else Modifier)
             }
         }
     }

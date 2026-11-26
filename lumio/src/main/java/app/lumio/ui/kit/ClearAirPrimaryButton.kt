@@ -30,11 +30,11 @@ private val HUG_PADDING = 30.dp
 
 /**
  * The one filled action of a screen: a capsule, ink on paper in the light theme and paper on ink in the dark one. It fills the width, or with
- * [fullWidth] false it hugs its label, as Send does on Home. An [icon] sits before the label. It scales to 0.98 while pressed and gives a light tick. Disabled, it sits on the raised layer with secondary text, and the reason is said beside it, not in it. A [destructive]
+ * [fullWidth] false it hugs its label, as Send does on Home. An [icon] sits before the label, set in [labelStyle]. It scales to 0.98 while pressed and gives a light tick. Disabled, it sits on the raised layer with secondary text, and the reason is said beside it, not in it. A [destructive]
  * capsule fills rose when enabled, for a confirmation that erases something.
  */
 @Composable
-fun ClearAirPrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, destructive: Boolean = false, icon: ClearAirGlyph? = null, fullWidth: Boolean = true) {
+fun ClearAirPrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, destructive: Boolean = false, icon: ClearAirGlyph? = null, fullWidth: Boolean = true, labelStyle: TextStyle = ClearAirType.rowTitle) {
     val haptics = rememberLumioHaptics()
     val palette = LocalClearAirPalette.current
     Box(
@@ -64,7 +64,7 @@ fun ClearAirPrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier 
             text = text,
             icon = icon,
             color = if (enabled) palette.onPrimary else palette.ink2,
-            style = ClearAirType.button,
+            style = labelStyle,
             modifier = if (fullWidth) Modifier else Modifier.padding(horizontal = HUG_PADDING),
         )
     }

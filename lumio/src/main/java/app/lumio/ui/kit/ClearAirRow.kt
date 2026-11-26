@@ -20,10 +20,8 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -48,13 +46,6 @@ private val DISC = 36.dp
 /** The description's size: one step under [ClearAirType.body], as a row's second line is drawn. */
 private val DESCRIPTION = ClearAirType.body.copy(fontSize = 12.5.sp, lineHeight = 17.sp)
 
-/** The line boxes of a row's title and description, as the mock sets them: 20 dp and 17 dp. */
-private val TITLE_LINE = 20.dp
-private val DESCRIPTION_LINE = 17.dp
-
-/** How far Compose sets the description's small face under the mock's, in dp. */
-private val SMALL_LIFT = 1.5.dp
-
 /** The gap between a description and its suffix: the 6 dp the suffix is set off by, less the 4 dp its first logo is pulled back by. */
 private val SUFFIX_GAP = 2.dp
 
@@ -67,7 +58,7 @@ private val INDEX = ClearAirType.address.copy(fontSize = 11.5.sp, lineHeight = 1
  * sits after the description's text on its line, such as a row of chain logos. A [styledDescription] takes the place of the [description] when its words
  * carry their own colours, such as a status word. A [tag] and an [index] follow the title. A [divider] is a hairline on the
  * row's top edge, which starts at the text when the row has a [leading] mark and at the gutter when it has none, so a list sets it on every row but the
- * first. A [titleStyle] sets the title in another face, such as an amount in the mono face. The row is full-bleed with the page gutter on each side, and it scales to 0.98 while pressed. A [destructive] row has its title in rose.
+ * first. The row is full-bleed with the page gutter on each side, and it scales to 0.98 while pressed. A [destructive] row has its title in rose.
  */
 @Composable
 fun ClearAirRow(
@@ -85,7 +76,6 @@ fun ClearAirRow(
     divider: Boolean = false,
     compact: Boolean = false,
     chevron: Boolean = onClick != null,
-    titleStyle: TextStyle = ClearAirType.rowTitle,
 ) {
     val palette = LocalClearAirPalette.current
     val inset = if (leading != null) ClearAirSpacing.gutter + DISC + ClearAirSpacing.sm else ClearAirSpacing.gutter
@@ -121,9 +111,9 @@ fun ClearAirRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = title,
-                    style = titleStyle,
+                    style = ClearAirType.rowTitle,
                     color = if (destructive) palette.rose else palette.ink,
-                    modifier = Modifier.weight(1f, fill = false).cssLine(TITLE_LINE),
+                    modifier = Modifier.weight(1f, fill = false),
                 )
                 if (index != null) {
                     Text(text = index, style = INDEX, color = palette.ink2, maxLines = 1, modifier = Modifier.padding(start = ClearAirSpacing.xxs))
@@ -139,7 +129,7 @@ fun ClearAirRow(
                         text = line,
                         style = DESCRIPTION,
                         color = palette.ink2,
-                        modifier = (if (descriptionSuffix == null) Modifier else Modifier.weight(1f, fill = false)).cssLine(DESCRIPTION_LINE, lift = SMALL_LIFT),
+                        modifier = if (descriptionSuffix == null) Modifier else Modifier.weight(1f, fill = false),
                     )
                     if (descriptionSuffix != null) {
                         Spacer(Modifier.width(SUFFIX_GAP))
@@ -191,14 +181,3 @@ fun ClearAirRowValue(value: String, note: String? = null, noteColor: Color = Loc
     }
 }
 
-
-/**
- * Gives a line of text at least the height [height] and centres the text in it, as a CSS line box does. Compose trims the half-leading above and below a
- * line, so the text's own box is shorter than its line height and the mock's spacing between lines would sit off. A text that wraps keeps its own height.
- * A [lift] raises the text, for the small faces that Compose sets lower in their line than the mock's browser does.
- */
-internal fun Modifier.cssLine(height: Dp, lift: Dp = 0.dp): Modifier = layout { measurable, constraints ->
-    val placeable = measurable.measure(constraints)
-    val box = maxOf(height.roundToPx(), placeable.height)
-    layout(placeable.width, box) { placeable.placeRelative(0, (box - placeable.height) / 2 - lift.roundToPx()) }
-}

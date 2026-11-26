@@ -247,6 +247,7 @@ internal fun AssetRoute(
                         zone = ZoneId.systemDefault(),
                         shown = display.showAssets,
                         onClick = { wallet?.let { navController.navigate(LumioRoute.transaction(it.id, item.tx.account, item.tx.id)) } },
+                        frame = true,
                     )
                 }
             }
