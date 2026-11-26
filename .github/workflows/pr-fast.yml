@@ -13,9 +13,6 @@ on:
     # Every pull request to master runs every lane, the design gate and its guard included, with no path filter. A pull request to another base
     # (a stacked one) runs none, so it cannot merge into master until it is retargeted, and the retarget runs the lanes.
     branches: [master, phase-1-5]
-    # `labeled` and `unlabeled` re-run every lane on a label change, so the design guard reads the labels again: removing
-    # design:approved-change turns a green pr-ok red. The three defaults are listed because a `types` list replaces them.
-    types: [opened, synchronize, reopened, labeled, unlabeled]
   merge_group:
     types: [checks_requested]
   push:
@@ -303,11 +300,10 @@ jobs:
           if-no-files-found: warn
 
   # A pull request may not change what the design gate measures against (the frames, the tolerance, the masks, the known violations) unless it
-  # carries the label design:approved-change (scripts/design/guard.py). The labels are read when the job runs, and a label change re-runs
-  # the workflow (the `labeled` and `unlabeled` types), so adding or removing the label decides the next run. The guard runs on pull
-  # requests only: the repository has no merge queue (the `merge_group` trigger is unused), and a push to master has no label to read, so
-  # the guard does not judge it (master requires no pull request). If a merge queue is turned on, the queue entry needs the guard with
-  # BASE_SHA = merge_group.base_sha.
+  # carries the label design:approved-change (scripts/design/guard.py). The labels are read when the job runs; design-guard-rerun.yml re-runs
+  # this job when that label is added or removed. The guard runs on pull requests only: the repository has no merge queue (the `merge_group`
+  # trigger is unused), and a push to master has no label to read, so the guard does not judge it (master requires no pull request). If a
+  # merge queue is turned on, the queue entry needs the guard with BASE_SHA = merge_group.base_sha.
   design_guard:
     name: design guard
     if: github.event_name == 'pull_request'
