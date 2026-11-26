@@ -140,6 +140,22 @@ class VaultPasswordFormTest {
     }
 
     @Test
+    fun theTypedFormWinsWhenItsNfcFormOpensAnotherSlot() {
+        // The real slot is sealed from the raw NFD text and the decoy slot from the NFC form of the same visible text.
+        create(ASCII)
+        storeFromRawText(typed = ASCII, stored = ASCII, raw = APP_NFD)
+        setDuress(APP_NFD, DURESS_NFC)
+        storeFromRawText(typed = DURESS_NFC, stored = DURESS_NFC, raw = APP_NFC)
+
+        val real = unlocked(APP_NFD)
+        assertFalse(real.isDecoy, "the typed NFD text opens the real slot")
+        real.close()
+        val decoy = unlocked(APP_NFC)
+        assertTrue(decoy.isDecoy, "the NFC text opens the decoy slot")
+        decoy.close()
+    }
+
+    @Test
     fun aRealPasswordADecoyPasswordAndAWrongOneCostTheSameDerivations() {
         // A vault from the old version holds the real slot under the raw text, and a decoy set now holds the NFC form. The typed text
         // opens the real one on its first key and the decoy on its second, so an early exit would tell them apart.
@@ -209,6 +225,28 @@ class VaultPasswordFormTest {
         // The raw NFD key opens the real slot, so the NFD text may not be set as the Duress Password, though its NFC form opens nothing.
         assertEquals(DuressResult.SameAsAppPassword, duress(real, APP_NFD))
         real.close()
+    }
+
+    @Test
+    fun aDuressPasswordInNfcThatIsTheRawNfdTextOfAnOldAppPasswordIsRefused() {
+        create(ASCII)
+        storeFromRawText(typed = ASCII, stored = ASCII, raw = DURESS_NFD)
+        val real = unlocked(DURESS_NFD)
+
+        assertEquals(DuressResult.SameAsAppPassword, duress(real, DURESS_NFC))
+        real.close()
+    }
+
+    @Test
+    fun aNewPasswordInNfcThatIsTheRawNfdTextOfAnOldDecoyPasswordIsRefused() {
+        create(APP_NFC)
+        setDuress(APP_NFC, DURESS_NFC)
+        storeFromRawText(typed = DURESS_NFC, stored = DURESS_NFC, raw = DURESS_NFD)
+        val real = unlocked(APP_NFC)
+
+        assertEquals(CreateResult.PolicyRejected(PolicyReason.WEAK_SCORE), runBlocking { vault.rekey(real, DURESS_NFC.toCharArray()) })
+        real.close()
+        assertTrue(unlocked(DURESS_NFD).isDecoy)
     }
 
     @Test

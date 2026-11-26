@@ -743,9 +743,10 @@ class Vault constructor(
         }
 
         val typedKey = withContext(Dispatchers.Default) { deriveSoftKey(password, header.salt, header.kdf) }
-        val nfcKey = nfc?.let { form -> withContext(Dispatchers.Default) { deriveSoftKey(form, header.salt, header.kdf) } }
+        var nfcKey: ByteArray? = null
         var handedKey: ByteArray? = null
         try {
+            nfcKey = nfc?.let { form -> withContext(Dispatchers.Default) { deriveSoftKey(form, header.salt, header.kdf) } }
             val contents = keyFileOrNull() ?: run {
                 eraseLocked()
                 return Checked.Erased
@@ -1168,16 +1169,22 @@ class Vault constructor(
 
     /**
      * True when [password] would open slot [index], typed as it is or as its NFC form, which is how an unlock tries it. [storedKey] is the
-     * key of the NFC form. A new password must open no slot but its own, whichever form is typed.
+     * key of the NFC form. An NFC [password] is also tried as its NFD form, which a 1.2.0 slot may be sealed from, since the keyboard that
+     * typed it may emit either. A new password must open no slot but its own, whichever form is typed.
      */
     private suspend fun opensSlot(password: CharArray, storedKey: ByteArray, header: VaultHeader, contents: VaultKeyFile.Contents, index: Int): Boolean {
         if (openSoftLayer(storedKey, contents, index) != null) return true
-        if (PasswordForm.isNfc(password)) return false
-        val typedKey = withContext(Dispatchers.Default) { deriveSoftKey(password, header.salt, header.kdf) }
+        val other = if (PasswordForm.isNfc(password)) PasswordForm.nfdOrNull(password) else password
+        if (other == null) return false
         try {
-            return openSoftLayer(typedKey, contents, index) != null
+            val otherKey = withContext(Dispatchers.Default) { deriveSoftKey(other, header.salt, header.kdf) }
+            try {
+                return openSoftLayer(otherKey, contents, index) != null
+            } finally {
+                Arrays.fill(otherKey, 0)
+            }
         } finally {
-            Arrays.fill(typedKey, 0)
+            if (other !== password) other.fill('\u0000')
         }
     }
 

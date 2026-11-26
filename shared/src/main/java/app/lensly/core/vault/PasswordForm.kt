@@ -17,6 +17,12 @@ object PasswordForm {
         return Normalizer.normalize(CharBuffer.wrap(password), Normalizer.Form.NFC).toCharArray()
     }
 
+    /** The NFD form of [password] as a new array, or null when [password] is NFD already. The caller zeroes the result. */
+    fun nfdOrNull(password: CharArray): CharArray? {
+        if (Normalizer.isNormalized(CharBuffer.wrap(password), Normalizer.Form.NFD)) return null
+        return Normalizer.normalize(CharBuffer.wrap(password), Normalizer.Form.NFD).toCharArray()
+    }
+
     /** True when [first] and [second] are the same text up to Unicode form. */
     fun sameText(first: CharArray, second: CharArray): Boolean {
         val a = nfcOrNull(first)
