@@ -374,7 +374,218 @@
    "test": "app.lumio.ui.screenshot.WalletScreensScreenshotTest"
   }
  },
- "known_violations": {},
+ "known_violations": {
+  "account_ethereum_activity": {
+   "issue": 1427
+  },
+  "activity_list": {
+   "issue": 1428
+  },
+  "activity_list_light": {
+   "issue": 1428
+  },
+  "add_token": {
+   "issue": 1432
+  },
+  "address_book": {
+   "issue": 1432
+  },
+  "address_handoff": {
+   "issue": 1428
+  },
+  "address_known_light": {
+   "issue": 1428
+  },
+  "address_unknown": {
+   "issue": 1428
+  },
+  "asset_page": {
+   "issue": 1425
+  },
+  "asset_page_light": {
+   "issue": 1425
+  },
+  "data_providers": {
+   "issue": 1432
+  },
+  "ethereum_send_amount": {
+   "issue": 1429
+  },
+  "ethereum_send_amount_insufficient_funds": {
+   "issue": 1429
+  },
+  "ethereum_send_failed": {
+   "issue": 1429
+  },
+  "ethereum_send_fee_sheet": {
+   "issue": 1429
+  },
+  "ethereum_send_last_chance": {
+   "issue": 1429
+  },
+  "ethereum_send_lensly_didnt_sign": {
+   "issue": 1429
+  },
+  "ethereum_send_on_its_way": {
+   "issue": 1429
+  },
+  "ethereum_send_recipient": {
+   "issue": 1429
+  },
+  "ethereum_send_recipient_invalid_address": {
+   "issue": 1429
+  },
+  "ethereum_send_review": {
+   "issue": 1429
+  },
+  "ethereum_send_show": {
+   "issue": 1429
+  },
+  "ethereum_send_signature_mismatch": {
+   "issue": 1429
+  },
+  "explore": {
+   "issue": 1435
+  },
+  "first_run_create_password": {
+   "issue": 1433
+  },
+  "first_run_duress": {
+   "issue": 1433
+  },
+  "first_run_notice": {
+   "issue": 1433
+  },
+  "first_run_welcome": {
+   "issue": 1433
+  },
+  "home_dark": {
+   "issue": 1424
+  },
+  "home_empty_dark": {
+   "issue": 1424
+  },
+  "home_empty_light": {
+   "issue": 1424
+  },
+  "home_end_dark": {
+   "issue": 1424
+  },
+  "home_end_light": {
+   "issue": 1424
+  },
+  "home_light": {
+   "issue": 1424
+  },
+  "home_narrow_360_end_light": {
+   "issue": 1424
+  },
+  "home_narrow_360_light": {
+   "issue": 1424
+  },
+  "licences": {
+   "issue": 1432
+  },
+  "network_page_chain": {
+   "issue": 1432
+  },
+  "pair_onboarding": {
+   "issue": 1433
+  },
+  "pair_onboarding_camera_denied": {
+   "issue": 1433
+  },
+  "pair_review": {
+   "issue": 1433
+  },
+  "portfolio_balances": {
+   "issue": 1426
+  },
+  "portfolio_balances_light": {
+   "issue": 1426
+  },
+  "portfolio_chain_sheet": {
+   "issue": 1426
+  },
+  "portfolio_empty": {
+   "issue": 1426
+  },
+  "portfolio_grouping_sheet": {
+   "issue": 1426
+  },
+  "profile_panel": {
+   "issue": 1435
+  },
+  "provider_working": {
+   "issue": 1432
+  },
+  "receive_choose_account": {
+   "issue": 1430
+  },
+  "receive_choose_asset": {
+   "issue": 1430
+  },
+  "receive_choose_asset_light": {
+   "issue": 1430
+  },
+  "receive_choose_network": {
+   "issue": 1430
+  },
+  "receive_choose_network_light": {
+   "issue": 1430
+  },
+  "receive_code": {
+   "issue": 1430
+  },
+  "receive_code_light": {
+   "issue": 1430
+  },
+  "search_results": {
+   "issue": 1424
+  },
+  "settings": {
+   "issue": 1431
+  },
+  "settings_about": {
+   "issue": 1432
+  },
+  "settings_change_password": {
+   "issue": 1432
+  },
+  "settings_display": {
+   "issue": 1431
+  },
+  "settings_display_currency_sheet": {
+   "issue": 1431
+  },
+  "settings_light": {
+   "issue": 1431
+  },
+  "settings_networks": {
+   "issue": 1431
+  },
+  "settings_security": {
+   "issue": 1432
+  },
+  "settings_transactions": {
+   "issue": 1431
+  },
+  "settings_wallet": {
+   "issue": 1432
+  },
+  "settings_wallets": {
+   "issue": 1432
+  },
+  "wallet_accounts_testnet": {
+   "issue": 1427
+  },
+  "wallets": {
+   "issue": 1427
+  },
+  "wallets_light": {
+   "issue": 1427
+  }
+ },
  "unregistered": {
   "address_known": {
    "frame": "p2-12",
