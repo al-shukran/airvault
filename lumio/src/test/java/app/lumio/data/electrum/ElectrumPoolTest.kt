@@ -92,8 +92,7 @@ class ElectrumPoolTest {
 
     @Test
     fun aConnectionThatTheServerClosedIsReopenedWithoutCoolingTheServer(): Unit = runBlocking {
-        // The server answers the handshake and one request, then closes the connection.
-        FakeElectrum(identity, closeAfterLines = 2, answer = echoOnly).use { fake ->
+        FakeElectrum(identity, answer = echoOnly).use { fake ->
             val opened = mutableListOf<ElectrumConnection>()
             val pool = ElectrumPool(
                 servers = listOf(server(fake.port)),
@@ -101,7 +100,9 @@ class ElectrumPoolTest {
                 open = { s -> ElectrumConnection.open(s, 5_000, 5_000).also { opened += it } },
             )
             assertEquals("a", pool.echo("a"))
-            // The pool only reopens a connection it has seen close. Wait for that close instead of sleeping for it.
+            // The server closes the connection only after its reply has arrived, so the close cannot race the reply. The pool only reopens a
+            // connection it has seen close: wait for that close instead of sleeping for it.
+            fake.dropConnections()
             withTimeout(5_000) { opened.single().awaitClosed() }
             assertEquals("b", pool.echo("b"))
             assertEquals(2, opened.size)
