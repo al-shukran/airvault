@@ -39,6 +39,12 @@ sealed class ProviderError(message: String, cause: Throwable? = null) : Exceptio
      * a [Broadcast] again after it. Every other request treats it as any [Fatal].
      */
     class Unreadable(message: String) : Fatal(message)
+
+    /**
+     * The node answered a broadcast that it already holds this exact transaction. That is an acceptance, not a refusal: the caller that knows the
+     * transaction's hash answers with it. Any other request treats it as any [Fatal].
+     */
+    class AlreadyKnown : Fatal("The endpoint already holds this transaction.")
 }
 
 /**

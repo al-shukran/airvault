@@ -19,6 +19,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.OkHttpClient
+import org.web3j.crypto.Hash
 
 /**
  * The JSON-RPC calls behind each request on an EVM network, named as Ethereum's JSON-RPC names them. A call holds public data only: an address,
@@ -61,7 +62,12 @@ internal object EvmCalls {
                 quantity(call("eth_estimateGas", JsonArray(listOf(transfer))))
             }
             is GasFees -> gasFees { method, params -> call(method, params) }
-            is Broadcast -> hash(call("eth_sendRawTransaction", strings("0x" + req.raw.toHex())))
+            is Broadcast -> try {
+                hash(call("eth_sendRawTransaction", strings("0x" + req.raw.toHex())))
+            } catch (e: ProviderError.AlreadyKnown) {
+                // The node holds this exact transaction, so the broadcast succeeded: its hash is the hash of the signed bytes.
+                "0x" + Hash.sha3(req.raw).toHex()
+            }
             is ContractCall -> {
                 val transaction = JsonObject(mapOf("to" to JsonPrimitive(req.to), "data" to JsonPrimitive(req.data)))
                 hexData(call("eth_call", JsonArray(listOf(transaction, JsonPrimitive(LATEST)))))
