@@ -492,7 +492,7 @@ class Vault constructor(
             val vaultKey = ByteArray(KEY_BYTES).also { random.nextBytes(it) }
             try {
                 val kdf = kdfOverride ?: withContext(Dispatchers.Default) { calibrateKdf() }
-                val softKey = withContext(Dispatchers.Default) { deriveSoftKey(password, salt, kdf) }
+                val softKey = withContext(Dispatchers.Default) { deriveStoredKey(password, salt, kdf) }
                 try {
                     val realSlot = withHardwareAuth {
                         sealSlot(softKey, keystore(HARDWARE_FAILURE) { keys.hardwareKey() }, vaultKey, VaultRole.REAL)
@@ -691,6 +691,21 @@ class Vault constructor(
      * same as either.
      */
     private suspend fun checkPasswordLocked(password: CharArray): Checked {
+        val nfc = PasswordForm.nfcOrNull(password)
+        try {
+            return checkPasswordLocked(password, nfc)
+        } finally {
+            nfc?.fill('\u0000')
+        }
+    }
+
+    /**
+     * The check of [checkPasswordLocked], with [nfc], the NFC form of [password], or null when [password] is NFC already. A password that
+     * is not NFC derives two keys, the typed text's and its NFC form's, always both and in that order, so the cost depends on the form
+     * typed and never on the outcome: a real, a decoy and a wrong password cost the same, and the try is counted once. The typed text's key
+     * wins when both open a slot, so a vault made from the raw text keeps opening. A vault made now holds the NFC form.
+     */
+    private suspend fun checkPasswordLocked(password: CharArray, nfc: CharArray?): Checked {
         if (!layout.exists()) return Checked.Refused
         // A header that does not verify is unverifiable, so the vault is erased before the password is checked, as an unverifiable failure
         // state is (see [FailureDelay]). A header of another format version does not verify either (see [VaultHeader.decodeFile]).
@@ -710,8 +725,9 @@ class Vault constructor(
         }
         // During a delay the password is not checked, so it counts as neither a pass nor a failure. The KDF still runs
         // once, on a fixed input, so a refused attempt takes as long as a real one.
+        val derivations = if (nfc == null) 1 else 2
         if (check.blocked) {
-            spendKdfTime(header)
+            spendKdfTime(header, derivations)
             return Checked.Refused
         }
         // The try is counted before the KDF and the verdict, so a try that a restart or an error cuts short still counts (FailureDelay
@@ -719,23 +735,26 @@ class Vault constructor(
         val counted = try {
             store.recordFailure(check.state, clock)
         } catch (e: VaultException) {
-            spendKdfTime(header)
+            spendKdfTime(header, derivations)
             return Checked.Refused
         } catch (e: IOException) {
-            spendKdfTime(header)
+            spendKdfTime(header, derivations)
             return Checked.Refused
         }
 
-        val softKey = withContext(Dispatchers.Default) { deriveSoftKey(password, header.salt, header.kdf) }
-        var handedOver = false
+        val typedKey = withContext(Dispatchers.Default) { deriveSoftKey(password, header.salt, header.kdf) }
+        val nfcKey = nfc?.let { form -> withContext(Dispatchers.Default) { deriveSoftKey(form, header.salt, header.kdf) } }
+        var handedKey: ByteArray? = null
         try {
             val contents = keyFileOrNull() ?: run {
                 eraseLocked()
                 return Checked.Erased
             }
-            val opened = contents.slots.indices.mapNotNull { index ->
-                openSoftLayer(softKey, contents, index)?.let { index to it }
-            }
+            val typedOpened = slotsOpenedBy(typedKey, contents)
+            val nfcOpened = if (nfcKey == null) emptyList() else slotsOpenedBy(nfcKey, contents)
+            val useNfc = typedOpened.isEmpty() && nfcOpened.isNotEmpty()
+            val softKey = if (useNfc) nfcKey!! else typedKey
+            val opened = if (useNfc) nfcOpened else typedOpened
             if (opened.size > 1) {
                 throw VaultException("The vault key file is damaged: two slots open with one password.")
             }
@@ -761,12 +780,17 @@ class Vault constructor(
             } else {
                 store.recordSuccess(counted, clock)
             }
-            handedOver = true
+            handedKey = softKey
             return Checked.Opened(OpenedSlot(softKey, vaultKey, role, store, success))
         } finally {
-            if (!handedOver) Arrays.fill(softKey, 0)
+            if (handedKey !== typedKey) Arrays.fill(typedKey, 0)
+            if (nfcKey != null && handedKey !== nfcKey) Arrays.fill(nfcKey, 0)
         }
     }
+
+    /** The slots [softKey] opens, as their index and hardware-wrapped blob. One key opens at most one. */
+    private fun slotsOpenedBy(softKey: ByteArray, contents: VaultKeyFile.Contents): List<Pair<Int, ByteArray>> =
+        contents.slots.indices.mapNotNull { index -> openSoftLayer(softKey, contents, index)?.let { index to it } }
 
     /**
      * Erases the vault after the owner's last allowed wrong try: the same wipe as [wipe], then [onErased], so the app can remove what the
@@ -791,13 +815,13 @@ class Vault constructor(
             val header = verifiedHeaderOrThrow()
             val vaultKey = session.copyOfVaultKey()
             try {
-                val softKey = withContext(Dispatchers.Default) { deriveSoftKey(newPassword, header.salt, header.kdf) }
+                val softKey = withContext(Dispatchers.Default) { deriveStoredKey(newPassword, header.salt, header.kdf) }
                 try {
                     val contents = VaultKeyFile.decode(layout.vaultKey.readBytes())
                     val real = realSlotOf(contents, vaultKey)
                     val decoy = 1 - real
                     // A new App Password that opens the decoy slot would open both vaults. It is refused as a weak one is.
-                    if (openSoftLayer(softKey, contents, decoy) != null) {
+                    if (opensSlot(newPassword, softKey, header, contents, decoy)) {
                         return CreateResult.PolicyRejected(PolicyReason.WEAK_SCORE)
                     }
                     val (hardwareKey, realSlot) = withHardwareAuth {
@@ -832,13 +856,13 @@ class Vault constructor(
             val header = verifiedHeaderOrThrow()
             val decoyKey = session.copyOfVaultKey()
             try {
-                val softKey = withContext(Dispatchers.Default) { deriveSoftKey(newPassword, header.salt, header.kdf) }
+                val softKey = withContext(Dispatchers.Default) { deriveStoredKey(newPassword, header.salt, header.kdf) }
                 try {
                     val contents = VaultKeyFile.decode(layout.vaultKey.readBytes())
                     val decoy = decoySlotOf(contents, decoyKey)
                     val real = 1 - decoy
                     // The decoy's new password may not open the real slot: one password must never open both vaults.
-                    if (openSoftLayer(softKey, contents, real) != null) {
+                    if (opensSlot(newPassword, softKey, header, contents, real)) {
                         return CreateResult.PolicyRejected(PolicyReason.WEAK_SCORE)
                     }
                     val (hardwareKey, decoySlot) = withHardwareAuth {
@@ -876,10 +900,10 @@ class Vault constructor(
             try {
                 val contents = VaultKeyFile.decode(layout.vaultKey.readBytes())
                 val real = realSlotOf(contents, vaultKey)
-                val softKey = withContext(Dispatchers.Default) { deriveSoftKey(duressPassword, header.salt, header.kdf) }
+                val softKey = withContext(Dispatchers.Default) { deriveStoredKey(duressPassword, header.salt, header.kdf) }
                 try {
                     // The Duress Password may not open the real slot: one password must never open both vaults.
-                    if (openSoftLayer(softKey, contents, real) != null) return DuressResult.SameAsAppPassword
+                    if (opensSlot(duressPassword, softKey, header, contents, real)) return DuressResult.SameAsAppPassword
                     return installDecoy(vaultKey, decoyKey, softKey, contents, real, populate)
                 } finally {
                     Arrays.fill(softKey, 0)
@@ -1022,14 +1046,16 @@ class Vault constructor(
     }
 
     /**
-     * One derivation with the vault's own parameters and salt, on a fixed input that is not secret. The result is
+     * [derivations] derivations with the vault's own parameters and salt, on a fixed input that is not secret. The results are
      * discarded. Runs on [Dispatchers.Default].
      */
-    private suspend fun spendKdfTime(header: VaultHeader) {
+    private suspend fun spendKdfTime(header: VaultHeader, derivations: Int) {
         val fixedInput = CALIBRATION_PASSWORD.toCharArray()
         try {
-            val out = withContext(Dispatchers.Default) { deriveSoftKey(fixedInput, header.salt, header.kdf) }
-            Arrays.fill(out, 0)
+            repeat(derivations) {
+                val out = withContext(Dispatchers.Default) { deriveSoftKey(fixedInput, header.salt, header.kdf) }
+                Arrays.fill(out, 0)
+            }
         } finally {
             Arrays.fill(fixedInput, '\u0000')
         }
@@ -1127,6 +1153,31 @@ class Vault constructor(
             }
         } finally {
             Arrays.fill(stretched, 0)
+        }
+    }
+
+    /** [deriveSoftKey] of the NFC form of [password], the form every new or changed password is stored from. */
+    private fun deriveStoredKey(password: CharArray, salt: ByteArray, kdf: KdfParams): ByteArray {
+        val nfc = PasswordForm.nfcOrNull(password)
+        try {
+            return deriveSoftKey(nfc ?: password, salt, kdf)
+        } finally {
+            nfc?.fill('\u0000')
+        }
+    }
+
+    /**
+     * True when [password] would open slot [index], typed as it is or as its NFC form, which is how an unlock tries it. [storedKey] is the
+     * key of the NFC form. A new password must open no slot but its own, whichever form is typed.
+     */
+    private suspend fun opensSlot(password: CharArray, storedKey: ByteArray, header: VaultHeader, contents: VaultKeyFile.Contents, index: Int): Boolean {
+        if (openSoftLayer(storedKey, contents, index) != null) return true
+        if (PasswordForm.isNfc(password)) return false
+        val typedKey = withContext(Dispatchers.Default) { deriveSoftKey(password, header.salt, header.kdf) }
+        try {
+            return openSoftLayer(typedKey, contents, index) != null
+        } finally {
+            Arrays.fill(typedKey, 0)
         }
     }
 

@@ -28,6 +28,7 @@ import app.lensly.app.VaultHolder
 import app.lensly.core.vault.BiometricOutcome
 import app.lensly.core.vault.BiometricUnlock
 import app.lensly.core.vault.CreateResult
+import app.lensly.core.vault.PasswordForm
 import app.lensly.core.vault.PasswordPolicy
 import app.lensly.core.vault.PolicyReason
 import app.lensly.core.vault.PolicyResult
@@ -354,7 +355,7 @@ private fun CreatePasswordRoute(navController: NavHostController, holder: VaultH
                 val second = buffer.toCharArray()
                 buffer.clear()
                 val expected = first
-                val matches = expected != null && expected.contentEquals(second)
+                val matches = expected != null && PasswordForm.sameText(expected, second)
                 second.fill('\u0000')
                 if (expected == null || !matches) {
                     state = CreatePasswordState(step = CreateStep.Confirm, error = PolicyError.Mismatch)
