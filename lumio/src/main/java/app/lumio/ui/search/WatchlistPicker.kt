@@ -109,9 +109,9 @@ private val DISC = 36.dp
 private val ROW_HEIGHT = 62.dp
 // The lines keep their whole height, as the mock's do, so the ticker sits a full line under the name.
 private val UNTRIMMED = LineHeightStyle(alignment = LineHeightStyle.Alignment.Center, trim = LineHeightStyle.Trim.None)
-// The mock's browser sets these faces about 0.1 dp a letter wider in a name and 0.25 dp in the line under it, measured on its PNGs, so the rows carry
-// that spacing and wrap where the mock's do.
-private val TITLE = ClearAirType.rowTitle.copy(lineHeightStyle = UNTRIMMED, letterSpacing = 0.007.em)
+// The mock's browser sets the line under a name about 0.25 dp a letter wider than Compose does, measured on its PNGs, so that line carries the
+// spacing. A name keeps the face's own spacing, so it wraps where the mock's does on a phone.
+private val TITLE = ClearAirType.rowTitle.copy(lineHeightStyle = UNTRIMMED)
 private val DETAIL = ClearAirType.body.copy(fontSize = 12.5.sp, lineHeight = 17.sp, lineHeightStyle = UNTRIMMED, letterSpacing = 0.02.em)
 
 /**
