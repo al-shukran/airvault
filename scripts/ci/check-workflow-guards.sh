@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Fails when a workflow guard that stops a bad run is removed or reordered. The group check is a string check on the concurrency
-# expression, and the release check reads the parsed steps, so a YAML or shell comment never counts. Neither evaluates the GitHub
+# Fails when a workflow guard that stops a bad run is removed or reordered. The group check compares the concurrency expression
+# as a string, and the release check reads the steps parsed to JSON, so a YAML comment never counts. Neither evaluates the GitHub
 # expressions.
 #
 # comment-run.yml: the concurrency group keeps the trusted-/run- gate, so a comment that is not a trusted /run- command cannot
 # cancel a running command (#1209, #1407).
-# release.yml: the step that refuses a tag whose commit is not on master comes before the first step that reads a keystore
-# secret, so an off-master tag is never signed (#624, #1408).
+# release.yml: the step that refuses a tag whose commit is not on master comes before the first step that reads any secret other
+# than GITHUB_TOKEN, in the same job, so an off-master tag is never signed (#624, #1408).
 #
 # Usage: scripts/ci/check-workflow-guards.sh   (the ci lane: scripts/ci/run-partition.sh ci, in pr-fast.yml)
 # WORKFLOWS_DIR names another directory of workflows; scripts/ci/selftest-guards.sh uses it to check the guard against broken copies.
@@ -23,43 +23,68 @@ fail() {
     failed=1
 }
 
-# (a) comment-run.yml: the concurrency group keeps the whole trusted-/run- gate: the /run- prefix, the exact trusted-association
-# list, and the per-run fallback. A bare author_association is not enough, because every commenter has one.
+# (a) comment-run.yml: the concurrency group is exactly the trusted-/run- gate: the /run- prefix, the exact trusted-association
+# list, and the per-run fallback. Any other text in the expression (a bare author_association, a "true ||" prefix) fails.
 group=$(yq '.concurrency.group' "$workflows/comment-run.yml")
 gate="startsWith(github.event.comment.body, '/run-') && contains(fromJSON('[\"OWNER\",\"MEMBER\",\"COLLABORATOR\"]'), github.event.comment.author_association) && 'command' || github.run_id"
-grep -Fq -- "$gate" <<<"$group" || fail "comment-run.yml concurrency.group lost the trusted-commenter gate: $gate"
+expected="comment-run-\${{ github.event.issue.number }}-\${{ $gate }}"
+[ "$group" = "$expected" ] || fail "comment-run.yml concurrency.group is not exactly: $expected"
 
-# (b) release.yml: in every job, the merge-base refusal is a step that runs before the first step that reads a keystore secret.
-# The steps are parsed, so a commented-out command does not count; a comment line inside a run block is dropped too.
-release=$workflows/release.yml
-keystore='secrets\.[A-Z0-9_]*KEYSTORE_'
-refused=0
-for job in $(yq '.jobs | keys | .[]' "$release"); do
-    refuse_index=-1
-    secret_index=-1
-    if yq ".env, .jobs.\"$job\".env" "$release" | grep -Eq "$keystore"; then
-        secret_index=0
-    fi
-    count=$(yq ".jobs.\"$job\".steps | length" "$release")
-    for ((i = 0; i < count; i++)); do
-        if [ "$refuse_index" -lt 0 ] && yq ".jobs.\"$job\".steps[$i].run // \"\"" "$release" | grep -v '^[[:space:]]*#' |
-            grep -Fq 'git merge-base --is-ancestor "$GITHUB_SHA" origin/master'; then
-            refuse_index=$i
-        fi
-        if [ "$secret_index" -lt 0 ] && yq ".jobs.\"$job\".steps[$i] | [.env, .with]" "$release" | grep -Eq "$keystore"; then
-            secret_index=$i
-        fi
-    done
-    if [ "$secret_index" -ge 0 ]; then
-        if [ "$refuse_index" -lt 0 ]; then
-            fail "release.yml job $job reads a keystore secret and has no step that refuses a tag not on master (git merge-base --is-ancestor against origin/master)"
-        elif [ "$refuse_index" -ge "$secret_index" ]; then
-            fail "release.yml job $job refuses a tag not on master in step $refuse_index, not before the keystore secret in step $secret_index"
-        fi
-    fi
-    [ "$refuse_index" -ge 0 ] && refused=1
-done
-[ "$refused" -eq 1 ] || fail "release.yml has no step that refuses a tag not on master (git merge-base --is-ancestor against origin/master)"
+# (b) release.yml: in every job, a refusal step comes before the first step that reads a secret other than GITHUB_TOKEN.
+#  - A secret read is any "secrets." or "secrets[" reference, or toJSON(secrets), in the whole step as JSON (env, with, run, a shell
+#    comment in run, which Actions expands too). Job-level env, a job-level secrets: key, and workflow-level text count as before step 0.
+#  - The refusal is a step with no if and no continue-on-error whose run holds the line `if ! git merge-base --is-ancestor
+#    "$GITHUB_SHA" origin/master; then` followed by `exit 1` before its `fi`. Echoing the command or commenting it out does not count.
+yq -o=json '.' "$workflows/release.yml" | python3 -I -c '
+import json
+import re
+import sys
+
+doc = json.load(sys.stdin)
+SECRET = re.compile(r"(?<![\w.-])secrets\s*(?:\.\s*([\w-]+)|\[|(?=\s*[),}]))", re.I)
+COMMAND = "git merge-base --is-ancestor \"$GITHUB_SHA\" origin/master"
+errors = []
+
+
+def reads_secret(obj):
+    return any((m.group(1) or "").lower() != "github_token" for m in SECRET.finditer(json.dumps(obj)))
+
+
+def refuses(step):
+    if "if" in step or "continue-on-error" in step:
+        return False
+    armed = False
+    for line in str(step.get("run", "")).splitlines():
+        text = line.strip()
+        if text == "if ! " + COMMAND + "; then":
+            armed = True
+        elif armed and text == "exit 1":
+            return True
+        elif armed and text == "fi":
+            armed = False
+    return False
+
+
+if reads_secret({k: v for k, v in doc.items() if k != "jobs"}):
+    errors.append("release.yml reads a secret outside its jobs, before any step can refuse")
+refused = False
+for name, job in doc.get("jobs", {}).items():
+    steps = job.get("steps", [])
+    refuse = next((i for i, step in enumerate(steps) if refuses(step)), None)
+    secret = next((i for i, step in enumerate(steps) if reads_secret(step)), None)
+    if "secrets" in job or reads_secret({k: v for k, v in job.items() if k != "steps"}):
+        errors.append("release.yml job %s reads a secret outside its steps (job env, secrets:, a reusable workflow), before any step can refuse" % name)
+    elif secret is not None and refuse is None:
+        errors.append("release.yml job %s reads a secret in step %d and has no valid step that refuses a tag not on master" % (name, secret))
+    elif secret is not None and refuse >= secret:
+        errors.append("release.yml job %s refuses a tag not on master in step %d, not before the secret in step %d" % (name, refuse, secret))
+    refused = refused or refuse is not None
+if not refused:
+    errors.append("release.yml has no valid step that refuses a tag not on master (no if or continue-on-error; if ! git merge-base --is-ancestor against origin/master, then exit 1)")
+for message in errors:
+    print("error: " + message, file=sys.stderr)
+sys.exit(1 if errors else 0)
+' || failed=1
 
 if [ "$failed" -ne 0 ]; then
     exit 1

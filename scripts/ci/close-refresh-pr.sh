@@ -7,6 +7,7 @@
 set -euo pipefail
 
 pr=$1
+: "${GH_REPO:?error: set GH_REPO}" "${RUN_URL:?error: set RUN_URL to the nightly run URL}"
 
 state=$(gh pr view "$pr" --repo "$GH_REPO" --json state -q .state)
 if [ "$state" = OPEN ]; then
