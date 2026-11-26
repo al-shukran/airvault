@@ -20,6 +20,7 @@ import app.lumio.data.provider.Tx
 import app.lumio.data.provider.Utxo
 import app.lumio.data.provider.fetchText
 import app.lumio.data.provider.noRedirects
+import fr.acinq.bitcoin.Transaction
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request as HttpRequest
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -30,7 +31,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
  * transport and the status rules are [fetchText] and [failureFor], shared with every provider:
  * - HTTP 429 is [ProviderError.RateLimited], with the Retry-After in milliseconds (seconds, or an HTTP date), or null when none was sent;
  * - HTTP 404 is [ProviderError.NotFound] for a block or a transaction, which the server answers that way when it does not know it;
- * - other 4xx answers are [ProviderError.Fatal], and an answer that is not in the Esplora format is [ProviderError.Unreadable];
+ * - a broadcast that a 400 refuses because the server already holds the transaction is [ProviderError.AlreadyKnown], and answers with the id of the
+ *   bytes sent; other 4xx answers are [ProviderError.Fatal], and an answer that is not in the Esplora format is [ProviderError.Unreadable];
  * - 5xx and 408 answers, and an answer over 4 MiB, are [ProviderError.Transient]. A request that gets no answer fails with an [IOException],
  *   which the scheduler retries.
  *
@@ -58,7 +60,12 @@ object EsploraProtocol {
                 is Block -> EsploraParse.block(get(http, "$base/block/${req.hash}", notFoundIsAnswer = true))
                 is Tx -> EsploraParse.txStatus(get(http, "$base/tx/${req.txid}", notFoundIsAnswer = true))
                 is RawTx -> EsploraParse.rawTx(get(http, "$base/tx/${req.txid}/hex", notFoundIsAnswer = true))
-                is Broadcast -> EsploraParse.broadcastTxid(post(http, "$base/tx", req.raw.toHex()))
+                is Broadcast -> try {
+                    EsploraParse.broadcastTxid(post(http, "$base/tx", req.raw.toHex()))
+                } catch (e: ProviderError.AlreadyKnown) {
+                    // The server holds this exact transaction, so the broadcast succeeded: its id is the id of the bytes sent.
+                    Transaction.read(req.raw).txid.toString()
+                }
                 else -> throw ProviderError.Unsupported()
             }
         } catch (e: EsploraException) {
@@ -80,12 +87,13 @@ object EsploraProtocol {
         http,
         HttpRequest.Builder().url(url).header("Accept", "text/plain").post(body.toRequestBody(TEXT_PLAIN)).build(),
         notFoundIsAnswer = false,
+        broadcast = true,
     )
 
-    private suspend fun send(http: Http, request: HttpRequest, notFoundIsAnswer: Boolean): String {
+    private suspend fun send(http: Http, request: HttpRequest, notFoundIsAnswer: Boolean, broadcast: Boolean = false): String {
         val started = System.nanoTime()
         return try {
-            fetchText(http.noRedirects(), request, banMs = null, notFoundIsAnswer = notFoundIsAnswer).also { logLine(request, "ok", started) }
+            fetchText(http.noRedirects(), request, banMs = null, notFoundIsAnswer = notFoundIsAnswer, broadcast = broadcast).also { logLine(request, "ok", started) }
         } catch (e: Throwable) {
             logLine(request, "error=${e.javaClass.simpleName}", started)
             throw e

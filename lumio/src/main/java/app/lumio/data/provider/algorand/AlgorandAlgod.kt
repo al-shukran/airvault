@@ -2,6 +2,7 @@ package app.lumio.data.provider.algorand
 
 import android.util.Log
 import app.airvault.chains.algorand.AlgorandNetwork
+import app.lensly.core.algorand.AlgoSignedTxn
 import app.lumio.BuildConfig
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
@@ -185,14 +186,19 @@ class AlgorandAlgod(
 
     /**
      * Sends the signed transaction as msgpack, with `POST /v2/transactions`, and returns the transaction ID that algod answers with. A refusal by the
-     * node is a 400, which is [ProviderError.Fatal].
+     * node is a 400, which is [ProviderError.Fatal]. A 400 that says the transaction is already in the ledger is a success, and answers with the ID
+     * of the signed bytes.
      */
     private suspend fun broadcast(req: Broadcast, http: Http): String {
         val request = HttpRequest.Builder()
             .url(urlOf(req.net, "v2", "transactions"))
             .post(req.raw.toRequestBody(MSGPACK))
             .build()
-        val txid = answerObject(send(http, request))["txId"].text()
+        val txid = try {
+            answerObject(send(http, request, broadcast = true))["txId"].text()
+        } catch (e: ProviderError.AlreadyKnown) {
+            AlgoSignedTxn.signedTxid(req.raw)
+        }
         if (!ALGORAND_TXID.matches(txid)) throw ProviderError.Unreadable(SHAPE)
         return txid
     }
@@ -214,10 +220,10 @@ class AlgorandAlgod(
      * The answer text of [request], over the client without redirects. A 404 is an answer, not a failure, when [notFoundIsAnswer] is set. The
      * request is logged in debug builds with its host, its outcome and its time, never its path, since the path can name an address.
      */
-    private suspend fun send(http: Http, request: HttpRequest, notFoundIsAnswer: Boolean = false): String {
+    private suspend fun send(http: Http, request: HttpRequest, notFoundIsAnswer: Boolean = false, broadcast: Boolean = false): String {
         val started = System.nanoTime()
         return try {
-            fetchText(http.noRedirects(), request, banMs = null, notFoundIsAnswer = notFoundIsAnswer)
+            fetchText(http.noRedirects(), request, banMs = null, notFoundIsAnswer = notFoundIsAnswer, broadcast = broadcast)
                 .also { logLine(request, "ok", started) }
         } catch (e: Throwable) {
             logLine(request, "error=${e.javaClass.simpleName}", started)

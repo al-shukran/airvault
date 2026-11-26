@@ -28,6 +28,7 @@ import app.lumio.data.provider.SplBalance
 import app.lumio.data.provider.SplTokenBalances
 import app.lumio.data.provider.Trait
 import app.lumio.data.rpc.JsonRpc
+import fr.acinq.bitcoin.Base58
 import java.math.BigInteger
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -180,6 +181,17 @@ class SolanaProviderTest {
         val body = server.takeRequest().body?.utf8().orEmpty()
         assertTrue(body.contains("\"method\":\"sendTransaction\""))
         assertTrue(body.contains("[\"AQID\",{\"encoding\":\"base64\"}]"))
+    }
+
+    @Test
+    fun aTransactionTheNodeAlreadyProcessedAnswersWithItsFirstSignature() {
+        val signature = ByteArray(64) { (it + 1).toByte() }
+        val raw = byteArrayOf(1) + signature + byteArrayOf(9, 9, 9)
+        for (wording in listOf("Transaction simulation failed: This transaction has already been processed", "AlreadyProcessed")) {
+            server.enqueue(MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"error":{"code":-32002,"message":"$wording","data":{}}}""").build())
+
+            assertEquals(Base58.encode(signature), call(Broadcast(devnet, raw)), wording)
+        }
     }
 
     @Test

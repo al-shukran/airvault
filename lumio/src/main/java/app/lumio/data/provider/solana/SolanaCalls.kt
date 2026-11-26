@@ -1,5 +1,6 @@
 package app.lumio.data.provider.solana
 
+import app.lensly.core.solana.SolanaTransaction
 import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
@@ -26,6 +27,7 @@ import app.lumio.data.provider.text
 import app.lumio.data.provider.whole
 import app.lumio.data.rpc.JsonRpc
 import java.math.BigInteger
+import fr.acinq.bitcoin.Base58
 import java.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -152,7 +154,12 @@ internal class SolanaCalls(
     /** `sendTransaction` with the signed bytes in base64. The answer is the signature of the transaction. */
     private suspend fun broadcast(raw: ByteArray): String {
         val params = JsonArray(listOf(JsonPrimitive(Base64.getEncoder().encodeToString(raw)), options("encoding" to JsonPrimitive("base64"))))
-        return call("sendTransaction", params).matching(SOLANA_SIGNATURE)
+        return try {
+            call("sendTransaction", params).matching(SOLANA_SIGNATURE)
+        } catch (e: ProviderError.AlreadyKnown) {
+            // The node has already processed this exact transaction, so the broadcast succeeded: its signature is the first one of the bytes sent.
+            Base58.encode(SolanaTransaction.firstSignature(raw))
+        }
     }
 
     /**

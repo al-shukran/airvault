@@ -23,6 +23,14 @@ class SolanaTransactionTest {
     }
 
     @Test
+    fun theFirstSignatureIsTheOneAfterTheCount() {
+        val other = ByteArray(64) { 9 }
+
+        assertContentEquals(signature, SolanaTransaction.firstSignature(SolanaTransaction.signed(listOf(signature, other), message)))
+        assertFailsWith<IllegalArgumentException> { SolanaTransaction.firstSignature(ByteArray(64)) }
+    }
+
+    @Test
     fun theCountIsWrittenAsCompactU16AndReadBackByTheMessageReader() {
         val values = listOf(0, 1, 127, 128, 255, 16_383, 16_384, 65_535)
         val expected = mapOf(

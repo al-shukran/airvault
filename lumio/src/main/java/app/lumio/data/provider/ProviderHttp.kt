@@ -35,6 +35,16 @@ private val DIGITS = Regex("[0-9]{1,80}")
 private val WHOLE = Regex("-?[0-9]{1,19}")
 private val HEX64 = Regex("[0-9a-fA-F]{64}")
 
+/** The most of a refused broadcast's body that is read for [HTTP_ALREADY_KNOWN]. */
+private const val MAX_REFUSAL_BYTES = 1024L
+
+/**
+ * The wording of a node that already holds the transaction it was sent: Bitcoin Core's "Transaction already in block chain" and "Transaction outputs
+ * already in utxo set", its "txn-already-known" and "txn-already-in-mempool", and algod's "transaction already in ledger". A double spend
+ * ("txn-mempool-conflict", "bad-txns-inputs-missingorspent") is another transaction, so it is not here.
+ */
+private val HTTP_ALREADY_KNOWN = Regex("""transaction (outputs )?already in (block ?chain|utxo set|ledger)|txn-already-(known|in-mempool)""", RegexOption.IGNORE_CASE)
+
 /**
  * The base URL a provider calls: [raw] when the owner set one, else [default]. A key must never travel in clear text to another host, so only
  * HTTPS is accepted, or plain HTTP to this machine. A URL with a user name, a query or a fragment is refused, and so is a malformed one.
@@ -83,15 +93,20 @@ internal suspend fun fetchBytes(client: OkHttpClient, request: okhttp3.Request, 
 /**
  * Sends [request] off the main thread and returns the answer text. A status that is not a success becomes the [ProviderError] that
  * [failureFor] names. An IOException is left for the scheduler, which reads it as transient. [notFoundIsAnswer] is set for a lookup whose 404 means
- * "no such thing".
+ * "no such thing". [broadcast] is set for a transaction broadcast: a 400 whose body says the node already holds the transaction is then
+ * [ProviderError.AlreadyKnown], and the body is read for that, and for nothing else.
  */
 internal suspend fun fetchText(
     client: OkHttpClient,
     request: okhttp3.Request,
     banMs: Long?,
     notFoundIsAnswer: Boolean = false,
+    broadcast: Boolean = false,
 ): String = enqueueRead(client, request) { answer ->
-    if (!answer.isSuccessful) throw failureFor(answer.code, answer.header("Retry-After"), banMs, notFoundIsAnswer)
+    if (!answer.isSuccessful) {
+        if (broadcast && answer.code == 400 && HTTP_ALREADY_KNOWN.containsMatchIn(answer.peekBody(MAX_REFUSAL_BYTES).string())) throw ProviderError.AlreadyKnown()
+        throw failureFor(answer.code, answer.header("Retry-After"), banMs, notFoundIsAnswer)
+    }
     readAnswer(answer)
 }
 

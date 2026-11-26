@@ -70,9 +70,10 @@ object JsonRpc {
 
     /**
      * The wording of a node that already holds the transaction it was sent: "already known" (Geth), "known transaction" (Besu), "already imported"
-     * (OpenEthereum) or "AlreadyKnown" (Nethermind). The word boundary keeps "unknown transaction" out.
+     * (OpenEthereum) or "AlreadyKnown" (Nethermind), and a Solana node's "This transaction has already been processed" or "AlreadyProcessed". The word
+     * boundary keeps "unknown transaction" out.
      */
-    private val ALREADY_KNOWN = Regex("""\b(already ?known|known transaction|already imported)""", RegexOption.IGNORE_CASE)
+    private val ALREADY_KNOWN = Regex("""\b(already ?known|known transaction|already imported|already ?(been )?processed)""", RegexOption.IGNORE_CASE)
 
     /** The wording of a Solana node that refuses a transaction whose blockhash it does not know: "Blockhash not found" in its simulation error. */
     private val BLOCKHASH_UNKNOWN = Regex("blockhash not found", RegexOption.IGNORE_CASE)

@@ -18,6 +18,12 @@ object SolanaTransaction {
         out.write(message)
         return out.toByteArray()
     }
+
+    /** The first signature of [signed], a transaction that [signed] built, with fewer than 128 signatures: the one the network knows it by. */
+    fun firstSignature(signed: ByteArray): ByteArray {
+        require(signed.size > Ed25519Signer.SIGNATURE_BYTES && signed[0] in 1..0x7F) { "This is not a signed transaction." }
+        return signed.copyOfRange(1, 1 + Ed25519Signer.SIGNATURE_BYTES)
+    }
 }
 
 /**

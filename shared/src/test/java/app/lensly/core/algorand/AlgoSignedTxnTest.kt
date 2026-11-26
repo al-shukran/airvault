@@ -47,6 +47,12 @@ class AlgoSignedTxnTest {
     }
 
     @Test
+    fun `the transaction ID of a signed transaction is the ID of the txn it carries`() {
+        assertEquals(AlgoSignedTxn.txid(raw), AlgoSignedTxn.signedTxid(AlgoSignedTxn.assemble(raw, ByteArray(64) { it.toByte() })))
+        assertFailsWith<IllegalArgumentException> { AlgoSignedTxn.signedTxid(ByteArray(10)) }
+    }
+
+    @Test
     fun `assembling refuses bytes that are not a transaction and a signature of the wrong length`() {
         assertFailsWith<AlgoTxnException> { AlgoSignedTxn.assemble(byteArrayOf(0x01), ByteArray(64)) }
         assertFailsWith<IllegalArgumentException> { AlgoSignedTxn.assemble(raw, ByteArray(63)) }
