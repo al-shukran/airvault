@@ -110,6 +110,9 @@ data class BiometricSwitch(val on: Boolean, val canEnable: Boolean)
 /** Why Biometric Unlock cannot be turned on: the phone has no strong biometric enrolled. I9 says the same. */
 const val BIOMETRIC_UNAVAILABLE_REASON = "Set up a fingerprint or face unlock on this phone first."
 
+/** The help line of the Device Protection row while Biometric Unlock is on: the unlock page opens the prompt only from Done with nothing typed, and shows nothing of it. */
+const val BIOMETRIC_UNLOCK_HELP = "To use your fingerprint, leave the password empty and tap Done."
+
 /**
  * The Security page: the App Password, whose row opens its change, the Duress Password, whose row opens its set and reads "Set" once it is set, and Device Protection, whose switch turns Biometric Unlock off, or on after the App
  * Password step, the Hidden Entry Gesture, whose row opens the choice of another gesture, and Auto-Lock, whose row opens the choice of when Lumio locks
@@ -164,7 +167,11 @@ fun SecuritySettingsPage(
         RowDivider(indent = ROW_DIVIDER_INDENT)
         ClearAirRow(
             title = "Device Protection",
-            description = if (enabled) "Fingerprint or face" else BIOMETRIC_UNAVAILABLE_REASON,
+            description = when {
+                biometric.on -> BIOMETRIC_UNLOCK_HELP
+                enabled -> "Fingerprint or face"
+                else -> BIOMETRIC_UNAVAILABLE_REASON
+            },
             leading = { ClearAirGlyphDisc(ClearAirGlyph.FINGERPRINT, size = 19.dp) },
             trailing = { ClearAirSwitch(checked = biometric.on, enabled = enabled) },
             modifier = Modifier.toggleable(value = biometric.on, enabled = enabled, role = Role.Switch, onValueChange = onBiometric),

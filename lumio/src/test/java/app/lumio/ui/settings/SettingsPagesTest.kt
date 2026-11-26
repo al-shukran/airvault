@@ -2,6 +2,9 @@ package app.lumio.ui.settings
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
@@ -270,6 +273,33 @@ class SettingsPagesTest {
         }
 
         compose.onNodeWithText(BIOMETRIC_UNAVAILABLE_REASON).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun theDeviceProtectionRowTellsHowToOpenThePromptOnlyWhileItIsOn() {
+        var biometric by mutableStateOf(BiometricSwitch(on = false, canEnable = true))
+        compose.setContent {
+            ClearAirHarness {
+                SecuritySettingsPage(
+                    lock = LockSettings(),
+                    biometric = biometric,
+                    onEntryGesture = {},
+                    onChangePassword = {},
+                    duressSet = false,
+                    onDuress = {},
+                    onBiometric = {},
+                    checkPassword = { PasswordCheck.Accepted },
+                    onAutoLock = {},
+                    offline = null, onLock = {}, onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText(BIOMETRIC_UNLOCK_HELP).assertDoesNotExist()
+        compose.onNodeWithText("Fingerprint or face").performScrollTo().assertIsDisplayed()
+        biometric = BiometricSwitch(on = true, canEnable = true)
+        compose.onNodeWithText(BIOMETRIC_UNLOCK_HELP).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Fingerprint or face").assertDoesNotExist()
     }
 
     @Test
