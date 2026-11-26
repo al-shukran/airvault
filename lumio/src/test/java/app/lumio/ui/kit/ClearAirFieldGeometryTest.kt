@@ -68,4 +68,24 @@ class ClearAirFieldGeometryTest {
         show(eye = true)
         compose.onNodeWithContentDescription("Show password").assertHeightIsEqualTo(48.dp)
     }
+
+    @Test
+    fun aTextActionOfFortyDpKeepsTheFieldFiftySixDpWithItsFortyEightDpPress() {
+        compose.setContent {
+            ClearAirTheme {
+                Box(Modifier.testTag("slot")) {
+                    ClearAirField(
+                        label = "Add Custom RPC",
+                        value = "",
+                        onValueChange = {},
+                        error = "This isn't a valid https address",
+                        trailing = { ClearAirTextAction(text = "Add", onClick = {}) },
+                        trailingHeight = 40.dp,
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("slot").assertHeightIsEqualTo(9.dp + 56.dp + 6.dp + 18.dp)
+        compose.onNodeWithText("Add").assertHeightIsEqualTo(48.dp)
+    }
 }
