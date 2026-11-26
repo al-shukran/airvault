@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tests of guard.py and check-results.py. Run by the ci lane: python3 scripts/design/test_design.py (stdlib only)."""
 import importlib.util
+import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -69,6 +71,27 @@ class GuardTest(unittest.TestCase):
 
     def test_a_changed_frame_file_is_guarded(self):
         self.assertEqual(guard.changes(BASE, head(), ["design/frames/p1-00.png"]), ["design/frames/p1-00.png changed"])
+
+    def test_a_rename_out_of_a_guarded_path_is_guarded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            def git(*args):
+                return subprocess.run(["git", "-C", tmp, "-c", "user.name=t", "-c", "user.email=t@t", *args], check=True, capture_output=True, text=True).stdout
+            git("init", "-q")
+            Path(tmp, "design/frames").mkdir(parents=True)
+            Path(tmp, "design/frames/p1-00.png").write_text("frame bytes " * 20)
+            git("add", "-A")
+            git("commit", "-q", "-m", "base")
+            base = git("rev-parse", "HEAD").strip()
+            Path(tmp, "other").mkdir()
+            git("mv", "design/frames/p1-00.png", "other/p1-00.png")
+            git("commit", "-q", "-m", "move")
+            cwd = os.getcwd()
+            os.chdir(tmp)
+            try:
+                files = guard.changed_files(base)
+            finally:
+                os.chdir(cwd)
+        self.assertEqual(guard.changes(BASE, head(), files), ["design/frames/p1-00.png changed"])
 
     def test_the_gates_own_code_is_guarded(self):
         for path in ("scripts/design/check-results.py", "lumio/src/test/java/app/lumio/ui/design/DesignGate.kt", "tools/design-frames/render.py"):

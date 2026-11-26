@@ -93,9 +93,14 @@ def labels():
     return run("gh", "api", path, "--jq", ".[].name").split()
 
 
+def changed_files(merge_base):
+    # --no-renames lists both paths of a rename, so a file moved out of a guarded path is still seen.
+    return run("git", "diff", "--name-only", "--no-renames", f"{merge_base}...HEAD").split()
+
+
 def main():
     merge_base = run("git", "merge-base", os.environ["BASE_SHA"], "HEAD").strip()
-    files = run("git", "diff", "--name-only", f"{merge_base}...HEAD").split()
+    files = changed_files(merge_base)
     try:
         base = json.loads(run("git", "show", f"{merge_base}:design/registry.json"))
     except subprocess.CalledProcessError:

@@ -499,11 +499,15 @@ internal class Comparison(
             if (match.lineHeight == null) d += Triple("line height", want.f(), "unset") else cmp("line height", want, match.lineHeight, tol.lineHeightDp)
         }
         cmp("letter spacing", font.num("letterSpacing"), match.letterSpacing, tol.letterSpacingDp)
-        match.color?.let { got ->
-            val want = el.getValue("color").jsonArray.map { it.jsonPrimitive.double() }.rgb(bg)
-            val shown = ((match.colorAlpha * 255).roundToInt()).let { a -> if (a == 255) got else listOf((got shr 16 and 255).toDouble(), (got shr 8 and 255).toDouble(), (got and 255).toDouble(), match.colorAlpha).rgb(bg) }
-            if (dist(want, shown) > tol.textColor) d += Triple("color", hex(want), hex(shown))
+        // A colour that is not on the style (a brush, a gradient) cannot be read, so it fails and is looked at, never skipped.
+        val got = match.color
+        if (got == null) {
+            d += Triple("color", hex(el.getValue("color").jsonArray.map { it.jsonPrimitive.double() }.rgb(bg)), "unspecified")
+            return
         }
+        val want = el.getValue("color").jsonArray.map { it.jsonPrimitive.double() }.rgb(bg)
+        val shown = ((match.colorAlpha * 255).roundToInt()).let { a -> if (a == 255) got else listOf((got shr 16 and 255).toDouble(), (got shr 8 and 255).toDouble(), (got and 255).toDouble(), match.colorAlpha).rgb(bg) }
+        if (dist(want, shown) > tol.textColor) d += Triple("color", hex(want), hex(shown))
     }
 
     /** The box of the pixels in [rect] (grown by 2 dp) that differ strongly from the rectangle's own border colour, as left, top, right, bottom; null when there are none. */

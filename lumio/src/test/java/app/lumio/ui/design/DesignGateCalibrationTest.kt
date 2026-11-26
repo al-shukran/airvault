@@ -111,7 +111,7 @@ class DesignGateCalibrationTest {
     }
 
     private val white = 0xFFFFFF
-    private fun appText(text: String, x: Double, y: Double, w: Double, size: Double = 15.0, color: Int = 0xFFFFFF) =
+    private fun appText(text: String, x: Double, y: Double, w: Double, size: Double = 15.0, color: Int? = 0xFFFFFF) =
         AppText(text, x, y, w, 12.0, 1, size, 600, null, 0.0, color, 1.0)
 
     /** The frame: a 30 dp price held at the right edge 90, a 24 dp name at the left edge 10, "Send" at 10, a logo square at 70,50. */
@@ -157,6 +157,12 @@ class DesignGateCalibrationTest {
         assertTrue("a name at 17 sp for 15 must fail: $size", size.any { it.id == "e1" && it.diffs.any { d -> d.first == "font size" } })
         val colour = rule(app, sameTexts().map { if (it.text == "Bitcoin") appText("Bitcoin", 10.0, 40.0, 30.0, color = 0x808080) else it })
         assertTrue("a name in grey for white must fail: $colour", colour.any { it.id == "e1" && it.diffs.any { d -> d.first == "color" } })
+    }
+
+    @Test
+    fun aTextWhoseColourCannotBeReadIsSeen() {
+        val got = rule(frame(), sameTexts().map { if (it.text == "Bitcoin") appText("Bitcoin", 10.0, 40.0, 30.0, color = null) else it })
+        assertTrue("a name with an unspecified colour must fail, not be skipped: $got", got.any { it.id == "e1" && it.diffs.any { d -> d.first == "color" && d.third == "unspecified" } })
     }
 
     @Test
