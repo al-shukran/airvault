@@ -1,0 +1,362 @@
+{
+ "id": "p2-27",
+ "title": "Prepare Lensly for Pairing I6 · page · dark",
+ "inkThreshold": 12,
+ "bandGap": 1,
+ "themes": {
+  "dark": {
+   "png": "p2-27-dark.png",
+   "bg": [
+    21,
+    19,
+    23
+   ],
+   "bands": [
+    [
+     14,
+     17
+    ],
+    [
+     76,
+     182
+    ],
+    [
+     228,
+     236
+    ],
+    [
+     251,
+     277
+    ],
+    [
+     281,
+     307
+    ],
+    [
+     321,
+     336
+    ],
+    [
+     343,
+     358
+    ],
+    [
+     380,
+     415
+    ],
+    [
+     434,
+     458
+    ],
+    [
+     472,
+     496
+    ],
+    [
+     658,
+     710
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.prog[1]>i.f[0]",
+     "rect": {
+      "x": 20,
+      "y": 14,
+      "w": 102.66,
+      "h": 3
+     },
+     "fill": [
+      245,
+      239,
+      228,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "box",
+     "node": "i",
+     "path": "div.prog[1]>i[1]",
+     "rect": {
+      "x": 128.66,
+      "y": 14,
+      "w": 102.67,
+      "h": 3
+     },
+     "fill": [
+      54,
+      49,
+      59,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e2",
+     "kind": "box",
+     "node": "i",
+     "path": "div.prog[1]>i[2]",
+     "rect": {
+      "x": 237.33,
+      "y": 14,
+      "w": 102.67,
+      "h": 3
+     },
+     "fill": [
+      54,
+      49,
+      59,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e3",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.ctr[2]>svg[0]",
+     "rect": {
+      "x": 70,
+      "y": 69,
+      "w": 220,
+      "h": 120
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "text",
+     "node": "div.e.px",
+     "path": "div.e.px[3]",
+     "text": "PAIR · 1 OF 2",
+     "rect": {
+      "x": 20,
+      "y": 226,
+      "w": 73.91,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e5",
+     "kind": "text",
+     "node": "div.h1.px",
+     "path": "div.h1.px[4]",
+     "text": "Prepare Lensly for Pairing",
+     "rect": {
+      "x": 20,
+      "y": 248,
+      "w": 245.28,
+      "h": 58
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 26,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 30,
+      "letterSpacing": -0.65
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "p.b.px",
+     "path": "p.b.px[5]",
+     "text": "Keep Lensly nearby. You'll show its pairing code to this phone in a minute.",
+     "rect": {
+      "x": 20,
+      "y": 320,
+      "w": 306.06,
+      "h": 38
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 22,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "text",
+     "node": "div",
+     "path": "div.steps[6]>div[0]",
+     "text": "Have your Lensly phone with you, charged and unlocked.",
+     "rect": {
+      "x": 56,
+      "y": 382,
+      "w": 266.56,
+      "h": 35
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 14,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e8",
+     "kind": "text",
+     "node": "div",
+     "path": "div.steps[6]>div[1]",
+     "text": "Set a password for Lumio on the next screens.",
+     "rect": {
+      "x": 56,
+      "y": 436,
+      "w": 263.56,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 14,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "div",
+     "path": "div.steps[6]>div[2]",
+     "text": "Then hold Lensly's pairing code up to this phone.",
+     "rect": {
+      "x": 56,
+      "y": 474,
+      "w": 278.98,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 14,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "text",
+     "node": "div.cap.w",
+     "path": "div.foot[7]>div.cap.w[0]",
+     "text": "Next",
+     "rect": {
+      "x": 160.38,
+      "y": 675.5,
+      "w": 39.23,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15.5,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e11",
+     "kind": "box",
+     "node": "div.cap.w",
+     "path": "div.foot[7]>div.cap.w[0]",
+     "rect": {
+      "x": 20,
+      "y": 658,
+      "w": 320,
+      "h": 52
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      1
+     ],
+     "border": null,
+     "radius": "26px",
+     "shadow": null
+    }
+   ]
+  }
+ },
+ "width": 360,
+ "height": 740
+}

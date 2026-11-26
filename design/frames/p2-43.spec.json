@@ -1,0 +1,2088 @@
+{
+ "id": "p2-43",
+ "title": "Networks J4 · page",
+ "inkThreshold": 12,
+ "bandGap": 1,
+ "themes": {
+  "dark": {
+   "png": "p2-43-dark.png",
+   "bg": [
+    21,
+    19,
+    23
+   ],
+   "bands": [
+    [
+     18,
+     35
+    ],
+    [
+     57,
+     68
+    ],
+    [
+     84,
+     132
+    ],
+    [
+     151,
+     162
+    ],
+    [
+     183,
+     219
+    ],
+    [
+     232,
+     233
+    ],
+    [
+     245,
+     281
+    ],
+    [
+     294,
+     295
+    ],
+    [
+     307,
+     343
+    ],
+    [
+     356,
+     357
+    ],
+    [
+     369,
+     405
+    ],
+    [
+     439,
+     450
+    ],
+    [
+     471,
+     507
+    ],
+    [
+     535,
+     549
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[0]>svg.i[0]",
+     "rect": {
+      "x": 19,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "Networks",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 92.34,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e2",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e3",
+     "kind": "text",
+     "node": "p.s.px",
+     "path": "p.s.px[2]",
+     "text": "55 EVM networks · 4 test networks",
+     "rect": {
+      "x": 20,
+      "y": 56,
+      "w": 183.73,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e4",
+     "kind": "box",
+     "node": "div.srch",
+     "path": "div.srch[3]",
+     "rect": {
+      "x": 16,
+      "y": 84,
+      "w": 328,
+      "h": 48
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "24px",
+     "shadow": null
+    },
+    {
+     "id": "e5",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.srch[3]>svg.i[0]",
+     "rect": {
+      "x": 32,
+      "y": 98,
+      "w": 20,
+      "h": 20
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "span",
+     "path": "div.srch[3]>span[1]",
+     "text": "Search networks",
+     "rect": {
+      "x": 62,
+      "y": 99.5,
+      "w": 103.61,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sec[4]>span.e[0]",
+     "text": "MAINNET",
+     "rect": {
+      "x": 20,
+      "y": 151,
+      "w": 54.2,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e8",
+     "kind": "text",
+     "node": "span.s",
+     "path": "div.sec[4]>span.s[1]",
+     "text": "12 on",
+     "rect": {
+      "x": 310.58,
+      "y": 150,
+      "w": 29.42,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e9",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[5]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 183,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e10",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[5]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 190.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e11",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[5]>div.m[1]>b[0]",
+     "text": "Ethereum",
+     "rect": {
+      "x": 68,
+      "y": 184.5,
+      "w": 78.2,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e12",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[5]>div.m[1]>span[1]",
+     "text": "ID 1 · built-in RPC",
+     "rect": {
+      "x": 68,
+      "y": 203.5,
+      "w": 90.97,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e13",
+     "kind": "box",
+     "node": "div.swt.on",
+     "path": "div.row[5]>div.swt.on[2]",
+     "rect": {
+      "x": 294,
+      "y": 187,
+      "w": 46,
+      "h": 28
+     },
+     "fill": [
+      245,
+      239,
+      228,
+      1
+     ],
+     "border": {
+      "width": 1,
+      "color": [
+       245,
+       239,
+       228,
+       1
+      ]
+     },
+     "radius": "14px",
+     "shadow": null
+    },
+    {
+     "id": "e14",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[6]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 245,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e15",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[6]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 252.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[6]>div.m[1]>b[0]",
+     "text": "Base",
+     "rect": {
+      "x": 68,
+      "y": 246.5,
+      "w": 41.19,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e17",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[6]>div.m[1]>span[1]",
+     "text": "ID 8453 · custom RPC in use",
+     "rect": {
+      "x": 68,
+      "y": 265.5,
+      "w": 147.8,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e18",
+     "kind": "box",
+     "node": "div.swt.on",
+     "path": "div.row[6]>div.swt.on[2]",
+     "rect": {
+      "x": 294,
+      "y": 249,
+      "w": 46,
+      "h": 28
+     },
+     "fill": [
+      245,
+      239,
+      228,
+      1
+     ],
+     "border": {
+      "width": 1,
+      "color": [
+       245,
+       239,
+       228,
+       1
+      ]
+     },
+     "radius": "14px",
+     "shadow": null
+    },
+    {
+     "id": "e19",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[7]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 307,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e20",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[7]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 314.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e21",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[7]>div.m[1]>b[0]",
+     "text": "Arbitrum",
+     "rect": {
+      "x": 68,
+      "y": 308.5,
+      "w": 69.33,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e22",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[7]>div.m[1]>span[1]",
+     "text": "ID 42161 · built-in RPC",
+     "rect": {
+      "x": 68,
+      "y": 327.5,
+      "w": 116.78,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e23",
+     "kind": "box",
+     "node": "div.swt.on",
+     "path": "div.row[7]>div.swt.on[2]",
+     "rect": {
+      "x": 294,
+      "y": 311,
+      "w": 46,
+      "h": 28
+     },
+     "fill": [
+      245,
+      239,
+      228,
+      1
+     ],
+     "border": {
+      "width": 1,
+      "color": [
+       245,
+       239,
+       228,
+       1
+      ]
+     },
+     "radius": "14px",
+     "shadow": null
+    },
+    {
+     "id": "e24",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[8]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 369,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e25",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[8]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 376.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e26",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[8]>div.m[1]>b[0]",
+     "text": "Optimism",
+     "rect": {
+      "x": 68,
+      "y": 370.5,
+      "w": 77.06,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e27",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[8]>div.m[1]>span[1]",
+     "text": "ID 10 · off",
+     "rect": {
+      "x": 68,
+      "y": 389.5,
+      "w": 48.53,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e28",
+     "kind": "box",
+     "node": "div.swt",
+     "path": "div.row[8]>div.swt[2]",
+     "rect": {
+      "x": 294,
+      "y": 373,
+      "w": 46,
+      "h": 28
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": {
+      "width": 1,
+      "color": [
+       138,
+       130,
+       141,
+       1
+      ]
+     },
+     "radius": "14px",
+     "shadow": null
+    },
+    {
+     "id": "e29",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sec[9]>span.e[0]",
+     "text": "TESTNET",
+     "rect": {
+      "x": 20,
+      "y": 439,
+      "w": 54.13,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e30",
+     "kind": "text",
+     "node": "span.s",
+     "path": "div.sec[9]>span.s[1]",
+     "text": "4 on",
+     "rect": {
+      "x": 317.06,
+      "y": 438,
+      "w": 22.94,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e31",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[10]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 471,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e32",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[10]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 478.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e33",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[10]>div.m[1]>b[0]",
+     "text": "Monad Testnet",
+     "rect": {
+      "x": 68,
+      "y": 472.5,
+      "w": 119.09,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e34",
+     "kind": "text",
+     "node": "span.dim-badge",
+     "path": "div.row[10]>div.m[1]>b[0]>span.dim-badge[0]",
+     "text": "DEFAULT",
+     "rect": {
+      "x": 200.09,
+      "y": 474.5,
+      "w": 48.52,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\"",
+      "size": 10.5,
+      "weight": 600,
+      "stretch": "100%",
+      "lineHeight": 16,
+      "letterSpacing": 0.63
+     },
+     "color": [
+      242,
+      161,
+      74,
+      1
+     ]
+    },
+    {
+     "id": "e35",
+     "kind": "box",
+     "node": "span.dim-badge",
+     "path": "div.row[10]>div.m[1]>b[0]>span.dim-badge[0]",
+     "rect": {
+      "x": 193.09,
+      "y": 472.5,
+      "w": 62.52,
+      "h": 18
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       242,
+       161,
+       74,
+       1
+      ]
+     },
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e36",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[10]>div.m[1]>span[1]",
+     "text": "ID 10143 · where Send starts",
+     "rect": {
+      "x": 68,
+      "y": 491.5,
+      "w": 147.33,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e37",
+     "kind": "box",
+     "node": "div.swt.on",
+     "path": "div.row[10]>div.swt.on[2]",
+     "rect": {
+      "x": 294,
+      "y": 475,
+      "w": 46,
+      "h": 28
+     },
+     "fill": [
+      245,
+      239,
+      228,
+      1
+     ],
+     "border": {
+      "width": 1,
+      "color": [
+       245,
+       239,
+       228,
+       1
+      ]
+     },
+     "radius": "14px",
+     "shadow": null
+    },
+    {
+     "id": "e38",
+     "kind": "text",
+     "node": "span.ta",
+     "path": "div.px[11]>span.ta[0]",
+     "text": "Add Custom Network",
+     "rect": {
+      "x": 50,
+      "y": 534,
+      "w": 170.84,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e39",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.px[11]>span.ta[0]>svg.i[0]",
+     "rect": {
+      "x": 26,
+      "y": 533.5,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    }
+   ]
+  },
+  "light": {
+   "png": "p2-43-light.png",
+   "bg": [
+    251,
+    246,
+    236
+   ],
+   "bands": [
+    [
+     18,
+     35
+    ],
+    [
+     57,
+     68
+    ],
+    [
+     101,
+     116
+    ],
+    [
+     151,
+     162
+    ],
+    [
+     186,
+     216
+    ],
+    [
+     232,
+     233
+    ],
+    [
+     249,
+     278
+    ],
+    [
+     294,
+     295
+    ],
+    [
+     310,
+     340
+    ],
+    [
+     356,
+     357
+    ],
+    [
+     372,
+     402
+    ],
+    [
+     439,
+     450
+    ],
+    [
+     473,
+     504
+    ],
+    [
+     535,
+     549
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[0]>svg.i[0]",
+     "rect": {
+      "x": 19,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "Networks",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 92.34,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e2",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e3",
+     "kind": "text",
+     "node": "p.s.px",
+     "path": "p.s.px[2]",
+     "text": "55 EVM networks · 4 test networks",
+     "rect": {
+      "x": 20,
+      "y": 56,
+      "w": 183.73,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e4",
+     "kind": "box",
+     "node": "div.srch",
+     "path": "div.srch[3]",
+     "rect": {
+      "x": 16,
+      "y": 84,
+      "w": 328,
+      "h": 48
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "24px",
+     "shadow": null
+    },
+    {
+     "id": "e5",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.srch[3]>svg.i[0]",
+     "rect": {
+      "x": 32,
+      "y": 98,
+      "w": 20,
+      "h": 20
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "span",
+     "path": "div.srch[3]>span[1]",
+     "text": "Search networks",
+     "rect": {
+      "x": 62,
+      "y": 99.5,
+      "w": 103.61,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sec[4]>span.e[0]",
+     "text": "MAINNET",
+     "rect": {
+      "x": 20,
+      "y": 151,
+      "w": 54.2,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e8",
+     "kind": "text",
+     "node": "span.s",
+     "path": "div.sec[4]>span.s[1]",
+     "text": "12 on",
+     "rect": {
+      "x": 310.58,
+      "y": 150,
+      "w": 29.42,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e9",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[5]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 183,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e10",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[5]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 190.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e11",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[5]>div.m[1]>b[0]",
+     "text": "Ethereum",
+     "rect": {
+      "x": 68,
+      "y": 184.5,
+      "w": 78.2,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e12",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[5]>div.m[1]>span[1]",
+     "text": "ID 1 · built-in RPC",
+     "rect": {
+      "x": 68,
+      "y": 203.5,
+      "w": 90.97,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e13",
+     "kind": "box",
+     "node": "div.swt.on",
+     "path": "div.row[5]>div.swt.on[2]",
+     "rect": {
+      "x": 294,
+      "y": 187,
+      "w": 46,
+      "h": 28
+     },
+     "fill": [
+      43,
+      37,
+      48,
+      1
+     ],
+     "border": {
+      "width": 1,
+      "color": [
+       43,
+       37,
+       48,
+       1
+      ]
+     },
+     "radius": "14px",
+     "shadow": null
+    },
+    {
+     "id": "e14",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[6]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 245,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e15",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[6]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 252.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[6]>div.m[1]>b[0]",
+     "text": "Base",
+     "rect": {
+      "x": 68,
+      "y": 246.5,
+      "w": 41.19,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e17",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[6]>div.m[1]>span[1]",
+     "text": "ID 8453 · custom RPC in use",
+     "rect": {
+      "x": 68,
+      "y": 265.5,
+      "w": 147.8,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e18",
+     "kind": "box",
+     "node": "div.swt.on",
+     "path": "div.row[6]>div.swt.on[2]",
+     "rect": {
+      "x": 294,
+      "y": 249,
+      "w": 46,
+      "h": 28
+     },
+     "fill": [
+      43,
+      37,
+      48,
+      1
+     ],
+     "border": {
+      "width": 1,
+      "color": [
+       43,
+       37,
+       48,
+       1
+      ]
+     },
+     "radius": "14px",
+     "shadow": null
+    },
+    {
+     "id": "e19",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[7]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 307,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e20",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[7]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 314.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e21",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[7]>div.m[1]>b[0]",
+     "text": "Arbitrum",
+     "rect": {
+      "x": 68,
+      "y": 308.5,
+      "w": 69.33,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e22",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[7]>div.m[1]>span[1]",
+     "text": "ID 42161 · built-in RPC",
+     "rect": {
+      "x": 68,
+      "y": 327.5,
+      "w": 116.78,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e23",
+     "kind": "box",
+     "node": "div.swt.on",
+     "path": "div.row[7]>div.swt.on[2]",
+     "rect": {
+      "x": 294,
+      "y": 311,
+      "w": 46,
+      "h": 28
+     },
+     "fill": [
+      43,
+      37,
+      48,
+      1
+     ],
+     "border": {
+      "width": 1,
+      "color": [
+       43,
+       37,
+       48,
+       1
+      ]
+     },
+     "radius": "14px",
+     "shadow": null
+    },
+    {
+     "id": "e24",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[8]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 369,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e25",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[8]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 376.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e26",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[8]>div.m[1]>b[0]",
+     "text": "Optimism",
+     "rect": {
+      "x": 68,
+      "y": 370.5,
+      "w": 77.06,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e27",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[8]>div.m[1]>span[1]",
+     "text": "ID 10 · off",
+     "rect": {
+      "x": 68,
+      "y": 389.5,
+      "w": 48.53,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e28",
+     "kind": "box",
+     "node": "div.swt",
+     "path": "div.row[8]>div.swt[2]",
+     "rect": {
+      "x": 294,
+      "y": 373,
+      "w": 46,
+      "h": 28
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": {
+      "width": 1,
+      "color": [
+       142,
+       134,
+       146,
+       1
+      ]
+     },
+     "radius": "14px",
+     "shadow": null
+    },
+    {
+     "id": "e29",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sec[9]>span.e[0]",
+     "text": "TESTNET",
+     "rect": {
+      "x": 20,
+      "y": 439,
+      "w": 54.13,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e30",
+     "kind": "text",
+     "node": "span.s",
+     "path": "div.sec[9]>span.s[1]",
+     "text": "4 on",
+     "rect": {
+      "x": 317.06,
+      "y": 438,
+      "w": 22.94,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e31",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[10]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 471,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e32",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[10]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 478.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e33",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[10]>div.m[1]>b[0]",
+     "text": "Monad Testnet",
+     "rect": {
+      "x": 68,
+      "y": 472.5,
+      "w": 119.09,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e34",
+     "kind": "text",
+     "node": "span.dim-badge",
+     "path": "div.row[10]>div.m[1]>b[0]>span.dim-badge[0]",
+     "text": "DEFAULT",
+     "rect": {
+      "x": 200.09,
+      "y": 474.5,
+      "w": 48.52,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\"",
+      "size": 10.5,
+      "weight": 600,
+      "stretch": "100%",
+      "lineHeight": 16,
+      "letterSpacing": 0.63
+     },
+     "color": [
+      148,
+      80,
+      12,
+      1
+     ]
+    },
+    {
+     "id": "e35",
+     "kind": "box",
+     "node": "span.dim-badge",
+     "path": "div.row[10]>div.m[1]>b[0]>span.dim-badge[0]",
+     "rect": {
+      "x": 193.09,
+      "y": 472.5,
+      "w": 62.52,
+      "h": 18
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       148,
+       80,
+       12,
+       1
+      ]
+     },
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e36",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[10]>div.m[1]>span[1]",
+     "text": "ID 10143 · where Send starts",
+     "rect": {
+      "x": 68,
+      "y": 491.5,
+      "w": 147.33,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e37",
+     "kind": "box",
+     "node": "div.swt.on",
+     "path": "div.row[10]>div.swt.on[2]",
+     "rect": {
+      "x": 294,
+      "y": 475,
+      "w": 46,
+      "h": 28
+     },
+     "fill": [
+      43,
+      37,
+      48,
+      1
+     ],
+     "border": {
+      "width": 1,
+      "color": [
+       43,
+       37,
+       48,
+       1
+      ]
+     },
+     "radius": "14px",
+     "shadow": null
+    },
+    {
+     "id": "e38",
+     "kind": "text",
+     "node": "span.ta",
+     "path": "div.px[11]>span.ta[0]",
+     "text": "Add Custom Network",
+     "rect": {
+      "x": 50,
+      "y": 534,
+      "w": 170.84,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e39",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.px[11]>span.ta[0]>svg.i[0]",
+     "rect": {
+      "x": 26,
+      "y": 533.5,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    }
+   ]
+  }
+ },
+ "width": 360,
+ "height": 740
+}

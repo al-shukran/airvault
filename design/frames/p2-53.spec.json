@@ -1,0 +1,598 @@
+{
+ "id": "p2-53",
+ "title": "Licences J11 · page 2 of 2 · dark",
+ "inkThreshold": 12,
+ "bandGap": 1,
+ "themes": {
+  "dark": {
+   "png": "p2-53-dark.png",
+   "bg": [
+    21,
+    19,
+    23
+   ],
+   "bands": [
+    [
+     18,
+     35
+    ],
+    [
+     57,
+     70
+    ],
+    [
+     75,
+     86
+    ],
+    [
+     118,
+     150
+    ],
+    [
+     164,
+     165
+    ],
+    [
+     180,
+     212
+    ],
+    [
+     226,
+     227
+    ],
+    [
+     242,
+     274
+    ],
+    [
+     288,
+     289
+    ],
+    [
+     304,
+     336
+    ],
+    [
+     350,
+     351
+    ],
+    [
+     366,
+     398
+    ],
+    [
+     412,
+     413
+    ],
+    [
+     428,
+     460
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[0]>svg.i[0]",
+     "rect": {
+      "x": 19,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "Licences",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 87.02,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e2",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e3",
+     "kind": "text",
+     "node": "p.s.px",
+     "path": "p.s.px[2]",
+     "text": "Lumio is built with these open-source projects. Tap one to read its licence.",
+     "rect": {
+      "x": 20,
+      "y": 56,
+      "w": 304.98,
+      "h": 32
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e4",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row.nl0[3]>div.m[0]>b[0]",
+     "text": "Archivo",
+     "rect": {
+      "x": 20,
+      "y": 116.5,
+      "w": 60.97,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e5",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row.nl0[3]>div.m[0]>span[1]",
+     "text": "SIL Open Font License 1.1",
+     "rect": {
+      "x": 20,
+      "y": 135.5,
+      "w": 134.5,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e6",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.row.nl0[3]>svg.i.chev[1]",
+     "rect": {
+      "x": 324,
+      "y": 125,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e7",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[4]>div.m[0]>b[0]",
+     "text": "JetBrains Mono",
+     "rect": {
+      "x": 20,
+      "y": 178.5,
+      "w": 125.73,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e8",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[4]>div.m[0]>span[1]",
+     "text": "SIL Open Font License 1.1",
+     "rect": {
+      "x": 20,
+      "y": 197.5,
+      "w": 134.5,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e9",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.row[4]>svg.i.chev[1]",
+     "rect": {
+      "x": 324,
+      "y": 187,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e10",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[5]>div.m[0]>b[0]",
+     "text": "Jetpack Compose",
+     "rect": {
+      "x": 20,
+      "y": 240.5,
+      "w": 145.38,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e11",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[5]>div.m[0]>span[1]",
+     "text": "Apache License 2.0",
+     "rect": {
+      "x": 20,
+      "y": 259.5,
+      "w": 101.58,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e12",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.row[5]>svg.i.chev[1]",
+     "rect": {
+      "x": 324,
+      "y": 249,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e13",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[6]>div.m[0]>b[0]",
+     "text": "Kotlin",
+     "rect": {
+      "x": 20,
+      "y": 302.5,
+      "w": 45.41,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e14",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[6]>div.m[0]>span[1]",
+     "text": "Apache License 2.0",
+     "rect": {
+      "x": 20,
+      "y": 321.5,
+      "w": 101.58,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e15",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.row[6]>svg.i.chev[1]",
+     "rect": {
+      "x": 324,
+      "y": 311,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[7]>div.m[0]>b[0]",
+     "text": "AndroidX",
+     "rect": {
+      "x": 20,
+      "y": 364.5,
+      "w": 74.56,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e17",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[7]>div.m[0]>span[1]",
+     "text": "Apache License 2.0",
+     "rect": {
+      "x": 20,
+      "y": 383.5,
+      "w": 101.58,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e18",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.row[7]>svg.i.chev[1]",
+     "rect": {
+      "x": 324,
+      "y": 373,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e19",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[8]>div.m[0]>b[0]",
+     "text": "18 More",
+     "rect": {
+      "x": 20,
+      "y": 426.5,
+      "w": 64.7,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e20",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[8]>div.m[0]>span[1]",
+     "text": "Generated from the build's dependency list",
+     "rect": {
+      "x": 20,
+      "y": 445.5,
+      "w": 219.69,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e21",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.row[8]>svg.i.chev[1]",
+     "rect": {
+      "x": 324,
+      "y": 435,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    }
+   ]
+  }
+ },
+ "width": 360,
+ "height": 740
+}

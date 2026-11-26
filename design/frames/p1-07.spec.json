@@ -1,0 +1,2208 @@
+{
+ "id": "p1-07",
+ "title": "Asset full-screen push",
+ "inkThreshold": 12,
+ "bandGap": 1,
+ "themes": {
+  "dark": {
+   "png": "p1-07-dark.png",
+   "bg": [
+    21,
+    19,
+    23
+   ],
+   "bands": [
+    [
+     17,
+     35
+    ],
+    [
+     56,
+     104
+    ],
+    [
+     117,
+     126
+    ],
+    [
+     148,
+     195
+    ],
+    [
+     202,
+     217
+    ],
+    [
+     235,
+     345
+    ],
+    [
+     365,
+     376
+    ],
+    [
+     381,
+     388
+    ],
+    [
+     401,
+     453
+    ],
+    [
+     480,
+     489
+    ],
+    [
+     508,
+     544
+    ],
+    [
+     579,
+     589
+    ],
+    [
+     613,
+     649
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[0]>svg.i[0]",
+     "rect": {
+      "x": 19,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "Ethereum",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 94.17,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e2",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 275,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e3",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[3]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "box",
+     "node": "div.lg.big",
+     "path": "div.ctr[2]>div.lg.big[0]",
+     "rect": {
+      "x": 156,
+      "y": 56,
+      "w": 48,
+      "h": 48
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e5",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.ctr[2]>div.lg.big[0]>svg[0]",
+     "rect": {
+      "x": 166,
+      "y": 66,
+      "w": 28,
+      "h": 28
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "div.e",
+     "path": "div.ctr[2]>div.e[1]",
+     "text": "ETHEREUM · ETH",
+     "rect": {
+      "x": 129.95,
+      "y": 115,
+      "w": 100.08,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "text",
+     "node": "div.nx",
+     "path": "div.ctr[2]>div.nx[2]",
+     "text": "4,285",
+     "rect": {
+      "x": 78.92,
+      "y": 135.84,
+      "w": 135,
+      "h": 66
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 50,
+      "weight": 300,
+      "stretch": "92%",
+      "lineHeight": 56,
+      "letterSpacing": -3
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e8",
+     "kind": "text",
+     "node": "span.c",
+     "path": "div.ctr[2]>div.nx[2]>span.c[0]",
+     "text": "$",
+     "rect": {
+      "x": 65.08,
+      "y": 145,
+      "w": 10.84,
+      "h": 25
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, sans-serif",
+      "size": 23,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 56,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "span.f",
+     "path": "div.ctr[2]>div.nx[2]>span.f[1]",
+     "text": ".70",
+     "rect": {
+      "x": 213.92,
+      "y": 135.84,
+      "w": 81,
+      "h": 66
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 50,
+      "weight": 300,
+      "stretch": "92%",
+      "lineHeight": 56,
+      "letterSpacing": -3
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "text",
+     "node": "div.dlt.dn",
+     "path": "div.ctr[2]>div.dlt.dn[3]",
+     "text": "▼ 2.41% · −$105.82 Today",
+     "rect": {
+      "x": 89.52,
+      "y": 200.84,
+      "w": 180.97,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 13,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": -0.26
+     },
+     "color": [
+      255,
+      138,
+      128,
+      1
+     ]
+    },
+    {
+     "id": "e11",
+     "kind": "icon",
+     "node": "svg.tick.dn",
+     "path": "div[3]>svg.tick.dn[0]",
+     "rect": {
+      "x": 20,
+      "y": 229.84,
+      "w": 320,
+      "h": 120
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e12",
+     "kind": "text",
+     "node": "a",
+     "path": "div.rg[4]>a[0]",
+     "text": "5m",
+     "rect": {
+      "x": 23,
+      "y": 361.84,
+      "w": 15,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12.5,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e13",
+     "kind": "text",
+     "node": "a",
+     "path": "div.rg[4]>a[1]",
+     "text": "15m",
+     "rect": {
+      "x": 63.58,
+      "y": 361.84,
+      "w": 22.5,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12.5,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e14",
+     "kind": "text",
+     "node": "a",
+     "path": "div.rg[4]>a[2]",
+     "text": "1h",
+     "rect": {
+      "x": 111.64,
+      "y": 361.84,
+      "w": 15,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12.5,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e15",
+     "kind": "text",
+     "node": "a",
+     "path": "div.rg[4]>a[3]",
+     "text": "4h",
+     "rect": {
+      "x": 152.22,
+      "y": 361.84,
+      "w": 15,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12.5,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e16",
+     "kind": "text",
+     "node": "a",
+     "path": "div.rg[4]>a[4]",
+     "text": "12h",
+     "rect": {
+      "x": 192.78,
+      "y": 361.84,
+      "w": 22.5,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12.5,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e17",
+     "kind": "text",
+     "node": "a.on",
+     "path": "div.rg[4]>a.on[5]",
+     "text": "1d",
+     "rect": {
+      "x": 240.86,
+      "y": 361.84,
+      "w": 15,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12.5,
+      "weight": 700,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e18",
+     "kind": "text",
+     "node": "a",
+     "path": "div.rg[4]>a[6]",
+     "text": "7d",
+     "rect": {
+      "x": 281.42,
+      "y": 361.84,
+      "w": 15,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12.5,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e19",
+     "kind": "text",
+     "node": "a",
+     "path": "div.rg[4]>a[7]",
+     "text": "1m",
+     "rect": {
+      "x": 322,
+      "y": 361.84,
+      "w": 15,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12.5,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e20",
+     "kind": "text",
+     "node": "div.cap",
+     "path": "div.act[5]>div.cap[0]",
+     "text": "Send ETH",
+     "rect": {
+      "x": 91.77,
+      "y": 418.34,
+      "w": 83.67,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15.5,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e21",
+     "kind": "box",
+     "node": "div.cap",
+     "path": "div.act[5]>div.cap[0]",
+     "rect": {
+      "x": 35.77,
+      "y": 400.84,
+      "w": 169.67,
+      "h": 52
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      1
+     ],
+     "border": null,
+     "radius": "26px",
+     "shadow": null
+    },
+    {
+     "id": "e22",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.act[5]>div.cap[0]>svg.i[0]",
+     "rect": {
+      "x": 65.77,
+      "y": 417.84,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e23",
+     "kind": "text",
+     "node": "div.ta",
+     "path": "div.act[5]>div.ta[1]",
+     "text": "Receive",
+     "rect": {
+      "x": 253.44,
+      "y": 418.34,
+      "w": 64.78,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e24",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.act[5]>div.ta[1]>svg.i[0]",
+     "rect": {
+      "x": 229.44,
+      "y": 417.84,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e25",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sec[6]>span.e[0]",
+     "text": "YOUR ETH",
+     "rect": {
+      "x": 20,
+      "y": 477.84,
+      "w": 60.28,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e26",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[7]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 507.84,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e27",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[7]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 515.34,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e28",
+     "kind": "text",
+     "node": "b.n",
+     "path": "div.row[7]>div.m[1]>b.n[0]",
+     "text": "22.23 ETH",
+     "rect": {
+      "x": 68,
+      "y": 507.34,
+      "w": 78.31,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\"",
+      "size": 15,
+      "weight": 500,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": -0.3
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e29",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[7]>div.m[1]>span[1]",
+     "text": "5 accounts · 3 chains",
+     "rect": {
+      "x": 68,
+      "y": 528.34,
+      "w": 108.63,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e30",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[7]>div.m[1]>span[1]>span.chain-dots[0]>svg[0]",
+     "rect": {
+      "x": 178.63,
+      "y": 527.34,
+      "w": 15,
+      "h": 15
+     },
+     "fill": [
+      21,
+      19,
+      23,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": "rgb(21, 19, 23) 0px 0px 0px 1.5px"
+    },
+    {
+     "id": "e31",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[7]>div.m[1]>span[1]>span.chain-dots[0]>svg[1]",
+     "rect": {
+      "x": 189.63,
+      "y": 527.34,
+      "w": 15,
+      "h": 15
+     },
+     "fill": [
+      21,
+      19,
+      23,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": "rgb(21, 19, 23) 0px 0px 0px 1.5px"
+    },
+    {
+     "id": "e32",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[7]>div.m[1]>span[1]>span.chain-dots[0]>svg[2]",
+     "rect": {
+      "x": 200.63,
+      "y": 527.34,
+      "w": 15,
+      "h": 15
+     },
+     "fill": [
+      21,
+      19,
+      23,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": "rgb(21, 19, 23) 0px 0px 0px 1.5px"
+    },
+    {
+     "id": "e33",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[7]>div.v[2]>b[0]",
+     "text": "$95,271.11",
+     "rect": {
+      "x": 230.8,
+      "y": 516.84,
+      "w": 81.2,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e34",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.row[7]>svg.i.chev[3]",
+     "rect": {
+      "x": 324,
+      "y": 517.84,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e35",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sec[8]>span.e[0]",
+     "text": "ACTIVITY",
+     "rect": {
+      "x": 20,
+      "y": 579.34,
+      "w": 54.56,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e36",
+     "kind": "text",
+     "node": "span.ta",
+     "path": "div.sec[8]>span.ta[1]",
+     "text": "All",
+     "rect": {
+      "x": 322.36,
+      "y": 577.84,
+      "w": 17.64,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e37",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[9]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 612.84,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e38",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.row[9]>div.lg[0]>svg.i[0]",
+     "rect": {
+      "x": 29,
+      "y": 621.84,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e39",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[9]>div.m[1]>b[0]",
+     "text": "Received",
+     "rect": {
+      "x": 68,
+      "y": 614.34,
+      "w": 74.81,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e40",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[9]>div.m[1]>span[1]",
+     "text": "From Exchange Deposit · Base · 2 h",
+     "rect": {
+      "x": 68,
+      "y": 633.34,
+      "w": 184.14,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e41",
+     "kind": "text",
+     "node": "b.up",
+     "path": "div.row[9]>div.v[2]>b.up[0]",
+     "text": "+1.00 ETH",
+     "rect": {
+      "x": 266.91,
+      "y": 613.34,
+      "w": 73.09,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      141,
+      187,
+      255,
+      1
+     ]
+    },
+    {
+     "id": "e42",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[9]>div.v[2]>span[1]",
+     "text": "$4,285.70",
+     "rect": {
+      "x": 277.36,
+      "y": 632.34,
+      "w": 62.64,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    }
+   ]
+  },
+  "light": {
+   "png": "p1-07-light.png",
+   "bg": [
+    251,
+    246,
+    236
+   ],
+   "bands": [
+    [
+     17,
+     35
+    ],
+    [
+     69,
+     91
+    ],
+    [
+     117,
+     126
+    ],
+    [
+     148,
+     195
+    ],
+    [
+     202,
+     217
+    ],
+    [
+     235,
+     345
+    ],
+    [
+     365,
+     375
+    ],
+    [
+     381,
+     388
+    ],
+    [
+     401,
+     453
+    ],
+    [
+     480,
+     489
+    ],
+    [
+     510,
+     541
+    ],
+    [
+     579,
+     589
+    ],
+    [
+     615,
+     647
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[0]>svg.i[0]",
+     "rect": {
+      "x": 19,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "Ethereum",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 94.17,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e2",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 275,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e3",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[3]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "box",
+     "node": "div.lg.big",
+     "path": "div.ctr[2]>div.lg.big[0]",
+     "rect": {
+      "x": 156,
+      "y": 56,
+      "w": 48,
+      "h": 48
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e5",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.ctr[2]>div.lg.big[0]>svg[0]",
+     "rect": {
+      "x": 166,
+      "y": 66,
+      "w": 28,
+      "h": 28
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "div.e",
+     "path": "div.ctr[2]>div.e[1]",
+     "text": "ETHEREUM · ETH",
+     "rect": {
+      "x": 129.95,
+      "y": 115,
+      "w": 100.08,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "text",
+     "node": "div.nx",
+     "path": "div.ctr[2]>div.nx[2]",
+     "text": "4,285",
+     "rect": {
+      "x": 78.92,
+      "y": 135.84,
+      "w": 135,
+      "h": 66
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 50,
+      "weight": 300,
+      "stretch": "92%",
+      "lineHeight": 56,
+      "letterSpacing": -3
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e8",
+     "kind": "text",
+     "node": "span.c",
+     "path": "div.ctr[2]>div.nx[2]>span.c[0]",
+     "text": "$",
+     "rect": {
+      "x": 65.08,
+      "y": 145,
+      "w": 10.84,
+      "h": 25
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, sans-serif",
+      "size": 23,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 56,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "span.f",
+     "path": "div.ctr[2]>div.nx[2]>span.f[1]",
+     "text": ".70",
+     "rect": {
+      "x": 213.92,
+      "y": 135.84,
+      "w": 81,
+      "h": 66
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 50,
+      "weight": 300,
+      "stretch": "92%",
+      "lineHeight": 56,
+      "letterSpacing": -3
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "text",
+     "node": "div.dlt.dn",
+     "path": "div.ctr[2]>div.dlt.dn[3]",
+     "text": "▼ 2.41% · −$105.82 Today",
+     "rect": {
+      "x": 89.52,
+      "y": 200.84,
+      "w": 180.97,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 13,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": -0.26
+     },
+     "color": [
+      179,
+      38,
+      30,
+      1
+     ]
+    },
+    {
+     "id": "e11",
+     "kind": "icon",
+     "node": "svg.tick.dn",
+     "path": "div[3]>svg.tick.dn[0]",
+     "rect": {
+      "x": 20,
+      "y": 229.84,
+      "w": 320,
+      "h": 120
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e12",
+     "kind": "text",
+     "node": "a",
+     "path": "div.rg[4]>a[0]",
+     "text": "5m",
+     "rect": {
+      "x": 23,
+      "y": 361.84,
+      "w": 15,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12.5,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e13",
+     "kind": "text",
+     "node": "a",
+     "path": "div.rg[4]>a[1]",
+     "text": "15m",
+     "rect": {
+      "x": 63.58,
+      "y": 361.84,
+      "w": 22.5,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12.5,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e14",
+     "kind": "text",
+     "node": "a",
+     "path": "div.rg[4]>a[2]",
+     "text": "1h",
+     "rect": {
+      "x": 111.64,
+      "y": 361.84,
+      "w": 15,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12.5,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e15",
+     "kind": "text",
+     "node": "a",
+     "path": "div.rg[4]>a[3]",
+     "text": "4h",
+     "rect": {
+      "x": 152.22,
+      "y": 361.84,
+      "w": 15,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12.5,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e16",
+     "kind": "text",
+     "node": "a",
+     "path": "div.rg[4]>a[4]",
+     "text": "12h",
+     "rect": {
+      "x": 192.78,
+      "y": 361.84,
+      "w": 22.5,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12.5,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e17",
+     "kind": "text",
+     "node": "a.on",
+     "path": "div.rg[4]>a.on[5]",
+     "text": "1d",
+     "rect": {
+      "x": 240.86,
+      "y": 361.84,
+      "w": 15,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12.5,
+      "weight": 700,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e18",
+     "kind": "text",
+     "node": "a",
+     "path": "div.rg[4]>a[6]",
+     "text": "7d",
+     "rect": {
+      "x": 281.42,
+      "y": 361.84,
+      "w": 15,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12.5,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e19",
+     "kind": "text",
+     "node": "a",
+     "path": "div.rg[4]>a[7]",
+     "text": "1m",
+     "rect": {
+      "x": 322,
+      "y": 361.84,
+      "w": 15,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12.5,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e20",
+     "kind": "text",
+     "node": "div.cap",
+     "path": "div.act[5]>div.cap[0]",
+     "text": "Send ETH",
+     "rect": {
+      "x": 91.77,
+      "y": 418.34,
+      "w": 83.67,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15.5,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      251,
+      246,
+      236,
+      1
+     ]
+    },
+    {
+     "id": "e21",
+     "kind": "box",
+     "node": "div.cap",
+     "path": "div.act[5]>div.cap[0]",
+     "rect": {
+      "x": 35.77,
+      "y": 400.84,
+      "w": 169.67,
+      "h": 52
+     },
+     "fill": [
+      43,
+      37,
+      48,
+      1
+     ],
+     "border": null,
+     "radius": "26px",
+     "shadow": null
+    },
+    {
+     "id": "e22",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.act[5]>div.cap[0]>svg.i[0]",
+     "rect": {
+      "x": 65.77,
+      "y": 417.84,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e23",
+     "kind": "text",
+     "node": "div.ta",
+     "path": "div.act[5]>div.ta[1]",
+     "text": "Receive",
+     "rect": {
+      "x": 253.44,
+      "y": 418.34,
+      "w": 64.78,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e24",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.act[5]>div.ta[1]>svg.i[0]",
+     "rect": {
+      "x": 229.44,
+      "y": 417.84,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e25",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sec[6]>span.e[0]",
+     "text": "YOUR ETH",
+     "rect": {
+      "x": 20,
+      "y": 477.84,
+      "w": 60.28,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e26",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[7]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 507.84,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e27",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[7]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 515.34,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e28",
+     "kind": "text",
+     "node": "b.n",
+     "path": "div.row[7]>div.m[1]>b.n[0]",
+     "text": "22.23 ETH",
+     "rect": {
+      "x": 68,
+      "y": 507.34,
+      "w": 78.31,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\"",
+      "size": 15,
+      "weight": 500,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": -0.3
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e29",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[7]>div.m[1]>span[1]",
+     "text": "5 accounts · 3 chains",
+     "rect": {
+      "x": 68,
+      "y": 528.34,
+      "w": 108.63,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e30",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[7]>div.m[1]>span[1]>span.chain-dots[0]>svg[0]",
+     "rect": {
+      "x": 178.63,
+      "y": 527.34,
+      "w": 15,
+      "h": 15
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": "rgb(251, 246, 236) 0px 0px 0px 1.5px"
+    },
+    {
+     "id": "e31",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[7]>div.m[1]>span[1]>span.chain-dots[0]>svg[1]",
+     "rect": {
+      "x": 189.63,
+      "y": 527.34,
+      "w": 15,
+      "h": 15
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": "rgb(251, 246, 236) 0px 0px 0px 1.5px"
+    },
+    {
+     "id": "e32",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[7]>div.m[1]>span[1]>span.chain-dots[0]>svg[2]",
+     "rect": {
+      "x": 200.63,
+      "y": 527.34,
+      "w": 15,
+      "h": 15
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": "rgb(251, 246, 236) 0px 0px 0px 1.5px"
+    },
+    {
+     "id": "e33",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[7]>div.v[2]>b[0]",
+     "text": "$95,271.11",
+     "rect": {
+      "x": 230.8,
+      "y": 516.84,
+      "w": 81.2,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e34",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.row[7]>svg.i.chev[3]",
+     "rect": {
+      "x": 324,
+      "y": 517.84,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e35",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sec[8]>span.e[0]",
+     "text": "ACTIVITY",
+     "rect": {
+      "x": 20,
+      "y": 579.34,
+      "w": 54.56,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e36",
+     "kind": "text",
+     "node": "span.ta",
+     "path": "div.sec[8]>span.ta[1]",
+     "text": "All",
+     "rect": {
+      "x": 322.36,
+      "y": 577.84,
+      "w": 17.64,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e37",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[9]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 612.84,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e38",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.row[9]>div.lg[0]>svg.i[0]",
+     "rect": {
+      "x": 29,
+      "y": 621.84,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e39",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[9]>div.m[1]>b[0]",
+     "text": "Received",
+     "rect": {
+      "x": 68,
+      "y": 614.34,
+      "w": 74.81,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e40",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[9]>div.m[1]>span[1]",
+     "text": "From Exchange Deposit · Base · 2 h",
+     "rect": {
+      "x": 68,
+      "y": 633.34,
+      "w": 184.14,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e41",
+     "kind": "text",
+     "node": "b.up",
+     "path": "div.row[9]>div.v[2]>b.up[0]",
+     "text": "+1.00 ETH",
+     "rect": {
+      "x": 266.91,
+      "y": 613.34,
+      "w": 73.09,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      42,
+      86,
+      168,
+      1
+     ]
+    },
+    {
+     "id": "e42",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[9]>div.v[2]>span[1]",
+     "text": "$4,285.70",
+     "rect": {
+      "x": 277.36,
+      "y": 632.34,
+      "w": 62.64,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    }
+   ]
+  }
+ },
+ "width": 360,
+ "height": 740
+}

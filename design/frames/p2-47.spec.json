@@ -1,0 +1,610 @@
+{
+ "id": "p2-47",
+ "title": "Remove Wallet J6 · dialog · dark",
+ "inkThreshold": 12,
+ "bandGap": 1,
+ "themes": {
+  "dark": {
+   "png": "p2-47-dark.png",
+   "bg": [
+    21,
+    19,
+    23
+   ],
+   "bands": [
+    [
+     18,
+     35
+    ],
+    [
+     65,
+     102
+    ],
+    [
+     137,
+     148
+    ],
+    [
+     177,
+     191
+    ],
+    [
+     217,
+     228
+    ],
+    [
+     248,
+     264
+    ],
+    [
+     273,
+     289
+    ],
+    [
+     306,
+     321
+    ],
+    [
+     328,
+     343
+    ],
+    [
+     377,
+     430
+    ],
+    [
+     445,
+     458
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[0]>svg.i[0]",
+     "rect": {
+      "x": 19,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "Air 1",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 42.27,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e2",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e3",
+     "kind": "box",
+     "node": "div.av",
+     "path": "div.px[2]>div.av[0]",
+     "rect": {
+      "x": 20,
+      "y": 54,
+      "w": 56,
+      "h": 56
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "16px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.px[2]>div.av[0]>svg[0]",
+     "rect": {
+      "x": 26,
+      "y": 60,
+      "w": 44,
+      "h": 44
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e5",
+     "kind": "text",
+     "node": "div.h2",
+     "path": "div.px[2]>div[1]>div.h2[0]",
+     "text": "Air 1",
+     "rect": {
+      "x": 90,
+      "y": 61.5,
+      "w": 46.47,
+      "h": 22
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 20,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 25,
+      "letterSpacing": -0.4
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "div.s",
+     "path": "div.px[2]>div[1]>div.s[1]",
+     "text": "Named on Lensly · can't be edited here",
+     "rect": {
+      "x": 90,
+      "y": 87.5,
+      "w": 206.72,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "box",
+     "node": "div",
+     "path": "div.kv[3]>div[0]",
+     "rect": {
+      "x": 20,
+      "y": 124,
+      "w": 320,
+      "h": 40
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       245,
+       239,
+       228,
+       1
+      ]
+     },
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e8",
+     "kind": "text",
+     "node": "span",
+     "path": "div.kv[3]>div[0]>span[0]",
+     "text": "Paired",
+     "rect": {
+      "x": 20,
+      "y": 136,
+      "w": 37.48,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 14,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "b.t",
+     "path": "div.kv[3]>div[0]>b.t[1]",
+     "text": "21 Nov 2026",
+     "rect": {
+      "x": 246.36,
+      "y": 136,
+      "w": 93.64,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo",
+      "size": 14,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "box",
+     "node": "div",
+     "path": "div.kv[3]>div[1]",
+     "rect": {
+      "x": 20,
+      "y": 164,
+      "w": 320,
+      "h": 40
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       245,
+       239,
+       228,
+       1
+      ]
+     },
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e11",
+     "kind": "text",
+     "node": "span",
+     "path": "div.kv[3]>div[1]>span[0]",
+     "text": "Accounts",
+     "rect": {
+      "x": 20,
+      "y": 176,
+      "w": 55,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 14,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e12",
+     "kind": "text",
+     "node": "b.t",
+     "path": "div.kv[3]>div[1]>b.t[1]",
+     "text": "30 in 4 Lensly apps",
+     "rect": {
+      "x": 198.97,
+      "y": 176,
+      "w": 141.03,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo",
+      "size": 14,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e13",
+     "kind": "text",
+     "node": "span",
+     "path": "div.kv[3]>div[2]>span[0]",
+     "text": "Address Book",
+     "rect": {
+      "x": 20,
+      "y": 216,
+      "w": 81.53,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 14,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e14",
+     "kind": "text",
+     "node": "b.t",
+     "path": "div.kv[3]>div[2]>b.t[1]",
+     "text": "14 entries",
+     "rect": {
+      "x": 266.92,
+      "y": 216,
+      "w": 73.08,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo",
+      "size": 14,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e15",
+     "kind": "box",
+     "node": "div.scr",
+     "path": "div.scr[4]",
+     "rect": {
+      "x": 0,
+      "y": -40,
+      "w": 360,
+      "h": 780
+     },
+     "fill": [
+      5,
+      4,
+      6,
+      0.58
+     ],
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "box",
+     "node": "div.dlg",
+     "path": "div.dlg[5]",
+     "rect": {
+      "x": 22,
+      "y": 219.5,
+      "w": 316,
+      "h": 261
+     },
+     "fill": [
+      31,
+      28,
+      34,
+      1
+     ],
+     "border": null,
+     "radius": "28px",
+     "shadow": null
+    },
+    {
+     "id": "e17",
+     "kind": "text",
+     "node": "div.h2",
+     "path": "div.dlg[5]>div.h2[0]",
+     "text": "Remove Air 1 from Lumio?",
+     "rect": {
+      "x": 44,
+      "y": 244.5,
+      "w": 193.28,
+      "h": 47
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 20,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 25,
+      "letterSpacing": -0.4
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e18",
+     "kind": "text",
+     "node": "p.b",
+     "path": "div.dlg[5]>p.b[1]",
+     "text": "Lensly and your keys are not affected. You can pair Air 1 again at any time.",
+     "rect": {
+      "x": 44,
+      "y": 304.5,
+      "w": 256.47,
+      "h": 38
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 22,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e19",
+     "kind": "text",
+     "node": "div.cap.w",
+     "path": "div.dlg[5]>div.cap.w[2]",
+     "text": "Remove Air 1",
+     "rect": {
+      "x": 125.23,
+      "y": 395,
+      "w": 109.53,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15.5,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e20",
+     "kind": "box",
+     "node": "div.cap.w",
+     "path": "div.dlg[5]>div.cap.w[2]",
+     "rect": {
+      "x": 44,
+      "y": 377.5,
+      "w": 272,
+      "h": 52
+     },
+     "fill": [
+      255,
+      138,
+      128,
+      1
+     ],
+     "border": null,
+     "radius": "26px",
+     "shadow": null
+    },
+    {
+     "id": "e21",
+     "kind": "text",
+     "node": "span.ta",
+     "path": "div.dlg[5]>span.ta[3]",
+     "text": "Cancel",
+     "rect": {
+      "x": 151.94,
+      "y": 443.5,
+      "w": 56.13,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    }
+   ]
+  }
+ },
+ "width": 360,
+ "height": 740
+}

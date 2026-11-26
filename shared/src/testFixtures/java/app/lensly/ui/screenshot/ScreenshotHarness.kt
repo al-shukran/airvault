@@ -38,8 +38,10 @@ private const val SCREENSHOT_CHANGE_THRESHOLD = 0.0005f
 /** The owner's phone: 720 x 1600 px at 280 dpi, which is density 1.75. */
 private const val SCREEN_WIDTH_PX = 720f
 private const val SCREEN_HEIGHT_PX = 1600f
-private const val SCREEN_DENSITY = 1.75f
-private const val SCREEN_TAG = "lensly-screenshot-screen"
+const val SCREEN_DENSITY = 1.75f
+
+/** The tag of the frame, so a check can read its pixels and its semantics tree. */
+const val SCREEN_TAG = "lensly-screenshot-screen"
 
 /**
  * Renders [content] in [theme], which is the Lumen theme unless a screen names another, such as [coverTheme] for the camera cover and the gate, at 720 x 1600 px and 280 dpi, then records it
@@ -56,12 +58,13 @@ fun ComposeContentTestRule.snapshot(
     theme: @Composable (content: @Composable () -> Unit) -> Unit = { LumenTheme(content = it) },
     frame: DpSize? = null,
     fontScale: Float = 1f,
+    density: Float = SCREEN_DENSITY,
     content: @Composable () -> Unit,
 ) {
     val size = frame ?: DpSize((SCREEN_WIDTH_PX / SCREEN_DENSITY).dp, (SCREEN_HEIGHT_PX / SCREEN_DENSITY).dp)
     mainClock.autoAdvance = false
     setContent {
-        CompositionLocalProvider(LocalDensity provides Density(SCREEN_DENSITY, fontScale)) {
+        CompositionLocalProvider(LocalDensity provides Density(density, fontScale)) {
             theme {
                 Box(
                     modifier = Modifier

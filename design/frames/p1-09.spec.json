@@ -1,0 +1,1616 @@
+{
+ "id": "p1-09",
+ "title": "Small Phone, Long Names 360×640 · plain page",
+ "inkThreshold": 12,
+ "bandGap": 1,
+ "themes": {
+  "dark": {
+   "png": "p1-09-dark.png",
+   "bg": [
+    21,
+    19,
+    23
+   ],
+   "bands": [
+    [
+     13,
+     54
+    ],
+    [
+     61,
+     74
+    ],
+    [
+     79,
+     92
+    ],
+    [
+     111,
+     119
+    ],
+    [
+     134,
+     161
+    ],
+    [
+     168,
+     183
+    ],
+    [
+     199,
+     243
+    ],
+    [
+     268,
+     283
+    ],
+    [
+     295,
+     297
+    ],
+    [
+     310,
+     346
+    ],
+    [
+     359,
+     360
+    ],
+    [
+     372,
+     408
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[0]>svg.i[0]",
+     "rect": {
+      "x": 19,
+      "y": 11,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "FeichangMustang Treasury Reserve",
+     "rect": {
+      "x": 58,
+      "y": 11,
+      "w": 172.19,
+      "h": 43
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 23,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e2",
+     "kind": "text",
+     "node": "span.idx",
+     "path": "div.tb[1]>div.t[1]>span.idx[0]",
+     "text": "#14",
+     "rect": {
+      "x": 288.11,
+      "y": 25.5,
+      "w": 19.89,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\"",
+      "size": 11.5,
+      "weight": 500,
+      "stretch": "114%",
+      "lineHeight": 23,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e3",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 11,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "text",
+     "node": "div.s",
+     "path": "div.px[2]>div.s[0]",
+     "text": "Treasury · Group Operations · Family Savings — Cold Storage Vault 2026",
+     "rect": {
+      "x": 20,
+      "y": 60,
+      "w": 284.77,
+      "h": 32
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e5",
+     "kind": "text",
+     "node": "div.e",
+     "path": "div.px[3]>div.e[0]",
+     "text": "TOTAL",
+     "rect": {
+      "x": 20,
+      "y": 109,
+      "w": 37.34,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "div.nt",
+     "path": "div.px[3]>div.nt[1]",
+     "text": "12,480,355",
+     "rect": {
+      "x": 29.08,
+      "y": 127,
+      "w": 156.81,
+      "h": 37
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 28,
+      "weight": 300,
+      "stretch": "92%",
+      "lineHeight": 34,
+      "letterSpacing": -1.12
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "text",
+     "node": "span.c",
+     "path": "div.px[3]>div.nt[1]>span.c[0]",
+     "text": "$",
+     "rect": {
+      "x": 20,
+      "y": 133,
+      "w": 7.08,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, sans-serif",
+      "size": 15,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 34,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e8",
+     "kind": "text",
+     "node": "span.f",
+     "path": "div.px[3]>div.nt[1]>span.f[1]",
+     "text": ".92",
+     "rect": {
+      "x": 185.89,
+      "y": 127,
+      "w": 47.05,
+      "h": 37
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 28,
+      "weight": 300,
+      "stretch": "92%",
+      "lineHeight": 34,
+      "letterSpacing": -1.12
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "div.dlt.up",
+     "path": "div.px[3]>div.dlt.up[2]",
+     "text": "▲ 0.42% · +$52,193.40 Today",
+     "rect": {
+      "x": 20,
+      "y": 167,
+      "w": 203.59,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 13,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": -0.26
+     },
+     "color": [
+      141,
+      187,
+      255,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "text",
+     "node": "div.cap.sm",
+     "path": "div.act[4]>div.cap.sm[0]",
+     "text": "Send",
+     "rect": {
+      "x": 68,
+      "y": 212,
+      "w": 41.41,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e11",
+     "kind": "box",
+     "node": "div.cap.sm",
+     "path": "div.act[4]>div.cap.sm[0]",
+     "rect": {
+      "x": 20,
+      "y": 198.5,
+      "w": 111.41,
+      "h": 44
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      1
+     ],
+     "border": null,
+     "radius": "22px",
+     "shadow": null
+    },
+    {
+     "id": "e12",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.act[4]>div.cap.sm[0]>svg.i[0]",
+     "rect": {
+      "x": 42,
+      "y": 211.5,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e13",
+     "kind": "text",
+     "node": "div.ta",
+     "path": "div.act[4]>div.ta[1]",
+     "text": "Receive",
+     "rect": {
+      "x": 179.41,
+      "y": 212,
+      "w": 64.78,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e14",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.act[4]>div.ta[1]>svg.i[0]",
+     "rect": {
+      "x": 155.41,
+      "y": 211.5,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e15",
+     "kind": "box",
+     "node": "div.tt",
+     "path": "div.tt[5]",
+     "rect": {
+      "x": 0,
+      "y": 253,
+      "w": 360,
+      "h": 44
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       245,
+       239,
+       228,
+       1
+      ]
+     },
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "text",
+     "node": "a.on",
+     "path": "div.tt[5]>a.on[0]",
+     "text": "Assets",
+     "rect": {
+      "x": 20,
+      "y": 267,
+      "w": 55.56,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e17",
+     "kind": "text",
+     "node": "a",
+     "path": "div.tt[5]>a[1]",
+     "text": "Activity",
+     "rect": {
+      "x": 99.56,
+      "y": 267,
+      "w": 59.69,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e18",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[6]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 310,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e19",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[6]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 317.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e20",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[6]>div.m[1]>b[0]",
+     "text": "Bitcoin",
+     "rect": {
+      "x": 68,
+      "y": 311.5,
+      "w": 55.84,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e21",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[6]>div.m[1]>span[1]",
+     "text": "112.4 BTC",
+     "rect": {
+      "x": 68,
+      "y": 330.5,
+      "w": 54.14,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e22",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[6]>div.v[2]>b[0]",
+     "text": "$12,186,447.34",
+     "rect": {
+      "x": 226.31,
+      "y": 310.5,
+      "w": 113.69,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e23",
+     "kind": "text",
+     "node": "span.up",
+     "path": "div.row[6]>div.v[2]>span.up[1]",
+     "text": "▲ 1.82%",
+     "rect": {
+      "x": 291.27,
+      "y": 329.5,
+      "w": 48.73,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e24",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[7]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 372,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e25",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[7]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 379.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e26",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[7]>div.m[1]>b[0]",
+     "text": "Ethereum",
+     "rect": {
+      "x": 68,
+      "y": 373.5,
+      "w": 78.2,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e27",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[7]>div.m[1]>span[1]",
+     "text": "68.58 ETH",
+     "rect": {
+      "x": 68,
+      "y": 392.5,
+      "w": 55.78,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e28",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[7]>div.v[2]>b[0]",
+     "text": "$293,908.58",
+     "rect": {
+      "x": 250.67,
+      "y": 372.5,
+      "w": 89.33,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e29",
+     "kind": "text",
+     "node": "span.dn",
+     "path": "div.row[7]>div.v[2]>span.dn[1]",
+     "text": "▼ 2.41%",
+     "rect": {
+      "x": 291.27,
+      "y": 391.5,
+      "w": 48.73,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    }
+   ]
+  },
+  "light": {
+   "png": "p1-09-light.png",
+   "bg": [
+    251,
+    246,
+    236
+   ],
+   "bands": [
+    [
+     13,
+     54
+    ],
+    [
+     61,
+     74
+    ],
+    [
+     79,
+     92
+    ],
+    [
+     111,
+     119
+    ],
+    [
+     134,
+     161
+    ],
+    [
+     168,
+     183
+    ],
+    [
+     199,
+     243
+    ],
+    [
+     268,
+     283
+    ],
+    [
+     295,
+     297
+    ],
+    [
+     312,
+     343
+    ],
+    [
+     359,
+     360
+    ],
+    [
+     374,
+     405
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[0]>svg.i[0]",
+     "rect": {
+      "x": 19,
+      "y": 11,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "FeichangMustang Treasury Reserve",
+     "rect": {
+      "x": 58,
+      "y": 11,
+      "w": 172.19,
+      "h": 43
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 23,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e2",
+     "kind": "text",
+     "node": "span.idx",
+     "path": "div.tb[1]>div.t[1]>span.idx[0]",
+     "text": "#14",
+     "rect": {
+      "x": 288.11,
+      "y": 25.5,
+      "w": 19.89,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\"",
+      "size": 11.5,
+      "weight": 500,
+      "stretch": "114%",
+      "lineHeight": 23,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e3",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 11,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "text",
+     "node": "div.s",
+     "path": "div.px[2]>div.s[0]",
+     "text": "Treasury · Group Operations · Family Savings — Cold Storage Vault 2026",
+     "rect": {
+      "x": 20,
+      "y": 60,
+      "w": 284.77,
+      "h": 32
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e5",
+     "kind": "text",
+     "node": "div.e",
+     "path": "div.px[3]>div.e[0]",
+     "text": "TOTAL",
+     "rect": {
+      "x": 20,
+      "y": 109,
+      "w": 37.34,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "div.nt",
+     "path": "div.px[3]>div.nt[1]",
+     "text": "12,480,355",
+     "rect": {
+      "x": 29.08,
+      "y": 127,
+      "w": 156.81,
+      "h": 37
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 28,
+      "weight": 300,
+      "stretch": "92%",
+      "lineHeight": 34,
+      "letterSpacing": -1.12
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "text",
+     "node": "span.c",
+     "path": "div.px[3]>div.nt[1]>span.c[0]",
+     "text": "$",
+     "rect": {
+      "x": 20,
+      "y": 133,
+      "w": 7.08,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, sans-serif",
+      "size": 15,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 34,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e8",
+     "kind": "text",
+     "node": "span.f",
+     "path": "div.px[3]>div.nt[1]>span.f[1]",
+     "text": ".92",
+     "rect": {
+      "x": 185.89,
+      "y": 127,
+      "w": 47.05,
+      "h": 37
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 28,
+      "weight": 300,
+      "stretch": "92%",
+      "lineHeight": 34,
+      "letterSpacing": -1.12
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "div.dlt.up",
+     "path": "div.px[3]>div.dlt.up[2]",
+     "text": "▲ 0.42% · +$52,193.40 Today",
+     "rect": {
+      "x": 20,
+      "y": 167,
+      "w": 203.59,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 13,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": -0.26
+     },
+     "color": [
+      42,
+      86,
+      168,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "text",
+     "node": "div.cap.sm",
+     "path": "div.act[4]>div.cap.sm[0]",
+     "text": "Send",
+     "rect": {
+      "x": 68,
+      "y": 212,
+      "w": 41.41,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      251,
+      246,
+      236,
+      1
+     ]
+    },
+    {
+     "id": "e11",
+     "kind": "box",
+     "node": "div.cap.sm",
+     "path": "div.act[4]>div.cap.sm[0]",
+     "rect": {
+      "x": 20,
+      "y": 198.5,
+      "w": 111.41,
+      "h": 44
+     },
+     "fill": [
+      43,
+      37,
+      48,
+      1
+     ],
+     "border": null,
+     "radius": "22px",
+     "shadow": null
+    },
+    {
+     "id": "e12",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.act[4]>div.cap.sm[0]>svg.i[0]",
+     "rect": {
+      "x": 42,
+      "y": 211.5,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e13",
+     "kind": "text",
+     "node": "div.ta",
+     "path": "div.act[4]>div.ta[1]",
+     "text": "Receive",
+     "rect": {
+      "x": 179.41,
+      "y": 212,
+      "w": 64.78,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e14",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.act[4]>div.ta[1]>svg.i[0]",
+     "rect": {
+      "x": 155.41,
+      "y": 211.5,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e15",
+     "kind": "box",
+     "node": "div.tt",
+     "path": "div.tt[5]",
+     "rect": {
+      "x": 0,
+      "y": 253,
+      "w": 360,
+      "h": 44
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       43,
+       37,
+       48,
+       1
+      ]
+     },
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "text",
+     "node": "a.on",
+     "path": "div.tt[5]>a.on[0]",
+     "text": "Assets",
+     "rect": {
+      "x": 20,
+      "y": 267,
+      "w": 55.56,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e17",
+     "kind": "text",
+     "node": "a",
+     "path": "div.tt[5]>a[1]",
+     "text": "Activity",
+     "rect": {
+      "x": 99.56,
+      "y": 267,
+      "w": 59.69,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e18",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[6]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 310,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e19",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[6]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 317.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e20",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[6]>div.m[1]>b[0]",
+     "text": "Bitcoin",
+     "rect": {
+      "x": 68,
+      "y": 311.5,
+      "w": 55.84,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e21",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[6]>div.m[1]>span[1]",
+     "text": "112.4 BTC",
+     "rect": {
+      "x": 68,
+      "y": 330.5,
+      "w": 54.14,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e22",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[6]>div.v[2]>b[0]",
+     "text": "$12,186,447.34",
+     "rect": {
+      "x": 226.31,
+      "y": 310.5,
+      "w": 113.69,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e23",
+     "kind": "text",
+     "node": "span.up",
+     "path": "div.row[6]>div.v[2]>span.up[1]",
+     "text": "▲ 1.82%",
+     "rect": {
+      "x": 291.27,
+      "y": 329.5,
+      "w": 48.73,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e24",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[7]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 372,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e25",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[7]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 379.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e26",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[7]>div.m[1]>b[0]",
+     "text": "Ethereum",
+     "rect": {
+      "x": 68,
+      "y": 373.5,
+      "w": 78.2,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e27",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[7]>div.m[1]>span[1]",
+     "text": "68.58 ETH",
+     "rect": {
+      "x": 68,
+      "y": 392.5,
+      "w": 55.78,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e28",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[7]>div.v[2]>b[0]",
+     "text": "$293,908.58",
+     "rect": {
+      "x": 250.67,
+      "y": 372.5,
+      "w": 89.33,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e29",
+     "kind": "text",
+     "node": "span.dn",
+     "path": "div.row[7]>div.v[2]>span.dn[1]",
+     "text": "▼ 2.41%",
+     "rect": {
+      "x": 291.27,
+      "y": 391.5,
+      "w": 48.73,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    }
+   ]
+  }
+ },
+ "width": 360,
+ "height": 600
+}

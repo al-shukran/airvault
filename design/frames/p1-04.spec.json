@@ -1,0 +1,2296 @@
+{
+ "id": "p1-04",
+ "title": "Search bottom → top sheet",
+ "inkThreshold": 12,
+ "bandGap": 1,
+ "themes": {
+  "dark": {
+   "png": "p1-04-dark.png",
+   "bg": [
+    21,
+    19,
+    23
+   ],
+   "bands": [
+    [
+     12,
+     16
+    ],
+    [
+     26,
+     74
+    ],
+    [
+     97,
+     110
+    ],
+    [
+     124,
+     126
+    ],
+    [
+     147,
+     156
+    ],
+    [
+     175,
+     211
+    ],
+    [
+     224,
+     225
+    ],
+    [
+     237,
+     274
+    ],
+    [
+     307,
+     316
+    ],
+    [
+     335,
+     371
+    ],
+    [
+     405,
+     414
+    ],
+    [
+     433,
+     469
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "box",
+     "node": "div.av",
+     "path": "div.tb[1]>div.ib[0]>div.av[0]",
+     "rect": {
+      "x": 12,
+      "y": 8,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "12px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.tb[1]>div.ib[0]>div.av[0]>svg[0]",
+     "rect": {
+      "x": 16,
+      "y": 12,
+      "w": 28,
+      "h": 28
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e2",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "Air 1",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 42.27,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e3",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "box",
+     "node": "div.scr",
+     "path": "div.scr[2]",
+     "rect": {
+      "x": 0,
+      "y": -40,
+      "w": 360,
+      "h": 780
+     },
+     "fill": [
+      5,
+      4,
+      6,
+      0.58
+     ],
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e5",
+     "kind": "box",
+     "node": "div.sh",
+     "path": "div.sh[3]",
+     "rect": {
+      "x": 0,
+      "y": 4,
+      "w": 360,
+      "h": 736
+     },
+     "fill": [
+      31,
+      28,
+      34,
+      1
+     ],
+     "border": null,
+     "radius": "28px",
+     "shadow": null
+    },
+    {
+     "id": "e6",
+     "kind": "box",
+     "node": "div.gr",
+     "path": "div.sh[3]>div.gr[0]",
+     "rect": {
+      "x": 162,
+      "y": 12,
+      "w": 36,
+      "h": 4
+     },
+     "fill": [
+      138,
+      130,
+      141,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e7",
+     "kind": "box",
+     "node": "div.srch",
+     "path": "div.sh[3]>div.srch[1]",
+     "rect": {
+      "x": 16,
+      "y": 26,
+      "w": 328,
+      "h": 48
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "24px",
+     "shadow": null
+    },
+    {
+     "id": "e8",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.sh[3]>div.srch[1]>svg.i[0]",
+     "rect": {
+      "x": 32,
+      "y": 40,
+      "w": 20,
+      "h": 20
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sh[3]>div.srch[1]>span[1]",
+     "text": "usd",
+     "rect": {
+      "x": 62,
+      "y": 42,
+      "w": 22.86,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "box",
+     "node": "span.caret",
+     "path": "div.sh[3]>div.srch[1]>span[1]>span.caret[0]",
+     "rect": {
+      "x": 85.86,
+      "y": 39,
+      "w": 1.5,
+      "h": 20
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e11",
+     "kind": "box",
+     "node": "div.tt",
+     "path": "div.sh[3]>div.tt[2]",
+     "rect": {
+      "x": 0,
+      "y": 82,
+      "w": 360,
+      "h": 44
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       245,
+       239,
+       228,
+       1
+      ]
+     },
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e12",
+     "kind": "text",
+     "node": "a.on",
+     "path": "div.sh[3]>div.tt[2]>a.on[0]",
+     "text": "Main",
+     "rect": {
+      "x": 20,
+      "y": 96,
+      "w": 38.69,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e13",
+     "kind": "text",
+     "node": "a",
+     "path": "div.sh[3]>div.tt[2]>a[1]",
+     "text": "Address Book",
+     "rect": {
+      "x": 82.69,
+      "y": 96,
+      "w": 112.5,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e14",
+     "kind": "text",
+     "node": "span.s",
+     "path": "div.sh[3]>div.tt[2]>span.s[3]",
+     "text": "6 more",
+     "rect": {
+      "x": 285.66,
+      "y": 96.5,
+      "w": 37.34,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e15",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.sh[3]>div.tt[2]>span.s[3]>svg.i[0]",
+     "rect": {
+      "x": 325,
+      "y": 96,
+      "w": 15,
+      "h": 15
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sh[3]>div.sec[3]>span.e[0]",
+     "text": "TOKENS",
+     "rect": {
+      "x": 20,
+      "y": 145,
+      "w": 48.39,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e17",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.sh[3]>div.row[4]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 175,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e18",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.sh[3]>div.row[4]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 182.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e19",
+     "kind": "text",
+     "node": "b",
+     "path": "div.sh[3]>div.row[4]>div.m[1]>b[0]",
+     "text": "USD Coin",
+     "rect": {
+      "x": 68,
+      "y": 176.5,
+      "w": 77.72,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e20",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sh[3]>div.row[4]>div.m[1]>span[1]",
+     "text": "USDC · on 9 chains",
+     "rect": {
+      "x": 68,
+      "y": 195.5,
+      "w": 100.69,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e21",
+     "kind": "text",
+     "node": "b",
+     "path": "div.sh[3]>div.row[4]>div.v[2]>b[0]",
+     "text": "$1.0000",
+     "rect": {
+      "x": 283.16,
+      "y": 175.5,
+      "w": 56.84,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e22",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sh[3]>div.row[4]>div.v[2]>span[1]",
+     "text": "0.00%",
+     "rect": {
+      "x": 305.19,
+      "y": 194.5,
+      "w": 34.81,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e23",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.sh[3]>div.row[5]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 237,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e24",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.sh[3]>div.row[5]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 244.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e25",
+     "kind": "box",
+     "node": "span.cb",
+     "path": "div.sh[3]>div.row[5]>div.lg[0]>span.cb[1]",
+     "rect": {
+      "x": 42,
+      "y": 259,
+      "w": 18,
+      "h": 18
+     },
+     "fill": [
+      31,
+      28,
+      34,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e26",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.sh[3]>div.row[5]>div.lg[0]>span.cb[1]>svg[0]",
+     "rect": {
+      "x": 44.5,
+      "y": 261.5,
+      "w": 13,
+      "h": 13
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e27",
+     "kind": "text",
+     "node": "b",
+     "path": "div.sh[3]>div.row[5]>div.m[1]>b[0]",
+     "text": "USDC.e",
+     "rect": {
+      "x": 68,
+      "y": 238.5,
+      "w": 64.17,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e28",
+     "kind": "text",
+     "node": "span.tg",
+     "path": "div.sh[3]>div.row[5]>div.m[1]>b[0]>span.tg[0]",
+     "text": "Bridged",
+     "rect": {
+      "x": 144.17,
+      "y": 241.5,
+      "w": 46.56,
+      "h": 11
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 10.5,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 16,
+      "letterSpacing": 0.42
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e29",
+     "kind": "box",
+     "node": "span.tg",
+     "path": "div.sh[3]>div.row[5]>div.m[1]>b[0]>span.tg[0]",
+     "rect": {
+      "x": 138.17,
+      "y": 238.5,
+      "w": 58.56,
+      "h": 18
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       138,
+       130,
+       141,
+       1
+      ]
+     },
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e30",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sh[3]>div.row[5]>div.m[1]>span[1]",
+     "text": "Avalanche · not merged with USDC",
+     "rect": {
+      "x": 68,
+      "y": 257.5,
+      "w": 181.08,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e31",
+     "kind": "text",
+     "node": "b",
+     "path": "div.sh[3]>div.row[5]>div.v[2]>b[0]",
+     "text": "$0.9998",
+     "rect": {
+      "x": 283.16,
+      "y": 237.5,
+      "w": 56.84,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e32",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sh[3]>div.row[5]>div.v[2]>span[1]",
+     "text": "0.01%",
+     "rect": {
+      "x": 305.19,
+      "y": 256.5,
+      "w": 34.81,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e33",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sh[3]>div.sec[6]>span.e[0]",
+     "text": "YOUR ACCOUNTS",
+     "rect": {
+      "x": 20,
+      "y": 305,
+      "w": 102.52,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e34",
+     "kind": "text",
+     "node": "div.mono-d",
+     "path": "div.sh[3]>div.row[7]>div.mono-d[0]",
+     "text": "PN",
+     "rect": {
+      "x": 27.39,
+      "y": 345.5,
+      "w": 21.22,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0.25
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e35",
+     "kind": "box",
+     "node": "div.mono-d",
+     "path": "div.sh[3]>div.row[7]>div.mono-d[0]",
+     "rect": {
+      "x": 20,
+      "y": 335,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e36",
+     "kind": "text",
+     "node": "b",
+     "path": "div.sh[3]>div.row[7]>div.m[1]>b[0]",
+     "text": "PulsarNova",
+     "rect": {
+      "x": 68,
+      "y": 336,
+      "w": 92.53,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e37",
+     "kind": "text",
+     "node": "span.idx",
+     "path": "div.sh[3]>div.row[7]>div.m[1]>b[0]>span.idx[0]",
+     "text": "#5",
+     "rect": {
+      "x": 164.53,
+      "y": 337,
+      "w": 13.81,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\"",
+      "size": 11.5,
+      "weight": 500,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e38",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sh[3]>div.row[7]>div.m[1]>span[1]",
+     "text": "Holds 20,100 USDC · Air 1",
+     "rect": {
+      "x": 68,
+      "y": 356,
+      "w": 135.61,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e39",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.sh[3]>div.row[7]>svg.i.chev[2]",
+     "rect": {
+      "x": 324,
+      "y": 345,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e40",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sh[3]>div.sec[8]>span.e[0]",
+     "text": "CHAINS",
+     "rect": {
+      "x": 20,
+      "y": 403,
+      "w": 45.36,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e41",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.sh[3]>div.row[9]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 433,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e42",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.sh[3]>div.row[9]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 440.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e43",
+     "kind": "text",
+     "node": "b",
+     "path": "div.sh[3]>div.row[9]>div.m[1]>b[0]",
+     "text": "Base",
+     "rect": {
+      "x": 68,
+      "y": 434.5,
+      "w": 41.19,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e44",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sh[3]>div.row[9]>div.m[1]>span[1]",
+     "text": "L2 · Ethereum · USDC native",
+     "rect": {
+      "x": 68,
+      "y": 453.5,
+      "w": 148.05,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e45",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.sh[3]>div.row[9]>svg.i.chev[2]",
+     "rect": {
+      "x": 324,
+      "y": 443,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    }
+   ]
+  },
+  "light": {
+   "png": "p1-04-light.png",
+   "bg": [
+    251,
+    246,
+    236
+   ],
+   "bands": [
+    [
+     0,
+     30
+    ],
+    [
+     39,
+     59
+    ],
+    [
+     97,
+     110
+    ],
+    [
+     124,
+     126
+    ],
+    [
+     147,
+     155
+    ],
+    [
+     177,
+     208
+    ],
+    [
+     224,
+     225
+    ],
+    [
+     239,
+     274
+    ],
+    [
+     307,
+     315
+    ],
+    [
+     337,
+     369
+    ],
+    [
+     405,
+     413
+    ],
+    [
+     437,
+     466
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "box",
+     "node": "div.av",
+     "path": "div.tb[1]>div.ib[0]>div.av[0]",
+     "rect": {
+      "x": 12,
+      "y": 8,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "12px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.tb[1]>div.ib[0]>div.av[0]>svg[0]",
+     "rect": {
+      "x": 16,
+      "y": 12,
+      "w": 28,
+      "h": 28
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e2",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "Air 1",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 42.27,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e3",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "box",
+     "node": "div.scr",
+     "path": "div.scr[2]",
+     "rect": {
+      "x": 0,
+      "y": -40,
+      "w": 360,
+      "h": 780
+     },
+     "fill": [
+      43,
+      37,
+      48,
+      0.34
+     ],
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e5",
+     "kind": "box",
+     "node": "div.sh",
+     "path": "div.sh[3]",
+     "rect": {
+      "x": 0,
+      "y": 4,
+      "w": 360,
+      "h": 736
+     },
+     "fill": [
+      255,
+      253,
+      248,
+      1
+     ],
+     "border": null,
+     "radius": "28px",
+     "shadow": "rgba(43, 37, 48, 0.1) 0px -10px 30px 0px"
+    },
+    {
+     "id": "e6",
+     "kind": "box",
+     "node": "div.gr",
+     "path": "div.sh[3]>div.gr[0]",
+     "rect": {
+      "x": 162,
+      "y": 12,
+      "w": 36,
+      "h": 4
+     },
+     "fill": [
+      142,
+      134,
+      146,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e7",
+     "kind": "box",
+     "node": "div.srch",
+     "path": "div.sh[3]>div.srch[1]",
+     "rect": {
+      "x": 16,
+      "y": 26,
+      "w": 328,
+      "h": 48
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "24px",
+     "shadow": null
+    },
+    {
+     "id": "e8",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.sh[3]>div.srch[1]>svg.i[0]",
+     "rect": {
+      "x": 32,
+      "y": 40,
+      "w": 20,
+      "h": 20
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sh[3]>div.srch[1]>span[1]",
+     "text": "usd",
+     "rect": {
+      "x": 62,
+      "y": 42,
+      "w": 22.86,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "box",
+     "node": "span.caret",
+     "path": "div.sh[3]>div.srch[1]>span[1]>span.caret[0]",
+     "rect": {
+      "x": 85.86,
+      "y": 39,
+      "w": 1.5,
+      "h": 20
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e11",
+     "kind": "box",
+     "node": "div.tt",
+     "path": "div.sh[3]>div.tt[2]",
+     "rect": {
+      "x": 0,
+      "y": 82,
+      "w": 360,
+      "h": 44
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       43,
+       37,
+       48,
+       1
+      ]
+     },
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e12",
+     "kind": "text",
+     "node": "a.on",
+     "path": "div.sh[3]>div.tt[2]>a.on[0]",
+     "text": "Main",
+     "rect": {
+      "x": 20,
+      "y": 96,
+      "w": 38.69,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e13",
+     "kind": "text",
+     "node": "a",
+     "path": "div.sh[3]>div.tt[2]>a[1]",
+     "text": "Address Book",
+     "rect": {
+      "x": 82.69,
+      "y": 96,
+      "w": 112.5,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e14",
+     "kind": "text",
+     "node": "span.s",
+     "path": "div.sh[3]>div.tt[2]>span.s[3]",
+     "text": "6 more",
+     "rect": {
+      "x": 285.66,
+      "y": 96.5,
+      "w": 37.34,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e15",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.sh[3]>div.tt[2]>span.s[3]>svg.i[0]",
+     "rect": {
+      "x": 325,
+      "y": 96,
+      "w": 15,
+      "h": 15
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sh[3]>div.sec[3]>span.e[0]",
+     "text": "TOKENS",
+     "rect": {
+      "x": 20,
+      "y": 145,
+      "w": 48.39,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e17",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.sh[3]>div.row[4]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 175,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e18",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.sh[3]>div.row[4]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 182.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e19",
+     "kind": "text",
+     "node": "b",
+     "path": "div.sh[3]>div.row[4]>div.m[1]>b[0]",
+     "text": "USD Coin",
+     "rect": {
+      "x": 68,
+      "y": 176.5,
+      "w": 77.72,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e20",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sh[3]>div.row[4]>div.m[1]>span[1]",
+     "text": "USDC · on 9 chains",
+     "rect": {
+      "x": 68,
+      "y": 195.5,
+      "w": 100.69,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e21",
+     "kind": "text",
+     "node": "b",
+     "path": "div.sh[3]>div.row[4]>div.v[2]>b[0]",
+     "text": "$1.0000",
+     "rect": {
+      "x": 283.16,
+      "y": 175.5,
+      "w": 56.84,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e22",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sh[3]>div.row[4]>div.v[2]>span[1]",
+     "text": "0.00%",
+     "rect": {
+      "x": 305.19,
+      "y": 194.5,
+      "w": 34.81,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e23",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.sh[3]>div.row[5]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 237,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e24",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.sh[3]>div.row[5]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 244.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e25",
+     "kind": "box",
+     "node": "span.cb",
+     "path": "div.sh[3]>div.row[5]>div.lg[0]>span.cb[1]",
+     "rect": {
+      "x": 42,
+      "y": 259,
+      "w": 18,
+      "h": 18
+     },
+     "fill": [
+      255,
+      253,
+      248,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e26",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.sh[3]>div.row[5]>div.lg[0]>span.cb[1]>svg[0]",
+     "rect": {
+      "x": 44.5,
+      "y": 261.5,
+      "w": 13,
+      "h": 13
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e27",
+     "kind": "text",
+     "node": "b",
+     "path": "div.sh[3]>div.row[5]>div.m[1]>b[0]",
+     "text": "USDC.e",
+     "rect": {
+      "x": 68,
+      "y": 238.5,
+      "w": 64.17,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e28",
+     "kind": "text",
+     "node": "span.tg",
+     "path": "div.sh[3]>div.row[5]>div.m[1]>b[0]>span.tg[0]",
+     "text": "Bridged",
+     "rect": {
+      "x": 144.17,
+      "y": 241.5,
+      "w": 46.56,
+      "h": 11
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 10.5,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 16,
+      "letterSpacing": 0.42
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e29",
+     "kind": "box",
+     "node": "span.tg",
+     "path": "div.sh[3]>div.row[5]>div.m[1]>b[0]>span.tg[0]",
+     "rect": {
+      "x": 138.17,
+      "y": 238.5,
+      "w": 58.56,
+      "h": 18
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       142,
+       134,
+       146,
+       1
+      ]
+     },
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e30",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sh[3]>div.row[5]>div.m[1]>span[1]",
+     "text": "Avalanche · not merged with USDC",
+     "rect": {
+      "x": 68,
+      "y": 257.5,
+      "w": 181.08,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e31",
+     "kind": "text",
+     "node": "b",
+     "path": "div.sh[3]>div.row[5]>div.v[2]>b[0]",
+     "text": "$0.9998",
+     "rect": {
+      "x": 283.16,
+      "y": 237.5,
+      "w": 56.84,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e32",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sh[3]>div.row[5]>div.v[2]>span[1]",
+     "text": "0.01%",
+     "rect": {
+      "x": 305.19,
+      "y": 256.5,
+      "w": 34.81,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e33",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sh[3]>div.sec[6]>span.e[0]",
+     "text": "YOUR ACCOUNTS",
+     "rect": {
+      "x": 20,
+      "y": 305,
+      "w": 102.52,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e34",
+     "kind": "text",
+     "node": "div.mono-d",
+     "path": "div.sh[3]>div.row[7]>div.mono-d[0]",
+     "text": "PN",
+     "rect": {
+      "x": 27.39,
+      "y": 345.5,
+      "w": 21.22,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0.25
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e35",
+     "kind": "box",
+     "node": "div.mono-d",
+     "path": "div.sh[3]>div.row[7]>div.mono-d[0]",
+     "rect": {
+      "x": 20,
+      "y": 335,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e36",
+     "kind": "text",
+     "node": "b",
+     "path": "div.sh[3]>div.row[7]>div.m[1]>b[0]",
+     "text": "PulsarNova",
+     "rect": {
+      "x": 68,
+      "y": 336,
+      "w": 92.53,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e37",
+     "kind": "text",
+     "node": "span.idx",
+     "path": "div.sh[3]>div.row[7]>div.m[1]>b[0]>span.idx[0]",
+     "text": "#5",
+     "rect": {
+      "x": 164.53,
+      "y": 337,
+      "w": 13.81,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\"",
+      "size": 11.5,
+      "weight": 500,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e38",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sh[3]>div.row[7]>div.m[1]>span[1]",
+     "text": "Holds 20,100 USDC · Air 1",
+     "rect": {
+      "x": 68,
+      "y": 356,
+      "w": 135.61,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e39",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.sh[3]>div.row[7]>svg.i.chev[2]",
+     "rect": {
+      "x": 324,
+      "y": 345,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e40",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sh[3]>div.sec[8]>span.e[0]",
+     "text": "CHAINS",
+     "rect": {
+      "x": 20,
+      "y": 403,
+      "w": 45.36,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e41",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.sh[3]>div.row[9]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 433,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e42",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.sh[3]>div.row[9]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 440.5,
+      "w": 21,
+      "h": 21
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e43",
+     "kind": "text",
+     "node": "b",
+     "path": "div.sh[3]>div.row[9]>div.m[1]>b[0]",
+     "text": "Base",
+     "rect": {
+      "x": 68,
+      "y": 434.5,
+      "w": 41.19,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e44",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sh[3]>div.row[9]>div.m[1]>span[1]",
+     "text": "L2 · Ethereum · USDC native",
+     "rect": {
+      "x": 68,
+      "y": 453.5,
+      "w": 148.05,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e45",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.sh[3]>div.row[9]>svg.i.chev[2]",
+     "rect": {
+      "x": 324,
+      "y": 443,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    }
+   ]
+  }
+ },
+ "width": 360,
+ "height": 740
+}

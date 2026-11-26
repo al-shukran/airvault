@@ -1,0 +1,36 @@
+{
+ "version": 1,
+ "tolerance": {
+  "bandDp": 1,
+  "textPosDp": 1,
+  "textWidthDp": 2,
+  "fontSizeDp": 0.25,
+  "lineHeightDp": 0.5,
+  "letterSpacingDp": 0.15,
+  "textColor": 4,
+  "sample": 8,
+  "cell": 24,
+  "cellDp": 4
+ },
+ "screens": {
+  "home_light": {
+   "frame": "h1-home",
+   "theme": "light",
+   "insetBottom": 0,
+   "test": "app.lumio.ui.screenshot.HomeScreenshotTest"
+  },
+  "home_dark": {
+   "frame": "h1-home",
+   "theme": "dark",
+   "insetBottom": 0,
+   "test": "app.lumio.ui.screenshot.HomeScreenshotTest"
+  },
+  "home_empty_light": {
+   "frame": "h1-empty",
+   "theme": "light",
+   "insetBottom": 0,
+   "test": "app.lumio.ui.screenshot.HomeScreenshotTest"
+  }
+ },
+ "known_violations": {}
+}

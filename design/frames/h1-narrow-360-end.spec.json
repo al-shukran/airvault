@@ -1,0 +1,1306 @@
+{
+ "id": "h1-narrow-360-end",
+ "title": "Home d1 revised, narrow-360-end",
+ "inkThreshold": 12,
+ "bandGap": 1,
+ "themes": {
+  "light": {
+   "png": "h1-narrow-360-end-light.png",
+   "bg": [
+    251,
+    246,
+    236
+   ],
+   "bands": [
+    [
+     17,
+     35
+    ],
+    [
+     55,
+     56
+    ],
+    [
+     67,
+     79
+    ],
+    [
+     86,
+     99
+    ],
+    [
+     106,
+     159
+    ],
+    [
+     166,
+     179
+    ],
+    [
+     186,
+     196
+    ],
+    [
+     208,
+     209
+    ],
+    [
+     220,
+     232
+    ],
+    [
+     239,
+     252
+    ],
+    [
+     258,
+     292
+    ],
+    [
+     299,
+     312
+    ],
+    [
+     319,
+     329
+    ],
+    [
+     341,
+     342
+    ],
+    [
+     352,
+     365
+    ],
+    [
+     372,
+     425
+    ],
+    [
+     432,
+     442
+    ],
+    [
+     454,
+     455
+    ],
+    [
+     465,
+     478
+    ],
+    [
+     485,
+     498
+    ],
+    [
+     505,
+     558
+    ],
+    [
+     565,
+     578
+    ],
+    [
+     585,
+     595
+    ],
+    [
+     607,
+     608
+    ],
+    [
+     620,
+     656
+    ],
+    [
+     686,
+     699
+    ],
+    [
+     704,
+     717
+    ],
+    [
+     722,
+     734
+    ],
+    [
+     769,
+     770
+    ],
+    [
+     772,
+     780
+    ],
+    [
+     785,
+     804
+    ],
+    [
+     811,
+     822
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "box",
+     "node": "div.av",
+     "path": "div.tb[1]>div.ib[0]>div.av[0]",
+     "rect": {
+      "x": 12,
+      "y": 8,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "12px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.tb[1]>div.ib[0]>div.av[0]>svg[0]",
+     "rect": {
+      "x": 16,
+      "y": 12,
+      "w": 28,
+      "h": 28
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e2",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "Air 1",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 42.27,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e3",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.t[1]>svg.i[0]",
+     "rect": {
+      "x": 106.27,
+      "y": 18,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 275,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e5",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[3]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e6",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.scroll[2]>div.row.w[10]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 113.5,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e7",
+     "kind": "icon",
+     "node": "i.lm.L8",
+     "path": "div.scroll[2]>div.row.w[10]>div.lg[0]>i.lm.L8[0]",
+     "rect": {
+      "x": 26,
+      "y": 119.5,
+      "w": 24,
+      "h": 24
+     },
+     "fill": null,
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e8",
+     "kind": "text",
+     "node": "b",
+     "path": "div.scroll[2]>div.row.w[10]>div.m[1]>b[0]",
+     "text": "Invesco Short Duration US Government Securities Fund",
+     "rect": {
+      "x": 68,
+      "y": 65,
+      "w": 99.64,
+      "h": 116
+     },
+     "lines": 6,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "span",
+     "path": "div.scroll[2]>div.row.w[10]>div.m[1]>span[1]",
+     "text": "USTB",
+     "rect": {
+      "x": 68,
+      "y": 184,
+      "w": 31.39,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "icon",
+     "node": "svg.spk.g",
+     "path": "div.scroll[2]>div.row.w[10]>svg.spk.g[2]",
+     "rect": {
+      "x": 184,
+      "y": 120.5,
+      "w": 56,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e11",
+     "kind": "text",
+     "node": "b",
+     "path": "div.scroll[2]>div.row.w[10]>div.v[3]>b[0]",
+     "text": "$11.29",
+     "rect": {
+      "x": 291.27,
+      "y": 114,
+      "w": 48.73,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e12",
+     "kind": "text",
+     "node": "span.chg-g",
+     "path": "div.scroll[2]>div.row.w[10]>div.v[3]>span.chg-g[1]",
+     "text": "▲ 0.01%",
+     "rect": {
+      "x": 291.27,
+      "y": 133,
+      "w": 48.73,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      22,
+      107,
+      53,
+      1
+     ]
+    },
+    {
+     "id": "e13",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.scroll[2]>div.row.w[11]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 256.5,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e14",
+     "kind": "icon",
+     "node": "i.lm.L9",
+     "path": "div.scroll[2]>div.row.w[11]>div.lg[0]>i.lm.L9[0]",
+     "rect": {
+      "x": 22,
+      "y": 258.5,
+      "w": 32,
+      "h": 32
+     },
+     "fill": [
+      255,
+      255,
+      255,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e15",
+     "kind": "text",
+     "node": "b",
+     "path": "div.scroll[2]>div.row.w[11]>div.m[1]>b[0]",
+     "text": "Janus Henderson Anemoy AAA CLO Fund",
+     "rect": {
+      "x": 68,
+      "y": 218,
+      "w": 88.06,
+      "h": 96
+     },
+     "lines": 5,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e16",
+     "kind": "text",
+     "node": "span",
+     "path": "div.scroll[2]>div.row.w[11]>div.m[1]>span[1]",
+     "text": "JAAA",
+     "rect": {
+      "x": 68,
+      "y": 317,
+      "w": 30.09,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e17",
+     "kind": "icon",
+     "node": "svg.spk.g",
+     "path": "div.scroll[2]>div.row.w[11]>svg.spk.g[2]",
+     "rect": {
+      "x": 184,
+      "y": 263.5,
+      "w": 56,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e18",
+     "kind": "text",
+     "node": "b",
+     "path": "div.scroll[2]>div.row.w[11]>div.v[3]>b[0]",
+     "text": "$1.0580",
+     "rect": {
+      "x": 283.16,
+      "y": 257,
+      "w": 56.84,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e19",
+     "kind": "text",
+     "node": "span.chg-g",
+     "path": "div.scroll[2]>div.row.w[11]>div.v[3]>span.chg-g[1]",
+     "text": "▲ 0.04%",
+     "rect": {
+      "x": 291.27,
+      "y": 276,
+      "w": 48.73,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      22,
+      107,
+      53,
+      1
+     ]
+    },
+    {
+     "id": "e20",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.scroll[2]>div.row.w[12]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 379.5,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e21",
+     "kind": "icon",
+     "node": "i.lm.L10",
+     "path": "div.scroll[2]>div.row.w[12]>div.lg[0]>i.lm.L10[0]",
+     "rect": {
+      "x": 26,
+      "y": 385.5,
+      "w": 24,
+      "h": 24
+     },
+     "fill": null,
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e22",
+     "kind": "text",
+     "node": "b",
+     "path": "div.scroll[2]>div.row.w[12]>div.m[1]>b[0]",
+     "text": "Ondo Short-Term U.S. Government Bond Fund",
+     "rect": {
+      "x": 68,
+      "y": 351,
+      "w": 99.64,
+      "h": 76
+     },
+     "lines": 4,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e23",
+     "kind": "text",
+     "node": "span",
+     "path": "div.scroll[2]>div.row.w[12]>div.m[1]>span[1]",
+     "text": "OUSG",
+     "rect": {
+      "x": 68,
+      "y": 430,
+      "w": 34.56,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e24",
+     "kind": "icon",
+     "node": "svg.spk.g",
+     "path": "div.scroll[2]>div.row.w[12]>svg.spk.g[2]",
+     "rect": {
+      "x": 184,
+      "y": 386.5,
+      "w": 56,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e25",
+     "kind": "text",
+     "node": "b",
+     "path": "div.scroll[2]>div.row.w[12]>div.v[3]>b[0]",
+     "text": "$117.40",
+     "rect": {
+      "x": 283.16,
+      "y": 380,
+      "w": 56.84,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e26",
+     "kind": "text",
+     "node": "span.chg-g",
+     "path": "div.scroll[2]>div.row.w[12]>div.v[3]>span.chg-g[1]",
+     "text": "▲ 0.01%",
+     "rect": {
+      "x": 291.27,
+      "y": 399,
+      "w": 48.73,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      22,
+      107,
+      53,
+      1
+     ]
+    },
+    {
+     "id": "e27",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.scroll[2]>div.row.w[13]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 512.5,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e28",
+     "kind": "icon",
+     "node": "i.lm.L11",
+     "path": "div.scroll[2]>div.row.w[13]>div.lg[0]>i.lm.L11[0]",
+     "rect": {
+      "x": 26,
+      "y": 518.5,
+      "w": 24,
+      "h": 24
+     },
+     "fill": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e29",
+     "kind": "text",
+     "node": "b",
+     "path": "div.scroll[2]>div.row.w[13]>div.m[1]>b[0]",
+     "text": "Tradable APAC Diversified Finance Provider SSTN",
+     "rect": {
+      "x": 68,
+      "y": 464,
+      "w": 84.48,
+      "h": 116
+     },
+     "lines": 6,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e30",
+     "kind": "text",
+     "node": "span",
+     "path": "div.scroll[2]>div.row.w[13]>div.m[1]>span[1]",
+     "text": "PC0000033",
+     "rect": {
+      "x": 68,
+      "y": 583,
+      "w": 62.94,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e31",
+     "kind": "icon",
+     "node": "svg.spk.flat",
+     "path": "div.scroll[2]>div.row.w[13]>svg.spk.flat[2]",
+     "rect": {
+      "x": 184,
+      "y": 519.5,
+      "w": 56,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e32",
+     "kind": "text",
+     "node": "b",
+     "path": "div.scroll[2]>div.row.w[13]>div.v[3]>b[0]",
+     "text": "$1.0000",
+     "rect": {
+      "x": 283.16,
+      "y": 513,
+      "w": 56.84,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e33",
+     "kind": "text",
+     "node": "span",
+     "path": "div.scroll[2]>div.row.w[13]>div.v[3]>span[1]",
+     "text": "0.00%",
+     "rect": {
+      "x": 305.19,
+      "y": 532,
+      "w": 34.81,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e34",
+     "kind": "box",
+     "node": "div.mono-d.ghost",
+     "path": "div.scroll[2]>div.row.w[14]>div.mono-d.ghost[0]",
+     "rect": {
+      "x": 20,
+      "y": 620,
+      "w": 36,
+      "h": 36
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       142,
+       134,
+       146,
+       1
+      ]
+     },
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e35",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.scroll[2]>div.row.w[14]>div.mono-d.ghost[0]>svg.i[0]",
+     "rect": {
+      "x": 29,
+      "y": 629,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e36",
+     "kind": "text",
+     "node": "b",
+     "path": "div.scroll[2]>div.row.w[14]>div.m[1]>b[0]",
+     "text": "Add to Watchlist",
+     "rect": {
+      "x": 68,
+      "y": 621.5,
+      "w": 130.25,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e37",
+     "kind": "text",
+     "node": "span",
+     "path": "div.scroll[2]>div.row.w[14]>div.m[1]>span[1]",
+     "text": "Any coin, token or fund",
+     "rect": {
+      "x": 68,
+      "y": 640.5,
+      "w": 117.02,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e38",
+     "kind": "text",
+     "node": "p.s.px",
+     "path": "div.scroll[2]>p.s.px[15]",
+     "text": "Prices from CoinGecko at 12:30, change over 24 hours. eurSAFO is priced in US dollars at 1.0935 USD per euro (ECB, 25 Nov 2026).",
+     "rect": {
+      "x": 20,
+      "y": 685,
+      "w": 295.75,
+      "h": 50
+     },
+     "lines": 3,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e39",
+     "kind": "box",
+     "node": "nav.nav",
+     "path": "nav.nav[3]",
+     "rect": {
+      "x": 0,
+      "y": 769,
+      "w": 360,
+      "h": 82
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      1
+     ],
+     "border": {
+      "width": 1,
+      "color": [
+       230,
+       221,
+       204,
+       1
+      ]
+     },
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e40",
+     "kind": "text",
+     "node": "a.on",
+     "path": "nav.nav[3]>a.on[0]",
+     "text": "Home",
+     "rect": {
+      "x": 24.63,
+      "y": 810,
+      "w": 29.14,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 700,
+      "stretch": "92%",
+      "lineHeight": 13,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e41",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "nav.nav[3]>a.on[0]>svg.i[0]",
+     "rect": {
+      "x": 27.69,
+      "y": 783,
+      "w": 23,
+      "h": 23
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e42",
+     "kind": "text",
+     "node": "a",
+     "path": "nav.nav[3]>a[1]",
+     "text": "Accounts",
+     "rect": {
+      "x": 87.47,
+      "y": 810,
+      "w": 44.23,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 13,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e43",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "nav.nav[3]>a[1]>svg.i[0]",
+     "rect": {
+      "x": 98.09,
+      "y": 783,
+      "w": 23,
+      "h": 23
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e44",
+     "kind": "text",
+     "node": "a",
+     "path": "nav.nav[3]>a[2]",
+     "text": "Portfolio",
+     "rect": {
+      "x": 160.31,
+      "y": 810,
+      "w": 39.36,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 13,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e45",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "nav.nav[3]>a[2]>svg.i[0]",
+     "rect": {
+      "x": 168.48,
+      "y": 783,
+      "w": 23,
+      "h": 23
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e46",
+     "kind": "text",
+     "node": "a",
+     "path": "nav.nav[3]>a[3]",
+     "text": "Explore",
+     "rect": {
+      "x": 232.45,
+      "y": 810,
+      "w": 35.86,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 13,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e47",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "nav.nav[3]>a[3]>svg.i[0]",
+     "rect": {
+      "x": 238.89,
+      "y": 783,
+      "w": 23,
+      "h": 23
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e48",
+     "kind": "text",
+     "node": "a",
+     "path": "nav.nav[3]>a[4]",
+     "text": "Settings",
+     "rect": {
+      "x": 301.63,
+      "y": 810,
+      "w": 38.34,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 13,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e49",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "nav.nav[3]>a[4]>svg.i[0]",
+     "rect": {
+      "x": 309.3,
+      "y": 783,
+      "w": 23,
+      "h": 23
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    }
+   ]
+  }
+ },
+ "width": 360,
+ "height": 851
+}

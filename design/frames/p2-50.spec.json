@@ -1,0 +1,1098 @@
+{
+ "id": "p2-50",
+ "title": "Change Password J9 · page",
+ "inkThreshold": 12,
+ "bandGap": 1,
+ "themes": {
+  "dark": {
+   "png": "p2-50-dark.png",
+   "bg": [
+    21,
+    19,
+    23
+   ],
+   "bands": [
+    [
+     18,
+     36
+    ],
+    [
+     70,
+     132
+    ],
+    [
+     141,
+     154
+    ],
+    [
+     175,
+     236
+    ],
+    [
+     255,
+     316
+    ],
+    [
+     631,
+     642
+    ],
+    [
+     658,
+     710
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[0]>svg.i[0]",
+     "rect": {
+      "x": 19,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "Change Password",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 174.31,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e2",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e3",
+     "kind": "box",
+     "node": "div.fld.bad",
+     "path": "div.fld.bad[2]",
+     "rect": {
+      "x": 20,
+      "y": 72,
+      "w": 320,
+      "h": 60
+     },
+     "fill": null,
+     "border": {
+      "width": 2,
+      "color": [
+       255,
+       138,
+       128,
+       1
+      ]
+     },
+     "radius": "16px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "text",
+     "node": "span.lab",
+     "path": "div.fld.bad[2]>span.lab[0]",
+     "text": "Current Password",
+     "rect": {
+      "x": 39,
+      "y": 69,
+      "w": 88.86,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11.5,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      255,
+      138,
+      128,
+      1
+     ]
+    },
+    {
+     "id": "e5",
+     "kind": "box",
+     "node": "span.lab",
+     "path": "div.fld.bad[2]>span.lab[0]",
+     "rect": {
+      "x": 34,
+      "y": 65,
+      "w": 98.86,
+      "h": 21
+     },
+     "fill": [
+      21,
+      19,
+      23,
+      1
+     ],
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "span.val.ty",
+     "path": "div.fld.bad[2]>span.val.ty[1]",
+     "text": "••••••••",
+     "rect": {
+      "x": 38,
+      "y": 91.5,
+      "w": 88.81,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 15,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 2.1
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.fld.bad[2]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 299,
+      "y": 91,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e8",
+     "kind": "text",
+     "node": "div.ferr",
+     "path": "div.ferr[3]",
+     "text": "That isn't your current password",
+     "rect": {
+      "x": 43,
+      "y": 140,
+      "w": 170.14,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      255,
+      138,
+      128,
+      1
+     ]
+    },
+    {
+     "id": "e9",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.ferr[3]>svg.i[0]",
+     "rect": {
+      "x": 22,
+      "y": 139.5,
+      "w": 15,
+      "h": 15
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e10",
+     "kind": "box",
+     "node": "div.fld",
+     "path": "div.fld[4]",
+     "rect": {
+      "x": 20,
+      "y": 178,
+      "w": 320,
+      "h": 58
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       138,
+       130,
+       141,
+       1
+      ]
+     },
+     "radius": "16px",
+     "shadow": null
+    },
+    {
+     "id": "e11",
+     "kind": "text",
+     "node": "span.lab",
+     "path": "div.fld[4]>span.lab[0]",
+     "text": "New Password",
+     "rect": {
+      "x": 38,
+      "y": 174,
+      "w": 73.56,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11.5,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e12",
+     "kind": "box",
+     "node": "span.lab",
+     "path": "div.fld[4]>span.lab[0]",
+     "rect": {
+      "x": 33,
+      "y": 170,
+      "w": 83.56,
+      "h": 21
+     },
+     "fill": [
+      21,
+      19,
+      23,
+      1
+     ],
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e13",
+     "kind": "text",
+     "node": "span.val",
+     "path": "div.fld[4]>span.val[1]",
+     "text": "At least 12 characters",
+     "rect": {
+      "x": 37,
+      "y": 198.5,
+      "w": 133.16,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      138,
+      130,
+      141,
+      1
+     ]
+    },
+    {
+     "id": "e14",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.fld[4]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 300,
+      "y": 196,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e15",
+     "kind": "box",
+     "node": "div.fld",
+     "path": "div.fld[5]",
+     "rect": {
+      "x": 20,
+      "y": 258,
+      "w": 320,
+      "h": 58
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       138,
+       130,
+       141,
+       1
+      ]
+     },
+     "radius": "16px",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "text",
+     "node": "span.lab",
+     "path": "div.fld[5]>span.lab[0]",
+     "text": "Repeat New Password",
+     "rect": {
+      "x": 38,
+      "y": 254,
+      "w": 111.17,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11.5,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e17",
+     "kind": "box",
+     "node": "span.lab",
+     "path": "div.fld[5]>span.lab[0]",
+     "rect": {
+      "x": 33,
+      "y": 250,
+      "w": 121.17,
+      "h": 21
+     },
+     "fill": [
+      21,
+      19,
+      23,
+      1
+     ],
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e18",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.fld[5]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 300,
+      "y": 276,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e19",
+     "kind": "text",
+     "node": "div.hint",
+     "path": "div.foot[6]>div.hint[0]",
+     "text": "Fill in all three fields to continue",
+     "rect": {
+      "x": 100.09,
+      "y": 630,
+      "w": 159.8,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e20",
+     "kind": "text",
+     "node": "div.cap.w",
+     "path": "div.foot[6]>div.cap.w[1]",
+     "text": "Change Password",
+     "rect": {
+      "x": 104.98,
+      "y": 675.5,
+      "w": 150.03,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15.5,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e21",
+     "kind": "box",
+     "node": "div.cap.w",
+     "path": "div.foot[6]>div.cap.w[1]",
+     "rect": {
+      "x": 20,
+      "y": 658,
+      "w": 320,
+      "h": 52
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "26px",
+     "shadow": null
+    }
+   ]
+  },
+  "light": {
+   "png": "p2-50-light.png",
+   "bg": [
+    251,
+    246,
+    236
+   ],
+   "bands": [
+    [
+     18,
+     36
+    ],
+    [
+     70,
+     132
+    ],
+    [
+     141,
+     154
+    ],
+    [
+     175,
+     236
+    ],
+    [
+     255,
+     316
+    ],
+    [
+     631,
+     642
+    ],
+    [
+     678,
+     693
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[0]>svg.i[0]",
+     "rect": {
+      "x": 19,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "Change Password",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 174.31,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e2",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e3",
+     "kind": "box",
+     "node": "div.fld.bad",
+     "path": "div.fld.bad[2]",
+     "rect": {
+      "x": 20,
+      "y": 72,
+      "w": 320,
+      "h": 60
+     },
+     "fill": null,
+     "border": {
+      "width": 2,
+      "color": [
+       179,
+       38,
+       30,
+       1
+      ]
+     },
+     "radius": "16px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "text",
+     "node": "span.lab",
+     "path": "div.fld.bad[2]>span.lab[0]",
+     "text": "Current Password",
+     "rect": {
+      "x": 39,
+      "y": 69,
+      "w": 88.86,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11.5,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      179,
+      38,
+      30,
+      1
+     ]
+    },
+    {
+     "id": "e5",
+     "kind": "box",
+     "node": "span.lab",
+     "path": "div.fld.bad[2]>span.lab[0]",
+     "rect": {
+      "x": 34,
+      "y": 65,
+      "w": 98.86,
+      "h": 21
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      1
+     ],
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "span.val.ty",
+     "path": "div.fld.bad[2]>span.val.ty[1]",
+     "text": "••••••••",
+     "rect": {
+      "x": 38,
+      "y": 91.5,
+      "w": 88.81,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 15,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 2.1
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.fld.bad[2]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 299,
+      "y": 91,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e8",
+     "kind": "text",
+     "node": "div.ferr",
+     "path": "div.ferr[3]",
+     "text": "That isn't your current password",
+     "rect": {
+      "x": 43,
+      "y": 140,
+      "w": 170.14,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      179,
+      38,
+      30,
+      1
+     ]
+    },
+    {
+     "id": "e9",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.ferr[3]>svg.i[0]",
+     "rect": {
+      "x": 22,
+      "y": 139.5,
+      "w": 15,
+      "h": 15
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e10",
+     "kind": "box",
+     "node": "div.fld",
+     "path": "div.fld[4]",
+     "rect": {
+      "x": 20,
+      "y": 178,
+      "w": 320,
+      "h": 58
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       142,
+       134,
+       146,
+       1
+      ]
+     },
+     "radius": "16px",
+     "shadow": null
+    },
+    {
+     "id": "e11",
+     "kind": "text",
+     "node": "span.lab",
+     "path": "div.fld[4]>span.lab[0]",
+     "text": "New Password",
+     "rect": {
+      "x": 38,
+      "y": 174,
+      "w": 73.56,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11.5,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e12",
+     "kind": "box",
+     "node": "span.lab",
+     "path": "div.fld[4]>span.lab[0]",
+     "rect": {
+      "x": 33,
+      "y": 170,
+      "w": 83.56,
+      "h": 21
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      1
+     ],
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e13",
+     "kind": "text",
+     "node": "span.val",
+     "path": "div.fld[4]>span.val[1]",
+     "text": "At least 12 characters",
+     "rect": {
+      "x": 37,
+      "y": 198.5,
+      "w": 133.16,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      142,
+      134,
+      146,
+      1
+     ]
+    },
+    {
+     "id": "e14",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.fld[4]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 300,
+      "y": 196,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e15",
+     "kind": "box",
+     "node": "div.fld",
+     "path": "div.fld[5]",
+     "rect": {
+      "x": 20,
+      "y": 258,
+      "w": 320,
+      "h": 58
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       142,
+       134,
+       146,
+       1
+      ]
+     },
+     "radius": "16px",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "text",
+     "node": "span.lab",
+     "path": "div.fld[5]>span.lab[0]",
+     "text": "Repeat New Password",
+     "rect": {
+      "x": 38,
+      "y": 254,
+      "w": 111.17,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11.5,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e17",
+     "kind": "box",
+     "node": "span.lab",
+     "path": "div.fld[5]>span.lab[0]",
+     "rect": {
+      "x": 33,
+      "y": 250,
+      "w": 121.17,
+      "h": 21
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      1
+     ],
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e18",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.fld[5]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 300,
+      "y": 276,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e19",
+     "kind": "text",
+     "node": "div.hint",
+     "path": "div.foot[6]>div.hint[0]",
+     "text": "Fill in all three fields to continue",
+     "rect": {
+      "x": 100.09,
+      "y": 630,
+      "w": 159.8,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e20",
+     "kind": "text",
+     "node": "div.cap.w",
+     "path": "div.foot[6]>div.cap.w[1]",
+     "text": "Change Password",
+     "rect": {
+      "x": 104.98,
+      "y": 675.5,
+      "w": 150.03,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15.5,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e21",
+     "kind": "box",
+     "node": "div.cap.w",
+     "path": "div.foot[6]>div.cap.w[1]",
+     "rect": {
+      "x": 20,
+      "y": 658,
+      "w": 320,
+      "h": 52
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "26px",
+     "shadow": null
+    }
+   ]
+  }
+ },
+ "width": 360,
+ "height": 740
+}
