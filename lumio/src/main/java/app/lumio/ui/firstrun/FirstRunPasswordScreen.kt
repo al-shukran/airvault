@@ -31,8 +31,8 @@ import app.lumio.ui.kit.ClearAirLineBox
 import app.lumio.ui.kit.NoteCard
 import app.lumio.ui.kit.ClearAirPrimaryButton
 
-/** The first problem with a new App Password. Null means the password is acceptable and the repeat matches it. */
-enum class NewPasswordProblem { TooShort, TooWeak, Mismatch }
+/** The first problem with a new App Password or Duress Password. [SameAsLumio] is only a Duress Password that opens the real vault. Null means the password is acceptable and the repeat matches it. */
+enum class NewPasswordProblem { TooShort, TooWeak, Mismatch, SameAsLumio }
 
 /** The first problem with [password] and its [repeat], or null when both are acceptable. The policy is checked first, as the gate does. */
 fun newPasswordProblem(password: String, repeat: String): NewPasswordProblem? =
@@ -60,12 +60,48 @@ private fun policyOf(password: String): PolicyResult {
     }
 }
 
+/** The words and step of a first-run password page: I7 makes the App Password, and the duress page makes the Duress Password in the same layout. */
+internal data class FirstRunPasswordCopy(
+    val step: FirstRunStep,
+    val eyebrow: String,
+    val title: String,
+    val body: String,
+    val label: String,
+    val repeatLabel: String,
+    val button: String,
+    val note: String,
+) {
+    companion object {
+        val Create = FirstRunPasswordCopy(
+            step = FirstRunStep.CreatePassword,
+            eyebrow = "Protect · 1 of 3",
+            title = "Create Password",
+            body = "It opens Lumio and locks the pairing data on this phone.",
+            label = "Password",
+            repeatLabel = "Repeat Password",
+            button = "Next",
+            note = "Lumio can't recover this password. If you forget it, reset Lumio and pair again. Your keys stay safe on Lensly.",
+        )
+        val Duress = FirstRunPasswordCopy(
+            step = FirstRunStep.DuressPassword,
+            eyebrow = "Protect · 2 of 3",
+            title = "Create Duress Password",
+            body = "It opens an empty Lumio. It must differ from your Lumio password.",
+            label = "Duress Password",
+            repeatLabel = "Repeat Duress Password",
+            button = "Create",
+            note = "Lumio never says which password opened it. If you forget this one, set a new one in Settings → Security.",
+        )
+    }
+}
+
 /**
- * Step I7: the App Password, typed with the system keyboard as the spec asks, in a field and its repeat. The strength line and the hint sit
- * under the first field, and a mismatch shows under the second. Next stays tappable, and [onNext] decides what the problem is.
+ * Steps I7 and I8's password: a password typed with the system keyboard as the spec asks, in a field and its repeat. The strength line and the hint
+ * sit under the first field, and a mismatch shows under the second. Next stays tappable, and [onNext] decides what the problem is. [copy] says
+ * whether it is the App Password or the Duress Password.
  */
 @Composable
-fun FirstRunPasswordScreen(
+internal fun FirstRunPasswordScreen(
     password: String,
     repeat: String,
     shown: Boolean,
@@ -75,24 +111,25 @@ fun FirstRunPasswordScreen(
     onRepeat: (String) -> Unit,
     onToggleShown: () -> Unit,
     onNext: () -> Unit,
+    copy: FirstRunPasswordCopy = FirstRunPasswordCopy.Create,
 ) {
     val palette = LocalClearAirPalette.current
     FirstRunPage(
-        step = FirstRunStep.CreatePassword,
-        eyebrow = "Protect · 1 of 3",
-        title = "Create Password",
-        footer = { ClearAirPrimaryButton(text = "Next", onClick = onNext, enabled = !busy) },
+        step = copy.step,
+        eyebrow = copy.eyebrow,
+        title = copy.title,
+        footer = { ClearAirPrimaryButton(text = copy.button, onClick = onNext, enabled = !busy) },
         spacing = PageSpacing(eyebrowTop = 25.5.dp, bodyTop = 9.2.dp),
     ) {
         Text(
-            text = "It opens Lumio and locks the pairing data on this phone.",
+            text = copy.body,
             style = PageBody,
             color = palette.ink2,
         )
         // A field's label reaches 9 dp above its outline, so the mock's 22 dp above the first field and 20 dp above the second come out as these.
         Spacer(Modifier.height(11.3.dp))
         ClearAirField(
-            label = "Password",
+            label = copy.label,
             value = password,
             onValueChange = onPassword,
             keyboard = KeyboardType.Password,
@@ -104,7 +141,7 @@ fun FirstRunPasswordScreen(
         StrengthLine(segments = strengthSegments(password))
         Spacer(Modifier.height(9.8.dp))
         ClearAirField(
-            label = "Repeat Password",
+            label = copy.repeatLabel,
             value = repeat,
             onValueChange = onRepeat,
             keyboard = KeyboardType.Password,
@@ -116,7 +153,7 @@ fun FirstRunPasswordScreen(
         Spacer(Modifier.height(18.7.dp))
         NoteCard(
             glyph = ClearAirGlyph.INFO,
-            text = "Lumio can't recover this password. If you forget it, reset Lumio and pair again. Your keys stay safe on Lensly.",
+            text = copy.note,
             modifier = Modifier,
         )
     }
@@ -126,6 +163,7 @@ fun FirstRunPasswordScreen(
 internal fun policyMessage(problem: NewPasswordProblem?): String? = when (problem) {
     NewPasswordProblem.TooShort -> "Use at least $MIN_PASSWORD_LENGTH characters."
     NewPasswordProblem.TooWeak -> "Too easy to guess. Add variety."
+    NewPasswordProblem.SameAsLumio -> "That's your Lumio password. Use a different one."
     NewPasswordProblem.Mismatch, null -> null
 }
 

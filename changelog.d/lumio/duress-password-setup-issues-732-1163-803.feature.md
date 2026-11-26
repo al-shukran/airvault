@@ -1,0 +1,1 @@
+Lumio can now set a Duress Password: Set Up Now on the first-run question and the Duress Password row in Settings → Security open a page that sets a second password, which opens an empty Lumio while your own password still opens your wallets. A duress password that matches your Lumio password is refused.

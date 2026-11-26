@@ -117,6 +117,9 @@ internal object LumioRoute {
     /** The App Password change, opened from the Security page. */
     const val CHANGE_PASSWORD = "settings/security/password"
 
+    /** The Duress Password set, opened from the Security page. */
+    const val DURESS_PASSWORD = "settings/security/duress"
+
     /** The App Password step that turning Biometric Unlock on from the Security page asks for first. */
     const val DEVICE_PROTECTION_ENABLE = "settings/security/device-protection/enable"
 
@@ -762,6 +765,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
             )
             entryGestureRoutes(navController = navController, holder = holder, selection = selection)
             changePasswordRoutes(navController = navController, holder = holder, selection = selection)
+            duressPasswordRoutes(navController = navController, holder = holder, selection = selection)
             deviceProtectionRoutes(navController = navController, holder = holder, selection = selection)
             lumioComposable(LumioRoute.DATA_PROVIDERS) {
                 LumioBackdrop(selection) { DataProvidersRoute(navController = navController, holder = holder, onLock = { lock() }) }

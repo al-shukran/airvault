@@ -125,6 +125,8 @@ class SettingsPagesTest {
                     biometric = BiometricSwitch(on = false, canEnable = true),
                     onEntryGesture = { opened = true },
                     onChangePassword = {},
+                    duressSet = false,
+                    onDuress = {},
                     onBiometric = {},
                     checkPassword = { PasswordCheck.Accepted },
                     onAutoLock = {},
@@ -139,6 +141,68 @@ class SettingsPagesTest {
     }
 
     @Test
+    fun theSecurityPageShowsTheDuressRowNotSetAndOpensItsSet() {
+        var opened = false
+        compose.setContent { ClearAirHarness { SecurityPage(duressSet = false, onDuress = { opened = true }) } }
+
+        compose.onNodeWithText("Not Set").assertExists()
+        compose.onNodeWithText("Duress Password").performScrollTo().performClick()
+        assertEquals(true, opened)
+    }
+
+    @Test
+    fun theSecurityPageShowsTheDuressRowSetOnceItIsSet() {
+        compose.setContent { ClearAirHarness { SecurityPage(duressSet = true, onDuress = {}) } }
+
+        compose.onNodeWithText("Set").assertExists()
+        compose.onAllNodesWithText("Not Set").assertCountEquals(0)
+    }
+
+    @Test
+    fun theDuressPageRunsTheSetWithItsWordsAndShowsASamePasswordOnItsField() {
+        var tried: Triple<String, String, String>? = null
+        compose.setContent {
+            ClearAirHarness {
+                ChangePasswordSettingsPage(
+                    offline = null,
+                    onSubmit = { current, password, repeat ->
+                        tried = Triple(current, password, repeat)
+                        PasswordChange.NewPassword(NewPasswordProblem.SameAsLumio)
+                    },
+                    onChanged = {}, onLocked = {}, onUnavailable = {}, onBack = {}, onLock = {},
+                    copy = PasswordFormCopy.Duress,
+                )
+            }
+        }
+
+        compose.onNodeWithText("Repeat Duress Password").assertExists()
+        val fields = compose.onAllNodes(hasSetTextAction())
+        fields[0].performTextInput("the real password")
+        fields[1].performTextInput("Vk8#Rw2!Lq6Zn4Tp9Xb")
+        fields[2].performTextInput("Vk8#Rw2!Lq6Zn4Tp9Xb")
+        compose.onNode(hasText("Set Duress Password") and hasClickAction()).performClick()
+
+        assertEquals(Triple("the real password", "Vk8#Rw2!Lq6Zn4Tp9Xb", "Vk8#Rw2!Lq6Zn4Tp9Xb"), tried)
+        compose.onNodeWithText("That's your Lumio password. Use a different one.").assertExists()
+    }
+
+    @Composable
+    private fun SecurityPage(duressSet: Boolean, onDuress: () -> Unit) {
+        SecuritySettingsPage(
+            lock = LockSettings(),
+            biometric = BiometricSwitch(on = false, canEnable = true),
+            onEntryGesture = {},
+            onChangePassword = {},
+            duressSet = duressSet,
+            onDuress = onDuress,
+            onBiometric = {},
+            checkPassword = { PasswordCheck.Accepted },
+            onAutoLock = {},
+            offline = null, onLock = {}, onBack = {},
+        )
+    }
+
+    @Test
     fun theSecurityPageOpensTheAppPasswordChange() {
         var opened = false
         compose.setContent {
@@ -148,6 +212,8 @@ class SettingsPagesTest {
                     biometric = BiometricSwitch(on = false, canEnable = true),
                     onEntryGesture = {},
                     onChangePassword = { opened = true },
+                    duressSet = false,
+                    onDuress = {},
                     onBiometric = {},
                     checkPassword = { PasswordCheck.Accepted },
                     onAutoLock = {},
@@ -170,6 +236,8 @@ class SettingsPagesTest {
                     biometric = BiometricSwitch(on = false, canEnable = true),
                     onEntryGesture = {},
                     onChangePassword = {},
+                    duressSet = false,
+                    onDuress = {},
                     onBiometric = { changed = it },
                     checkPassword = { PasswordCheck.Accepted },
                     onAutoLock = {},
@@ -191,6 +259,8 @@ class SettingsPagesTest {
                     biometric = BiometricSwitch(on = false, canEnable = false),
                     onEntryGesture = {},
                     onChangePassword = {},
+                    duressSet = false,
+                    onDuress = {},
                     onBiometric = {},
                     checkPassword = { PasswordCheck.Accepted },
                     onAutoLock = {},
@@ -211,6 +281,8 @@ class SettingsPagesTest {
                     biometric = BiometricSwitch(on = false, canEnable = true),
                     onEntryGesture = {},
                     onChangePassword = {},
+                    duressSet = false,
+                    onDuress = {},
                     onBiometric = {},
                     checkPassword = { PasswordCheck.Accepted },
                     onAutoLock = {},
@@ -235,6 +307,8 @@ class SettingsPagesTest {
                     biometric = BiometricSwitch(on = false, canEnable = true),
                     onEntryGesture = {},
                     onChangePassword = {},
+                    duressSet = false,
+                    onDuress = {},
                     onBiometric = {},
                     checkPassword = { PasswordCheck.Accepted },
                     onAutoLock = { chosen = it },
@@ -293,6 +367,8 @@ class SettingsPagesTest {
                     biometric = BiometricSwitch(on = false, canEnable = true),
                     onEntryGesture = {},
                     onChangePassword = {},
+                    duressSet = false,
+                    onDuress = {},
                     onBiometric = {},
                     checkPassword = { withContext(NonCancellable) { gate.await(); PasswordCheck.Accepted } },
                     onAutoLock = { chosen = it },

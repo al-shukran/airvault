@@ -1,7 +1,7 @@
 package app.lumio.ui.firstrun
 
 /**
- * The first-run screens in the order the owner sees them, I1 to I9. [route] is the screen's name in the hidden graph. Pairing (I10 to I12)
+ * The first-run screens in the order the owner sees them, I1 to I9. [DuressPassword] is the page that Set Up Now on I8 opens, before I9. [route] is the screen's name in the hidden graph. Pairing (I10 to I12)
  * follows [DeviceProtection] on the Wallets home, and is not in this list.
  */
 enum class FirstRunStep(val route: String) {
@@ -13,6 +13,7 @@ enum class FirstRunStep(val route: String) {
     PrepareLensly("first-run/prepare-lensly"),
     CreatePassword("first-run/create-password"),
     Duress("first-run/duress"),
+    DuressPassword("first-run/duress-password"),
     DeviceProtection("first-run/device-protection"),
 }
 
@@ -31,6 +32,6 @@ fun chapterFills(step: FirstRunStep): List<ChapterFill> = when (step) {
     FirstRunStep.Welcome, FirstRunStep.Keys, FirstRunStep.NeverShare, FirstRunStep.ProvidedAsIs -> listOf(ChapterFill.Started, ChapterFill.Empty, ChapterFill.Empty)
     FirstRunStep.Notice, FirstRunStep.PrepareLensly -> listOf(ChapterFill.Full, ChapterFill.Empty, ChapterFill.Empty)
     FirstRunStep.CreatePassword -> listOf(ChapterFill.Full, ChapterFill.Early, ChapterFill.Empty)
-    FirstRunStep.Duress -> listOf(ChapterFill.Full, ChapterFill.Started, ChapterFill.Empty)
+    FirstRunStep.Duress, FirstRunStep.DuressPassword -> listOf(ChapterFill.Full, ChapterFill.Started, ChapterFill.Empty)
     FirstRunStep.DeviceProtection -> listOf(ChapterFill.Full, ChapterFill.Late, ChapterFill.Empty)
 }

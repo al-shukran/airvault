@@ -8,6 +8,7 @@ import app.lumio.ui.firstrun.ChapterFill.Started
 import app.lumio.ui.firstrun.FirstRunStep.CreatePassword
 import app.lumio.ui.firstrun.FirstRunStep.DeviceProtection
 import app.lumio.ui.firstrun.FirstRunStep.Duress
+import app.lumio.ui.firstrun.FirstRunStep.DuressPassword
 import app.lumio.ui.firstrun.FirstRunStep.Keys
 import app.lumio.ui.firstrun.FirstRunStep.Notice
 import app.lumio.ui.firstrun.FirstRunStep.NeverShare
@@ -22,7 +23,7 @@ class FirstRunStepTest {
     @Test
     fun theStepsRunInTheOwnersOrder() {
         assertEquals(
-            listOf(Welcome, Keys, NeverShare, ProvidedAsIs, Notice, PrepareLensly, CreatePassword, Duress, DeviceProtection),
+            listOf(Welcome, Keys, NeverShare, ProvidedAsIs, Notice, PrepareLensly, CreatePassword, Duress, DuressPassword, DeviceProtection),
             FirstRunStep.entries,
         )
     }
@@ -50,6 +51,7 @@ class FirstRunStepTest {
     fun protectFillsAcrossItsScreens() {
         assertEquals(listOf(Full, Early, Empty), chapterFills(CreatePassword))
         assertEquals(listOf(Full, Started, Empty), chapterFills(Duress))
+        assertEquals(listOf(Full, Started, Empty), chapterFills(DuressPassword))
         assertEquals(listOf(Full, Late, Empty), chapterFills(DeviceProtection))
     }
 }

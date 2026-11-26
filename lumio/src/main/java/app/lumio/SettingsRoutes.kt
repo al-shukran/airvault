@@ -22,8 +22,9 @@ import app.lensly.ui.flow.checkAppPassword
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.data.config.DisplaySettingsStore
-import app.lumio.data.config.TransactionSettingsStore
+import app.lumio.data.config.FinishItem
 import app.lumio.data.config.FinishSetupStore
+import app.lumio.data.config.TransactionSettingsStore
 import app.lumio.evm.CustomChainInput
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.pair.PairedWallets
@@ -306,6 +307,8 @@ private fun SecuritySettingsRoute(navController: NavHostController, holder: Vaul
         biometric = BiometricSwitch(on = on, canEnable = canEnable),
         offline = rememberSettingsOffline(),
         onChangePassword = { navController.navigate(LumioRoute.CHANGE_PASSWORD) },
+        duressSet = remember(top) { FinishItem.DURESS in FinishSetupStore.read(session).done },
+        onDuress = { navController.navigate(LumioRoute.DURESS_PASSWORD) },
         onBiometric = { want ->
             if (want) {
                 if (turningOnOpensPasswordStep(session)) navController.navigate(LumioRoute.DEVICE_PROTECTION_ENABLE)

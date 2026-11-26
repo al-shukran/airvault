@@ -111,7 +111,7 @@ data class BiometricSwitch(val on: Boolean, val canEnable: Boolean)
 const val BIOMETRIC_UNAVAILABLE_REASON = "Set up a fingerprint or face unlock on this phone first."
 
 /**
- * The Security page: the App Password, whose row opens its change, Device Protection, whose switch turns Biometric Unlock off, or on after the App
+ * The Security page: the App Password, whose row opens its change, the Duress Password, whose row opens its set and reads "Set" once it is set, and Device Protection, whose switch turns Biometric Unlock off, or on after the App
  * Password step, the Hidden Entry Gesture, whose row opens the choice of another gesture, and Auto-Lock, whose row opens the choice of when Lumio locks
  * itself. Every change asks for the App Password first: [checkPassword] checks it, and [onAutoLock] applies a checked choice. The switch is unavailable
  * until the phone has a strong biometric enrolled, and its row says why.
@@ -122,6 +122,8 @@ fun SecuritySettingsPage(
     biometric: BiometricSwitch,
     offline: String?,
     onChangePassword: () -> Unit,
+    duressSet: Boolean,
+    onDuress: () -> Unit,
     onBiometric: (Boolean) -> Unit,
     onEntryGesture: () -> Unit,
     checkPassword: suspend (CharArray) -> PasswordCheck,
@@ -158,6 +160,8 @@ fun SecuritySettingsPage(
             onClick = onChangePassword,
         )
         RowDivider(indent = ROW_DIVIDER_INDENT)
+        DuressRow(set = duressSet, onClick = onDuress)
+        RowDivider(indent = ROW_DIVIDER_INDENT)
         ClearAirRow(
             title = "Device Protection",
             description = if (enabled) "Fingerprint or face" else BIOMETRIC_UNAVAILABLE_REASON,
@@ -176,6 +180,19 @@ fun SecuritySettingsPage(
         AutoLockRow(current = lock.autoLock, onOpen = { sheetOpen = true })
         ClearAirNote(text = "Each change asks for your current password first.", modifier = Modifier.padding(top = ClearAirSpacing.sm))
     }
+}
+
+/** The Duress Password row of the Security page. "Not Set" is in the spark's text colour, because it needs the owner, as the checklist item does. */
+@Composable
+private fun DuressRow(set: Boolean, onClick: () -> Unit) {
+    val palette = LocalClearAirPalette.current
+    ClearAirRow(
+        title = "Duress Password",
+        description = "Opens an empty Lumio if you're forced to unlock",
+        leading = { ClearAirGlyphDisc(ClearAirGlyph.SHIELD, size = 19.dp) },
+        trailing = { Text(text = if (set) "Set" else "Not Set", style = ClearAirType.body, color = if (set) palette.ink else palette.sparkText) },
+        onClick = onClick,
+    )
 }
 
 /** The glyph on the disc of a Security row. */

@@ -199,7 +199,7 @@ internal suspend fun <T> onVault(default: T, block: suspend () -> T): T = withCo
 internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolder, walletId: String, mode: NetworkMode, onLock: () -> Unit) {
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
-    // A decoy vault keeps no Lumio state, so its import is not kept and each visit starts it again.
+    // A locked vault has no Lumio state, so its import is not kept and each visit starts it again.
     val imports = (holder.sessionAttachment() as? LumioVault)?.firstSyncs ?: FirstSyncImports()
     // The import as an earlier visit left it: its rows show on the first frame, and its reads do not run again.
     var imported by remember(session, walletId, mode) { mutableStateOf(imports.get(walletId, mode)) }
