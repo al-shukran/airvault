@@ -25,14 +25,16 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
-import app.lumio.ui.home.AssetDisc
+import app.lumio.ui.home.AssetIcon
 import app.lumio.ui.home.AssetIconSpec
+import app.lumio.ui.kit.ClearAirDisc
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
@@ -85,7 +87,11 @@ private val DISC = 36.dp
 
 /** The row's smallest height, its second line's style and the rank's mono style, as the kit's row draws them. */
 private val ROW_HEIGHT = 62.dp
-private val DETAIL = ClearAirType.body.copy(fontSize = 12.5.sp, lineHeight = 17.sp)
+// The lines keep their whole height, as the mock's do, so the ticker sits a full line under the name.
+private val UNTRIMMED = LineHeightStyle(alignment = LineHeightStyle.Alignment.Center, trim = LineHeightStyle.Trim.None)
+private val TITLE = ClearAirType.rowTitle.copy(lineHeightStyle = UNTRIMMED)
+private val DETAIL = ClearAirType.body.copy(fontSize = 12.5.sp, lineHeight = 17.sp, lineHeightStyle = UNTRIMMED)
+private val LOGO = 24.dp
 private val STAR_BOX = 44.dp
 private val STAR = 22.dp
 
@@ -134,7 +140,7 @@ private fun PickerRowItem(row: PickerRow, divider: Boolean, onToggle: () -> Unit
             .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AssetDisc(spec = row.icon)
+        ClearAirDisc { AssetIcon(spec = row.icon, size = LOGO) }
         Spacer(Modifier.width(ClearAirSpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
             val rank = rankText(row.rank)
@@ -148,7 +154,7 @@ private fun PickerRowItem(row: PickerRow, divider: Boolean, onToggle: () -> Unit
                     }
                 }
             }
-            Text(text = title, style = ClearAirType.rowTitle, color = palette.ink)
+            Text(text = title, style = TITLE, color = palette.ink)
             pickerDetail(row)?.let { Text(text = it, style = DETAIL, color = palette.ink2) }
         }
         Spacer(Modifier.width(ClearAirSpacing.sm))
@@ -159,7 +165,9 @@ private fun PickerRowItem(row: PickerRow, divider: Boolean, onToggle: () -> Unit
                 .toggleable(value = row.watched, role = Role.Checkbox, onValueChange = { onToggle() }),
             contentAlignment = Alignment.Center,
         ) {
-            ClearAirIcon(glyph = ClearAirGlyph.STAR, color = palette.ink, filled = row.watched, size = STAR)
+            // The mock's filled star keeps its outline, so it is drawn over the outline at the same size.
+            ClearAirIcon(glyph = ClearAirGlyph.STAR, color = palette.ink, size = STAR)
+            if (row.watched) ClearAirIcon(glyph = ClearAirGlyph.STAR, color = palette.ink, filled = true, size = STAR)
         }
     }
 }
