@@ -15,9 +15,6 @@ private fun boundsOf(bytes: ByteArray): BitmapFactory.Options? {
     return bounds.takeIf { it.outWidth in 1..MAX_LOGO_SIDE && it.outHeight in 1..MAX_LOGO_SIDE }
 }
 
-/** Whether [bytes] declare an image of a size that [decodeLogo] accepts. It decodes no pixels. */
-internal fun isLogo(bytes: ByteArray): Boolean = boundsOf(bytes) != null
-
 /**
  * The logo in [bytes], down-sampled, or null when it is no image, declares more than [MAX_LOGO_SIDE] pixels a side (a small file can declare
  * hundreds of megabytes of pixels), or does not fit in memory. The bounds are read first, so no oversized bitmap is ever allocated.
