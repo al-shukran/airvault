@@ -2,6 +2,7 @@ package app.lumio.home
 
 import app.lumio.data.asset.AssetId
 import app.lumio.data.net.NetworkId
+import app.lumio.data.price.PRICE_TTL_MS
 import app.lumio.data.price.Price
 import java.math.BigDecimal
 import java.util.Locale
@@ -87,6 +88,12 @@ object HomeAssets {
             is TokenAsset -> asset.copy(usd = usd, change24h = change)
         }
     }
+
+    /**
+     * The time a screen marks [price] as of, or null when it needs no mark. A price needs one when it is the last one kept, because no source answered
+     * now, and it is older than the [PRICE_TTL_MS] that a fresh price is reused for. A last price that is still that young reads as live.
+     */
+    fun staleAsOfMs(price: Price?, nowMs: Long): Long? = price?.takeIf { it.stale && nowMs - it.asOfMs > PRICE_TTL_MS }?.asOfMs
 
     /**
      * The time of the oldest kept price among the prices of [assets], or null when none of them is kept from an earlier read. Wallet screens show it as

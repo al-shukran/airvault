@@ -344,6 +344,7 @@ shard-5 :lumio app.lumio.evm.PortfolioMergeTest
 shard-5 :lumio app.lumio.network.NetworkModeTest
 shard-5 :lumio app.lumio.pair.PairAddressBookTest
 shard-5 :lumio app.lumio.pair.SharedAddressBookTest
+shard-5 :lumio app.lumio.portfolio.PortfolioStaleTest
 shard-5 :lumio app.lumio.portfolio.PortfolioViewTest
 shard-5 :lumio app.lumio.send.SendArrivalsTest
 shard-5 :lumio app.lumio.send.solana.SolanaSendRouteTest
