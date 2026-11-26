@@ -12,13 +12,17 @@ import app.lumio.data.sched.Priority
 import app.lumio.data.scan.ScanJob
 import app.lumio.data.scan.ScanQueue
 import app.lumio.data.scan.ScanRunner
+import app.lumio.pair.FirstSync
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairedWallets
+import app.lumio.pair.SyncRow
+import app.lumio.pair.SyncStep
 import java.io.File
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -96,5 +100,33 @@ class LumioVaultWipeTest {
         hang = false
         assertEquals("The next pass finds both jobs released.", 2, runner.pass(net))
         assertEquals(listOf("account-a", "account-b"), ran)
+    }
+
+    @Test
+    fun aLockCancelsTheFirstSyncAndItsLaterStepsDoNotRun() = runBlocking {
+        val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 7 + 3).toByte() })
+        val vault = LumioVault(session, LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "sync.db")))
+        val started = CompletableDeferred<Unit>()
+        var later = false
+        val sync = FirstSync(
+            listOf(
+                SyncStep(listOf(SyncRow.EVM)) {
+                    started.complete(Unit)
+                    awaitCancellation()
+                },
+                SyncStep(listOf(SyncRow.PRICES)) {
+                    later = true
+                    emptySet()
+                },
+            ),
+        )
+        val running = vault.startFirstSync(sync)
+        started.await()
+
+        vault.wipe()
+        withTimeout(10_000) { running.join() }
+
+        assertTrue("The lock cancels the first sync.", running.isCancelled)
+        assertFalse("No step ran after the lock.", later)
     }
 }

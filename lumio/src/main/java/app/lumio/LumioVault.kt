@@ -130,8 +130,8 @@ class LumioVault(val session: VaultSession, database: LumioDatabase, clock: Cloc
     internal var keptCoinActivity: Pair<CoinActivityKey, ActivityPage>? = null
 
     /**
-     * The scope of this vault's scan passes. A pass copies keys from [session] into the work it does, and closing the session zeroes only the Vault
-     * Key, so [wipe] cancels this scope: a locked vault holds nothing that is still running.
+     * The scope of the work that reads or writes through this vault: scan passes, the first sync and the coin activity preload. Such work copies keys
+     * from [session], and closing the session zeroes only the Vault Key, so [wipe] cancels this scope: a locked vault holds nothing that is still running.
      */
     internal val scans = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
