@@ -34,15 +34,20 @@ class ScanRunner(
             queue.pending().filter { it.job.net == net && it.id !in running }.onEach { running += it.id }
         }
         if (claimed.isEmpty()) return 0
-        val work = Channel<QueuedJob>(Channel.UNLIMITED)
-        claimed.forEach { work.trySend(it) }
-        work.close()
-        coroutineScope {
-            repeat(minOf(parallelism, claimed.size)) {
-                launch {
-                    for (job in work) runOne(job)
+        try {
+            val work = Channel<QueuedJob>(Channel.UNLIMITED)
+            claimed.forEach { work.trySend(it) }
+            work.close()
+            coroutineScope {
+                repeat(minOf(parallelism, claimed.size)) {
+                    launch {
+                        for (job in work) runOne(job)
+                    }
                 }
             }
+        } finally {
+            // A cancelled pass never reaches the jobs still in the channel, so it releases every id it claimed.
+            withContext(NonCancellable) { lock.withLock { running -= claimed.mapTo(HashSet()) { it.id } } }
         }
         return claimed.size
     }
@@ -56,8 +61,6 @@ class ScanRunner(
             throw e
         } catch (e: Exception) {
             if (queue.holds(job.id)) queue.publish(ScanEvent.Failed(job.id, job.job.net, account, messageOf(e)))
-        } finally {
-            withContext(NonCancellable) { lock.withLock { running -= job.id } }
         }
     }
 

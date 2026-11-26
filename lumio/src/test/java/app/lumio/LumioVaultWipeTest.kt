@@ -8,9 +8,17 @@ import app.lumio.btc.remember
 import app.lumio.data.db.LumioDatabase
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
+import app.lumio.data.sched.Priority
+import app.lumio.data.scan.ScanJob
+import app.lumio.data.scan.ScanQueue
+import app.lumio.data.scan.ScanRunner
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairedWallets
 import java.io.File
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -56,5 +64,37 @@ class LumioVaultWipeTest {
         val second = LumioVault(session, database)
 
         assertTrue("The next session reads none of the last one's readings.", second.addressStats.forNetwork(net).isEmpty())
+    }
+
+    @Test
+    fun aLockCancelsAScanPassAndTheNextPassRunsItsJobs() = runBlocking {
+        val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 7 + 3).toByte() })
+        val vault = LumioVault(session, LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "scan.db")))
+        val net = NetworkId(Networks.BTC_MAINNET, testnet = false)
+        val queue = ScanQueue { vault.scanRows }
+        queue.enqueue(ScanJob(walletId = "wallet-1", net = net, accountRef = "account-a", priority = Priority.FOREGROUND))
+        queue.enqueue(ScanJob(walletId = "wallet-1", net = net, accountRef = "account-b", priority = Priority.VISIBLE))
+        val ran = mutableListOf<String>()
+        var hang = true
+        val started = CompletableDeferred<Unit>()
+        val runner = ScanRunner(queue, parallelism = 1) { job, _ ->
+            if (hang) {
+                started.complete(Unit)
+                awaitCancellation()
+            }
+            ran += job.job.accountRef
+        }
+        val pass = vault.scans.launch { runner.pass(net) }
+        started.await()
+
+        vault.wipe()
+        pass.join()
+
+        assertTrue("The lock cancels the pass.", pass.isCancelled)
+        assertTrue("The scan scope takes no new pass.", vault.scans.launch { runner.pass(net) }.also { it.join() }.isCancelled)
+        assertTrue("No job ran after the lock.", ran.isEmpty())
+        hang = false
+        assertEquals("The next pass finds both jobs released.", 2, runner.pass(net))
+        assertEquals(listOf("account-a", "account-b"), ran)
     }
 }

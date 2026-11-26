@@ -268,15 +268,15 @@ class LumioApp : Application(), CoverApplication {
     fun selectedNetwork(session: VaultSession): NetworkId = selectedBtcNetwork(session).networkId()
 
     /**
-     * Runs a pass over the pending scan jobs of the selected network, on the application's own scope, so the pass goes on when the screen that
-     * started it closes. The returned job completes when the pass has finished.
+     * Runs a pass over the pending scan jobs of the selected network, on the open vault's scan scope, so the pass goes on when the screen that
+     * started it closes and ends when the vault locks. The returned job completes when the pass has finished, at once when no vault is open.
      */
-    fun startScan(net: NetworkId): Job = scope.launch {
+    fun startScan(net: NetworkId): Job = lumioVault()?.scans?.launch {
         val started = System.nanoTime()
         val jobs = scanRunner.pass(net)
         // Debug builds only: one line per pass, read beside the request lines of the same tag.
         if (BuildConfig.DEBUG) Log.d(EsploraProtocol.LOG_TAG, "pass chain=${net.chain} jobs=$jobs ms=${elapsedMs(started)}")
-    }
+    } ?: Job().apply { complete() }
 
     /** Runs [block] on the application's own scope, so it goes on when the screen that started it closes. */
     fun runInAppScope(block: suspend () -> Unit): Job = scope.launch { block() }
@@ -302,7 +302,7 @@ class LumioApp : Application(), CoverApplication {
         // Read now, so Settings is whole on its first frame.
         scope.launch { vault.settingsFacts.refresh() }
         if (session.isDecoy) return vault
-        scope.launch {
+        vault.scans.launch {
             vault.cache.purgeUnreadable()
             scanQueue.purgeUnreadable()
             vault.store.retain(bitcoinRefs(session).map { it.key }.toSet())
