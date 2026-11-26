@@ -145,6 +145,33 @@ class DuressPasswordTest {
         assertEquals(UnlockResult.Rejected, unlockAfterDelay(DURESS))
     }
 
+    @Test
+    fun theRowReadsSetExactlyWhenTheDuressPasswordOpensADecoy() = runBlocking {
+        create()
+        // A checklist record that does not parse cannot take the tick. Whatever the set answers, the row must agree with the vault.
+        holder.openSession()!!.putVaultRecord(FinishSetupStore.RECORD, "not json".encodeToByteArray())
+
+        val result = setLumioDuressPassword(holder, REAL, DURESS, DURESS)
+
+        val rowSays = FinishItem.DURESS in FinishSetupStore.read(holder.openSession()!!).done
+        holder.lock()
+        val decoyOpens = when (val unlock = unlockAfterDelay(DURESS)) {
+            is UnlockResult.Unlocked -> unlock.session.also { it.close() }.isDecoy
+            else -> false
+        }
+        assertEquals(decoyOpens, rowSays, "The row must follow the real state. The set answered $result.")
+    }
+
+    @Test
+    fun aRefusedSetKeepsTheTickOfTheDuressPasswordThatIsSet() = runBlocking {
+        create()
+        assertEquals(PasswordChange.Changed, setLumioDuressPassword(holder, REAL, DURESS, DURESS))
+
+        assertEquals(PasswordChange.NewPassword(NewPasswordProblem.SameAsLumio), setLumioDuressPassword(holder, REAL, REAL, REAL))
+
+        assertEquals(setOf(FinishItem.DURESS), FinishSetupStore.read(holder.openSession()!!).done)
+    }
+
     /** Creates the vault with [REAL], opens it into the holder as the gate does, and pairs one wallet in it. */
     private suspend fun create() {
         assertEquals(CreateResult.Created, vault.create(REAL.toCharArray()))

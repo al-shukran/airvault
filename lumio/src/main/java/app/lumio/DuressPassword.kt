@@ -19,8 +19,8 @@ import kotlinx.coroutines.withContext
  * Sets the Duress Password of the open vault, in the order the page reads: the new password and its repeat first, then [current] through the shared
  * unlock path when the step asks for it (Settings does, the first run does not, since the owner has just made the password), and only then the set.
  * The result is [PasswordChange.Changed] once the password opens a Decoy Vault, which holds no paired wallet, so Lumio opens empty under it. A password
- * that opens the real vault is refused as [NewPasswordProblem.SameAsLumio], and a step that fails leaves the vault as it was. NonCancellable from the
- * set on, so a set that has started runs to its outcome. Setting it again replaces the Duress Password and its decoy. In a Decoy Vault session the
+ * that opens the real vault is refused as [NewPasswordProblem.SameAsLumio], and a step that fails leaves the vault as it was. The checklist tick is written before the set and taken back when the set does not
+ * happen, and a tick that cannot be written stops the set as Unavailable. NonCancellable from the tick on, so a set that has started runs to its outcome. Setting it again replaces the Duress Password and its decoy. In a Decoy Vault session the
  * same call changes the decoy's own password, so that session shows no difference.
  */
 suspend fun setLumioDuressPassword(holder: VaultHolder, current: String?, password: String, repeat: String): PasswordChange {
@@ -34,10 +34,20 @@ suspend fun setLumioDuressPassword(holder: VaultHolder, current: String?, passwo
     }
     return withContext(NonCancellable) {
         val session = holder.openSession() ?: return@withContext PasswordChange.Locked
+        // The vault cannot say whether a Duress Password exists, so the Security row reads this tick. It is written before the set, and taken back if
+        // the set does not happen, so the row never disagrees with the vault. A tick that cannot be written stops the set.
+        val ticked = withContext(Dispatchers.IO) {
+            runCatching {
+                val before = FinishItem.DURESS in FinishSetupStore.read(session).done
+                FinishSetupStore.tick(session, FinishItem.DURESS)
+                !before
+            }
+        }.getOrElse { return@withContext PasswordChange.Unavailable }
+        var enabled = false
         try {
             when (val result = holder.vault.setDuress(session, password.toCharArray(), ::populateDecoy)) {
                 DuressResult.Enabled -> {
-                    withContext(Dispatchers.IO) { runCatching { FinishSetupStore.tick(session, FinishItem.DURESS) } }
+                    enabled = true
                     PasswordChange.Changed
                 }
                 is DuressResult.PolicyRejected -> PasswordChange.NewPassword(
@@ -51,6 +61,8 @@ suspend fun setLumioDuressPassword(holder: VaultHolder, current: String?, passwo
         } catch (e: IllegalStateException) {
             // The session was closed by a lock while the set ran.
             PasswordChange.Locked
+        } finally {
+            if (ticked && !enabled) withContext(Dispatchers.IO) { runCatching { FinishSetupStore.untick(session, FinishItem.DURESS) } }
         }
     }
 }

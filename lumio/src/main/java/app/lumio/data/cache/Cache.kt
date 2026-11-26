@@ -124,17 +124,7 @@ class Cache(
      * when the vault opens, so the database never keeps bytes that no session can read.
      */
     suspend fun purgeUnreadable() {
-        for (row in dao.all()) {
-            val opens = try {
-                Aead.open(keys.enc, aad(row.k, row.policy), row.v)
-                true
-            } catch (e: GeneralSecurityException) {
-                false
-            } catch (e: IllegalArgumentException) {
-                false
-            }
-            if (!opens) dao.delete(row.k)
-        }
+        for (row in dao.all()) if (!opens(row)) dao.delete(row.k)
     }
 
     private fun getShortLived(key: String, ttlMs: Long): CacheEntry? = synchronized(shortLived) {
@@ -166,12 +156,27 @@ class Cache(
         dao.put(KvRow(k = name, v = Aead.seal(keys.enc, aad(name, policy), value), policy = policy, atMs = clock.nowMs()))
     }
 
-    /** Deletes the least recently used immutable entries until the stored bytes fit under the cap. */
+    /**
+     * Deletes the least recently used immutable entries that open under [keys] until the stored bytes fit under the cap. The database is shared with
+     * the other vault, whose entries this session cannot read, so it never deletes one: a Decoy Vault must not cost the real vault its cache. Those
+     * entries go when the real vault next opens ([purgeUnreadable]).
+     */
     private suspend fun evictImmutable() {
+        val foreign = ArrayList<ByteArray>()
         while (dao.totalBytes(IMMUTABLE) > immutableCapBytes) {
-            val oldest = dao.oldestKey(IMMUTABLE) ?: return
-            dao.delete(oldest)
+            val oldest = dao.oldestKeyExcept(IMMUTABLE, foreign) ?: return
+            val row = dao.get(oldest)
+            if (row == null || opens(row)) dao.delete(oldest) else foreign.add(oldest)
         }
+    }
+
+    private fun opens(row: KvRow): Boolean = try {
+        Aead.open(keys.enc, aad(row.k, row.policy), row.v)
+        true
+    } catch (e: GeneralSecurityException) {
+        false
+    } catch (e: IllegalArgumentException) {
+        false
     }
 
     /** The HMAC of [policy] and [key], which is the name the row is stored under. */

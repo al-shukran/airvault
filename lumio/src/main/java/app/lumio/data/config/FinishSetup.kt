@@ -12,8 +12,8 @@ import kotlinx.serialization.json.Json
 enum class FinishItem { DURESS, DEVICE_PROTECTION, PAIR }
 
 /**
- * What the checklist has ticked off. A step ticks its item when it is done, and an item is never unticked. So once every item is ticked the checklist
- * is complete, and it stays hidden for good.
+ * What the checklist has ticked off. A step ticks its item when it is done, and an item stays ticked, except that a step which ticked it first and
+ * then failed takes its own tick back ([FinishSetupStore.untick]). So once every item is ticked the checklist is complete, and it stays hidden for good.
  */
 @Serializable
 data class FinishSetup(val done: Set<FinishItem> = emptySet()) {
@@ -56,5 +56,12 @@ object FinishSetupStore {
         if (item in current.done) return
         val next = current.copy(done = current.done + item)
         session.putVaultRecord(RECORD, json.encodeToString(FinishSetup.serializer(), next).encodeToByteArray())
+    }
+
+    /** Takes the tick of [item] back, for a step that ticked it before its work and then failed. Does nothing when [item] is not ticked. */
+    fun untick(session: VaultSession, item: FinishItem) {
+        val current = load(session)
+        if (item !in current.done) return
+        session.putVaultRecord(RECORD, json.encodeToString(FinishSetup.serializer(), current.copy(done = current.done - item)).encodeToByteArray())
     }
 }
