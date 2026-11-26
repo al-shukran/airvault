@@ -322,13 +322,15 @@ class Vault constructor(
     /**
      * The tries left before this vault is erased, when that is [FailureDelay.WARN_TRIES_LEFT] or fewer, and null otherwise. It
      * counts the wrong tries of both passwords, so it says nothing about which vault a password opens. Null when no vault exists, and
-     * after a right password until the next wrong try.
+     * after a right password until the next wrong try. A caller that shows another erase count than the stored one, as a Decoy Vault
+     * does, passes it as [shownEraseAfter], and the tries are then counted against it.
      */
-    suspend fun triesBeforeErase(): Int? =
+    suspend fun triesBeforeErase(shownEraseAfter: Int? = null): Int? =
         withContext(Dispatchers.IO) {
             mutex.withLock {
                 if (!layout.exists()) return@withLock null
-                FailureDelay.triesLeftToWarn(failureStore().load(clock))
+                val state = failureStore().load(clock)
+                FailureDelay.triesLeftToWarn(if (shownEraseAfter == null) state else state.copy(wipeAfter = shownEraseAfter))
             }
         }
 

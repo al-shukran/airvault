@@ -15,6 +15,7 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.ui.settings.FailureCapChoice
 import java.io.File
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Rule
@@ -95,6 +96,43 @@ class FailureCapDecoyTest {
 
         assertEquals(FailureCapChoice.DEFAULT, readFailureCap(holder))
         assertEquals(FailureDelay.DEFAULT_WIPE_AFTER, readEraseAfter(holder))
+    }
+
+    @Test
+    fun aDecoyWarnsAgainstTheEraseCountItShowsNotTheRealOne() = runBlocking {
+        holder.adopt(open(APP), holder.unlockEpoch())
+        assertEquals(FailureCapOutcome.Saved, saveFailureLimits(holder, APP.toCharArray(), null, 5))
+        holder.lock()
+
+        holder.adopt(open(DURESS), holder.unlockEpoch())
+        assertEquals(FailureCapOutcome.Saved, saveFailureLimits(holder, DURESS.toCharArray(), null, 20))
+        wrongTries(3)
+
+        // 3 wrong tries against the real 5 would warn "2 left". The decoy shows 20, so it has 17 left and no warning is due.
+        assertNull(holder.triesBeforeErase())
+    }
+
+    @Test
+    fun aDecoyWarnsWithItsOwnTriesLeftWhenItsShownCountIsClose() = runBlocking {
+        holder.adopt(open(DURESS), holder.unlockEpoch())
+        assertEquals(FailureCapOutcome.Saved, saveFailureLimits(holder, DURESS.toCharArray(), null, 4))
+        wrongTries(2)
+
+        assertEquals(2, holder.triesBeforeErase())
+    }
+
+    @Test
+    fun aRealSessionWarnsAgainstTheRealEraseCount() = runBlocking {
+        holder.adopt(open(APP), holder.unlockEpoch())
+        assertEquals(FailureCapOutcome.Saved, saveFailureLimits(holder, APP.toCharArray(), null, 5))
+        wrongTries(3)
+
+        assertEquals(2, holder.triesBeforeErase())
+    }
+
+    private suspend fun wrongTries(count: Int) = repeat(count) {
+        vault.unlock("wrong-$it".toCharArray())
+        clock.advance(3_600_000L)
     }
 
     private fun open(password: String): VaultSession = runBlocking {
