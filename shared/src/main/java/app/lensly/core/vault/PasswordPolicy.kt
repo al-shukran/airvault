@@ -29,8 +29,17 @@ object PasswordPolicy {
 
     private val zxcvbn: Zxcvbn by lazy { Zxcvbn() }
 
-    /** Evaluates [password] and leaves the array as it was. */
+    /** Evaluates the NFC form of [password], the form that is stored, and leaves the array as it was. */
     fun check(password: CharArray): PolicyResult {
+        val nfc = PasswordForm.nfcOrNull(password)
+        try {
+            return checkNfc(nfc ?: password)
+        } finally {
+            nfc?.fill('\u0000')
+        }
+    }
+
+    private fun checkNfc(password: CharArray): PolicyResult {
         val codePoints = Character.codePointCount(CharBuffer.wrap(password), 0, password.size)
         if (codePoints < MIN_CODE_POINTS) return PolicyResult.Refused(PolicyReason.TOO_SHORT)
         // zxcvbn wipes the sequence it is given, so it gets a copy and the caller's array is untouched.

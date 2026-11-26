@@ -713,3 +713,4 @@ shard-4 :app app.lensly.ui.home.WalletHistoryScreenTest
 shard-2 :lumio app.lumio.data.price.CoinImagesTest
 shard-2 :lumio app.lumio.data.cache.CacheSizeTest
 shard-2 :shared app.lensly.app.DecoyShownTest
+shard-1 :shared app.lensly.core.vault.VaultPasswordFormTest

@@ -11,6 +11,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import app.lensly.app.VaultHolder
 import app.lensly.core.vault.CreateResult
+import app.lensly.core.vault.PasswordForm
 import app.lensly.core.vault.PasswordPolicy
 import app.lensly.core.vault.PolicyReason
 import app.lensly.core.vault.PolicyResult
@@ -166,7 +167,7 @@ fun ChangePasswordFlow(
                 ChangeStep.Confirm -> {
                     val second = buffer.toCharArray()
                     val expected = first
-                    val matches = expected != null && expected.contentEquals(second)
+                    val matches = expected != null && PasswordForm.sameText(expected, second)
                     second.fill('\u0000')
                     clearEntry()
                     if (expected == null || !matches) {
