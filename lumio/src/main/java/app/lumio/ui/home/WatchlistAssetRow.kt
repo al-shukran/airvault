@@ -19,10 +19,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lensly.ui.components.lumioPress
@@ -108,7 +111,8 @@ private fun chartColor(tone: ChangeTone): Color = if (tone == ChangeTone.FLAT) L
  * 56 dp slot, and the [price] over its 24 h [change] in an 88 dp column on the right. The chart and the numbers are centred on the row. The name is never
  * shortened: a long one wraps and the row grows around it. The ticker line is left out when it is the same as the name. A null [price] or [change] is
  * absent, never zero, and fewer than two [ticks] leave the slot empty. With [prices] false, as on a test network, the chart and the column are left out.
- * A [divider] is the hairline on the row's top edge, from the text to the gutter.
+ * A [divider] is the hairline on the row's top edge, from the text to the gutter. A list passes the [valueWidth] of [valueColumnWidth], so a price
+ * wider than the column widens it on every row, and no price is ever cut.
  */
 @Composable
 fun WatchlistAssetRow(
@@ -122,10 +126,21 @@ fun WatchlistAssetRow(
     modifier: Modifier = Modifier,
     divider: Boolean = false,
     prices: Boolean = true,
+    valueWidth: Dp = VALUE_WIDTH,
 ) {
     WatchRow(onClick = onClick, divider = divider, modifier = modifier, leading = logo, title = name, detail = tickerLine(name, ticker)) {
-        if (prices) PriceColumns(price = price, change = change, ticks = ticks)
+        if (prices) PriceColumns(price = price, change = change, ticks = ticks, valueWidth = valueWidth)
     }
+}
+
+/** The value column of a list: 88 dp, or wider when one of its [prices] or [changes] is, so the column lines up on every row. */
+@Composable
+fun valueColumnWidth(prices: List<String?>, changes: List<Double?>): Dp {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val widest = prices.filterNotNull().map { measurer.measure(it, priceStyle, maxLines = 1).size.width } +
+        changes.filterNotNull().map { measurer.measure(changeText(it), changeStyle, maxLines = 1).size.width }
+    return with(density) { maxOf(VALUE_WIDTH, (widest.maxOrNull() ?: 0).toDp()) }
 }
 
 /** The row that ends a watchlist: a dashed disc with a plus, "Add to Watchlist" and what can be added. It opens the add. */
@@ -172,13 +187,13 @@ private fun WatchRow(
 
 /** The chart slot and the value column of a row. The chart takes the change's colour, or the day's direction when there is no change. */
 @Composable
-private fun PriceColumns(price: String?, change: Double?, ticks: List<Double>) {
+private fun PriceColumns(price: String?, change: Double?, ticks: List<Double>, valueWidth: Dp) {
     val palette = LocalClearAirPalette.current
     val tone = change?.let(::changeTone) ?: ticks.takeIf { it.size >= 2 }?.let { changeTone((it.last() - it.first()) / it.first() * 100) } ?: ChangeTone.FLAT
     Spacer(Modifier.width(ClearAirSpacing.sm))
     TickChart(values = ticks, color = chartColor(tone), modifier = Modifier.size(CHART_WIDTH, CHART_HEIGHT))
     Spacer(Modifier.width(ClearAirSpacing.sm))
-    Column(modifier = Modifier.width(VALUE_WIDTH), horizontalAlignment = Alignment.End) {
+    Column(modifier = Modifier.width(valueWidth), horizontalAlignment = Alignment.End) {
         price?.let { Text(text = it, style = priceStyle, color = palette.ink, textAlign = TextAlign.End, maxLines = 1) }
         change?.let { Text(text = changeText(it), style = changeStyle, color = changeColor(changeTone(it)), textAlign = TextAlign.End, maxLines = 1) }
     }

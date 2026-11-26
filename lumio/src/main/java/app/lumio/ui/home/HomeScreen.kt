@@ -130,6 +130,7 @@ fun HomeScreen(
         Spacer(Modifier.width(HEADER_GAP))
         HeaderAction(text = "Add", glyph = ClearAirGlyph.PLUS, glyphFirst = true, onClick = onAdd)
     }
+    val valueWidth = valueColumnWidth(rows.map { it.priceUsd }, rows.map { it.change24hPct })
     rows.forEachIndexed { index, row ->
         WatchlistAssetRow(
             name = row.name,
@@ -141,6 +142,7 @@ fun HomeScreen(
             onClick = { onOpen(row.asset) },
             divider = index > 0,
             prices = !testnet,
+            valueWidth = valueWidth,
         )
     }
     AddToWatchlistRow(onClick = onAdd)
