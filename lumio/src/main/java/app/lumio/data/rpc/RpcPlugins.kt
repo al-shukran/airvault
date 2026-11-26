@@ -3,6 +3,7 @@ package app.lumio.data.rpc
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
+import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.Kind
 import app.lumio.data.provider.OpKey
@@ -57,7 +58,8 @@ abstract class EvmRpcProvider(
 
     /**
      * Tries each address in order. A rate limit or a transient failure moves the call to the next address, and the last failure is thrown when
-     * none answers. Any other failure ends the call at once, because another address would give the same answer.
+     * none answers. Any other failure ends the call at once, because another address would give the same answer. A [Broadcast] moves on only
+     * when nothing was sent: a transient failure that may have left ends the call, so the signed bytes go to one address at most.
      */
     override suspend fun <T> execute(req: Request<T>, cfg: ProviderConfig, http: Http): T {
         val urls = endpoints(req.net, cfg).ifEmpty { throw ProviderError.Unsupported() }
@@ -68,6 +70,7 @@ abstract class EvmRpcProvider(
             } catch (e: ProviderError.RateLimited) {
                 failure = e
             } catch (e: ProviderError.Transient) {
+                if (req is Broadcast && !e.neverSent) throw e.also { failure?.let(it::addSuppressed) }
                 failure = e
             }
         }
