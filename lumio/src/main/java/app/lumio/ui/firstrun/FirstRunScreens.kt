@@ -343,7 +343,8 @@ fun DuressScreen(onSetUp: () -> Unit, onMaybeLater: () -> Unit) {
             style = ClearAirType.body,
             color = palette.ink2,
         )
-        Spacer(Modifier.height(6.dp))
+        // The mock puts the line 6 dp under the paragraph, but the paragraph's own 12 px bottom margin collapses with that, so the gap is 12 dp; 13.7 dp lands the line where the mock draws it.
+        Spacer(Modifier.height(13.7.dp))
         Text(text = "You can set it up later in Settings → Security.", style = PageSmall, color = palette.ink2)
     }
 }
