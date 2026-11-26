@@ -288,6 +288,46 @@ class RegistryUpdateTest {
     }
 
     @Test
+    fun aFileThatCanNeitherBeRestoredNorDeletedKeepsTheNewKeyAndTheNewPackageOutOfUse() {
+        val baked = bakedRegistry()
+        val dir = registryDir()
+        val swap = TestPackages.LINEA_SWAP
+        RegistryUpdate.install(signedAt(5, whitelist = swap), keys, baked, dir, keystore).getOrThrow()
+        val written = mutableSetOf<String>()
+        val fullDisk: (File, ByteArray) -> Unit = { file, bytes ->
+            if (file.name == RegistrySeal.FILE || !written.add(file.name)) throw IOException("No space left on device")
+            writeAtomically(file, bytes)
+        }
+
+        val newer = signedAt(6, whitelist = swap.replace("Swap tokens", "Newer swap"))
+        assertTrue(RegistryUpdate.install(newer, keys, baked, dir, keystore, fullDisk, delete = { false }).isFailure)
+
+        // The new file stays, so the key must stay too: reverting it to 5 would let the new file verify under the old seal.
+        assertNull(RegistryUpdate.installedPackage(baked, dir, keys, keystore))
+        assertEquals(baked.whitelistEntries(), RegistryUpdate.withInstalled(baked, dir, keys, keystore).whitelistEntries())
+        assertEquals(listOf(5L, 6L), keystore.registryMacKeySeqs())
+        // Once the faults clear, the retry is accepted as the same sequence and the floor advances.
+        assertEquals(6L, RegistryUpdate.install(newer, keys, baked, dir, keystore).getOrThrow().sequence)
+        assertEquals(6L, RegistryUpdate.installedPackage(baked, dir, keys, keystore)?.sequence)
+        assertEquals(listOf(6L), keystore.registryMacKeySeqs())
+    }
+
+    @Test
+    fun aFailedFirstInstallLeavesNoDirectory() {
+        val baked = bakedRegistry()
+        val dir = registryDir()
+        val sealFails: (File, ByteArray) -> Unit = { file, bytes ->
+            if (file.name == RegistrySeal.FILE) throw IOException("No space left on device")
+            writeAtomically(file, bytes)
+        }
+
+        assertTrue(RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore, sealFails).isFailure)
+
+        assertFalse(dir.exists())
+        assertEquals(emptyList(), keystore.registryMacKeySeqs())
+    }
+
+    @Test
     fun networkWithABakedChainIdIsRejected() {
         val imposter = """{"chainId":1,"explorerName":null,"feeModel":"L1","name":"Imposter","nativeDecimals":18,"nativeSymbol":"ETH","testnet":false,"featured":false,"kind":"LAYER_1","parentChainId":null}"""
 
