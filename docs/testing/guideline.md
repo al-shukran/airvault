@@ -54,6 +54,8 @@ Run commands assume the wrapper at the repo root.
 - **Run:** `./gradlew :app:verifyRoborazziDebug` (and `:lumio:verifyRoborazziDebug`) locally, which compares against the committed PNGs with a 0.0005 pixel-change threshold (`ScreenshotHarness.kt`). CI does not verify pixels: the nightly `screenshots` job re-records them on each push to master and opens the `goldens-refresh` pull request for any change.
 - **Record:** on Linux CI only. The nightly `screenshots` job records them on the same runner image; review its `goldens-refresh` pull request, which is the diff to commit. To record now, run the `record-goldens` workflow (`gh workflow run record-goldens`), download the `goldens-linux` artifact, review the PNG diff, and commit it. A macOS render differs from the Linux runner on anti-aliased edges, so a local macOS run is advisory, not the gate.
 
+- **Lumio design gate:** a golden is the app's own past output, so it is not the reference for how a Lumio screen looks. The approved frames are (`design/frames/`). The `design` lane of the PR gate renders each registered screen at its frame's size and compares it with the frame, element by element; a screen that differs and is not a known violation cannot merge. See `tools/design-frames/README.md`.
+
 ### 1.6 End-to-end
 
 - **Automated (emulator, CI):** create wallet, export the `crypto-hdkey` pairing UR, scan injected `eth-sign-request` frames, review, sign, show the `eth-signature` UR. Tools: Compose test plus UI Automator (`androidx.test.uiautomator:uiautomator`). Camera input comes from a `FrameSource` seam fed by fixture frames in `app/src/androidTest/assets/ur/`. The seam is a Phase 1.5 deliverable; `CameraController` binds CameraX directly today.
