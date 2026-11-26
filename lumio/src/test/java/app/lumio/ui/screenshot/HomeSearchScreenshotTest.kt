@@ -1,28 +1,11 @@
 package app.lumio.ui.screenshot
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import app.lensly.ui.theme.ClearAirSpacing
-import app.airvault.core.model.ChainId
-import app.lumio.data.net.NetworkId
-import app.lumio.ui.home.AssetIconSpec
-import app.lumio.ui.home.HomeScreen
-import app.lumio.ui.home.MarketHero
-import app.lumio.ui.home.WatchlistRow
-import app.lumio.ui.home.WatchlistSortSheet
 import app.lumio.ui.search.SearchRow
 import app.lumio.ui.search.SearchSection
 import app.lumio.ui.search.SearchSheet
 import app.lumio.ui.search.SearchTab
-import app.lumio.watchlist.WatchedAsset
-import app.lumio.watchlist.WatchlistSort
-import kotlin.math.cos
-import kotlin.math.sin
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,9 +14,8 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * The goldens of the Home tab, its sort sheet and the search sheet: light and dark, with a watchlist with its day's tick charts, an empty one and the test
- * side, the hero with a live figure and with a kept one, and the search with results, with no match and with the Trending tab. Recorded on the Linux
- * runner, with reduced motion, so each golden is a still frame.
+ * The goldens of the search sheet: with results, with no match and with the Trending tab. Recorded on the Linux runner, with reduced motion, so each
+ * golden is a still frame. Home's goldens are in [HomeScreenshotTest].
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = LUMIO_DARK_QUALIFIERS)
@@ -42,30 +24,6 @@ class HomeSearchScreenshotTest {
 
     @get:Rule
     val compose = createComposeRule()
-
-    @Test
-    fun home() = compose.clearAirSnapshot("home_watchlist") { HomePage(rows = rows(), testnet = false) }
-
-    @Test
-    @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
-    fun homeLight() = compose.clearAirSnapshot("home_watchlist_light") { HomePage(rows = rows(), testnet = false) }
-
-    @Test
-    fun homeEmpty() = compose.clearAirSnapshot("home_watchlist_empty") { HomePage(rows = emptyList(), testnet = false) }
-
-    @Test
-    fun homeTestnet() = compose.clearAirSnapshot("home_watchlist_testnet") { HomePage(rows = rows(), testnet = true, hero = NO_HERO) }
-
-    @Test
-    fun homeKeptMarket() = compose.clearAirSnapshot("home_market_kept") { HomePage(rows = rows(), testnet = false, hero = KEPT_HERO) }
-
-    @Test
-    fun sortSheet() = compose.clearAirSnapshot("home_sort_sheet") {
-        Box(modifier = Modifier.fillMaxSize()) {
-            HomePage(rows = rows(), testnet = false)
-            WatchlistSortSheet(visible = true, selected = WatchlistSort.CHANGE_24H, onSelect = {}, onClose = {})
-        }
-    }
 
     @Test
     fun searchResults() = compose.clearAirSnapshot("search_results") { SearchPage(query = "usd", tab = SearchTab.MAIN, sections = sections()) }
@@ -79,22 +37,6 @@ class HomeSearchScreenshotTest {
     }
 
     @Composable
-    private fun HomePage(rows: List<WatchlistRow>, testnet: Boolean, hero: MarketHero = LIVE_HERO) {
-        Column(modifier = Modifier.fillMaxSize().padding(top = ClearAirSpacing.md)) {
-            HomeScreen(
-                hero = hero,
-                rows = rows,
-                sort = WatchlistSort.MARKET_CAP,
-                testnet = testnet,
-                onSend = {},
-                onReceive = {},
-                onSort = {},
-                onOpen = {},
-            )
-        }
-    }
-
-    @Composable
     private fun SearchPage(query: String, tab: SearchTab, sections: List<SearchSection>) {
         SearchSheet(
             query = query,
@@ -104,31 +46,6 @@ class HomeSearchScreenshotTest {
             sections = sections,
         )
     }
-
-    private fun rows(): List<WatchlistRow> = listOf(
-        WatchlistRow(
-            asset = coin("bip122:000000000019d6689c085ae165831e93"),
-            name = "Bitcoin",
-            detail = "BTC · 0.2104 held",
-            icon = AssetIconSpec.Bitcoin,
-            priceUsd = "$108,420.35",
-            change24hPct = 1.82,
-            ticks = listOf(104_200.0, 105_900.0, 105_100.0, 106_800.0, 107_300.0, 106_500.0, 108_000.0, 108_420.35),
-        ),
-        WatchlistRow(
-            asset = coin("eip155:1"),
-            name = "Ethereum",
-            detail = "ETH · 22.23 held",
-            icon = AssetIconSpec.Chain(null),
-            priceUsd = "$4,285.70",
-            change24hPct = -2.41,
-            ticks = listOf(4_390.0, 4_360.0, 4_340.0, 4_310.0, 4_330.0, 4_300.0, 4_290.0, 4_285.70),
-        ),
-        WatchlistRow(asset = coin("solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"), name = "Solana", detail = "SOL · 31.5 held", icon = AssetIconSpec.Solana, priceUsd = "$184.20", change24hPct = 4.10),
-        WatchlistRow(asset = coin("algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k"), name = "Algorand", detail = "ALGO", icon = AssetIconSpec.Algorand, priceUsd = null, change24hPct = null),
-    )
-
-    private fun coin(chain: String): WatchedAsset = WatchedAsset(NetworkId(ChainId(chain), testnet = false))
 
     private fun sections(): List<SearchSection> = listOf(
         SearchSection(
@@ -145,11 +62,4 @@ class HomeSearchScreenshotTest {
         SearchRow(key = "0-BONK", title = "Bonk", detail = "BONK · #103 · \$0.00 · ▼ 3.27%", onOpen = null),
         SearchRow(key = "1-NEW", title = "New Coin", detail = "NEW", onOpen = null),
     )
-
-    private companion object {
-        val TICKS = List(71) { i -> 100.0 + i * 0.3 + sin(i * 0.9) * 1.6 + cos(i * 0.37) * 2.2 }
-        val LIVE_HERO = MarketHero(total = "\$3.41T", change24hPct = 2.14, freshness = "Live · updated 8 s ago", ticks = TICKS)
-        val KEPT_HERO = MarketHero(total = "\$3.41T", change24hPct = 2.14, freshness = "Last known · updated 3 h ago", ticks = TICKS)
-        val NO_HERO = MarketHero(total = null, change24hPct = null, freshness = null)
-    }
 }

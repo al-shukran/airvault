@@ -80,7 +80,6 @@ internal class DemoProvider(private val profile: () -> DemoProfile) : Provider {
             is NativePrice -> quoteOf(net, null, now)
             is TokenPrice -> quoteOf(net, req.token, now)
             is PriceChart -> chartOf(req, now)
-            is BitcoinMarket -> MarketQuote(3.41e12, 2.14, now)
             is TrendingCoins -> TrendingList(TRENDING, now)
             is TopCoins -> MarketCoins(DemoMarket.TOP, now)
             is CoinMarkets -> MarketCoins((DemoMarket.TOP + DemoMarket.SEARCHED).filter { it.id in req.ids }, now)

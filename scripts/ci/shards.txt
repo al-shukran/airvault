@@ -396,6 +396,7 @@ shard-6 :lumio app.lumio.ExploreNetworkCountTest
 shard-6 :lumio app.lumio.FirstRunPairStepTest
 shard-6 :lumio app.lumio.PairCameraTest
 shard-6 :lumio app.lumio.FirstSyncNavigationTest
+shard-6 :lumio app.lumio.HomeFootnoteTest
 shard-6 :lumio app.lumio.HomeTokenRowTest
 shard-6 :lumio app.lumio.LumioVaultWipeTest
 shard-6 :lumio app.lumio.PairingReadsEachBalanceOnceTest
@@ -409,6 +410,7 @@ shard-6 :lumio app.lumio.send.PaymentCodeTest
 shard-6 :lumio app.lumio.tokens.TokenBalancesTest
 shard-6 :lumio app.lumio.FirstSyncLeftEarlyShowsBalancesTest
 shard-6 :lumio app.lumio.ui.firstrun.FirstRunInsetsTest
+shard-6 :lumio app.lumio.ui.home.WatchlistRowTest
 shard-6 :lumio app.lumio.ui.home.WatchlistSortSheetTest
 shard-6 :lumio app.lumio.ui.kit.ClearAirSheetBackTest
 shard-6 :lumio app.lumio.ui.kit.ClearAirSheetHeightTest

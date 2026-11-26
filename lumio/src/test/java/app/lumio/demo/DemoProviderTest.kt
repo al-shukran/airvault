@@ -3,7 +3,6 @@ package app.lumio.demo
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
-import app.lumio.data.provider.BitcoinMarket
 import app.lumio.data.provider.GasFees
 import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
@@ -42,9 +41,8 @@ class DemoProviderTest {
     }
 
     @Test
-    fun pricesAndMarketAreTheMockupValues() {
+    fun pricesAreTheMockupValues() {
         assertEquals(DemoFixtures.ETH_USD, run(DemoProfile.FULL, NativePrice(ethereum)).usd, 0.0)
-        assertEquals(3.41e12, run(DemoProfile.FULL, BitcoinMarket()).capUsd, 0.0)
     }
 
     @Test

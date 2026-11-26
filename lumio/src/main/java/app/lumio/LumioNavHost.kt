@@ -91,7 +91,7 @@ internal object LumioRoute {
     const val PORTFOLIO = "portfolio"
     const val EXPLORE = "explore"
 
-    /** Add to Watchlist, pushed from Home's watchlist. */
+    /** The Add to Watchlist page, pushed from Home's "+ Add" and its dashed add row. */
     const val WATCHLIST_ADD = "watchlist/add"
 
     /** The activity of every account on the side, pushed from the Portfolio tab and its "All" link. */

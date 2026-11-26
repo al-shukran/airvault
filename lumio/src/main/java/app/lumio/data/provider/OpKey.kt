@@ -75,7 +75,6 @@ object Ops {
 
     val LOGO_TOKEN = OpKey("logo.token")
 
-    val MARKET_BITCOIN = OpKey("market.bitcoin")
     val MARKET_TRENDING = OpKey("market.trending")
     val MARKET_FIAT = OpKey("market.fiat")
     val MARKET_COINS = OpKey("market.coins")

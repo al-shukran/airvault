@@ -13,8 +13,6 @@ import app.lumio.data.provider.FiatQuote
 import app.lumio.data.provider.MarketCoins
 import app.lumio.data.provider.TopCoins
 import app.lumio.data.provider.FiatRates
-import app.lumio.data.provider.BitcoinMarket
-import app.lumio.data.provider.MarketQuote
 import app.lumio.data.provider.NativePrice
 import app.lumio.data.provider.PriceChart
 import app.lumio.data.provider.PriceQuote
@@ -43,8 +41,7 @@ const val PRICE_TTL_MS = 60_000L
 /** How long a kept price chart is reused from memory before it is read again, so a 24-hour chart does not stay stale for the whole session. */
 const val CHART_TTL_MS = 300_000L
 
-/** The cache keys of the whole market's figures and of the trending coins. */
-internal const val MARKET_KEY = "market-bitcoin"
+/** The cache key of the trending coins. */
 internal const val TRENDING_KEY = "trending-search"
 internal const val FIAT_KEY = "market-fiat"
 internal const val TOP_COINS_KEY = "market-top-watchable"
@@ -103,11 +100,6 @@ class PriceRepository(
         }.toMap()
     }
 
-    /**
-     * Whether a switched-on source serves Bitcoin's market figures. Switched off, no market figure is shown, kept or not, so every read below is null.
-     */
-    fun servesMarket(): Boolean = scheduler.serves(BitcoinMarket())
-
     /** Whether a switched-on source serves the trending coins. Switched off, no trending list is shown, kept or not. */
     fun servesTrending(): Boolean = scheduler.serves(TrendingCoins())
 
@@ -120,10 +112,6 @@ class PriceRepository(
      */
     suspend fun fiatRates(priority: Priority = Priority.VISIBLE): Kept<FiatQuote>? =
         if (servesFiat()) kept(FIAT_KEY, jsonCodec<FiatQuote>(), FiatRates(), priority) else null
-
-    /** Bitcoin's market figures, from a source or from memory within [PRICE_TTL_MS]. When no source answers, the last ones kept, stale. */
-    suspend fun market(priority: Priority = Priority.VISIBLE): Kept<MarketQuote>? =
-        if (servesMarket()) kept(MARKET_KEY, jsonCodec<MarketQuote>(), BitcoinMarket(), priority) else null
 
     /** The trending coins, from a source or from memory within [PRICE_TTL_MS]. When no source answers, the last list kept, stale. */
     suspend fun trending(priority: Priority = Priority.VISIBLE): Kept<TrendingList>? =
@@ -215,9 +203,6 @@ class PriceRepository(
         if (decoded == null) runCatching { store.delete(policy, key) }
         return decoded
     }
-
-    /** The last market figures kept in the vault's cache, with no source asked. Null while the vault is locked, none was kept or no source is on. */
-    suspend fun lastMarket(): Kept<MarketQuote>? = if (servesMarket()) lastKept(MARKET_KEY, jsonCodec<MarketQuote>()) else null
 
     /** The last trending list kept in the vault's cache, with no source asked. Null while the vault is locked, none was kept or no source is on. */
     suspend fun lastTrending(): Kept<TrendingList>? = if (servesTrending()) lastKept(TRENDING_KEY, jsonCodec<TrendingList>()) else null
