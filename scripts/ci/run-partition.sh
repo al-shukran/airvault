@@ -264,6 +264,8 @@ run_ci() {
     "$ROOT/scripts/ci/check-partitions.sh"
     "$ROOT/scripts/ci/check-test-network.sh"
     "$ROOT/scripts/ci/check-workflow-guards.sh"
+    "$ROOT/scripts/ci/check-cleartext-sources.sh"
+    "$ROOT/scripts/ci/selftest-guards.sh"
 }
 
 case "$lane" in

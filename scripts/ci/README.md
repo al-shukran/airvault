@@ -85,7 +85,15 @@ The lines balance the lanes. A unit with no line goes to `shard-6`, so `check-pa
 Builds the merged debug manifests of `:app` and `:lumio` (offline), then checks them. `:app` (Lensly) must declare no
 `INTERNET` and no `ACCESS_NETWORK_STATE`. `:lumio` may request only the permissions on its allow-list. `android:allowBackup`
 must be `"false"` in both. The `manifest` lane also checks the release manifest of `:app` for `INTERNET` and `ACCESS_NETWORK_STATE`, and the release runtime
-classpath for OkHttp.
+classpath for OkHttp. Cleartext HTTP is checked in the sources by `check-cleartext-sources.sh`, which parses every XML file under any
+module's `src/` outside `src/debug/` (so quotes, spacing, case and `shared/` resources cannot hide `cleartextTrafficPermitted` or
+`usesCleartextTraffic` set to true). It also runs in the `ci` lane, with no Gradle.
+
+## Guard self-test — `selftest-guards.sh`
+
+Runs in the `ci` lane. It feeds `check-cleartext-sources.sh` and `check-workflow-guards.sh` broken copies (single quotes, upper case,
+a shared resource, a bare `author_association`, a commented-out or late release refusal) and expects each to fail, and it runs
+`close-refresh-pr.sh` against a stub `gh` whose first close fails and expects one comment. Add a case here with every change to a guard.
 
 ## Release classpath guard — `check-release-classpath.sh`
 
