@@ -335,6 +335,7 @@
       "w": 320,
       "h": 120
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1459,6 +1460,7 @@
       "w": 320,
       "h": 120
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",

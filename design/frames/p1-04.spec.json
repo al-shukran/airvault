@@ -633,8 +633,6 @@
      "node": "span.tg",
      "path": "div.sh[3]>div.row[5]>div.m[1]>b[0]>span.tg[0]",
      "text": "Bridged",
-     "var": "row",
-     "anchor": "left",
      "rect": {
       "x": 144.17,
       "y": 241.5,
@@ -1729,8 +1727,6 @@
      "node": "span.tg",
      "path": "div.sh[3]>div.row[5]>div.m[1]>b[0]>span.tg[0]",
      "text": "Bridged",
-     "var": "row",
-     "anchor": "left",
      "rect": {
       "x": 144.17,
       "y": 241.5,

@@ -631,8 +631,6 @@
      "node": "span.ta",
      "path": "div.row[6]>span.ta[2]",
      "text": "Change",
-     "var": "row",
-     "anchor": "right",
      "rect": {
       "x": 277.92,
       "y": 177,
@@ -830,8 +828,6 @@
      "node": "span.ta",
      "path": "div.row[8]>span.ta[2]",
      "text": "Change",
-     "var": "row",
-     "anchor": "right",
      "rect": {
       "x": 277.92,
       "y": 262,

@@ -106,13 +106,48 @@ class GateScreen(private val name: String, row: JsonObject, registry: JsonObject
         val result = Comparison(name, spec, themeSpec, expected, actual, texts, masks, tol).run()
         result.write(File("build/design-gate"), expected, actual, frameId, theme, known?.get("issue")?.jsonPrimitive?.content)
         val violation = result.findings.isNotEmpty()
+        val baseline = known?.let { Baseline(it) }
         when {
-            violation && known == null ->
+            violation && baseline == null ->
                 throw AssertionError("$name differs from its approved frame $frameId ($theme) in ${result.findings.size} places. Fix the screen; do not loosen the tolerance or add a mask. A new known violation needs the design:approved-change label.\n${result.report(60)}")
             !violation && known != null ->
                 throw AssertionError("$name now matches its approved frame $frameId ($theme). Remove it from known_violations in design/registry.json (issue ${known["issue"]}).")
+            baseline != null -> baseline.errors(result.findings).takeIf { it.isNotEmpty() }?.let { errors ->
+                throw AssertionError("$name differs from its approved frame $frameId ($theme) beyond its known violation (issue ${known["issue"]}):\n" + errors.joinToString("\n") { "  $it" } + "\n${result.report(60)}")
+            }
         }
     }
+}
+
+/**
+ * What a known violation may still differ in, recorded in design/registry.json from the gate's own output: the `layer:element` key of every difference
+ * the frame's elements have (`findings`), and the count of the differences that have no stable element, the regions and the texts the frame lacks
+ * (`regions`, `extra`). It is a ratchet: a new key or a higher count fails, and so does a recorded key that now passes, so the list shrinks with
+ * every fix and a regression cannot hide among a screen's other differences.
+ */
+internal class Baseline(row: JsonObject) {
+    private val keys = row["findings"]?.jsonArray.orEmpty().map { it.jsonPrimitive.content }.toSet()
+    private val regions = row["regions"]?.jsonPrimitive?.intOrNull ?: 0
+    private val extra = row["extra"]?.jsonPrimitive?.intOrNull ?: 0
+
+    fun errors(findings: List<Finding>): List<String> {
+        val now = findings.filter { it.counted() == null }.map { it.key() }.toSet()
+        val out = mutableListOf<String>()
+        (now - keys).sorted().takeIf { it.isNotEmpty() }?.let { out += "new differences, not in the baseline: ${it.joinToString(", ")}" }
+        (keys - now).sorted().takeIf { it.isNotEmpty() }?.let { out += "now match their frame, remove them from `findings` in known_violations: ${it.joinToString(", ")}" }
+        for ((what, have, limit) in listOf(Triple("regions", findings.count { it.counted() == "regions" }, regions), Triple("extra texts", findings.count { it.counted() == "extra" }, extra)))
+            if (have > limit) out += "$what: $have, the baseline allows $limit"
+        return out
+    }
+}
+
+internal fun Finding.key() = "$layer:$id"
+
+/** The count a finding is ratcheted by when it has no stable element of the frame: a region, or a text the frame lacks. */
+internal fun Finding.counted(): String? = when {
+    layer == "region" -> "regions"
+    layer == "text" && id == "extra" -> "extra"
+    else -> null
 }
 
 internal class Mask(row: JsonObject) {
@@ -541,13 +576,17 @@ internal class Comparison(
         row("icon", id, "${el.str("node")} ${r[2].f()}x${r[3].f()} at ${r[0].f()},${r[1].f()}", d, r)
     }
 
-    /** A logo, an avatar or a chart is drawn by the data: it must be there, at the frame's place and about its size, and what it draws is not compared. */
+    /**
+     * A logo, an avatar or a chart is the data's content: it must be there, and a logo at the frame's place and about its size; what it draws is not
+     * compared, and neither is the extent of a chart's line, which is the series' own. The container around it (the disc, its border, the fill behind a
+     * plot) is a box of the frame, compared as any box, and the pixels of the content are left out of the region cells, not masked.
+     */
     private fun checkVariableIcon(el: JsonObject, r: List<Double>) {
         val seen = inkBox(expected, r)
         val shown = inkBox(actual, r)
         val d = mutableListOf<Triple<String, String, String>>()
         if (shown == null) d += Triple("picture", "a ${el.str("var")} at ${r[0].f()},${r[1].f()}", "missing")
-        else if (seen != null) {
+        else if (seen != null && el.str("var") != "chart") {
             fun cmp(field: String, want: Double, got: Double) { if (abs(want - got) > tol.textPosDp) d += Triple(field, want.f(), got.f()) }
             cmp("picture centre x", (seen[0] + seen[2]) / 2, (shown[0] + shown[2]) / 2)
             cmp("picture centre y", (seen[1] + seen[3]) / 2, (shown[1] + shown[3]) / 2)

@@ -101,10 +101,11 @@ EXTRACT_JS = r"""
   const variableText = (el, text) => {
     if (el.closest(MONO)) return 'logo';
     const row = el.closest('.row');
-    if (row && row.querySelector(MARK)) return 'row';
+    // A badge or an action beside a logo ("DEFAULT", "NEW", "Change") is copy: only the data row's own words are variable.
+    if (row && row.querySelector(MARK) && !el.closest('.ta,.tg,.dim-badge')) return 'row';
     return isData(text) ? 'data' : null;
   };
-  const variableIcon = (el) => (el.matches('svg.spk') ? 'chart' : el.matches('i.lm') || el.querySelector('use[href^="#l-"],use[href^="#emb-"]') || el.closest(MONO) ? 'logo' : null);
+  const variableIcon = (el) => (el.matches('svg.spk,svg.tick') ? 'chart' : el.matches('i.lm') || el.querySelector('use[href^="#l-"],use[href^="#emb-"]') || el.closest(MONO) ? 'logo' : null);
   // Where a variable text is held when its words change: the edge that does not move when the text shrinks to one letter.
   const anchorOf = (el, before) => {
     const nodes = [...el.childNodes].filter((n) => n.nodeType === 3 && n.textContent.trim());

@@ -179,4 +179,87 @@ class DesignGateCalibrationTest {
         val app = page(listOf(60, 12, 30, 8) to white, listOf(10, 42, 24, 8) to white, listOf(10, 72, 24, 8) to white, listOf(70, 50, 20, 20) to 0xF7931A, listOf(40, 88, 12, 8) to white)
         assertTrue(rule(app, sameTexts()).any { it.layer == "region" })
     }
+
+    // The owner's rule on data: a logo's image and a chart's line are the data's content and may differ; the container around them (the disc, its
+    // border, the fill behind a plot) is a constant and must match. The frame: the disc of the first case with an orange logo square in it, and a
+    // plot with a container (#2A262E, border #36313B) holding a chart line.
+    private val content: JsonObject = Json.parseToJsonElement(
+        """{"inkThreshold":12,"bandGap":1,"width":100,"height":100,"themes":{"dark":{"bg":[21,19,23],"bands":[],"elements":[
+            {"id":"e0","kind":"box","node":"div.lg.big","rect":{"x":20,"y":20,"w":40,"h":40},"fill":[42,38,46,1],"border":{"width":1,"color":[54,49,59,1]},"radius":"50%","shadow":null},
+            {"id":"e1","kind":"icon","node":"svg","rect":{"x":30,"y":30,"w":20,"h":20},"var":"logo"},
+            {"id":"e2","kind":"box","node":"div.plot","rect":{"x":10,"y":70,"w":80,"h":24},"fill":[42,38,46,1],"border":{"width":1,"color":[54,49,59,1]},"radius":"0px","shadow":null},
+            {"id":"e3","kind":"icon","node":"svg.tick","rect":{"x":14,"y":74,"w":72,"h":16},"var":"chart"}
+        ]}}}""",
+    ).jsonObject
+    private val orange = 0xF7931A
+    private val blue = 0x3C5CE0
+
+    /** The disc with a logo square of [logo] and a plot with a [container] and a one dp line of [line] at [lineY], or none. */
+    private fun withContent(discFill: Int = fill, logo: Int? = orange, hole: Boolean = false, container: Int = border, line: Int? = orange, lineY: Int = 82): Px {
+        var img = page(discFill, border)
+        if (logo != null) img = img.filled(listOf(30.0, 30.0, 20.0, 20.0), logo)
+        if (hole) img = img.filled(listOf(36.0, 36.0, 8.0, 8.0), discFill)
+        img = img.filled(listOf(10.0, 70.0, 80.0, 24.0), container).filled(listOf(11.0, 71.0, 78.0, 22.0), fill)
+        if (line != null) img = img.filled(listOf(16.0, lineY.toDouble(), 68.0, 1.0), line)
+        return img
+    }
+
+    private fun content(actual: Px) =
+        Comparison("calibration", content, content.getValue("themes").jsonObject.getValue("dark").jsonObject, withContent(), actual, emptyList(), emptyList(), tol).run().findings
+
+    @Test
+    fun anotherLogoImageAndAnotherChartLineInTheSameContainersPass() {
+        val got = content(withContent(logo = blue, hole = true, line = 0x3C5CE0, lineY = 78))
+        assertEquals(emptyList<String>(), got.map { "${it.layer} ${it.label}" })
+    }
+
+    @Test
+    fun aDiscWithAnotherFillBehindALogoIsSeen() {
+        val got = content(withContent(discFill = 0x3A3440))
+        assertTrue("a disc filled #3A3440 for #2A262E must fail even with the logo in place: $got", got.any { it.id == "e0" })
+    }
+
+    @Test
+    fun aPlotContainerWithAnotherBorderIsSeen() {
+        val got = content(withContent(container = 0xFFFFFF))
+        assertTrue("a white plot border for #36313B must fail even with a chart line in place: $got", got.any { it.id == "e2" })
+    }
+
+    @Test
+    fun aLogoOrAChartThatIsMissingIsSeen() {
+        assertTrue(content(withContent(logo = null)).any { it.id == "e1" })
+        assertTrue(content(withContent(line = null)).any { it.id == "e3" })
+    }
+
+    private fun finding(layer: String, id: String) = Finding(layer, id, "$layer $id", listOf(Triple("f", "a", "b")), null)
+
+    private val baseline = Baseline(
+        Json.parseToJsonElement("""{"issue":1,"findings":["text:e1","box:e2"],"regions":2,"extra":1}""").jsonObject,
+    )
+
+    private val recorded = listOf(finding("text", "e1"), finding("box", "e2"), finding("region", "region0"), finding("region", "region1"), finding("text", "extra"))
+
+    @Test
+    fun theRecordedDifferencesPass() {
+        assertEquals(emptyList<String>(), baseline.errors(recorded))
+        assertEquals(emptyList<String>(), baseline.errors(recorded.filter { it.layer != "region" }.plus(finding("region", "region0"))))
+    }
+
+    @Test
+    fun aNewDifferenceOnAnotherElementIsSeen() {
+        val got = baseline.errors(recorded + finding("icon", "e9"))
+        assertTrue("a new icon difference must fail: $got", got.any { "icon:e9" in it })
+    }
+
+    @Test
+    fun moreRegionsOrMoreExtraTextsAreSeen() {
+        assertTrue(baseline.errors(recorded + finding("region", "region2")).any { it.startsWith("regions: 3") })
+        assertTrue(baseline.errors(recorded + finding("text", "extra")).any { it.startsWith("extra texts: 2") })
+    }
+
+    @Test
+    fun aRecordedDifferenceThatIsGoneIsSeen() {
+        val got = baseline.errors(recorded.filter { it.id != "e1" })
+        assertTrue("a recorded text difference that passes now must leave the baseline: $got", got.any { "text:e1" in it })
+    }
 }

@@ -366,8 +366,6 @@
      "node": "span.tg",
      "path": "div.row[6]>span.tg[2]",
      "text": "NEW",
-     "var": "row",
-     "anchor": "right",
      "rect": {
       "x": 309.63,
       "y": 287,
@@ -561,8 +559,6 @@
      "node": "span.tg",
      "path": "div.row[7]>span.tg[2]",
      "text": "NEW",
-     "var": "row",
-     "anchor": "right",
      "rect": {
       "x": 309.63,
       "y": 349,
@@ -1182,8 +1178,6 @@
      "node": "span.tg",
      "path": "div.row[6]>span.tg[2]",
      "text": "NEW",
-     "var": "row",
-     "anchor": "right",
      "rect": {
       "x": 309.63,
       "y": 287,
@@ -1377,8 +1371,6 @@
      "node": "span.tg",
      "path": "div.row[7]>span.tg[2]",
      "text": "NEW",
-     "var": "row",
-     "anchor": "right",
      "rect": {
       "x": 309.63,
       "y": 349,

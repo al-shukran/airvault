@@ -292,8 +292,6 @@
      "node": "span.dim-badge",
      "path": "div.row[3]>div.m[1]>b[0]>span.dim-badge[0]",
      "text": "ACTIVE",
-     "var": "row",
-     "anchor": "left",
      "rect": {
       "x": 116.53,
       "y": 100.5,
@@ -1231,8 +1229,6 @@
      "node": "span.dim-badge",
      "path": "div.row[3]>div.m[1]>b[0]>span.dim-badge[0]",
      "text": "ACTIVE",
-     "var": "row",
-     "anchor": "left",
      "rect": {
       "x": 116.53,
       "y": 100.5,
