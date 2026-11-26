@@ -1,1 +1,1 @@
-Locking Lumio now stops a balance scan that is still running, so a locked vault holds no work and makes no network requests.
+Locking Lumio now stops a wallet scan that is still running (a Bitcoin scan pass), so a locked vault holds no scan work. Other first-sync work is tracked separately.

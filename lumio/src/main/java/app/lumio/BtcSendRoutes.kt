@@ -150,7 +150,7 @@ internal fun BtcSendRoute(
     }
     if (session == null) return
     // The vault this send began under, so a lock and a decoy unlock during it cannot move its reads or its change reservation to the decoy's memo.
-    val vault = remember(session) { app.lumioVault() }
+    val vault = remember(session) { app.lumioVault()?.takeIf { it.session === session } }
     val scope = rememberCoroutineScope()
     // The account [account] of the wallet, on the side the owner chose: a mainnet send never opens a testnet account, and a testnet send never a mainnet one.
     val load by produceState<BtcSendLoad?>(initialValue = null, session, walletId, account, mode) {

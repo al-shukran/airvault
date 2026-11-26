@@ -9,13 +9,16 @@ import app.lumio.data.sched.Priority
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlinx.coroutines.CompletableDeferred
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import org.junit.Test
 
 /** The scan queue and its runner: the order of events, the network filter, failures, resume after a restart, and a locked vault. */
@@ -210,5 +213,55 @@ class ScanRunnerTest {
 
         assertEquals(2, runner.pass(mainnet), "the next pass claims both jobs again")
         assertEquals(listOf("account-a", "account-b"), ran)
+    }
+
+    @Test
+    fun aFailedJobNeverRunsInTwoPassesAtOnce() = runTest {
+        val queue = queueOver(FakeScanJobDao())
+        queue.add(mainnet, "account-a", Priority.FOREGROUND)
+        queue.add(mainnet, "account-b", Priority.VISIBLE)
+        val aFailed = CompletableDeferred<Unit>()
+        val bStarted = CompletableDeferred<Unit>()
+        val holdA2 = CompletableDeferred<Unit>()
+        val holdB = CompletableDeferred<Unit>()
+        val current = AtomicInteger()
+        val maxA = AtomicInteger()
+        var attemptsA = 0
+        val runner = ScanRunner(queue, parallelism = 2) { job, _ ->
+            if (job.job.accountRef == "account-b") {
+                bStarted.complete(Unit)
+                holdB.await()
+            } else {
+                maxA.accumulateAndGet(current.incrementAndGet(), ::maxOf)
+                try {
+                    attemptsA++
+                    when (attemptsA) {
+                        1 -> {
+                            aFailed.complete(Unit)
+                            throw ProviderError.Transient()
+                        }
+                        2 -> holdA2.await()
+                    }
+                } finally {
+                    current.decrementAndGet()
+                }
+            }
+        }
+
+        val passA = async { runner.pass(mainnet) }
+        aFailed.await()
+        bStarted.await()
+        repeat(3) { yield() }
+        // Pass A is still running account b, so a failed account a must not be claimed by another pass yet.
+        val passB = async { runner.pass(mainnet) }
+        repeat(3) { yield() }
+        holdB.complete(Unit)
+        passA.await()
+        val passC = async { runner.pass(mainnet) }
+        repeat(3) { yield() }
+
+        assertEquals(1, maxA.get(), "account a never runs twice at once")
+        holdA2.complete(Unit)
+        awaitAll(passB, passC)
     }
 }

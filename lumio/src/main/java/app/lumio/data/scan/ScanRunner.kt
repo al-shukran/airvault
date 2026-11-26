@@ -61,8 +61,6 @@ class ScanRunner(
             throw e
         } catch (e: Exception) {
             if (queue.holds(job.id)) queue.publish(ScanEvent.Failed(job.id, job.job.net, account, messageOf(e)))
-        } finally {
-            withContext(NonCancellable) { lock.withLock { running -= job.id } }
         }
     }
 
