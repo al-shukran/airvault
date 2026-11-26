@@ -12,6 +12,7 @@ import app.lumio.btc.networkId
 import app.lumio.chains.ChainHolding
 import app.lumio.data.WallClock
 import app.lumio.data.asset.AssetId
+import app.lumio.data.config.saveFailureWords
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.price.ChartFrame
@@ -173,6 +174,10 @@ internal class WalletsBoard(
 
     /** The watchlist of the app, paired wallet or none, or null until it is read. With none stored it has [FIRST_RUN_ASSETS]. */
     var watchlist by mutableStateOf<Watchlist?>(null)
+        private set
+
+    /** Why the last watchlist change was not made, in the owner's words, or null after a change that was. */
+    var watchlistNotice by mutableStateOf<String?>(null)
         private set
 
     /** The names and logo kept with [asset] when it was starred from Add to Watchlist, or null when none was kept. */
@@ -398,8 +403,9 @@ internal class WalletsBoard(
         scope.launch {
             writes.withLock {
                 val next = change(watchlist ?: withContext(Dispatchers.IO) { WatchlistStore.read(session) })
-                val saved = withContext(Dispatchers.IO) { runCatching { WatchlistStore.write(session, next) }.isSuccess }
-                if (!saved) return@launch
+                val failure = withContext(Dispatchers.IO) { runCatching { WatchlistStore.write(session, next) }.exceptionOrNull() }
+                watchlistNotice = failure?.saveFailureWords("The watchlist could not be saved. Try again.")
+                if (failure != null) return@launch
                 watchlist = next
             }
             refreshPrices()

@@ -102,6 +102,16 @@ class BtcJobsTest {
         assertEquals(price.decodeToString(), cache.get(CachePolicy.LastKnown, "native-price:ETH")?.value?.decodeToString(), "a kept price is not a scan")
     }
 
+    @Test
+    fun aScanTooLargeForTheCacheIsSkippedNotThrown() = runBlocking {
+        val store = BtcStore(cache())
+        val huge = lastKnown("wallet-1_TESTNET4_NATIVE_SEGWIT").copy(utxos = List(15_000) { BtcUtxo("%064x".format(it), it, 1_000L, 1L) })
+
+        store.save(huge)
+
+        assertEquals(null, store.snapshot(huge.key), "an oversized scan is not kept")
+    }
+
     private fun lastKnown(key: String) = BtcSnapshot(
         key = key,
         identity = "tb1qidentity",

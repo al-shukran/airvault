@@ -1,12 +1,15 @@
 package app.lumio.btc
 
+import android.util.Log
 import app.lumio.data.cache.Cache
 import app.lumio.data.cache.CachePolicy
+import app.lumio.data.cache.MAX_VALUE_BYTES
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The last known balance of each account: its last scan, kept in the Lumio cache under the last-known policy. It stays until a newer scan replaces
@@ -23,9 +26,20 @@ class BtcStore(private val cache: Cache) {
         null
     }
 
-    /** Stores [snapshot] in place of the earlier scan of its account. */
+    private val oversized = ConcurrentHashMap.newKeySet<String>()
+
+    /**
+     * Stores [snapshot] in place of the earlier scan of its account. A scan too large for one cache value is not stored, and the scan that
+     * produced it is still used: the account shows no balance before its next scan, and the skip is logged once per account.
+     */
     suspend fun save(snapshot: BtcSnapshot) {
-        cache.put(CachePolicy.LastKnown, nameOf(snapshot.key), SnapshotCodec.encode(listOf(snapshot)))
+        val encoded = SnapshotCodec.encode(listOf(snapshot))
+        if (encoded.size > MAX_VALUE_BYTES) {
+            if (oversized.add(snapshot.key)) Log.w("BtcStore", "scan of ${snapshot.key} is ${encoded.size} bytes, over the cache limit, so it is not kept")
+            return
+        }
+        oversized.remove(snapshot.key)
+        cache.put(CachePolicy.LastKnown, nameOf(snapshot.key), encoded)
     }
 
     /**

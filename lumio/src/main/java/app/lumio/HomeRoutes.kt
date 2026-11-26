@@ -102,6 +102,7 @@ internal fun HomeRoute(
                     sort = sort,
                     testnet = testnet,
                     footnote = footnote,
+                    notice = board.watchlistNotice,
                     onSend = { sendSourceOf(accounts)?.let { navController.navigate(sendRoute(it, selection.mode)) } },
                     onReceive = {
                         receiveOpening++

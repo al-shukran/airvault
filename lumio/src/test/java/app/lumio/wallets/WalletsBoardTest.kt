@@ -152,6 +152,28 @@ class WalletsBoardTest {
     }
 
     @Test
+    fun aWatchlistChangeOnAnUnreadableRecordShowsTheNoticeAndKeepsTheRecord() {
+        val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 5 + 1).toByte() })
+        val database = LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "unreadable.db"))
+        val vault = LumioVault(session, database)
+        val damaged = """{"format":3,"watchlist":{"assets":"all"}}"""
+        session.putVaultRecord(WatchlistStore.RECORD, damaged.encodeToByteArray())
+        val app = RuntimeEnvironment.getApplication() as LumioApp
+        val board = WalletsBoard(app, vault, repository = PriceRepository(app.priceScheduler) { vault.cache }) { emptyMap<AssetId, Price>() }
+        board.showSide(mode, listVersion = 0)
+        await { board.watchlist }
+
+        board.changeWatchlist { it.copy(sort = WatchlistSort.CHANGE_24H) }
+
+        assertEquals("Your saved watchlist could not be read, so nothing was changed.", await { board.watchlistNotice })
+        assertEquals(damaged, session.getVaultRecord(WatchlistStore.RECORD)!!.decodeToString())
+
+        board.close()
+        database.close()
+        session.close()
+    }
+
+    @Test
     fun theWatchlistSurvivesPairingPairingAgainAndForgettingAWallet() {
         // A padded vault, as production keeps one: a deleted wallet's slot is the one the next pairing takes, so the id comes back.
         val layout = VaultLayout(tmp.root)
