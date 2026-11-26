@@ -254,6 +254,7 @@ jobs:
 
       # Runs only after a clean recording. The branch always starts from this run's commit, so it never carries stale goldens.
       - name: Propose the changed goldens
+        id: propose
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -270,6 +271,14 @@ jobs:
             done
             return 1
           }
+          # Closes the refresh PR only while it is still open, so a retry after a timed-out close never posts the comment twice.
+          close_refresh_pr() {
+            local state
+            state=$(gh pr view "$1" --repo "$GH_REPO" --json state -q .state) || return 1
+            [ "$state" = OPEN ] || return 0
+            gh pr close "$1" --repo "$GH_REPO" \
+              --comment "The nightly recording ($RUN_URL) matches the committed goldens again, so this refresh is not needed."
+          }
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -C goldens-refresh
@@ -278,9 +287,9 @@ jobs:
           if git diff --cached --quiet; then
             echo "The recorded goldens match the committed ones."
             if [ -n "$pr" ]; then
-              retry gh pr close "$pr" --repo "$GH_REPO" --delete-branch \
-                --comment "The nightly recording ($RUN_URL) matches the committed goldens again, so this refresh is not needed."
+              retry close_refresh_pr "$pr"
             fi
+            echo "goldens_match=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git commit --signoff --message "Refresh screenshot goldens" --message "Recorded on the Linux runner by $RUN_URL."
@@ -290,6 +299,29 @@ jobs:
               --label scope:common --label area:ci --label difficulty:easy \
               --body "Nightly recorded these goldens on the Linux runner ($RUN_URL). Review the PNG diff, and merge only the changes the screen was meant to make. Goldens come from this runner only (docs/testing/guideline.md 1.5)."
           fi
+
+      # Runs only when the goldens match, after the refresh PR is closed. A branch that is already gone (404, or 422 "Reference does not exist") counts as deleted.
+      - name: Delete the goldens-refresh branch
+        if: steps.propose.outputs.goldens_match == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          delete_branch() {
+            local out
+            out=$(gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/goldens-refresh" 2>&1) && return 0
+            case "$out" in
+              *"HTTP 404"* | *"Reference does not exist"*) return 0 ;;
+            esac
+            echo "$out" >&2
+            return 1
+          }
+          for n in 1 2 3; do
+            delete_branch && exit 0
+            echo "attempt $n of 3 failed: delete goldens-refresh" >&2
+            sleep $((n * 15))
+          done
+          exit 1
 
   # Android lint, one leg per module (scripts/ci/run-partition.sh lint-<module>). Each leg compiles its module and the modules it
   # depends on, then lints the main sources.
