@@ -4,6 +4,7 @@
 #   :app (Lensly) is offline: no android.permission.INTERNET and no android.permission.ACCESS_NETWORK_STATE.
 #   :lumio (the companion) is the one app that uses the network. It may request only the permissions on the allow-list below.
 #   Both merged manifests set android:allowBackup to exactly "false".
+#   Cleartext HTTP is allowed only in a src/debug/ source set. The check reads the sources, so no release build is needed.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -55,6 +56,19 @@ check_allow_backup() {
     return 1
 }
 
+# Cleartext HTTP may be allowed only under a debug source set. Any cleartextTrafficPermitted or usesCleartextTraffic set to "true" in
+# app/src or lumio/src, outside src/debug/, fails the check.
+check_cleartext_sources() {
+    local hits
+    hits="$(grep -rlE 'cleartextTrafficPermitted="true"|usesCleartextTraffic="true"' app/src lumio/src | grep -v '/src/debug/' || true)"
+    if [ -n "$hits" ]; then
+        echo "check-manifest: error: cleartext traffic is allowed outside src/debug/; release must deny it:" >&2
+        printf '%s\n' "$hits" >&2
+        return 1
+    fi
+    return 0
+}
+
 # Always run the tasks. Reusing whatever intermediate happens to be in a build directory can check a manifest built from older
 # inputs and pass a change it never saw.
 echo "check-manifest: building the merged debug manifests"
@@ -95,9 +109,12 @@ for permission in $(requested_permissions "$LUMIO_MERGED"); do
 done
 check_allow_backup "$LUMIO_MERGED" ":lumio" || status=1
 
+echo "check-manifest: checking cleartext allowances in app/src and lumio/src"
+check_cleartext_sources || status=1
+
 if [ "$status" -ne 0 ]; then
     echo "check-manifest: failed" >&2
     exit 1
 fi
 
-echo "check-manifest: ok (:app has no network permissions; :lumio requests only allow-listed permissions; allowBackup=false in both)"
+echo "check-manifest: ok (:app has no network permissions; :lumio requests only allow-listed permissions; allowBackup=false in both; cleartext only in src/debug/)"
