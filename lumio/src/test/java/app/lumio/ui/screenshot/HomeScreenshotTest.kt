@@ -5,7 +5,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -96,8 +98,14 @@ class HomeScreenshotTest {
         }
     }
 
+    /** A golden of [content] in the mock's frame, with the mock's 24 dp gesture area under the tab bar, which a phone's navigation inset gives it. */
     private fun frame(name: String, width: Int = WIDE, content: @Composable () -> Unit) =
-        compose.lumioSnapshot(name = name, frame = DpSize(width.dp, HEIGHT.dp), content = content)
+        compose.lumioSnapshot(name = name, frame = DpSize(width.dp, HEIGHT.dp)) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) { content() }
+                Spacer(Modifier.height(GESTURE_AREA.dp))
+            }
+        }
 
     /** The root screen as the mock draws it: "Air 1" in the top bar, Home's body, and the tab bar. [end] scrolls the body to its end. */
     @Composable
@@ -127,7 +135,7 @@ class HomeScreenshotTest {
                     rows = rows,
                     sort = WatchlistSort.MARKET_CAP,
                     testnet = testnet,
-                    footnote = if (testnet) null else "Prices at 12:30, change over 24 hours.",
+                    footnote = if (testnet) null else MOCK_FOOTNOTE,
                     onSend = {},
                     onReceive = {},
                     onSort = {},
@@ -177,5 +185,9 @@ class HomeScreenshotTest {
         const val WIDE = 411
         const val NARROW = 360
         const val HEIGHT = 851
+        const val GESTURE_AREA = 24
+
+        /** The mock's footnote, word for word, so the end frames scroll as far as the mock's. */
+        const val MOCK_FOOTNOTE = "Prices from CoinGecko at 12:30, change over 24 hours. eurSAFO is priced in US dollars at 1.0935 USD per euro (ECB, 25 Nov 2026)."
     }
 }

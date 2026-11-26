@@ -41,6 +41,9 @@ private val ACTIONS_BAND = 6.dp
 private val SEND_WIDTH = 129.dp
 private val ACTIONS_GAP = 18.dp
 
+/** The 6 dp a text action keeps on each side of its words, which centres Send and Receive as the mock does. */
+private val TEXT_ACTION_SIDE = 6.dp
+
 /** The watchlist header: its space above and below, the height of its line, and the gap between its two actions. */
 private val HEADER_TOP = 18.dp
 private val HEADER_BOTTOM = 4.dp
@@ -109,7 +112,7 @@ fun HomeScreen(
         horizontalArrangement = Arrangement.spacedBy(ACTIONS_GAP, Alignment.CenterHorizontally),
     ) {
         ClearAirPrimaryButton(text = "Send", onClick = onSend, modifier = Modifier.width(SEND_WIDTH), icon = ClearAirGlyph.SEND, fullWidth = false)
-        ClearAirTextAction(text = "Receive", onClick = onReceive, icon = ClearAirGlyph.RECEIVE)
+        ClearAirTextAction(text = "Receive", onClick = onReceive, icon = ClearAirGlyph.RECEIVE, modifier = Modifier.padding(horizontal = TEXT_ACTION_SIDE))
     }
     if (rows.isEmpty()) {
         EmptyWatchlist(onAdd = onAdd, onRestore = onRestore)
