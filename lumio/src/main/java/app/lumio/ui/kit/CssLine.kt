@@ -1,5 +1,6 @@
 package app.lumio.ui.kit
 
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.TextStyle
@@ -33,3 +34,9 @@ internal fun Modifier.spacedLikeCss(spacing: Dp): Modifier = layout { measurable
     val placeable = measurable.measure(constraints)
     layout(placeable.width + spacing.roundToPx(), placeable.height) { placeable.placeRelative(0, 0) }
 }
+
+/**
+ * Centres a block in a row as a browser's flex row does: a half dp left over goes below the block. Compose's own centring rounds it up, so a two-line
+ * text column in a 62 dp row beside a 36 dp disc sits 1 dp under the mock's, where the mock's column starts half a dp above the disc.
+ */
+internal val CssCentre = Alignment.Vertical { size, space -> (space - size) / 2 }

@@ -32,6 +32,7 @@ import app.lumio.data.tx.TxStatus
 import app.lumio.home.Masking
 import app.lumio.transactions.ActivityText
 import app.lumio.transactions.TxFeedItem
+import app.lumio.ui.kit.CssCentre
 import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.kit.inLineBox
 import java.time.ZoneId
@@ -84,7 +85,7 @@ fun ActivityRowItem(item: TxFeedItem, names: Map<String, String>, zone: ZoneId, 
             )
         }
         Spacer(Modifier.width(ClearAirSpacing.sm))
-        Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.weight(1f).then(if (frame) Modifier.align(CssCentre) else Modifier)) {
             Text(text = line.title, style = if (frame) ClearAirType.rowTitle.inLineBox() else ClearAirType.rowTitle, color = palette.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.Top) {
                 if (tx.status == TxStatus.PENDING) {
@@ -102,7 +103,7 @@ fun ActivityRowItem(item: TxFeedItem, names: Map<String, String>, zone: ZoneId, 
             }
         }
         Spacer(Modifier.width(ClearAirSpacing.sm))
-        Column(horizontalAlignment = Alignment.End) {
+        Column(modifier = if (frame) Modifier.align(CssCentre) else Modifier, horizontalAlignment = Alignment.End) {
             Text(
                 text = Masking.amount(line.amount, hidden = !shown),
                 style = if (frame) ClearAirType.rowValue.inLineBox() else ClearAirType.rowValue,

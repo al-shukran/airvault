@@ -70,6 +70,7 @@ import app.lumio.ui.kit.ClearAirIconButton
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirSheet
 import app.lumio.ui.kit.ClearAirTextAction
+import app.lumio.ui.kit.CssCentre
 import app.lumio.ui.kit.cssLine
 import app.lumio.ui.kit.inLineBox
 import app.lumio.ui.kit.spacedLikeCss
@@ -195,7 +196,7 @@ internal fun AssetPage(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = ClearAirSpacing.gutter, end = ClearAirSpacing.gutter, top = SECTION_TOP, bottom = ClearAirSpacing.xxs),
+                        .padding(start = ClearAirSpacing.gutter, end = ClearAirSpacing.gutter, top = ACTIVITY_TOP, bottom = ACTIVITY_BOTTOM),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
@@ -355,7 +356,7 @@ private fun HeldRow(coin: CoinHeld, icon: @Composable (Dp) -> Unit, onClick: () 
     ) {
         ClearAirDisc { icon(ROW_LOGO) }
         Spacer(Modifier.width(ClearAirSpacing.sm))
-        Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.weight(1f).align(CssCentre)) {
             Text(text = coin.amount, style = HELD_TITLE, color = palette.ink)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -462,6 +463,10 @@ private val TEXT_ACTION_PAD = 6.dp
 /** The frame sets the text action's label 1 dp above the capsule's centre line, where a centred action would put it on it. */
 private val TEXT_ACTION_LIFT = 1.dp
 private val SECTION_TOP = 18.dp
+
+/** The activity header starts at a fraction of a dp above a whole 18 dp under the row (the frame's 574.34 for 575), which whole dp shows as one dp. */
+private val ACTIVITY_TOP = 17.dp
+private val ACTIVITY_BOTTOM = 5.dp
 private val ALL_STYLE = ClearAirType.rowTitle.copy(fontSize = 13.sp, lineHeight = 21.sp).inLineBox()
 private val CAPSULE_STYLE = ClearAirType.button.copy(lineHeight = 21.sp).inLineBox()
 private val TEXT_ACTION_STYLE = ClearAirType.rowTitle.copy(lineHeight = 21.sp).inLineBox()
