@@ -35,10 +35,13 @@ expected="comment-run-\${{ github.event.issue.number }}-\${{ $gate }}"
 #    comment in run, which Actions expands too). Job-level env, a job-level secrets: key, and workflow-level text count as before step 0.
 #  - The refusal is a step with only the keys name, run and id (no if, env, shell, continue-on-error) whose run holds the top-level
 #    line `if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then` followed by an unconditional `exit 1` in that block
-#    (not after `&&`/`||`, in an `else`, or in a nested if). Echoing the command or commenting it out does not count.
+#    (not after `&&`/`||`, in an `else`, or in a nested if). Echoing the command or commenting it out does not count. The lines are
+#    matched as text, so a block with a heredoc (`<<`) or a line with an unclosed quote (a string that spans lines) is refused: the
+#    shell may not run the lines inside it (#1451).
 yq -o=json '.' "$workflows/release.yml" | python3 -I -c '
 import json
 import re
+import shlex
 import sys
 
 doc = json.load(sys.stdin)
@@ -62,6 +65,12 @@ def refuses(step):
         text = line.strip()
         if not text or text.startswith("#"):
             continue
+        try:
+            shlex.split(text)
+        except ValueError:
+            return False
+        if "<<" in text:
+            return False
         if depth == 0 and not chained and text == "if ! " + COMMAND + "; then":
             armed = True
         elif armed and depth == 1 and not chained and text == "exit 1":
