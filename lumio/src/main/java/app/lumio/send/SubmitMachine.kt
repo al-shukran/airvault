@@ -43,6 +43,9 @@ class SubmitMachine<S, Id>(
 ) {
     private val current = MutableStateFlow<SubmitState<Id>>(SubmitState.Idle)
 
+    /** Once an attempt had an unknown outcome, every later failure reads as unknown, since no failure after it proves the network holds nothing. */
+    private var everUnknown = false
+
     val signedAtMs: Long = clock()
 
     val state: StateFlow<SubmitState<Id>> = current.asStateFlow()
@@ -59,7 +62,8 @@ class SubmitMachine<S, Id>(
             throw e
         } catch (e: Exception) {
             val failure = describe(e)
-            SubmitState.Failed(failure.message, failure.retryable, technicalDetail(e), outcomeUnknown(e))
+            everUnknown = everUnknown || outcomeUnknown(e)
+            SubmitState.Failed(failure.message, failure.retryable, technicalDetail(e), everUnknown)
         }
     }
 }
@@ -68,16 +72,18 @@ class SubmitMachine<S, Id>(
  * True when [error], or a cause of it, is a failure after which the network may hold the transaction: a transient failure that may have left, or an
  * unreadable answer. A transient failure that never left, such as no network at all, leaves the transaction with the owner.
  */
-internal fun outcomeUnknown(error: Throwable): Boolean = generateSequence(error) { it.cause?.takeIf { cause -> cause !== it } }.take(MAX_CAUSES).takeWhile { it !is NotSent }.any {
+internal fun outcomeUnknown(error: Throwable): Boolean = causes(error).takeWhile { it !is NotSent }.any {
     it is ProviderError.Transient && !it.neverSent || it is ProviderError.Unreadable
 }
+
+private fun causes(error: Throwable): Sequence<Throwable> = generateSequence(error) { it.cause?.takeIf { cause -> cause !== it } }.take(MAX_CAUSES)
 
 /**
  * What [error] was, as one line for Technical Details: the type of each error in its chain, and the message of the types whose words are Lumio's own
  * (a refusal, an endpoint's failure, an invalid input). The message of any other error stays out, since it may carry an address of the endpoint.
  */
 internal fun technicalDetail(error: Throwable): String =
-    generateSequence(error) { it.cause?.takeIf { cause -> cause !== it } }.take(MAX_CAUSES).joinToString("\n") { cause ->
+    causes(error).joinToString("\n") { cause ->
         val name = cause::class.simpleName ?: "Error"
         val words = cause.message?.takeIf { cause is RpcFailure || cause is ProviderError || cause is IllegalArgumentException }
         if (words == null) name else "$name: $words"
