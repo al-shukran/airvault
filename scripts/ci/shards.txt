@@ -195,6 +195,7 @@ shard-3 :app app.lensly.ui.sign.ReviewNamesTest
 shard-3 :lumio app.lumio.LumioBarIconsTest
 shard-3 :lumio app.lumio.LumioNavGraphTest
 shard-3 :lumio app.lumio.PasswordChangeTest
+shard-3 :lumio app.lumio.DecoyKeepsRealRowsTest
 shard-3 :lumio app.lumio.DuressPasswordTest
 shard-3 :lumio app.lumio.SideReadTest
 shard-3 :lumio app.lumio.btc.BtcReadStepTest

@@ -22,9 +22,9 @@ import app.lensly.ui.flow.checkAppPassword
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.data.config.DisplaySettingsStore
-import app.lumio.data.config.TransactionSettingsStore
 import app.lumio.data.config.FinishItem
 import app.lumio.data.config.FinishSetupStore
+import app.lumio.data.config.TransactionSettingsStore
 import app.lumio.evm.CustomChainInput
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.pair.PairedWallets
