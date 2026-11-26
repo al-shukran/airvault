@@ -405,7 +405,8 @@ class Vault constructor(
     /**
      * Deletes the vault: its Keystore keys first, then every file, the real vault and the decoy vault alike. Call this on an
      * explicit user command, or from the erase that follows the owner's last allowed wrong try (see [unlock]). Do not call it
-     * while any other operation of this class is running. If it throws, [finishPendingWipe] completes the erase at the next gate.
+     * while any other operation of this class is running. If it throws after its marker was written, [finishPendingWipe] completes the
+     * erase at the next gate.
      */
     fun wipe() {
         wipeVault(layout) { keys.deleteAll() }
@@ -763,8 +764,8 @@ class Vault constructor(
 
     /**
      * Erases the vault after the owner's last allowed wrong try: the same wipe as [wipe], then [onErased], so the app can remove what the
-     * wipe does not reach. A failure is not reported here: the wipe has already tried the keys and every file, and the result is the
-     * erased outcome either way.
+     * wipe does not reach. A failure is not reported here: the wipe has already tried the keys and every file, even when its marker could
+     * not be written, and the result is the erased outcome either way.
      */
     private fun eraseLocked() {
         try {
@@ -1321,13 +1322,20 @@ internal fun deviceIsEmulator(): Boolean {
  *
  * The erase starts by writing [VaultLayout.wipeMarker], which hides the vault (see [VaultLayout.exists]). The marker goes only once no file
  * is left, so an erase that stops half way, by a file that cannot be deleted or by a process that dies, is finished by
- * [Vault.finishPendingWipe] at the next gate.
+ * [Vault.finishPendingWipe] at the next gate. A marker that cannot be written, by a full disk or a folder that is not writable, does not
+ * stop the erase: the keys and every file still go, as far as they can, so the vault is never kept. [Vault.finishPendingWipe] cannot finish
+ * such an erase, since nothing records it. A file left behind is already overwritten, so it no longer verifies and the next unlock attempt
+ * erases it.
  *
- * @throws VaultException if the marker cannot be written, in which case nothing was deleted. Otherwise it throws if some file could not be
- * removed, or if [deleteKeys] threw.
+ * @throws VaultException if the marker cannot be written, if some file could not be removed, or if [deleteKeys] threw.
  */
 fun wipeVault(layout: VaultLayout, deleteKeys: () -> Unit) {
-    markWipe(layout)
+    val markerFailure = try {
+        markWipe(layout)
+        null
+    } catch (e: VaultException) {
+        e
+    }
     val keyFailure = try {
         deleteKeys()
         null
@@ -1341,21 +1349,21 @@ fun wipeVault(layout: VaultLayout, deleteKeys: () -> Unit) {
     FailureStore.forget(layout.root)
     val rootGone = layout.root.listFiles().orEmpty().filter { it != layout.wipeMarker }.map { it.deleteRecursively() }.all { it }
     val photosGone = layout.photos.deleteRecursively()
-    if (!rootGone || !photosGone || !layout.wipeMarker.delete()) {
-        throw VaultException("Some vault files could not be deleted.", keyFailure)
+    if (!rootGone || !photosGone || !(layout.wipeMarker.delete() || !layout.wipeMarker.exists())) {
+        throw VaultException("Some vault files could not be deleted.", keyFailure ?: markerFailure)
     }
     layout.root.delete()
     // Nothing is left that the keys protect. A key that could not be deleted is inert, and the next create replaces it.
     if (keyFailure != null) throw keyFailure
 }
 
-/** Writes the erase marker before anything is deleted. A marker that cannot be written leaves the vault as it was. */
+/** Writes the erase marker before anything is deleted. The caller erases without it when it cannot be written. */
 private fun markWipe(layout: VaultLayout) {
     try {
         layout.root.mkdirs()
         writeAtomically(layout.wipeMarker, ByteArray(0))
     } catch (e: IOException) {
-        throw VaultException("The vault could not start its erase, so nothing was erased.", e)
+        throw VaultException("The erase marker could not be written.", e)
     }
     // The rename should reach the disk before the first key goes, or a power cut could leave the files without their keys and without the
     // marker. A folder that cannot be synced does not stop the erase: the marker is written, and the journal commits it within seconds.
