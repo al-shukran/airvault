@@ -539,7 +539,7 @@ internal class WalletsBoard(
         readTokens(mode, account)
         reads.holdings = readOrNull { withContext(Dispatchers.IO) { AccountReadsLoader.holdingsOf(app, session, mode, account) } }
             ?: reads.holdings ?: emptyList()
-        val ids = AssetRows.pricedIds(account, reads.tokens.orEmpty())
+        val ids = AssetRows.pricedIds(account, reads.tokens.orEmpty(), reads.holdings.orEmpty())
         if (ids.isNotEmpty()) {
             reads.prices = reads.prices + readOrNull { withContext(Dispatchers.IO) { readPrices(ids) } }.orEmpty()
         }

@@ -121,6 +121,19 @@ class DefiLlamaChartTest {
     }
 
     @Test
+    fun anSplTokenAndAnAsaAreChartedByTheirChainPrefixes() {
+        val mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+        server.enqueue(answerFor("solana:$mint", """{"timestamp":1799998800,"price":0.9999}"""))
+        server.enqueue(answerFor("algorand:31566704", """{"timestamp":1799998800,"price":0.9999}"""))
+
+        chart(AssetId.Spl(NetworkId(Networks.SOL_MAINNET, testnet = false), mint), ChartFrame.D1)
+        chart(AssetId.Asa(NetworkId(Networks.ALGO_MAINNET, testnet = false), 31566704UL), ChartFrame.D1)
+
+        assertEquals("/chart/solana:$mint?start=1795939200&span=48&period=1d", server.takeRequest().target)
+        assertEquals("/chart/algorand:31566704?start=1795939200&span=48&period=1d", server.takeRequest().target)
+    }
+
+    @Test
     fun aTestnetCoinIsUnsupportedAndNeverCalled() {
         val testnet = NetworkId(Networks.evm(1), testnet = true)
 

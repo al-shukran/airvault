@@ -60,7 +60,7 @@ internal object AssetRows {
         token: (Long, String) -> TokenEntry?,
     ): List<AssetRowModel> {
         val native = account.balance?.let { nativeRow(it, account.networkName, prices, network) }
-        return listOfNotNull(native) + tokens.map { tokenRow(it, prices, network, token) } + holdings.map(::holdingRow)
+        return listOfNotNull(native) + tokens.map { tokenRow(it, prices, network, token) } + holdings.map { holdingRow(it, prices) }
     }
 
     /**
@@ -88,10 +88,10 @@ internal object AssetRows {
         )
     }
 
-    /** The prices that [account] and its [tokens] can have, the native coin first. */
-    fun pricedIds(account: WalletAccount, tokens: List<TokenHolding>): List<AssetId> {
+    /** The prices that [account], its [tokens] and its other [holdings] can have, the native coin first. */
+    fun pricedIds(account: WalletAccount, tokens: List<TokenHolding>, holdings: List<ChainHolding>): List<AssetId> {
         val native = account.balance?.let { AssetId.Native(it.network) }
-        return (listOfNotNull(native) + tokens.mapNotNull(::erc20IdOf)).distinct()
+        return (listOfNotNull(native) + tokens.mapNotNull(::erc20IdOf) + holdings.map { it.asset }).distinct()
     }
 
     /** The prices of the tokens [holdings] hold, which their dollar values need. */
@@ -164,15 +164,15 @@ internal object AssetRows {
         )
     }
 
-    private fun holdingRow(holding: ChainHolding): AssetRowModel = AssetRowModel(
+    private fun holdingRow(holding: ChainHolding, prices: Map<AssetId, Price>): AssetRowModel = AssetRowModel(
         assetKey = holding.key,
         symbol = holding.symbol,
         name = holding.symbol,
         network = holding.network,
         amountText = Amounts.format(holding.amount, holding.decimals),
-        usd = null,
+        usd = prices[holding.asset]?.let { BigDecimal(holding.amount).movePointLeft(holding.decimals).toDouble() * it.usd },
         icon = AssetIconSpec.Letter(letterOf(holding.symbol)),
-        assetId = null,
+        assetId = holding.asset,
         isNative = false,
         testnet = false,
         zero = false,

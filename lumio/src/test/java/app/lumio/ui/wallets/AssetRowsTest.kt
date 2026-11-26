@@ -77,20 +77,37 @@ class AssetRowsTest {
     }
 
     @Test
-    fun anSplTokenIsKeyedByItsMintAndHasNoPrice() {
-        val holding = ChainHolding("USDC", "Solana Devnet", BigInteger("1500000"), 6, SPL_MINT)
+    fun anSplTokenIsKeyedByItsMintAndPricedByIt() {
+        val mainnet = NetworkId(Networks.SOL_MAINNET, testnet = false)
+        val holding = ChainHolding("USDC", "Solana", BigInteger("1500000"), 6, AssetId.Spl(mainnet, SPL_MINT))
         val solana = account.copy(id = AccountId.of(Networks.SOL_MAINNET, "solanaaddress"), balance = null)
-        val row = AssetRows.of(solana, emptyList(), listOf(holding), prices, network = { null }, token = { _, _ -> null }).single()
+        val priced = prices + (holding.asset to Price(usd = 0.9999, change24hPct = null, asOfMs = 0L, stale = false))
+        val row = AssetRows.of(solana, emptyList(), listOf(holding), priced, network = { null }, token = { _, _ -> null }).single()
 
         assertEquals(SPL_MINT, row.assetKey)
         assertEquals("1.5", row.amountText)
-        assertNull(row.assetId)
+        assertEquals(holding.asset, row.assetId)
+        assertEquals(1.49985, row.usd!!, 1e-9)
+    }
+
+    @Test
+    fun anAlgorandAssetWithNoPriceKeepsItsIdAndHasNoFiat() {
+        val holding = ChainHolding("USDC", "Algorand", BigInteger("2500000"), 6, AssetId.Asa(NetworkId(Networks.ALGO_MAINNET, testnet = false), 31566704UL))
+        val row = AssetRows.of(account.copy(balance = null), emptyList(), listOf(holding), prices, network = { null }, token = { _, _ -> null }).single()
+
+        assertEquals("31566704", row.assetKey)
+        assertEquals(holding.asset, row.assetId)
         assertNull(row.usd)
     }
 
     @Test
-    fun thePricesAskedForAreTheNativeCoinThenEachToken() {
-        assertEquals(listOf(AssetId.Native(native), AssetId.Erc20.of(native, MIXED_CASE_USDC)), AssetRows.pricedIds(account, listOf(usdcHolding)))
+    fun thePricesAskedForAreTheNativeCoinThenEachTokenThenEachHolding() {
+        val holding = ChainHolding("USDC", "Solana", BigInteger("1500000"), 6, AssetId.Spl(NetworkId(Networks.SOL_MAINNET, testnet = false), SPL_MINT))
+
+        assertEquals(
+            listOf(AssetId.Native(native), AssetId.Erc20.of(native, MIXED_CASE_USDC), holding.asset),
+            AssetRows.pricedIds(account, listOf(usdcHolding), listOf(holding)),
+        )
     }
 
     @Test

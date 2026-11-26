@@ -34,8 +34,8 @@ import okhttp3.Request as HttpRequest
 
 /**
  * DefiLlama as a PRICE provider. It serves the USD price and the 24-hour change of the native coins that [NativeCoins] names, and of the ERC-20
- * tokens on a chain that [DefiLlamaChains] has a prefix for, and the price chart of the same coins. It is keyless and sends no key. A price request
- * names only the coin, which for a token is its contract, never an owner's address.
+ * tokens (ERC-20, SPL and ASA) on a chain that [DefiLlamaChains] has a prefix for, and the price chart of the same coins. It is keyless and sends no
+ * key. A price request names only the coin, which for a token is its contract, mint or asset ID, never an owner's address.
  *
  * Sources, read on 2026-11-16:
  * - Documentation: https://api-docs.defillama.com/llms-free.txt, and its OpenAPI file https://api-docs.defillama.com/defillama-openapi-free.json. Both
@@ -74,7 +74,7 @@ class DefiLlamaProvider : Provider {
         if (!supports(req.net, req.op, cfg)) throw ProviderError.Unsupported()
         return when (req) {
             is NativePrice -> price("coingecko:" + checkNotNull(NativeCoins.coinOf(req.net)), cfg, http) as T
-            is TokenPrice -> price(checkNotNull(DefiLlamaChains.prefixOf(req.net)) + ":" + req.contract, cfg, http) as T
+            is TokenPrice -> price(checkNotNull(DefiLlamaChains.prefixOf(req.net)) + ":" + req.token, cfg, http) as T
             is PriceChart -> chart(req, cfg, http) as T
             else -> throw ProviderError.Unsupported()
         }

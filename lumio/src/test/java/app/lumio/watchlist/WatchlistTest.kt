@@ -3,6 +3,7 @@ package app.lumio.watchlist
 import app.lumio.data.asset.AssetId
 import app.lumio.data.net.Networks
 import app.lumio.data.net.NetworkId
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -45,5 +46,16 @@ class WatchlistTest {
     fun aWatchedAssetIsItsNativeCoinOrItsToken() {
         assertEquals(AssetId.Native(NetworkId(Networks.evm(1), testnet = false)), ethereum.assetId)
         assertTrue(usdc.assetId is AssetId.Erc20)
+    }
+
+    @Test
+    fun aWatchedSolanaOrAlgorandTokenIsItsMintOrItsAssetIdAndTheMintKeepsItsCase() {
+        val mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+        val spl = WatchedAsset(solana.network, contract = mint)
+        val asa = WatchedAsset(NetworkId(Networks.ALGO_MAINNET, testnet = false), contract = "31566704")
+        assertEquals(AssetId.Spl(solana.network, mint), spl.assetId)
+        assertEquals(AssetId.Asa(asa.network, 31566704UL), asa.assetId)
+        val record = Json.encodeToString(WalletWatchlist.serializer(), WalletWatchlist(assets = listOf(spl, asa)))
+        assertEquals(listOf(spl, asa), Json.decodeFromString(WalletWatchlist.serializer(), record).assets)
     }
 }

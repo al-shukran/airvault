@@ -8,10 +8,19 @@ import app.lumio.data.net.NetworkId
  * the rest. Each prefix here was read on 2026-11-16: `GET https://coins.llama.fi/prices/current/{prefix}:{contract}` answered a price, with the
  * token's symbol, for a token of that chain. A chain is added only after the same read. Chains that answered nothing that day are not listed:
  * Sonic (146), Kava (2222), Moonbeam (1284) and Fantom (250).
+ *
+ * Solana and Algorand mainnets take the prefixes `solana` and `algorand`: `solana:{mint}` and `algorand:{assetId}` answered a price on 2026-11-26
+ * (USDC on both). A mint is case-sensitive.
  */
 object DefiLlamaChains {
-    /** The DefiLlama prefix of [net], or null when [net] is not an EVM mainnet with a prefix. A testnet has none. */
-    fun prefixOf(net: NetworkId): String? = if (net.isEvm && !net.testnet) PREFIXES[net.name] else null
+    /** The DefiLlama prefix of [net], or null when [net] is not a mainnet with a prefix. A testnet has none. */
+    fun prefixOf(net: NetworkId): String? = when {
+        net.testnet -> null
+        net.isEvm -> PREFIXES[net.name]
+        net.isSol -> "solana"
+        net.isAlgo -> "algorand"
+        else -> null
+    }
 
     private val PREFIXES: Map<String, String> = mapOf(
         "1" to "ethereum",

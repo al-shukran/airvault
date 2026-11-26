@@ -200,7 +200,7 @@ class PriceRepository(
 /** The request that prices [asset], or null when no price source names it. */
 internal fun priceRequestOf(asset: AssetId): Request<PriceQuote>? = when (asset) {
     is AssetId.Native -> NativeCoins.coinOf(asset.net)?.let { NativePrice(asset.net) }
-    is AssetId.Erc20 -> DefiLlamaChains.prefixOf(asset.net)?.let { TokenPrice(asset.net, asset.contract) }
+    is AssetId.Token -> DefiLlamaChains.prefixOf(asset.net)?.let { TokenPrice(asset.net, asset.tokenId) }
 }
 
 /** The cache key of the day chart of [asset]. Null when it has no price source. */
@@ -209,5 +209,5 @@ internal fun dayChartKeyOf(asset: AssetId): String? = priceKeyOf(asset)?.let { "
 /** The cache key of the price of [asset]. Null when it has no price source. */
 internal fun priceKeyOf(asset: AssetId): String? = when (asset) {
     is AssetId.Native -> NativeCoins.coinOf(asset.net)?.let { "native-price:$it" }
-    is AssetId.Erc20 -> DefiLlamaChains.prefixOf(asset.net)?.let { "token-price:$it:${asset.contract}" }
+    is AssetId.Token -> DefiLlamaChains.prefixOf(asset.net)?.let { "token-price:$it:${asset.tokenId}" }
 }
