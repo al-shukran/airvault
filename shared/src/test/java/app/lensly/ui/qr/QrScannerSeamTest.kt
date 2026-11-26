@@ -58,7 +58,7 @@ class QrScannerSeamTest {
             }
         }
 
-        // The scrim dims the corner when the overlay is drawn, and leaves the plain background when it is not.
+        // The scrim dims the corner when the overlay is drawn. Without it the scanner draws nothing there.
         assertNotEquals(cornerPixel("without"), cornerPixel("with"))
     }
 

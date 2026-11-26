@@ -40,18 +40,19 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private const val SCAN_HINT = "Point the camera at the pairing code that Lensly shows."
-private const val SCAN_READING = "Reading the code. Keep the camera on it."
-private const val SCAN_STALLED = "Move a little closer, or tilt to cut glare."
+/** What the scan says on the camera's one status line: before a part arrives, while an undeclared code is read, and when no new part comes. */
+internal const val SCAN_HINT = "Looking for Lensly's code"
+internal const val SCAN_READING = "Reading the code. Keep the camera on it."
+internal const val SCAN_STALLED = "Move a little closer, or tilt to cut glare."
 
 /** How long a scan waits for a new part before it asks the owner to move closer (section 2.1). */
 private const val STALL_AFTER_MS = 6_000L
 
-/** The pause after the last part, while the ring closes and the check shows, before the review opens (section 2.1). */
+/** The pause after the last part, while the bar fills and the check shows, before the review opens (section 2.1). */
 private const val COMPLETE_MS = 350L
 
-/** The line under the viewfinder while an animated code is read: how many of its parts are in, against the number that it declares. */
-private fun readingStatus(received: Int, expected: Int): String =
+/** The status line while an animated code is read: how many of its parts are in, against the number that it declares. */
+internal fun readingStatus(received: Int, expected: Int): String =
     if (expected <= 0) SCAN_READING else "${minOf(received, expected)} of about $expected parts · hold steady"
 private const val SAVE_FAILED = "The pairing could not be saved. Try again."
 
@@ -87,7 +88,7 @@ internal fun PairScanRoute(navController: NavHostController, draft: PairDraft, r
                 draft.pairing = step.pairing
                 progress = 1f
                 complete = true
-                // The ring closes and the check shows for a moment before the review opens (section 2.1).
+                // The bar fills and the check shows for a moment before the review opens (section 2.1).
                 scope.launch {
                     delay(COMPLETE_MS)
                     navController.navigate(LumioRoute.PAIR_REVIEW) {
