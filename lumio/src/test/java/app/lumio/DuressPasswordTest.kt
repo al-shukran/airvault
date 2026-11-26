@@ -16,9 +16,11 @@ import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairedWallets
 import app.lumio.ui.firstrun.NewPasswordProblem
 import java.io.File
+import javax.crypto.SecretKey
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
@@ -36,10 +38,13 @@ class DuressPasswordTest {
 
     private val clock = FakeClock()
     // Lazy, because the rule creates the temporary folder only after the test instance is built.
-    private val vault: Vault by lazy { Vault(VaultLayout(File(tmp.root, "lumio-vault")), keys, clock, KDF) }
+    private val layout: VaultLayout by lazy { VaultLayout(File(tmp.root, "lumio-vault")) }
+    private val vault: Vault by lazy { Vault(layout, keys, clock, KDF) }
 
     /** The Keystore of the vault. While [lockOnHeaderCheck] is set, the first check of the vault header closes the session, as a lock mid-set does. */
     private var lockOnHeaderCheck = false
+    /** The vault key file before a set. While it is set, the first folder key read after the set has written a new key file closes the session. */
+    private var keyFileBeforeSet: ByteArray? = null
     private val memory = MemoryKeystore()
     private val keys: KeystoreBackend = object : KeystoreBackend by memory {
         override fun headerMac(message: ByteArray): ByteArray {
@@ -48,6 +53,17 @@ class DuressPasswordTest {
                 holder.lock()
             }
             return memory.headerMac(message)
+        }
+
+        override fun folderKey(keyId: String): SecretKey? {
+            // The set commits the new key file before it purges the old decoy, and that purge reads a folder key: a lock there is after the commit.
+            keyFileBeforeSet?.let { before ->
+                if (!layout.vaultKey.readBytes().contentEquals(before)) {
+                    keyFileBeforeSet = null
+                    holder.lock()
+                }
+            }
+            return memory.folderKey(keyId)
         }
     }
     private val holder: VaultHolder by lazy { VaultHolder(vault) }
@@ -210,6 +226,19 @@ class DuressPasswordTest {
         assertFalse(lockOnHeaderCheck, "The lock ran inside the set.")
         val session = unlocked(unlockAfterDelay(REAL))
         assertEquals(emptySet(), FinishSetupStore.read(session).done, "No set returned Enabled, so the row reads Not Set.")
+        session.close()
+    }
+
+    @Test
+    fun aLockAfterTheSetCommitsLeavesTheRowNotSet() = runBlocking {
+        create()
+        keyFileBeforeSet = layout.vaultKey.readBytes()
+
+        assertEquals(PasswordChange.Locked, setLumioDuressPassword(holder, current = null, password = DURESS, repeat = DURESS))
+
+        assertNull(keyFileBeforeSet, "The lock ran after the new key file was committed.")
+        val session = unlocked(unlockAfterDelay(REAL))
+        assertEquals(emptySet(), FinishSetupStore.read(session).done, "The tick never ran, so the row reads Not Set.")
         session.close()
     }
 
