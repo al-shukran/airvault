@@ -26,3 +26,7 @@ registry-release.*
 *.mp4
 *.mov
 *.webm
+
+# Python bytecode
+__pycache__/
+*.pyc

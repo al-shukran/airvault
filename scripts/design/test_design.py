@@ -34,6 +34,10 @@ def head(**edit):
     return out
 
 
+def screens(**rows):
+    return {**BASE["screens"], **rows}
+
+
 class GuardTest(unittest.TestCase):
     def test_nothing_guarded_changes(self):
         self.assertEqual(guard.changes(BASE, head(), ["lumio/src/main/X.kt"]), [])
@@ -42,25 +46,54 @@ class GuardTest(unittest.TestCase):
         self.assertEqual(guard.changes(BASE, head(known_violations={}), []), [])
 
     def test_an_added_known_violation_is_guarded(self):
-        got = guard.changes(BASE, head(screens={**BASE["screens"], "b": {"frame": "f2", "theme": "dark"}}, known_violations={"a": {"issue": 1}, "b": {"issue": 2}}), [])
+        got = guard.changes(BASE, head(screens=screens(b={"frame": "f2", "theme": "dark"}), known_violations={"a": {"issue": 1}, "b": {"issue": 2}}), [])
         self.assertEqual(got, ["design/registry.json: b added to known_violations"])
+
+    def test_a_changed_known_violation_entry_is_guarded(self):
+        self.assertEqual(guard.changes(BASE, head(known_violations={"a": {"issue": 9}}), []), ["design/registry.json: a changed in known_violations"])
 
     def test_a_loosened_tolerance_is_guarded(self):
         self.assertEqual(guard.changes(BASE, head(tolerance={"bandDp": 3}), []), ["design/registry.json: tolerance changed"])
 
     def test_a_new_mask_is_guarded(self):
-        screens = {"a": {"frame": "f1", "theme": "dark", "masks": [{"name": "x"}]}}
-        self.assertEqual(guard.changes(BASE, head(screens=screens), []), ["design/registry.json: masks of a changed"])
+        got = guard.changes(BASE, head(screens={"a": {"frame": "f1", "theme": "dark", "masks": [{"name": "x"}]}}), [])
+        self.assertEqual(got, ["design/registry.json: masks of a changed"])
+
+    def test_a_removed_mask_is_free(self):
+        base = head(screens={"a": {"frame": "f1", "theme": "dark", "masks": [{"name": "x"}, {"name": "y"}]}})
+        self.assertEqual(guard.changes(base, head(screens={"a": {"frame": "f1", "theme": "dark", "masks": [{"name": "x"}]}}), []), [])
 
     def test_a_remapped_screen_is_guarded(self):
-        screens = {"a": {"frame": "f9", "theme": "dark", "masks": []}}
-        self.assertEqual(guard.changes(BASE, head(screens=screens), []), ["design/registry.json: frame of a changed"])
+        got = guard.changes(BASE, head(screens={"a": {"frame": "f9", "theme": "dark", "masks": []}}), [])
+        self.assertEqual(got, ["design/registry.json: frame of a changed"])
 
     def test_a_changed_frame_file_is_guarded(self):
         self.assertEqual(guard.changes(BASE, head(), ["design/frames/p1-00.png"]), ["design/frames/p1-00.png changed"])
 
-    def test_a_new_screen_row_is_free(self):
-        self.assertEqual(guard.changes(BASE, head(screens={**BASE["screens"], "b": {"frame": "f2", "theme": "dark"}}), []), [])
+    def test_the_gates_own_code_is_guarded(self):
+        for path in ("scripts/design/check-results.py", "lumio/src/test/java/app/lumio/ui/design/DesignGate.kt", "tools/design-frames/render.py"):
+            self.assertEqual(guard.changes(BASE, head(), [path]), [f"{path} changed"])
+
+    def test_a_new_screen_row_without_masks_is_free(self):
+        self.assertEqual(guard.changes(BASE, head(screens=screens(b={"frame": "f2", "theme": "dark", "test": "T", "masks": []})), []), [])
+
+    def test_a_new_screen_row_with_masks_is_guarded(self):
+        got = guard.changes(BASE, head(screens=screens(b={"frame": "f2", "theme": "dark", "masks": [{"name": "x"}]})), [])
+        self.assertEqual(got, ["design/registry.json: new screen b carries masks"])
+
+    def test_a_new_screen_row_with_exclusions_or_another_key_is_guarded(self):
+        got = guard.changes(BASE, head(screens=screens(b={"frame": "f2", "theme": "dark", "exclusions": [1], "skip": True})), [])
+        self.assertEqual(got, ["design/registry.json: new screen b carries exclusions, skip"])
+
+    def test_a_removed_screen_is_guarded(self):
+        self.assertEqual(guard.changes(BASE, head(screens={}), []), ["design/registry.json: screen a removed or renamed"])
+
+    def test_a_renamed_screen_is_guarded(self):
+        got = guard.changes(BASE, head(screens={"z": {"frame": "f1", "theme": "dark"}}), [])
+        self.assertEqual(got, ["design/registry.json: screen a removed or renamed"])
+
+    def test_a_new_top_level_key_is_guarded(self):
+        self.assertEqual(guard.changes(BASE, head(ignore={"a": 1}), []), ["design/registry.json: ignore changed"])
 
     def test_a_screen_moved_to_no_frame_is_guarded(self):
         self.assertEqual(guard.changes(BASE, head(no_frame={"c": "kit"}), []), ["design/registry.json: c added to no_frame"])

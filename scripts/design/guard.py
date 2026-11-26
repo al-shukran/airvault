@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Fails a pull request that changes what the design gate measures against, unless it carries the label design:approved-change.
 
-Guarded: any file under design/frames/, the tolerance and the masks in design/registry.json, the frame, theme and bottom inset of an
-existing screen row, and any ADDED entry in known_violations, unregistered or no_frame. Removing an entry is always free: those lists only
-shrink, and a new screen row only has to pass. Env: BASE_SHA, PR_NUMBER, GH_REPO and GH_TOKEN (the labels are read when the job runs, so a
-label added after the push counts on a re-run), or LABELS (a space-separated list, for tests and local runs).
+The whole of design/registry.json is compared with the merge base. Free without the label: removing an entry from known_violations, unregistered,
+no_frame or from a screen's masks (the lists only shrink), and adding a screen row that carries no masks or exclusions and no key but frame, theme,
+test and insetBottom. Everything else needs the label: any file under design/frames/, the gate's own code, a changed tolerance, a removed or
+renamed screen, a changed row, an added entry in a list, a new mask, and any key the registry did not have. Env: BASE_SHA, PR_NUMBER, GH_REPO
+and GH_TOKEN (the labels are read when the job runs, so a label added after the push counts on a re-run), or LABELS (a space-separated list,
+for tests and local runs).
 """
 import json
 import os
@@ -12,30 +14,52 @@ import subprocess
 import sys
 
 LABEL = "design:approved-change"
-LISTS = ("known_violations", "unregistered", "no_frame")
+LISTS = ("known_violations", "unregistered", "no_frame")  # entries are free to remove, never to add or change
+RELAXING = ("masks", "exclusions")  # a screen row's lists that switch a region off: free to shrink, never to grow
+NEW_ROW_KEYS = {"frame", "theme", "test", "insetBottom"}
+GUARDED_PATHS = ("design/frames/", "scripts/design/", "lumio/src/test/java/app/lumio/ui/design/", "tools/design-frames/render.py")
 
 
 def run(*cmd):
     return subprocess.run(cmd, check=True, capture_output=True, text=True).stdout
 
 
+def row_changes(name, old, row):
+    out = []
+    for key in sorted(set(old) | set(row)):
+        a, b = old.get(key), row.get(key)
+        if a == b:
+            continue
+        if key in RELAXING and isinstance(a or [], list) and isinstance(b or [], list) and all(m in (a or []) for m in (b or [])):
+            continue
+        out.append(f"design/registry.json: {key} of {name} changed")
+    return out
+
+
 def changes(base, head, changed_files):
     """The guarded changes between two registries, as readable lines."""
-    out = [f"{f} changed" for f in changed_files if f.startswith("design/frames/")]
-    if base.get("tolerance") != head.get("tolerance"):
-        out.append("design/registry.json: tolerance changed")
-    for name, row in head.get("screens", {}).items():
-        old = base.get("screens", {}).get(name)
+    out = [f"{f} changed" for f in changed_files if f.startswith(GUARDED_PATHS)]
+    for key in sorted((set(base) | set(head)) - {"screens", *LISTS}):
+        if base.get(key) != head.get(key):
+            out.append(f"design/registry.json: {key} changed")
+    base_screens, head_screens = base.get("screens", {}), head.get("screens", {})
+    for name in sorted(set(base_screens) - set(head_screens)):
+        out.append(f"design/registry.json: screen {name} removed or renamed")
+    for name, row in head_screens.items():
+        old = base_screens.get(name)
         if old is None:
-            continue
-        if old.get("masks", []) != row.get("masks", []):
-            out.append(f"design/registry.json: masks of {name} changed")
-        for key in ("frame", "theme", "insetBottom"):
-            if old.get(key) != row.get(key):
-                out.append(f"design/registry.json: {key} of {name} changed")
+            extra = sorted(k for k in row if k not in NEW_ROW_KEYS and not (k in RELAXING and not row[k]))
+            if extra:
+                out.append(f"design/registry.json: new screen {name} carries {', '.join(extra)}")
+        else:
+            out += row_changes(name, old, row)
     for key in LISTS:
-        for name in sorted(set(head.get(key, {})) - set(base.get(key, {}))):
+        before, after = base.get(key, {}), head.get(key, {})
+        for name in sorted(set(after) - set(before)):
             out.append(f"design/registry.json: {name} added to {key}")
+        for name in sorted(set(after) & set(before)):
+            if after[name] != before[name]:
+                out.append(f"design/registry.json: {name} changed in {key}")
     return out
 
 
@@ -47,10 +71,10 @@ def labels():
 
 
 def main():
-    base_sha = os.environ["BASE_SHA"]
-    files = run("git", "diff", "--name-only", f"{base_sha}...HEAD").split()
+    merge_base = run("git", "merge-base", os.environ["BASE_SHA"], "HEAD").strip()
+    files = run("git", "diff", "--name-only", f"{merge_base}...HEAD").split()
     try:
-        base = json.loads(run("git", "show", f"{base_sha}:design/registry.json"))
+        base = json.loads(run("git", "show", f"{merge_base}:design/registry.json"))
     except subprocess.CalledProcessError:
         base = {}
     head = json.load(open("design/registry.json"))
