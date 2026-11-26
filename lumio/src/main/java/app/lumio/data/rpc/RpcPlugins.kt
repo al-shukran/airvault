@@ -70,7 +70,7 @@ abstract class EvmRpcProvider(
             } catch (e: ProviderError.RateLimited) {
                 failure = e
             } catch (e: ProviderError.Transient) {
-                if (req is Broadcast && !e.neverSent) throw e.also { failure?.let(it::addSuppressed) }
+                if (req is Broadcast && !e.neverSent) throw e
                 failure = e
             }
         }

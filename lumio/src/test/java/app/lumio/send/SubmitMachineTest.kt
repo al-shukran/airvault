@@ -75,6 +75,30 @@ class SubmitMachineTest {
     }
 
     @Test
+    fun aRetryThatNeverLeftAfterAnUnknownOutcomeIsStillUnknown() = runTest {
+        val cooling = ProviderError.Transient(NotSent("Every provider is cooling."))
+        val harness = Harness(listOf({ throw ProviderError.Transient(SocketTimeoutException("timeout")) }, { throw cooling }, { throw cooling }, { "txid" }))
+        val machine = harness.build(byteArrayOf(1))
+        machine.submit()
+        assertTrue(assertIs<SubmitState.Failed>(machine.state.value).unknown)
+        machine.submit()
+        assertTrue(assertIs<SubmitState.Failed>(machine.state.value).unknown)
+        machine.submit()
+        assertTrue(assertIs<SubmitState.Failed>(machine.state.value).unknown)
+        machine.submit()
+        assertIs<SubmitState.Sent<String>>(machine.state.value)
+    }
+
+    @Test
+    fun aRetryThatNeverLeftAfterANotSentFailureIsNotUnknown() = runTest {
+        val cooling = ProviderError.Transient(NotSent("Every provider is cooling."))
+        val machine = Harness(listOf({ throw cooling }, { throw cooling })).build(byteArrayOf(1))
+        machine.submit()
+        machine.submit()
+        assertFalse(assertIs<SubmitState.Failed>(machine.state.value).unknown)
+    }
+
+    @Test
     fun aFailureThatNeverLeftIsNotUnknown() = runTest {
         val offline = Harness(listOf { throw ProviderError.Transient(UnknownHostException("rpc.example")) }).build(byteArrayOf(1))
         offline.submit()
