@@ -260,23 +260,33 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
+          # The GitHub API and git remote time out now and then (#1367). Each call that reaches them gets three tries.
+          retry() {
+            local n
+            for n in 1 2 3; do
+              "$@" && return 0
+              echo "attempt $n of 3 failed: $1 $2" >&2
+              sleep $((n * 15))
+            done
+            return 1
+          }
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -C goldens-refresh
           git add app/src/test/screenshots lumio/src/test/screenshots
-          pr=$(gh pr list --repo "$GH_REPO" --head goldens-refresh --state open --json number --jq '.[0].number // empty')
+          pr=$(retry gh pr list --repo "$GH_REPO" --head goldens-refresh --state open --json number --jq '.[0].number // empty')
           if git diff --cached --quiet; then
             echo "The recorded goldens match the committed ones."
             if [ -n "$pr" ]; then
-              gh pr close "$pr" --repo "$GH_REPO" --delete-branch \
+              retry gh pr close "$pr" --repo "$GH_REPO" --delete-branch \
                 --comment "The nightly recording ($RUN_URL) matches the committed goldens again, so this refresh is not needed."
             fi
             exit 0
           fi
           git commit --signoff --message "Refresh screenshot goldens" --message "Recorded on the Linux runner by $RUN_URL."
-          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" HEAD:refs/heads/goldens-refresh
+          retry git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" HEAD:refs/heads/goldens-refresh
           if [ -z "$pr" ]; then
-            gh pr create --repo "$GH_REPO" --base master --head goldens-refresh --title "Refresh Screenshot Goldens" \
+            retry gh pr create --repo "$GH_REPO" --base master --head goldens-refresh --title "Refresh Screenshot Goldens" \
               --label scope:common --label area:ci --label difficulty:easy \
               --body "Nightly recorded these goldens on the Linux runner ($RUN_URL). Review the PNG diff, and merge only the changes the screen was meant to make. Goldens come from this runner only (docs/testing/guideline.md 1.5)."
           fi
