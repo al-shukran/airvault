@@ -26,8 +26,15 @@ interface ArrivalNotice {
     fun post(id: String)
 }
 
+/** The notice of a vault that is opened without one: it never posts. */
+internal object NoArrivalNotice : ArrivalNotice {
+    override fun canPost(): Boolean = false
+
+    override fun post(id: String) = Unit
+}
+
 /**
- * One sent transaction that a send page shows: the app's [arrivals], the [network] it went out on, the heading that replaces "Is on Its Way" when it
+ * One sent transaction that a send page shows: the open vault's [arrivals], the [network] it went out on, the heading that replaces "Is on Its Way" when it
  * lands, or null for a send that announces nothing (a setup), and [read], the chain read that says where the transaction id stands.
  */
 class ArrivalWatch(
@@ -42,8 +49,9 @@ class ArrivalWatch(
 }
 
 /**
- * The sent transactions that are watched until they land or are refused. The app holds one, so a watch keeps polling after the owner leaves the send
- * page, and its state is still there when the owner comes back. Each transaction has one watch, so one poll loop however many pages ask for it. A watch
+ * The sent transactions that are watched until they land or are refused. Each open vault holds one, polling on the vault's own scope, so a watch keeps
+ * polling after the owner leaves the send page and its state is still there when the owner comes back, but a lock ends it: [clear] drops the
+ * watches, and the scope's cancellation stops the polls. Each transaction has one watch, so one poll loop however many pages ask for it. A watch
  * reads its chain with backoff, doubling from [FIRST_DELAY_MS] up to [MAX_DELAY_MS], and stops when the chain reports the transaction landed or refused.
  * A read that fails counts as pending and is read again.
  *
@@ -69,6 +77,10 @@ class SendArrivals(
         scope.launch { poll(id, landing, notify, read) }
         return landing
     }
+
+    /** Forgets every watch. The vault calls it when it locks, after its scope has cancelled the polls. */
+    @Synchronized
+    fun clear() = watches.clear()
 
     /** Where the watched transaction [id] on [network] stands now, or pending when no watch holds it. */
     @Synchronized

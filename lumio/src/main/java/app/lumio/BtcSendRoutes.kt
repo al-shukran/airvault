@@ -556,12 +556,14 @@ internal fun BtcSendRoute(
                 network = btcNetworkName(network),
                 timing = TIMING,
                 fromName = fromName,
-                arrival = ArrivalWatch(
-                    arrivals = app.sendArrivals,
-                    network = current.plan.network.networkId(),
-                    arrivedHeadline = "Your BTC Has Arrived",
-                    read = { txid -> bitcoinLanding(app.scheduler.run(Tx(current.plan.network.networkId(), txid), Priority.BACKGROUND)) },
-                ),
+                arrival = app.arrivalsOf(session)?.let { arrivals ->
+                    ArrivalWatch(
+                        arrivals = arrivals,
+                        network = current.plan.network.networkId(),
+                        arrivedHeadline = "Your BTC Has Arrived",
+                        read = { txid -> bitcoinLanding(app.scheduler.run(Tx(current.plan.network.networkId(), txid), Priority.BACKGROUND)) },
+                    )
+                },
                 explorerUrl = { txid -> BtcPortfolio.explorerTxUrl(current.plan.network, txid) },
                 onExplorer = { txid -> openExplorer(BtcPortfolio.explorerTxUrl(current.plan.network, txid)) },
                 onSent = {},

@@ -142,14 +142,10 @@ class LumioApp : Application(), CoverApplication {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    /** The sent transactions that are watched until they land. One for the app, so a watch outlives the send page that started it. */
-    val sendArrivals: SendArrivals by lazy {
-        SendArrivals(
-            scope = scope,
-            notice = ArrivalNotifications(this),
-            foreground = { ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) },
-        )
-    }
+    private val arrivalNotice by lazy { ArrivalNotifications(this) }
+
+    /** The sent transactions that [session]'s vault watches until they land, or null once it has locked. A lock ends them, so a watch never outlives its vault. */
+    fun arrivalsOf(session: VaultSession): SendArrivals? = lumioVault()?.takeIf { it.session === session }?.arrivals
 
     /**
      * The Esplora providers, then Blockchair as the last fallback: a FALLBACK_ONLY provider serves a Bitcoin read only when no other provider can
@@ -296,11 +292,16 @@ class LumioApp : Application(), CoverApplication {
      * vault's rows too, which the decoy's key cannot read, and a purge of unreadable rows from the decoy would delete them.
      */
     private fun openVault(session: VaultSession): SessionAttachment? {
-        val vault = LumioVault(session, database())
+        val vault = LumioVault(
+            session = session,
+            database = database(),
+            arrivalNotice = arrivalNotice,
+            foreground = { ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) },
+        )
         vault.wallets = WalletsBoard(this, vault)
         vault.portfolio = PortfolioBoard(this, vault)
         // Read now, so Settings is whole on its first frame.
-        scope.launch { vault.settingsFacts.refresh() }
+        vault.scans.launch { vault.settingsFacts.refresh() }
         if (session.isDecoy) return vault
         vault.scans.launch {
             vault.cache.purgeUnreadable()

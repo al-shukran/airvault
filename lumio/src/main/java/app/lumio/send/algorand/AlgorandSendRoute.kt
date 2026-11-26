@@ -555,12 +555,14 @@ internal fun AlgorandSendRoute(
             network = networkLabel,
             timing = PENDING_TEXT,
             fromName = fromName,
-            arrival = ArrivalWatch(
-                arrivals = app.sendArrivals,
-                network = current.plan.network,
-                arrivedHeadline = if (current.plan is AsaSendPlan && current.plan.isOptIn) null else "Your ${selected.symbol} Has Arrived",
-                read = { txid -> AlgorandSend.landing(scheduler, current.plan.network, txid, current.plan.lastValid) },
-            ),
+            arrival = app.arrivalsOf(session)?.let { arrivals ->
+                ArrivalWatch(
+                    arrivals = arrivals,
+                    network = current.plan.network,
+                    arrivedHeadline = if (current.plan is AsaSendPlan && current.plan.isOptIn) null else "Your ${selected.symbol} Has Arrived",
+                    read = { txid -> AlgorandSend.landing(scheduler, current.plan.network, txid, current.plan.lastValid) },
+                )
+            },
             explorerUrl = { txid -> AlgorandSend.explorerUrl(current.plan.network, txid) },
             onExplorer = { txid -> openExplorer(AlgorandSend.explorerUrl(current.plan.network, txid)) },
             onSent = {},
