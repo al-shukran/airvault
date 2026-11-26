@@ -496,22 +496,24 @@ private fun rememberAccountActivity(
 }
 
 /**
- * The route of a Send from [account] on [mode]'s side. Every chain sends from its own account, with no picker: the send is bound to that account and
- * its network. An Ethereum send is on the side's primary network, the one the account shows.
- */
-/**
- * The Send of the asset [asset] from [account]. An Ethereum asset opens the send on its own network, with its token chosen. Other accounts send from
- * their own send route, whose coin is the native one.
+ * The Send of the asset [asset] from [account]. An Ethereum asset opens the send on its own network, with its token chosen. A Solana token or an
+ * Algorand asset opens its send on that coin. Any other asset opens its account's send, whose coin is the native one.
  */
 internal fun assetSendRoute(account: WalletAccount, asset: AssetRowModel, mode: NetworkMode): String {
     val id = asset.assetId
-    return if (account.namespace == Networks.EIP155 && id != null) {
-        LumioRoute.send(account.walletId, account.id, Networks.evmIdOf(id.net.chain), (id as? AssetId.Erc20)?.contract)
-    } else {
-        sendRoute(account, mode)
+    return when {
+        account.namespace == Networks.EIP155 && id != null ->
+            LumioRoute.send(account.walletId, account.id, Networks.evmIdOf(id.net.chain), (id as? AssetId.Erc20)?.contract)
+        id is AssetId.Spl -> LumioRoute.solanaSend(account.walletId, account.id, id.mint)
+        id is AssetId.Asa -> LumioRoute.algorandSend(account.walletId, account.id, id.tokenId)
+        else -> sendRoute(account, mode)
     }
 }
 
+/**
+ * The route of a Send from [account] on [mode]'s side. Every chain sends from its own account, with no picker: the send is bound to that account and
+ * its network. An Ethereum send is on the side's primary network, the one the account shows.
+ */
 internal fun sendRoute(account: WalletAccount, mode: NetworkMode): String = when (account.namespace) {
     Networks.EIP155 -> LumioRoute.send(account.walletId, account.id, WalletAccounts.primaryEvmChainId(mode))
     Networks.BIP122 -> LumioRoute.btcSend(account.walletId, account.id)

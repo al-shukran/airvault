@@ -135,11 +135,14 @@ private const val SETUP_DONE = "Offline signing is set up. Review the send again
 private const val SETUP_PENDING = "The setup is not confirmed yet. Review the send again in a minute."
 private const val SETUP_FAILED = "The setup did not go through. Start it again from the send."
 private const val SETTLE_MS = 700L
+private const val COIN_READING = "Reading the coin to send."
+private const val COIN_NOT_OFFERED = "This token cannot be sent from here."
 
 /**
  * A Solana send from one paired account, which is fixed: the recipient, the amount, the review, the request that Lensly signs, the scan of its answer, and
  * the transaction that is sent, whose status is read after it. [walletId] and [accountId] name the account of the wallet, and [mode] picks the devnet or
- * mainnet-beta side. The coin is SOL, or an SPL token of the account. Lumio holds no key. It builds the transfer from public reads, and it broadcasts only
+ * mainnet-beta side. The coin is SOL, or an SPL token of the account, and the send starts on the coin with the key [startKey]: it holds the recipient page
+ * until that coin is offered, so it never starts on another coin. Lumio holds no key. It builds the transfer from public reads, and it broadcasts only
  * a signature that Lensly made for that message, after the signature has been checked against the account's public key.
  */
 @Composable
@@ -150,6 +153,7 @@ internal fun SolanaSendRoute(
     accountId: AccountId,
     mode: NetworkMode,
     onLock: () -> Unit,
+    startKey: String = SolanaAssets.SOL_KEY,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
     val transactions = rememberTransactions(app)
@@ -183,8 +187,9 @@ internal fun SolanaSendRoute(
     var recipient by rememberSaveable { mutableStateOf("") }
     var amount by rememberSaveable { mutableStateOf("") }
     // The coin the send moves, by its key: SOL, or the mint of a token. It is saved, so that a rotation keeps the owner's choice.
-    var selectedKey by rememberSaveable { mutableStateOf(SolanaAssets.SOL_KEY) }
+    var selectedKey by rememberSaveable { mutableStateOf(startKey) }
     var assets by remember { mutableStateOf(listOf(SolanaAssets.native)) }
+    var coinsRead by remember { mutableStateOf(false) }
     var assetSheet by remember { mutableStateOf(false) }
     var changeRecipient by remember { mutableStateOf(false) }
     var balance by remember { mutableStateOf<BigInteger?>(null) }
@@ -202,6 +207,8 @@ internal fun SolanaSendRoute(
     var priorityFee by rememberSaveable { mutableStateOf(false) }
     var feeSheet by remember { mutableStateOf(false) }
 
+    // The chosen coin is offered once the account's coins are read. Until then, and for a token that the send does not offer, the send goes no further.
+    val coinOffered = assets.any { it.key == selectedKey }
     val selected = assets.firstOrNull { it.key == selectedKey } ?: SolanaAssets.native
     val token = selected.token
     val balanceText: String? = if (token == null) {
@@ -238,6 +245,7 @@ internal fun SolanaSendRoute(
         balance = read.first
         assets = read.second
         setupRent = read.third
+        coinsRead = true
     }
 
     /**
@@ -460,8 +468,8 @@ internal fun SolanaSendRoute(
                     notice = null
                 },
                 error = if (invalid) solanaRecipientError(settled) else null,
-                hint = null,
-                canContinue = recipient.isNotBlank() && solanaRecipientError(recipient) == null,
+                hint = if (coinOffered) null else if (coinsRead) COIN_NOT_OFFERED else COIN_READING,
+                canContinue = coinOffered && recipient.isNotBlank() && solanaRecipientError(recipient) == null,
                 accounts = paired?.let { solanaOwnChoices(it, from.address) }.orEmpty(),
                 addressBook = addressBook
                     .filter { solanaRecipientError(it.address) == null }

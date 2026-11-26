@@ -55,7 +55,9 @@ import app.lumio.data.config.fiatRateOf
 import app.lumio.network.NetworkMode
 import app.lumio.network.NetworkModeStore
 import app.lumio.send.algorand.AlgorandAddAssetRoute
+import app.lumio.send.algorand.AlgorandAssets
 import app.lumio.send.algorand.AlgorandSendRoute
+import app.lumio.send.solana.SolanaAssets
 import app.lumio.send.solana.SolanaSendRoute
 import app.lumio.ui.firstrun.FirstRunStep
 import app.lumio.ui.gate.ClearAirGateLook
@@ -253,17 +255,22 @@ internal object LumioRoute {
      */
     const val SEND = "send/{$WALLET_ARG}/{$ACCOUNT_ARG}?$SEND_CHAIN_ARG={$SEND_CHAIN_ARG}&$SEND_CONTRACT_ARG={$SEND_CONTRACT_ARG}&$SEND_SCAN_ARG={$SEND_SCAN_ARG}"
 
-    /** The Solana send from the account [ACCOUNT_ARG] of the wallet in [WALLET_ARG]. Its side (testnet or mainnet) is the selected side. */
-    const val SOLANA_SEND = "solana-send/{$WALLET_ARG}/{$ACCOUNT_ARG}"
+    /** The argument of the Solana and Algorand send's route: the key of the coin the send starts on, an SPL mint or an asset ID. Left out, it starts on the native coin. */
+    const val SEND_COIN_ARG = "coin"
 
-    /** The route of the Solana send from [account] of [walletId]. */
-    fun solanaSend(walletId: String, account: AccountId): String = "solana-send/$walletId/${account.caip10}"
+    /** The Solana send from the account [ACCOUNT_ARG] of the wallet in [WALLET_ARG], on the coin [SEND_COIN_ARG] when set. Its side (testnet or mainnet) is the selected side. */
+    const val SOLANA_SEND = "solana-send/{$WALLET_ARG}/{$ACCOUNT_ARG}?$SEND_COIN_ARG={$SEND_COIN_ARG}"
 
-    /** The Algorand send from the account [ACCOUNT_ARG] of the wallet in [WALLET_ARG]. Its side (testnet or mainnet) is the selected side. */
-    const val ALGORAND_SEND = "algorand-send/{$WALLET_ARG}/{$ACCOUNT_ARG}"
+    /** The route of the Solana send from [account] of [walletId], starting on the SPL token with [mint] when one is given. */
+    fun solanaSend(walletId: String, account: AccountId, mint: String? = null): String =
+        "solana-send/$walletId/${account.caip10}" + mint?.let { "?$SEND_COIN_ARG=$it" }.orEmpty()
 
-    /** The route of the Algorand send from [account] of [walletId]. */
-    fun algorandSend(walletId: String, account: AccountId): String = "algorand-send/$walletId/${account.caip10}"
+    /** The Algorand send from the account [ACCOUNT_ARG] of the wallet in [WALLET_ARG], on the coin [SEND_COIN_ARG] when set. Its side (testnet or mainnet) is the selected side. */
+    const val ALGORAND_SEND = "algorand-send/{$WALLET_ARG}/{$ACCOUNT_ARG}?$SEND_COIN_ARG={$SEND_COIN_ARG}"
+
+    /** The route of the Algorand send from [account] of [walletId], starting on the asset [assetId] when one is given. */
+    fun algorandSend(walletId: String, account: AccountId, assetId: String? = null): String =
+        "algorand-send/$walletId/${account.caip10}" + assetId?.let { "?$SEND_COIN_ARG=$it" }.orEmpty()
 
     /** The Add asset screen of the Algorand account [ACCOUNT_ARG] of the wallet in [WALLET_ARG]. */
     const val ALGORAND_ADD_ASSET = "algorand-add-asset/{$WALLET_ARG}/{$ACCOUNT_ARG}"
@@ -706,6 +713,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                 arguments = listOf(
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
                     navArgument(LumioRoute.ACCOUNT_ARG) { type = NavType.StringType },
+                    navArgument(LumioRoute.SEND_COIN_ARG) { type = NavType.StringType; nullable = true; defaultValue = null },
                 ),
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
@@ -718,6 +726,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                         accountId = account,
                         mode = selection.mode,
                         onLock = { lock() },
+                        startKey = entry.arguments?.getString(LumioRoute.SEND_COIN_ARG) ?: SolanaAssets.SOL_KEY,
                     )
                 }
             }
@@ -726,6 +735,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                 arguments = listOf(
                     navArgument(LumioRoute.WALLET_ARG) { type = NavType.StringType },
                     navArgument(LumioRoute.ACCOUNT_ARG) { type = NavType.StringType },
+                    navArgument(LumioRoute.SEND_COIN_ARG) { type = NavType.StringType; nullable = true; defaultValue = null },
                 ),
             ) { entry ->
                 val walletId = entry.arguments?.getString(LumioRoute.WALLET_ARG).orEmpty()
@@ -738,6 +748,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                         walletId = walletId,
                         account = account,
                         onLock = { lock() },
+                        startKey = entry.arguments?.getString(LumioRoute.SEND_COIN_ARG) ?: AlgorandAssets.ALGO_KEY,
                     )
                 }
             }
