@@ -17,7 +17,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -134,8 +133,8 @@ object CoverGateLook : GateLook {
  * vault's state. [warmUp] runs when the owner submits the App Password, so an app can load what [home] shows while the key is derived.
  * [newVault] is where the gate sends an owner with no vault yet. It is the App Password screen unless the app shows screens first, as
  * Lumio's first run does, and then that app's own App Password screen creates the vault with [createVault]. [biometric] is the app's
- * biometric unlock, which the unlock screen tries first while it is on. [gateLook] draws the gate's pages, and [appName] is the app's name
- * in the copy of a build that refuses to create a vault. [content] adds the app's own screens to the graph.
+ * biometric unlock, which the unlock screen opens only when Done is pressed with nothing typed. [gateLook] draws the gate's pages, and
+ * [appName] is the app's name in the copy of a build that refuses to create a vault. [content] adds the app's own screens to the graph.
  */
 fun NavGraphBuilder.hiddenArea(
     navController: NavHostController,
@@ -418,7 +417,7 @@ private fun UnlockRoute(
     var waitMs by remember { mutableStateOf<Long?>(null) }
     val waitLeft by rememberWaitLeft(waitMs)
     var biometricOff by remember { mutableStateOf(false) }
-    var askedBiometric by rememberSaveable { mutableStateOf(false) }
+    var asking by remember { mutableStateOf(false) }
 
     BackHandler { leaveHidden(navController, holder) }
     DisposableEffect(Unit) {
@@ -428,20 +427,26 @@ private fun UnlockRoute(
         triesLeft = holder.vault.triesBeforeErase()
         waitMs = holder.vault.waitRemainingMs()
     }
-    // With biometric unlock on, its prompt opens once, before the password is typed. A cancel leaves the password; a failure turns it off.
-    LaunchedEffect(Unit) {
-        if (biometric == null || askedBiometric || !biometric.isOn()) return@LaunchedEffect
-        askedBiometric = true
-        launch(Dispatchers.IO) { runCatching { warmUp(context) } }
-        val epoch = holder.unlockEpoch()
-        when (val outcome = biometric.unlock(holder.vault)) {
-            is BiometricOutcome.Unlocked -> {
-                val kept = withContext(Dispatchers.IO + NonCancellable) { holder.adopt(outcome.session, epoch) }
-                if (kept) navController.openHidden(home)
-            }
-            BiometricOutcome.Declined -> {}
-            BiometricOutcome.TurnedOff -> {
-                biometricOff = true
+    // The biometric prompt opens only when the owner presses Done with nothing typed. The page never opens it by itself, and looks the same
+    // with biometric unlock on or off, so someone who forces the owner to unlock cannot see that it is on (or that a second vault exists).
+    // A cancel leaves the password; a failure turns biometric unlock off.
+    fun askBiometric() {
+        if (biometric == null || asking || !biometric.isOn()) return
+        asking = true
+        scope.launch {
+            try {
+                launch(Dispatchers.IO) { runCatching { warmUp(context) } }
+                val epoch = holder.unlockEpoch()
+                when (val outcome = biometric.unlock(holder.vault)) {
+                    is BiometricOutcome.Unlocked -> {
+                        val kept = withContext(Dispatchers.IO + NonCancellable) { holder.adopt(outcome.session, epoch) }
+                        if (kept) navController.openHidden(home)
+                    }
+                    BiometricOutcome.Declined -> {}
+                    BiometricOutcome.TurnedOff -> biometricOff = true
+                }
+            } finally {
+                asking = false
             }
         }
     }
@@ -465,7 +470,11 @@ private fun UnlockRoute(
                 }
             },
             onSubmit = submit@{
-                if (busy || buffer.isEmpty()) return@submit
+                if (busy) return@submit
+                if (buffer.isEmpty()) {
+                    askBiometric()
+                    return@submit
+                }
                 val password = buffer.toCharArray()
                 buffer.clear()
                 length = 0
