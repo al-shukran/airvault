@@ -101,6 +101,7 @@ class GuardTest(unittest.TestCase):
         # The workflow that puts the lane in pr-ok, the lane itself, the check of those guards and the hook that swaps the golden for the gate's render.
         for path in (
             ".github/workflows/pr-fast.yml",
+            ".github/workflows/design-guard-rerun.yml",
             "scripts/ci/run-partition.sh",
             "scripts/ci/check-workflow-guards.sh",
             "lumio/src/test/java/app/lumio/ui/screenshot/LumioSnapshot.kt",
