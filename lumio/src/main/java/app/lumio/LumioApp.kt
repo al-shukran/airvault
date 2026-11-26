@@ -197,7 +197,7 @@ class LumioApp : Application(), CoverApplication {
     /** The USD prices of the native coins and their 24-hour change. Each screen that shows a price reads them from here. */
     val prices: PriceRepository by lazy { PriceRepository(priceScheduler) { lumioVault()?.cache } }
     val logos: TokenLogos by lazy { TokenLogos(priceScheduler) }
-    val coinImages: CoinImages by lazy { CoinImages(http, { lumioVault()?.cache }, DebugDemoData::coinImage) }
+    val coinImages: CoinImages by lazy { CoinImages(http, { lumioVault()?.cache }, demo = DebugDemoData::coinImage) }
 
     /** The one queue of Bitcoin scan jobs. It reads the open vault's rows, and nothing while the vault is locked. */
     val scanQueue: ScanQueue by lazy { ScanQueue { lumioVault()?.scanRows } }

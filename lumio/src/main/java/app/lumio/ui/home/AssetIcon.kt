@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import android.graphics.Bitmap
 import androidx.annotation.DrawableRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -13,7 +14,6 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import app.lumio.data.price.decodeLogo
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -67,8 +67,8 @@ sealed interface AssetIconSpec {
     data class Image(val url: String, val letter: String) : AssetIconSpec
 }
 
-/** Reads the bytes of a logo image by its URL, as [app.lumio.data.price.CoinImages.imageOf] does. A test provides its own; the app reads [LumioApp.coinImages]. */
-val LocalCoinImages = staticCompositionLocalOf<(suspend (String) -> ByteArray?)?> { null }
+/** Reads a logo image by its URL, as [app.lumio.data.price.CoinImages.logoOf] does. A test provides its own; the app reads [LumioApp.coinImages]. */
+val LocalCoinImages = staticCompositionLocalOf<(suspend (String) -> Bitmap?)?> { null }
 
 /** The test tag of a logo drawn from an image URL. */
 const val IMAGE_LOGO_TAG = "image-logo"
@@ -115,10 +115,10 @@ sealed interface LogoLoad {
 fun rememberLogo(url: String): LogoLoad {
     val app = LocalContext.current.applicationContext as? LumioApp
     val owner = app?.lumioVault()
-    val reader = LocalCoinImages.current ?: app?.coinImages?.let { images -> images::imageOf }
+    val reader = LocalCoinImages.current ?: app?.coinImages?.let { images -> images::logoOf }
     val logo by produceState<LogoLoad>(DecodedLogos.get(owner, url)?.let { LogoLoad.Loaded(it) } ?: LogoLoad.Loading, url, reader, owner) {
         if (value is LogoLoad.Loaded) return@produceState
-        val bitmap = reader?.let { read -> withContext(Dispatchers.IO) { read(url)?.let { decodeLogo(it)?.asImageBitmap() } } }
+        val bitmap = reader?.let { read -> withContext(Dispatchers.IO) { read(url)?.asImageBitmap() } }
         value = bitmap?.also { DecodedLogos.put(owner, url, it) }?.let { LogoLoad.Loaded(it) } ?: LogoLoad.Missing
     }
     return logo
