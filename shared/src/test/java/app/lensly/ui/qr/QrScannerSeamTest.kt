@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.lensly.core.qr.QrDecodeService
 import org.robolectric.Shadows.shadowOf
 import android.graphics.Bitmap
+import android.os.Looper
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -78,7 +79,9 @@ class QrScannerSeamTest {
     fun aCallerWithItsOwnFrameHearsOfAFailureInsteadOfTheNotice() {
         sandboxCannotBind()
         val oneFrame = FrameSource { emit ->
-            emit(Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888))
+            // The frame comes after the first look at the looper, as on a slow runner.
+            val frame = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888)
+            Thread { Thread.sleep(300); emit(frame) }.start()
             FrameSourceHandle { }
         }
         var failed by mutableStateOf(false)
@@ -88,7 +91,11 @@ class QrScannerSeamTest {
             }
         }
 
-        compose.waitUntil(timeoutMillis = 30_000) { failed }
+        // Nothing composed reads `failed`, so nothing makes the rule run the main looper that the decode thread posts to.
+        compose.waitUntil(timeoutMillis = 30_000) {
+            shadowOf(Looper.getMainLooper()).idle()
+            failed
+        }
         compose.onAllNodesWithText(DECODE_FAILED_TEXT).assertCountEquals(0)
     }
 
