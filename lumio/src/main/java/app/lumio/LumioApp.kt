@@ -259,7 +259,7 @@ class LumioApp : Application(), CoverApplication {
 
     private var database: LumioDatabase? = null
 
-    /** The open vault's Lumio state, or null while the vault is locked, or for a decoy vault, which keeps none. */
+    /** The open vault's Lumio state, or null while the vault is locked. A decoy vault has its own, which starts empty. */
     fun lumioVault(): LumioVault? = vaultHolder.sessionAttachment() as? LumioVault
 
     /**
@@ -294,14 +294,18 @@ class LumioApp : Application(), CoverApplication {
         runInAppScope { registry }
     }
 
-    /** Opens Lumio's state for an unlocked vault, and resumes the scan jobs that an earlier session left pending. A decoy vault keeps none. */
+    /**
+     * Opens Lumio's state for an unlocked vault, and resumes the scan jobs that an earlier session left pending. A decoy vault gets its own state, so
+     * it opens as an empty Lumio, with its screens and tab bar, and not as a blank screen. It purges and scans nothing: the database holds the real
+     * vault's rows too, which the decoy's key cannot read, and a purge of unreadable rows from the decoy would delete them.
+     */
     private fun openVault(session: VaultSession): SessionAttachment? {
-        if (session.isDecoy) return null
         val vault = LumioVault(session, database())
         vault.wallets = WalletsBoard(this, vault)
         vault.portfolio = PortfolioBoard(this, vault)
         // Read now, so Settings is whole on its first frame.
         scope.launch { vault.settingsFacts.refresh() }
+        if (session.isDecoy) return vault
         scope.launch {
             vault.cache.purgeUnreadable()
             scanQueue.purgeUnreadable()

@@ -116,7 +116,7 @@ internal fun withOverrides(configs: Map<String, ProviderConfig>, overrides: Map<
             CustomEsploraProvider.idFor(network.networkId().name) to ProviderConfig(baseUrl = url)
         }
 
-/** The rows of [refs], each with its last known balance from the open vault. A locked or decoy vault has none, so its rows show no balance. */
+/** The rows of [refs], each with its last known balance from the open vault. A locked vault has none, so its rows show no balance. */
 internal suspend fun rowsOf(vault: LumioVault?, refs: List<BtcAccountRef>): List<BtcRow> {
     if (vault == null) return refs.map { BtcRow(it, null) }
     val cached = refs.mapNotNull { ref -> vault.store.snapshot(ref.key)?.let { ref.key to it } }.toMap()
