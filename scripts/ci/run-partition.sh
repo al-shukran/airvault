@@ -263,6 +263,7 @@ run_ci() {
     echo "run-partition: bash -n passed for $scripts script(s)"
     "$ROOT/scripts/ci/check-partitions.sh"
     "$ROOT/scripts/ci/check-test-network.sh"
+    "$ROOT/scripts/ci/check-workflow-guards.sh"
 }
 
 case "$lane" in
