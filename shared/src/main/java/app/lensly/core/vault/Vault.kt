@@ -1353,7 +1353,13 @@ fun wipeVault(layout: VaultLayout, deleteKeys: () -> Unit) {
     overwriteFiles(layout.root)
     overwriteFiles(layout.photos)
     FailureStore.forget(layout.root)
-    val rootGone = layout.root.listFiles().orEmpty().filter { it != layout.wipeMarker }.map { it.deleteRecursively() }.all { it }
+    // A root that exists but cannot be listed still holds files that could not be deleted, so it does not count as empty.
+    val rootFiles = layout.root.listFiles()
+    val rootGone = if (rootFiles == null) {
+        !layout.root.exists()
+    } else {
+        rootFiles.filter { it != layout.wipeMarker }.map { it.deleteRecursively() }.all { it }
+    }
     val photosGone = layout.photos.deleteRecursively()
     if (!rootGone || !photosGone || !(layout.wipeMarker.delete() || !layout.wipeMarker.exists())) {
         throw VaultException("Some vault files could not be deleted.", keyFailure ?: markerFailure)
