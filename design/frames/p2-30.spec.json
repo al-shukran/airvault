@@ -1,0 +1,351 @@
+{
+ "id": "p2-30",
+ "title": "Enable Device Protection I9 · page · dark",
+ "inkThreshold": 12,
+ "bandGap": 1,
+ "themes": {
+  "dark": {
+   "png": "p2-30-dark.png",
+   "bg": [
+    21,
+    19,
+    23
+   ],
+   "bands": [
+    [
+     14,
+     17
+    ],
+    [
+     77,
+     197
+    ],
+    [
+     238,
+     247
+    ],
+    [
+     261,
+     282
+    ],
+    [
+     291,
+     312
+    ],
+    [
+     331,
+     346
+    ],
+    [
+     364,
+     377
+    ],
+    [
+     382,
+     395
+    ],
+    [
+     627,
+     679
+    ],
+    [
+     693,
+     705
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.prog[1]>i.f[0]",
+     "rect": {
+      "x": 20,
+      "y": 14,
+      "w": 102.66,
+      "h": 3
+     },
+     "fill": [
+      245,
+      239,
+      228,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "box",
+     "node": "i",
+     "path": "div.prog[1]>i[2]",
+     "rect": {
+      "x": 237.33,
+      "y": 14,
+      "w": 102.67,
+      "h": 3
+     },
+     "fill": [
+      54,
+      49,
+      59,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e2",
+     "kind": "box",
+     "node": "div.okic",
+     "path": "div.ctr[2]>div.okic[0]",
+     "rect": {
+      "x": 120,
+      "y": 77,
+      "w": 120,
+      "h": 120
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e3",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.ctr[2]>div.okic[0]>svg.i[0]",
+     "rect": {
+      "x": 147,
+      "y": 104,
+      "w": 66,
+      "h": 66
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "box",
+     "node": "i.sp",
+     "path": "div.ctr[2]>div.okic[0]>i.sp[1]",
+     "rect": {
+      "x": 211.51,
+      "y": 86.51,
+      "w": 16.97,
+      "h": 16.97
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "0px",
+     "shadow": "rgb(21, 19, 23) 0px 0px 0px 4px"
+    },
+    {
+     "id": "e5",
+     "kind": "text",
+     "node": "div.e.px",
+     "path": "div.e.px[3]",
+     "text": "PROTECT · 3 OF 3",
+     "rect": {
+      "x": 20,
+      "y": 236,
+      "w": 101.8,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "div.h1.px",
+     "path": "div.h1.px[4]",
+     "text": "Enable Device Protection",
+     "rect": {
+      "x": 20,
+      "y": 258,
+      "w": 195.03,
+      "h": 58
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 26,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 30,
+      "letterSpacing": -0.65
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "text",
+     "node": "p.b.px",
+     "path": "p.b.px[5]",
+     "text": "Use your fingerprint or face to open Lumio.",
+     "rect": {
+      "x": 20,
+      "y": 330,
+      "w": 260.08,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 22,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e8",
+     "kind": "text",
+     "node": "p.s.px",
+     "path": "p.s.px[6]",
+     "text": "Your password still works whenever the sensor doesn't. You can change this later in Settings → Security.",
+     "rect": {
+      "x": 20,
+      "y": 363,
+      "w": 315.08,
+      "h": 32
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "div.cap.w",
+     "path": "div.foot[7]>div.cap.w[0]",
+     "text": "Enable",
+     "rect": {
+      "x": 151.34,
+      "y": 644.5,
+      "w": 57.31,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15.5,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "box",
+     "node": "div.cap.w",
+     "path": "div.foot[7]>div.cap.w[0]",
+     "rect": {
+      "x": 20,
+      "y": 627,
+      "w": 320,
+      "h": 52
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      1
+     ],
+     "border": null,
+     "radius": "26px",
+     "shadow": null
+    },
+    {
+     "id": "e11",
+     "kind": "text",
+     "node": "span.ta",
+     "path": "div.foot[7]>span.ta[1]",
+     "text": "Not Now",
+     "rect": {
+      "x": 145.33,
+      "y": 691,
+      "w": 69.33,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    }
+   ]
+  }
+ },
+ "width": 360,
+ "height": 740
+}

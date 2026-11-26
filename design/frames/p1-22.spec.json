@@ -1,0 +1,1696 @@
+{
+ "id": "p1-22",
+ "title": "Pair with Lensly step 10 · onboarding ends",
+ "inkThreshold": 12,
+ "bandGap": 1,
+ "themes": {
+  "dark": {
+   "png": "p1-22-dark.png",
+   "bg": [
+    21,
+    19,
+    23
+   ],
+   "bands": [
+    [
+     14,
+     17
+    ],
+    [
+     44,
+     53
+    ],
+    [
+     67,
+     93
+    ],
+    [
+     110,
+     145
+    ],
+    [
+     164,
+     188
+    ],
+    [
+     247,
+     443
+    ],
+    [
+     457,
+     470
+    ],
+    [
+     477,
+     481
+    ],
+    [
+     516,
+     529
+    ],
+    [
+     534,
+     547
+    ],
+    [
+     686,
+     701
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.prog[1]>i.f[0]",
+     "rect": {
+      "x": 20,
+      "y": 14,
+      "w": 102.66,
+      "h": 3
+     },
+     "fill": [
+      245,
+      239,
+      228,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.prog[1]>i.f[1]",
+     "rect": {
+      "x": 128.66,
+      "y": 14,
+      "w": 102.67,
+      "h": 3
+     },
+     "fill": [
+      245,
+      239,
+      228,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e2",
+     "kind": "text",
+     "node": "div.e.px",
+     "path": "div.e.px[2]",
+     "text": "PAIR · 2 OF 2",
+     "rect": {
+      "x": 20,
+      "y": 42,
+      "w": 74.03,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e3",
+     "kind": "text",
+     "node": "div.h1.px",
+     "path": "div.h1.px[3]",
+     "text": "Pair with Lensly",
+     "rect": {
+      "x": 20,
+      "y": 64,
+      "w": 210.44,
+      "h": 28
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 26,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 30,
+      "letterSpacing": -0.65
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e4",
+     "kind": "text",
+     "node": "div",
+     "path": "div.steps[4]>div[0]",
+     "text": "On Lensly, open Pair and choose the wallet to share.",
+     "rect": {
+      "x": 56,
+      "y": 112,
+      "w": 258.95,
+      "h": 35
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 14,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e5",
+     "kind": "text",
+     "node": "div",
+     "path": "div.steps[4]>div[1]",
+     "text": "Hold Lensly's code inside the frame.",
+     "rect": {
+      "x": 56,
+      "y": 166,
+      "w": 206.78,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 14,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e6",
+     "kind": "box",
+     "node": "div.lens",
+     "path": "div.cam[5]>div.lens[0]",
+     "rect": {
+      "x": 102.13,
+      "y": 265.63,
+      "w": 200.76,
+      "h": 177.74
+     },
+     "fill": [
+      244,
+      241,
+      234,
+      1
+     ],
+     "border": null,
+     "radius": "14px",
+     "shadow": null
+    },
+    {
+     "id": "e7",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.cam[5]>div.lens[0]>svg[0]",
+     "rect": {
+      "x": 137.62,
+      "y": 278.64,
+      "w": 127.54,
+      "h": 150.29
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e8",
+     "kind": "box",
+     "node": "i.cn.c1",
+     "path": "div.cam[5]>i.cn.c1[1]",
+     "rect": {
+      "x": 82,
+      "y": 247,
+      "w": 34,
+      "h": 34
+     },
+     "fill": null,
+     "border": {
+      "width": 3,
+      "color": [
+       251,
+       246,
+       236,
+       1
+      ]
+     },
+     "radius": "12px",
+     "shadow": null
+    },
+    {
+     "id": "e9",
+     "kind": "box",
+     "node": "i.cn.c2",
+     "path": "div.cam[5]>i.cn.c2[2]",
+     "rect": {
+      "x": 244,
+      "y": 247,
+      "w": 34,
+      "h": 34
+     },
+     "fill": null,
+     "border": {
+      "width": 3,
+      "color": [
+       251,
+       246,
+       236,
+       1
+      ]
+     },
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e10",
+     "kind": "box",
+     "node": "i.cn.c3",
+     "path": "div.cam[5]>i.cn.c3[3]",
+     "rect": {
+      "x": 82,
+      "y": 405,
+      "w": 34,
+      "h": 34
+     },
+     "fill": null,
+     "border": {
+      "width": 3,
+      "color": [
+       245,
+       239,
+       228,
+       1
+      ]
+     },
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e11",
+     "kind": "box",
+     "node": "i.cn.c4",
+     "path": "div.cam[5]>i.cn.c4[4]",
+     "rect": {
+      "x": 244,
+      "y": 405,
+      "w": 34,
+      "h": 34
+     },
+     "fill": null,
+     "border": {
+      "width": 3,
+      "color": [
+       245,
+       239,
+       228,
+       1
+      ]
+     },
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e12",
+     "kind": "text",
+     "node": "div.cl",
+     "path": "div.cam[5]>div.cl[5]",
+     "text": "12 of about 20 parts · hold steady",
+     "rect": {
+      "x": 57.59,
+      "y": 455,
+      "w": 244.81,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\"",
+      "size": 12,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": 0
+     },
+     "color": [
+      251,
+      246,
+      236,
+      1
+     ]
+    },
+    {
+     "id": "e13",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[0]",
+     "rect": {
+      "x": 44,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e14",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[1]",
+     "rect": {
+      "x": 57.75,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e15",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[2]",
+     "rect": {
+      "x": 71.5,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[3]",
+     "rect": {
+      "x": 85.25,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e17",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[4]",
+     "rect": {
+      "x": 99,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e18",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[5]",
+     "rect": {
+      "x": 112.75,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e19",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[6]",
+     "rect": {
+      "x": 126.5,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e20",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[7]",
+     "rect": {
+      "x": 140.25,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e21",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[8]",
+     "rect": {
+      "x": 154,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e22",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[9]",
+     "rect": {
+      "x": 167.75,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e23",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[10]",
+     "rect": {
+      "x": 181.5,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e24",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[11]",
+     "rect": {
+      "x": 195.25,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e25",
+     "kind": "box",
+     "node": "i",
+     "path": "div.cam[5]>div.bar[6]>i[12]",
+     "rect": {
+      "x": 209,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      0.22
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e26",
+     "kind": "box",
+     "node": "i",
+     "path": "div.cam[5]>div.bar[6]>i[13]",
+     "rect": {
+      "x": 222.75,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      0.22
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e27",
+     "kind": "box",
+     "node": "i",
+     "path": "div.cam[5]>div.bar[6]>i[14]",
+     "rect": {
+      "x": 236.5,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      0.22
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e28",
+     "kind": "box",
+     "node": "i",
+     "path": "div.cam[5]>div.bar[6]>i[15]",
+     "rect": {
+      "x": 250.25,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      0.22
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e29",
+     "kind": "box",
+     "node": "i",
+     "path": "div.cam[5]>div.bar[6]>i[16]",
+     "rect": {
+      "x": 264,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      0.22
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e30",
+     "kind": "box",
+     "node": "i",
+     "path": "div.cam[5]>div.bar[6]>i[17]",
+     "rect": {
+      "x": 277.75,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      0.22
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e31",
+     "kind": "box",
+     "node": "i",
+     "path": "div.cam[5]>div.bar[6]>i[18]",
+     "rect": {
+      "x": 291.5,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      0.22
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e32",
+     "kind": "box",
+     "node": "i",
+     "path": "div.cam[5]>div.bar[6]>i[19]",
+     "rect": {
+      "x": 305.25,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      0.22
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e33",
+     "kind": "text",
+     "node": "p.s.px",
+     "path": "p.s.px[6]",
+     "text": "Lumio reads public addresses only. Your keys stay on Lensly.",
+     "rect": {
+      "x": 20,
+      "y": 515,
+      "w": 281.27,
+      "h": 32
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e34",
+     "kind": "text",
+     "node": "span.ta",
+     "path": "div.foot[7]>span.ta[0]",
+     "text": "Where Is Pair on Lensly?",
+     "rect": {
+      "x": 82.72,
+      "y": 685,
+      "w": 194.56,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    }
+   ]
+  },
+  "light": {
+   "png": "p1-22-light.png",
+   "bg": [
+    251,
+    246,
+    236
+   ],
+   "bands": [
+    [
+     14,
+     17
+    ],
+    [
+     44,
+     52
+    ],
+    [
+     67,
+     92
+    ],
+    [
+     110,
+     145
+    ],
+    [
+     164,
+     188
+    ],
+    [
+     201,
+     501
+    ],
+    [
+     516,
+     529
+    ],
+    [
+     534,
+     547
+    ],
+    [
+     686,
+     701
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.prog[1]>i.f[0]",
+     "rect": {
+      "x": 20,
+      "y": 14,
+      "w": 102.66,
+      "h": 3
+     },
+     "fill": [
+      43,
+      37,
+      48,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.prog[1]>i.f[1]",
+     "rect": {
+      "x": 128.66,
+      "y": 14,
+      "w": 102.67,
+      "h": 3
+     },
+     "fill": [
+      43,
+      37,
+      48,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e2",
+     "kind": "text",
+     "node": "div.e.px",
+     "path": "div.e.px[2]",
+     "text": "PAIR · 2 OF 2",
+     "rect": {
+      "x": 20,
+      "y": 42,
+      "w": 74.03,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e3",
+     "kind": "text",
+     "node": "div.h1.px",
+     "path": "div.h1.px[3]",
+     "text": "Pair with Lensly",
+     "rect": {
+      "x": 20,
+      "y": 64,
+      "w": 210.44,
+      "h": 28
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 26,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 30,
+      "letterSpacing": -0.65
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e4",
+     "kind": "text",
+     "node": "div",
+     "path": "div.steps[4]>div[0]",
+     "text": "On Lensly, open Pair and choose the wallet to share.",
+     "rect": {
+      "x": 56,
+      "y": 112,
+      "w": 258.95,
+      "h": 35
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 14,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e5",
+     "kind": "text",
+     "node": "div",
+     "path": "div.steps[4]>div[1]",
+     "text": "Hold Lensly's code inside the frame.",
+     "rect": {
+      "x": 56,
+      "y": 166,
+      "w": 206.78,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 14,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e6",
+     "kind": "box",
+     "node": "div.lens",
+     "path": "div.cam[5]>div.lens[0]",
+     "rect": {
+      "x": 102.13,
+      "y": 265.63,
+      "w": 200.76,
+      "h": 177.74
+     },
+     "fill": [
+      244,
+      241,
+      234,
+      1
+     ],
+     "border": null,
+     "radius": "14px",
+     "shadow": null
+    },
+    {
+     "id": "e7",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.cam[5]>div.lens[0]>svg[0]",
+     "rect": {
+      "x": 137.62,
+      "y": 278.64,
+      "w": 127.54,
+      "h": 150.29
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e8",
+     "kind": "box",
+     "node": "i.cn.c1",
+     "path": "div.cam[5]>i.cn.c1[1]",
+     "rect": {
+      "x": 82,
+      "y": 247,
+      "w": 34,
+      "h": 34
+     },
+     "fill": null,
+     "border": {
+      "width": 3,
+      "color": [
+       251,
+       246,
+       236,
+       1
+      ]
+     },
+     "radius": "12px",
+     "shadow": null
+    },
+    {
+     "id": "e9",
+     "kind": "box",
+     "node": "i.cn.c2",
+     "path": "div.cam[5]>i.cn.c2[2]",
+     "rect": {
+      "x": 244,
+      "y": 247,
+      "w": 34,
+      "h": 34
+     },
+     "fill": null,
+     "border": {
+      "width": 3,
+      "color": [
+       251,
+       246,
+       236,
+       1
+      ]
+     },
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e10",
+     "kind": "box",
+     "node": "i.cn.c3",
+     "path": "div.cam[5]>i.cn.c3[3]",
+     "rect": {
+      "x": 82,
+      "y": 405,
+      "w": 34,
+      "h": 34
+     },
+     "fill": null,
+     "border": {
+      "width": 3,
+      "color": [
+       43,
+       37,
+       48,
+       1
+      ]
+     },
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e11",
+     "kind": "box",
+     "node": "i.cn.c4",
+     "path": "div.cam[5]>i.cn.c4[4]",
+     "rect": {
+      "x": 244,
+      "y": 405,
+      "w": 34,
+      "h": 34
+     },
+     "fill": null,
+     "border": {
+      "width": 3,
+      "color": [
+       43,
+       37,
+       48,
+       1
+      ]
+     },
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e12",
+     "kind": "text",
+     "node": "div.cl",
+     "path": "div.cam[5]>div.cl[5]",
+     "text": "12 of about 20 parts · hold steady",
+     "rect": {
+      "x": 57.59,
+      "y": 455,
+      "w": 244.81,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\"",
+      "size": 12,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": 0
+     },
+     "color": [
+      251,
+      246,
+      236,
+      1
+     ]
+    },
+    {
+     "id": "e13",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[0]",
+     "rect": {
+      "x": 44,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e14",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[1]",
+     "rect": {
+      "x": 57.75,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e15",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[2]",
+     "rect": {
+      "x": 71.5,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[3]",
+     "rect": {
+      "x": 85.25,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e17",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[4]",
+     "rect": {
+      "x": 99,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e18",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[5]",
+     "rect": {
+      "x": 112.75,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e19",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[6]",
+     "rect": {
+      "x": 126.5,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e20",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[7]",
+     "rect": {
+      "x": 140.25,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e21",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[8]",
+     "rect": {
+      "x": 154,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e22",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[9]",
+     "rect": {
+      "x": 167.75,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e23",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[10]",
+     "rect": {
+      "x": 181.5,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e24",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.cam[5]>div.bar[6]>i.f[11]",
+     "rect": {
+      "x": 195.25,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      242,
+      161,
+      74,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e25",
+     "kind": "box",
+     "node": "i",
+     "path": "div.cam[5]>div.bar[6]>i[12]",
+     "rect": {
+      "x": 209,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      0.22
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e26",
+     "kind": "box",
+     "node": "i",
+     "path": "div.cam[5]>div.bar[6]>i[13]",
+     "rect": {
+      "x": 222.75,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      0.22
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e27",
+     "kind": "box",
+     "node": "i",
+     "path": "div.cam[5]>div.bar[6]>i[14]",
+     "rect": {
+      "x": 236.5,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      0.22
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e28",
+     "kind": "box",
+     "node": "i",
+     "path": "div.cam[5]>div.bar[6]>i[15]",
+     "rect": {
+      "x": 250.25,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      0.22
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e29",
+     "kind": "box",
+     "node": "i",
+     "path": "div.cam[5]>div.bar[6]>i[16]",
+     "rect": {
+      "x": 264,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      0.22
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e30",
+     "kind": "box",
+     "node": "i",
+     "path": "div.cam[5]>div.bar[6]>i[17]",
+     "rect": {
+      "x": 277.75,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      0.22
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e31",
+     "kind": "box",
+     "node": "i",
+     "path": "div.cam[5]>div.bar[6]>i[18]",
+     "rect": {
+      "x": 291.5,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      0.22
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e32",
+     "kind": "box",
+     "node": "i",
+     "path": "div.cam[5]>div.bar[6]>i[19]",
+     "rect": {
+      "x": 305.25,
+      "y": 477,
+      "w": 10.75,
+      "h": 4
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      0.22
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e33",
+     "kind": "text",
+     "node": "p.s.px",
+     "path": "p.s.px[6]",
+     "text": "Lumio reads public addresses only. Your keys stay on Lensly.",
+     "rect": {
+      "x": 20,
+      "y": 515,
+      "w": 281.27,
+      "h": 32
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e34",
+     "kind": "text",
+     "node": "span.ta",
+     "path": "div.foot[7]>span.ta[0]",
+     "text": "Where Is Pair on Lensly?",
+     "rect": {
+      "x": 82.72,
+      "y": 685,
+      "w": 194.56,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    }
+   ]
+  }
+ },
+ "width": 360,
+ "height": 740
+}

@@ -1,0 +1,2216 @@
+{
+ "id": "p2-36",
+ "title": "Watchlist Sort B2 · sheet",
+ "inkThreshold": 12,
+ "bandGap": 1,
+ "themes": {
+  "dark": {
+   "png": "p2-36-dark.png",
+   "bg": [
+    21,
+    19,
+    23
+   ],
+   "bands": [
+    [
+     17,
+     35
+    ],
+    [
+     65,
+     73
+    ],
+    [
+     100,
+     140
+    ],
+    [
+     156,
+     169
+    ],
+    [
+     176,
+     188
+    ],
+    [
+     207,
+     290
+    ],
+    [
+     311,
+     363
+    ],
+    [
+     391,
+     404
+    ],
+    [
+     426,
+     456
+    ],
+    [
+     488,
+     518
+    ],
+    [
+     524,
+     528
+    ],
+    [
+     544,
+     560
+    ],
+    [
+     585,
+     617
+    ],
+    [
+     631,
+     632
+    ],
+    [
+     647,
+     679
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "box",
+     "node": "div.av",
+     "path": "div.tb[1]>div.ib[0]>div.av[0]",
+     "rect": {
+      "x": 12,
+      "y": 8,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "12px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.tb[1]>div.ib[0]>div.av[0]>svg[0]",
+     "rect": {
+      "x": 16,
+      "y": 12,
+      "w": 28,
+      "h": 28
+     },
+     "var": "logo",
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e2",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "Air 1",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 42.27,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e3",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.t[1]>svg.i[0]",
+     "rect": {
+      "x": 106.27,
+      "y": 18,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 275,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e5",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[3]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "div.e",
+     "path": "div.ctr[2]>div.e[0]",
+     "text": "TOTAL MARKET CAP",
+     "rect": {
+      "x": 121.19,
+      "y": 63,
+      "w": 117.63,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "text",
+     "node": "div.nx",
+     "path": "div.ctr[2]>div.nx[1]",
+     "text": "3.41",
+     "var": "data",
+     "anchor": "center",
+     "rect": {
+      "x": 119.42,
+      "y": 87.84,
+      "w": 108,
+      "h": 66
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 50,
+      "weight": 300,
+      "stretch": "92%",
+      "lineHeight": 56,
+      "letterSpacing": -3
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e8",
+     "kind": "text",
+     "node": "span.c",
+     "path": "div.ctr[2]>div.nx[1]>span.c[0]",
+     "text": "$",
+     "rect": {
+      "x": 105.58,
+      "y": 97,
+      "w": 10.84,
+      "h": 25
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, sans-serif",
+      "size": 23,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 56,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "span.f",
+     "path": "div.ctr[2]>div.nx[1]>span.f[1]",
+     "text": "T",
+     "rect": {
+      "x": 227.42,
+      "y": 87.84,
+      "w": 27,
+      "h": 66
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 50,
+      "weight": 300,
+      "stretch": "92%",
+      "lineHeight": 56,
+      "letterSpacing": -3
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "text",
+     "node": "div.dlt.up",
+     "path": "div.ctr[2]>div.dlt.up[2]",
+     "text": "▲ 2.14% Today",
+     "var": "data",
+     "anchor": "center",
+     "rect": {
+      "x": 130.98,
+      "y": 152.84,
+      "w": 98.03,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 13,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": -0.26
+     },
+     "color": [
+      141,
+      187,
+      255,
+      1
+     ]
+    },
+    {
+     "id": "e11",
+     "kind": "text",
+     "node": "div.fresh",
+     "path": "div.ctr[2]>div.fresh[3]",
+     "text": "Live · updated 8 s ago",
+     "rect": {
+      "x": 132.42,
+      "y": 174.84,
+      "w": 107.16,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e12",
+     "kind": "icon",
+     "node": "svg.tick",
+     "path": "div[3]>svg.tick[0]",
+     "rect": {
+      "x": 20,
+      "y": 202.84,
+      "w": 320,
+      "h": 92
+     },
+     "var": "chart",
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e13",
+     "kind": "text",
+     "node": "div.cap",
+     "path": "div.act[4]>div.cap[0]",
+     "text": "Send",
+     "rect": {
+      "x": 112.22,
+      "y": 328.34,
+      "w": 42.78,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15.5,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e14",
+     "kind": "box",
+     "node": "div.cap",
+     "path": "div.act[4]>div.cap[0]",
+     "rect": {
+      "x": 56.22,
+      "y": 310.84,
+      "w": 128.78,
+      "h": 52
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      1
+     ],
+     "border": null,
+     "radius": "26px",
+     "shadow": null
+    },
+    {
+     "id": "e15",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.act[4]>div.cap[0]>svg.i[0]",
+     "rect": {
+      "x": 86.22,
+      "y": 327.84,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "text",
+     "node": "div.ta",
+     "path": "div.act[4]>div.ta[1]",
+     "text": "Receive",
+     "rect": {
+      "x": 233,
+      "y": 328.34,
+      "w": 64.78,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e17",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.act[4]>div.ta[1]>svg.i[0]",
+     "rect": {
+      "x": 209,
+      "y": 327.84,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e18",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sec[5]>span.e[0]",
+     "text": "WATCHLIST · 8",
+     "rect": {
+      "x": 20,
+      "y": 391.34,
+      "w": 85.03,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e19",
+     "kind": "text",
+     "node": "span.ta",
+     "path": "div.sec[5]>span.ta[1]",
+     "text": "Market Cap",
+     "rect": {
+      "x": 240.22,
+      "y": 389.84,
+      "w": 79.78,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e20",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.sec[5]>span.ta[1]>svg.i[0]",
+     "rect": {
+      "x": 326,
+      "y": 390.34,
+      "w": 14,
+      "h": 14
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e21",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[6]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 424.84,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e22",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[6]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 432.34,
+      "w": 21,
+      "h": 21
+     },
+     "var": "logo",
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e23",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[6]>div.m[1]>b[0]",
+     "text": "Bitcoin",
+     "var": "row",
+     "anchor": "left",
+     "rect": {
+      "x": 68,
+      "y": 426.34,
+      "w": 55.84,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e24",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[6]>div.m[1]>span[1]",
+     "text": "BTC · 0.2104 held",
+     "var": "row",
+     "anchor": "left",
+     "rect": {
+      "x": 68,
+      "y": 445.34,
+      "w": 92.36,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e25",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[6]>div.v[2]>b[0]",
+     "text": "$108,420.35",
+     "var": "row",
+     "anchor": "right",
+     "rect": {
+      "x": 250.67,
+      "y": 425.34,
+      "w": 89.33,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e26",
+     "kind": "text",
+     "node": "span.up",
+     "path": "div.row[6]>div.v[2]>span.up[1]",
+     "text": "▲ 1.82%",
+     "var": "row",
+     "anchor": "right",
+     "rect": {
+      "x": 291.27,
+      "y": 444.34,
+      "w": 48.73,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e27",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[7]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 486.84,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e28",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[7]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 494.34,
+      "w": 21,
+      "h": 21
+     },
+     "var": "logo",
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e29",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[7]>div.m[1]>b[0]",
+     "text": "Ethereum",
+     "var": "row",
+     "anchor": "left",
+     "rect": {
+      "x": 68,
+      "y": 488.34,
+      "w": 78.2,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e30",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[7]>div.m[1]>span[1]",
+     "text": "ETH · 22.23 held",
+     "var": "row",
+     "anchor": "left",
+     "rect": {
+      "x": 68,
+      "y": 507.34,
+      "w": 86.59,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e31",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[7]>div.v[2]>b[0]",
+     "text": "$4,285.70",
+     "var": "row",
+     "anchor": "right",
+     "rect": {
+      "x": 266.91,
+      "y": 487.34,
+      "w": 73.09,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e32",
+     "kind": "text",
+     "node": "span.dn",
+     "path": "div.row[7]>div.v[2]>span.dn[1]",
+     "text": "▼ 2.41%",
+     "var": "row",
+     "anchor": "right",
+     "rect": {
+      "x": 291.27,
+      "y": 506.34,
+      "w": 48.73,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e33",
+     "kind": "box",
+     "node": "div.scr",
+     "path": "div.scr[8]",
+     "rect": {
+      "x": 0,
+      "y": -40,
+      "w": 360,
+      "h": 780
+     },
+     "fill": [
+      5,
+      4,
+      6,
+      0.58
+     ],
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e34",
+     "kind": "box",
+     "node": "div.sh",
+     "path": "div.sh[9]",
+     "rect": {
+      "x": 0,
+      "y": 516,
+      "w": 360,
+      "h": 224
+     },
+     "fill": [
+      31,
+      28,
+      34,
+      1
+     ],
+     "border": null,
+     "radius": "28px",
+     "shadow": null
+    },
+    {
+     "id": "e35",
+     "kind": "box",
+     "node": "div.gr",
+     "path": "div.sh[9]>div.gr[0]",
+     "rect": {
+      "x": 162,
+      "y": 524,
+      "w": 36,
+      "h": 4
+     },
+     "fill": [
+      138,
+      130,
+      141,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e36",
+     "kind": "text",
+     "node": "div.h2.px",
+     "path": "div.sh[9]>div.h2.px[1]",
+     "text": "Sort Watchlist",
+     "rect": {
+      "x": 20,
+      "y": 541,
+      "w": 147.39,
+      "h": 22
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 20,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 25,
+      "letterSpacing": -0.4
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e37",
+     "kind": "text",
+     "node": "b",
+     "path": "div.sh[9]>div.row.nl0[2]>div.m[0]>b[0]",
+     "text": "Market Cap",
+     "rect": {
+      "x": 20,
+      "y": 583.5,
+      "w": 92.06,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e38",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sh[9]>div.row.nl0[2]>div.m[0]>span[1]",
+     "text": "Largest first",
+     "rect": {
+      "x": 20,
+      "y": 602.5,
+      "w": 60.36,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e39",
+     "kind": "box",
+     "node": "div.rd.on",
+     "path": "div.sh[9]>div.row.nl0[2]>div.rd.on[1]",
+     "rect": {
+      "x": 318,
+      "y": 589,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": {
+      "width": 2,
+      "color": [
+       245,
+       239,
+       228,
+       1
+      ]
+     },
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e40",
+     "kind": "text",
+     "node": "b",
+     "path": "div.sh[9]>div.row[3]>div.m[0]>b[0]",
+     "text": "24h Change",
+     "rect": {
+      "x": 20,
+      "y": 645.5,
+      "w": 96.3,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e41",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sh[9]>div.row[3]>div.m[0]>span[1]",
+     "text": "Biggest gain first",
+     "rect": {
+      "x": 20,
+      "y": 664.5,
+      "w": 85.52,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e42",
+     "kind": "box",
+     "node": "div.rd",
+     "path": "div.sh[9]>div.row[3]>div.rd[1]",
+     "rect": {
+      "x": 318,
+      "y": 651,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": {
+      "width": 2,
+      "color": [
+       138,
+       130,
+       141,
+       1
+      ]
+     },
+     "radius": "50%",
+     "shadow": null
+    }
+   ]
+  },
+  "light": {
+   "png": "p2-36-light.png",
+   "bg": [
+    251,
+    246,
+    236
+   ],
+   "bands": [
+    [
+     0,
+     542
+    ],
+    [
+     544,
+     560
+    ],
+    [
+     585,
+     617
+    ],
+    [
+     631,
+     632
+    ],
+    [
+     647,
+     679
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "box",
+     "node": "div.av",
+     "path": "div.tb[1]>div.ib[0]>div.av[0]",
+     "rect": {
+      "x": 12,
+      "y": 8,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "12px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.tb[1]>div.ib[0]>div.av[0]>svg[0]",
+     "rect": {
+      "x": 16,
+      "y": 12,
+      "w": 28,
+      "h": 28
+     },
+     "var": "logo",
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e2",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "Air 1",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 42.27,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e3",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.t[1]>svg.i[0]",
+     "rect": {
+      "x": 106.27,
+      "y": 18,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 275,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e5",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[3]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "div.e",
+     "path": "div.ctr[2]>div.e[0]",
+     "text": "TOTAL MARKET CAP",
+     "rect": {
+      "x": 121.19,
+      "y": 63,
+      "w": 117.63,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "text",
+     "node": "div.nx",
+     "path": "div.ctr[2]>div.nx[1]",
+     "text": "3.41",
+     "var": "data",
+     "anchor": "center",
+     "rect": {
+      "x": 119.42,
+      "y": 87.84,
+      "w": 108,
+      "h": 66
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 50,
+      "weight": 300,
+      "stretch": "92%",
+      "lineHeight": 56,
+      "letterSpacing": -3
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e8",
+     "kind": "text",
+     "node": "span.c",
+     "path": "div.ctr[2]>div.nx[1]>span.c[0]",
+     "text": "$",
+     "rect": {
+      "x": 105.58,
+      "y": 97,
+      "w": 10.84,
+      "h": 25
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, sans-serif",
+      "size": 23,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 56,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "span.f",
+     "path": "div.ctr[2]>div.nx[1]>span.f[1]",
+     "text": "T",
+     "rect": {
+      "x": 227.42,
+      "y": 87.84,
+      "w": 27,
+      "h": 66
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 50,
+      "weight": 300,
+      "stretch": "92%",
+      "lineHeight": 56,
+      "letterSpacing": -3
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "text",
+     "node": "div.dlt.up",
+     "path": "div.ctr[2]>div.dlt.up[2]",
+     "text": "▲ 2.14% Today",
+     "var": "data",
+     "anchor": "center",
+     "rect": {
+      "x": 130.98,
+      "y": 152.84,
+      "w": 98.03,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 13,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": null,
+      "letterSpacing": -0.26
+     },
+     "color": [
+      42,
+      86,
+      168,
+      1
+     ]
+    },
+    {
+     "id": "e11",
+     "kind": "text",
+     "node": "div.fresh",
+     "path": "div.ctr[2]>div.fresh[3]",
+     "text": "Live · updated 8 s ago",
+     "rect": {
+      "x": 132.42,
+      "y": 174.84,
+      "w": 107.16,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e12",
+     "kind": "icon",
+     "node": "svg.tick",
+     "path": "div[3]>svg.tick[0]",
+     "rect": {
+      "x": 20,
+      "y": 202.84,
+      "w": 320,
+      "h": 92
+     },
+     "var": "chart",
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e13",
+     "kind": "text",
+     "node": "div.cap",
+     "path": "div.act[4]>div.cap[0]",
+     "text": "Send",
+     "rect": {
+      "x": 112.22,
+      "y": 328.34,
+      "w": 42.78,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15.5,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      251,
+      246,
+      236,
+      1
+     ]
+    },
+    {
+     "id": "e14",
+     "kind": "box",
+     "node": "div.cap",
+     "path": "div.act[4]>div.cap[0]",
+     "rect": {
+      "x": 56.22,
+      "y": 310.84,
+      "w": 128.78,
+      "h": 52
+     },
+     "fill": [
+      43,
+      37,
+      48,
+      1
+     ],
+     "border": null,
+     "radius": "26px",
+     "shadow": null
+    },
+    {
+     "id": "e15",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.act[4]>div.cap[0]>svg.i[0]",
+     "rect": {
+      "x": 86.22,
+      "y": 327.84,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "text",
+     "node": "div.ta",
+     "path": "div.act[4]>div.ta[1]",
+     "text": "Receive",
+     "rect": {
+      "x": 233,
+      "y": 328.34,
+      "w": 64.78,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e17",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.act[4]>div.ta[1]>svg.i[0]",
+     "rect": {
+      "x": 209,
+      "y": 327.84,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e18",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sec[5]>span.e[0]",
+     "text": "WATCHLIST · 8",
+     "rect": {
+      "x": 20,
+      "y": 391.34,
+      "w": 85.03,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e19",
+     "kind": "text",
+     "node": "span.ta",
+     "path": "div.sec[5]>span.ta[1]",
+     "text": "Market Cap",
+     "rect": {
+      "x": 240.22,
+      "y": 389.84,
+      "w": 79.78,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e20",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.sec[5]>span.ta[1]>svg.i[0]",
+     "rect": {
+      "x": 326,
+      "y": 390.34,
+      "w": 14,
+      "h": 14
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e21",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[6]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 424.84,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e22",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[6]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 432.34,
+      "w": 21,
+      "h": 21
+     },
+     "var": "logo",
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e23",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[6]>div.m[1]>b[0]",
+     "text": "Bitcoin",
+     "var": "row",
+     "anchor": "left",
+     "rect": {
+      "x": 68,
+      "y": 426.34,
+      "w": 55.84,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e24",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[6]>div.m[1]>span[1]",
+     "text": "BTC · 0.2104 held",
+     "var": "row",
+     "anchor": "left",
+     "rect": {
+      "x": 68,
+      "y": 445.34,
+      "w": 92.36,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e25",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[6]>div.v[2]>b[0]",
+     "text": "$108,420.35",
+     "var": "row",
+     "anchor": "right",
+     "rect": {
+      "x": 250.67,
+      "y": 425.34,
+      "w": 89.33,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e26",
+     "kind": "text",
+     "node": "span.up",
+     "path": "div.row[6]>div.v[2]>span.up[1]",
+     "text": "▲ 1.82%",
+     "var": "row",
+     "anchor": "right",
+     "rect": {
+      "x": 291.27,
+      "y": 444.34,
+      "w": 48.73,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e27",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[7]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 486.84,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e28",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[7]>div.lg[0]>svg[0]",
+     "rect": {
+      "x": 27.5,
+      "y": 494.34,
+      "w": 21,
+      "h": 21
+     },
+     "var": "logo",
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e29",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[7]>div.m[1]>b[0]",
+     "text": "Ethereum",
+     "var": "row",
+     "anchor": "left",
+     "rect": {
+      "x": 68,
+      "y": 488.34,
+      "w": 78.2,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e30",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[7]>div.m[1]>span[1]",
+     "text": "ETH · 22.23 held",
+     "var": "row",
+     "anchor": "left",
+     "rect": {
+      "x": 68,
+      "y": 507.34,
+      "w": 86.59,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e31",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[7]>div.v[2]>b[0]",
+     "text": "$4,285.70",
+     "var": "row",
+     "anchor": "right",
+     "rect": {
+      "x": 266.91,
+      "y": 487.34,
+      "w": 73.09,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e32",
+     "kind": "text",
+     "node": "span.dn",
+     "path": "div.row[7]>div.v[2]>span.dn[1]",
+     "text": "▼ 2.41%",
+     "var": "row",
+     "anchor": "right",
+     "rect": {
+      "x": 291.27,
+      "y": 506.34,
+      "w": 48.73,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e33",
+     "kind": "box",
+     "node": "div.scr",
+     "path": "div.scr[8]",
+     "rect": {
+      "x": 0,
+      "y": -40,
+      "w": 360,
+      "h": 780
+     },
+     "fill": [
+      43,
+      37,
+      48,
+      0.34
+     ],
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e34",
+     "kind": "box",
+     "node": "div.sh",
+     "path": "div.sh[9]",
+     "rect": {
+      "x": 0,
+      "y": 516,
+      "w": 360,
+      "h": 224
+     },
+     "fill": [
+      255,
+      253,
+      248,
+      1
+     ],
+     "border": null,
+     "radius": "28px",
+     "shadow": "rgba(43, 37, 48, 0.1) 0px -10px 30px 0px"
+    },
+    {
+     "id": "e35",
+     "kind": "box",
+     "node": "div.gr",
+     "path": "div.sh[9]>div.gr[0]",
+     "rect": {
+      "x": 162,
+      "y": 524,
+      "w": 36,
+      "h": 4
+     },
+     "fill": [
+      142,
+      134,
+      146,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e36",
+     "kind": "text",
+     "node": "div.h2.px",
+     "path": "div.sh[9]>div.h2.px[1]",
+     "text": "Sort Watchlist",
+     "rect": {
+      "x": 20,
+      "y": 541,
+      "w": 147.39,
+      "h": 22
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 20,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 25,
+      "letterSpacing": -0.4
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e37",
+     "kind": "text",
+     "node": "b",
+     "path": "div.sh[9]>div.row.nl0[2]>div.m[0]>b[0]",
+     "text": "Market Cap",
+     "rect": {
+      "x": 20,
+      "y": 583.5,
+      "w": 92.06,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e38",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sh[9]>div.row.nl0[2]>div.m[0]>span[1]",
+     "text": "Largest first",
+     "rect": {
+      "x": 20,
+      "y": 602.5,
+      "w": 60.36,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e39",
+     "kind": "box",
+     "node": "div.rd.on",
+     "path": "div.sh[9]>div.row.nl0[2]>div.rd.on[1]",
+     "rect": {
+      "x": 318,
+      "y": 589,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": {
+      "width": 2,
+      "color": [
+       43,
+       37,
+       48,
+       1
+      ]
+     },
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e40",
+     "kind": "text",
+     "node": "b",
+     "path": "div.sh[9]>div.row[3]>div.m[0]>b[0]",
+     "text": "24h Change",
+     "rect": {
+      "x": 20,
+      "y": 645.5,
+      "w": 96.3,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e41",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sh[9]>div.row[3]>div.m[0]>span[1]",
+     "text": "Biggest gain first",
+     "rect": {
+      "x": 20,
+      "y": 664.5,
+      "w": 85.52,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e42",
+     "kind": "box",
+     "node": "div.rd",
+     "path": "div.sh[9]>div.row[3]>div.rd[1]",
+     "rect": {
+      "x": 318,
+      "y": 651,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": {
+      "width": 2,
+      "color": [
+       142,
+       134,
+       146,
+       1
+      ]
+     },
+     "radius": "50%",
+     "shadow": null
+    }
+   ]
+  }
+ },
+ "width": 360,
+ "height": 740
+}

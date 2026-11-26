@@ -1,0 +1,881 @@
+{
+ "id": "p2-04",
+ "title": "Loading K1 · state · never loaded · dark",
+ "inkThreshold": 12,
+ "bandGap": 1,
+ "themes": {
+  "dark": {
+   "png": "p2-04-dark.png",
+   "bg": [
+    21,
+    19,
+    23
+   ],
+   "bands": [
+    [
+     18,
+     36
+    ],
+    [
+     55,
+     68
+    ],
+    [
+     79,
+     92
+    ],
+    [
+     114,
+     122
+    ],
+    [
+     130,
+     156
+    ],
+    [
+     168,
+     181
+    ],
+    [
+     200,
+     244
+    ],
+    [
+     269,
+     284
+    ],
+    [
+     296,
+     298
+    ],
+    [
+     311,
+     347
+    ],
+    [
+     360,
+     361
+    ],
+    [
+     373,
+     409
+    ],
+    [
+     422,
+     423
+    ],
+    [
+     435,
+     471
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[0]>svg.i[0]",
+     "rect": {
+      "x": 19,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "Cold Storage",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 124.83,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e2",
+     "kind": "text",
+     "node": "span.idx",
+     "path": "div.tb[1]>div.t[1]>span.idx[0]",
+     "text": "#11",
+     "var": "data",
+     "anchor": "left",
+     "rect": {
+      "x": 192.83,
+      "y": 18.5,
+      "w": 19.89,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\"",
+      "size": 11.5,
+      "weight": 500,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e3",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "text",
+     "node": "div.s",
+     "path": "div.px[2]>div.s[0]",
+     "text": "Ethereum App · Air 1",
+     "rect": {
+      "x": 20,
+      "y": 54,
+      "w": 109.97,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e5",
+     "kind": "text",
+     "node": "span.ad",
+     "path": "div.px[2]>div[1]>span.ad[0]",
+     "text": "0x5a2c … e81f",
+     "rect": {
+      "x": 20,
+      "y": 77,
+      "w": 176.45,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 19,
+      "letterSpacing": -0.13
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "i",
+     "path": "div.px[2]>div[1]>span.ad[0]>i[0]",
+     "text": "71d0",
+     "var": "data",
+     "anchor": "left",
+     "rect": {
+      "x": 73.7,
+      "y": 77,
+      "w": 30.69,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 19,
+      "letterSpacing": -0.13
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "text",
+     "node": "i",
+     "path": "div.px[2]>div[1]>span.ad[0]>i[1]",
+     "text": "b4c6",
+     "var": "data",
+     "anchor": "left",
+     "rect": {
+      "x": 127.41,
+      "y": 77,
+      "w": 30.69,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 19,
+      "letterSpacing": -0.13
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e8",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.px[2]>div[1]>svg.i[1]",
+     "rect": {
+      "x": 204.45,
+      "y": 77.5,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "div.e",
+     "path": "div.px[3]>div.e[0]",
+     "text": "TOTAL",
+     "rect": {
+      "x": 20,
+      "y": 112,
+      "w": 37.34,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "box",
+     "node": "span.sk",
+     "path": "div.px[3]>span.sk[1]",
+     "rect": {
+      "x": 20,
+      "y": 130,
+      "w": 150,
+      "h": 26
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "8px",
+     "shadow": null
+    },
+    {
+     "id": "e11",
+     "kind": "text",
+     "node": "div.fresh",
+     "path": "div.px[3]>div.fresh[2]",
+     "text": "Updating…",
+     "rect": {
+      "x": 32,
+      "y": 167,
+      "w": 54.78,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e12",
+     "kind": "text",
+     "node": "div.cap.sm",
+     "path": "div.act[4]>div.cap.sm[0]",
+     "text": "Send",
+     "rect": {
+      "x": 68,
+      "y": 213,
+      "w": 41.41,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e13",
+     "kind": "box",
+     "node": "div.cap.sm",
+     "path": "div.act[4]>div.cap.sm[0]",
+     "rect": {
+      "x": 20,
+      "y": 199.5,
+      "w": 111.41,
+      "h": 44
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      1
+     ],
+     "border": null,
+     "radius": "22px",
+     "shadow": null
+    },
+    {
+     "id": "e14",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.act[4]>div.cap.sm[0]>svg.i[0]",
+     "rect": {
+      "x": 42,
+      "y": 212.5,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e15",
+     "kind": "text",
+     "node": "div.ta",
+     "path": "div.act[4]>div.ta[1]",
+     "text": "Receive",
+     "rect": {
+      "x": 179.41,
+      "y": 213,
+      "w": 64.78,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e16",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.act[4]>div.ta[1]>svg.i[0]",
+     "rect": {
+      "x": 155.41,
+      "y": 212.5,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e17",
+     "kind": "box",
+     "node": "div.tt",
+     "path": "div.tt[5]",
+     "rect": {
+      "x": 0,
+      "y": 254,
+      "w": 360,
+      "h": 44
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       245,
+       239,
+       228,
+       1
+      ]
+     },
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e18",
+     "kind": "text",
+     "node": "a.on",
+     "path": "div.tt[5]>a.on[0]",
+     "text": "Assets",
+     "rect": {
+      "x": 20,
+      "y": 268,
+      "w": 55.56,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e19",
+     "kind": "text",
+     "node": "a",
+     "path": "div.tt[5]>a[1]",
+     "text": "Activity",
+     "rect": {
+      "x": 99.56,
+      "y": 268,
+      "w": 59.69,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e20",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[6]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 311,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e21",
+     "kind": "box",
+     "node": "span.sk",
+     "path": "div.row[6]>div.m[1]>span.sk[0]",
+     "rect": {
+      "x": 68,
+      "y": 314.5,
+      "w": 104,
+      "h": 12
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e22",
+     "kind": "box",
+     "node": "span.sk",
+     "path": "div.row[6]>div.m[1]>span.sk[1]",
+     "rect": {
+      "x": 68,
+      "y": 334.5,
+      "w": 66,
+      "h": 9
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e23",
+     "kind": "box",
+     "node": "span.sk",
+     "path": "div.row[6]>div.v[2]>span.sk[0]",
+     "rect": {
+      "x": 266,
+      "y": 317,
+      "w": 74,
+      "h": 11
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e24",
+     "kind": "box",
+     "node": "span.sk",
+     "path": "div.row[6]>div.v[2]>span.sk[1]",
+     "rect": {
+      "x": 298,
+      "y": 332,
+      "w": 42,
+      "h": 9
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e25",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[7]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 373,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e26",
+     "kind": "box",
+     "node": "span.sk",
+     "path": "div.row[7]>div.m[1]>span.sk[0]",
+     "rect": {
+      "x": 68,
+      "y": 376.5,
+      "w": 84,
+      "h": 12
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e27",
+     "kind": "box",
+     "node": "span.sk",
+     "path": "div.row[7]>div.m[1]>span.sk[1]",
+     "rect": {
+      "x": 68,
+      "y": 396.5,
+      "w": 58,
+      "h": 9
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e28",
+     "kind": "box",
+     "node": "span.sk",
+     "path": "div.row[7]>div.v[2]>span.sk[0]",
+     "rect": {
+      "x": 276,
+      "y": 379,
+      "w": 64,
+      "h": 11
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e29",
+     "kind": "box",
+     "node": "span.sk",
+     "path": "div.row[7]>div.v[2]>span.sk[1]",
+     "rect": {
+      "x": 300,
+      "y": 394,
+      "w": 40,
+      "h": 9
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e30",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[8]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 435,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e31",
+     "kind": "box",
+     "node": "span.sk",
+     "path": "div.row[8]>div.m[1]>span.sk[0]",
+     "rect": {
+      "x": 68,
+      "y": 438.5,
+      "w": 96,
+      "h": 12
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e32",
+     "kind": "box",
+     "node": "span.sk",
+     "path": "div.row[8]>div.m[1]>span.sk[1]",
+     "rect": {
+      "x": 68,
+      "y": 458.5,
+      "w": 50,
+      "h": 9
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e33",
+     "kind": "box",
+     "node": "span.sk",
+     "path": "div.row[8]>div.v[2]>span.sk[0]",
+     "rect": {
+      "x": 282,
+      "y": 441,
+      "w": 58,
+      "h": 11
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e34",
+     "kind": "box",
+     "node": "span.sk",
+     "path": "div.row[8]>div.v[2]>span.sk[1]",
+     "rect": {
+      "x": 304,
+      "y": 456,
+      "w": 36,
+      "h": 9
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "6px",
+     "shadow": null
+    }
+   ]
+  }
+ },
+ "width": 360,
+ "height": 740
+}

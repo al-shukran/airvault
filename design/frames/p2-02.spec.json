@@ -1,0 +1,1884 @@
+{
+ "id": "p2-02",
+ "title": "Accounts C1 · tab root",
+ "inkThreshold": 12,
+ "bandGap": 1,
+ "themes": {
+  "dark": {
+   "png": "p2-02-dark.png",
+   "bg": [
+    21,
+    19,
+    23
+   ],
+   "bands": [
+    [
+     8,
+     44
+    ],
+    [
+     63,
+     78
+    ],
+    [
+     97,
+     133
+    ],
+    [
+     146,
+     147
+    ],
+    [
+     159,
+     195
+    ],
+    [
+     227,
+     241
+    ],
+    [
+     272,
+     285
+    ],
+    [
+     290,
+     303
+    ],
+    [
+     658,
+     659
+    ],
+    [
+     661,
+     669
+    ],
+    [
+     674,
+     693
+    ],
+    [
+     700,
+     711
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "box",
+     "node": "div.av",
+     "path": "div.tb[1]>div.ib[0]>div.av[0]",
+     "rect": {
+      "x": 12,
+      "y": 8,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "12px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.tb[1]>div.ib[0]>div.av[0]>svg[0]",
+     "rect": {
+      "x": 16,
+      "y": 12,
+      "w": 28,
+      "h": 28
+     },
+     "var": "logo",
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e2",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "Accounts",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 92.39,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e3",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 275,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[3]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e5",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sec[2]>span.e[0]",
+     "text": "LENSLY WALLETS · 2",
+     "rect": {
+      "x": 20,
+      "y": 65,
+      "w": 119.75,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "span.n.s",
+     "path": "div.sec[2]>span.n.s[1]",
+     "text": "$151,909.65",
+     "var": "data",
+     "anchor": "right",
+     "rect": {
+      "x": 257.05,
+      "y": 62,
+      "w": 82.95,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": -0.26
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "box",
+     "node": "div.av",
+     "path": "div.row[3]>div.av[0]",
+     "rect": {
+      "x": 20,
+      "y": 97,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "12px",
+     "shadow": null
+    },
+    {
+     "id": "e8",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[3]>div.av[0]>svg[0]",
+     "rect": {
+      "x": 24,
+      "y": 101,
+      "w": 28,
+      "h": 28
+     },
+     "var": "logo",
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[3]>div.m[1]>b[0]",
+     "text": "Air 1",
+     "var": "row",
+     "anchor": "left",
+     "rect": {
+      "x": 68,
+      "y": 98.5,
+      "w": 35.53,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "text",
+     "node": "span.dim-badge",
+     "path": "div.row[3]>div.m[1]>b[0]>span.dim-badge[0]",
+     "text": "ACTIVE",
+     "rect": {
+      "x": 116.53,
+      "y": 100.5,
+      "w": 41.59,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\"",
+      "size": 10.5,
+      "weight": 600,
+      "stretch": "100%",
+      "lineHeight": 16,
+      "letterSpacing": 0.63
+     },
+     "color": [
+      242,
+      161,
+      74,
+      1
+     ]
+    },
+    {
+     "id": "e11",
+     "kind": "box",
+     "node": "span.dim-badge",
+     "path": "div.row[3]>div.m[1]>b[0]>span.dim-badge[0]",
+     "rect": {
+      "x": 109.53,
+      "y": 98.5,
+      "w": 55.59,
+      "h": 18
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       242,
+       161,
+       74,
+       1
+      ]
+     },
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e12",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[3]>div.m[1]>span[1]",
+     "text": "30 accounts · 4 apps",
+     "var": "row",
+     "anchor": "left",
+     "rect": {
+      "x": 68,
+      "y": 117.5,
+      "w": 106.41,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e13",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[3]>div.v[2]>b[0]",
+     "text": "$149,769.10",
+     "var": "row",
+     "anchor": "right",
+     "rect": {
+      "x": 222.67,
+      "y": 97.5,
+      "w": 89.33,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e14",
+     "kind": "text",
+     "node": "span.dn",
+     "path": "div.row[3]>div.v[2]>span.dn[1]",
+     "text": "▼ 1.15%",
+     "var": "row",
+     "anchor": "right",
+     "rect": {
+      "x": 263.27,
+      "y": 116.5,
+      "w": 48.73,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e15",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.row[3]>svg.i.chev[3]",
+     "rect": {
+      "x": 324,
+      "y": 107,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "box",
+     "node": "div.av",
+     "path": "div.row[4]>div.av[0]",
+     "rect": {
+      "x": 20,
+      "y": 159,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "12px",
+     "shadow": null
+    },
+    {
+     "id": "e17",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[4]>div.av[0]>svg[0]",
+     "rect": {
+      "x": 24,
+      "y": 163,
+      "w": 28,
+      "h": 28
+     },
+     "var": "logo",
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e18",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[4]>div.m[1]>b[0]",
+     "text": "Air 2",
+     "var": "row",
+     "anchor": "left",
+     "rect": {
+      "x": 68,
+      "y": 160.5,
+      "w": 36.23,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e19",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[4]>div.m[1]>span[1]",
+     "text": "3 accounts · 2 apps",
+     "var": "row",
+     "anchor": "left",
+     "rect": {
+      "x": 68,
+      "y": 179.5,
+      "w": 99.92,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e20",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[4]>div.v[2]>b[0]",
+     "text": "$2,140.55",
+     "var": "row",
+     "anchor": "right",
+     "rect": {
+      "x": 238.91,
+      "y": 159.5,
+      "w": 73.09,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e21",
+     "kind": "text",
+     "node": "span.up",
+     "path": "div.row[4]>div.v[2]>span.up[1]",
+     "text": "▲ 0.62%",
+     "var": "row",
+     "anchor": "right",
+     "rect": {
+      "x": 263.27,
+      "y": 178.5,
+      "w": 48.73,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e22",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.row[4]>svg.i.chev[3]",
+     "rect": {
+      "x": 324,
+      "y": 169,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e23",
+     "kind": "text",
+     "node": "span.ta",
+     "path": "div.px[5]>span.ta[0]",
+     "text": "Pair Another Wallet",
+     "rect": {
+      "x": 50,
+      "y": 226,
+      "w": 152.06,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e24",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.px[5]>span.ta[0]>svg.i[0]",
+     "rect": {
+      "x": 26,
+      "y": 225.5,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e25",
+     "kind": "text",
+     "node": "p.s.px",
+     "path": "p.s.px[6]",
+     "text": "Each wallet is one Lensly vault. Open it to see its accounts, grouped by the Lensly app that owns them.",
+     "rect": {
+      "x": 20,
+      "y": 271,
+      "w": 311.58,
+      "h": 32
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e26",
+     "kind": "box",
+     "node": "nav.nav",
+     "path": "nav.nav[7]",
+     "rect": {
+      "x": 0,
+      "y": 658,
+      "w": 360,
+      "h": 82
+     },
+     "fill": [
+      21,
+      19,
+      23,
+      1
+     ],
+     "border": {
+      "width": 1,
+      "color": [
+       54,
+       49,
+       59,
+       1
+      ]
+     },
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e27",
+     "kind": "text",
+     "node": "a",
+     "path": "nav.nav[7]>a[0]",
+     "text": "Home",
+     "rect": {
+      "x": 25.17,
+      "y": 699,
+      "w": 28.05,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 13,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e28",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "nav.nav[7]>a[0]>svg.i[0]",
+     "rect": {
+      "x": 27.69,
+      "y": 672,
+      "w": 23,
+      "h": 23
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e29",
+     "kind": "text",
+     "node": "a.on",
+     "path": "nav.nav[7]>a.on[1]",
+     "text": "Accounts",
+     "rect": {
+      "x": 86.11,
+      "y": 699,
+      "w": 46.97,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 700,
+      "stretch": "92%",
+      "lineHeight": 13,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e30",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "nav.nav[7]>a.on[1]>svg.i[0]",
+     "rect": {
+      "x": 98.09,
+      "y": 672,
+      "w": 23,
+      "h": 23
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e31",
+     "kind": "text",
+     "node": "a",
+     "path": "nav.nav[7]>a[2]",
+     "text": "Portfolio",
+     "rect": {
+      "x": 160.31,
+      "y": 699,
+      "w": 39.36,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 13,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e32",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "nav.nav[7]>a[2]>svg.i[0]",
+     "rect": {
+      "x": 168.48,
+      "y": 672,
+      "w": 23,
+      "h": 23
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e33",
+     "kind": "text",
+     "node": "a",
+     "path": "nav.nav[7]>a[3]",
+     "text": "Explore",
+     "rect": {
+      "x": 232.45,
+      "y": 699,
+      "w": 35.86,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 13,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e34",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "nav.nav[7]>a[3]>svg.i[0]",
+     "rect": {
+      "x": 238.89,
+      "y": 672,
+      "w": 23,
+      "h": 23
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e35",
+     "kind": "text",
+     "node": "a",
+     "path": "nav.nav[7]>a[4]",
+     "text": "Settings",
+     "rect": {
+      "x": 301.63,
+      "y": 699,
+      "w": 38.34,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 13,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e36",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "nav.nav[7]>a[4]>svg.i[0]",
+     "rect": {
+      "x": 309.3,
+      "y": 672,
+      "w": 23,
+      "h": 23
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    }
+   ]
+  },
+  "light": {
+   "png": "p2-02-light.png",
+   "bg": [
+    251,
+    246,
+    236
+   ],
+   "bands": [
+    [
+     17,
+     35
+    ],
+    [
+     63,
+     78
+    ],
+    [
+     99,
+     132
+    ],
+    [
+     146,
+     147
+    ],
+    [
+     161,
+     194
+    ],
+    [
+     227,
+     241
+    ],
+    [
+     272,
+     285
+    ],
+    [
+     290,
+     303
+    ],
+    [
+     658,
+     659
+    ],
+    [
+     661,
+     669
+    ],
+    [
+     674,
+     693
+    ],
+    [
+     700,
+     711
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "box",
+     "node": "div.av",
+     "path": "div.tb[1]>div.ib[0]>div.av[0]",
+     "rect": {
+      "x": 12,
+      "y": 8,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "12px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.tb[1]>div.ib[0]>div.av[0]>svg[0]",
+     "rect": {
+      "x": 16,
+      "y": 12,
+      "w": 28,
+      "h": 28
+     },
+     "var": "logo",
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e2",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "Accounts",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 92.39,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e3",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 275,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[3]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e5",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sec[2]>span.e[0]",
+     "text": "LENSLY WALLETS · 2",
+     "rect": {
+      "x": 20,
+      "y": 65,
+      "w": 119.75,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "span.n.s",
+     "path": "div.sec[2]>span.n.s[1]",
+     "text": "$151,909.65",
+     "var": "data",
+     "anchor": "right",
+     "rect": {
+      "x": 257.05,
+      "y": 62,
+      "w": 82.95,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": -0.26
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "box",
+     "node": "div.av",
+     "path": "div.row[3]>div.av[0]",
+     "rect": {
+      "x": 20,
+      "y": 97,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "12px",
+     "shadow": null
+    },
+    {
+     "id": "e8",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[3]>div.av[0]>svg[0]",
+     "rect": {
+      "x": 24,
+      "y": 101,
+      "w": 28,
+      "h": 28
+     },
+     "var": "logo",
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[3]>div.m[1]>b[0]",
+     "text": "Air 1",
+     "var": "row",
+     "anchor": "left",
+     "rect": {
+      "x": 68,
+      "y": 98.5,
+      "w": 35.53,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "text",
+     "node": "span.dim-badge",
+     "path": "div.row[3]>div.m[1]>b[0]>span.dim-badge[0]",
+     "text": "ACTIVE",
+     "rect": {
+      "x": 116.53,
+      "y": 100.5,
+      "w": 41.59,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\"",
+      "size": 10.5,
+      "weight": 600,
+      "stretch": "100%",
+      "lineHeight": 16,
+      "letterSpacing": 0.63
+     },
+     "color": [
+      148,
+      80,
+      12,
+      1
+     ]
+    },
+    {
+     "id": "e11",
+     "kind": "box",
+     "node": "span.dim-badge",
+     "path": "div.row[3]>div.m[1]>b[0]>span.dim-badge[0]",
+     "rect": {
+      "x": 109.53,
+      "y": 98.5,
+      "w": 55.59,
+      "h": 18
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       148,
+       80,
+       12,
+       1
+      ]
+     },
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e12",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[3]>div.m[1]>span[1]",
+     "text": "30 accounts · 4 apps",
+     "var": "row",
+     "anchor": "left",
+     "rect": {
+      "x": 68,
+      "y": 117.5,
+      "w": 106.41,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e13",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[3]>div.v[2]>b[0]",
+     "text": "$149,769.10",
+     "var": "row",
+     "anchor": "right",
+     "rect": {
+      "x": 222.67,
+      "y": 97.5,
+      "w": 89.33,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e14",
+     "kind": "text",
+     "node": "span.dn",
+     "path": "div.row[3]>div.v[2]>span.dn[1]",
+     "text": "▼ 1.15%",
+     "var": "row",
+     "anchor": "right",
+     "rect": {
+      "x": 263.27,
+      "y": 116.5,
+      "w": 48.73,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e15",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.row[3]>svg.i.chev[3]",
+     "rect": {
+      "x": 324,
+      "y": 107,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "box",
+     "node": "div.av",
+     "path": "div.row[4]>div.av[0]",
+     "rect": {
+      "x": 20,
+      "y": 159,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "12px",
+     "shadow": null
+    },
+    {
+     "id": "e17",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.row[4]>div.av[0]>svg[0]",
+     "rect": {
+      "x": 24,
+      "y": 163,
+      "w": 28,
+      "h": 28
+     },
+     "var": "logo",
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e18",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[4]>div.m[1]>b[0]",
+     "text": "Air 2",
+     "var": "row",
+     "anchor": "left",
+     "rect": {
+      "x": 68,
+      "y": 160.5,
+      "w": 36.23,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e19",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[4]>div.m[1]>span[1]",
+     "text": "3 accounts · 2 apps",
+     "var": "row",
+     "anchor": "left",
+     "rect": {
+      "x": 68,
+      "y": 179.5,
+      "w": 99.92,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e20",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[4]>div.v[2]>b[0]",
+     "text": "$2,140.55",
+     "var": "row",
+     "anchor": "right",
+     "rect": {
+      "x": 238.91,
+      "y": 159.5,
+      "w": 73.09,
+      "h": 18
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 14,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 20,
+      "letterSpacing": -0.28
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e21",
+     "kind": "text",
+     "node": "span.up",
+     "path": "div.row[4]>div.v[2]>span.up[1]",
+     "text": "▲ 0.62%",
+     "var": "row",
+     "anchor": "right",
+     "rect": {
+      "x": 263.27,
+      "y": 178.5,
+      "w": 48.73,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 12,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": -0.24
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e22",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.row[4]>svg.i.chev[3]",
+     "rect": {
+      "x": 324,
+      "y": 169,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e23",
+     "kind": "text",
+     "node": "span.ta",
+     "path": "div.px[5]>span.ta[0]",
+     "text": "Pair Another Wallet",
+     "rect": {
+      "x": 50,
+      "y": 226,
+      "w": 152.06,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e24",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.px[5]>span.ta[0]>svg.i[0]",
+     "rect": {
+      "x": 26,
+      "y": 225.5,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e25",
+     "kind": "text",
+     "node": "p.s.px",
+     "path": "p.s.px[6]",
+     "text": "Each wallet is one Lensly vault. Open it to see its accounts, grouped by the Lensly app that owns them.",
+     "rect": {
+      "x": 20,
+      "y": 271,
+      "w": 311.58,
+      "h": 32
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e26",
+     "kind": "box",
+     "node": "nav.nav",
+     "path": "nav.nav[7]",
+     "rect": {
+      "x": 0,
+      "y": 658,
+      "w": 360,
+      "h": 82
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      1
+     ],
+     "border": {
+      "width": 1,
+      "color": [
+       230,
+       221,
+       204,
+       1
+      ]
+     },
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e27",
+     "kind": "text",
+     "node": "a",
+     "path": "nav.nav[7]>a[0]",
+     "text": "Home",
+     "rect": {
+      "x": 25.17,
+      "y": 699,
+      "w": 28.05,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 13,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e28",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "nav.nav[7]>a[0]>svg.i[0]",
+     "rect": {
+      "x": 27.69,
+      "y": 672,
+      "w": 23,
+      "h": 23
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e29",
+     "kind": "text",
+     "node": "a.on",
+     "path": "nav.nav[7]>a.on[1]",
+     "text": "Accounts",
+     "rect": {
+      "x": 86.11,
+      "y": 699,
+      "w": 46.97,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 700,
+      "stretch": "92%",
+      "lineHeight": 13,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e30",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "nav.nav[7]>a.on[1]>svg.i[0]",
+     "rect": {
+      "x": 98.09,
+      "y": 672,
+      "w": 23,
+      "h": 23
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e31",
+     "kind": "text",
+     "node": "a",
+     "path": "nav.nav[7]>a[2]",
+     "text": "Portfolio",
+     "rect": {
+      "x": 160.31,
+      "y": 699,
+      "w": 39.36,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 13,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e32",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "nav.nav[7]>a[2]>svg.i[0]",
+     "rect": {
+      "x": 168.48,
+      "y": 672,
+      "w": 23,
+      "h": 23
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e33",
+     "kind": "text",
+     "node": "a",
+     "path": "nav.nav[7]>a[3]",
+     "text": "Explore",
+     "rect": {
+      "x": 232.45,
+      "y": 699,
+      "w": 35.86,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 13,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e34",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "nav.nav[7]>a[3]>svg.i[0]",
+     "rect": {
+      "x": 238.89,
+      "y": 672,
+      "w": 23,
+      "h": 23
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e35",
+     "kind": "text",
+     "node": "a",
+     "path": "nav.nav[7]>a[4]",
+     "text": "Settings",
+     "rect": {
+      "x": 301.63,
+      "y": 699,
+      "w": 38.34,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 500,
+      "stretch": "92%",
+      "lineHeight": 13,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e36",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "nav.nav[7]>a[4]>svg.i[0]",
+     "rect": {
+      "x": 309.3,
+      "y": 672,
+      "w": 23,
+      "h": 23
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    }
+   ]
+  }
+ },
+ "width": 360,
+ "height": 740
+}

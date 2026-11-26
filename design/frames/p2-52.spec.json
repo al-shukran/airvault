@@ -1,0 +1,1000 @@
+{
+ "id": "p2-52",
+ "title": "About Lumio J11 · page 1 of 2",
+ "inkThreshold": 12,
+ "bandGap": 1,
+ "themes": {
+  "dark": {
+   "png": "p2-52-dark.png",
+   "bg": [
+    21,
+    19,
+    23
+   ],
+   "bands": [
+    [
+     18,
+     35
+    ],
+    [
+     86,
+     146
+    ],
+    [
+     174,
+     190
+    ],
+    [
+     198,
+     211
+    ],
+    [
+     221,
+     233
+    ],
+    [
+     261,
+     339
+    ],
+    [
+     362,
+     398
+    ],
+    [
+     411,
+     412
+    ],
+    [
+     424,
+     460
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[0]>svg.i[0]",
+     "rect": {
+      "x": 19,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "About Lumio",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 121.48,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e2",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e3",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.ctr[2]>svg[0]",
+     "rect": {
+      "x": 144,
+      "y": 80,
+      "w": 72,
+      "h": 72
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "text",
+     "node": "div.h2",
+     "path": "div.ctr[2]>div.h2[1]",
+     "text": "Lumio",
+     "rect": {
+      "x": 147.47,
+      "y": 171,
+      "w": 65.05,
+      "h": 22
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 20,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 25,
+      "letterSpacing": -0.4
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e5",
+     "kind": "text",
+     "node": "div.s",
+     "path": "div.ctr[2]>div.s[2]",
+     "text": "The AirVault companion app",
+     "rect": {
+      "x": 104.31,
+      "y": 197,
+      "w": 151.38,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "div.n.s",
+     "path": "div.ctr[2]>div.n.s[3]",
+     "text": "Version 0.1.0",
+     "rect": {
+      "x": 130.98,
+      "y": 219,
+      "w": 98.03,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": -0.26
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "box",
+     "node": "div.note",
+     "path": "div.note[3]",
+     "rect": {
+      "x": 20,
+      "y": 261,
+      "w": 320,
+      "h": 78
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "14px",
+     "shadow": null
+    },
+    {
+     "id": "e8",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.note[3]>svg.i[0]",
+     "rect": {
+      "x": 34,
+      "y": 274,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "span",
+     "path": "div.note[3]>span[1]",
+     "text": "AirVault has no token, no sale and no support team. Anyone who says otherwise is trying to take your money.",
+     "rect": {
+      "x": 62,
+      "y": 275,
+      "w": 264,
+      "h": 50
+     },
+     "lines": 3,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[4]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 362,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e11",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.row[4]>div.lg[0]>svg.i[0]",
+     "rect": {
+      "x": 28.5,
+      "y": 370.5,
+      "w": 19,
+      "h": 19
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e12",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[4]>div.m[1]>b[0]",
+     "text": "Licences",
+     "rect": {
+      "x": 68,
+      "y": 363.5,
+      "w": 72.13,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e13",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[4]>div.m[1]>span[1]",
+     "text": "Open-source software in Lumio",
+     "rect": {
+      "x": 68,
+      "y": 382.5,
+      "w": 160.77,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e14",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.row[4]>svg.i.chev[2]",
+     "rect": {
+      "x": 324,
+      "y": 372,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e15",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[5]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 424,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.row[5]>div.lg[0]>svg.i[0]",
+     "rect": {
+      "x": 28.5,
+      "y": 432.5,
+      "w": 19,
+      "h": 19
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e17",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[5]>div.m[1]>b[0]",
+     "text": "How the Air Gap Works",
+     "rect": {
+      "x": 68,
+      "y": 425.5,
+      "w": 183.59,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e18",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[5]>div.m[1]>span[1]",
+     "text": "4 min read",
+     "rect": {
+      "x": 68,
+      "y": 444.5,
+      "w": 53.69,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e19",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.row[5]>svg.i.chev[2]",
+     "rect": {
+      "x": 324,
+      "y": 434,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    }
+   ]
+  },
+  "light": {
+   "png": "p2-52-light.png",
+   "bg": [
+    251,
+    246,
+    236
+   ],
+   "bands": [
+    [
+     18,
+     35
+    ],
+    [
+     86,
+     146
+    ],
+    [
+     174,
+     190
+    ],
+    [
+     198,
+     211
+    ],
+    [
+     221,
+     233
+    ],
+    [
+     276,
+     289
+    ],
+    [
+     294,
+     307
+    ],
+    [
+     315,
+     325
+    ],
+    [
+     365,
+     397
+    ],
+    [
+     411,
+     412
+    ],
+    [
+     427,
+     457
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[0]>svg.i[0]",
+     "rect": {
+      "x": 19,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "About Lumio",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 121.48,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e2",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e3",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.ctr[2]>svg[0]",
+     "rect": {
+      "x": 144,
+      "y": 80,
+      "w": 72,
+      "h": 72
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e4",
+     "kind": "text",
+     "node": "div.h2",
+     "path": "div.ctr[2]>div.h2[1]",
+     "text": "Lumio",
+     "rect": {
+      "x": 147.47,
+      "y": 171,
+      "w": 65.05,
+      "h": 22
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 20,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 25,
+      "letterSpacing": -0.4
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e5",
+     "kind": "text",
+     "node": "div.s",
+     "path": "div.ctr[2]>div.s[2]",
+     "text": "The AirVault companion app",
+     "rect": {
+      "x": 104.31,
+      "y": 197,
+      "w": 151.38,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "div.n.s",
+     "path": "div.ctr[2]>div.n.s[3]",
+     "text": "Version 0.1.0",
+     "rect": {
+      "x": 130.98,
+      "y": 219,
+      "w": 98.03,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": -0.26
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "box",
+     "node": "div.note",
+     "path": "div.note[3]",
+     "rect": {
+      "x": 20,
+      "y": 261,
+      "w": 320,
+      "h": 78
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "14px",
+     "shadow": null
+    },
+    {
+     "id": "e8",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.note[3]>svg.i[0]",
+     "rect": {
+      "x": 34,
+      "y": 274,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "span",
+     "path": "div.note[3]>span[1]",
+     "text": "AirVault has no token, no sale and no support team. Anyone who says otherwise is trying to take your money.",
+     "rect": {
+      "x": 62,
+      "y": 275,
+      "w": 264,
+      "h": 50
+     },
+     "lines": 3,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[4]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 362,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e11",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.row[4]>div.lg[0]>svg.i[0]",
+     "rect": {
+      "x": 28.5,
+      "y": 370.5,
+      "w": 19,
+      "h": 19
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e12",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[4]>div.m[1]>b[0]",
+     "text": "Licences",
+     "rect": {
+      "x": 68,
+      "y": 363.5,
+      "w": 72.13,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e13",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[4]>div.m[1]>span[1]",
+     "text": "Open-source software in Lumio",
+     "rect": {
+      "x": 68,
+      "y": 382.5,
+      "w": 160.77,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e14",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.row[4]>svg.i.chev[2]",
+     "rect": {
+      "x": 324,
+      "y": 372,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e15",
+     "kind": "box",
+     "node": "div.lg",
+     "path": "div.row[5]>div.lg[0]",
+     "rect": {
+      "x": 20,
+      "y": 424,
+      "w": 36,
+      "h": 36
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.row[5]>div.lg[0]>svg.i[0]",
+     "rect": {
+      "x": 28.5,
+      "y": 432.5,
+      "w": 19,
+      "h": 19
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e17",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row[5]>div.m[1]>b[0]",
+     "text": "How the Air Gap Works",
+     "rect": {
+      "x": 68,
+      "y": 425.5,
+      "w": 183.59,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e18",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row[5]>div.m[1]>span[1]",
+     "text": "4 min read",
+     "rect": {
+      "x": 68,
+      "y": 444.5,
+      "w": 53.69,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e19",
+     "kind": "icon",
+     "node": "svg.i.chev",
+     "path": "div.row[5]>svg.i.chev[2]",
+     "rect": {
+      "x": 324,
+      "y": 434,
+      "w": 16,
+      "h": 16
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    }
+   ]
+  }
+ },
+ "width": 360,
+ "height": 740
+}

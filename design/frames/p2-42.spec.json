@@ -1,0 +1,1196 @@
+{
+ "id": "p2-42",
+ "title": "Transactions J3 · page",
+ "inkThreshold": 12,
+ "bandGap": 1,
+ "themes": {
+  "dark": {
+   "png": "p2-42-dark.png",
+   "bg": [
+    21,
+    19,
+    23
+   ],
+   "bands": [
+    [
+     18,
+     35
+    ],
+    [
+     63,
+     110
+    ],
+    [
+     147,
+     160
+    ],
+    [
+     183,
+     205
+    ],
+    [
+     217,
+     228
+    ],
+    [
+     245,
+     258
+    ],
+    [
+     263,
+     276
+    ],
+    [
+     294,
+     372
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[0]>svg.i[0]",
+     "rect": {
+      "x": 19,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "Transactions",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 124.63,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e2",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e3",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row.nl0[2]>div.m[0]>b[0]",
+     "text": "Hide Spam",
+     "rect": {
+      "x": 20,
+      "y": 62,
+      "w": 87.53,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e4",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row.nl0[2]>div.m[0]>span[1]",
+     "text": "Keeps spam and scam transfers out of Activity. You can still show them there.",
+     "rect": {
+      "x": 20,
+      "y": 81,
+      "w": 260.05,
+      "h": 31
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e5",
+     "kind": "box",
+     "node": "div.swt.on",
+     "path": "div.row.nl0[2]>div.swt.on[1]",
+     "rect": {
+      "x": 294,
+      "y": 73,
+      "w": 46,
+      "h": 28
+     },
+     "fill": [
+      245,
+      239,
+      228,
+      1
+     ],
+     "border": {
+      "width": 1,
+      "color": [
+       245,
+       239,
+       228,
+       1
+      ]
+     },
+     "radius": "14px",
+     "shadow": null
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sec[3]>span.e[0]",
+     "text": "LAST CHANCE BEFORE SENDING",
+     "rect": {
+      "x": 20,
+      "y": 148,
+      "w": 191.67,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "text",
+     "node": "span.sldv",
+     "path": "div.sec[3]>span.sldv[1]",
+     "text": "3 s",
+     "var": "data",
+     "anchor": "right",
+     "rect": {
+      "x": 313.89,
+      "y": 144,
+      "w": 26.11,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 15,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": 20,
+      "letterSpacing": -0.3
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e8",
+     "kind": "box",
+     "node": "i.fl",
+     "path": "div.sld[4]>i.fl[1]",
+     "rect": {
+      "x": 31,
+      "y": 192,
+      "w": 89.39,
+      "h": 4
+     },
+     "fill": [
+      245,
+      239,
+      228,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e9",
+     "kind": "box",
+     "node": "i.tk",
+     "path": "div.sld[4]>i.tk[2]",
+     "rect": {
+      "x": 147.19,
+      "y": 191,
+      "w": 6,
+      "h": 6
+     },
+     "fill": [
+      138,
+      130,
+      141,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e10",
+     "kind": "box",
+     "node": "i.tk",
+     "path": "div.sld[4]>i.tk[3]",
+     "rect": {
+      "x": 177,
+      "y": 191,
+      "w": 6,
+      "h": 6
+     },
+     "fill": [
+      138,
+      130,
+      141,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e11",
+     "kind": "box",
+     "node": "i.tk",
+     "path": "div.sld[4]>i.tk[4]",
+     "rect": {
+      "x": 206.8,
+      "y": 191,
+      "w": 6,
+      "h": 6
+     },
+     "fill": [
+      138,
+      130,
+      141,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e12",
+     "kind": "box",
+     "node": "i.tk",
+     "path": "div.sld[4]>i.tk[5]",
+     "rect": {
+      "x": 236.59,
+      "y": 191,
+      "w": 6,
+      "h": 6
+     },
+     "fill": [
+      138,
+      130,
+      141,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e13",
+     "kind": "box",
+     "node": "i.tk",
+     "path": "div.sld[4]>i.tk[6]",
+     "rect": {
+      "x": 266.39,
+      "y": 191,
+      "w": 6,
+      "h": 6
+     },
+     "fill": [
+      138,
+      130,
+      141,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e14",
+     "kind": "box",
+     "node": "i.tk",
+     "path": "div.sld[4]>i.tk[7]",
+     "rect": {
+      "x": 296.19,
+      "y": 191,
+      "w": 6,
+      "h": 6
+     },
+     "fill": [
+      138,
+      130,
+      141,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e15",
+     "kind": "box",
+     "node": "i.tk",
+     "path": "div.sld[4]>i.tk[8]",
+     "rect": {
+      "x": 326,
+      "y": 191,
+      "w": 6,
+      "h": 6
+     },
+     "fill": [
+      138,
+      130,
+      141,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "box",
+     "node": "i.th",
+     "path": "div.sld[4]>i.th[9]",
+     "rect": {
+      "x": 109.39,
+      "y": 183,
+      "w": 22,
+      "h": 22
+     },
+     "fill": [
+      245,
+      239,
+      228,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": "rgb(21, 19, 23) 0px 0px 0px 4px"
+    },
+    {
+     "id": "e17",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sldl[5]>span[0]",
+     "text": "0 s",
+     "var": "data",
+     "anchor": "left",
+     "rect": {
+      "x": 20,
+      "y": 216,
+      "w": 15.58,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e18",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sldl[5]>span[1]",
+     "text": "10 s",
+     "var": "data",
+     "anchor": "right",
+     "rect": {
+      "x": 318.14,
+      "y": 216,
+      "w": 21.86,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e19",
+     "kind": "text",
+     "node": "p.s.px",
+     "path": "p.s.px[6]",
+     "text": "After Lensly signs, Lumio waits this long before sending, so you can still stop it. At 0 s it sends at once.",
+     "rect": {
+      "x": 20,
+      "y": 244,
+      "w": 312.42,
+      "h": 32
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e20",
+     "kind": "box",
+     "node": "div.note",
+     "path": "div.note[7]",
+     "rect": {
+      "x": 20,
+      "y": 294,
+      "w": 320,
+      "h": 78
+     },
+     "fill": [
+      42,
+      38,
+      46,
+      1
+     ],
+     "border": null,
+     "radius": "14px",
+     "shadow": null
+    },
+    {
+     "id": "e21",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.note[7]>svg.i[0]",
+     "rect": {
+      "x": 34,
+      "y": 307,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e22",
+     "kind": "text",
+     "node": "span",
+     "path": "div.note[7]>span[1]",
+     "text": "The countdown shows on \"Signed by Lensly\", with Send Now and Stop, Don't Send. The default is 3 seconds.",
+     "rect": {
+      "x": 62,
+      "y": 308,
+      "w": 262.3,
+      "h": 50
+     },
+     "lines": 3,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    }
+   ]
+  },
+  "light": {
+   "png": "p2-42-light.png",
+   "bg": [
+    251,
+    246,
+    236
+   ],
+   "bands": [
+    [
+     18,
+     35
+    ],
+    [
+     63,
+     110
+    ],
+    [
+     147,
+     160
+    ],
+    [
+     183,
+     205
+    ],
+    [
+     217,
+     228
+    ],
+    [
+     245,
+     258
+    ],
+    [
+     263,
+     276
+    ],
+    [
+     309,
+     323
+    ],
+    [
+     327,
+     340
+    ],
+    [
+     345,
+     356
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[0]>svg.i[0]",
+     "rect": {
+      "x": 19,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "text",
+     "node": "div.t",
+     "path": "div.tb[1]>div.t[1]",
+     "text": "Transactions",
+     "rect": {
+      "x": 58,
+      "y": 15.5,
+      "w": 124.63,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 18,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": -0.27
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e2",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.tb[1]>div.ib[2]>svg.i[0]",
+     "rect": {
+      "x": 319,
+      "y": 15,
+      "w": 22,
+      "h": 22
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e3",
+     "kind": "text",
+     "node": "b",
+     "path": "div.row.nl0[2]>div.m[0]>b[0]",
+     "text": "Hide Spam",
+     "rect": {
+      "x": 20,
+      "y": 62,
+      "w": 87.53,
+      "h": 16
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 20,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e4",
+     "kind": "text",
+     "node": "span",
+     "path": "div.row.nl0[2]>div.m[0]>span[1]",
+     "text": "Keeps spam and scam transfers out of Activity. You can still show them there.",
+     "rect": {
+      "x": 20,
+      "y": 81,
+      "w": 260.05,
+      "h": 31
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 12.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 17,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e5",
+     "kind": "box",
+     "node": "div.swt.on",
+     "path": "div.row.nl0[2]>div.swt.on[1]",
+     "rect": {
+      "x": 294,
+      "y": 73,
+      "w": 46,
+      "h": 28
+     },
+     "fill": [
+      43,
+      37,
+      48,
+      1
+     ],
+     "border": {
+      "width": 1,
+      "color": [
+       43,
+       37,
+       48,
+       1
+      ]
+     },
+     "radius": "14px",
+     "shadow": null
+    },
+    {
+     "id": "e6",
+     "kind": "text",
+     "node": "span.e",
+     "path": "div.sec[3]>span.e[0]",
+     "text": "LAST CHANCE BEFORE SENDING",
+     "rect": {
+      "x": 20,
+      "y": 148,
+      "w": 191.67,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e7",
+     "kind": "text",
+     "node": "span.sldv",
+     "path": "div.sec[3]>span.sldv[1]",
+     "text": "3 s",
+     "var": "data",
+     "anchor": "right",
+     "rect": {
+      "x": 313.89,
+      "y": 144,
+      "w": 26.11,
+      "h": 20
+     },
+     "lines": 1,
+     "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": 15,
+      "weight": 500,
+      "stretch": "100%",
+      "lineHeight": 20,
+      "letterSpacing": -0.3
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e8",
+     "kind": "box",
+     "node": "i.fl",
+     "path": "div.sld[4]>i.fl[1]",
+     "rect": {
+      "x": 31,
+      "y": 192,
+      "w": 89.39,
+      "h": 4
+     },
+     "fill": [
+      43,
+      37,
+      48,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e9",
+     "kind": "box",
+     "node": "i.tk",
+     "path": "div.sld[4]>i.tk[2]",
+     "rect": {
+      "x": 147.19,
+      "y": 191,
+      "w": 6,
+      "h": 6
+     },
+     "fill": [
+      142,
+      134,
+      146,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e10",
+     "kind": "box",
+     "node": "i.tk",
+     "path": "div.sld[4]>i.tk[3]",
+     "rect": {
+      "x": 177,
+      "y": 191,
+      "w": 6,
+      "h": 6
+     },
+     "fill": [
+      142,
+      134,
+      146,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e11",
+     "kind": "box",
+     "node": "i.tk",
+     "path": "div.sld[4]>i.tk[4]",
+     "rect": {
+      "x": 206.8,
+      "y": 191,
+      "w": 6,
+      "h": 6
+     },
+     "fill": [
+      142,
+      134,
+      146,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e12",
+     "kind": "box",
+     "node": "i.tk",
+     "path": "div.sld[4]>i.tk[5]",
+     "rect": {
+      "x": 236.59,
+      "y": 191,
+      "w": 6,
+      "h": 6
+     },
+     "fill": [
+      142,
+      134,
+      146,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e13",
+     "kind": "box",
+     "node": "i.tk",
+     "path": "div.sld[4]>i.tk[6]",
+     "rect": {
+      "x": 266.39,
+      "y": 191,
+      "w": 6,
+      "h": 6
+     },
+     "fill": [
+      142,
+      134,
+      146,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e14",
+     "kind": "box",
+     "node": "i.tk",
+     "path": "div.sld[4]>i.tk[7]",
+     "rect": {
+      "x": 296.19,
+      "y": 191,
+      "w": 6,
+      "h": 6
+     },
+     "fill": [
+      142,
+      134,
+      146,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e15",
+     "kind": "box",
+     "node": "i.tk",
+     "path": "div.sld[4]>i.tk[8]",
+     "rect": {
+      "x": 326,
+      "y": 191,
+      "w": 6,
+      "h": 6
+     },
+     "fill": [
+      142,
+      134,
+      146,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": null
+    },
+    {
+     "id": "e16",
+     "kind": "box",
+     "node": "i.th",
+     "path": "div.sld[4]>i.th[9]",
+     "rect": {
+      "x": 109.39,
+      "y": 183,
+      "w": 22,
+      "h": 22
+     },
+     "fill": [
+      43,
+      37,
+      48,
+      1
+     ],
+     "border": null,
+     "radius": "50%",
+     "shadow": "rgb(251, 246, 236) 0px 0px 0px 4px"
+    },
+    {
+     "id": "e17",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sldl[5]>span[0]",
+     "text": "0 s",
+     "var": "data",
+     "anchor": "left",
+     "rect": {
+      "x": 20,
+      "y": 216,
+      "w": 15.58,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e18",
+     "kind": "text",
+     "node": "span",
+     "path": "div.sldl[5]>span[1]",
+     "text": "10 s",
+     "var": "data",
+     "anchor": "right",
+     "rect": {
+      "x": 318.14,
+      "y": 216,
+      "w": 21.86,
+      "h": 14
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e19",
+     "kind": "text",
+     "node": "p.s.px",
+     "path": "p.s.px[6]",
+     "text": "After Lensly signs, Lumio waits this long before sending, so you can still stop it. At 0 s it sends at once.",
+     "rect": {
+      "x": 20,
+      "y": 244,
+      "w": 312.42,
+      "h": 32
+     },
+     "lines": 2,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e20",
+     "kind": "box",
+     "node": "div.note",
+     "path": "div.note[7]",
+     "rect": {
+      "x": 20,
+      "y": 294,
+      "w": 320,
+      "h": 78
+     },
+     "fill": [
+      242,
+      236,
+      224,
+      1
+     ],
+     "border": null,
+     "radius": "14px",
+     "shadow": null
+    },
+    {
+     "id": "e21",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.note[7]>svg.i[0]",
+     "rect": {
+      "x": 34,
+      "y": 307,
+      "w": 18,
+      "h": 18
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e22",
+     "kind": "text",
+     "node": "span",
+     "path": "div.note[7]>span[1]",
+     "text": "The countdown shows on \"Signed by Lensly\", with Send Now and Stop, Don't Send. The default is 3 seconds.",
+     "rect": {
+      "x": 62,
+      "y": 308,
+      "w": 262.3,
+      "h": 50
+     },
+     "lines": 3,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 13,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 18,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    }
+   ]
+  }
+ },
+ "width": 360,
+ "height": 740
+}

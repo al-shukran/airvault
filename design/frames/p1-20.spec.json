@@ -1,0 +1,932 @@
+{
+ "id": "p1-20",
+ "title": "Important Notice step 5",
+ "inkThreshold": 12,
+ "bandGap": 1,
+ "themes": {
+  "dark": {
+   "png": "p1-20-dark.png",
+   "bg": [
+    21,
+    19,
+    23
+   ],
+   "bands": [
+    [
+     14,
+     17
+    ],
+    [
+     48,
+     57
+    ],
+    [
+     71,
+     96
+    ],
+    [
+     118,
+     132
+    ],
+    [
+     145,
+     159
+    ],
+    [
+     172,
+     186
+    ],
+    [
+     206,
+     207
+    ],
+    [
+     214,
+     236
+    ],
+    [
+     238,
+     252
+    ],
+    [
+     259,
+     273
+    ],
+    [
+     280,
+     294
+    ],
+    [
+     301,
+     313
+    ],
+    [
+     658,
+     710
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.prog[1]>i.f[0]",
+     "rect": {
+      "x": 20,
+      "y": 14,
+      "w": 102.66,
+      "h": 3
+     },
+     "fill": [
+      245,
+      239,
+      228,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "box",
+     "node": "i",
+     "path": "div.prog[1]>i[1]",
+     "rect": {
+      "x": 128.66,
+      "y": 14,
+      "w": 102.67,
+      "h": 3
+     },
+     "fill": [
+      54,
+      49,
+      59,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e2",
+     "kind": "box",
+     "node": "i",
+     "path": "div.prog[1]>i[2]",
+     "rect": {
+      "x": 237.33,
+      "y": 14,
+      "w": 102.67,
+      "h": 3
+     },
+     "fill": [
+      54,
+      49,
+      59,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e3",
+     "kind": "text",
+     "node": "div.e.px",
+     "path": "div.e.px[2]",
+     "text": "UNDERSTAND · 5 OF 5",
+     "rect": {
+      "x": 20,
+      "y": 46,
+      "w": 127.19,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      171,
+      163,
+      174,
+      1
+     ]
+    },
+    {
+     "id": "e4",
+     "kind": "text",
+     "node": "div.h1.px",
+     "path": "div.h1.px[3]",
+     "text": "Important Notice",
+     "rect": {
+      "x": 20,
+      "y": 68,
+      "w": 229.44,
+      "h": 28
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 26,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 30,
+      "letterSpacing": -0.65
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e5",
+     "kind": "text",
+     "node": "div.okl",
+     "path": "div.px[4]>div.okl[0]",
+     "text": "Your keys never leave your phone",
+     "rect": {
+      "x": 43,
+      "y": 117,
+      "w": 191.33,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 14,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e6",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.px[4]>div.okl[0]>svg.i[0]",
+     "rect": {
+      "x": 20,
+      "y": 117,
+      "w": 15,
+      "h": 15
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e7",
+     "kind": "text",
+     "node": "div.okl",
+     "path": "div.px[4]>div.okl[1]",
+     "text": "Never share your keys with anyone",
+     "rect": {
+      "x": 43,
+      "y": 144,
+      "w": 198.77,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 14,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e8",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.px[4]>div.okl[1]>svg.i[0]",
+     "rect": {
+      "x": 20,
+      "y": 144,
+      "w": 15,
+      "h": 15
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "div.okl",
+     "path": "div.px[4]>div.okl[2]",
+     "text": "The software is provided as is",
+     "rect": {
+      "x": 43,
+      "y": 171,
+      "w": 168.86,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 14,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.px[4]>div.okl[2]>svg.i[0]",
+     "rect": {
+      "x": 20,
+      "y": 171,
+      "w": 15,
+      "h": 15
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e11",
+     "kind": "box",
+     "node": "div.chk",
+     "path": "div.px[5]>div.chk[0]",
+     "rect": {
+      "x": 20,
+      "y": 206,
+      "w": 320,
+      "h": 122
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       54,
+       49,
+       59,
+       1
+      ]
+     },
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e12",
+     "kind": "box",
+     "node": "div.cbx.on",
+     "path": "div.px[5]>div.chk[0]>div.cbx.on[0]",
+     "rect": {
+      "x": 20,
+      "y": 214,
+      "w": 22,
+      "h": 22
+     },
+     "fill": [
+      245,
+      239,
+      228,
+      1
+     ],
+     "border": {
+      "width": 2,
+      "color": [
+       245,
+       239,
+       228,
+       1
+      ]
+     },
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e13",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.px[5]>div.chk[0]>div.cbx.on[0]>svg[0]",
+     "rect": {
+      "x": 23.5,
+      "y": 217.5,
+      "w": 15,
+      "h": 15
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e14",
+     "kind": "text",
+     "node": "span",
+     "path": "div.px[5]>div.chk[0]>span[1]",
+     "text": "I understand that AirVault, Lensly, or Lumio has no tokens, public sales, or a support team and that you must not transfer any cryptocurrency to anyone, especially someone claiming to be from alshukran.com.",
+     "rect": {
+      "x": 54,
+      "y": 215,
+      "w": 286,
+      "h": 100
+     },
+     "lines": 5,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 14.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      245,
+      239,
+      228,
+      1
+     ]
+    },
+    {
+     "id": "e15",
+     "kind": "text",
+     "node": "div.cap.w",
+     "path": "div.foot[6]>div.cap.w[0]",
+     "text": "Agree and Continue",
+     "rect": {
+      "x": 98.23,
+      "y": 675.5,
+      "w": 163.52,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15.5,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e16",
+     "kind": "box",
+     "node": "div.cap.w",
+     "path": "div.foot[6]>div.cap.w[0]",
+     "rect": {
+      "x": 20,
+      "y": 658,
+      "w": 320,
+      "h": 52
+     },
+     "fill": [
+      251,
+      246,
+      236,
+      1
+     ],
+     "border": null,
+     "radius": "26px",
+     "shadow": null
+    }
+   ]
+  },
+  "light": {
+   "png": "p1-20-light.png",
+   "bg": [
+    251,
+    246,
+    236
+   ],
+   "bands": [
+    [
+     14,
+     17
+    ],
+    [
+     48,
+     57
+    ],
+    [
+     71,
+     96
+    ],
+    [
+     118,
+     132
+    ],
+    [
+     145,
+     159
+    ],
+    [
+     172,
+     186
+    ],
+    [
+     206,
+     207
+    ],
+    [
+     214,
+     236
+    ],
+    [
+     238,
+     252
+    ],
+    [
+     259,
+     273
+    ],
+    [
+     280,
+     294
+    ],
+    [
+     301,
+     313
+    ],
+    [
+     658,
+     710
+    ]
+   ],
+   "elements": [
+    {
+     "id": "e0",
+     "kind": "box",
+     "node": "i.f",
+     "path": "div.prog[1]>i.f[0]",
+     "rect": {
+      "x": 20,
+      "y": 14,
+      "w": 102.66,
+      "h": 3
+     },
+     "fill": [
+      43,
+      37,
+      48,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e1",
+     "kind": "box",
+     "node": "i",
+     "path": "div.prog[1]>i[1]",
+     "rect": {
+      "x": 128.66,
+      "y": 14,
+      "w": 102.67,
+      "h": 3
+     },
+     "fill": [
+      230,
+      221,
+      204,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e2",
+     "kind": "box",
+     "node": "i",
+     "path": "div.prog[1]>i[2]",
+     "rect": {
+      "x": 237.33,
+      "y": 14,
+      "w": 102.67,
+      "h": 3
+     },
+     "fill": [
+      230,
+      221,
+      204,
+      1
+     ],
+     "border": null,
+     "radius": "2px",
+     "shadow": null
+    },
+    {
+     "id": "e3",
+     "kind": "text",
+     "node": "div.e.px",
+     "path": "div.e.px[2]",
+     "text": "UNDERSTAND · 5 OF 5",
+     "rect": {
+      "x": 20,
+      "y": 46,
+      "w": 127.19,
+      "h": 12
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 11,
+      "weight": 600,
+      "stretch": "92%",
+      "lineHeight": 14,
+      "letterSpacing": 0.99
+     },
+     "color": [
+      102,
+      94,
+      107,
+      1
+     ]
+    },
+    {
+     "id": "e4",
+     "kind": "text",
+     "node": "div.h1.px",
+     "path": "div.h1.px[3]",
+     "text": "Important Notice",
+     "rect": {
+      "x": 20,
+      "y": 68,
+      "w": 229.44,
+      "h": 28
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 26,
+      "weight": 700,
+      "stretch": "114%",
+      "lineHeight": 30,
+      "letterSpacing": -0.65
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e5",
+     "kind": "text",
+     "node": "div.okl",
+     "path": "div.px[4]>div.okl[0]",
+     "text": "Your keys never leave your phone",
+     "rect": {
+      "x": 43,
+      "y": 117,
+      "w": 191.33,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 14,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e6",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.px[4]>div.okl[0]>svg.i[0]",
+     "rect": {
+      "x": 20,
+      "y": 117,
+      "w": 15,
+      "h": 15
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e7",
+     "kind": "text",
+     "node": "div.okl",
+     "path": "div.px[4]>div.okl[1]",
+     "text": "Never share your keys with anyone",
+     "rect": {
+      "x": 43,
+      "y": 144,
+      "w": 198.77,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 14,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e8",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.px[4]>div.okl[1]>svg.i[0]",
+     "rect": {
+      "x": 20,
+      "y": 144,
+      "w": 15,
+      "h": 15
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e9",
+     "kind": "text",
+     "node": "div.okl",
+     "path": "div.px[4]>div.okl[2]",
+     "text": "The software is provided as is",
+     "rect": {
+      "x": 43,
+      "y": 171,
+      "w": 168.86,
+      "h": 15
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 14,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e10",
+     "kind": "icon",
+     "node": "svg.i",
+     "path": "div.px[4]>div.okl[2]>svg.i[0]",
+     "rect": {
+      "x": 20,
+      "y": 171,
+      "w": 15,
+      "h": 15
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e11",
+     "kind": "box",
+     "node": "div.chk",
+     "path": "div.px[5]>div.chk[0]",
+     "rect": {
+      "x": 20,
+      "y": 206,
+      "w": 320,
+      "h": 122
+     },
+     "fill": null,
+     "border": {
+      "width": 1,
+      "color": [
+       230,
+       221,
+       204,
+       1
+      ]
+     },
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e12",
+     "kind": "box",
+     "node": "div.cbx.on",
+     "path": "div.px[5]>div.chk[0]>div.cbx.on[0]",
+     "rect": {
+      "x": 20,
+      "y": 214,
+      "w": 22,
+      "h": 22
+     },
+     "fill": [
+      43,
+      37,
+      48,
+      1
+     ],
+     "border": {
+      "width": 2,
+      "color": [
+       43,
+       37,
+       48,
+       1
+      ]
+     },
+     "radius": "6px",
+     "shadow": null
+    },
+    {
+     "id": "e13",
+     "kind": "icon",
+     "node": "svg",
+     "path": "div.px[5]>div.chk[0]>div.cbx.on[0]>svg[0]",
+     "rect": {
+      "x": 23.5,
+      "y": 217.5,
+      "w": 15,
+      "h": 15
+     },
+     "fill": null,
+     "border": null,
+     "radius": "0px",
+     "shadow": null
+    },
+    {
+     "id": "e14",
+     "kind": "text",
+     "node": "span",
+     "path": "div.px[5]>div.chk[0]>span[1]",
+     "text": "I understand that AirVault, Lensly, or Lumio has no tokens, public sales, or a support team and that you must not transfer any cryptocurrency to anyone, especially someone claiming to be from alshukran.com.",
+     "rect": {
+      "x": 54,
+      "y": 215,
+      "w": 286,
+      "h": 100
+     },
+     "lines": 5,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 14.5,
+      "weight": 400,
+      "stretch": "92%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      43,
+      37,
+      48,
+      1
+     ]
+    },
+    {
+     "id": "e15",
+     "kind": "text",
+     "node": "div.cap.w",
+     "path": "div.foot[6]>div.cap.w[0]",
+     "text": "Agree and Continue",
+     "rect": {
+      "x": 98.23,
+      "y": 675.5,
+      "w": 163.52,
+      "h": 17
+     },
+     "lines": 1,
+     "font": {
+      "family": "Archivo, system-ui, sans-serif",
+      "size": 15.5,
+      "weight": 600,
+      "stretch": "114%",
+      "lineHeight": 21,
+      "letterSpacing": 0
+     },
+     "color": [
+      251,
+      246,
+      236,
+      1
+     ]
+    },
+    {
+     "id": "e16",
+     "kind": "box",
+     "node": "div.cap.w",
+     "path": "div.foot[6]>div.cap.w[0]",
+     "rect": {
+      "x": 20,
+      "y": 658,
+      "w": 320,
+      "h": 52
+     },
+     "fill": [
+      43,
+      37,
+      48,
+      1
+     ],
+     "border": null,
+     "radius": "26px",
+     "shadow": null
+    }
+   ]
+  }
+ },
+ "width": 360,
+ "height": 740
+}
