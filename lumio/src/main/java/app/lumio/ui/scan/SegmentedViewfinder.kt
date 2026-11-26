@@ -25,6 +25,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -94,7 +97,7 @@ fun SegmentedViewfinder(progress: Float?, complete: Boolean, caption: String, mo
         Box(modifier = Modifier.fillMaxSize().drawBehind { drawCameraScrim(); drawCameraBrackets(paper) })
         Text(
             text = caption,
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = CAPTION_BOTTOM),
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = CAPTION_BOTTOM).semantics { liveRegion = LiveRegionMode.Polite },
             style = ClearAirType.time,
             color = paper.copy(alpha = CAPTION_ALPHA),
             textAlign = TextAlign.Center,

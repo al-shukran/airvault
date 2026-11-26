@@ -21,6 +21,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.camera.FrameSource
@@ -73,7 +76,7 @@ fun ReplyScanCard(
                 style = ClearAirType.time,
                 color = palette.paper.copy(alpha = CAPTION_ALPHA),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 30.dp),
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 30.dp).semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
         reading?.let {

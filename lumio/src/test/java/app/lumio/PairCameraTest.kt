@@ -18,8 +18,12 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -199,6 +203,7 @@ class PairCameraTest {
         compose.waitUntil(timeoutMillis = 30_000) { compose.onAllNodesWithText(DECODE_FAILED_TEXT).fetchSemanticsNodes().isNotEmpty() }
         compose.onAllNodesWithText(DECODE_FAILED_TEXT).assertCountEquals(1)
         compose.onAllNodesWithText(SCAN_HINT).assertCountEquals(0)
+        compose.onNodeWithText(DECODE_FAILED_TEXT).assert(isPolite)
     }
 
     /** The reply card says the same in its words, in place of the parts read. */
@@ -220,6 +225,7 @@ class PairCameraTest {
         compose.waitUntil(timeoutMillis = 30_000) { compose.onAllNodesWithText(DECODE_FAILED_TEXT).fetchSemanticsNodes().isNotEmpty() }
         compose.onAllNodesWithText(DECODE_FAILED_TEXT).assertCountEquals(1)
         compose.onAllNodesWithText("Reading Lensly's reply · 2 of 5").assertCountEquals(0)
+        compose.onNodeWithText(DECODE_FAILED_TEXT).assert(isPolite)
     }
 
     /** The contrast of the status line's paper text, at its alpha over the brightest pixel in the line's rows, in the camera on the page. */
@@ -248,6 +254,8 @@ class PairCameraTest {
     private fun Theme(content: @Composable () -> Unit) = LumenTheme { ClearAirTheme(content = content) }
 
     private companion object {
+        /** A screen reader announces the text when it changes, as the old notice did. */
+        val isPolite = SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite)
         val PHONE_WIDTH = 360.dp
         val PHONE_HEIGHT = 780.dp
         val WIDE_PHONE_WIDTH = 411.dp
