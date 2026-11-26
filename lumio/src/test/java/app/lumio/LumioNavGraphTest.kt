@@ -36,7 +36,7 @@ class LumioNavGraphTest {
         compose.waitForIdle()
 
         val destinations = nav.graph.allDestinations().filter { it.route != null }
-        assertTrue(destinations.map { it.route }.containsAll(listOf(LumioRoute.ACTIVITY_COIN, LumioRoute.COIN, LumioRoute.HOLDINGS)))
+        assertTrue(destinations.map { it.route }.containsAll(listOf(LumioRoute.ACTIVITY_COIN, LumioRoute.COIN, LumioRoute.COIN_PRICE, LumioRoute.HOLDINGS)))
         for (destination in destinations) {
             val route = destination.route!!
             assertEquals(placeholders(route), destination.arguments.keys, "The arguments of $route")
