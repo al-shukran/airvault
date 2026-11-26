@@ -73,8 +73,10 @@ object RegistryUpdate {
 
     /**
      * Stores [bytes] as the installed package in [dir] when they verify and their sequence is higher than the last
-     * accepted one. An older or equal sequence is refused with [RegistryUpdateException.NotNewer]. On any failure
-     * nothing is written.
+     * accepted one. An older or equal sequence is refused with [RegistryUpdateException.NotNewer]. A directory that exists
+     * but holds neither a package nor a record is [RegistryUpdateException.SequenceUnknown], not "nothing accepted yet": deleting
+     * the files must not lower the floor. The files are written one by one. When a write fails, the files already written
+     * are put back as they were, so a failure leaves nothing stored and the result says so.
      */
     fun install(
         bytes: ByteArray,
@@ -88,12 +90,33 @@ object RegistryUpdate {
             if (incoming.sequence <= accepted) {
                 throw RegistryUpdateException.NotNewer(accepted, incoming.sequence)
             }
-            check(dir.isDirectory || dir.mkdirs()) { "cannot create ${dir.path}" }
-            // The package goes first: if the record write is lost, the package still gives its own sequence.
-            writeAtomically(File(dir, INSTALLED_FILE), bytes)
-            if (incoming.whitelist != null) writeAtomically(File(dir, WHITELIST_FILE), bytes)
-            writeAtomically(File(dir, SEQUENCE_FILE), incoming.sequence.toString().toByteArray())
+            val created = !dir.isDirectory
+            check(!created || dir.mkdirs()) { "cannot create ${dir.path}" }
+            // The package goes before the record: if the record write is lost, the package still gives its own sequence.
+            val writes = linkedMapOf(INSTALLED_FILE to bytes)
+            if (incoming.whitelist != null) writes[WHITELIST_FILE] = bytes
+            writes[SEQUENCE_FILE] = incoming.sequence.toString().toByteArray()
+            storeAll(dir, writes, created)
             incoming
+        }
+    }
+
+    /** Writes [writes] in order. When one fails, the ones already written go back to what they held and the failure is rethrown. */
+    private fun storeAll(dir: File, writes: Map<String, ByteArray>, created: Boolean) {
+        val before = writes.keys.associateWith { name -> File(dir, name).takeIf { it.isFile }?.readBytes() }
+        val written = mutableListOf<String>()
+        try {
+            for ((name, content) in writes) {
+                writeAtomically(File(dir, name), content)
+                written += name
+            }
+        } catch (e: Exception) {
+            for (name in written) {
+                val file = File(dir, name)
+                runCatching { before[name]?.let { writeAtomically(file, it) } ?: file.delete() }
+            }
+            if (created) dir.delete()
+            throw e
         }
     }
 
@@ -104,7 +127,8 @@ object RegistryUpdate {
      * the one in effect: the whitelist keeps the last installed one that carried it, see [keptWhitelist]. The denylist and wallets
      * keep the build's. When there is no installed package, or it no longer verifies against [registry] (for
      * example because an app update bakes one of its chain IDs), [registry] is returned unchanged; a failed verification is
-     * flagged on the result so Settings can say the built-in catalog is in use.
+     * flagged on the result so Settings can say the built-in catalog is in use. A package below the recorded floor counts as
+     * one that no longer verifies.
      */
     fun withInstalled(registry: Registry, dir: File, trustedKeys: List<TrustedKey>): Registry {
         if (!File(dir, INSTALLED_FILE).isFile) return registry
@@ -130,25 +154,33 @@ object RegistryUpdate {
 
     /**
      * The installed package in [dir], when it verifies against [trustedKeys] and [registry]. It is the package
-     * [withInstalled] merges, so its sequence is the one in effect. Null when none is stored or it no longer verifies.
+     * [withInstalled] merges, so its sequence is the one in effect. Null when none is stored, it no longer verifies, or its
+     * sequence is below the recorded floor (a replaced file) or the record cannot be read.
      */
     fun installedPackage(registry: Registry, dir: File, trustedKeys: List<TrustedKey>): RegistryPackage? {
         val file = File(dir, INSTALLED_FILE)
         if (!file.isFile) return null
-        return verify(file.readBytes(), trustedKeys, registry).getOrNull()
+        val installed = verify(file.readBytes(), trustedKeys, registry).getOrNull() ?: return null
+        val record = File(dir, SEQUENCE_FILE)
+        if (!record.isFile) return installed
+        val floor = recordedSequence(record) ?: return null
+        return installed.takeIf { it.sequence >= floor }
     }
+
+    private fun recordedSequence(record: File): Long? = record.takeIf { it.isFile }?.readText()?.trim()?.toLongOrNull()
 
     /**
      * The highest sequence accepted so far: the larger of the [SEQUENCE_FILE] record and the installed package's own
-     * sequence. It is 0 only when nothing was ever installed or recorded. A package or a record that cannot be read,
-     * with nothing readable beside it, is [RegistryUpdateException.SequenceUnknown], never 0.
+     * sequence. It is 0 only when [dir] does not exist, so nothing was ever stored. A package or a record that cannot be read,
+     * with nothing readable beside it, and an existing [dir] with neither, are [RegistryUpdateException.SequenceUnknown], never 0.
      */
     private fun acceptedSequence(dir: File, trustedKeys: List<TrustedKey>): Long {
         val record = File(dir, SEQUENCE_FILE)
-        val recorded = record.takeIf { it.isFile }?.readText()?.trim()?.toLongOrNull()
+        val recorded = recordedSequence(record)
         val file = File(dir, INSTALLED_FILE)
         if (!file.isFile) {
             if (record.isFile && recorded == null) throw RegistryUpdateException.SequenceUnknown()
+            if (recorded == null && dir.isDirectory) throw RegistryUpdateException.SequenceUnknown()
             return recorded ?: 0
         }
         val bytes = file.readBytes()
