@@ -144,11 +144,13 @@ fun WatchlistPicker(
     onLock: () -> Unit,
     image: @Composable (String) -> ImageBitmap?,
     loading: Boolean = false,
+    notice: String? = null,
 ) {
     val palette = LocalClearAirPalette.current
     Column(modifier = Modifier.fillMaxSize()) {
         ClearAirPageTopBar(title = "Add to Watchlist", backLabel = "Home", onBack = onBack, onLock = onLock)
         SearchField(query = query, onQuery = onQuery, placeholder = "Name or ticker")
+        notice?.let { Text(text = it, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter), style = ClearAirType.body, color = palette.rose) }
         LazyColumn(modifier = Modifier.fillMaxWidth()) {
             item(key = "label") {
                 Text(

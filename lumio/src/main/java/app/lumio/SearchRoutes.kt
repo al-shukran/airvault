@@ -190,6 +190,7 @@ internal fun WatchlistAddRoute(
         onLock = onLock,
         image = { url -> (rememberLogo(url) as? LogoLoad.Loaded)?.bitmap },
         loading = candidates == null,
+        notice = board.watchlistNotice,
     )
 }
 

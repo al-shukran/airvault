@@ -103,6 +103,7 @@ fun HomeScreen(
     onAdd: () -> Unit,
     onRestore: () -> Unit,
     onOpen: (WatchedAsset) -> Unit,
+    notice: String? = null,
     logo: @Composable (WatchlistRow) -> Unit = { AssetDisc(it.icon) },
 ) {
     val palette = LocalClearAirPalette.current
@@ -114,6 +115,7 @@ fun HomeScreen(
         ClearAirPrimaryButton(text = "Send", onClick = onSend, modifier = Modifier.width(SEND_WIDTH), icon = ClearAirGlyph.SEND, fullWidth = false)
         ClearAirTextAction(text = "Receive", onClick = onReceive, icon = ClearAirGlyph.RECEIVE, modifier = Modifier.padding(horizontal = TEXT_ACTION_SIDE))
     }
+    notice?.let { Text(text = it, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter), style = ClearAirType.body, color = palette.rose) }
     if (rows == null) return
     if (rows.isEmpty()) {
         EmptyWatchlist(onAdd = onAdd, onRestore = onRestore)

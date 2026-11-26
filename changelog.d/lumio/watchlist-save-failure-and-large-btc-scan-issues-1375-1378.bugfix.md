@@ -1,0 +1,1 @@
+A watchlist change that the vault refuses, because the stored watchlist cannot be read, now tells you the change was not made, on Home and on Add to Watchlist. A Bitcoin account with more scan data than the cache can hold now still scans and shows its balance, though the scan is not kept for the next start.
