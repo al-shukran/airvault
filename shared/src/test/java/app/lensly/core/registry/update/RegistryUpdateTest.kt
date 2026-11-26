@@ -5,6 +5,7 @@ import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
+import app.lensly.core.vault.MemoryKeystore
 import java.io.File
 import java.io.InputStream
 import java.nio.charset.StandardCharsets
@@ -59,6 +60,7 @@ class RegistryUpdateTest {
     val folder = TemporaryFolder()
 
     private val keys = TestPackages.TRUSTED
+    private val keystore = MemoryKeystore()
 
     private fun registryDir(): File = folder.root.resolve("registry")
 
@@ -67,12 +69,12 @@ class RegistryUpdateTest {
         val baked = bakedRegistry()
         val dir = registryDir()
 
-        val installed = RegistryUpdate.install(TestPackages.signed(TestPackages.payload()), keys, baked, dir)
+        val installed = RegistryUpdate.install(TestPackages.signed(TestPackages.payload()), keys, baked, dir, keystore)
             .getOrThrow()
 
         assertEquals(1L, installed.sequence)
         assertTrue(File(dir, RegistryUpdate.INSTALLED_FILE).isFile)
-        val merged = RegistryUpdate.withInstalled(baked, dir, keys)
+        val merged = RegistryUpdate.withInstalled(baked, dir, keys, keystore)
         assertEquals("Linea", assertNotNull(merged.network(4242L)).name)
         assertEquals("USDC", assertNotNull(merged.token(4242L, USDC_LINEA)).symbol)
         assertEquals(baked.networks().size + 1, merged.networks().size)
@@ -87,7 +89,7 @@ class RegistryUpdateTest {
         bytes[16 + payload.indexOf("Linea")] = 'X'.code.toByte()
         val dir = registryDir()
 
-        val result = RegistryUpdate.install(bytes, keys, bakedRegistry(), dir)
+        val result = RegistryUpdate.install(bytes, keys, bakedRegistry(), dir, keystore)
 
         assertIs<RegistryUpdateException.BadSignature>(failure(result))
         assertFalse(File(dir, RegistryUpdate.INSTALLED_FILE).exists())
@@ -135,17 +137,17 @@ class RegistryUpdateTest {
             TrustedKey(TestPackages.PUBLIC_BYTES, KeyStatus.REVOKED),
             TrustedKey(TestPackages.publicKeyOf(newSeed)),
         )
-        RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 2)), keys, baked, dir).getOrThrow()
+        RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 2)), keys, baked, dir, keystore).getOrThrow()
 
         // The installed package is signed by the revoked key, so it no longer counts for the catalog...
-        assertNull(RegistryUpdate.installedPackage(baked, dir, rotated))
-        assertEquals(baked.networks(), RegistryUpdate.withInstalled(baked, dir, rotated).networks())
+        assertNull(RegistryUpdate.installedPackage(baked, dir, rotated, keystore))
+        assertEquals(baked.networks(), RegistryUpdate.withInstalled(baked, dir, rotated, keystore).networks())
         // ...but its sequence still does: an older package from the new key cannot be installed.
         val older = assertIs<RegistryUpdateException.NotNewer>(
-            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 1), newSeed), rotated, baked, dir)),
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 1), newSeed), rotated, baked, dir, keystore)),
         )
         assertEquals(2L, older.installed)
-        assertTrue(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 3), newSeed), rotated, baked, dir).isSuccess)
+        assertTrue(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 3), newSeed), rotated, baked, dir, keystore).isSuccess)
     }
 
     @Test
@@ -157,6 +159,7 @@ class RegistryUpdateTest {
             keys,
             baked,
             dir,
+            keystore,
         )
 
         assertTrue(offer(2).isSuccess)
@@ -174,40 +177,41 @@ class RegistryUpdateTest {
     fun anUnreadableInstalledPackageStillRefusesAnEqualOrOlderSequence() {
         val baked = bakedRegistry()
         val dir = registryDir()
-        RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 5)), keys, baked, dir).getOrThrow()
+        RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 5)), keys, baked, dir, keystore).getOrThrow()
         File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(byteArrayOf(1, 2, 3))
 
         val equal = assertIs<RegistryUpdateException.NotNewer>(
-            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 5)), keys, baked, dir)),
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 5)), keys, baked, dir, keystore)),
         )
         assertEquals(5L, equal.installed)
         assertIs<RegistryUpdateException.NotNewer>(
-            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 4)), keys, baked, dir)),
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 4)), keys, baked, dir, keystore)),
         )
-        assertTrue(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 6)), keys, baked, dir).isSuccess)
+        assertTrue(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 6)), keys, baked, dir, keystore).isSuccess)
     }
 
     @Test
-    fun anUnreadableInstalledPackageWithNoRecordNeverFallsBackToSequenceZero() {
+    fun anUnreadableInstalledPackageWithNoFloorAnywhereNeverFallsBackToSequenceZero() {
         val baked = bakedRegistry()
         val dir = registryDir()
-        RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 5)), keys, baked, dir).getOrThrow()
+        RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 5)), keys, baked, dir, keystore).getOrThrow()
         File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(byteArrayOf(1, 2, 3))
-        File(dir, RegistryUpdate.SEQUENCE_FILE).delete()
+        File(dir, RegistrySeal.FILE).delete()
+        keystore.deleteRegistryMacKeysExcept(null)
 
         assertIs<RegistryUpdateException.SequenceUnknown>(
-            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 1)), keys, baked, dir)),
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 1)), keys, baked, dir, keystore)),
         )
-        assertFalse(File(dir, RegistryUpdate.SEQUENCE_FILE).exists())
+        assertFalse(File(dir, RegistrySeal.FILE).exists())
     }
 
     @Test
     fun anUnreadableRecordWithNoPackageBesideItIsNeverSequenceZero() {
         val dir = folder.root.resolve("d7").apply { mkdirs() }
-        File(dir, RegistryUpdate.SEQUENCE_FILE).writeText("not a sequence")
+        File(dir, RegistryUpdate.LEGACY_SEQUENCE_FILE).writeText("not a sequence")
 
         assertIs<RegistryUpdateException.SequenceUnknown>(
-            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 1)), keys, bakedRegistry(), dir)),
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 1)), keys, bakedRegistry(), dir, keystore)),
         )
     }
 
@@ -215,26 +219,26 @@ class RegistryUpdateTest {
         TestPackages.signed(TestPackages.payload(sequence = sequence, whitelist = whitelist))
 
     @Test
-    fun deletingTheInstalledPackageAndTheRecordDoesNotLowerTheFloor() {
+    fun deletingTheInstalledPackageAndTheSealDoesNotLowerTheFloor() {
         val baked = bakedRegistry()
         val dir = registryDir()
-        RegistryUpdate.install(signedAt(5), keys, baked, dir).getOrThrow()
+        RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).getOrThrow()
         File(dir, RegistryUpdate.INSTALLED_FILE).delete()
-        File(dir, RegistryUpdate.SEQUENCE_FILE).delete()
+        File(dir, RegistrySeal.FILE).delete()
 
-        assertIs<RegistryUpdateException.SequenceUnknown>(failure(RegistryUpdate.install(signedAt(3), keys, baked, dir)))
+        assertEquals(5L, assertIs<RegistryUpdateException.NotNewer>(failure(RegistryUpdate.install(signedAt(3), keys, baked, dir, keystore))).installed)
         assertFalse(File(dir, RegistryUpdate.INSTALLED_FILE).exists())
     }
 
     @Test
-    fun anInstalledPackageBelowTheRecordedFloorIsNotUsed() {
+    fun anInstalledPackageBelowTheSealedFloorIsNotUsed() {
         val baked = bakedRegistry()
         val dir = registryDir()
-        RegistryUpdate.install(signedAt(5), keys, baked, dir).getOrThrow()
+        RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).getOrThrow()
         File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(signedAt(3))
 
-        assertNull(RegistryUpdate.installedPackage(baked, dir, keys))
-        assertNull(RegistryUpdate.withInstalled(baked, dir, keys).network(4242L))
+        assertNull(RegistryUpdate.installedPackage(baked, dir, keys, keystore))
+        assertNull(RegistryUpdate.withInstalled(baked, dir, keys, keystore).network(4242L))
     }
 
     @Test
@@ -242,19 +246,18 @@ class RegistryUpdateTest {
         val baked = bakedRegistry()
         val dir = registryDir()
         val swap = TestPackages.LINEA_SWAP
-        RegistryUpdate.install(signedAt(5, whitelist = swap), keys, baked, dir).getOrThrow()
-        // A directory where the record belongs makes the last of the three writes fail.
-        File(dir, RegistryUpdate.SEQUENCE_FILE).apply { delete() }.mkdir()
+        RegistryUpdate.install(signedAt(5, whitelist = swap), keys, baked, dir, keystore).getOrThrow()
         val installedBefore = File(dir, RegistryUpdate.INSTALLED_FILE).readBytes()
-        val whitelistBefore = File(dir, RegistryUpdate.WHITELIST_FILE).readBytes()
-        val registryBefore = RegistryUpdate.withInstalled(baked, dir, keys)
+        val registryBefore = RegistryUpdate.withInstalled(baked, dir, keys, keystore)
+        // A directory where the whitelist belongs makes the second of the three writes fail, after the package was replaced.
+        File(dir, RegistryUpdate.WHITELIST_FILE).apply { delete() }.mkdir()
 
         val newer = signedAt(6, whitelist = swap.replace("Swap tokens", "Newer swap"))
-        assertTrue(RegistryUpdate.install(newer, keys, baked, dir).isFailure)
+        assertTrue(RegistryUpdate.install(newer, keys, baked, dir, keystore).isFailure)
 
         assertContentEquals(installedBefore, File(dir, RegistryUpdate.INSTALLED_FILE).readBytes())
-        assertContentEquals(whitelistBefore, File(dir, RegistryUpdate.WHITELIST_FILE).readBytes())
-        val registryAfter = RegistryUpdate.withInstalled(baked, dir, keys)
+        assertEquals(listOf(5L), keystore.registryMacKeySeqs())
+        val registryAfter = RegistryUpdate.withInstalled(baked, dir, keys, keystore)
         assertEquals(registryBefore.whitelistEntries(), registryAfter.whitelistEntries())
         assertEquals(registryBefore.networks(), registryAfter.networks())
     }
@@ -455,16 +458,16 @@ class RegistryUpdateTest {
         File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(byteArrayOf(1, 2, 3))
         val baked = bakedRegistry()
 
-        assertEquals(baked.networks(), RegistryUpdate.withInstalled(baked, dir, keys).networks())
+        assertEquals(baked.networks(), RegistryUpdate.withInstalled(baked, dir, keys, keystore).networks())
         assertIs<RegistryUpdateException.SequenceUnknown>(
-            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload()), keys, baked, dir)),
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload()), keys, baked, dir, keystore)),
         )
     }
 
     @Test
     fun installedPackageThatNoLongerFitsTheBakedCatalogIsIgnored() {
         val dir = registryDir()
-        RegistryUpdate.install(TestPackages.signed(TestPackages.payload()), keys, bakedRegistry(), dir).getOrThrow()
+        RegistryUpdate.install(TestPackages.signed(TestPackages.payload()), keys, bakedRegistry(), dir, keystore).getOrThrow()
         // An app update that bakes chain 4242 after the package was installed.
         val bakedWithLinea = RegistryLoader.load(
             fakeReader(
@@ -474,7 +477,7 @@ class RegistryUpdateTest {
             ),
         )
 
-        val merged = RegistryUpdate.withInstalled(bakedWithLinea, dir, keys)
+        val merged = RegistryUpdate.withInstalled(bakedWithLinea, dir, keys, keystore)
 
         assertEquals(bakedWithLinea.networks(), merged.networks())
         assertEquals(bakedWithLinea.tokens(), merged.tokens())

@@ -1,0 +1,1 @@
+An offline registry update can no longer be rolled back by someone with access to the app's files: the accepted version and the whitelist's source are now sealed under a key in the Android Keystore, so a replaced or deleted file, or an old copy put back, falls back to the built-in catalog and older packages stay refused.

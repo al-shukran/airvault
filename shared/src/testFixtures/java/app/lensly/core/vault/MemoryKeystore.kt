@@ -13,6 +13,7 @@ class MemoryKeystore : KeystoreBackend {
     private var slotKey: SecretKey? = null
     private var headerKey: SecretKey? = null
     private val failureMacs = mutableMapOf<Long, SecretKey>()
+    private val registryMacs = mutableMapOf<Long, SecretKey>()
     private val folderKeys = mutableMapOf<String, SecretKey>()
     private var pendingPhoto: SecretKey? = null
 
@@ -68,6 +69,16 @@ class MemoryKeystore : KeystoreBackend {
     }
 
     override fun failureMacKeySeqs(): List<Long> = failureMacs.keys.toList()
+
+    override fun createRegistryMacKey(seq: Long): SecretKey = newHmacKey().also { registryMacs[seq] = it }
+
+    override fun registryMacKey(seq: Long): SecretKey? = registryMacs[seq]
+
+    override fun deleteRegistryMacKeysExcept(keepSeq: Long?) {
+        registryMacs.keys.removeAll { it != keepSeq }
+    }
+
+    override fun registryMacKeySeqs(): List<Long> = registryMacs.keys.toList()
 
     override fun createFolderKey(keyId: String): SecretKey = newAesKey().also { folderKeys[keyId] = it }
 

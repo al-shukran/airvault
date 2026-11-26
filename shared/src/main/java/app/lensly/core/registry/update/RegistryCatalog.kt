@@ -1,6 +1,7 @@
 package app.lensly.core.registry.update
 
 import app.lensly.core.registry.Registry
+import app.lensly.core.vault.KeystoreBackend
 import java.io.File
 
 /**
@@ -12,8 +13,9 @@ class RegistryCatalog(
     private val baked: Registry,
     private val dir: File,
     private val trustedKeys: List<TrustedKey>,
+    private val keystore: KeystoreBackend,
 ) {
-    private var merged: Registry = RegistryUpdate.withInstalled(baked, dir, trustedKeys)
+    private var merged: Registry = load()
 
     /** The baked catalog with the installed package merged in. */
     @Synchronized
@@ -25,7 +27,7 @@ class RegistryCatalog(
      */
     @Synchronized
     fun installed(): RegistryPackage? =
-        RegistryUpdate.installedPackage(baked, dir, trustedKeys)?.takeIf { it.sequence > baked.catalogSequence }
+        RegistryUpdate.installedPackage(baked, dir, trustedKeys, keystore)?.takeIf { it.sequence > baked.catalogSequence }
 
     /**
      * Installs [bytes] as [RegistryUpdate.install] does, checking them against the baked catalog. On success the
@@ -33,7 +35,11 @@ class RegistryCatalog(
      */
     @Synchronized
     fun install(bytes: ByteArray): Result<RegistryPackage> =
-        RegistryUpdate.install(bytes, trustedKeys, baked, dir).onSuccess {
-            merged = RegistryUpdate.withInstalled(baked, dir, trustedKeys)
-        }
+        RegistryUpdate.install(bytes, trustedKeys, baked, dir, keystore).onSuccess { merged = load() }
+
+    /** Seals a store from before seals once (see [RegistryUpdate.adoptUnsealed]), then merges what verifies. A Keystore that refuses leaves it unsealed. */
+    private fun load(): Registry {
+        runCatching { RegistryUpdate.adoptUnsealed(dir, trustedKeys, keystore) }
+        return RegistryUpdate.withInstalled(baked, dir, trustedKeys, keystore)
+    }
 }
