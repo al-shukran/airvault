@@ -25,6 +25,14 @@ class VaultHolder(
     /** What a decoy session shows for the real vault's settings. Empty in a real session. */
     val decoyShown = DecoyShown()
 
+    /**
+     * The tries left before erase to warn with, as [Vault.triesBeforeErase] says. A decoy session counts its own wrong tries against the
+     * erase count it shows, but never past the real one, which the vault erases at. A shown count above the real one warns early, and one
+     * below it never erases at the shown count (see [DecoyShown]).
+     */
+    suspend fun triesBeforeErase(): Int? =
+        vault.triesBeforeErase(decoyShown.failureEraseAfter.takeIf { openSession()?.isDecoy == true })
+
     /** The open session, or null while the vault is locked. */
     @Synchronized
     fun openSession(): VaultSession? = session

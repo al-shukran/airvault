@@ -1,0 +1,1 @@
+An offline registry update that was interrupted, or whose Keystore key the system lost, no longer leaves the built-in catalog in use until a newer package arrives: installing the same package again seals it, while older packages stay refused.

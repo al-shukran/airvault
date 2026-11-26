@@ -67,7 +67,7 @@ internal object VaultRecordNames {
     /** The private half of a vault's photo key pair. See [VaultSession.ensurePhotoKey]. */
     const val PHOTO_KEY = "photo-key"
 
-    /** What a Decoy Vault shows for the real vault's entry gesture and lockout. See [app.lensly.app.DecoyShown]. */
+    /** What a Decoy Vault shows for the real vault's lockout. See [app.lensly.app.DecoyShown]. */
     const val DECOY_SHOWN = "decoy-shown"
 
     /** The file name of record [name] under [vaultKey]. */

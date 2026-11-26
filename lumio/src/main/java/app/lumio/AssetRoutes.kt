@@ -124,7 +124,8 @@ internal object CoinActivityPreload {
 /**
  * The Asset page (C4) of [asset] across the wallet [walletId]. The price, the day's chart, the watchlist and the holdings come from the hoisted board
  * and the vault, so the page is populated on its first frame. A range the board lacks, and the coin's activity, load in their places when their reads
- * answer. Send and Receive open on this coin, so a token is preselected.
+ * answer. Send and Receive open on this coin, so a token is preselected. With no [walletId], which is a watchlist row opened with no wallet paired,
+ * the page is the price only: the coin's price, change and chart, and no holdings, activity, Send or Receive.
  */
 @Composable
 internal fun AssetRoute(
@@ -132,7 +133,7 @@ internal fun AssetRoute(
     holder: VaultHolder,
     selection: NetworkSelection,
     listVersion: Int,
-    walletId: String,
+    walletId: String?,
     asset: WatchedAsset,
     onLock: () -> Unit,
 ) {
@@ -144,8 +145,8 @@ internal fun AssetRoute(
     if (session == null) return
     val board = rememberWalletsBoard(app, selection.mode, listVersion) ?: return
     val view = board.view ?: return
-    val wallet = view.wallets.firstOrNull { it.id == walletId }
-    if (wallet == null) {
+    val wallet = walletId?.let { id -> view.wallets.firstOrNull { it.id == id } }
+    if (walletId != null && wallet == null) {
         LaunchedEffect(Unit) { navController.popBackStack() }
         return
     }
@@ -168,9 +169,9 @@ internal fun AssetRoute(
     }
     val current = board.watchlist ?: Watchlist(assets = FIRST_RUN_ASSETS)
     val watched = asset in current.assets
-    val accounts = view.accountsOf(walletId)
+    val accounts = if (wallet != null) view.accountsOf(wallet.id) else emptyList()
     val holdings = holdingsOf(asset, symbol, accounts, board.tokenHeld)
-    val chains = chainHoldings(holdings, wallet.name)
+    val chains = chainHoldings(holdings, wallet?.name.orEmpty())
     val total = holdings.map { it.amount }.reduceOrNull(java.math.BigDecimal::add)
     val fiat = LocalFiat.current
     val held = total?.let { sum ->
@@ -189,9 +190,9 @@ internal fun AssetRoute(
         val amount = holdings.firstOrNull { it.account == account }?.amount
         CoinAccount(
             title = accountName(account),
-            detail = accountDetail(wallet.name, account),
+            detail = accountDetail(wallet?.name.orEmpty(), account),
             trailing = amount?.let { Masking.amount(amountText(it, symbol), hidden = !display.showAssets) },
-            onSend = { navController.navigate(coinSendRoute(account, asset, selection.mode)) },
+            onSend = coinSendRoute(account, asset, selection.mode)?.let { route -> { navController.navigate(route) } },
             onReceive = {
                 receive = receiveCoinStartOf(account, asset.network, symbol, name, coinIcon, networkIcon, held = total != null, wallets = view.wallets)
                 receiveOpening++
@@ -203,7 +204,7 @@ internal fun AssetRoute(
     val includeSpam = rememberTransactions(app).activityIncludesSpam
     val activityKey = CoinActivityKey(asset, selection.mode, includeSpam)
     val coinActivity by produceState(initialValue = CoinActivityPreload.pageOf(vault, activityKey), vault, activityKey, listVersion) {
-        if (vault != null) {
+        if (vault != null && wallet != null) {
             // The rows show with the last prices kept, and the sources' answer replaces them when it lands.
             if (value == null) CoinActivityPreload.read(app, vault, activityKey, live = false)?.let { value = it }
             CoinActivityPreload.read(app, vault, activityKey)?.let { value = it }
@@ -221,7 +222,8 @@ internal fun AssetRoute(
         watched = watched,
         onWatch = { board.changeWatchlist { it.toggled(asset) } },
         held = held,
-        onHoldings = { navController.navigate(LumioRoute.holdings(walletId, asset)) },
+        priceOnly = wallet == null,
+        onHoldings = { wallet?.let { navController.navigate(LumioRoute.holdings(it.id, asset)) } },
         accounts = coinAccounts,
         onBack = { navController.popBackStack() },
         onLock = onLock,
@@ -243,7 +245,7 @@ internal fun AssetRoute(
                         names = page.names,
                         zone = ZoneId.systemDefault(),
                         shown = display.showAssets,
-                        onClick = { navController.navigate(LumioRoute.transaction(walletId, item.tx.account, item.tx.id)) },
+                        onClick = { wallet?.let { navController.navigate(LumioRoute.transaction(it.id, item.tx.account, item.tx.id)) } },
                     )
                 }
             }
@@ -351,7 +353,7 @@ private fun changeOf(price: Price, fiat: Fiat): PriceChange? {
 /**
  * The symbol and the name of [asset], the same on Home, Add to Watchlist and the asset page: the names kept with it when it was starred from Add to
  * Watchlist, which are the market source's (see [WatchedLabel]). Else a token's come from the registry, else from the wallet's holdings of the token,
- * else the address that [coinNames] gives.
+ * else the address that [coinNames] gives. A holding names it only when it is on the asset's own network.
  */
 internal fun namesOf(asset: WatchedAsset, app: LumioApp, held: Collection<List<TokenHolding>>): Pair<String, String> = namesOf(
     asset,
@@ -365,7 +367,9 @@ internal fun namesOf(asset: WatchedAsset, listed: TokenEntry?, held: Collection<
     label?.let { return it.symbol to it.name }
     val contract = asset.contract ?: return coinNames(asset)
     listed?.let { return it.symbol to it.name }
-    val token = held.asSequence().flatten().firstOrNull { it.token.contract.equals(contract, ignoreCase = true) }?.token
+    val token = held.asSequence().flatten()
+        .firstOrNull { it.token.contract.equals(contract, ignoreCase = true) && Networks.evm(it.chain.chainId) == asset.network.chain && it.chain.testnet == asset.network.testnet }
+        ?.token
     return token?.let { it.symbol to it.name } ?: coinNames(asset)
 }
 
@@ -390,15 +394,14 @@ internal fun iconOf(asset: WatchedAsset, symbol: String, app: LumioApp, label: W
 }
 
 /**
- * The Send of [asset] from [account]. An Ethereum account opens the send on the asset's network with its token chosen, and other accounts send their
- * own coin.
+ * The Send of [asset] from [account]. An Ethereum account opens the send on the asset's network with its token chosen, and a native coin sends from its
+ * own account. A token of another family has no send, so it is null and the page does not offer it: it never opens the native coin's send.
  */
-private fun coinSendRoute(account: WalletAccount, asset: WatchedAsset, mode: NetworkMode): String =
-    if (account.namespace == Networks.EIP155 && asset.network.isEvm) {
-        LumioRoute.send(account.walletId, account.id, Networks.evmIdOf(asset.network.chain), asset.contract)
-    } else {
-        sendRoute(account, mode)
-    }
+internal fun coinSendRoute(account: WalletAccount, asset: WatchedAsset, mode: NetworkMode): String? = when {
+    account.namespace == Networks.EIP155 && asset.network.isEvm -> LumioRoute.send(account.walletId, account.id, Networks.evmIdOf(asset.network.chain), asset.contract)
+    asset.contract != null -> null
+    else -> sendRoute(account, mode)
+}
 
 /** The coin's logo at 48 dp: the image a source served when there is one, else the icon [spec] draws. */
 @Composable

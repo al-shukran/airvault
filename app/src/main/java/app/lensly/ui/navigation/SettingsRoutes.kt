@@ -128,7 +128,7 @@ private fun SettingsRoute(navController: NavHostController, holder: VaultHolder)
             }
         },
         onChangePassword = { navController.navigate(HiddenRoute.CHANGE_PASSWORD) },
-        entryGesture = holder.decoyShown.entryGesture(entryGestures.current),
+        entryGesture = entryGestures.current,
         onEntryGesture = { navController.navigate(HiddenRoute.ENTRY_GESTURE) },
         failureDelayCap = failureCap,
         failureEraseAfter = failureErase,

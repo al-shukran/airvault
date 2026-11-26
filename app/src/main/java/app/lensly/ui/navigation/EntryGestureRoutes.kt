@@ -33,7 +33,7 @@ private fun NavBackStackEntry.gesture(): EntryGesture =
 @Composable
 private fun EntryGestureRoute(navController: NavHostController, holder: VaultHolder) {
     rememberOpenSession(navController, holder) ?: return
-    val current = holder.decoyShown.entryGesture(LocalContext.current.entryGestureHolder().current)
+    val current = LocalContext.current.entryGestureHolder().current
     EntryGestureScreen(
         current = current,
         onChoose = { gesture -> navController.navigate(HiddenRoute.entryGestureChange(gesture)) },

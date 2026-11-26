@@ -135,8 +135,8 @@ class RegistrySealTest {
         assertFalse(File(dir, "registry-seal").exists())
         assertTrue(view().installedUpdateUnverified)
 
-        assertIs<RegistryUpdateException.NotNewer>(RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).exceptionOrNull())
-        RegistryUpdate.install(signedAt(6), keys, baked, dir, keystore).getOrThrow()
+        assertIs<RegistryUpdateException.NotNewer>(RegistryUpdate.install(signedAt(4), keys, baked, dir, keystore).exceptionOrNull())
+        RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).getOrThrow()
         assertFalse(view().installedUpdateUnverified)
         assertNotNull(view().network(4242L))
         // The carrier of the kept whitelist cannot be shown after an unverified spell, so it is not kept.
@@ -144,13 +144,60 @@ class RegistrySealTest {
     }
 
     @Test
-    fun aKeyNewerThanTheSealAfterACrashIsUnverifiedUntilTheNextInstall() {
+    fun aCrashAfterTheKeyBeforeTheSealIsRecoveredByTheSameSequence() {
+        RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).getOrThrow()
+        // Install of 7 made its key and wrote the package, then died before the seal.
+        keystore.createRegistryMacKey(7)
+        File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(signedAt(7))
+
+        assertNull(RegistryUpdate.installedPackage(baked, dir, keys, keystore))
+        assertTrue(view().installedUpdateUnverified)
+        assertIs<RegistryUpdateException.NotNewer>(RegistryUpdate.install(signedAt(6), keys, baked, dir, keystore).exceptionOrNull())
+        assertIs<RegistryUpdateException.NotNewer>(RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).exceptionOrNull())
+
+        RegistryUpdate.install(signedAt(7), keys, baked, dir, keystore).getOrThrow()
+        assertEquals(listOf(7L), keystore.registryMacKeySeqs())
+        assertFalse(view().installedUpdateUnverified)
+        assertEquals(7L, RegistryUpdate.installedPackage(baked, dir, keys, keystore)?.sequence)
+        assertIs<RegistryUpdateException.NotNewer>(RegistryUpdate.install(signedAt(7), keys, baked, dir, keystore).exceptionOrNull())
+    }
+
+    @Test
+    fun aLostKeyIsRecoveredByTheSameSequenceAndNeverByALowerOne() {
+        RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).getOrThrow()
+        keystore.deleteRegistryMacKeysExcept(null)
+
+        assertTrue(view().installedUpdateUnverified)
+        assertIs<RegistryUpdateException.NotNewer>(RegistryUpdate.install(signedAt(4), keys, baked, dir, keystore).exceptionOrNull())
+
+        RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).getOrThrow()
+        assertEquals(listOf(5L), keystore.registryMacKeySeqs())
+        assertFalse(view().installedUpdateUnverified)
+        assertIs<RegistryUpdateException.NotNewer>(RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).exceptionOrNull())
+    }
+
+    @Test
+    fun recoveringBySequenceDoesNotBringBackAnOlderWhitelist() {
+        RegistryUpdate.install(signedAt(3, whitelist = swap("Older swap")), keys, baked, dir, keystore).getOrThrow()
+        val older = File(dir, RegistryUpdate.WHITELIST_FILE).readBytes()
+        RegistryUpdate.install(signedAt(5, whitelist = swap("Newer swap")), keys, baked, dir, keystore).getOrThrow()
+        File(dir, "registry-seal").delete()
+        File(dir, RegistryUpdate.WHITELIST_FILE).writeBytes(older)
+
+        RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).getOrThrow()
+
+        assertTrue(view().whitelistEntries().none { it.meaning == "Older swap" })
+        assertFalse(view().installedUpdateUnverified)
+    }
+
+    @Test
+    fun aKeyNewerThanTheSealAfterACrashIsUnverifiedUntilAnInstallReachesIt() {
         RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).getOrThrow()
         keystore.createRegistryMacKey(7)
 
         assertNull(RegistryUpdate.installedPackage(baked, dir, keys, keystore))
         assertTrue(view().installedUpdateUnverified)
-        assertIs<RegistryUpdateException.NotNewer>(RegistryUpdate.install(signedAt(7), keys, baked, dir, keystore).exceptionOrNull())
+        assertIs<RegistryUpdateException.NotNewer>(RegistryUpdate.install(signedAt(6), keys, baked, dir, keystore).exceptionOrNull())
         RegistryUpdate.install(signedAt(8), keys, baked, dir, keystore).getOrThrow()
         assertEquals(listOf(8L), keystore.registryMacKeySeqs())
         assertFalse(view().installedUpdateUnverified)

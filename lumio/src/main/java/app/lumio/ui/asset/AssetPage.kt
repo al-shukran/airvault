@@ -61,8 +61,8 @@ internal data class CoinHeld(val amount: String, val summary: String, val value:
 /** A price's change over the chart's window: its text, and whether it rose. */
 internal data class PriceChange(val text: String, val rising: Boolean)
 
-/** An account that the Send and Receive pickers offer: its [title] and [detail], what it holds in [trailing], and what each action opens. */
-internal class CoinAccount(val title: String, val detail: String, val trailing: String?, val onSend: () -> Unit, val onReceive: () -> Unit)
+/** An account that the Send and Receive pickers offer: its [title] and [detail], what it holds in [trailing], and what each action opens. A null [onSend] is an account that cannot send the coin. */
+internal class CoinAccount(val title: String, val detail: String, val trailing: String?, val onSend: (() -> Unit)?, val onReceive: () -> Unit)
 
 /** The picker that the Send or the Receive action opened. */
 private enum class CoinPicker { SEND, RECEIVE }
@@ -72,7 +72,8 @@ private enum class CoinPicker { SEND, RECEIVE }
  * the watchlist star and the lock, and stays put while the rest scrolls. Under it come the price and its change, the tick chart, the range row, Send
  * and Receive, the holdings row that opens Holdings Breakdown, and the coin's activity. Send and Receive open a picker of the [accounts] that can hold
  * the coin. [held] is null for a coin nobody holds: the page then makes Receive the capsule, as the Account page does for a zero balance. A missing
- * [priceText] reads as a dash, because no price is read yet.
+ * [priceText] reads as a dash, because no price is read yet. With [priceOnly], which is a coin opened with no wallet paired, the page keeps the price, the
+ * chart and the range row, and leaves out Send and Receive, the holdings and the activity.
  */
 @Composable
 internal fun AssetPage(
@@ -86,6 +87,7 @@ internal fun AssetPage(
     onRange: (ChartFrame) -> Unit,
     watched: Boolean,
     onWatch: () -> Unit,
+    priceOnly: Boolean = false,
     held: CoinHeld?,
     onHoldings: () -> Unit,
     accounts: List<CoinAccount>,
@@ -95,6 +97,7 @@ internal fun AssetPage(
     activity: @Composable () -> Unit,
 ) {
     val palette = LocalClearAirPalette.current
+    val senders = accounts.filter { it.onSend != null }
     var picker by remember { mutableStateOf<CoinPicker?>(null) }
     // The picker sheets are composed on the first open, not on the page's first frame. A tap composes them hidden, then the picker opens a frame
     // later, so the sheet still slides in.
@@ -133,12 +136,13 @@ internal fun AssetPage(
                 }
                 TickChart(series = series ?: PriceSeries(emptyList()), modifier = Modifier.padding(top = ClearAirSpacing.md))
                 RangeRow(selected = range, onSelect = onRange, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
-                Row(
+                if (!priceOnly) Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (held == null) {
+                    if (held == null || senders.isEmpty()) {
                         ClearAirCapsuleSmall(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE)
+                        if (senders.isEmpty()) return@Row
                         Spacer(Modifier.width(ClearAirSpacing.md))
                         ClearAirTextAction(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND)
                     } else {
@@ -148,6 +152,7 @@ internal fun AssetPage(
                     }
                 }
             }
+            if (priceOnly) return@LazyColumn
             item {
                 held?.let { coin ->
                     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter)) {
@@ -176,12 +181,12 @@ internal fun AssetPage(
                 groups = listOf(
                     ChoiceGroup(
                         null,
-                        accounts.map { account ->
+                        senders.map { account ->
                             ChoiceRow(
                                 title = account.title,
                                 detail = account.detail,
                                 trailing = account.trailing,
-                                onPick = { picker = null; account.onSend() },
+                                onPick = { picker = null; account.onSend?.invoke() },
                             )
                         },
                     ),

@@ -4,6 +4,9 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.performClick
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -15,9 +18,15 @@ import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultLayout
 import app.lensly.ui.theme.ClearAirTheme
+import app.lumio.data.cache.CachePolicy
+import app.lumio.data.cache.jsonCodec
+import app.lumio.data.price.priceKeyOf
+import app.lumio.data.provider.PriceQuote
+import app.lumio.watchlist.FIRST_RUN_ASSETS
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Rule
@@ -68,6 +77,47 @@ class HomeUnpairedWatchlistTest {
         compose.onAllNodesWithText("Watchlist · 4", ignoreCase = true).assertCountEquals(1)
         for (name in listOf("Bitcoin", "Ethereum", "Solana", "Algorand")) compose.onAllNodesWithText(name).assertCountEquals(1)
         compose.onAllNodesWithText("Send").assertCountEquals(1)
+    }
+
+    @Test
+    fun tappingAWatchlistRowWithNoWalletPairedOpensThePriceOnlyAssetPage() {
+        openVault()
+        val bitcoin = FIRST_RUN_ASSETS.first()
+        runBlocking {
+            val cache = assertNotNull(app.lumioVault()).cache
+            cache.put(CachePolicy.LastKnown, assertNotNull(priceKeyOf(bitcoin.assetId)), jsonCodec<PriceQuote>().encode(PriceQuote(usd = 65_432.1, change24hPct = 1.5, asOfMs = 1_000L)))
+        }
+        lateinit var nav: NavHostController
+        compose.setContent {
+            ClearAirTheme {
+                nav = rememberNavController()
+                NavHost(navController = nav, startDestination = LumioRoute.HOME) {
+                    composable(LumioRoute.HOME) {
+                        HomeRoute(navController = nav, holder = app.vaultHolder, selection = NetworkSelection(), listVersion = 0, onLock = {})
+                    }
+                    composable(LumioRoute.COIN_PRICE, arguments = coinAssetArguments()) { entry ->
+                        AssetRoute(
+                            navController = nav,
+                            holder = app.vaultHolder,
+                            selection = NetworkSelection(),
+                            listVersion = 0,
+                            walletId = null,
+                            asset = entry.coinAsset(),
+                            onLock = {},
+                        )
+                    }
+                }
+            }
+        }
+        compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithText("Add to Watchlist").fetchSemanticsNodes().isNotEmpty() }
+
+        compose.onAllNodesWithText("Bitcoin").onFirst().performClick()
+
+        compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithText("Bitcoin · BTC", ignoreCase = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
+        assertEquals(LumioRoute.COIN_PRICE, nav.currentDestination?.route)
+        compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithText("65,432", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        for (held in listOf("Your BTC", "Send BTC", "Receive", "Activity")) compose.onAllNodesWithText(held).assertCountEquals(0)
     }
 
     /** Opens a vault with no wallet paired, as the one Device Protection makes before the first pairing. */

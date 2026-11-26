@@ -52,7 +52,7 @@ import kotlinx.coroutines.launch
 /**
  * The Home tab: Send and Receive, and the app's watchlist with each asset's price, its 24 h change and its day's tick chart. The prices and
  * the charts come from the open vault's shared board, so Home shows the last ones kept on its first frame, and each visit asks the sources again. The
- * The watchlist shows with no wallet paired. The active wallet is the one the profile panel chose, or the first paired wallet. Send opens the Recipient step of the send from the wallet's first account
+ * The watchlist shows with no wallet paired, and a row then opens the Asset page as a price only. The active wallet is the one the profile panel chose, or the first paired wallet. Send opens the Recipient step of the send from the wallet's first account
  * that holds some coin, and Receive opens the Receive sheet over Home, which asks for the asset first. Add opens the Add to Watchlist page.
  */
 @Composable
@@ -111,11 +111,13 @@ internal fun HomeRoute(
                     onAdd = { navController.navigate(LumioRoute.WATCHLIST_ADD) },
                     onRestore = { board.changeWatchlist { list -> list.copy(assets = FIRST_RUN_ASSETS) } },
                     onOpen = { asset ->
-                        wallet?.let {
+                        if (wallet == null) {
+                            navController.navigate(LumioRoute.price(asset))
+                        } else {
                             scope.launch {
                                 val vault = app.lumioVault()
                                 if (vault != null) CoinActivityPreload.preload(app, vault, CoinActivityKey(asset, selection.mode, includeSpam))
-                                navController.navigate(LumioRoute.coin(it.id, asset))
+                                navController.navigate(LumioRoute.coin(wallet.id, asset))
                             }
                         }
                     },

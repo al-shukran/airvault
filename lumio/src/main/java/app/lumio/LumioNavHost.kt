@@ -196,6 +196,12 @@ internal object LumioRoute {
     /** The Asset page (C4) of a coin across one wallet, opened from Home, Search and the watchlist. */
     const val COIN = "coin/{$WALLET_ARG}/{$COIN_CHAIN_ARG}/{$COIN_TESTNET_ARG}/{$COIN_CONTRACT_ARG}"
 
+    /** The Asset page of a coin with no wallet paired: its price only. It takes the coin's arguments. */
+    const val COIN_PRICE = "price/{$COIN_CHAIN_ARG}/{$COIN_TESTNET_ARG}/{$COIN_CONTRACT_ARG}"
+
+    /** The route of the price-only Asset page of [asset]. */
+    fun price(asset: WatchedAsset): String = "price/${coinSegments(asset)}"
+
     /** The route of the Asset page of [asset] across the wallet [walletId]. */
     fun coin(walletId: String, asset: WatchedAsset): String = "coin/$walletId/${coinSegments(asset)}"
 
@@ -588,6 +594,19 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                         selection = selection,
                         listVersion = listVersion,
                         walletId = entry.coinWallet(),
+                        asset = entry.coinAsset(),
+                        onLock = { lock() },
+                    )
+                }
+            }
+            lumioComposable(route = LumioRoute.COIN_PRICE, arguments = coinAssetArguments()) { entry ->
+                LumioBackdrop(selection) {
+                    AssetRoute(
+                        navController = navController,
+                        holder = holder,
+                        selection = selection,
+                        listVersion = listVersion,
+                        walletId = null,
                         asset = entry.coinAsset(),
                         onLock = { lock() },
                     )

@@ -77,10 +77,15 @@ object RegistryUpdate {
     /**
      * Stores [bytes] as the installed package in [dir] when they verify and their sequence is higher than the last
      * accepted one, which is the highest of the sealed floor, the Keystore's newest floor key and the installed package's own sequence.
-     * An older or equal sequence is refused with [RegistryUpdateException.NotNewer]. A directory that exists but holds a package
+     * An older sequence is refused with [RegistryUpdateException.NotNewer], and so is an equal one while the seal verifies. When no seal
+     * verifies, an equal sequence is accepted and sealed again: a crash between making the Keystore key and writing the seal, or a lost
+     * key, would otherwise leave the store unverified until a higher package arrives. A directory that exists but holds a package
      * that cannot be read, and no floor anywhere, is [RegistryUpdateException.SequenceUnknown], not "nothing accepted yet": deleting
      * the files must not lower the floor. The files and the seal are written one by one. When a write fails, the files already written
      * are put back as they were and the new Keystore key is deleted, so a failure leaves nothing stored and the result says so.
+     * Accepting an equal sequence while no seal verifies assumes the publisher never issues two different packages with one
+     * sequence. Such a same-sequence recovery resets the whitelist carrier, so a kept whitelist from an earlier package is dropped
+     * until a package carrying a whitelist is installed.
      */
     fun install(
         bytes: ByteArray,
@@ -95,7 +100,8 @@ object RegistryUpdate {
             val prior = sealOf(dir, keystore)
             val newest = RegistrySeal.newestFloor(keystore)
             val accepted = acceptedSequence(dir, trustedKeys, prior, newest)
-            if (incoming.sequence <= accepted) {
+            // With no verified seal the same sequence is accepted once more, to seal again after a crash or a lost key.
+            if (incoming.sequence < accepted || (incoming.sequence == accepted && prior != null)) {
                 throw RegistryUpdateException.NotNewer(accepted, incoming.sequence)
             }
             val created = !dir.isDirectory

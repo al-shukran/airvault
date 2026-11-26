@@ -74,7 +74,7 @@ internal fun ShowSecretRoute(navController: NavHostController, holder: VaultHold
         }
     }
     // The tries left are read each time the App Password is asked, so the warning counts the wrong tries just made.
-    LaunchedEffect(awaitingPassword) { if (awaitingPassword) triesLeft = holder.vault.triesBeforeErase() }
+    LaunchedEffect(awaitingPassword) { if (awaitingPassword) triesLeft = holder.triesBeforeErase() }
     // A lock has its own navigation, so LOCKED does nothing here.
     LaunchedEffect(step) {
         when ((step as? RevealStep.Cleared)?.reason) {
