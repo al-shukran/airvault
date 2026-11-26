@@ -16,20 +16,20 @@ class WatchlistTest {
 
     @Test
     fun marketCapKeepsTheOrderTheAssetsWereStarredIn() {
-        val list = WalletWatchlist(assets = listOf(solana, bitcoin, ethereum), sort = WatchlistSort.MARKET_CAP)
+        val list = Watchlist(assets = listOf(solana, bitcoin, ethereum), sort = WatchlistSort.MARKET_CAP)
         assertEquals(listOf(solana, bitcoin, ethereum), list.ordered { null })
     }
 
     @Test
     fun changeSortPutsTheBiggestGainFirstAndAnAssetWithNoChangeLast() {
         val changes = mapOf(bitcoin to 1.82, ethereum to -2.41, solana to null)
-        val list = WalletWatchlist(assets = listOf(ethereum, solana, bitcoin), sort = WatchlistSort.CHANGE_24H)
+        val list = Watchlist(assets = listOf(ethereum, solana, bitcoin), sort = WatchlistSort.CHANGE_24H)
         assertEquals(listOf(bitcoin, ethereum, solana), list.ordered { changes[it] })
     }
 
     @Test
     fun starringAnAssetAddsItAfterTheOthersAndStarringItAgainRemovesIt() {
-        val list = WalletWatchlist(assets = listOf(bitcoin, solana), sort = WatchlistSort.CHANGE_24H)
+        val list = Watchlist(assets = listOf(bitcoin, solana), sort = WatchlistSort.CHANGE_24H)
         val starred = list.toggled(ethereum)
         assertEquals(listOf(bitcoin, solana, ethereum), starred.assets)
         assertEquals(WatchlistSort.CHANGE_24H, starred.sort)
@@ -55,7 +55,7 @@ class WatchlistTest {
         val asa = WatchedAsset(NetworkId(Networks.ALGO_MAINNET, testnet = false), contract = "31566704")
         assertEquals(AssetId.Spl(solana.network, mint), spl.assetId)
         assertEquals(AssetId.Asa(asa.network, 31566704UL), asa.assetId)
-        val record = Json.encodeToString(WalletWatchlist.serializer(), WalletWatchlist(assets = listOf(spl, asa)))
-        assertEquals(listOf(spl, asa), Json.decodeFromString(WalletWatchlist.serializer(), record).assets)
+        val record = Json.encodeToString(Watchlist.serializer(), Watchlist(assets = listOf(spl, asa)))
+        assertEquals(listOf(spl, asa), Json.decodeFromString(Watchlist.serializer(), record).assets)
     }
 }

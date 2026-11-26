@@ -50,9 +50,9 @@ import java.util.Locale
 import kotlinx.coroutines.launch
 
 /**
- * The Home tab: Send and Receive, and the watchlist of the active wallet with each asset's price, its 24 h change and its day's tick chart. The prices and
+ * The Home tab: Send and Receive, and the app's watchlist with each asset's price, its 24 h change and its day's tick chart. The prices and
  * the charts come from the open vault's shared board, so Home shows the last ones kept on its first frame, and each visit asks the sources again. The
- * active wallet is the one the profile panel chose, or the first paired wallet. Send opens the Recipient step of the send from the wallet's first account
+ * The watchlist shows with no wallet paired. The active wallet is the one the profile panel chose, or the first paired wallet. Send opens the Recipient step of the send from the wallet's first account
  * that holds some coin, and Receive opens the Receive sheet over Home, which asks for the asset first. Add opens the Add to Watchlist page.
  */
 @Composable
@@ -76,7 +76,7 @@ internal fun HomeRoute(
     val view = board.view
     val wallet = view?.wallets?.active(selection) { it.id }
     val testnet = selection.mode == NetworkMode.TESTNET
-    val watchlist = wallet?.let { board.watchlists[it.id] }
+    val watchlist = board.watchlist
     val sort = watchlist?.sort ?: WatchlistSort.MARKET_CAP
     val fiat = LocalFiat.current
     val watched = watchlist?.ordered { board.prices[it.assetId]?.change24hPct }
@@ -109,7 +109,7 @@ internal fun HomeRoute(
                     },
                     onSort = { sortOpen = true },
                     onAdd = { navController.navigate(LumioRoute.WATCHLIST_ADD) },
-                    onRestore = wallet?.let { active -> { board.changeWatchlist(active.id) { list -> list.copy(assets = FIRST_RUN_ASSETS) } } },
+                    onRestore = { board.changeWatchlist { list -> list.copy(assets = FIRST_RUN_ASSETS) } },
                     onOpen = { asset ->
                         wallet?.let {
                             scope.launch {
@@ -133,7 +133,7 @@ internal fun HomeRoute(
                 selected = sort,
                 onSelect = { next ->
                     sortOpen = false
-                    wallet?.let { board.changeWatchlist(it.id) { list -> list.copy(sort = next) } }
+                    board.changeWatchlist { list -> list.copy(sort = next) }
                 },
                 onClose = { sortOpen = false },
             )

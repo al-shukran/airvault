@@ -9,9 +9,9 @@ import app.lumio.data.provider.MarketCoin
 import app.lumio.data.provider.MarketCoins
 import app.lumio.ui.search.topCandidates
 import app.lumio.watchlist.CoinIndex
-import app.lumio.watchlist.WalletWatchlist
 import app.lumio.watchlist.WatchedAsset
 import app.lumio.watchlist.WatchedLabel
+import app.lumio.watchlist.Watchlist
 import app.lumio.watchlist.toggled
 import app.lumio.watchlist.topList
 import org.junit.Assert.assertEquals
@@ -30,7 +30,7 @@ class CoinNamesTest {
     private fun starred(id: String, name: String, symbol: String, contract: String): WatchedLabel {
         val index = CoinIndex.of(CoinDirectory(listOf(DirectoryCoin(id, name, symbol, mapOf("eip155:1" to contract))), 0L)) { it == 1L }
         val row = topCandidates(topList(MarketCoins(listOf(MarketCoin(id, name, symbol, 3, "https://img/$id")), 0L), index) { it == 1L }).single()
-        return WalletWatchlist().toggled(row.asset, row.label).labels.getValue(row.asset.key)
+        return Watchlist().toggled(row.asset, row.label).labels.getValue(row.asset.key)
     }
 
     @Test

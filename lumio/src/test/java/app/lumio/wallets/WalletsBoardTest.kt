@@ -32,15 +32,14 @@ import app.lumio.tokens.CustomTokenStore
 import app.lumio.tokens.Token
 import app.lumio.tokens.TokenBalanceCache
 import app.lumio.watchlist.FIRST_RUN_ASSETS
-import app.lumio.watchlist.WalletWatchlist
+import app.lumio.watchlist.Watchlist
 import app.lumio.watchlist.WatchedAsset
+import app.lumio.watchlist.WatchlistSort
 import app.lumio.watchlist.WatchlistStore
 import app.lumio.watchlist.toggled
 import com.sparrowwallet.hummingbird.UR
 import java.io.File
 import java.math.BigInteger
-import kotlin.concurrent.thread
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -96,13 +95,29 @@ class WalletsBoardTest {
         val database = LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "market.db"))
         val vault = LumioVault(session, database)
         PairedWallets.save(session, pairing(), nowMs = 100L)
-        val wallet = PairedWallets.list(session).single()
         // No source is asked: the watchlist comes from the vault, so Home shows it on its first frame.
         val app = RuntimeEnvironment.getApplication() as LumioApp
         val board = WalletsBoard(app, vault, repository = PriceRepository(app.priceScheduler) { vault.cache }) { emptyMap<AssetId, Price>() }
         board.showSide(mode, listVersion = 0)
 
-        assertEquals(WalletWatchlist(assets = FIRST_RUN_ASSETS), await { board.watchlists[wallet.id] })
+        assertEquals(Watchlist(assets = FIRST_RUN_ASSETS), await { board.watchlist })
+
+        board.close()
+        database.close()
+        session.close()
+    }
+
+    @Test
+    fun theBoardShowsTheWatchlistWithNoWalletPaired() {
+        val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 5 + 2).toByte() })
+        val database = LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "unpaired.db"))
+        val vault = LumioVault(session, database)
+        val app = RuntimeEnvironment.getApplication() as LumioApp
+        val board = WalletsBoard(app, vault, repository = PriceRepository(app.priceScheduler) { vault.cache }) { emptyMap<AssetId, Price>() }
+        board.showSide(mode, listVersion = 0)
+
+        assertEquals(Watchlist(assets = FIRST_RUN_ASSETS), await { board.watchlist })
+        assertEquals(emptyList<Any>(), board.view!!.wallets)
 
         board.close()
         database.close()
@@ -137,102 +152,47 @@ class WalletsBoardTest {
     }
 
     @Test
-    fun aWalletPairedAgainAfterItsDeletionDoesNotShowTheDeletedWatchlist() {
+    fun theWatchlistSurvivesPairingPairingAgainAndForgettingAWallet() {
         // A padded vault, as production keeps one: a deleted wallet's slot is the one the next pairing takes, so the id comes back.
         val layout = VaultLayout(tmp.root)
         val keys = MemoryKeystore()
         val key = ByteArray(32) { (it * 3 + 2).toByte() }
         val session = VaultSession(layout, keys, key, pad = WalletPad(layout, keys, key.copyOf(), section = 0))
-        val database = LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "repair.db"))
+        val database = LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "survive.db"))
         val vault = LumioVault(session, database)
         val app = RuntimeEnvironment.getApplication() as LumioApp
-        PairedWallets.save(session, pairing(), nowMs = 100L)
-        val wallet = PairedWallets.list(session).single()
-        val starred = WalletWatchlist(assets = listOf(WatchedAsset(NetworkId(Networks.evm(10143), testnet = true))))
-        WatchlistStore.write(session, wallet.id, starred)
         val board = WalletsBoard(app, vault, repository = PriceRepository(app.priceScheduler) { vault.cache }) { emptyMap<AssetId, Price>() }
         vault.wallets = board
         board.showSide(mode, listVersion = 0)
-        assertEquals(starred, await { board.watchlists[wallet.id] })
+        await { board.watchlist }
+        val starred = Watchlist(assets = FIRST_RUN_ASSETS + WatchedAsset(NetworkId(Networks.evm(10143), testnet = true)), sort = WatchlistSort.CHANGE_24H)
+        board.changeWatchlist { starred }
+        assertEquals(starred, await { board.watchlist?.takeIf { it == starred } })
 
-        // The wallet is deleted, then paired again under the same id. Its list must not come back from the board's memory.
-        PairedWallets.delete(session, wallet.id)
-        runBlocking { removeWalletHistory(vault, wallet) }
-        PairedWallets.save(session, pairing(), nowMs = 200L)
-        assertEquals(wallet.id, PairedWallets.list(session).single().id)
+        // Pairing a wallet leaves the list as it is.
+        PairedWallets.save(session, pairing(), nowMs = 100L)
+        val wallet = PairedWallets.list(session).single()
         board.showSide(mode, listVersion = 1)
+        await { board.view?.wallets?.singleOrNull() }
+        assertEquals(starred, board.watchlist)
 
-        assertEquals(WalletWatchlist(assets = FIRST_RUN_ASSETS), await { board.watchlists[wallet.id] })
-
-        board.close()
-        database.close()
-        session.close()
-    }
-
-    @Test
-    fun aReadInFlightWhenItsWalletIsDeletedDoesNotBringTheWatchlistBack() {
-        // A padded vault, as production keeps one, so the deleted wallet's id is the one a later pairing could take.
-        val layout = VaultLayout(tmp.root)
-        val keys = MemoryKeystore()
-        val key = ByteArray(32) { (it * 11 + 5).toByte() }
-        val session = VaultSession(layout, keys, key, pad = WalletPad(layout, keys, key.copyOf(), section = 0))
-        val database = LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "inflight.db"))
-        val vault = LumioVault(session, database)
-        val app = RuntimeEnvironment.getApplication() as LumioApp
-        PairedWallets.save(session, pairing(), nowMs = 100L)
-        val wallet = PairedWallets.list(session).single()
-        WatchlistStore.write(session, wallet.id, WalletWatchlist(assets = listOf(WatchedAsset(NetworkId(Networks.evm(10143), testnet = true)))))
-        // The board's first read holds at its price read until the test releases it, so the deletion lands while the read is in flight.
-        val started = CompletableDeferred<Unit>()
-        val release = CompletableDeferred<Unit>()
-        var holding = true
-        val board = WalletsBoard(app, vault, repository = PriceRepository(app.priceScheduler) { vault.cache }) { _ ->
-            if (holding) {
-                holding = false
-                started.complete(Unit)
-                release.await()
-            }
-            emptyMap<AssetId, Price>()
-        }
-        vault.wallets = board
-        board.showSide(mode, listVersion = 0)
-        await { if (started.isCompleted) Unit else null }
-
+        // So does pairing it again, and so does forgetting it.
+        PairedWallets.save(session, pairing(), nowMs = 150L)
+        board.showSide(mode, listVersion = 2)
+        assertEquals(starred, board.watchlist)
         PairedWallets.delete(session, wallet.id)
         runBlocking { removeWalletHistory(vault, wallet) }
-        release.complete(Unit)
-        settle()
+        board.showSide(mode, listVersion = 3)
+        await { board.view?.takeIf { it.wallets.isEmpty() } }
+        assertEquals(starred, board.watchlist)
+        assertEquals(starred, WatchlistStore.read(session))
 
-        assertNull(board.watchlists[wallet.id])
+        // A list read again from the vault is the same, so a board that opens later shows it too.
+        val reopened = WalletsBoard(app, vault, repository = PriceRepository(app.priceScheduler) { vault.cache }) { emptyMap<AssetId, Price>() }
+        reopened.showSide(mode, listVersion = 0)
+        assertEquals(starred, await { reopened.watchlist })
 
-        board.close()
-        database.close()
-        session.close()
-    }
-
-    @Test
-    fun aDeletionOnAWorkerThreadChangesTheBoardOnlyWhenTheMainThreadRunsIt() {
-        val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 13 + 7).toByte() })
-        val database = LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "worker.db"))
-        val vault = LumioVault(session, database)
-        val app = RuntimeEnvironment.getApplication() as LumioApp
-        PairedWallets.save(session, pairing(), nowMs = 100L)
-        val wallet = PairedWallets.list(session).single()
-        val starred = WalletWatchlist(assets = listOf(WatchedAsset(NetworkId(Networks.evm(10143), testnet = true))))
-        WatchlistStore.write(session, wallet.id, starred)
-        val board = WalletsBoard(app, vault, repository = PriceRepository(app.priceScheduler) { vault.cache }) { emptyMap<AssetId, Price>() }
-        vault.wallets = board
-        board.showSide(mode, listVersion = 0)
-        assertEquals(starred, await { board.watchlists[wallet.id] })
-
-        // The vault's deletion runs on Dispatchers.IO, so the forget comes from a worker thread. The board's state is the main thread's, so the worker
-        // must leave the change to Main: the list stays until the main looper runs.
-        thread { runBlocking { removeWalletHistory(vault, wallet) } }.join()
-        assertEquals(starred, board.watchlists[wallet.id])
-
-        shadowOf(Looper.getMainLooper()).idle()
-        assertNull(board.watchlists[wallet.id])
-
+        reopened.close()
         board.close()
         database.close()
         session.close()
@@ -245,20 +205,19 @@ class WalletsBoardTest {
         val vault = LumioVault(session, database)
         val app = RuntimeEnvironment.getApplication() as LumioApp
         PairedWallets.save(session, pairing(), nowMs = 100L)
-        val wallet = PairedWallets.list(session).single()
         val board = WalletsBoard(app, vault, repository = PriceRepository(app.priceScheduler) { vault.cache }) { emptyMap<AssetId, Price>() }
         vault.wallets = board
         board.showSide(mode, listVersion = 0)
-        await { board.watchlists[wallet.id] }
+        await { board.watchlist }
         val first = WatchedAsset(NetworkId(Networks.evm(10143), testnet = true))
         val second = WatchedAsset(NetworkId(Networks.evm(1), testnet = true))
 
         // Both taps come before the main looper runs, so neither has seen the other's write.
-        board.changeWatchlist(wallet.id) { it.toggled(first) }
-        board.changeWatchlist(wallet.id) { it.toggled(second) }
-        val both = WalletWatchlist(assets = FIRST_RUN_ASSETS + first + second)
-        assertEquals(both, await { board.watchlists[wallet.id]?.takeIf { it == both } })
-        assertEquals(both, WatchlistStore.read(session, wallet.id))
+        board.changeWatchlist { it.toggled(first) }
+        board.changeWatchlist { it.toggled(second) }
+        val both = Watchlist(assets = FIRST_RUN_ASSETS + first + second)
+        assertEquals(both, await { board.watchlist?.takeIf { it == both } })
+        assertEquals(both, WatchlistStore.read(session))
 
         board.close()
         database.close()
@@ -272,41 +231,20 @@ class WalletsBoardTest {
         val vault = LumioVault(session, database)
         val app = RuntimeEnvironment.getApplication() as LumioApp
         PairedWallets.save(session, pairing(), nowMs = 100L)
-        val wallet = PairedWallets.list(session).single()
-        val damaged = """{"format":2,"wallets":{"kept":{"assets":"all"}}}"""
+        val damaged = """{"format":3,"watchlist":{"assets":"all"}}"""
         session.putVaultRecord(WatchlistStore.RECORD, damaged.encodeToByteArray())
         val board = WalletsBoard(app, vault, repository = PriceRepository(app.priceScheduler) { vault.cache }) { emptyMap<AssetId, Price>() }
         vault.wallets = board
         board.showSide(mode, listVersion = 0)
-        val shown = await { board.watchlists[wallet.id] }
+        val shown = await { board.watchlist }
 
-        board.changeWatchlist(wallet.id) { it.toggled(WatchedAsset(NetworkId(Networks.evm(10143), testnet = true))) }
+        board.changeWatchlist { it.toggled(WatchedAsset(NetworkId(Networks.evm(10143), testnet = true))) }
         settle()
 
-        assertEquals(shown, board.watchlists[wallet.id])
+        assertEquals(shown, board.watchlist)
         assertEquals(damaged, session.getVaultRecord(WatchlistStore.RECORD)?.decodeToString())
 
         board.close()
-        database.close()
-        session.close()
-    }
-
-    @Test
-    fun aWalletWhoseWatchlistRecordDoesNotParseIsDeletedAllTheSame() {
-        val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 23 + 9).toByte() })
-        val database = LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "damaged.db"))
-        val vault = LumioVault(session, database)
-        PairedWallets.save(session, pairing(), nowMs = 100L)
-        val wallet = PairedWallets.list(session).single()
-        val damaged = """{"format":2,"wallets":{"kept":{"assets":"all"}}}"""
-        session.putVaultRecord(WatchlistStore.RECORD, damaged.encodeToByteArray())
-
-        PairedWallets.delete(session, wallet.id)
-        runBlocking { removeWalletHistory(vault, wallet) }
-
-        assertEquals(emptyList<String>(), PairedWallets.list(session).map { it.id })
-        assertEquals(damaged, session.getVaultRecord(WatchlistStore.RECORD)?.decodeToString())
-
         database.close()
         session.close()
     }

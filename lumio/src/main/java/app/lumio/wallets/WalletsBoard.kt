@@ -24,17 +24,15 @@ import app.lumio.data.scan.ScanEvent
 import app.lumio.evm.EvmCatalog
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.network.NetworkMode
-import app.lumio.pair.PairedWallet
-import app.lumio.pair.PairedWallets
 import app.lumio.tokens.TokenBalanceCache
 import app.lumio.tokens.TokenHolding
 import app.lumio.tokens.TokenPortfolio
 import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.wallets.AssetRows
 import app.lumio.watchlist.FIRST_RUN_ASSETS
-import app.lumio.watchlist.WalletWatchlist
 import app.lumio.watchlist.WatchedAsset
 import app.lumio.watchlist.WatchedLabel
+import app.lumio.watchlist.Watchlist
 import app.lumio.watchlist.WatchlistStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -58,19 +56,17 @@ private const val REFRESH_NOTICE = "Some balances could not be refreshed. The la
 
 /**
  * What a read of the vault gives the screens: the balances of one side, the tokens of its Ethereum accounts with their dollars, and the market figures
- * the vault kept last: the watchlists of the shown wallets, the last prices of their assets and the trending coins.
+ * the vault kept last: the watchlist, the last prices of its assets and the trending coins.
  */
 private class Loaded(
     val view: WalletsView,
     val tokenCounts: Map<WalletAccount, Int>,
     val tokenUsd: Map<WalletAccount, Double>,
     val tokenHeld: Map<WalletAccount, List<TokenHolding>>,
-    val watchlists: Map<String, WalletWatchlist>,
+    val watchlist: Watchlist,
     val prices: Map<AssetId, Price>,
     val trending: Kept<TrendingList>?,
     val dayCharts: Map<AssetId, PriceSeries>,
-    /** [WalletsBoard.forgets] when the read began. A wallet forgotten since may still be in the read's view and watchlists. */
-    val forgets: Int,
 )
 
 /**
@@ -132,9 +128,6 @@ internal class WalletsBoard(
     /** Takes turns between the watchlist changes, so each one starts from the list the one before it stored. */
     private val writes = Mutex()
 
-    /** Counts the forgotten watchlists. A read that began before a forget may hold the forgotten wallet, so [show] drops it. */
-    private var forgets = 0
-
     /** The balances of the side, or null until its first read lands. */
     var view by mutableStateOf<WalletsView?>(null)
         private set
@@ -178,12 +171,12 @@ internal class WalletsBoard(
     var updatedAtMs by mutableStateOf<Long?>(null)
         private set
 
-    /** The watchlist of each shown wallet, by wallet id. A wallet with no stored list has [FIRST_RUN_ASSETS]. */
-    var watchlists by mutableStateOf<Map<String, WalletWatchlist>>(emptyMap())
+    /** The watchlist of the app, paired wallet or none, or null until it is read. With none stored it has [FIRST_RUN_ASSETS]. */
+    var watchlist by mutableStateOf<Watchlist?>(null)
         private set
 
-    /** The names and logo kept with [asset] when a wallet starred it from Add to Watchlist, or null when none was kept. */
-    fun labelOf(asset: WatchedAsset): WatchedLabel? = watchlists.values.firstNotNullOfOrNull { it.labels[asset.key] }
+    /** The names and logo kept with [asset] when it was starred from Add to Watchlist, or null when none was kept. */
+    fun labelOf(asset: WatchedAsset): WatchedLabel? = watchlist?.labels?.get(asset.key)
 
     /** The USD price of each watched asset: the last one kept, then the one a source answers now. */
     var prices by mutableStateOf<Map<AssetId, Price>>(emptyMap())
@@ -397,30 +390,19 @@ internal class WalletsBoard(
     }
 
     /**
-     * Applies [change] to the watchlist of [walletId], stores the result in the vault, shows it, and reads the prices of the assets it adds. Changes take
-     * turns, and each starts from the list the one before it left, so two taps in quick succession both land. A vault that refuses the write, because
-     * the stored watchlists do not parse, keeps what it holds, and the board shows the same.
+     * Applies [change] to the watchlist, stores the result in the vault, shows it, and reads the prices of the assets it adds. Changes take turns, and each
+     * starts from the list the one before it left, so two taps in quick succession both land. A vault that refuses the write, because the stored watchlist
+     * does not parse, keeps what it holds, and the board shows the same.
      */
-    fun changeWatchlist(walletId: String, change: (WalletWatchlist) -> WalletWatchlist) {
+    fun changeWatchlist(change: (Watchlist) -> Watchlist) {
         scope.launch {
             writes.withLock {
-                val next = change(watchlists[walletId] ?: WalletWatchlist(assets = FIRST_RUN_ASSETS))
-                val saved = withContext(Dispatchers.IO) { runCatching { WatchlistStore.write(session, walletId, next) }.isSuccess }
+                val next = change(watchlist ?: withContext(Dispatchers.IO) { WatchlistStore.read(session) })
+                val saved = withContext(Dispatchers.IO) { runCatching { WatchlistStore.write(session, next) }.isSuccess }
                 if (!saved) return@launch
-                watchlists = watchlists + (walletId to next)
+                watchlist = next
             }
             refreshPrices()
-        }
-    }
-
-    /**
-     * Drops the watchlist of [walletId] from memory when the wallet is deleted, so a wallet paired again under the same id starts from the vault's copy.
-     * The deletion calls it from a background thread, so the change runs on the board's main scope, where the board's state is kept.
-     */
-    fun forgetWatchlist(walletId: String) {
-        scope.launch {
-            forgets++
-            watchlists = watchlists - walletId
         }
     }
 
@@ -437,22 +419,10 @@ internal class WalletsBoard(
     }
 
     /**
-     * The assets the watchlists of every paired wallet watch, each once. The vault is read rather than the board's view, so a read that starts before the
-     * balances land still covers the lists.
+     * The assets the watchlist watches, with no wallet paired or more. The vault is read rather than the board's copy, so a read that starts before the
+     * list lands still covers it.
      */
-    private suspend fun watchedAssets(): List<AssetId> = withContext(Dispatchers.IO) {
-        assetsOf(watchlistsOf(PairedWallets.list(session)))
-    }
-
-    /** The watchlist of each of [wallets], as the vault keeps it, or the first-run list for a wallet that has none. It reads the vault, so run it off the main thread. */
-    private fun watchlistsOf(wallets: List<PairedWallet>): Map<String, WalletWatchlist> {
-        val kept = WatchlistStore.readAll(session)
-        return wallets.associate { wallet -> wallet.id to (kept[wallet.id] ?: WalletWatchlist(assets = FIRST_RUN_ASSETS)) }
-    }
-
-    /** The assets that [watchlists] watch, each once. */
-    private fun assetsOf(watchlists: Map<String, WalletWatchlist>): List<AssetId> =
-        watchlists.values.flatMap { list -> list.assets.map(WatchedAsset::assetId) }.distinct()
+    private suspend fun watchedAssets(): List<AssetId> = withContext(Dispatchers.IO) { WatchlistStore.read(session).assets.map(WatchedAsset::assetId) }
 
     /** Stops the reads and drops the balances. [LumioVault] calls it when the vault locks. */
     fun close() {
@@ -470,7 +440,7 @@ internal class WalletsBoard(
         dayCharts.clear()
         pricesJob?.cancel()
         pricesJob = null
-        watchlists = emptyMap()
+        watchlist = null
         prices = emptyMap()
         trending = null
         endRefresh()
@@ -492,14 +462,13 @@ internal class WalletsBoard(
      * a home open or a refresh does; a scan that finishes alone does not, since the refresh that started it reads them once it has ended.
      */
     private fun show(mode: NetworkMode, loaded: Loaded, withAccounts: Boolean) {
-        // A read that began before a wallet was forgotten may still list it. The list change that forgot it reads again, so this read is dropped.
-        if (mode != side || loaded.forgets != forgets) return
+        if (mode != side) return
         view = loaded.view
         tokenCounts = loaded.tokenCounts
         tokenUsd = loaded.tokenUsd
         tokenHeld = loaded.tokenHeld
         // A list or price read since the vault was read is newer than the vault, so it wins.
-        watchlists = loaded.watchlists + watchlists
+        watchlist = watchlist ?: loaded.watchlist
         prices = loaded.prices + prices
         trending = loaded.trending ?: trending
         // A day chart read since the vault was read is newer than the vault's copy, so it wins.
@@ -551,25 +520,22 @@ internal class WalletsBoard(
      * no balance from the network.
      */
     private suspend fun load(mode: NetworkMode): Loaded {
-        val epoch = forgets
         val view = WalletsLoader.read(app, session, mode)
         val held = heldTokensOf(view, mode)
         val tokenPrices = repository.lastPrices(held.values.flatMap { AssetRows.tokenIds(it) })
-        val watchlists = withContext(Dispatchers.IO) { watchlistsOf(view.wallets) }
-        val (prices, trending) = withContext(Dispatchers.IO) {
-            repository.lastPrices(assetsOf(watchlists)) to repository.lastTrending()
-        }
-        val dayCharts = withContext(Dispatchers.IO) { repository.lastDayCharts(assetsOf(watchlists)) }
+        val watchlist = withContext(Dispatchers.IO) { WatchlistStore.read(session) }
+        val watched = watchlist.assets.map(WatchedAsset::assetId)
+        val (prices, trending) = withContext(Dispatchers.IO) { repository.lastPrices(watched) to repository.lastTrending() }
+        val dayCharts = withContext(Dispatchers.IO) { repository.lastDayCharts(watched) }
         return Loaded(
             view,
             tokenCounts = held.mapValues { (_, tokens) -> tokens.count { it.amount.signum() > 0 } },
             tokenUsd = held.mapNotNull { (account, tokens) -> AssetRows.tokensUsd(tokens, tokenPrices)?.let { account to it } }.toMap(),
             tokenHeld = held,
-            watchlists = watchlists,
+            watchlist = watchlist,
             prices = prices,
             trending = trending,
             dayCharts = dayCharts,
-            forgets = epoch,
         )
     }
 

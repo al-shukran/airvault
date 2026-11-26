@@ -50,9 +50,8 @@ import app.lumio.ui.settings.providerStatusWord
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletsView
 import app.lumio.watchlist.FIRST_RUN_ASSETS
-import app.lumio.watchlist.WalletWatchlist
+import app.lumio.watchlist.Watchlist
 import app.lumio.watchlist.WatchedAsset
-import app.lumio.watchlist.WatchlistStore
 import app.lumio.watchlist.toggled
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -61,8 +60,8 @@ import kotlinx.coroutines.withContext
 private typealias Open = () -> Unit
 
 /**
- * The search sheet's content, over the open vault's wallets: the coins they hold, their accounts and the chains those accounts are on, and the active
- * wallet's watchlist. Picking a result closes the sheet and opens its page. A result with no page of its own yet opens the wallet that holds it.
+ * The search sheet's content, over the open vault's wallets: the coins they hold, their accounts and the chains those accounts are on, and the
+ * watchlist. Picking a result closes the sheet and opens its page. A result with no page of its own yet opens the wallet that holds it.
  */
 @Composable
 internal fun SearchRoute(
@@ -73,19 +72,14 @@ internal fun SearchRoute(
     onClose: () -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
-    val session = holder.openSession() ?: return
+    holder.openSession() ?: return
     val board = rememberWalletsBoard(app, selection.mode, listVersion) ?: return
     val view = board.view ?: return
-    // The watchlist is the wallet's the profile panel chose, as Home shows it, and the first paired wallet until the owner chooses one.
+    // A watched coin opens on a wallet's page: the one the profile panel chose, as Home shows it, and the first paired wallet until the owner chooses one.
     val wallet = view.wallets.active(selection) { it.id }
     var query by remember { mutableStateOf("") }
     var tab by remember { mutableStateOf(SearchTab.MAIN) }
-    val watched by produceState(initialValue = emptyList<WatchedAsset>(), wallet?.id) {
-        val walletId = wallet?.id
-        value = if (walletId == null) emptyList() else withContext(Dispatchers.IO) {
-            WatchlistStore.read(session, walletId)?.assets ?: FIRST_RUN_ASSETS
-        }
-    }
+    val watched = board.watchlist?.assets.orEmpty()
     val vault = app.lumioVault()
     val providers by produceState<ProviderLists?>(initialValue = null, vault, tab) {
         if (vault != null && tab == SearchTab.PROVIDERS) value = withContext(Dispatchers.IO) { readLists(app, vault) }
@@ -119,7 +113,7 @@ internal fun SearchRoute(
 }
 
 /**
- * Add to Watchlist, over the active wallet. With no query it lists Top by Market Cap: the market source's coins by market cap that Lumio can watch,
+ * Add to Watchlist. With no query it lists Top by Market Cap: the market source's coins by market cap that Lumio can watch,
  * in the source's order, kept in the vault so the list shows on the first frame. Typing finds the coins Lumio can watch by name and ticker, as the
  * search does, one row per name; the ranks come from Top by Market Cap, then from one read of the best results' market rows. Each row's star adds the
  * asset to the watchlist, with its names and logo, or takes it off. With no market source switched on, it lists the first-run coins and the watchlist.
@@ -135,10 +129,8 @@ internal fun WatchlistAddRoute(
     val app = LocalContext.current.applicationContext as LumioApp
     holder.openSession() ?: return
     val board = rememberWalletsBoard(app, selection.mode, listVersion) ?: return
-    val view = board.view ?: return
-    val wallet = view.wallets.active(selection) { it.id } ?: return
     var query by rememberSaveable { mutableStateOf(if (DebugDemoData.flag("watchlist:search")) DEMO_QUERY else "") }
-    val current = board.watchlists[wallet.id] ?: WalletWatchlist(assets = FIRST_RUN_ASSETS)
+    val current = board.watchlist ?: Watchlist(assets = FIRST_RUN_ASSETS)
     val evm: (Long) -> Boolean = { chainId -> app.registry.network(chainId)?.testnet == false }
     val market = remember { app.prices.servesCoins() }
     val top by produceState(app.prices.knownTopCoins()) {
@@ -192,7 +184,7 @@ internal fun WatchlistAddRoute(
         },
         onToggle = { asset ->
             val label = candidates?.firstOrNull { it.asset == asset }?.label
-            board.changeWatchlist(wallet.id) { it.toggled(asset, label) }
+            board.changeWatchlist { it.toggled(asset, label) }
         },
         onBack = { navController.popBackStack() },
         onLock = onLock,
@@ -379,7 +371,7 @@ private fun addressBookEntries(view: WalletsView, openRoute: (String) -> Unit): 
     }
 }
 
-/** One entry per watched asset of the wallet [walletId], found by its name and its ticker. No wallet means no watchlist. */
+/** One entry per watched asset of the wallet [walletId], found by its name and its ticker. Without a wallet a coin has no page to open, so none is listed. */
 private fun watchEntries(assets: List<WatchedAsset>, walletId: String?, openRoute: (String) -> Unit): List<SearchEntry<Open>> {
     if (walletId == null) return emptyList()
     return assets.map { asset ->

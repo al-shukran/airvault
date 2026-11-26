@@ -7,7 +7,6 @@ import app.lumio.data.config.UnreadableRecordException
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
@@ -22,61 +21,52 @@ class WatchlistStoreTest {
         VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 7 + 3).toByte() })
     }
 
+    private val bitcoin = WatchedAsset(NetworkId(Networks.BTC_MAINNET, testnet = false))
+
     @Test
-    fun removingAWalletRemovesItsWatchlistAndKeepsTheOthers() {
-        val bitcoin = WatchedAsset(NetworkId(Networks.BTC_MAINNET, testnet = false))
-        val ethereum = WatchedAsset(NetworkId(Networks.evm(1), testnet = false))
-        val other = WalletWatchlist(assets = listOf(bitcoin), sort = WatchlistSort.CHANGE_24H)
-        WatchlistStore.write(session, "removed", WalletWatchlist(assets = listOf(ethereum)))
-        WatchlistStore.write(session, "kept", other)
-
-        WatchlistStore.remove(session, "removed")
-
-        assertNull(WatchlistStore.read(session, "removed"))
-        assertEquals(other, WatchlistStore.read(session, "kept"))
+    fun withNothingStoredTheListIsTheFirstRunAssets() {
+        assertEquals(Watchlist(assets = FIRST_RUN_ASSETS), WatchlistStore.read(session))
     }
 
     @Test
-    fun aWriteOrRemoveOnARecordThatDoesNotParseIsRefusedAndTheRecordKept() {
-        val damaged = """{"format":2,"wallets":{"kept":{"assets":"all"}}}"""
+    fun aWatchlistIsStoredAndReadBack() {
+        val list = Watchlist(assets = listOf(bitcoin), sort = WatchlistSort.CHANGE_24H)
+
+        WatchlistStore.write(session, list)
+
+        assertEquals(list, WatchlistStore.read(session))
+    }
+
+    @Test
+    fun aWriteOnARecordThatDoesNotParseIsRefusedAndTheRecordKept() {
+        val damaged = """{"format":3,"watchlist":{"assets":"all"}}"""
         session.putVaultRecord(WatchlistStore.RECORD, damaged.encodeToByteArray())
 
-        assertEquals(emptyMap<String, WalletWatchlist>(), WatchlistStore.readAll(session))
-        assertNull(WatchlistStore.read(session, "kept"))
-        assertThrows(UnreadableRecordException::class.java) { WatchlistStore.write(session, "new", WalletWatchlist()) }
-        assertThrows(UnreadableRecordException::class.java) { WatchlistStore.remove(session, "kept") }
+        assertEquals(Watchlist(assets = FIRST_RUN_ASSETS), WatchlistStore.read(session))
+        assertThrows(UnreadableRecordException::class.java) { WatchlistStore.write(session, Watchlist()) }
 
         assertEquals(damaged, session.getVaultRecord(WatchlistStore.RECORD)!!.decodeToString())
     }
 
     @Test
-    fun aRecordOfTheFirstFormatIsNotReadAndTheNextWriteReplacesIt() {
-        session.putVaultRecord(WatchlistStore.RECORD, """{"wallets":{"old":{"assets":[]}}}""".encodeToByteArray())
+    fun aRecordOfTheOneListPerWalletFormatIsNotReadAndTheNextWriteReplacesIt() {
+        session.putVaultRecord(WatchlistStore.RECORD, """{"format":2,"wallets":{"old":{"assets":[]}}}""".encodeToByteArray())
 
-        assertEquals(emptyMap<String, WalletWatchlist>(), WatchlistStore.readAll(session))
-        WatchlistStore.write(session, "new", WalletWatchlist())
+        assertEquals(Watchlist(assets = FIRST_RUN_ASSETS), WatchlistStore.read(session))
+        WatchlistStore.write(session, Watchlist())
 
-        assertEquals(mapOf("new" to WalletWatchlist()), WatchlistStore.readAll(session))
+        assertEquals(Watchlist(), WatchlistStore.read(session))
     }
 
     @Test
     fun theLabelKeptWithAStarredAssetIsStoredAndGoesWithItsStar() {
         val ousg = WatchedAsset(NetworkId(Networks.evm(1), testnet = false), "0x1b19c19393e2d034d8ff31ff34c81252fcbbee92")
         val label = WatchedLabel("OUSG", "Ondo Short-Term U.S. Government Bond Fund", "https://coin-images.coingecko.com/coins/images/1/small/ousg.png")
-        val starred = WalletWatchlist().toggled(ousg, label)
+        val starred = Watchlist().toggled(ousg, label)
 
-        WatchlistStore.write(session, "w", starred)
+        WatchlistStore.write(session, starred)
 
-        assertEquals(label, WatchlistStore.read(session, "w")!!.labels[ousg.key])
+        assertEquals(label, WatchlistStore.read(session).labels[ousg.key])
         assertEquals(emptyMap<String, WatchedLabel>(), starred.toggled(ousg).labels)
-    }
-
-    @Test
-    fun aWriteWithNoRecordSucceeds() {
-        val list = WalletWatchlist(assets = listOf(WatchedAsset(NetworkId(Networks.BTC_MAINNET, testnet = false))))
-
-        WatchlistStore.write(session, "first", list)
-
-        assertEquals(mapOf("first" to list), WatchlistStore.readAll(session))
     }
 }
