@@ -10,12 +10,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import app.lensly.app.export.PairingPayload
 import app.lensly.ui.camera.FrameSource
 import app.lensly.ui.camera.openAppSettings
+import app.lensly.ui.qr.DECODE_FAILED_TEXT
 import app.lensly.ui.qr.QrScanner
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
@@ -31,8 +36,8 @@ import app.lumio.ui.scan.rememberCameraAccess
 
 /**
  * The camera scan for a pairing code: the Pair with Lensly page, with the live camera in its frame. [progress] fills the bar for an animated code, [status]
- * says what the scan is doing, and [complete] shows the check. The page draws the whole frame, so the scanner draws none of its own. [frameSource] is for
- * tests, which pass their own frames.
+ * says what the scan is doing, and [complete] shows the check. The page draws the whole frame, so the scanner draws none of its own: while the scanner
+ * cannot read, the status line says so in place of [status]. [frameSource] is for tests, which pass their own frames.
  */
 @Composable
 fun PairScanScreen(
@@ -46,15 +51,16 @@ fun PairScanScreen(
     val camera = rememberCameraAccess(frameSource)
     val context = LocalContext.current
     val denied = camera.refused && !camera.granted
+    var unreadable by remember { mutableStateOf(false) }
     PairWithLensly(
         chrome = chrome,
         progress = progress,
-        status = status,
+        status = if (unreadable) DECODE_FAILED_TEXT else status,
         complete = complete,
         denied = denied,
         onOpenSettings = { context.openAppSettings() },
     ) { viewport ->
-        if (camera.granted) QrScanner(onText = onText, modifier = viewport, frameSource = frameSource, viewfinder = false)
+        if (camera.granted) QrScanner(onText = onText, modifier = viewport, frameSource = frameSource, viewfinder = false, onDecodeFailed = { unreadable = it })
     }
 }
 

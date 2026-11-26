@@ -12,15 +12,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.camera.FrameSource
 import app.lensly.ui.camera.openAppSettings
+import app.lensly.ui.qr.DECODE_FAILED_TEXT
 import app.lensly.ui.qr.QrScanner
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -31,8 +39,8 @@ data class ReplyReading(val received: Int, val expected: Int)
 
 /**
  * The camera card of the reply scan, as the Send mock draws it: a dark card with the live camera, four paper corner brackets, the words that say how many
- * parts are read, and a bar with a segment per part that fills amber, with a tick, as each one is read. While the camera is refused, the Camera Denied note takes the
- * card's place. [frameSource] is for tests, which pass their own frames.
+ * parts are read, and a bar with a segment per part that fills amber, with a tick, as each one is read. While the scanner cannot read, those words say so.
+ * While the camera is refused, the Camera Denied note takes the card's place. [frameSource] is for tests, which pass their own frames.
  */
 @Composable
 fun ReplyScanCard(
@@ -45,6 +53,7 @@ fun ReplyScanCard(
     val camera = rememberCameraAccess(frameSource)
     val context = LocalContext.current
     val haptics = rememberLumioHaptics()
+    var unreadable by remember { mutableStateOf(false) }
     LaunchedEffect(reading?.received) {
         if (reading != null) haptics.tick()
     }
@@ -58,16 +67,19 @@ fun ReplyScanCard(
             .clip(RoundedCornerShape(CARD_CORNER))
             .drawBehind { drawCameraBackdrop() },
     ) {
-        if (camera.granted) QrScanner(onText = onText, modifier = Modifier.fillMaxSize(), frameSource = frameSource, viewfinder = false)
-        Box(modifier = Modifier.fillMaxSize().drawBehind { drawCameraBrackets(palette.paper) })
-        reading?.let {
+        if (camera.granted) QrScanner(onText = onText, modifier = Modifier.fillMaxSize(), frameSource = frameSource, viewfinder = false, onDecodeFailed = { unreadable = it })
+        Box(modifier = Modifier.fillMaxSize().drawBehind { drawCameraScrim(); drawCameraBrackets(palette.paper) })
+        val caption = if (unreadable) DECODE_FAILED_TEXT else reading?.let { "Reading Lensly's reply · ${it.received} of ${it.expected}" }
+        caption?.let {
             Text(
-                text = "Reading Lensly's reply · ${it.received} of ${it.expected}",
+                text = it,
                 style = ClearAirType.time,
                 color = palette.paper.copy(alpha = CAPTION_ALPHA),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 30.dp),
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 30.dp).semantics { liveRegion = LiveRegionMode.Polite },
             )
+        }
+        reading?.let {
             Row(
                 modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(3.dp),
