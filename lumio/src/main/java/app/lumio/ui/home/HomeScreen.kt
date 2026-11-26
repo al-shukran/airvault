@@ -1,16 +1,16 @@
 package app.lumio.ui.home
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -18,66 +18,65 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.lensly.ui.components.lumioPress
-import app.lensly.ui.theme.ClearAirMotion
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
-import app.lumio.ui.kit.ClearAirAmount
-import app.lumio.ui.kit.ClearAirChangeLineStyle
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
+import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.ClearAirPrimaryButton
-import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.watchlist.WatchedAsset
 import app.lumio.watchlist.WatchlistSort
-import java.util.Locale
-import kotlin.math.abs
 
-/** The width and height of a row's tick chart. */
-private val TICK_WIDTH = 56.dp
-private val TICK_HEIGHT = 28.dp
-
-/** The height of the hero's tick chart, which fills the page gutters. */
-private val HERO_CHART_HEIGHT = 92.dp
-
-/** The space from the hero's numeral to its change line, to the freshness line, and to the chart. */
-private val CHANGE_TOP = 4.dp
-private val FRESHNESS_TOP = 2.dp
-private val CHART_TOP = 10.dp
-
-/** The freshness line's dot, and its gap to the words. */
-private val FRESHNESS_DOT = 6.dp
-private val FRESHNESS_GAP = 6.dp
+/** The space above Send and Receive, under the top bar, and the band they sit in. */
+private val ACTIONS_TOP = 10.dp
+private val ACTIONS_BAND = 6.dp
 
 /** The width of the Send capsule, which hugs "Send", and the gap between it and Receive. */
 private val SEND_WIDTH = 129.dp
 private val ACTIONS_GAP = 18.dp
 
-/** The size of the sort arrow beside the sort control. */
-private val SORT_ARROW = 14.dp
+/** The watchlist header: its space above and below, the height of its line, and the gap between its two actions. */
+private val HEADER_TOP = 18.dp
+private val HEADER_BOTTOM = 4.dp
+private val HEADER_LINE = 21.dp
+private val HEADER_GAP = 14.dp
 
-/** The hero's freshness line, and the sort control: 12 sp body text, and 13 sp semibold. */
-private val freshnessStyle
-    get() = ClearAirType.body.copy(fontSize = 12.sp, lineHeight = 16.sp)
-private val sortStyle
+/** The glyph of a header action. */
+private val HEADER_GLYPH = 14.dp
+
+/** The footnote's space above and below. */
+private val FOOTNOTE_TOP = 14.dp
+private val FOOTNOTE_BOTTOM = 20.dp
+
+/** The empty state: the space above its mark, the mark, its glyph, the spark on it, and the spaces down to the actions. */
+private val EMPTY_TOP = 56.dp
+private val EMPTY_MARK = 76.dp
+private val EMPTY_GLYPH = 30.dp
+private val EMPTY_SPARK = 10.dp
+private val EMPTY_SPARK_RING = 18.dp
+private val EMPTY_TITLE_TOP = 18.dp
+private val EMPTY_BODY_TOP = 8.dp
+private val EMPTY_ACTIONS_TOP = 20.dp
+private val EMPTY_ACTION = 45.dp
+
+/** A header action's words: Archivo 114 SemiBold at 13 sp. */
+private val headerActionStyle
     get() = ClearAirType.rowTitle.copy(fontSize = 13.sp, lineHeight = 18.sp)
 
 /**
- * One watchlist row as Home shows it: its [name], the [detail] line under it such as "BTC · 0.2104 held", its [icon], its price and 24 h change, and the [ticks] of
- * its day's prices, oldest first. A null [priceUsd] or [change24hPct] is shown as absent, never as zero, and fewer than two [ticks] draw no chart.
+ * One watchlist row as Home shows it: the [asset], its full [name] and [ticker], its [icon], its price and 24 h change, and the [ticks] of its day's
+ * prices, oldest first. A null [priceUsd] or [change24hPct] is shown as absent, never as zero, and fewer than two [ticks] draw no chart.
  */
 data class WatchlistRow(
     val asset: WatchedAsset,
     val name: String,
-    val detail: String,
+    val ticker: String,
     val icon: AssetIconSpec,
     val priceUsd: String?,
     val change24hPct: Double?,
@@ -85,149 +84,118 @@ data class WatchlistRow(
 )
 
 /**
- * Bitcoin's market as the hero shows it: its market cap in dollars ([total], null when it is not read), its 24 h change, and the [freshness] line, such as
- * "Live · updated 8 s ago". [ticks] are the points of the chart under the figure, oldest first, and fewer than two draw no chart.
- */
-data class MarketHero(val total: String?, val change24hPct: Double?, val freshness: String?, val ticks: List<Double> = emptyList())
-
-/**
- * The Home tab's body: the hero with Bitcoin's market cap, Send and Receive under it, and the wallet's watchlist with its sort control. [rows] are already
- * in the order the list shows them. A test network shows no prices, because test coins have no value. [onSend] and [onReceive] open the wallet's Send and
- * Receive, and [onSort] opens the sort sheet. The header parts keep the page gutter; the rows are full-bleed, as every list row is.
+ * The Home tab's body: Send and Receive, then the wallet's watchlist with its sort control and its add action, and a dashed row that adds an asset at the
+ * end. [rows] are already in the order the list shows them. A test network shows no prices, because test coins have no value. [footnote] says where the
+ * prices are from and when. An empty watchlist says so, with the add and [onRestore], which brings back the top coins. [logo] draws a row's disc.
  */
 @Composable
 fun HomeScreen(
-    hero: MarketHero,
     rows: List<WatchlistRow>,
     sort: WatchlistSort,
     testnet: Boolean,
+    footnote: String?,
     onSend: () -> Unit,
     onReceive: () -> Unit,
     onSort: () -> Unit,
+    onAdd: () -> Unit,
+    onRestore: () -> Unit,
     onOpen: (WatchedAsset) -> Unit,
+    logo: @Composable (WatchlistRow) -> Unit = { AssetDisc(it.icon) },
 ) {
     val palette = LocalClearAirPalette.current
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = ACTIONS_TOP).padding(vertical = ACTIONS_BAND),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(ACTIONS_GAP, Alignment.CenterHorizontally),
     ) {
-        ClearAirEyebrow(text = "Bitcoin Market Cap", top = 0.dp, bottom = ClearAirSpacing.xxs)
-        hero.total?.let { ClearAirAmount(text = it, style = ClearAirType.hero, dimUnit = true) }
-            ?: Text(text = "—", style = ClearAirType.hero, color = palette.ink)
-        hero.change24hPct?.let { change ->
-            Text(
-                text = "${changeText(change)} Today",
-                modifier = Modifier.padding(top = CHANGE_TOP),
-                style = ClearAirChangeLineStyle,
-                color = if (change >= 0) palette.vaultBlue else palette.rose,
-            )
-        }
-        hero.freshness?.let { Freshness(text = it) }
-        if (hero.ticks.size >= 2) {
-            val up = hero.change24hPct?.let { it >= 0 } ?: (hero.ticks.last() >= hero.ticks.first())
-            TickChart(values = hero.ticks, up = up, modifier = Modifier.padding(top = CHART_TOP).fillMaxWidth().height(HERO_CHART_HEIGHT))
-        }
-        Row(
-            modifier = Modifier.padding(top = CHART_TOP),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(ACTIONS_GAP),
-        ) {
-            ClearAirPrimaryButton(text = "Send", onClick = onSend, modifier = Modifier.width(SEND_WIDTH), icon = ClearAirGlyph.SEND, fullWidth = false)
-            ClearAirTextAction(text = "Receive", onClick = onReceive, icon = ClearAirGlyph.RECEIVE)
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.lg - ClearAirSpacing.xxs),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            ClearAirEyebrow(text = "Watchlist · ${rows.size}", top = 0.dp, bottom = 0.dp)
-            SortControl(label = sort.label, onClick = onSort)
-        }
-        if (rows.isEmpty()) {
-            Text(
-                text = "Star an asset to watch it here.",
-                style = ClearAirType.body,
-                color = palette.ink2,
-                modifier = Modifier.fillMaxWidth().padding(top = ClearAirSpacing.sm),
-            )
-        }
+        ClearAirPrimaryButton(text = "Send", onClick = onSend, modifier = Modifier.width(SEND_WIDTH), icon = ClearAirGlyph.SEND, fullWidth = false)
+        ClearAirTextAction(text = "Receive", onClick = onReceive, icon = ClearAirGlyph.RECEIVE)
+    }
+    if (rows.isEmpty()) {
+        EmptyWatchlist(onAdd = onAdd, onRestore = onRestore)
+        return
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = ClearAirSpacing.gutter, end = ClearAirSpacing.gutter, top = HEADER_TOP, bottom = HEADER_BOTTOM)
+            .height(HEADER_LINE),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ClearAirEyebrow(text = "Watchlist · ${rows.size}", top = 0.dp, bottom = 0.dp, modifier = Modifier.weight(1f))
+        HeaderAction(text = sort.label, glyph = ClearAirGlyph.SORT, glyphFirst = false, onClick = onSort)
+        Spacer(Modifier.width(HEADER_GAP))
+        HeaderAction(text = "Add", glyph = ClearAirGlyph.PLUS, glyphFirst = true, onClick = onAdd)
     }
     rows.forEachIndexed { index, row ->
-        ClearAirRow(
-            title = row.name,
-            description = row.detail,
-            leading = { AssetDisc(row.icon) },
-            trailing = { WatchlistPrice(row = row, testnet = testnet) },
+        WatchlistAssetRow(
+            name = row.name,
+            ticker = row.ticker,
+            price = row.priceUsd,
+            change = row.change24hPct,
+            ticks = row.ticks,
+            logo = { logo(row) },
             onClick = { onOpen(row.asset) },
             divider = index > 0,
-            chevron = false,
+            prices = !testnet,
+        )
+    }
+    AddToWatchlistRow(onClick = onAdd)
+    footnote?.let {
+        Text(
+            text = it,
+            style = ClearAirType.small.whole(),
+            color = palette.ink2,
+            modifier = Modifier.fillMaxWidth().padding(start = ClearAirSpacing.gutter, end = ClearAirSpacing.gutter, top = FOOTNOTE_TOP, bottom = FOOTNOTE_BOTTOM),
         )
     }
 }
 
-/** The freshness line under the hero: a grey dot, then the words. */
+/**
+ * A text action of the watchlist header: the words in ink with a 14 dp glyph, before them or after. Its line is 21 dp, as the header's is, and its touch
+ * target reaches 48 dp over the space around it.
+ */
 @Composable
-private fun Freshness(text: String) {
-    val palette = LocalClearAirPalette.current
-    Row(modifier = Modifier.padding(top = FRESHNESS_TOP), verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(FRESHNESS_DOT).clip(CircleShape).background(palette.ink3))
-        Spacer(Modifier.width(FRESHNESS_GAP))
-        Text(text = text, style = freshnessStyle, color = palette.ink2)
-    }
+private fun HeaderAction(text: String, glyph: ClearAirGlyph, glyphFirst: Boolean, onClick: () -> Unit) {
+    ClearAirTextAction(
+        text = text,
+        onClick = onClick,
+        modifier = Modifier.requiredHeight(ClearAirSpacing.touchTarget),
+        style = headerActionStyle,
+        icon = glyph.takeIf { glyphFirst },
+        iconSize = HEADER_GLYPH,
+        trailingIcon = glyph.takeUnless { glyphFirst },
+    )
 }
 
-/** The sort control of the watchlist: the order's name in ink, then a down arrow. It is a 48 dp touch target. */
+/** The empty watchlist: the star mark with its spark, the title, what a watchlist is for, and the two ways to fill it. */
 @Composable
-private fun SortControl(label: String, onClick: () -> Unit) {
+private fun EmptyWatchlist(onAdd: () -> Unit, onRestore: () -> Unit) {
     val palette = LocalClearAirPalette.current
-    Row(
-        modifier = Modifier
-            .defaultMinSize(minHeight = ClearAirSpacing.touchTarget)
-            .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(text = label, style = sortStyle, color = palette.ink, maxLines = 1)
-        Spacer(Modifier.width(ClearAirSpacing.xxs))
-        SortArrow(color = palette.ink)
-    }
-}
-
-/** The sort arrow of the proposal: a stem and a head, on the 24 unit grid at [SORT_ARROW]. */
-@Composable
-private fun SortArrow(color: Color) {
-    Canvas(Modifier.size(SORT_ARROW)) {
-        val unit = size.width / 24f
-        val stroke = 1.6f * unit
-        fun line(x1: Float, y1: Float, x2: Float, y2: Float) =
-            drawLine(color = color, start = Offset(x1 * unit, y1 * unit), end = Offset(x2 * unit, y2 * unit), strokeWidth = stroke, cap = StrokeCap.Round)
-        line(12f, 5f, 12f, 19f)
-        line(7f, 14f, 12f, 19f)
-        line(17f, 14f, 12f, 19f)
-    }
-}
-
-/** The tick chart, price and 24 h change of a watchlist row, on the right. A test network shows nothing here. */
-@Composable
-private fun WatchlistPrice(row: WatchlistRow, testnet: Boolean) {
-    if (testnet) return
-    val palette = LocalClearAirPalette.current
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        if (row.ticks.size >= 2) {
-            val up = row.change24hPct?.let { it >= 0 } ?: (row.ticks.last() >= row.ticks.first())
-            TickChart(values = row.ticks, up = up, modifier = Modifier.width(TICK_WIDTH).height(TICK_HEIGHT))
-            Spacer(Modifier.width(ClearAirSpacing.sm))
-        }
-        Column(horizontalAlignment = Alignment.End) {
-            row.priceUsd?.let { ClearAirAmount(text = it, style = ClearAirType.rowValue) }
-            row.change24hPct?.let { change ->
-                Text(text = changeText(change), style = ClearAirType.label, color = if (change >= 0) palette.vaultBlue else palette.rose)
+    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(modifier = Modifier.padding(top = EMPTY_TOP).size(EMPTY_MARK).background(palette.raised, CircleShape), contentAlignment = Alignment.Center) {
+            ClearAirIcon(glyph = ClearAirGlyph.STAR, color = palette.ink, size = EMPTY_GLYPH)
+            Box(modifier = Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 8.dp).size(EMPTY_SPARK), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.requiredSize(EMPTY_SPARK_RING).rotate(45f).background(palette.background))
+                Box(modifier = Modifier.requiredSize(EMPTY_SPARK).rotate(45f).background(palette.spark))
             }
         }
+        Text(
+            text = "Your Watchlist Is Empty",
+            style = ClearAirType.titleXL.whole(),
+            color = palette.ink,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = EMPTY_TITLE_TOP, start = ClearAirSpacing.gutter, end = ClearAirSpacing.gutter),
+        )
+        Text(
+            text = "Add any coin, token or fund to follow its price here. Removing one never touches your accounts.",
+            style = ClearAirType.body.whole(),
+            color = palette.ink2,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = EMPTY_BODY_TOP, start = ClearAirSpacing.gutter, end = ClearAirSpacing.gutter),
+        )
+        Spacer(Modifier.height(EMPTY_ACTIONS_TOP))
+        ClearAirTextAction(text = "Add to Watchlist", onClick = onAdd, icon = ClearAirGlyph.PLUS, modifier = Modifier.height(EMPTY_ACTION))
+        ClearAirTextAction(text = "Restore Top Coins", onClick = onRestore, modifier = Modifier.height(EMPTY_ACTION))
     }
-}
-
-/** A 24 h change as Home writes it: an arrow for the direction, then the size to two places, such as "▲ 1.82%". */
-internal fun changeText(percent: Double): String {
-    val arrow = if (percent >= 0) "▲" else "▼"
-    return "$arrow ${String.format(Locale.US, "%.2f", abs(percent))}%"
 }

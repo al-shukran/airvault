@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirMotion
@@ -18,7 +19,7 @@ import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 
 /**
- * The one secondary action of a screen: a text label in ink with no fill, and an optional 18 dp [icon] before it. It is at least 48 dp square and
+ * The one secondary action of a screen: a text label in ink with no fill, and an optional [icon] before it or [trailingIcon] after it, 18 dp unless [iconSize] says otherwise. It is at least 48 dp square and
  * scales to 0.98 while pressed. A mock that sets its label at another size passes it as [style].
  */
 @Composable
@@ -29,6 +30,8 @@ fun ClearAirTextAction(
     enabled: Boolean = true,
     icon: ClearAirGlyph? = null,
     style: TextStyle = ClearAirType.rowTitle,
+    iconSize: Dp = 18.dp,
+    trailingIcon: ClearAirGlyph? = null,
 ) {
     val palette = LocalClearAirPalette.current
     Box(
@@ -45,10 +48,14 @@ fun ClearAirTextAction(
         Row(verticalAlignment = Alignment.CenterVertically) {
             val color = if (enabled) palette.ink else palette.ink2
             icon?.let {
-                ClearAirIcon(glyph = it, color = color, size = 18.dp)
+                ClearAirIcon(glyph = it, color = color, size = iconSize)
                 Spacer(Modifier.width(6.dp))
             }
             Text(text = text, style = style, color = color, maxLines = 1)
+            trailingIcon?.let {
+                Spacer(Modifier.width(6.dp))
+                ClearAirIcon(glyph = it, color = color, size = iconSize)
+            }
         }
     }
 }

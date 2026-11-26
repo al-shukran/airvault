@@ -1,36 +1,14 @@
 package app.lumio.ui.home
 
-import app.lumio.data.config.Fiat
-import app.lumio.data.config.FiatCurrency
-import app.lumio.data.config.FiatRate
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import org.junit.Assert.assertEquals as assertFloat
+import kotlin.test.assertTrue
 import org.junit.Test
 
+/** The words and the chart of a watchlist row: the change's arrow and tone, the ticker line, and the ticks with their 2% floor. */
 class MarketFormatTest {
     @Test
-    fun aTotalInTrillionsIsWrittenToTwoPlacesInTrillions() {
-        assertEquals("\$3.41T", compactUsd(3.41e12, Fiat.USD))
-    }
-
-    @Test
-    fun aTotalInBillionsIsWrittenInBillions() {
-        assertEquals("\$2.62B", compactUsd(2.62e9, Fiat.USD))
-    }
-
-    @Test
-    fun aSmallerTotalIsWrittenInFullDollars() {
-        assertEquals("\$1,234.50", compactUsd(1_234.5, Fiat.USD))
-    }
-
-    @Test
-    fun aTotalIsWrittenInTheOwnersCurrency() {
-        assertEquals("€1.80T", compactUsd(3.6e12, Fiat.of(FiatCurrency.EUR, FiatRate(FiatCurrency.EUR, 0.5))))
-    }
-
-    @Test
-    fun theAgeOfAFigureReadsInTheLargestWholeUnit() {
+    fun agoCountsUpInSecondsMinutesHoursAndDays() {
         assertEquals("8 s ago", agoText(8_000L))
         assertEquals("3 min ago", agoText(180_000L))
         assertEquals("3 h ago", agoText(3 * 3_600_000L))
@@ -39,55 +17,67 @@ class MarketFormatTest {
     }
 
     @Test
-    fun aLiveFigureSaysItIsLiveAndAKeptOneSaysItIsLastKnown() {
-        assertEquals("Live · updated 8 s ago", freshnessOf(asOfMs = 1_000L, stale = false, nowMs = 9_000L))
-        assertEquals("Last known · updated 8 s ago", freshnessOf(asOfMs = 1_000L, stale = true, nowMs = 9_000L))
+    fun aRiseIsGreenWithAnUpArrow() {
+        assertEquals(ChangeTone.RISE, changeTone(3.36))
+        assertEquals("▲ 3.36%", changeText(3.36))
     }
 
     @Test
-    fun aChangeIsWrittenWithItsDirectionAndItsSizeToTwoPlaces() {
-        assertEquals("▲ 1.82%", changeText(1.82))
+    fun aFallIsRedWithADownArrow() {
+        assertEquals(ChangeTone.FALL, changeTone(-2.41))
         assertEquals("▼ 2.41%", changeText(-2.41))
     }
 
     @Test
-    fun aSeriesWithFewerThanTwoPointsHasNoTickGeometry() {
-        assertNull(tickGeometry(emptyList(), width = 100f, height = 100f))
-        assertNull(tickGeometry(listOf(1.0), width = 100f, height = 100f))
+    fun noChangeIsGreyWithNoArrow() {
+        assertEquals(ChangeTone.FLAT, changeTone(0.0))
+        assertEquals("0.00%", changeText(0.0))
+        // A change too small to show at two places is no change: no arrow, and never "▼ 0.00%".
+        assertEquals(ChangeTone.FLAT, changeTone(-0.004))
+        assertEquals("0.00%", changeText(-0.004))
     }
 
     @Test
-    fun eachStepIsAStrokeBetweenItsTwoHeightsAndTheLastPointIsNow() {
-        val geometry = checkNotNull(tickGeometry(listOf(1.0, 3.0), width = 100f, height = 100f))
-
-        assertEquals(1, geometry.ticks.size)
-        assertFloat(96f, geometry.ticks[0].x, 0.001f)
-        assertFloat(4f, geometry.ticks[0].top, 0.001f)
-        assertFloat(96f, geometry.ticks[0].bottom, 0.001f)
-        assertFloat(96f, geometry.nowX, 0.001f)
-        assertFloat(4f, geometry.nowY, 0.001f)
+    fun theTickerLineIsLeftOutWhenItIsTheName() {
+        assertNull(tickerLine(name = "BNB", ticker = "BNB"))
+        assertEquals("BTC", tickerLine(name = "Bitcoin", ticker = "BTC"))
+        assertNull(tickerLine(name = "Bitcoin", ticker = ""))
     }
 
     @Test
-    fun aRisingSeriesGivesOneStrokePerStepInTimeOrder() {
-        val geometry = checkNotNull(tickGeometry(listOf(1.0, 2.0, 3.0), width = 100f, height = 100f))
-
-        assertFloat(50f, geometry.ticks[0].x, 0.001f)
-        assertFloat(50f, geometry.ticks[0].top, 0.001f)
-        assertFloat(96f, geometry.ticks[0].bottom, 0.001f)
-        assertFloat(96f, geometry.ticks[1].x, 0.001f)
-        assertFloat(4f, geometry.ticks[1].top, 0.001f)
-        assertFloat(50f, geometry.ticks[1].bottom, 0.001f)
+    fun fewerThanTwoValuesDrawNoTicks() {
+        assertTrue(ticksOf(emptyList(), width = 56f, height = 22f).isEmpty())
+        assertTrue(ticksOf(listOf(1.0), width = 56f, height = 22f).isEmpty())
     }
 
     @Test
-    fun aFlatSeriesSitsOnTheMiddleLine() {
-        val geometry = checkNotNull(tickGeometry(listOf(5.0, 5.0, 5.0), width = 100f, height = 100f))
+    fun aDayThatMovesFillsTheChartHeight() {
+        val ticks = ticksOf(listOf(100.0, 110.0, 105.0), width = 56f, height = 22f)
+        assertEquals(2, ticks.size)
+        assertEquals(2f, ticks.minOf { it.top }, 0.01f)
+        assertEquals(20f, ticks.maxOf { it.bottom }, 0.01f)
+        // The ink runs from 1 dp to 46.8 dp of the 56 dp slot, as the mock's does.
+        assertEquals(1f, ticks.first().x, 0.01f)
+        assertEquals(46.8f, ticks.last().x, 0.01f)
+    }
 
-        geometry.ticks.forEach { tick ->
-            assertFloat(50f, tick.top, 0.001f)
-            assertFloat(50f, tick.bottom, 0.001f)
+    @Test
+    fun aStablecoinsNoiseIsDrawnOnTheTwoPercentFloorAndReadsFlat() {
+        val ticks = ticksOf(listOf(0.9990, 0.9992, 0.9989, 0.9991), width = 56f, height = 22f)
+        // 0.03% of noise spans under 1/60 of the height around the middle line, so it reads flat.
+        ticks.forEach { tick ->
+            assertTrue(tick.top > 10f && tick.bottom < 12f, "tick $tick is off the middle line")
         }
-        assertFloat(50f, geometry.nowY, 0.001f)
     }
+
+    @Test
+    fun aFlatDaySitsOnTheMiddleLine() {
+        val ticks = ticksOf(listOf(1.0, 1.0, 1.0), width = 56f, height = 22f)
+        ticks.forEach { tick ->
+            assertEquals(10.2f, tick.top, 0.01f)
+            assertEquals(11.8f, tick.bottom, 0.01f)
+        }
+    }
+
+    private fun assertEquals(expected: Float, actual: Float, delta: Float) = org.junit.Assert.assertEquals(expected, actual, delta)
 }
