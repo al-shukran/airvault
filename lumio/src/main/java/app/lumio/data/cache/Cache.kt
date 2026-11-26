@@ -159,14 +159,26 @@ class Cache(
     /**
      * Deletes the least recently used immutable entries that open under [keys] until the stored bytes fit under the cap. The database is shared with
      * the other vault, whose entries this session cannot read, so it never deletes one: a Decoy Vault must not cost the real vault its cache. Those
-     * entries go when the real vault next opens ([purgeUnreadable]).
+     * entries go when the real vault next opens ([purgeUnreadable]). It looks at no more than [MAX_FOREIGN] of them per call; past that the cache may
+     * stay over its cap in a Decoy Vault session, which is cheaper than walking every row of the real vault.
      */
     private suspend fun evictImmutable() {
-        val foreign = ArrayList<ByteArray>()
-        while (dao.totalBytes(IMMUTABLE) > immutableCapBytes) {
-            val oldest = dao.oldestKeyExcept(IMMUTABLE, foreign) ?: return
-            val row = dao.get(oldest)
-            if (row == null || opens(row)) dao.delete(oldest) else foreign.add(oldest)
+        var total = dao.totalBytes(IMMUTABLE)
+        var foreign = 0
+        while (total > immutableCapBytes) {
+            // Every row before the offset is foreign: the ones that opened were deleted.
+            val page = dao.oldestKeys(IMMUTABLE, MAX_FOREIGN, foreign)
+            if (page.isEmpty()) return
+            for (name in page) {
+                val row = dao.get(name)
+                if (row == null || opens(row)) {
+                    dao.delete(name)
+                    total -= row?.v?.size ?: 0
+                    if (total <= immutableCapBytes) return
+                } else if (++foreign >= MAX_FOREIGN) {
+                    return
+                }
+            }
         }
     }
 
@@ -190,6 +202,7 @@ class Cache(
     private companion object {
         const val IMMUTABLE = 0
         const val LAST_KNOWN = 1
+        const val MAX_FOREIGN = 256
         const val HMAC = "HmacSHA256"
         val AAD_PREFIX = "lumio-cache-v1".toByteArray(Charsets.UTF_8)
     }
