@@ -47,6 +47,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -70,6 +71,9 @@ private val LABEL_OVERHANG = 9.dp
 private val LABEL_LINE = 21.sp
 private val VALUE_LINE = 21.sp
 
+/** The mock sets an address inside a field at 13.5 sp on a 20 sp line with no tracking, a little larger and looser than the address style of a row. */
+private val ADDRESS_VALUE_LINE = 20.sp
+
 /** A masked value is dots in the mono face, 0.14 em apart, as the mock sets a password. */
 /** A line set in the middle of its line box, as the mock's CSS sets it. */
 private val FieldLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
@@ -90,7 +94,8 @@ private val NOTCH_PAD = 5.dp
  * the value as dots, for a password, and makes the field secret: its keyboard gets the secret input flags. On a secret field Enter, typed or on a
  * hardware keyboard, moves focus to the next field, or runs [onSubmit] on the last one, and never adds a line break. [onCommit] runs when the
  * owner leaves the field or presses Done, so a value can be applied once it is complete rather than on every key. [inputTag] tags the text
- * input itself, for tests. [transformation] shows the value in another form, such as an address in groups of four, and leaves the value as it is.
+ * input itself, for tests. [trailingHeight] caps how tall the actions lay out; a field whose mock has a short action, such as a text action, passes the room
+ * inside its 56 dp edge so the field stays that tall. [transformation] shows the value in another form, such as an address in groups of four, and leaves the value as it is.
  */
 @Composable
 fun ClearAirField(
@@ -108,11 +113,12 @@ fun ClearAirField(
     trailing: (@Composable () -> Unit)? = null,
     onCommit: (() -> Unit)? = null,
     inputTag: String? = null,
+    trailingHeight: Dp = TRAILING_HEIGHT,
 ) {
     val palette = LocalClearAirPalette.current
     val focus = LocalFocusManager.current
     val style = if (monospace) {
-        ClearAirType.address.copy(lineHeightStyle = FieldLine)
+        ClearAirType.address.copy(fontSize = 13.5.sp, lineHeight = ADDRESS_VALUE_LINE, letterSpacing = 0.sp, lineHeightStyle = FieldLine)
     } else {
         ClearAirType.body.copy(lineHeight = VALUE_LINE, lineHeightStyle = FieldLine)
     }
@@ -213,7 +219,7 @@ fun ClearAirField(
                     )
                 }
                 if (secret) SecretInput(input) else input()
-                trailing?.let { Trailing(it) }
+                trailing?.let { Trailing(trailingHeight, it) }
             }
             Text(
                 text = label,
@@ -240,16 +246,16 @@ fun ClearAirField(
 }
 
 /**
- * The actions at the end of a field, 2 dp apart. Their layout is at most the mock's 44 dp box tall, however tall a button's own 48 dp target is, so the
- * target reaches 2 dp past the box and the field keeps the mock's height.
+ * The actions at the end of a field, 2 dp apart. Their layout is at most [height] tall, the mock's 44 dp box unless the field says otherwise, however tall a
+ * button's own 48 dp target is, so the target reaches past the box and the field keeps the mock's height.
  */
 @Composable
-private fun Trailing(content: @Composable () -> Unit) {
+private fun Trailing(height: Dp, content: @Composable () -> Unit) {
     Row(
         modifier = Modifier.layout { measurable, constraints ->
             val placeable = measurable.measure(constraints)
-            val height = minOf(placeable.height, TRAILING_HEIGHT.roundToPx())
-            layout(placeable.width, height) { placeable.place(0, (height - placeable.height) / 2) }
+            val layoutHeight = minOf(placeable.height, height.roundToPx())
+            layout(placeable.width, layoutHeight) { placeable.place(0, (layoutHeight - placeable.height) / 2) }
         },
         horizontalArrangement = Arrangement.spacedBy(FIELD_GAP),
         verticalAlignment = Alignment.CenterVertically,

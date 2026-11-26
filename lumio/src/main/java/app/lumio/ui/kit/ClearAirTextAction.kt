@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirMotion
@@ -18,10 +19,17 @@ import app.lensly.ui.theme.LocalClearAirPalette
 
 /**
  * The one secondary action of a screen: a text label in ink with no fill, and an optional 18 dp [icon] before it. It is at least 48 dp square and
- * scales to 0.98 while pressed.
+ * scales to 0.98 while pressed. A mock that sets its label at another size passes it as [style].
  */
 @Composable
-fun ClearAirTextAction(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, icon: ClearAirGlyph? = null) {
+fun ClearAirTextAction(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    icon: ClearAirGlyph? = null,
+    style: TextStyle = ClearAirType.rowTitle,
+) {
     val palette = LocalClearAirPalette.current
     Box(
         modifier = modifier
@@ -40,7 +48,7 @@ fun ClearAirTextAction(text: String, onClick: () -> Unit, modifier: Modifier = M
                 ClearAirIcon(glyph = it, color = color, size = 18.dp)
                 Spacer(Modifier.width(6.dp))
             }
-            Text(text = text, style = ClearAirType.rowTitle, color = color, maxLines = 1)
+            Text(text = text, style = style, color = color, maxLines = 1)
         }
     }
 }

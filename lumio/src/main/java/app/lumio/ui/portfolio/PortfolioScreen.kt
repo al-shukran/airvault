@@ -89,6 +89,7 @@ fun PortfolioScreen(
     recent: List<TxFeedItem>,
     names: Map<String, String>,
     zone: ZoneId,
+    nowMs: Long = System.currentTimeMillis(),
     onOpenActivity: () -> Unit,
     onOpenRow: (TxFeedItem) -> Unit,
     otherSide: OtherSide? = null,
@@ -151,7 +152,7 @@ fun PortfolioScreen(
                     description = describe(row, showBalance),
                     descriptionSuffix = if (row.merged) ({ ChainDots(chainIconsOf(row)) }) else null,
                     leading = { AssetDisc(iconOf(row)) },
-                    trailing = { RowValue(row = row, shown = showBalance) },
+                    trailing = { RowValue(row = row, shown = showBalance, zone = zone, nowMs = nowMs) },
                     divider = index > 0,
                 )
             }
@@ -287,18 +288,26 @@ private fun AllocationLine(slices: List<AllocationSlice>) {
     }
 }
 
-/** The value at the end of a row: its amount in dollars, and under it its change. */
+/**
+ * The value at the end of a row: its amount in dollars, and under it its change. A value made from a last-known price shows in the secondary colour,
+ * and the time of that price, such as "as of 14:05", takes the place of the change, which is as old as the price.
+ */
 @Composable
-private fun RowValue(row: PortfolioRow, shown: Boolean) {
+private fun RowValue(row: PortfolioRow, shown: Boolean, zone: ZoneId, nowMs: Long) {
     val palette = LocalClearAirPalette.current
+    val staleAsOfMs = row.staleAsOfMs
     Column(horizontalAlignment = Alignment.End) {
         Text(
             text = Masking.amount(row.usd?.let { LocalFiat.current.amount(it) } ?: "—", hidden = !shown),
             style = ClearAirType.rowValue,
-            color = palette.ink,
+            color = if (staleAsOfMs == null) palette.ink else palette.ink2,
             textAlign = TextAlign.End,
         )
-        row.change24h?.let { change -> ClearAirChangePercent(change) }
+        if (staleAsOfMs != null) {
+            Text(text = PortfolioFormat.asOf(staleAsOfMs, nowMs, zone), style = ClearAirType.label, color = palette.ink2)
+        } else {
+            row.change24h?.let { change -> ClearAirChangePercent(change) }
+        }
     }
 }
 

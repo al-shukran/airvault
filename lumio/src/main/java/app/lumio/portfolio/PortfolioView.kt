@@ -42,6 +42,8 @@ data class PortfolioHolding(
     val bridged: Boolean,
     /** The token's contract, or null for a native coin. A row's logo comes from it. */
     val contract: String? = null,
+    /** The time of the last price kept that [usd] is made from, or null when the price is fresh or there is none. */
+    val staleAsOfMs: Long? = null,
 ) {
     val family: ChainFamily get() = ChainFamily.of(network)
 }
@@ -53,7 +55,7 @@ private val COIN_TITLES = mapOf("ETH" to "Ethereum", "BTC" to "Bitcoin", "SOL" t
  * The holding of a priced [asset]. [title] names the token, as its registry gives it, and is the coin's name for a native coin. A token is bridged when
  * its symbol or name says it is a bridged or pegged copy, such as "USDC.e". Only a known, official token adds up with the same token on other networks.
  */
-fun holdingOf(asset: HomeAsset, title: String? = null): PortfolioHolding = when (asset) {
+fun holdingOf(asset: HomeAsset, title: String? = null, staleAsOfMs: Long? = null): PortfolioHolding = when (asset) {
     is NativeAsset -> PortfolioHolding(
         coin = asset.symbol,
         title = COIN_TITLES[asset.symbol] ?: asset.symbol,
@@ -63,6 +65,7 @@ fun holdingOf(asset: HomeAsset, title: String? = null): PortfolioHolding = when 
         change24h = asset.change24h,
         mergeKey = "native:${asset.network.testnet}:${asset.symbol}",
         bridged = false,
+        staleAsOfMs = staleAsOfMs,
     )
     is TokenAsset -> {
         val bridged = isBridged(asset.symbol, title ?: asset.symbol)
@@ -76,6 +79,7 @@ fun holdingOf(asset: HomeAsset, title: String? = null): PortfolioHolding = when 
             mergeKey = if (asset.known && !asset.custom && !bridged) "token:${asset.symbol}" else null,
             bridged = bridged,
             contract = asset.contract,
+            staleAsOfMs = staleAsOfMs,
         )
     }
 }
@@ -110,6 +114,8 @@ data class PortfolioRow(
     val bridged: Boolean,
     /** The contract of the token, or null for a native coin. */
     val contract: String? = null,
+    /** The time of the oldest last price kept among the holdings the value is made from, or null when every price is fresh. */
+    val staleAsOfMs: Long? = null,
 ) {
     val merged: Boolean get() = networks.size > 1
 }
@@ -204,6 +210,7 @@ object PortfolioView {
             change24h = changeOf(priced),
             bridged = first.bridged,
             contract = first.contract,
+            staleAsOfMs = priced.mapNotNull { it.staleAsOfMs }.minOrNull(),
         )
     }
 

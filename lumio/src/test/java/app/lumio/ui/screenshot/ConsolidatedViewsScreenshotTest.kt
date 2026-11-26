@@ -51,6 +51,12 @@ class ConsolidatedViewsScreenshotTest {
     @Test
     fun portfolioBalances() = compose.lumioSnapshot("portfolio_balances") { PortfolioSample(PortfolioFilter()) }
 
+    /** Bitcoin's price is from earlier today and USDC's from another day, so both rows show their time. */
+    @Test
+    fun portfolioStalePrices() = compose.lumioSnapshot("portfolio_stale_prices") {
+        PortfolioSample(PortfolioFilter(), sampleStaleHoldings(), nowMs = SAMPLE_NOW_MS)
+    }
+
     @Test
     fun portfolioNotGroupedByChain() = compose.lumioSnapshot("portfolio_chain_filtered") { PortfolioSample(PortfolioFilter(chain = ChainFamily.BTC)) }
 
@@ -114,11 +120,23 @@ private fun sampleToken(network: NetworkId, symbol: String, name: String, amount
     )
 }
 
+private val SAMPLE_NOW_MS = Instant.parse("2026-11-26T15:30:00Z").toEpochMilli()
+
+/** The sample holdings with last-known prices: Bitcoin's is from 09:41 today, and USDC's on Ethereum from 25 November. */
+private fun sampleStaleHoldings(): List<PortfolioHolding> = sampleHoldings().map { holding ->
+    when {
+        holding.coin == "BTC" -> holding.copy(staleAsOfMs = Instant.parse("2026-11-26T09:41:00Z").toEpochMilli())
+        holding.coin == "USDC" && holding.network == SampleEthereum -> holding.copy(staleAsOfMs = Instant.parse("2026-11-25T22:10:00Z").toEpochMilli())
+        else -> holding
+    }
+}
+
 /** The Portfolio tab with the sample balances under [filter]. */
 @Composable
-internal fun PortfolioSample(filter: PortfolioFilter) {
+internal fun PortfolioSample(filter: PortfolioFilter, holdings: List<PortfolioHolding> = sampleHoldings(), nowMs: Long = System.currentTimeMillis()) {
     PortfolioScreen(
-        holdings = sampleHoldings(),
+        holdings = holdings,
+        nowMs = nowMs,
         filter = filter,
         onFilter = {},
         walletName = "Air 1",
