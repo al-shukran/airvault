@@ -30,6 +30,7 @@ import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import app.airvault.core.model.ChainId
 import app.lensly.app.VaultHolder
+import app.lensly.core.registry.TokenEntry
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lensly.ui.theme.ClearAirSpacing
@@ -349,9 +350,13 @@ private fun changeOf(price: Price, fiat: Fiat): PriceChange? {
  * The symbol and the name of [asset]. A token's come from the registry, else from the wallet's holdings of the token, else the address that
  * [coinNames] gives.
  */
-private fun namesOf(asset: WatchedAsset, app: LumioApp, held: Collection<List<TokenHolding>>): Pair<String, String> {
+internal fun namesOf(asset: WatchedAsset, app: LumioApp, held: Collection<List<TokenHolding>>): Pair<String, String> =
+    namesOf(asset, asset.contract?.let { app.registry.token(Networks.evmIdOf(asset.network.chain), it) }, held)
+
+/** The symbol and the name of [asset], given [listed], the registry's entry for its token if it has one. */
+internal fun namesOf(asset: WatchedAsset, listed: TokenEntry?, held: Collection<List<TokenHolding>>): Pair<String, String> {
     val contract = asset.contract ?: return coinNames(asset)
-    app.registry.token(Networks.evmIdOf(asset.network.chain), contract)?.let { return it.symbol to it.name }
+    listed?.let { return it.symbol to it.name }
     val token = held.asSequence().flatten().firstOrNull { it.token.contract.equals(contract, ignoreCase = true) }?.token
     return token?.let { it.symbol to it.name } ?: coinNames(asset)
 }

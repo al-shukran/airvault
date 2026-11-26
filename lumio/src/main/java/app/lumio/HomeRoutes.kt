@@ -36,6 +36,8 @@ import app.lumio.data.provider.MarketQuote
 import app.lumio.home.HomeAsset
 import app.lumio.network.NetworkMode
 import app.lumio.receive.ReceiveAnswers
+import app.lumio.tokens.TokenHolding
+import app.lumio.ui.asset.holdingsOf
 import app.lumio.ui.home.HomeScreen
 import app.lumio.ui.home.MarketHero
 import app.lumio.ui.home.WatchlistRow
@@ -96,7 +98,7 @@ internal fun HomeRoute(
     }
     val fiat = LocalFiat.current
     val rows = watchlist?.ordered { board.prices[it.assetId]?.change24hPct }.orEmpty().map { asset ->
-        rowOf(asset, view, wallet?.id, board.prices[asset.assetId], board.dayChartOf(asset.assetId), testnet, fiat, app)
+        rowOf(asset, view, wallet?.id, board.tokenHeld, board.prices[asset.assetId], board.dayChartOf(asset.assetId), testnet, fiat, app)
     }
     var sortOpen by remember { mutableStateOf(DebugDemoData.flag("sort")) }
     var receiveOpen by remember { mutableStateOf(false) }
@@ -193,14 +195,15 @@ private fun rowOf(
     asset: WatchedAsset,
     view: WalletsView?,
     walletId: String?,
+    tokens: Map<WalletAccount, List<TokenHolding>>,
     price: Price?,
     day: PriceSeries?,
     testnet: Boolean,
     fiat: Fiat,
     app: LumioApp,
 ): WatchlistRow {
-    val (symbol, name) = coinNames(asset)
-    val held = if (view != null && walletId != null) heldOf(asset, view.accountsOf(walletId)) else null
+    val (symbol, name) = namesOf(asset, app, tokens.values)
+    val held = if (view != null && walletId != null) heldOf(asset, symbol, view.accountsOf(walletId), tokens) else null
     return WatchlistRow(
         asset = asset,
         name = name,
@@ -212,13 +215,17 @@ private fun rowOf(
     )
 }
 
-/** The native amount that [accounts] hold of [asset], or null when they hold none. Token amounts are not read on the account rows. */
-private fun heldOf(asset: WatchedAsset, accounts: List<WalletAccount>): BigDecimal? = accounts
-    .mapNotNull { it.balance }
-    .filter { it.assetId == asset.assetId }
-    .map(HomeAsset::balance)
-    .reduceOrNull(BigDecimal::add)
-    ?.takeIf { it.signum() > 0 }
+/** The amount that [accounts] hold of [asset], or null when they hold none. A token's amounts are the ones already read into [tokens]. */
+internal fun heldOf(asset: WatchedAsset, symbol: String, accounts: List<WalletAccount>, tokens: Map<WalletAccount, List<TokenHolding>>): BigDecimal? =
+    if (asset.contract == null) {
+        accounts
+            .mapNotNull { it.balance }
+            .filter { it.assetId == asset.assetId }
+            .map(HomeAsset::balance)
+            .reduceOrNull(BigDecimal::add)
+    } else {
+        holdingsOf(asset, symbol, accounts, tokens).map { it.amount }.reduceOrNull(BigDecimal::add)
+    }?.takeIf { it.signum() > 0 }
 
 /** The symbol and the name of a watched asset: the coin's own, or a token's grouped contract, which no name is read for. */
 internal fun coinNames(asset: WatchedAsset): Pair<String, String> {
