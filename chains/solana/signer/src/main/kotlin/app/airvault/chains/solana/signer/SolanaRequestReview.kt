@@ -119,6 +119,16 @@ class SolanaRequestReview internal constructor(
                 .filter { it != signerAddress && it != tx.feePayer }
         }
 
+    /** The static keys that are not signers and that no instruction uses, as a program or as an account, in base58, in message order. */
+    val unusedAccounts: List<String>
+        get() {
+            val tx = message ?: return emptyList()
+            val used = tx.instructions.flatMapTo(HashSet()) { it.accountIndices + it.programIdIndex }
+            return (tx.header.numRequiredSignatures until tx.accountKeys.size)
+                .filter { it !in used }
+                .map { Base58.encode(tx.accountKeys[it]) }
+        }
+
     /**
      * The units a transaction with no limit pays for, as the runtime allocates them: each instruction of the message is counted by its
      * program, capped at [MAX_UNITS]. A nonce setup is two instructions, so it counts twice.

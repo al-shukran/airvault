@@ -125,6 +125,22 @@ class SolanaReviewRowsTest {
         )
     }
 
+    /** AV-015: a static non-signer key that no instruction uses is in the signed bytes, so the review shows it. */
+    @Test
+    fun aStaticKeyThatNoInstructionUsesIsShownAsAnUnusedAccount() {
+        // Key 2 is writable and unsigned; the transfer touches keys 0, 1 and the program at key 3 only.
+        val signData = legacy(
+            keys = listOf(key(1), key(9), key(5), SYSTEM),
+            instructions = listOf(transfer(from = 0, to = 1, lamports = 5L).let { Instruction(3, it.accounts, it.data) }),
+        )
+        val rows = solanaRows(transaction(signData))
+        assertEquals(listOf("Unused Account" to address(5)), rows.filter { it.first == "Unused Account" })
+        assertEquals(emptyList(), solanaRows(transaction(legacy(
+            keys = listOf(key(1), key(9), SYSTEM),
+            instructions = listOf(transfer(from = 0, to = 1, lamports = 5L)),
+        ))).filter { it.first == "Unused Account" })
+    }
+
     /** R03, the review's tick: an instruction Lensly does not read needs the owner's tick, and a transfer it reads does not. */
     @Test
     fun anInstructionThatIsNotReadNeedsTheUnderstandingTick() {
