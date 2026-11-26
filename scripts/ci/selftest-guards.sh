@@ -138,6 +138,12 @@ mutate pr-fast.yml 'sed:s/design=\$DESIGN/design=success/'
 expect_fail "an aggregate that ignores the design gate" guard_with
 mutate pr-fast.yml 'sed:s/git show "\$BASE_SHA:scripts/git show "HEAD:scripts/'
 expect_fail "a design guard that runs the pull request's copy" guard_with
+mutate pr-fast.yml '.on.pull_request.types -= ["unlabeled"]'
+expect_fail "a pull_request trigger that ignores a removed label" guard_with
+mutate pr-fast.yml 'del(.on.pull_request.types)'
+expect_fail "a pull_request trigger with the default types only" guard_with
+mutate pr-fast.yml '.jobs.design.timeout-minutes = 5'
+expect_fail "a design lane capped at 5 minutes" guard_with
 # A secret read before the refusal, in any form the old text match and an env/with scan would miss.
 for read in 'echo ${{ secrets.LENSLY_KEYSTORE_PASS }}' "echo \${{ secrets['LENSLY_KEYSTORE_PASS'] }}" 'echo ${{ secrets.lensly_keystore_pass }}' \
     'echo # ${{ secrets.LENSLY_KEYSTORE_PASS }}' 'echo ${{ toJSON(secrets) }}'; do

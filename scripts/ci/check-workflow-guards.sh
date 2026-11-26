@@ -8,7 +8,9 @@
 # release.yml: the step that refuses a tag whose commit is not on master comes before the first step that reads any secret other
 # than GITHUB_TOKEN, in the same job, so an off-master tag is never signed (#624, #1408).
 # pr-fast.yml: the required check pr-ok waits for the design gate and its guard, its aggregate fails on the gate, the gate has no condition that
-# can skip it, and the guard runs the base commit's copy of guard.py (the design gate, tools/design-frames/README.md).
+# can skip it, the guard runs the base commit's copy of guard.py (the design gate, tools/design-frames/README.md), a label change re-runs
+# the workflow so a removed design:approved-change is seen (#1452), and the design lane keeps a 10-minute cap so a slow setup step does
+# not cancel the required check (#1458).
 #
 # Usage: scripts/ci/check-workflow-guards.sh   (the ci lane: scripts/ci/run-partition.sh ci, in pr-fast.yml)
 # WORKFLOWS_DIR names another directory of workflows; scripts/ci/selftest-guards.sh uses it to check the guard against broken copies.
@@ -122,6 +124,11 @@ grep -Fq -- 'DESIGN_GUARD' <<<"$aggregate" || fail "pr-fast.yml: the aggregate o
 [ "$(yq '.jobs.design | has("if")' "$prfast")" = false ] || fail "pr-fast.yml: the design job has a condition, so it can be skipped"
 grep -Fq -- 'git show "$BASE_SHA:scripts/design/guard.py"' <<<"$(yq '.jobs.design_guard.steps[].run' "$prfast")" || fail "pr-fast.yml: the design guard no longer runs guard.py from the base commit"
 grep -Fq -- 'run-partition.sh design' <<<"$(yq '.jobs.design.steps[].run' "$prfast")" || fail "pr-fast.yml: the design job no longer runs the design lane"
+types=$(yq '.on.pull_request.types[]' "$prfast")
+for type in opened synchronize reopened labeled unlabeled; do
+    grep -Fxq -- "$type" <<<"$types" || fail "pr-fast.yml: pull_request types lack $type, so a label change or a push would not re-run the design guard"
+done
+[ "$(yq '.jobs.design.timeout-minutes' "$prfast")" -ge 10 ] 2>/dev/null || fail "pr-fast.yml: the design job has a cap under 10 minutes, so a slow setup step can cancel it"
 
 if [ "$failed" -ne 0 ]; then
     exit 1
