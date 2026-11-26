@@ -2,11 +2,15 @@
 """Fails a pull request that changes what the design gate measures against, unless it carries the label design:approved-change.
 
 The whole of design/registry.json is compared with the merge base. Free without the label: removing an entry from known_violations, unregistered,
-no_frame or from a screen's masks (the lists only shrink), and adding a screen row that carries no masks or exclusions and no key but frame, theme,
-test and insetBottom. Everything else needs the label: any file under design/frames/, the gate's own code, a changed tolerance, a removed or
-renamed screen, a changed row, an added entry in a list, a new mask, and any key the registry did not have. Env: BASE_SHA, PR_NUMBER, GH_REPO
-and GH_TOKEN (the labels are read when the job runs, so a label added after the push counts on a re-run), or LABELS (a space-separated list,
-for tests and local runs).
+no_frame or from a screen's masks (the lists only shrink), a known violation's baseline that only shrinks (fewer keys in `findings`, no higher
+`regions` or `extra`, the same issue), and adding a screen row that carries no masks or exclusions and no key but frame, theme, test and
+insetBottom. Everything else needs the label: any file under design/frames/, the gate's own code and the workflow and scripts that run it, a
+changed tolerance, a removed or renamed screen, a changed row, an added entry in a list, a baseline that grows, a new mask, and any key the
+registry did not have. Env: BASE_SHA, PR_NUMBER, GH_REPO and GH_TOKEN (the labels are read when the job runs, so a label added after the push
+counts on a re-run), or LABELS (a space-separated list, for tests and local runs).
+
+The job runs this file as it is at BASE_SHA (`git show $BASE_SHA:scripts/design/guard.py | python3 -I -`), so a pull request cannot edit the guard
+that judges it; only while the base has no guard (the pull request that adds it) does the job run the checked-out copy.
 """
 import json
 import os
@@ -17,7 +21,19 @@ LABEL = "design:approved-change"
 LISTS = ("known_violations", "unregistered", "no_frame")  # entries are free to remove, never to add or change
 RELAXING = ("masks", "exclusions")  # a screen row's lists that switch a region off: free to shrink, never to grow
 NEW_ROW_KEYS = {"frame", "theme", "test", "insetBottom"}
-GUARDED_PATHS = ("design/frames/", "scripts/design/", "lumio/src/test/java/app/lumio/ui/design/", "tools/design-frames/render.py")
+RATCHET = ("findings", "regions", "extra")  # a known violation's baseline (scripts/design/check-results.py): free to shrink, never to grow
+# The gate's frames and code, and what runs it: the workflow that makes `design` and `design_guard` part of pr-ok, the lane, the check of those
+# guards and the hook that swaps the golden for the gate's render.
+GUARDED_PATHS = (
+    "design/frames/",
+    "scripts/design/",
+    "lumio/src/test/java/app/lumio/ui/design/",
+    "lumio/src/test/java/app/lumio/ui/screenshot/LumioSnapshot.kt",
+    "tools/design-frames/render.py",
+    ".github/workflows/pr-fast.yml",
+    "scripts/ci/run-partition.sh",
+    "scripts/ci/check-workflow-guards.sh",
+)
 
 
 def run(*cmd):
@@ -34,6 +50,13 @@ def row_changes(name, old, row):
             continue
         out.append(f"design/registry.json: {key} of {name} changed")
     return out
+
+
+def baseline_shrinks(old, new):
+    """True when a known violation's entry changed only by dropping keys from `findings` or lowering a count."""
+    if {k: v for k, v in old.items() if k not in RATCHET} != {k: v for k, v in new.items() if k not in RATCHET}:
+        return False
+    return set(new.get("findings", [])) <= set(old.get("findings", [])) and all(new.get(k, 0) <= old.get(k, 0) for k in RATCHET[1:])
 
 
 def changes(base, head, changed_files):
@@ -58,7 +81,7 @@ def changes(base, head, changed_files):
         for name in sorted(set(after) - set(before)):
             out.append(f"design/registry.json: {name} added to {key}")
         for name in sorted(set(after) & set(before)):
-            if after[name] != before[name]:
+            if after[name] != before[name] and not (key == "known_violations" and baseline_shrinks(before[name], after[name])):
                 out.append(f"design/registry.json: {name} changed in {key}")
     return out
 

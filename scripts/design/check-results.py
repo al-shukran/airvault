@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Reads what the design gate wrote (lumio/build/design-gate/*.json) and settles it against design/registry.json.
 
-The Kotlin gate (lumio/src/test/java/app/lumio/ui/design/DesignGate.kt) fails a test on a new violation and on a known violation that now
-passes. This script adds what a test cannot see: a registered screen that never ran (a skipped or filtered test is a failure), a registry that
+The Kotlin gate (lumio/src/test/java/app/lumio/ui/design/DesignGate.kt) fails a test on a new violation, on a known violation that now passes
+and on a known violation that differs beyond its recorded baseline (the ratchet). This script repeats those from the results and adds what a
+test cannot see: a registered screen that never ran (a skipped or filtered test is a failure), a registry that
 contradicts itself or the frames, and a golden that no row names. It writes the per-element report to build/design-gate/report.md and the job
-summary ($GITHUB_STEP_SUMMARY). Usage: check-results.py [--registry design/registry.json] [--results lumio/build/design-gate]
+summary ($GITHUB_STEP_SUMMARY). Usage: check-results.py [--registry design/registry.json] [--results lumio/build/design-gate] [--record]
 """
 import argparse
 import json
@@ -16,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 TOLERANCE_KEYS = {"bandDp", "textPosDp", "fontSizeDp", "lineHeightDp", "letterSpacingDp", "textColor", "sample", "cell", "cellDp", "ink", "iconColor"}
 TOP_KEYS = {"version", "tolerance", "screens", "known_violations", "unregistered", "no_frame"}
 ROW_KEYS = {"frame", "theme", "test", "insetBottom", "masks"}
+KNOWN_KEYS = {"issue", "findings", "regions", "extra"}  # a known violation: its issue and its ratchet (see ratchet_errors)
 
 
 def registry_errors(reg, frames_dir, golden_names):
@@ -45,6 +47,13 @@ def registry_errors(reg, frames_dir, golden_names):
             errors.append(f"known_violations: {name} is not a registered screen")
         if not isinstance(row.get("issue"), int):
             errors.append(f"known_violations: {name} needs an issue number")
+        for key in sorted(set(row) - KNOWN_KEYS):
+            errors.append(f"known_violations: {name} has key {key}, which the gate does not read: remove it")
+        if not (isinstance(row.get("findings"), list) and all(isinstance(k, str) for k in row["findings"])):
+            errors.append(f"known_violations: {name} needs `findings`, the list of layer:element keys it differs in")
+        for key in ("regions", "extra"):
+            if not isinstance(row.get(key), int):
+                errors.append(f"known_violations: {name} needs `{key}`, a count")
     for name, row in reg.get("unregistered", {}).items():
         if name in screens:
             errors.append(f"unregistered: {name} is registered")
@@ -64,6 +73,30 @@ def registry_errors(reg, frames_dir, golden_names):
     return errors
 
 
+def counted(finding):
+    """The count a finding is ratcheted by when it has no stable element of the frame: a region, or a text the frame lacks. Else None."""
+    if finding["layer"] == "region":
+        return "regions"
+    return "extra" if finding["layer"] == "text" and finding["element"] == "extra" else None
+
+
+def ratchet_errors(known, findings):
+    """What a known violation may still differ in. Mirrors Baseline in DesignGate.kt: a key not recorded, a count above the recorded one, and a
+    recorded key that now passes all fail, so the baseline shrinks with every fix and a regression cannot hide among a screen's other differences."""
+    recorded = set(known.get("findings", []))
+    now = {f"{f['layer']}:{f['element']}" for f in findings if counted(f) is None}
+    errors = []
+    if now - recorded:
+        errors.append("new differences, not in the baseline: " + ", ".join(sorted(now - recorded)))
+    if recorded - now:
+        errors.append("now match their frame, remove them from `findings` in known_violations: " + ", ".join(sorted(recorded - now)))
+    for key, label in (("regions", "regions"), ("extra", "extra texts")):
+        have = sum(1 for f in findings if counted(f) == key)
+        if have > known.get(key, 0):
+            errors.append(f"{label}: {have}, the baseline allows {known.get(key, 0)}")
+    return errors
+
+
 def result_errors(reg, results_dir):
     errors, results = [], {}
     for name in reg.get("screens", {}):
@@ -80,7 +113,21 @@ def result_errors(reg, results_dir):
             errors.append(f"{name}: a new violation ({len(results[name]['findings'])} differences)")
         if not results[name]["violation"] and known:
             errors.append(f"{name}: matches its frame now, so it leaves known_violations")
+        if results[name]["violation"] and known:
+            errors += [f"{name}: {e}" for e in ratchet_errors(reg["known_violations"][name], results[name]["findings"])]
     return errors, results
+
+
+def record(reg_path, reg, results):
+    """Writes the baseline of every known violation from the results: its keys and counts, as they are now. Run it after a fix, so the baseline
+    shrinks; the guard lets a baseline that only shrinks through without the label, and a baseline that grows needs it."""
+    for name, row in reg["known_violations"].items():
+        if name in results and results[name]["violation"]:
+            findings = results[name]["findings"]
+            row["findings"] = sorted({f"{f['layer']}:{f['element']}" for f in findings if counted(f) is None})
+            row["regions"] = sum(1 for f in findings if counted(f) == "regions")
+            row["extra"] = sum(1 for f in findings if counted(f) == "extra")
+    Path(reg_path).write_text(json.dumps(reg, indent=1, ensure_ascii=False))
 
 
 def report(reg, results):
@@ -104,10 +151,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--registry", default=str(ROOT / "design" / "registry.json"))
     ap.add_argument("--results", default=str(ROOT / "lumio" / "build" / "design-gate"))
+    ap.add_argument("--record", action="store_true", help="write the baseline of every known violation from the results, then exit")
     args = ap.parse_args()
     reg = json.loads(Path(args.registry).read_text())
     results_dir = Path(args.results)
     goldens = {p.stem for p in (ROOT / "lumio" / "src" / "test" / "screenshots").glob("*.png")}
+    if args.record:
+        record(args.registry, reg, {n: json.loads((results_dir / f"{n}.json").read_text()) for n in reg["known_violations"] if (results_dir / f"{n}.json").exists()})
+        return 0
     errors = registry_errors(reg, ROOT / "design" / "frames", goldens)
     more, results = result_errors(reg, results_dir)
     errors += more

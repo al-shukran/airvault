@@ -74,6 +74,41 @@ class GuardTest(unittest.TestCase):
         for path in ("scripts/design/check-results.py", "lumio/src/test/java/app/lumio/ui/design/DesignGate.kt", "tools/design-frames/render.py"):
             self.assertEqual(guard.changes(BASE, head(), [path]), [f"{path} changed"])
 
+    def test_what_runs_the_gate_is_guarded(self):
+        # The workflow that puts the lane in pr-ok, the lane itself, the check of those guards and the hook that swaps the golden for the gate's render.
+        for path in (
+            ".github/workflows/pr-fast.yml",
+            "scripts/ci/run-partition.sh",
+            "scripts/ci/check-workflow-guards.sh",
+            "lumio/src/test/java/app/lumio/ui/screenshot/LumioSnapshot.kt",
+        ):
+            self.assertEqual(guard.changes(BASE, head(), [path]), [f"{path} changed"])
+
+    def test_other_workflows_and_ci_scripts_are_free(self):
+        for path in (".github/workflows/nightly.yml", "scripts/ci/shards.txt", "scripts/ci/README.md"):
+            self.assertEqual(guard.changes(BASE, head(), [path]), [])
+
+    def test_a_baseline_that_only_shrinks_is_free(self):
+        base = head(known_violations={"a": {"issue": 1, "findings": ["text:e1", "box:e2"], "regions": 3, "extra": 1}})
+        shrunk = head(known_violations={"a": {"issue": 1, "findings": ["box:e2"], "regions": 2, "extra": 1}})
+        self.assertEqual(guard.changes(base, shrunk, []), [])
+        self.assertEqual(guard.changes(base, base, []), [])
+
+    def test_a_baseline_that_grows_is_guarded(self):
+        base = head(known_violations={"a": {"issue": 1, "findings": ["text:e1"], "regions": 3, "extra": 1}})
+        for grown in (
+            {"issue": 1, "findings": ["text:e1", "icon:e9"], "regions": 3, "extra": 1},
+            {"issue": 1, "findings": ["text:e1"], "regions": 4, "extra": 1},
+            {"issue": 1, "findings": ["text:e1"], "regions": 3, "extra": 2},
+            {"issue": 1, "findings": ["text:e1", "icon:e9"], "regions": 1, "extra": 0},
+        ):
+            self.assertEqual(guard.changes(base, head(known_violations={"a": grown}), []), ["design/registry.json: a changed in known_violations"], grown)
+
+    def test_a_shrinking_baseline_with_another_issue_is_guarded(self):
+        base = head(known_violations={"a": {"issue": 1, "findings": ["text:e1"], "regions": 3, "extra": 1}})
+        other = head(known_violations={"a": {"issue": 9, "findings": [], "regions": 0, "extra": 0}})
+        self.assertEqual(guard.changes(base, other, []), ["design/registry.json: a changed in known_violations"])
+
     def test_a_new_screen_row_without_masks_is_free(self):
         self.assertEqual(guard.changes(BASE, head(screens=screens(b={"frame": "f2", "theme": "dark", "test": "T", "masks": []})), []), [])
 
@@ -104,16 +139,20 @@ class ResultsTest(unittest.TestCase):
         return {
             "tolerance": {k: 1 for k in check.TOLERANCE_KEYS},
             "screens": {"a": {"frame": "f1", "theme": "dark", "test": "T"}, "b": {"frame": "f1", "theme": "dark", "test": "T"}},
-            "known_violations": {"b": {"issue": 2}},
+            "known_violations": {"b": {"issue": 2, "findings": ["text:e1", "box:e2"], "regions": 2, "extra": 1}},
             "unregistered": {"c": {"frame": "f1", "reason": "r"}},
             "no_frame": {},
         }
 
-    def results(self, **violations):
+    RECORDED = [("text", "e1"), ("box", "e2"), ("region", "region0"), ("region", "region1"), ("text", "extra")]
+
+    def results(self, found=None, **violations):
+        """A result file per screen; a violating screen has the differences [found] (default: what the registry records for b)."""
+        import json
         tmp = Path(tempfile.mkdtemp())
         for name, bad in violations.items():
-            import json
-            (tmp / f"{name}.json").write_text(json.dumps({"violation": bad, "findings": [1] if bad else [], "frame": "f1", "theme": "dark"}))
+            findings = [{"layer": layer, "element": element} for layer, element in (found or self.RECORDED)] if bad else []
+            (tmp / f"{name}.json").write_text(json.dumps({"violation": bad, "findings": findings, "frame": "f1", "theme": "dark"}))
         return tmp
 
     def test_a_screen_that_never_ran_fails(self):
@@ -134,6 +173,44 @@ class ResultsTest(unittest.TestCase):
     def test_the_honest_state_passes(self):
         errors, _ = check.result_errors(self.registry(), self.results(a=False, b=True))
         self.assertEqual(errors, [])
+
+    def test_a_new_difference_on_a_known_violation_fails(self):
+        errors, _ = check.result_errors(self.registry(), self.results(found=self.RECORDED + [("icon", "e9")], a=False, b=True))
+        self.assertEqual(len(errors), 1)
+        self.assertIn("b: new differences, not in the baseline: icon:e9", errors[0])
+
+    def test_more_regions_or_extra_texts_on_a_known_violation_fail(self):
+        errors, _ = check.result_errors(self.registry(), self.results(found=self.RECORDED + [("region", "region2")], a=False, b=True))
+        self.assertEqual(errors, ["b: regions: 3, the baseline allows 2"])
+        errors, _ = check.result_errors(self.registry(), self.results(found=self.RECORDED + [("text", "extra")], a=False, b=True))
+        self.assertEqual(errors, ["b: extra texts: 2, the baseline allows 1"])
+
+    def test_a_recorded_difference_that_passes_now_fails(self):
+        errors, _ = check.result_errors(self.registry(), self.results(found=[d for d in self.RECORDED if d != ("text", "e1")], a=False, b=True))
+        self.assertEqual(len(errors), 1)
+        self.assertIn("b: now match their frame, remove them from `findings` in known_violations: text:e1", errors[0])
+
+    def test_fewer_regions_than_recorded_pass(self):
+        errors, _ = check.result_errors(self.registry(), self.results(found=[d for d in self.RECORDED if d[1] != "region1"], a=False, b=True))
+        self.assertEqual(errors, [])
+
+    def test_recording_writes_the_baseline_from_the_results(self):
+        import json
+        reg = self.registry()
+        reg["known_violations"]["b"] = {"issue": 2}
+        path = Path(tempfile.mkdtemp()) / "registry.json"
+        results = {"b": {"violation": True, "findings": [{"layer": l, "element": e} for l, e in self.RECORDED]}}
+        check.record(path, reg, results)
+        self.assertEqual(json.loads(path.read_text())["known_violations"]["b"], {"issue": 2, "findings": ["box:e2", "text:e1"], "regions": 2, "extra": 1})
+
+    def test_a_known_violation_without_a_baseline_fails(self):
+        frames = Path(tempfile.mkdtemp())
+        (frames / "f1.spec.json").write_text('{"themes": {"dark": {}}}')
+        reg = self.registry()
+        reg["known_violations"]["b"] = {"issue": 2}
+        errors = check.registry_errors(reg, frames, None)
+        self.assertEqual(len(errors), 3)
+        self.assertTrue(all(e.startswith("known_violations: b needs") for e in errors))
 
     def test_a_result_for_another_frame_fails(self):
         tmp = self.results(a=False, b=True)

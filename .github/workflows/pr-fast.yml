@@ -314,13 +314,20 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # The guard runs as it is at the base commit, so a pull request cannot edit the check that judges it. The checked-out copy runs only while the
+      # base has no guard, which is the case for the pull request that adds it.
       - name: Check the design frames and the registry
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/design/guard.py
+        run: |
+          if git cat-file -e "$BASE_SHA:scripts/design/guard.py" 2>/dev/null; then
+            git show "$BASE_SHA:scripts/design/guard.py" | python3 -I -
+          else
+            python3 -I scripts/design/guard.py
+          fi
 
   # No Gradle: every script's syntax, the test-class coverage of the lanes, and the test-network guard (guideline 3).
   ci:
