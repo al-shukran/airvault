@@ -131,11 +131,16 @@ internal fun SignedSendSteps(
                 body = now.message,
                 notes = listOf(
                     "What Happened" to now.message,
-                    "What You Can Do" to if (now.unknown) {
+                    "What You Can Do" to if (now.retryable) {
+                        if (now.unknown) {
+                            "The network may have taken the transaction. Check the account's activity before you try again. " +
+                                "Try again sends the same signed transaction, and the network may answer that it already has it."
+                        } else {
+                            "Try again sends the same signed transaction. Nothing was sent."
+                        }
+                    } else if (now.unknown) {
                         "The network may have taken the transaction. Check the account's activity before you try again. " +
-                            "Try again sends the same signed transaction, and the network may answer that it already has it."
-                    } else if (now.retryable) {
-                        "Try again sends the same signed transaction. Nothing was sent."
+                            "This signed transaction can no longer be sent. Start the send again, and Lensly signs it afresh."
                     } else {
                         "This signed transaction can no longer be sent. Start the send again, and Lensly signs it afresh."
                     },

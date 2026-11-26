@@ -4,6 +4,8 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.theme.LumenTheme
 import app.lumio.data.provider.ProviderError
@@ -102,6 +104,35 @@ class SignedSendStepsTest {
         compose.mainClock.advanceTimeBy(500L)
         compose.onAllNodesWithText("Nothing Left Your Account", ignoreCase = true).assertCountEquals(1)
         compose.onAllNodesWithText("We Couldn't Confirm It Was Sent", ignoreCase = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun anExpiredSendAfterATimeoutSaysItCanNoLongerBeSent() {
+        compose.mainClock.autoAdvance = false
+        val attempts = AtomicInteger()
+        val machine = SubmitMachine<Unit, String>(
+            Unit,
+            {
+                if (attempts.incrementAndGet() == 1) throw ProviderError.Transient(SocketTimeoutException("timeout"))
+                throw ProviderError.Fatal("The blockhash expired.")
+            },
+            { SubmitFailure("The endpoint did not answer.", retryable = it is ProviderError.Transient) },
+            clock = { 0L },
+        )
+        show(machine, seconds = 0)
+
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(500L)
+        compose.onAllNodesWithText("same signed transaction", substring = true, ignoreCase = true).assertCountEquals(1)
+        compose.onNodeWithText("Try Again", ignoreCase = true).performClick()
+        compose.mainClock.advanceTimeBy(500L)
+        compose.waitForIdle()
+
+        assertEquals(2, attempts.get())
+        compose.onAllNodesWithText("We Couldn't Confirm It Was Sent", ignoreCase = true).assertCountEquals(1)
+        compose.onAllNodesWithText("Check the account's activity", substring = true, ignoreCase = true).assertCountEquals(1)
+        compose.onAllNodesWithText("can no longer be sent", substring = true, ignoreCase = true).assertCountEquals(1)
+        compose.onAllNodesWithText("same signed transaction", substring = true, ignoreCase = true).assertCountEquals(0)
     }
 
     @Test
