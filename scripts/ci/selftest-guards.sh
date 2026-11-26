@@ -2,7 +2,7 @@
 # Checks the CI guards against broken inputs: each case must make its guard fail, and the real files must still pass. Needs yq and
 # python3, no Gradle and no network. Runs in the ci lane (run-partition.sh ci), so a guard that stops rejecting a case fails a pull request.
 #   check-cleartext-sources.sh   cleartext allowed outside src/debug/ (#1406, #1441)
-#   check-workflow-guards.sh     comment-run trusted gate and release refusal order (#1407, #1408, #1442, #1451)
+#   check-workflow-guards.sh     comment-run trusted gate and release refusal order (#1407, #1408, #1442, #1451, #1465)
 #   close-refresh-pr.sh          the refresh pull request is closed and the comment posted once (#1396, #1443)
 #
 # Usage: scripts/ci/selftest-guards.sh
@@ -201,6 +201,13 @@ for open_close in "cat <<'NOTE'|NOTE" 'cat <<NOTE|NOTE' 'cat <<"NOTE"|NOTE' 'cat
     mutate release.yml "($refusal | .run) = \"set -euo pipefail\\n${opener//\"/\\\"}\\nif ! $check; then\\n  exit 1\\nfi\\n${closer//\"/\\\"}\""
     expect_fail "a refusal inside $opener" guard_with
 done
+# The exit 1 must run in the step's own shell, not inside a command substitution or subshell that swallows it (#1465).
+mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  echo \\\"::error::refused\\\" \$(\\n    exit 1\\n  )\\n  exit 0\\nfi\""
+expect_fail "an exit 1 inside \$( )" guard_with
+mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  echo \\\"::error::refused\\\" \`\\n    exit 1\\n  \`\\n  exit 0\\nfi\""
+expect_fail "an exit 1 inside backticks" guard_with
+mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  (\\n    exit 1\\n  )\\nfi\""
+expect_fail "an exit 1 inside a subshell" guard_with
 mutate release.yml "$refusal += {\"id\": \"refuse\"}"
 expect_pass "a refusal with an id" guard_with
 

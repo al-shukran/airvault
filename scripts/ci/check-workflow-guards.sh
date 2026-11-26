@@ -40,8 +40,9 @@ expected="comment-run-\${{ github.event.issue.number }}-\${{ $gate }}"
 #  - The refusal is a step with only the keys name, run and id (no if, env, shell, continue-on-error) whose run holds the top-level
 #    line `if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then` followed by an unconditional `exit 1` in that block
 #    (not after `&&`/`||`, in an `else`, or in a nested if). Echoing the command or commenting it out does not count. The lines are
-#    matched as text, so a block with a heredoc (`<<`) or a line with an unclosed quote (a string that spans lines) is refused: the
-#    shell may not run the lines inside it (#1451).
+#    matched as text, so a block with a heredoc (`<<`), a line with an unclosed quote (a string that spans lines), or a line with
+#    `(` or a backtick (a subshell or command substitution that can swallow the exit) is refused: the shell may not run the lines
+#    inside it (#1451, #1465).
 yq -o=json '.' "$workflows/release.yml" | python3 -I -c '
 import json
 import re
@@ -73,7 +74,7 @@ def refuses(step):
             shlex.split(text)
         except ValueError:
             return False
-        if "<<" in text:
+        if "<<" in text or "(" in text or "`" in text:
             return False
         if depth == 0 and not chained and text == "if ! " + COMMAND + "; then":
             armed = True
