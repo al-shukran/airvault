@@ -15,6 +15,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.dp
+import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.theme.ClearAirType
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -43,27 +44,33 @@ class FontMetricsCalibrationTest {
     /** A Clear Air style, its line height, and Chromium's ink top and bottom of "HHHH" in dp below the line box. */
     private class Case(val name: String, val style: TextStyle, val top: Int, val bottom: Int)
 
-    private val cases = listOf(
-        Case("body 15/22, 92", ClearAirType.body, 5, 16),
-        Case("small 13/18, 92", ClearAirType.small, 4, 13),
-        Case("label 13/18, 600, 92", ClearAirType.label, 4, 13),
-        Case("caption 12.5/17, 92", ClearAirType.caption, 3, 12),
-        Case("rowTitle 15/20, 600, 114", ClearAirType.rowTitle, 4, 15),
-        Case("titleL 20/25, 700, 114", ClearAirType.titleL, 5, 19),
-        Case("titleXL 26/30, 700, 114", ClearAirType.titleXL, 6, 24),
-        Case("topBar 18/21, 700, 114", ClearAirType.topBar, 3, 16),
-        Case("eyebrow 11/14, 600, 92", ClearAirType.eyebrow, 3, 11),
-    )
+    // Built on first use, inside the theme: ClearAirType must not initialise before ClearAirTheme does, or another test's Typography reads null.
+    private val cases by lazy {
+        listOf(
+            Case("body 15/22, 92", ClearAirType.body, 5, 16),
+            Case("small 13/18, 92", ClearAirType.small, 4, 13),
+            Case("label 13/18, 600, 92", ClearAirType.label, 4, 13),
+            Case("caption 12.5/17, 92", ClearAirType.caption, 3, 12),
+            Case("rowTitle 15/20, 600, 114", ClearAirType.rowTitle, 4, 15),
+            Case("titleL 20/25, 700, 114", ClearAirType.titleL, 5, 19),
+            Case("titleXL 26/30, 700, 114", ClearAirType.titleXL, 6, 24),
+            Case("topBar 18/21, 700, 114", ClearAirType.topBar, 3, 16),
+            Case("eyebrow 11/14, 600, 92", ClearAirType.eyebrow, 3, 11),
+        )
+    }
 
     @Test
     fun archivoIsDrawnWhereChromiumDrawsItWithinTheGatesTolerance() {
         val rowDp = 70
         val lineBox = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
+        // In the theme, as every screen is: the type scale and the theme's typography initialise together, in the order the other tests rely on.
         compose.setContent {
-            Box(Modifier.fillMaxSize().background(Color.White)) {
-                cases.forEachIndexed { i, c ->
-                    Box(Modifier.offset(10.dp, (i * rowDp + 5).dp).width(300.dp).height(c.style.lineHeight.value.dp)) {
-                        Text("HHHH", style = c.style.copy(color = Color.Black, lineHeightStyle = lineBox))
+            ClearAirTheme {
+                Box(Modifier.fillMaxSize().background(Color.White)) {
+                    cases.forEachIndexed { i, c ->
+                        Box(Modifier.offset(10.dp, (i * rowDp + 5).dp).width(300.dp).height(c.style.lineHeight.value.dp)) {
+                            Text("HHHH", style = c.style.copy(color = Color.Black, lineHeightStyle = lineBox))
+                        }
                     }
                 }
             }
