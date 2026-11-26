@@ -769,7 +769,6 @@
   "asset_page": {
    "issue": 1425,
    "findings": [
-    "band:band11",
     "icon:e30",
     "icon:e32",
     "text:e13",
@@ -788,8 +787,6 @@
   "asset_page_light": {
    "issue": 1425,
    "findings": [
-    "band:band10",
-    "band:band12",
     "icon:e30",
     "icon:e32",
     "text:e13",
