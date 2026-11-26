@@ -1,6 +1,5 @@
 package app.lumio
 
-import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -41,6 +40,7 @@ import app.lumio.data.config.Fiat
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.price.ChartFrame
+import app.lumio.data.price.decodeLogo
 import app.lumio.data.price.Price
 import app.lumio.data.price.PriceSeries
 import app.lumio.home.Masking
@@ -157,7 +157,7 @@ internal fun AssetRoute(
         value = if (contract == null || coinIcon !is AssetIconSpec.Letter) {
             null
         } else {
-            withContext(Dispatchers.IO) { app.logos.imageOf(asset.network, contract)?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() } }
+            withContext(Dispatchers.IO) { app.logos.imageOf(asset.network, contract)?.let { decodeLogo(it)?.asImageBitmap() } }
         }
     }
     val assetId = asset.assetId

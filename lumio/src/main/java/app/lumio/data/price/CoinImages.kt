@@ -7,6 +7,7 @@ import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.fetchBytes
 import app.lumio.data.provider.noRedirects
 import java.io.IOException
+import kotlin.coroutines.cancellation.CancellationException
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Request
 
@@ -48,8 +49,11 @@ class CoinImages(private val http: Http, private val cache: () -> Cache?, privat
         } catch (e: IOException) {
             return null
         }
+        // An image that does not decode within the size limit is neither kept nor shown.
+        if (!isLogo(bytes)) return null
         remember(store, url, bytes)
-        store.put(CachePolicy.LastKnown, key, bytes)
+        // The cache is best effort: a write that fails still shows the image, and it is read again next time.
+        runCatching { store.put(CachePolicy.LastKnown, key, bytes) }.onFailure { if (it is CancellationException) throw it }
         return bytes
     }
 

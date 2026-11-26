@@ -1,6 +1,5 @@
 package app.lumio.ui.home
 
-import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -14,6 +13,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import app.lumio.data.price.decodeLogo
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -118,7 +118,7 @@ fun rememberLogo(url: String): LogoLoad {
     val reader = LocalCoinImages.current ?: app?.coinImages?.let { images -> images::imageOf }
     val logo by produceState<LogoLoad>(DecodedLogos.get(owner, url)?.let { LogoLoad.Loaded(it) } ?: LogoLoad.Loading, url, reader, owner) {
         if (value is LogoLoad.Loaded) return@produceState
-        val bitmap = reader?.let { read -> withContext(Dispatchers.IO) { read(url)?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() } } }
+        val bitmap = reader?.let { read -> withContext(Dispatchers.IO) { read(url)?.let { decodeLogo(it)?.asImageBitmap() } } }
         value = bitmap?.also { DecodedLogos.put(owner, url, it) }?.let { LogoLoad.Loaded(it) } ?: LogoLoad.Missing
     }
     return logo
