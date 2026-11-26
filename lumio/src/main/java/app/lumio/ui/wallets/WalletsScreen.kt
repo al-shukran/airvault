@@ -130,7 +130,7 @@ fun WalletsScreen(
 @Composable
 private fun EmptyWallets(onPair: () -> Unit, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
-    Column(modifier = modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.md), verticalArrangement = Arrangement.SpaceBetween) {
+    Column(modifier = modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md), verticalArrangement = Arrangement.SpaceBetween) {
         Column {
             Text(text = "Pair with Lensly", style = ClearAirType.titleXL, color = palette.ink)
             Spacer(Modifier.height(ClearAirSpacing.md))
