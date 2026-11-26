@@ -144,6 +144,30 @@ class DefiLlamaProviderTest {
     }
 
     @Test
+    fun anSplTokenAndAnAsaArePricedUnderTheirChainPrefixesWithTheMintCaseKept() {
+        val mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+        val solana = NetworkId(Networks.SOL_MAINNET, testnet = false)
+        val algorand = NetworkId(Networks.ALGO_MAINNET, testnet = false)
+        server.enqueue(MockResponse.Builder().body("""{"coins":{"solana:$mint":{"price":0.9999,"symbol":"usdc","timestamp":1794774850,"confidence":0.99}}}""").build())
+        server.enqueue(MockResponse.Builder().body("""{"coins":{"solana:$mint":0.01}}""").build())
+        server.enqueue(MockResponse.Builder().body("""{"coins":{"algorand:31566704":{"price":0.9999,"symbol":"USDC","timestamp":1794774850,"confidence":0.99}}}""").build())
+        server.enqueue(MockResponse.Builder().body("""{"coins":{}}""").build())
+
+        assertEquals(PriceQuote(usd = 0.9999, change24hPct = 0.01, asOfMs = 1_794_774_850_000L), call(TokenPrice(solana, mint)))
+        assertEquals("/prices/current/solana:$mint", server.takeRequest().target)
+        assertEquals("/percentage/solana:$mint?period=24h", server.takeRequest().target)
+        assertEquals(PriceQuote(usd = 0.9999, change24hPct = null, asOfMs = 1_794_774_850_000L), call(TokenPrice(algorand, "31566704")))
+        assertEquals("/prices/current/algorand:31566704", server.takeRequest().target)
+    }
+
+    @Test
+    fun anSplTokenOnADevnetIsUnsupportedWithoutACall() {
+        val devnet = NetworkId(Networks.SOL_DEVNET, testnet = true)
+        assertFailsWith<ProviderError.Unsupported> { call(TokenPrice(devnet, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")) }
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
     fun aTokenOnAChainWithoutAPrefixOrOnATestnetIsUnsupportedWithoutACall() {
         val usdc = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
         assertFailsWith<ProviderError.Unsupported> { call(TokenPrice(NetworkId(Networks.evm(250), testnet = false), usdc)) }

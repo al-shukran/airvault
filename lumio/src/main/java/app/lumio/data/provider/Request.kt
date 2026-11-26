@@ -24,9 +24,6 @@ private val EVM_ADDRESS = Regex("0x[0-9a-fA-F]{40}")
 /** Hex data of any length, as a JSON-RPC call sends it: 0x and an even number of hex digits. */
 private val HEX_DATA = Regex("0x([0-9a-fA-F]{2})*")
 
-/** A token contract as [app.lumio.data.asset.AssetId] keeps it: lowercase. */
-private val TOKEN_CONTRACT = Regex("0x[0-9a-f]{40}")
-
 /**
  * A typed read or write. The type parameter is the result a provider returns. The router matches each request's [op] against the operations
  * a provider supports. The EVM requests map to JSON-RPC calls in `app.lumio.data.rpc.EvmCalls`.
@@ -84,12 +81,12 @@ class LogoImage(val bytes: ByteArray)
 data class PriceQuote(val usd: Double, val change24hPct: Double?, val asOfMs: Long)
 
 /**
- * The USD price of the ERC-20 token at [contract] on [net], lowercase. Only a network with a price prefix is priced: see
- * `app.lumio.data.price.DefiLlamaChains`. The price is asked for with the token's contract, never with an owner's address.
+ * The USD price of the token [token] on [net]: an ERC-20 contract (lowercase), an SPL mint (case kept) or an ASA ID, as [AssetId.token] reads it. Only a
+ * network with a price prefix is priced: see `app.lumio.data.price.DefiLlamaChains`. The price is asked for with the token's id, never with an owner's address.
  */
-class TokenPrice(net: NetworkId, val contract: String) : Request<PriceQuote>(net, Ops.PRICE_TOKEN) {
+class TokenPrice(net: NetworkId, val token: String) : Request<PriceQuote>(net, Ops.PRICE_TOKEN) {
     init {
-        require(TOKEN_CONTRACT.matches(contract)) { "A token contract is 0x and 40 lowercase hex digits." }
+        AssetId.token(net, token)
     }
 }
 

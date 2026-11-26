@@ -49,10 +49,10 @@ data class PriceSeries(val points: List<PricePoint>) {
 }
 
 /**
- * The DefiLlama coin id that charts [asset]: `coingecko:{id}` for a native coin, and `{chain}:{contract}` for a token. It is the same id the price
+ * The DefiLlama coin id that charts [asset]: `coingecko:{id}` for a native coin, and `{chain}:{token}` for a token (a contract, a mint or an asset ID). It is the same id the price
  * reads use. Null when DefiLlama has no id for [asset], such as a testnet coin.
  */
 internal fun chartCoinOf(asset: AssetId): String? = when (asset) {
     is AssetId.Native -> NativeCoins.coinOf(asset.net)?.let { "coingecko:$it" }
-    is AssetId.Erc20 -> DefiLlamaChains.prefixOf(asset.net)?.let { "$it:${asset.contract}" }
+    is AssetId.Token -> DefiLlamaChains.prefixOf(asset.net)?.let { "$it:${asset.tokenId}" }
 }

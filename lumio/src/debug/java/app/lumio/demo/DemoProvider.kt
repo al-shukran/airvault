@@ -78,7 +78,7 @@ internal class DemoProvider(private val profile: () -> DemoProfile) : Provider {
             is GasFees -> GasQuote(baseFee = gwei(80), priorityFee = gwei(1.9))
             is Broadcast -> "0x" + "ab".repeat(32)
             is NativePrice -> quoteOf(net, null, now)
-            is TokenPrice -> quoteOf(net, req.contract, now)
+            is TokenPrice -> quoteOf(net, req.token, now)
             is PriceChart -> chartOf(req, now)
             is BitcoinMarket -> MarketQuote(3.41e12, 2.14, now)
             is TrendingCoins -> TrendingList(TRENDING, now)
@@ -121,7 +121,7 @@ internal class DemoProvider(private val profile: () -> DemoProfile) : Provider {
     /** A smooth, deterministic series that ends at the asset's price, shaped by the sign of its day change. */
     private fun chartOf(req: PriceChart, now: Long): PriceSeries {
         val asset = req.asset
-        val quote = quoteOf(asset.net, (asset as? AssetId.Erc20)?.contract, now)
+        val quote = quoteOf(asset.net, (asset as? AssetId.Token)?.tokenId, now)
         val count = req.range.points
         val points = (0 until count).map { i ->
             val t = i / (count - 1.0)

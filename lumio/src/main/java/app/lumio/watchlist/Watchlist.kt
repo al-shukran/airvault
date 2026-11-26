@@ -15,10 +15,13 @@ enum class WatchlistSort(val label: String) {
     CHANGE_24H("24h Change"),
 }
 
-/** One watched asset as the vault keeps it: its network, and its lowercase contract for a token. A null contract is the network's native coin. */
+/**
+ * One watched asset as the vault keeps it: its network, and its token id for a token: the lowercase contract on an EVM network, the mint on Solana
+ * (case kept), the asset ID on Algorand. A null [contract] is the network's native coin.
+ */
 @Serializable
 data class WatchedAsset(val network: NetworkId, val contract: String? = null) {
-    val assetId: AssetId get() = contract?.let { AssetId.Erc20(network, it) } ?: AssetId.Native(network)
+    val assetId: AssetId get() = contract?.let { AssetId.token(network, it) } ?: AssetId.Native(network)
 }
 
 /** One wallet's watchlist: its assets in the order they were starred, and the order the list shows them in. */

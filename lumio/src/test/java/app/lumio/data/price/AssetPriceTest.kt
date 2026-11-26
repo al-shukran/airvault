@@ -41,7 +41,7 @@ class AssetPriceTest {
         val asset = AssetId.Erc20(ETH, usdc)
 
         assertEquals("token-price:ethereum:$usdc", priceKeyOf(asset))
-        assertEquals(usdc, (priceRequestOf(asset) as TokenPrice).contract)
+        assertEquals(usdc, (priceRequestOf(asset) as TokenPrice).token)
         assertEquals("token-price:base:$usdc", priceKeyOf(AssetId.Erc20(base, usdc)))
     }
 
@@ -66,5 +66,53 @@ class AssetPriceTest {
         assertEquals(AssetId.Erc20(ETH, usdc), AssetId.Erc20.of(ETH, "  0xA0B86991C6218B36C1D19D4A2E9EB0CE3606EB48 "))
         assertFailsWith<IllegalArgumentException> { AssetId.Erc20(ETH, "0xA0B86991C6218B36C1D19D4A2E9EB0CE3606EB48") }
         assertFailsWith<IllegalArgumentException> { AssetId.Erc20.of(ETH, "USDC") }
+    }
+
+    @Test
+    fun anSplTokenIsPricedByItsMintAndTheMintKeepsItsCase() {
+        val asset = AssetId.Spl(SOL, USDC_MINT)
+
+        assertEquals("token-price:solana:$USDC_MINT", priceKeyOf(asset))
+        assertEquals(USDC_MINT, (priceRequestOf(asset) as TokenPrice).token)
+        assertEquals("solana:$USDC_MINT", chartCoinOf(asset))
+        assertNotEquals(priceKeyOf(asset), priceKeyOf(AssetId.Spl(SOL, USDC_MINT.lowercase().padEnd(44, 'a'))))
+    }
+
+    @Test
+    fun anAlgorandAssetIsPricedByItsAssetId() {
+        val asset = AssetId.Asa(ALGO, 31566704UL)
+
+        assertEquals("token-price:algorand:31566704", priceKeyOf(asset))
+        assertEquals("31566704", (priceRequestOf(asset) as TokenPrice).token)
+        assertEquals("algorand:31566704", chartCoinOf(asset))
+    }
+
+    @Test
+    fun aSolanaOrAlgorandTokenOnATestnetHasNoPrice() {
+        val devnet = NetworkId(Networks.SOL_DEVNET, testnet = true)
+        val testnet = NetworkId(Networks.ALGO_TESTNET, testnet = true)
+
+        assertNull(priceRequestOf(AssetId.Spl(devnet, USDC_MINT)))
+        assertNull(priceKeyOf(AssetId.Spl(devnet, USDC_MINT)))
+        assertNull(chartCoinOf(AssetId.Spl(devnet, USDC_MINT)))
+        assertNull(priceRequestOf(AssetId.Asa(testnet, 10458941UL)))
+        assertNull(priceKeyOf(AssetId.Asa(testnet, 10458941UL)))
+    }
+
+    @Test
+    fun aTokenIdNamesTheTokenOfItsChainFamilyAndAnythingElseIsRefused() {
+        assertEquals(AssetId.Spl(SOL, USDC_MINT), AssetId.token(SOL, USDC_MINT))
+        assertEquals(AssetId.Asa(ALGO, 31566704UL), AssetId.token(ALGO, "31566704"))
+        assertEquals(AssetId.Erc20(ETH, usdc), AssetId.token(ETH, usdc))
+        assertFailsWith<IllegalArgumentException> { AssetId.token(SOL, "0xnotamint") }
+        assertFailsWith<IllegalArgumentException> { AssetId.token(ALGO, "USDC") }
+        assertFailsWith<IllegalArgumentException> { AssetId.token(ALGO, "0") }
+        assertFailsWith<IllegalArgumentException> { TokenPrice(SOL, usdc) }
+    }
+
+    private companion object {
+        val SOL = NetworkId(Networks.SOL_MAINNET, testnet = false)
+        val ALGO = NetworkId(Networks.ALGO_MAINNET, testnet = false)
+        const val USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
     }
 }
