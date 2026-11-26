@@ -111,25 +111,37 @@ class GuardTest(unittest.TestCase):
         for path in (".github/workflows/nightly.yml", "scripts/ci/shards.txt", "scripts/ci/README.md"):
             self.assertEqual(guard.changes(BASE, head(), [path]), [])
 
+    BOX = [8, 8, 40, 20, 100]  # x, y, width, height and the cells of a region
+
+    def baseline(self, findings, regions, extra=1):
+        return head(known_violations={"a": {"issue": 1, "findings": findings, "regions": regions, "extra": extra}})
+
     def test_a_baseline_that_only_shrinks_is_free(self):
-        base = head(known_violations={"a": {"issue": 1, "findings": ["text:e1", "box:e2"], "regions": 3, "extra": 1}})
-        shrunk = head(known_violations={"a": {"issue": 1, "findings": ["box:e2"], "regions": 2, "extra": 1}})
-        self.assertEqual(guard.changes(base, shrunk, []), [])
-        self.assertEqual(guard.changes(base, base, []), [])
+        base = self.baseline({"text:e1": ["color", "font size"], "box:e2": ["fill, top"]}, [self.BOX, [100, 100, 8, 8, 4]])
+        for shrunk in (
+            self.baseline({"text:e1": ["color", "font size"], "box:e2": ["fill, top"]}, [self.BOX, [100, 100, 8, 8, 4]]),
+            self.baseline({"box:e2": ["fill, top"]}, [self.BOX]),
+            self.baseline({"text:e1": ["color"], "box:e2": ["fill, top"]}, [[12, 8, 16, 20, 40]], extra=0),
+        ):
+            self.assertEqual(guard.changes(base, shrunk, []), [])
 
     def test_a_baseline_that_grows_is_guarded(self):
-        base = head(known_violations={"a": {"issue": 1, "findings": ["text:e1"], "regions": 3, "extra": 1}})
+        base = self.baseline({"text:e1": ["color"]}, [self.BOX])
         for grown in (
-            {"issue": 1, "findings": ["text:e1", "icon:e9"], "regions": 3, "extra": 1},
-            {"issue": 1, "findings": ["text:e1"], "regions": 4, "extra": 1},
-            {"issue": 1, "findings": ["text:e1"], "regions": 3, "extra": 2},
-            {"issue": 1, "findings": ["text:e1", "icon:e9"], "regions": 1, "extra": 0},
+            self.baseline({"text:e1": ["color"], "icon:e9": ["pixels"]}, [self.BOX]),
+            self.baseline({"text:e1": ["color", "font size"]}, [self.BOX]),  # another field of a recorded element
+            self.baseline({"text:e1": ["color"]}, [self.BOX, self.BOX]),
+            self.baseline({"text:e1": ["color"]}, [[8, 8, 44, 20, 100]]),  # the same region, bigger
+            self.baseline({"text:e1": ["color"]}, [[12, 8, 40, 20, 100]]),  # the same size, moved
+            self.baseline({"text:e1": ["color"]}, [[8, 8, 40, 20, 101]]),  # the same box, more cells in it
+            self.baseline({"text:e1": ["color"]}, [self.BOX], extra=2),
+            self.baseline({"text:e1": ["color", "icon"]}, [], extra=0),
         ):
-            self.assertEqual(guard.changes(base, head(known_violations={"a": grown}), []), ["design/registry.json: a changed in known_violations"], grown)
+            self.assertEqual(guard.changes(base, grown, []), ["design/registry.json: a changed in known_violations"], grown)
 
     def test_a_shrinking_baseline_with_another_issue_is_guarded(self):
-        base = head(known_violations={"a": {"issue": 1, "findings": ["text:e1"], "regions": 3, "extra": 1}})
-        other = head(known_violations={"a": {"issue": 9, "findings": [], "regions": 0, "extra": 0}})
+        base = self.baseline({"text:e1": ["color"]}, [self.BOX])
+        other = head(known_violations={"a": {"issue": 9, "findings": {}, "regions": [], "extra": 0}})
         self.assertEqual(guard.changes(base, other, []), ["design/registry.json: a changed in known_violations"])
 
     def test_a_new_screen_row_without_masks_is_free(self):
@@ -158,24 +170,30 @@ class GuardTest(unittest.TestCase):
 
 
 class ResultsTest(unittest.TestCase):
+    BOXES = [[8, 8, 40, 20, 100], [100, 100, 8, 8, 4]]
+
     def registry(self):
         return {
-            "tolerance": {k: 1 for k in check.TOLERANCE_KEYS},
+            "tolerance": {k: 1 for k in check.TOLERANCE_KEYS} | {"cellDp": 4},
             "screens": {"a": {"frame": "f1", "theme": "dark", "test": "T"}, "b": {"frame": "f1", "theme": "dark", "test": "T"}},
-            "known_violations": {"b": {"issue": 2, "findings": ["text:e1", "box:e2"], "regions": 2, "extra": 1}},
+            "known_violations": {"b": {"issue": 2, "findings": {"text:e1": ["color", "font size"], "box:e2": ["fill, top"]}, "regions": self.BOXES, "extra": 1}},
             "unregistered": {"c": {"frame": "f1", "reason": "r"}},
             "no_frame": {},
         }
 
-    RECORDED = [("text", "e1"), ("box", "e2"), ("region", "region0"), ("region", "region1"), ("text", "extra")]
+    def found(self, **edit):
+        """What the gate finds on b when it differs as the registry records, edited: a layer:element to its fields, or None to drop it."""
+        out = {"text:e1": ["color", "font size (a)"], "box:e2": ["fill, top (3,4)"]} | edit
+        out = [{"layer": k.split(":")[0], "element": k.split(":")[1], "diffs": [{"field": f} for f in v], "rect": None} for k, v in out.items() if v]
+        out += [{"layer": "region", "element": f"region{i}", "diffs": [{"field": "average colour"}], "rect": r[:4], "cells": r[4]} for i, r in enumerate(self.BOXES)]
+        return out + [{"layer": "text", "element": "extra", "diffs": [{"field": "text"}], "rect": [1, 1, 1, 1]}]
 
     def results(self, found=None, **violations):
         """A result file per screen; a violating screen has the differences [found] (default: what the registry records for b)."""
         import json
         tmp = Path(tempfile.mkdtemp())
         for name, bad in violations.items():
-            findings = [{"layer": layer, "element": element} for layer, element in (found or self.RECORDED)] if bad else []
-            (tmp / f"{name}.json").write_text(json.dumps({"violation": bad, "findings": findings, "frame": "f1", "theme": "dark"}))
+            (tmp / f"{name}.json").write_text(json.dumps({"violation": bad, "findings": (found or self.found()) if bad else [], "frame": "f1", "theme": "dark"}))
         return tmp
 
     def test_a_screen_that_never_ran_fails(self):
@@ -198,23 +216,47 @@ class ResultsTest(unittest.TestCase):
         self.assertEqual(errors, [])
 
     def test_a_new_difference_on_a_known_violation_fails(self):
-        errors, _ = check.result_errors(self.registry(), self.results(found=self.RECORDED + [("icon", "e9")], a=False, b=True))
-        self.assertEqual(len(errors), 1)
-        self.assertIn("b: new differences, not in the baseline: icon:e9", errors[0])
+        errors, _ = check.result_errors(self.registry(), self.results(found=self.found(**{"icon:e9": ["pixels"]}), a=False, b=True))
+        self.assertEqual(errors, ["b: new differences, not in the baseline: icon:e9"])
+
+    def test_a_new_field_of_a_recorded_element_fails(self):
+        # The element is in the baseline for its colour; its font size going wrong is another difference, though the key is the same.
+        errors, _ = check.result_errors(self.registry(), self.results(found=self.found(**{"box:e2": ["fill, top (3,4)", "border left (5,6)"]}), a=False, b=True))
+        self.assertEqual(errors, ["b: box:e2 differs in a field that is not in the baseline: border left"])
+
+    def test_a_recorded_field_that_passes_now_fails(self):
+        errors, _ = check.result_errors(self.registry(), self.results(found=self.found(**{"text:e1": ["color"]}), a=False, b=True))
+        self.assertEqual(errors, ["b: text:e1 now matches in a field that is in the baseline, remove it from `findings`: font size"])
 
     def test_more_regions_or_extra_texts_on_a_known_violation_fail(self):
-        errors, _ = check.result_errors(self.registry(), self.results(found=self.RECORDED + [("region", "region2")], a=False, b=True))
+        errors, _ = check.result_errors(self.registry(), self.results(found=self.found() + [{"layer": "region", "element": "region2", "diffs": [], "rect": [8, 8, 8, 8], "cells": 4}], a=False, b=True))
         self.assertEqual(errors, ["b: regions: 3, the baseline allows 2"])
-        errors, _ = check.result_errors(self.registry(), self.results(found=self.RECORDED + [("text", "extra")], a=False, b=True))
+        errors, _ = check.result_errors(self.registry(), self.results(found=self.found() + [{"layer": "text", "element": "extra", "diffs": [], "rect": None}], a=False, b=True))
         self.assertEqual(errors, ["b: extra texts: 2, the baseline allows 1"])
 
+    def region(self, rect, cells):
+        found = [f for f in self.found() if f["element"] != "region0"] + [{"layer": "region", "element": "region0", "diffs": [], "rect": rect, "cells": cells}]
+        return check.result_errors(self.registry(), self.results(found=found, a=False, b=True))[0]
+
+    def test_a_bigger_or_moved_region_fails(self):
+        for rect in ([8, 8, 48, 20], [24, 8, 40, 20], [8, 40, 40, 20]):
+            self.assertEqual(self.region(rect, 100), [f"b: region {rect[2]}x{rect[3]} at {rect[0]},{rect[1]} with 100 cells is not inside a region of the baseline, or holds more cells than it"], rect)
+
+    def test_more_cells_in_the_same_box_fail(self):
+        # The box is as it was, but more of it differs: a region that grew inside it.
+        self.assertEqual(self.region([8, 8, 40, 20], 101), ["b: region 40x20 at 8,8 with 101 cells is not inside a region of the baseline, or holds more cells than it"])
+
+    def test_a_region_a_cell_off_or_smaller_passes(self):
+        # The renderer may put an edge a cell away (cellDp); a region with fewer cells is a fix.
+        for rect, cells in (([4, 8, 44, 20], 100), ([12, 8, 20, 20], 40), ([8, 8, 40, 20], 99)):
+            self.assertEqual(self.region(rect, cells), [], rect)
+
     def test_a_recorded_difference_that_passes_now_fails(self):
-        errors, _ = check.result_errors(self.registry(), self.results(found=[d for d in self.RECORDED if d != ("text", "e1")], a=False, b=True))
-        self.assertEqual(len(errors), 1)
-        self.assertIn("b: now match their frame, remove them from `findings` in known_violations: text:e1", errors[0])
+        errors, _ = check.result_errors(self.registry(), self.results(found=self.found(**{"text:e1": None}), a=False, b=True))
+        self.assertEqual(errors, ["b: now match their frame, remove them from `findings` in known_violations: text:e1"])
 
     def test_fewer_regions_than_recorded_pass(self):
-        errors, _ = check.result_errors(self.registry(), self.results(found=[d for d in self.RECORDED if d[1] != "region1"], a=False, b=True))
+        errors, _ = check.result_errors(self.registry(), self.results(found=[f for f in self.found() if f["element"] != "region1"], a=False, b=True))
         self.assertEqual(errors, [])
 
     def test_recording_writes_the_baseline_from_the_results(self):
@@ -222,9 +264,11 @@ class ResultsTest(unittest.TestCase):
         reg = self.registry()
         reg["known_violations"]["b"] = {"issue": 2}
         path = Path(tempfile.mkdtemp()) / "registry.json"
-        results = {"b": {"violation": True, "findings": [{"layer": l, "element": e} for l, e in self.RECORDED]}}
-        check.record(path, reg, results)
-        self.assertEqual(json.loads(path.read_text())["known_violations"]["b"], {"issue": 2, "findings": ["box:e2", "text:e1"], "regions": 2, "extra": 1})
+        check.record(path, reg, {"b": {"violation": True, "findings": self.found()}})
+        self.assertEqual(
+            json.loads(path.read_text())["known_violations"]["b"],
+            {"issue": 2, "findings": {"box:e2": ["fill, top"], "text:e1": ["color", "font size"]}, "regions": self.BOXES, "extra": 1},
+        )
 
     def test_a_known_violation_without_a_baseline_fails(self):
         frames = Path(tempfile.mkdtemp())
@@ -234,6 +278,13 @@ class ResultsTest(unittest.TestCase):
         errors = check.registry_errors(reg, frames, None)
         self.assertEqual(len(errors), 3)
         self.assertTrue(all(e.startswith("known_violations: b needs") for e in errors))
+
+    def test_a_baseline_in_the_old_shape_fails(self):
+        frames = Path(tempfile.mkdtemp())
+        (frames / "f1.spec.json").write_text('{"themes": {"dark": {}}}')
+        reg = self.registry()
+        reg["known_violations"]["b"] = {"issue": 2, "findings": ["text:e1"], "regions": 2, "extra": 1}
+        self.assertEqual(len(check.registry_errors(reg, frames, None)), 2)
 
     def test_a_result_for_another_frame_fails(self):
         tmp = self.results(a=False, b=True)

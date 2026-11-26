@@ -10,11 +10,12 @@ summary ($GITHUB_STEP_SUMMARY). Usage: check-results.py [--registry design/regis
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-TOLERANCE_KEYS = {"bandDp", "textPosDp", "fontSizeDp", "lineHeightDp", "letterSpacingDp", "textColor", "sample", "cell", "cellDp", "ink", "iconColor"}
+TOLERANCE_KEYS = {"bandDp", "textPosDp", "fontSizeDp", "lineHeightDp", "letterSpacingDp", "textColor", "sample", "cell", "regionCell", "cellDp", "ink", "iconColor"}
 TOP_KEYS = {"version", "tolerance", "screens", "known_violations", "unregistered", "no_frame"}
 ROW_KEYS = {"frame", "theme", "test", "insetBottom", "masks"}
 KNOWN_KEYS = {"issue", "findings", "regions", "extra"}  # a known violation: its issue and its ratchet (see ratchet_errors)
@@ -49,11 +50,12 @@ def registry_errors(reg, frames_dir, golden_names):
             errors.append(f"known_violations: {name} needs an issue number")
         for key in sorted(set(row) - KNOWN_KEYS):
             errors.append(f"known_violations: {name} has key {key}, which the gate does not read: remove it")
-        if not (isinstance(row.get("findings"), list) and all(isinstance(k, str) for k in row["findings"])):
-            errors.append(f"known_violations: {name} needs `findings`, the list of layer:element keys it differs in")
-        for key in ("regions", "extra"):
-            if not isinstance(row.get(key), int):
-                errors.append(f"known_violations: {name} needs `{key}`, a count")
+        if not (isinstance(row.get("findings"), dict) and all(isinstance(v, list) and v and all(isinstance(x, str) for x in v) for v in row["findings"].values())):
+            errors.append(f"known_violations: {name} needs `findings`, the fields it differs in per layer:element key")
+        if not (isinstance(row.get("regions"), list) and all(isinstance(r, list) and len(r) == 5 for r in row["regions"])):
+            errors.append(f"known_violations: {name} needs `regions`, the x, y, width, height and cells of each region")
+        if not isinstance(row.get("extra"), int):
+            errors.append(f"known_violations: {name} needs `extra`, a count")
     for name, row in reg.get("unregistered", {}).items():
         if name in screens:
             errors.append(f"unregistered: {name} is registered")
@@ -80,20 +82,46 @@ def counted(finding):
     return "extra" if finding["layer"] == "text" and finding["element"] == "extra" else None
 
 
-def ratchet_errors(known, findings):
-    """What a known violation may still differ in. Mirrors Baseline in DesignGate.kt: a key not recorded, a count above the recorded one, and a
-    recorded key that now passes all fail, so the baseline shrinks with every fix and a regression cannot hide among a screen's other differences."""
-    recorded = set(known.get("findings", []))
-    now = {f"{f['layer']}:{f['element']}" for f in findings if counted(f) is None}
+def fields_by_key(findings):
+    """`layer:element` to the fields it differs in; a field's name has no place in it (`fill, top (12,34)` is `fill, top`)."""
+    out = {}
+    for f in findings:
+        if counted(f) is None:
+            out.setdefault(f"{f['layer']}:{f['element']}", set()).update(d["field"].split(" (")[0] for d in f["diffs"])
+    return out
+
+
+def inside(rect, outer, slack):
+    return rect[0] >= outer[0] - slack and rect[1] >= outer[1] - slack and rect[0] + rect[2] <= outer[0] + outer[2] + slack and rect[1] + rect[3] <= outer[1] + outer[3] + slack
+
+
+def ratchet_errors(known, findings, slack=4):
+    """What a known violation may still differ in. Mirrors Baseline in DesignGate.kt: an element or a field that is not recorded, a region that is
+    not inside a recorded one (up to `slack` dp) or holds more cells than it, a count above the recorded one, and a recorded element or field that now passes all fail, so
+    the baseline shrinks with every fix and a regression cannot hide among a screen's other differences."""
+    recorded = {k: set(v) for k, v in known.get("findings", {}).items()}
+    now = fields_by_key(findings)
     errors = []
-    if now - recorded:
-        errors.append("new differences, not in the baseline: " + ", ".join(sorted(now - recorded)))
-    if recorded - now:
-        errors.append("now match their frame, remove them from `findings` in known_violations: " + ", ".join(sorted(recorded - now)))
-    for key, label in (("regions", "regions"), ("extra", "extra texts")):
-        have = sum(1 for f in findings if counted(f) == key)
-        if have > known.get(key, 0):
-            errors.append(f"{label}: {have}, the baseline allows {known.get(key, 0)}")
+    if set(now) - set(recorded):
+        errors.append("new differences, not in the baseline: " + ", ".join(sorted(set(now) - set(recorded))))
+    if set(recorded) - set(now):
+        errors.append("now match their frame, remove them from `findings` in known_violations: " + ", ".join(sorted(set(recorded) - set(now))))
+    for key in sorted(set(now) & set(recorded)):
+        if now[key] - recorded[key]:
+            errors.append(f"{key} differs in a field that is not in the baseline: " + ", ".join(sorted(now[key] - recorded[key])))
+        if recorded[key] - now[key]:
+            errors.append(f"{key} now matches in a field that is in the baseline, remove it from `findings`: " + ", ".join(sorted(recorded[key] - now[key])))
+    regions = [f for f in findings if counted(f) == "regions"]
+    boxes = known.get("regions", [])
+    if len(regions) > len(boxes):
+        errors.append(f"regions: {len(regions)}, the baseline allows {len(boxes)}")
+    for f in regions:
+        r = f["rect"]
+        if not any(inside(r, b, slack) and f["cells"] <= b[4] for b in boxes):
+            errors.append(f"region {int(r[2])}x{int(r[3])} at {int(r[0])},{int(r[1])} with {f['cells']} cells is not inside a region of the baseline, or holds more cells than it")
+    texts = sum(1 for f in findings if counted(f) == "extra")
+    if texts > known.get("extra", 0):
+        errors.append(f"extra texts: {texts}, the baseline allows {known.get('extra', 0)}")
     return errors
 
 
@@ -114,7 +142,7 @@ def result_errors(reg, results_dir):
         if not results[name]["violation"] and known:
             errors.append(f"{name}: matches its frame now, so it leaves known_violations")
         if results[name]["violation"] and known:
-            errors += [f"{name}: {e}" for e in ratchet_errors(reg["known_violations"][name], results[name]["findings"])]
+            errors += [f"{name}: {e}" for e in ratchet_errors(reg["known_violations"][name], results[name]["findings"], reg["tolerance"].get("cellDp", 4))]
     return errors, results
 
 
@@ -124,10 +152,12 @@ def record(reg_path, reg, results):
     for name, row in reg["known_violations"].items():
         if name in results and results[name]["violation"]:
             findings = results[name]["findings"]
-            row["findings"] = sorted({f"{f['layer']}:{f['element']}" for f in findings if counted(f) is None})
-            row["regions"] = sum(1 for f in findings if counted(f) == "regions")
+            row["findings"] = {k: sorted(v) for k, v in sorted(fields_by_key(findings).items())}
+            row["regions"] = [[int(v) for v in f["rect"]] + [f["cells"]] for f in findings if counted(f) == "regions"]
             row["extra"] = sum(1 for f in findings if counted(f) == "extra")
-    Path(reg_path).write_text(json.dumps(reg, indent=1, ensure_ascii=False))
+    text = json.dumps(reg, indent=1, ensure_ascii=False)
+    # A list of plain values (a region's box, an element's fields) stays on one line, so a baseline is a line per region and per element.
+    Path(reg_path).write_text(re.sub(r"\[\s+([^\[\]{}]*?)\s+\]", lambda m: "[" + re.sub(r"\s*\n\s*", " ", m.group(1)) + "]", text))
 
 
 def report(reg, results):
