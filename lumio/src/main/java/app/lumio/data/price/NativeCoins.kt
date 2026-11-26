@@ -1,6 +1,7 @@
 package app.lumio.data.price
 
 import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 
 /**
  * The price coin of each network's native asset, named by its CoinGecko id. A network with no entry is unpriced, and so is every testnet: a testnet
@@ -9,7 +10,8 @@ import app.lumio.data.net.NetworkId
  * Each EVM entry was checked on 2026-11-16: the price source answered `coingecko:{id}` with a symbol that matches the native symbol of that chain
  * in the registry's mainnet list (shared/src/main/assets/registry/networks.json). A chain is added here only after the same check. Unpriced on that
  * date: 250 (Fantom, the id is not in the source), 252 (its native coin is FRAX, which the source prices under another symbol), 388 (zkCRO),
- * and 3338 (peaq, not in the source).
+ * and 3338 (peaq, not in the source). Solana and Algorand mainnet were checked on 2026-11-26: `solana` and `algorand` answer from CoinGecko and from
+ * the price source's `coingecko:{id}` form, with the symbols SOL and ALGO.
  */
 object NativeCoins {
     /** The CoinGecko id of the native coin of [net], or null when [net] has no mainnet price. */
@@ -17,6 +19,8 @@ object NativeCoins {
         net.testnet -> null
         net.isBtc -> if (net.name == "mainnet") "bitcoin" else null
         net.isEvm -> EVM[net.name]
+        net.chain == Networks.SOL_MAINNET -> "solana"
+        net.chain == Networks.ALGO_MAINNET -> "algorand"
         else -> null
     }
 

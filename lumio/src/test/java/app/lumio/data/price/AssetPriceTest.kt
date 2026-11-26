@@ -25,6 +25,18 @@ class AssetPriceTest {
     }
 
     @Test
+    fun solanaAndAlgorandCoinsAreAskedForByCoinOnly() {
+        val sol = AssetId.Native(NetworkId(Networks.SOL_MAINNET, testnet = false))
+        val algo = AssetId.Native(NetworkId(Networks.ALGO_MAINNET, testnet = false))
+        assertEquals("native-price:solana", priceKeyOf(sol))
+        assertEquals("native-price:algorand", priceKeyOf(algo))
+        assertIs<NativePrice>(priceRequestOf(sol))
+        assertIs<NativePrice>(priceRequestOf(algo))
+        assertNull(priceRequestOf(AssetId.Native(NetworkId(Networks.SOL_DEVNET, testnet = true))))
+        assertNull(priceRequestOf(AssetId.Native(NetworkId(Networks.ALGO_TESTNET, testnet = true))))
+    }
+
+    @Test
     fun aTokenIsPricedByItsContractUnderItsChainPrefix() {
         val asset = AssetId.Erc20(ETH, usdc)
 
