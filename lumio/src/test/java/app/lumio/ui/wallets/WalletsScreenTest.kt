@@ -2,10 +2,12 @@ package app.lumio.ui.wallets
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import app.lumio.data.Clock
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirTheme
 import org.junit.Rule
 import org.junit.Test
@@ -68,6 +70,27 @@ class WalletsScreenTest {
 
         compose.onNodeWithText(REFRESH_NOTICE).assertIsDisplayed()
         compose.onNodeWithText("Updated 3 min ago").assertIsDisplayed()
+    }
+
+    @Test
+    fun theEmptyAccountsStateKeepsTheSideGutter() {
+        compose.setContent {
+            ClearAirTheme {
+                WalletsScreen(
+                    rows = emptyList(),
+                    totalUsd = null,
+                    showTotal = true,
+                    refreshing = false,
+                    updatedAtMs = null,
+                    notice = null,
+                    onWallet = {},
+                    onPair = {},
+                    onRefresh = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Pair with Lensly").assertLeftPositionInRootIsEqualTo(ClearAirSpacing.gutter)
     }
 
     private companion object {
