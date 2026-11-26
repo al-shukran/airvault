@@ -69,7 +69,7 @@
 | toshi.svg | Toshi |
 | tusd.svg | TrueUSD |
 | uni.svg | Uniswap |
-| usdc.svg | USD Coin |
+| usdc.svg | USD Coin (the `background` variant `tokens/background/USDC.svg`, with the square background drawn as a circle) |
 | usde.svg | Ethena USDe |
 | usdt.svg | Tether USD |
 | wbtc.svg | Wrapped Bitcoin |
