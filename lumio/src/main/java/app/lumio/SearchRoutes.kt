@@ -16,6 +16,7 @@ import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.ui.components.groupAddress
 import app.lumio.data.config.Fiat
+import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.CoinDirectory
 import app.lumio.data.provider.DirectoryCoin
@@ -45,6 +46,7 @@ import app.lumio.ui.search.SearchTab
 import app.lumio.ui.search.Candidate
 import app.lumio.ui.search.PickerLogo
 import app.lumio.ui.search.PickerRow
+import app.lumio.ui.search.directoryNames
 import app.lumio.ui.search.searchCandidates
 import app.lumio.ui.search.searchMatches
 import app.lumio.ui.search.topCandidates
@@ -156,7 +158,13 @@ internal fun WatchlistAddRoute(
         if (market && value == null) value = withContext(Dispatchers.IO) { app.prices.directory() } ?: CoinDirectory(emptyList(), 0L)
     }
     val entries by produceState<List<SearchEntry<Pair<DirectoryCoin, WatchedAsset>>>?>(null, directory) {
-        value = directory?.let { withContext(Dispatchers.Default) { watchableEntries(it, evm) } }
+        value = directory?.let { list ->
+            withContext(Dispatchers.Default) {
+                // The names Home gives a token it learns from the directory are indexed here, off the main thread, before a star can add one.
+                directoryNames(list, WatchedAsset(NetworkId(Networks.BTC_MAINNET, testnet = false)))
+                watchableEntries(list, evm)
+            }
+        }
     }
     val needle = query.trim()
     val found by produceState<List<Candidate>?>(null, needle, entries) {

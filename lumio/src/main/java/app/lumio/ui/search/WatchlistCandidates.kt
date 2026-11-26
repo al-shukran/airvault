@@ -95,6 +95,28 @@ fun searchCandidates(matches: List<Pair<DirectoryCoin, WatchedAsset>>, markets: 
         .sortedWith(BY_RANK)
 }
 
+/** The ticker and name of each token of a directory, by the asset Lumio watches for it on each of its networks. */
+private class NameIndex(val directory: CoinDirectory) {
+    val names: Map<WatchedAsset, Pair<String, String>> = buildMap {
+        directory.coins.forEach { coin ->
+            coin.contracts.forEach { (network, contract) ->
+                val chain = ChainId(network)
+                val token = if (chain.namespace == Networks.EIP155) contract.lowercase() else contract
+                putIfAbsent(WatchedAsset(NetworkId(chain, testnet = false), token), coin.symbol.uppercase() to coin.name)
+            }
+        }
+    }
+}
+
+@Volatile
+private var nameIndex: NameIndex? = null
+
+/** The ticker and name that [directory] gives the token [asset], or null when it lists none. The index is built once for each directory. */
+fun directoryNames(directory: CoinDirectory, asset: WatchedAsset): Pair<String, String>? {
+    val index = nameIndex?.takeIf { it.directory === directory } ?: NameIndex(directory).also { nameIndex = it }
+    return index.names[asset]
+}
+
 /** By rank: a place first, smallest first, then Unranked, then no rank read. */
 private val BY_RANK: Comparator<Candidate> = compareBy { candidate ->
     when (val rank = candidate.rank) {

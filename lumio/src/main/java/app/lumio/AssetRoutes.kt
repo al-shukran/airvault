@@ -60,6 +60,7 @@ import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.home.changeText
 import app.lumio.ui.home.letterOf
 import app.lumio.ui.home.tokenIcon
+import app.lumio.ui.search.directoryNames
 import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.receive.ReceiveFlowSheet
 import app.lumio.ui.receive.receiveCoinStartOf
@@ -333,18 +334,25 @@ private fun changeOf(price: Price, fiat: Fiat): PriceChange? {
 }
 
 /**
- * The symbol and the name of [asset]. A token's come from the registry, else from the wallet's holdings of the token, else the address that
- * [coinNames] gives.
+ * The symbol and the name of [asset]. A token's come from the registry, else from the wallet's holdings of the token, else from the market source's
+ * directory when this session has read it, else the address that [coinNames] gives.
  */
 internal fun namesOf(asset: WatchedAsset, app: LumioApp, held: Collection<List<TokenHolding>>): Pair<String, String> =
-    namesOf(asset, asset.contract?.takeIf { asset.network.isEvm }?.let { app.registry.token(Networks.evmIdOf(asset.network.chain), it) }, held)
+    namesOf(asset, asset.contract?.takeIf { asset.network.isEvm }?.let { app.registry.token(Networks.evmIdOf(asset.network.chain), it) }, held) {
+        app.prices.knownDirectory()?.let { directoryNames(it, asset) }
+    }
 
-/** The symbol and the name of [asset], given [listed], the registry's entry for its token if it has one. */
-internal fun namesOf(asset: WatchedAsset, listed: TokenEntry?, held: Collection<List<TokenHolding>>): Pair<String, String> {
+/** The symbol and the name of [asset], given [listed], the registry's entry for its token if it has one, and [sourced], the market source's. */
+internal fun namesOf(
+    asset: WatchedAsset,
+    listed: TokenEntry?,
+    held: Collection<List<TokenHolding>>,
+    sourced: () -> Pair<String, String>? = { null },
+): Pair<String, String> {
     val contract = asset.contract ?: return coinNames(asset)
     listed?.let { return it.symbol to it.name }
     val token = held.asSequence().flatten().firstOrNull { it.token.contract.equals(contract, ignoreCase = true) }?.token
-    return token?.let { it.symbol to it.name } ?: coinNames(asset)
+    return token?.let { it.symbol to it.name } ?: sourced() ?: coinNames(asset)
 }
 
 /**

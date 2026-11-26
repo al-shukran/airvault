@@ -98,6 +98,26 @@ class WatchlistCandidatesTest {
     }
 
     @Test
+    fun aTokenTheRegistryDoesNotListIsNamedByTheDirectoryOnAnyOfItsNetworks() {
+        val directory = CoinDirectory(
+            listOf(
+                DirectoryCoin(
+                    "ousg",
+                    "Ondo Short-Term U.S. Government Bond Fund",
+                    "ousg",
+                    mapOf("eip155:1" to "0x1B19C19393E2D034D8FF31FF34C81252FCBBEE92", "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" to "i7u4r16TcsJTgq1kAG8opmVZyVnAKBwLKu6ZPMwzxNc"),
+                ),
+            ),
+            0L,
+        )
+        val names = "OUSG" to "Ondo Short-Term U.S. Government Bond Fund"
+
+        assertEquals(names, directoryNames(directory, WatchedAsset(evm(1), "0x1b19c19393e2d034d8ff31ff34c81252fcbbee92")))
+        assertEquals(names, directoryNames(directory, WatchedAsset(sol, "i7u4r16TcsJTgq1kAG8opmVZyVnAKBwLKu6ZPMwzxNc")))
+        assertNull(directoryNames(directory, WatchedAsset(sol, "I7U4R16TCSJTGQ1KAG8OPMVZYVNAKBWLKU6ZPMWZXNC")))
+    }
+
+    @Test
     fun aResultWithNoMarketRowReadYetHasNoRankAndGoesLast() {
         val coin = DirectoryCoin("fund", "Government Fund", "ustb", mapOf("eip155:1" to "0x" + "4".repeat(40)))
         val other = DirectoryCoin("backed", "Backed Government Bond", "bcsbgc3", mapOf("eip155:1" to "0x" + "1".repeat(40)))
