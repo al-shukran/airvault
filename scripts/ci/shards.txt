@@ -393,6 +393,7 @@ shard-6 :chains:algorand:wallet *
 shard-6 :chains:evm:common *
 shard-6 :core:signer-api *
 shard-6 :lumio app.lumio.ExploreNetworkCountTest
+shard-6 :lumio app.lumio.FirstRunPairStepTest
 shard-6 :lumio app.lumio.FirstSyncNavigationTest
 shard-6 :lumio app.lumio.HomeFootnoteTest
 shard-6 :lumio app.lumio.HomeTokenRowTest
@@ -540,6 +541,7 @@ shard-8 :lumio app.lumio.tokens.TokenPortfolioMergeTest
 shard-8 :lumio app.lumio.tokens.TypedAddressLookupTest
 shard-8 :lumio app.lumio.transactions.ActivityViewTest
 shard-8 :lumio app.lumio.ui.firstrun.FirstRunStepTest
+shard-8 :lumio app.lumio.ui.firstrun.FirstRunTextActionTest
 shard-8 :lumio app.lumio.ui.portfolio.PortfolioEmptyStateTest
 shard-8 :lumio app.lumio.ui.wallets.WalletsScreenTest
 shard-8 :lumio app.lumio.wallets.WalletProgressTest
@@ -698,3 +700,10 @@ shard-10 :shared app.lensly.ui.camera.HiddenGestureDetectorTest
 shard-10 :shared app.lensly.ui.camera.ModeShutterHoldDetectorTest
 shard-10 :shared app.lensly.ui.components.KeyAlternatesTest
 shard-10 :shared app.lensly.ui.gate.UnlockScreenTest
+shard-2 :lumio app.lumio.data.provider.coingecko.CoinGeckoMarketsTest
+shard-4 :lumio app.lumio.ui.search.WatchlistCandidatesTest
+shard-4 :lumio app.lumio.ui.search.WatchlistPickerGridTest
+shard-4 :lumio app.lumio.ui.search.WatchlistPickerTest
+shard-4 :lumio app.lumio.CoinNamesTest
+shard-2 :lumio app.lumio.data.price.CoinImagesTest
+shard-2 :lumio app.lumio.data.cache.CacheSizeTest

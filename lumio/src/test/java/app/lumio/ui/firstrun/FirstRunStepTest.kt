@@ -12,6 +12,7 @@ import app.lumio.ui.firstrun.FirstRunStep.DuressPassword
 import app.lumio.ui.firstrun.FirstRunStep.Keys
 import app.lumio.ui.firstrun.FirstRunStep.Notice
 import app.lumio.ui.firstrun.FirstRunStep.NeverShare
+import app.lumio.ui.firstrun.FirstRunStep.Pair
 import app.lumio.ui.firstrun.FirstRunStep.PrepareLensly
 import app.lumio.ui.firstrun.FirstRunStep.ProvidedAsIs
 import app.lumio.ui.firstrun.FirstRunStep.Welcome
@@ -23,7 +24,7 @@ class FirstRunStepTest {
     @Test
     fun theStepsRunInTheOwnersOrder() {
         assertEquals(
-            listOf(Welcome, Keys, NeverShare, ProvidedAsIs, Notice, PrepareLensly, CreatePassword, Duress, DuressPassword, DeviceProtection),
+            listOf(Welcome, Keys, NeverShare, ProvidedAsIs, Notice, PrepareLensly, CreatePassword, Duress, DuressPassword, DeviceProtection, Pair),
             FirstRunStep.entries,
         )
     }
@@ -53,5 +54,10 @@ class FirstRunStepTest {
         assertEquals(listOf(Full, Started, Empty), chapterFills(Duress))
         assertEquals(listOf(Full, Started, Empty), chapterFills(DuressPassword))
         assertEquals(listOf(Full, Late, Empty), chapterFills(DeviceProtection))
+    }
+
+    @Test
+    fun pairingFillsTheMocksFortyPercentOfPair() {
+        assertEquals(listOf(Full, Full, Started), chapterFills(Pair))
     }
 }

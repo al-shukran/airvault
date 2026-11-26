@@ -75,6 +75,7 @@ internal object LumioRoute {
     const val WALLETS = "wallets"
     const val SETTINGS = "settings"
     const val PAIR_SCAN = "pair-scan"
+    const val PAIR_RESCAN = "pair-rescan"
     const val PAIR_REVIEW = "pair-review"
     const val DATA_PROVIDERS = "settings/providers"
     const val LICENCES = "settings/licences"
@@ -503,7 +504,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
             biometric = app.biometricUnlock,
             gateLook = ClearAirGateLook,
         ) {
-            firstRunRoutes(navController, holder, home = LumioRoute.HOME)
+            firstRunRoutes(navController, holder, draft, home = LumioRoute.HOME)
             lumioComposable(LumioRoute.WALLETS) {
                 LumioBackdrop(selection) {
                     WalletsRoute(
@@ -525,6 +526,11 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                 }
                 LumioBackdrop(selection) {
                     HomeRoute(navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = { lock() })
+                }
+            }
+            lumioComposable(LumioRoute.WATCHLIST_ADD) {
+                LumioBackdrop(selection) {
+                    WatchlistAddRoute(navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = { lock() })
                 }
             }
             lumioComposable(LumioRoute.PORTFOLIO) {
@@ -651,7 +657,10 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                 }
             }
             lumioComposable(LumioRoute.PAIR_SCAN) {
-                LumioBackdrop(selection) { PairScanRoute(navController = navController, draft = draft) }
+                LumioBackdrop(selection) { PairPage(navController, draft, LumioRoute.PAIR_SCAN, title = "Pair with Lensly", onLock = { lock() }) }
+            }
+            lumioComposable(LumioRoute.PAIR_RESCAN) {
+                LumioBackdrop(selection) { PairPage(navController, draft, LumioRoute.PAIR_RESCAN, title = "Re-Pair with Lensly", onLock = { lock() }) }
             }
             lumioComposable(
                 route = LumioRoute.BTC_SEND,

@@ -34,6 +34,7 @@ import app.lumio.ui.wallets.AssetRows
 import app.lumio.watchlist.FIRST_RUN_ASSETS
 import app.lumio.watchlist.WalletWatchlist
 import app.lumio.watchlist.WatchedAsset
+import app.lumio.watchlist.WatchedLabel
 import app.lumio.watchlist.WatchlistStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -180,6 +181,9 @@ internal class WalletsBoard(
     /** The watchlist of each shown wallet, by wallet id. A wallet with no stored list has [FIRST_RUN_ASSETS]. */
     var watchlists by mutableStateOf<Map<String, WalletWatchlist>>(emptyMap())
         private set
+
+    /** The names and logo kept with [asset] when a wallet starred it from Add to Watchlist, or null when none was kept. */
+    fun labelOf(asset: WatchedAsset): WatchedLabel? = watchlists.values.firstNotNullOfOrNull { it.labels[asset.key] }
 
     /** The USD price of each watched asset: the last one kept, then the one a source answers now. */
     var prices by mutableStateOf<Map<AssetId, Price>>(emptyMap())

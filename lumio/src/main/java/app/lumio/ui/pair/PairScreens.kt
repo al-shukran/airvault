@@ -1,6 +1,5 @@
 package app.lumio.ui.pair
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,55 +10,39 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import app.lensly.app.export.PairingPayload
+import app.lensly.ui.camera.openAppSettings
+import app.lensly.ui.qr.QrScanner
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.data.net.Networks
 import app.lumio.pair.PairImport
 import app.lumio.ui.kit.ClearAirEyebrow
-import app.lumio.ui.kit.ClearAirNote
 import app.lumio.ui.kit.ClearAirPageTopBar
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirTextAction
-import app.lumio.ui.scan.LumioScanScreen
+import app.lumio.ui.scan.rememberCameraAccess
 
-/** The Camera Denied words on Pair, which reads Lensly's code. */
-const val PAIR_CAMERA_DENIED_TEXT = "Lumio needs the camera to read Lensly's code. Nothing is recorded."
-
-/** The camera scan for a pairing code. [progress] shows for an animated code, and [status] says what the scan is doing. [complete] closes the ring. */
+/** The camera scan for a pairing code: the Pair with Lensly page, with the live camera in it. [progress] shows for an animated code, and [status] says what the scan is doing. [complete] closes the ring. */
 @Composable
-fun PairScanScreen(progress: Float?, status: String, onText: (String) -> Unit, onCancel: () -> Unit, complete: Boolean = false) {
-    LumioScanScreen(
-        title = "Scan Pairing Code",
+fun PairScanScreen(chrome: PairChrome, progress: Float?, status: String, onText: (String) -> Unit, complete: Boolean = false) {
+    val camera = rememberCameraAccess()
+    val context = LocalContext.current
+    val denied = camera.refused && !camera.granted
+    PairWithLensly(
+        chrome = chrome,
         progress = progress,
-        statusText = status,
-        onText = onText,
-        onCancel = onCancel,
+        status = status,
         complete = complete,
-        footer = { PairHelp() },
-        deniedText = PAIR_CAMERA_DENIED_TEXT,
-    )
-}
-
-/**
- * The text action under the pairing scan that says where Pair is on Lensly. When the owner asks, the page says the one step that answers it, in place.
- */
-@Composable
-private fun PairHelp() {
-    var open by remember { mutableStateOf(false) }
-    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        ClearAirTextAction(text = "Where Is Pair on Lensly?", onClick = { open = !open })
-    }
-    if (open) {
-        ClearAirNote(text = "On Lensly, open Pair and choose the wallet to share. Hold Lensly's code inside the frame.")
+        denied = denied,
+        onOpenSettings = { context.openAppSettings() },
+    ) { viewport ->
+        if (camera.granted) QrScanner(onText = onText, modifier = viewport)
     }
 }
 

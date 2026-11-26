@@ -65,6 +65,7 @@ import app.lumio.ui.asset.holdingsSummary
 import app.lumio.ui.home.AssetIcon
 import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.home.changeText
+import app.lumio.ui.home.letterOf
 import app.lumio.ui.home.tokenIcon
 import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.receive.ReceiveFlowSheet
@@ -76,6 +77,7 @@ import app.lumio.wallets.WalletAccount
 import app.lumio.watchlist.FIRST_RUN_ASSETS
 import app.lumio.watchlist.WalletWatchlist
 import app.lumio.watchlist.WatchedAsset
+import app.lumio.watchlist.WatchedLabel
 import app.lumio.watchlist.toggled
 import java.time.ZoneId
 import kotlin.math.abs
@@ -347,25 +349,44 @@ private fun changeOf(price: Price, fiat: Fiat): PriceChange? {
 }
 
 /**
- * The symbol and the name of [asset]. A token's come from the registry, else from the wallet's holdings of the token, else the address that
- * [coinNames] gives.
+ * The symbol and the name of [asset], the same on Home, Add to Watchlist and the asset page: the names kept with it when it was starred from Add to
+ * Watchlist, which are the market source's (see [WatchedLabel]). Else a token's come from the registry, else from the wallet's holdings of the token,
+ * else the address that [coinNames] gives.
  */
-internal fun namesOf(asset: WatchedAsset, app: LumioApp, held: Collection<List<TokenHolding>>): Pair<String, String> =
-    namesOf(asset, asset.contract?.let { app.registry.token(Networks.evmIdOf(asset.network.chain), it) }, held)
+internal fun namesOf(asset: WatchedAsset, app: LumioApp, held: Collection<List<TokenHolding>>): Pair<String, String> = namesOf(
+    asset,
+    asset.contract?.takeIf { asset.network.isEvm }?.let { app.registry.token(Networks.evmIdOf(asset.network.chain), it) },
+    held,
+    app.lumioVault()?.wallets?.labelOf(asset),
+)
 
-/** The symbol and the name of [asset], given [listed], the registry's entry for its token if it has one. */
-internal fun namesOf(asset: WatchedAsset, listed: TokenEntry?, held: Collection<List<TokenHolding>>): Pair<String, String> {
+/** The symbol and the name of [asset], given [listed], the registry's entry for its token if it has one, and [label], the names kept with it. */
+internal fun namesOf(asset: WatchedAsset, listed: TokenEntry?, held: Collection<List<TokenHolding>>, label: WatchedLabel? = null): Pair<String, String> {
+    label?.let { return it.symbol to it.name }
     val contract = asset.contract ?: return coinNames(asset)
     listed?.let { return it.symbol to it.name }
     val token = held.asSequence().flatten().firstOrNull { it.token.contract.equals(contract, ignoreCase = true) }?.token
     return token?.let { it.symbol to it.name } ?: coinNames(asset)
 }
 
-/** The logo of [asset]: a native coin's icon, or a token's own logo when Lensly ships one, else the letter of its [symbol]. */
-internal fun coinIconOf(asset: WatchedAsset, symbol: String, app: LumioApp): AssetIconSpec {
+/**
+ * The logo of [asset]: a native coin's icon, or a token's own logo when Lensly ships one, else the image kept with it when it was starred from Add to
+ * Watchlist, else the letter of its [symbol]. It never asks a source for a watched token's logo, so a row names no contract to one.
+ */
+internal fun coinIconOf(asset: WatchedAsset, symbol: String, app: LumioApp): AssetIconSpec =
+    iconOf(asset, symbol, app, app.lumioVault()?.wallets?.labelOf(asset))
+
+/** The logo of [asset] as [coinIconOf] picks it, given [label], the names and image kept with it. */
+internal fun iconOf(asset: WatchedAsset, symbol: String, app: LumioApp, label: WatchedLabel?): AssetIconSpec {
     val contract = asset.contract ?: return AssetRows.nativeIcon(asset.network, symbol, app.registry::network)
-    val chainId = Networks.evmIdOf(asset.network.chain)
-    return tokenIcon(app.registry.token(chainId, contract), app.registry.network(chainId), symbol)
+    val shipped = if (asset.network.isEvm) {
+        val chainId = Networks.evmIdOf(asset.network.chain)
+        tokenIcon(app.registry.token(chainId, contract), app.registry.network(chainId), symbol)
+    } else {
+        AssetIconSpec.Letter(letterOf(symbol))
+    }
+    val image = label?.image
+    return if (shipped is AssetIconSpec.Letter && image != null) AssetIconSpec.Image(image, shipped.letter) else shipped
 }
 
 /**
@@ -373,7 +394,7 @@ internal fun coinIconOf(asset: WatchedAsset, symbol: String, app: LumioApp): Ass
  * own coin.
  */
 private fun coinSendRoute(account: WalletAccount, asset: WatchedAsset, mode: NetworkMode): String =
-    if (account.namespace == Networks.EIP155) {
+    if (account.namespace == Networks.EIP155 && asset.network.isEvm) {
         LumioRoute.send(account.walletId, account.id, Networks.evmIdOf(asset.network.chain), asset.contract)
     } else {
         sendRoute(account, mode)

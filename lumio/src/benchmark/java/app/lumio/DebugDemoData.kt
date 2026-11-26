@@ -16,6 +16,9 @@ internal object DebugDemoData {
 
     fun providers(real: List<Provider>): List<Provider> = real
 
+    /** The logo of a demo coin, or null: this build has no demo coins. */
+    fun coinImage(url: String): ByteArray? = null
+
     /** The side the demo seed selects, or null when this build has no demo mode. */
     val mode: NetworkMode? get() = null
 

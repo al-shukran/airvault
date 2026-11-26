@@ -24,6 +24,14 @@ object NativeCoins {
         else -> null
     }
 
+    /** The mainnet whose own coin is the CoinGecko coin [id], or null when none is. ETH is Ethereum's coin, the first of the chains that use it. */
+    fun networkOf(id: String): NetworkId? = when (id) {
+        "bitcoin" -> NetworkId(Networks.BTC_MAINNET, testnet = false)
+        "solana" -> NetworkId(Networks.SOL_MAINNET, testnet = false)
+        "algorand" -> NetworkId(Networks.ALGO_MAINNET, testnet = false)
+        else -> EVM.entries.firstOrNull { it.value == id }?.let { NetworkId(Networks.evm(it.key.toLong()), testnet = false) }
+    }
+
     private val EVM: Map<String, String> = buildMap {
         // Ethereum, and every chain whose native coin is ETH.
         listOf(

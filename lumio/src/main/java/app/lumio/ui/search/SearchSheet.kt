@@ -87,6 +87,38 @@ private fun hiddenTabs(tabRow: LazyListState): Int {
     return SearchTab.entries.size - lastWhole - 1
 }
 
+/** A search field: a 48 dp field with 24 dp corners on the raised tone, the search glyph, and [placeholder] until the owner types. It has no close button. */
+@Composable
+internal fun SearchField(query: String, onQuery: (String) -> Unit, placeholder: String) {
+    val palette = LocalClearAirPalette.current
+    Row(
+        modifier = Modifier
+            .padding(start = ClearAirSpacing.md, top = 6.dp, end = ClearAirSpacing.md)
+            .fillMaxWidth()
+            .height(FIELD_HEIGHT)
+            .clip(RoundedCornerShape(FIELD_CORNER))
+            .background(palette.raised)
+            .padding(horizontal = ClearAirSpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ClearAirIcon(glyph = ClearAirGlyph.SEARCH, color = palette.ink2, size = 20.dp)
+        Spacer(Modifier.width(10.dp))
+        Box(modifier = Modifier.weight(1f)) {
+            if (query.isEmpty()) {
+                Text(text = placeholder, style = ClearAirType.body, color = palette.ink2, maxLines = 1)
+            }
+            BasicTextField(
+                value = query,
+                onValueChange = onQuery,
+                singleLine = true,
+                textStyle = ClearAirType.body.copy(color = palette.ink),
+                cursorBrush = SolidColor(palette.spark),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
 /**
  * The search sheet's content. The field takes the query as the owner types it, the tabs choose which kind of result is shown, and [sections] are the
  * results of the tab. A query with no result says so in the sheet's own words. The root draws the sheet, so this
@@ -102,32 +134,7 @@ fun SearchSheet(
 ) {
     val palette = LocalClearAirPalette.current
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier
-                .padding(start = ClearAirSpacing.md, top = 6.dp, end = ClearAirSpacing.md)
-                .fillMaxWidth()
-                .height(FIELD_HEIGHT)
-                .clip(RoundedCornerShape(FIELD_CORNER))
-                .background(palette.raised)
-                .padding(horizontal = ClearAirSpacing.md),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ClearAirIcon(glyph = ClearAirGlyph.SEARCH, color = palette.ink2, size = 20.dp)
-            Spacer(Modifier.width(10.dp))
-            Box(modifier = Modifier.weight(1f)) {
-                if (query.isEmpty()) {
-                    Text(text = "Search anything across your wallet", style = ClearAirType.body, color = palette.ink2, maxLines = 1)
-                }
-                BasicTextField(
-                    value = query,
-                    onValueChange = onQuery,
-                    singleLine = true,
-                    textStyle = ClearAirType.body.copy(color = palette.ink),
-                    cursorBrush = SolidColor(palette.spark),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
+        SearchField(query = query, onQuery = onQuery, placeholder = "Search anything across your wallet")
         val tabRow = rememberLazyListState()
         val hidden = hiddenTabs(tabRow)
         val more = tabRow.canScrollForward

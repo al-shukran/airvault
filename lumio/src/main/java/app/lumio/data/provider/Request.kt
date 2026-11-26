@@ -108,6 +108,44 @@ class TrendingCoins : Request<TrendingList>(MARKET_NET, Ops.MARKET_TRENDING)
 /** The units of each fiat currency that one US dollar buys, from the source's fiat table. */
 class FiatRates : Request<FiatQuote>(MARKET_NET, Ops.MARKET_FIAT)
 
+/** The coins with the largest market cap, largest first: the source's first page of [MARKET_PAGE] coins. */
+class TopCoins : Request<MarketCoins>(MARKET_NET, Ops.MARKET_COINS)
+
+/** The market rows of the coins [ids], named by the source's own ids, largest market cap first. At most [MARKET_PAGE] ids. */
+class CoinMarkets(val ids: List<String>) : Request<MarketCoins>(MARKET_NET, Ops.MARKET_COINS) {
+    init {
+        require(ids.size in 1..MARKET_PAGE) { "A market read names 1 to $MARKET_PAGE coins." }
+    }
+}
+
+/** Every coin the source lists, with its contracts on the networks the source names by a chain id. */
+class CoinDirectoryRead : Request<CoinDirectory>(MARKET_NET, Ops.MARKET_DIRECTORY)
+
+/** The most coins one market read answers: the source's largest page. */
+const val MARKET_PAGE = 250
+
+/**
+ * One coin of a market read: the source's [id], its [name] and [symbol], its [rank] by market cap (null when the source ranks it nowhere), and the HTTPS
+ * URL of its logo [image], or null when the source gives none.
+ */
+@Serializable
+data class MarketCoin(val id: String, val name: String, val symbol: String, val rank: Int?, val image: String?)
+
+/** The coins of a market read in the source's order, and [asOfMs], the time they were read, since the source gives no time for the list. */
+@Serializable
+data class MarketCoins(val coins: List<MarketCoin>, val asOfMs: Long)
+
+/**
+ * One coin of the source's directory: its [id], [name] and [symbol], and its token [contracts] keyed by the CAIP-2 id of each network it is on. A
+ * network the source names by no chain id is left out, and a network's own coin has none.
+ */
+@Serializable
+data class DirectoryCoin(val id: String, val name: String, val symbol: String, val contracts: Map<String, String> = emptyMap())
+
+/** Every coin of the source's directory, in its order, and [asOfMs], the time it was read. */
+@Serializable
+data class CoinDirectory(val coins: List<DirectoryCoin>, val asOfMs: Long)
+
 /**
  * The fiat rates of the source, keyed by the upper-case currency code: [perUsd] is how many units of the currency one US dollar buys, and [asOfMs] the
  * time they were read, in epoch milliseconds, since the source gives no time for them. It is stored in the cache, so it is serializable.

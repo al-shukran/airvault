@@ -273,7 +273,7 @@ class WalletsBoardTest {
         val app = RuntimeEnvironment.getApplication() as LumioApp
         PairedWallets.save(session, pairing(), nowMs = 100L)
         val wallet = PairedWallets.list(session).single()
-        val damaged = """{"wallets":{"kept":{"assets":"all"}}}"""
+        val damaged = """{"format":2,"wallets":{"kept":{"assets":"all"}}}"""
         session.putVaultRecord(WatchlistStore.RECORD, damaged.encodeToByteArray())
         val board = WalletsBoard(app, vault, repository = PriceRepository(app.priceScheduler) { vault.cache }) { emptyMap<AssetId, Price>() }
         vault.wallets = board
@@ -298,7 +298,7 @@ class WalletsBoardTest {
         val vault = LumioVault(session, database)
         PairedWallets.save(session, pairing(), nowMs = 100L)
         val wallet = PairedWallets.list(session).single()
-        val damaged = """{"wallets":{"kept":{"assets":"all"}}}"""
+        val damaged = """{"format":2,"wallets":{"kept":{"assets":"all"}}}"""
         session.putVaultRecord(WatchlistStore.RECORD, damaged.encodeToByteArray())
 
         PairedWallets.delete(session, wallet.id)

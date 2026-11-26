@@ -31,7 +31,7 @@ internal class DemoContext(
 }
 
 /**
- * One mockup frame that debug builds open directly. [id] is the frame's name: `p1` or `p2` for the part of the mockups, then the frame's number.
+ * One mockup frame that debug builds open directly. [id] is the frame's name: `p1` or `p2` for the part of the mockups (`p3` for the Home redesign), then the frame's number.
  * [route] is where it opens, [flags] are the sheet or state that opens on it (see [DebugDemoData.flag]), [profile] is how the demo sources
  * answer, [fontScale] is the system font scale it is captured at, and [size] is a `wm size` the capture sets, or null for the phone's own.
  */
@@ -79,7 +79,7 @@ internal object DemoScreens {
         DemoScreen("p1-19", both, main) { FirstRunStep.Welcome.route },
         DemoScreen("p1-20", both, main) { FirstRunStep.Notice.route },
         DemoScreen("p1-21", both, main) { FirstRunStep.Duress.route },
-        DemoScreen("p1-22", both, main) { LumioRoute.PAIR_SCAN },
+        DemoScreen("p1-22", both, main) { FirstRunStep.Pair.route },
         DemoScreen("p1-23", both, main) { LumioRoute.firstSync(it.walletId) },
         DemoScreen("p1-24", both, main, setOf("pair:review")) { LumioRoute.PAIR_REVIEW },
         DemoScreen("p1-25", both, main, profile = DemoProfile.EMPTY) { LumioRoute.PORTFOLIO },
@@ -119,7 +119,7 @@ internal object DemoScreens {
         DemoScreen("p2-32", both, main, setOf("sync:searching")) { LumioRoute.firstSync(it.walletId) },
         DemoScreen("p2-33", dark, main, setOf("sync:none")) { LumioRoute.firstSync(it.walletId) },
         DemoScreen("p2-34", both, main, setOf("pair:review", "pair:repair")) { LumioRoute.PAIR_REVIEW },
-        DemoScreen("p2-35", both, main, setOf("camera:denied")) { LumioRoute.PAIR_SCAN },
+        DemoScreen("p2-35", both, main, setOf("camera:denied")) { FirstRunStep.Pair.route },
         DemoScreen("p2-36", both, main, setOf("sort")) { LumioRoute.HOME },
         DemoScreen("p2-37", both, main) { LumioRoute.EXPLORE },
         DemoScreen("p2-38", both, main) { LumioRoute.network(DemoFixtures.ETHEREUM) },
@@ -139,6 +139,8 @@ internal object DemoScreens {
         DemoScreen("p2-52", both, main) { LumioRoute.SETTINGS_ABOUT },
         DemoScreen("p2-53", dark, main) { LumioRoute.LICENCES },
         DemoScreen("p2-54", both, main, setOf("reset")) { LumioRoute.SETTINGS },
+        DemoScreen("p3-00", both, main) { LumioRoute.WATCHLIST_ADD },
+        DemoScreen("p3-01", both, main, setOf("watchlist:search")) { LumioRoute.WATCHLIST_ADD },
     )
 
     private val byId = all.associateBy { it.id }

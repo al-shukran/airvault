@@ -33,13 +33,14 @@ import app.lumio.ui.firstrun.NoticeScreen
 import app.lumio.ui.firstrun.PrepareScreen
 import app.lumio.ui.firstrun.newPasswordProblem
 import app.lumio.ui.kit.lumioComposable
+import app.lumio.ui.pair.PairChrome
 import kotlinx.coroutines.launch
 
 /**
- * Lumio's first-run screens, I1 to I9, inside the hidden area. They run before the vault exists: the App Password step creates it, and the
- * duress and device steps follow. [home] is where the owner goes after the last one. Lensly's hidden area does not register these.
+ * Lumio's first-run screens, I1 to I10, inside the hidden area. They run before the vault exists: the App Password step creates it, and the
+ * duress, device and pair steps follow. [home] is where the owner lands when the pair step is left. Lensly's hidden area does not register these.
  */
-internal fun NavGraphBuilder.firstRunRoutes(navController: NavHostController, holder: VaultHolder, home: String) {
+internal fun NavGraphBuilder.firstRunRoutes(navController: NavHostController, holder: VaultHolder, draft: PairDraft, home: String) {
     firstRunScreen(FirstRunStep.Welcome) {
         FirstRunIntro(
             onLeave = { leaveHidden(navController, holder) },
@@ -119,8 +120,18 @@ internal fun NavGraphBuilder.firstRunRoutes(navController: NavHostController, ho
     firstRunScreen(FirstRunStep.DuressPassword) { DuressPasswordStep(navController, holder) }
     firstRunScreen(FirstRunStep.DeviceProtection) {
         BackHandler { leaveHidden(navController, holder) }
-        DeviceProtectionStep(holder = holder, onDone = { navController.openHidden(home) })
+        DeviceProtectionStep(holder = holder, onDone = { openPairStep(navController, home) })
     }
+    // The scan of Lensly's code is the last step. System back leaves it for Home, so an owner with no Lensly at hand is never held here.
+    firstRunScreen(FirstRunStep.Pair) {
+        PairScanRoute(navController = navController, draft = draft, route = FirstRunStep.Pair.route, chrome = PairChrome.Onboarding)
+    }
+}
+
+/** Opens [home] and the pair step above it, so that leaving the pair step, with back or a cancelled review, lands on [home]. */
+internal fun openPairStep(navController: NavHostController, home: String) {
+    navController.openHidden(home)
+    navController.navigate(FirstRunStep.Pair.route)
 }
 
 /**

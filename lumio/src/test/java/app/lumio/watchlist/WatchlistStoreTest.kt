@@ -38,7 +38,7 @@ class WatchlistStoreTest {
 
     @Test
     fun aWriteOrRemoveOnARecordThatDoesNotParseIsRefusedAndTheRecordKept() {
-        val damaged = """{"wallets":{"kept":{"assets":"all"}}}"""
+        val damaged = """{"format":2,"wallets":{"kept":{"assets":"all"}}}"""
         session.putVaultRecord(WatchlistStore.RECORD, damaged.encodeToByteArray())
 
         assertEquals(emptyMap<String, WalletWatchlist>(), WatchlistStore.readAll(session))
@@ -47,6 +47,28 @@ class WatchlistStoreTest {
         assertThrows(UnreadableRecordException::class.java) { WatchlistStore.remove(session, "kept") }
 
         assertEquals(damaged, session.getVaultRecord(WatchlistStore.RECORD)!!.decodeToString())
+    }
+
+    @Test
+    fun aRecordOfTheFirstFormatIsNotReadAndTheNextWriteReplacesIt() {
+        session.putVaultRecord(WatchlistStore.RECORD, """{"wallets":{"old":{"assets":[]}}}""".encodeToByteArray())
+
+        assertEquals(emptyMap<String, WalletWatchlist>(), WatchlistStore.readAll(session))
+        WatchlistStore.write(session, "new", WalletWatchlist())
+
+        assertEquals(mapOf("new" to WalletWatchlist()), WatchlistStore.readAll(session))
+    }
+
+    @Test
+    fun theLabelKeptWithAStarredAssetIsStoredAndGoesWithItsStar() {
+        val ousg = WatchedAsset(NetworkId(Networks.evm(1), testnet = false), "0x1b19c19393e2d034d8ff31ff34c81252fcbbee92")
+        val label = WatchedLabel("OUSG", "Ondo Short-Term U.S. Government Bond Fund", "https://coin-images.coingecko.com/coins/images/1/small/ousg.png")
+        val starred = WalletWatchlist().toggled(ousg, label)
+
+        WatchlistStore.write(session, "w", starred)
+
+        assertEquals(label, WatchlistStore.read(session, "w")!!.labels[ousg.key])
+        assertEquals(emptyMap<String, WatchedLabel>(), starred.toggled(ousg).labels)
     }
 
     @Test

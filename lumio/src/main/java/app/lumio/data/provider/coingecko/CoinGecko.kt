@@ -23,6 +23,15 @@ import app.lumio.data.provider.TrendingCoin
 import app.lumio.data.provider.TrendingCoins
 import app.lumio.data.provider.TokenLogo
 import app.lumio.data.provider.TrendingList
+import app.lumio.data.provider.CoinDirectory
+import app.lumio.data.provider.CoinDirectoryRead
+import app.lumio.data.provider.CoinMarkets
+import app.lumio.data.provider.DirectoryCoin
+import app.lumio.data.provider.MARKET_PAGE
+import app.lumio.data.provider.MarketCoin
+import app.lumio.data.provider.MarketCoins
+import app.lumio.data.provider.TopCoins
+import app.lumio.data.provider.answerArray
 import app.lumio.data.provider.answerObject
 import app.lumio.data.provider.fetchBytes
 import app.lumio.data.provider.asArray
@@ -36,6 +45,8 @@ import app.lumio.data.provider.whole
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Request as HttpRequest
@@ -58,6 +69,14 @@ import okhttp3.Request as HttpRequest
  *   https://docs.coingecko.com/demo/reference/coins-contract-address) answers the token's record, whose `image` object has `thumb`, `small` and `large`
  *   URLs. The image is read from `small`, or `thumb`. Only the EVM mainnets in [PLATFORMS] have an id, and the ids other than `ethereum` are not
  *   confirmed against the asset platforms list; a wrong id fails as a missing logo.
+ * - Coins by market cap. `GET https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1`, and with
+ *   `ids={id},{id},..` for named coins, is in the Demo / Keyless endpoint overview (https://docs.coingecko.com/demo/reference/endpoint-overview.md,
+ *   read on 2026-11-26). It answers `[{"id","symbol","name","image","market_cap_rank",..},..]`; `market_cap_rank` is null for a coin the source
+ *   ranks nowhere, and `image` is the `large` logo URL, of which the `small` one (64 px) is read instead.
+ * - Directory. `GET https://api.coingecko.com/api/v3/asset_platforms` and `GET https://api.coingecko.com/api/v3/coins/list?include_platform=true`
+ *   are in the same overview. The first answers `[{"id","chain_identifier",..},..]`, where `chain_identifier` is the EVM chain id or null. The second
+ *   answers `[{"id","symbol","name","platforms":{"{platform}":"{contract}",..}},..]`; it was 3.9 MB on 2026-11-26, so it is read up to
+ *   [DIRECTORY_LIMIT_BYTES]. A platform is kept when it has a chain id, or it is `solana` or `algorand`, and it is keyed by the network's CAIP-2 id.
  * - Authentication: https://docs.coingecko.com/demo/reference/authentication names the demo header `x-cg-demo-api-key` on the demo host.
  * - Limits: https://docs.coingecko.com/docs/errors-and-rate-limits states 100 calls a minute on the demo plan, and IP-based limits without a key, with no
  *   figure. Every request counts, including the failed ones. A coin the source does not know is left out of the answer, which is
@@ -70,7 +89,7 @@ class CoinGeckoProvider : Provider {
 
     override fun supports(net: NetworkId, op: OpKey, cfg: ProviderConfig): Boolean = when (op) {
         Ops.PRICE_NATIVE -> keyOf(cfg) != null && NativeCoins.coinOf(net) != null && providerBase(cfg.baseUrl, BASE) != null
-        Ops.MARKET_TRENDING, Ops.MARKET_FIAT -> providerBase(cfg.baseUrl, BASE) != null
+        Ops.MARKET_TRENDING, Ops.MARKET_FIAT, Ops.MARKET_COINS, Ops.MARKET_DIRECTORY -> providerBase(cfg.baseUrl, BASE) != null
         Ops.LOGO_TOKEN -> platformOf(net) != null && providerBase(cfg.baseUrl, BASE) != null
         else -> false
     }
@@ -85,6 +104,9 @@ class CoinGeckoProvider : Provider {
             is TrendingCoins -> trending(cfg, http) as T
             is FiatRates -> fiatRates(cfg, http) as T
             is TokenLogo -> logo(req, cfg, http) as T
+            is TopCoins -> markets(null, cfg, http) as T
+            is CoinMarkets -> markets(req.ids, cfg, http) as T
+            is CoinDirectoryRead -> directory(cfg, http) as T
             else -> throw ProviderError.Unsupported()
         }
     }
@@ -145,6 +167,67 @@ class CoinGeckoProvider : Provider {
         return FiatQuote(perUsd = perUsd, asOfMs = WallClock.nowMs())
     }
 
+    /** The coins by market cap, largest first: the first page, or the coins [ids] when given. */
+    private suspend fun markets(ids: List<String>?, cfg: ProviderConfig, http: Http): MarketCoins {
+        val url = checkNotNull(providerBase(cfg.baseUrl, BASE)).newBuilder()
+            .addPathSegment("coins")
+            .addPathSegment("markets")
+            .addQueryParameter("vs_currency", "usd")
+            .addQueryParameter("order", "market_cap_desc")
+            .addQueryParameter("per_page", MARKET_PAGE.toString())
+            .addQueryParameter("page", "1")
+            .apply { if (ids != null) addQueryParameter("ids", ids.joinToString(",")) }
+            .build()
+        val coins = answerArray(fetchText(http.noRedirects(), request(cfg, url), banMs = null)).map { element ->
+            val coin = element.asObject()
+            MarketCoin(
+                id = coin["id"].text(),
+                name = coin["name"].text(),
+                symbol = coin["symbol"].text(),
+                rank = coin["market_cap_rank"].present()?.whole(min = 1L, max = MAX_RANK)?.toInt(),
+                image = coin["image"].present()?.text()?.let(::smallImage),
+            )
+        }
+        return MarketCoins(coins = coins, asOfMs = WallClock.nowMs())
+    }
+
+    /**
+     * The directory: every coin with its contracts on the platforms that name a network, keyed by the network's CAIP-2 id. The platforms list is read
+     * first, and the coins list is charged to the rate bucket as the second request of the call.
+     */
+    private suspend fun directory(cfg: ProviderConfig, http: Http): CoinDirectory {
+        val base = checkNotNull(providerBase(cfg.baseUrl, BASE))
+        val platformsUrl = base.newBuilder().addPathSegment("asset_platforms").build()
+        val networks = answerArray(fetchText(http.noRedirects(), request(cfg, platformsUrl), banMs = null)).mapNotNull { element ->
+            val platform = element.asObject()
+            val id = platform["id"].text()
+            val chainId = platform["chain_identifier"].present()?.whole(min = 1L, max = Long.MAX_VALUE)
+            val network = when {
+                chainId != null -> Networks.evm(chainId).caip2
+                id == "solana" -> Networks.SOL_MAINNET.caip2
+                id == "algorand" -> Networks.ALGO_MAINNET.caip2
+                else -> null
+            }
+            network?.let { id to it }
+        }.toMap()
+        http.charge()
+        val coinsUrl = base.newBuilder().addPathSegment("coins").addPathSegment("list").addQueryParameter("include_platform", "true").build()
+        val coins = answerArray(fetchText(http.noRedirects(), request(cfg, coinsUrl), banMs = null, limit = DIRECTORY_LIMIT_BYTES)).map { element ->
+            val coin = element.asObject()
+            val platforms = coin["platforms"].present() as? JsonObject
+            DirectoryCoin(
+                id = coin["id"].text(),
+                name = coin["name"].text(),
+                symbol = coin["symbol"].text(),
+                contracts = platforms.orEmpty().mapNotNull { (platform, contract) ->
+                    val network = networks[platform] ?: return@mapNotNull null
+                    (contract.present() as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }?.let { network to it }
+                }.toMap(),
+            )
+        }
+        return CoinDirectory(coins = coins, asOfMs = WallClock.nowMs())
+    }
+
     /**
      * The logo of the token that [req] names: the image that its record names, read from the image's own URL. The record and the image are read
      * without the key, since the image is served from a host that takes none. A record the source does not have is [ProviderError.NotFound]. The
@@ -190,6 +273,13 @@ private val PLATFORMS: Map<Long, String> = mapOf(
     42161L to "arbitrum-one",
     43114L to "avalanche",
 )
+
+/** The largest directory answer that is read, in bytes: four times its size on 2026-11-26. */
+private const val DIRECTORY_LIMIT_BYTES = 16L * 1024 * 1024
+
+/** The 64 px logo of a coin whose `large` logo URL is [url], or null when [url] is not an HTTPS URL. */
+internal fun smallImage(url: String): String? =
+    url.toHttpUrlOrNull()?.takeIf { it.scheme == "https" }?.toString()?.replace("/large/", "/small/")
 
 /** The largest logo image that is read, in bytes. A larger image is a fatal answer. */
 private const val LOGO_LIMIT_BYTES = 512L * 1024L
