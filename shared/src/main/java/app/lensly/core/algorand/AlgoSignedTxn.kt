@@ -13,7 +13,7 @@ import org.bouncycastle.crypto.signers.Ed25519Signer
  * [verify] checks a signature over [bytesToSign] before anything is sent, so a signature for another transaction or another
  * account is refused. [assemble] writes the signed transaction: the msgpack map `{sig, txn}` with the bytes that were
  * signed, as go-algorand's `SignedTxn` encodes a single-signature transaction. [txid] is the transaction ID that the
- * network gives the transaction, which the send checks against the server's answer.
+ * network gives the transaction, which the send checks against the server's answer. [signedTxid] reads it from the signed bytes.
  */
 object AlgoSignedTxn {
     /** An Ed25519 signature is 64 bytes. */
@@ -44,6 +44,15 @@ object AlgoSignedTxn {
         require(signature.size == SIGNATURE_BYTES) { "signature must be $SIGNATURE_BYTES bytes" }
         AlgoTxnDecoder.decode(txn)
         return byteArrayOf(0x82.toByte()) + msgpackStr("sig") + msgpackBin(signature) + msgpackStr("txn") + txn
+    }
+
+    /** The bytes before `txn` in [assemble]'s output: the map header, `sig` with its 64-byte value, and the key `txn`. */
+    private val HEAD_BYTES = 1 + msgpackStr("sig").size + msgpackBin(ByteArray(SIGNATURE_BYTES)).size + msgpackStr("txn").size
+
+    /** The transaction ID of [signed], a signed transaction that [assemble] wrote: the [txid] of the `txn` that ends it. */
+    fun signedTxid(signed: ByteArray): String {
+        require(signed.size > HEAD_BYTES) { "This is not a signed transaction." }
+        return txid(signed.copyOfRange(HEAD_BYTES, signed.size))
     }
 
     /** The transaction ID of [txn]: the base32 of the SHA-512/256 hash of [bytesToSign], without padding (52 characters). */

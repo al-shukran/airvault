@@ -17,11 +17,22 @@ import app.lumio.data.provider.retryAfterMs
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.TipHeight
 import app.lumio.data.provider.Tx
+import fr.acinq.bitcoin.ByteVector
+import fr.acinq.bitcoin.ByteVector32
+import fr.acinq.bitcoin.OutPoint
+import fr.acinq.bitcoin.Satoshi
+import fr.acinq.bitcoin.ScriptWitness
+import fr.acinq.bitcoin.Transaction
+import fr.acinq.bitcoin.TxHash
+import fr.acinq.bitcoin.TxIn
+import fr.acinq.bitcoin.TxOut
+import java.security.MessageDigest
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
@@ -162,6 +173,63 @@ class EsploraProtocolTest {
         reply(200, "<html>not a txid</html>")
 
         assertFailsWith<ProviderError.Unreadable> { EsploraProtocol.execute(Broadcast(testnet4, byteArrayOf(1)), base(), http) }
+    }
+
+    /** A transaction with a witness, so its id is the hash of the serialization without it. */
+    private fun witnessTx(): Transaction {
+        val tx = Transaction(
+            version = 2,
+            txIn = listOf(TxIn(OutPoint(TxHash(ByteVector32(ByteArray(32) { 1 })), 0L), ByteVector.empty, 0xFFFFFFFDL)),
+            txOut = listOf(TxOut(Satoshi(10_000L), ByteVector(ByteArray(22) { 3 }))),
+            lockTime = 0L,
+        )
+        return tx.updateWitness(0, ScriptWitness(listOf(ByteVector(ByteArray(64) { 2 }), ByteVector(ByteArray(33) { 4 }))))
+    }
+
+    /** The txid as Bitcoin defines it: the double SHA-256 of the serialization without witness, written in reverse. */
+    private fun txidOf(tx: Transaction): String {
+        val stripped = tx.copy(txIn = tx.txIn.map { it.updateWitness(ScriptWitness.empty) })
+        val sha = MessageDigest.getInstance("SHA-256")
+        return sha.digest(sha.digest(Transaction.write(stripped))).reversedArray().joinToString("") { "%02x".format(it) }
+    }
+
+    @Test
+    fun aBroadcastThatTheServerAlreadyHoldsAnswersWithTheTransactionIdOfTheBytesSent(): Unit = runBlocking {
+        val tx = witnessTx()
+        val raw = Transaction.write(tx)
+        val wordings = listOf(
+            "sendrawtransaction RPC error -27: Transaction already in block chain",
+            "sendrawtransaction RPC error: {\"code\":-27,\"message\":\"Transaction outputs already in utxo set\"}",
+            "sendrawtransaction RPC error -26: txn-already-known",
+            "sendrawtransaction RPC error -26: txn-already-in-mempool",
+        )
+        for (wording in wordings) {
+            reply(400, wording)
+            assertEquals(txidOf(tx), EsploraProtocol.execute(Broadcast(testnet4, raw), base(), http), wording)
+        }
+        assertEquals(wordings.size, server.requestCount)
+    }
+
+    @Test
+    fun aBroadcastThatConflictsWithAnotherTransactionIsStillARefusal(): Unit = runBlocking {
+        val raw = Transaction.write(witnessTx())
+        for (wording in listOf(
+            "sendrawtransaction RPC error -26: txn-mempool-conflict",
+            "sendrawtransaction RPC error -25: bad-txns-inputs-missingorspent",
+            "sendrawtransaction RPC error -26: insufficient fee, rejecting replacement",
+        )) {
+            reply(400, wording)
+            val failure = assertFailsWith<ProviderError.Fatal> { EsploraProtocol.execute(Broadcast(testnet4, raw), base(), http) }
+            assertFalse(failure is ProviderError.AlreadyKnown, wording)
+        }
+    }
+
+    @Test
+    fun theWordsOfADuplicateAreReadForABroadcastOnly(): Unit = runBlocking {
+        reply(400, "Transaction already in block chain")
+
+        val failure = assertFailsWith<ProviderError.Fatal> { EsploraProtocol.execute(Tx(testnet4, txid), base(), http) }
+        assertFalse(failure is ProviderError.AlreadyKnown)
     }
 
     @Test

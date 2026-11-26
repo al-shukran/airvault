@@ -1,5 +1,6 @@
 package app.lumio.data.provider.algorand
 
+import app.lensly.core.algorand.AlgoSignedTxn
 import app.lumio.data.MonotonicClock
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.provider.AlgorandIndexed
@@ -125,6 +126,24 @@ class AlgorandAlgodSendTest {
         server.enqueue(MockResponse.Builder().code(400).body("""{"message":"overspend"}""").build())
 
         assertTrue(assertFailsWith<ProviderError.Fatal> { call(Broadcast(ALGORAND_TESTNET, raw)) } !is ProviderError.Unreadable)
+    }
+
+    @Test
+    fun aBroadcastThatIsAlreadyInTheLedgerAnswersWithTheTransactionIdOfTheSignedBytes() {
+        val txn = ByteArray(40) { (it + 9).toByte() }
+        val signed = byteArrayOf(0x82.toByte(), 0xa3.toByte()) + "sig".toByteArray() + byteArrayOf(0xc4.toByte(), 0x40) + ByteArray(64) { 5 } +
+            byteArrayOf(0xa3.toByte()) + "txn".toByteArray() + txn
+        server.enqueue(MockResponse.Builder().code(400).body("""{"message":"TransactionPool.Remember: transaction already in ledger: $TXID"}""").build())
+
+        assertEquals(AlgoSignedTxn.txid(txn), call(Broadcast(ALGORAND_TESTNET, signed)))
+    }
+
+    @Test
+    fun aBroadcastThatIsRefusedForAnotherReasonIsStillFatal() {
+        for (message in listOf("overspend", "transaction rejected by ApprovalProgram", "txn dead: round 5 outside of 1--4")) {
+            server.enqueue(MockResponse.Builder().code(400).body("""{"message":"$message"}""").build())
+            assertFalse(assertFailsWith<ProviderError.Fatal> { call(Broadcast(ALGORAND_TESTNET, raw)) } is ProviderError.AlreadyKnown, message)
+        }
     }
 
     @Test

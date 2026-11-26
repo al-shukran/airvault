@@ -154,6 +154,16 @@ class EvmSendRpcTest {
     }
 
     @Test
+    fun aReplacementOrAStaleNonceIsStillARefusal() {
+        failing.add("eth_sendRawTransaction")
+        for (wording in listOf("replacement transaction underpriced", "nonce too low")) {
+            failureMessage = wording
+            val failure = assertThrows(RpcFailure::class.java) { runBlocking { EvmSend.broadcast(reads(), chain, byteArrayOf(0x02)) } }
+            assertEquals(wording, RpcFailure.Reason.ERROR, failure.reason)
+        }
+    }
+
+    @Test
     fun anUnknownTransactionIsStillARefusal() {
         failing.add("eth_sendRawTransaction")
         failureMessage = "unknown transaction"
