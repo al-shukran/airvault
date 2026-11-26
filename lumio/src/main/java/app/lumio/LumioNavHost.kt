@@ -91,6 +91,9 @@ internal object LumioRoute {
     const val PORTFOLIO = "portfolio"
     const val EXPLORE = "explore"
 
+    /** Add to Watchlist, pushed from Home's watchlist. */
+    const val WATCHLIST_ADD = "watchlist/add"
+
     /** The activity of every account on the side, pushed from the Portfolio tab and its "All" link. */
     const val ACTIVITY = "activity"
 
@@ -523,6 +526,11 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
                 }
                 LumioBackdrop(selection) {
                     HomeRoute(navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = { lock() })
+                }
+            }
+            lumioComposable(LumioRoute.WATCHLIST_ADD) {
+                LumioBackdrop(selection) {
+                    WatchlistAddRoute(navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = { lock() })
                 }
             }
             lumioComposable(LumioRoute.PORTFOLIO) {

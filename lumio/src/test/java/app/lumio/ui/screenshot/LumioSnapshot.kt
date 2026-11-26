@@ -41,9 +41,9 @@ fun ComposeContentTestRule.lumioSnapshot(
 }
 
 /** Renders [content] in the Clear Air theme at the goldens' frame, with reduced motion on, as [lumioSnapshot] does for Lumen. */
-fun ComposeContentTestRule.clearAirSnapshot(name: String, content: @Composable () -> Unit) {
+fun ComposeContentTestRule.clearAirSnapshot(name: String, frame: DpSize? = null, content: @Composable () -> Unit) {
     withReducedMotion {
-        snapshot(name = name, theme = { ClearAirTheme(content = it) }, content = content)
+        snapshot(name = name, theme = { ClearAirTheme(content = it) }, frame = frame, content = content)
     }
 }
 

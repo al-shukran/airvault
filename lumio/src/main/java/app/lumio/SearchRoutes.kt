@@ -29,14 +29,18 @@ import app.lumio.ui.search.SearchRow
 import app.lumio.ui.search.SearchSection
 import app.lumio.ui.search.SearchSheet
 import app.lumio.ui.search.SearchTab
+import app.lumio.ui.search.PickerRow
+import app.lumio.ui.search.WatchlistPicker
 import app.lumio.ui.settings.providerName
 import app.lumio.ui.settings.providerStatusNote
 import app.lumio.ui.settings.providerStatusWord
 import app.lumio.wallets.WalletAccount
 import app.lumio.wallets.WalletsView
 import app.lumio.watchlist.FIRST_RUN_ASSETS
+import app.lumio.watchlist.WalletWatchlist
 import app.lumio.watchlist.WatchedAsset
 import app.lumio.watchlist.WatchlistStore
+import app.lumio.watchlist.toggled
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -98,6 +102,54 @@ internal fun SearchRoute(
         tab = tab,
         onTab = { tab = it },
         sections = sections,
+    )
+}
+
+/**
+ * Add to Watchlist, over the active wallet: the assets Lumio can watch, which are the first-run coins, the coins the wallets hold and the assets on the
+ * watchlist, each with a star that adds it or takes it off. Typing filters them by name and ticker, as the search does. An asset stays
+ * in the list once shown, so a star taken off can be put back.
+ */
+@Composable
+internal fun WatchlistAddRoute(
+    navController: NavHostController,
+    holder: VaultHolder,
+    selection: NetworkSelection,
+    listVersion: Int,
+    onLock: () -> Unit,
+) {
+    val app = LocalContext.current.applicationContext as LumioApp
+    holder.openSession() ?: return
+    val board = rememberWalletsBoard(app, selection.mode, listVersion) ?: return
+    val view = board.view ?: return
+    val wallet = view.wallets.active(selection) { it.id } ?: return
+    var query by remember { mutableStateOf("") }
+    val current = board.watchlists[wallet.id] ?: WalletWatchlist(assets = FIRST_RUN_ASSETS)
+    val shown = remember(wallet.id) { mutableListOf<WatchedAsset>() }
+    val held = view.wallets.flatMap { view.accountsOf(it.id) }.mapNotNull { it.balance }.filter { it.balance.signum() > 0 }.map { WatchedAsset(it.network) }
+    (FIRST_RUN_ASSETS + held + current.assets).filterNot { it in shown }.distinct().let(shown::addAll)
+    val entries = shown.map { asset ->
+        val (symbol, name) = namesOf(asset, app, board.tokenHeld.values)
+        SearchEntry(title = name, detail = symbol, terms = listOf(name, symbol), target = asset)
+    }
+    val needle = query.trim()
+    val found = if (needle.isEmpty()) entries else matching(needle, entries)
+    WatchlistPicker(
+        query = query,
+        onQuery = { query = it },
+        label = if (needle.isEmpty()) "Coins" else "Results · ${found.size}",
+        rows = found.map { entry ->
+            PickerRow(
+                asset = entry.target,
+                name = entry.title,
+                ticker = entry.detail,
+                icon = coinIconOf(entry.target, entry.detail, app),
+                watched = entry.target in current.assets,
+            )
+        },
+        onToggle = { asset -> board.changeWatchlist(wallet.id) { it.toggled(asset) } },
+        onBack = { navController.popBackStack() },
+        onLock = onLock,
     )
 }
 
