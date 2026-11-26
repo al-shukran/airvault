@@ -99,4 +99,42 @@ class FinishSetupStoreTest {
         assertEquals(FinishSetup(done = setOf(FinishItem.DURESS)), FinishSetupStore.read(session))
         session.close()
     }
+
+    /** Stores [FinishItem.PAIR] as the checklist, then flips a byte of the stored record so it no longer authenticates. */
+    private fun storeRecordThatFailsAuthentication(session: VaultSession) {
+        FinishSetupStore.tick(session, FinishItem.PAIR)
+        val file = session.vaultRecordFileForTesting(FinishSetupStore.RECORD)
+        val bytes = file.readBytes()
+        bytes[bytes.size - 1] = (bytes[bytes.size - 1].toInt() xor 1).toByte()
+        file.writeBytes(bytes)
+    }
+
+    @Test
+    fun aRecordThatFailsAuthenticationReadsAsNothingTicked() {
+        val session = open()
+        storeRecordThatFailsAuthentication(session)
+
+        assertEquals(FinishSetup(), FinishSetupStore.read(session))
+        session.close()
+    }
+
+    @Test
+    fun aTickOnARecordThatFailsAuthenticationIsRefusedUnlessItIsReplaced() {
+        val session = open()
+        storeRecordThatFailsAuthentication(session)
+
+        assertFailsWith<UnreadableRecordException> { FinishSetupStore.tick(session, FinishItem.DURESS) }
+        FinishSetupStore.tick(session, FinishItem.DURESS, replaceUnreadable = true)
+
+        assertEquals(setOf(FinishItem.DURESS), FinishSetupStore.read(session).done)
+        session.close()
+    }
+
+    @Test
+    fun aClosedSessionIsNotReadAsNothingTicked() {
+        val session = open()
+        session.close()
+
+        assertFailsWith<IllegalStateException> { FinishSetupStore.read(session) }
+    }
 }
