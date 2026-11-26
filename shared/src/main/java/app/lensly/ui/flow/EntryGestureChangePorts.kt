@@ -16,12 +16,15 @@ class EntryGestureChangePorts(
     override suspend fun checkPassword(password: CharArray): PasswordCheck = checkAppPassword(holder, password)
 
     /**
-     * Saves [gesture] as the camera's gesture. A decoy session never changes it: the gesture is the real vault's setting, and a
-     * coerced change in the decoy must not alter the real entry. From a decoy the save appears to succeed, and nothing is
-     * written, so the screen looks the same as it does in the real vault.
+     * Saves [gesture] as the camera's gesture. A decoy session never changes the stored gesture: it is the real vault's setting, and a
+     * coerced change in the decoy must not alter the real entry. A decoy keeps the choice in [VaultHolder.decoyShown] instead, so its
+     * list marks the chosen gesture as the real vault's does, and the choice ends with the session.
      */
     override suspend fun save(gesture: EntryGesture): Boolean {
-        if (holder.openSession()?.isDecoy == true) return true
+        if (holder.openSession()?.isDecoy == true) {
+            holder.decoyShown.showEntryGesture(gesture)
+            return true
+        }
         return gestures.save(gesture)
     }
 }

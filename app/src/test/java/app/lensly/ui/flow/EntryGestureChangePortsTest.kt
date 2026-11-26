@@ -29,7 +29,8 @@ import org.robolectric.RuntimeEnvironment
 
 /**
  * The Hidden Entry Gesture is the real vault's setting, kept outside the vault. The real vault saves it. A decoy session
- * reports the same success, but it writes nothing, so a coerced change never reaches the real entry.
+ * reports the same success and shows the chosen gesture as current, as the real vault does, but it writes nothing, so a coerced
+ * change never reaches the real entry. The decoy's choice ends with its session.
  */
 @RunWith(RobolectricTestRunner::class)
 class EntryGestureChangePortsTest {
@@ -74,7 +75,7 @@ class EntryGestureChangePortsTest {
     }
 
     @Test
-    fun aDecoySessionReportsTheSaveAsDoneButWritesNothing() {
+    fun aDecoySessionShowsTheSaveAsDoneButWritesNothing() {
         // The real vault saves a gesture first, so there is a real value to protect.
         holder.adopt(open(APP), holder.unlockEpoch())
         assertTrue(runBlocking { ports.save(EntryGesture.THUMBNAIL_HOLD_SWIPE) })
@@ -85,6 +86,35 @@ class EntryGestureChangePortsTest {
 
         assertEquals(EntryGesture.THUMBNAIL_HOLD_SWIPE, store.load())
         assertEquals(EntryGesture.THUMBNAIL_HOLD_SWIPE, gestures.current)
+    }
+
+    @Test
+    fun aDecoyListMarksTheChosenGestureAsCurrentLikeTheRealVaultDoes() {
+        val chosen = EntryGesture.SWITCH_THEN_SHUTTER_HOLD
+        holder.adopt(open(APP), holder.unlockEpoch())
+        assertTrue(runBlocking { ports.save(chosen) })
+        val markedInRealVault = holder.decoyShown.entryGesture(gestures.current)
+        holder.lock()
+        store.reset()
+        gestures = EntryGestureHolder(store)
+        ports = EntryGestureChangePorts(holder, gestures)
+
+        holder.adopt(open(DURESS), holder.unlockEpoch())
+        assertTrue(runBlocking { ports.save(chosen) })
+
+        assertEquals(markedInRealVault, holder.decoyShown.entryGesture(gestures.current))
+        assertEquals(EntryGesture.DEFAULT, store.load())
+    }
+
+    @Test
+    fun aDecoysChoiceEndsWithItsSession() {
+        holder.adopt(open(DURESS), holder.unlockEpoch())
+        assertTrue(runBlocking { ports.save(EntryGesture.PINCH_TRIPLE_TAP) })
+        holder.lock()
+
+        assertEquals(gestures.current, holder.decoyShown.entryGesture(gestures.current))
+        holder.adopt(open(DURESS), holder.unlockEpoch())
+        assertEquals(gestures.current, holder.decoyShown.entryGesture(gestures.current))
     }
 
     private fun open(password: String): VaultSession = runBlocking {

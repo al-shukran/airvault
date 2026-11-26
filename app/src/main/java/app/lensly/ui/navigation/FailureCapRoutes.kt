@@ -124,7 +124,7 @@ internal fun FailureCapRoute(navController: NavHostController, holder: VaultHold
 }
 
 /** What a save of the limits found. */
-private enum class FailureCapOutcome {
+internal enum class FailureCapOutcome {
     /** The App Password was right, and the limits are saved. */
     Saved,
 
@@ -140,14 +140,18 @@ private enum class FailureCapOutcome {
 
 /**
  * Checks the App Password and saves the cap and the erase count in one vault call. NonCancellable, so a check that has started runs
- * to its result, and the vault zeroes [password] on every path.
+ * to its result, and the vault zeroes [password] on every path. A decoy's change is never written (see Vault). It is kept in
+ * [VaultHolder.decoyShown] instead, so the decoy's screens show it as a real vault's show a saved change.
  */
-private suspend fun saveFailureLimits(holder: VaultHolder, password: CharArray, capMs: Long?, eraseAfter: Int): FailureCapOutcome =
+internal suspend fun saveFailureLimits(holder: VaultHolder, password: CharArray, capMs: Long?, eraseAfter: Int): FailureCapOutcome =
     withContext(NonCancellable) {
         try {
-            // A decoy's change is accepted and nothing is written, so it can never weaken the real limits (see Vault).
-            when (holder.vault.setFailureLimits(password, capMs, eraseAfter, inDecoy = holder.openSession()?.isDecoy == true)) {
-                FailureCapResult.Saved -> FailureCapOutcome.Saved
+            val inDecoy = holder.openSession()?.isDecoy == true
+            when (holder.vault.setFailureLimits(password, capMs, eraseAfter, inDecoy = inDecoy)) {
+                FailureCapResult.Saved -> {
+                    if (inDecoy) holder.decoyShown.showFailureLimits(capMs, eraseAfter)
+                    FailureCapOutcome.Saved
+                }
                 FailureCapResult.Rejected -> FailureCapOutcome.Rejected
                 FailureCapResult.Erased -> FailureCapOutcome.Erased
             }
@@ -156,18 +160,29 @@ private suspend fun saveFailureLimits(holder: VaultHolder, password: CharArray, 
         }
     }
 
-/** The cap in force as a choice. A vault that cannot be read shows Default, and nothing is saved from that reading. */
+/**
+ * The cap in force as a choice. A decoy shows its own (see [VaultHolder.decoyShown]) and never reads the real vault's. A vault that
+ * cannot be read shows Default, and nothing is saved from that reading.
+ */
 internal suspend fun readFailureCap(holder: VaultHolder): FailureCapChoice =
-    try {
-        FailureCapChoice.of(holder.vault.failureDelayCapMs())
-    } catch (e: VaultException) {
-        FailureCapChoice.DEFAULT
+    if (holder.openSession()?.isDecoy == true) {
+        FailureCapChoice.of(holder.decoyShown.failureCapMs)
+    } else {
+        try {
+            FailureCapChoice.of(holder.vault.failureDelayCapMs())
+        } catch (e: VaultException) {
+            FailureCapChoice.DEFAULT
+        }
     }
 
-/** The erase count in force. A vault that cannot be read shows the default, and nothing is saved from that reading. */
+/** The erase count in force, read as [readFailureCap] reads the cap. A vault that cannot be read shows the default. */
 internal suspend fun readEraseAfter(holder: VaultHolder): Int =
-    try {
-        holder.vault.failureEraseAfter()
-    } catch (e: VaultException) {
-        FailureDelay.DEFAULT_WIPE_AFTER
+    if (holder.openSession()?.isDecoy == true) {
+        holder.decoyShown.failureEraseAfter
+    } else {
+        try {
+            holder.vault.failureEraseAfter()
+        } catch (e: VaultException) {
+            FailureDelay.DEFAULT_WIPE_AFTER
+        }
     }

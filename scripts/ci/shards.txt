@@ -504,6 +504,7 @@ shard-8 :app app.lensly.app.SettingChangesTest
 shard-8 :app app.lensly.app.WalletStoreBulkTest
 shard-8 :app app.lensly.ui.flow.AccountExportPasswordTest
 shard-8 :app app.lensly.ui.flow.EntryGestureChangePortsTest
+shard-8 :app app.lensly.ui.navigation.FailureCapDecoyTest
 shard-8 :app app.lensly.ui.home.EthereumAccountsScreenTest
 shard-8 :app app.lensly.ui.home.HomeFormatTest
 shard-8 :app app.lensly.ui.navigation.SaveBackTest
