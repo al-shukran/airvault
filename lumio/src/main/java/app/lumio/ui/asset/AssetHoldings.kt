@@ -45,9 +45,12 @@ internal fun holdingsOf(
     }
 }
 
-/** Whether [account] can hold [asset]: a native coin on the account's own network, or a token on any Ethereum account. */
+/**
+ * Whether [account] can hold [asset]: a native coin on the account's own network, or a token on an account of the token's family: an ERC-20 on any
+ * Ethereum account, an SPL token on a Solana account, an Algorand asset on an Algorand account.
+ */
 internal fun canHold(account: WalletAccount, asset: WatchedAsset): Boolean =
-    if (asset.contract == null) account.coin?.network == asset.network else account.namespace == Networks.EIP155
+    if (asset.contract == null) account.coin?.network == asset.network else account.namespace == asset.network.chain.namespace
 
 /** The name of [account] as the Asset page writes it: the owner's name, else its label, else its network. */
 internal fun accountName(account: WalletAccount): String = account.name ?: account.label ?: account.networkName

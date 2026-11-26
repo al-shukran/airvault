@@ -36,7 +36,7 @@ class DemoScreensTest {
     fun idsAreUniqueAndNamedByPartAndNumber() {
         val ids = DemoScreens.all.map { it.id }
         assertEquals(ids.size, ids.toSet().size)
-        assertTrue(ids.all { Regex("p[12]-\\d\\d").matches(it) })
+        assertTrue(ids.all { Regex("p[123]-\\d\\d").matches(it) })
     }
 
     @Test

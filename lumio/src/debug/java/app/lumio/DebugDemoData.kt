@@ -85,6 +85,14 @@ internal object DebugDemoData {
     /** The demo provider in place of [real] while the mode is on. */
     fun providers(real: List<Provider>): List<Provider> = if (enabled) listOf(provider) else real
 
+    /** The logo of a demo coin, a `demo:{id}` URL of the demo market, from the debug resources. Null outside demo mode or for any other URL. */
+    fun coinImage(url: String): ByteArray? {
+        if (!enabled || !url.startsWith(DEMO_IMAGE)) return null
+        return DebugDemoData::class.java.getResourceAsStream("/demo/logos/${url.removePrefix(DEMO_IMAGE)}.png")?.use { it.readBytes() }
+    }
+
+    private const val DEMO_IMAGE = "demo:"
+
     /** True when the open frame asks for [key], a sheet or a state of its screen. */
     fun flag(key: String): Boolean = screen?.flags?.contains(key) == true
 

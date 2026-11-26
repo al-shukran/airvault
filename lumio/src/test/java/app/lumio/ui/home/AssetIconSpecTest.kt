@@ -100,6 +100,20 @@ class AssetIconSpecTest {
         assertEquals("?", letterOf("$"))
     }
 
+    @Test
+    fun lumioDrawsTheMocksArtForItsSevenCoinsAndKeepsTheOtherLogos() {
+        assertEquals(LumioMark(app.lumio.R.drawable.lumio_mark_bitcoin, round = true), lumioMarkOf(AssetIconSpec.Bitcoin))
+        assertEquals(LumioMark(app.lumio.R.drawable.lumio_mark_solana, share = 22f / 24f), lumioMarkOf(AssetIconSpec.Solana))
+        assertEquals(LumioMark(app.lumio.R.drawable.lumio_mark_ethereum, share = 23f / 24f), lumioMarkOf(AssetIconSpec.Chain(ethereum)))
+        assertEquals(LumioMark(app.lumio.R.drawable.lumio_mark_bnb, round = true), lumioMarkOf(AssetIconSpec.Chain(registry.network(56L))))
+        assertEquals(LumioMark(app.lumio.R.drawable.lumio_mark_hyperevm, round = true), lumioMarkOf(AssetIconSpec.Chain(registry.network(999L))))
+        assertEquals(LumioMark(app.lumio.R.drawable.lumio_mark_usdc, round = true), lumioMarkOf(AssetIconSpec.Token(registryToken(1L, "USDC"), ethereum)))
+        assertEquals(LumioMark(app.lumio.R.drawable.lumio_mark_tether), lumioMarkOf(AssetIconSpec.Token(registryToken(1L, "USDT"), ethereum)))
+        assertEquals(null, lumioMarkOf(AssetIconSpec.Chain(registry.network(8453L))))
+        assertEquals(null, lumioMarkOf(AssetIconSpec.Token(registryToken(1L, "DAI"), ethereum)))
+        assertEquals(null, lumioMarkOf(AssetIconSpec.Algorand))
+    }
+
     private fun registryToken(chainId: Long, symbol: String): TokenEntry =
         checkNotNull(registry.tokens().firstOrNull { it.chainId == chainId && it.symbol == symbol }) { "$symbol on $chainId is not in the registry" }
 

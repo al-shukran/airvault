@@ -1,0 +1,1 @@
+Add to Watchlist is a page of its own. It lists the top coins by market cap from CoinGecko, and typing a name or ticker finds any coin CoinGecko lists. Each row shows the coin's logo, name, rank and ticker, with a star that adds it to the watchlist or takes it off. Only coins and tokens Lumio can watch are listed.

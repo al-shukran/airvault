@@ -4,6 +4,7 @@ import app.lumio.data.Clock
 import app.lumio.data.cache.Cache
 import app.lumio.data.cache.CachePolicy
 import app.lumio.data.cache.CacheUse
+import app.lumio.data.cache.MAX_VALUE_BYTES
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Broadcast
@@ -131,7 +132,9 @@ class Scheduler(
         }
         val value = call(req, priority)
         if (cacheUse != null && store != null && cacheUse.keep(value)) {
-            store.put(cacheUse.policy, cacheUse.key, cacheUse.codec.encode(value))
+            // A value too large for the cache is answered but not kept, so the next call reads it again.
+            val encoded = cacheUse.codec.encode(value)
+            if (encoded.size <= MAX_VALUE_BYTES) store.put(cacheUse.policy, cacheUse.key, encoded)
         }
         return value
     }

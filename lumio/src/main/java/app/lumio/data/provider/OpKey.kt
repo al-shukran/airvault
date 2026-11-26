@@ -78,6 +78,8 @@ object Ops {
     val MARKET_BITCOIN = OpKey("market.bitcoin")
     val MARKET_TRENDING = OpKey("market.trending")
     val MARKET_FIAT = OpKey("market.fiat")
+    val MARKET_COINS = OpKey("market.coins")
+    val MARKET_DIRECTORY = OpKey("market.directory")
 
     /** The balance reads that DATA providers are tried before RPC providers for (router rule 5). */
     val BALANCE_READS = setOf(EVM_NATIVE_BALANCE, SOL_NATIVE_BALANCE, ALGO_NATIVE_BALANCE, SOL_TOKEN_BALANCES, ALGO_TOKEN_BALANCES)

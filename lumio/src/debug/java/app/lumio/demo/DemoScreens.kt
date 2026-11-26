@@ -31,7 +31,7 @@ internal class DemoContext(
 }
 
 /**
- * One mockup frame that debug builds open directly. [id] is the frame's name: `p1` or `p2` for the part of the mockups, then the frame's number.
+ * One mockup frame that debug builds open directly. [id] is the frame's name: `p1` or `p2` for the part of the mockups (`p3` for the Home redesign), then the frame's number.
  * [route] is where it opens, [flags] are the sheet or state that opens on it (see [DebugDemoData.flag]), [profile] is how the demo sources
  * answer, [fontScale] is the system font scale it is captured at, and [size] is a `wm size` the capture sets, or null for the phone's own.
  */
@@ -139,6 +139,8 @@ internal object DemoScreens {
         DemoScreen("p2-52", both, main) { LumioRoute.SETTINGS_ABOUT },
         DemoScreen("p2-53", dark, main) { LumioRoute.LICENCES },
         DemoScreen("p2-54", both, main, setOf("reset")) { LumioRoute.SETTINGS },
+        DemoScreen("p3-00", both, main) { LumioRoute.WATCHLIST_ADD },
+        DemoScreen("p3-01", both, main, setOf("watchlist:search")) { LumioRoute.WATCHLIST_ADD },
     )
 
     private val byId = all.associateBy { it.id }
