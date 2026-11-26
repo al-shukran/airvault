@@ -72,10 +72,19 @@ class ScanQueue(private val rows: () -> ScanRows?) {
         open.dao.updatePayload(id, seal(open, job.copy(priority = priority)))
     }
 
-    /** Removes job [id] once it has finished. */
-    suspend fun complete(id: Long) {
-        rows()?.dao?.delete(id)
+    /**
+     * Removes job [id] once it has finished, and returns whether it did. A job that the open vault's key does not open is not removed: it belongs to
+     * another session, as a real job does while the decoy is open, and the decoy must not delete it.
+     */
+    suspend fun complete(id: Long): Boolean {
+        val open = rows() ?: return false
+        if (!open.opens(id)) return false
+        open.dao.delete(id)
+        return true
     }
+
+    /** True when job [id] is queued and the open vault's key opens it. A job of another session, or one that has gone, is not. */
+    suspend fun holds(id: Long): Boolean = rows()?.opens(id) == true
 
     /** Deletes the rows that the key does not open, as an older key left them. Run once when the vault opens. */
     suspend fun purgeUnreadable() {
@@ -89,6 +98,8 @@ class ScanQueue(private val rows: () -> ScanRows?) {
     internal suspend fun publish(event: ScanEvent) {
         channel.emit(event)
     }
+
+    private suspend fun ScanRows.opens(id: Long): Boolean = dao.get(id)?.let { unseal(this, it) } != null
 
     private fun seal(open: ScanRows, job: ScanJob): ByteArray =
         Aead.seal(open.key, AAD, json.encodeToString(ScanJob.serializer(), job).encodeToByteArray())
