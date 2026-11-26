@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
@@ -104,6 +105,60 @@ class CoverLockTest {
         compose.runOnIdle(change)
         compose.waitForIdle()
         compose.mainClock.advanceTimeByFrame()
+    }
+
+    /** Builds the cover's lock host inside a [StateRestorationTester], so a recreation of the activity can be emulated. */
+    private fun showRestorableHiddenArea(restoration: StateRestorationTester, policy: LockPolicy) {
+        compose.mainClock.autoAdvance = false
+        restoration.setContent {
+            val context = LocalContext.current
+            val controller = rememberNavController()
+            nav = controller
+            val vaultHolder = remember { VaultHolder(Vault(context)) }
+            holder = vaultHolder
+            InactivityLock(controller, vaultHolder, policy) { compose.mainClock.currentTime }
+            NavHost(navController = controller, startDestination = LenslyRoute.CAMERA) {
+                composable(LenslyRoute.CAMERA) {}
+                composable(LenslyRoute.HIDDEN) {}
+            }
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { nav.navigate(LenslyRoute.HIDDEN) { launchSingleTop = true } }
+        compose.mainClock.advanceTimeByFrame()
+    }
+
+    /** A rotation: the activity is recreated and its saved state restored. */
+    private fun recreate(restoration: StateRestorationTester) {
+        compose.mainClock.autoAdvance = true
+        restoration.emulateSavedInstanceStateRestore()
+        compose.mainClock.autoAdvance = false
+    }
+
+    @Test
+    fun defaults_aRotationKeepsTheElapsedIdleTime() {
+        val restoration = StateRestorationTester(compose)
+        showRestorableHiddenArea(restoration, defaults)
+        compose.mainClock.advanceTimeBy(20 * MINUTE)
+        recreate(restoration)
+        assertEquals(LenslyRoute.HIDDEN, route())
+        compose.mainClock.advanceTimeBy(9 * MINUTE)
+        assertEquals(LenslyRoute.HIDDEN, route())
+        compose.mainClock.advanceTimeBy(2 * MINUTE)
+        assertEquals(LenslyRoute.CAMERA, route(), "the thirty minutes ran through the rotation, not from it")
+        assertEquals(1L, holder.unlockEpoch())
+    }
+
+    @Test
+    fun defaults_aDeviceThatKeepsRotatingStillLocks() {
+        val restoration = StateRestorationTester(compose)
+        showRestorableHiddenArea(restoration, defaults)
+        repeat(4) {
+            compose.mainClock.advanceTimeBy(7 * MINUTE)
+            recreate(restoration)
+        }
+        compose.mainClock.advanceTimeBy(3 * MINUTE)
+        assertEquals(LenslyRoute.CAMERA, route(), "rotating every seven minutes must not hold the vault open")
+        assertEquals(1L, holder.unlockEpoch())
     }
 
     @Test
