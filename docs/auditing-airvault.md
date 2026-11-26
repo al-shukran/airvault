@@ -34,6 +34,7 @@ Start checklist:
 - [ ] Confirm section 2 authorizes this run. If it does not, stop and write one paragraph that says so.
 - [ ] Run the seed check (section 5.3) and the discovery commands (section 5.1).
 - [ ] Open the ledger (section 4.3). Build the requested variants, and record each APK's SHA-256.
+- [ ] On memory-constrained runners (4 GB or less, no swap), build and test with `-Dorg.gradle.jvmargs=-Xmx1792m -Pkotlin.compiler.execution.strategy=in-process --max-workers=1 --no-daemon`. `--offline` needs a warm cache: when a test dependency such as roborazzi-compose is not cached, test runs need network.
 - [ ] Dispatch the disciplines (section 6) within the concurrency cap (section 4.2).
 
 ## 2. Rules of Engagement
@@ -215,8 +216,8 @@ rg -o '[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+\.(kt|kts|xml|yml|sh|pro|c|txt|aidl|tom
   - Address Book: `app/src/main/java/app/lensly/app/AddressBook.kt` (a sealed vault record), and the names the review shows from it (`app/src/main/java/app/lensly/ui/sign/ReviewNames.kt`).
   - Manifests (coverage and unknown-call policy): `chains/evm/common/src/main/kotlin/app/airvault/chains/evm/EvmManifest.kt`, `chains/bitcoin/common/src/main/kotlin/app/airvault/chains/bitcoin/BitcoinManifest.kt`, `chains/solana/common/src/main/kotlin/app/airvault/chains/solana/SolanaManifest.kt`, `chains/algorand/common/src/main/kotlin/app/airvault/chains/algorand/AlgorandManifest.kt`, `core/signer-api/src/main/kotlin/app/lensly/core/registry/UnknownCallPolicy.kt`, `chains/evm/signer/src/main/kotlin/app/lensly/core/registry/ProxyPolicy.kt`.
   - Bulk signing: `shared/src/main/java/app/lensly/core/wallet/BulkCap.kt`, `BulkPolicy.kt`, `BulkRun.kt`; `app/src/main/java/app/lensly/app/SettingsStore.kt` holds the saved cap.
-- G. Registry and updates: `shared/src/main/java/app/lensly/core/registry/update/RegistryUpdate.kt`, `PackageFormat.kt`, `RegistryPackage.kt`, `RegistryCatalog.kt`, `TrustedKey.kt`; `shared/src/main/java/app/lensly/core/registry/RegistryLoader.kt`; `app/src/main/java/app/lensly/app/RegistryHolder.kt`; `shared/src/main/assets/registry/` (bundled registry); `tools/registry-pack/` (package builder); `tools/registry-data/` (source data).
-- H. Lumio: `lumio/src/main/AndroidManifest.xml`, `lumio/src/main/java/app/lumio/pair/PairedWallets.kt`, `shared/src/main/java/app/lensly/app/export/PairingCodec.kt`, `PairingExport.kt`, `app/src/main/java/app/lensly/app/export/AccountExport.kt`, `BrotliEncoder.kt`, `lumio/src/main/java/app/lumio/pair/PairAddressBooks.kt`, `lumio/src/main/java/app/lumio/send/PaymentCode.kt`, `lumio/src/main/java/app/lumio/send/solana/SolanaSend.kt`, `lumio/src/main/java/app/lumio/send/algorand/AlgorandSendRoute.kt`, `lumio/src/main/java/app/lumio/data/rpc/RpcPlugins.kt`, `lumio/src/main/java/app/lumio/ui/scan/LumioScanScreen.kt`, `lumio/src/main/java/app/lumio/ui/kit/ClearAirField.kt`, `app/src/main/java/app/lensly/ui/flow/PairWalletScreen.kt`.
+- G. Registry and updates: `shared/src/main/java/app/lensly/core/registry/update/RegistryUpdate.kt`, `PackageFormat.kt`, `RegistryPackage.kt`, `RegistryCatalog.kt`, `TrustedKey.kt`; `shared/src/main/java/app/lensly/core/registry/RegistryLoader.kt`; `app/src/main/java/app/lensly/app/RegistryHolder.kt`; `shared/src/main/assets/registry/` (bundled registry); `tools/registry-pack/` (package builder), `tools/registry-pack/sign-candidate.sh`; `tools/registry-data/` (source data).
+- H. Lumio: `lumio/src/main/AndroidManifest.xml`, `lumio/src/main/res/xml/receive_share_paths.xml` (FileProvider paths), `lumio/src/main/java/app/lumio/pair/PairedWallets.kt`, `shared/src/main/java/app/lensly/app/export/PairingCodec.kt`, `PairingExport.kt`, `app/src/main/java/app/lensly/app/export/AccountExport.kt`, `BrotliEncoder.kt`, `lumio/src/main/java/app/lumio/pair/PairAddressBooks.kt`, `lumio/src/main/java/app/lumio/send/PaymentCode.kt`, `lumio/src/main/java/app/lumio/send/solana/SolanaSend.kt`, `lumio/src/main/java/app/lumio/send/algorand/AlgorandSendRoute.kt`, `lumio/src/main/java/app/lumio/data/rpc/RpcPlugins.kt`, `lumio/src/main/java/app/lumio/ui/scan/LumioScanScreen.kt`, `lumio/src/main/java/app/lumio/ui/kit/ClearAirField.kt`, `app/src/main/java/app/lensly/ui/flow/PairWalletScreen.kt`.
 - I. Native: `app/src/main/cpp/brotli_jni.c`, `app/src/main/cpp/CMakeLists.txt` (pins the upstream Brotli SHA-256), `app/src/main/cpp/brotli/` (vendored copy), and every `.so` in the APK.
 - J. Manifests, build, release, CI: `app/src/main/AndroidManifest.xml`, `app/src/main/res/xml/data_extraction_rules.xml`, `shared/src/main/AndroidManifest.xml`, `app/build.gradle.kts` (release R8; `benchmark` is debug-signed, not minified, and profileable), `lumio/build.gradle.kts`, `app/proguard-rules.pro`, `lumio/proguard-rules.pro`, `gradle/verification-metadata.xml`, `gradle/libs.versions.toml`, `gradle/wrapper/gradle-wrapper.properties`, `.github/workflows/release.yml` (tag signing, attestation), `pr-fast.yml`, `nightly.yml`, `comment-run.yml` and `codeql-command.yml` (`issue_comment` triggers), `master-red.yml` (`workflow_run` trigger), the rest of `.github/workflows/` (`cache-cleanup.yml`, `codeql.yml`, `dependency-graph.yml`, `record-goldens.yml`), `scripts/ci/check-manifest.sh` (guards merged debug manifests only), `scripts/ci/fuzz-nightly.sh`, `scripts/ci/shards.txt`, `docs/releasing.md`.
 - K. Debug surfaces (must be absent from release): `app/src/debug/AndroidManifest.xml`, `app/src/debug/java/app/lensly/ui/gate/GatePreviewActivity.kt`, `app/src/debug/java/app/lensly/ui/wallet/WalletPreviewActivity.kt`, `app/src/debug/java/app/lensly/ui/qr/QrPreviewActivity.kt`, `shared/src/debug/java/app/lensly/DebugLaunch.kt` (`debugHidden` extra), `lumio/src/debug/AndroidManifest.xml`, `lumio/src/debug/java/app/lumio/DebugPairFixture.kt`, `lumio/src/debug/java/app/lumio/DebugDemoSeed.kt` (`debugDemoSeed` extra), `lumio/src/debug/res/xml/network_security_config.xml`.
@@ -292,7 +293,7 @@ Goal: find a working path from the phone (each variant in 3.2) to the mnemonic, 
 - [ ] Debuggable test build only: take a heap dump while the vault is open, while a mnemonic is on screen, and after `wipe()`. Search for mnemonic words and seed bytes, and record each surviving copy and how long it lives. A debuggable release build is a finding in its own right. `am dumpheap` needs `<profileable android:shell="true">` or `debuggable`; the `benchmark` APK has `profileable shell="true"` and the release APK has neither, so the dump comes from `benchmark` or a debug build, and installing `benchmark` on a phone is itself a finding (6.3). Prove the search method on a JVM heap dump first: `HotSpotDiagnostic.dumpHeap` keeps a dead local `byte[]` in the file, so a zeroed buffer is not proof of absence.
 - [ ] Rooted test device, release build: scan process memory at the same moments.
 - [ ] Crash the reveal, sign, import, and unlock flows. Read logcat, tombstones, `dumpsys dropbox --print`, and the bug report. Any secret found is a finding.
-- [ ] Release output contains no `Log` calls (R8 `assumenosideeffects`), and no debug logging can be switched on in release.
+- [ ] Release output contains no `Log` calls: verify that the R8 rules strip them (`assumenosideeffects`) and, when a release APK exists, grep its dex and mapping. No debug logging can be switched on in release.
 
 #### Stage 6: Coercion and Decoy (S5)
 
@@ -340,7 +341,7 @@ Attack ideas:
 5. Build mnemonics of every valid and invalid length. Invalid input must be refused.
 6. Force a repeated RNG output in a test harness. The code must refuse to reuse a nonce under one key.
 
-Evidence: a trace table with `file:line`, origin, use, and zeroing point, plus the vector runs.
+Evidence: a trace table with `file:line`, origin, use, and zeroing point, plus the vector runs. Discoverers cite exact, verified `file:line` pairs. Validators re-verify each pointer before they trace, because a wrong pointer costs validator budget.
 
 ### 6.3 Android Platform Security
 
@@ -463,12 +464,12 @@ Any step that pushes, tags, or runs workflows on the project's repository needs 
 
 Goal: nothing reachable without the gesture reveals what the app is for (docs 8.5). Test every observer's view of the device before unlock.
 
-- [ ] Before unlock, the app label, icons, package name, activity labels, and every string **rendered or exposed before the unlock gesture** in every locale reveal nothing about crypto; strings reachable only in the hidden area are out of scope. The same holds for notifications, shortcuts, widgets, share targets, launcher aliases, and app links.
-- [ ] Cover-screen banners, errors, and toasts for QR scans: an unknown request reads like any unreadable code.
-- [ ] Photo storage (`MediaEnvelope.kt`, `PhotoStore.kt`): the names and sizes a file-system observer sees, and whether padding hides the photo count.
-- [ ] Gallery strings: compare every string the gallery's unlock screen shows with no vault and with a vault. The gallery opens from the camera screen before any password is entered, so a string that differs between the two states shows whether a vault exists.
-- [ ] `GalleryGate.kt`: the media folder looks the same after the App Password and after the Duress Password.
-- [ ] Gesture reaction timing for the hidden area and for the normal screen (6.9). Lumio's label, icons, and scan banners before unlock.
+- [ ] [static-traceable] Before unlock, the app label, icons, package name, activity labels, and every string **rendered or exposed before the unlock gesture** in every locale reveal nothing about crypto; strings reachable only in the hidden area are out of scope. The same holds for notifications, shortcuts, widgets, share targets, launcher aliases, and app links.
+- [ ] [static-traceable] Cover-screen banners, errors, and toasts for QR scans: an unknown request reads like any unreadable code.
+- [ ] [static-traceable] Photo storage (`MediaEnvelope.kt`, `PhotoStore.kt`): the names and sizes a file-system observer sees, and whether padding hides the photo count.
+- [ ] [static-traceable] Gallery strings: compare every string the gallery's unlock screen shows with no vault and with a vault. The gallery opens from the camera screen before any password is entered, so a string that differs between the two states shows whether a vault exists.
+- [ ] [device] `GalleryGate.kt`: the media folder looks the same after the App Password and after the Duress Password.
+- [ ] [device] Gesture reaction timing for the hidden area and for the normal screen (6.9). Lumio's label, icons, and scan banners before unlock.
 
 Attack ideas: a test app on a rooted device lists packages, notifications, shortcuts, and visible file names, and records what a casual observer learns; scan one code per request type on the cover screen and record every string shown.
 
@@ -478,7 +479,7 @@ Evidence: every string visible before unlock, with its source file and line.
 
 Goal: find whether secret-dependent timing, I/O, or UI behavior tells an observer more than it should. Software channels only, unless the project adds hardware channels.
 
-Channels: the password check (correct, wrong, decoy, wrong length); the save pattern of a passing try against a failing one (item 12); slot selection (`ownerIndex`); gesture reaction; Keystore call time (StrongBox against TEE, real key against decoy); signing time in Kotlin code paths; per-key timing in the in-app keyboard.
+Channels: the password check (correct, wrong, decoy, wrong length); the save pattern of a passing try against a failing one (item 12); slot selection (`ownerIndex`); gesture reaction; the wait-versus-reject shape of the gate (CoverGateLook on Lensly against Lumio's unlock screen, which can show a countdown where a rejection only shakes); Keystore call time (StrongBox against TEE, real key against decoy); signing time in Kotlin code paths; per-key timing in the in-app keyboard.
 
 Method: take at least 10,000 samples per condition on a quiet test device, with airplane mode on, fixed brightness, and the same app state. Use a fixed-versus-random t-test (dudect style) or a rank test. Report the statistic, the sample count, and the noise floor from a control condition that must show no difference. A difference counts only if it reproduces on two runs on two different days. If the run budget cannot span two days, record device timing channels as Gaps with that reason; do not attempt a one-day Confirmed timing claim.
 
@@ -543,8 +544,9 @@ Severity measures the outcome for the mnemonic and funds under the primary scena
 ### 7.4 Deduplication and Regressions
 
 - Group candidates by root cause. One finding can have several attack paths. Findings with one fix are one finding, unless their impact differs. Keep the earliest ID, and list the others as duplicates in the ledger.
+- A fix merged after COMMIT is its own outcome, not a regression and not a missing test. If the fix PR's merge date is later than COMMIT, record the defect as present at COMMIT with upstream fix pending. Exclude tracking issues that have no single fix from the per-fix mapping.
 - [ ] List closed issues and merged pull requests labeled `area:security` (the commands in 5.1). For each one, find the fix commit, read its regression test, and run that test at `COMMIT`.
-- [ ] Mutation check on the scratch branch: revert the fix and confirm the regression test fails. Restore the fix, and record the result.
+- [ ] Mutation check on the scratch branch: revert the fix and confirm the regression test fails. For a multi-part fix, revert each part separately, because one part can be covered while another is not. Restore the fix, and record the result.
 - [ ] A regression is a finding. Its title names the original issue or pull request, and its severity is the original severity or higher.
 
 ### 7.5 Accepted Results
@@ -680,3 +682,4 @@ The seed list (5.3) names where to look, not what is broken. Add no claim that a
 | 6 | 2026-11-23 | AirVault maintainers | Recorded the accepted TalkBack behavior for the confirm-word quiz and the restore suggestions in 7.5, with the scope in `docs/accessibility.md`. |
 | 7 | 2026-11-23 | AirVault maintainers | Issue #746 (AV-007): the header carries a MAC under `k3`, checked before any password, and an unverifiable header erases the vault. Updated the header checks in 5.4 and 6.2 and case (c) in 6.1. |
 | 8 | 2026-11-26 | AirVault maintainers | Issue #783: the Lumio unlock page no longer opens the biometric prompt by itself; updated the Lumio Biometric Unlock accepted result in 7.5. |
+| 9 | 2026-11-27 | AirVault maintainers | Applied external audit feedback: fixed-after-COMMIT outcome and per-part mutation reverts in 7.4; Lumio gate wait-versus-reject channel in 6.9; static or device tags on 6.8 bullets; file:line re-verification in 6.2; split Log check in 6.1; Lumio FileProvider and registry signing seeds in 5.3; low-memory Gradle flags in section 1. |
