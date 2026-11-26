@@ -29,13 +29,14 @@ class BtcStore(private val cache: Cache) {
     private val oversized = ConcurrentHashMap.newKeySet<String>()
 
     /**
-     * Stores [snapshot] in place of the earlier scan of its account. A scan too large for one cache value is not stored, and the scan that
-     * produced it is still used: the account shows no balance before its next scan, and the skip is logged once per account.
+     * Stores [snapshot] in place of the earlier scan of its account. A scan too large for one cache value is not stored, and the earlier saved
+     * scan of that account is removed, so the account shows no balance until its next scan. The skip is logged once per account.
      */
     suspend fun save(snapshot: BtcSnapshot) {
         val encoded = SnapshotCodec.encode(listOf(snapshot))
         if (encoded.size > MAX_VALUE_BYTES) {
             if (oversized.add(snapshot.key)) Log.w("BtcStore", "scan of ${snapshot.key} is ${encoded.size} bytes, over the cache limit, so it is not kept")
+            cache.delete(CachePolicy.LastKnown, nameOf(snapshot.key))
             return
         }
         oversized.remove(snapshot.key)

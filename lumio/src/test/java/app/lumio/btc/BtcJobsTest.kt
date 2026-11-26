@@ -112,6 +112,18 @@ class BtcJobsTest {
         assertEquals(null, store.snapshot(huge.key), "an oversized scan is not kept")
     }
 
+    @Test
+    fun aScanTooLargeForTheCacheRemovesTheOlderSavedScan() = runBlocking {
+        val store = BtcStore(cache())
+        val key = "wallet-1_TESTNET4_NATIVE_SEGWIT"
+        store.save(lastKnown(key))
+        val huge = lastKnown(key).copy(utxos = List(15_000) { BtcUtxo("%064x".format(it), it, 1_000L, 1L) })
+
+        store.save(huge)
+
+        assertEquals(null, store.snapshot(key), "the older scan is removed, so no old balance shows after a restart")
+    }
+
     private fun lastKnown(key: String) = BtcSnapshot(
         key = key,
         identity = "tb1qidentity",
