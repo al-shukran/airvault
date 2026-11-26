@@ -1,6 +1,7 @@
 package app.lumio
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -10,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
@@ -112,11 +114,46 @@ class PairCameraTest {
         }
     }
 
+    /** The bracket box keeps the mock's size, 196 by 192 dp, centred in the camera, on a 360 dp and a 411 dp phone: it never stretches with the card. */
+    @Test
+    fun theBracketBoxKeepsTheMockSizeAtEveryWidth() {
+        compose.setContent {
+            Theme {
+                Column {
+                    for (phone in listOf(PHONE_WIDTH, WIDE_PHONE_WIDTH)) {
+                        Box(modifier = Modifier.width(phone).padding(horizontal = 20.dp)) {
+                            SegmentedViewfinder(progress = null, complete = false, caption = "", modifier = Modifier.testTag("camera $phone")) { }
+                        }
+                    }
+                }
+            }
+        }
+
+        for (phone in listOf(PHONE_WIDTH, WIDE_PHONE_WIDTH)) {
+            val node = compose.onNodeWithTag("camera $phone")
+            val density = node.fetchSemanticsNode().layoutInfo.density.density
+            val pixels = node.captureToImage().toPixelMap()
+            // The paper brackets are the only light pixels over the dark backdrop between the rounded corners (26 dp) and the status line, which starts
+            // 62 dp up from the foot.
+            val rows = (30 * density).toInt() until (pixels.height - 62 * density).toInt()
+            val light = rows.flatMap { y -> (0 until pixels.width).filter { x -> pixels[x, y].luminance() > 0.5f }.map { x -> x to y } }
+            val width = (light.maxOf { it.first } - light.minOf { it.first } + 1) / density
+            val height = (light.maxOf { it.second } - light.minOf { it.second } + 1) / density
+            assertEquals(46f, light.minOf { it.second } / density, 1f, "bracket box top at $phone")
+            val left = light.minOf { it.first } / density
+            val right = pixels.width / density - (light.maxOf { it.first } + 1) / density
+            assertEquals(196f, width, 1f, "bracket box width at $phone")
+            assertEquals(192f, height, 1f, "bracket box height at $phone")
+            assertEquals(left, right, 1f, "bracket box centring at $phone")
+        }
+    }
+
     @Composable
     private fun Theme(content: @Composable () -> Unit) = LumenTheme { ClearAirTheme(content = content) }
 
     private companion object {
         val PHONE_WIDTH = 360.dp
         val PHONE_HEIGHT = 780.dp
+        val WIDE_PHONE_WIDTH = 411.dp
     }
 }

@@ -16,12 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -65,7 +59,7 @@ fun ReplyScanCard(
             .drawBehind { drawCameraBackdrop() },
     ) {
         if (camera.granted) QrScanner(onText = onText, modifier = Modifier.fillMaxSize(), frameSource = frameSource, viewfinder = false)
-        Box(modifier = Modifier.fillMaxSize().drawBehind { drawBrackets(palette.paper.copy(alpha = BRACKET_ALPHA)) })
+        Box(modifier = Modifier.fillMaxSize().drawBehind { drawCameraBrackets(palette.paper) })
         reading?.let {
             Text(
                 text = "Reading Lensly's reply · ${it.received} of ${it.expected}",
@@ -92,45 +86,7 @@ fun ReplyScanCard(
     }
 }
 
-/** The four corner brackets: each arm is 34 dp long and 3 dp thick, with a 12 dp outer corner, inset 62 dp at the sides, 46 dp above and 62 dp below. */
-private fun DrawScope.drawBrackets(color: Color) {
-    val stroke = BRACKET_WIDTH.toPx()
-    val half = stroke / 2f
-    val arm = BRACKET_ARM.toPx() - half
-    val radius = BRACKET_RADIUS.toPx() - half
-    val left = BRACKET_SIDE.toPx() + half
-    val right = size.width - BRACKET_SIDE.toPx() - half
-    val top = BRACKET_TOP.toPx() + half
-    val bottom = size.height - BRACKET_BOTTOM.toPx() - half
-    val path = Path().apply {
-        moveTo(left, top + arm)
-        lineTo(left, top + radius)
-        arcTo(Rect(left, top, left + 2 * radius, top + 2 * radius), 180f, 90f, false)
-        lineTo(left + arm, top)
-        moveTo(right - arm, top)
-        lineTo(right - radius, top)
-        arcTo(Rect(right - 2 * radius, top, right, top + 2 * radius), 270f, 90f, false)
-        lineTo(right, top + arm)
-        moveTo(right, bottom - arm)
-        lineTo(right, bottom - radius)
-        arcTo(Rect(right - 2 * radius, bottom - 2 * radius, right, bottom), 0f, 90f, false)
-        lineTo(right - arm, bottom)
-        moveTo(left + arm, bottom)
-        lineTo(left + radius, bottom)
-        arcTo(Rect(left, bottom - 2 * radius, left + 2 * radius, bottom), 90f, 90f, false)
-        lineTo(left, bottom - arm)
-    }
-    drawPath(path, color, style = Stroke(width = stroke, cap = StrokeCap.Butt))
-}
-
 private val CARD_HEIGHT = 316.dp
 private val CARD_CORNER = 26.dp
-private val BRACKET_ARM = 34.dp
-private val BRACKET_WIDTH = 3.dp
-private val BRACKET_RADIUS = 12.dp
-private val BRACKET_SIDE = 62.dp
-private val BRACKET_TOP = 46.dp
-private val BRACKET_BOTTOM = 62.dp
-private const val BRACKET_ALPHA = 0.9f
 private const val CAPTION_ALPHA = 0.85f
 private const val TRACK_ALPHA = 0.22f
