@@ -211,6 +211,54 @@ class RegistryUpdateTest {
         )
     }
 
+    private fun signedAt(sequence: Long, whitelist: String? = null): ByteArray =
+        TestPackages.signed(TestPackages.payload(sequence = sequence, whitelist = whitelist))
+
+    @Test
+    fun deletingTheInstalledPackageAndTheRecordDoesNotLowerTheFloor() {
+        val baked = bakedRegistry()
+        val dir = registryDir()
+        RegistryUpdate.install(signedAt(5), keys, baked, dir).getOrThrow()
+        File(dir, RegistryUpdate.INSTALLED_FILE).delete()
+        File(dir, RegistryUpdate.SEQUENCE_FILE).delete()
+
+        assertIs<RegistryUpdateException.SequenceUnknown>(failure(RegistryUpdate.install(signedAt(3), keys, baked, dir)))
+        assertFalse(File(dir, RegistryUpdate.INSTALLED_FILE).exists())
+    }
+
+    @Test
+    fun anInstalledPackageBelowTheRecordedFloorIsNotUsed() {
+        val baked = bakedRegistry()
+        val dir = registryDir()
+        RegistryUpdate.install(signedAt(5), keys, baked, dir).getOrThrow()
+        File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(signedAt(3))
+
+        assertNull(RegistryUpdate.installedPackage(baked, dir, keys))
+        assertNull(RegistryUpdate.withInstalled(baked, dir, keys).network(4242L))
+    }
+
+    @Test
+    fun aFailedWriteLeavesTheStoredFilesAndTheRegistryAsTheyWere() {
+        val baked = bakedRegistry()
+        val dir = registryDir()
+        val swap = TestPackages.LINEA_SWAP
+        RegistryUpdate.install(signedAt(5, whitelist = swap), keys, baked, dir).getOrThrow()
+        // A directory where the record belongs makes the last of the three writes fail.
+        File(dir, RegistryUpdate.SEQUENCE_FILE).apply { delete() }.mkdir()
+        val installedBefore = File(dir, RegistryUpdate.INSTALLED_FILE).readBytes()
+        val whitelistBefore = File(dir, RegistryUpdate.WHITELIST_FILE).readBytes()
+        val registryBefore = RegistryUpdate.withInstalled(baked, dir, keys)
+
+        val newer = signedAt(6, whitelist = swap.replace("Swap tokens", "Newer swap"))
+        assertTrue(RegistryUpdate.install(newer, keys, baked, dir).isFailure)
+
+        assertContentEquals(installedBefore, File(dir, RegistryUpdate.INSTALLED_FILE).readBytes())
+        assertContentEquals(whitelistBefore, File(dir, RegistryUpdate.WHITELIST_FILE).readBytes())
+        val registryAfter = RegistryUpdate.withInstalled(baked, dir, keys)
+        assertEquals(registryBefore.whitelistEntries(), registryAfter.whitelistEntries())
+        assertEquals(registryBefore.networks(), registryAfter.networks())
+    }
+
     @Test
     fun networkWithABakedChainIdIsRejected() {
         val imposter = """{"chainId":1,"explorerName":null,"feeModel":"L1","name":"Imposter","nativeDecimals":18,"nativeSymbol":"ETH","testnet":false,"featured":false,"kind":"LAYER_1","parentChainId":null}"""
