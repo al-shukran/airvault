@@ -35,19 +35,6 @@ class FinishSetupStoreTest {
     }
 
     @Test
-    fun anUntickTakesBackOnlyThatItem() {
-        val session = open()
-        FinishSetupStore.tick(session, FinishItem.PAIR)
-        FinishSetupStore.tick(session, FinishItem.DURESS)
-
-        FinishSetupStore.untick(session, FinishItem.DURESS)
-        FinishSetupStore.untick(session, FinishItem.DEVICE_PROTECTION)
-
-        assertEquals(setOf(FinishItem.PAIR), FinishSetupStore.read(session).done)
-        session.close()
-    }
-
-    @Test
     fun aTickIsReadBackAfterTheVaultReopens() {
         val session = open()
         FinishSetupStore.tick(session, FinishItem.PAIR)

@@ -4,6 +4,7 @@ import app.lensly.app.VaultHolder
 import app.lensly.core.vault.CreateResult
 import app.lensly.core.vault.FakeClock
 import app.lensly.core.vault.KdfParams
+import app.lensly.core.vault.KeystoreBackend
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.Vault
@@ -35,8 +36,21 @@ class DuressPasswordTest {
 
     private val clock = FakeClock()
     // Lazy, because the rule creates the temporary folder only after the test instance is built.
-    private val vault by lazy { Vault(VaultLayout(File(tmp.root, "lumio-vault")), MemoryKeystore(), clock, KDF) }
-    private val holder by lazy { VaultHolder(vault) }
+    private val vault: Vault by lazy { Vault(VaultLayout(File(tmp.root, "lumio-vault")), keys, clock, KDF) }
+
+    /** The Keystore of the vault. While [lockOnHeaderCheck] is set, the first check of the vault header closes the session, as a lock mid-set does. */
+    private var lockOnHeaderCheck = false
+    private val memory = MemoryKeystore()
+    private val keys: KeystoreBackend = object : KeystoreBackend by memory {
+        override fun headerMac(message: ByteArray): ByteArray {
+            if (lockOnHeaderCheck) {
+                lockOnHeaderCheck = false
+                holder.lock()
+            }
+            return memory.headerMac(message)
+        }
+    }
+    private val holder: VaultHolder by lazy { VaultHolder(vault) }
 
     @Test
     fun theDuressPasswordOpensAnEmptyLumioAndTheAppPasswordOpensTheWallets() = runBlocking {
@@ -146,20 +160,38 @@ class DuressPasswordTest {
     }
 
     @Test
-    fun theRowReadsSetExactlyWhenTheDuressPasswordOpensADecoy() = runBlocking {
+    fun aChecklistRecordThatDoesNotParseDoesNotBlockTheSetAndIsReplaced() = runBlocking {
         create()
-        // A checklist record that does not parse cannot take the tick. Whatever the set answers, the row must agree with the vault.
+        FinishSetupStore.tick(holder.openSession()!!, FinishItem.PAIR)
         holder.openSession()!!.putVaultRecord(FinishSetupStore.RECORD, "not json".encodeToByteArray())
 
-        val result = setLumioDuressPassword(holder, REAL, DURESS, DURESS)
+        assertEquals(PasswordChange.Changed, setLumioDuressPassword(holder, REAL, DURESS, DURESS))
 
-        val rowSays = FinishItem.DURESS in FinishSetupStore.read(holder.openSession()!!).done
+        assertEquals(setOf(FinishItem.DURESS), FinishSetupStore.read(holder.openSession()!!).done, "The unreadable record is reset, then ticked.")
         holder.lock()
-        val decoyOpens = when (val unlock = unlockAfterDelay(DURESS)) {
-            is UnlockResult.Unlocked -> unlock.session.also { it.close() }.isDecoy
-            else -> false
-        }
-        assertEquals(decoyOpens, rowSays, "The row must follow the real state. The set answered $result.")
+        assertTrue(unlocked(unlockAfterDelay(DURESS)).also { it.close() }.isDecoy)
+    }
+
+    @Test
+    fun aLockMidSetLeavesTheRowNotSet() = runBlocking {
+        create()
+        lockOnHeaderCheck = true
+
+        assertEquals(PasswordChange.Locked, setLumioDuressPassword(holder, current = null, password = DURESS, repeat = DURESS))
+
+        assertFalse(lockOnHeaderCheck, "The lock ran inside the set.")
+        val session = unlocked(unlockAfterDelay(REAL))
+        assertEquals(emptySet(), FinishSetupStore.read(session).done, "No set returned Enabled, so the row reads Not Set.")
+        session.close()
+    }
+
+    @Test
+    fun aRefusedSetWithNoTickBeforeLeavesTheRowNotSet() = runBlocking {
+        create()
+
+        assertEquals(PasswordChange.NewPassword(NewPasswordProblem.SameAsLumio), setLumioDuressPassword(holder, REAL, REAL, REAL))
+
+        assertEquals(emptySet(), FinishSetupStore.read(holder.openSession()!!).done)
     }
 
     @Test
