@@ -21,6 +21,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -424,6 +425,12 @@ fun LumioNavHost(debugHiddenRequest: Int = 0, modifier: Modifier = Modifier, nav
         }
     }
 }
+
+/**
+ * A test's view of the coin a Solana or Algorand send opens on: it is told the chain ("solana" or "algorand") and the key of the coin that the route was
+ * given. The app never sets it.
+ */
+internal val LocalSendStartKey = staticCompositionLocalOf<((chain: String, startKey: String) -> Unit)?> { null }
 
 /**
  * Gives every screen below it the theme the owner chose on the Display page. A chosen Light or Dark replaces the phone's night setting in the configuration

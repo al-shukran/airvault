@@ -76,7 +76,7 @@ fun ReplyScanCard(
                 style = ClearAirType.time,
                 color = palette.paper.copy(alpha = CAPTION_ALPHA),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 30.dp).semantics { liveRegion = LiveRegionMode.Polite },
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 30.dp).semantics { if (unreadable) liveRegion = LiveRegionMode.Polite },
             )
         }
         reading?.let {

@@ -228,6 +228,33 @@ class PairCameraTest {
         compose.onNodeWithText(DECODE_FAILED_TEXT).assert(isPolite)
     }
 
+    /** The count of parts changes on every part, so a screen reader that spoke each one would read out numbers that are already stale. */
+    @Test
+    fun theProgressCaptionIsNotSpokenButTheStallHintIs() {
+        var caption by mutableStateOf(readingStatus(received = 2, expected = 5))
+        compose.setContent { Theme { SegmentedViewfinder(progress = 0.4f, complete = false, caption = caption) { } } }
+
+        compose.onNodeWithText(readingStatus(received = 2, expected = 5)).assert(isNotLive)
+        caption = readingStatus(received = 3, expected = 5)
+        compose.onNodeWithText(readingStatus(received = 3, expected = 5)).assert(isNotLive)
+        caption = SCAN_STALLED
+        compose.onNodeWithText(SCAN_STALLED).assert(isPolite)
+    }
+
+    @Test
+    fun theReplyCardDoesNotSpeakItsProgressCaption() {
+        val idle = FrameSource { FrameSourceHandle { } }
+        compose.setContent {
+            Theme {
+                Box(modifier = Modifier.width(PHONE_WIDTH).padding(horizontal = 20.dp)) {
+                    ReplyScanCard(reading = ReplyReading(received = 2, expected = 5), onText = {}, frameSource = idle)
+                }
+            }
+        }
+
+        compose.onNodeWithText("Reading Lensly's reply · 2 of 5").assert(isNotLive)
+    }
+
     /** The contrast of the status line's paper text, at its alpha over the brightest pixel in the line's rows, in the camera on the page. */
     private fun contrastOfStatus(): Float {
         val camera = compose.onNodeWithTag("camera")
@@ -256,6 +283,7 @@ class PairCameraTest {
     private companion object {
         /** A screen reader announces the text when it changes, as the old notice did. */
         val isPolite = SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite)
+        val isNotLive = SemanticsMatcher.keyNotDefined(SemanticsProperties.LiveRegion)
         val PHONE_WIDTH = 360.dp
         val PHONE_HEIGHT = 780.dp
         val WIDE_PHONE_WIDTH = 411.dp

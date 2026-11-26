@@ -1,11 +1,15 @@
 package app.lumio
 
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.navigation.NavDestination
 import androidx.navigation.NavGraph
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import app.airvault.core.model.AccountId
+import app.lumio.send.algorand.AlgorandAssets
+import app.lumio.send.solana.SolanaAssets
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Rule
@@ -43,18 +47,34 @@ class LumioNavGraphTest {
         }
     }
 
+    /** What each send route was given as its starting coin, by chain, in the order that the routes composed. */
+    private val started = mutableMapOf<String, MutableList<String>>()
+
+    private fun startOn(route: String, chain: String): String {
+        started.clear()
+        compose.runOnUiThread { nav.navigate(route) }
+        // The vault is locked, so a send sends the owner to the gate on a later frame: stop on the frame that composes the send.
+        repeat(MAX_FRAMES) { if (started[chain].isNullOrEmpty()) compose.mainClock.advanceTimeByFrame() }
+        return checkNotNull(started[chain]?.lastOrNull()) { "$route did not open the $chain send." }
+    }
+
     @Test
-    fun theSolanaAndAlgorandSendsTakeTheCoinTheyStartOn() {
+    fun theSolanaAndAlgorandSendsStartOnTheCoinTheRouteNames() {
         compose.setContent {
-            nav = rememberNavController()
-            LumioNavHost(navController = nav)
+            CompositionLocalProvider(LocalSendStartKey provides { chain, key -> started.getOrPut(chain) { mutableListOf() }.add(key) }) {
+                nav = rememberNavController()
+                LumioNavHost(navController = nav)
+            }
         }
         compose.waitForIdle()
+        compose.mainClock.autoAdvance = false
+        val solana = AccountId("solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp:addr")
+        val algorand = AccountId("algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k:addr")
 
-        for (route in listOf(LumioRoute.SOLANA_SEND, LumioRoute.ALGORAND_SEND)) {
-            val coin = checkNotNull(nav.graph.allDestinations().single { it.route == route }.arguments[LumioRoute.SEND_COIN_ARG]) { "$route has no coin argument" }
-            assertTrue(coin.isNullable, "The coin of $route is left out for the native coin.")
-        }
+        assertEquals(SolanaAssets.SOL_KEY, startOn(LumioRoute.solanaSend("w", solana), "solana"))
+        assertEquals("Mint1111", startOn(LumioRoute.solanaSend("w", solana, mint = "Mint1111"), "solana"))
+        assertEquals(AlgorandAssets.ALGO_KEY, startOn(LumioRoute.algorandSend("w", algorand), "algorand"))
+        assertEquals("31566704", startOn(LumioRoute.algorandSend("w", algorand, assetId = "31566704"), "algorand"))
     }
 
     /** Every destination of the graph, nested graphs included. */
@@ -65,5 +85,6 @@ class LumioNavGraphTest {
 
     private companion object {
         val PLACEHOLDER = Regex("\\{([^}]+)}")
+        const val MAX_FRAMES = 20
     }
 }

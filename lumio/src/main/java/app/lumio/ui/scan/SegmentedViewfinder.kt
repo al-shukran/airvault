@@ -31,8 +31,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.lensly.ui.qr.DECODE_FAILED_TEXT
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
+import app.lumio.SCAN_STALLED
 import kotlin.math.roundToInt
 
 /** The camera's corner radius, the number of segments of the bar, and the gap between them, as the mock draws the pairing frame. */
@@ -97,7 +99,7 @@ fun SegmentedViewfinder(progress: Float?, complete: Boolean, caption: String, mo
         Box(modifier = Modifier.fillMaxSize().drawBehind { drawCameraScrim(); drawCameraBrackets(paper) })
         Text(
             text = caption,
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = CAPTION_BOTTOM).semantics { liveRegion = LiveRegionMode.Polite },
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = CAPTION_BOTTOM).semantics { if (isAlert(caption)) liveRegion = LiveRegionMode.Polite },
             style = ClearAirType.time,
             color = paper.copy(alpha = CAPTION_ALPHA),
             textAlign = TextAlign.Center,
@@ -108,6 +110,9 @@ fun SegmentedViewfinder(progress: Float?, complete: Boolean, caption: String, mo
         CheckMark(visible = complete, modifier = Modifier.align(Alignment.Center))
     }
 }
+
+/** Whether [caption] is a notice to speak when it appears, the decode failure or the stall hint, and not a progress count, which changes on every part. */
+private fun isAlert(caption: String) = caption == DECODE_FAILED_TEXT || caption == SCAN_STALLED
 
 /** The camera's backdrop, shared by the scan cards: the ellipse is drawn as a circle squashed to the ellipse's height about its centre. */
 internal fun DrawScope.drawCameraBackdrop() {

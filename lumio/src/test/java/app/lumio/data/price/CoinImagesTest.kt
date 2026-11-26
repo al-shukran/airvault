@@ -100,6 +100,37 @@ class CoinImagesTest {
     }
 
     @Test
+    fun aMemoryErrorWhileCheckingAKeptImageDoesNotDropIt() = runBlocking {
+        val vault = vault()
+        val png = realPng()
+        vault.put(CachePolicy.LastKnown, "coin-image:$LOGO", png)
+        val images = CoinImages(Http(OkHttpClient()), { vault }, decoder = { throw OutOfMemoryError() })
+
+        assertArrayEquals(png, images.imageOf(LOGO))
+        assertNull(images.logoOf(LOGO))
+        assertArrayEquals(png, vault.get(CachePolicy.LastKnown, "coin-image:$LOGO")?.value)
+    }
+
+    @Test
+    fun aMemoryErrorWhileCheckingAFetchedImageKeepsNothing() = runBlocking {
+        val vault = vault()
+        val images = CoinImages(Http(serving(realPng())), { vault }, decoder = { throw OutOfMemoryError() })
+
+        assertNull(images.imageOf(LOGO))
+        assertNull(vault.get(CachePolicy.LastKnown, "coin-image:$LOGO"))
+    }
+
+    @Test
+    fun aNewLogoIsDecodedOnceToCheckItAndToDrawIt() = runBlocking {
+        var decodes = 0
+        val vault = vault()
+        val images = CoinImages(Http(serving(realPng())), { vault }, decoder = { bytes -> decodes++; decodeLogoOrThrow(bytes) })
+
+        assertNotNull(images.logoOf(LOGO))
+        assertEquals(1, decodes)
+    }
+
+    @Test
     fun aCacheThatCannotBeWrittenStillShowsTheImage() = runBlocking {
         val failing = object : KvDao by FakeKvDao() {
             override suspend fun put(row: KvRow) = throw IllegalStateException("database is full")
