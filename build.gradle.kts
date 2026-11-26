@@ -57,7 +57,7 @@ subprojects {
     }
 }
 
-// Alerts 1, 2, 5, 13, 14, 24: AGP 9.5.1 resolves lint 32.5.1 into androidLintTool, and that classpath carries
+// Alerts 1, 2, 5, 13, 14, 24: AGP 9.5.2 resolves lint 32.5.2 into androidLintTool, and that classpath carries
 // httpclient 4.5.6, commons-lang3 3.16.0, bcprov and bcpkix 1.80.2 and guava 33.4.0-jre. AGP fixes the lint version,
 // so the libraries are pinned here. Only lint runs this classpath; no pinned library reaches the APK or the test APKs.
 subprojects {
