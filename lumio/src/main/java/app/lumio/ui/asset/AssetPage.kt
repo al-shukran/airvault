@@ -72,7 +72,8 @@ private enum class CoinPicker { SEND, RECEIVE }
  * the watchlist star and the lock, and stays put while the rest scrolls. Under it come the price and its change, the tick chart, the range row, Send
  * and Receive, the holdings row that opens Holdings Breakdown, and the coin's activity. Send and Receive open a picker of the [accounts] that can hold
  * the coin. [held] is null for a coin nobody holds: the page then makes Receive the capsule, as the Account page does for a zero balance. A missing
- * [priceText] reads as a dash, because no price is read yet.
+ * [priceText] reads as a dash, because no price is read yet. With [priceOnly], which is a coin opened with no wallet paired, the page keeps the price, the
+ * chart and the range row, and leaves out Send and Receive, the holdings and the activity.
  */
 @Composable
 internal fun AssetPage(
@@ -86,6 +87,7 @@ internal fun AssetPage(
     onRange: (ChartFrame) -> Unit,
     watched: Boolean,
     onWatch: () -> Unit,
+    priceOnly: Boolean = false,
     held: CoinHeld?,
     onHoldings: () -> Unit,
     accounts: List<CoinAccount>,
@@ -133,7 +135,7 @@ internal fun AssetPage(
                 }
                 TickChart(series = series ?: PriceSeries(emptyList()), modifier = Modifier.padding(top = ClearAirSpacing.md))
                 RangeRow(selected = range, onSelect = onRange, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
-                Row(
+                if (!priceOnly) Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -148,6 +150,7 @@ internal fun AssetPage(
                     }
                 }
             }
+            if (priceOnly) return@LazyColumn
             item {
                 held?.let { coin ->
                     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter)) {

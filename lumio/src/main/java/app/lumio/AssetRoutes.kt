@@ -124,7 +124,8 @@ internal object CoinActivityPreload {
 /**
  * The Asset page (C4) of [asset] across the wallet [walletId]. The price, the day's chart, the watchlist and the holdings come from the hoisted board
  * and the vault, so the page is populated on its first frame. A range the board lacks, and the coin's activity, load in their places when their reads
- * answer. Send and Receive open on this coin, so a token is preselected.
+ * answer. Send and Receive open on this coin, so a token is preselected. With no [walletId], which is a watchlist row opened with no wallet paired,
+ * the page is the price only: the coin's price, change and chart, and no holdings, activity, Send or Receive.
  */
 @Composable
 internal fun AssetRoute(
@@ -132,7 +133,7 @@ internal fun AssetRoute(
     holder: VaultHolder,
     selection: NetworkSelection,
     listVersion: Int,
-    walletId: String,
+    walletId: String?,
     asset: WatchedAsset,
     onLock: () -> Unit,
 ) {
@@ -144,8 +145,8 @@ internal fun AssetRoute(
     if (session == null) return
     val board = rememberWalletsBoard(app, selection.mode, listVersion) ?: return
     val view = board.view ?: return
-    val wallet = view.wallets.firstOrNull { it.id == walletId }
-    if (wallet == null) {
+    val wallet = walletId?.let { id -> view.wallets.firstOrNull { it.id == id } }
+    if (walletId != null && wallet == null) {
         LaunchedEffect(Unit) { navController.popBackStack() }
         return
     }
@@ -168,9 +169,9 @@ internal fun AssetRoute(
     }
     val current = board.watchlist ?: Watchlist(assets = FIRST_RUN_ASSETS)
     val watched = asset in current.assets
-    val accounts = view.accountsOf(walletId)
+    val accounts = if (wallet != null) view.accountsOf(wallet.id) else emptyList()
     val holdings = holdingsOf(asset, symbol, accounts, board.tokenHeld)
-    val chains = chainHoldings(holdings, wallet.name)
+    val chains = chainHoldings(holdings, wallet?.name.orEmpty())
     val total = holdings.map { it.amount }.reduceOrNull(java.math.BigDecimal::add)
     val fiat = LocalFiat.current
     val held = total?.let { sum ->
@@ -189,7 +190,7 @@ internal fun AssetRoute(
         val amount = holdings.firstOrNull { it.account == account }?.amount
         CoinAccount(
             title = accountName(account),
-            detail = accountDetail(wallet.name, account),
+            detail = accountDetail(wallet?.name.orEmpty(), account),
             trailing = amount?.let { Masking.amount(amountText(it, symbol), hidden = !display.showAssets) },
             onSend = { navController.navigate(coinSendRoute(account, asset, selection.mode)) },
             onReceive = {
@@ -203,7 +204,7 @@ internal fun AssetRoute(
     val includeSpam = rememberTransactions(app).activityIncludesSpam
     val activityKey = CoinActivityKey(asset, selection.mode, includeSpam)
     val coinActivity by produceState(initialValue = CoinActivityPreload.pageOf(vault, activityKey), vault, activityKey, listVersion) {
-        if (vault != null) {
+        if (vault != null && wallet != null) {
             // The rows show with the last prices kept, and the sources' answer replaces them when it lands.
             if (value == null) CoinActivityPreload.read(app, vault, activityKey, live = false)?.let { value = it }
             CoinActivityPreload.read(app, vault, activityKey)?.let { value = it }
@@ -221,7 +222,8 @@ internal fun AssetRoute(
         watched = watched,
         onWatch = { board.changeWatchlist { it.toggled(asset) } },
         held = held,
-        onHoldings = { navController.navigate(LumioRoute.holdings(walletId, asset)) },
+        priceOnly = wallet == null,
+        onHoldings = { wallet?.let { navController.navigate(LumioRoute.holdings(it.id, asset)) } },
         accounts = coinAccounts,
         onBack = { navController.popBackStack() },
         onLock = onLock,
@@ -243,7 +245,7 @@ internal fun AssetRoute(
                         names = page.names,
                         zone = ZoneId.systemDefault(),
                         shown = display.showAssets,
-                        onClick = { navController.navigate(LumioRoute.transaction(walletId, item.tx.account, item.tx.id)) },
+                        onClick = { wallet?.let { navController.navigate(LumioRoute.transaction(it.id, item.tx.account, item.tx.id)) } },
                     )
                 }
             }
