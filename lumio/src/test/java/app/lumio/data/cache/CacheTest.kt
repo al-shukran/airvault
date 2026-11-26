@@ -108,6 +108,28 @@ class CacheTest {
     }
 
     @Test
+    fun aDecoyThatFillsTheCapNeverEvictsTheRealVaultsRows() = runBlocking {
+        val clock = FakeClock(0L)
+        val database = LumioDatabase.open(context, File(tmp.root, "shared.db"))
+        val real = Cache(database.kv(), keys(seed = 1), clock, immutableCapBytes = 300L)
+        val decoy = Cache(database.kv(), keys(seed = 2), clock, immutableCapBytes = 300L)
+        val value = ByteArray(100) { 1 }
+        real.put(CachePolicy.Immutable, "a", value)
+        clock.now = 1L
+        real.put(CachePolicy.Immutable, "b", value)
+
+        clock.now = 2L
+        decoy.put(CachePolicy.Immutable, "x", value)
+        clock.now = 3L
+        decoy.put(CachePolicy.Immutable, "y", value)
+        // The cap is full of rows the decoy cannot read, so its own rows are what it gives up.
+
+        assertNotNull(real.get(CachePolicy.Immutable, "a"))
+        assertNotNull(real.get(CachePolicy.Immutable, "b"))
+        database.close()
+    }
+
+    @Test
     fun lastKnownValuesStayUntilReplacedAndKeepTheirTime() = runBlocking {
         val clock = FakeClock(5_000L)
         val database = LumioDatabase.open(context, File(tmp.root, "last.db"))

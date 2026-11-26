@@ -29,7 +29,10 @@ class FakeKvDao : KvDao {
 
     override suspend fun totalBytes(policy: Int): Long = rows.values.filter { it.policy == policy }.sumOf { it.v.size.toLong() }
 
-    override suspend fun oldestKey(policy: Int): ByteArray? = rows.values.filter { it.policy == policy }.minByOrNull { it.atMs }?.k
+    override suspend fun oldestKeyExcept(policy: Int, skip: List<ByteArray>): ByteArray? {
+        val skipped = skip.map(::name).toSet()
+        return rows.values.filter { it.policy == policy && name(it.k) !in skipped }.minByOrNull { it.atMs }?.k
+    }
 }
 
 /** An in-memory [ScanJobDao], so the queue and the runner can be tested as one process, and reopened as another over the same rows. */
