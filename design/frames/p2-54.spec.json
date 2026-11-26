@@ -440,34 +440,6 @@
     },
     {
      "id": "e17",
-     "kind": "text",
-     "node": "span",
-     "path": "div.row.setrow[4]>div.m[1]>span[1]",
-     "text": "55 EVM networks · 4 test networks",
-     "rect": {
-      "x": 68,
-      "y": 194.5,
-      "w": 176.67,
-      "h": 14
-     },
-     "lines": 1,
-     "font": {
-      "family": "Archivo, system-ui, sans-serif",
-      "size": 12.5,
-      "weight": 400,
-      "stretch": "92%",
-      "lineHeight": 17,
-      "letterSpacing": 0
-     },
-     "color": [
-      171,
-      163,
-      174,
-      1
-     ]
-    },
-    {
-     "id": "e18",
      "kind": "icon",
      "node": "svg.i.chev",
      "path": "div.row.setrow[4]>svg.i.chev[2]",
@@ -483,318 +455,7 @@
      "shadow": null
     },
     {
-     "id": "e19",
-     "kind": "box",
-     "node": "div.lg",
-     "path": "div.row.setrow[5]>div.lg[0]",
-     "rect": {
-      "x": 20,
-      "y": 230,
-      "w": 36,
-      "h": 36
-     },
-     "fill": [
-      42,
-      38,
-      46,
-      1
-     ],
-     "border": null,
-     "radius": "50%",
-     "shadow": null
-    },
-    {
-     "id": "e20",
-     "kind": "icon",
-     "node": "svg.i",
-     "path": "div.row.setrow[5]>div.lg[0]>svg.i[0]",
-     "rect": {
-      "x": 28.5,
-      "y": 238.5,
-      "w": 19,
-      "h": 19
-     },
-     "fill": null,
-     "border": null,
-     "radius": "0px",
-     "shadow": null
-    },
-    {
-     "id": "e21",
-     "kind": "text",
-     "node": "b",
-     "path": "div.row.setrow[5]>div.m[1]>b[0]",
-     "text": "Security",
-     "rect": {
-      "x": 68,
-      "y": 231.5,
-      "w": 65.97,
-      "h": 16
-     },
-     "lines": 1,
-     "font": {
-      "family": "Archivo, system-ui, sans-serif",
-      "size": 15,
-      "weight": 600,
-      "stretch": "114%",
-      "lineHeight": 20,
-      "letterSpacing": 0
-     },
-     "color": [
-      245,
-      239,
-      228,
-      1
-     ]
-    },
-    {
-     "id": "e22",
-     "kind": "text",
-     "node": "span",
-     "path": "div.row.setrow[5]>div.m[1]>span[1]",
-     "text": "Password · Duress not set · Fingerprint",
-     "rect": {
-      "x": 68,
-      "y": 250.5,
-      "w": 198.91,
-      "h": 14
-     },
-     "lines": 1,
-     "font": {
-      "family": "Archivo, system-ui, sans-serif",
-      "size": 12.5,
-      "weight": 400,
-      "stretch": "92%",
-      "lineHeight": 17,
-      "letterSpacing": 0
-     },
-     "color": [
-      171,
-      163,
-      174,
-      1
-     ]
-    },
-    {
-     "id": "e23",
-     "kind": "icon",
-     "node": "svg.i.chev",
-     "path": "div.row.setrow[5]>svg.i.chev[2]",
-     "rect": {
-      "x": 324,
-      "y": 240,
-      "w": 16,
-      "h": 16
-     },
-     "fill": null,
-     "border": null,
-     "radius": "0px",
-     "shadow": null
-    },
-    {
-     "id": "e24",
-     "kind": "box",
-     "node": "div.lg",
-     "path": "div.row.setrow[6]>div.lg[0]",
-     "rect": {
-      "x": 20,
-      "y": 286,
-      "w": 36,
-      "h": 36
-     },
-     "fill": [
-      42,
-      38,
-      46,
-      1
-     ],
-     "border": null,
-     "radius": "50%",
-     "shadow": null
-    },
-    {
-     "id": "e25",
-     "kind": "icon",
-     "node": "svg.i",
-     "path": "div.row.setrow[6]>div.lg[0]>svg.i[0]",
-     "rect": {
-      "x": 28.5,
-      "y": 294.5,
-      "w": 19,
-      "h": 19
-     },
-     "fill": null,
-     "border": null,
-     "radius": "0px",
-     "shadow": null
-    },
-    {
-     "id": "e26",
-     "kind": "text",
-     "node": "b",
-     "path": "div.row.setrow[6]>div.m[1]>b[0]",
-     "text": "About Lumio",
-     "rect": {
-      "x": 68,
-      "y": 287.5,
-      "w": 101.27,
-      "h": 16
-     },
-     "lines": 1,
-     "font": {
-      "family": "Archivo, system-ui, sans-serif",
-      "size": 15,
-      "weight": 600,
-      "stretch": "114%",
-      "lineHeight": 20,
-      "letterSpacing": 0
-     },
-     "color": [
-      245,
-      239,
-      228,
-      1
-     ]
-    },
-    {
-     "id": "e27",
-     "kind": "text",
-     "node": "span",
-     "path": "div.row.setrow[6]>div.m[1]>span[1]",
-     "text": "Version 0.1.0 · Licences",
-     "rect": {
-      "x": 68,
-      "y": 306.5,
-      "w": 122.34,
-      "h": 14
-     },
-     "lines": 1,
-     "font": {
-      "family": "Archivo, system-ui, sans-serif",
-      "size": 12.5,
-      "weight": 400,
-      "stretch": "92%",
-      "lineHeight": 17,
-      "letterSpacing": 0
-     },
-     "color": [
-      171,
-      163,
-      174,
-      1
-     ]
-    },
-    {
-     "id": "e28",
-     "kind": "icon",
-     "node": "svg.i.chev",
-     "path": "div.row.setrow[6]>svg.i.chev[2]",
-     "rect": {
-      "x": 324,
-      "y": 296,
-      "w": 16,
-      "h": 16
-     },
-     "fill": null,
-     "border": null,
-     "radius": "0px",
-     "shadow": null
-    },
-    {
-     "id": "e29",
-     "kind": "box",
-     "node": "div.lg",
-     "path": "div.row.setrow[7]>div.lg[0]",
-     "rect": {
-      "x": 20,
-      "y": 342,
-      "w": 36,
-      "h": 36
-     },
-     "fill": [
-      42,
-      38,
-      46,
-      1
-     ],
-     "border": null,
-     "radius": "50%",
-     "shadow": null
-    },
-    {
-     "id": "e30",
-     "kind": "icon",
-     "node": "svg.i",
-     "path": "div.row.setrow[7]>div.lg[0]>svg.i[0]",
-     "rect": {
-      "x": 28.5,
-      "y": 350.5,
-      "w": 19,
-      "h": 19
-     },
-     "fill": null,
-     "border": null,
-     "radius": "0px",
-     "shadow": null
-    },
-    {
-     "id": "e31",
-     "kind": "text",
-     "node": "b",
-     "path": "div.row.setrow[7]>div.m[1]>b[0]",
-     "text": "Reset Lumio",
-     "rect": {
-      "x": 68,
-      "y": 343.5,
-      "w": 100.14,
-      "h": 16
-     },
-     "lines": 1,
-     "font": {
-      "family": "Archivo, system-ui, sans-serif",
-      "size": 15,
-      "weight": 600,
-      "stretch": "114%",
-      "lineHeight": 20,
-      "letterSpacing": 0
-     },
-     "color": [
-      255,
-      138,
-      128,
-      1
-     ]
-    },
-    {
-     "id": "e32",
-     "kind": "text",
-     "node": "span",
-     "path": "div.row.setrow[7]>div.m[1]>span[1]",
-     "text": "Erase pairings and settings on this phone",
-     "rect": {
-      "x": 68,
-      "y": 362.5,
-      "w": 210.69,
-      "h": 14
-     },
-     "lines": 1,
-     "font": {
-      "family": "Archivo, system-ui, sans-serif",
-      "size": 12.5,
-      "weight": 400,
-      "stretch": "92%",
-      "lineHeight": 17,
-      "letterSpacing": 0
-     },
-     "color": [
-      171,
-      163,
-      174,
-      1
-     ]
-    },
-    {
-     "id": "e33",
+     "id": "e18",
      "kind": "box",
      "node": "div.scr",
      "path": "div.scr[8]",
@@ -815,7 +476,7 @@
      "shadow": null
     },
     {
-     "id": "e34",
+     "id": "e19",
      "kind": "box",
      "node": "div.dlg",
      "path": "div.dlg[9]",
@@ -836,7 +497,7 @@
      "shadow": null
     },
     {
-     "id": "e35",
+     "id": "e20",
      "kind": "text",
      "node": "div.h2",
      "path": "div.dlg[9]>div.h2[0]",
@@ -864,7 +525,7 @@
      ]
     },
     {
-     "id": "e36",
+     "id": "e21",
      "kind": "text",
      "node": "p.b",
      "path": "div.dlg[9]>p.b[1]",
@@ -892,7 +553,7 @@
      ]
     },
     {
-     "id": "e37",
+     "id": "e22",
      "kind": "box",
      "node": "div.cbx",
      "path": "div.dlg[9]>div.chk[2]>div.cbx[0]",
@@ -916,7 +577,7 @@
      "shadow": null
     },
     {
-     "id": "e38",
+     "id": "e23",
      "kind": "text",
      "node": "span",
      "path": "div.dlg[9]>div.chk[2]>span[1]",
@@ -944,7 +605,7 @@
      ]
     },
     {
-     "id": "e39",
+     "id": "e24",
      "kind": "text",
      "node": "div.cap.w",
      "path": "div.dlg[9]>div.cap.w[3]",
@@ -972,7 +633,7 @@
      ]
     },
     {
-     "id": "e40",
+     "id": "e25",
      "kind": "box",
      "node": "div.cap.w",
      "path": "div.dlg[9]>div.cap.w[3]",
@@ -993,7 +654,7 @@
      "shadow": null
     },
     {
-     "id": "e41",
+     "id": "e26",
      "kind": "text",
      "node": "div.s.ctr",
      "path": "div.dlg[9]>div.s.ctr[4]",
@@ -1021,7 +682,7 @@
      ]
     },
     {
-     "id": "e42",
+     "id": "e27",
      "kind": "text",
      "node": "span.ta",
      "path": "div.dlg[9]>span.ta[5]",
@@ -1049,7 +710,7 @@
      ]
     },
     {
-     "id": "e43",
+     "id": "e28",
      "kind": "box",
      "node": "nav.nav",
      "path": "nav.nav[10]",
@@ -1078,7 +739,7 @@
      "shadow": null
     },
     {
-     "id": "e44",
+     "id": "e29",
      "kind": "text",
      "node": "a",
      "path": "nav.nav[10]>a[0]",
@@ -1106,7 +767,7 @@
      ]
     },
     {
-     "id": "e45",
+     "id": "e30",
      "kind": "icon",
      "node": "svg.i",
      "path": "nav.nav[10]>a[0]>svg.i[0]",
@@ -1122,7 +783,7 @@
      "shadow": null
     },
     {
-     "id": "e46",
+     "id": "e31",
      "kind": "text",
      "node": "a",
      "path": "nav.nav[10]>a[1]",
@@ -1150,7 +811,7 @@
      ]
     },
     {
-     "id": "e47",
+     "id": "e32",
      "kind": "icon",
      "node": "svg.i",
      "path": "nav.nav[10]>a[1]>svg.i[0]",
@@ -1166,7 +827,7 @@
      "shadow": null
     },
     {
-     "id": "e48",
+     "id": "e33",
      "kind": "text",
      "node": "a",
      "path": "nav.nav[10]>a[2]",
@@ -1194,7 +855,7 @@
      ]
     },
     {
-     "id": "e49",
+     "id": "e34",
      "kind": "icon",
      "node": "svg.i",
      "path": "nav.nav[10]>a[2]>svg.i[0]",
@@ -1210,7 +871,7 @@
      "shadow": null
     },
     {
-     "id": "e50",
+     "id": "e35",
      "kind": "text",
      "node": "a",
      "path": "nav.nav[10]>a[3]",
@@ -1238,7 +899,7 @@
      ]
     },
     {
-     "id": "e51",
+     "id": "e36",
      "kind": "icon",
      "node": "svg.i",
      "path": "nav.nav[10]>a[3]>svg.i[0]",
@@ -1254,7 +915,7 @@
      "shadow": null
     },
     {
-     "id": "e52",
+     "id": "e37",
      "kind": "text",
      "node": "a.on",
      "path": "nav.nav[10]>a.on[4]",
@@ -1282,7 +943,7 @@
      ]
     },
     {
-     "id": "e53",
+     "id": "e38",
      "kind": "icon",
      "node": "svg.i",
      "path": "nav.nav[10]>a.on[4]>svg.i[0]",
@@ -1679,34 +1340,6 @@
     },
     {
      "id": "e17",
-     "kind": "text",
-     "node": "span",
-     "path": "div.row.setrow[4]>div.m[1]>span[1]",
-     "text": "55 EVM networks · 4 test networks",
-     "rect": {
-      "x": 68,
-      "y": 194.5,
-      "w": 176.67,
-      "h": 14
-     },
-     "lines": 1,
-     "font": {
-      "family": "Archivo, system-ui, sans-serif",
-      "size": 12.5,
-      "weight": 400,
-      "stretch": "92%",
-      "lineHeight": 17,
-      "letterSpacing": 0
-     },
-     "color": [
-      102,
-      94,
-      107,
-      1
-     ]
-    },
-    {
-     "id": "e18",
      "kind": "icon",
      "node": "svg.i.chev",
      "path": "div.row.setrow[4]>svg.i.chev[2]",
@@ -1722,318 +1355,7 @@
      "shadow": null
     },
     {
-     "id": "e19",
-     "kind": "box",
-     "node": "div.lg",
-     "path": "div.row.setrow[5]>div.lg[0]",
-     "rect": {
-      "x": 20,
-      "y": 230,
-      "w": 36,
-      "h": 36
-     },
-     "fill": [
-      242,
-      236,
-      224,
-      1
-     ],
-     "border": null,
-     "radius": "50%",
-     "shadow": null
-    },
-    {
-     "id": "e20",
-     "kind": "icon",
-     "node": "svg.i",
-     "path": "div.row.setrow[5]>div.lg[0]>svg.i[0]",
-     "rect": {
-      "x": 28.5,
-      "y": 238.5,
-      "w": 19,
-      "h": 19
-     },
-     "fill": null,
-     "border": null,
-     "radius": "0px",
-     "shadow": null
-    },
-    {
-     "id": "e21",
-     "kind": "text",
-     "node": "b",
-     "path": "div.row.setrow[5]>div.m[1]>b[0]",
-     "text": "Security",
-     "rect": {
-      "x": 68,
-      "y": 231.5,
-      "w": 65.97,
-      "h": 16
-     },
-     "lines": 1,
-     "font": {
-      "family": "Archivo, system-ui, sans-serif",
-      "size": 15,
-      "weight": 600,
-      "stretch": "114%",
-      "lineHeight": 20,
-      "letterSpacing": 0
-     },
-     "color": [
-      43,
-      37,
-      48,
-      1
-     ]
-    },
-    {
-     "id": "e22",
-     "kind": "text",
-     "node": "span",
-     "path": "div.row.setrow[5]>div.m[1]>span[1]",
-     "text": "Password · Duress not set · Fingerprint",
-     "rect": {
-      "x": 68,
-      "y": 250.5,
-      "w": 198.91,
-      "h": 14
-     },
-     "lines": 1,
-     "font": {
-      "family": "Archivo, system-ui, sans-serif",
-      "size": 12.5,
-      "weight": 400,
-      "stretch": "92%",
-      "lineHeight": 17,
-      "letterSpacing": 0
-     },
-     "color": [
-      102,
-      94,
-      107,
-      1
-     ]
-    },
-    {
-     "id": "e23",
-     "kind": "icon",
-     "node": "svg.i.chev",
-     "path": "div.row.setrow[5]>svg.i.chev[2]",
-     "rect": {
-      "x": 324,
-      "y": 240,
-      "w": 16,
-      "h": 16
-     },
-     "fill": null,
-     "border": null,
-     "radius": "0px",
-     "shadow": null
-    },
-    {
-     "id": "e24",
-     "kind": "box",
-     "node": "div.lg",
-     "path": "div.row.setrow[6]>div.lg[0]",
-     "rect": {
-      "x": 20,
-      "y": 286,
-      "w": 36,
-      "h": 36
-     },
-     "fill": [
-      242,
-      236,
-      224,
-      1
-     ],
-     "border": null,
-     "radius": "50%",
-     "shadow": null
-    },
-    {
-     "id": "e25",
-     "kind": "icon",
-     "node": "svg.i",
-     "path": "div.row.setrow[6]>div.lg[0]>svg.i[0]",
-     "rect": {
-      "x": 28.5,
-      "y": 294.5,
-      "w": 19,
-      "h": 19
-     },
-     "fill": null,
-     "border": null,
-     "radius": "0px",
-     "shadow": null
-    },
-    {
-     "id": "e26",
-     "kind": "text",
-     "node": "b",
-     "path": "div.row.setrow[6]>div.m[1]>b[0]",
-     "text": "About Lumio",
-     "rect": {
-      "x": 68,
-      "y": 287.5,
-      "w": 101.27,
-      "h": 16
-     },
-     "lines": 1,
-     "font": {
-      "family": "Archivo, system-ui, sans-serif",
-      "size": 15,
-      "weight": 600,
-      "stretch": "114%",
-      "lineHeight": 20,
-      "letterSpacing": 0
-     },
-     "color": [
-      43,
-      37,
-      48,
-      1
-     ]
-    },
-    {
-     "id": "e27",
-     "kind": "text",
-     "node": "span",
-     "path": "div.row.setrow[6]>div.m[1]>span[1]",
-     "text": "Version 0.1.0 · Licences",
-     "rect": {
-      "x": 68,
-      "y": 306.5,
-      "w": 122.34,
-      "h": 14
-     },
-     "lines": 1,
-     "font": {
-      "family": "Archivo, system-ui, sans-serif",
-      "size": 12.5,
-      "weight": 400,
-      "stretch": "92%",
-      "lineHeight": 17,
-      "letterSpacing": 0
-     },
-     "color": [
-      102,
-      94,
-      107,
-      1
-     ]
-    },
-    {
-     "id": "e28",
-     "kind": "icon",
-     "node": "svg.i.chev",
-     "path": "div.row.setrow[6]>svg.i.chev[2]",
-     "rect": {
-      "x": 324,
-      "y": 296,
-      "w": 16,
-      "h": 16
-     },
-     "fill": null,
-     "border": null,
-     "radius": "0px",
-     "shadow": null
-    },
-    {
-     "id": "e29",
-     "kind": "box",
-     "node": "div.lg",
-     "path": "div.row.setrow[7]>div.lg[0]",
-     "rect": {
-      "x": 20,
-      "y": 342,
-      "w": 36,
-      "h": 36
-     },
-     "fill": [
-      242,
-      236,
-      224,
-      1
-     ],
-     "border": null,
-     "radius": "50%",
-     "shadow": null
-    },
-    {
-     "id": "e30",
-     "kind": "icon",
-     "node": "svg.i",
-     "path": "div.row.setrow[7]>div.lg[0]>svg.i[0]",
-     "rect": {
-      "x": 28.5,
-      "y": 350.5,
-      "w": 19,
-      "h": 19
-     },
-     "fill": null,
-     "border": null,
-     "radius": "0px",
-     "shadow": null
-    },
-    {
-     "id": "e31",
-     "kind": "text",
-     "node": "b",
-     "path": "div.row.setrow[7]>div.m[1]>b[0]",
-     "text": "Reset Lumio",
-     "rect": {
-      "x": 68,
-      "y": 343.5,
-      "w": 100.14,
-      "h": 16
-     },
-     "lines": 1,
-     "font": {
-      "family": "Archivo, system-ui, sans-serif",
-      "size": 15,
-      "weight": 600,
-      "stretch": "114%",
-      "lineHeight": 20,
-      "letterSpacing": 0
-     },
-     "color": [
-      179,
-      38,
-      30,
-      1
-     ]
-    },
-    {
-     "id": "e32",
-     "kind": "text",
-     "node": "span",
-     "path": "div.row.setrow[7]>div.m[1]>span[1]",
-     "text": "Erase pairings and settings on this phone",
-     "rect": {
-      "x": 68,
-      "y": 362.5,
-      "w": 210.69,
-      "h": 14
-     },
-     "lines": 1,
-     "font": {
-      "family": "Archivo, system-ui, sans-serif",
-      "size": 12.5,
-      "weight": 400,
-      "stretch": "92%",
-      "lineHeight": 17,
-      "letterSpacing": 0
-     },
-     "color": [
-      102,
-      94,
-      107,
-      1
-     ]
-    },
-    {
-     "id": "e33",
+     "id": "e18",
      "kind": "box",
      "node": "div.scr",
      "path": "div.scr[8]",
@@ -2054,7 +1376,7 @@
      "shadow": null
     },
     {
-     "id": "e34",
+     "id": "e19",
      "kind": "box",
      "node": "div.dlg",
      "path": "div.dlg[9]",
@@ -2075,7 +1397,7 @@
      "shadow": "rgba(43, 37, 48, 0.1) 0px -10px 30px 0px"
     },
     {
-     "id": "e35",
+     "id": "e20",
      "kind": "text",
      "node": "div.h2",
      "path": "div.dlg[9]>div.h2[0]",
@@ -2103,7 +1425,7 @@
      ]
     },
     {
-     "id": "e36",
+     "id": "e21",
      "kind": "text",
      "node": "p.b",
      "path": "div.dlg[9]>p.b[1]",
@@ -2131,7 +1453,7 @@
      ]
     },
     {
-     "id": "e37",
+     "id": "e22",
      "kind": "box",
      "node": "div.cbx",
      "path": "div.dlg[9]>div.chk[2]>div.cbx[0]",
@@ -2155,7 +1477,7 @@
      "shadow": null
     },
     {
-     "id": "e38",
+     "id": "e23",
      "kind": "text",
      "node": "span",
      "path": "div.dlg[9]>div.chk[2]>span[1]",
@@ -2183,7 +1505,7 @@
      ]
     },
     {
-     "id": "e39",
+     "id": "e24",
      "kind": "text",
      "node": "div.cap.w",
      "path": "div.dlg[9]>div.cap.w[3]",
@@ -2211,7 +1533,7 @@
      ]
     },
     {
-     "id": "e40",
+     "id": "e25",
      "kind": "box",
      "node": "div.cap.w",
      "path": "div.dlg[9]>div.cap.w[3]",
@@ -2232,7 +1554,7 @@
      "shadow": null
     },
     {
-     "id": "e41",
+     "id": "e26",
      "kind": "text",
      "node": "div.s.ctr",
      "path": "div.dlg[9]>div.s.ctr[4]",
@@ -2260,7 +1582,7 @@
      ]
     },
     {
-     "id": "e42",
+     "id": "e27",
      "kind": "text",
      "node": "span.ta",
      "path": "div.dlg[9]>span.ta[5]",
@@ -2288,7 +1610,7 @@
      ]
     },
     {
-     "id": "e43",
+     "id": "e28",
      "kind": "box",
      "node": "nav.nav",
      "path": "nav.nav[10]",
@@ -2317,7 +1639,7 @@
      "shadow": null
     },
     {
-     "id": "e44",
+     "id": "e29",
      "kind": "text",
      "node": "a",
      "path": "nav.nav[10]>a[0]",
@@ -2345,7 +1667,7 @@
      ]
     },
     {
-     "id": "e45",
+     "id": "e30",
      "kind": "icon",
      "node": "svg.i",
      "path": "nav.nav[10]>a[0]>svg.i[0]",
@@ -2361,7 +1683,7 @@
      "shadow": null
     },
     {
-     "id": "e46",
+     "id": "e31",
      "kind": "text",
      "node": "a",
      "path": "nav.nav[10]>a[1]",
@@ -2389,7 +1711,7 @@
      ]
     },
     {
-     "id": "e47",
+     "id": "e32",
      "kind": "icon",
      "node": "svg.i",
      "path": "nav.nav[10]>a[1]>svg.i[0]",
@@ -2405,7 +1727,7 @@
      "shadow": null
     },
     {
-     "id": "e48",
+     "id": "e33",
      "kind": "text",
      "node": "a",
      "path": "nav.nav[10]>a[2]",
@@ -2433,7 +1755,7 @@
      ]
     },
     {
-     "id": "e49",
+     "id": "e34",
      "kind": "icon",
      "node": "svg.i",
      "path": "nav.nav[10]>a[2]>svg.i[0]",
@@ -2449,7 +1771,7 @@
      "shadow": null
     },
     {
-     "id": "e50",
+     "id": "e35",
      "kind": "text",
      "node": "a",
      "path": "nav.nav[10]>a[3]",
@@ -2477,7 +1799,7 @@
      ]
     },
     {
-     "id": "e51",
+     "id": "e36",
      "kind": "icon",
      "node": "svg.i",
      "path": "nav.nav[10]>a[3]>svg.i[0]",
@@ -2493,7 +1815,7 @@
      "shadow": null
     },
     {
-     "id": "e52",
+     "id": "e37",
      "kind": "text",
      "node": "a.on",
      "path": "nav.nav[10]>a.on[4]",
@@ -2521,7 +1843,7 @@
      ]
     },
     {
-     "id": "e53",
+     "id": "e38",
      "kind": "icon",
      "node": "svg.i",
      "path": "nav.nav[10]>a.on[4]>svg.i[0]",

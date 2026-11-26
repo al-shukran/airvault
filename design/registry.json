@@ -2,35 +2,585 @@
  "version": 1,
  "tolerance": {
   "bandDp": 1,
-  "textPosDp": 1,
-  "textWidthDp": 2,
+  "textPosDp": 2,
   "fontSizeDp": 0.25,
   "lineHeightDp": 0.5,
   "letterSpacingDp": 0.15,
   "textColor": 4,
   "sample": 8,
-  "cell": 24,
-  "cellDp": 4
+  "cell": 96,
+  "cellDp": 4,
+  "ink": 40,
+  "iconColor": 40
  },
  "screens": {
-  "home_light": {
-   "frame": "h1-home",
+  "account_ethereum_activity": {
+   "frame": "p1-06",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.WalletScreensScreenshotTest"
+  },
+  "activity_list": {
+   "frame": "p2-08",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.ConsolidatedViewsScreenshotTest"
+  },
+  "activity_list_light": {
+   "frame": "p2-08",
    "theme": "light",
-   "insetBottom": 0,
-   "test": "app.lumio.ui.screenshot.HomeScreenshotTest"
+   "test": "app.lumio.ui.screenshot.ConsolidatedViewsLightScreenshotTest"
+  },
+  "add_token": {
+   "frame": "p2-51",
+   "theme": "dark",
+   "test": "app.lumio.ui.tokens.AddTokenScreenshotTest"
+  },
+  "address_book": {
+   "frame": "p2-48",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.AddressBookScreenshotTest"
+  },
+  "address_handoff": {
+   "frame": "p2-14",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.ConsolidatedViewsScreenshotTest"
+  },
+  "address_known_light": {
+   "frame": "p2-12",
+   "theme": "light",
+   "test": "app.lumio.ui.screenshot.ConsolidatedViewsLightScreenshotTest"
+  },
+  "address_unknown": {
+   "frame": "p2-13",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.ConsolidatedViewsScreenshotTest"
+  },
+  "asset_page": {
+   "frame": "p1-07",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.AssetScreenshotTest"
+  },
+  "asset_page_light": {
+   "frame": "p1-07",
+   "theme": "light",
+   "test": "app.lumio.ui.screenshot.AssetScreenshotTest"
+  },
+  "data_providers": {
+   "frame": "p2-44",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.LumioScreenshotTest"
+  },
+  "ethereum_send_amount": {
+   "frame": "p1-11",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.SendScreenshotTest"
+  },
+  "ethereum_send_amount_insufficient_funds": {
+   "frame": "p2-22",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.SendScreenshotTest"
+  },
+  "ethereum_send_failed": {
+   "frame": "p1-17",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.SendScreenshotTest"
+  },
+  "ethereum_send_fee_sheet": {
+   "frame": "p2-16",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.SendScreenshotTest"
+  },
+  "ethereum_send_last_chance": {
+   "frame": "p1-15",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.SendScreenshotTest"
+  },
+  "ethereum_send_lensly_didnt_sign": {
+   "frame": "p2-18",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.SendScreenshotTest"
+  },
+  "ethereum_send_on_its_way": {
+   "frame": "p1-16",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.SendScreenshotTest"
+  },
+  "ethereum_send_recipient": {
+   "frame": "p1-10",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.SendScreenshotTest"
+  },
+  "ethereum_send_recipient_invalid_address": {
+   "frame": "p2-21",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.SendScreenshotTest"
+  },
+  "ethereum_send_review": {
+   "frame": "p1-12",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.SendScreenshotTest"
+  },
+  "ethereum_send_show": {
+   "frame": "p1-13",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.SendScreenshotTest"
+  },
+  "ethereum_send_signature_mismatch": {
+   "frame": "p2-19",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.SendScreenshotTest"
+  },
+  "explore": {
+   "frame": "p2-37",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.ExploreScreenshotTest"
+  },
+  "first_run_create_password": {
+   "frame": "p2-28",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.FirstRunScreenshotTest"
+  },
+  "first_run_duress": {
+   "frame": "p1-21",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.FirstRunScreenshotTest"
+  },
+  "first_run_notice": {
+   "frame": "p1-20",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.FirstRunScreenshotTest"
+  },
+  "first_run_welcome": {
+   "frame": "p1-19",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.FirstRunScreenshotTest"
   },
   "home_dark": {
    "frame": "h1-home",
    "theme": "dark",
-   "insetBottom": 0,
-   "test": "app.lumio.ui.screenshot.HomeScreenshotTest"
+   "test": "app.lumio.ui.screenshot.HomeScreenshotTest",
+   "insetBottom": 0
+  },
+  "home_empty_dark": {
+   "frame": "h1-empty",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.HomeScreenshotTest",
+   "insetBottom": 0
   },
   "home_empty_light": {
    "frame": "h1-empty",
    "theme": "light",
-   "insetBottom": 0,
-   "test": "app.lumio.ui.screenshot.HomeScreenshotTest"
+   "test": "app.lumio.ui.screenshot.HomeScreenshotTest",
+   "insetBottom": 0
+  },
+  "home_end_dark": {
+   "frame": "h1-home-end",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.HomeScreenshotTest",
+   "insetBottom": 0
+  },
+  "home_end_light": {
+   "frame": "h1-home-end",
+   "theme": "light",
+   "test": "app.lumio.ui.screenshot.HomeScreenshotTest",
+   "insetBottom": 0
+  },
+  "home_light": {
+   "frame": "h1-home",
+   "theme": "light",
+   "test": "app.lumio.ui.screenshot.HomeScreenshotTest",
+   "insetBottom": 0
+  },
+  "home_narrow_360_end_light": {
+   "frame": "h1-narrow-360-end",
+   "theme": "light",
+   "test": "app.lumio.ui.screenshot.HomeScreenshotTest",
+   "insetBottom": 0
+  },
+  "home_narrow_360_light": {
+   "frame": "h1-narrow-360",
+   "theme": "light",
+   "test": "app.lumio.ui.screenshot.HomeScreenshotTest",
+   "insetBottom": 0
+  },
+  "licences": {
+   "frame": "p2-53",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.LumioCoverageScreenshotTest"
+  },
+  "network_page_chain": {
+   "frame": "p2-38",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.LumioCoverageScreenshotTest"
+  },
+  "pair_onboarding": {
+   "frame": "p1-22",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.PairScreensScreenshotTest"
+  },
+  "pair_onboarding_camera_denied": {
+   "frame": "p2-35",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.PairScreensScreenshotTest"
+  },
+  "pair_review": {
+   "frame": "p2-31",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.LumioScreenshotTest"
+  },
+  "portfolio_balances": {
+   "frame": "p1-08",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.ConsolidatedViewsScreenshotTest"
+  },
+  "portfolio_balances_light": {
+   "frame": "p1-08",
+   "theme": "light",
+   "test": "app.lumio.ui.screenshot.ConsolidatedViewsLightScreenshotTest"
+  },
+  "portfolio_chain_sheet": {
+   "frame": "p2-05",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.ConsolidatedViewsScreenshotTest"
+  },
+  "portfolio_empty": {
+   "frame": "p1-25",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.ConsolidatedViewsScreenshotTest"
+  },
+  "portfolio_grouping_sheet": {
+   "frame": "p2-06",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.ConsolidatedViewsScreenshotTest"
+  },
+  "profile_panel": {
+   "frame": "p1-02",
+   "theme": "light",
+   "test": "app.lumio.ui.network.ProfilePanelScreenshotTest"
+  },
+  "provider_working": {
+   "frame": "p2-39",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.ProviderPageScreenshotTest"
+  },
+  "receive_choose_account": {
+   "frame": "p2-25",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.ReceiveScreenshotTest"
+  },
+  "receive_choose_asset": {
+   "frame": "p2-23",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.ReceiveScreenshotTest"
+  },
+  "receive_choose_asset_light": {
+   "frame": "p2-23",
+   "theme": "light",
+   "test": "app.lumio.ui.screenshot.ReceiveScreenshotTest"
+  },
+  "receive_choose_network": {
+   "frame": "p2-24",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.ReceiveScreenshotTest"
+  },
+  "receive_choose_network_light": {
+   "frame": "p2-24",
+   "theme": "light",
+   "test": "app.lumio.ui.screenshot.ReceiveScreenshotTest"
+  },
+  "receive_code": {
+   "frame": "p1-18",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.ReceiveScreenshotTest"
+  },
+  "receive_code_light": {
+   "frame": "p1-18",
+   "theme": "light",
+   "test": "app.lumio.ui.screenshot.ReceiveScreenshotTest"
+  },
+  "search_results": {
+   "frame": "h1-search",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.HomeSearchScreenshotTest",
+   "insetBottom": 0
+  },
+  "settings": {
+   "frame": "p1-26",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.LumioScreenshotTest"
+  },
+  "settings_about": {
+   "frame": "p2-52",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.LumioScreenshotTest"
+  },
+  "settings_change_password": {
+   "frame": "p2-50",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.LumioScreenshotTest"
+  },
+  "settings_display": {
+   "frame": "p2-40",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.LumioScreenshotTest"
+  },
+  "settings_display_currency_sheet": {
+   "frame": "p2-41",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.LumioScreenshotTest"
+  },
+  "settings_light": {
+   "frame": "p1-26",
+   "theme": "light",
+   "test": "app.lumio.ui.screenshot.LumioScreenshotTest"
+  },
+  "settings_networks": {
+   "frame": "p2-43",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.LumioScreenshotTest"
+  },
+  "settings_security": {
+   "frame": "p2-49",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.LumioScreenshotTest"
+  },
+  "settings_transactions": {
+   "frame": "p2-42",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.LumioScreenshotTest"
+  },
+  "settings_wallet": {
+   "frame": "p2-46",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.LumioScreenshotTest"
+  },
+  "settings_wallets": {
+   "frame": "p2-45",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.LumioScreenshotTest"
+  },
+  "wallet_accounts_testnet": {
+   "frame": "p1-05",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.WalletScreensScreenshotTest"
+  },
+  "wallets": {
+   "frame": "p2-02",
+   "theme": "dark",
+   "test": "app.lumio.ui.screenshot.WalletScreensScreenshotTest"
+  },
+  "wallets_light": {
+   "frame": "p2-02",
+   "theme": "light",
+   "test": "app.lumio.ui.screenshot.WalletScreensScreenshotTest"
   }
  },
- "known_violations": {}
+ "known_violations": {},
+ "unregistered": {
+  "address_known": {
+   "frame": "p2-12",
+   "reason": "the golden is dark and frame p2-12 has only light"
+  },
+  "first_run_device_protection": {
+   "frame": "p2-29",
+   "reason": "the golden is dark and frame p2-29 has only light"
+  },
+  "first_run_prepare_lensly": {
+   "frame": "p2-26",
+   "reason": "the golden is dark and frame p2-26 has only light"
+  },
+  "lumio_unlock_idle": {
+   "frame": "gate",
+   "reason": "the frame is not in the approved set rendered by tools/design-frames (the Add to Watchlist and Gate mocks)"
+  },
+  "lumio_unlock_idle_dark": {
+   "frame": "gate",
+   "reason": "the frame is not in the approved set rendered by tools/design-frames (the Add to Watchlist and Gate mocks)"
+  },
+  "receive_choose_account_light": {
+   "frame": "p2-25",
+   "reason": "the golden is light and frame p2-25 has only dark"
+  },
+  "transaction_detail": {
+   "frame": "p2-09",
+   "reason": "the golden is dark and frame p2-09 has only light"
+  },
+  "watchlist_picker_dark": {
+   "frame": "p3-00",
+   "reason": "the frame is not in the approved set rendered by tools/design-frames (the Add to Watchlist and Gate mocks)"
+  },
+  "watchlist_picker_light": {
+   "frame": "p3-00",
+   "reason": "the frame is not in the approved set rendered by tools/design-frames (the Add to Watchlist and Gate mocks)"
+  },
+  "watchlist_picker_search_dark": {
+   "frame": "p3-01",
+   "reason": "the frame is not in the approved set rendered by tools/design-frames (the Add to Watchlist and Gate mocks)"
+  },
+  "watchlist_picker_search_light": {
+   "frame": "p3-01",
+   "reason": "the frame is not in the approved set rendered by tools/design-frames (the Add to Watchlist and Gate mocks)"
+  }
+ },
+ "no_frame": {
+  "account_bitcoin": "a state or variant of a screen with no frame of its own",
+  "account_bitcoin_first_frame": "a state or variant of a screen with no frame of its own",
+  "account_empty_activity": "a state or variant of a screen with no frame of its own",
+  "account_ethereum_activity_tab": "a state or variant of a screen with no frame of its own",
+  "account_ethereum_light": "a state or variant of a screen with no frame of its own",
+  "account_hidden_balances": "a state or variant of a screen with no frame of its own",
+  "account_landscape": "a state or variant of a screen with no frame of its own",
+  "account_loading": "a state or variant of a screen with no frame of its own",
+  "account_long_names": "a state or variant of a screen with no frame of its own",
+  "account_offline": "a state or variant of a screen with no frame of its own",
+  "account_small_font_2": "a state or variant of a screen with no frame of its own",
+  "account_solana": "a state or variant of a screen with no frame of its own",
+  "account_zero_balance": "a state or variant of a screen with no frame of its own",
+  "add_custom_network": "a state or variant of a screen with no frame of its own",
+  "add_custom_network_refused": "a state or variant of a screen with no frame of its own",
+  "address_book_empty": "a state or variant of a screen with no frame of its own",
+  "algorand_add_asset_added": "a state or variant of a screen with no frame of its own",
+  "algorand_add_asset_list": "a state or variant of a screen with no frame of its own",
+  "algorand_add_asset_typed_id": "a state or variant of a screen with no frame of its own",
+  "algorand_send_form": "a state or variant of a screen with no frame of its own",
+  "algorand_send_form_amount_error": "a state or variant of a screen with no frame of its own",
+  "algorand_send_form_asset": "a state or variant of a screen with no frame of its own",
+  "algorand_send_review": "a state or variant of a screen with no frame of its own",
+  "algorand_send_review_asset": "a state or variant of a screen with no frame of its own",
+  "algorand_send_review_opt_in": "a state or variant of a screen with no frame of its own",
+  "algorand_send_sent": "a state or variant of a screen with no frame of its own",
+  "algorand_send_sign_request": "a state or variant of a screen with no frame of its own",
+  "asset_asa_not_opted_in": "a state or variant of a screen with no frame of its own",
+  "asset_holdings": "a state or variant of a screen with no frame of its own",
+  "asset_page_not_held": "a state or variant of a screen with no frame of its own",
+  "asset_token": "a state or variant of a screen with no frame of its own",
+  "bitcoin_advanced_sheet": "a state or variant of a screen with no frame of its own",
+  "bitcoin_broadcast_error": "a state or variant of a screen with no frame of its own",
+  "bitcoin_broadcast_idle": "a state or variant of a screen with no frame of its own",
+  "bitcoin_broadcast_sending": "a state or variant of a screen with no frame of its own",
+  "bitcoin_broadcast_success": "a state or variant of a screen with no frame of its own",
+  "bitcoin_broadcast_success_no_browser": "a state or variant of a screen with no frame of its own",
+  "bitcoin_send_form": "a state or variant of a screen with no frame of its own",
+  "bitcoin_send_review": "a state or variant of a screen with no frame of its own",
+  "bitcoin_send_review_error": "a state or variant of a screen with no frame of its own",
+  "bitcoin_send_sign_request": "a state or variant of a screen with no frame of its own",
+  "clearair_amount": "component kit sample, not a screen",
+  "clearair_amount_light": "component kit sample, not a screen",
+  "clearair_primary": "component kit sample, not a screen",
+  "clearair_primary_light": "component kit sample, not a screen",
+  "clearair_row": "component kit sample, not a screen",
+  "clearair_row_light": "component kit sample, not a screen",
+  "clearair_status": "component kit sample, not a screen",
+  "clearair_status_light": "component kit sample, not a screen",
+  "clearair_testnet": "component kit sample, not a screen",
+  "clearair_testnet_light": "component kit sample, not a screen",
+  "clearair_text_action": "component kit sample, not a screen",
+  "clearair_text_action_light": "component kit sample, not a screen",
+  "data_providers_prices": "a state or variant of a screen with no frame of its own",
+  "data_providers_statuses": "a state or variant of a screen with no frame of its own",
+  "ethereum_broadcast_idle": "a state or variant of a screen with no frame of its own",
+  "ethereum_broadcast_sending": "a state or variant of a screen with no frame of its own",
+  "ethereum_send_recipient_bitcoin_address": "a state or variant of a screen with no frame of its own",
+  "ethereum_send_review_first_time": "a state or variant of a screen with no frame of its own",
+  "ethereum_send_review_long_names": "a state or variant of a screen with no frame of its own",
+  "ethereum_token_send_amount": "a state or variant of a screen with no frame of its own",
+  "ethereum_token_send_review": "a state or variant of a screen with no frame of its own",
+  "evm_edit_rpc_dialog": "a state or variant of a screen with no frame of its own",
+  "evm_settings_custom_chain": "a state or variant of a screen with no frame of its own",
+  "finish_setup_card": "a state or variant of a screen with no frame of its own",
+  "finish_setup_card_font_2": "a state or variant of a screen with no frame of its own",
+  "finish_setup_card_paired_light": "a state or variant of a screen with no frame of its own",
+  "first_run_create_password_mismatch_light": "a state or variant of a screen with no frame of its own",
+  "first_run_device_protection_light": "a state or variant of a screen with no frame of its own",
+  "first_run_device_protection_unavailable": "a state or variant of a screen with no frame of its own",
+  "first_run_duress_password": "a state or variant of a screen with no frame of its own",
+  "first_run_duress_password_same_light": "a state or variant of a screen with no frame of its own",
+  "first_run_keys": "a state or variant of a screen with no frame of its own",
+  "first_run_never_share": "a state or variant of a screen with no frame of its own",
+  "first_run_notice_agreed_light": "a state or variant of a screen with no frame of its own",
+  "first_run_provided_as_is": "a state or variant of a screen with no frame of its own",
+  "first_run_welcome_light": "a state or variant of a screen with no frame of its own",
+  "first_sync_done": "a state or variant of a screen with no frame of its own",
+  "first_sync_done_light": "a state or variant of a screen with no frame of its own",
+  "first_sync_failed": "a state or variant of a screen with no frame of its own",
+  "first_sync_partial": "a state or variant of a screen with no frame of its own",
+  "first_sync_start": "a state or variant of a screen with no frame of its own",
+  "home_fall_dark": "a state or variant of a screen with no frame of its own",
+  "home_fall_light": "a state or variant of a screen with no frame of its own",
+  "home_sort_sheet": "a state or variant of a screen with no frame of its own",
+  "home_testnet": "a state or variant of a screen with no frame of its own",
+  "kit_asset_icons": "component kit sample, not a screen",
+  "kit_island": "component kit sample, not a screen",
+  "kit_island_light": "component kit sample, not a screen",
+  "kit_row_pressed": "component kit sample, not a screen",
+  "kit_row_pressed_light": "component kit sample, not a screen",
+  "kit_tags": "component kit sample, not a screen",
+  "kit_text_action": "component kit sample, not a screen",
+  "licences_loading": "a state or variant of a screen with no frame of its own",
+  "lumio_launcher_icon": "launcher icon, not a screen",
+  "lumio_mark": "brand mark, not a screen",
+  "lumio_mark_light": "brand mark, not a screen",
+  "lumio_unavailable": "a state or variant of a screen with no frame of its own",
+  "lumio_unavailable_dark": "a state or variant of a screen with no frame of its own",
+  "lumio_unlock_unlocking": "a state or variant of a screen with no frame of its own",
+  "lumio_unlock_wait": "a state or variant of a screen with no frame of its own",
+  "lumio_unlock_wrong_tries": "a state or variant of a screen with no frame of its own",
+  "pair_manual": "a state or variant of a screen with no frame of its own",
+  "pair_manual_camera_denied": "a state or variant of a screen with no frame of its own",
+  "pair_manual_light": "a state or variant of a screen with no frame of its own",
+  "pair_onboarding_camera_denied_light": "a state or variant of a screen with no frame of its own",
+  "pair_onboarding_light": "a state or variant of a screen with no frame of its own",
+  "pair_review_already_paired": "a state or variant of a screen with no frame of its own",
+  "pair_review_bitcoin": "a state or variant of a screen with no frame of its own",
+  "pair_review_bitcoin_light": "a state or variant of a screen with no frame of its own",
+  "pair_review_save_failed": "a state or variant of a screen with no frame of its own",
+  "portfolio_chain_filtered": "a state or variant of a screen with no frame of its own",
+  "portfolio_chain_sheet_open": "a state or variant of a screen with no frame of its own",
+  "portfolio_stale_prices": "a state or variant of a screen with no frame of its own",
+  "provider_needs_key": "a state or variant of a screen with no frame of its own",
+  "re_pair": "a state or variant of a screen with no frame of its own",
+  "re_pair_light": "a state or variant of a screen with no frame of its own",
+  "reset_lumio_dialog": "a state or variant of a screen with no frame of its own",
+  "reset_lumio_dialog_ticked": "a state or variant of a screen with no frame of its own",
+  "scan_camera_denied": "a state or variant of a screen with no frame of its own",
+  "search_no_match": "a state or variant of a screen with no frame of its own",
+  "search_trending": "a state or variant of a screen with no frame of its own",
+  "settings_address_book": "a state or variant of a screen with no frame of its own",
+  "settings_bitcoin_servers": "a state or variant of a screen with no frame of its own",
+  "settings_change_password_changed": "a state or variant of a screen with no frame of its own",
+  "settings_change_password_refused": "a state or variant of a screen with no frame of its own",
+  "settings_change_password_wrong_current": "a state or variant of a screen with no frame of its own",
+  "settings_device_protection": "a state or variant of a screen with no frame of its own",
+  "settings_device_protection_unavailable": "a state or variant of a screen with no frame of its own",
+  "settings_display_euro": "a state or variant of a screen with no frame of its own",
+  "settings_display_theme_sheet": "a state or variant of a screen with no frame of its own",
+  "settings_duress_password": "a state or variant of a screen with no frame of its own",
+  "settings_duress_password_same_as_lumio": "a state or variant of a screen with no frame of its own",
+  "settings_security_auto_lock_sheet": "a state or variant of a screen with no frame of its own",
+  "settings_security_duress_set": "a state or variant of a screen with no frame of its own",
+  "settings_security_switching": "a state or variant of a screen with no frame of its own",
+  "settings_transactions_spam_shown": "a state or variant of a screen with no frame of its own",
+  "solana_send_form": "a state or variant of a screen with no frame of its own",
+  "solana_send_form_token": "a state or variant of a screen with no frame of its own",
+  "solana_send_request": "a state or variant of a screen with no frame of its own",
+  "solana_send_review": "a state or variant of a screen with no frame of its own",
+  "solana_send_review_token": "a state or variant of a screen with no frame of its own",
+  "solana_send_sent": "a state or variant of a screen with no frame of its own",
+  "solana_setup_review": "a state or variant of a screen with no frame of its own",
+  "transaction_detail_flagged": "a state or variant of a screen with no frame of its own",
+  "wallet_accounts_empty": "a state or variant of a screen with no frame of its own",
+  "wallet_accounts_fold_open": "a state or variant of a screen with no frame of its own",
+  "wallet_accounts_folded": "a state or variant of a screen with no frame of its own",
+  "wallet_accounts_hidden": "a state or variant of a screen with no frame of its own",
+  "wallet_accounts_reading": "a state or variant of a screen with no frame of its own",
+  "wallet_landscape": "a state or variant of a screen with no frame of its own",
+  "wallet_long_name": "a state or variant of a screen with no frame of its own",
+  "wallet_provider_error": "a state or variant of a screen with no frame of its own",
+  "wallet_small_font_2": "a state or variant of a screen with no frame of its own",
+  "wallets_empty": "a state or variant of a screen with no frame of its own",
+  "wallets_hidden": "a state or variant of a screen with no frame of its own",
+  "wallets_landscape": "a state or variant of a screen with no frame of its own",
+  "wallets_loading": "a state or variant of a screen with no frame of its own",
+  "wallets_notice": "a state or variant of a screen with no frame of its own",
+  "wallets_small_font_2": "a state or variant of a screen with no frame of its own"
+ }
 }

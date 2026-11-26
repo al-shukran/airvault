@@ -462,27 +462,6 @@
     {
      "id": "e16",
      "kind": "box",
-     "node": "i.tr",
-     "path": "div.sld[6]>i.tr[0]",
-     "rect": {
-      "x": 31,
-      "y": 308,
-      "w": 298,
-      "h": 4
-     },
-     "fill": [
-      54,
-      49,
-      59,
-      1
-     ],
-     "border": null,
-     "radius": "2px",
-     "shadow": null
-    },
-    {
-     "id": "e17",
-     "kind": "box",
      "node": "i.fl",
      "path": "div.sld[6]>i.fl[1]",
      "rect": {
@@ -502,7 +481,7 @@
      "shadow": null
     },
     {
-     "id": "e18",
+     "id": "e17",
      "kind": "box",
      "node": "i.th",
      "path": "div.sld[6]>i.th[2]",
@@ -523,7 +502,7 @@
      "shadow": "rgb(21, 19, 23) 0px 0px 0px 4px"
     },
     {
-     "id": "e19",
+     "id": "e18",
      "kind": "text",
      "node": "span",
      "path": "div.sldl[7]>span[0]",
@@ -551,7 +530,7 @@
      ]
     },
     {
-     "id": "e20",
+     "id": "e19",
      "kind": "text",
      "node": "span",
      "path": "div.sldl[7]>span[1]",
@@ -579,7 +558,7 @@
      ]
     },
     {
-     "id": "e21",
+     "id": "e20",
      "kind": "text",
      "node": "p.s.px",
      "path": "p.s.px[8]",
@@ -1066,27 +1045,6 @@
     {
      "id": "e16",
      "kind": "box",
-     "node": "i.tr",
-     "path": "div.sld[6]>i.tr[0]",
-     "rect": {
-      "x": 31,
-      "y": 308,
-      "w": 298,
-      "h": 4
-     },
-     "fill": [
-      230,
-      221,
-      204,
-      1
-     ],
-     "border": null,
-     "radius": "2px",
-     "shadow": null
-    },
-    {
-     "id": "e17",
-     "kind": "box",
      "node": "i.fl",
      "path": "div.sld[6]>i.fl[1]",
      "rect": {
@@ -1106,7 +1064,7 @@
      "shadow": null
     },
     {
-     "id": "e18",
+     "id": "e17",
      "kind": "box",
      "node": "i.th",
      "path": "div.sld[6]>i.th[2]",
@@ -1127,7 +1085,7 @@
      "shadow": "rgb(251, 246, 236) 0px 0px 0px 4px"
     },
     {
-     "id": "e19",
+     "id": "e18",
      "kind": "text",
      "node": "span",
      "path": "div.sldl[7]>span[0]",
@@ -1155,7 +1113,7 @@
      ]
     },
     {
-     "id": "e20",
+     "id": "e19",
      "kind": "text",
      "node": "span",
      "path": "div.sldl[7]>span[1]",
@@ -1183,7 +1141,7 @@
      ]
     },
     {
-     "id": "e21",
+     "id": "e20",
      "kind": "text",
      "node": "p.s.px",
      "path": "p.s.px[8]",

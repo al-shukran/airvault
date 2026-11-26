@@ -932,48 +932,6 @@
     {
      "id": "e34",
      "kind": "box",
-     "node": "i.tr",
-     "path": "div.sh[10]>div.sld[3]>i.tr[0]",
-     "rect": {
-      "x": 31,
-      "y": 411,
-      "w": 298,
-      "h": 4
-     },
-     "fill": [
-      54,
-      49,
-      59,
-      1
-     ],
-     "border": null,
-     "radius": "2px",
-     "shadow": null
-    },
-    {
-     "id": "e35",
-     "kind": "box",
-     "node": "i.tk",
-     "path": "div.sh[10]>div.sld[3]>i.tk[1]",
-     "rect": {
-      "x": 28,
-      "y": 410,
-      "w": 6,
-      "h": 6
-     },
-     "fill": [
-      138,
-      130,
-      141,
-      1
-     ],
-     "border": null,
-     "radius": "50%",
-     "shadow": null
-    },
-    {
-     "id": "e36",
-     "kind": "box",
      "node": "i.tk",
      "path": "div.sh[10]>div.sld[3]>i.tk[2]",
      "rect": {
@@ -993,7 +951,7 @@
      "shadow": null
     },
     {
-     "id": "e37",
+     "id": "e35",
      "kind": "box",
      "node": "i.tk",
      "path": "div.sh[10]>div.sld[3]>i.tk[3]",
@@ -1014,7 +972,7 @@
      "shadow": null
     },
     {
-     "id": "e38",
+     "id": "e36",
      "kind": "box",
      "node": "i.th",
      "path": "div.sh[10]>div.sld[3]>i.th[4]",
@@ -1035,7 +993,7 @@
      "shadow": "rgb(31, 28, 34) 0px 0px 0px 4px"
     },
     {
-     "id": "e39",
+     "id": "e37",
      "kind": "text",
      "node": "b",
      "path": "div.sh[10]>div.sldl[4]>b[0]",
@@ -1063,7 +1021,7 @@
      ]
     },
     {
-     "id": "e40",
+     "id": "e38",
      "kind": "text",
      "node": "span",
      "path": "div.sh[10]>div.sldl[4]>span[1]",
@@ -1091,7 +1049,7 @@
      ]
     },
     {
-     "id": "e41",
+     "id": "e39",
      "kind": "text",
      "node": "span",
      "path": "div.sh[10]>div.sldl[4]>span[2]",
@@ -1119,7 +1077,7 @@
      ]
     },
     {
-     "id": "e42",
+     "id": "e40",
      "kind": "box",
      "node": "div.fld.on",
      "path": "div.sh[10]>div.fld.on[5]",
@@ -1143,7 +1101,7 @@
      "shadow": null
     },
     {
-     "id": "e43",
+     "id": "e41",
      "kind": "text",
      "node": "span.lab",
      "path": "div.sh[10]>div.fld.on[5]>span.lab[0]",
@@ -1171,7 +1129,7 @@
      ]
     },
     {
-     "id": "e44",
+     "id": "e42",
      "kind": "box",
      "node": "span.lab",
      "path": "div.sh[10]>div.fld.on[5]>span.lab[0]",
@@ -1192,7 +1150,7 @@
      "shadow": null
     },
     {
-     "id": "e45",
+     "id": "e43",
      "kind": "text",
      "node": "span.val.ty",
      "path": "div.sh[10]>div.fld.on[5]>span.val.ty[1]",
@@ -1220,7 +1178,7 @@
      ]
     },
     {
-     "id": "e46",
+     "id": "e44",
      "kind": "text",
      "node": "span.unit",
      "path": "div.sh[10]>div.fld.on[5]>span.unit[2]",
@@ -1248,7 +1206,7 @@
      ]
     },
     {
-     "id": "e47",
+     "id": "e45",
      "kind": "text",
      "node": "div.fhint",
      "path": "div.sh[10]>div.fhint[6]",
@@ -1276,7 +1234,7 @@
      ]
     },
     {
-     "id": "e48",
+     "id": "e46",
      "kind": "box",
      "node": "div.note",
      "path": "div.sh[10]>div.note[7]",
@@ -1297,7 +1255,7 @@
      "shadow": null
     },
     {
-     "id": "e49",
+     "id": "e47",
      "kind": "icon",
      "node": "svg.i",
      "path": "div.sh[10]>div.note[7]>svg.i[0]",
@@ -1313,7 +1271,7 @@
      "shadow": null
     },
     {
-     "id": "e50",
+     "id": "e48",
      "kind": "text",
      "node": "span",
      "path": "div.sh[10]>div.note[7]>span[1]",

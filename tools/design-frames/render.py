@@ -70,6 +70,16 @@ EXTRACT_JS = r"""
     }
     return false;
   };
+  // An element whose centre lies under an opaque element that is not its own is not on screen: the tab bar over the last row of a list. The top left corner is tested, so a row cut off at its bottom still counts.
+  const covered = (el, u) => {
+    const top = document.elementFromPoint(u.l + 2, u.t + 2);
+    if (!top || el.contains(top) || top.contains(el)) return false;
+    for (let p = top; p && p !== ph.parentElement; p = p.parentElement) {
+      if (p.contains(el)) break;
+      if (rgba(getComputedStyle(p).backgroundColor)[3] >= 0.95) return true;
+    }
+    return false;
+  };
   const name = (el) => {
     const cls = [...el.classList].filter((c) => c !== '__t').slice(0, 2).join('.');
     return el.tagName.toLowerCase() + (cls ? '.' + cls : '');
@@ -101,7 +111,7 @@ EXTRACT_JS = r"""
       let text = words.map((q) => q.text).join('').replace(/\s+/g, ' ').trim();
       if (s.textTransform === 'uppercase') text = text.toUpperCase();
       const u = {l: Math.min(...words.map((q) => q.box.l)), t: Math.min(...words.map((q) => q.box.t)), r: Math.max(...words.map((q) => q.box.r)), b: Math.max(...words.map((q) => q.box.b))};
-      if (visible(u)) {
+      if (visible(u) && !covered(el, u)) {
         out.push({
           id: 'e' + (seq++), kind: 'text', node: name(el), path: path(), text,
           rect: rect({left: u.l, top: u.t, width: u.r - u.l, height: u.b - u.t}), lines: Math.max(...words.map((q) => q.lines)),
@@ -116,7 +126,7 @@ EXTRACT_JS = r"""
     const shadow = s.boxShadow !== 'none';
     const isIcon = tag === 'svg' || tag === 'img' || (s.backgroundImage !== 'none' && s.backgroundImage.startsWith('url'));
     const fills = bg[3] > 0.02;
-    if ((fills || bw > 0 || shadow || isIcon) && visible({l: r.left, t: r.top, r: r.right, b: r.bottom}) && r.width > 0 && r.height > 0) {
+    if ((fills || bw > 0 || shadow || isIcon) && visible({l: r.left, t: r.top, r: r.right, b: r.bottom}) && r.width > 0 && r.height > 0 && !covered(el, {l: r.left, t: r.top, r: r.right, b: r.bottom})) {
       out.push({
         id: 'e' + (seq++), kind: isIcon ? 'icon' : 'box', node: name(el), path: path(), rect: rect(r),
         fill: fills ? bg : null, border: bw > 0 ? {width: bw, color: rgba(s.borderTopColor)} : null, radius: s.borderTopLeftRadius,

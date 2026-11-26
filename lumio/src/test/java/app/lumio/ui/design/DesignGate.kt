@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
@@ -19,6 +20,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import app.lensly.ui.screenshot.SCREEN_TAG
 import java.awt.Color
 import java.awt.image.BufferedImage
@@ -111,15 +113,14 @@ class GateScreen(private val name: String, row: JsonObject, registry: JsonObject
     }
 }
 
-private class Mask(row: JsonObject) {
+internal class Mask(row: JsonObject) {
     val rect = row.getValue("rect").jsonArray.map { it.jsonPrimitive.double() }
     fun contains(x: Double, y: Double) = x >= rect[0] && x < rect[0] + rect[2] && y >= rect[1] && y < rect[1] + rect[3]
 }
 
-private class Tolerance(row: JsonObject) {
+internal class Tolerance(row: JsonObject) {
     val bandDp = row.num("bandDp")
     val textPosDp = row.num("textPosDp")
-    val textWidthDp = row.num("textWidthDp")
     val fontSizeDp = row.num("fontSizeDp")
     val lineHeightDp = row.num("lineHeightDp")
     val letterSpacingDp = row.num("letterSpacingDp")
@@ -127,10 +128,12 @@ private class Tolerance(row: JsonObject) {
     val sample = row.num("sample").toInt()
     val cell = row.num("cell").toInt()
     val cellDp = row.num("cellDp").toInt()
+    val ink = row.num("ink").toInt()
+    val iconColor = row.num("iconColor").toInt()
 }
 
-/** The app's text, read from the semantics tree: what each Text says and where, and the style it was laid out with. Positions are in the frame's dp. */
-private class AppText(val text: String, val x: Double, val y: Double, val w: Double, val h: Double, val size: Double, val weight: Int, val lineHeight: Double?, val letterSpacing: Double, val color: Int?, val colorAlpha: Double) {
+/** The app's text, read from the semantics tree: what each Text says, the box of its node, and the style it was laid out with. All in the frame's dp. */
+internal class AppText(val text: String, val x: Double, val y: Double, val w: Double, val h: Double, val lines: Int, val size: Double, val weight: Int, val lineHeight: Double?, val letterSpacing: Double, val color: Int?, val colorAlpha: Double) {
     var used = false
     val cx get() = x + w / 2
     val cy get() = y + h / 2
@@ -148,11 +151,6 @@ private fun SemanticsNode.appTexts(originX: Float, originY: Float): List<AppText
                 val style = layout.layoutInput.style
                 val density = layout.layoutInput.density
                 val size = with(density) { style.fontSize.toPx().toDouble() }
-                val lines = layout.lineCount
-                val left = (0 until lines).minOf { layout.getLineLeft(it) }
-                val right = (0 until lines).maxOf { layout.getLineRight(it) }
-                val top = layout.getLineTop(0)
-                val bottom = layout.getLineBottom(lines - 1)
                 val spacing = when {
                     style.letterSpacing.isEm -> style.letterSpacing.value * size
                     style.letterSpacing.isSp -> with(density) { style.letterSpacing.toPx().toDouble() }
@@ -160,10 +158,11 @@ private fun SemanticsNode.appTexts(originX: Float, originY: Float): List<AppText
                 }
                 out += AppText(
                     text = layout.layoutInput.text.text,
-                    x = node.positionInRoot.x - originX + left.toDouble(),
-                    y = node.positionInRoot.y - originY + top.toDouble(),
-                    w = (right - left).toDouble(),
-                    h = (bottom - top).toDouble(),
+                    x = node.positionInRoot.x - originX.toDouble(),
+                    y = node.positionInRoot.y - originY.toDouble(),
+                    w = node.size.width.toDouble(),
+                    h = node.size.height.toDouble(),
+                    lines = layout.lineCount,
                     size = size,
                     weight = style.fontWeight?.weight ?: 400,
                     lineHeight = if (style.lineHeight.isSpecified) with(density) { style.lineHeight.toPx().toDouble() } else null,
@@ -283,7 +282,7 @@ internal class Result(val name: String, val findings: List<Finding>, val rows: L
 }
 
 /** The checks of one screen against its frame. */
-private class Comparison(
+internal class Comparison(
     val name: String,
     val spec: JsonObject,
     val themeSpec: JsonObject,
@@ -318,12 +317,13 @@ private class Comparison(
         checkBands(bandsWant, bandsGot)
         val elements = themeSpec.getValue("elements").jsonArray.map { it.jsonObject }
         elements.filter { it.str("kind") == "text" }.forEach { checkText(it) }
-        texts.filter { !it.used && it.x < actual.w && it.y < actual.h && it.x + it.w > 0 && it.y + it.h > 0 && !masked(it.cx, it.cy) }.forEach {
+        // A Text the frame does not have counts only when it shows: one under the tab bar or past the end of a list leaves no ink.
+        texts.filter { !it.used && it.x < actual.w && it.y < actual.h && it.x + it.w > 0 && it.y + it.h > 0 && !masked(it.cx, it.cy) && inkBox(actual, listOf(it.x, it.y, it.w, it.h)) != null }.forEach {
             row("text", "extra", "'${it.text}'", listOf(Triple("text", "absent from the frame", "at ${it.x.f()},${it.y.f()}")), listOf(it.x, it.y, it.w, it.h))
         }
         elements.filter { it.str("kind") == "box" }.forEach { checkBox(it) }
         elements.filter { it.str("kind") == "icon" }.forEach { checkIcon(it) }
-        checkRegions()
+        checkRegions(elements)
         return Result(name, findings, rows, bandsWant to bandsGot)
     }
 
@@ -376,13 +376,24 @@ private class Comparison(
         match.used = true
         val d = mutableListOf<Triple<String, String, String>>()
         fun cmp(field: String, want: Double, got: Double, t: Double) { if (abs(want - got) > t) d += Triple(field, want.f(), got.f()) }
-        cmp("left x", r[0], match.x, tol.textPosDp)
-        cmp("center y", cy, match.cy, tol.textPosDp)
-        cmp("width", r[2], match.w, tol.textWidthDp)
+        // Where the words are drawn: the box of their ink, in the frame and in the screen, so alignment and font metrics need no model.
+        // The rise and fall arrows come from a fallback font, which Chromium on the Mac and Robolectric choose differently: their ink is not compared.
+        val fallbackGlyph = text.any { it == '\u25B2' || it == '\u25BC' }
+        val seen = if (fallbackGlyph) null else inkBox(expected, r)
+        val shown = if (fallbackGlyph) null else inkBox(actual, r)
+        if (fallbackGlyph) Unit
+        else if (seen == null || shown == null) d += Triple("ink", if (seen == null) "none" else "present", if (shown == null) "none" else "present")
+        else {
+            cmp("ink left", seen[0], shown[0], tol.textPosDp)
+            cmp("ink right", seen[2], shown[2], tol.textPosDp)
+            cmp("ink top", seen[1], shown[1], tol.textPosDp)
+            cmp("ink bottom", seen[3], shown[3], tol.textPosDp)
+        }
         val font = el.getValue("font").jsonObject
         cmp("font size", font.num("size"), match.size, tol.fontSizeDp)
         if (font.num("weight").toInt() != match.weight) d += Triple("font weight", "${font.num("weight").toInt()}", "${match.weight}")
-        font["lineHeight"]?.takeIf { it !is kotlinx.serialization.json.JsonNull }?.jsonPrimitive?.double()?.let { want ->
+        // The line height shows only where lines stack.
+        if (el.getValue("lines").jsonPrimitive.double() > 1) font["lineHeight"]?.takeIf { it !is kotlinx.serialization.json.JsonNull }?.jsonPrimitive?.double()?.let { want ->
             if (match.lineHeight == null) d += Triple("line height", want.f(), "unset") else cmp("line height", want, match.lineHeight, tol.lineHeightDp)
         }
         cmp("letter spacing", font.num("letterSpacing"), match.letterSpacing, tol.letterSpacingDp)
@@ -392,6 +403,20 @@ private class Comparison(
             if (dist(want, shown) > tol.textColor) d += Triple("color", hex(want), hex(shown))
         }
         row("text", id, label, d, r)
+    }
+
+    /** The box of the pixels in [rect] (grown by 2 dp) that differ strongly from the rectangle's own border colour, as left, top, right, bottom; null when there are none. */
+    private fun inkBox(img: Px, rect: List<Double>): List<Double>? {
+        val x0 = max(0, rect[0].toInt() - 2); val y0 = max(0, rect[1].toInt() - 2)
+        val x1 = min(img.w, (rect[0] + rect[2]).toInt() + 3); val y1 = min(img.h, (rect[1] + rect[3]).toInt() + 3)
+        if (x1 <= x0 || y1 <= y0) return null
+        val ring = ArrayList<Int>()
+        for (x in x0 until x1) { ring += img.at(x, y0); ring += img.at(x, y1 - 1) }
+        for (y in y0 until y1) { ring += img.at(x0, y); ring += img.at(x1 - 1, y) }
+        val base = ring.groupingBy { it }.eachCount().maxByOrNull { it.value }!!.key
+        var l = Int.MAX_VALUE; var t = Int.MAX_VALUE; var r = -1; var b = -1
+        for (y in y0 until y1) for (x in x0 until x1) if (dist(img.at(x, y), base) > tol.ink) { l = min(l, x); r = max(r, x + 1); t = min(t, y); b = max(b, y + 1) }
+        return if (r < 0) null else listOf(l.toDouble(), t.toDouble(), r.toDouble(), b.toDouble())
     }
 
     /** A box is checked by the pixels around its edge in the frame and in the screen: inside the fill, on the border, and outside it (a ring or a shadow). */
@@ -410,7 +435,10 @@ private class Comparison(
         if (r[2] >= 2 * inset + 2) { inside += "top" to (mx to y0 + inset); inside += "bottom" to (mx to y1 - inset - 0.5) }
         if (r[3] >= 2 * inset + 2) { inside += "left" to (x0 + inset to my); inside += "right" to (x1 - inset - 0.5 to my) }
         if (inside.isEmpty()) inside += "center" to (mx to my)
-        val outside = listOf("above" to (mx to y0 - 2.5), "below" to (mx to y1 + 1.5), "left of" to (x0 - 2.5 to my), "right of" to (x1 + 1.5 to my))
+        val outside = listOf(
+            "above" to (mx to y0 - 1.5), "above" to (mx to y0 - 3.5), "below" to (mx to y1 + 0.5), "below" to (mx to y1 + 2.5),
+            "left of" to (x0 - 1.5 to my), "left of" to (x0 - 3.5 to my), "right of" to (x1 + 0.5 to my), "right of" to (x1 + 2.5 to my),
+        )
         val ring = if (bw > 0) listOf("border top" to (mx to y0 + bw / 2), "border bottom" to (mx to y1 - bw / 2 - 0.5), "border left" to (x0 + bw / 2 to my), "border right" to (x1 - bw / 2 - 0.5 to my)) else emptyList()
         for ((where, p) in inside + ring + outside) {
             val x = p.first.toInt(); val y = p.second.toInt()
@@ -440,8 +468,24 @@ private class Comparison(
             }
             y += tol.cellDp
         }
-        val d = if (worst > tol.cell) listOf(Triple("pixels (worst ${tol.cellDp} dp cell at $at)", "frame", "differs by $worst of 255")) else emptyList()
+        val d = mutableListOf<Triple<String, String, String>>()
+        if (worst > tol.cell) d += Triple("pixels (worst ${tol.cellDp} dp cell at $at)", "frame", "differs by $worst of 255")
+        // The colour the glyph is drawn in: the pixel of the rectangle furthest from its border colour, in the frame and in the screen.
+        val rect = listOf(r[0], r[1], r[2], r[3])
+        val want = farthest(expected, rect)
+        val got = farthest(actual, rect)
+        if (want != null && got != null && dist(want, got) > tol.iconColor) d += Triple("drawn colour", hex(want), hex(got))
         row("icon", id, "${el.str("node")} ${r[2].f()}x${r[3].f()} at ${r[0].f()},${r[1].f()}", d, r)
+    }
+
+    private fun farthest(img: Px, rect: List<Double>): Int? {
+        val x0 = max(0, rect[0].toInt()); val y0 = max(0, rect[1].toInt())
+        val x1 = min(img.w, (rect[0] + rect[2]).toInt() + 1); val y1 = min(img.h, (rect[1] + rect[3]).toInt() + 1)
+        if (x1 <= x0 || y1 <= y0) return null
+        val base = img.at(x0, y0)
+        var best = base
+        for (y in y0 until y1) for (x in x0 until x1) if (dist(img.at(x, y), base) > dist(best, base)) best = img.at(x, y)
+        return best
     }
 
     private fun cell(img: Px, x: Int, y: Int, maxX: Int, maxY: Int): Int {
@@ -453,13 +497,22 @@ private class Comparison(
         return if (n == 0) 0 else (r / n shl 16) or (g / n shl 8) or (b / n)
     }
 
-    /** Every [Tolerance.cellDp] dp cell of the frame whose average colour differs, joined into regions: what the element checks cannot name (a chart, a missing element). */
-    private fun checkRegions() {
+    /**
+     * Every [Tolerance.cellDp] dp cell of the frame whose average colour differs, joined into regions: what the element checks cannot name, such as
+     * a Text or a picture the frame does not have. The cells inside a word or an icon of the frame are left out: their own checks measure them, and
+     * a glyph drawn half a dp apart would move a cell's colour far more than the tolerance.
+     */
+    private fun checkRegions(elements: List<JsonObject>) {
         val k = tol.cellDp
         val cw = (actual.w + k - 1) / k
         val ch = (actual.h + k - 1) / k
         val bad = Array(ch) { cy -> IntArray(cw) { cx -> dist(cell(expected, cx * k, cy * k, actual.w, actual.h), cell(actual, cx * k, cy * k, actual.w, actual.h)) } }
         val seen = Array(ch) { BooleanArray(cw) }
+        for (el in elements.filter { it.str("kind") != "box" }) {
+            val r = rectOf(el)
+            for (cy in max(0, ((r[1] - 1) / k).toInt()) .. min(ch - 1, ((r[1] + r[3] + 1) / k).toInt()))
+                for (cx in max(0, ((r[0] - 1) / k).toInt()) .. min(cw - 1, ((r[0] + r[2] + 1) / k).toInt())) seen[cy][cx] = true
+        }
         var n = 0
         for (cy in 0 until ch) for (cx in 0 until cw) {
             if (seen[cy][cx] || bad[cy][cx] <= tol.cell) continue

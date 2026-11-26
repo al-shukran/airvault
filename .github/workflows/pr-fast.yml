@@ -240,6 +240,86 @@ jobs:
           path: ~/.gradle/caches/build-cache-1
           key: bc-fuzz-master
 
+  # The design gate (tools/design-frames/README.md): every Lumio screen that design/registry.json lists is rendered in Robolectric at the size
+  # of its approved frame and compared with the frame, element by element, light and dark. It is the one lane that reads the frames, and it
+  # never reads a golden, so re-recording goldens cannot turn it green. A screen that differs and is not a known violation fails the lane; so
+  # does a known violation that now matches, and so does a registered screen that did not run. The lane uploads the per-element table and the
+  # crops of every difference, and writes the summary to the job summary.
+  design:
+    name: design gate
+    needs: deps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-disabled: true
+
+      - name: Restore the Gradle dependency cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DEPS_CACHE_PATHS }}
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+          fail-on-cache-miss: true
+
+      # The compiled outputs of :lumio and :shared match the shards', so the newest shard entry saves the compile. This lane saves nothing.
+      - name: Restore the Gradle build cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/caches/build-cache-1
+          key: bc-design-master
+          restore-keys: bc-shard-
+
+      - name: Compare the registered screens with their frames
+        run: ./scripts/ci/run-partition.sh design
+
+      - name: Stop the Gradle daemon
+        if: always()
+        run: ./gradlew --stop
+
+      - name: Upload the per-element report and the crops
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: design-gate
+          path: lumio/build/design-gate
+          retention-days: 14
+          if-no-files-found: warn
+
+  # A pull request may not change what the design gate measures against (the frames, the tolerance, the masks, the known violations) unless it
+  # carries the label design:approved-change (scripts/design/guard.py). The labels are read when the job runs: add the label, then re-run.
+  design_guard:
+    name: design guard
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check the design frames and the registry
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/design/guard.py
+
   # No Gradle: every script's syntax, the test-class coverage of the lanes, and the test-network guard (guideline 3).
   ci:
     name: ci scripts and test coverage
@@ -348,7 +428,7 @@ jobs:
 
   pr-ok: # the single required check
     if: always()
-    needs: [deps, shard, fuzz, ci, secrets, manifest, dependency_review]
+    needs: [deps, shard, fuzz, ci, secrets, manifest, dependency_review, design, design_guard]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -362,6 +442,8 @@ jobs:
       CI: ${{ needs.ci.result }}
       SECRETS: ${{ needs.secrets.result }}
       MANIFEST: ${{ needs.manifest.result }}
+      DESIGN: ${{ needs.design.result }}
+      DESIGN_GUARD: ${{ needs.design_guard.result }}
       DEPENDENCY_REVIEW: ${{ needs.dependency_review.result }}
       DEPENDENCY_GRAPH_ENABLED: ${{ vars.DEPENDENCY_GRAPH_ENABLED }}
     steps:
@@ -383,7 +465,7 @@ jobs:
       - name: Aggregate results
         run: |
           failed=0
-          for pair in "deps=$DEPS" "shard=$SHARD" "fuzz=$FUZZ" "ci=$CI" "secrets=$SECRETS" "manifest=$MANIFEST"; do
+          for pair in "deps=$DEPS" "shard=$SHARD" "fuzz=$FUZZ" "ci=$CI" "secrets=$SECRETS" "manifest=$MANIFEST" "design=$DESIGN"; do
             name="${pair%%=*}"
             result="${pair#*=}"
             if [ "$result" != success ]; then
@@ -396,6 +478,12 @@ jobs:
             success) ;;
             skipped) [ "$DEPENDENCY_GRAPH_ENABLED" != true ] || [ "$GITHUB_EVENT_NAME" != pull_request ] || { echo "dependency_review: skipped"; failed=1; } ;;
             *) echo "dependency_review: $DEPENDENCY_REVIEW"; failed=1 ;;
+          esac
+          # The design gate has no skip: a skipped lane is a failed one. The guard reads pull request labels, so it runs on pull requests only.
+          case "$DESIGN_GUARD" in
+            success) ;;
+            skipped) [ "$GITHUB_EVENT_NAME" != pull_request ] || { echo "design_guard: skipped"; failed=1; } ;;
+            *) echo "design_guard: $DESIGN_GUARD"; failed=1 ;;
           esac
           if [ "$failed" -ne 0 ]; then
             echo "pr-ok: a blocking lane did not succeed"
