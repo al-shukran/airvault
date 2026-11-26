@@ -36,6 +36,7 @@ class EvmSendRpcTest {
     private val oneCent = BigInteger.TEN.pow(16)
     private val answers = HashMap<String, String>()
     private var failing = HashSet<String>()
+    private var failureMessage = "nope"
     private val usdc = Token(1L, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "USDC", "USD Coin", 6)
     private val bodies = CopyOnWriteArrayList<String>()
 
@@ -46,7 +47,7 @@ class EvmSendRpcTest {
                 val body = request.body?.utf8().orEmpty()
                 bodies += body
                 val method = Regex("\"method\":\"([^\"]+)\"").find(body)?.groupValues?.get(1).orEmpty()
-                if (method in failing) return MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"nope"}}""").build()
+                if (method in failing) return MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"$failureMessage"}}""").build()
                 val result = answers[method] ?: return MockResponse.Builder().code(400).build()
                 return MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":$result}""").build()
             }
@@ -139,6 +140,26 @@ class EvmSendRpcTest {
         val failure = assertThrows(RpcFailure::class.java) { runBlocking { EvmSend.broadcast(reads(), chain, byteArrayOf(0x02)) } }
         assertEquals(RpcFailure.Reason.ERROR, failure.reason)
         assertFalse(outcomeUnknown(failure))
+    }
+
+    @Test
+    fun aBroadcastThatTheNodeAlreadyHoldsIsSentWithTheHashOfTheSignedTransaction() {
+        val raw = byteArrayOf(0x02, 0x01, 0x02)
+        failing.add("eth_sendRawTransaction")
+        for (wording in listOf("already known", "ALREADY KNOWN", "known transaction", "already imported", "AlreadyKnown")) {
+            failureMessage = wording
+            assertEquals(wording, "0x" + Hash.sha3(raw).toHex(), runBlocking { EvmSend.broadcast(reads(), chain, raw) })
+        }
+        assertEquals(5, bodies.count { it.contains("eth_sendRawTransaction") })
+    }
+
+    @Test
+    fun anUnknownTransactionIsStillARefusal() {
+        failing.add("eth_sendRawTransaction")
+        failureMessage = "unknown transaction"
+
+        val failure = assertThrows(RpcFailure::class.java) { runBlocking { EvmSend.broadcast(reads(), chain, byteArrayOf(0x02)) } }
+        assertEquals(RpcFailure.Reason.ERROR, failure.reason)
     }
 
     @Test

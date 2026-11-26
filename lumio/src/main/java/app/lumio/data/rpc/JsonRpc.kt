@@ -68,6 +68,12 @@ object JsonRpc {
     /** What the owner reads when the node refuses a transaction for its balance. */
     const val INSUFFICIENT_FUNDS_MESSAGE = "The network refused the transaction: the account does not hold enough for the amount and the fee."
 
+    /**
+     * The wording of a node that already holds the transaction it was sent: "already known" (Geth), "known transaction" (Besu), "already imported"
+     * (OpenEthereum) or "AlreadyKnown" (Nethermind). The word boundary keeps "unknown transaction" out.
+     */
+    private val ALREADY_KNOWN = Regex("""\b(already ?known|known transaction|already imported)""", RegexOption.IGNORE_CASE)
+
     /** The wording of a Solana node that refuses a transaction whose blockhash it does not know: "Blockhash not found" in its simulation error. */
     private val BLOCKHASH_UNKNOWN = Regex("blockhash not found", RegexOption.IGNORE_CASE)
 
@@ -97,7 +103,7 @@ object JsonRpc {
      * The result member of the answer to [method] with [params] at [url]. Blocking, so run it off the main thread. A 429, or a JSON-RPC error
      * that names a rate limit, is [ProviderError.RateLimited]; a 5xx, a timeout or a dropped connection is [ProviderError.Transient]; an error
      * that says the endpoint does not serve the method or the chain is [ProviderError.Unsupported], so the caller moves on without a penalty;
-     * anything else that fails is [ProviderError.Fatal].
+     * a node that already holds the transaction it was sent is [ProviderError.AlreadyKnown]; anything else that fails is [ProviderError.Fatal].
      */
     fun call(client: OkHttpClient, url: String, method: String, params: JsonArray, allowLocalHttp: Boolean, nullIsAnswer: Boolean = false): JsonElement {
         val target = try {
@@ -143,6 +149,7 @@ object JsonRpc {
             val message = (fields?.get("message") as? JsonPrimitive)?.content.orEmpty()
             if (code == RATE_LIMITED_CODE || message.contains("rate limit", ignoreCase = true)) throw ProviderError.RateLimited()
             if (code == METHOD_NOT_FOUND_CODE || NOT_SERVED.containsMatchIn(message)) throw ProviderError.Unsupported()
+            if (ALREADY_KNOWN.containsMatchIn(message)) throw ProviderError.AlreadyKnown()
             if (INSUFFICIENT_FUNDS.containsMatchIn(message)) throw ProviderError.Fatal(INSUFFICIENT_FUNDS_MESSAGE)
             if (BLOCKHASH_UNKNOWN.containsMatchIn(message)) throw ProviderError.Fatal(BLOCKHASH_REFUSED_MESSAGE)
             throw ProviderError.Fatal("The endpoint returned a JSON-RPC error.")
