@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.content.Context
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -33,11 +34,22 @@ class ArrivalNotificationsTest {
     }
 
     @Test
-    fun `arrival notice tag does not name the transaction`() {
+    fun `arrival notice carries no tag, so it cannot name the transaction`() {
         ArrivalNotifications(context).post(TX_ID)
 
-        val tag = manager.activeNotifications.single().tag.orEmpty()
-        assertFalse("tag '$tag' names the transaction", tag.contains(TX_ID))
+        assertNull(manager.activeNotifications.single().tag)
+    }
+
+    @Test
+    fun `different arrivals stack and a repeated arrival updates its notice`() {
+        val notices = ArrivalNotifications(context)
+
+        notices.post(TX_ID)
+        notices.post(OTHER_TX_ID)
+        assertEquals(2, manager.activeNotifications.size)
+
+        notices.post(TX_ID)
+        assertEquals(2, manager.activeNotifications.size)
     }
 
     private fun assertNoForbiddenWords(visible: String) {
@@ -46,6 +58,7 @@ class ArrivalNotificationsTest {
 
     private companion object {
         const val TX_ID = "tx-4c9e1b7a"
+        const val OTHER_TX_ID = "tx-81d03f5e"
         val FORBIDDEN = Regex(
             "wallet|crypto|coin|token|receiv|arriv|transaction|\\btx\\b|\\bsend|\\bsent\\b|address|amount|bitcoin|\\bbtc\\b|ether|" +
                 "\\beth\\b|solana|\\bsol\\b|algorand|\\balgo\\b|monad|\\bmon\\b|usdc|0x|bc1|\\d",
