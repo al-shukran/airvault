@@ -77,6 +77,9 @@ private val VIEWFINDER_STROKE = 2.dp
 private const val VIEWFINDER_FRACTION = 0.7f
 private const val SCRIM_ALPHA = 0.6f
 
+/** What the scanner says while the sandbox cannot answer. */
+const val DECODE_FAILED_TEXT = "Couldn't read that code"
+
 /**
  * Live QR scanner: a CameraX preview with a square viewfinder. The viewfinder dims everything
  * outside it. Frames are decoded for QR codes only, in the QR Decode Sandbox, on a background thread.
@@ -84,7 +87,8 @@ private const val SCRIM_ALPHA = 0.6f
  * [onText] runs on the main thread. Identical texts that arrive in a row are reported once, so a
  * code held still does not fire repeatedly. A frame with no code does not reset that check, which
  * stops a flickering read from firing twice. Texts that differ, such as successive UR parts, all fire.
- * If the sandbox does not answer in time, or has died, the viewfinder says that the code could not be read.
+ * If the sandbox does not answer in time, or has died, the viewfinder says that the code could not be read, and [onDecodeFailed] is told, with true,
+ * and told again with false when the sandbox answers again.
  *
  * If the camera permission is missing, the composable asks for it. If it is refused, the
  * composable says so and offers OPEN SETTINGS, which still works after a permanent refusal.
@@ -94,7 +98,8 @@ private const val SCRIM_ALPHA = 0.6f
  * as it did before the seam existed.
  *
  * [viewfinder] draws the theme's backdrop, the dimmed frame and the square outline over the camera. A caller that draws its own frame turns it off,
- * and then the scanner draws nothing of its own: the caller's frame shows until the camera's first picture covers it.
+ * and then the scanner draws nothing of its own: the caller's frame shows until the camera's first picture covers it, and a caller that draws its
+ * own frame says [DECODE_FAILED_TEXT] itself, from [onDecodeFailed], where its frame has room for it.
  */
 @Composable
 fun QrScanner(
@@ -102,12 +107,14 @@ fun QrScanner(
     modifier: Modifier = Modifier,
     frameSource: FrameSource? = null,
     viewfinder: Boolean = true,
+    onDecodeFailed: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     val injected = frameSource
     var granted by remember { mutableStateOf(context.hasCameraPermission()) }
     var refused by rememberSaveable { mutableStateOf(false) }
     var decodeFailed by remember { mutableStateOf(false) }
+    val failed: (Boolean) -> Unit = { decodeFailed = it; onDecodeFailed(it) }
     val requestPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { result ->
@@ -124,10 +131,10 @@ fun QrScanner(
         contentAlignment = Alignment.Center,
     ) {
         if (injected != null) {
-            FixtureDecoder(frameSource = injected, onText = onText, onFailed = { decodeFailed = it })
+            FixtureDecoder(frameSource = injected, onText = onText, onFailed = failed)
             if (viewfinder) ViewfinderOverlay(modifier = Modifier.fillMaxSize())
         } else if (granted) {
-            CameraDecoder(onText = onText, onFailed = { decodeFailed = it }, opaque = viewfinder, modifier = Modifier.fillMaxSize())
+            CameraDecoder(onText = onText, onFailed = failed, opaque = viewfinder, modifier = Modifier.fillMaxSize())
             if (viewfinder) ViewfinderOverlay(modifier = Modifier.fillMaxSize())
         } else {
             ScanPermissionPrompt(
@@ -136,7 +143,7 @@ fun QrScanner(
                 onOpenSettings = { context.openAppSettings() },
             )
         }
-        if (decodeFailed) DecodeFailedNotice(modifier = Modifier.align(Alignment.BottomCenter))
+        if (decodeFailed && viewfinder) DecodeFailedNotice(modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 
@@ -317,7 +324,7 @@ private fun ViewfinderOverlay(modifier: Modifier) {
 @Composable
 private fun DecodeFailedNotice(modifier: Modifier) {
     Text(
-        text = "Couldn't read that code",
+        text = DECODE_FAILED_TEXT,
         modifier = modifier
             .padding(LenslySpacing.md)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(percent = 50))

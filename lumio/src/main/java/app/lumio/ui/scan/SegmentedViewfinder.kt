@@ -66,6 +66,14 @@ private val BAR_BOTTOM = 20.dp
 private val BAR_HEIGHT = 4.dp
 private const val BAR_TRACK_ALPHA = 0.22f
 
+/**
+ * The scrim under the caption and the bar, so they read over any picture, even a white page in sunlight: the camera's edge colour, clear 96 dp above the
+ * foot and [SCRIM_ALPHA] from 48 dp up (the caption's top is 48 dp up) to the foot. On the dark backdrop it is the colour the backdrop already is.
+ */
+private val SCRIM_CLEAR = 96.dp
+private val SCRIM_FULL = 48.dp
+private const val SCRIM_ALPHA = 0.8f
+
 /** The caption: one line across the camera, 30 dp up from its foot, under the brackets and over the bar, in paper at 85 percent. */
 private val CAPTION_BOTTOM = 30.dp
 private const val CAPTION_ALPHA = 0.85f
@@ -83,7 +91,7 @@ fun SegmentedViewfinder(progress: Float?, complete: Boolean, caption: String, mo
     val paper = LocalClearAirPalette.current.paper
     Box(modifier = modifier.fillMaxWidth().height(ViewfinderHeight).clip(RoundedCornerShape(CAMERA_RADIUS)).drawBehind { drawCameraBackdrop() }) {
         viewport(Modifier.fillMaxSize())
-        Box(modifier = Modifier.fillMaxSize().drawBehind { drawCameraBrackets(paper) })
+        Box(modifier = Modifier.fillMaxSize().drawBehind { drawCameraScrim(); drawCameraBrackets(paper) })
         Text(
             text = caption,
             modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = CAPTION_BOTTOM),
@@ -124,6 +132,20 @@ private fun Bar(filled: Int, modifier: Modifier) {
             Box(modifier = Modifier.weight(1f).height(BAR_HEIGHT).clip(RoundedCornerShape(BAR_HEIGHT / 2)).background(color))
         }
     }
+}
+
+/** The scrim under the caption and the bar of a scan card: the camera's edge colour, dense at the foot and clear 96 dp above it. */
+internal fun DrawScope.drawCameraScrim() {
+    val clear = (size.height - SCRIM_CLEAR.toPx()).coerceAtLeast(0f)
+    val full = (size.height - SCRIM_FULL.toPx()).coerceAtLeast(clear)
+    drawRect(
+        brush = Brush.verticalGradient(
+            0f to Color.Transparent,
+            clear / size.height to CAMERA_EDGE.copy(alpha = 0f),
+            full / size.height to CAMERA_EDGE.copy(alpha = SCRIM_ALPHA),
+            1f to CAMERA_EDGE.copy(alpha = SCRIM_ALPHA),
+        ),
+    )
 }
 
 /** The four corner brackets of a scan card, in [paper] at the mock's alpha: one path, each stroke half its width inside the bracket box. */
