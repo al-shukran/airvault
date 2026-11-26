@@ -34,6 +34,7 @@ import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.pair.PairScanScreen
 import app.lumio.wallets.WalletsLoader
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -200,7 +201,8 @@ internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolde
     val app = LocalContext.current.applicationContext as LumioApp
     val session = holder.openSession()
     // A locked vault has no Lumio state, so its import is not kept and each visit starts it again.
-    val imports = (holder.sessionAttachment() as? LumioVault)?.firstSyncs ?: FirstSyncImports()
+    val vault = holder.sessionAttachment() as? LumioVault
+    val imports = vault?.firstSyncs ?: FirstSyncImports()
     // The import as an earlier visit left it: its rows show on the first frame, and its reads do not run again.
     var imported by remember(session, walletId, mode) { mutableStateOf(imports.get(walletId, mode)) }
     fun finish() {
@@ -230,7 +232,7 @@ internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolde
     val current = imported ?: return
     val sync = current.sync
     // The reads write the vault's caches, so the board shows them as each step ends, even when the owner left for the wallet page in the meantime.
-    LaunchedEffect(sync) { app.runInAppScope { sync.run { (holder.sessionAttachment() as? LumioVault)?.wallets?.showCaches() } } }
+    LaunchedEffect(sync) { vault?.startFirstSync(sync) }
     val rows by sync.rows.collectAsState()
     val wallet = current.wallet
     val families = listOf<List<*>>(wallet.evmAddresses, wallet.bitcoin, wallet.solana, wallet.algorand)
@@ -244,6 +246,12 @@ internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolde
         onLock = onLock,
     )
 }
+
+/**
+ * Runs [sync] on this vault's work scope, so it goes on when the screen leaves and ends when the vault locks. A vault that locked mid-sync drops its
+ * imports with it, so the next unlock starts the first sync again.
+ */
+internal fun LumioVault.startFirstSync(sync: FirstSync): Job = scans.launch { sync.run { wallets?.showCaches() } }
 
 /**
  * The reads of the first sync of [wallet] on [mode]'s side, in order: the Bitcoin scans, the Ethereum balances, the Solana and Algorand balances,

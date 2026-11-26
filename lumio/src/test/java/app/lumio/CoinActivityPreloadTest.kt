@@ -18,8 +18,10 @@ import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
@@ -106,6 +108,27 @@ class CoinActivityPreloadTest {
         withContext(Dispatchers.Default) {
             withTimeout(10_000) { while (CoinActivityPreload.pageOf(open, key) == null) delay(10) }
         }
+    }
+
+    @Test
+    fun aLockCancelsAReadThatOutlastedTheWait(): Unit = runBlocking {
+        val open = open()
+        val started = CompletableDeferred<Unit>()
+        val cancelled = CompletableDeferred<Unit>()
+
+        CoinActivityPreload.preload(app, open, key) {
+            try {
+                started.complete(Unit)
+                awaitCancellation()
+            } catch (e: CancellationException) {
+                cancelled.complete(Unit)
+                throw e
+            }
+        }
+        started.await()
+        holder.lock()
+
+        withTimeout(10_000) { cancelled.await() }
     }
 
     private companion object {
