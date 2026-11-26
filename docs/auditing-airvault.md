@@ -556,7 +556,7 @@ Results from offensive audit run 3 (commit `86949a51`) that are accepted and not
 | AV-014 | Accepted | The nightly script passes `--no-build-cache` to both Gradle calls, so the cached-run trap is already mitigated. |
 | AV-015 | Accepted | The Brotli difference is macOS-versus-Linux build metadata; `-Wl,--build-id=none` was disproven as a fix (20 of 586 bytes). |
 | AV-016 | Accepted | Unoffered bulk-cap values read as 100 by design; the app UI cannot produce them, and `SettingsStoreTest` covers the behavior. |
-| Lumio Biometric Unlock | Accepted | With biometric unlock on, anyone who forces the owner's finger at the unlock screen opens the real vault; the auto-prompt also shows the feature is on. |
+| Lumio Biometric Unlock | Accepted | With biometric unlock on, anyone who forces the owner's finger opens the real vault. The unlock page never opens the prompt by itself (issue #783): the owner asks for it with Done on an empty password field, so the page looks the same with biometric unlock on or off. The vault cannot tell whether a Duress Password exists, so the prompt cannot depend on one. |
 | TalkBack reads the confirm-word quiz choices, the restore word suggestions, and the typed prefix | Accepted | Blind owners must hear them to finish backup and restore; the displayed phrase and filled slots stay hidden from accessibility. Scope and residual risk: `docs/accessibility.md`, "Accepted, Do Not Re-Report". |
 
 ## 8. Report Template
@@ -677,3 +677,4 @@ The seed list (5.3) names where to look, not what is broken. Add no claim that a
 | 5 | 2026-11-23 | AirVault maintainers | Issue #750: disclosed the self-erase on unverifiable vault state in the README and the Ledger recovery guide; recorded the Lumio Biometric Unlock accepted result in 7.5 and in the Device Protection help text. |
 | 6 | 2026-11-23 | AirVault maintainers | Recorded the accepted TalkBack behavior for the confirm-word quiz and the restore suggestions in 7.5, with the scope in `docs/accessibility.md`. |
 | 7 | 2026-11-23 | AirVault maintainers | Issue #746 (AV-007): the header carries a MAC under `k3`, checked before any password, and an unverifiable header erases the vault. Updated the header checks in 5.4 and 6.2 and case (c) in 6.1. |
+| 8 | 2026-11-26 | AirVault maintainers | Issue #783: the Lumio unlock page no longer opens the biometric prompt by itself; updated the Lumio Biometric Unlock accepted result in 7.5. |

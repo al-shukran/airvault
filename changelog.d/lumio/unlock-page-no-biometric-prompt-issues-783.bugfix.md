@@ -1,0 +1,1 @@
+The Lumio unlock page no longer opens the fingerprint or face prompt by itself, so someone who forces you to unlock cannot see that Biometric Unlock is on. With it on, press Done with nothing typed to open the prompt. The page looks the same with Biometric Unlock on or off, and your password still works.
