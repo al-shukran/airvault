@@ -32,6 +32,9 @@ import javax.crypto.SecretKeyFactory
  *   password, so a changed header erases the vault (see [VaultHeader]).
  * - `k7.<seq>`: HMAC-SHA256, one for each Delay State write. It authenticates the failure-delay state
  *   with that sequence number. The keys of earlier writes are deleted, so an older state no longer verifies (see [FailureStore]).
+ * - `k9.<seq>`: HMAC-SHA256, one for each accepted registry package. It authenticates the registry seal with that floor. Only the
+ *   newest is kept, so a seal that was copied back no longer verifies (see [app.lensly.core.registry.update.RegistrySeal]). Not a
+ *   vault key: [deleteAll] leaves it, so erasing the vault does not reset the registry's rollback floor.
  * - `k8.<id>`: AES-256-GCM, one for each wallet folder, wallet or unused slot alike. The id is random and kept in
  *   the folder's key file (see [WalletFolder]). Deleting the key makes that folder's key file unreadable, even with the Vault Key.
  * - `k5`: AES-256-GCM. It wraps the private photo key of photos taken before the first setup
@@ -47,6 +50,9 @@ internal object VaultKeystore {
 
     /** Every Delay State MAC key alias starts with this. */
     private const val FAILURE_MAC_PREFIX = "k7"
+
+    /** Every registry floor key alias starts with this. */
+    private const val REGISTRY_MAC_PREFIX = "k9"
 
     /** Every wallet folder key alias starts with this. */
     private const val FOLDER_KEY_PREFIX = "k8."
@@ -123,6 +129,26 @@ internal object VaultKeystore {
      * and the TEE otherwise. As for the vault key, a key that is not hardware-backed is refused in a release build.
      */
     fun createFailureMacKey(seq: Long): SecretKey = createHmacKey(failureMacAlias(seq), "Delay State MAC key")
+
+    /** Creates the registry floor key for [seq], replacing any key under that number. Hardware-backed, as the Delay State MAC key is. */
+    fun createRegistryMacKey(seq: Long): SecretKey = createHmacKey(registryMacAlias(seq), "registry floor key")
+
+    /** The registry floor key for [seq], or null once it has been deleted. */
+    fun registryMacKey(seq: Long): SecretKey? = get(registryMacAlias(seq))
+
+    /** Deletes every registry floor key except the one for [keepSeq]. A null [keepSeq] deletes them all. */
+    fun deleteRegistryMacKeysExcept(keepSeq: Long?) {
+        val store = keyStore()
+        val keep = keepSeq?.let { registryMacAlias(it) }
+        Collections.list(store.aliases())
+            .filter { it.startsWith("$REGISTRY_MAC_PREFIX.") && it != keep }
+            .forEach { store.deleteEntry(it) }
+    }
+
+    /** The sequence numbers of the registry floor keys the Keystore holds. Throws a GeneralSecurityException if it cannot list them. */
+    fun registryMacKeySeqs(): List<Long> = Collections.list(keyStore().aliases())
+        .filter { it.startsWith("$REGISTRY_MAC_PREFIX.") }
+        .mapNotNull { it.removePrefix("$REGISTRY_MAC_PREFIX.").toLongOrNull() }
 
     /**
      * Creates the slot key, the HMAC key that binds every slot's software key to this device, replacing any key under that name. It is
@@ -238,6 +264,8 @@ internal object VaultKeystore {
             alias.startsWith(FOLDER_KEY_PREFIX)
 
     private fun failureMacAlias(seq: Long): String = "$FAILURE_MAC_PREFIX.$seq"
+
+    private fun registryMacAlias(seq: Long): String = "$REGISTRY_MAC_PREFIX.$seq"
 
     private fun folderAlias(keyId: String): String = FOLDER_KEY_PREFIX + keyId
 

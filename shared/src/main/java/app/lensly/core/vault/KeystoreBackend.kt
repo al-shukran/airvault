@@ -43,6 +43,22 @@ interface KeystoreBackend {
     /** The sequence numbers of the Delay State MAC keys the Keystore holds. Throws if the Keystore cannot list them. */
     fun failureMacKeySeqs(): List<Long>
 
+    /**
+     * Creates the registry floor key for [seq], replacing any key under that number, and returns it. The registry's seal (see
+     * [app.lensly.core.registry.update.RegistrySeal]) is MACed under the key of its floor, and a floor is only ever replaced by a higher
+     * one, so a key's number is the highest sequence this device has accepted. Registry keys are not vault keys: [deleteAll] leaves them.
+     */
+    fun createRegistryMacKey(seq: Long): SecretKey
+
+    /** The registry floor key for [seq], or null once it has been deleted. */
+    fun registryMacKey(seq: Long): SecretKey?
+
+    /** Deletes every registry floor key except the one for [keepSeq]. A null [keepSeq] deletes them all. */
+    fun deleteRegistryMacKeysExcept(keepSeq: Long?)
+
+    /** The sequence numbers of the registry floor keys the Keystore holds. Throws if the Keystore cannot list them. */
+    fun registryMacKeySeqs(): List<Long>
+
     /** Creates the key of wallet folder [keyId], replacing any key under that id, and returns it. */
     fun createFolderKey(keyId: String): SecretKey
 
@@ -89,6 +105,9 @@ internal inline fun <T> keystoreCall(block: () -> T): T = try {
     throw VaultException("The Keystore could not complete a key operation.", e)
 }
 
+/** The app's Keystore, for the callers outside this package that need one, such as the registry store. */
+fun androidKeystore(context: Context): KeystoreBackend = AndroidKeystoreBackend(context.applicationContext)
+
 /**
  * The app's backend: the non-exportable keys in the Android Keystore, through [VaultKeystore]. [hardwareKeyUserAuth] is true in the
  * app; only [app.lensly.core.vault.instrumentedVault] passes false.
@@ -118,6 +137,14 @@ internal class AndroidKeystoreBackend(
     override fun deleteFailureMacKey(seq: Long) = VaultKeystore.deleteFailureMacKey(seq)
 
     override fun failureMacKeySeqs(): List<Long> = VaultKeystore.failureMacKeySeqs()
+
+    override fun createRegistryMacKey(seq: Long): SecretKey = VaultKeystore.createRegistryMacKey(seq)
+
+    override fun registryMacKey(seq: Long): SecretKey? = VaultKeystore.registryMacKey(seq)
+
+    override fun deleteRegistryMacKeysExcept(keepSeq: Long?) = VaultKeystore.deleteRegistryMacKeysExcept(keepSeq)
+
+    override fun registryMacKeySeqs(): List<Long> = VaultKeystore.registryMacKeySeqs()
 
     override fun createFolderKey(keyId: String): SecretKey = VaultKeystore.createFolderKey(keyId)
 

@@ -8,6 +8,7 @@ import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.registry.WhitelistEntry
+import app.lensly.core.vault.MemoryKeystore
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -41,6 +42,7 @@ class WhitelistPackageTest {
     val folder = TemporaryFolder()
 
     private val keys = TestPackages.TRUSTED
+    private val keystore = MemoryKeystore()
     private val baked: Registry = RegistryLoader.load { path -> File(MAIN, path).takeIf(File::isFile)?.readText() }
 
     /**
@@ -75,9 +77,9 @@ class WhitelistPackageTest {
     @Test
     fun anInstalledWhitelistIsFoundByItsChainContractAndSelector() {
         val dir = dir()
-        RegistryUpdate.install(signed(), keys, baked, dir).getOrThrow()
+        RegistryUpdate.install(signed(), keys, baked, dir, keystore).getOrThrow()
 
-        val merged = RegistryUpdate.withInstalled(baked, dir, keys)
+        val merged = RegistryUpdate.withInstalled(baked, dir, keys, keystore)
         val entry = assertNotNull(merged.whitelist(4242L, TEST_CONTRACT, SWAP_SELECTOR))
         assertEquals("swapExactTokensForTokens(uint256,uint256,address)", entry.signature)
         assertEquals("Swap tokens on the test route", entry.meaning)
@@ -90,9 +92,9 @@ class WhitelistPackageTest {
         val build = baked.withWhitelist(listOf(approvedInBuild))
         val dir = dir()
 
-        RegistryUpdate.install(signed(), keys, build, dir).getOrThrow()
+        RegistryUpdate.install(signed(), keys, build, dir, keystore).getOrThrow()
 
-        val merged = RegistryUpdate.withInstalled(build, dir, keys)
+        val merged = RegistryUpdate.withInstalled(build, dir, keys, keystore)
         assertNull(merged.whitelist(1L, TEST_CONTRACT, APPROVE_SELECTOR))
         assertNotNull(merged.whitelist(4242L, TEST_CONTRACT, SWAP_SELECTOR))
     }
@@ -101,9 +103,9 @@ class WhitelistPackageTest {
     fun aPackageWithoutAWhitelistKeepsTheApprovedCallsOfTheBuildAndStillAddsItsNetwork() {
         val build = baked.withWhitelist(listOf(approvedInBuild))
         val dir = dir()
-        RegistryUpdate.install(signed(sequence = 1, whitelist = null), keys, build, dir).getOrThrow()
+        RegistryUpdate.install(signed(sequence = 1, whitelist = null), keys, build, dir, keystore).getOrThrow()
 
-        val merged = RegistryUpdate.withInstalled(build, dir, keys)
+        val merged = RegistryUpdate.withInstalled(build, dir, keys, keystore)
         assertNotNull(merged.whitelist(1L, TEST_CONTRACT, APPROVE_SELECTOR))
         assertNotNull(merged.network(4242L))
     }
@@ -112,9 +114,9 @@ class WhitelistPackageTest {
     fun aPackageWithAnEmptyWhitelistClearsTheApprovedCallsOfTheBuild() {
         val build = baked.withWhitelist(listOf(approvedInBuild))
         val dir = dir()
-        RegistryUpdate.install(signed(sequence = 1, whitelist = ""), keys, build, dir).getOrThrow()
+        RegistryUpdate.install(signed(sequence = 1, whitelist = ""), keys, build, dir, keystore).getOrThrow()
 
-        assertTrue(RegistryUpdate.withInstalled(build, dir, keys).whitelistEntries().isEmpty())
+        assertTrue(RegistryUpdate.withInstalled(build, dir, keys, keystore).whitelistEntries().isEmpty())
     }
 
     @Test
@@ -148,7 +150,7 @@ class WhitelistPackageTest {
         bytes[16 + payload.indexOf("Swap tokens")] = 'X'.code.toByte()
         val dir = dir()
 
-        val result = RegistryUpdate.install(bytes, keys, baked, dir)
+        val result = RegistryUpdate.install(bytes, keys, baked, dir, keystore)
 
         assertIs<RegistryUpdateException.BadSignature>(failure(result))
         assertFalse(File(dir, RegistryUpdate.INSTALLED_FILE).exists())
@@ -205,12 +207,12 @@ class WhitelistPackageTest {
     @Test
     fun anOlderPackageWithAWhitelistCannotRollBackTheCatalog() {
         val dir = dir()
-        RegistryUpdate.install(signed(sequence = 5), keys, baked, dir).getOrThrow()
+        RegistryUpdate.install(signed(sequence = 5), keys, baked, dir, keystore).getOrThrow()
 
-        val older = RegistryUpdate.install(signed(sequence = 4, whitelist = null), keys, baked, dir)
+        val older = RegistryUpdate.install(signed(sequence = 4, whitelist = null), keys, baked, dir, keystore)
 
         assertIs<RegistryUpdateException.NotNewer>(failure(older))
-        assertNotNull(RegistryUpdate.withInstalled(baked, dir, keys).whitelist(4242L, TEST_CONTRACT, SWAP_SELECTOR))
+        assertNotNull(RegistryUpdate.withInstalled(baked, dir, keys, keystore).whitelist(4242L, TEST_CONTRACT, SWAP_SELECTOR))
     }
 
     @Test
