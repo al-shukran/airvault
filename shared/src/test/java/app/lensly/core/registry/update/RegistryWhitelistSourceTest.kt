@@ -4,6 +4,7 @@ import app.airvault.abi.WhitelistParam
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.registry.WhitelistEntry
+import app.lensly.core.vault.MemoryKeystore
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -29,6 +30,7 @@ class RegistryWhitelistSourceTest {
     val folder = TemporaryFolder()
 
     private val keys = TestPackages.TRUSTED
+    private val keystore = MemoryKeystore()
 
     private fun dir(): File = folder.root.resolve("registry")
 
@@ -60,9 +62,10 @@ class RegistryWhitelistSourceTest {
             keys,
             built,
             dir,
+            keystore,
         ).getOrThrow()
 
-        val merged = RegistryUpdate.withInstalled(built, dir, keys)
+        val merged = RegistryUpdate.withInstalled(built, dir, keys, keystore)
 
         assertNull(merged.whitelist(4242L, TEST_CONTRACT, SWAP_SELECTOR))
         assertNotNull(merged.network(4242L))
@@ -77,7 +80,7 @@ class RegistryWhitelistSourceTest {
         val withAnotherKey = TestPackages.signed(TestPackages.payload(sequence = 8), seed = ByteArray(32) { 9 })
         File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(withAnotherKey)
 
-        val merged = RegistryUpdate.withInstalled(built, dir, keys)
+        val merged = RegistryUpdate.withInstalled(built, dir, keys, keystore)
 
         assertTrue(merged.installedUpdateUnverified)
         assertEquals(entry, merged.whitelist(1L, TEST_CONTRACT, SWAP_SELECTOR))
@@ -92,9 +95,10 @@ class RegistryWhitelistSourceTest {
             keys,
             built,
             dir,
+            keystore,
         ).getOrThrow()
 
-        val merged = RegistryUpdate.withInstalled(built, dir, keys)
+        val merged = RegistryUpdate.withInstalled(built, dir, keys, keystore)
 
         assertNull(merged.whitelist(4242L, TEST_CONTRACT, SWAP_SELECTOR))
         assertFalse(merged.installedUpdateUnverified)
@@ -109,10 +113,11 @@ class RegistryWhitelistSourceTest {
             keys,
             built,
             dir,
+            keystore,
         ).getOrThrow()
-        RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 3)), keys, built, dir).getOrThrow()
+        RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 3)), keys, built, dir, keystore).getOrThrow()
 
-        val merged = RegistryUpdate.withInstalled(built, dir, keys)
+        val merged = RegistryUpdate.withInstalled(built, dir, keys, keystore)
 
         assertNotNull(merged.whitelist(4242L, TEST_CONTRACT, SWAP_SELECTOR))
         assertNotNull(merged.network(4242L))
@@ -127,15 +132,17 @@ class RegistryWhitelistSourceTest {
             keys,
             built(sequence = 1),
             dir,
+            keystore,
         ).getOrThrow()
         RegistryUpdate.install(
             TestPackages.signed(TestPackages.payload(sequence = 6)),
             keys,
             built(sequence = 1),
             dir,
+            keystore,
         ).getOrThrow()
 
-        val merged = RegistryUpdate.withInstalled(built(sequence = 5), dir, keys)
+        val merged = RegistryUpdate.withInstalled(built(sequence = 5), dir, keys, keystore)
 
         assertNull(merged.whitelist(4242L, TEST_CONTRACT, SWAP_SELECTOR))
     }

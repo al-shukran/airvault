@@ -58,7 +58,7 @@ internal object VaultRecordNames {
      * [VaultSession.putVaultRecord] and [VaultSession.getVaultRecord] refuse any other name.
      */
     val KNOWN: List<String> = listOf(
-        "settings", "address-book", PHOTO_KEY,
+        "settings", "address-book", PHOTO_KEY, DECOY_SHOWN,
         "lumio-address-books", "lumio-balance-cache", "lumio-custom-tokens", "lumio-display-settings", "lumio-evm-settings",
         "lumio-finish-setup", "lumio-native-balance-cache", "lumio-network-mode", "lumio-prefer-rpc", "lumio-providers",
         "lumio-token-balances", "lumio-transaction-settings", "lumio-watchlist",
@@ -66,6 +66,9 @@ internal object VaultRecordNames {
 
     /** The private half of a vault's photo key pair. See [VaultSession.ensurePhotoKey]. */
     const val PHOTO_KEY = "photo-key"
+
+    /** What a Decoy Vault shows for the real vault's entry gesture and lockout. See [app.lensly.app.DecoyShown]. */
+    const val DECOY_SHOWN = "decoy-shown"
 
     /** The file name of record [name] under [vaultKey]. */
     fun fileName(vaultKey: ByteArray, name: String): String {

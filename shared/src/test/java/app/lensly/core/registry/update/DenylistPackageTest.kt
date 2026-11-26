@@ -2,6 +2,7 @@ package app.lensly.core.registry.update
 
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
+import app.lensly.core.vault.MemoryKeystore
 import app.lensly.ui.shippedRegistry
 import java.io.File
 import java.nio.charset.StandardCharsets
@@ -39,6 +40,7 @@ class DenylistPackageTest {
     val folder = TemporaryFolder()
 
     private val baked = shippedRegistry()
+    private val keystore = MemoryKeystore()
     private val lists = ",\"denylist\":[$DENYLIST_ENTRY],\"wallets\":[$WALLET_ENTRY]"
 
     private fun dir(): File = folder.root.resolve("registry")
@@ -47,13 +49,13 @@ class DenylistPackageTest {
         bytes: ByteArray,
         keys: List<TrustedKey> = TestPackages.TRUSTED,
         build: Registry = baked,
-    ): Result<RegistryPackage> = RegistryUpdate.install(bytes, keys, build, dir())
+    ): Result<RegistryPackage> = RegistryUpdate.install(bytes, keys, build, dir(), keystore)
 
     @Test
     fun aNewerPackageReplacesTheBuiltInDenylistAndWallets() {
         assertTrue(install(TestPackages.signed(payload(2, lists))).isSuccess)
 
-        val effective = RegistryUpdate.withInstalled(baked, dir(), TestPackages.TRUSTED)
+        val effective = RegistryUpdate.withInstalled(baked, dir(), TestPackages.TRUSTED, keystore)
 
         assertEquals(listOf("0x095ea7b3"), effective.denylistEntries().map { it.selector })
         assertEquals(listOf("Test Wallet"), effective.walletEntries().map { it.name })
@@ -63,7 +65,7 @@ class DenylistPackageTest {
     fun aPackageWithAnEmptyDenylistClearsTheBuiltInOne() {
         assertTrue(install(TestPackages.signed(payload(2, ",\"denylist\":[]"))).isSuccess)
 
-        val effective = RegistryUpdate.withInstalled(baked, dir(), TestPackages.TRUSTED)
+        val effective = RegistryUpdate.withInstalled(baked, dir(), TestPackages.TRUSTED, keystore)
 
         assertEquals(emptyList(), effective.denylistEntries())
         assertEquals(baked.walletEntries(), effective.walletEntries())
@@ -73,7 +75,7 @@ class DenylistPackageTest {
     fun aPackageThatOmitsTheListsKeepsTheBuiltInOnes() {
         assertTrue(install(TestPackages.signed(payload(2))).isSuccess)
 
-        val effective = RegistryUpdate.withInstalled(baked, dir(), TestPackages.TRUSTED)
+        val effective = RegistryUpdate.withInstalled(baked, dir(), TestPackages.TRUSTED, keystore)
 
         assertEquals(baked.denylistEntries(), effective.denylistEntries())
         assertEquals(baked.walletEntries(), effective.walletEntries())
@@ -84,7 +86,7 @@ class DenylistPackageTest {
         val build = bakedAtSequence(5)
         assertTrue(install(TestPackages.signed(payload(2, lists)), build = build).isSuccess)
 
-        val effective = RegistryUpdate.withInstalled(build, dir(), TestPackages.TRUSTED)
+        val effective = RegistryUpdate.withInstalled(build, dir(), TestPackages.TRUSTED, keystore)
 
         assertEquals(build.denylistEntries(), effective.denylistEntries())
         assertEquals(build.walletEntries(), effective.walletEntries())

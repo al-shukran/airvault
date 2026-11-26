@@ -106,7 +106,7 @@ private fun SettingsRoute(
     val cached by store.facts.collectAsState()
     // The vault's own read has not finished yet: read here once, so the list never comes in blank.
     val current = cached ?: remember(store) { store.refresh(); store.facts.value } ?: return
-    val gesture = LocalContext.current.entryGestureHolder().current
+    val gesture = holder.decoyShown.entryGesture(LocalContext.current.entryGestureHolder().current)
     val scope = rememberCoroutineScope()
     TabRoute(tab = LumioTab.SETTINGS, navController = navController, holder = holder, selection = selection, listVersion = listVersion, onLock = onLock) {
         LumioSettingsScreen(
