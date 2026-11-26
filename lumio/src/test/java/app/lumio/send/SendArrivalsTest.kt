@@ -8,7 +8,11 @@ import app.lumio.data.provider.AlgorandPendingInfo
 import app.lumio.data.provider.EvmReceipt
 import app.lumio.data.provider.SolanaStatus
 import java.io.IOException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.currentTime
@@ -158,6 +162,20 @@ class SendArrivalsTest {
 
         assertEquals(Landing.LANDED, landing.value)
         assertEquals(listOf("tx"), notice.posted)
+    }
+
+    @Test
+    fun aWatchEndedWhileItsReadLandsPostsNoNotice() = runTest {
+        val notice = FakeNotice(permitted = true)
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + Job())
+        SendArrivals(scope, notice, foreground = { false }).watch(network, "tx", notify = true) {
+            scope.cancel()
+            Landing.LANDED
+        }
+
+        runCurrent()
+
+        assertTrue(notice.posted.isEmpty())
     }
 
     @Test

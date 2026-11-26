@@ -18,9 +18,11 @@ import app.lumio.pair.PairedWallets
 import app.lumio.pair.SyncRow
 import app.lumio.pair.SyncStep
 import app.lumio.send.Landing
+import app.lumio.send.SendArrivals
 import java.io.File
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
@@ -159,6 +161,8 @@ class LumioVaultWipeTest {
         real.wipe()
         live = vaultIn("decoy")
         withTimeout(10_000) { real.scans.coroutineContext.job.children.toList().joinAll() }
+        // The vault's scope runs on a real dispatcher, so the wait is real: past the first backoff, where a poll that survived the lock would read the decoy.
+        delay(SendArrivals.FIRST_DELAY_MS + 500)
 
         assertTrue("The lock cancels the poll.", real.scans.coroutineContext.job.children.none { it.isActive })
         assertEquals("The watch read once, through the vault that started it, and never after the lock.", listOf(real), readThrough)
