@@ -605,7 +605,7 @@ internal fun WalletSettingsRoute(
         wallet = wallet,
         tone = WalletEmblemTone.at(wallets.indexOf(wallet)),
         offline = rememberSettingsOffline(),
-        onRePair = { navController.navigate(LumioRoute.PAIR_SCAN) },
+        onRePair = { navController.navigate(LumioRoute.PAIR_RESCAN) },
         onRemove = {
             if (session != null) {
                 scope.launch {

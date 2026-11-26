@@ -1,8 +1,8 @@
 package app.lumio.ui.firstrun
 
 /**
- * The first-run screens in the order the owner sees them, I1 to I9. [DuressPassword] is the page that Set Up Now on I8 opens, before I9. [route] is the screen's name in the hidden graph. Pairing (I10 to I12)
- * follows [DeviceProtection] on the Wallets home, and is not in this list.
+ * The first-run screens in the order the owner sees them, I1 to I10. [DuressPassword] is the page that Set Up Now on I8 opens, before I9. [route] is the screen's name in the hidden graph. [Pair] is the
+ * scan of Lensly's code (I10), above Home: the review and the import (I11 and I12) follow it.
  */
 enum class FirstRunStep(val route: String) {
     Welcome("first-run/welcome"),
@@ -15,6 +15,7 @@ enum class FirstRunStep(val route: String) {
     Duress("first-run/duress"),
     DuressPassword("first-run/duress-password"),
     DeviceProtection("first-run/device-protection"),
+    Pair("first-run/pair"),
 }
 
 /**
@@ -25,8 +26,8 @@ enum class ChapterFill(val fraction: Float) { Empty(0f), Early(0.15f), Started(0
 
 /**
  * The three segments of the chapter bar for [step]: Understand, Protect and Pair. Understand is Full from the Important Notice on, so preparing
- * Lensly (I6) leaves Protect empty, and Protect fills as the mock draws it across its screens. Pair fills only once scanning starts, which is
- * after these screens, so it is always empty here.
+ * Lensly (I6) leaves Protect empty, and Protect fills as the mock draws it across its screens. Pair is empty until the scan (I10), where Protect is
+ * full and Pair is at 40 percent.
  */
 fun chapterFills(step: FirstRunStep): List<ChapterFill> = when (step) {
     FirstRunStep.Welcome, FirstRunStep.Keys, FirstRunStep.NeverShare, FirstRunStep.ProvidedAsIs -> listOf(ChapterFill.Started, ChapterFill.Empty, ChapterFill.Empty)
@@ -34,4 +35,5 @@ fun chapterFills(step: FirstRunStep): List<ChapterFill> = when (step) {
     FirstRunStep.CreatePassword -> listOf(ChapterFill.Full, ChapterFill.Early, ChapterFill.Empty)
     FirstRunStep.Duress, FirstRunStep.DuressPassword -> listOf(ChapterFill.Full, ChapterFill.Started, ChapterFill.Empty)
     FirstRunStep.DeviceProtection -> listOf(ChapterFill.Full, ChapterFill.Late, ChapterFill.Empty)
+    FirstRunStep.Pair -> listOf(ChapterFill.Full, ChapterFill.Full, ChapterFill.Started)
 }

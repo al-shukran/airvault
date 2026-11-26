@@ -1,11 +1,15 @@
 package app.lumio.ui.wallets
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,13 +23,15 @@ import app.lumio.data.WallClock
 import app.lumio.ui.kit.ClearAirAmount
 import app.lumio.ui.kit.ClearAirChangePercent
 import app.lumio.ui.kit.ClearAirEyebrow
+import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRefreshBox
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.ClearAirWalletEmblem
 import app.lumio.ui.kit.WalletEmblemTone
 import app.lumio.ui.kit.LocalFiat
-import app.lumio.ui.pair.PairIntro
+import app.lumio.ui.pair.PAIR_PUBLIC_ONLY
+import app.lumio.ui.pair.PAIR_STEPS
 
 /**
  * One row of the Accounts list: the wallet's [id] and [name], its [summary] line, its dollar [usd] total, or null when none of its balances has a price,
@@ -78,7 +84,7 @@ fun WalletsScreen(
                 }
             } else if (rows.isEmpty()) {
                 item(key = "intro") {
-                    PairIntro(onScan = onPair, modifier = Modifier.fillParentMaxHeight())
+                    EmptyWallets(onPair = onPair, modifier = Modifier.fillParentMaxHeight())
                 }
             } else {
                 item(key = "header") {
@@ -117,6 +123,27 @@ fun WalletsScreen(
                 }
             }
         }
+    }
+}
+
+/** The Accounts tab with no wallet paired: the steps in the owner's words, and the one capsule that opens the pairing page. */
+@Composable
+private fun EmptyWallets(onPair: () -> Unit, modifier: Modifier = Modifier) {
+    val palette = LocalClearAirPalette.current
+    Column(modifier = modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.md), verticalArrangement = Arrangement.SpaceBetween) {
+        Column {
+            Text(text = "Pair with Lensly", style = ClearAirType.titleXL, color = palette.ink)
+            Spacer(Modifier.height(ClearAirSpacing.md))
+            (PAIR_STEPS + PAIR_PUBLIC_ONLY).forEachIndexed { index, text ->
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = ClearAirSpacing.xxs), verticalAlignment = Alignment.Top) {
+                    Text(text = "${index + 1}", style = ClearAirType.rowTitle, color = palette.ink3)
+                    Spacer(Modifier.width(ClearAirSpacing.md))
+                    Text(text = text, style = ClearAirType.body, color = palette.ink)
+                }
+            }
+        }
+        Spacer(Modifier.height(ClearAirSpacing.md))
+        ClearAirPrimaryButton(text = "Scan Pairing Code", onClick = onPair)
     }
 }
 
