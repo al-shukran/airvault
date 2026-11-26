@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.lensly.core.vault.PasswordForm
 import app.lensly.core.vault.PasswordPolicy
 import app.lensly.core.vault.PolicyReason
 import app.lensly.core.vault.PolicyResult
@@ -39,7 +40,7 @@ fun newPasswordProblem(password: String, repeat: String): NewPasswordProblem? =
     when (val policy = policyOf(password)) {
         is PolicyResult.Refused ->
             if (policy.reason == PolicyReason.TOO_SHORT) NewPasswordProblem.TooShort else NewPasswordProblem.TooWeak
-        PolicyResult.Accepted -> if (password == repeat) null else NewPasswordProblem.Mismatch
+        PolicyResult.Accepted -> if (sameText(password, repeat)) null else NewPasswordProblem.Mismatch
     }
 
 /** How many of the four strength steps [password] fills: none when empty, all four once the policy accepts it, and one before that. */
@@ -50,6 +51,17 @@ fun strengthSegments(password: String): Int = when {
 }
 
 private const val STRENGTH_STEPS = 4
+
+private fun sameText(first: String, second: String): Boolean {
+    val a = first.toCharArray()
+    val b = second.toCharArray()
+    return try {
+        PasswordForm.sameText(a, b)
+    } finally {
+        a.fill('\u0000')
+        b.fill('\u0000')
+    }
+}
 
 private fun policyOf(password: String): PolicyResult {
     val chars = password.toCharArray()

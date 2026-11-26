@@ -119,14 +119,17 @@ class SolanaRequestReview internal constructor(
                 .filter { it != signerAddress && it != tx.feePayer }
         }
 
-    /** The static keys that are not signers and that no instruction uses, as a program or as an account, in base58, in message order. */
-    val unusedAccounts: List<String>
+    /**
+     * The accounts that are not signers and that no instruction uses, as a program or as an account, in message order: the static keys,
+     * then the lookup-table slots the message loads. A lookup slot is in the signed bytes as its table key and index.
+     */
+    val unusedAccounts: List<SolanaMessageAccount>
         get() {
             val tx = message ?: return emptyList()
             val used = tx.instructions.flatMapTo(HashSet()) { it.accountIndices + it.programIdIndex }
-            return (tx.header.numRequiredSignatures until tx.accountKeys.size)
+            return (tx.header.numRequiredSignatures until tx.accountCount)
                 .filter { it !in used }
-                .map { Base58.encode(tx.accountKeys[it]) }
+                .map { tx.account(it) }
         }
 
     /**

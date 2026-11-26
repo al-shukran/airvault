@@ -27,6 +27,7 @@ import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
+import app.lumio.LocalSendStartKey
 import app.lumio.LumioApp
 import app.lumio.backLabel
 import app.lumio.chains.ChainHoldings
@@ -153,6 +154,7 @@ internal fun AlgorandSendRoute(
     optInAssetId: ULong? = null,
     startKey: String = AlgorandAssets.ALGO_KEY,
 ) {
+    LocalSendStartKey.current?.invoke("algorand", startKey)
     val app = LocalContext.current.applicationContext as LumioApp
     val transactions = rememberTransactions(app)
     val context = LocalContext.current
