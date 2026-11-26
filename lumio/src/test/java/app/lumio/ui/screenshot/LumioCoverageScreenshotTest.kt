@@ -50,7 +50,6 @@ import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairImport
 import app.lumio.tokens.Token
 import app.lumio.ui.pair.PairReviewScreen
-import app.lumio.ui.pair.PairScanScreen
 import app.lumio.ui.scan.ReplyReading
 import app.lumio.ui.send.SignatureScanScreen
 import app.lumio.ui.send.SendFeeRateSheet
@@ -372,17 +371,7 @@ class LumioCoverageScreenshotTest {
         SignatureScanScreen(reading = ReplyReading(9, 9), notice = SCAN_READ, onText = {}, onBack = {}, onCancel = {}, backLabel = "Review", onLock = {})
     }
 
-    // Pairing: the scan, and the import result
-
-    @Test
-    fun pairScanIdle() = compose.lumioSnapshot("pair_scan_idle") {
-        PairScanScreen(progress = null, status = PAIR_SCAN_HINT, onText = {}, onCancel = {})
-    }
-
-    @Test
-    fun pairScanReadingAnAnimatedCode() = compose.lumioSnapshot("pair_scan_reading") {
-        PairScanScreen(progress = 0.4f, status = PAIR_SCAN_READING, onText = {}, onCancel = {})
-    }
+    // Pairing: the import result
 
     @Test
     fun pairReviewWhenAlreadyPaired() = compose.lumioSnapshot("pair_review_already_paired") {
@@ -497,8 +486,6 @@ class LumioCoverageScreenshotTest {
         const val REQUEST_FAILED = "The sign request could not be made. Try again."
         const val BROADCAST_FAILED = "The transaction could not be sent. Check the balance, then try again."
         const val NO_BROWSER = "No browser can open the explorer."
-        const val PAIR_SCAN_HINT = "Point the camera at the pairing code that Lensly shows."
-        const val PAIR_SCAN_READING = "Reading the code. Keep the camera on it."
         const val PAIR_SAVE_FAILED = "The pairing could not be saved. Try again."
     }
 }

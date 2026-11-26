@@ -30,6 +30,7 @@ import app.lumio.pair.ScanStep
 import app.lumio.pair.SyncRow
 import app.lumio.pair.SyncStep
 import app.lumio.ui.pair.FirstSyncScreen
+import app.lumio.ui.pair.PairChrome
 import app.lumio.ui.pair.PairReviewScreen
 import app.lumio.ui.pair.PairScanScreen
 import app.lumio.wallets.WalletsLoader
@@ -58,11 +59,12 @@ private const val SAVE_FAILED = "The pairing could not be saved. Try again."
 private const val FIXTURE_FRAME_MS = 350L
 
 /**
- * The scan for a pairing code. Each frame goes through [PairScan]. A complete pairing opens the review, and a refused code is reported
- * before the scan starts again.
+ * The scan for a pairing code, on [route] and drawn with [chrome]: the first run's step 10 or a page pushed from Wallets, Settings or Re-Pair. Each
+ * frame goes through [PairScan]. A complete pairing opens the review, and a refused code is reported before the scan starts again. Back leaves the
+ * scan: from the first run it opens Home, as the system back does.
  */
 @Composable
-internal fun PairScanRoute(navController: NavHostController, draft: PairDraft) {
+internal fun PairScanRoute(navController: NavHostController, draft: PairDraft, route: String, chrome: PairChrome) {
     val activity = LocalActivity.current
     var scan by remember { mutableStateOf(PairScan()) }
     var progress by remember { mutableStateOf<Float?>(null) }
@@ -89,7 +91,7 @@ internal fun PairScanRoute(navController: NavHostController, draft: PairDraft) {
                 scope.launch {
                     delay(COMPLETE_MS)
                     navController.navigate(LumioRoute.PAIR_REVIEW) {
-                        popUpTo(LumioRoute.PAIR_SCAN) { inclusive = true }
+                        popUpTo(route) { inclusive = true }
                     }
                 }
             }
@@ -115,14 +117,13 @@ internal fun PairScanRoute(navController: NavHostController, draft: PairDraft) {
         if (!finished) status = SCAN_STALLED
     }
     BackHandler { navController.popBackStack() }
-    PairScanScreen(
-        progress = progress,
-        status = status,
-        complete = complete,
-        onText = ::onText,
-        onCancel = { navController.popBackStack() },
-    )
+    PairScanScreen(chrome = chrome, progress = progress, status = status, complete = complete, onText = ::onText)
 }
+
+/** The scan as a page pushed from Wallets, Settings or Re-Pair: back returns one page, and the lock locks Lumio. */
+@Composable
+internal fun PairPage(navController: NavHostController, draft: PairDraft, route: String, title: String, onLock: () -> Unit) =
+    PairScanRoute(navController, draft, route, PairChrome.Page(title = title, onBack = { navController.popBackStack() }, onLock = onLock))
 
 /** The review of the pairing that the scan read. Saving stores it, and the owner returns to Home. */
 @Composable

@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,6 +46,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.PathMeasure
@@ -68,6 +72,8 @@ import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lensly.ui.theme.LocalReducedMotion
 import app.lensly.ui.theme.LumenMotion
+import app.lumio.ui.firstrun.PageBody
+import app.lumio.ui.firstrun.PageSmall
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.ClearAirPrimaryButton
@@ -113,8 +119,6 @@ fun LumioScanScreen(
     modifier: Modifier = Modifier,
     complete: Boolean = false,
     frameSource: FrameSource? = null,
-    footer: (@Composable () -> Unit)? = null,
-    deniedText: String = CAMERA_DENIED_TEXT,
 ) {
     val camera = rememberCameraAccess(frameSource)
     val context = LocalContext.current
@@ -126,11 +130,10 @@ fun LumioScanScreen(
         complete = complete,
         onCancel = onCancel,
         modifier = modifier,
-        footer = footer,
     ) { viewport ->
         when {
             camera.granted -> QrScanner(onText = onText, modifier = viewport, frameSource = frameSource)
-            camera.refused -> CameraDeniedNote(text = deniedText, onOpenSettings = { context.openAppSettings() }, modifier = viewport)
+            camera.refused -> CameraDeniedNote(onOpenSettings = { context.openAppSettings() }, modifier = viewport)
         }
     }
 }
@@ -169,57 +172,75 @@ fun rememberCameraAccess(frameSource: FrameSource? = null): CameraAccess {
     return CameraAccess(granted = granted, refused = refused)
 }
 
-/** The Camera Denied words wherever the camera reads any code. Pair names the code it reads, Lensly's, instead. */
+/** The Camera Denied words wherever the camera reads any code. Pairing names the code it reads, Lensly's, instead. */
 const val CAMERA_DENIED_TEXT = "Lumio needs the camera to read codes. Nothing is recorded."
 
 /**
  * The Camera Denied state (K6): a dashed note in place of the viewfinder, in its exact place and size, so the page does not move when the owner
- * allows the camera and the scan starts by itself. Open Settings is the one action, because the system does not ask a second time.
+ * allows the camera and the scan starts by itself. It is the mock's camera mark, the words and the way to Settings, on the sunk surface. With
+ * [onOpenSettings] the note carries Open Settings, because the system does not ask a second time. A page that keeps that capsule at its foot, as the
+ * mock's pairing page does, passes null.
  */
 @Composable
-fun CameraDeniedNote(onOpenSettings: () -> Unit, modifier: Modifier = Modifier, text: String = CAMERA_DENIED_TEXT) {
+fun CameraDeniedNote(onOpenSettings: (() -> Unit)?, modifier: Modifier = Modifier, text: String = CAMERA_DENIED_TEXT) {
     val palette = LocalClearAirPalette.current
     Column(
         modifier = modifier
+            .clip(RoundedCornerShape(DENIED_RADIUS))
+            .background(palette.raised)
             .drawBehind {
                 val width = DENIED_DASH_WIDTH.toPx()
                 drawRoundRect(
-                    color = palette.ink2,
+                    color = palette.ink3,
                     topLeft = Offset(width / 2, width / 2),
                     size = Size(size.width - width, size.height - width),
-                    cornerRadius = CornerRadius(VIEWFINDER_RADIUS.toPx()),
+                    cornerRadius = CornerRadius(DENIED_RADIUS.toPx()),
                     style = Stroke(
                         width = width,
                         pathEffect = PathEffect.dashPathEffect(floatArrayOf(DENIED_DASH_ON.toPx(), DENIED_DASH_OFF.toPx())),
                     ),
                 )
             }
-            .padding(ClearAirSpacing.gutter),
+            .padding(DENIED_PADDING),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        ClearAirIcon(glyph = ClearAirGlyph.CAMERA_OFF, color = palette.ink2, size = DENIED_ICON)
+        Spacer(Modifier.height(DENIED_GAP))
         Text(
             text = text,
-            style = ClearAirType.body,
+            modifier = Modifier.widthIn(max = DENIED_TEXT_WIDTH),
+            style = PageBody,
             color = palette.ink,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(ClearAirSpacing.xs))
+        Spacer(Modifier.height(DENIED_GAP))
         Text(
             text = "Allow Camera in Settings, then come back here.",
-            style = ClearAirType.label,
+            style = PageSmall,
             color = palette.ink2,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(ClearAirSpacing.md))
-        ClearAirPrimaryButton(text = "Open Settings", onClick = onOpenSettings)
+        if (onOpenSettings != null) {
+            Spacer(Modifier.height(ClearAirSpacing.md))
+            ClearAirPrimaryButton(text = "Open Settings", onClick = onOpenSettings)
+        }
     }
 }
 
 /** The dashes of the Camera Denied frame: the stroke, and the length of each dash and of the gap after it. */
-private val DENIED_DASH_WIDTH = 1.dp
-private val DENIED_DASH_ON = 8.dp
-private val DENIED_DASH_OFF = 6.dp
+private val DENIED_DASH_WIDTH = 1.5.dp
+private val DENIED_DASH_ON = 3.dp
+private val DENIED_DASH_OFF = 2.dp
+
+/** The note's corner radius, 2 dp under the viewfinder's, as the mock draws it. */
+private val DENIED_RADIUS = 26.dp
+
+/** The padding, the camera mark, the gap between the parts and the widest the words run, as the mock draws the note. */
+private val DENIED_PADDING = 24.dp
+private val DENIED_ICON = 40.dp
+private val DENIED_GAP = 12.dp
+private val DENIED_TEXT_WIDTH = 250.dp
 
 /**
  * The scan layout around a viewport: the shell, the ring, the check and the status line. [LumioScanScreen] puts the live scanner in [viewport]. The
@@ -233,9 +254,29 @@ fun LumioScanFrame(
     complete: Boolean,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
-    footer: (@Composable () -> Unit)? = null,
     viewport: @Composable (Modifier) -> Unit,
 ) {
+    LenslyScreen(title = title, modifier = modifier, onBack = onCancel, scrollable = false) {
+        ScanViewfinder(progress = progress, complete = complete, viewport = viewport)
+        Spacer(Modifier.height(LenslySpacing.md))
+        Text(
+            text = statusText,
+            style = ClearAirType.body,
+            color = LocalClearAirPalette.current.ink2,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(LenslySpacing.md))
+    }
+}
+
+/**
+ * The viewfinder of a scan, [SCAN_FRAME_HEIGHT] tall: the camera in [viewport], the corner brackets, the ring and the check. A tick sounds for each new
+ * part of [progress], and the success haptic when the code is [complete]. A [caption] is drawn in the camera, near its foot, as the mock's pairing
+ * frame draws its status, over a soft shade so it reads on any picture.
+ */
+@Composable
+fun ScanViewfinder(progress: Float?, complete: Boolean, modifier: Modifier = Modifier, caption: String? = null, viewport: @Composable (Modifier) -> Unit) {
     val haptics = rememberLumioHaptics()
     var lastTickMs by remember { mutableLongStateOf(0L) }
     LaunchedEffect(progress) {
@@ -250,25 +291,37 @@ fun LumioScanFrame(
     LaunchedEffect(complete) {
         if (complete) haptics.success()
     }
-    LenslyScreen(title = title, modifier = modifier, onBack = onCancel, scrollable = false) {
-        Box(modifier = Modifier.fillMaxWidth().height(SCAN_FRAME_HEIGHT)) {
-            viewport(Modifier.fillMaxSize().padding(RING_GAP).clip(RoundedCornerShape(VIEWFINDER_RADIUS)))
-            ViewfinderCorners(modifier = Modifier.fillMaxSize().padding(RING_GAP))
-            PerimeterRing(fraction = if (complete) 1f else progress ?: 0f, modifier = Modifier.fillMaxSize())
-            CheckMark(visible = complete, modifier = Modifier.align(Alignment.Center))
-        }
-        Spacer(Modifier.height(LenslySpacing.md))
-        Text(
-            text = statusText,
-            style = ClearAirType.body,
-            color = LocalClearAirPalette.current.ink2,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        footer?.invoke()
-        Spacer(Modifier.height(LenslySpacing.md))
+    Box(modifier = modifier.fillMaxWidth().height(SCAN_FRAME_HEIGHT)) {
+        viewport(Modifier.fillMaxSize().padding(RING_GAP).clip(RoundedCornerShape(VIEWFINDER_RADIUS)))
+        if (caption != null) ViewfinderCaption(text = caption, modifier = Modifier.align(Alignment.BottomCenter).padding(RING_GAP))
+        ViewfinderCorners(modifier = Modifier.fillMaxSize().padding(RING_GAP))
+        PerimeterRing(fraction = if (complete) 1f else progress ?: 0f, modifier = Modifier.fillMaxSize())
+        CheckMark(visible = complete, modifier = Modifier.align(Alignment.Center))
     }
 }
+
+/** The status in the camera: the mock's 12 sp mono line in paper, 30 dp from the foot of the frame, over a shade that fades up from the foot. */
+@Composable
+private fun ViewfinderCaption(text: String, modifier: Modifier) {
+    val palette = LocalClearAirPalette.current
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(bottomStart = VIEWFINDER_RADIUS, bottomEnd = VIEWFINDER_RADIUS))
+            .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = CAPTION_SHADE))))
+            .padding(start = CAPTION_SIDE, end = CAPTION_SIDE, top = CAPTION_SHADE_TOP, bottom = CAPTION_BOTTOM),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = text, style = ClearAirType.time, color = palette.paper.copy(alpha = CAPTION_ALPHA), textAlign = TextAlign.Center)
+    }
+}
+
+/** The caption's side inset, the shade above it, its distance from the foot of the frame, and its opacity and the shade's. */
+private val CAPTION_SIDE = 24.dp
+private val CAPTION_SHADE_TOP = 40.dp
+private val CAPTION_BOTTOM = 30.dp
+private const val CAPTION_ALPHA = 0.85f
+private const val CAPTION_SHADE = 0.55f
 
 /**
  * The ring that hugs the viewfinder: a faint track all the way round, and the arc of the code that has been read. The arc springs to each new part

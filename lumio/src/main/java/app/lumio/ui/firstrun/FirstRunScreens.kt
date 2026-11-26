@@ -74,7 +74,7 @@ internal data class PageSpacing(
 internal val PageBody: TextStyle = ClearAirType.body.copy(lineHeightStyle = ClearAirLineBox)
 
 /** The small text of a first-run page, in its whole line box. */
-private val PageSmall: TextStyle = ClearAirType.small.copy(lineHeightStyle = ClearAirLineBox)
+internal val PageSmall: TextStyle = ClearAirType.small.copy(lineHeightStyle = ClearAirLineBox)
 
 /** The space under the foot's last control, above the navigation bar: the mock's 30 dp from the screen's bottom less the 24 dp of the gesture bar. */
 private val FOOT_BOTTOM = 6.dp
@@ -301,15 +301,15 @@ fun PrepareScreen(onNext: () -> Unit) {
             color = palette.ink2,
         )
         Spacer(Modifier.height(10.9.dp))
-        PrepareStep(number = 1, text = "Have your Lensly phone with you, charged and unlocked.")
-        PrepareStep(number = 2, text = "Set a password for Lumio on the next screens.")
-        PrepareStep(number = 3, text = "Then hold Lensly's pairing code up to this phone.")
+        NumberedStep(number = 1, text = "Have your Lensly phone with you, charged and unlocked.")
+        NumberedStep(number = 2, text = "Set a password for Lumio on the next screens.")
+        NumberedStep(number = 3, text = "Then hold Lensly's pairing code up to this phone.")
     }
 }
 
-/** One numbered step of the prepare page: the number in an outlined disc, and the words beside it, as the mock draws its steps. */
+/** One numbered step of a first-run page: the number in an outlined disc, and the words beside it, as the mock draws its steps. */
 @Composable
-private fun PrepareStep(number: Int, text: String) {
+internal fun NumberedStep(number: Int, text: String) {
     val palette = LocalClearAirPalette.current
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
         Box(modifier = Modifier.size(25.dp).border(1.5.dp, palette.ink3, CircleShape), contentAlignment = Alignment.Center) {
