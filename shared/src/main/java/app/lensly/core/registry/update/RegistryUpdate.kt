@@ -3,6 +3,7 @@ package app.lensly.core.registry.update
 import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.WhitelistEntry
+import app.lensly.core.vault.KeystoreBackend
 import app.lensly.core.vault.writeAtomically
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -14,7 +15,9 @@ import java.io.InputStream
  * sequence than the build's catalog; otherwise the build's lists stay. A list the package does not carry keeps the one in effect:
  * the whitelist keeps the last installed one that carried it, and the denylist and wallets keep the build's.
  * A package is accepted only when a key the build trusts signed it (see [TrustedKeys]), and only when its sequence is higher than
- * every sequence accepted before.
+ * every sequence accepted before. The highest accepted sequence, and the sequence of the package that supplied the kept whitelist, are
+ * sealed under a Keystore key (see [RegistrySeal]), so replacing or deleting the stored files cannot roll the catalog back: a package
+ * or whitelist that does not match the seal is not used, and an install must beat the floor the Keystore remembers.
  *
  * Packages arrive on removable storage. This object checks them before anything is stored. Reading them from
  * storage is the caller's job.
@@ -24,14 +27,14 @@ object RegistryUpdate {
     const val INSTALLED_FILE = "installed.lrp"
 
     /**
-     * The highest sequence ever accepted, as decimal text, stored beside [INSTALLED_FILE]. It keeps the rollback check
-     * working when the installed package itself can no longer be read.
+     * The highest sequence accepted, as decimal text, that Lensly 1.2.0 stored beside [INSTALLED_FILE]. It is no longer written. A store
+     * that has it and no seal is sealed once by [adoptUnsealed], and the file is deleted.
      */
-    const val SEQUENCE_FILE = "accepted-sequence"
+    internal const val LEGACY_SEQUENCE_FILE = "accepted-sequence"
 
     /**
      * The last accepted package that carried a whitelist, stored beside [INSTALLED_FILE]. A later package that omits its whitelist
-     * keeps this one's, so the installed whitelist survives an update that does not restate it.
+     * keeps this one's, so the installed whitelist survives an update that does not restate it. Its sequence is the one in the seal.
      */
     const val WHITELIST_FILE = "whitelist.lrp"
 
@@ -73,27 +76,93 @@ object RegistryUpdate {
 
     /**
      * Stores [bytes] as the installed package in [dir] when they verify and their sequence is higher than the last
-     * accepted one. An older or equal sequence is refused with [RegistryUpdateException.NotNewer]. On any failure
-     * nothing is written.
+     * accepted one, which is the highest of the sealed floor, the Keystore's newest floor key and the installed package's own sequence.
+     * An older or equal sequence is refused with [RegistryUpdateException.NotNewer]. A directory that exists but holds a package
+     * that cannot be read, and no floor anywhere, is [RegistryUpdateException.SequenceUnknown], not "nothing accepted yet": deleting
+     * the files must not lower the floor. The files and the seal are written one by one. When a write fails, the files already written
+     * are put back as they were and the new Keystore key is deleted, so a failure leaves nothing stored and the result says so.
      */
     fun install(
         bytes: ByteArray,
         trustedKeys: List<TrustedKey>,
         baked: Registry,
         dir: File,
+        keystore: KeystoreBackend,
     ): Result<RegistryPackage> = synchronized(installLock) {
         runCatching {
             val incoming = verify(bytes, trustedKeys, baked).getOrThrow()
-            val accepted = acceptedSequence(dir, trustedKeys)
+            adoptUnsealed(dir, trustedKeys, keystore)
+            val prior = sealOf(dir, keystore)
+            val newest = RegistrySeal.newestFloor(keystore)
+            val accepted = acceptedSequence(dir, trustedKeys, prior, newest)
             if (incoming.sequence <= accepted) {
                 throw RegistryUpdateException.NotNewer(accepted, incoming.sequence)
             }
-            check(dir.isDirectory || dir.mkdirs()) { "cannot create ${dir.path}" }
-            // The package goes first: if the record write is lost, the package still gives its own sequence.
-            writeAtomically(File(dir, INSTALLED_FILE), bytes)
-            if (incoming.whitelist != null) writeAtomically(File(dir, WHITELIST_FILE), bytes)
-            writeAtomically(File(dir, SEQUENCE_FILE), incoming.sequence.toString().toByteArray())
+            val created = !dir.isDirectory
+            check(!created || dir.mkdirs()) { "cannot create ${dir.path}" }
+            // A package that omits its whitelist keeps the sealed carrier's. With no verified seal there is no carrier to keep.
+            val carrier = if (incoming.whitelist != null) incoming.sequence else prior?.whitelistSequence ?: 0L
+            val seal = RegistrySeal.Seal(incoming.sequence, carrier)
+            try {
+                // The package goes first and the seal last: a seal is the proof that the files before it were all written.
+                val writes = linkedMapOf(INSTALLED_FILE to bytes)
+                if (incoming.whitelist != null) writes[WHITELIST_FILE] = bytes
+                writes[RegistrySeal.FILE] = RegistrySeal.create(seal, keystore)
+                storeAll(dir, writes, created)
+            } catch (e: Exception) {
+                RegistrySeal.keepOnly(newest, keystore)
+                throw e
+            }
+            RegistrySeal.keepOnly(seal.floor, keystore)
             incoming
+        }
+    }
+
+    /**
+     * Seals a store that has no seal and whose Keystore holds no registry key: one that Lensly 1.2.0 wrote, which kept the floor in
+     * [LEGACY_SEQUENCE_FILE] where a file edit could change it. The floor becomes the highest sequence among the installed package, the
+     * whitelist carrier and that record, and the carrier's sequence is sealed with it. This runs once: the key it makes means the next
+     * read finds a seal. A failure leaves the store as it was, to be tried again.
+     *
+     * Adopting is safe because this state cannot be reached by file access alone: a store that was ever sealed has a Keystore key,
+     * which an attacker without the Keystore cannot delete, so a deleted or copied seal reads as unverified, never as unsealed. What
+     * gets adopted is what the store held when the app first ran with seals, which is all that 1.2.0 ever protected. It is not
+     * trusted beyond what verifies: the packages must still carry a trusted signature, and only their sequences are taken.
+     */
+    fun adoptUnsealed(dir: File, trustedKeys: List<TrustedKey>, keystore: KeystoreBackend) {
+        synchronized(installLock) {
+            if (RegistrySeal.read(dir, keystore) != RegistrySeal.Reading.Unsealed) return
+            val record = File(dir, LEGACY_SEQUENCE_FILE)
+            val installed = sequenceOf(File(dir, INSTALLED_FILE), trustedKeys)
+            val carrier = sequenceOf(File(dir, WHITELIST_FILE), trustedKeys)
+            val floor = maxOf(installed ?: 0L, carrier ?: 0L, recordedSequence(record) ?: 0L)
+            if (floor == 0L) return
+            try {
+                writeAtomically(File(dir, RegistrySeal.FILE), RegistrySeal.create(RegistrySeal.Seal(floor, carrier ?: 0L), keystore))
+            } catch (e: Exception) {
+                RegistrySeal.keepOnly(null, keystore)
+                throw e
+            }
+            record.delete()
+        }
+    }
+
+    /** Writes [writes] in order. When one fails, the ones already written go back to what they held and the failure is rethrown. */
+    private fun storeAll(dir: File, writes: Map<String, ByteArray>, created: Boolean) {
+        val before = writes.keys.associateWith { name -> File(dir, name).takeIf { it.isFile }?.readBytes() }
+        val written = mutableListOf<String>()
+        try {
+            for ((name, content) in writes) {
+                writeAtomically(File(dir, name), content)
+                written += name
+            }
+        } catch (e: Exception) {
+            for (name in written) {
+                val file = File(dir, name)
+                runCatching { before[name]?.let { writeAtomically(file, it) } ?: file.delete() }
+            }
+            if (created) dir.delete()
+            throw e
         }
     }
 
@@ -104,57 +173,73 @@ object RegistryUpdate {
      * the one in effect: the whitelist keeps the last installed one that carried it, see [keptWhitelist]. The denylist and wallets
      * keep the build's. When there is no installed package, or it no longer verifies against [registry] (for
      * example because an app update bakes one of its chain IDs), [registry] is returned unchanged; a failed verification is
-     * flagged on the result so Settings can say the built-in catalog is in use.
+     * flagged on the result so Settings can say the built-in catalog is in use. A package that does not match the seal counts as
+     * one that no longer verifies, and so does any store whose seal cannot be verified (see [RegistrySeal]).
      */
-    fun withInstalled(registry: Registry, dir: File, trustedKeys: List<TrustedKey>): Registry {
+    fun withInstalled(registry: Registry, dir: File, trustedKeys: List<TrustedKey>, keystore: KeystoreBackend): Registry {
         if (!File(dir, INSTALLED_FILE).isFile) return registry
-        val installed = installedPackage(registry, dir, trustedKeys) ?: return registry.withInstalledUpdateUnverified()
+        val seal = sealOf(dir, keystore) ?: return registry.withInstalledUpdateUnverified()
+        val installed = installedUnder(seal, registry, dir, trustedKeys) ?: return registry.withInstalledUpdateUnverified()
         val merged = registry.withAdditions(installed.networks, installed.tokens)
         if (installed.sequence <= registry.catalogSequence) return merged
-        return merged.withWhitelist(installed.whitelist ?: keptWhitelist(registry, dir, trustedKeys) ?: registry.whitelistEntries())
+        return merged
+            .withWhitelist(installed.whitelist ?: keptWhitelist(seal, registry, dir, trustedKeys) ?: registry.whitelistEntries())
             .withDenylist(installed.denylist ?: registry.denylistEntries())
             .withWallets(installed.wallets ?: registry.walletEntries())
     }
 
     /**
-     * The whitelist of the last installed package that carried one, when it verifies against [registry] and is newer than its
-     * catalog, as the whitelist rule requires. Null when there is none in effect.
+     * The whitelist of the last installed package that carried one, when it is the package the seal names, verifies against
+     * [registry] and is newer than its catalog, as the whitelist rule requires. A file with any other sequence is a replaced one.
+     * Null when there is none in effect.
      */
-    private fun keptWhitelist(registry: Registry, dir: File, trustedKeys: List<TrustedKey>): List<WhitelistEntry>? {
+    private fun keptWhitelist(
+        seal: RegistrySeal.Seal,
+        registry: Registry,
+        dir: File,
+        trustedKeys: List<TrustedKey>,
+    ): List<WhitelistEntry>? {
         val file = File(dir, WHITELIST_FILE)
-        if (!file.isFile) return null
+        if (seal.whitelistSequence == 0L || !file.isFile) return null
         val kept = verify(file.readBytes(), trustedKeys, registry).getOrNull() ?: return null
-        if (kept.sequence <= registry.catalogSequence) return null
+        if (kept.sequence != seal.whitelistSequence || kept.sequence <= registry.catalogSequence) return null
         return kept.whitelist
     }
 
     /**
      * The installed package in [dir], when it verifies against [trustedKeys] and [registry]. It is the package
-     * [withInstalled] merges, so its sequence is the one in effect. Null when none is stored or it no longer verifies.
+     * [withInstalled] merges, so its sequence is the one in effect. Null when none is stored, it no longer verifies, the seal cannot be
+     * verified, or its sequence is below the sealed floor (a replaced file).
      */
-    fun installedPackage(registry: Registry, dir: File, trustedKeys: List<TrustedKey>): RegistryPackage? {
+    fun installedPackage(registry: Registry, dir: File, trustedKeys: List<TrustedKey>, keystore: KeystoreBackend): RegistryPackage? =
+        sealOf(dir, keystore)?.let { installedUnder(it, registry, dir, trustedKeys) }
+
+    private fun installedUnder(seal: RegistrySeal.Seal, registry: Registry, dir: File, trustedKeys: List<TrustedKey>): RegistryPackage? {
         val file = File(dir, INSTALLED_FILE)
         if (!file.isFile) return null
-        return verify(file.readBytes(), trustedKeys, registry).getOrNull()
+        val installed = verify(file.readBytes(), trustedKeys, registry).getOrNull() ?: return null
+        return installed.takeIf { it.sequence >= seal.floor }
     }
 
+    private fun sealOf(dir: File, keystore: KeystoreBackend): RegistrySeal.Seal? =
+        (RegistrySeal.read(dir, keystore) as? RegistrySeal.Reading.Sealed)?.seal
+
+    private fun recordedSequence(record: File): Long? = record.takeIf { it.isFile }?.readText()?.trim()?.toLongOrNull()
+
+    /** The sequence of the package in [file] when it can be read and a trusted key signed it, otherwise null. */
+    private fun sequenceOf(file: File, trustedKeys: List<TrustedKey>): Long? =
+        file.takeIf { it.isFile }?.let { runCatching { PackageFormat.read(it.readBytes(), trustedKeys).sequence }.getOrNull() }
+
     /**
-     * The highest sequence accepted so far: the larger of the [SEQUENCE_FILE] record and the installed package's own
-     * sequence. It is 0 only when nothing was ever installed or recorded. A package or a record that cannot be read,
-     * with nothing readable beside it, is [RegistryUpdateException.SequenceUnknown], never 0.
+     * The highest sequence accepted so far: the largest of the [prior] seal's floor, the Keystore's [newest] floor key and the
+     * installed package's own sequence. The Keystore's key outlives the files, so deleting them leaves the floor in place. It is 0
+     * only when none of them exists and [dir] does not exist either. An existing [dir] with none of them is
+     * [RegistryUpdateException.SequenceUnknown], never 0.
      */
-    private fun acceptedSequence(dir: File, trustedKeys: List<TrustedKey>): Long {
-        val record = File(dir, SEQUENCE_FILE)
-        val recorded = record.takeIf { it.isFile }?.readText()?.trim()?.toLongOrNull()
-        val file = File(dir, INSTALLED_FILE)
-        if (!file.isFile) {
-            if (record.isFile && recorded == null) throw RegistryUpdateException.SequenceUnknown()
-            return recorded ?: 0
-        }
-        val bytes = file.readBytes()
-        val installed = runCatching { PackageFormat.read(bytes, trustedKeys).sequence }.getOrNull()
-        if (installed == null && recorded == null) throw RegistryUpdateException.SequenceUnknown()
-        return maxOf(installed ?: 0, recorded ?: 0)
+    private fun acceptedSequence(dir: File, trustedKeys: List<TrustedKey>, prior: RegistrySeal.Seal?, newest: Long?): Long {
+        val known = listOfNotNull(sequenceOf(File(dir, INSTALLED_FILE), trustedKeys), prior?.floor, newest)
+        if (known.isEmpty() && dir.isDirectory) throw RegistryUpdateException.SequenceUnknown()
+        return known.maxOrNull() ?: 0L
     }
 
     private fun checkAgainstBaked(pkg: RegistryPackage, baked: Registry) {

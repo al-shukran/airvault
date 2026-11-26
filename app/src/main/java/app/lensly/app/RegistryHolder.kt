@@ -9,6 +9,8 @@ import app.lensly.core.registry.update.RegistryPackage
 import app.lensly.core.registry.update.RegistryUpdate
 import app.lensly.core.registry.update.TrustedKey
 import app.lensly.core.registry.update.TrustedKeys
+import app.lensly.core.vault.KeystoreBackend
+import app.lensly.core.vault.androidKeystore
 import java.io.File
 import java.io.FileNotFoundException
 
@@ -52,8 +54,9 @@ object RegistryHolder {
         val baked = RegistryLoader.fromAssets(assets)
         val trustedKeys = TrustedKeys.load { path -> readAsset(assets, path) }
         val dir = File(context.noBackupFilesDir, INSTALLED_DIR)
-        installBundled(assets, baked, trustedKeys, dir)
-        return RegistryCatalog(baked, dir, trustedKeys)
+        val keystore = androidKeystore(context)
+        installBundled(assets, baked, trustedKeys, dir, keystore)
+        return RegistryCatalog(baked, dir, trustedKeys, keystore)
     }
 
     /**
@@ -65,13 +68,14 @@ object RegistryHolder {
         baked: Registry,
         trustedKeys: List<TrustedKey>,
         dir: File,
+        keystore: KeystoreBackend,
     ) {
         val bytes = try {
             assets.open(BUNDLED_PATH).use { it.readBytes() }
         } catch (e: FileNotFoundException) {
             return
         }
-        RegistryUpdate.install(bytes, trustedKeys, baked, dir)
+        RegistryUpdate.install(bytes, trustedKeys, baked, dir, keystore)
     }
 
     private fun readAsset(assets: AssetManager, path: String): String? = try {

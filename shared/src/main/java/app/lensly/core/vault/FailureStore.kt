@@ -453,12 +453,6 @@ internal class FailureStore(
         return payload + keystore(STATE_UNAVAILABLE) { macOf(key, payload) }
     }
 
-    private fun macOf(key: SecretKey, payload: ByteArray): ByteArray {
-        val mac = Mac.getInstance(MAC_ALGORITHM)
-        mac.init(key)
-        return mac.doFinal(payload)
-    }
-
     companion object {
         const val PRIMARY_FILE_NAME = "failures.bin"
         const val BACKUP_FILE_NAME = "failures.bak"
@@ -472,7 +466,6 @@ internal class FailureStore(
         /** Upper bound on the stored failure count, so the count cannot overflow. */
         private const val MAX_FAILURES = 1_000_000
 
-        private const val MAC_ALGORITHM = "HmacSHA256"
         private val MAGIC = "LNFS".toByteArray(Charsets.US_ASCII)
 
         /** The layout of a copy that this build writes and reads. A copy of any other version is not a copy, and no older layout is read. */
@@ -537,8 +530,14 @@ private inline fun <T> keystore(message: String, block: () -> T): T = try {
     throw VaultException(message, e)
 }
 
+/** HMAC-SHA256 of [payload] under [key]. The Failure Delay state and the registry seal are both MACed this way. */
+internal fun macOf(key: SecretKey, payload: ByteArray): ByteArray = Mac.getInstance("HmacSHA256").run {
+    init(key)
+    doFinal(payload)
+}
+
 /** Runs a Keystore call on a path that must not fail: a Keystore error gives null. */
-private inline fun <T> keystoreOrNull(block: () -> T): T? = try {
+internal inline fun <T> keystoreOrNull(block: () -> T): T? = try {
     block()
 } catch (e: GeneralSecurityException) {
     null

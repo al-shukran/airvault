@@ -44,15 +44,37 @@ class VaultWipeRecoveryTest {
     }
 
     @Test
-    fun aResetThatCannotStartLeavesTheVaultAsItWas() {
+    fun aResetThatCannotWriteItsMarkerStillDeletesTheKeys() {
         createVault()
         deny(layout.root)
 
         assertFailsWith<VaultException> { vault.wipe() }
 
         giveBack(layout.root)
-        assertTrue(vault.exists())
-        unlocked(attempt(APP)).close()
+        // The vault is never kept: its Keystore keys are gone, so the right password opens nothing.
+        assertNull(keys.folderKeyIds().firstOrNull())
+        assertFailsWith<VaultException> { keys.hardwareKey() }
+        assertNeverOpens(attempt(APP))
+    }
+
+    @Test
+    fun anEraseThatCannotWriteItsMarkerIsNotAnEraseThatKeepsTheVault() {
+        var erased = 0
+        val withHook = Vault(layout, keys, clock, KDF, onErased = { erased++ })
+        createVault()
+        // Neither failure copy verifies, so the next try erases the vault before it checks the password.
+        File(layout.root, "failures.bin").writeBytes(ByteArray(64))
+        File(layout.root, "failures.bak").writeBytes(ByteArray(64))
+        FailureStore.forget(layout.root)
+        deny(layout.root)
+
+        val result = attempt(APP, withHook)
+
+        giveBack(layout.root)
+        assertTrue(result is UnlockResult.Erased, "Expected Erased but was $result")
+        assertEquals(1, erased)
+        assertNull(keys.folderKeyIds().firstOrNull())
+        assertNeverOpens(attempt(APP))
     }
 
     @Test
@@ -206,14 +228,19 @@ class VaultWipeRecoveryTest {
     }
 
     /** Moves the clock past any failure delay, then tries [password]. */
-    private fun attempt(password: String): UnlockResult {
+    private fun attempt(password: String, gate: Vault = vault): UnlockResult {
         clock.advance(MAX_WAIT)
-        return runBlocking { vault.unlock(password.toCharArray()) }
+        return runBlocking { gate.unlock(password.toCharArray()) }
     }
 
     private fun unlocked(result: UnlockResult): VaultSession {
         assertTrue(result is UnlockResult.Unlocked, "Expected Unlocked but was $result")
         return (result as UnlockResult.Unlocked).session
+    }
+
+    /** The vault is inert: with its keys gone the right password opens nothing, and the unverifiable vault is erased at this gate. */
+    private fun assertNeverOpens(result: UnlockResult) {
+        assertTrue(result is UnlockResult.Erased || result is UnlockResult.Rejected, "Expected no unlock but was $result")
     }
 
     private fun assertRejected(result: UnlockResult) {

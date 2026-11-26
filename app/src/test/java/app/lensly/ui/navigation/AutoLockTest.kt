@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
@@ -106,6 +107,103 @@ class AutoLockTest {
 
         assertEquals(LenslyRoute.CAMERA, nav.currentBackStackEntry?.destination?.route)
         assertEquals(1L, holder.unlockEpoch(), "a stop must not wait for the inactivity timer")
+    }
+
+    @Test
+    fun recreatingTheActivityKeepsTheElapsedIdleTime() {
+        PickerStop.disarm()
+        compose.mainClock.autoAdvance = false
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent {
+            val context = LocalContext.current
+            val controller = rememberNavController()
+            nav = controller
+            val vaultHolder = remember { VaultHolder(Vault(context)) }
+            holder = vaultHolder
+            // The activity clock is the test clock, so advancing the compose clock moves the time the countdown reads.
+            InactivityLock(controller, vaultHolder, clock = { compose.mainClock.currentTime })
+            NavHost(navController = controller, startDestination = LenslyRoute.CAMERA) {
+                composable(LenslyRoute.CAMERA) {}
+                composable(LenslyRoute.HIDDEN) {}
+            }
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { nav.navigate(LenslyRoute.HIDDEN) { launchSingleTop = true } }
+        compose.mainClock.advanceTimeByFrame()
+
+        compose.mainClock.advanceTimeBy(100_000L)
+        // A rotation recreates the activity. The countdown carries on from the entry to the hidden area.
+        compose.mainClock.autoAdvance = true
+        restoration.emulateSavedInstanceStateRestore()
+        compose.mainClock.autoAdvance = false
+        assertEquals(LenslyRoute.HIDDEN, nav.currentBackStackEntry?.destination?.route)
+
+        compose.mainClock.advanceTimeBy(30_000L)
+        compose.mainClock.advanceTimeByFrame()
+        assertEquals(LenslyRoute.CAMERA, nav.currentBackStackEntry?.destination?.route)
+    }
+
+    private fun showRestorableHost(restoration: StateRestorationTester) {
+        PickerStop.disarm()
+        compose.mainClock.autoAdvance = false
+        restoration.setContent {
+            val context = LocalContext.current
+            val controller = rememberNavController()
+            nav = controller
+            val vaultHolder = remember { VaultHolder(Vault(context)) }
+            holder = vaultHolder
+            InactivityLock(controller, vaultHolder, clock = { compose.mainClock.currentTime })
+            NavHost(navController = controller, startDestination = LenslyRoute.CAMERA) {
+                composable(LenslyRoute.CAMERA) {}
+                composable(LenslyRoute.HIDDEN) {}
+            }
+        }
+        compose.waitForIdle()
+    }
+
+    private fun enterHidden() {
+        compose.runOnIdle { nav.navigate(LenslyRoute.HIDDEN) { launchSingleTop = true } }
+        compose.mainClock.advanceTimeByFrame()
+    }
+
+    private fun recreate(restoration: StateRestorationTester) {
+        compose.mainClock.autoAdvance = true
+        restoration.emulateSavedInstanceStateRestore()
+        compose.mainClock.autoAdvance = false
+    }
+
+    @Test
+    fun theCountdownStillFiresAfterAnotherEntryFollowingARecreation() {
+        val restoration = StateRestorationTester(compose)
+        showRestorableHost(restoration)
+        enterHidden()
+        compose.mainClock.advanceTimeBy(60_000L)
+        recreate(restoration)
+        compose.mainClock.advanceTimeBy(INACTIVITY_LOCK_MS)
+        compose.mainClock.advanceTimeByFrame()
+        assertEquals(LenslyRoute.CAMERA, nav.currentBackStackEntry?.destination?.route)
+
+        // A second visit gets its own full countdown, neither skipped nor stale.
+        enterHidden()
+        compose.mainClock.advanceTimeBy(INACTIVITY_LOCK_MS - 10_000L)
+        assertEquals(LenslyRoute.HIDDEN, nav.currentBackStackEntry?.destination?.route)
+        compose.mainClock.advanceTimeBy(20_000L)
+        compose.mainClock.advanceTimeByFrame()
+        assertEquals(LenslyRoute.CAMERA, nav.currentBackStackEntry?.destination?.route)
+    }
+
+    @Test
+    fun aRecreationOutsideTheHiddenAreaStartsTheNextVisitAtItsEntry() {
+        val restoration = StateRestorationTester(compose)
+        showRestorableHost(restoration)
+        compose.mainClock.advanceTimeBy(300_000L)
+        recreate(restoration)
+        enterHidden()
+        compose.mainClock.advanceTimeBy(INACTIVITY_LOCK_MS - 10_000L)
+        assertEquals(LenslyRoute.HIDDEN, nav.currentBackStackEntry?.destination?.route)
+        compose.mainClock.advanceTimeBy(20_000L)
+        compose.mainClock.advanceTimeByFrame()
+        assertEquals(LenslyRoute.CAMERA, nav.currentBackStackEntry?.destination?.route)
     }
 
     private companion object {

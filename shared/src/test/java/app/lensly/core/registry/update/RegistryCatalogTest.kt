@@ -2,6 +2,7 @@ package app.lensly.core.registry.update
 
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
+import app.lensly.core.vault.MemoryKeystore
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -19,11 +20,12 @@ class RegistryCatalogTest {
     val folder = TemporaryFolder()
 
     private val keys = TestPackages.TRUSTED
+    private val keystore = MemoryKeystore()
     private val baked: Registry = RegistryLoader.load { path ->
         File("src/main/assets", path).takeIf { it.isFile }?.readText()
     }
 
-    private fun catalog(dir: File = folder.root.resolve("registry")): RegistryCatalog = RegistryCatalog(baked, dir, keys)
+    private fun catalog(dir: File = folder.root.resolve("registry")): RegistryCatalog = RegistryCatalog(baked, dir, keys, keystore)
 
     @Test
     fun withoutAnInstalledPackageTheCurrentCatalogIsTheBakedOne() {
@@ -82,7 +84,7 @@ class RegistryCatalogTest {
     @Test
     fun anInstalledPackageNotNewerThanTheBuildIsNotInEffect() {
         val build = Registry(baked.networks(), baked.tokens(), baked.whitelistEntries(), catalogSequence = 5)
-        val catalog = RegistryCatalog(build, folder.root.resolve("registry"), keys)
+        val catalog = RegistryCatalog(build, folder.root.resolve("registry"), keys, keystore)
         catalog.install(TestPackages.signed(TestPackages.payload(sequence = 3))).getOrThrow()
 
         assertNull(catalog.installed(), "a package with sequence 3 does not replace a build with sequence 5")
@@ -91,7 +93,7 @@ class RegistryCatalogTest {
     @Test
     fun aNewerInstalledPackageIsInEffectAndItsSequenceIsTheVersion() {
         val build = Registry(baked.networks(), baked.tokens(), baked.whitelistEntries(), catalogSequence = 5)
-        val catalog = RegistryCatalog(build, folder.root.resolve("registry"), keys)
+        val catalog = RegistryCatalog(build, folder.root.resolve("registry"), keys, keystore)
         catalog.install(TestPackages.signed(TestPackages.payload(sequence = 7))).getOrThrow()
 
         assertEquals(7L, assertNotNull(catalog.installed()).sequence)

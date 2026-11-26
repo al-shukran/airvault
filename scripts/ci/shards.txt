@@ -369,6 +369,8 @@ shard-5 :shared app.lensly.core.parse.AlgorandScanWireTest
 shard-5 :shared app.lensly.core.parse.SandboxedParserTest
 shard-5 :shared app.lensly.core.registry.AbiRowsTest
 shard-5 :shared app.lensly.core.registry.RegistryTest
+shard-5 :shared app.lensly.core.registry.update.RegistryRollbackTest
+shard-5 :shared app.lensly.core.registry.update.RegistrySealTest
 shard-5 :shared app.lensly.core.registry.update.RegistryUpdateTest
 shard-5 :shared app.lensly.core.solana.SolanaTokenListTest
 shard-5 :shared app.lensly.core.ur.CryptoHdKeyEncoderTest
