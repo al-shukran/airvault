@@ -26,14 +26,17 @@ import app.lumio.data.rpc.JsonRpc
 import app.lumio.data.sched.Scheduler
 import app.lumio.send.Landing
 import app.lumio.send.SubmitMachine
+import app.lumio.send.outcomeUnknown
 import com.sparrowwallet.hummingbird.UR
 import fr.acinq.bitcoin.Base58
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
+import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
+import mockwebserver3.RecordedRequest
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -338,6 +341,20 @@ class SolanaSendTest {
         assertFalse(failure.retryable)
         assertEquals(1, server.requestCount)
         assertTrue(server.takeRequest().body?.utf8().orEmpty().contains("\"method\":\"getBlockHeight\""))
+    }
+
+    /** A height read that times out or answers a server error sent nothing, so the page must not call the outcome unknown. */
+    @Test
+    fun aFailedHeightReadIsNotAnUnknownOutcome() = runBlocking {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = MockResponse.Builder().code(500).build()
+        }
+
+        val failure = assertFailsWith<ProviderError.Transient> {
+            SolanaSend.requireUnexpired(scheduler(), SOLANA_DEVNET, SetupWindow(lastValidBlockHeight = 100L))
+        }
+
+        assertFalse(outcomeUnknown(failure))
     }
 
     /**

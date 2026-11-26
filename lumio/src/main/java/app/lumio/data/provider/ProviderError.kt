@@ -21,7 +21,7 @@ sealed class ProviderError(message: String, cause: Throwable? = null) : Exceptio
         val neverSent: Boolean
             get() {
                 val chain = generateSequence(cause) { it.cause }.take(MAX_CAUSES).toList()
-                return chain.any { it.isUnsent() } && chain.none { error -> error.suppressed.any { !it.isUnsent() } }
+                return chain.any { it is NotSent } || chain.any { it.isUnsent() } && chain.none { error -> error.suppressed.any { !it.isUnsent() } }
             }
     }
 
@@ -40,6 +40,13 @@ sealed class ProviderError(message: String, cause: Throwable? = null) : Exceptio
      */
     class Unreadable(message: String) : Fatal(message)
 }
+
+/**
+ * The mark of a failure that happened before any request left: the scheduler refused the call, or a read that comes before the send failed. A
+ * [ProviderError.Transient] that has it as a cause is [ProviderError.Transient.neverSent], and nothing below it in the chain counts as a sign that
+ * the network may hold the transaction.
+ */
+class NotSent(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 private const val MAX_CAUSES = 4
 

@@ -95,6 +95,17 @@ class AlgorandSendTest {
         return checkNotNull(scanner.result())
     }
 
+    /** An unreadable answer to a broadcast may have been accepted: the page's words must not say the network refused it. */
+    @Test
+    fun anUnreadableBroadcastAnswerIsNotDescribedAsRefused() {
+        val unreadable = algorandFailure(ProviderError.Unreadable("The answer does not have the documented shape."))
+        assertEquals("The answer does not have the documented shape.", unreadable.message)
+        assertTrue(app.lumio.send.outcomeUnknown(ProviderError.Unreadable("x")))
+
+        val refused = algorandFailure(ProviderError.Fatal("rejected"))
+        assertTrue(refused.message.startsWith("The network did not accept the transaction."))
+    }
+
     @Test
     fun aMicroAlgoAmountIsReadInAlgoWithUpToSixDecimals() {
         assertEquals(BigInteger.valueOf(1_500_000L), AlgorandSend.microAlgos("1.5"))

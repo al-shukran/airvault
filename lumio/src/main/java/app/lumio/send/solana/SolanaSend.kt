@@ -14,6 +14,7 @@ import app.lensly.core.wallet.Ed25519Signer
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.NativeBalance
+import app.lumio.data.provider.NotSent
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.RecentBlockhash
 import app.lumio.data.provider.SolanaAccountRead
@@ -250,10 +251,16 @@ object SolanaSend {
 
     /**
      * Reads the block height of [network] before a setup is sent, and throws [BlockhashExpired] when [window] has run out, so nothing is sent. A
-     * failed read throws its [ProviderError], and the same signed setup can be sent again.
+     * failed read throws its [ProviderError], marked [NotSent] when it could read as an unknown outcome, and the same signed setup can be sent again.
      */
     suspend fun requireUnexpired(scheduler: Scheduler, network: NetworkId, window: SetupWindow) {
-        val height = scheduler.run(SolanaBlockHeight(network), Priority.FOREGROUND)
+        val height = try {
+            scheduler.run(SolanaBlockHeight(network), Priority.FOREGROUND)
+        } catch (e: ProviderError.Transient) {
+            throw ProviderError.Transient(NotSent("The block height was not read.", e))
+        } catch (e: ProviderError.Unreadable) {
+            throw ProviderError.Transient(NotSent("The block height was not read.", e))
+        }
         if (expired(height, window.lastValidBlockHeight)) throw BlockhashExpired()
     }
 

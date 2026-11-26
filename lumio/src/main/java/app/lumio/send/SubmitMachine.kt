@@ -1,5 +1,6 @@
 package app.lumio.send
 
+import app.lumio.data.provider.NotSent
 import app.lumio.data.provider.ProviderError
 import app.lumio.evm.RpcFailure
 import kotlinx.coroutines.CancellationException
@@ -67,7 +68,7 @@ class SubmitMachine<S, Id>(
  * True when [error], or a cause of it, is a failure after which the network may hold the transaction: a transient failure that may have left, or an
  * unreadable answer. A transient failure that never left, such as no network at all, leaves the transaction with the owner.
  */
-internal fun outcomeUnknown(error: Throwable): Boolean = generateSequence(error) { it.cause?.takeIf { cause -> cause !== it } }.take(MAX_CAUSES).any {
+internal fun outcomeUnknown(error: Throwable): Boolean = generateSequence(error) { it.cause?.takeIf { cause -> cause !== it } }.take(MAX_CAUSES).takeWhile { it !is NotSent }.any {
     it is ProviderError.Transient && !it.neverSent || it is ProviderError.Unreadable
 }
 

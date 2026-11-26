@@ -1,5 +1,6 @@
 package app.lumio.send
 
+import app.lumio.data.provider.NotSent
 import app.lumio.data.provider.ProviderError
 import app.lumio.evm.RpcFailure
 import java.io.IOException
@@ -63,6 +64,14 @@ class SubmitMachineTest {
         val wrapped = Harness(listOf { throw RpcFailure(RpcFailure.Reason.UNREACHABLE, "The endpoint did not answer.", ProviderError.Transient()) }).build(byteArrayOf(1))
         wrapped.submit()
         assertTrue(assertIs<SubmitState.Failed>(wrapped.state.value).unknown)
+    }
+
+    @Test
+    fun aFailureMarkedNotSentIsNotUnknownWhateverItCarries() = runTest {
+        val read = ProviderError.Transient(NotSent("The block height was not read.", ProviderError.Transient(SocketTimeoutException("timeout"))))
+        val machine = Harness(listOf { throw read }).build(byteArrayOf(1))
+        machine.submit()
+        assertFalse(assertIs<SubmitState.Failed>(machine.state.value).unknown)
     }
 
     @Test
