@@ -2,9 +2,14 @@ package app.lumio
 
 import app.airvault.core.model.AccountId
 import app.airvault.core.model.ChainId
+import app.lumio.chains.ChainHolding
+import app.lumio.data.asset.AssetId
+import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.network.NetworkMode
+import app.lumio.ui.wallets.AssetRows
 import app.lumio.wallets.WalletAccount
+import java.math.BigInteger
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -43,5 +48,31 @@ class SendRouteTest {
     @Test
     fun solanaAccountOpensTheSolanaSend() {
         assertEquals("solana-send/w1/solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp:address", sendRoute(account(Networks.SOL_MAINNET), NetworkMode.MAINNET))
+    }
+
+    @Test
+    fun theSendOfAHeldSplTokenOpensTheSolanaSendOnThatMint() {
+        val solana = account(Networks.SOL_MAINNET)
+        val holding = ChainHolding("USDC", "Solana", BigInteger("1500000"), 6, AssetId.Spl(NetworkId(Networks.SOL_MAINNET, testnet = false), MINT))
+
+        assertEquals("solana-send/w1/solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp:address?coin=$MINT", assetSendRoute(solana, rowOf(solana, holding), NetworkMode.MAINNET))
+    }
+
+    @Test
+    fun theSendOfAHeldAlgorandAssetOpensTheAlgorandSendOnThatAsset() {
+        val algorand = account(Networks.ALGO_MAINNET)
+        val holding = ChainHolding("USDC", "Algorand", BigInteger("2500000"), 6, AssetId.Asa(NetworkId(Networks.ALGO_MAINNET, testnet = false), 31566704UL))
+
+        assertEquals(
+            "algorand-send/w1/algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k:address?coin=31566704",
+            assetSendRoute(algorand, rowOf(algorand, holding), NetworkMode.MAINNET),
+        )
+    }
+
+    private fun rowOf(account: WalletAccount, holding: ChainHolding) =
+        AssetRows.of(account, emptyList(), listOf(holding), emptyMap(), network = { null }, token = { _, _ -> null }).single()
+
+    private companion object {
+        val MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
     }
 }

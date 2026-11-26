@@ -1,7 +1,10 @@
 package app.lumio.send.solana
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -30,6 +33,7 @@ import androidx.test.core.app.ApplicationProvider
 import org.robolectric.Shadows.shadowOf
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.config.ProviderConfigStore
+import app.lumio.chains.ChainHoldings
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.solana.CustomSolanaRpc
 import app.lumio.network.NetworkMode
@@ -72,6 +76,9 @@ class SolanaSendRouteTest {
     private val server = MockWebServer()
     private val blockhashReads = AtomicInteger()
     private val clock = FakeClock()
+
+    /** The token accounts that the account holds under the program of the request, by program ID. */
+    private val tokenAccounts = mutableMapOf<String, String>()
 
     @Before
     fun start() {
@@ -120,6 +127,51 @@ class SolanaSendRouteTest {
         assertEquals(1, blockhashReads.get())
     }
 
+    @Test
+    fun aSendOpenedOnAHeldTokenStartsOnThatTokenNotOnSol() {
+        tokenAccounts[CLASSIC_PROGRAM] = tokenAccount(MINT)
+        val wallet = openVaultWithSolanaWallet()
+        goOnline()
+        showSend(wallet, startKey = MINT)
+        compose.onAllNodes(hasSetTextAction())[0].performTextInput(RECIPIENT)
+        compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodes(hasText("Continue") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Continue").performClick()
+        compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithText("AMOUNT · 2 OF 5").fetchSemanticsNodes().isNotEmpty() }
+
+        assertEquals(1, compose.onAllNodesWithText("1.5 ${ChainHoldings.shortened(MINT)} available").fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun aSendOpenedOnATokenItDoesNotOfferStaysOnTheRecipientPageWithTheReason() {
+        tokenAccounts[TOKEN_2022_PROGRAM] = tokenAccount(MINT)
+        val wallet = openVaultWithSolanaWallet()
+        goOnline()
+        showSend(wallet, startKey = MINT)
+        compose.onAllNodes(hasSetTextAction())[0].performTextInput(RECIPIENT)
+        compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithText("This token cannot be sent from here.").fetchSemanticsNodes().isNotEmpty() }
+
+        compose.onNodeWithText("Continue").assertIsNotEnabled()
+    }
+
+    private fun showSend(wallet: OpenWallet, startKey: String) = compose.setContent {
+        LumenTheme {
+            ClearAirTheme {
+                SolanaSendRoute(
+                    navController = rememberNavController(),
+                    holder = wallet.holder,
+                    walletId = wallet.walletId,
+                    accountId = wallet.accountId,
+                    mode = NetworkMode.TESTNET,
+                    onLock = {},
+                    startKey = startKey,
+                )
+            }
+        }
+    }
+
+    private fun tokenAccount(mint: String) =
+        """{"pubkey":"$TOKEN_ACCOUNT","account":{"data":{"parsed":{"info":{"mint":"$mint","tokenAmount":{"amount":"1500000","decimals":6}}}}}}"""
+
     /** The send pages need a connection to review and send, so the test reports one: Robolectric starts with no network. */
     private fun goOnline() {
         val manager = ApplicationProvider.getApplicationContext<Context>().getSystemService(ConnectivityManager::class.java)
@@ -164,7 +216,10 @@ class SolanaSendRouteTest {
                 body.contains("\"getBalance\"") -> answer("""{"context":{"slot":1},"value":5000000000}""")
                 body.contains("\"getAccountInfo\"") -> answer("""{"context":{"slot":1},"value":null}""")
                 body.contains("\"getMinimumBalanceForRentExemption\"") -> answer("1447680")
-                body.contains("\"getTokenAccountsByOwner\"") -> answer("""{"context":{"slot":1},"value":[]}""")
+                body.contains("\"getTokenAccountsByOwner\"") -> {
+                    val held = tokenAccounts.filterKeys { body.contains("\"$it\"") }.values
+                    answer("""{"context":{"slot":1},"value":[${held.joinToString(",")}]}""")
+                }
                 else -> MockResponse.Builder().code(500).build()
             }
         }
@@ -184,6 +239,10 @@ class SolanaSendRouteTest {
     private companion object {
         const val OPENER = "q7Vn!2Lx#Rb9Tm4Wc8Zp"
         const val BALANCE = "Balance 5 SOL"
+        const val CLASSIC_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        const val TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        val MINT: String = Base58.encode(ByteArray(32) { 7 })
+        val TOKEN_ACCOUNT: String = Base58.encode(ByteArray(32) { 8 })
         val BLOCKHASH: String = Base58.encode(ByteArray(32) { 5 })
         val RECIPIENT: String = Base58.encode(ByteArray(32) { 9 })
         val KDF = KdfParams(memoryKiB = 8 * 1024, iterations = 1)

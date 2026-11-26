@@ -132,11 +132,14 @@ private const val PENDING_TEXT = "Waiting for the network to confirm the transac
 private const val NO_BROWSER = "No browser can open the explorer."
 private const val REQUEST_ID_BYTES = 16
 private const val SETTLE_MS = 700L
+private const val COIN_READING = "Reading the asset to send."
+private const val COIN_NOT_OFFERED = "This asset cannot be sent from here."
 
 /**
  * An Algorand send from one account of a paired wallet: the recipient, the amount, the review, the request that Lensly signs, the scan of its signature,
  * and the transaction that is sent, whose status is read from the pool after it. The account is fixed by the caller, and the network is the side the
- * owner chose. The coins are ALGO and the assets the account holds. With [optInAssetId] the route opens the opt-in of that asset instead: its review
+ * owner chose. The coins are ALGO and the assets the account holds, and the send starts on the coin with the key [startKey]: it holds the recipient page
+ * until that coin is offered, so it never starts on another coin. With [optInAssetId] the route opens the opt-in of that asset instead: its review
  * comes first, and the signing and the sending are the same. Lumio holds no key.
  */
 @Composable
@@ -148,6 +151,7 @@ internal fun AlgorandSendRoute(
     account: AccountId,
     onLock: () -> Unit,
     optInAssetId: ULong? = null,
+    startKey: String = AlgorandAssets.ALGO_KEY,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
     val transactions = rememberTransactions(app)
@@ -175,7 +179,7 @@ internal fun AlgorandSendRoute(
     var recipient by rememberSaveable { mutableStateOf("") }
     var amount by rememberSaveable { mutableStateOf("") }
     // The coin the send moves, by its key: ALGO, or the ID of an asset. It is saved, so that a rotation keeps the owner's choice.
-    var selectedKey by rememberSaveable { mutableStateOf(AlgorandAssets.ALGO_KEY) }
+    var selectedKey by rememberSaveable { mutableStateOf(startKey) }
     var assets by remember { mutableStateOf(listOf(AlgorandAssets.native)) }
     var assetSheet by remember { mutableStateOf(false) }
     var changeRecipient by remember { mutableStateOf(false) }
@@ -188,6 +192,8 @@ internal fun AlgorandSendRoute(
     var scanNotice by remember { mutableStateOf<String?>(null) }
     var scanBusy by remember { mutableStateOf(false) }
 
+    // The chosen coin is offered once the account's assets are read. Until then, and for an asset that the send does not offer, the send goes no further.
+    val coinOffered = assets.any { it.key == selectedKey }
     val selected = assets.firstOrNull { it.key == selectedKey } ?: AlgorandAssets.native
     val loaded = funds
     val to: ByteArray? = runCatching { AlgorandSend.recipientKey(recipient) }.getOrNull()
@@ -401,8 +407,8 @@ internal fun AlgorandSendRoute(
                     notice = null
                 },
                 error = if (invalid) AlgorandSend.recipientError(settled) else null,
-                hint = null,
-                canContinue = recipient.isNotBlank() && AlgorandSend.recipientError(recipient) == null,
+                hint = if (coinOffered) null else notice ?: if (funds != null) COIN_NOT_OFFERED else COIN_READING,
+                canContinue = coinOffered && recipient.isNotBlank() && AlgorandSend.recipientError(recipient) == null,
                 accounts = algorandOwnChoices(wallet, address),
                 addressBook = wallet.addressBook
                     .filter { AlgorandSend.recipientError(it.address) == null }

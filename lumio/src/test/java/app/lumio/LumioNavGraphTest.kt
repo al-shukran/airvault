@@ -43,6 +43,20 @@ class LumioNavGraphTest {
         }
     }
 
+    @Test
+    fun theSolanaAndAlgorandSendsTakeTheCoinTheyStartOn() {
+        compose.setContent {
+            nav = rememberNavController()
+            LumioNavHost(navController = nav)
+        }
+        compose.waitForIdle()
+
+        for (route in listOf(LumioRoute.SOLANA_SEND, LumioRoute.ALGORAND_SEND)) {
+            val coin = checkNotNull(nav.graph.allDestinations().single { it.route == route }.arguments[LumioRoute.SEND_COIN_ARG]) { "$route has no coin argument" }
+            assertTrue(coin.isNullable, "The coin of $route is left out for the native coin.")
+        }
+    }
+
     /** Every destination of the graph, nested graphs included. */
     private fun NavGraph.allDestinations(): List<NavDestination> =
         flatMap { node -> listOf(node) + if (node is NavGraph) node.allDestinations() else emptyList() }
