@@ -42,7 +42,7 @@ private fun NavBackStackEntry.gesture(): EntryGesture =
 private fun EntryGestureChoiceRoute(navController: NavHostController, holder: VaultHolder) {
     if (!rememberGateSession(navController, holder)) return
     EntryGestureScreen(
-        current = LocalContext.current.entryGestureHolder().current,
+        current = holder.decoyShown.entryGesture(LocalContext.current.entryGestureHolder().current),
         onChoose = { gesture -> navController.navigate(LumioRoute.entryGestureChange(gesture)) },
         onBack = { navController.popBackStack() },
     )
