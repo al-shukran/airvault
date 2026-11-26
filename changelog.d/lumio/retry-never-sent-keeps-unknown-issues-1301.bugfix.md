@@ -1,1 +1,1 @@
-After a send you could not confirm, a Try Again that fails before anything is sent still says "We Couldn't Confirm It Was Sent" and tells you to check your account, instead of "Nothing Left Your Account".
+After a send you could not confirm, any later failure, including a refusal from the network, still says "We Couldn't Confirm It Was Sent" and tells you to check your account, instead of "Nothing Left Your Account".

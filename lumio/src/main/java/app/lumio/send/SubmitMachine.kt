@@ -43,7 +43,7 @@ class SubmitMachine<S, Id>(
 ) {
     private val current = MutableStateFlow<SubmitState<Id>>(SubmitState.Idle)
 
-    /** True once an attempt of [signed] had an unknown outcome: a later attempt that never left cannot say the network holds nothing. */
+    /** Once an attempt had an unknown outcome, every later failure reads as unknown, since no failure after it proves the network holds nothing. */
     private var everUnknown = false
 
     val signedAtMs: Long = clock()
@@ -62,10 +62,8 @@ class SubmitMachine<S, Id>(
             throw e
         } catch (e: Exception) {
             val failure = describe(e)
-            val unknown = outcomeUnknown(e)
-            val shown = unknown || everUnknown && notSent(e)
-            everUnknown = everUnknown || unknown
-            SubmitState.Failed(failure.message, failure.retryable, technicalDetail(e), shown)
+            everUnknown = everUnknown || outcomeUnknown(e)
+            SubmitState.Failed(failure.message, failure.retryable, technicalDetail(e), everUnknown)
         }
     }
 }
@@ -77,8 +75,6 @@ class SubmitMachine<S, Id>(
 internal fun outcomeUnknown(error: Throwable): Boolean = causes(error).takeWhile { it !is NotSent }.any {
     it is ProviderError.Transient && !it.neverSent || it is ProviderError.Unreadable
 }
-
-private fun notSent(error: Throwable): Boolean = causes(error).any { it is NotSent }
 
 private fun causes(error: Throwable): Sequence<Throwable> = generateSequence(error) { it.cause?.takeIf { cause -> cause !== it } }.take(MAX_CAUSES)
 

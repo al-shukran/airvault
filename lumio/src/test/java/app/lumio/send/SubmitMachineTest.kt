@@ -90,6 +90,13 @@ class SubmitMachineTest {
     }
 
     @Test
+    fun aRefusalAfterAnUnknownOutcomeIsStillUnknown() = runTest {
+        val machine = Harness(listOf({ throw ProviderError.Transient(SocketTimeoutException("timeout")) }, { throw ProviderError.Fatal("nonce too low") })).build(byteArrayOf(1))
+        machine.submit(); machine.submit()
+        assertTrue(assertIs<SubmitState.Failed>(machine.state.value).unknown)
+    }
+
+    @Test
     fun aRetryThatNeverLeftAfterANotSentFailureIsNotUnknown() = runTest {
         val cooling = ProviderError.Transient(NotSent("Every provider is cooling."))
         val machine = Harness(listOf({ throw cooling }, { throw cooling })).build(byteArrayOf(1))
