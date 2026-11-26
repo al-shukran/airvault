@@ -103,7 +103,13 @@ class AssetScreenshotTest {
         chain = "Base",
     )
 
-    private fun series(): PriceSeries = PriceSeries(List(SAMPLE_POINTS) { i -> PricePoint(timeMs = i * HOUR_MS, usd = 4_200.0 + (i % 7) * 12.5 - i * 4.0) })
+    /** The frame's chart: 65 prices that fall over the day, the last one a little above the lowest, where the frame puts its diamond. */
+    private fun series(): PriceSeries {
+        val prices = List(SAMPLE_POINTS) { i -> 4_200.0 + (i % 7) * 12.5 - i * 4.0 }
+        val low = prices.min()
+        val last = low + LAST_ABOVE_LOW * (prices.max() - low)
+        return PriceSeries((prices.dropLast(1) + last).mapIndexed { i, usd -> PricePoint(timeMs = i * HOUR_MS, usd = usd) })
+    }
 
     @Composable
     private fun EthereumPage(held: CoinHeld?) {
@@ -165,6 +171,7 @@ class AssetScreenshotTest {
 
     private companion object {
         const val SAMPLE_POINTS = 65
+        const val LAST_ABOVE_LOW = 0.063
         const val HOUR_MS = 3_600_000L
         const val SENDER = "0x9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f"
     }
