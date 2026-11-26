@@ -2,7 +2,7 @@
 # Checks the CI guards against broken inputs: each case must make its guard fail, and the real files must still pass. Needs yq and
 # python3, no Gradle and no network. Runs in the ci lane (run-partition.sh ci), so a guard that stops rejecting a case fails a pull request.
 #   check-cleartext-sources.sh   cleartext allowed outside src/debug/ (#1406, #1441)
-#   check-workflow-guards.sh     comment-run trusted gate and release refusal order (#1407, #1408, #1442)
+#   check-workflow-guards.sh     comment-run trusted gate and release refusal order (#1407, #1408, #1442, #1451)
 #   close-refresh-pr.sh          the refresh pull request is closed and the comment posted once (#1396, #1443)
 #
 # Usage: scripts/ci/selftest-guards.sh
@@ -172,6 +172,12 @@ mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  echo ok\\nelse\\
 expect_fail "an exit 1 in the else branch" guard_with
 mutate release.yml "($refusal | .run) = \"f() {\\n  if ! $check; then\\n    exit 1\\n  fi\\n}\""
 expect_fail "a refusal inside a function" guard_with
+# The refusal lines must be code the shell runs, not text inside a heredoc or a string that spans lines (#1451).
+for open_close in "cat <<'NOTE'|NOTE" 'cat <<NOTE|NOTE' 'cat <<"NOTE"|NOTE' 'cat <<-NOTE|NOTE' 'echo "|"' ": '|'"; do
+    opener=${open_close%|*} closer=${open_close#*|}
+    mutate release.yml "($refusal | .run) = \"set -euo pipefail\\n${opener//\"/\\\"}\\nif ! $check; then\\n  exit 1\\nfi\\n${closer//\"/\\\"}\""
+    expect_fail "a refusal inside $opener" guard_with
+done
 mutate release.yml "$refusal += {\"id\": \"refuse\"}"
 expect_pass "a refusal with an id" guard_with
 
