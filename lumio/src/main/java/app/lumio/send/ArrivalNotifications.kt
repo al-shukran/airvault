@@ -26,6 +26,13 @@ class ArrivalNotifications(private val context: Context) : ArrivalNotice {
         return permitted && NotificationManagerCompat.from(context).areNotificationsEnabled()
     }
 
+    // Transaction id -> notification id. In memory only, and never given to the system as a tag, which any notification listener can read.
+    private val notificationIds = HashMap<String, Int>()
+
+    /**
+     * Each distinct arrival gets its own notification id, so arrivals stack; a repeat of the same [id] updates its notification. No tag is set,
+     * so the notice names no transaction.
+     */
     @SuppressLint("MissingPermission") // canPost checks the permission before this is called.
     override fun post(id: String) {
         val manager = NotificationManagerCompat.from(context)
@@ -43,7 +50,7 @@ class ArrivalNotifications(private val context: Context) : ArrivalNotice {
             .setContentIntent(open)
             .setAutoCancel(true)
             .build()
-        manager.notify(id, 0, notification)
+        manager.notify(synchronized(notificationIds) { notificationIds.getOrPut(id) { notificationIds.size } }, notification)
     }
 
     private companion object {
