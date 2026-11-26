@@ -120,6 +120,8 @@
      "node": "span.idx",
      "path": "div.tb[1]>div.t[1]>span.idx[0]",
      "text": "#5",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 179.14,
       "y": 18.5,
@@ -285,6 +287,8 @@
      "node": "i",
      "path": "div.px[3]>div[1]>span.ad[0]>i[0]",
      "text": "3040",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 73.7,
       "y": 115,
@@ -313,6 +317,8 @@
      "node": "i",
      "path": "div.px[3]>div[1]>span.ad[0]>i[1]",
      "text": "8191",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 127.41,
       "y": 115,
@@ -385,6 +391,8 @@
      "node": "div.nt",
      "path": "div.px[4]>div.nt[1]",
      "text": "70,885",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 29.08,
       "y": 168,
@@ -807,6 +815,8 @@
      "node": "b.up",
      "path": "div.row[8]>div.v[2]>b.up[0]",
      "text": "+1.00 ETH",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 266.91,
       "y": 375.5,
@@ -835,6 +845,8 @@
      "node": "span",
      "path": "div.row[8]>div.v[2]>span[1]",
      "text": "$4,285.70",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 277.36,
       "y": 394.5,
@@ -956,6 +968,8 @@
      "node": "b",
      "path": "div.row[9]>div.v[2]>b[0]",
      "text": "−0.50 ETH",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 266.91,
       "y": 437.5,
@@ -984,6 +998,8 @@
      "node": "span",
      "path": "div.row[9]>div.v[2]>span[1]",
      "text": "$2,142.85",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 277.36,
       "y": 456.5,

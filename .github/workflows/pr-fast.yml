@@ -10,6 +10,8 @@ name: pr-fast
 # fetch, so a red run is never a dependency flake.
 on:
   pull_request:
+    # Every pull request to master runs every lane, the design gate and its guard included, with no path filter. A pull request to another base
+    # (a stacked one) runs none, so it cannot merge into master until it is retargeted, and the retarget runs the lanes.
     branches: [master, phase-1-5]
   merge_group:
     types: [checks_requested]

@@ -98,6 +98,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -303,6 +304,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -314,6 +316,8 @@
      "node": "b",
      "path": "div[5]>div.row[1]>div.m[1]>b[0]",
      "text": "12.5 MON on Testnet",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 83,
       "y": 415.5,
@@ -342,6 +346,8 @@
      "node": "span",
      "path": "div[5]>div.row[1]>div.m[1]>span[1]",
      "text": "Monad Testnet · tap to switch sides",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 83,
       "y": 434.5,
@@ -790,6 +796,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -995,6 +1002,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1006,6 +1014,8 @@
      "node": "b",
      "path": "div[5]>div.row[1]>div.m[1]>b[0]",
      "text": "12.5 MON on Testnet",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 83,
       "y": 415.5,
@@ -1034,6 +1044,8 @@
      "node": "span",
      "path": "div[5]>div.row[1]>div.m[1]>span[1]",
      "text": "Monad Testnet · tap to switch sides",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 83,
       "y": 434.5,

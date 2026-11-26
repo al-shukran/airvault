@@ -267,6 +267,8 @@
      "node": "span.val.ty",
      "path": "div.fld[5]>span.val.ty[1]",
      "text": "••••••••••••",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 37,
       "y": 185.5,
@@ -524,6 +526,8 @@
      "node": "span.val.ty",
      "path": "div.fld.bad[8]>span.val.ty[1]",
      "text": "••••••••••",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 38,
       "y": 298.5,
@@ -993,6 +997,8 @@
      "node": "span.val.ty",
      "path": "div.fld[5]>span.val.ty[1]",
      "text": "••••••••••••",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 37,
       "y": 185.5,
@@ -1250,6 +1256,8 @@
      "node": "span.val.ty",
      "path": "div.fld.bad[8]>span.val.ty[1]",
      "text": "••••••••••",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 38,
       "y": 298.5,

@@ -122,6 +122,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -275,6 +276,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -286,6 +288,8 @@
      "node": "b",
      "path": "div.row[3]>div.m[1]>b[0]",
      "text": "Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 101.5,
@@ -314,6 +318,8 @@
      "node": "span",
      "path": "div.row[3]>div.m[1]>span[1]",
      "text": "Layer 1 · 4 of your accounts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 120.5,
@@ -384,6 +390,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -395,6 +402,8 @@
      "node": "b",
      "path": "div.row[4]>div.m[1]>b[0]",
      "text": "Base",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 163.5,
@@ -423,6 +432,8 @@
      "node": "span",
      "path": "div.row[4]>div.m[1]>span[1]",
      "text": "L2 on Ethereum · ID 8453",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 182.5,
@@ -493,6 +504,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -504,6 +516,8 @@
      "node": "b",
      "path": "div.row[5]>div.m[1]>b[0]",
      "text": "Solana",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 225.5,
@@ -532,6 +546,8 @@
      "node": "span",
      "path": "div.row[5]>div.m[1]>span[1]",
      "text": "Layer 1 · 1 of your accounts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 244.5,
@@ -1515,6 +1531,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1668,6 +1685,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1679,6 +1697,8 @@
      "node": "b",
      "path": "div.row[3]>div.m[1]>b[0]",
      "text": "Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 101.5,
@@ -1707,6 +1727,8 @@
      "node": "span",
      "path": "div.row[3]>div.m[1]>span[1]",
      "text": "Layer 1 · 4 of your accounts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 120.5,
@@ -1777,6 +1799,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1788,6 +1811,8 @@
      "node": "b",
      "path": "div.row[4]>div.m[1]>b[0]",
      "text": "Base",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 163.5,
@@ -1816,6 +1841,8 @@
      "node": "span",
      "path": "div.row[4]>div.m[1]>span[1]",
      "text": "L2 on Ethereum · ID 8453",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 182.5,
@@ -1886,6 +1913,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1897,6 +1925,8 @@
      "node": "b",
      "path": "div.row[5]>div.m[1]>b[0]",
      "text": "Solana",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 225.5,
@@ -1925,6 +1955,8 @@
      "node": "span",
      "path": "div.row[5]>div.m[1]>span[1]",
      "text": "Layer 1 · 1 of your accounts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 244.5,

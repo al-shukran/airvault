@@ -98,6 +98,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -815,6 +816,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",

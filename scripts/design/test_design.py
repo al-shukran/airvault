@@ -135,6 +135,23 @@ class ResultsTest(unittest.TestCase):
         errors, _ = check.result_errors(self.registry(), self.results(a=False, b=True))
         self.assertEqual(errors, [])
 
+    def test_a_result_for_another_frame_fails(self):
+        tmp = self.results(a=False, b=True)
+        (tmp / "a.json").write_text('{"violation": false, "findings": [], "frame": "f9", "theme": "dark"}')
+        errors, _ = check.result_errors(self.registry(), tmp)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("a: the gate compared f9", errors[0])
+
+    def test_a_key_the_gate_does_not_read_fails(self):
+        frames = Path(tempfile.mkdtemp())
+        (frames / "f1.spec.json").write_text('{"themes": {"dark": {}}}')
+        reg = self.registry()
+        reg["ignore"] = {"a": 1}
+        reg["screens"]["a"]["skip"] = True
+        errors = check.registry_errors(reg, frames, None)
+        self.assertEqual(len(errors), 2)
+        self.assertTrue(any("registry key ignore" in e for e in errors) and any("a: row key skip" in e for e in errors))
+
     def test_a_golden_with_no_row_fails(self):
         frames = Path(tempfile.mkdtemp())
         (frames / "f1.spec.json").write_text('{"themes": {"dark": {}}}')

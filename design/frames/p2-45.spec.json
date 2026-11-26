@@ -134,6 +134,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -145,6 +146,8 @@
      "node": "b",
      "path": "div.row[2]>div.m[1]>b[0]",
      "text": "Air 1",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 66.5,
@@ -173,6 +176,8 @@
      "node": "span.dim-badge",
      "path": "div.row[2]>div.m[1]>b[0]>span.dim-badge[0]",
      "text": "ACTIVE",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 116.53,
       "y": 68.5,
@@ -225,6 +230,8 @@
      "node": "span",
      "path": "div.row[2]>div.m[1]>span[1]",
      "text": "30 accounts · paired 21 Nov",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 85.5,
@@ -295,6 +302,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -306,6 +314,8 @@
      "node": "b",
      "path": "div.row[3]>div.m[1]>b[0]",
      "text": "Air 2",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 128.5,
@@ -334,6 +344,8 @@
      "node": "span",
      "path": "div.row[3]>div.m[1]>span[1]",
      "text": "3 accounts · paired 18 Nov",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 147.5,
@@ -576,6 +588,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -587,6 +600,8 @@
      "node": "b",
      "path": "div.row[2]>div.m[1]>b[0]",
      "text": "Air 1",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 66.5,
@@ -615,6 +630,8 @@
      "node": "span.dim-badge",
      "path": "div.row[2]>div.m[1]>b[0]>span.dim-badge[0]",
      "text": "ACTIVE",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 116.53,
       "y": 68.5,
@@ -667,6 +684,8 @@
      "node": "span",
      "path": "div.row[2]>div.m[1]>span[1]",
      "text": "30 accounts · paired 21 Nov",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 85.5,
@@ -737,6 +756,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -748,6 +768,8 @@
      "node": "b",
      "path": "div.row[3]>div.m[1]>b[0]",
      "text": "Air 2",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 128.5,
@@ -776,6 +798,8 @@
      "node": "span",
      "path": "div.row[3]>div.m[1]>span[1]",
      "text": "3 accounts · paired 18 Nov",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 147.5,

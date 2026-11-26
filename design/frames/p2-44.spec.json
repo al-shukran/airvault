@@ -196,6 +196,8 @@
      "node": "span.num",
      "path": "div.row.nl0[4]>span.num[0]",
      "text": "1",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 27.55,
       "y": 155.5,
@@ -348,6 +350,8 @@
      "node": "span.num",
      "path": "div.row[5]>span.num[0]",
      "text": "2",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 27.55,
       "y": 217.5,
@@ -500,6 +504,8 @@
      "node": "span.num",
      "path": "div.row[6]>span.num[0]",
      "text": "3",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 27.55,
       "y": 279.5,
@@ -680,6 +686,8 @@
      "node": "span.num",
      "path": "div.row.nl0[8]>span.num[0]",
      "text": "1",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 27.55,
       "y": 377.5,
@@ -832,6 +840,8 @@
      "node": "span.num",
      "path": "div.row[9]>span.num[0]",
      "text": "2",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 27.55,
       "y": 439.5,
@@ -1012,6 +1022,8 @@
      "node": "span.num",
      "path": "div.row.nl0[11]>span.num[0]",
      "text": "1",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 27.55,
       "y": 537.5,
@@ -1352,6 +1364,8 @@
      "node": "span.num",
      "path": "div.row.nl0[4]>span.num[0]",
      "text": "1",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 27.55,
       "y": 155.5,
@@ -1504,6 +1518,8 @@
      "node": "span.num",
      "path": "div.row[5]>span.num[0]",
      "text": "2",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 27.55,
       "y": 217.5,
@@ -1656,6 +1672,8 @@
      "node": "span.num",
      "path": "div.row[6]>span.num[0]",
      "text": "3",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 27.55,
       "y": 279.5,
@@ -1836,6 +1854,8 @@
      "node": "span.num",
      "path": "div.row.nl0[8]>span.num[0]",
      "text": "1",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 27.55,
       "y": 377.5,
@@ -1988,6 +2008,8 @@
      "node": "span.num",
      "path": "div.row[9]>span.num[0]",
      "text": "2",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 27.55,
       "y": 439.5,
@@ -2168,6 +2190,8 @@
      "node": "span.num",
      "path": "div.row.nl0[11]>span.num[0]",
      "text": "1",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 27.55,
       "y": 537.5,

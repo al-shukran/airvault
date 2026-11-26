@@ -39,6 +39,8 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -316,7 +318,10 @@ internal class Comparison(
         val bandsGot = bandsOf(actual)
         checkBands(bandsWant, bandsGot)
         val elements = themeSpec.getValue("elements").jsonArray.map { it.jsonObject }
-        elements.filter { it.str("kind") == "text" }.forEach { checkText(it) }
+        // A frame's constants claim their words first; a variable then takes the Text that sits where it does, whatever it says.
+        val frameTexts = elements.filter { it.str("kind") == "text" }
+        frameTexts.filter { !it.isVariable() }.forEach { checkText(it) }
+        frameTexts.filter { it.isVariable() }.forEach { checkVariableText(it) }
         // A Text the frame does not have counts only when it shows: one under the tab bar or past the end of a list leaves no ink.
         texts.filter { !it.used && it.x < actual.w && it.y < actual.h && it.x + it.w > 0 && it.y + it.h > 0 && !masked(it.cx, it.cy) && inkBox(actual, listOf(it.x, it.y, it.w, it.h)) != null }.forEach {
             row("text", "extra", "'${it.text}'", listOf(Triple("text", "absent from the frame", "at ${it.x.f()},${it.y.f()}")), listOf(it.x, it.y, it.w, it.h))
@@ -328,6 +333,9 @@ internal class Comparison(
     }
 
     private fun JsonObject.str(key: String) = getValue(key).jsonPrimitive.content
+
+    /** A variable is what the data decides (a token's name, price or logo): the gate checks that it is there, where, and in what font and colour, not what it says or draws. */
+    private fun JsonObject.isVariable() = this["var"]?.jsonPrimitive?.contentOrNull != null
     private fun Double.f() = "%.1f".format(this)
 
     private fun rectOf(el: JsonObject) = el.getValue("rect").jsonObject.let { listOf(it.num("x"), it.num("y"), it.num("w"), it.num("h")) }
@@ -375,20 +383,75 @@ internal class Comparison(
         }
         match.used = true
         val d = mutableListOf<Triple<String, String, String>>()
-        fun cmp(field: String, want: Double, got: Double, t: Double) { if (abs(want - got) > t) d += Triple(field, want.f(), got.f()) }
-        // Where the words are drawn: the box of their ink, in the frame and in the screen, so alignment and font metrics need no model.
-        // The rise and fall arrows come from a fallback font, which Chromium on the Mac and Robolectric choose differently: their ink is not compared.
-        val fallbackGlyph = text.any { it == '\u25B2' || it == '\u25BC' }
-        val seen = if (fallbackGlyph) null else inkBox(expected, r)
-        val shown = if (fallbackGlyph) null else inkBox(actual, r)
-        if (fallbackGlyph) Unit
-        else if (seen == null || shown == null) d += Triple("ink", if (seen == null) "none" else "present", if (shown == null) "none" else "present")
-        else {
-            cmp("ink left", seen[0], shown[0], tol.textPosDp)
-            cmp("ink right", seen[2], shown[2], tol.textPosDp)
-            cmp("ink top", seen[1], shown[1], tol.textPosDp)
-            cmp("ink bottom", seen[3], shown[3], tol.textPosDp)
+        compareInk(el, r, text, d, variable = false)
+        compareStyle(el, match, d)
+        row("text", id, label, d, r)
+    }
+
+    /** A variable Text takes the app's Text on the frame's line, over its place, whatever the two say. Its position is checked at the edge it is held by. */
+    private fun checkVariableText(el: JsonObject) {
+        val r = rectOf(el)
+        if (masked(r[0] + r[2] / 2, r[1] + r[3] / 2)) return
+        val anchor = el.str("anchor")
+        val label = "${el.str("var")} text (${el.str("node")}) at ${r[0].f()},${r[1].f()}"
+        val id = el.str("id")
+        val cy = r[1] + r[3] / 2
+        val edge = { x: Double, w: Double -> when (anchor) { "right" -> x + w; "center" -> x + w / 2; else -> x } }
+        val want = edge(r[0], r[2])
+        val match = texts
+            .filter { !it.used && abs(it.cy - cy) <= max(r[3] / 2, tol.textPosDp) && it.x < r[0] + r[2] + tol.textPosDp && it.x + it.w > r[0] - tol.textPosDp }
+            .minByOrNull { abs(it.cy - cy) + abs(edge(it.x, it.w) - want) }
+        if (match == null) {
+            row("text", id, label, listOf(Triple("text", "a ${el.str("var")} text at ${r[0].f()},${r[1].f()}", "missing")), r)
+            return
         }
+        match.used = true
+        val d = mutableListOf<Triple<String, String, String>>()
+        compareInk(el, r, el.str("text"), d, variable = true)
+        compareStyle(el, match, d)
+        row("text", id, label, d, r)
+    }
+
+    /**
+     * Where the words are drawn: the box of their ink, in the frame and in the screen, so alignment and font metrics need no model. A constant is
+     * compared on all four edges. A variable is as wide as its words, so only its line (the centre of the ink, up and down) and the edge it is held by
+     * (the left edge, the right edge or the centre of the ink) are compared. The rise and fall arrows come from a fallback font, which Chromium on the
+     * Mac and Robolectric choose differently: the ink of the arrow is not compared, so a Text that starts with one is compared by its right edge and
+     * its line only, a Text that ends with one by its left edge and its line, and a Text with one inside by its line only.
+     */
+    private fun compareInk(el: JsonObject, r: List<Double>, text: String, d: MutableList<Triple<String, String, String>>, variable: Boolean) {
+        val seen = inkBox(expected, r)
+        val shown = inkBox(actual, r)
+        if (seen == null || shown == null) {
+            d += Triple("ink", if (seen == null) "none" else "present", if (shown == null) "none" else "present")
+            return
+        }
+        fun cmp(field: String, want: Double, got: Double) { if (abs(want - got) > tol.textPosDp) d += Triple(field, want.f(), got.f()) }
+        val leading = text.firstOrNull()?.let { it == '\u25B2' || it == '\u25BC' } == true
+        val trailing = text.lastOrNull()?.let { it == '\u25B2' || it == '\u25BC' } == true
+        val anchor = if (variable) el.str("anchor") else "all"
+        val arrow = text.any { it == '\u25B2' || it == '\u25BC' }
+        if (variable || arrow) {
+            cmp("ink line", (seen[1] + seen[3]) / 2, (shown[1] + shown[3]) / 2)
+            when {
+                arrow && !leading && !trailing -> Unit
+                leading -> if (anchor == "right" || anchor == "all") cmp("ink right", seen[2], shown[2])
+                trailing -> if (anchor == "left" || anchor == "all") cmp("ink left", seen[0], shown[0])
+                anchor == "right" -> cmp("ink right", seen[2], shown[2])
+                anchor == "center" -> cmp("ink centre", (seen[0] + seen[2]) / 2, (shown[0] + shown[2]) / 2)
+                else -> cmp("ink left", seen[0], shown[0])
+            }
+        } else {
+            cmp("ink left", seen[0], shown[0])
+            cmp("ink right", seen[2], shown[2])
+            cmp("ink top", seen[1], shown[1])
+            cmp("ink bottom", seen[3], shown[3])
+        }
+    }
+
+    /** The constants of a Text, from the Compose style against the frame's computed CSS: font size, weight, line height, letter spacing and colour. */
+    private fun compareStyle(el: JsonObject, match: AppText, d: MutableList<Triple<String, String, String>>) {
+        fun cmp(field: String, want: Double, got: Double, t: Double) { if (abs(want - got) > t) d += Triple(field, want.f(), got.f()) }
         val font = el.getValue("font").jsonObject
         cmp("font size", font.num("size"), match.size, tol.fontSizeDp)
         if (font.num("weight").toInt() != match.weight) d += Triple("font weight", "${font.num("weight").toInt()}", "${match.weight}")
@@ -402,7 +465,6 @@ internal class Comparison(
             val shown = ((match.colorAlpha * 255).roundToInt()).let { a -> if (a == 255) got else listOf((got shr 16 and 255).toDouble(), (got shr 8 and 255).toDouble(), (got and 255).toDouble(), match.colorAlpha).rgb(bg) }
             if (dist(want, shown) > tol.textColor) d += Triple("color", hex(want), hex(shown))
         }
-        row("text", id, label, d, r)
     }
 
     /** The box of the pixels in [rect] (grown by 2 dp) that differ strongly from the rectangle's own border colour, as left, top, right, bottom; null when there are none. */
@@ -453,6 +515,7 @@ internal class Comparison(
     private fun checkIcon(el: JsonObject) {
         val r = rectOf(el)
         if (masked(r[0] + r[2] / 2, r[1] + r[3] / 2)) return
+        if (el.isVariable()) return checkVariableIcon(el, r)
         val id = el.str("id")
         val x0 = max(0, r[0].toInt()); val y0 = max(0, r[1].toInt())
         val x1 = min(actual.w, (r[0] + r[2]).toInt() + 1); val y1 = min(actual.h, (r[1] + r[3]).toInt() + 1)
@@ -478,6 +541,23 @@ internal class Comparison(
         row("icon", id, "${el.str("node")} ${r[2].f()}x${r[3].f()} at ${r[0].f()},${r[1].f()}", d, r)
     }
 
+    /** A logo, an avatar or a chart is drawn by the data: it must be there, at the frame's place and about its size, and what it draws is not compared. */
+    private fun checkVariableIcon(el: JsonObject, r: List<Double>) {
+        val seen = inkBox(expected, r)
+        val shown = inkBox(actual, r)
+        val d = mutableListOf<Triple<String, String, String>>()
+        if (shown == null) d += Triple("picture", "a ${el.str("var")} at ${r[0].f()},${r[1].f()}", "missing")
+        else if (seen != null) {
+            fun cmp(field: String, want: Double, got: Double) { if (abs(want - got) > tol.textPosDp) d += Triple(field, want.f(), got.f()) }
+            cmp("picture centre x", (seen[0] + seen[2]) / 2, (shown[0] + shown[2]) / 2)
+            cmp("picture centre y", (seen[1] + seen[3]) / 2, (shown[1] + shown[3]) / 2)
+            // The ink is read inside the frame's rectangle and 2 dp around it, so a picture that is too small is the one that can differ.
+            if (shown[2] - shown[0] < (seen[2] - seen[0]) / 2) d += Triple("picture width", (seen[2] - seen[0]).f(), (shown[2] - shown[0]).f())
+            if (shown[3] - shown[1] < (seen[3] - seen[1]) / 2) d += Triple("picture height", (seen[3] - seen[1]).f(), (shown[3] - shown[1]).f())
+        }
+        row("icon", el.str("id"), "${el.str("var")} ${el.str("node")} ${r[2].f()}x${r[3].f()} at ${r[0].f()},${r[1].f()}", d, r)
+    }
+
     private fun farthest(img: Px, rect: List<Double>): Int? {
         val x0 = max(0, rect[0].toInt()); val y0 = max(0, rect[1].toInt())
         val x1 = min(img.w, (rect[0] + rect[2]).toInt() + 1); val y1 = min(img.h, (rect[1] + rect[3]).toInt() + 1)
@@ -498,21 +578,48 @@ internal class Comparison(
     }
 
     /**
-     * Every [Tolerance.cellDp] dp cell of the frame whose average colour differs, joined into regions: what the element checks cannot name, such as
-     * a Text or a picture the frame does not have. The cells inside a word or an icon of the frame are left out: their own checks measure them, and
-     * a glyph drawn half a dp apart would move a cell's colour far more than the tolerance.
+     * Every [Tolerance.cellDp] dp cell whose average colour differs, joined into regions: what the element checks cannot name, such as a Text or a
+     * picture the frame does not have. The pixels of a word or an icon of the frame are left out of the averages: their own checks measure them, and
+     * a glyph drawn half a dp apart would move a cell's colour far more than the tolerance. A word is left out with [Tolerance.textPosDp] around it
+     * (its checks allow that much), an icon with 1 dp, and a variable Text with the room it has to grow into, up to the next word or icon of its
+     * line. A box is left out of nothing. A cell with fewer than 4 pixels left is not compared.
      */
     private fun checkRegions(elements: List<JsonObject>) {
         val k = tol.cellDp
         val cw = (actual.w + k - 1) / k
         val ch = (actual.h + k - 1) / k
-        val bad = Array(ch) { cy -> IntArray(cw) { cx -> dist(cell(expected, cx * k, cy * k, actual.w, actual.h), cell(actual, cx * k, cy * k, actual.w, actual.h)) } }
-        val seen = Array(ch) { BooleanArray(cw) }
-        for (el in elements.filter { it.str("kind") != "box" }) {
+        val skip = BooleanArray(actual.w * actual.h)
+        val placed = elements.filter { it.str("kind") != "box" }
+        for (el in placed) {
             val r = rectOf(el)
-            for (cy in max(0, ((r[1] - 1) / k).toInt()) .. min(ch - 1, ((r[1] + r[3] + 1) / k).toInt()))
-                for (cx in max(0, ((r[0] - 1) / k).toInt()) .. min(cw - 1, ((r[0] + r[2] + 1) / k).toInt())) seen[cy][cx] = true
+            var x0 = r[0]; var x1 = r[0] + r[2]
+            val pad = if (el.str("kind") == "text") tol.textPosDp else 1.0
+            if (el.isVariable() && el.str("kind") == "text") {
+                val anchor = el.str("anchor")
+                val line = placed.filter { it !== el && rectOf(it).let { o -> min(o[1] + o[3], r[1] + r[3]) - max(o[1], r[1]) > 1 } }
+                if (anchor != "left") x0 = line.map { rectOf(it) }.filter { it[0] + it[2] <= r[0] + 0.5 }.maxOfOrNull { it[0] + it[2] } ?: 0.0
+                if (anchor != "right") x1 = line.map { rectOf(it) }.filter { it[0] >= r[0] + r[2] - 0.5 }.minOfOrNull { it[0] } ?: actual.w.toDouble()
+            }
+            for (y in max(0, floor(r[1] - pad).toInt()) until min(actual.h, ceil(r[1] + r[3] + pad).toInt()))
+                for (x in max(0, floor(min(x0, r[0]) - pad).toInt()) until min(actual.w, ceil(max(x1, r[0] + r[2]) + pad).toInt())) skip[y * actual.w + x] = true
         }
+        fun average(img: Px, cx: Int, cy: Int): Triple<Int, Int, Int>? {
+            var r = 0; var g = 0; var b = 0; var n = 0
+            for (y in cy * k until min(actual.h, cy * k + k)) for (x in cx * k until min(actual.w, cx * k + k)) {
+                if (skip[y * actual.w + x]) continue
+                val c = img.at(x, y)
+                r += c shr 16 and 255; g += c shr 8 and 255; b += c and 255; n++
+            }
+            return if (n < 4) null else Triple(r / n, g / n, b / n)
+        }
+        val bad = Array(ch) { cy ->
+            IntArray(cw) { cx ->
+                val e = average(expected, cx, cy)
+                val a = average(actual, cx, cy)
+                if (e == null || a == null) 0 else max(abs(e.first - a.first), max(abs(e.second - a.second), abs(e.third - a.third)))
+            }
+        }
+        val seen = Array(ch) { BooleanArray(cw) }
         var n = 0
         for (cy in 0 until ch) for (cx in 0 until cw) {
             if (seen[cy][cx] || bad[cy][cx] <= tol.cell) continue

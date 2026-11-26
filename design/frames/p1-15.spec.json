@@ -477,6 +477,8 @@
      "node": "b",
      "path": "div.ring[5]>b[1]",
      "text": "2",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 165.44,
       "y": 179.5,
@@ -1135,6 +1137,8 @@
      "node": "b",
      "path": "div.ring[5]>b[1]",
      "text": "2",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 165.44,
       "y": 179.5,

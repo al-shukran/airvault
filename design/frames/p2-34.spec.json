@@ -225,6 +225,8 @@
      "node": "div.mono-d",
      "path": "div.row[6]>div.mono-d[0]",
      "text": "CS",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.55,
       "y": 285.5,
@@ -274,6 +276,8 @@
      "node": "b",
      "path": "div.row[6]>div.m[1]>b[0]",
      "text": "Cold Storage",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 276,
@@ -302,6 +306,8 @@
      "node": "span.idx",
      "path": "div.row[6]>div.m[1]>b[0]>span.idx[0]",
      "text": "#11",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 176.31,
       "y": 277,
@@ -330,6 +336,8 @@
      "node": "span",
      "path": "div.row[6]>div.m[1]>span[1]",
      "text": "Ethereum App · 0x5a2c…e81f",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 296,
@@ -358,6 +366,8 @@
      "node": "span.tg",
      "path": "div.row[6]>span.tg[2]",
      "text": "NEW",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 309.63,
       "y": 287,
@@ -410,6 +420,8 @@
      "node": "div.mono-d",
      "path": "div.row[7]>div.mono-d[0]",
      "text": "TR",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.83,
       "y": 347.5,
@@ -459,6 +471,8 @@
      "node": "b",
      "path": "div.row[7]>div.m[1]>b[0]",
      "text": "Travel",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 338,
@@ -487,6 +501,8 @@
      "node": "span.idx",
      "path": "div.row[7]>div.m[1]>b[0]>span.idx[0]",
      "text": "#2",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 120.58,
       "y": 339,
@@ -515,6 +531,8 @@
      "node": "span",
      "path": "div.row[7]>div.m[1]>span[1]",
      "text": "Bitcoin App · bc1q…a3d9",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 358,
@@ -543,6 +561,8 @@
      "node": "span.tg",
      "path": "div.row[7]>span.tg[2]",
      "text": "NEW",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 309.63,
       "y": 349,
@@ -1021,6 +1041,8 @@
      "node": "div.mono-d",
      "path": "div.row[6]>div.mono-d[0]",
      "text": "CS",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.55,
       "y": 285.5,
@@ -1070,6 +1092,8 @@
      "node": "b",
      "path": "div.row[6]>div.m[1]>b[0]",
      "text": "Cold Storage",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 276,
@@ -1098,6 +1122,8 @@
      "node": "span.idx",
      "path": "div.row[6]>div.m[1]>b[0]>span.idx[0]",
      "text": "#11",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 176.31,
       "y": 277,
@@ -1126,6 +1152,8 @@
      "node": "span",
      "path": "div.row[6]>div.m[1]>span[1]",
      "text": "Ethereum App · 0x5a2c…e81f",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 296,
@@ -1154,6 +1182,8 @@
      "node": "span.tg",
      "path": "div.row[6]>span.tg[2]",
      "text": "NEW",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 309.63,
       "y": 287,
@@ -1206,6 +1236,8 @@
      "node": "div.mono-d",
      "path": "div.row[7]>div.mono-d[0]",
      "text": "TR",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.83,
       "y": 347.5,
@@ -1255,6 +1287,8 @@
      "node": "b",
      "path": "div.row[7]>div.m[1]>b[0]",
      "text": "Travel",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 338,
@@ -1283,6 +1317,8 @@
      "node": "span.idx",
      "path": "div.row[7]>div.m[1]>b[0]>span.idx[0]",
      "text": "#2",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 120.58,
       "y": 339,
@@ -1311,6 +1347,8 @@
      "node": "span",
      "path": "div.row[7]>div.m[1]>span[1]",
      "text": "Bitcoin App · bc1q…a3d9",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 358,
@@ -1339,6 +1377,8 @@
      "node": "span.tg",
      "path": "div.row[7]>span.tg[2]",
      "text": "NEW",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 309.63,
       "y": 349,

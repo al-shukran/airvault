@@ -98,6 +98,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -197,6 +198,8 @@
      "node": "div.nx",
      "path": "div.ctr[2]>div.nx[1]",
      "text": "149,769",
+     "var": "data",
+     "anchor": "center",
      "rect": {
       "x": 51.92,
       "y": 85.84,
@@ -281,6 +284,8 @@
      "node": "div.dlt.dn",
      "path": "div.ctr[2]>div.dlt.dn[2]",
      "text": "▼ 1.15% · −$1,728.13 Today",
+     "var": "data",
+     "anchor": "center",
      "rect": {
       "x": 81.97,
       "y": 150.84,
@@ -475,6 +480,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -486,6 +492,8 @@
      "node": "b",
      "path": "div.row[5]>div.m[1]>b[0]",
      "text": "Solana",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 286.34,
@@ -514,6 +522,8 @@
      "node": "span",
      "path": "div.row[5]>div.m[1]>span[1]",
      "text": "31.5 SOL",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 305.34,
@@ -542,6 +552,8 @@
      "node": "b",
      "path": "div.row[5]>div.v[2]>b[0]",
      "text": "$5,802.30",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 266.91,
       "y": 285.34,
@@ -570,6 +582,8 @@
      "node": "span.up",
      "path": "div.row[5]>div.v[2]>span.up[1]",
      "text": "▲ 4.10%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 291.27,
       "y": 304.34,

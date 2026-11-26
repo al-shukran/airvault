@@ -94,6 +94,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -193,6 +194,8 @@
      "node": "span.n.s",
      "path": "div.sec[2]>span.n.s[1]",
      "text": "$151,909.65",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 257.05,
       "y": 62,
@@ -247,6 +250,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -258,6 +262,8 @@
      "node": "b",
      "path": "div.row[3]>div.m[1]>b[0]",
      "text": "Air 1",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 98.5,
@@ -286,6 +292,8 @@
      "node": "span.dim-badge",
      "path": "div.row[3]>div.m[1]>b[0]>span.dim-badge[0]",
      "text": "ACTIVE",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 116.53,
       "y": 100.5,
@@ -338,6 +346,8 @@
      "node": "span",
      "path": "div.row[3]>div.m[1]>span[1]",
      "text": "30 accounts · 4 apps",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 117.5,
@@ -366,6 +376,8 @@
      "node": "b",
      "path": "div.row[3]>div.v[2]>b[0]",
      "text": "$149,769.10",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 222.67,
       "y": 97.5,
@@ -394,6 +406,8 @@
      "node": "span.dn",
      "path": "div.row[3]>div.v[2]>span.dn[1]",
      "text": "▼ 1.15%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 263.27,
       "y": 116.5,
@@ -464,6 +478,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -475,6 +490,8 @@
      "node": "b",
      "path": "div.row[4]>div.m[1]>b[0]",
      "text": "Air 2",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 160.5,
@@ -503,6 +520,8 @@
      "node": "span",
      "path": "div.row[4]>div.m[1]>span[1]",
      "text": "3 accounts · 2 apps",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 179.5,
@@ -531,6 +550,8 @@
      "node": "b",
      "path": "div.row[4]>div.v[2]>b[0]",
      "text": "$2,140.55",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 238.91,
       "y": 159.5,
@@ -559,6 +580,8 @@
      "node": "span.up",
      "path": "div.row[4]>div.v[2]>span.up[1]",
      "text": "▲ 0.62%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 263.27,
       "y": 178.5,
@@ -1010,6 +1033,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1109,6 +1133,8 @@
      "node": "span.n.s",
      "path": "div.sec[2]>span.n.s[1]",
      "text": "$151,909.65",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 257.05,
       "y": 62,
@@ -1163,6 +1189,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1174,6 +1201,8 @@
      "node": "b",
      "path": "div.row[3]>div.m[1]>b[0]",
      "text": "Air 1",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 98.5,
@@ -1202,6 +1231,8 @@
      "node": "span.dim-badge",
      "path": "div.row[3]>div.m[1]>b[0]>span.dim-badge[0]",
      "text": "ACTIVE",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 116.53,
       "y": 100.5,
@@ -1254,6 +1285,8 @@
      "node": "span",
      "path": "div.row[3]>div.m[1]>span[1]",
      "text": "30 accounts · 4 apps",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 117.5,
@@ -1282,6 +1315,8 @@
      "node": "b",
      "path": "div.row[3]>div.v[2]>b[0]",
      "text": "$149,769.10",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 222.67,
       "y": 97.5,
@@ -1310,6 +1345,8 @@
      "node": "span.dn",
      "path": "div.row[3]>div.v[2]>span.dn[1]",
      "text": "▼ 1.15%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 263.27,
       "y": 116.5,
@@ -1380,6 +1417,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1391,6 +1429,8 @@
      "node": "b",
      "path": "div.row[4]>div.m[1]>b[0]",
      "text": "Air 2",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 160.5,
@@ -1419,6 +1459,8 @@
      "node": "span",
      "path": "div.row[4]>div.m[1]>span[1]",
      "text": "3 accounts · 2 apps",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 179.5,
@@ -1447,6 +1489,8 @@
      "node": "b",
      "path": "div.row[4]>div.v[2]>b[0]",
      "text": "$2,140.55",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 238.91,
       "y": 159.5,
@@ -1475,6 +1519,8 @@
      "node": "span.up",
      "path": "div.row[4]>div.v[2]>span.up[1]",
      "text": "▲ 0.62%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 263.27,
       "y": 178.5,

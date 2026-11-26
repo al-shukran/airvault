@@ -311,6 +311,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -322,6 +323,8 @@
      "node": "b",
      "path": "div.row[5]>div.m[1]>b[0]",
      "text": "Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 184.5,
@@ -350,6 +353,8 @@
      "node": "span",
      "path": "div.row[5]>div.m[1]>span[1]",
      "text": "ID 1 · built-in RPC",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 203.5,
@@ -433,6 +438,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -444,6 +450,8 @@
      "node": "b",
      "path": "div.row[6]>div.m[1]>b[0]",
      "text": "Base",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 246.5,
@@ -472,6 +480,8 @@
      "node": "span",
      "path": "div.row[6]>div.m[1]>span[1]",
      "text": "ID 8453 · custom RPC in use",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 265.5,
@@ -555,6 +565,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -566,6 +577,8 @@
      "node": "b",
      "path": "div.row[7]>div.m[1]>b[0]",
      "text": "Arbitrum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 308.5,
@@ -594,6 +607,8 @@
      "node": "span",
      "path": "div.row[7]>div.m[1]>span[1]",
      "text": "ID 42161 · built-in RPC",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 327.5,
@@ -677,6 +692,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -688,6 +704,8 @@
      "node": "b",
      "path": "div.row[8]>div.m[1]>b[0]",
      "text": "Optimism",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 370.5,
@@ -716,6 +734,8 @@
      "node": "span",
      "path": "div.row[8]>div.m[1]>span[1]",
      "text": "ID 10 · off",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 389.5,
@@ -855,6 +875,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -866,6 +887,8 @@
      "node": "b",
      "path": "div.row[10]>div.m[1]>b[0]",
      "text": "Monad Testnet",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 472.5,
@@ -894,6 +917,8 @@
      "node": "span.dim-badge",
      "path": "div.row[10]>div.m[1]>b[0]>span.dim-badge[0]",
      "text": "DEFAULT",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 200.09,
       "y": 474.5,
@@ -946,6 +971,8 @@
      "node": "span",
      "path": "div.row[10]>div.m[1]>span[1]",
      "text": "ID 10143 · where Send starts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 491.5,
@@ -1350,6 +1377,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1361,6 +1389,8 @@
      "node": "b",
      "path": "div.row[5]>div.m[1]>b[0]",
      "text": "Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 184.5,
@@ -1389,6 +1419,8 @@
      "node": "span",
      "path": "div.row[5]>div.m[1]>span[1]",
      "text": "ID 1 · built-in RPC",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 203.5,
@@ -1472,6 +1504,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1483,6 +1516,8 @@
      "node": "b",
      "path": "div.row[6]>div.m[1]>b[0]",
      "text": "Base",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 246.5,
@@ -1511,6 +1546,8 @@
      "node": "span",
      "path": "div.row[6]>div.m[1]>span[1]",
      "text": "ID 8453 · custom RPC in use",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 265.5,
@@ -1594,6 +1631,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1605,6 +1643,8 @@
      "node": "b",
      "path": "div.row[7]>div.m[1]>b[0]",
      "text": "Arbitrum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 308.5,
@@ -1633,6 +1673,8 @@
      "node": "span",
      "path": "div.row[7]>div.m[1]>span[1]",
      "text": "ID 42161 · built-in RPC",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 327.5,
@@ -1716,6 +1758,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1727,6 +1770,8 @@
      "node": "b",
      "path": "div.row[8]>div.m[1]>b[0]",
      "text": "Optimism",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 370.5,
@@ -1755,6 +1800,8 @@
      "node": "span",
      "path": "div.row[8]>div.m[1]>span[1]",
      "text": "ID 10 · off",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 389.5,
@@ -1894,6 +1941,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1905,6 +1953,8 @@
      "node": "b",
      "path": "div.row[10]>div.m[1]>b[0]",
      "text": "Monad Testnet",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 472.5,
@@ -1933,6 +1983,8 @@
      "node": "span.dim-badge",
      "path": "div.row[10]>div.m[1]>b[0]>span.dim-badge[0]",
      "text": "DEFAULT",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 200.09,
       "y": 474.5,
@@ -1985,6 +2037,8 @@
      "node": "span",
      "path": "div.row[10]>div.m[1]>span[1]",
      "text": "ID 10143 · where Send starts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 491.5,

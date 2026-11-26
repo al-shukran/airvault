@@ -189,6 +189,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -284,6 +285,8 @@
      "node": "div.mono-d",
      "path": "div.row[6]>div.mono-d[0]",
      "text": "PN",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.39,
       "y": 193.5,
@@ -333,6 +336,8 @@
      "node": "b",
      "path": "div.row[6]>div.m[1]>b[0]",
      "text": "PulsarNova",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 184,
@@ -361,6 +366,8 @@
      "node": "span.idx",
      "path": "div.row[6]>div.m[1]>b[0]>span.idx[0]",
      "text": "#5",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 164.53,
       "y": 185,
@@ -389,6 +396,8 @@
      "node": "span",
      "path": "div.row[6]>div.m[1]>span[1]",
      "text": "0x1020…122b · Monad Testnet",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 204,
@@ -417,6 +426,8 @@
      "node": "b",
      "path": "div.row[6]>div.v[2]>b[0]",
      "text": "12.5 MON",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 275.03,
       "y": 192,
@@ -445,6 +456,8 @@
      "node": "div.mono-d",
      "path": "div.row[7]>div.mono-d[0]",
      "text": "FS",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.39,
       "y": 255.5,
@@ -494,6 +507,8 @@
      "node": "b",
      "path": "div.row[7]>div.m[1]>b[0]",
      "text": "FelixStone",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 246,
@@ -522,6 +537,8 @@
      "node": "span.idx",
      "path": "div.row[7]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 156.88,
       "y": 247,
@@ -550,6 +567,8 @@
      "node": "span",
      "path": "div.row[7]>div.m[1]>span[1]",
      "text": "0x1020…122D · Monad Testnet",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 266,
@@ -578,6 +597,8 @@
      "node": "b",
      "path": "div.row[7]>div.v[2]>b[0]",
      "text": "0.75 MON",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 275.03,
       "y": 254,
@@ -699,6 +720,8 @@
      "node": "div.mono-d",
      "path": "div.row[10]>div.mono-d[0]",
      "text": "TS",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.22,
       "y": 402.5,
@@ -748,6 +771,8 @@
      "node": "b",
      "path": "div.row[10]>div.m[1]>b[0]",
      "text": "Treasury",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 393,
@@ -776,6 +801,8 @@
      "node": "span.idx",
      "path": "div.row[10]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 141.66,
       "y": 394,
@@ -804,6 +831,8 @@
      "node": "span",
      "path": "div.row[10]>div.m[1]>span[1]",
      "text": "7Hn4…xQ2e · Solana Devnet",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 413,
@@ -832,6 +861,8 @@
      "node": "b",
      "path": "div.row[10]>div.v[2]>b[0]",
      "text": "2.5 SOL",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 283.16,
       "y": 392.5,
@@ -860,6 +891,8 @@
      "node": "span",
      "path": "div.row[10]>div.v[2]>span[1]",
      "text": "as of 13:40",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 263.44,
       "y": 411.5,
@@ -916,6 +949,8 @@
      "node": "div.mono-d",
      "path": "div.row[12]>div.mono-d[0]",
      "text": "SV",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.89,
       "y": 500.5,
@@ -965,6 +1000,8 @@
      "node": "b",
      "path": "div.row[12]>div.m[1]>b[0]",
      "text": "Savings",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 491,
@@ -993,6 +1030,8 @@
      "node": "span.idx",
      "path": "div.row[12]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 135.48,
       "y": 492,
@@ -1021,6 +1060,8 @@
      "node": "span",
      "path": "div.row[12]>div.m[1]>span[1]",
      "text": "tb1q…7k2m · Testnet4",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 511,
@@ -1049,6 +1090,8 @@
      "node": "b",
      "path": "div.row[12]>div.v[2]>b[0]",
      "text": "0.0150 BTC",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 499,
@@ -1258,6 +1301,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1353,6 +1397,8 @@
      "node": "div.mono-d",
      "path": "div.row[6]>div.mono-d[0]",
      "text": "PN",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.39,
       "y": 193.5,
@@ -1402,6 +1448,8 @@
      "node": "b",
      "path": "div.row[6]>div.m[1]>b[0]",
      "text": "PulsarNova",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 184,
@@ -1430,6 +1478,8 @@
      "node": "span.idx",
      "path": "div.row[6]>div.m[1]>b[0]>span.idx[0]",
      "text": "#5",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 164.53,
       "y": 185,
@@ -1458,6 +1508,8 @@
      "node": "span",
      "path": "div.row[6]>div.m[1]>span[1]",
      "text": "0x1020…122b · Monad Testnet",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 204,
@@ -1486,6 +1538,8 @@
      "node": "b",
      "path": "div.row[6]>div.v[2]>b[0]",
      "text": "12.5 MON",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 275.03,
       "y": 192,
@@ -1514,6 +1568,8 @@
      "node": "div.mono-d",
      "path": "div.row[7]>div.mono-d[0]",
      "text": "FS",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.39,
       "y": 255.5,
@@ -1563,6 +1619,8 @@
      "node": "b",
      "path": "div.row[7]>div.m[1]>b[0]",
      "text": "FelixStone",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 246,
@@ -1591,6 +1649,8 @@
      "node": "span.idx",
      "path": "div.row[7]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 156.88,
       "y": 247,
@@ -1619,6 +1679,8 @@
      "node": "span",
      "path": "div.row[7]>div.m[1]>span[1]",
      "text": "0x1020…122D · Monad Testnet",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 266,
@@ -1647,6 +1709,8 @@
      "node": "b",
      "path": "div.row[7]>div.v[2]>b[0]",
      "text": "0.75 MON",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 275.03,
       "y": 254,
@@ -1768,6 +1832,8 @@
      "node": "div.mono-d",
      "path": "div.row[10]>div.mono-d[0]",
      "text": "TS",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.22,
       "y": 402.5,
@@ -1817,6 +1883,8 @@
      "node": "b",
      "path": "div.row[10]>div.m[1]>b[0]",
      "text": "Treasury",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 393,
@@ -1845,6 +1913,8 @@
      "node": "span.idx",
      "path": "div.row[10]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 141.66,
       "y": 394,
@@ -1873,6 +1943,8 @@
      "node": "span",
      "path": "div.row[10]>div.m[1]>span[1]",
      "text": "7Hn4…xQ2e · Solana Devnet",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 413,
@@ -1901,6 +1973,8 @@
      "node": "b",
      "path": "div.row[10]>div.v[2]>b[0]",
      "text": "2.5 SOL",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 283.16,
       "y": 392.5,
@@ -1929,6 +2003,8 @@
      "node": "span",
      "path": "div.row[10]>div.v[2]>span[1]",
      "text": "as of 13:40",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 263.44,
       "y": 411.5,
@@ -1985,6 +2061,8 @@
      "node": "div.mono-d",
      "path": "div.row[12]>div.mono-d[0]",
      "text": "SV",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.89,
       "y": 500.5,
@@ -2034,6 +2112,8 @@
      "node": "b",
      "path": "div.row[12]>div.m[1]>b[0]",
      "text": "Savings",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 491,
@@ -2062,6 +2142,8 @@
      "node": "span.idx",
      "path": "div.row[12]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 135.48,
       "y": 492,
@@ -2090,6 +2172,8 @@
      "node": "span",
      "path": "div.row[12]>div.m[1]>span[1]",
      "text": "tb1q…7k2m · Testnet4",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 511,
@@ -2118,6 +2202,8 @@
      "node": "b",
      "path": "div.row[12]>div.v[2]>b[0]",
      "text": "0.0150 BTC",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 499,

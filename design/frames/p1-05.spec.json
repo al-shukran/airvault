@@ -153,6 +153,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -220,6 +221,8 @@
      "node": "div.nt",
      "path": "div.px[3]>div.nt[1]",
      "text": "149,769",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 29.08,
       "y": 111,
@@ -304,6 +307,8 @@
      "node": "div.dlt.dn",
      "path": "div.px[3]>div.dlt.dn[2]",
      "text": "▼ 1.15% · −$1,728.13 Today",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 20,
       "y": 151,
@@ -360,6 +365,8 @@
      "node": "span.n.s",
      "path": "div.sec[4]>span.n.s[1]",
      "text": "$120,728.66",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 257.05,
       "y": 188,
@@ -388,6 +395,8 @@
      "node": "div.mono-d",
      "path": "div.row[5]>div.mono-d[0]",
      "text": "PN",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.39,
       "y": 233.5,
@@ -437,6 +446,8 @@
      "node": "b",
      "path": "div.row[5]>div.m[1]>b[0]",
      "text": "PulsarNova",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 224,
@@ -465,6 +476,8 @@
      "node": "span.idx",
      "path": "div.row[5]>div.m[1]>b[0]>span.idx[0]",
      "text": "#5",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 164.53,
       "y": 225,
@@ -493,6 +506,8 @@
      "node": "span",
      "path": "div.row[5]>div.m[1]>span[1]",
      "text": "0x1020…122b · 3 assets",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 244,
@@ -521,6 +536,8 @@
      "node": "b",
      "path": "div.row[5]>div.v[2]>b[0]",
      "text": "$70,885.55",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 223.5,
@@ -549,6 +566,8 @@
      "node": "span",
      "path": "div.row[5]>div.v[2]>span[1]",
      "text": "11 ETH · 20.1K USDC",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 207.75,
       "y": 242.5,
@@ -577,6 +596,8 @@
      "node": "div.mono-d",
      "path": "div.row[6]>div.mono-d[0]",
      "text": "NL",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.08,
       "y": 295.5,
@@ -626,6 +647,8 @@
      "node": "b",
      "path": "div.row[6]>div.m[1]>b[0]",
      "text": "NothingLess",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 286,
@@ -654,6 +677,8 @@
      "node": "span.idx",
      "path": "div.row[6]>div.m[1]>b[0]>span.idx[0]",
      "text": "#1",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 172.83,
       "y": 287,
@@ -682,6 +707,8 @@
      "node": "span",
      "path": "div.row[6]>div.m[1]>span[1]",
      "text": "0x1020…127a · Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 306,
@@ -710,6 +737,8 @@
      "node": "b",
      "path": "div.row[6]>div.v[2]>b[0]",
      "text": "$17,142.80",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 285.5,
@@ -738,6 +767,8 @@
      "node": "span",
      "path": "div.row[6]>div.v[2]>span[1]",
      "text": "4 ETH",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 305.19,
       "y": 304.5,
@@ -766,6 +797,8 @@
      "node": "div.mono-d",
      "path": "div.row[7]>div.mono-d[0]",
      "text": "FS",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.39,
       "y": 357.5,
@@ -815,6 +848,8 @@
      "node": "b",
      "path": "div.row[7]>div.m[1]>b[0]",
      "text": "FelixStone",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 348,
@@ -843,6 +878,8 @@
      "node": "span.idx",
      "path": "div.row[7]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 156.88,
       "y": 349,
@@ -871,6 +908,8 @@
      "node": "span",
      "path": "div.row[7]>div.m[1]>span[1]",
      "text": "0x1020…122D · Arbitrum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 368,
@@ -899,6 +938,8 @@
      "node": "b",
      "path": "div.row[7]>div.v[2]>b[0]",
      "text": "$13,842.81",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 347.5,
@@ -927,6 +968,8 @@
      "node": "span",
      "path": "div.row[7]>div.v[2]>span[1]",
      "text": "3.23 ETH",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 284.31,
       "y": 366.5,
@@ -955,6 +998,8 @@
      "node": "div.mono-d",
      "path": "div.row[8]>div.mono-d[0]",
      "text": "+7",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 29.33,
       "y": 419.5,
@@ -1007,6 +1052,8 @@
      "node": "b",
      "path": "div.row[8]>div.m[1]>b[0]",
      "text": "7 More Accounts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 410.5,
@@ -1035,6 +1082,8 @@
      "node": "span",
      "path": "div.row[8]>div.m[1]>span[1]",
      "text": "4 empty, 3 under $13K",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 429.5,
@@ -1063,6 +1112,8 @@
      "node": "b",
      "path": "div.row[8]>div.v[2]>b[0]",
      "text": "$18,857.50",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 418,
@@ -1119,6 +1170,8 @@
      "node": "span.n.s",
      "path": "div.sec[9]>span.n.s[1]",
      "text": "$22,811.64",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 264.59,
       "y": 476,
@@ -1147,6 +1200,8 @@
      "node": "div.mono-d",
      "path": "div.row[10]>div.mono-d[0]",
      "text": "SV",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.89,
       "y": 521.5,
@@ -1196,6 +1251,8 @@
      "node": "b",
      "path": "div.row[10]>div.m[1]>b[0]",
      "text": "Savings",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 512,
@@ -1224,6 +1281,8 @@
      "node": "span.idx",
      "path": "div.row[10]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 135.48,
       "y": 513,
@@ -1252,6 +1311,8 @@
      "node": "span",
      "path": "div.row[10]>div.m[1]>span[1]",
      "text": "bc1q…7k2m · Native SegWit",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 532,
@@ -1280,6 +1341,8 @@
      "node": "b",
      "path": "div.row[10]>div.v[2]>b[0]",
      "text": "$21,684.07",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 511.5,
@@ -1308,6 +1371,8 @@
      "node": "span",
      "path": "div.row[10]>div.v[2]>span[1]",
      "text": "0.2000 BTC",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 270.39,
       "y": 530.5,
@@ -1336,6 +1401,8 @@
      "node": "div.mono-d",
      "path": "div.row[11]>div.mono-d[0]",
      "text": "SP",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28,
       "y": 583.5,
@@ -1385,6 +1452,8 @@
      "node": "b",
      "path": "div.row[11]>div.m[1]>b[0]",
      "text": "Spending",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 574,
@@ -1413,6 +1482,8 @@
      "node": "span.idx",
      "path": "div.row[11]>div.m[1]>b[0]>span.idx[0]",
      "text": "#1",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 147.34,
       "y": 575,
@@ -1441,6 +1512,8 @@
      "node": "span",
      "path": "div.row[11]>div.m[1]>span[1]",
      "text": "bc1q…3f9x · Native SegWit",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 594,
@@ -1469,6 +1542,8 @@
      "node": "b",
      "path": "div.row[11]>div.v[2]>b[0]",
      "text": "$1,127.57",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 266.91,
       "y": 573.5,
@@ -1497,6 +1572,8 @@
      "node": "span",
      "path": "div.row[11]>div.v[2]>span[1]",
      "text": "0.0104 BTC",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 270.39,
       "y": 592.5,
@@ -1670,6 +1747,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1737,6 +1815,8 @@
      "node": "div.nt",
      "path": "div.px[3]>div.nt[1]",
      "text": "149,769",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 29.08,
       "y": 111,
@@ -1821,6 +1901,8 @@
      "node": "div.dlt.dn",
      "path": "div.px[3]>div.dlt.dn[2]",
      "text": "▼ 1.15% · −$1,728.13 Today",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 20,
       "y": 151,
@@ -1877,6 +1959,8 @@
      "node": "span.n.s",
      "path": "div.sec[4]>span.n.s[1]",
      "text": "$120,728.66",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 257.05,
       "y": 188,
@@ -1905,6 +1989,8 @@
      "node": "div.mono-d",
      "path": "div.row[5]>div.mono-d[0]",
      "text": "PN",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.39,
       "y": 233.5,
@@ -1954,6 +2040,8 @@
      "node": "b",
      "path": "div.row[5]>div.m[1]>b[0]",
      "text": "PulsarNova",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 224,
@@ -1982,6 +2070,8 @@
      "node": "span.idx",
      "path": "div.row[5]>div.m[1]>b[0]>span.idx[0]",
      "text": "#5",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 164.53,
       "y": 225,
@@ -2010,6 +2100,8 @@
      "node": "span",
      "path": "div.row[5]>div.m[1]>span[1]",
      "text": "0x1020…122b · 3 assets",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 244,
@@ -2038,6 +2130,8 @@
      "node": "b",
      "path": "div.row[5]>div.v[2]>b[0]",
      "text": "$70,885.55",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 223.5,
@@ -2066,6 +2160,8 @@
      "node": "span",
      "path": "div.row[5]>div.v[2]>span[1]",
      "text": "11 ETH · 20.1K USDC",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 207.75,
       "y": 242.5,
@@ -2094,6 +2190,8 @@
      "node": "div.mono-d",
      "path": "div.row[6]>div.mono-d[0]",
      "text": "NL",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.08,
       "y": 295.5,
@@ -2143,6 +2241,8 @@
      "node": "b",
      "path": "div.row[6]>div.m[1]>b[0]",
      "text": "NothingLess",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 286,
@@ -2171,6 +2271,8 @@
      "node": "span.idx",
      "path": "div.row[6]>div.m[1]>b[0]>span.idx[0]",
      "text": "#1",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 172.83,
       "y": 287,
@@ -2199,6 +2301,8 @@
      "node": "span",
      "path": "div.row[6]>div.m[1]>span[1]",
      "text": "0x1020…127a · Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 306,
@@ -2227,6 +2331,8 @@
      "node": "b",
      "path": "div.row[6]>div.v[2]>b[0]",
      "text": "$17,142.80",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 285.5,
@@ -2255,6 +2361,8 @@
      "node": "span",
      "path": "div.row[6]>div.v[2]>span[1]",
      "text": "4 ETH",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 305.19,
       "y": 304.5,
@@ -2283,6 +2391,8 @@
      "node": "div.mono-d",
      "path": "div.row[7]>div.mono-d[0]",
      "text": "FS",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.39,
       "y": 357.5,
@@ -2332,6 +2442,8 @@
      "node": "b",
      "path": "div.row[7]>div.m[1]>b[0]",
      "text": "FelixStone",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 348,
@@ -2360,6 +2472,8 @@
      "node": "span.idx",
      "path": "div.row[7]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 156.88,
       "y": 349,
@@ -2388,6 +2502,8 @@
      "node": "span",
      "path": "div.row[7]>div.m[1]>span[1]",
      "text": "0x1020…122D · Arbitrum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 368,
@@ -2416,6 +2532,8 @@
      "node": "b",
      "path": "div.row[7]>div.v[2]>b[0]",
      "text": "$13,842.81",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 347.5,
@@ -2444,6 +2562,8 @@
      "node": "span",
      "path": "div.row[7]>div.v[2]>span[1]",
      "text": "3.23 ETH",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 284.31,
       "y": 366.5,
@@ -2472,6 +2592,8 @@
      "node": "div.mono-d",
      "path": "div.row[8]>div.mono-d[0]",
      "text": "+7",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 29.33,
       "y": 419.5,
@@ -2524,6 +2646,8 @@
      "node": "b",
      "path": "div.row[8]>div.m[1]>b[0]",
      "text": "7 More Accounts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 410.5,
@@ -2552,6 +2676,8 @@
      "node": "span",
      "path": "div.row[8]>div.m[1]>span[1]",
      "text": "4 empty, 3 under $13K",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 429.5,
@@ -2580,6 +2706,8 @@
      "node": "b",
      "path": "div.row[8]>div.v[2]>b[0]",
      "text": "$18,857.50",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 418,
@@ -2636,6 +2764,8 @@
      "node": "span.n.s",
      "path": "div.sec[9]>span.n.s[1]",
      "text": "$22,811.64",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 264.59,
       "y": 476,
@@ -2664,6 +2794,8 @@
      "node": "div.mono-d",
      "path": "div.row[10]>div.mono-d[0]",
      "text": "SV",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.89,
       "y": 521.5,
@@ -2713,6 +2845,8 @@
      "node": "b",
      "path": "div.row[10]>div.m[1]>b[0]",
      "text": "Savings",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 512,
@@ -2741,6 +2875,8 @@
      "node": "span.idx",
      "path": "div.row[10]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 135.48,
       "y": 513,
@@ -2769,6 +2905,8 @@
      "node": "span",
      "path": "div.row[10]>div.m[1]>span[1]",
      "text": "bc1q…7k2m · Native SegWit",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 532,
@@ -2797,6 +2935,8 @@
      "node": "b",
      "path": "div.row[10]>div.v[2]>b[0]",
      "text": "$21,684.07",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 511.5,
@@ -2825,6 +2965,8 @@
      "node": "span",
      "path": "div.row[10]>div.v[2]>span[1]",
      "text": "0.2000 BTC",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 270.39,
       "y": 530.5,
@@ -2853,6 +2995,8 @@
      "node": "div.mono-d",
      "path": "div.row[11]>div.mono-d[0]",
      "text": "SP",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28,
       "y": 583.5,
@@ -2902,6 +3046,8 @@
      "node": "b",
      "path": "div.row[11]>div.m[1]>b[0]",
      "text": "Spending",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 574,
@@ -2930,6 +3076,8 @@
      "node": "span.idx",
      "path": "div.row[11]>div.m[1]>b[0]>span.idx[0]",
      "text": "#1",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 147.34,
       "y": 575,
@@ -2958,6 +3106,8 @@
      "node": "span",
      "path": "div.row[11]>div.m[1]>span[1]",
      "text": "bc1q…3f9x · Native SegWit",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 594,
@@ -2986,6 +3136,8 @@
      "node": "b",
      "path": "div.row[11]>div.v[2]>b[0]",
      "text": "$1,127.57",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 266.91,
       "y": 573.5,
@@ -3014,6 +3166,8 @@
      "node": "span",
      "path": "div.row[11]>div.v[2]>span[1]",
      "text": "0.0104 BTC",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 270.39,
       "y": 592.5,

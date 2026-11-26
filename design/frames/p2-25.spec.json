@@ -94,6 +94,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -209,6 +210,8 @@
      "node": "div.nx",
      "path": "div.ctr[2]>div.nx[1]",
      "text": "3.41",
+     "var": "data",
+     "anchor": "center",
      "rect": {
       "x": 119.42,
       "y": 87.84,
@@ -428,6 +431,8 @@
      "node": "div.mono-d",
      "path": "div.sh[4]>div.row[3]>div.mono-d[0]",
      "text": "PN",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.39,
       "y": 410.5,
@@ -477,6 +482,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[3]>div.m[1]>b[0]",
      "text": "PulsarNova",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 401,
@@ -505,6 +512,8 @@
      "node": "span.idx",
      "path": "div.sh[4]>div.row[3]>div.m[1]>b[0]>span.idx[0]",
      "text": "#5",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 164.53,
       "y": 402,
@@ -533,6 +542,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[3]>div.m[1]>span[1]",
      "text": "Trading · Group DeFi · 0x1020…122b",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 421,
@@ -585,6 +596,8 @@
      "node": "div.mono-d",
      "path": "div.sh[4]>div.row[4]>div.mono-d[0]",
      "text": "FS",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.39,
       "y": 472.5,
@@ -634,6 +647,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[4]>div.m[1]>b[0]",
      "text": "FelixStone",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 463,
@@ -662,6 +677,8 @@
      "node": "span.idx",
      "path": "div.sh[4]>div.row[4]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 156.88,
       "y": 464,
@@ -690,6 +707,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[4]>div.m[1]>span[1]",
      "text": "Savings · Group Core · 0x1020…122D",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 483,
@@ -742,6 +761,8 @@
      "node": "div.mono-d",
      "path": "div.sh[4]>div.row[5]>div.mono-d[0]",
      "text": "NL",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.08,
       "y": 534.5,
@@ -791,6 +812,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[5]>div.m[1]>b[0]",
      "text": "NothingLess",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 525,
@@ -819,6 +842,8 @@
      "node": "span.idx",
      "path": "div.sh[4]>div.row[5]>div.m[1]>b[0]>span.idx[0]",
      "text": "#1",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 172.83,
       "y": 526,
@@ -847,6 +872,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[5]>div.m[1]>span[1]",
      "text": "No label · 0x1020…127a",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 545,

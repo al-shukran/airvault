@@ -174,6 +174,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -287,6 +288,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -298,6 +300,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[8]>div.m[1]>b[0]",
      "text": "Spiko Amundi Overnight Swap Fund (EUR)",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 57,
@@ -326,6 +330,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[8]>div.m[1]>span[1]",
      "text": "eurSAFO",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 116,
@@ -359,6 +365,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -370,6 +377,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[8]>div.v[3]>b[0]",
      "text": "$1.1132",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 76,
@@ -398,6 +407,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[8]>div.v[3]>span.chg-g[1]",
      "text": "▲ 0.18%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 95,
@@ -452,6 +463,7 @@
       "w": 32,
       "h": 32
      },
+     "var": "logo",
      "fill": [
       0,
       0,
@@ -468,6 +480,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[9]>div.m[1]>b[0]",
      "text": "BlackRock USD Institutional Digital Liquidity Fund",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 150,
@@ -496,6 +510,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[9]>div.m[1]>span[1]",
      "text": "BUIDL",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 209,
@@ -529,6 +545,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -540,6 +557,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[9]>div.v[3]>b[0]",
      "text": "$1.0000",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 169,
@@ -568,6 +587,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[9]>div.v[3]>span[1]",
      "text": "0.00%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 356.19,
       "y": 188,
@@ -622,6 +643,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -633,6 +655,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[10]>div.m[1]>b[0]",
      "text": "Invesco Short Duration US Government Securities Fund",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 243,
@@ -661,6 +685,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[10]>div.m[1]>span[1]",
      "text": "USTB",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 322,
@@ -694,6 +720,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -705,6 +732,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[10]>div.v[3]>b[0]",
      "text": "$11.29",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 272,
@@ -733,6 +762,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[10]>div.v[3]>span.chg-g[1]",
      "text": "▲ 0.01%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 291,
@@ -787,6 +818,7 @@
       "w": 32,
       "h": 32
      },
+     "var": "logo",
      "fill": [
       255,
       255,
@@ -803,6 +835,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[11]>div.m[1]>b[0]",
      "text": "Janus Henderson Anemoy AAA CLO Fund",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 356,
@@ -831,6 +865,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[11]>div.m[1]>span[1]",
      "text": "JAAA",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 415,
@@ -864,6 +900,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -875,6 +912,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[11]>div.v[3]>b[0]",
      "text": "$1.0580",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 375,
@@ -903,6 +942,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[11]>div.v[3]>span.chg-g[1]",
      "text": "▲ 0.04%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 394,
@@ -957,6 +998,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -968,6 +1010,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[12]>div.m[1]>b[0]",
      "text": "Ondo Short-Term U.S. Government Bond Fund",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 449,
@@ -996,6 +1040,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[12]>div.m[1]>span[1]",
      "text": "OUSG",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 508,
@@ -1029,6 +1075,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1040,6 +1087,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[12]>div.v[3]>b[0]",
      "text": "$117.40",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 468,
@@ -1068,6 +1117,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[12]>div.v[3]>span.chg-g[1]",
      "text": "▲ 0.01%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 487,
@@ -1122,6 +1173,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": [
       0,
       0,
@@ -1138,6 +1190,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[13]>div.m[1]>b[0]",
      "text": "Tradable APAC Diversified Finance Provider SSTN",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 542,
@@ -1166,6 +1220,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[13]>div.m[1]>span[1]",
      "text": "PC0000033",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 601,
@@ -1199,6 +1255,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1210,6 +1267,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[13]>div.v[3]>b[0]",
      "text": "$1.0000",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 561,
@@ -1238,6 +1297,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[13]>div.v[3]>span[1]",
      "text": "0.00%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 356.19,
       "y": 580,
@@ -1805,6 +1866,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1918,6 +1980,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -1929,6 +1992,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[8]>div.m[1]>b[0]",
      "text": "Spiko Amundi Overnight Swap Fund (EUR)",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 57,
@@ -1957,6 +2022,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[8]>div.m[1]>span[1]",
      "text": "eurSAFO",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 116,
@@ -1990,6 +2057,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2001,6 +2069,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[8]>div.v[3]>b[0]",
      "text": "$1.1132",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 76,
@@ -2029,6 +2099,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[8]>div.v[3]>span.chg-g[1]",
      "text": "▲ 0.18%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 95,
@@ -2083,6 +2155,7 @@
       "w": 32,
       "h": 32
      },
+     "var": "logo",
      "fill": [
       0,
       0,
@@ -2099,6 +2172,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[9]>div.m[1]>b[0]",
      "text": "BlackRock USD Institutional Digital Liquidity Fund",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 150,
@@ -2127,6 +2202,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[9]>div.m[1]>span[1]",
      "text": "BUIDL",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 209,
@@ -2160,6 +2237,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2171,6 +2249,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[9]>div.v[3]>b[0]",
      "text": "$1.0000",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 169,
@@ -2199,6 +2279,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[9]>div.v[3]>span[1]",
      "text": "0.00%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 356.19,
       "y": 188,
@@ -2253,6 +2335,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -2264,6 +2347,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[10]>div.m[1]>b[0]",
      "text": "Invesco Short Duration US Government Securities Fund",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 243,
@@ -2292,6 +2377,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[10]>div.m[1]>span[1]",
      "text": "USTB",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 322,
@@ -2325,6 +2412,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2336,6 +2424,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[10]>div.v[3]>b[0]",
      "text": "$11.29",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 272,
@@ -2364,6 +2454,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[10]>div.v[3]>span.chg-g[1]",
      "text": "▲ 0.01%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 291,
@@ -2418,6 +2510,7 @@
       "w": 32,
       "h": 32
      },
+     "var": "logo",
      "fill": [
       255,
       255,
@@ -2434,6 +2527,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[11]>div.m[1]>b[0]",
      "text": "Janus Henderson Anemoy AAA CLO Fund",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 356,
@@ -2462,6 +2557,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[11]>div.m[1]>span[1]",
      "text": "JAAA",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 415,
@@ -2495,6 +2592,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2506,6 +2604,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[11]>div.v[3]>b[0]",
      "text": "$1.0580",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 375,
@@ -2534,6 +2634,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[11]>div.v[3]>span.chg-g[1]",
      "text": "▲ 0.04%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 394,
@@ -2588,6 +2690,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -2599,6 +2702,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[12]>div.m[1]>b[0]",
      "text": "Ondo Short-Term U.S. Government Bond Fund",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 449,
@@ -2627,6 +2732,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[12]>div.m[1]>span[1]",
      "text": "OUSG",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 508,
@@ -2660,6 +2767,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2671,6 +2779,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[12]>div.v[3]>b[0]",
      "text": "$117.40",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 468,
@@ -2699,6 +2809,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[12]>div.v[3]>span.chg-g[1]",
      "text": "▲ 0.01%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 487,
@@ -2753,6 +2865,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": [
       0,
       0,
@@ -2769,6 +2882,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[13]>div.m[1]>b[0]",
      "text": "Tradable APAC Diversified Finance Provider SSTN",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 542,
@@ -2797,6 +2912,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[13]>div.m[1]>span[1]",
      "text": "PC0000033",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 601,
@@ -2830,6 +2947,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2841,6 +2959,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[13]>div.v[3]>b[0]",
      "text": "$1.0000",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 561,
@@ -2869,6 +2989,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[13]>div.v[3]>span[1]",
      "text": "0.00%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 356.19,
       "y": 580,

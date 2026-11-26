@@ -490,6 +490,8 @@
      "node": "div.mono-d",
      "path": "div.row[6]>div.mono-d[0]",
      "text": "FS",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.39,
       "y": 177,
@@ -539,6 +541,8 @@
      "node": "b",
      "path": "div.row[6]>div.m[1]>b[0]",
      "text": "FelixStone",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 167.5,
@@ -567,6 +571,8 @@
      "node": "span.idx",
      "path": "div.row[6]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 156.88,
       "y": 168.5,
@@ -595,6 +601,8 @@
      "node": "span",
      "path": "div.row[6]>div.m[1]>span[1]",
      "text": "Your account · 0x1020…122D",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 187.5,
@@ -623,6 +631,8 @@
      "node": "span.ta",
      "path": "div.row[6]>span.ta[2]",
      "text": "Change",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 277.92,
       "y": 177,
@@ -679,6 +689,8 @@
      "node": "div.mono-d",
      "path": "div.row[8]>div.mono-d[0]",
      "text": "PN",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.39,
       "y": 262,
@@ -728,6 +740,8 @@
      "node": "b",
      "path": "div.row[8]>div.m[1]>b[0]",
      "text": "PulsarNova",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 252.5,
@@ -756,6 +770,8 @@
      "node": "span.idx",
      "path": "div.row[8]>div.m[1]>b[0]>span.idx[0]",
      "text": "#5",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 164.53,
       "y": 253.5,
@@ -784,6 +800,8 @@
      "node": "span",
      "path": "div.row[8]>div.m[1]>span[1]",
      "text": "12.5 MON available",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 272.5,
@@ -812,6 +830,8 @@
      "node": "span.ta",
      "path": "div.row[8]>span.ta[2]",
      "text": "Change",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 277.92,
       "y": 262,
@@ -840,6 +860,8 @@
      "node": "div.nl",
      "path": "div.ctr[9]>div.nl[0]",
      "text": "14",
+     "var": "data",
+     "anchor": "center",
      "rect": {
       "x": 102.83,
       "y": 317,

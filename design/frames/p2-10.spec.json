@@ -282,6 +282,8 @@
      "node": "div.mono-d",
      "path": "div.vcard[3]>div.idhead[1]>div.mono-d[0]",
      "text": "ED",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 42.53,
       "y": 172.5,
@@ -431,6 +433,8 @@
      "node": "span.ka",
      "path": "div.vcard[3]>div.agrid[2]>span.ka[1]",
      "text": "9f3c",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 65.2,
       "y": 213,
@@ -459,6 +463,8 @@
      "node": "span",
      "path": "div.vcard[3]>div.agrid[2]>span[2]",
      "text": "81a2",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 114.61,
       "y": 213,
@@ -487,6 +493,8 @@
      "node": "span",
      "path": "div.vcard[3]>div.agrid[2]>span[3]",
      "text": "7d04",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 164.02,
       "y": 213,
@@ -515,6 +523,8 @@
      "node": "span",
      "path": "div.vcard[3]>div.agrid[2]>span[4]",
      "text": "e5b9",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 213.42,
       "y": 213,
@@ -543,6 +553,8 @@
      "node": "span",
      "path": "div.vcard[3]>div.agrid[2]>span[5]",
      "text": "0c6f",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 262.83,
       "y": 213,
@@ -571,6 +583,8 @@
      "node": "span",
      "path": "div.vcard[3]>div.agrid[2]>span[7]",
      "text": "3a18",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 65.2,
       "y": 240,
@@ -599,6 +613,8 @@
      "node": "span",
      "path": "div.vcard[3]>div.agrid[2]>span[8]",
      "text": "d2e7",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 114.61,
       "y": 240,
@@ -627,6 +643,8 @@
      "node": "span",
      "path": "div.vcard[3]>div.agrid[2]>span[9]",
      "text": "5b40",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 164.02,
       "y": 240,
@@ -655,6 +673,8 @@
      "node": "span",
      "path": "div.vcard[3]>div.agrid[2]>span[10]",
      "text": "c9a1",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 213.42,
       "y": 240,
@@ -683,6 +703,8 @@
      "node": "span.ka",
      "path": "div.vcard[3]>div.agrid[2]>span.ka[11]",
      "text": "41d0",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 262.83,
       "y": 240,
@@ -739,6 +761,8 @@
      "node": "div.mono-d",
      "path": "div.row[5]>div.mono-d[0]",
      "text": "PN",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.39,
       "y": 331.5,
@@ -788,6 +812,8 @@
      "node": "b",
      "path": "div.row[5]>div.m[1]>b[0]",
      "text": "PulsarNova",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 322,
@@ -816,6 +842,8 @@
      "node": "span.idx",
      "path": "div.row[5]>div.m[1]>b[0]>span.idx[0]",
      "text": "#5",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 164.53,
       "y": 323,
@@ -844,6 +872,8 @@
      "node": "span",
      "path": "div.row[5]>div.m[1]>span[1]",
      "text": "Your account · 0x1020…122b",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 342,
@@ -942,6 +972,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -979,6 +1010,7 @@
       "w": 13,
       "h": 13
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -990,6 +1022,8 @@
      "node": "b",
      "path": "div.row[7]>div.m[1]>b[0]",
      "text": "USD Coin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 400.5,
@@ -1018,6 +1052,8 @@
      "node": "span",
      "path": "div.row[7]>div.m[1]>span[1]",
      "text": "Not in address book · 0x8335…2913",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 419.5,
@@ -1250,6 +1286,8 @@
      "node": "b",
      "path": "div.kv[8]>div[2]>b[1]",
      "text": "0x3f9a…b71c",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 232.03,
       "y": 540,

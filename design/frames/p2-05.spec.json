@@ -122,6 +122,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -221,6 +222,8 @@
      "node": "div.nx",
      "path": "div.ctr[2]>div.nx[1]",
      "text": "149,769",
+     "var": "data",
+     "anchor": "center",
      "rect": {
       "x": 51.92,
       "y": 85.84,
@@ -305,6 +308,8 @@
      "node": "div.dlt.dn",
      "path": "div.ctr[2]>div.dlt.dn[2]",
      "text": "▼ 1.15% · −$1,728.13 Today",
+     "var": "data",
+     "anchor": "center",
      "rect": {
       "x": 81.97,
       "y": 150.84,
@@ -713,6 +718,8 @@
      "node": "b",
      "path": "div.sh[6]>div.row[2]>div.v[2]>b[0]",
      "text": "$149,769.10",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 216.67,
       "y": 387,
@@ -791,6 +798,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -802,6 +810,8 @@
      "node": "b",
      "path": "div.sh[6]>div.row[3]>div.m[1]>b[0]",
      "text": "Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 441.5,
@@ -830,6 +840,8 @@
      "node": "span",
      "path": "div.sh[6]>div.row[3]>div.m[1]>span[1]",
      "text": "Ethereum and its L2s",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 460.5,
@@ -858,6 +870,8 @@
      "node": "b",
      "path": "div.sh[6]>div.row[3]>div.v[2]>b[0]",
      "text": "$120,728.66",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 216.67,
       "y": 449,
@@ -936,6 +950,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -947,6 +962,8 @@
      "node": "b",
      "path": "div.sh[6]>div.row[4]>div.m[1]>b[0]",
      "text": "Bitcoin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 503.5,
@@ -975,6 +992,8 @@
      "node": "span",
      "path": "div.sh[6]>div.row[4]>div.m[1]>span[1]",
      "text": "2 accounts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 522.5,
@@ -1003,6 +1022,8 @@
      "node": "b",
      "path": "div.sh[6]>div.row[4]>div.v[2]>b[0]",
      "text": "$22,811.64",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 224.8,
       "y": 511,
@@ -1081,6 +1102,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1092,6 +1114,8 @@
      "node": "b",
      "path": "div.sh[6]>div.row[5]>div.m[1]>b[0]",
      "text": "Solana",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 565.5,
@@ -1120,6 +1144,8 @@
      "node": "span",
      "path": "div.sh[6]>div.row[5]>div.m[1]>span[1]",
      "text": "1 account",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 584.5,
@@ -1148,6 +1174,8 @@
      "node": "b",
      "path": "div.sh[6]>div.row[5]>div.v[2]>b[0]",
      "text": "$5,802.30",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 232.91,
       "y": 573,
@@ -1226,6 +1254,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1237,6 +1266,8 @@
      "node": "b",
      "path": "div.sh[6]>div.row[6]>div.m[1]>b[0]",
      "text": "Algorand",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 627.5,
@@ -1265,6 +1296,8 @@
      "node": "span",
      "path": "div.sh[6]>div.row[6]>div.m[1]>span[1]",
      "text": "17 accounts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 646.5,
@@ -1293,6 +1326,8 @@
      "node": "b",
      "path": "div.sh[6]>div.row[6]>div.v[2]>b[0]",
      "text": "$426.50",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 249.16,
       "y": 635,
@@ -1427,6 +1462,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1526,6 +1562,8 @@
      "node": "div.nx",
      "path": "div.ctr[2]>div.nx[1]",
      "text": "149,769",
+     "var": "data",
+     "anchor": "center",
      "rect": {
       "x": 51.92,
       "y": 85.84,
@@ -1610,6 +1648,8 @@
      "node": "div.dlt.dn",
      "path": "div.ctr[2]>div.dlt.dn[2]",
      "text": "▼ 1.15% · −$1,728.13 Today",
+     "var": "data",
+     "anchor": "center",
      "rect": {
       "x": 81.97,
       "y": 150.84,
@@ -2018,6 +2058,8 @@
      "node": "b",
      "path": "div.sh[6]>div.row[2]>div.v[2]>b[0]",
      "text": "$149,769.10",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 216.67,
       "y": 387,
@@ -2096,6 +2138,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2107,6 +2150,8 @@
      "node": "b",
      "path": "div.sh[6]>div.row[3]>div.m[1]>b[0]",
      "text": "Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 441.5,
@@ -2135,6 +2180,8 @@
      "node": "span",
      "path": "div.sh[6]>div.row[3]>div.m[1]>span[1]",
      "text": "Ethereum and its L2s",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 460.5,
@@ -2163,6 +2210,8 @@
      "node": "b",
      "path": "div.sh[6]>div.row[3]>div.v[2]>b[0]",
      "text": "$120,728.66",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 216.67,
       "y": 449,
@@ -2241,6 +2290,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2252,6 +2302,8 @@
      "node": "b",
      "path": "div.sh[6]>div.row[4]>div.m[1]>b[0]",
      "text": "Bitcoin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 503.5,
@@ -2280,6 +2332,8 @@
      "node": "span",
      "path": "div.sh[6]>div.row[4]>div.m[1]>span[1]",
      "text": "2 accounts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 522.5,
@@ -2308,6 +2362,8 @@
      "node": "b",
      "path": "div.sh[6]>div.row[4]>div.v[2]>b[0]",
      "text": "$22,811.64",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 224.8,
       "y": 511,
@@ -2386,6 +2442,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2397,6 +2454,8 @@
      "node": "b",
      "path": "div.sh[6]>div.row[5]>div.m[1]>b[0]",
      "text": "Solana",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 565.5,
@@ -2425,6 +2484,8 @@
      "node": "span",
      "path": "div.sh[6]>div.row[5]>div.m[1]>span[1]",
      "text": "1 account",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 584.5,
@@ -2453,6 +2514,8 @@
      "node": "b",
      "path": "div.sh[6]>div.row[5]>div.v[2]>b[0]",
      "text": "$5,802.30",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 232.91,
       "y": 573,
@@ -2531,6 +2594,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2542,6 +2606,8 @@
      "node": "b",
      "path": "div.sh[6]>div.row[6]>div.m[1]>b[0]",
      "text": "Algorand",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 627.5,
@@ -2570,6 +2636,8 @@
      "node": "span",
      "path": "div.sh[6]>div.row[6]>div.m[1]>span[1]",
      "text": "17 accounts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 646.5,
@@ -2598,6 +2666,8 @@
      "node": "b",
      "path": "div.sh[6]>div.row[6]>div.v[2]>b[0]",
      "text": "$426.50",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 249.16,
       "y": 635,

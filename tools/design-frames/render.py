@@ -84,6 +84,40 @@ EXTRACT_JS = r"""
     const cls = [...el.classList].filter((c) => c !== '__t').slice(0, 2).join('.');
     return el.tagName.toLowerCase() + (cls ? '.' + cls : '');
   };
+  // CONSTANTS are a frame's layout, containers, fonts and colours. VARIABLES are what the data decides: a token logo, an avatar, a monogram, a
+  // sparkline, and the words of a data row (name, symbol, price, 24 h change) or any text that is wholly data (an amount, a percentage, an address,
+  // a date). The gate checks that a variable is there, where it is, and its font and colour, not what it says or draws (README.md).
+  // A logo is a picture the data chooses: a token or chain mark (<use href="#l-...">, i.lm), an account avatar (#emb-...) or a monogram. The
+  // UI's own icons (#i-...) and the "?" monogram of an unknown address are constants.
+  const MONO = '.mono-d:not(.ghost)';
+  const MARK = 'i.lm,use[href^="#l-"],use[href^="#emb-"],' + MONO;
+  const NUM = /^[▲▼+−\-≈~]*[$€£]?\d[\d.,:]*[%KMBkmb]?$/;
+  const OTHER = /^(?:0x[0-9a-fA-F…]+|(?=.*\d)[0-9a-f…]{4,}|#\d[\d,]*|•+|·|—|▲|▼|[+−\-≈~]|[$€£])$/;
+  const UNIT = /^(?:[A-Z]{2,6}|[Tt]oday|[Nn]ow|gwei|sat\/vB|min|h|s)$/; // a unit, after a number
+  const isData = (t) => {
+    const parts = t.split(/\s+/).filter(Boolean);
+    return /[\d•▲▼]/.test(t) && parts.every((q, i) => NUM.test(q) || OTHER.test(q) || (i > 0 && NUM.test(parts[i - 1]) && UNIT.test(q) && q !== 'OF'));
+  };
+  const variableText = (el, text) => {
+    if (el.closest(MONO)) return 'logo';
+    const row = el.closest('.row');
+    if (row && row.querySelector(MARK)) return 'row';
+    return isData(text) ? 'data' : null;
+  };
+  const variableIcon = (el) => (el.matches('svg.spk') ? 'chart' : el.matches('i.lm') || el.querySelector('use[href^="#l-"],use[href^="#emb-"]') || el.closest(MONO) ? 'logo' : null);
+  // Where a variable text is held when its words change: the edge that does not move when the text shrinks to one letter.
+  const anchorOf = (el, before) => {
+    const nodes = [...el.childNodes].filter((n) => n.nodeType === 3 && n.textContent.trim());
+    const saved = nodes.map((n) => n.textContent);
+    nodes.forEach((n, i) => { n.textContent = i === 0 ? 'i' : ''; });
+    const rs = nodes.flatMap((n) => { const rg = document.createRange(); rg.selectNodeContents(n); return [...rg.getClientRects()].filter((q) => q.width > 0); });
+    nodes.forEach((n, i) => { n.textContent = saved[i]; });
+    if (!rs.length) return 'left';
+    const l = Math.min(...rs.map((q) => q.left)), r = Math.max(...rs.map((q) => q.right));
+    if (Math.abs(l - before.l) < 0.6) return 'left';
+    if (Math.abs(r - before.r) < 0.6) return 'right';
+    return Math.abs((l + r) / 2 - (before.l + before.r) / 2) < 0.6 ? 'center' : 'left';
+  };
   const SKIP = ['path', 'use', 'defs', 'g', 'circle', 'rect', 'line', 'polyline', 'polygon', 'ellipse', 'symbol', 'style', 'script', 'text', 'tspan', 'stop', 'lineargradient', 'clippath', 'mask'];
   const out = [];
   let seq = 0;
@@ -112,8 +146,10 @@ EXTRACT_JS = r"""
       if (s.textTransform === 'uppercase') text = text.toUpperCase();
       const u = {l: Math.min(...words.map((q) => q.box.l)), t: Math.min(...words.map((q) => q.box.t)), r: Math.max(...words.map((q) => q.box.r)), b: Math.max(...words.map((q) => q.box.b))};
       if (visible(u) && !covered(el, u)) {
+        const variable = variableText(el, text);
         out.push({
           id: 'e' + (seq++), kind: 'text', node: name(el), path: path(), text,
+          ...(variable ? {var: variable, anchor: anchorOf(el, u)} : {}),
           rect: rect({left: u.l, top: u.t, width: u.r - u.l, height: u.b - u.t}), lines: Math.max(...words.map((q) => q.lines)),
           font: {family: s.fontFamily, size: parseFloat(s.fontSize), weight: parseInt(s.fontWeight), stretch: s.fontStretch, lineHeight: s.lineHeight === 'normal' ? null : parseFloat(s.lineHeight), letterSpacing: s.letterSpacing === 'normal' ? 0 : parseFloat(s.letterSpacing)},
           color: rgba(s.color),
@@ -128,7 +164,7 @@ EXTRACT_JS = r"""
     const fills = bg[3] > 0.02;
     if ((fills || bw > 0 || shadow || isIcon) && visible({l: r.left, t: r.top, r: r.right, b: r.bottom}) && r.width > 0 && r.height > 0 && !covered(el, {l: r.left, t: r.top, r: r.right, b: r.bottom})) {
       out.push({
-        id: 'e' + (seq++), kind: isIcon ? 'icon' : 'box', node: name(el), path: path(), rect: rect(r),
+        id: 'e' + (seq++), kind: isIcon ? 'icon' : 'box', node: name(el), path: path(), rect: rect(r), ...(isIcon && variableIcon(el) ? {var: variableIcon(el)} : {}),
         fill: fills ? bg : null, border: bw > 0 ? {width: bw, color: rgba(s.borderTopColor)} : null, radius: s.borderTopLeftRadius,
         shadow: shadow ? s.boxShadow : null,
       });

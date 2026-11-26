@@ -154,6 +154,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -792,6 +793,8 @@
      "node": "span.num",
      "path": "div.row.nl0[10]>span.num[0]",
      "text": "1",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 27.55,
       "y": 462.5,
@@ -944,6 +947,8 @@
      "node": "span.num",
      "path": "div.row[11]>span.num[0]",
      "text": "2",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 27.55,
       "y": 524.5,
@@ -1246,6 +1251,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1884,6 +1890,8 @@
      "node": "span.num",
      "path": "div.row.nl0[10]>span.num[0]",
      "text": "1",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 27.55,
       "y": 462.5,
@@ -2036,6 +2044,8 @@
      "node": "span.num",
      "path": "div.row[11]>span.num[0]",
      "text": "2",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 27.55,
       "y": 524.5,

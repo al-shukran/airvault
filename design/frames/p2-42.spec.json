@@ -225,6 +225,8 @@
      "node": "span.sldv",
      "path": "div.sec[3]>span.sldv[1]",
      "text": "3 s",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 313.89,
       "y": 144,
@@ -442,6 +444,8 @@
      "node": "span",
      "path": "div.sldl[5]>span[0]",
      "text": "0 s",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 20,
       "y": 216,
@@ -470,6 +474,8 @@
      "node": "span",
      "path": "div.sldl[5]>span[1]",
      "text": "10 s",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 318.14,
       "y": 216,
@@ -816,6 +822,8 @@
      "node": "span.sldv",
      "path": "div.sec[3]>span.sldv[1]",
      "text": "3 s",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 313.89,
       "y": 144,
@@ -1033,6 +1041,8 @@
      "node": "span",
      "path": "div.sldl[5]>span[0]",
      "text": "0 s",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 20,
       "y": 216,
@@ -1061,6 +1071,8 @@
      "node": "span",
      "path": "div.sldl[5]>span[1]",
      "text": "10 s",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 318.14,
       "y": 216,

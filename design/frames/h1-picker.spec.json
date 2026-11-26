@@ -303,6 +303,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -314,6 +315,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[2]>div.m[1]>b[0]",
      "text": "Bitcoin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 156,
@@ -342,6 +345,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[2]>div.m[1]>b[0]>span.idx[0]",
      "text": "#1",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 127.84,
       "y": 157,
@@ -370,6 +375,8 @@
      "node": "span",
      "path": "div.scroll.np[2]>div.row.w[2]>div.m[1]>span[1]",
      "text": "BTC",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 176,
@@ -440,6 +447,7 @@
       "w": 23,
       "h": 23
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -451,6 +459,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[3]>div.m[1]>b[0]",
      "text": "Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 218,
@@ -479,6 +489,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[3]>div.m[1]>b[0]>span.idx[0]",
      "text": "#2",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 150.2,
       "y": 219,
@@ -507,6 +519,8 @@
      "node": "span",
      "path": "div.scroll.np[2]>div.row.w[3]>div.m[1]>span[1]",
      "text": "ETH",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 238,
@@ -577,6 +591,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -588,6 +603,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[4]>div.m[1]>b[0]",
      "text": "Tether",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 280,
@@ -616,6 +633,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[4]>div.m[1]>b[0]>span.idx[0]",
      "text": "#3",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 123.25,
       "y": 281,
@@ -644,6 +663,8 @@
      "node": "span",
      "path": "div.scroll.np[2]>div.row.w[4]>div.m[1]>span[1]",
      "text": "USDT",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 300,
@@ -714,6 +735,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -725,6 +747,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[5]>div.m[1]>b[0]",
      "text": "BNB",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 350.5,
@@ -753,6 +777,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[5]>div.m[1]>b[0]>span.idx[0]",
      "text": "#4",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 109.3,
       "y": 351.5,
@@ -823,6 +849,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -834,6 +861,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[6]>div.m[1]>b[0]",
      "text": "USD Coin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 404,
@@ -862,6 +891,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[6]>div.m[1]>b[0]>span.idx[0]",
      "text": "#5",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 149.72,
       "y": 405,
@@ -890,6 +921,8 @@
      "node": "span",
      "path": "div.scroll.np[2]>div.row.w[6]>div.m[1]>span[1]",
      "text": "USDC",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 424,
@@ -960,6 +993,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": [
       255,
       255,
@@ -976,6 +1010,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[7]>div.m[1]>b[0]",
      "text": "XRP",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 474.5,
@@ -1004,6 +1040,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[7]>div.m[1]>b[0]>span.idx[0]",
      "text": "#6",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 108.28,
       "y": 475.5,
@@ -1074,6 +1112,7 @@
       "w": 22,
       "h": 22
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1085,6 +1124,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[8]>div.m[1]>b[0]",
      "text": "Solana",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 528,
@@ -1113,6 +1154,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[8]>div.m[1]>b[0]>span.idx[0]",
      "text": "#7",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 127.41,
       "y": 529,
@@ -1141,6 +1184,8 @@
      "node": "span",
      "path": "div.scroll.np[2]>div.row.w[8]>div.m[1]>span[1]",
      "text": "SOL",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 548,
@@ -1211,6 +1256,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -1222,6 +1268,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[9]>div.m[1]>b[0]",
      "text": "Figure Heloc",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 590,
@@ -1250,6 +1298,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[9]>div.m[1]>b[0]>span.idx[0]",
      "text": "#8",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 173.2,
       "y": 591,
@@ -1278,6 +1328,8 @@
      "node": "span",
      "path": "div.scroll.np[2]>div.row.w[9]>div.m[1]>span[1]",
      "text": "FIGR_HELOC",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 610,
@@ -1348,6 +1400,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -1359,6 +1412,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[10]>div.m[1]>b[0]",
      "text": "TRON",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 652,
@@ -1387,6 +1442,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[10]>div.m[1]>b[0]>span.idx[0]",
      "text": "#9",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 122,
       "y": 653,
@@ -1415,6 +1472,8 @@
      "node": "span",
      "path": "div.scroll.np[2]>div.row.w[10]>div.m[1]>span[1]",
      "text": "TRX",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 672,
@@ -1485,6 +1544,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -1496,6 +1556,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[11]>div.m[1]>b[0]",
      "text": "Hyperliquid",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 714,
@@ -1524,6 +1586,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[11]>div.m[1]>b[0]>span.idx[0]",
      "text": "#10",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 161.94,
       "y": 715,
@@ -1552,6 +1616,8 @@
      "node": "span",
      "path": "div.scroll.np[2]>div.row.w[11]>div.m[1]>span[1]",
      "text": "HYPE",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 734,
@@ -1622,6 +1688,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -1633,6 +1700,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[12]>div.m[1]>b[0]",
      "text": "Zcash",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 776,
@@ -1661,6 +1730,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[12]>div.m[1]>b[0]>span.idx[0]",
      "text": "#11",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 121.81,
       "y": 777,
@@ -1689,6 +1760,8 @@
      "node": "span",
      "path": "div.scroll.np[2]>div.row.w[12]>div.m[1]>span[1]",
      "text": "ZEC",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 796,
@@ -1759,6 +1832,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -1770,6 +1844,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[13]>div.m[1]>b[0]",
      "text": "Monero",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 838,
@@ -1798,6 +1874,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[13]>div.m[1]>b[0]>span.idx[0]",
      "text": "#12",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 133.05,
       "y": 839,
@@ -2137,6 +2215,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -2148,6 +2227,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[2]>div.m[1]>b[0]",
      "text": "Bitcoin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 156,
@@ -2176,6 +2257,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[2]>div.m[1]>b[0]>span.idx[0]",
      "text": "#1",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 127.84,
       "y": 157,
@@ -2204,6 +2287,8 @@
      "node": "span",
      "path": "div.scroll.np[2]>div.row.w[2]>div.m[1]>span[1]",
      "text": "BTC",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 176,
@@ -2274,6 +2359,7 @@
       "w": 23,
       "h": 23
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2285,6 +2371,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[3]>div.m[1]>b[0]",
      "text": "Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 218,
@@ -2313,6 +2401,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[3]>div.m[1]>b[0]>span.idx[0]",
      "text": "#2",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 150.2,
       "y": 219,
@@ -2341,6 +2431,8 @@
      "node": "span",
      "path": "div.scroll.np[2]>div.row.w[3]>div.m[1]>span[1]",
      "text": "ETH",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 238,
@@ -2411,6 +2503,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2422,6 +2515,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[4]>div.m[1]>b[0]",
      "text": "Tether",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 280,
@@ -2450,6 +2545,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[4]>div.m[1]>b[0]>span.idx[0]",
      "text": "#3",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 123.25,
       "y": 281,
@@ -2478,6 +2575,8 @@
      "node": "span",
      "path": "div.scroll.np[2]>div.row.w[4]>div.m[1]>span[1]",
      "text": "USDT",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 300,
@@ -2548,6 +2647,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -2559,6 +2659,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[5]>div.m[1]>b[0]",
      "text": "BNB",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 350.5,
@@ -2587,6 +2689,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[5]>div.m[1]>b[0]>span.idx[0]",
      "text": "#4",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 109.3,
       "y": 351.5,
@@ -2657,6 +2761,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -2668,6 +2773,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[6]>div.m[1]>b[0]",
      "text": "USD Coin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 404,
@@ -2696,6 +2803,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[6]>div.m[1]>b[0]>span.idx[0]",
      "text": "#5",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 149.72,
       "y": 405,
@@ -2724,6 +2833,8 @@
      "node": "span",
      "path": "div.scroll.np[2]>div.row.w[6]>div.m[1]>span[1]",
      "text": "USDC",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 424,
@@ -2794,6 +2905,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": [
       255,
       255,
@@ -2810,6 +2922,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[7]>div.m[1]>b[0]",
      "text": "XRP",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 474.5,
@@ -2838,6 +2952,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[7]>div.m[1]>b[0]>span.idx[0]",
      "text": "#6",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 108.28,
       "y": 475.5,
@@ -2908,6 +3024,7 @@
       "w": 22,
       "h": 22
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2919,6 +3036,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[8]>div.m[1]>b[0]",
      "text": "Solana",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 528,
@@ -2947,6 +3066,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[8]>div.m[1]>b[0]>span.idx[0]",
      "text": "#7",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 127.41,
       "y": 529,
@@ -2975,6 +3096,8 @@
      "node": "span",
      "path": "div.scroll.np[2]>div.row.w[8]>div.m[1]>span[1]",
      "text": "SOL",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 548,
@@ -3045,6 +3168,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -3056,6 +3180,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[9]>div.m[1]>b[0]",
      "text": "Figure Heloc",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 590,
@@ -3084,6 +3210,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[9]>div.m[1]>b[0]>span.idx[0]",
      "text": "#8",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 173.2,
       "y": 591,
@@ -3112,6 +3240,8 @@
      "node": "span",
      "path": "div.scroll.np[2]>div.row.w[9]>div.m[1]>span[1]",
      "text": "FIGR_HELOC",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 610,
@@ -3182,6 +3312,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -3193,6 +3324,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[10]>div.m[1]>b[0]",
      "text": "TRON",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 652,
@@ -3221,6 +3354,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[10]>div.m[1]>b[0]>span.idx[0]",
      "text": "#9",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 122,
       "y": 653,
@@ -3249,6 +3384,8 @@
      "node": "span",
      "path": "div.scroll.np[2]>div.row.w[10]>div.m[1]>span[1]",
      "text": "TRX",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 672,
@@ -3319,6 +3456,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -3330,6 +3468,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[11]>div.m[1]>b[0]",
      "text": "Hyperliquid",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 714,
@@ -3358,6 +3498,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[11]>div.m[1]>b[0]>span.idx[0]",
      "text": "#10",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 161.94,
       "y": 715,
@@ -3386,6 +3528,8 @@
      "node": "span",
      "path": "div.scroll.np[2]>div.row.w[11]>div.m[1]>span[1]",
      "text": "HYPE",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 734,
@@ -3456,6 +3600,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -3467,6 +3612,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[12]>div.m[1]>b[0]",
      "text": "Zcash",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 776,
@@ -3495,6 +3642,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[12]>div.m[1]>b[0]>span.idx[0]",
      "text": "#11",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 121.81,
       "y": 777,
@@ -3523,6 +3672,8 @@
      "node": "span",
      "path": "div.scroll.np[2]>div.row.w[12]>div.m[1]>span[1]",
      "text": "ZEC",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 796,
@@ -3593,6 +3744,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -3604,6 +3756,8 @@
      "node": "b",
      "path": "div.scroll.np[2]>div.row.w[13]>div.m[1]>b[0]",
      "text": "Monero",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 838,
@@ -3632,6 +3786,8 @@
      "node": "span.idx",
      "path": "div.scroll.np[2]>div.row.w[13]>div.m[1]>b[0]>span.idx[0]",
      "text": "#12",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 133.05,
       "y": 839,

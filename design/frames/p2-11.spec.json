@@ -504,6 +504,8 @@
      "node": "span.ka",
      "path": "div.vcard[4]>div.agrid[2]>span.ka[1]",
      "text": "7e21",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 80.2,
       "y": 536,
@@ -532,6 +534,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[2]",
      "text": "5ac3",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 156.61,
       "y": 536,
@@ -560,6 +564,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[3]",
      "text": "90d4",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 233.02,
       "y": 536,
@@ -588,6 +594,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[5]",
      "text": "b8f1",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 80.2,
       "y": 574,
@@ -616,6 +624,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[6]",
      "text": "26e0",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 156.61,
       "y": 574,
@@ -644,6 +654,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[7]",
      "text": "4c7a",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 233.02,
       "y": 574,
@@ -672,6 +684,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[9]",
      "text": "5d93",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 80.2,
       "y": 612,
@@ -700,6 +714,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[10]",
      "text": "e1b2",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 156.61,
       "y": 612,
@@ -728,6 +744,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[11]",
      "text": "0f68",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 233.02,
       "y": 612,
@@ -756,6 +774,8 @@
      "node": "span.ka",
      "path": "div.vcard[4]>div.agrid[2]>span.ka[13]",
      "text": "3c5e",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 80.2,
       "y": 650,
@@ -1284,6 +1304,8 @@
      "node": "span.ka",
      "path": "div.vcard[4]>div.agrid[2]>span.ka[1]",
      "text": "7e21",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 80.2,
       "y": 536,
@@ -1312,6 +1334,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[2]",
      "text": "5ac3",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 156.61,
       "y": 536,
@@ -1340,6 +1364,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[3]",
      "text": "90d4",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 233.02,
       "y": 536,
@@ -1368,6 +1394,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[5]",
      "text": "b8f1",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 80.2,
       "y": 574,
@@ -1396,6 +1424,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[6]",
      "text": "26e0",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 156.61,
       "y": 574,
@@ -1424,6 +1454,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[7]",
      "text": "4c7a",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 233.02,
       "y": 574,
@@ -1452,6 +1484,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[9]",
      "text": "5d93",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 80.2,
       "y": 612,
@@ -1480,6 +1514,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[10]",
      "text": "e1b2",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 156.61,
       "y": 612,
@@ -1508,6 +1544,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[11]",
      "text": "0f68",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 233.02,
       "y": 612,
@@ -1536,6 +1574,8 @@
      "node": "span.ka",
      "path": "div.vcard[4]>div.agrid[2]>span.ka[13]",
      "text": "3c5e",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 80.2,
       "y": 650,

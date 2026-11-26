@@ -120,6 +120,8 @@
      "node": "span.idx",
      "path": "div.tb[1]>div.t[1]>span.idx[0]",
      "text": "#11",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 192.83,
       "y": 18.5,
@@ -220,6 +222,8 @@
      "node": "i",
      "path": "div.px[2]>div[1]>span.ad[0]>i[0]",
      "text": "71d0",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 73.7,
       "y": 77,
@@ -248,6 +252,8 @@
      "node": "i",
      "path": "div.px[2]>div[1]>span.ad[0]>i[1]",
      "text": "b4c6",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 127.41,
       "y": 77,

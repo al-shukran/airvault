@@ -450,6 +450,8 @@
      "node": "b",
      "path": "div.row[5]>div.v[2]>b[0]",
      "text": "−0.50 ETH",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 266.91,
       "y": 172.5,
@@ -478,6 +480,8 @@
      "node": "span",
      "path": "div.row[5]>div.v[2]>span[1]",
      "text": "$2,142.85",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 277.36,
       "y": 191.5,
@@ -599,6 +603,8 @@
      "node": "b.up",
      "path": "div.row[6]>div.v[2]>b.up[0]",
      "text": "+1.00 ETH",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 266.91,
       "y": 238.5,
@@ -627,6 +633,8 @@
      "node": "span",
      "path": "div.row[6]>div.v[2]>span[1]",
      "text": "$4,285.70",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 277.36,
       "y": 257.5,
@@ -748,6 +756,8 @@
      "node": "b",
      "path": "div.row[7]>div.v[2]>b[0]",
      "text": "0.0012 ETH",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 300.5,
@@ -925,6 +935,8 @@
      "node": "b",
      "path": "div.row[9]>div.v[2]>b[0]",
      "text": "0.001 ALGO",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 398.5,
@@ -1074,6 +1086,8 @@
      "node": "b.up",
      "path": "div.row[10]>div.v[2]>b.up[0]",
      "text": "+12.5 SOL",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 266.91,
       "y": 460.5,
@@ -1102,6 +1116,8 @@
      "node": "span",
      "path": "div.row[10]>div.v[2]>span[1]",
      "text": "$2,302.50",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 277.36,
       "y": 479.5,
@@ -1130,6 +1146,8 @@
      "node": "span.e",
      "path": "div.sec[11]>span.e[0]",
      "text": "18 NOV",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 20,
       "y": 528,
@@ -1251,6 +1269,8 @@
      "node": "b",
      "path": "div.row[12]>div.v[2]>b[0]",
      "text": "−5,000 USDC",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 250.67,
       "y": 562.5,
@@ -1279,6 +1299,8 @@
      "node": "span",
      "path": "div.row[12]>div.v[2]>span[1]",
      "text": "$5,000.00",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 277.36,
       "y": 581.5,
@@ -1749,6 +1771,8 @@
      "node": "b",
      "path": "div.row[5]>div.v[2]>b[0]",
      "text": "−0.50 ETH",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 266.91,
       "y": 172.5,
@@ -1777,6 +1801,8 @@
      "node": "span",
      "path": "div.row[5]>div.v[2]>span[1]",
      "text": "$2,142.85",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 277.36,
       "y": 191.5,
@@ -1898,6 +1924,8 @@
      "node": "b.up",
      "path": "div.row[6]>div.v[2]>b.up[0]",
      "text": "+1.00 ETH",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 266.91,
       "y": 238.5,
@@ -1926,6 +1954,8 @@
      "node": "span",
      "path": "div.row[6]>div.v[2]>span[1]",
      "text": "$4,285.70",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 277.36,
       "y": 257.5,
@@ -2047,6 +2077,8 @@
      "node": "b",
      "path": "div.row[7]>div.v[2]>b[0]",
      "text": "0.0012 ETH",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 300.5,
@@ -2224,6 +2256,8 @@
      "node": "b",
      "path": "div.row[9]>div.v[2]>b[0]",
      "text": "0.001 ALGO",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 398.5,
@@ -2373,6 +2407,8 @@
      "node": "b.up",
      "path": "div.row[10]>div.v[2]>b.up[0]",
      "text": "+12.5 SOL",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 266.91,
       "y": 460.5,
@@ -2401,6 +2437,8 @@
      "node": "span",
      "path": "div.row[10]>div.v[2]>span[1]",
      "text": "$2,302.50",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 277.36,
       "y": 479.5,
@@ -2429,6 +2467,8 @@
      "node": "span.e",
      "path": "div.sec[11]>span.e[0]",
      "text": "18 NOV",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 20,
       "y": 528,
@@ -2550,6 +2590,8 @@
      "node": "b",
      "path": "div.row[12]>div.v[2]>b[0]",
      "text": "−5,000 USDC",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 250.67,
       "y": 562.5,
@@ -2578,6 +2620,8 @@
      "node": "span",
      "path": "div.row[12]>div.v[2]>span[1]",
      "text": "$5,000.00",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 277.36,
       "y": 581.5,

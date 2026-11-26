@@ -474,6 +474,8 @@
      "node": "div.mono-d",
      "path": "div.row[6]>div.mono-d[0]",
      "text": "FS",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.39,
       "y": 177,
@@ -523,6 +525,8 @@
      "node": "b",
      "path": "div.row[6]>div.m[1]>b[0]",
      "text": "FelixStone",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 167.5,
@@ -551,6 +555,8 @@
      "node": "span.idx",
      "path": "div.row[6]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 156.88,
       "y": 168.5,
@@ -579,6 +585,8 @@
      "node": "span",
      "path": "div.row[6]>div.m[1]>span[1]",
      "text": "Your account · 0x1020…122D",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 187.5,
@@ -607,6 +615,8 @@
      "node": "span.ta",
      "path": "div.row[6]>span.ta[2]",
      "text": "Change",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 277.92,
       "y": 177,
@@ -1285,6 +1295,8 @@
      "node": "div.mono-d",
      "path": "div.row[6]>div.mono-d[0]",
      "text": "FS",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.39,
       "y": 177,
@@ -1334,6 +1346,8 @@
      "node": "b",
      "path": "div.row[6]>div.m[1]>b[0]",
      "text": "FelixStone",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 167.5,
@@ -1362,6 +1376,8 @@
      "node": "span.idx",
      "path": "div.row[6]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 156.88,
       "y": 168.5,
@@ -1390,6 +1406,8 @@
      "node": "span",
      "path": "div.row[6]>div.m[1]>span[1]",
      "text": "Your account · 0x1020…122D",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 187.5,
@@ -1418,6 +1436,8 @@
      "node": "span.ta",
      "path": "div.row[6]>span.ta[2]",
      "text": "Change",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 277.92,
       "y": 177,

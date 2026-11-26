@@ -134,6 +134,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -233,6 +234,8 @@
      "node": "div.nx",
      "path": "div.ctr[2]>div.nx[1]",
      "text": "149,769",
+     "var": "data",
+     "anchor": "center",
      "rect": {
       "x": 51.92,
       "y": 85.84,
@@ -317,6 +320,8 @@
      "node": "div.dlt.dn",
      "path": "div.ctr[2]>div.dlt.dn[2]",
      "text": "▼ 1.15% · −$1,728.13 Today",
+     "var": "data",
+     "anchor": "center",
      "rect": {
       "x": 81.97,
       "y": 150.84,
@@ -679,6 +684,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -690,6 +696,8 @@
      "node": "b",
      "path": "div.row[6]>div.m[1]>b[0]",
      "text": "Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 301.34,
@@ -718,6 +726,8 @@
      "node": "span",
      "path": "div.row[6]>div.m[1]>span[1]",
      "text": "22.23 ETH · 3 chains",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 320.34,
@@ -751,6 +761,7 @@
       "w": 15,
       "h": 15
      },
+     "var": "logo",
      "fill": [
       21,
       19,
@@ -772,6 +783,7 @@
       "w": 15,
       "h": 15
      },
+     "var": "logo",
      "fill": [
       21,
       19,
@@ -788,6 +800,8 @@
      "node": "b",
      "path": "div.row[6]>div.v[2]>b[0]",
      "text": "$95,271.11",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 300.34,
@@ -816,6 +830,8 @@
      "node": "span.dn",
      "path": "div.row[6]>div.v[2]>span.dn[1]",
      "text": "▼ 2.41%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 291.27,
       "y": 319.34,
@@ -870,6 +886,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -881,6 +898,8 @@
      "node": "b",
      "path": "div.row[7]>div.m[1]>b[0]",
      "text": "Bitcoin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 363.34,
@@ -909,6 +928,8 @@
      "node": "span",
      "path": "div.row[7]>div.m[1]>span[1]",
      "text": "0.2104 BTC · 2 accounts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 382.34,
@@ -937,6 +958,8 @@
      "node": "b",
      "path": "div.row[7]>div.v[2]>b[0]",
      "text": "$22,811.64",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 362.34,
@@ -965,6 +988,8 @@
      "node": "span.up",
      "path": "div.row[7]>div.v[2]>span.up[1]",
      "text": "▲ 1.82%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 291.27,
       "y": 381.34,
@@ -1019,6 +1044,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1030,6 +1056,8 @@
      "node": "b",
      "path": "div.row[8]>div.m[1]>b[0]",
      "text": "USD Coin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 425.34,
@@ -1058,6 +1086,8 @@
      "node": "span",
      "path": "div.row[8]>div.m[1]>span[1]",
      "text": "20,100 USDC · 2 chains",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 444.34,
@@ -1086,6 +1116,8 @@
      "node": "b",
      "path": "div.row[8]>div.v[2]>b[0]",
      "text": "$20,100.00",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 424.34,
@@ -1114,6 +1146,8 @@
      "node": "span",
      "path": "div.row[8]>div.v[2]>span[1]",
      "text": "0.00%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 305.19,
       "y": 443.34,
@@ -1168,6 +1202,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1179,6 +1214,8 @@
      "node": "b",
      "path": "div.row[9]>div.m[1]>b[0]",
      "text": "Solana",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 487.34,
@@ -1207,6 +1244,8 @@
      "node": "span",
      "path": "div.row[9]>div.m[1]>span[1]",
      "text": "31.5 SOL",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 506.34,
@@ -1235,6 +1274,8 @@
      "node": "b",
      "path": "div.row[9]>div.v[2]>b[0]",
      "text": "$5,802.30",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 266.91,
       "y": 486.34,
@@ -1263,6 +1304,8 @@
      "node": "span.up",
      "path": "div.row[9]>div.v[2]>span.up[1]",
      "text": "▲ 4.10%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 291.27,
       "y": 505.34,
@@ -1317,6 +1360,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1354,6 +1398,7 @@
       "w": 13,
       "h": 13
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1365,6 +1410,8 @@
      "node": "b",
      "path": "div.row[10]>div.m[1]>b[0]",
      "text": "WETH",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 549.34,
@@ -1393,6 +1440,8 @@
      "node": "span",
      "path": "div.row[10]>div.m[1]>span[1]",
      "text": "0.85 WETH · Arbitrum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 568.34,
@@ -1421,6 +1470,8 @@
      "node": "b",
      "path": "div.row[10]>div.v[2]>b[0]",
      "text": "$3,642.85",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 266.91,
       "y": 548.34,
@@ -1449,6 +1500,8 @@
      "node": "span.dn",
      "path": "div.row[10]>div.v[2]>span.dn[1]",
      "text": "▼ 2.41%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 291.27,
       "y": 567.34,
@@ -1852,6 +1905,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1951,6 +2005,8 @@
      "node": "div.nx",
      "path": "div.ctr[2]>div.nx[1]",
      "text": "149,769",
+     "var": "data",
+     "anchor": "center",
      "rect": {
       "x": 51.92,
       "y": 85.84,
@@ -2035,6 +2091,8 @@
      "node": "div.dlt.dn",
      "path": "div.ctr[2]>div.dlt.dn[2]",
      "text": "▼ 1.15% · −$1,728.13 Today",
+     "var": "data",
+     "anchor": "center",
      "rect": {
       "x": 81.97,
       "y": 150.84,
@@ -2397,6 +2455,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2408,6 +2467,8 @@
      "node": "b",
      "path": "div.row[6]>div.m[1]>b[0]",
      "text": "Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 301.34,
@@ -2436,6 +2497,8 @@
      "node": "span",
      "path": "div.row[6]>div.m[1]>span[1]",
      "text": "22.23 ETH · 3 chains",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 320.34,
@@ -2469,6 +2532,7 @@
       "w": 15,
       "h": 15
      },
+     "var": "logo",
      "fill": [
       251,
       246,
@@ -2490,6 +2554,7 @@
       "w": 15,
       "h": 15
      },
+     "var": "logo",
      "fill": [
       251,
       246,
@@ -2506,6 +2571,8 @@
      "node": "b",
      "path": "div.row[6]>div.v[2]>b[0]",
      "text": "$95,271.11",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 300.34,
@@ -2534,6 +2601,8 @@
      "node": "span.dn",
      "path": "div.row[6]>div.v[2]>span.dn[1]",
      "text": "▼ 2.41%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 291.27,
       "y": 319.34,
@@ -2588,6 +2657,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2599,6 +2669,8 @@
      "node": "b",
      "path": "div.row[7]>div.m[1]>b[0]",
      "text": "Bitcoin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 363.34,
@@ -2627,6 +2699,8 @@
      "node": "span",
      "path": "div.row[7]>div.m[1]>span[1]",
      "text": "0.2104 BTC · 2 accounts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 382.34,
@@ -2655,6 +2729,8 @@
      "node": "b",
      "path": "div.row[7]>div.v[2]>b[0]",
      "text": "$22,811.64",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 362.34,
@@ -2683,6 +2759,8 @@
      "node": "span.up",
      "path": "div.row[7]>div.v[2]>span.up[1]",
      "text": "▲ 1.82%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 291.27,
       "y": 381.34,
@@ -2737,6 +2815,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2748,6 +2827,8 @@
      "node": "b",
      "path": "div.row[8]>div.m[1]>b[0]",
      "text": "USD Coin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 425.34,
@@ -2776,6 +2857,8 @@
      "node": "span",
      "path": "div.row[8]>div.m[1]>span[1]",
      "text": "20,100 USDC · 2 chains",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 444.34,
@@ -2804,6 +2887,8 @@
      "node": "b",
      "path": "div.row[8]>div.v[2]>b[0]",
      "text": "$20,100.00",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 258.8,
       "y": 424.34,
@@ -2832,6 +2917,8 @@
      "node": "span",
      "path": "div.row[8]>div.v[2]>span[1]",
      "text": "0.00%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 305.19,
       "y": 443.34,
@@ -2886,6 +2973,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2897,6 +2985,8 @@
      "node": "b",
      "path": "div.row[9]>div.m[1]>b[0]",
      "text": "Solana",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 487.34,
@@ -2925,6 +3015,8 @@
      "node": "span",
      "path": "div.row[9]>div.m[1]>span[1]",
      "text": "31.5 SOL",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 506.34,
@@ -2953,6 +3045,8 @@
      "node": "b",
      "path": "div.row[9]>div.v[2]>b[0]",
      "text": "$5,802.30",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 266.91,
       "y": 486.34,
@@ -2981,6 +3075,8 @@
      "node": "span.up",
      "path": "div.row[9]>div.v[2]>span.up[1]",
      "text": "▲ 4.10%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 291.27,
       "y": 505.34,
@@ -3035,6 +3131,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -3072,6 +3169,7 @@
       "w": 13,
       "h": 13
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -3083,6 +3181,8 @@
      "node": "b",
      "path": "div.row[10]>div.m[1]>b[0]",
      "text": "WETH",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 549.34,
@@ -3111,6 +3211,8 @@
      "node": "span",
      "path": "div.row[10]>div.m[1]>span[1]",
      "text": "0.85 WETH · Arbitrum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 568.34,
@@ -3139,6 +3241,8 @@
      "node": "b",
      "path": "div.row[10]>div.v[2]>b[0]",
      "text": "$3,642.85",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 266.91,
       "y": 548.34,
@@ -3167,6 +3271,8 @@
      "node": "span.dn",
      "path": "div.row[10]>div.v[2]>span.dn[1]",
      "text": "▼ 2.41%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 291.27,
       "y": 567.34,

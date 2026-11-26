@@ -654,6 +654,8 @@
      "node": "div.mono-d",
      "path": "div.row[8]>div.mono-d[0]",
      "text": "FS",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.39,
       "y": 339.5,
@@ -703,6 +705,8 @@
      "node": "b",
      "path": "div.row[8]>div.m[1]>b[0]",
      "text": "FelixStone",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 330,
@@ -731,6 +735,8 @@
      "node": "span.idx",
      "path": "div.row[8]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 156.88,
       "y": 331,
@@ -759,6 +765,8 @@
      "node": "span",
      "path": "div.row[8]>div.m[1]>span[1]",
      "text": "Air 1 · 0x1020…122D",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 350,
@@ -803,6 +811,8 @@
      "node": "div.mono-d",
      "path": "div.row[9]>div.mono-d[0]",
      "text": "NL",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.08,
       "y": 401.5,
@@ -852,6 +862,8 @@
      "node": "b",
      "path": "div.row[9]>div.m[1]>b[0]",
      "text": "NothingLess",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 392,
@@ -880,6 +892,8 @@
      "node": "span.idx",
      "path": "div.row[9]>div.m[1]>b[0]>span.idx[0]",
      "text": "#1",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 172.83,
       "y": 393,
@@ -908,6 +922,8 @@
      "node": "span",
      "path": "div.row[9]>div.m[1]>span[1]",
      "text": "Air 1 · 0x1020…127a",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 412,
@@ -1008,6 +1024,8 @@
      "node": "div.mono-d",
      "path": "div.row[11]>div.mono-d[0]",
      "text": "ED",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.53,
       "y": 503.5,
@@ -1057,6 +1075,8 @@
      "node": "b",
      "path": "div.row[11]>div.m[1]>b[0]",
      "text": "Exchange Deposit",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 494.5,
@@ -1085,6 +1105,8 @@
      "node": "span",
      "path": "div.row[11]>div.m[1]>span[1]",
      "text": "Group Exchanges · 0x9f3c…41d0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 513.5,
@@ -1129,6 +1151,8 @@
      "node": "div.mono-d",
      "path": "div.row[12]>div.mono-d[0]",
      "text": "LP",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.69,
       "y": 565.5,
@@ -1178,6 +1202,8 @@
      "node": "b",
      "path": "div.row[12]>div.m[1]>b[0]",
      "text": "Lena Park",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 556.5,
@@ -1206,6 +1232,8 @@
      "node": "span",
      "path": "div.row[12]>div.m[1]>span[1]",
      "text": "Group Friends · 0x4b1e…a07c",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 575.5,
@@ -1973,6 +2001,8 @@
      "node": "div.mono-d",
      "path": "div.row[8]>div.mono-d[0]",
      "text": "FS",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.39,
       "y": 339.5,
@@ -2022,6 +2052,8 @@
      "node": "b",
      "path": "div.row[8]>div.m[1]>b[0]",
      "text": "FelixStone",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 330,
@@ -2050,6 +2082,8 @@
      "node": "span.idx",
      "path": "div.row[8]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 156.88,
       "y": 331,
@@ -2078,6 +2112,8 @@
      "node": "span",
      "path": "div.row[8]>div.m[1]>span[1]",
      "text": "Air 1 · 0x1020…122D",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 350,
@@ -2122,6 +2158,8 @@
      "node": "div.mono-d",
      "path": "div.row[9]>div.mono-d[0]",
      "text": "NL",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.08,
       "y": 401.5,
@@ -2171,6 +2209,8 @@
      "node": "b",
      "path": "div.row[9]>div.m[1]>b[0]",
      "text": "NothingLess",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 392,
@@ -2199,6 +2239,8 @@
      "node": "span.idx",
      "path": "div.row[9]>div.m[1]>b[0]>span.idx[0]",
      "text": "#1",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 172.83,
       "y": 393,
@@ -2227,6 +2269,8 @@
      "node": "span",
      "path": "div.row[9]>div.m[1]>span[1]",
      "text": "Air 1 · 0x1020…127a",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 412,
@@ -2327,6 +2371,8 @@
      "node": "div.mono-d",
      "path": "div.row[11]>div.mono-d[0]",
      "text": "ED",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.53,
       "y": 503.5,
@@ -2376,6 +2422,8 @@
      "node": "b",
      "path": "div.row[11]>div.m[1]>b[0]",
      "text": "Exchange Deposit",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 494.5,
@@ -2404,6 +2452,8 @@
      "node": "span",
      "path": "div.row[11]>div.m[1]>span[1]",
      "text": "Group Exchanges · 0x9f3c…41d0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 513.5,
@@ -2448,6 +2498,8 @@
      "node": "div.mono-d",
      "path": "div.row[12]>div.mono-d[0]",
      "text": "LP",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.69,
       "y": 565.5,
@@ -2497,6 +2549,8 @@
      "node": "b",
      "path": "div.row[12]>div.m[1]>b[0]",
      "text": "Lena Park",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 556.5,
@@ -2525,6 +2579,8 @@
      "node": "span",
      "path": "div.row[12]>div.m[1]>span[1]",
      "text": "Group Friends · 0x4b1e…a07c",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 575.5,

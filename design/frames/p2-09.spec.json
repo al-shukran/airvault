@@ -342,6 +342,8 @@
      "node": "div.mono-d",
      "path": "div.vcard[4]>div.idhead[1]>div.mono-d[0]",
      "text": "LP",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 43.69,
       "y": 196.5,
@@ -491,6 +493,8 @@
      "node": "span.ka",
      "path": "div.vcard[4]>div.agrid[2]>span.ka[1]",
      "text": "4b1e",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 65.2,
       "y": 237,
@@ -519,6 +523,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[2]",
      "text": "2c90",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 114.61,
       "y": 237,
@@ -547,6 +553,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[3]",
      "text": "f7a3",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 164.02,
       "y": 237,
@@ -575,6 +583,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[4]",
      "text": "66d1",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 213.42,
       "y": 237,
@@ -603,6 +613,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[5]",
      "text": "08be",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 262.83,
       "y": 237,
@@ -631,6 +643,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[7]",
      "text": "9a4c",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 65.2,
       "y": 264,
@@ -659,6 +673,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[8]",
      "text": "13f5",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 114.61,
       "y": 264,
@@ -687,6 +703,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[9]",
      "text": "e2d8",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 164.02,
       "y": 264,
@@ -715,6 +733,8 @@
      "node": "span",
      "path": "div.vcard[4]>div.agrid[2]>span[10]",
      "text": "7b6a",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 213.42,
       "y": 264,
@@ -743,6 +763,8 @@
      "node": "span.ka",
      "path": "div.vcard[4]>div.agrid[2]>span.ka[11]",
      "text": "a07c",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 262.83,
       "y": 264,
@@ -799,6 +821,8 @@
      "node": "div.mono-d",
      "path": "div.row[6]>div.mono-d[0]",
      "text": "PN",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.39,
       "y": 355.5,
@@ -848,6 +872,8 @@
      "node": "b",
      "path": "div.row[6]>div.m[1]>b[0]",
      "text": "PulsarNova",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 346,
@@ -876,6 +902,8 @@
      "node": "span.idx",
      "path": "div.row[6]>div.m[1]>b[0]>span.idx[0]",
      "text": "#5",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 164.53,
       "y": 347,
@@ -904,6 +932,8 @@
      "node": "span",
      "path": "div.row[6]>div.m[1]>span[1]",
      "text": "Your account · 0x1020…122b",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 366,
@@ -1080,6 +1110,8 @@
      "node": "b",
      "path": "div.kv[7]>div[1]>b[1]",
      "text": "0.0021 MON",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 261.69,
       "y": 446,
@@ -1160,6 +1192,8 @@
      "node": "b",
      "path": "div.kv[7]>div[2]>b[1]",
      "text": "41,208,337",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 261.69,
       "y": 486,
@@ -1216,6 +1250,8 @@
      "node": "b",
      "path": "div.kv[7]>div[3]>b[1]",
      "text": "0x8c1f…9e02",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 232.03,
       "y": 526,

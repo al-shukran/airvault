@@ -395,6 +395,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -406,6 +407,8 @@
      "node": "b",
      "path": "div.sh[3]>div.row[4]>div.m[1]>b[0]",
      "text": "USD Coin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 176.5,
@@ -434,6 +437,8 @@
      "node": "span",
      "path": "div.sh[3]>div.row[4]>div.m[1]>span[1]",
      "text": "USDC · on 9 chains",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 195.5,
@@ -462,6 +467,8 @@
      "node": "b",
      "path": "div.sh[3]>div.row[4]>div.v[2]>b[0]",
      "text": "$1.0000",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 283.16,
       "y": 175.5,
@@ -490,6 +497,8 @@
      "node": "span",
      "path": "div.sh[3]>div.row[4]>div.v[2]>span[1]",
      "text": "0.00%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 305.19,
       "y": 194.5,
@@ -544,6 +553,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -581,6 +591,7 @@
       "w": 13,
       "h": 13
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -592,6 +603,8 @@
      "node": "b",
      "path": "div.sh[3]>div.row[5]>div.m[1]>b[0]",
      "text": "USDC.e",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 238.5,
@@ -620,6 +633,8 @@
      "node": "span.tg",
      "path": "div.sh[3]>div.row[5]>div.m[1]>b[0]>span.tg[0]",
      "text": "Bridged",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 144.17,
       "y": 241.5,
@@ -672,6 +687,8 @@
      "node": "span",
      "path": "div.sh[3]>div.row[5]>div.m[1]>span[1]",
      "text": "Avalanche · not merged with USDC",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 257.5,
@@ -700,6 +717,8 @@
      "node": "b",
      "path": "div.sh[3]>div.row[5]>div.v[2]>b[0]",
      "text": "$0.9998",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 283.16,
       "y": 237.5,
@@ -728,6 +747,8 @@
      "node": "span",
      "path": "div.sh[3]>div.row[5]>div.v[2]>span[1]",
      "text": "0.01%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 305.19,
       "y": 256.5,
@@ -784,6 +805,8 @@
      "node": "div.mono-d",
      "path": "div.sh[3]>div.row[7]>div.mono-d[0]",
      "text": "PN",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.39,
       "y": 345.5,
@@ -833,6 +856,8 @@
      "node": "b",
      "path": "div.sh[3]>div.row[7]>div.m[1]>b[0]",
      "text": "PulsarNova",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 336,
@@ -861,6 +886,8 @@
      "node": "span.idx",
      "path": "div.sh[3]>div.row[7]>div.m[1]>b[0]>span.idx[0]",
      "text": "#5",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 164.53,
       "y": 337,
@@ -889,6 +916,8 @@
      "node": "span",
      "path": "div.sh[3]>div.row[7]>div.m[1]>span[1]",
      "text": "Holds 20,100 USDC · Air 1",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 356,
@@ -987,6 +1016,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -998,6 +1028,8 @@
      "node": "b",
      "path": "div.sh[3]>div.row[9]>div.m[1]>b[0]",
      "text": "Base",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 434.5,
@@ -1026,6 +1058,8 @@
      "node": "span",
      "path": "div.sh[3]>div.row[9]>div.m[1]>span[1]",
      "text": "L2 · Ethereum · USDC native",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 453.5,
@@ -1457,6 +1491,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1468,6 +1503,8 @@
      "node": "b",
      "path": "div.sh[3]>div.row[4]>div.m[1]>b[0]",
      "text": "USD Coin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 176.5,
@@ -1496,6 +1533,8 @@
      "node": "span",
      "path": "div.sh[3]>div.row[4]>div.m[1]>span[1]",
      "text": "USDC · on 9 chains",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 195.5,
@@ -1524,6 +1563,8 @@
      "node": "b",
      "path": "div.sh[3]>div.row[4]>div.v[2]>b[0]",
      "text": "$1.0000",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 283.16,
       "y": 175.5,
@@ -1552,6 +1593,8 @@
      "node": "span",
      "path": "div.sh[3]>div.row[4]>div.v[2]>span[1]",
      "text": "0.00%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 305.19,
       "y": 194.5,
@@ -1606,6 +1649,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1643,6 +1687,7 @@
       "w": 13,
       "h": 13
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1654,6 +1699,8 @@
      "node": "b",
      "path": "div.sh[3]>div.row[5]>div.m[1]>b[0]",
      "text": "USDC.e",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 238.5,
@@ -1682,6 +1729,8 @@
      "node": "span.tg",
      "path": "div.sh[3]>div.row[5]>div.m[1]>b[0]>span.tg[0]",
      "text": "Bridged",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 144.17,
       "y": 241.5,
@@ -1734,6 +1783,8 @@
      "node": "span",
      "path": "div.sh[3]>div.row[5]>div.m[1]>span[1]",
      "text": "Avalanche · not merged with USDC",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 257.5,
@@ -1762,6 +1813,8 @@
      "node": "b",
      "path": "div.sh[3]>div.row[5]>div.v[2]>b[0]",
      "text": "$0.9998",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 283.16,
       "y": 237.5,
@@ -1790,6 +1843,8 @@
      "node": "span",
      "path": "div.sh[3]>div.row[5]>div.v[2]>span[1]",
      "text": "0.01%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 305.19,
       "y": 256.5,
@@ -1846,6 +1901,8 @@
      "node": "div.mono-d",
      "path": "div.sh[3]>div.row[7]>div.mono-d[0]",
      "text": "PN",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.39,
       "y": 345.5,
@@ -1895,6 +1952,8 @@
      "node": "b",
      "path": "div.sh[3]>div.row[7]>div.m[1]>b[0]",
      "text": "PulsarNova",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 336,
@@ -1923,6 +1982,8 @@
      "node": "span.idx",
      "path": "div.sh[3]>div.row[7]>div.m[1]>b[0]>span.idx[0]",
      "text": "#5",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 164.53,
       "y": 337,
@@ -1951,6 +2012,8 @@
      "node": "span",
      "path": "div.sh[3]>div.row[7]>div.m[1]>span[1]",
      "text": "Holds 20,100 USDC · Air 1",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 356,
@@ -2049,6 +2112,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2060,6 +2124,8 @@
      "node": "b",
      "path": "div.sh[3]>div.row[9]>div.m[1]>b[0]",
      "text": "Base",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 434.5,
@@ -2088,6 +2154,8 @@
      "node": "span",
      "path": "div.sh[3]>div.row[9]>div.m[1]>span[1]",
      "text": "L2 · Ethereum · USDC native",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 453.5,

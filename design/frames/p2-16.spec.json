@@ -494,6 +494,8 @@
      "node": "div.mono-d",
      "path": "div.row[6]>div.mono-d[0]",
      "text": "FS",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.39,
       "y": 173.5,
@@ -543,6 +545,8 @@
      "node": "b",
      "path": "div.row[6]>div.m[1]>b[0]",
      "text": "FelixStone",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 164,
@@ -571,6 +575,8 @@
      "node": "span.idx",
      "path": "div.row[6]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 156.88,
       "y": 165,
@@ -599,6 +605,8 @@
      "node": "span",
      "path": "div.row[6]>div.m[1]>span[1]",
      "text": "Your account · 0x1020…122D",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 184,
@@ -718,6 +726,8 @@
      "node": "span.sldv",
      "path": "div.sh[8]>div.px[1]>span.sldv[1]",
      "text": "≈ 0.0021 MON",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 235.59,
       "y": 250,
@@ -1038,6 +1048,8 @@
      "node": "span.val.ty",
      "path": "div.sh[8]>div.fld.on[6]>span.val.ty[1]",
      "text": "52",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 38,
       "y": 446.5,
@@ -1167,6 +1179,8 @@
      "node": "span.val.ty",
      "path": "div.sh[8]>div.fld[7]>span.val.ty[1]",
      "text": "2",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 37,
       "y": 520.5,
@@ -1251,6 +1265,8 @@
      "node": "b",
      "path": "div.sh[8]>div.kv[8]>div[0]>b[1]",
      "text": "0.0034 MON",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 261.69,
       "y": 575,
@@ -1769,6 +1785,8 @@
      "node": "div.mono-d",
      "path": "div.row[6]>div.mono-d[0]",
      "text": "FS",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 28.39,
       "y": 173.5,
@@ -1818,6 +1836,8 @@
      "node": "b",
      "path": "div.row[6]>div.m[1]>b[0]",
      "text": "FelixStone",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 164,
@@ -1846,6 +1866,8 @@
      "node": "span.idx",
      "path": "div.row[6]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 156.88,
       "y": 165,
@@ -1874,6 +1896,8 @@
      "node": "span",
      "path": "div.row[6]>div.m[1]>span[1]",
      "text": "Your account · 0x1020…122D",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 184,
@@ -1993,6 +2017,8 @@
      "node": "span.sldv",
      "path": "div.sh[8]>div.px[1]>span.sldv[1]",
      "text": "≈ 0.0021 MON",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 235.59,
       "y": 250,
@@ -2313,6 +2339,8 @@
      "node": "span.val.ty",
      "path": "div.sh[8]>div.fld.on[6]>span.val.ty[1]",
      "text": "52",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 38,
       "y": 446.5,
@@ -2442,6 +2470,8 @@
      "node": "span.val.ty",
      "path": "div.sh[8]>div.fld[7]>span.val.ty[1]",
      "text": "2",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 37,
       "y": 520.5,
@@ -2526,6 +2556,8 @@
      "node": "b",
      "path": "div.sh[8]>div.kv[8]>div[0]>b[1]",
      "text": "0.0034 MON",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 261.69,
       "y": 575,

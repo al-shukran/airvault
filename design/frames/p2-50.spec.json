@@ -181,6 +181,8 @@
      "node": "span.val.ty",
      "path": "div.fld.bad[2]>span.val.ty[1]",
      "text": "••••••••",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 38,
       "y": 91.5,
@@ -725,6 +727,8 @@
      "node": "span.val.ty",
      "path": "div.fld.bad[2]>span.val.ty[1]",
      "text": "••••••••",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 38,
       "y": 91.5,

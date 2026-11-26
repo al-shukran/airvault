@@ -258,6 +258,8 @@
      "node": "span.n",
      "path": "div.s.ctr[5]>span.n[0]",
      "text": "0x1020…122D",
+     "var": "data",
+     "anchor": "center",
      "rect": {
       "x": 207.25,
       "y": 220,
@@ -416,6 +418,8 @@
      "node": "div.tm",
      "path": "div.tl[6]>div.tli.ok[0]>div.tm[2]",
      "text": "14:02",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 287,
       "y": 275,
@@ -545,6 +549,8 @@
      "node": "div.tm",
      "path": "div.tl[6]>div.tli.ok[1]>div.tm[2]",
      "text": "14:02",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 287,
       "y": 336,
@@ -1096,6 +1102,8 @@
      "node": "span.n",
      "path": "div.s.ctr[5]>span.n[0]",
      "text": "0x1020…122D",
+     "var": "data",
+     "anchor": "center",
      "rect": {
       "x": 207.25,
       "y": 220,
@@ -1254,6 +1262,8 @@
      "node": "div.tm",
      "path": "div.tl[6]>div.tli.ok[0]>div.tm[2]",
      "text": "14:02",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 287,
       "y": 275,
@@ -1383,6 +1393,8 @@
      "node": "div.tm",
      "path": "div.tl[6]>div.tli.ok[1]>div.tm[2]",
      "text": "14:02",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 287,
       "y": 336,

@@ -122,6 +122,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -237,6 +238,8 @@
      "node": "div.nx",
      "path": "div.ctr[2]>div.nx[1]",
      "text": "3.41",
+     "var": "data",
+     "anchor": "center",
      "rect": {
       "x": 119.42,
       "y": 87.84,
@@ -482,6 +485,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -493,6 +497,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[3]>div.m[1]>b[0]",
      "text": "Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 249.5,
@@ -521,6 +527,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[3]>div.m[1]>span[1]",
      "text": "Layer 1",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 268.5,
@@ -599,6 +607,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -610,6 +619,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[4]>div.m[1]>b[0]",
      "text": "Base",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 311.5,
@@ -638,6 +649,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[4]>div.m[1]>span[1]",
      "text": "L2 on Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 330.5,
@@ -716,6 +729,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -727,6 +741,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[5]>div.m[1]>b[0]",
      "text": "Arbitrum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 373.5,
@@ -755,6 +771,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[5]>div.m[1]>span[1]",
      "text": "L2 on Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 392.5,
@@ -833,6 +851,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -844,6 +863,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[6]>div.m[1]>b[0]",
      "text": "Optimism",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 435.5,
@@ -872,6 +893,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[6]>div.m[1]>span[1]",
      "text": "L2 on Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 454.5,
@@ -950,6 +973,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -961,6 +985,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[7]>div.m[1]>b[0]",
      "text": "Solana",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 497.5,
@@ -989,6 +1015,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[7]>div.m[1]>span[1]",
      "text": "SPL token",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 516.5,
@@ -1067,6 +1095,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1078,6 +1107,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[8]>div.m[1]>b[0]",
      "text": "Algorand",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 559.5,
@@ -1106,6 +1137,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[8]>div.m[1]>span[1]",
      "text": "ASA 31566704",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 578.5,
@@ -1288,6 +1321,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1403,6 +1437,8 @@
      "node": "div.nx",
      "path": "div.ctr[2]>div.nx[1]",
      "text": "3.41",
+     "var": "data",
+     "anchor": "center",
      "rect": {
       "x": 119.42,
       "y": 87.84,
@@ -1648,6 +1684,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1659,6 +1696,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[3]>div.m[1]>b[0]",
      "text": "Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 249.5,
@@ -1687,6 +1726,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[3]>div.m[1]>span[1]",
      "text": "Layer 1",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 268.5,
@@ -1765,6 +1806,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1776,6 +1818,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[4]>div.m[1]>b[0]",
      "text": "Base",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 311.5,
@@ -1804,6 +1848,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[4]>div.m[1]>span[1]",
      "text": "L2 on Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 330.5,
@@ -1882,6 +1928,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1893,6 +1940,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[5]>div.m[1]>b[0]",
      "text": "Arbitrum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 373.5,
@@ -1921,6 +1970,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[5]>div.m[1]>span[1]",
      "text": "L2 on Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 392.5,
@@ -1999,6 +2050,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2010,6 +2062,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[6]>div.m[1]>b[0]",
      "text": "Optimism",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 435.5,
@@ -2038,6 +2092,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[6]>div.m[1]>span[1]",
      "text": "L2 on Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 454.5,
@@ -2116,6 +2172,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2127,6 +2184,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[7]>div.m[1]>b[0]",
      "text": "Solana",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 497.5,
@@ -2155,6 +2214,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[7]>div.m[1]>span[1]",
      "text": "SPL token",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 516.5,
@@ -2233,6 +2294,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2244,6 +2306,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[8]>div.m[1]>b[0]",
      "text": "Algorand",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 559.5,
@@ -2272,6 +2336,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[8]>div.m[1]>span[1]",
      "text": "ASA 31566704",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 578.5,

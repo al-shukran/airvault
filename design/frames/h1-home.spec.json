@@ -158,6 +158,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -496,6 +497,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -507,6 +509,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[2]>div.m[1]>b[0]",
      "text": "Bitcoin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 183.5,
@@ -535,6 +539,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[2]>div.m[1]>span[1]",
      "text": "BTC",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 202.5,
@@ -568,6 +574,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -579,6 +586,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[2]>div.v[3]>b[0]",
      "text": "$60,572.00",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 309.8,
       "y": 182.5,
@@ -607,6 +616,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[2]>div.v[3]>span.chg-g[1]",
      "text": "▲ 3.36%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 201.5,
@@ -661,6 +672,7 @@
       "w": 23,
       "h": 23
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -672,6 +684,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[3]>div.m[1]>b[0]",
      "text": "Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 245.5,
@@ -700,6 +714,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[3]>div.m[1]>span[1]",
      "text": "ETH",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 264.5,
@@ -733,6 +749,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -744,6 +761,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[3]>div.v[3]>b[0]",
      "text": "$1,699.68",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 317.91,
       "y": 244.5,
@@ -772,6 +791,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[3]>div.v[3]>span.chg-g[1]",
      "text": "▲ 3.40%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 263.5,
@@ -826,6 +847,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -837,6 +859,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[4]>div.m[1]>b[0]",
      "text": "Tether",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 307.5,
@@ -865,6 +889,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[4]>div.m[1]>span[1]",
      "text": "USDT",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 326.5,
@@ -898,6 +924,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -909,6 +936,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[4]>div.v[3]>b[0]",
      "text": "$0.9990",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 306.5,
@@ -937,6 +966,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[4]>div.v[3]>span.chg-g[1]",
      "text": "▲ 0.02%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 325.5,
@@ -991,6 +1022,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -1002,6 +1034,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[5]>div.m[1]>b[0]",
      "text": "BNB",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 378,
@@ -1035,6 +1069,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1046,6 +1081,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[5]>div.v[3]>b[0]",
      "text": "$550.50",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 368.5,
@@ -1074,6 +1111,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[5]>div.v[3]>span.chg-g[1]",
      "text": "▲ 2.10%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 387.5,
@@ -1128,6 +1167,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -1139,6 +1179,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[6]>div.m[1]>b[0]",
      "text": "USD Coin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 431.5,
@@ -1167,6 +1209,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[6]>div.m[1]>span[1]",
      "text": "USDC",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 450.5,
@@ -1200,6 +1244,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1211,6 +1256,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[6]>div.v[3]>b[0]",
      "text": "$0.9995",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 430.5,
@@ -1239,6 +1286,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[6]>div.v[3]>span.chg-g[1]",
      "text": "▲ 0.01%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 449.5,
@@ -1293,6 +1342,7 @@
       "w": 22,
       "h": 22
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1304,6 +1354,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[7]>div.m[1]>b[0]",
      "text": "Solana",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 493.5,
@@ -1332,6 +1384,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[7]>div.m[1]>span[1]",
      "text": "SOL",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 512.5,
@@ -1365,6 +1419,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1376,6 +1431,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[7]>div.v[3]>b[0]",
      "text": "$70.72",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 492.5,
@@ -1404,6 +1461,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[7]>div.v[3]>span.chg-g[1]",
      "text": "▲ 4.16%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 511.5,
@@ -1458,6 +1517,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -1469,6 +1529,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[8]>div.m[1]>b[0]",
      "text": "Spiko Amundi Overnight Swap Fund (EUR)",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 551,
@@ -1497,6 +1559,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[8]>div.m[1]>span[1]",
      "text": "eurSAFO",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 610,
@@ -1530,6 +1594,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1541,6 +1606,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[8]>div.v[3]>b[0]",
      "text": "$1.1132",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 570,
@@ -1569,6 +1636,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[8]>div.v[3]>span.chg-g[1]",
      "text": "▲ 0.18%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 589,
@@ -1623,6 +1692,7 @@
       "w": 32,
       "h": 32
      },
+     "var": "logo",
      "fill": [
       0,
       0,
@@ -1639,6 +1709,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[9]>div.m[1]>b[0]",
      "text": "BlackRock USD Institutional Digital Liquidity Fund",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 644,
@@ -1667,6 +1739,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[9]>div.m[1]>span[1]",
      "text": "BUIDL",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 703,
@@ -1700,6 +1774,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1711,6 +1786,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[9]>div.v[3]>b[0]",
      "text": "$1.0000",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 663,
@@ -1739,6 +1816,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[9]>div.v[3]>span[1]",
      "text": "0.00%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 356.19,
       "y": 682,
@@ -1788,6 +1867,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[10]>div.m[1]>b[0]",
      "text": "Invesco Short Duration US Government Securities Fund",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 737,
@@ -1816,6 +1897,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[10]>div.v[3]>b[0]",
      "text": "$11.29",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 766,
@@ -2243,6 +2326,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2581,6 +2665,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -2592,6 +2677,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[2]>div.m[1]>b[0]",
      "text": "Bitcoin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 183.5,
@@ -2620,6 +2707,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[2]>div.m[1]>span[1]",
      "text": "BTC",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 202.5,
@@ -2653,6 +2742,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2664,6 +2754,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[2]>div.v[3]>b[0]",
      "text": "$60,572.00",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 309.8,
       "y": 182.5,
@@ -2692,6 +2784,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[2]>div.v[3]>span.chg-g[1]",
      "text": "▲ 3.36%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 201.5,
@@ -2746,6 +2840,7 @@
       "w": 23,
       "h": 23
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2757,6 +2852,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[3]>div.m[1]>b[0]",
      "text": "Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 245.5,
@@ -2785,6 +2882,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[3]>div.m[1]>span[1]",
      "text": "ETH",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 264.5,
@@ -2818,6 +2917,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2829,6 +2929,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[3]>div.v[3]>b[0]",
      "text": "$1,699.68",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 317.91,
       "y": 244.5,
@@ -2857,6 +2959,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[3]>div.v[3]>span.chg-g[1]",
      "text": "▲ 3.40%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 263.5,
@@ -2911,6 +3015,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2922,6 +3027,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[4]>div.m[1]>b[0]",
      "text": "Tether",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 307.5,
@@ -2950,6 +3057,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[4]>div.m[1]>span[1]",
      "text": "USDT",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 326.5,
@@ -2983,6 +3092,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2994,6 +3104,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[4]>div.v[3]>b[0]",
      "text": "$0.9990",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 306.5,
@@ -3022,6 +3134,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[4]>div.v[3]>span.chg-g[1]",
      "text": "▲ 0.02%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 325.5,
@@ -3076,6 +3190,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -3087,6 +3202,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[5]>div.m[1]>b[0]",
      "text": "BNB",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 378,
@@ -3120,6 +3237,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -3131,6 +3249,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[5]>div.v[3]>b[0]",
      "text": "$550.50",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 368.5,
@@ -3159,6 +3279,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[5]>div.v[3]>span.chg-g[1]",
      "text": "▲ 2.10%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 387.5,
@@ -3213,6 +3335,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -3224,6 +3347,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[6]>div.m[1]>b[0]",
      "text": "USD Coin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 431.5,
@@ -3252,6 +3377,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[6]>div.m[1]>span[1]",
      "text": "USDC",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 450.5,
@@ -3285,6 +3412,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -3296,6 +3424,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[6]>div.v[3]>b[0]",
      "text": "$0.9995",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 430.5,
@@ -3324,6 +3454,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[6]>div.v[3]>span.chg-g[1]",
      "text": "▲ 0.01%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 449.5,
@@ -3378,6 +3510,7 @@
       "w": 22,
       "h": 22
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -3389,6 +3522,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[7]>div.m[1]>b[0]",
      "text": "Solana",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 493.5,
@@ -3417,6 +3552,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[7]>div.m[1]>span[1]",
      "text": "SOL",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 512.5,
@@ -3450,6 +3587,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -3461,6 +3599,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[7]>div.v[3]>b[0]",
      "text": "$70.72",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 492.5,
@@ -3489,6 +3629,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[7]>div.v[3]>span.chg-g[1]",
      "text": "▲ 4.16%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 511.5,
@@ -3543,6 +3685,7 @@
       "w": 24,
       "h": 24
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "50%",
@@ -3554,6 +3697,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[8]>div.m[1]>b[0]",
      "text": "Spiko Amundi Overnight Swap Fund (EUR)",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 551,
@@ -3582,6 +3727,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[8]>div.m[1]>span[1]",
      "text": "eurSAFO",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 610,
@@ -3615,6 +3762,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -3626,6 +3774,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[8]>div.v[3]>b[0]",
      "text": "$1.1132",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 570,
@@ -3654,6 +3804,8 @@
      "node": "span.chg-g",
      "path": "div.scroll[2]>div.row.w[8]>div.v[3]>span.chg-g[1]",
      "text": "▲ 0.18%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 589,
@@ -3708,6 +3860,7 @@
       "w": 32,
       "h": 32
      },
+     "var": "logo",
      "fill": [
       0,
       0,
@@ -3724,6 +3877,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[9]>div.m[1]>b[0]",
      "text": "BlackRock USD Institutional Digital Liquidity Fund",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 644,
@@ -3752,6 +3907,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[9]>div.m[1]>span[1]",
      "text": "BUIDL",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 703,
@@ -3785,6 +3942,7 @@
       "w": 56,
       "h": 22
      },
+     "var": "chart",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -3796,6 +3954,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[9]>div.v[3]>b[0]",
      "text": "$1.0000",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 334.16,
       "y": 663,
@@ -3824,6 +3984,8 @@
      "node": "span",
      "path": "div.scroll[2]>div.row.w[9]>div.v[3]>span[1]",
      "text": "0.00%",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 356.19,
       "y": 682,
@@ -3873,6 +4035,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[10]>div.m[1]>b[0]",
      "text": "Invesco Short Duration US Government Securities Fund",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 737,
@@ -3901,6 +4065,8 @@
      "node": "b",
      "path": "div.scroll[2]>div.row.w[10]>div.v[3]>b[0]",
      "text": "$11.29",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 342.27,
       "y": 766,

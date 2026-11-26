@@ -270,6 +270,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -281,6 +282,8 @@
      "node": "b",
      "path": "div.row[5]>div.m[1]>b[0]",
      "text": "Monad Testnet",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 184.5,
@@ -309,6 +312,8 @@
      "node": "span.dim-badge",
      "path": "div.row[5]>div.m[1]>b[0]>span.dim-badge[0]",
      "text": "DEFAULT",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 200.09,
       "y": 186.5,
@@ -361,6 +366,8 @@
      "node": "span",
      "path": "div.row[5]>div.m[1]>span[1]",
      "text": "Chain ID 10143 · where Send starts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 203.5,
@@ -581,6 +588,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -592,6 +600,8 @@
      "node": "b",
      "path": "div.row[8]>div.m[1]>b[0]",
      "text": "Bitcoin Testnet4",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 344.5,
@@ -620,6 +630,8 @@
      "node": "span",
      "path": "div.row[8]>div.m[1]>span[1]",
      "text": "The only Bitcoin test network Lumio reads",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 363.5,
@@ -702,6 +714,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -713,6 +726,8 @@
      "node": "b",
      "path": "div.row[10]>div.m[1]>b[0]",
      "text": "Solana Devnet",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 442.5,
@@ -741,6 +756,8 @@
      "node": "span",
      "path": "div.row[10]>div.m[1]>span[1]",
      "text": "The only Solana test cluster Lumio reads",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 461.5,
@@ -823,6 +840,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -834,6 +852,8 @@
      "node": "b",
      "path": "div.row[12]>div.m[1]>b[0]",
      "text": "Algorand Testnet",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 540.5,
@@ -862,6 +882,8 @@
      "node": "span",
      "path": "div.row[12]>div.m[1]>span[1]",
      "text": "Algorand's public test network",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 559.5,
@@ -1152,6 +1174,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1163,6 +1186,8 @@
      "node": "b",
      "path": "div.row[5]>div.m[1]>b[0]",
      "text": "Monad Testnet",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 184.5,
@@ -1191,6 +1216,8 @@
      "node": "span.dim-badge",
      "path": "div.row[5]>div.m[1]>b[0]>span.dim-badge[0]",
      "text": "DEFAULT",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 200.09,
       "y": 186.5,
@@ -1243,6 +1270,8 @@
      "node": "span",
      "path": "div.row[5]>div.m[1]>span[1]",
      "text": "Chain ID 10143 · where Send starts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 203.5,
@@ -1463,6 +1492,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1474,6 +1504,8 @@
      "node": "b",
      "path": "div.row[8]>div.m[1]>b[0]",
      "text": "Bitcoin Testnet4",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 344.5,
@@ -1502,6 +1534,8 @@
      "node": "span",
      "path": "div.row[8]>div.m[1]>span[1]",
      "text": "The only Bitcoin test network Lumio reads",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 363.5,
@@ -1584,6 +1618,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1595,6 +1630,8 @@
      "node": "b",
      "path": "div.row[10]>div.m[1]>b[0]",
      "text": "Solana Devnet",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 442.5,
@@ -1623,6 +1660,8 @@
      "node": "span",
      "path": "div.row[10]>div.m[1]>span[1]",
      "text": "The only Solana test cluster Lumio reads",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 461.5,
@@ -1705,6 +1744,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1716,6 +1756,8 @@
      "node": "b",
      "path": "div.row[12]>div.m[1]>b[0]",
      "text": "Algorand Testnet",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 540.5,
@@ -1744,6 +1786,8 @@
      "node": "span",
      "path": "div.row[12]>div.m[1]>span[1]",
      "text": "Algorand's public test network",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 559.5,

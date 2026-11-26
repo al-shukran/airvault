@@ -14,15 +14,20 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 TOLERANCE_KEYS = {"bandDp", "textPosDp", "fontSizeDp", "lineHeightDp", "letterSpacingDp", "textColor", "sample", "cell", "cellDp", "ink", "iconColor"}
-LISTS = ("known_violations", "unregistered", "no_frame")
+TOP_KEYS = {"version", "tolerance", "screens", "known_violations", "unregistered", "no_frame"}
+ROW_KEYS = {"frame", "theme", "test", "insetBottom", "masks"}
 
 
 def registry_errors(reg, frames_dir, golden_names):
     errors = []
+    for key in sorted(set(reg) - TOP_KEYS):
+        errors.append(f"registry key {key} is not one the gate reads, so it would switch nothing off but hide something: remove it")
     if set(reg.get("tolerance", {})) != TOLERANCE_KEYS:
         errors.append(f"tolerance must hold exactly {sorted(TOLERANCE_KEYS)}")
     screens = reg.get("screens", {})
     for name, row in screens.items():
+        for key in sorted(set(row) - ROW_KEYS):
+            errors.append(f"{name}: row key {key} is not one the gate reads: remove it")
         spec_file = frames_dir / f"{row.get('frame')}.spec.json"
         if not spec_file.exists():
             errors.append(f"{name}: frame {row.get('frame')} has no {spec_file.name}")
@@ -67,6 +72,9 @@ def result_errors(reg, results_dir):
             errors.append(f"{name}: the gate wrote no result (the test was skipped, filtered out or failed before it compared)")
             continue
         results[name] = json.loads(f.read_text())
+        row = reg["screens"][name]
+        if (results[name]["frame"], results[name]["theme"]) != (row.get("frame"), row.get("theme")):
+            errors.append(f"{name}: the gate compared {results[name]['frame']} ({results[name]['theme']}), the registry says {row.get('frame')} ({row.get('theme')})")
         known = name in reg.get("known_violations", {})
         if results[name]["violation"] and not known:
             errors.append(f"{name}: a new violation ({len(results[name]['findings'])} differences)")

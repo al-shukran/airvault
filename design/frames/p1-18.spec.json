@@ -362,6 +362,7 @@
       "w": 36,
       "h": 36
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -401,6 +402,8 @@
      "node": "div.ad",
      "path": "div.sh[4]>div.px[3]>div.ad[1]",
      "text": "0x1020 5060 9011 4151 8191 122b",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 20,
       "y": 436,
@@ -429,6 +432,8 @@
      "node": "i",
      "path": "div.sh[4]>div.px[3]>div.ad[1]>i[0]",
      "text": "3040",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 79.89,
       "y": 436,
@@ -457,6 +462,8 @@
      "node": "i",
      "path": "div.sh[4]>div.px[3]>div.ad[1]>i[1]",
      "text": "7080",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 165.47,
       "y": 436,
@@ -485,6 +492,8 @@
      "node": "i",
      "path": "div.sh[4]>div.px[3]>div.ad[1]>i[3]",
      "text": "2131",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 20,
       "y": 458,
@@ -513,6 +522,8 @@
      "node": "i",
      "path": "div.sh[4]>div.px[3]>div.ad[1]>i[4]",
      "text": "6171",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 105.58,
       "y": 458,
@@ -1061,6 +1072,7 @@
       "w": 36,
       "h": 36
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1100,6 +1112,8 @@
      "node": "div.ad",
      "path": "div.sh[4]>div.px[3]>div.ad[1]",
      "text": "0x1020 5060 9011 4151 8191 122b",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 20,
       "y": 436,
@@ -1128,6 +1142,8 @@
      "node": "i",
      "path": "div.sh[4]>div.px[3]>div.ad[1]>i[0]",
      "text": "3040",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 79.89,
       "y": 436,
@@ -1156,6 +1172,8 @@
      "node": "i",
      "path": "div.sh[4]>div.px[3]>div.ad[1]>i[1]",
      "text": "7080",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 165.47,
       "y": 436,
@@ -1184,6 +1202,8 @@
      "node": "i",
      "path": "div.sh[4]>div.px[3]>div.ad[1]>i[3]",
      "text": "2131",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 20,
       "y": 458,
@@ -1212,6 +1232,8 @@
      "node": "i",
      "path": "div.sh[4]>div.px[3]>div.ad[1]>i[4]",
      "text": "6171",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 105.58,
       "y": 458,

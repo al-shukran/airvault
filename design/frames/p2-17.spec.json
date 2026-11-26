@@ -494,6 +494,8 @@
      "node": "div.mono-d",
      "path": "div.row[6]>div.mono-d[0]",
      "text": "TR",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.83,
       "y": 173.5,
@@ -543,6 +545,8 @@
      "node": "b",
      "path": "div.row[6]>div.m[1]>b[0]",
      "text": "Travel",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 164,
@@ -571,6 +575,8 @@
      "node": "span.idx",
      "path": "div.row[6]>div.m[1]>b[0]>span.idx[0]",
      "text": "#2",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 120.58,
       "y": 165,
@@ -599,6 +605,8 @@
      "node": "span",
      "path": "div.row[6]>div.m[1]>span[1]",
      "text": "Your account · tb1q…a3d9",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 184,
@@ -655,6 +663,8 @@
      "node": "div.mono-d",
      "path": "div.row[8]>div.mono-d[0]",
      "text": "SV",
+     "var": "logo",
+     "anchor": "center",
      "rect": {
       "x": 27.89,
       "y": 251.5,
@@ -704,6 +714,8 @@
      "node": "b",
      "path": "div.row[8]>div.m[1]>b[0]",
      "text": "Savings",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 242,
@@ -732,6 +744,8 @@
      "node": "span.idx",
      "path": "div.row[8]>div.m[1]>b[0]>span.idx[0]",
      "text": "#0",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 135.48,
       "y": 243,
@@ -760,6 +774,8 @@
      "node": "span",
      "path": "div.row[8]>div.m[1]>span[1]",
      "text": "0.0150 BTC available",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 262,
@@ -879,6 +895,8 @@
      "node": "span.sldv",
      "path": "div.sh[10]>div.px[1]>span.sldv[1]",
      "text": "≈ 0.00000208 BTC",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 200.8,
       "y": 340,
@@ -1155,6 +1173,8 @@
      "node": "span.val.ty",
      "path": "div.sh[10]>div.fld.on[5]>span.val.ty[1]",
      "text": "1",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 38,
       "y": 484.5,

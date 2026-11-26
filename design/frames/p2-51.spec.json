@@ -214,6 +214,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -225,6 +226,8 @@
      "node": "b",
      "path": "div.row.nl0[3]>div.m[1]>b[0]",
      "text": "Monad Testnet",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 90,
@@ -253,6 +256,8 @@
      "node": "span",
      "path": "div.row.nl0[3]>div.m[1]>span[1]",
      "text": "Network for this token",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 109,
@@ -281,6 +286,8 @@
      "node": "span.ta",
      "path": "div.row.nl0[3]>span.ta[2]",
      "text": "Change",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 277.92,
       "y": 99,
@@ -410,6 +417,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[1]",
      "text": "3a98",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 60.61,
       "y": 168,
@@ -438,6 +447,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[2]",
      "text": "f1c2",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 98.81,
       "y": 168,
@@ -466,6 +477,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[3]",
      "text": "7b40",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 137.02,
       "y": 168,
@@ -494,6 +507,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[4]",
      "text": "d6e5",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 175.22,
       "y": 168,
@@ -522,6 +537,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[5]",
      "text": "9c13",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 213.42,
       "y": 168,
@@ -550,6 +567,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[7]",
      "text": "08af",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 60.61,
       "y": 190,
@@ -578,6 +597,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[8]",
      "text": "52d7",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 98.81,
       "y": 190,
@@ -606,6 +627,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[9]",
      "text": "e4b1",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 137.02,
       "y": 190,
@@ -634,6 +657,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[10]",
      "text": "6c0e",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 175.22,
       "y": 190,
@@ -662,6 +687,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[11]",
      "text": "a2f7",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 213.42,
       "y": 190,
@@ -962,6 +989,8 @@
      "node": "b",
      "path": "div.kv[6]>div[2]>b[1]",
      "text": "18",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 324.33,
       "y": 352,
@@ -1018,6 +1047,8 @@
      "node": "b",
      "path": "div.kv[6]>div[3]>b[1]",
      "text": "1,200 TINY",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 261.69,
       "y": 392,
@@ -1370,6 +1401,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1381,6 +1413,8 @@
      "node": "b",
      "path": "div.row.nl0[3]>div.m[1]>b[0]",
      "text": "Monad Testnet",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 90,
@@ -1409,6 +1443,8 @@
      "node": "span",
      "path": "div.row.nl0[3]>div.m[1]>span[1]",
      "text": "Network for this token",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 109,
@@ -1437,6 +1473,8 @@
      "node": "span.ta",
      "path": "div.row.nl0[3]>span.ta[2]",
      "text": "Change",
+     "var": "row",
+     "anchor": "right",
      "rect": {
       "x": 277.92,
       "y": 99,
@@ -1566,6 +1604,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[1]",
      "text": "3a98",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 60.61,
       "y": 168,
@@ -1594,6 +1634,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[2]",
      "text": "f1c2",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 98.81,
       "y": 168,
@@ -1622,6 +1664,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[3]",
      "text": "7b40",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 137.02,
       "y": 168,
@@ -1650,6 +1694,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[4]",
      "text": "d6e5",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 175.22,
       "y": 168,
@@ -1678,6 +1724,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[5]",
      "text": "9c13",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 213.42,
       "y": 168,
@@ -1706,6 +1754,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[7]",
      "text": "08af",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 60.61,
       "y": 190,
@@ -1734,6 +1784,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[8]",
      "text": "52d7",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 98.81,
       "y": 190,
@@ -1762,6 +1814,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[9]",
      "text": "e4b1",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 137.02,
       "y": 190,
@@ -1790,6 +1844,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[10]",
      "text": "6c0e",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 175.22,
       "y": 190,
@@ -1818,6 +1874,8 @@
      "node": "span",
      "path": "div.fld.on[4]>span.val.agrid[1]>span[11]",
      "text": "a2f7",
+     "var": "data",
+     "anchor": "left",
      "rect": {
       "x": 213.42,
       "y": 190,
@@ -2118,6 +2176,8 @@
      "node": "b",
      "path": "div.kv[6]>div[2]>b[1]",
      "text": "18",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 324.33,
       "y": 352,
@@ -2174,6 +2234,8 @@
      "node": "b",
      "path": "div.kv[6]>div[3]>b[1]",
      "text": "1,200 TINY",
+     "var": "data",
+     "anchor": "right",
      "rect": {
       "x": 261.69,
       "y": 392,

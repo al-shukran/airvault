@@ -118,6 +118,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -233,6 +234,8 @@
      "node": "div.nx",
      "path": "div.ctr[2]>div.nx[1]",
      "text": "3.41",
+     "var": "data",
+     "anchor": "center",
      "rect": {
       "x": 119.42,
       "y": 87.84,
@@ -527,6 +530,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -538,6 +542,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[4]>div.m[1]>b[0]",
      "text": "Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 301.5,
@@ -566,6 +572,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[4]>div.m[1]>span[1]",
      "text": "ETH · on 3 networks you use",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 320.5,
@@ -636,6 +644,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -647,6 +656,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[5]>div.m[1]>b[0]",
      "text": "USD Coin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 363.5,
@@ -675,6 +686,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[5]>div.m[1]>span[1]",
      "text": "USDC · on 6 networks",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 382.5,
@@ -745,6 +758,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -756,6 +770,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[6]>div.m[1]>b[0]",
      "text": "Bitcoin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 425.5,
@@ -784,6 +800,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[6]>div.m[1]>span[1]",
      "text": "BTC · 2 accounts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 444.5,
@@ -854,6 +872,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -865,6 +884,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[7]>div.m[1]>b[0]",
      "text": "Solana",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 487.5,
@@ -893,6 +914,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[7]>div.m[1]>span[1]",
      "text": "SOL · 1 account",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 506.5,
@@ -991,6 +1014,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1002,6 +1026,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[9]>div.m[1]>b[0]",
      "text": "Algorand",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 585.5,
@@ -1030,6 +1056,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[9]>div.m[1]>span[1]",
      "text": "ALGO · 17 accounts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 604.5,
@@ -1100,6 +1128,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1111,6 +1140,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[10]>div.m[1]>b[0]",
      "text": "Monad",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 647.5,
@@ -1139,6 +1170,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[10]>div.m[1]>span[1]",
      "text": "MON · Ethereum App accounts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 666.5,
@@ -1281,6 +1314,7 @@
       "w": 28,
       "h": 28
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1396,6 +1430,8 @@
      "node": "div.nx",
      "path": "div.ctr[2]>div.nx[1]",
      "text": "3.41",
+     "var": "data",
+     "anchor": "center",
      "rect": {
       "x": 119.42,
       "y": 87.84,
@@ -1690,6 +1726,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1701,6 +1738,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[4]>div.m[1]>b[0]",
      "text": "Ethereum",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 301.5,
@@ -1729,6 +1768,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[4]>div.m[1]>span[1]",
      "text": "ETH · on 3 networks you use",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 320.5,
@@ -1799,6 +1840,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1810,6 +1852,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[5]>div.m[1]>b[0]",
      "text": "USD Coin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 363.5,
@@ -1838,6 +1882,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[5]>div.m[1]>span[1]",
      "text": "USDC · on 6 networks",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 382.5,
@@ -1908,6 +1954,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -1919,6 +1966,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[6]>div.m[1]>b[0]",
      "text": "Bitcoin",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 425.5,
@@ -1947,6 +1996,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[6]>div.m[1]>span[1]",
      "text": "BTC · 2 accounts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 444.5,
@@ -2017,6 +2068,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2028,6 +2080,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[7]>div.m[1]>b[0]",
      "text": "Solana",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 487.5,
@@ -2056,6 +2110,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[7]>div.m[1]>span[1]",
      "text": "SOL · 1 account",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 506.5,
@@ -2154,6 +2210,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2165,6 +2222,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[9]>div.m[1]>b[0]",
      "text": "Algorand",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 585.5,
@@ -2193,6 +2252,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[9]>div.m[1]>span[1]",
      "text": "ALGO · 17 accounts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 604.5,
@@ -2263,6 +2324,7 @@
       "w": 21,
       "h": 21
      },
+     "var": "logo",
      "fill": null,
      "border": null,
      "radius": "0px",
@@ -2274,6 +2336,8 @@
      "node": "b",
      "path": "div.sh[4]>div.row[10]>div.m[1]>b[0]",
      "text": "Monad",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 647.5,
@@ -2302,6 +2366,8 @@
      "node": "span",
      "path": "div.sh[4]>div.row[10]>div.m[1]>span[1]",
      "text": "MON · Ethereum App accounts",
+     "var": "row",
+     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 666.5,
