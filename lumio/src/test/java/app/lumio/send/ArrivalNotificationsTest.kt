@@ -52,6 +52,18 @@ class ArrivalNotificationsTest {
         assertEquals(2, manager.activeNotifications.size)
     }
 
+    @Test
+    fun `an arrival after a restart stacks on the notices still shown instead of replacing one`() {
+        ArrivalNotifications(context).apply {
+            post(TX_ID)
+            post(OTHER_TX_ID)
+        }
+
+        ArrivalNotifications(context).post(THIRD_TX_ID)
+
+        assertEquals(3, manager.activeNotifications.size)
+    }
+
     private fun assertNoForbiddenWords(visible: String) {
         assertFalse("'$visible' names a coin, amount, address or crypto action", FORBIDDEN.containsMatchIn(visible))
     }
@@ -59,6 +71,7 @@ class ArrivalNotificationsTest {
     private companion object {
         const val TX_ID = "tx-4c9e1b7a"
         const val OTHER_TX_ID = "tx-81d03f5e"
+        const val THIRD_TX_ID = "tx-2b7f90ac"
         val FORBIDDEN = Regex(
             "wallet|crypto|coin|token|receiv|arriv|transaction|\\btx\\b|\\bsend|\\bsent\\b|address|amount|bitcoin|\\bbtc\\b|ether|" +
                 "\\beth\\b|solana|\\bsol\\b|algorand|\\balgo\\b|monad|\\bmon\\b|usdc|0x|bc1|\\d",
