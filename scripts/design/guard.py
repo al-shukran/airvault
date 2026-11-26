@@ -3,7 +3,7 @@
 
 The whole of design/registry.json is compared with the merge base. Free without the label: removing an entry from known_violations, unregistered,
 no_frame or from a screen's masks (the lists only shrink), a known violation's baseline that only shrinks (fewer elements or fields in `findings`, fewer or
-smaller `regions` (x, y, width, height, cells), no higher `extra`, the same issue), and adding a screen row that carries no masks or exclusions and no key but frame, theme, test and
+smaller `regionBoxes` (x, y, width, height, cells), no higher `extra`, the same issue), and adding a screen row that carries no masks or exclusions and no key but frame, theme, test and
 insetBottom. Everything else needs the label: any file under design/frames/, the gate's own code and the workflow and scripts that run it, a
 changed tolerance, a removed or renamed screen, a changed row, an added entry in a list, a baseline that grows, a new mask, and any key the
 registry did not have. Env: BASE_SHA, PR_NUMBER, GH_REPO and GH_TOKEN (the labels are read when the job runs, so a label added after the push
@@ -21,7 +21,7 @@ LABEL = "design:approved-change"
 LISTS = ("known_violations", "unregistered", "no_frame")  # entries are free to remove, never to add or change
 RELAXING = ("masks", "exclusions")  # a screen row's lists that switch a region off: free to shrink, never to grow
 NEW_ROW_KEYS = {"frame", "theme", "test", "insetBottom"}
-RATCHET = ("findings", "regions", "extra")  # a known violation's baseline (scripts/design/check-results.py): the fields per element, the box of each region and the count of extra texts; free to shrink, never to grow
+RATCHET = ("findings", "regionBoxes", "extra")  # a known violation's baseline (scripts/design/check-results.py): the fields per element, the box of each region and the count of extra texts; free to shrink, never to grow
 # The gate's frames and code, and what runs it: the workflow that makes `design` and `design_guard` part of pr-ok, the one that re-runs the guard
 # on a label change, the lane, the check of those guards and the hook that swaps the golden for the gate's render.
 GUARDED_PATHS = (
@@ -61,9 +61,9 @@ def baseline_shrinks(old, new):
     fields, was = new.get("findings", {}), old.get("findings", {})
     if not all(k in was and set(v) <= set(was[k]) for k, v in fields.items()):
         return False
-    boxes = old.get("regions", [])
+    boxes = old.get("regionBoxes", [])
     inside = lambda r, b: r[0] >= b[0] and r[1] >= b[1] and r[0] + r[2] <= b[0] + b[2] and r[1] + r[3] <= b[1] + b[3] and r[4] <= b[4]
-    return all(any(inside(r, b) for b in boxes) for r in new.get("regions", [])) and len(new.get("regions", [])) <= len(boxes) and new.get("extra", 0) <= old.get("extra", 0)
+    return all(any(inside(r, b) for b in boxes) for r in new.get("regionBoxes", [])) and len(new.get("regionBoxes", [])) <= len(boxes) and new.get("extra", 0) <= old.get("extra", 0)
 
 
 def changes(base, head, changed_files):

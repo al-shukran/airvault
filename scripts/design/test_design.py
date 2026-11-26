@@ -115,7 +115,7 @@ class GuardTest(unittest.TestCase):
     BOX = [8, 8, 40, 20, 100]  # x, y, width, height and the cells of a region
 
     def baseline(self, findings, regions, extra=1):
-        return head(known_violations={"a": {"issue": 1, "findings": findings, "regions": regions, "extra": extra}})
+        return head(known_violations={"a": {"issue": 1, "findings": findings, "regionBoxes": regions, "extra": extra}})
 
     def test_a_baseline_that_only_shrinks_is_free(self):
         base = self.baseline({"text:e1": ["color", "font size"], "box:e2": ["fill, top"]}, [self.BOX, [100, 100, 8, 8, 4]])
@@ -142,8 +142,14 @@ class GuardTest(unittest.TestCase):
 
     def test_a_shrinking_baseline_with_another_issue_is_guarded(self):
         base = self.baseline({"text:e1": ["color"]}, [self.BOX])
-        other = head(known_violations={"a": {"issue": 9, "findings": {}, "regions": [], "extra": 0}})
+        other = head(known_violations={"a": {"issue": 9, "findings": {}, "regionBoxes": [], "extra": 0}})
         self.assertEqual(guard.changes(base, other, []), ["design/registry.json: a changed in known_violations"])
+
+    def test_a_baseline_in_the_old_shape_is_guarded_not_a_crash(self):
+        # The shape of a baseline changed (findings as a list, regions as a count); a guard that meets the old one must call it a change.
+        old = head(known_violations={"a": {"issue": 1, "findings": ["text:e1"], "regions": 2, "extra": 1}})
+        new = self.baseline({"text:e1": ["color"]}, [self.BOX])
+        self.assertEqual(guard.changes(old, new, []), ["design/registry.json: a changed in known_violations"])
 
     def test_a_new_screen_row_without_masks_is_free(self):
         self.assertEqual(guard.changes(BASE, head(screens=screens(b={"frame": "f2", "theme": "dark", "test": "T", "masks": []})), []), [])
@@ -177,7 +183,7 @@ class ResultsTest(unittest.TestCase):
         return {
             "tolerance": {k: 1 for k in check.TOLERANCE_KEYS} | {"cellDp": 4},
             "screens": {"a": {"frame": "f1", "theme": "dark", "test": "T"}, "b": {"frame": "f1", "theme": "dark", "test": "T"}},
-            "known_violations": {"b": {"issue": 2, "findings": {"text:e1": ["color", "font size"], "box:e2": ["fill, top"]}, "regions": self.BOXES, "extra": 1}},
+            "known_violations": {"b": {"issue": 2, "findings": {"text:e1": ["color", "font size"], "box:e2": ["fill, top"]}, "regionBoxes": self.BOXES, "extra": 1}},
             "unregistered": {"c": {"frame": "f1", "reason": "r"}},
             "no_frame": {},
         }
@@ -268,7 +274,7 @@ class ResultsTest(unittest.TestCase):
         check.record(path, reg, {"b": {"violation": True, "findings": self.found()}})
         self.assertEqual(
             json.loads(path.read_text())["known_violations"]["b"],
-            {"issue": 2, "findings": {"box:e2": ["fill, top"], "text:e1": ["color", "font size"]}, "regions": self.BOXES, "extra": 1},
+            {"issue": 2, "findings": {"box:e2": ["fill, top"], "text:e1": ["color", "font size"]}, "regionBoxes": self.BOXES, "extra": 1},
         )
 
     def test_a_known_violation_without_a_baseline_fails(self):
@@ -285,7 +291,7 @@ class ResultsTest(unittest.TestCase):
         (frames / "f1.spec.json").write_text('{"themes": {"dark": {}}}')
         reg = self.registry()
         reg["known_violations"]["b"] = {"issue": 2, "findings": ["text:e1"], "regions": 2, "extra": 1}
-        self.assertEqual(len(check.registry_errors(reg, frames, None)), 2)
+        self.assertEqual(len(check.registry_errors(reg, frames, None)), 3)
 
     def test_a_result_for_another_frame_fails(self):
         tmp = self.results(a=False, b=True)

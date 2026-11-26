@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 TOLERANCE_KEYS = {"bandDp", "textPosDp", "fontSizeDp", "lineHeightDp", "letterSpacingDp", "textColor", "sample", "cell", "regionCell", "cellDp", "ink", "iconColor"}
 TOP_KEYS = {"version", "tolerance", "screens", "known_violations", "unregistered", "no_frame"}
 ROW_KEYS = {"frame", "theme", "test", "insetBottom", "masks"}
-KNOWN_KEYS = {"issue", "findings", "regions", "extra"}  # a known violation: its issue and its ratchet (see ratchet_errors)
+KNOWN_KEYS = {"issue", "findings", "regionBoxes", "extra"}  # a known violation: its issue and its ratchet (see ratchet_errors)
 
 
 def registry_errors(reg, frames_dir, golden_names):
@@ -52,8 +52,8 @@ def registry_errors(reg, frames_dir, golden_names):
             errors.append(f"known_violations: {name} has key {key}, which the gate does not read: remove it")
         if not (isinstance(row.get("findings"), dict) and all(isinstance(v, list) and v and all(isinstance(x, str) for x in v) for v in row["findings"].values())):
             errors.append(f"known_violations: {name} needs `findings`, the fields it differs in per layer:element key")
-        if not (isinstance(row.get("regions"), list) and all(isinstance(r, list) and len(r) == 5 for r in row["regions"])):
-            errors.append(f"known_violations: {name} needs `regions`, the x, y, width, height and cells of each region")
+        if not (isinstance(row.get("regionBoxes"), list) and all(isinstance(r, list) and len(r) == 5 for r in row["regionBoxes"])):
+            errors.append(f"known_violations: {name} needs `regionBoxes`, the x, y, width, height and cells of each region")
         if not isinstance(row.get("extra"), int):
             errors.append(f"known_violations: {name} needs `extra`, a count")
     for name, row in reg.get("unregistered", {}).items():
@@ -112,7 +112,7 @@ def ratchet_errors(known, findings, slack=4):
         if recorded[key] - now[key]:
             errors.append(f"{key} now matches in a field that is in the baseline, remove it from `findings`: " + ", ".join(sorted(recorded[key] - now[key])))
     regions = [f for f in findings if counted(f) == "regions"]
-    boxes = known.get("regions", [])
+    boxes = known.get("regionBoxes", [])
     if len(regions) > len(boxes):
         errors.append(f"regions: {len(regions)}, the baseline allows {len(boxes)}")
     for f in regions:
@@ -153,7 +153,8 @@ def record(reg_path, reg, results):
         if name in results and results[name]["violation"]:
             findings = results[name]["findings"]
             row["findings"] = {k: sorted(v) for k, v in sorted(fields_by_key(findings).items())}
-            row["regions"] = [[int(v) for v in f["rect"]] + [f["cells"]] for f in findings if counted(f) == "regions"]
+            row.pop("regions", None)
+            row["regionBoxes"] = [[int(v) for v in f["rect"]] + [f["cells"]] for f in findings if counted(f) == "regions"]
             row["extra"] = sum(1 for f in findings if counted(f) == "extra")
     text = json.dumps(reg, indent=1, ensure_ascii=False)
     # A list of plain values (a region's box, an element's fields) stays on one line, so a baseline is a line per region and per element.

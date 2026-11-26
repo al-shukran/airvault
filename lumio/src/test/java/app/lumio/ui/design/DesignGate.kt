@@ -122,7 +122,7 @@ class GateScreen(private val name: String, row: JsonObject, registry: JsonObject
 
 /**
  * What a known violation may still differ in, recorded in design/registry.json from the gate's own output: per element of the frame (`findings`,
- * `layer:element` to the fields that differ: `font size`, `color`, `fill, top`), the box and the number of cells of every region (`regions`, which have
+ * `layer:element` to the fields that differ: `font size`, `color`, `fill, top`), the box and the number of cells of every region (`regionBoxes`, which have
  * no stable element) and the count of the texts the frame lacks (`extra`). It is a ratchet: a new element, a new field of a recorded element, a
  * region that is not inside a recorded one (up to [slackDp] on each side) or holds more cells than it, or a higher count fails, and so does a
  * recorded element or field that now passes, so the list shrinks with every fix and a regression cannot hide among a screen's other differences.
@@ -130,7 +130,7 @@ class GateScreen(private val name: String, row: JsonObject, registry: JsonObject
 internal class Baseline(row: JsonObject, private val slackDp: Double = 4.0) {
     private val fields: Map<String, Set<String>> = row["findings"]?.jsonObject.orEmpty().mapValues { (_, v) -> v.jsonArray.map { it.jsonPrimitive.content }.toSet() }
     /** Each region as x, y, width, height and its cells. */
-    private val regions: List<List<Double>> = row["regions"]?.jsonArray.orEmpty().map { r -> r.jsonArray.map { it.jsonPrimitive.double() } }
+    private val regions: List<List<Double>> = row["regionBoxes"]?.jsonArray.orEmpty().map { r -> r.jsonArray.map { it.jsonPrimitive.double() } }
     private val extra = row["extra"]?.jsonPrimitive?.intOrNull ?: 0
 
     fun errors(findings: List<Finding>): List<String> {

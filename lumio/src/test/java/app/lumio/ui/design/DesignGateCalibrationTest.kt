@@ -314,7 +314,7 @@ class DesignGateCalibrationTest {
     // The baseline: two elements, each recorded for its fields, two regions by their boxes, and one extra text.
     private val baseline = Baseline(
         Json.parseToJsonElement(
-            """{"issue":1,"findings":{"text:e1":["color","font size"],"box:e2":["fill, top"]},"regions":[[8,8,40,20,100],[100,100,8,8,4]],"extra":1}""",
+            """{"issue":1,"findings":{"text:e1":["color","font size"],"box:e2":["fill, top"]},"regionBoxes":[[8,8,40,20,100],[100,100,8,8,4]],"extra":1}""",
         ).jsonObject,
     )
 
