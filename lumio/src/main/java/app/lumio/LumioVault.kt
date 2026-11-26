@@ -24,6 +24,10 @@ import app.lumio.pair.PairedWallets
 import app.lumio.portfolio.ActivityPage
 import app.lumio.portfolio.PortfolioBoard
 import app.lumio.wallets.WalletsBoard
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -125,7 +129,14 @@ class LumioVault(val session: VaultSession, database: LumioDatabase, clock: Cloc
     @Volatile
     internal var keptCoinActivity: Pair<CoinActivityKey, ActivityPage>? = null
 
+    /**
+     * The scope of this vault's scan passes. A pass copies keys from [session] into the work it does, and closing the session zeroes only the Vault
+     * Key, so [wipe] cancels this scope: a locked vault holds nothing that is still running.
+     */
+    internal val scans = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     override fun wipe() {
+        scans.cancel()
         keptCoinActivity = null
         wallets?.close()
         wallets = null

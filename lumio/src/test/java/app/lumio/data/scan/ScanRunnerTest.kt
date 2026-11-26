@@ -8,7 +8,9 @@ import app.lumio.data.provider.ProviderError
 import app.lumio.data.sched.Priority
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -181,5 +183,32 @@ class ScanRunnerTest {
     fun aFailureIsNamedInWordsTheOwnerCanActOnWithoutTheServerDetail() {
         assertEquals("The servers are rate limiting Lumio. Try again later.", ScanRunner.messageOf(ProviderError.RateLimited(null)))
         assertEquals("A server refused the scan.", ScanRunner.messageOf(ProviderError.Fatal("A server refused the scan.")))
+    }
+
+    @Test
+    fun aCancelledPassReleasesEveryJobItClaimed() = runTest {
+        val queue = queueOver(FakeScanJobDao())
+        queue.add(mainnet, "account-a", Priority.FOREGROUND)
+        queue.add(mainnet, "account-b", Priority.VISIBLE)
+        val ran = mutableListOf<String>()
+        var hang = true
+        val started = CompletableDeferred<Unit>()
+        // One worker, so the second job is still waiting in the pass when the pass is cancelled.
+        val runner = ScanRunner(queue, parallelism = 1) { job, _ ->
+            if (hang) {
+                started.complete(Unit)
+                awaitCancellation()
+            }
+            ran += job.job.accountRef
+        }
+        val pass = launch(UnconfinedTestDispatcher(testScheduler)) { runner.pass(mainnet) }
+        started.await()
+
+        pass.cancel()
+        pass.join()
+        hang = false
+
+        assertEquals(2, runner.pass(mainnet), "the next pass claims both jobs again")
+        assertEquals(listOf("account-a", "account-b"), ran)
     }
 }

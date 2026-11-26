@@ -116,8 +116,8 @@ private const val NO_BROWSER = "No browser can open the explorer."
 private const val TIMING = "Usually 10–60 minutes for the first confirmation"
 private const val SETTLE_MS = 700L
 
-/** The open vault's address readings of [net]. A send reads them only while the vault is open; a locked one gets an empty memo that dies with the call. */
-private fun LumioApp.addressStatsOf(net: NetworkId) = (lumioVault()?.addressStats ?: AddressStatsCache()).forNetwork(net)
+/** The address readings of [net] that this vault took. A send reads them only while its vault is open; a locked one gets an empty memo that dies with the call. */
+private fun LumioVault?.addressStatsOf(net: NetworkId) = (this?.addressStats ?: AddressStatsCache()).forNetwork(net)
 
 /** The account a Bitcoin send is from: [Missing] when the vault has no such account on the side the owner chose. */
 private sealed interface BtcSendLoad {
@@ -149,6 +149,8 @@ internal fun BtcSendRoute(
         if (session == null) navController.openHidden(GateRoutes.GATE)
     }
     if (session == null) return
+    // The vault this send began under, so a lock and a decoy unlock during it cannot move its reads or its change reservation to the decoy's memo.
+    val vault = remember(session) { app.lumioVault() }
     val scope = rememberCoroutineScope()
     // The account [account] of the wallet, on the side the owner chose: a mainnet send never opens a testnet account, and a testnet send never a mainnet one.
     val load by produceState<BtcSendLoad?>(initialValue = null, session, walletId, account, mode) {
@@ -199,8 +201,8 @@ internal fun BtcSendRoute(
         ?: BtcSend.spendable(
             selected.account,
             app.scheduler,
-            app.addressStatsOf(network.networkId()),
-            indexer = app.lumioVault()?.let { indexerOf(it.configs(), app.http) },
+            vault.addressStatsOf(network.networkId()),
+            indexer = vault?.let { indexerOf(it.configs(), app.http) },
         )
 
     // The fee rate is optional: the form starts at the server's estimate for about 30 minutes, or at the fallback rate while that is read or when
@@ -321,7 +323,7 @@ internal fun BtcSendRoute(
                         broadcast = { signedTx ->
                             withContext(Dispatchers.IO) {
                                 BtcSend.broadcast(app.scheduler, planNetwork, signedTx)
-                                    .also { BtcSend.reserveChange(current.plan, app.addressStatsOf(planNetwork.networkId())) }
+                                    .also { BtcSend.reserveChange(current.plan, vault.addressStatsOf(planNetwork.networkId())) }
                             }
                         },
                         describe = { error -> SubmitFailure(ownerWords(error, BROADCAST_FAILED)) },
