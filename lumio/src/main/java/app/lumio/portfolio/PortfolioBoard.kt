@@ -169,7 +169,8 @@ internal object PortfolioReads {
         val assets: List<HomeAsset> = natives + tokens
         val ids = assets.map { it.assetId }.distinct()
         val prices = if (live) app.prices.assetPrices(ids) else app.prices.lastPrices(ids)
-        HomeAssets.priced(assets, prices).map { asset -> holdingOf(asset, titles[asset.assetId]) }
+        val nowMs = System.currentTimeMillis()
+        HomeAssets.priced(assets, prices).map { asset -> holdingOf(asset, titles[asset.assetId], HomeAssets.staleAsOfMs(prices[asset.assetId], nowMs)) }
     }
 
     /**
