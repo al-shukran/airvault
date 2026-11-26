@@ -46,6 +46,7 @@ private object Fields {
     val text = FieldPath("solana.text")
     val feePayer = FieldPath("solana.feePayer")
     val otherSigner = FieldPath("solana.otherSigner")
+    val unusedAccount = FieldPath("solana.unusedAccount")
     val format = FieldPath("solana.format")
     val recentBlockhash = FieldPath("solana.recentBlockhash")
     val numRequiredSignatures = FieldPath("solana.numRequiredSignatures")
@@ -187,7 +188,7 @@ private fun SolanaRequestReview.facts(): List<ReviewRow> {
 private fun SolanaRequestReview.messageInstructionCount(): Int = message?.instructions?.size ?: instructions.size
 
 /** The rows of the one section: the signer, the origin the wallet names, then for a message its other signers, application domain, format and
- * text, and for a transaction its fee payer, other required signers, recent blockhash and each instruction with its accounts. */
+ * text, and for a transaction its fee payer, other required signers, unused accounts, recent blockhash and each instruction with its accounts. */
 private fun SolanaRequestReview.rows(chain: ChainId): List<ReviewRow> = buildList {
     add(ReviewRow("Signer", DisplayValue.Address(chain, signerAddress), Fields.signer))
     origin?.let { add(ReviewRow(CLAIMED_ORIGIN_LABEL, DisplayValue.Text(it), Fields.origin, notes = listOf(ORIGIN_NOTE))) }
@@ -203,6 +204,7 @@ private fun SolanaRequestReview.rows(chain: ChainId): List<ReviewRow> = buildLis
     } else if (tx != null) {
         add(ReviewRow("Fee Payer", DisplayValue.Address(chain, tx.feePayer), Fields.feePayer))
         otherRequiredSigners.forEach { add(ReviewRow("Other Required Signer", DisplayValue.Address(chain, it), Fields.otherSigner)) }
+        unusedAccounts.forEach { add(ReviewRow("Unused Account", DisplayValue.Address(chain, it), Fields.unusedAccount)) }
         add(ReviewRow("Recent Blockhash", DisplayValue.Text(Base58.encode(tx.recentBlockhash)), Fields.recentBlockhash))
         instructions.forEach { addAll(instructionRows(it, chain)) }
     }
@@ -382,6 +384,7 @@ private fun SolanaRequestReview.decodedFields(): Set<FieldPath> = buildSet {
         add(Fields.recentBlockhash)
         add(Fields.instructions)
         if (otherRequiredSigners.isNotEmpty()) add(Fields.otherSigner)
+        if (unusedAccounts.isNotEmpty()) add(Fields.unusedAccount)
     }
     instructions.forEach { addAll(decodedFieldsOf(it)) }
 }
