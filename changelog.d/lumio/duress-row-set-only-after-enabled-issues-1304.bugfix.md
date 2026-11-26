@@ -1,0 +1,1 @@
+Settings > Security reads Duress Password as Set only once the set has finished, so a lock or a crash in the middle of it can no longer leave the row saying Set when no Duress Password exists. A checklist record that cannot be read no longer blocks setting a Duress Password.
