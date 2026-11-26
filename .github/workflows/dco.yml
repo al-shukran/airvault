@@ -24,8 +24,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # No pull request code is run: the check reads commit metadata from the
-      # API and judges the message text, never executing the change.
+      # The pull request's own copy of dco_check.py runs with a read-only token and
+      # no secrets, so a pull request can only change its own DCO status; required
+      # review covers that.
       - name: Check the Signed-off-by trailers
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
