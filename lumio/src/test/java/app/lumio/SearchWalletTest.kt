@@ -5,22 +5,22 @@ import kotlin.test.assertEquals
 import org.junit.Test
 
 /**
- * The search reads the wallet that the profile panel chose, as Home does, and the first paired wallet until the owner chooses one. The watchlist and the
- * pasted-address row both follow it.
+ * The search reads the wallet that the profile panel chose, as Home does, and the first paired wallet until the owner chooses one. The pasted-address row and
+ * the page a watched coin opens both follow it.
  */
 class SearchWalletTest {
     private val wallets = listOf(wallet("first"), wallet("second"))
     private val address = "0x" + "1".repeat(40)
 
     @Test
-    fun theWatchlistFollowsTheWalletThePanelChose() {
+    fun theActiveWalletIsTheOneThePanelChose() {
         val selection = NetworkSelection().apply { walletId = "second" }
 
         assertEquals("second", wallets.active(selection) { it.id }?.id)
     }
 
     @Test
-    fun theFirstWalletIsTheWatchlistUntilOneIsChosen() {
+    fun theFirstWalletIsActiveUntilOneIsChosen() {
         assertEquals("first", wallets.active(NetworkSelection()) { it.id }?.id)
     }
 

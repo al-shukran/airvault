@@ -397,6 +397,7 @@ shard-6 :lumio app.lumio.FirstRunPairStepTest
 shard-6 :lumio app.lumio.PairCameraTest
 shard-6 :lumio app.lumio.FirstSyncNavigationTest
 shard-6 :lumio app.lumio.HomeFootnoteTest
+shard-6 :lumio app.lumio.HomeUnpairedWatchlistTest
 shard-6 :lumio app.lumio.HomeTokenRowTest
 shard-6 :lumio app.lumio.LumioVaultWipeTest
 shard-6 :lumio app.lumio.PairingReadsEachBalanceOnceTest

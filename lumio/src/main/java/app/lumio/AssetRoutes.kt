@@ -75,9 +75,9 @@ import app.lumio.ui.wallets.AssetRows
 import app.lumio.ui.wallets.NATIVE_ASSET_KEY
 import app.lumio.wallets.WalletAccount
 import app.lumio.watchlist.FIRST_RUN_ASSETS
-import app.lumio.watchlist.WalletWatchlist
 import app.lumio.watchlist.WatchedAsset
 import app.lumio.watchlist.WatchedLabel
+import app.lumio.watchlist.Watchlist
 import app.lumio.watchlist.toggled
 import java.time.ZoneId
 import kotlin.math.abs
@@ -166,7 +166,7 @@ internal fun AssetRoute(
     val price by produceState<Price?>(initialValue = board.prices[assetId], assetId) {
         if (value == null) value = withContext(Dispatchers.IO) { app.prices.assetPrices(listOf(assetId))[assetId] }
     }
-    val current = board.watchlists[walletId] ?: WalletWatchlist(assets = FIRST_RUN_ASSETS)
+    val current = board.watchlist ?: Watchlist(assets = FIRST_RUN_ASSETS)
     val watched = asset in current.assets
     val accounts = view.accountsOf(walletId)
     val holdings = holdingsOf(asset, symbol, accounts, board.tokenHeld)
@@ -219,7 +219,7 @@ internal fun AssetRoute(
         range = range,
         onRange = { range = it },
         watched = watched,
-        onWatch = { board.changeWatchlist(walletId) { it.toggled(asset) } },
+        onWatch = { board.changeWatchlist { it.toggled(asset) } },
         held = held,
         onHoldings = { navController.navigate(LumioRoute.holdings(walletId, asset)) },
         accounts = coinAccounts,

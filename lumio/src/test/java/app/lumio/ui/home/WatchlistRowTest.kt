@@ -39,7 +39,7 @@ class WatchlistRowTest {
     private var added = 0
     private var restored = 0
 
-    private fun home(rows: List<WatchlistRow>?, restore: Boolean = true) = compose.setContent {
+    private fun home(rows: List<WatchlistRow>?) = compose.setContent {
         ClearAirTheme {
             Column {
                 HomeScreen(
@@ -51,7 +51,7 @@ class WatchlistRowTest {
                     onReceive = {},
                     onSort = {},
                     onAdd = { added++ },
-                    onRestore = if (restore) ({ restored++ }) else null,
+                    onRestore = { restored++ },
                     onOpen = {},
                 )
             }
@@ -131,13 +131,6 @@ class WatchlistRowTest {
         compose.onNodeWithText("Restore Top Coins").performClick()
         assertEquals(1, added)
         assertEquals(1, restored)
-    }
-
-    @Test
-    fun withNoWalletToRestoreToTheEmptyStateHasNoRestore() {
-        home(emptyList(), restore = false)
-        compose.onNodeWithText("Your Watchlist Is Empty").fetchSemanticsNode()
-        compose.onAllNodesWithText("Restore Top Coins").assertCountEquals(0)
     }
 
     @Test

@@ -1,0 +1,1 @@
+Home shows your watchlist, its prices and the Add to Watchlist row before any wallet is paired, and the watchlist stays when a wallet is added, paired again or removed. The watchlist now starts again from the top coins once, because the old per-wallet lists are no longer read.
