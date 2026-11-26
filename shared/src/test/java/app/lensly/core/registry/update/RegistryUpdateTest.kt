@@ -6,7 +6,9 @@ import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.vault.MemoryKeystore
+import app.lensly.core.vault.writeAtomically
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
 import java.nio.charset.StandardCharsets
 import kotlin.test.assertContentEquals
@@ -260,6 +262,29 @@ class RegistryUpdateTest {
         val registryAfter = RegistryUpdate.withInstalled(baked, dir, keys, keystore)
         assertEquals(registryBefore.whitelistEntries(), registryAfter.whitelistEntries())
         assertEquals(registryBefore.networks(), registryAfter.networks())
+    }
+
+    @Test
+    fun aFailedRestoreAfterAFailedWriteDoesNotLeaveTheNewPackageInUse() {
+        val baked = bakedRegistry()
+        val dir = registryDir()
+        val swap = TestPackages.LINEA_SWAP
+        RegistryUpdate.install(signedAt(5, whitelist = swap), keys, baked, dir, keystore).getOrThrow()
+        // A full disk: the seal write fails, and so does every write that puts a file back.
+        val written = mutableSetOf<String>()
+        val fullDisk: (File, ByteArray) -> Unit = { file, bytes ->
+            if (file.name == RegistrySeal.FILE || !written.add(file.name)) throw IOException("No space left on device")
+            writeAtomically(file, bytes)
+        }
+
+        val newer = signedAt(6, whitelist = swap.replace("Swap tokens", "Newer swap"))
+        assertTrue(RegistryUpdate.install(newer, keys, baked, dir, keystore, fullDisk).isFailure)
+
+        assertNull(RegistryUpdate.installedPackage(baked, dir, keys, keystore))
+        assertEquals(baked.whitelistEntries(), RegistryUpdate.withInstalled(baked, dir, keys, keystore).whitelistEntries())
+        assertEquals(listOf(5L), keystore.registryMacKeySeqs())
+        // The next install finishes: the retry is not refused as NotNewer, and the floor advances.
+        assertEquals(6L, RegistryUpdate.install(newer, keys, baked, dir, keystore).getOrThrow().sequence)
     }
 
     @Test

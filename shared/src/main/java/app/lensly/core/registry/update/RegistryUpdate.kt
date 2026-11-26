@@ -82,7 +82,8 @@ object RegistryUpdate {
      * key, would otherwise leave the store unverified until a higher package arrives. A directory that exists but holds a package
      * that cannot be read, and no floor anywhere, is [RegistryUpdateException.SequenceUnknown], not "nothing accepted yet": deleting
      * the files must not lower the floor. The files and the seal are written one by one. When a write fails, the files already written
-     * are put back as they were and the new Keystore key is deleted, so a failure leaves nothing stored and the result says so.
+     * are put back as they were, or deleted when they cannot be put back (a missing package falls back to the built-in catalog), and the
+     * new Keystore key is deleted, so a failure never leaves the new package in use and the result says so. [write] is a seam for tests.
      * Accepting an equal sequence while no seal verifies assumes the publisher never issues two different packages with one
      * sequence. Such a same-sequence recovery resets the whitelist carrier, so a kept whitelist from an earlier package is dropped
      * until a package carrying a whitelist is installed.
@@ -93,6 +94,7 @@ object RegistryUpdate {
         baked: Registry,
         dir: File,
         keystore: KeystoreBackend,
+        write: (File, ByteArray) -> Unit = ::writeAtomically,
     ): Result<RegistryPackage> = synchronized(installLock) {
         runCatching {
             val incoming = verify(bytes, trustedKeys, baked).getOrThrow()
@@ -114,7 +116,7 @@ object RegistryUpdate {
                 val writes = linkedMapOf(INSTALLED_FILE to bytes)
                 if (incoming.whitelist != null) writes[WHITELIST_FILE] = bytes
                 writes[RegistrySeal.FILE] = RegistrySeal.create(seal, keystore)
-                storeAll(dir, writes, created)
+                storeAll(dir, writes, created, write)
             } catch (e: Exception) {
                 RegistrySeal.keepOnly(newest, keystore)
                 throw e
@@ -153,19 +155,24 @@ object RegistryUpdate {
         }
     }
 
-    /** Writes [writes] in order. When one fails, the ones already written go back to what they held and the failure is rethrown. */
-    private fun storeAll(dir: File, writes: Map<String, ByteArray>, created: Boolean) {
+    /**
+     * Writes [writes] in order. When one fails, the ones already written go back to what they held and the failure is rethrown. A file
+     * that cannot go back is deleted: the failure that stopped the write, often a full disk, can stop the restore too, and a new package
+     * left under the old seal would be in use although the install failed.
+     */
+    private fun storeAll(dir: File, writes: Map<String, ByteArray>, created: Boolean, write: (File, ByteArray) -> Unit) {
         val before = writes.keys.associateWith { name -> File(dir, name).takeIf { it.isFile }?.readBytes() }
         val written = mutableListOf<String>()
         try {
             for ((name, content) in writes) {
-                writeAtomically(File(dir, name), content)
+                write(File(dir, name), content)
                 written += name
             }
         } catch (e: Exception) {
             for (name in written) {
                 val file = File(dir, name)
-                runCatching { before[name]?.let { writeAtomically(file, it) } ?: file.delete() }
+                val restored = runCatching { before[name]?.let { write(file, it) } ?: check(file.delete()) }.isSuccess
+                if (!restored) file.delete()
             }
             if (created) dir.delete()
             throw e
