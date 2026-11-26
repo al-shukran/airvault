@@ -32,7 +32,7 @@ internal fun TextStyle.inLineBox(): TextStyle = copy(
  */
 internal fun Modifier.spacedLikeCss(spacing: Dp): Modifier = layout { measurable, constraints ->
     val placeable = measurable.measure(constraints)
-    layout(placeable.width + spacing.roundToPx(), placeable.height) { placeable.placeRelative(0, 0) }
+    layout((placeable.width + spacing.roundToPx()).coerceAtLeast(0), placeable.height) { placeable.placeRelative(0, 0) }
 }
 
 /**

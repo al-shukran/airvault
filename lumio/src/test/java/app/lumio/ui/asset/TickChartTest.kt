@@ -12,6 +12,11 @@ class TickChartTest {
     }
 
     @Test
+    fun aSeriesOfTwoPricesDrawsItsOneTickAtTheRightEdgeSoTheDiamondIsNotCutAtTheLeft() {
+        assertEquals(listOf(200f), ticksOf(listOf(1.0, 2.0), width = 200f, height = 100f).map { it.x })
+    }
+
+    @Test
     fun eachPriceAfterTheFirstMakesOneTickSpreadFromEdgeToEdge() {
         val ticks = ticksOf(listOf(1.0, 2.0, 3.0), width = 200f, height = 100f)
 

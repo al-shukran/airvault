@@ -33,6 +33,8 @@ private val NumberFamily = FontFamily(
     Font(R.font.jetbrains_mono_variable, FontWeight.Light, variationSettings = FontVariation.Settings(FontVariation.weight(300))),
     Font(R.font.jetbrains_mono_variable, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
     Font(R.font.jetbrains_mono_variable, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
+    // A semibold mono text keeps the medium face it has always had; only a bold one takes the bold face.
+    Font(R.font.jetbrains_mono_variable, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
     Font(R.font.jetbrains_mono_variable, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
 )
 

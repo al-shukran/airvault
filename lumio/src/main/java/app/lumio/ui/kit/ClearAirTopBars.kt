@@ -141,7 +141,7 @@ fun ClearAirIconButton(
         modifier = modifier.iconBox().pressable(onClick = onClick, label = label, enabled = enabled, role = role),
         contentAlignment = Alignment.Center,
     ) {
-        ClearAirIcon(glyph = glyph, color = if (enabled) palette.ink else palette.ink2, size = ICON_SIZE, filled = filled)
+        ClearAirIcon(glyph = glyph, color = if (enabled) palette.ink else palette.ink2, size = ICON_SIZE, filled = filled, roundedFill = filled)
     }
 }
 

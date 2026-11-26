@@ -38,9 +38,11 @@ internal fun ticksOf(prices: List<Double>, width: Float, height: Float): List<Ti
     val low = prices.min()
     val span = (prices.max() - low).takeIf { it > 0.0 } ?: 1.0
     fun heightOf(price: Double): Float = height - ((price - low) / span * height).toFloat()
-    val step = if (prices.size > 2) width / (prices.size - 2) else 0f
+    val last = prices.size - 2
+    val step = if (last > 0) width / last else 0f
     return prices.zipWithNext().mapIndexed { index, (before, now) ->
-        Tick(x = step * index, from = heightOf(before), to = heightOf(now))
+        // A lone tick is the latest one, so it sits at the right edge with the diamond, not at the left where the diamond would be cut.
+        Tick(x = if (last == 0) width else step * index, from = heightOf(before), to = heightOf(now))
     }
 }
 

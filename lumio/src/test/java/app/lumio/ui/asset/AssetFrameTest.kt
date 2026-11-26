@@ -67,7 +67,7 @@ class AssetFrameTest {
     private var primary = Color.Unspecified
     private var allTaps = 0
 
-    private fun show(held: CoinHeld? = HELD, priceOnly: Boolean = false, senders: Boolean = true, range: ChartFrame = ChartFrame.D1) {
+    private fun show(held: CoinHeld? = HELD, priceOnly: Boolean = false, senders: Boolean = true, range: ChartFrame = ChartFrame.D1, priceText: String? = "$4,285.70") {
         logoSizes.clear()
         allTaps = 0
         compose.setContent {
@@ -77,7 +77,7 @@ class AssetFrameTest {
                     paper = palette.background
                     primary = palette.primary
                     Box(Modifier.requiredSize(page.width, page.height).background(palette.background)) {
-                        Page(held, priceOnly, senders, range)
+                        Page(held, priceOnly, senders, range, priceText)
                     }
                 }
             }
@@ -86,7 +86,7 @@ class AssetFrameTest {
     }
 
     @Composable
-    private fun Page(held: CoinHeld?, priceOnly: Boolean, senders: Boolean, range: ChartFrame) {
+    private fun Page(held: CoinHeld?, priceOnly: Boolean, senders: Boolean, range: ChartFrame, priceText: String?) {
         AssetPage(
             name = "Ethereum",
             symbol = "ETH",
@@ -94,7 +94,7 @@ class AssetFrameTest {
                 logoSizes += size
                 Spacer(Modifier.size(size))
             },
-            priceText = "$4,285.70",
+            priceText = priceText,
             change = PriceChange(text = "▼ 2.41% · −$105.82 Today", rising = false),
             series = PriceSeries(List(64) { i -> PricePoint(timeMs = i * HOUR_MS, usd = 4_200.0 + (i * 37 % 11) * 12.5 - i * 4.0) }),
             range = range,
@@ -179,6 +179,14 @@ class AssetFrameTest {
         assertEquals(1, chosen.size)
         compose.onNode(SemanticsMatcher("selected tab") { it.config.getOrNull(SemanticsProperties.Selected) == true }).assertTextIs("4h")
         for (frame in ChartFrame.entries) compose.onNodeWithText(frame.label).assertExists()
+    }
+
+    @Test
+    fun aPageWithNoPriceYetShowsTheDashInsteadOfCrashingOnItsEmptyFigures() {
+        show(priceText = null)
+
+        compose.onNodeWithText("—", substring = true).assertExists()
+        compose.onNodeWithText("ETHEREUM · ETH").assertExists()
     }
 
     @Test
