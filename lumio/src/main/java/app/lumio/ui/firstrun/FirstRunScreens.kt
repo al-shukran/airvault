@@ -118,16 +118,22 @@ internal fun FirstRunPage(
                 content()
             }
         }
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = ClearAirSpacing.gutter)
-                .navigationBarsPadding()
-                .padding(top = ClearAirSpacing.md, bottom = FOOT_BOTTOM),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            footer()
-        }
+        FirstRunFooter(footer)
+    }
+}
+
+/** The foot of a first-run page, and of the pairing page pushed after it: the actions centred above the navigation bar, where the mock sets them. */
+@Composable
+internal fun FirstRunFooter(content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = ClearAirSpacing.gutter)
+            .navigationBarsPadding()
+            .padding(top = ClearAirSpacing.md, bottom = FOOT_BOTTOM),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        content()
     }
 }
 

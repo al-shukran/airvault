@@ -14,11 +14,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.LocalClearAirPalette
+import app.lumio.ui.firstrun.FirstRunFooter
 import app.lumio.ui.firstrun.FirstRunPage
 import app.lumio.ui.firstrun.FirstRunStep
 import app.lumio.ui.firstrun.FirstRunTextAction
@@ -110,10 +110,7 @@ fun PairWithLensly(
         is PairChrome.Page -> Column(modifier = Modifier.fillMaxSize()) {
             ClearAirPageTopBar(title = chrome.title, backLabel = null, onBack = chrome.onBack, onLock = chrome.onLock)
             Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = ClearAirSpacing.gutter)) { body() }
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) { footer() }
+            FirstRunFooter(footer)
         }
     }
 }
