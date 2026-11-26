@@ -33,7 +33,7 @@ import app.lumio.home.Masking
 import app.lumio.transactions.ActivityText
 import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.kit.LocalFiat
-import app.lumio.ui.kit.cssLine
+import app.lumio.ui.kit.inLineBox
 import java.time.ZoneId
 
 /** The side of the disc that a direction mark sits in, and the mark's own side. The disc is the mock's sunk 36 dp circle. */
@@ -44,15 +44,8 @@ private val MARK = 18.dp
 private val SPARK = 5.dp
 private val SPARK_TOP = 7.dp
 
-/** The line boxes of a row's title and amount, and of its detail and value in dollars: 20 dp and 17 dp, as the mock sets them. */
-private val TITLE_LINE = 20.dp
-private val DETAIL_LINE = 17.dp
-
-/** How far Compose sets the detail's small face under the mock's, in dp. */
-private val SMALL_LIFT = 1.5.dp
-
 /** The value in dollars under an amount: the mono face at 12 sp, regular and a little tight, as the mock sets it. */
-private val USD_STYLE = ClearAirType.time.copy(fontWeight = FontWeight.Normal, letterSpacing = (-0.02).em)
+private val USD_STYLE = ClearAirType.time.copy(fontWeight = FontWeight.Normal, letterSpacing = (-0.02).em).inLineBox()
 
 /** The height of an activity row with a one-line detail. A two-line detail takes the row a little taller. */
 private val ROW_MIN_HEIGHT = 64.dp
@@ -92,7 +85,7 @@ fun ActivityRowItem(item: TxFeedItem, names: Map<String, String>, zone: ZoneId, 
         }
         Spacer(Modifier.width(ClearAirSpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = line.title, style = ClearAirType.rowTitle, color = palette.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = if (frame) Modifier.cssLine(TITLE_LINE) else Modifier)
+            Text(text = line.title, style = if (frame) ClearAirType.rowTitle.inLineBox() else ClearAirType.rowTitle, color = palette.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.Top) {
                 if (tx.status == TxStatus.PENDING) {
                     SparkMark(side = SPARK, modifier = Modifier.padding(top = SPARK_TOP))
@@ -100,11 +93,11 @@ fun ActivityRowItem(item: TxFeedItem, names: Map<String, String>, zone: ZoneId, 
                 }
                 Text(
                     text = line.detail,
-                    style = if (frame) ClearAirType.caption else ClearAirType.body,
+                    style = if (frame) ClearAirType.caption.inLineBox() else ClearAirType.body,
                     color = palette.ink2,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f).then(if (frame) Modifier.cssLine(DETAIL_LINE, lift = SMALL_LIFT) else Modifier),
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
@@ -112,13 +105,12 @@ fun ActivityRowItem(item: TxFeedItem, names: Map<String, String>, zone: ZoneId, 
         Column(horizontalAlignment = Alignment.End) {
             Text(
                 text = Masking.amount(line.amount, hidden = !shown),
-                style = ClearAirType.rowValue,
+                style = if (frame) ClearAirType.rowValue.inLineBox() else ClearAirType.rowValue,
                 color = if (line.incoming) palette.vaultBlue else palette.ink,
                 textAlign = TextAlign.End,
-                modifier = if (frame) Modifier.cssLine(TITLE_LINE) else Modifier,
             )
             line.usd?.let {
-                Text(text = Masking.amount(LocalFiat.current.amount(it), hidden = !shown), style = if (frame) USD_STYLE else ClearAirType.body, color = palette.ink2, textAlign = TextAlign.End, modifier = if (frame) Modifier.cssLine(DETAIL_LINE, lift = SMALL_LIFT) else Modifier)
+                Text(text = Masking.amount(LocalFiat.current.amount(it), hidden = !shown), style = if (frame) USD_STYLE else ClearAirType.body, color = palette.ink2, textAlign = TextAlign.End)
             }
         }
     }

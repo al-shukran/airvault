@@ -1,5 +1,6 @@
 package app.lumio.ui.asset
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,11 +32,15 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
@@ -52,7 +57,6 @@ import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.home.ChainDots
 import app.lumio.ui.kit.ChoiceGroup
 import app.lumio.ui.kit.ChoiceRow
-import app.lumio.ui.kit.ClearAirAmount
 import app.lumio.ui.kit.ClearAirChangeLineStyle
 import app.lumio.ui.kit.ClearAirChoiceSheet
 import app.lumio.ui.kit.ClearAirDisc
@@ -64,6 +68,9 @@ import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirSheet
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.cssLine
+import app.lumio.ui.kit.inLineBox
+import app.lumio.ui.kit.spacedLikeCss
+import app.lumio.ui.kit.splitAmount
 
 /**
  * A coin's holdings across the wallet: the amount, the accounts and chains it sits on, the logo of each chain in the order the holdings list gives them,
@@ -111,8 +118,8 @@ internal fun AssetPage(
 ) {
     val palette = LocalClearAirPalette.current
     val senders = accounts.filter { it.onSend != null }
-    // The frame's text action has 6 dp at each side, and its label sits 1 dp higher than Compose sets it in its line.
-    val textActionModifier = Modifier.padding(horizontal = TEXT_ACTION_PAD).offset(y = -TEXT_ACTION_LIFT)
+    // The frame's text action has 6 dp at each side.
+    val textActionModifier = Modifier.padding(horizontal = TEXT_ACTION_PAD)
     var picker by remember { mutableStateOf<CoinPicker?>(null) }
     // The picker sheets are composed on the first open, not on the page's first frame. A tap composes them hidden, then the picker opens a frame
     // later, so the sheet still slides in.
@@ -139,17 +146,8 @@ internal fun AssetPage(
                     Spacer(Modifier.height(EYEBROW_GAP))
                     ClearAirEyebrow(text = "$name · $symbol", top = 0.dp, bottom = 0.dp, modifier = Modifier.cssLine(EYEBROW_LINE))
                     Spacer(Modifier.height(PRICE_GAP))
-                    Box(modifier = Modifier.fillMaxWidth().height(PRICE_BLOCK), contentAlignment = Alignment.TopCenter) {
-                        ClearAirAmount(text = priceText ?: "—", style = ClearAirType.hero, signGap = SIGN_GAP, modifier = Modifier.offset(y = PRICE_SHIFT))
-                    }
-                    change?.let { value ->
-                        Text(
-                            text = value.text,
-                            style = ClearAirChangeLineStyle.copy(lineHeight = CHANGE_LINE),
-                            color = if (value.rising) palette.vaultBlue else palette.rose,
-                            modifier = Modifier.cssLine(CHANGE_LINE_DP),
-                        )
-                    }
+                    Price(text = priceText ?: "—")
+                    change?.let { value -> ChangeLine(change = value) }
                 }
                 Spacer(Modifier.height(CHART_GAP))
                 TickChart(
@@ -167,13 +165,13 @@ internal fun AssetPage(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         if (held == null || senders.isEmpty()) {
-                            ClearAirPrimaryButton(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE, fullWidth = false, labelStyle = ClearAirType.button)
+                            ClearAirPrimaryButton(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE, fullWidth = false, labelStyle = CAPSULE_STYLE)
                             if (senders.isNotEmpty()) {
-                                ClearAirTextAction(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND, modifier = textActionModifier)
+                                ClearAirTextAction(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND, modifier = textActionModifier, style = TEXT_ACTION_STYLE)
                             }
                         } else {
-                            ClearAirPrimaryButton(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND, fullWidth = false, labelStyle = ClearAirType.button)
-                            ClearAirTextAction(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE, modifier = textActionModifier)
+                            ClearAirPrimaryButton(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND, fullWidth = false, labelStyle = CAPSULE_STYLE)
+                            ClearAirTextAction(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE, modifier = textActionModifier, style = TEXT_ACTION_STYLE)
                         }
                     }
                 }
@@ -203,7 +201,7 @@ internal fun AssetPage(
                         text = "All",
                         style = ALL_STYLE,
                         color = palette.ink,
-                        modifier = Modifier.cssLine(ALL_LINE).clickable(role = Role.Button, onClick = onAllActivity),
+                        modifier = Modifier.clickable(role = Role.Button, onClick = onAllActivity),
                     )
                 }
             }
@@ -246,6 +244,57 @@ internal fun AssetPage(
                     ),
                 ),
             )
+        }
+    }
+}
+
+/** The price as the frame sets it: the sign, then the whole figures, then the dimmed fraction, each its own Text with the frame's box. */
+@Composable
+private fun Price(text: String) {
+    val palette = LocalClearAirPalette.current
+    val parts = splitAmount(text)
+    val figures = ClearAirType.hero.copy(lineHeight = FIGURES_LINE).inLineBox()
+    Box(modifier = Modifier.fillMaxWidth().height(PRICE_BLOCK), contentAlignment = Alignment.TopCenter) {
+        Row {
+            if (parts.prefix.isNotEmpty()) {
+                Text(text = parts.prefix, style = SIGN_STYLE, color = palette.ink, modifier = Modifier.offset(y = SIGN_TOP))
+                Spacer(Modifier.width(SIGN_GAP))
+            }
+            Text(text = parts.whole, style = figures, color = palette.ink, modifier = Modifier.offset(y = FIGURES_TOP).spacedLikeCss(FIGURES_SPACING))
+            Text(text = parts.fraction + parts.suffix, style = figures, color = palette.ink2, modifier = Modifier.offset(y = FIGURES_TOP).spacedLikeCss(FIGURES_SPACING))
+        }
+    }
+}
+
+/**
+ * The change line. Its rise or fall arrow is drawn at the frame's size and place: the font's own glyph is another size on each device, so the text keeps
+ * the arrow, for the words and the width, and is not painted there.
+ */
+@Composable
+private fun ChangeLine(change: PriceChange) {
+    val palette = LocalClearAirPalette.current
+    val color = if (change.rising) palette.vaultBlue else palette.rose
+    val arrow = change.text.firstOrNull()?.takeIf { it == RISE || it == FALL }
+    val text = remember(change.text) {
+        buildAnnotatedString {
+            if (arrow != null) withStyle(SpanStyle(color = Color.Transparent)) { append(arrow) }
+            append(change.text.drop(if (arrow != null) 1 else 0))
+        }
+    }
+    Box {
+        Text(text = text, style = CHANGE_STYLE, color = color)
+        if (arrow != null) {
+            Canvas(modifier = Modifier.offset(x = ARROW_LEFT, y = ARROW_TOP).size(ARROW_WIDTH, ARROW_HEIGHT)) {
+                val path = Path().apply {
+                    if (arrow == FALL) {
+                        moveTo(0f, 0f); lineTo(size.width, 0f); lineTo(size.width / 2, size.height)
+                    } else {
+                        moveTo(0f, size.height); lineTo(size.width, size.height); lineTo(size.width / 2, 0f)
+                    }
+                    close()
+                }
+                drawPath(path = path, color = color)
+            }
         }
     }
 }
@@ -296,14 +345,14 @@ private fun HeldRow(coin: CoinHeld, icon: @Composable (Dp) -> Unit, onClick: () 
         ClearAirDisc { icon(ROW_LOGO) }
         Spacer(Modifier.width(ClearAirSpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = coin.amount, style = HELD_TITLE, color = palette.ink, maxLines = 1, modifier = Modifier.cssLine(ROW_TITLE_LINE))
+            Text(text = coin.amount, style = HELD_TITLE, color = palette.ink, maxLines = 1)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = coin.summary,
                     style = HELD_CAPTION,
                     color = palette.ink2,
                     maxLines = 1,
-                    modifier = Modifier.weight(1f, fill = false).cssLine(ROW_CAPTION_LINE, lift = ROW_CAPTION_LIFT),
+                    modifier = Modifier.weight(1f, fill = false),
                 )
                 if (coin.chainIcons.isNotEmpty()) {
                     Spacer(Modifier.width(CHAINS_GAP))
@@ -313,7 +362,7 @@ private fun HeldRow(coin: CoinHeld, icon: @Composable (Dp) -> Unit, onClick: () 
         }
         coin.value?.let { value ->
             Spacer(Modifier.width(ClearAirSpacing.sm))
-            Text(text = value, style = ClearAirType.rowValue, color = palette.ink)
+            Text(text = value, style = HELD_VALUE, color = palette.ink)
         }
         Spacer(Modifier.width(ClearAirSpacing.sm))
         val mirrored = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -341,7 +390,7 @@ private fun RangeRow(selected: ChartFrame, onSelect: (ChartFrame) -> Unit) {
             ) {
                 Text(
                     text = range.label,
-                    modifier = Modifier.padding(horizontal = RANGE_ITEM_X, vertical = RANGE_ITEM_Y).cssLine(RANGE_LINE),
+                    modifier = Modifier.padding(horizontal = RANGE_ITEM_X, vertical = RANGE_ITEM_Y),
                     style = RANGE_STYLE.copy(fontWeight = if (chosen) FontWeight.Bold else FontWeight.Medium),
                     color = if (chosen) palette.ink else palette.ink2,
                 )
@@ -369,16 +418,20 @@ private val ROW_LOGO = 21.dp
 private val EYEBROW_GAP = 10.dp
 private val PRICE_GAP = 2.dp
 
-/** The price's block, 66.8 dp and the 4 dp before the change line, and how far the price sits down in it, as the frame's raised currency sign sets it. */
+/** The price's block: its 56 dp line, and the 4 dp before the change line, plus the 10.8 dp that the figures' 66 dp box stands above it. */
 private val PRICE_BLOCK = 70.8.dp
-private val PRICE_SHIFT = 5.9.dp
-/** The gap after the currency sign: the frame's 3 px margin plus what its lighter sign face leaves, measured against the frame's ink. */
-private val SIGN_GAP = 5.dp
-private val CHANGE_LINE = 17.sp
-private val CHANGE_LINE_DP = 17.dp
+private val FIGURES_TOP = 5.84.dp
+private val FIGURES_LINE = 66.sp
+
+/** The figures' letter spacing, -0.06 em of 50 sp. A browser sets it after the last figure too, which Compose does not. */
+private val FIGURES_SPACING = (-3).dp
+
+/** The currency sign: Archivo Regular at 23 sp in a 25 dp box that starts 15 dp into the block, then 3 dp before the figures. */
+private val SIGN_STYLE = ClearAirType.body.copy(fontSize = 23.sp, lineHeight = 25.sp, letterSpacing = 0.sp).inLineBox()
+private val SIGN_TOP = 15.dp
+private val SIGN_GAP = 3.dp
+private val CHANGE_STYLE = ClearAirChangeLineStyle.copy(lineHeight = 17.sp).inLineBox()
 private val EYEBROW_LINE = 14.dp
-private val ALL_LINE = 21.dp
-private val RANGE_LINE = 17.dp
 private val CHART_GAP = 12.dp
 private val RANGE_SIDE = 18.dp
 private val RANGE_TOP = 4.dp
@@ -388,22 +441,30 @@ private val RANGE_ITEM_Y = 8.dp
 
 /** The side of the spark under the chosen range: a square, turned into a diamond. */
 private val RANGE_SPARK = 5.dp
-private val RANGE_STYLE = ClearAirType.address.copy(fontSize = 12.5.sp, lineHeight = 17.sp, letterSpacing = 0.sp)
+private val RANGE_STYLE = ClearAirType.address.copy(fontSize = 12.5.sp, lineHeight = 17.sp, letterSpacing = 0.sp).inLineBox()
 private val ACTIONS_TOP = 6.dp
 private val ACTIONS_PAD = 6.dp
 private val ACTIONS_GAP = 18.dp
 private val TEXT_ACTION_PAD = 6.dp
-private val TEXT_ACTION_LIFT = 1.dp
 private val SECTION_TOP = 18.dp
-private val ALL_STYLE = ClearAirType.rowTitle.copy(fontSize = 13.sp, lineHeight = 21.sp)
-private val HELD_TITLE = ClearAirType.rowValue.copy(fontSize = 15.sp)
-private val HELD_CAPTION = ClearAirType.caption
+private val ALL_STYLE = ClearAirType.rowTitle.copy(fontSize = 13.sp, lineHeight = 21.sp).inLineBox()
+private val CAPSULE_STYLE = ClearAirType.button.copy(lineHeight = 21.sp).inLineBox()
+private val TEXT_ACTION_STYLE = ClearAirType.rowTitle.copy(lineHeight = 21.sp).inLineBox()
+private val HELD_TITLE = ClearAirType.rowValue.copy(fontSize = 15.sp).inLineBox()
+private val HELD_VALUE = ClearAirType.rowValue.inLineBox()
+private val HELD_CAPTION = ClearAirType.caption.inLineBox()
 private val ROW_HEIGHT = 62.dp
-private val ROW_TITLE_LINE = 20.dp
-private val ROW_CAPTION_LINE = 17.dp
-private val ROW_CAPTION_LIFT = 1.5.dp
 private val CHAINS_GAP = 2.dp
 private val CHEVRON = 16.dp
+
+private const val RISE = '\u25B2'
+private const val FALL = '\u25BC'
+
+/** The arrow's triangle in the frame: 8.8 dp wide and 9 dp high, 3.8 dp under the line's top and 0.3 dp before the text. */
+private val ARROW_WIDTH = 8.8.dp
+private val ARROW_HEIGHT = 9.dp
+private val ARROW_LEFT = (-0.3).dp
+private val ARROW_TOP = 3.8.dp
 
 /** The test tag of the price chart. */
 internal const val CHART_TAG = "asset-chart"
