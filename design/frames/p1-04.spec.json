@@ -685,8 +685,6 @@
      "node": "span",
      "path": "div.sh[3]>div.row[5]>div.m[1]>span[1]",
      "text": "Avalanche · not merged with USDC",
-     "var": "row",
-     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 257.5,
@@ -1779,8 +1777,6 @@
      "node": "span",
      "path": "div.sh[3]>div.row[5]>div.m[1]>span[1]",
      "text": "Avalanche · not merged with USDC",
-     "var": "row",
-     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 257.5,

@@ -63,11 +63,11 @@ A mask names a rectangle (`rect`: x, y, width, height in dp) that is left out of
 
 ## Known limits
 
-- The classification of variables is a rule on the mock's markup (`render.py`), not a hand-made list. Every text in a data row is a variable, except a badge or an action (`.ta`, `.tg`, `.dim-badge`), so a fixed-copy subtitle that sits in a row beside a logo (`The only Bitcoin test network Lumio reads`, `Network for this token`) is not checked for its words; the PIN keypad's digits and the steps' numbers are classed as data. A sentence with an amount inside is a constant: the app must say the same amount.
+- The classification of variables is a rule on the mock's markup (`render.py`), not a hand-made list. Every text in a data row is a variable, except a badge or an action (`.ta`, `.tg`, `.dim-badge`) and a plain span of words with no figure or address in it (`SPL token`, `Network for this token`, `The only Bitcoin test network Lumio reads`), which are the row's copy and compared by their words. A subtitle that mixes copy with data (`Your account · 0x1020…122D`, `Layer 1 · 4 of your accounts`) cannot be told apart by markup, so it is a variable and its words are not compared; the PIN keypad's digits and the steps' numbers are classed as data. A sentence with an amount inside is a constant: the app must say the same amount.
 - A variable's content is free by design: a Text whose words are wrong but whose place, font and colour are right passes.
 - Arrow glyphs: a Text that starts with an arrow is not compared by its left edge, one that ends with an arrow not by its right edge, and one with an arrow inside by its line only.
 - A pull request can edit the gate itself. The guard requires the label for the gate's code, frames, workflow and lane script, and runs from the base commit, so a pull request cannot edit the guard that judges it; but the label can be added by anyone who may label (below), and a change to the gate is still a change to review as such.
-- The guard reads the labels when it runs: a label removed after a green run is not re-evaluated, and a merge-queue entry does not run the guard (tracked in a follow-up issue).
+- The guard reads the labels when it runs: a label removed after a green run is not re-evaluated, and a merge-queue entry does not run the guard (#1452).
 - A new test that calls `lumioSnapshot` without a recorded golden is not seen until the nightly records its golden; the refresh pull request then fails the lane (`golden ...: no row`) until the golden has a row.
 - The label `design:approved-change` is read when the guard runs, and anyone who can label a pull request can add it. Branch protection decides who may.
 

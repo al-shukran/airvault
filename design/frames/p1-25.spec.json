@@ -346,8 +346,6 @@
      "node": "span",
      "path": "div[5]>div.row[1]>div.m[1]>span[1]",
      "text": "Monad Testnet · tap to switch sides",
-     "var": "row",
-     "anchor": "left",
      "rect": {
       "x": 83,
       "y": 434.5,
@@ -1044,8 +1042,6 @@
      "node": "span",
      "path": "div[5]>div.row[1]>div.m[1]>span[1]",
      "text": "Monad Testnet · tap to switch sides",
-     "var": "row",
-     "anchor": "left",
      "rect": {
       "x": 83,
       "y": 434.5,

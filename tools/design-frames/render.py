@@ -98,11 +98,13 @@ EXTRACT_JS = r"""
     const parts = t.split(/\s+/).filter(Boolean);
     return /[\d•▲▼]/.test(t) && parts.every((q, i) => NUM.test(q) || OTHER.test(q) || (i > 0 && NUM.test(parts[i - 1]) && UNIT.test(q) && q !== 'OF'));
   };
+  // A plain span of words with no figure, address or symbol-like single token in it ("SPL token", "Network for this token") is a row's copy.
+  const isCopy = (el, text) => el.tagName === 'SPAN' && !el.className && /\s/.test(text) && !/[\d…]/.test(text);
   const variableText = (el, text) => {
     if (el.closest(MONO)) return 'logo';
     const row = el.closest('.row');
     // A badge or an action beside a logo ("DEFAULT", "NEW", "Change") is copy: only the data row's own words are variable.
-    if (row && row.querySelector(MARK) && !el.closest('.ta,.tg,.dim-badge')) return 'row';
+    if (row && row.querySelector(MARK) && !el.closest('.ta,.tg,.dim-badge') && !isCopy(el, text)) return 'row';
     return isData(text) ? 'data' : null;
   };
   const variableIcon = (el) => (el.matches('svg.spk,svg.tick') ? 'chart' : el.matches('i.lm') || el.querySelector('use[href^="#l-"],use[href^="#emb-"]') || el.closest(MONO) ? 'logo' : null);

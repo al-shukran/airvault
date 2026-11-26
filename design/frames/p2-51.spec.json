@@ -256,8 +256,6 @@
      "node": "span",
      "path": "div.row.nl0[3]>div.m[1]>span[1]",
      "text": "Network for this token",
-     "var": "row",
-     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 109,
@@ -1441,8 +1439,6 @@
      "node": "span",
      "path": "div.row.nl0[3]>div.m[1]>span[1]",
      "text": "Network for this token",
-     "var": "row",
-     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 109,

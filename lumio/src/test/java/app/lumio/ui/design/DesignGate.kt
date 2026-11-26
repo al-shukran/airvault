@@ -337,6 +337,9 @@ internal class Comparison(
     private val findings = mutableListOf<Finding>()
     private val rows = mutableListOf<JsonObject>()
 
+    /** The app's Text that each variable Text of the frame (by element id) was matched to. */
+    private val matched = mutableMapOf<String, AppText>()
+
     private fun masked(x: Double, y: Double) = masks.any { it.contains(x, y) }
 
     private fun row(layer: String, id: String, label: String, diffs: List<Triple<String, String, String>>, rect: List<Double>?) {
@@ -441,6 +444,7 @@ internal class Comparison(
             return
         }
         match.used = true
+        matched[id] = match
         val d = mutableListOf<Triple<String, String, String>>()
         compareInk(el, r, el.str("text"), d, variable = true)
         compareStyle(el, match, d)
@@ -620,8 +624,7 @@ internal class Comparison(
      * Every [Tolerance.cellDp] dp cell whose average colour differs, joined into regions: what the element checks cannot name, such as a Text or a
      * picture the frame does not have. The pixels of a word or an icon of the frame are left out of the averages: their own checks measure them, and
      * a glyph drawn half a dp apart would move a cell's colour far more than the tolerance. A word is left out with [Tolerance.textPosDp] around it
-     * (its checks allow that much), an icon with 1 dp, and a variable Text with the room it has to grow into, up to the next word or icon of its
-     * line. A box is left out of nothing. A cell with fewer than 4 pixels left is not compared.
+     * (its checks allow that much), an icon with 1 dp, and a variable Text with the box of the Text it was matched to. A box is left out of nothing. A cell with fewer than 4 pixels left is not compared.
      */
     private fun checkRegions(elements: List<JsonObject>) {
         val k = tol.cellDp
@@ -631,16 +634,13 @@ internal class Comparison(
         val placed = elements.filter { it.str("kind") != "box" }
         for (el in placed) {
             val r = rectOf(el)
-            var x0 = r[0]; var x1 = r[0] + r[2]
+            var x0 = r[0]; var x1 = r[0] + r[2]; var y0 = r[1]; var y1 = r[1] + r[3]
             val pad = if (el.str("kind") == "text") tol.textPosDp else 1.0
-            if (el.isVariable() && el.str("kind") == "text") {
-                val anchor = el.str("anchor")
-                val line = placed.filter { it !== el && rectOf(it).let { o -> min(o[1] + o[3], r[1] + r[3]) - max(o[1], r[1]) > 1 } }
-                if (anchor != "left") x0 = line.map { rectOf(it) }.filter { it[0] + it[2] <= r[0] + 0.5 }.maxOfOrNull { it[0] + it[2] } ?: 0.0
-                if (anchor != "right") x1 = line.map { rectOf(it) }.filter { it[0] >= r[0] + r[2] - 0.5 }.minOfOrNull { it[0] } ?: actual.w.toDouble()
-            }
-            for (y in max(0, floor(r[1] - pad).toInt()) until min(actual.h, ceil(r[1] + r[3] + pad).toInt()))
-                for (x in max(0, floor(min(x0, r[0]) - pad).toInt()) until min(actual.w, ceil(max(x1, r[0] + r[2]) + pad).toInt())) skip[y * actual.w + x] = true
+            // A variable Text may be wider or narrower than the frame's: its own box (the Text it was matched to) is left out as well, and no more,
+            // so a picture or a block that the frame does not have, on the same line, is still a region.
+            matched[el.str("id")]?.let { x0 = min(x0, it.x); x1 = max(x1, it.x + it.w); y0 = min(y0, it.y); y1 = max(y1, it.y + it.h) }
+            for (y in max(0, floor(y0 - pad).toInt()) until min(actual.h, ceil(y1 + pad).toInt()))
+                for (x in max(0, floor(x0 - pad).toInt()) until min(actual.w, ceil(x1 + pad).toInt())) skip[y * actual.w + x] = true
         }
         fun average(img: Px, cx: Int, cy: Int): Triple<Int, Int, Int>? {
             var r = 0; var g = 0; var b = 0; var n = 0

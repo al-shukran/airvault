@@ -628,8 +628,6 @@
      "node": "span",
      "path": "div.row[8]>div.m[1]>span[1]",
      "text": "The only Bitcoin test network Lumio reads",
-     "var": "row",
-     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 363.5,
@@ -754,8 +752,6 @@
      "node": "span",
      "path": "div.row[10]>div.m[1]>span[1]",
      "text": "The only Solana test cluster Lumio reads",
-     "var": "row",
-     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 461.5,
@@ -880,8 +876,6 @@
      "node": "span",
      "path": "div.row[12]>div.m[1]>span[1]",
      "text": "Algorand's public test network",
-     "var": "row",
-     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 559.5,
@@ -1530,8 +1524,6 @@
      "node": "span",
      "path": "div.row[8]>div.m[1]>span[1]",
      "text": "The only Bitcoin test network Lumio reads",
-     "var": "row",
-     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 363.5,
@@ -1656,8 +1648,6 @@
      "node": "span",
      "path": "div.row[10]>div.m[1]>span[1]",
      "text": "The only Solana test cluster Lumio reads",
-     "var": "row",
-     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 461.5,
@@ -1782,8 +1772,6 @@
      "node": "span",
      "path": "div.row[12]>div.m[1]>span[1]",
      "text": "Algorand's public test network",
-     "var": "row",
-     "anchor": "left",
      "rect": {
       "x": 68,
       "y": 559.5,

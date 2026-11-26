@@ -262,4 +262,35 @@ class DesignGateCalibrationTest {
         val got = baseline.errors(recorded.filter { it.id != "e1" })
         assertTrue("a recorded text difference that passes now must leave the baseline: $got", got.any { "text:e1" in it })
     }
+
+    @Test
+    fun anExtraPictureOnAVariablesLineIsSeen() {
+        // The price is held at the right edge and may grow to the left, but a picture the frame does not have, on its line, is not the price.
+        val app = page(listOf(60, 12, 30, 8) to white, listOf(10, 42, 24, 8) to white, listOf(10, 72, 24, 8) to white, listOf(70, 50, 20, 20) to 0xF7931A, listOf(20, 12, 12, 8) to 0x3C5CE0)
+        val got = rule(app, sameTexts())
+        assertTrue("a picture left of the price, on its line, must be a region: $got", got.any { it.layer == "region" })
+    }
+
+    @Test
+    fun aPriceThatGrowsToTheLeftOnItsLineStillPasses() {
+        val app = page(listOf(45, 12, 45, 8) to white, listOf(10, 42, 24, 8) to white, listOf(10, 72, 24, 8) to white, listOf(70, 50, 20, 20) to 0xF7931A)
+        assertEquals(emptyList<String>(), rule(app, listOf(appText("\$1,000.00", 45.0, 10.0, 45.0), appText("Bitcoin", 10.0, 40.0, 30.0), appText("Send", 10.0, 70.0, 30.0))).map { it.label })
+    }
+
+    // A badge beside a logo ("DEFAULT") is copy: a constant, so another word in its place is seen, though the row's name and price may differ.
+    private val badge: JsonObject = Json.parseToJsonElement(
+        """{"inkThreshold":12,"bandGap":1,"width":100,"height":100,"themes":{"dark":{"bg":[21,19,23],"bands":[],"elements":[
+            {"id":"e0","kind":"text","node":"span.dim-badge","path":"","text":"DEFAULT","rect":{"x":10,"y":40,"w":40,"h":12},"lines":1,"font":{"family":"x","size":11,"weight":600,"stretch":"100%","lineHeight":null,"letterSpacing":0},"color":[255,255,255,1]}
+        ]}}}""",
+    ).jsonObject
+
+    private fun badge(app: Px, texts: List<AppText>) =
+        Comparison("calibration", badge, badge.getValue("themes").jsonObject.getValue("dark").jsonObject, page(listOf(10, 42, 40, 8) to white), app, texts, emptyList(), tol).run().findings
+
+    @Test
+    fun aBadgeWithAnotherWordIsSeen() {
+        assertEquals(emptyList<String>(), badge(page(listOf(10, 42, 40, 8) to white), listOf(appText("DEFAULT", 10.0, 40.0, 40.0, size = 11.0))).map { it.label })
+        val got = badge(page(listOf(10, 42, 40, 8) to white), listOf(appText("ACTIVE", 10.0, 40.0, 40.0, size = 11.0)))
+        assertTrue("a badge that says ACTIVE for DEFAULT must fail: $got", got.any { it.id == "e0" } && got.any { it.id == "extra" })
+    }
 }
