@@ -121,6 +121,22 @@ class AssetHoldingsTest {
     }
 
     @Test
+    fun aTokenIsHeldOnlyByAnAccountOfItsOwnFamily() {
+        val onEthereum = account(ethereum, "Ethereum", "A", held = null)
+        val onSolana = account(Networks.SOL_MAINNET, "Solana", "S", held = null)
+        val onAlgorand = account(Networks.ALGO_MAINNET, "Algorand", "G", held = null)
+        val spl = WatchedAsset(NetworkId(Networks.SOL_MAINNET, testnet = false), contract = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+        val asa = WatchedAsset(NetworkId(Networks.ALGO_MAINNET, testnet = false), contract = "31566704")
+
+        // An Ethereum account never offers Send or Receive of an SPL token or an Algorand asset, whose send route has no EVM chain.
+        assertFalse(canHold(onEthereum, spl))
+        assertFalse(canHold(onEthereum, asa))
+        assertTrue(canHold(onSolana, spl))
+        assertTrue(canHold(onAlgorand, asa))
+        assertFalse(canHold(onSolana, WatchedAsset(NetworkId(ethereum, testnet = false), contract = "0xa0b8")))
+    }
+
+    @Test
     fun anAddressKeepsItsFirstSixAndLastFourCharacters() {
         assertEquals("0x1020…122b", shortAddress("0x102030405060708090a0b0c0d0e0f0101122b"))
         assertEquals("0x1020", shortAddress("0x1020"))

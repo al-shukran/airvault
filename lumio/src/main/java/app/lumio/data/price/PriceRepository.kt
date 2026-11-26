@@ -7,7 +7,6 @@ import app.lumio.data.cache.CachePolicy
 import app.lumio.data.cache.Codec
 import app.lumio.data.cache.jsonCodec
 import app.lumio.data.net.NetworkId
-import app.lumio.data.provider.CoinDirectory
 import app.lumio.data.provider.CoinDirectoryRead
 import app.lumio.data.provider.CoinMarkets
 import app.lumio.data.provider.FiatQuote
@@ -26,10 +25,17 @@ import app.lumio.data.provider.TrendingCoins
 import app.lumio.data.provider.TrendingList
 import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
+import app.lumio.watchlist.CoinIndex
+import app.lumio.watchlist.TopList
+import app.lumio.watchlist.topList
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /** How long a fresh price is reused from memory before the next call. */
 const val PRICE_TTL_MS = 60_000L
@@ -41,9 +47,7 @@ const val CHART_TTL_MS = 300_000L
 internal const val MARKET_KEY = "market-bitcoin"
 internal const val TRENDING_KEY = "trending-search"
 internal const val FIAT_KEY = "market-fiat"
-internal const val TOP_COINS_KEY = "market-top-coins"
-internal const val DIRECTORY_KEY = "market-directory"
-
+internal const val TOP_COINS_KEY = "market-top-watchable"
 /** How long the coin directory is used before it is read again. It names every coin and its contracts, which change slowly. */
 const val DIRECTORY_TTL_MS = 24L * 60 * 60 * 1_000
 
@@ -128,29 +132,41 @@ class PriceRepository(
     /** Whether a switched-on source serves the coins by market cap and the coin directory, which Add to Watchlist lists and searches. */
     fun servesCoins(): Boolean = scheduler.serves(TopCoins()) && scheduler.serves(CoinDirectoryRead())
 
-    /** The coins by market cap, from a source or from memory within [PRICE_TTL_MS]. When no source answers, the last list kept, stale. */
-    suspend fun topCoins(priority: Priority = Priority.VISIBLE): Kept<MarketCoins>? =
-        (if (servesCoins()) kept(TOP_COINS_KEY, jsonCodec<MarketCoins>(), TopCoins(), priority) else null)?.also { lastTop = it.value }
-
-    /** The last coins by market cap kept in the vault's cache, with no source asked. */
-    suspend fun lastTopCoins(): Kept<MarketCoins>? =
-        (if (servesCoins()) lastKept(TOP_COINS_KEY, jsonCodec<MarketCoins>()) else null)?.also { lastTop = it.value }
-
-    /** The coins by market cap read this session, with no wait, so a page opened again shows them on its first frame. */
-    fun knownTopCoins(): MarketCoins? = lastTop
-
-    /** The directory read this session, with no wait. */
-    fun knownDirectory(): CoinDirectory? = lastDirectory
-
     /**
-     * The directory kept in the vault's cache, with no source asked, of any age, so the names it gives are known from the first screen after a start. Null
-     * while the vault is locked or none was kept.
+     * Top by Market Cap as Lumio lists it, for the EVM mainnets [evm] says Lumio has: from a source or from memory within [PRICE_TTL_MS], with the
+     * [coinIndex] that says which coins Lumio can watch. The list is kept in the vault's cache, a few dozen kilobytes, and when no source answers the
+     * last one kept is returned, stale. Null when no source serves it, or none was kept and none answers.
      */
-    suspend fun keptDirectory(): CoinDirectory? = lastDirectory
-        ?: cache()?.get(CachePolicy.LastKnown, DIRECTORY_KEY)?.let { decodeOrNull(jsonCodec<CoinDirectory>(), it.value) }?.also { lastDirectory = it }
+    suspend fun topCoins(evm: (Long) -> Boolean, priority: Priority = Priority.VISIBLE): Kept<TopList>? {
+        if (!servesCoins()) return null
+        val store = cache()
+        val codec = jsonCodec<TopList>()
+        readKept(store, CachePolicy.ShortTtl(PRICE_TTL_MS), TOP_COINS_KEY, codec)?.let { return Kept(it, stale = false).also { lastTop = it.value } }
+        val markets = try {
+            scheduler.run(TopCoins(), priority)
+        } catch (e: ProviderError) {
+            return lastTopCoins()
+        }
+        val index = coinIndex(evm, priority)
+        val list = topList(markets, index, evm)
+        // A list read with no index holds the coins alone, so it is shown but not kept, and the next read tries the index again.
+        if (index != null) {
+            store?.put(CachePolicy.ShortTtl(PRICE_TTL_MS), TOP_COINS_KEY, codec.encode(list))
+            store?.put(CachePolicy.LastKnown, TOP_COINS_KEY, codec.encode(list))
+        }
+        lastTop = list
+        return Kept(list, stale = false)
+    }
+
+    /** The last Top by Market Cap kept in the vault's cache, with no source asked, stale. Null while the vault is locked or none was kept. */
+    suspend fun lastTopCoins(): Kept<TopList>? =
+        readKept(cache(), CachePolicy.LastKnown, TOP_COINS_KEY, jsonCodec<TopList>())?.also { lastTop = it }?.let { Kept(it, stale = true) }
+
+    /** Top by Market Cap read this session, with no wait, so a page opened again shows it on its first frame. */
+    fun knownTopCoins(): TopList? = lastTop
 
     @Volatile
-    private var lastTop: MarketCoins? = null
+    private var lastTop: TopList? = null
 
     /** The market rows of the coins [ids], or null when no source answers. They are not kept: a search asks for them as the owner types. */
     suspend fun coinMarkets(ids: List<String>, priority: Priority = Priority.VISIBLE): MarketCoins? = try {
@@ -160,30 +176,45 @@ class PriceRepository(
     }
 
     /**
-     * The coin directory. One read lasts [DIRECTORY_TTL_MS], in memory and in the vault's cache, and an older one is kept and returned while no source
-     * answers. Null when no source serves it, or none was ever kept and none answers.
+     * The index of the coins Lumio can watch, for the EVM mainnets [evm] says Lumio has, built from the source's directory off the main thread. It is
+     * read at most once a day and kept in memory only, never in the vault, since the directory is megabytes. Callers share one read: a second call
+     * waits for the first. When no source answers, the last index of this session is returned, or null, and the next call reads again.
      */
-    suspend fun directory(priority: Priority = Priority.VISIBLE): CoinDirectory? {
-        if (!servesCoins()) return null
-        val now = WallClock.nowMs()
-        lastDirectory?.takeIf { now - it.asOfMs < DIRECTORY_TTL_MS }?.let { return it }
-        val store = cache()
-        val codec = jsonCodec<CoinDirectory>()
-        val kept = lastDirectory ?: store?.get(CachePolicy.LastKnown, DIRECTORY_KEY)?.let { decodeOrNull(codec, it.value) }
-        if (kept != null && now - kept.asOfMs < DIRECTORY_TTL_MS) return kept.also { lastDirectory = it }
-        return try {
-            scheduler.run(CoinDirectoryRead(), priority).also {
-                lastDirectory = it
-                store?.put(CachePolicy.LastKnown, DIRECTORY_KEY, codec.encode(it))
-            }
+    suspend fun coinIndex(evm: (Long) -> Boolean, priority: Priority = Priority.VISIBLE): CoinIndex? = indexLock.withLock {
+        val kept = index
+        if (kept != null && WallClock.nowMs() - kept.asOfMs < DIRECTORY_TTL_MS) return@withLock kept
+        if (!servesCoins()) return@withLock kept
+        val directory = try {
+            scheduler.run(CoinDirectoryRead(), priority)
         } catch (e: ProviderError) {
-            kept?.also { lastDirectory = it }
+            return@withLock kept
         }
+        withContext(Dispatchers.Default) { CoinIndex.of(directory, evm) }.also { index = it }
     }
 
-    /** The directory last read this session, so a search does not decode it from the cache again. */
+    /** The index read this session, with no wait. */
+    fun knownCoinIndex(): CoinIndex? = index
+
+    private val indexLock = Mutex()
+
     @Volatile
-    private var lastDirectory: CoinDirectory? = null
+    private var index: CoinIndex? = null
+
+    /**
+     * The value kept under [key], decoded, or null when there is none. A kept value that cannot be read or decoded is deleted, so the next read asks a
+     * source again.
+     */
+    private suspend fun <T> readKept(store: Cache?, policy: CachePolicy, key: String, codec: Codec<T>): T? {
+        store ?: return null
+        val value = try {
+            store.get(policy, key)?.value ?: return null
+        } catch (e: Exception) {
+            null
+        }
+        val decoded = value?.let { decodeOrNull(codec, it) }
+        if (decoded == null) runCatching { store.delete(policy, key) }
+        return decoded
+    }
 
     /** The last market figures kept in the vault's cache, with no source asked. Null while the vault is locked, none was kept or no source is on. */
     suspend fun lastMarket(): Kept<MarketQuote>? = if (servesMarket()) lastKept(MARKET_KEY, jsonCodec<MarketQuote>()) else null

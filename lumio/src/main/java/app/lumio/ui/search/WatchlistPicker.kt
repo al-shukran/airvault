@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
@@ -107,8 +109,17 @@ private val DISC = 36.dp
 private val ROW_HEIGHT = 62.dp
 // The lines keep their whole height, as the mock's do, so the ticker sits a full line under the name.
 private val UNTRIMMED = LineHeightStyle(alignment = LineHeightStyle.Alignment.Center, trim = LineHeightStyle.Trim.None)
-private val TITLE = ClearAirType.rowTitle.copy(lineHeightStyle = UNTRIMMED)
-private val DETAIL = ClearAirType.body.copy(fontSize = 12.5.sp, lineHeight = 17.sp, lineHeightStyle = UNTRIMMED)
+// The mock's browser sets these faces about 0.1 dp a letter wider in a name and 0.25 dp in the line under it, measured on its PNGs, so the rows carry
+// that spacing and wrap where the mock's do.
+private val TITLE = ClearAirType.rowTitle.copy(lineHeightStyle = UNTRIMMED, letterSpacing = 0.007.em)
+private val DETAIL = ClearAirType.body.copy(fontSize = 12.5.sp, lineHeight = 17.sp, lineHeightStyle = UNTRIMMED, letterSpacing = 0.02.em)
+
+/**
+ * The mock's browser places each line's ink higher in its line than Compose does: 0.9 dp for a name and the section label, 1.4 dp for the line under a
+ * name, measured on its PNGs. The text is drawn that much higher, and the layout does not move.
+ */
+private val NAME_LIFT = 0.9.dp
+private val DETAIL_LIFT = 1.4.dp
 private val LOGO = 24.dp
 private val LABEL = ClearAirType.eyebrow.copy(lineHeightStyle = UNTRIMMED)
 
@@ -144,7 +155,9 @@ fun WatchlistPicker(
                     text = label.uppercase(),
                     style = LABEL,
                     color = palette.ink2,
-                    modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = 18.dp, end = ClearAirSpacing.gutter, bottom = ClearAirSpacing.xxs),
+                    modifier = Modifier
+                        .padding(start = ClearAirSpacing.gutter, top = 18.dp, end = ClearAirSpacing.gutter, bottom = ClearAirSpacing.xxs)
+                        .offset(y = -NAME_LIFT),
                 )
             }
             if (loading) {
@@ -224,8 +237,13 @@ private fun PickerRowItem(row: PickerRow, divider: Boolean, image: @Composable (
                     }
                 }
             }
-            Text(text = title, style = TITLE, color = palette.ink, modifier = if (rank != null) Modifier.padding(bottom = RANK_LINE_EXTRA) else Modifier)
-            pickerDetail(row)?.let { Text(text = it, style = DETAIL, color = palette.ink2) }
+            Text(
+                text = title,
+                style = TITLE,
+                color = palette.ink,
+                modifier = Modifier.offset(y = -NAME_LIFT).then(if (rank != null) Modifier.padding(bottom = RANK_LINE_EXTRA) else Modifier),
+            )
+            pickerDetail(row)?.let { Text(text = it, style = DETAIL, color = palette.ink2, modifier = Modifier.offset(y = -DETAIL_LIFT)) }
         }
         Spacer(Modifier.width(ClearAirSpacing.sm))
         Box(

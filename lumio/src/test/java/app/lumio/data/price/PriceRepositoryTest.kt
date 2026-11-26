@@ -7,6 +7,7 @@ import app.lumio.data.FakeProvider
 import app.lumio.data.asset.AssetId
 import app.lumio.data.cache.Cache
 import app.lumio.data.cache.CacheKeys
+import app.lumio.data.cache.CachePolicy
 import app.lumio.data.config.Limits
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
@@ -30,6 +31,8 @@ import kotlin.test.assertNull
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
@@ -50,7 +53,8 @@ class PriceRepositoryTest {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val http = Http(OkHttpClient.Builder().callTimeout(5, TimeUnit.SECONDS).build())
     private val clock = FakeClock(1_000_000L)
-    private val store = Cache(FakeKvDao(), CacheKeys(ByteArray(32) { 3 }, ByteArray(32) { 5 }), clock)
+    private val kv = FakeKvDao()
+    private val store = Cache(kv, CacheKeys(ByteArray(32) { 3 }, ByteArray(32) { 5 }), clock)
     private val fast = Limits(rps = 1_000.0, burst = 1_000, maxConcurrent = 10)
     private val routes = Routes()
 
@@ -296,30 +300,48 @@ class PriceRepositoryTest {
         assertEquals(1, source.calls)
     }
 
+    private val platforms = """[{"id":"ethereum","chain_identifier":1}]"""
+    private val directory = """[{"id":"bitcoin","symbol":"btc","name":"Bitcoin","platforms":{}},""" +
+        """{"id":"ousg","symbol":"ousg","name":"Ondo Fund","platforms":{"ethereum":"0x1b19c19393e2d034d8ff31ff34c81252fcbbee92"}}]"""
+    private val markets = """[{"id":"bitcoin","symbol":"btc","name":"Bitcoin","image":null,"market_cap_rank":1},""" +
+        """{"id":"ousg","symbol":"ousg","name":"Ondo Fund","image":null,"market_cap_rank":120}]"""
+    private val lumioEvm: (Long) -> Boolean = { it == 1L }
+
+    @Test
+    fun theCoinIndexIsReadOnceForCallersAtTheSameTimeAndNeverKeptInTheVault() = runBlocking {
+        routes.on("other", MockResponse.Builder().body(platforms).build(), MockResponse.Builder().body(directory).build())
+        val repository = repository(live())
+
+        val indexes = (1..3).map { scope.async { repository.coinIndex(lumioEvm) } }.awaitAll()
+
+        assertEquals(listOf(listOf("bitcoin", "ousg")), indexes.map { index -> index!!.coins.map { it.id } }.distinct())
+        assertEquals(2, routes.total())
+        assertEquals(0, kv.all().size)
+        assertEquals(null, repository(live()).knownCoinIndex())
+    }
+
+    @Test
+    fun aFailedIndexReadIsTriedAgainByTheNextCall() = runBlocking {
+        routes.on("other", MockResponse.Builder().code(404).build())
+        val repository = repository(live())
+        assertEquals(null, repository.coinIndex(lumioEvm))
+
+        routes.on("other", MockResponse.Builder().body(platforms).build(), MockResponse.Builder().body(directory).build())
+        assertEquals(listOf("bitcoin", "ousg"), repository.coinIndex(lumioEvm)?.coins?.map { it.id })
+    }
+
+    @Test
+    fun topByMarketCapIsKeptSmallAndAKeptListThatDoesNotReadIsDroppedAndReadAgain() = runBlocking {
+        routes.on("other", MockResponse.Builder().body(markets).build(), MockResponse.Builder().body(platforms).build(), MockResponse.Builder().body(directory).build())
+        assertEquals(listOf("bitcoin", "ousg"), repository(live()).topCoins(lumioEvm)?.value?.coins?.map { it.coin.id })
+        assertEquals(listOf("bitcoin", "ousg"), repository(live()).lastTopCoins()?.value?.coins?.map { it.coin.id })
+
+        store.put(CachePolicy.LastKnown, TOP_COINS_KEY, "not a list".encodeToByteArray())
+        assertEquals(null, repository(live()).lastTopCoins())
+        assertEquals(null, store.get(CachePolicy.LastKnown, TOP_COINS_KEY))
+    }
+
     /** Answers each route from its own queue. A route with no answer left gets 500, so an unexpected call fails the test. */
-    @Test
-    fun aDirectoryReadOnceIsKnownAfterARestartFromTheVaultWithNoSourceAsked() = runBlocking {
-        routes.on(
-            "other",
-            MockResponse.Builder().body("""[{"id":"ethereum","chain_identifier":1}]""").build(),
-            MockResponse.Builder().body("""[{"id":"ousg","symbol":"ousg","name":"Ondo Fund","platforms":{"ethereum":"0x1b19c19393e2d034d8ff31ff34c81252fcbbee92"}}]""").build(),
-        )
-        assertEquals(listOf("ousg"), repository(live()).directory()?.coins?.map { it.id })
-        val asked = routes.total()
-
-        // A new process: nothing in memory, the same vault.
-        val restarted = repository(live())
-        assertEquals(null, restarted.knownDirectory())
-        assertEquals(listOf("ousg"), restarted.keptDirectory()?.coins?.map { it.id })
-        assertEquals(listOf("ousg"), restarted.knownDirectory()?.coins?.map { it.id })
-        assertEquals(asked, routes.total())
-    }
-
-    @Test
-    fun aLockedVaultKeepsNoDirectory() = runBlocking {
-        assertEquals(null, repository(live(), kept = null).keptDirectory())
-    }
-
     private class Routes : Dispatcher() {
         private val queues = HashMap<String, ArrayDeque<MockResponse>>()
         private val counts = HashMap<String, Int>()

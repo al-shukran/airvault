@@ -8,19 +8,12 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import android.graphics.BitmapFactory
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import app.lensly.app.VaultHolder
 import app.lensly.ui.components.groupAddress
 import app.lumio.data.config.Fiat
-import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
-import app.lumio.data.provider.CoinDirectory
-import app.lumio.data.provider.DirectoryCoin
-import app.lumio.data.provider.MARKET_PAGE
 import app.lumio.data.provider.TrendingCoin
 import app.lumio.data.provider.TrendingList
 import app.lumio.data.provider.algorand.ALGORAND_MAINNET
@@ -33,10 +26,8 @@ import app.lumio.search.matching
 import app.lumio.send.algorand.AddAssetRows
 import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.home.changeText
-import app.lumio.ui.home.letterOf
 import app.lumio.ui.home.tokenIcon
 import app.lensly.ui.components.chainIconDrawables
-import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.delay
 import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.search.SearchRow
@@ -46,11 +37,12 @@ import app.lumio.ui.search.SearchTab
 import app.lumio.ui.search.Candidate
 import app.lumio.ui.search.PickerLogo
 import app.lumio.ui.search.PickerRow
-import app.lumio.ui.search.directoryNames
 import app.lumio.ui.search.searchCandidates
-import app.lumio.ui.search.searchMatches
+import app.lumio.ui.search.unrankedIds
+import app.lumio.ui.home.LogoLoad
+import app.lumio.ui.home.rememberLogo
+import app.lumio.tokens.TokenHolding
 import app.lumio.ui.search.topCandidates
-import app.lumio.ui.search.watchableEntries
 import app.lumio.ui.search.WatchlistPicker
 import app.lumio.ui.settings.providerName
 import app.lumio.ui.settings.providerStatusNote
@@ -128,9 +120,9 @@ internal fun SearchRoute(
 
 /**
  * Add to Watchlist, over the active wallet. With no query it lists Top by Market Cap: the market source's coins by market cap that Lumio can watch,
- * in the source's order. Typing finds the coins of the source's directory that Lumio can watch, by name and ticker as the search does, one row per
- * name, ranked by market cap once their market rows are read. Each row's star adds the asset to the watchlist or takes it off. With no market source
- * switched on, it lists the first-run coins and the watchlist.
+ * in the source's order, kept in the vault so the list shows on the first frame. Typing finds the coins Lumio can watch by name and ticker, as the
+ * search does, one row per name; the ranks come from Top by Market Cap, then from one read of the best results' market rows. Each row's star adds the
+ * asset to the watchlist, with its names and logo, or takes it off. With no market source switched on, it lists the first-run coins and the watchlist.
  */
 @Composable
 internal fun WatchlistAddRoute(
@@ -150,42 +142,34 @@ internal fun WatchlistAddRoute(
     val evm: (Long) -> Boolean = { chainId -> app.registry.network(chainId)?.testnet == false }
     val market = remember { app.prices.servesCoins() }
     val top by produceState(app.prices.knownTopCoins()) {
+        if (!market) return@produceState
         if (value == null) value = withContext(Dispatchers.IO) { app.prices.lastTopCoins()?.value }
-        withContext(Dispatchers.IO) { app.prices.topCoins() }?.let { value = it.value }
-    }
-    // The directory is read once a day; until it lands, the list waits, so its tokens do not appear after the coins.
-    val directory by produceState<CoinDirectory?>(app.prices.knownDirectory(), market) {
-        if (market && value == null) value = withContext(Dispatchers.IO) { app.prices.directory() } ?: CoinDirectory(emptyList(), 0L)
-    }
-    val entries by produceState<List<SearchEntry<Pair<DirectoryCoin, WatchedAsset>>>?>(null, directory) {
-        value = directory?.let { list ->
-            withContext(Dispatchers.Default) {
-                // The names Home gives a token it learns from the directory are indexed here, off the main thread, before a star can add one.
-                directoryNames(list, WatchedAsset(NetworkId(Networks.BTC_MAINNET, testnet = false)))
-                watchableEntries(list, evm)
-            }
-        }
+        retrying { withContext(Dispatchers.IO) { app.prices.topCoins(evm)?.value } }?.let { value = it }
     }
     val needle = query.trim()
-    val found by produceState<List<Candidate>?>(null, needle, entries) {
-        val list = entries
+    // The index is read only once the owner types, and once a session; the list itself needs none.
+    val index by produceState(app.prices.knownCoinIndex(), needle.isEmpty()) {
+        if (market && value == null && needle.isNotEmpty()) value = retrying { app.prices.coinIndex(evm) }
+    }
+    val found by produceState<List<Candidate>?>(null, needle, index, top) {
+        val list = index
         if (needle.isEmpty() || list == null) {
             value = null
             return@produceState
         }
-        val matches = withContext(Dispatchers.Default) { searchMatches(needle, list) }
-        value = searchCandidates(matches, emptyMap())
-        val ids = matches.map { it.first.id }.distinct().take(MARKET_PAGE)
+        val results = withContext(Dispatchers.Default) { searchCandidates(needle, list, top, emptyMap()) }
+        value = results
+        val ids = unrankedIds(results)
         if (ids.isEmpty()) return@produceState
         // The market rows are read once the owner stops typing, so a fast typist sends one read, not one per letter.
         delay(SEARCH_SETTLE_MS)
-        val markets = withContext(Dispatchers.IO) { app.prices.coinMarkets(ids) }?.coins.orEmpty().associateBy { it.id }
-        value = searchCandidates(matches, markets)
+        val markets = retrying { withContext(Dispatchers.IO) { app.prices.coinMarkets(ids) } }?.coins.orEmpty().associateBy { it.id }
+        value = withContext(Dispatchers.Default) { searchCandidates(needle, list, top, markets) }
     }
     val candidates: List<Candidate>? = when {
-        !market -> localCandidates(current.assets)
+        !market -> localCandidates(current.assets, app, board.tokenHeld.values)
         needle.isNotEmpty() -> found
-        else -> top?.let { list -> directory?.let { topCandidates(list, it, evm) } }
+        else -> top?.let(::topCandidates)
     }
     WatchlistPicker(
         query = query,
@@ -196,21 +180,23 @@ internal fun WatchlistAddRoute(
             else -> "Coins"
         },
         rows = candidates.orEmpty().map { candidate ->
-            val (symbol, name) = namesOf(candidate.asset, app, board.tokenHeld.values)
             PickerRow(
                 asset = candidate.asset,
-                name = name,
-                ticker = symbol,
-                logo = pickerLogo(candidate, app),
+                name = candidate.name,
+                ticker = candidate.symbol,
+                logo = shippedMark(candidate.asset, app)?.let { PickerLogo.Mark(it) } ?: PickerLogo.Remote(candidate.image),
                 watched = candidate.asset in current.assets,
                 rank = candidate.rank,
                 sameName = candidate.sameName,
             )
         },
-        onToggle = { asset -> board.changeWatchlist(wallet.id) { it.toggled(asset) } },
+        onToggle = { asset ->
+            val label = candidates?.firstOrNull { it.asset == asset }?.label
+            board.changeWatchlist(wallet.id) { it.toggled(asset, label) }
+        },
         onBack = { navController.popBackStack() },
         onLock = onLock,
-        image = { url -> rememberCoinImage(app, url) },
+        image = { url -> (rememberLogo(url) as? LogoLoad.Loaded)?.bitmap },
         loading = candidates == null,
     )
 }
@@ -221,21 +207,27 @@ private const val DEMO_QUERY = "government"
 /** How long the typing must rest before a search reads the market rows of its results. */
 private const val SEARCH_SETTLE_MS = 400L
 
-/** The first-run coins and the watchlist [watched], which the page lists when no market source is switched on. */
-private fun localCandidates(watched: List<WatchedAsset>): List<Candidate> = (FIRST_RUN_ASSETS + watched).distinct().map { asset ->
-    val (symbol, name) = coinNames(asset)
-    Candidate(coinId = asset.toString(), asset = asset, name = name, symbol = symbol, rank = null, image = null)
+/** How many times a market read is tried before the page shows what it has, and the wait before the first retry, doubled after each. */
+private const val READ_TRIES = 3
+private const val RETRY_WAIT_MS = 2_000L
+
+/** [read]'s answer, tried again after a wait while it answers null, up to [READ_TRIES] times. */
+private suspend fun <T> retrying(read: suspend () -> T?): T? {
+    var wait = RETRY_WAIT_MS
+    repeat(READ_TRIES - 1) {
+        read()?.let { return it }
+        delay(wait)
+        wait *= 2
+    }
+    return read()
 }
 
-/**
- * The logo of a row: the mark Lumio ships, else the image the market row names, else the logo the price source has for the token, as Home reads it.
- */
-private fun pickerLogo(candidate: Candidate, app: LumioApp): PickerLogo {
-    shippedMark(candidate.asset, app)?.let { return PickerLogo.Mark(it) }
-    candidate.image?.let { return PickerLogo.Remote(it) }
-    val contract = candidate.asset.contract ?: return PickerLogo.Remote(null)
-    return PickerLogo.Mark(AssetIconSpec.Fetched(candidate.asset.network, contract, letterOf(candidate.symbol)))
-}
+/** The first-run coins and the watchlist [watched], which the page lists when no market source is switched on. */
+private fun localCandidates(watched: List<WatchedAsset>, app: LumioApp, held: Collection<List<TokenHolding>>): List<Candidate> =
+    (FIRST_RUN_ASSETS + watched).distinct().map { asset ->
+        val (symbol, name) = namesOf(asset, app, held)
+        Candidate(coinId = asset.key, asset = asset, name = name, symbol = symbol, rank = null, image = app.lumioVault()?.wallets?.labelOf(asset)?.image)
+    }
 
 /** The logo Lumio ships for [asset], or null when it ships none, so the market source's image shows instead. */
 internal fun shippedMark(asset: WatchedAsset, app: LumioApp): AssetIconSpec? {
@@ -253,22 +245,6 @@ internal fun shippedMark(asset: WatchedAsset, app: LumioApp): AssetIconSpec? {
     if (!net.isEvm) return null
     val chainId = Networks.evmIdOf(net.chain)
     return tokenIcon(app.registry.token(chainId, contract), app.registry.network(chainId), contract).takeUnless { it is AssetIconSpec.Letter }
-}
-
-/** The logos decoded this session, by URL, so a row drawn again shows its logo on its first frame. */
-private val decodedImages = ConcurrentHashMap<String, ImageBitmap>()
-
-/** The logo at [url], read through [LumioApp.coinImages], or null while it loads or when it does not. */
-@Composable
-private fun rememberCoinImage(app: LumioApp, url: String): ImageBitmap? {
-    val bitmap by produceState(decodedImages[url], url) {
-        if (value == null) {
-            value = withContext(Dispatchers.IO) {
-                app.coinImages.imageOf(url)?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
-            }?.also { decodedImages[url] = it }
-        }
-    }
-    return bitmap
 }
 
 /**

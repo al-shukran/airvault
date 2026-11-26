@@ -7,30 +7,40 @@ import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.fetchBytes
 import app.lumio.data.provider.noRedirects
 import java.io.IOException
-import java.util.concurrent.ConcurrentHashMap
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Request
 
 /**
- * The logos of the coins that Add to Watchlist lists, read from the image URLs the market source gives. An image is kept in memory for the session and
- * in the open vault's cache, so a list opened again draws its logos on its first frame. The images are static files on the source's image host, not
- * calls of its API, so they are read on the shared client without the API's rate bucket.
+ * The logos of the coins that Add to Watchlist lists and the watchlist keeps, read from the image URLs the market source gives. An image is kept in
+ * memory for the open vault, at most [MEMORY_IMAGES] of them, and in its cache, so a list opened again draws its logos on its first frame. The memory
+ * goes when the vault locks or another one opens. The images are static files on the source's image host, not calls of its API, so they are read on
+ * the shared client without the API's rate bucket.
  *
  * Privacy: an image request names only the coin's logo file, as a price request names only the coin, and never an address.
  *
  * @param demo the image of a demo-mode URL, or null outside demo mode.
  */
 class CoinImages(private val http: Http, private val cache: () -> Cache?, private val demo: (String) -> ByteArray? = { null }) {
-    private val images = ConcurrentHashMap<String, ByteArray>()
+    private var owner: Cache? = null
+    private val images = object : LinkedHashMap<String, ByteArray>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ByteArray>?): Boolean = size > MEMORY_IMAGES
+    }
 
-    /** The image at [url], or null when it is not on the source's image host or does not load now. */
+    /** The image at [url], or null when the vault is locked, the URL is not on the source's image host, or the image does not load now. */
     suspend fun imageOf(url: String): ByteArray? {
-        images[url]?.let { return it }
-        demo(url)?.let { return it.also { images[url] = it } }
+        val store = cache() ?: return null.also { remember(null, null, null) }
+        remember(store, url, null)?.let { return it }
+        demo(url)?.let { return it.also { remember(store, url, it) } }
         val address = url.toHttpUrlOrNull()?.takeIf { it.scheme == "https" && it.host in IMAGE_HOSTS } ?: return null
         val key = "coin-image:$url"
-        val store = cache()
-        store?.get(CachePolicy.LastKnown, key)?.value?.let { return it.also { images[url] = it } }
+        val kept = try {
+            store.get(CachePolicy.LastKnown, key)?.value
+        } catch (e: Exception) {
+            // A kept image that cannot be read is dropped and read again.
+            runCatching { store.delete(CachePolicy.LastKnown, key) }
+            null
+        }
+        kept?.let { return it.also { remember(store, url, it) } }
         val bytes = try {
             fetchBytes(http.noRedirects(), Request.Builder().url(address).get().build(), IMAGE_LIMIT_BYTES)
         } catch (e: ProviderError) {
@@ -38,9 +48,21 @@ class CoinImages(private val http: Http, private val cache: () -> Cache?, privat
         } catch (e: IOException) {
             return null
         }
-        images[url] = bytes
-        store?.put(CachePolicy.LastKnown, key, bytes)
+        remember(store, url, bytes)
+        store.put(CachePolicy.LastKnown, key, bytes)
         return bytes
+    }
+
+    /** The image kept in memory for [url] under the vault of [store], keeping [bytes] when given. A different vault, or none, empties the memory. */
+    @Synchronized
+    private fun remember(store: Cache?, url: String?, bytes: ByteArray?): ByteArray? {
+        if (store !== owner) {
+            images.clear()
+            owner = store
+        }
+        if (url == null) return null
+        if (bytes != null) images[url] = bytes
+        return images[url]
     }
 
     private companion object {
@@ -49,5 +71,8 @@ class CoinImages(private val http: Http, private val cache: () -> Cache?, privat
 
         /** The largest logo read, in bytes. */
         const val IMAGE_LIMIT_BYTES = 256L * 1024
+
+        /** The most images kept in memory. */
+        const val MEMORY_IMAGES = 256
     }
 }

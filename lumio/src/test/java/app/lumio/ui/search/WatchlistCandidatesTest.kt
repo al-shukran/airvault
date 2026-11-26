@@ -6,17 +6,22 @@ import app.lumio.data.provider.CoinDirectory
 import app.lumio.data.provider.DirectoryCoin
 import app.lumio.data.provider.MarketCoin
 import app.lumio.data.provider.MarketCoins
+import app.lumio.watchlist.CoinIndex
 import app.lumio.watchlist.WatchedAsset
+import app.lumio.watchlist.topList
+import app.lumio.watchlist.watchableAsset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** Which coins Add to Watchlist offers, as which asset, and in which order. Only an asset Lumio can watch gets a row and a star. */
+/** Which coins Add to Watchlist offers, as which asset, under which name, and in which order. Only an asset Lumio can watch gets a row and a star. */
 class WatchlistCandidatesTest {
     private val lumioEvm: (Long) -> Boolean = { it in setOf(1L, 56L, 999L, 8453L) }
     private fun evm(id: Long) = NetworkId(Networks.evm(id), testnet = false)
     private val sol = NetworkId(Networks.SOL_MAINNET, testnet = false)
     private val algo = NetworkId(Networks.ALGO_MAINNET, testnet = false)
+
+    private fun token(id: String, name: String, symbol: String, digit: Char) = DirectoryCoin(id, name, symbol, mapOf("eip155:1" to "0x" + digit.toString().repeat(40)))
 
     @Test
     fun aNetworksOwnCoinIsWatchedAsThatCoin() {
@@ -48,84 +53,87 @@ class WatchlistCandidatesTest {
         assertNull(watchableAsset(DirectoryCoin("ripple", "XRP", "xrp"), lumioEvm))
         assertNull(watchableAsset(DirectoryCoin("tether-on-polygon", "Tether", "usdt", mapOf("eip155:137" to "0xc2132d05d31c914a87c6611c10748aeb04b58e8f")), lumioEvm))
         assertNull(watchableAsset(DirectoryCoin("odd", "Odd", "odd", mapOf("eip155:1" to "not-a-contract")), lumioEvm))
+        // An Algorand asset ID is a 64-bit number; a longer one names no asset.
+        assertNull(watchableAsset(DirectoryCoin("big", "Big", "big", mapOf("algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k" to "99999999999999999999")), lumioEvm))
+        assertEquals(WatchedAsset(algo, "18446744073709551615"), watchableAsset(DirectoryCoin("max", "Max", "max", mapOf("algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k" to "18446744073709551615")), lumioEvm))
     }
 
     @Test
     fun topByMarketCapKeepsTheSourcesOrderAndLeavesOutWhatLumioCannotWatch() {
-        val top = MarketCoins(
+        val markets = MarketCoins(
             listOf(
                 MarketCoin("bitcoin", "Bitcoin", "btc", 1, "https://img/btc"),
                 MarketCoin("ripple", "XRP", "xrp", 6, "https://img/xrp"),
                 MarketCoin("tether", "Tether", "usdt", 3, null),
+                MarketCoin("usd-coin", "USDC", "usdc", 5, null),
             ),
             asOfMs = 0L,
         )
-        val directory = CoinDirectory(listOf(DirectoryCoin("tether", "Tether", "usdt", mapOf("eip155:1" to "0xdac17f958d2ee523a2206206994597c13d831ec7"))), 0L)
+        val index = CoinIndex.of(CoinDirectory(listOf(token("tether", "Tether", "usdt", 'd'), token("usd-coin", "USDC", "usdc", 'a')), 0L), lumioEvm)
 
-        val rows = topCandidates(top, directory, lumioEvm)
+        val rows = topCandidates(topList(markets, index, lumioEvm))
 
-        assertEquals(listOf("bitcoin", "tether"), rows.map { it.coinId })
-        assertEquals(listOf(MarketRank.Place(1), MarketRank.Place(3)), rows.map { it.rank })
+        assertEquals(listOf("bitcoin", "tether", "usd-coin"), rows.map { it.coinId })
+        assertEquals(listOf(MarketRank.Place(1), MarketRank.Place(3), MarketRank.Place(5)), rows.map { it.rank })
+        // The market source's names, with the kit's one override.
+        assertEquals(listOf("Bitcoin", "Tether", "USD Coin"), rows.map { it.name })
+        assertEquals(listOf("BTC", "USDT", "USDC"), rows.map { it.symbol })
         assertEquals("https://img/btc", rows.first().image)
     }
 
     @Test
-    fun aSearchFindsByNameOrTickerAndShowsOneRowPerNameRankedByMarketCap() {
-        val directory = CoinDirectory(
-            listOf(
-                DirectoryCoin("backed", "Backed Bond", "bcsbgc3", mapOf("eip155:8453" to "0x" + "1".repeat(40))),
-                DirectoryCoin("doge-2", "Government Efficiency", "doge", mapOf("eip155:1" to "0x" + "2".repeat(40))),
-                DirectoryCoin("doge", "Government Efficiency", "doge", mapOf("eip155:1" to "0x" + "3".repeat(40))),
-                DirectoryCoin("fund", "Government Fund", "ustb", mapOf("eip155:1" to "0x" + "4".repeat(40))),
-                DirectoryCoin("xrp-gov", "Government XRP", "gxrp"),
-                DirectoryCoin("other", "Other", "oth", mapOf("eip155:1" to "0x" + "5".repeat(40))),
+    fun withNoIndexTheTopListHoldsTheNetworksOwnCoinsAlone() {
+        val markets = MarketCoins(listOf(MarketCoin("bitcoin", "Bitcoin", "btc", 1, null), MarketCoin("tether", "Tether", "usdt", 3, null)), 0L)
+
+        assertEquals(listOf("bitcoin"), topList(markets, null, lumioEvm).coins.map { it.coin.id })
+    }
+
+    @Test
+    fun aSearchShowsOneRowPerNameRankedByMarketCapWithTheTopListsRanksFirst() {
+        val index = CoinIndex.of(
+            CoinDirectory(
+                listOf(
+                    token("backed", "Backed Government Bond", "bcsbgc3", '1'),
+                    token("doge-2", "Government Efficiency", "doge", '2'),
+                    token("doge", "Government Efficiency", "doge", '3'),
+                    token("fund", "Government Fund", "ustb", '4'),
+                    token("other", "Other", "oth", '5'),
+                ),
+                0L,
             ),
-            0L,
+            lumioEvm,
         )
-        val matches = searchMatches("government", watchableEntries(directory, lumioEvm)) + searchMatches("bcsbgc3", watchableEntries(directory, lumioEvm))
+        val top = topList(MarketCoins(listOf(MarketCoin("fund", "Government Fund", "ustb", 85, "https://img/ustb")), 0L), index, lumioEvm)
+
+        val first = searchCandidates("government", index, top, emptyMap())
+        // The top list ranks the fund at once; the others wait for their market rows, which are read for them alone.
+        assertEquals(listOf("fund", "doge-2", "backed"), first.map { it.coinId })
+        assertEquals(listOf("doge-2", "backed"), unrankedIds(first))
+
         val markets = listOf(
             MarketCoin("doge", "Government Efficiency", "doge", 4004, null),
             MarketCoin("doge-2", "Government Efficiency", "doge", null, null),
-            MarketCoin("fund", "Government Fund", "ustb", 85, "https://img/ustb"),
-            MarketCoin("backed", "Backed Bond", "bcsbgc3", null, null),
+            MarketCoin("backed", "Backed Government Bond", "bcsbgc3", null, null),
         ).associateBy { it.id }
-
-        val rows = searchCandidates(matches, markets)
+        val rows = searchCandidates("government", index, top, markets)
 
         assertEquals(listOf("fund", "doge", "backed"), rows.map { it.coinId })
         assertEquals(listOf(MarketRank.Place(85), MarketRank.Place(4004), MarketRank.Unranked), rows.map { it.rank })
         assertEquals(listOf(0, 1, 0), rows.map { it.sameName })
+        assertEquals("https://img/ustb", rows.first().image)
     }
 
     @Test
-    fun aTokenTheRegistryDoesNotListIsNamedByTheDirectoryOnAnyOfItsNetworks() {
-        val directory = CoinDirectory(
-            listOf(
-                DirectoryCoin(
-                    "ousg",
-                    "Ondo Short-Term U.S. Government Bond Fund",
-                    "ousg",
-                    mapOf("eip155:1" to "0x1B19C19393E2D034D8FF31FF34C81252FCBBEE92", "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" to "i7u4r16TcsJTgq1kAG8opmVZyVnAKBwLKu6ZPMwzxNc"),
-                ),
-            ),
-            0L,
-        )
-        val names = "OUSG" to "Ondo Short-Term U.S. Government Bond Fund"
+    fun aSearchKeepsTheFiftyBestMatchesExactAndPrefixMatchesFirst() {
+        val many = (1..80).map { DirectoryCoin("coin-$it", "Wrapped Gold $it", "wg$it", mapOf("eip155:1" to "0x" + it.toString().padStart(40, '0'))) }
+        val exact = DirectoryCoin("gold", "Gold", "gold", mapOf("eip155:1" to "0x" + "f".repeat(40)))
+        val prefix = DirectoryCoin("goldfinch", "Goldfinch", "gfi", mapOf("eip155:1" to "0x" + "e".repeat(40)))
+        val index = CoinIndex.of(CoinDirectory(many + prefix + exact, 0L), lumioEvm)
 
-        assertEquals(names, directoryNames(directory, WatchedAsset(evm(1), "0x1b19c19393e2d034d8ff31ff34c81252fcbbee92")))
-        assertEquals(names, directoryNames(directory, WatchedAsset(sol, "i7u4r16TcsJTgq1kAG8opmVZyVnAKBwLKu6ZPMwzxNc")))
-        assertNull(directoryNames(directory, WatchedAsset(sol, "I7U4R16TCSJTGQ1KAG8OPMVZYVNAKBWLKU6ZPMWZXNC")))
-    }
+        val rows = searchCandidates("gold", index, null, emptyMap())
 
-    @Test
-    fun aResultWithNoMarketRowReadYetHasNoRankAndGoesLast() {
-        val coin = DirectoryCoin("fund", "Government Fund", "ustb", mapOf("eip155:1" to "0x" + "4".repeat(40)))
-        val other = DirectoryCoin("backed", "Backed Government Bond", "bcsbgc3", mapOf("eip155:1" to "0x" + "1".repeat(40)))
-        val matches = searchMatches("government", watchableEntries(CoinDirectory(listOf(coin, other), 0L), lumioEvm))
-
-        val rows = searchCandidates(matches, mapOf("backed" to MarketCoin("backed", "Backed Government Bond", "bcsbgc3", null, null)))
-
-        assertEquals(listOf("backed", "fund"), rows.map { it.coinId })
-        assertNull(rows.last().rank)
+        assertEquals(MAX_RESULTS, rows.size)
+        assertEquals(listOf("gold", "goldfinch"), rows.take(2).map { it.coinId })
+        assertEquals(MAX_RESULTS, unrankedIds(rows).size)
     }
 }

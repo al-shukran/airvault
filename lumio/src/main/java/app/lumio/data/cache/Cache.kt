@@ -12,6 +12,12 @@ import javax.crypto.spec.SecretKeySpec
 /** The time a [CachePolicy.ShortTtl] value stays valid by default. */
 const val DEFAULT_SHORT_TTL_MS = 60_000L
 
+/**
+ * The largest value the cache takes, in bytes. A database row is read through a cursor window of about 2 MB, and a larger row cannot be read back, so
+ * a value over this is refused before it is stored.
+ */
+const val MAX_VALUE_BYTES = 1024 * 1024
+
 /** The most stored bytes that immutable values may take before the least recently used ones are evicted. */
 const val IMMUTABLE_CAP_BYTES = 64L * 1024 * 1024
 
@@ -82,8 +88,12 @@ class Cache(
         CachePolicy.LastKnown -> getStored(LAST_KNOWN, key, touch = false)
     }
 
-    /** Stores [value] under [key] for [policy], replacing any earlier value. */
+    /**
+     * Stores [value] under [key] for [policy], replacing any earlier value.
+     * @throws IllegalArgumentException when [value] is over [MAX_VALUE_BYTES], so a row too large to read back is never written.
+     */
     suspend fun put(policy: CachePolicy, key: String, value: ByteArray) {
+        require(value.size <= MAX_VALUE_BYTES) { "A cached value is at most $MAX_VALUE_BYTES bytes; $key has ${value.size}." }
         when (policy) {
             is CachePolicy.ShortTtl -> synchronized(shortLived) {
                 shortLived[key] = CacheEntry(value.copyOf(), clock.nowMs())
@@ -93,6 +103,15 @@ class Cache(
                 evictImmutable()
             }
             CachePolicy.LastKnown -> putStored(LAST_KNOWN, key, value)
+        }
+    }
+
+    /** Deletes the value under [key] for [policy], if there is one. */
+    suspend fun delete(policy: CachePolicy, key: String) {
+        when (policy) {
+            is CachePolicy.ShortTtl -> synchronized(shortLived) { shortLived.remove(key) }
+            CachePolicy.Immutable -> dao.delete(entryName(IMMUTABLE, key))
+            CachePolicy.LastKnown -> dao.delete(entryName(LAST_KNOWN, key))
         }
     }
 

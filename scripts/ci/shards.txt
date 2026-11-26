@@ -702,5 +702,6 @@ shard-2 :lumio app.lumio.data.provider.coingecko.CoinGeckoMarketsTest
 shard-4 :lumio app.lumio.ui.search.WatchlistCandidatesTest
 shard-4 :lumio app.lumio.ui.search.WatchlistPickerGridTest
 shard-4 :lumio app.lumio.ui.search.WatchlistPickerTest
-shard-4 :lumio app.lumio.ui.home.FetchedLogoTest
 shard-4 :lumio app.lumio.CoinNamesTest
+shard-2 :lumio app.lumio.data.price.CoinImagesTest
+shard-2 :lumio app.lumio.data.cache.CacheSizeTest

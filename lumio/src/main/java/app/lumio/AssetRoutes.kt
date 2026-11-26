@@ -1,7 +1,11 @@
 package app.lumio
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -14,6 +18,9 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NamedNavArgument
@@ -60,7 +67,6 @@ import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.home.changeText
 import app.lumio.ui.home.letterOf
 import app.lumio.ui.home.tokenIcon
-import app.lumio.ui.search.directoryNames
 import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.receive.ReceiveFlowSheet
 import app.lumio.ui.receive.receiveCoinStartOf
@@ -71,6 +77,7 @@ import app.lumio.wallets.WalletAccount
 import app.lumio.watchlist.FIRST_RUN_ASSETS
 import app.lumio.watchlist.WalletWatchlist
 import app.lumio.watchlist.WatchedAsset
+import app.lumio.watchlist.WatchedLabel
 import app.lumio.watchlist.toggled
 import java.time.ZoneId
 import kotlin.math.abs
@@ -145,6 +152,14 @@ internal fun AssetRoute(
     val display = rememberDisplay(app)
     val (symbol, name) = namesOf(asset, app, board.tokenHeld.values)
     val coinIcon = coinIconOf(asset, symbol, app)
+    val logo by produceState<ImageBitmap?>(initialValue = null, asset) {
+        val contract = asset.contract
+        value = if (contract == null || coinIcon !is AssetIconSpec.Letter) {
+            null
+        } else {
+            withContext(Dispatchers.IO) { app.logos.imageOf(asset.network, contract)?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() } }
+        }
+    }
     val assetId = asset.assetId
     var range by rememberSaveable(stateSaver = FrameSaver) { mutableStateOf(ChartFrame.H1) }
     val series = rememberRangeChart(assetId, range, board.dayChartOf(assetId)) { app.prices.chart(assetId, it) }
@@ -197,7 +212,7 @@ internal fun AssetRoute(
     AssetPage(
         name = name,
         symbol = symbol,
-        icon = { AssetIcon(spec = coinIcon, size = ICON_SIZE) },
+        icon = { CoinLogo(logo = logo, spec = coinIcon) },
         priceText = price?.let { fiat.amount(it.usd) },
         change = price?.let { changeOf(it, fiat) },
         series = series,
@@ -334,23 +349,20 @@ private fun changeOf(price: Price, fiat: Fiat): PriceChange? {
 }
 
 /**
- * The symbol and the name of [asset], the same on Home, Add to Watchlist and the asset page: the market source's, from its directory, which the board
- * reads from the vault when it opens (USDC is titled "USD Coin", as the kit titles it). An asset the directory does not name takes the registry's
- * names, else the wallet's holdings', else what [coinNames] gives.
+ * The symbol and the name of [asset], the same on Home, Add to Watchlist and the asset page: the names kept with it when it was starred from Add to
+ * Watchlist, which are the market source's (see [WatchedLabel]). Else a token's come from the registry, else from the wallet's holdings of the token,
+ * else the address that [coinNames] gives.
  */
-internal fun namesOf(asset: WatchedAsset, app: LumioApp, held: Collection<List<TokenHolding>>): Pair<String, String> =
-    namesOf(asset, asset.contract?.takeIf { asset.network.isEvm }?.let { app.registry.token(Networks.evmIdOf(asset.network.chain), it) }, held) {
-        app.prices.knownDirectory()?.let { directoryNames(it, asset) }
-    }
+internal fun namesOf(asset: WatchedAsset, app: LumioApp, held: Collection<List<TokenHolding>>): Pair<String, String> = namesOf(
+    asset,
+    asset.contract?.takeIf { asset.network.isEvm }?.let { app.registry.token(Networks.evmIdOf(asset.network.chain), it) },
+    held,
+    app.lumioVault()?.wallets?.labelOf(asset),
+)
 
-/** The symbol and the name of [asset], given [sourced], the market source's, and [listed], the registry's entry for its token if it has one. */
-internal fun namesOf(
-    asset: WatchedAsset,
-    listed: TokenEntry?,
-    held: Collection<List<TokenHolding>>,
-    sourced: () -> Pair<String, String>? = { null },
-): Pair<String, String> {
-    sourced()?.let { return it }
+/** The symbol and the name of [asset], given [listed], the registry's entry for its token if it has one, and [label], the names kept with it. */
+internal fun namesOf(asset: WatchedAsset, listed: TokenEntry?, held: Collection<List<TokenHolding>>, label: WatchedLabel? = null): Pair<String, String> {
+    label?.let { return it.symbol to it.name }
     val contract = asset.contract ?: return coinNames(asset)
     listed?.let { return it.symbol to it.name }
     val token = held.asSequence().flatten().firstOrNull { it.token.contract.equals(contract, ignoreCase = true) }?.token
@@ -358,17 +370,23 @@ internal fun namesOf(
 }
 
 /**
- * The logo of [asset]: a native coin's icon, or a token's own logo when Lensly ships one, else the logo the price source has for it, which falls back
- * to the letter of its [symbol] only when no source has one.
+ * The logo of [asset]: a native coin's icon, or a token's own logo when Lensly ships one, else the image kept with it when it was starred from Add to
+ * Watchlist, else the letter of its [symbol]. It never asks a source for a watched token's logo, so a row names no contract to one.
  */
-internal fun coinIconOf(asset: WatchedAsset, symbol: String, app: LumioApp): AssetIconSpec {
+internal fun coinIconOf(asset: WatchedAsset, symbol: String, app: LumioApp): AssetIconSpec =
+    iconOf(asset, symbol, app, app.lumioVault()?.wallets?.labelOf(asset))
+
+/** The logo of [asset] as [coinIconOf] picks it, given [label], the names and image kept with it. */
+internal fun iconOf(asset: WatchedAsset, symbol: String, app: LumioApp, label: WatchedLabel?): AssetIconSpec {
     val contract = asset.contract ?: return AssetRows.nativeIcon(asset.network, symbol, app.registry::network)
-    if (!asset.network.isEvm) return AssetIconSpec.Fetched(asset.network, contract, letterOf(symbol))
-    val chainId = Networks.evmIdOf(asset.network.chain)
-    return when (val shipped = tokenIcon(app.registry.token(chainId, contract), app.registry.network(chainId), symbol)) {
-        is AssetIconSpec.Letter -> AssetIconSpec.Fetched(asset.network, contract, shipped.letter)
-        else -> shipped
+    val shipped = if (asset.network.isEvm) {
+        val chainId = Networks.evmIdOf(asset.network.chain)
+        tokenIcon(app.registry.token(chainId, contract), app.registry.network(chainId), symbol)
+    } else {
+        AssetIconSpec.Letter(letterOf(symbol))
     }
+    val image = label?.image
+    return if (shipped is AssetIconSpec.Letter && image != null) AssetIconSpec.Image(image, shipped.letter) else shipped
 }
 
 /**
@@ -376,10 +394,20 @@ internal fun coinIconOf(asset: WatchedAsset, symbol: String, app: LumioApp): Ass
  * own coin.
  */
 private fun coinSendRoute(account: WalletAccount, asset: WatchedAsset, mode: NetworkMode): String =
-    if (account.namespace == Networks.EIP155) {
+    if (account.namespace == Networks.EIP155 && asset.network.isEvm) {
         LumioRoute.send(account.walletId, account.id, Networks.evmIdOf(asset.network.chain), asset.contract)
     } else {
         sendRoute(account, mode)
     }
+
+/** The coin's logo at 48 dp: the image a source served when there is one, else the icon [spec] draws. */
+@Composable
+private fun CoinLogo(logo: ImageBitmap?, spec: AssetIconSpec) {
+    if (logo == null) {
+        AssetIcon(spec = spec, size = ICON_SIZE)
+    } else {
+        Image(bitmap = logo, contentDescription = null, modifier = Modifier.size(ICON_SIZE).clip(CircleShape))
+    }
+}
 
 private val ICON_SIZE = 48.dp
