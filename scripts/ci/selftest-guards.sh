@@ -151,6 +151,29 @@ mutate release.yml 'sed:s/^\( *\)exit 1$/\1true/'
 expect_fail "a refusal without exit 1" guard_with
 mutate release.yml 'sed:s/^\( *\)if ! git merge-base \(.*\); then$/\1echo ok # if ! git merge-base \2; then/'
 expect_fail "a refusal behind a trailing comment" guard_with
+# The refusal step may only have name, run and id, and its exit must run whenever the ancestor check fails (#1448).
+refusal='(.jobs.release.steps[] | select(.name | test("^Refuse")))'
+check='git merge-base --is-ancestor \"$GITHUB_SHA\" origin/master'
+mutate release.yml "$refusal += {\"env\": {\"GITHUB_SHA\": \"abc\"}}"
+expect_fail "a refusal with its own env" guard_with
+mutate release.yml "$refusal += {\"shell\": \"python\"}"
+expect_fail "a refusal with another shell" guard_with
+mutate release.yml "$refusal += {\"working-directory\": \"/tmp\"}"
+expect_fail "a refusal with a working-directory" guard_with
+mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  if false; then\\n    exit 1\\n  fi\\nfi\""
+expect_fail "an exit 1 nested in dead code" guard_with
+mutate release.yml "($refusal | .run) = \"if false; then\\n  if ! $check; then\\n    exit 1\\n  fi\\nfi\""
+expect_fail "a refusal inside an outer if" guard_with
+mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  false &&\\n  exit 1\\nfi\""
+expect_fail "an exit 1 after &&" guard_with
+mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  true ||\\n  exit 1\\nfi\""
+expect_fail "an exit 1 after ||" guard_with
+mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  echo ok\\nelse\\n  exit 1\\nfi\""
+expect_fail "an exit 1 in the else branch" guard_with
+mutate release.yml "($refusal | .run) = \"f() {\\n  if ! $check; then\\n    exit 1\\n  fi\\n}\""
+expect_fail "a refusal inside a function" guard_with
+mutate release.yml "$refusal += {\"id\": \"refuse\"}"
+expect_pass "a refusal with an id" guard_with
 
 # --- close-refresh-pr.sh: a stub gh whose first close fails (and records the comment first, as the old gh pr close --comment did).
 # Whether the first gh pr comment fails before posting ("drop") or after it ("lost"), the pull request ends closed with one comment.

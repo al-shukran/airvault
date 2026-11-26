@@ -33,8 +33,9 @@ expected="comment-run-\${{ github.event.issue.number }}-\${{ $gate }}"
 # (b) release.yml: in every job, a refusal step comes before the first step that reads a secret other than GITHUB_TOKEN.
 #  - A secret read is any "secrets." or "secrets[" reference, or toJSON(secrets), in the whole step as JSON (env, with, run, a shell
 #    comment in run, which Actions expands too). Job-level env, a job-level secrets: key, and workflow-level text count as before step 0.
-#  - The refusal is a step with no if and no continue-on-error whose run holds the line `if ! git merge-base --is-ancestor
-#    "$GITHUB_SHA" origin/master; then` followed by `exit 1` before its `fi`. Echoing the command or commenting it out does not count.
+#  - The refusal is a step with only the keys name, run and id (no if, env, shell, continue-on-error) whose run holds the top-level
+#    line `if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then` followed by an unconditional `exit 1` in that block
+#    (not after `&&`/`||`, in an `else`, or in a nested if). Echoing the command or commenting it out does not count.
 yq -o=json '.' "$workflows/release.yml" | python3 -I -c '
 import json
 import re
@@ -42,6 +43,7 @@ import sys
 
 doc = json.load(sys.stdin)
 SECRET = re.compile(r"(?<![\w.-])secrets\s*(?:\.\s*([\w-]+)|\[|(?=\s*[),}]))", re.I)
+OPENER = re.compile(r"(if|case|while|until|for|select)\b|.*\{$")
 COMMAND = "git merge-base --is-ancestor \"$GITHUB_SHA\" origin/master"
 errors = []
 
@@ -51,17 +53,27 @@ def reads_secret(obj):
 
 
 def refuses(step):
-    if "if" in step or "continue-on-error" in step:
+    if not set(step) <= {"name", "run", "id"}:
         return False
+    depth = 0
     armed = False
+    chained = False
     for line in str(step.get("run", "")).splitlines():
         text = line.strip()
-        if text == "if ! " + COMMAND + "; then":
+        if not text or text.startswith("#"):
+            continue
+        if depth == 0 and not chained and text == "if ! " + COMMAND + "; then":
             armed = True
-        elif armed and text == "exit 1":
+        elif armed and depth == 1 and not chained and text == "exit 1":
             return True
-        elif armed and text == "fi":
+        elif armed and text.startswith(("else", "elif")):
             armed = False
+        if OPENER.match(text):
+            depth += 1
+        elif text in ("fi", "esac", "done", "}"):
+            depth -= 1
+            armed = armed and depth > 0
+        chained = text.endswith(("\\", "&&", "||", "|"))
     return False
 
 
@@ -80,7 +92,7 @@ for name, job in doc.get("jobs", {}).items():
         errors.append("release.yml job %s refuses a tag not on master in step %d, not before the secret in step %d" % (name, refuse, secret))
     refused = refused or refuse is not None
 if not refused:
-    errors.append("release.yml has no valid step that refuses a tag not on master (no if or continue-on-error; if ! git merge-base --is-ancestor against origin/master, then exit 1)")
+    errors.append("release.yml has no valid step that refuses a tag not on master (only name, run and id keys; if ! git merge-base --is-ancestor against origin/master, then exit 1)")
 for message in errors:
     print("error: " + message, file=sys.stderr)
 sys.exit(1 if errors else 0)
