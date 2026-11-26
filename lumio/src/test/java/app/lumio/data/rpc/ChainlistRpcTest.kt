@@ -3,6 +3,8 @@ package app.lumio.data.rpc
 import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
+import app.lumio.data.provider.Broadcast
+import app.lumio.data.provider.Http
 import app.lumio.data.provider.NativeBalance
 import app.lumio.data.provider.OpKey
 import app.lumio.data.provider.ProviderError
@@ -13,6 +15,8 @@ import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
+import mockwebserver3.SocketEffect
+import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -126,5 +130,65 @@ class ChainlistRpcTest {
 
         assertTrue(failure is ProviderError.Transient)
         assertEquals(2, server.requestCount)
+    }
+
+    private fun noRetryHttp() = Http(OkHttpClient.Builder().retryOnConnectionFailure(false).callTimeout(2, java.util.concurrent.TimeUnit.SECONDS).build())
+
+    @Test
+    fun aBroadcastThatTheFirstAddressDroppedAfterTheRequestIsNotSentToTheSecond() {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.target) {
+                "/first" -> MockResponse.Builder().onResponseStart(SocketEffect.CloseSocket()).build()
+                else -> MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"already known"}}""").build()
+            }
+        }
+        server.start()
+        val net = NetworkId(Networks.evm(1), testnet = false)
+        val urls = listOf(server.url("/first").toString(), server.url("/second").toString())
+        val chainlist = ChainlistRpc(table = mapOf("1" to urls), allowLocalHttp = true)
+
+        val failure = runCatching {
+            runBlocking { chainlist.execute(Broadcast(net, byteArrayOf(2)), ProviderConfig(), noRetryHttp()) }
+        }.exceptionOrNull()
+
+        assertTrue(failure is ProviderError.Transient)
+        assertFalse((failure as ProviderError.Transient).neverSent)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun aBroadcastThatTheFirstAddressRefusedBeforeAnyByteMovesToTheSecond() {
+        val closed = MockWebServer().apply { start(); }
+        val closedUrl = closed.url("/first").toString()
+        closed.close()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse =
+                MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":"0x${"ab".repeat(32)}"}""").build()
+        }
+        server.start()
+        val net = NetworkId(Networks.evm(1), testnet = false)
+        val chainlist = ChainlistRpc(table = mapOf("1" to listOf(closedUrl, server.url("/second").toString())), allowLocalHttp = true)
+
+        val hash = runBlocking { chainlist.execute(Broadcast(net, byteArrayOf(2)), ProviderConfig(), noRetryHttp()) }
+
+        assertEquals("0x" + "ab".repeat(32), hash)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun aBroadcastThatTheFirstAddressDroppedStaysMaybeSentWhenTheSecondAddressIsClosed() {
+        val closed = MockWebServer().apply { start() }
+        val closedUrl = closed.url("/second").toString()
+        closed.close()
+        server.enqueue(MockResponse.Builder().onResponseStart(SocketEffect.CloseSocket()).build())
+        server.start()
+        val net = NetworkId(Networks.evm(1), testnet = false)
+        val chainlist = ChainlistRpc(table = mapOf("1" to listOf(server.url("/first").toString(), closedUrl)), allowLocalHttp = true)
+
+        val failure = runCatching { runBlocking { chainlist.execute(Broadcast(net, byteArrayOf(2)), ProviderConfig(), noRetryHttp()) } }.exceptionOrNull()
+
+        assertTrue(failure is ProviderError.Transient)
+        assertFalse((failure as ProviderError.Transient).neverSent)
+        assertEquals(1, server.requestCount)
     }
 }
