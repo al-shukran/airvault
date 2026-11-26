@@ -407,6 +407,7 @@ shard-6 :lumio app.lumio.send.PaymentCodeTest
 shard-6 :lumio app.lumio.tokens.TokenBalancesTest
 shard-6 :lumio app.lumio.FirstSyncLeftEarlyShowsBalancesTest
 shard-6 :lumio app.lumio.ui.firstrun.FirstRunInsetsTest
+shard-6 :lumio app.lumio.ui.home.WatchlistRowTest
 shard-6 :lumio app.lumio.ui.home.WatchlistSortSheetTest
 shard-6 :lumio app.lumio.ui.kit.ClearAirSheetBackTest
 shard-6 :lumio app.lumio.ui.kit.ClearAirSheetHeightTest
