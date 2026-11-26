@@ -25,16 +25,16 @@ permissions:
 env:
   # The Gradle user-home directories the deps cache holds. The configuration cache names the generated ones (version-catalog
   # accessors, transformed and instrumented jars, compiled build scripts) as inputs, so a restore must bring them back too.
-  # The directory names carry the Gradle version that gradle-wrapper.properties pins (9.9.2).
+  # The * stands for the Gradle version that gradle-wrapper.properties pins, so a wrapper bump needs no edit here.
   DEPS_CACHE_PATHS: |
     ~/.gradle/caches/modules-2
     ~/.gradle/wrapper/dists
-    ~/.gradle/caches/9.9.2/dependencies-accessors
-    ~/.gradle/caches/9.9.2/generated-gradle-jars
-    ~/.gradle/caches/9.9.2/kotlin-dsl
-    ~/.gradle/caches/9.9.2/scripts
-    ~/.gradle/caches/9.9.2/transforms
-    ~/.gradle/caches/jars-9
+    ~/.gradle/caches/*/dependencies-accessors
+    ~/.gradle/caches/*/generated-gradle-jars
+    ~/.gradle/caches/*/kotlin-dsl
+    ~/.gradle/caches/*/scripts
+    ~/.gradle/caches/*/transforms
+    ~/.gradle/caches/jars-*
 
 # A pull request supersedes its own earlier run. Master pushes share one group and queue, never cancel: a running push always
 # finishes, so no two runs replace a build cache at once. A push that waits behind a newer one is replaced by it, and the newer

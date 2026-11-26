@@ -44,12 +44,12 @@ jobs:
           path: |
             ~/.gradle/caches/modules-2
             ~/.gradle/wrapper/dists
-            ~/.gradle/caches/9.9.2/dependencies-accessors
-            ~/.gradle/caches/9.9.2/generated-gradle-jars
-            ~/.gradle/caches/9.9.2/kotlin-dsl
-            ~/.gradle/caches/9.9.2/scripts
-            ~/.gradle/caches/9.9.2/transforms
-            ~/.gradle/caches/jars-9
+            ~/.gradle/caches/*/dependencies-accessors
+            ~/.gradle/caches/*/generated-gradle-jars
+            ~/.gradle/caches/*/kotlin-dsl
+            ~/.gradle/caches/*/scripts
+            ~/.gradle/caches/*/transforms
+            ~/.gradle/caches/jars-*
           key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
 
       - name: Record goldens
