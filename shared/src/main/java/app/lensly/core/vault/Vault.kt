@@ -1323,8 +1323,9 @@ internal fun deviceIsEmulator(): Boolean {
  * The erase starts by writing [VaultLayout.wipeMarker], which hides the vault (see [VaultLayout.exists]). The marker goes only once no file
  * is left, so an erase that stops half way, by a file that cannot be deleted or by a process that dies, is finished by
  * [Vault.finishPendingWipe] at the next gate. A marker that cannot be written, by a full disk or a folder that is not writable, does not
- * stop the erase: the keys and every file still go, as far as they can, so the vault is never kept. Only a later gate cannot finish such an
- * erase, since nothing records it.
+ * stop the erase: the keys and every file still go, as far as they can, so the vault is never kept. [Vault.finishPendingWipe] cannot finish
+ * such an erase, since nothing records it. A file left behind is already overwritten, so it no longer verifies and the next unlock attempt
+ * erases it.
  *
  * @throws VaultException if the marker cannot be written, if some file could not be removed, or if [deleteKeys] threw.
  */
