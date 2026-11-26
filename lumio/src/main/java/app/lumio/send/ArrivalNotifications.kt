@@ -29,6 +29,9 @@ class ArrivalNotifications(private val context: Context) : ArrivalNotice {
     // Transaction id -> notification id. In memory only, and never given to the system as a tag, which any notification listener can read.
     private val notificationIds = HashMap<String, Int>()
 
+    // The next id to hand out. Seeded on first use after the ids the shade still shows, so a restarted process does not reuse one.
+    private var nextNotificationId: Int? = null
+
     /**
      * Each distinct arrival gets its own notification id, so arrivals stack; a repeat of the same [id] updates its notification. No tag is set,
      * so the notice names no transaction.
@@ -50,8 +53,19 @@ class ArrivalNotifications(private val context: Context) : ArrivalNotice {
             .setContentIntent(open)
             .setAutoCancel(true)
             .build()
-        manager.notify(synchronized(notificationIds) { notificationIds.getOrPut(id) { notificationIds.size } }, notification)
+        manager.notify(notificationId(id), notification)
     }
+
+    private fun notificationId(id: String): Int = synchronized(notificationIds) {
+        notificationIds.getOrPut(id) {
+            val next = nextNotificationId ?: (shownNotificationIds() + 1)
+            nextNotificationId = next + 1
+            next
+        }
+    }
+
+    private fun shownNotificationIds(): Int =
+        context.getSystemService(NotificationManager::class.java).activeNotifications.maxOfOrNull { it.id } ?: -1
 
     private companion object {
         // The channel keeps its ID, so an install that already has it is renamed rather than left with an old channel.
