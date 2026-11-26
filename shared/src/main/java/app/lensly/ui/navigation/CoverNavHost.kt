@@ -15,8 +15,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -130,8 +132,21 @@ fun InactivityLock(
     val lifecycleOwner = LocalLifecycleOwner.current
     val entry by navController.currentBackStackEntryAsState()
     val inHidden = entry?.destination.inHiddenGraph()
-    val enteredAt = remember(inHidden) { clock() }
-    var lastTouch by remember { mutableLongStateOf(0L) }
+    // Both times survive a rotation, which recreates the activity, so only a touch restarts the countdown. They are readings of the
+    // device's elapsed real time, which a restored state cannot move forward. For a frame after a recreation the graph is not attached
+    // and the screen reads as outside the hidden area, so the entry time is cleared only by a leave that this composition has seen.
+    var enteredAt by rememberSaveable { mutableLongStateOf(NOT_ENTERED) }
+    var lastTouch by rememberSaveable { mutableLongStateOf(0L) }
+    var sawHidden by remember { mutableStateOf(false) }
+    LaunchedEffect(inHidden) {
+        if (inHidden) {
+            sawHidden = true
+            if (enteredAt == NOT_ENTERED) enteredAt = clock()
+        } else if (sawHidden) {
+            sawHidden = false
+            enteredAt = NOT_ENTERED
+        }
+    }
     // Coming back to the foreground checks the countdown again: a process that was frozen or asleep has missed its timer.
     var resumes by remember { mutableIntStateOf(0) }
     DisposableEffect(lifecycleOwner) {
@@ -140,8 +155,8 @@ fun InactivityLock(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     val launchOpen = PickerStop.openCount > 0
-    LaunchedEffect(inHidden, lastTouch, resumes, policy, launchOpen) {
-        if (!inHidden || LockRules.idlePaused(policy, launchOpen)) return@LaunchedEffect
+    LaunchedEffect(inHidden, enteredAt, lastTouch, resumes, policy, launchOpen) {
+        if (!inHidden || enteredAt == NOT_ENTERED || LockRules.idlePaused(policy, launchOpen)) return@LaunchedEffect
         val remaining = LockRules.idleRemainingMs(policy, enteredAt, lastTouch, PickerStop.lastReturnMs, clock())
         if (remaining > 0) delay(remaining)
         leaveHidden(navController, holder)
@@ -153,6 +168,8 @@ fun InactivityLock(
         }
     }
 }
+
+private const val NOT_ENTERED = -1L
 
 /** A debug launch that asks for the hidden area opens it, unless it is already open. Each request acts once. */
 @Composable
