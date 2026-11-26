@@ -122,11 +122,15 @@ private fun sampleToken(network: NetworkId, symbol: String, name: String, amount
 
 private val SAMPLE_NOW_MS = Instant.parse("2026-11-26T15:30:00Z").toEpochMilli()
 
-/** The sample holdings with last-known prices: Bitcoin's is from 09:41 today, and USDC's on Ethereum from 25 November. */
+/**
+ * The sample holdings with last-known prices: Bitcoin's is from 09:41 today and keeps its change, USDC's on Ethereum is from 25 November, and Wrapped
+ * Ether's has no change, so its row shows the time alone.
+ */
 private fun sampleStaleHoldings(): List<PortfolioHolding> = sampleHoldings().map { holding ->
     when {
         holding.coin == "BTC" -> holding.copy(staleAsOfMs = Instant.parse("2026-11-26T09:41:00Z").toEpochMilli())
         holding.coin == "USDC" && holding.network == SampleEthereum -> holding.copy(staleAsOfMs = Instant.parse("2026-11-25T22:10:00Z").toEpochMilli())
+        holding.coin == "WETH" -> holding.copy(change24h = null, staleAsOfMs = Instant.parse("2026-11-26T11:20:00Z").toEpochMilli())
         else -> holding
     }
 }
