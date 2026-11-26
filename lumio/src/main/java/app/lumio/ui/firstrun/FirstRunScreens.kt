@@ -137,6 +137,21 @@ private fun ChapterBar(step: FirstRunStep) {
     ClearAirSegments(fractions = chapterFills(step).map { it.fraction }, thickness = 3.dp, gap = 6.dp)
 }
 
+/** The line of a text action in a first-run footer: the mock's `.ta` is 10 dp of padding and one 24 dp line, so the text sits where it draws it. */
+private val FOOTER_ACTION_LINE = 24.dp
+
+/** The gap above it: the mock's 10 dp, less the 2.3 dp that its line box seats the text lower than Compose's does, as measured against the frames. */
+private val FOOTER_ACTION_GAP = 7.7.dp
+
+/**
+ * The text action under a first-run page's capsule, as the mock draws it: 10 dp under the capsule and one 24 dp line tall. Its touch target stays 48 dp, as
+ * Compose widens the touch area of a smaller control to that size around it, so the visible text does not move for it.
+ */
+@Composable
+internal fun FirstRunTextAction(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    ClearAirTextAction(text = text, onClick = onClick, modifier = modifier.padding(top = FOOTER_ACTION_GAP).height(FOOTER_ACTION_LINE))
+}
+
 /** The AirVault mark, drawn at [size]. The first-run pages show it in place of per-step art. */
 @Composable
 private fun AirVaultMark(size: Dp) {
@@ -333,7 +348,7 @@ fun DuressScreen(onSetUp: () -> Unit, onMaybeLater: () -> Unit) {
         title = "Create Duress Password Now?",
         footer = {
             ClearAirPrimaryButton(text = "Set Up Now", onClick = onSetUp)
-            ClearAirTextAction(text = "Maybe Later", onClick = onMaybeLater, modifier = Modifier.padding(top = ClearAirSpacing.xs))
+            FirstRunTextAction(text = "Maybe Later", onClick = onMaybeLater)
         },
         art = { Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { DuressArt() } },
         spacing = PageSpacing(barTop = 15.dp, artTop = 64.dp, eyebrowTop = 37.1.dp, titleTop = 10.dp, bodyTop = 13.7.dp),
@@ -362,7 +377,7 @@ fun DeviceProtectionScreen(available: Boolean, onEnable: () -> Unit, onNotNow: (
         title = "Enable Device Protection",
         footer = {
             ClearAirPrimaryButton(text = "Enable", onClick = onEnable, enabled = available)
-            ClearAirTextAction(text = "Not Now", onClick = onNotNow, modifier = Modifier.padding(top = ClearAirSpacing.xs))
+            FirstRunTextAction(text = "Not Now", onClick = onNotNow)
         },
         art = { Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { DeviceProtectionArt() } },
         spacing = PageSpacing(artTop = 60.dp, eyebrowTop = 39.3.dp, bodyTop = 12.1.dp),

@@ -539,6 +539,7 @@ shard-8 :lumio app.lumio.tokens.TokenPortfolioMergeTest
 shard-8 :lumio app.lumio.tokens.TypedAddressLookupTest
 shard-8 :lumio app.lumio.transactions.ActivityViewTest
 shard-8 :lumio app.lumio.ui.firstrun.FirstRunStepTest
+shard-8 :lumio app.lumio.ui.firstrun.FirstRunTextActionTest
 shard-8 :lumio app.lumio.ui.portfolio.PortfolioEmptyStateTest
 shard-8 :lumio app.lumio.ui.wallets.WalletsScreenTest
 shard-8 :lumio app.lumio.wallets.WalletProgressTest
