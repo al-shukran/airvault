@@ -501,7 +501,7 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
             biometric = app.biometricUnlock,
             gateLook = ClearAirGateLook,
         ) {
-            firstRunRoutes(navController, holder, home = LumioRoute.HOME)
+            firstRunRoutes(navController, holder, draft, home = LumioRoute.HOME)
             lumioComposable(LumioRoute.WALLETS) {
                 LumioBackdrop(selection) {
                     WalletsRoute(
