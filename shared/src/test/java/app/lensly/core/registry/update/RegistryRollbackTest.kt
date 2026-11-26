@@ -29,7 +29,7 @@ class RegistryRollbackTest {
     private val keys = TestPackages.TRUSTED
     private val keystore = MemoryKeystore()
     private val baked: Registry = RegistryLoader.load { path -> File("src/main/assets", path).takeIf { it.isFile }?.readText() }
-    private val dir = folder.root.resolve("registry")
+    private val dir: File get() = folder.root.resolve("registry")
 
     private fun signedAt(sequence: Long, whitelist: String? = null): ByteArray =
         TestPackages.signed(TestPackages.payload(sequence = sequence, whitelist = whitelist))
