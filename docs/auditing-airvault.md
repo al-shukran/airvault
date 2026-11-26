@@ -298,6 +298,8 @@ Goal: find a working path from the phone (each variant in 3.2) to the mnemonic, 
 
 - [ ] Unlock with the Duress Password. Compare the decoy with the real vault field by field: try timing, the first try after a wrong try, error text, the tries-left warning (item 17), files, photo folder names, key aliases, and wallet names.
 - [ ] Compare erase behavior: the count shown, the delay after a wrong try, and when the warning appears.
+- [ ] Accepted residual tells of the decoy's erase count, so do not file them as new findings: the vault always erases at the real count, and a decoy that shows another count only moves the tries-left warning. Shown above real: the warning counts against the lower of the two, so it can come earlier than the shown count says. Shown below real: the warning runs down to the shown count and no erase follows. Erasing the real vault early to hide this is unacceptable, because it destroys data.
+- [ ] The entry gesture is one device-level setting that the camera reads while the vault is locked. A decoy change writes that one real gesture, so it differs from the real vault's only if the owner changes it from a decoy. Only the lockout (cap and shown erase count) is kept in the decoy's own record.
 - [ ] With the file system visible, list every file that differs when a decoy exists.
 
 #### Stage 7: Brute-Force Economics

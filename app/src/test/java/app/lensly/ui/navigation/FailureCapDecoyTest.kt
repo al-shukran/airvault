@@ -16,6 +16,7 @@ import app.lensly.ui.settings.FailureCapChoice
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Rule
@@ -99,26 +100,49 @@ class FailureCapDecoyTest {
     }
 
     @Test
-    fun aDecoyWarnsAgainstTheEraseCountItShowsNotTheRealOne() = runBlocking {
+    fun aDecoyShowingMoreTriesThanTheRealVaultStillWarnsBeforeTheRealErase() = runBlocking {
         holder.adopt(open(APP), holder.unlockEpoch())
         assertEquals(FailureCapOutcome.Saved, saveFailureLimits(holder, APP.toCharArray(), null, 5))
         holder.lock()
 
         holder.adopt(open(DURESS), holder.unlockEpoch())
         assertEquals(FailureCapOutcome.Saved, saveFailureLimits(holder, DURESS.toCharArray(), null, 20))
-        wrongTries(3)
+        wrongTries(4)
 
-        // 3 wrong tries against the real 5 would warn "2 left". The decoy shows 20, so it has 17 left and no warning is due.
-        assertNull(holder.triesBeforeErase())
+        // The vault erases at the real 5, so the 4th wrong try must warn "1 left" although the decoy shows 20.
+        assertEquals(1, holder.triesBeforeErase())
     }
 
     @Test
-    fun aDecoyWarnsWithItsOwnTriesLeftWhenItsShownCountIsClose() = runBlocking {
+    fun aDecoyWithTheDefaultEraseCountStillWarnsBeforeALowerRealErase() = runBlocking {
+        holder.adopt(open(APP), holder.unlockEpoch())
+        assertEquals(FailureCapOutcome.Saved, saveFailureLimits(holder, APP.toCharArray(), null, 5))
+        holder.lock()
+
+        holder.adopt(open(DURESS), holder.unlockEpoch())
+        wrongTries(4)
+
+        assertEquals(1, holder.triesBeforeErase())
+    }
+
+    @Test
+    fun aDecoyShowingFewerTriesThanTheRealVaultWarnsByTheShownCountAndDoesNotEraseAtIt() = runBlocking {
+        holder.adopt(open(APP), holder.unlockEpoch())
+        assertEquals(FailureCapOutcome.Saved, saveFailureLimits(holder, APP.toCharArray(), null, 6))
+        holder.lock()
+
         holder.adopt(open(DURESS), holder.unlockEpoch())
         assertEquals(FailureCapOutcome.Saved, saveFailureLimits(holder, DURESS.toCharArray(), null, 4))
         wrongTries(2)
-
         assertEquals(2, holder.triesBeforeErase())
+        wrongTries(1)
+        assertEquals(1, holder.triesBeforeErase())
+        wrongTries(1)
+
+        // The accepted tell: the warning ran down to the shown 4 and nothing was erased. Erasing early would destroy the real vault.
+        assertNull(holder.triesBeforeErase())
+        assertTrue(vault.exists())
+        assertEquals(6, vault.failureEraseAfter())
     }
 
     @Test

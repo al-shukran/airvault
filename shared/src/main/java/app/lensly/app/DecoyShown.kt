@@ -14,7 +14,10 @@ import java.io.IOException
  * What a decoy session shows for the wrong password lockout, which lives outside its vault and belongs to the real one. A decoy never
  * writes it and never reads it. A change made in a decoy is kept in the decoy's own vault record, so the screen shows the result a real
  * vault shows, in this session and in every later one. Before any change it shows the defaults. The tries-left warning counts the
- * session's wrong tries against the erase count shown here (see [VaultHolder.triesBeforeErase]).
+ * session's wrong tries against the lower of the erase count shown here and the real one (see [VaultHolder.triesBeforeErase]). The real
+ * vault always erases at the real count. Two tells stay and are accepted: a shown count above the real one warns before the screen
+ * says it should, and a shown count below the real one never erases when the warning reaches zero. Erasing the real vault early to hide
+ * the second would destroy data, so it is not done.
  *
  * The Hidden Entry Gesture is not kept here. The camera reads it while the vault is locked, when no decoy record can be opened, so it is
  * one device-wide setting that a decoy changes as a real vault does (see [app.lensly.ui.flow.EntryGestureChangePorts]).
@@ -22,7 +25,7 @@ import java.io.IOException
  * [VaultHolder] opens it for each new session and clears it on every lock. It holds nothing in a real session.
  *
  * The record is a version byte (2), the cap in milliseconds (a long, -1 for Default), and the erase count (an int). A missing or damaged
- * record, or one of another version, reads as no change made.
+ * record, or one of another version, or one with an erase count outside 3 to 20, reads as no change made.
  */
 class DecoyShown {
     private var session: VaultSession? = null
@@ -69,12 +72,14 @@ class DecoyShown {
         try {
             DataInputStream(ByteArrayInputStream(bytes)).use { input ->
                 if (input.readUnsignedByte() != VERSION) return
-                failureCapMs = input.readLong().takeIf { it >= 0 }
-                failureEraseAfter = input.readInt()
+                val capMs = input.readLong().takeIf { it >= 0 }
+                val eraseAfter = input.readInt()
+                if (eraseAfter !in FailureDelay.MIN_WIPE_AFTER..FailureDelay.MAX_WIPE_AFTER) return
+                failureCapMs = capMs
+                failureEraseAfter = eraseAfter
             }
         } catch (e: IOException) {
-            clear()
-            session = opened
+            // A truncated record: nothing was kept, so the defaults stand.
         }
     }
 
