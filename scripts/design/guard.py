@@ -22,8 +22,8 @@ LISTS = ("known_violations", "unregistered", "no_frame")  # entries are free to 
 RELAXING = ("masks", "exclusions")  # a screen row's lists that switch a region off: free to shrink, never to grow
 NEW_ROW_KEYS = {"frame", "theme", "test", "insetBottom"}
 RATCHET = ("findings", "regions", "extra")  # a known violation's baseline (scripts/design/check-results.py): the fields per element, the box of each region and the count of extra texts; free to shrink, never to grow
-# The gate's frames and code, and what runs it: the workflow that makes `design` and `design_guard` part of pr-ok, the lane, the check of those
-# guards and the hook that swaps the golden for the gate's render.
+# The gate's frames and code, and what runs it: the workflow that makes `design` and `design_guard` part of pr-ok, the one that re-runs the guard
+# on a label change, the lane, the check of those guards and the hook that swaps the golden for the gate's render.
 GUARDED_PATHS = (
     "design/frames/",
     "scripts/design/",
@@ -31,6 +31,7 @@ GUARDED_PATHS = (
     "lumio/src/test/java/app/lumio/ui/screenshot/LumioSnapshot.kt",
     "tools/design-frames/render.py",
     ".github/workflows/pr-fast.yml",
+    ".github/workflows/design-guard-rerun.yml",
     "scripts/ci/run-partition.sh",
     "scripts/ci/check-workflow-guards.sh",
 )

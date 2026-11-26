@@ -251,7 +251,9 @@ jobs:
     name: design gate
     needs: deps
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    # Like the shards, the cap covers a slow setup-java (2m15s in run 45901858442) plus a recompile of the Lumio tests, which the build
+    # cache cannot restore when a pull request changes them. A healthy run takes 3 minutes; lane-budget.sh still reports a lane over 300 s.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -298,7 +300,10 @@ jobs:
           if-no-files-found: warn
 
   # A pull request may not change what the design gate measures against (the frames, the tolerance, the masks, the known violations) unless it
-  # carries the label design:approved-change (scripts/design/guard.py). The labels are read when the job runs: add the label, then re-run.
+  # carries the label design:approved-change (scripts/design/guard.py). The labels are read when the job runs; design-guard-rerun.yml re-runs
+  # this job when that label is added or removed. The guard runs on pull requests only: the repository has no merge queue (the `merge_group`
+  # trigger is unused), and a push to master has no label to read, so the guard does not judge it (master requires no pull request). If a
+  # merge queue is turned on, the queue entry needs the guard with BASE_SHA = merge_group.base_sha.
   design_guard:
     name: design guard
     if: github.event_name == 'pull_request'

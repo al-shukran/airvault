@@ -1,0 +1,47 @@
+name: design-guard-rerun
+
+# The design guard (scripts/design/guard.py, job `design guard` in pr-fast.yml) reads the labels of the pull request when it runs. A label
+# change after that run leaves pr-ok on a stale result: removing design:approved-change from a green pull request would still merge. Adding
+# `labeled` and `unlabeled` to the pr-fast triggers does not fix it: the new run cancels the one in progress, and GitHub counts a failed or
+# cancelled pr-ok of an older run on the same commit, so the pull request stays blocked even after a green rerun. This workflow re-runs the
+# guard job (and pr-ok, which needs it) inside the existing pr-fast run, so the job's check is replaced, not duplicated.
+#
+# It runs for the one label the guard reads, checks out nothing and runs no pull request code. The token is read-only except
+# actions: write, which `gh run rerun` needs. A pull request from a fork gets a read-only token, so the rerun there is a manual re-run.
+on:
+  pull_request:
+    types: [labeled, unlabeled]
+    branches: [master, phase-1-5]
+
+permissions: {}
+
+# The latest label change wins: the guard job reads the labels when it starts.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  rerun:
+    name: re-run the design guard
+    if: github.event.label.name == 'design:approved-change'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      # A push starts its own pr-fast run, which reads the labels itself, so a run that does not exist yet needs nothing. A run that
+      # is still going is waited for, because a job of a running run cannot be re-run.
+      - name: Re-run the design guard of the pr-fast run of this commit
+        run: |
+          run_id=$(gh run list --workflow pr-fast.yml --event pull_request --commit "$HEAD_SHA" --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -z "$run_id" ]; then
+            echo "no pr-fast run for $HEAD_SHA yet: its guard reads the labels itself"
+            exit 0
+          fi
+          gh run watch "$run_id" --interval 15 > /dev/null || true
+          job_id=$(gh run view "$run_id" --json jobs --jq '.jobs[] | select(.name == "design guard") | .databaseId')
+          gh run rerun "$run_id" --job "$job_id"
