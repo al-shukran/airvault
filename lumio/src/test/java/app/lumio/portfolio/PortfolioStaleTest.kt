@@ -60,7 +60,7 @@ class PortfolioStaleTest {
         val row = PortfolioView.rows(listOf(holding), PortfolioFilter()).single()
 
         assertEquals(500L, row.staleAsOfMs)
-        assertEquals(1.82, row.change24h!!, 0.0)
+        assertEquals(1.82, row.change24h!!, 1e-9)
     }
 
     @Test
