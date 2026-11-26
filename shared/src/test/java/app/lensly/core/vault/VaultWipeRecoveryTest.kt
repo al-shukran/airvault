@@ -40,7 +40,25 @@ class VaultWipeRecoveryTest {
 
     @After
     fun giveBackWriteAccess() {
-        denied.forEach { it.setWritable(true) }
+        denied.forEach {
+            it.setWritable(true)
+            it.setReadable(true)
+            it.setExecutable(true)
+        }
+    }
+
+    @Test
+    fun aResetThatCannotListTheVaultFolderFailsInsteadOfReportingSuccess() {
+        createVault()
+        deny(layout.root)
+        layout.root.setReadable(false)
+        layout.root.setExecutable(false)
+        assumeFalse(layout.root.listFiles() != null)
+
+        assertFailsWith<VaultException> { vault.wipe() }
+
+        giveBack(layout.root)
+        assertNeverOpens(attempt(APP))
     }
 
     @Test
