@@ -19,10 +19,10 @@ import java.security.MessageDigest
  * - deleting the store, or the seal, leaves the newest key behind, which still names the floor, so an older package is refused;
  * - copying back a whole older store, seal included, leaves a seal whose key was deleted.
  * Every one of these reads as [Reading.Unverified]: the installed package is not used (the built-in catalog is, flagged), and an
- * install must beat the Keystore's floor, so signing is never blocked and an older package is never taken.
+ * install must reach the Keystore's floor, so signing is never blocked and an older package is never taken.
  *
- * A crash between making the new key and writing the new seal leaves a key newer than the seal, which reads as unverified until the next
- * install, as for the failure state. A Keystore that cannot list its keys also reads as unverified.
+ * A crash between making the new key and writing the new seal leaves a key newer than the seal, which reads as unverified until an
+ * install of that sequence or a higher one seals it again. A Keystore that cannot list its keys also reads as unverified.
  */
 internal object RegistrySeal {
     /** The file holding the seal, beside the installed package. */

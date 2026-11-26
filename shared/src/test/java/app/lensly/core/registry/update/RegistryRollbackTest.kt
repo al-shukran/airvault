@@ -66,8 +66,9 @@ class RegistryRollbackTest {
         dir.deleteRecursively()
 
         assertEquals(5L, assertIs<RegistryUpdateException.NotNewer>(install(signedAt(3)).exceptionOrNull()).installed)
-        assertIs<RegistryUpdateException.NotNewer>(install(signedAt(5)).exceptionOrNull())
         assertFalse(File(dir, RegistryUpdate.INSTALLED_FILE).exists())
+        assertTrue(install(signedAt(5)).isSuccess)
+        assertIs<RegistryUpdateException.NotNewer>(install(signedAt(5)).exceptionOrNull())
         assertTrue(install(signedAt(6)).isSuccess)
     }
 
