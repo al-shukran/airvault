@@ -37,14 +37,13 @@ internal sealed interface Answer {
 /**
  * A TLS server that speaks Electrum's newline-delimited JSON-RPC, for tests. [answer] decides each request's reply from its method and parameters.
  * `server.version` is answered by the fake itself, with [protocol]. [batchOrder] reorders a batch's replies before they are written.
- * [notifications] writes a notification before each reply. [closeAfterLines] closes each connection after it has answered that many lines, the
- * handshake included. [lineSizes] records how many requests each line of client traffic carried, so a test can see how batches were split.
+ * [notifications] writes a notification before each reply. [lineSizes] records how many requests each line of client traffic carried, so a test
+ * can see how batches were split. [dropConnections] closes the connections accepted so far, as a server does that goes away between two requests.
  */
 internal class FakeElectrum(
     identity: TestIdentity,
     private val protocol: String = "1.4",
     private val notifications: Boolean = false,
-    private val closeAfterLines: Int? = null,
     private val batchOrder: (List<JsonObject>) -> List<JsonObject> = { it },
     private val answer: (method: String, params: JsonArray) -> Answer,
 ) : AutoCloseable {
@@ -79,7 +78,6 @@ internal class FakeElectrum(
                 socket.startHandshake()
                 val input = BufferedReader(InputStreamReader(socket.inputStream, Charsets.UTF_8))
                 val output = BufferedWriter(OutputStreamWriter(socket.outputStream, Charsets.UTF_8))
-                var lines = 0
                 while (true) {
                     val line = input.readLine() ?: break
                     val message = Json.parseToJsonElement(line)
@@ -111,8 +109,6 @@ internal class FakeElectrum(
                         output.write(out.toString() + "\n")
                     }
                     output.flush()
-                    lines++
-                    if (lines == closeAfterLines) break
                 }
             } catch (e: Exception) {
                 // The client went away or refused the certificate. Either way this connection is over.
@@ -133,10 +129,16 @@ internal class FakeElectrum(
         }
     }
 
+    /** Closes every connection accepted so far. The listener stays open, so a client that connects again is served. */
+    fun dropConnections() {
+        accepted.forEach { runCatching { it.close() } }
+        accepted.clear()
+    }
+
     /** Closes the listener and every connection it accepted, so no client is left reading from a server that is gone. */
     override fun close() {
         server.close()
-        accepted.forEach { runCatching { it.close() } }
+        dropConnections()
         threads.shutdownNow()
     }
 
