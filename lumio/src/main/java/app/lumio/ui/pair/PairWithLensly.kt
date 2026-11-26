@@ -21,16 +21,16 @@ import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.ui.firstrun.FirstRunPage
 import app.lumio.ui.firstrun.FirstRunStep
+import app.lumio.ui.firstrun.FirstRunTextAction
 import app.lumio.ui.firstrun.NumberedStep
 import app.lumio.ui.firstrun.PageSmall
 import app.lumio.ui.firstrun.PageSpacing
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirPageTopBar
 import app.lumio.ui.kit.ClearAirPrimaryButton
-import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.NoteCard
 import app.lumio.ui.scan.CameraDeniedNote
-import app.lumio.ui.scan.ScanViewfinder
+import app.lumio.ui.scan.SegmentedViewfinder
 
 /** The Camera Denied words on Pair, which reads Lensly's code. */
 const val PAIR_CAMERA_DENIED_TEXT = "Lumio needs the camera to read Lensly's code. Nothing is recorded."
@@ -81,7 +81,7 @@ fun PairWithLensly(
         if (denied) {
             CameraDeniedNote(onOpenSettings = null, text = PAIR_CAMERA_DENIED_TEXT, modifier = Modifier.fillMaxWidth().height(CAMERA_FRAME_HEIGHT))
         } else {
-            ScanViewfinder(progress = progress, complete = complete, caption = status, viewport = viewport)
+            SegmentedViewfinder(progress = progress, complete = complete, caption = status, viewport = viewport)
             Spacer(Modifier.height(12.dp))
             Text(text = PAIR_PUBLIC_ONLY, style = PageSmall, color = LocalClearAirPalette.current.ink2)
         }
@@ -92,10 +92,10 @@ fun PairWithLensly(
     }
     val footer: @Composable () -> Unit = {
         if (denied) ClearAirPrimaryButton(text = "Open Settings", onClick = onOpenSettings)
-        ClearAirTextAction(
+        FirstRunTextAction(
             text = "Where Is Pair on Lensly?",
             onClick = { help = !help },
-            modifier = Modifier.padding(top = if (denied) ClearAirSpacing.xs else 0.dp, bottom = if (denied) 0.dp else 6.dp),
+            modifier = if (denied) Modifier else Modifier.padding(bottom = 6.dp),
         )
     }
     when (chrome) {

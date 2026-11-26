@@ -46,8 +46,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.PathMeasure
@@ -272,11 +270,22 @@ fun LumioScanFrame(
 
 /**
  * The viewfinder of a scan, [SCAN_FRAME_HEIGHT] tall: the camera in [viewport], the corner brackets, the ring and the check. A tick sounds for each new
- * part of [progress], and the success haptic when the code is [complete]. A [caption] is drawn in the camera, near its foot, as the mock's pairing
- * frame draws its status, over a soft shade so it reads on any picture.
+ * part of [progress], and the success haptic when the code is [complete].
  */
 @Composable
-fun ScanViewfinder(progress: Float?, complete: Boolean, modifier: Modifier = Modifier, caption: String? = null, viewport: @Composable (Modifier) -> Unit) {
+fun ScanViewfinder(progress: Float?, complete: Boolean, modifier: Modifier = Modifier, viewport: @Composable (Modifier) -> Unit) {
+    ScanFeedback(progress = progress, complete = complete)
+    Box(modifier = modifier.fillMaxWidth().height(SCAN_FRAME_HEIGHT)) {
+        viewport(Modifier.fillMaxSize().padding(RING_GAP).clip(RoundedCornerShape(VIEWFINDER_RADIUS)))
+        ViewfinderCorners(modifier = Modifier.fillMaxSize().padding(RING_GAP))
+        PerimeterRing(fraction = if (complete) 1f else progress ?: 0f, modifier = Modifier.fillMaxSize())
+        CheckMark(visible = complete, modifier = Modifier.align(Alignment.Center))
+    }
+}
+
+/** The tick for each new part of [progress] and the success haptic for a [complete] code, shared by the viewfinders. */
+@Composable
+internal fun ScanFeedback(progress: Float?, complete: Boolean) {
     val haptics = rememberLumioHaptics()
     var lastTickMs by remember { mutableLongStateOf(0L) }
     LaunchedEffect(progress) {
@@ -291,37 +300,10 @@ fun ScanViewfinder(progress: Float?, complete: Boolean, modifier: Modifier = Mod
     LaunchedEffect(complete) {
         if (complete) haptics.success()
     }
-    Box(modifier = modifier.fillMaxWidth().height(SCAN_FRAME_HEIGHT)) {
-        viewport(Modifier.fillMaxSize().padding(RING_GAP).clip(RoundedCornerShape(VIEWFINDER_RADIUS)))
-        if (caption != null) ViewfinderCaption(text = caption, modifier = Modifier.align(Alignment.BottomCenter).padding(RING_GAP))
-        ViewfinderCorners(modifier = Modifier.fillMaxSize().padding(RING_GAP))
-        PerimeterRing(fraction = if (complete) 1f else progress ?: 0f, modifier = Modifier.fillMaxSize())
-        CheckMark(visible = complete, modifier = Modifier.align(Alignment.Center))
-    }
 }
 
-/** The status in the camera: the mock's 12 sp mono line in paper, 30 dp from the foot of the frame, over a shade that fades up from the foot. */
-@Composable
-private fun ViewfinderCaption(text: String, modifier: Modifier) {
-    val palette = LocalClearAirPalette.current
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(bottomStart = VIEWFINDER_RADIUS, bottomEnd = VIEWFINDER_RADIUS))
-            .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = CAPTION_SHADE))))
-            .padding(start = CAPTION_SIDE, end = CAPTION_SIDE, top = CAPTION_SHADE_TOP, bottom = CAPTION_BOTTOM),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text = text, style = ClearAirType.time, color = palette.paper.copy(alpha = CAPTION_ALPHA), textAlign = TextAlign.Center)
-    }
-}
-
-/** The caption's side inset, the shade above it, its distance from the foot of the frame, and its opacity and the shade's. */
-private val CAPTION_SIDE = 24.dp
-private val CAPTION_SHADE_TOP = 40.dp
-private val CAPTION_BOTTOM = 30.dp
-private const val CAPTION_ALPHA = 0.85f
-private const val CAPTION_SHADE = 0.55f
+/** The height of a viewfinder: the frame of the scan, whichever art it wears. */
+internal val ViewfinderHeight get() = SCAN_FRAME_HEIGHT
 
 /**
  * The ring that hugs the viewfinder: a faint track all the way round, and the arc of the code that has been read. The arc springs to each new part
@@ -408,7 +390,7 @@ private fun ViewfinderCorners(modifier: Modifier) {
 
 /** The check that closes a completed code. It pops in on the bouncy spring, and fades when the screen leaves. */
 @Composable
-private fun BoxScope.CheckMark(visible: Boolean, modifier: Modifier) {
+internal fun BoxScope.CheckMark(visible: Boolean, modifier: Modifier) {
     AnimatedVisibility(
         visible = visible,
         modifier = modifier,
