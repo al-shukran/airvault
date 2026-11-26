@@ -8,7 +8,9 @@ import app.lumio.data.provider.EvmReceipt
 import app.lumio.data.provider.SolanaStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -93,6 +95,7 @@ class SendArrivals(
             landing.value = answer
             when (answer) {
                 Landing.LANDED -> {
+                    currentCoroutineContext().ensureActive()
                     if (notify && !foreground() && notice.canPost()) notice.post(id)
                     return
                 }

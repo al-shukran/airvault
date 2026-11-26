@@ -53,6 +53,7 @@ import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
 import app.lumio.send.ArrivalWatch
 import app.lumio.send.BtcPaymentCode
+import app.lumio.send.Landing
 import app.lumio.send.SubmitFailure
 import app.lumio.send.SubmitMachine
 import app.lumio.send.SubmitState
@@ -561,7 +562,14 @@ internal fun BtcSendRoute(
                         arrivals = arrivals,
                         network = current.plan.network.networkId(),
                         arrivedHeadline = "Your BTC Has Arrived",
-                        read = { txid -> bitcoinLanding(app.scheduler.run(Tx(current.plan.network.networkId(), txid), Priority.BACKGROUND)) },
+                        // The scheduler is the app's, so the read goes through only while the vault that started this watch is still the open one.
+                        read = { txid ->
+                            if (vault == null || app.lumioVault() !== vault) {
+                                Landing.PENDING
+                            } else {
+                                bitcoinLanding(app.scheduler.run(Tx(current.plan.network.networkId(), txid), Priority.BACKGROUND))
+                            }
+                        },
                     )
                 },
                 explorerUrl = { txid -> BtcPortfolio.explorerTxUrl(current.plan.network, txid) },
