@@ -195,6 +195,7 @@ shard-3 :app app.lensly.ui.sign.ReviewNamesTest
 shard-3 :lumio app.lumio.LumioBarIconsTest
 shard-3 :lumio app.lumio.LumioNavGraphTest
 shard-3 :lumio app.lumio.PasswordChangeTest
+shard-3 :lumio app.lumio.DuressPasswordTest
 shard-3 :lumio app.lumio.SideReadTest
 shard-3 :lumio app.lumio.btc.BtcReadStepTest
 shard-3 :lumio app.lumio.btc.BtcSendNetworkTest
@@ -208,6 +209,7 @@ shard-3 :lumio app.lumio.evm.EvmCatalogTest
 shard-3 :lumio app.lumio.pair.FirstSyncImportsTest
 shard-3 :lumio app.lumio.pair.OwnAccountsTest
 shard-3 :lumio app.lumio.tokens.DefaultTokenListTest
+shard-3 :lumio app.lumio.ui.firstrun.DuressScreenTest
 shard-3 :lumio app.lumio.ui.firstrun.NewPasswordTest
 shard-3 :lumio app.lumio.ui.send.ClockOfTest
 shard-3 :lumio app.lumio.ui.send.SendLastChancePageTest

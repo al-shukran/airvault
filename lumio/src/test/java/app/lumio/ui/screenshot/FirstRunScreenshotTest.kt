@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lumio.ui.firstrun.DeviceProtectionScreen
 import app.lumio.ui.firstrun.DuressScreen
+import app.lumio.ui.firstrun.FirstRunPasswordCopy
 import app.lumio.ui.firstrun.FirstRunPasswordScreen
 import app.lumio.ui.firstrun.KeysScreen
 import app.lumio.ui.firstrun.NeverShareScreen
@@ -71,7 +72,23 @@ class FirstRunScreenshotTest {
     }
 
     @Test
-    fun duress() = compose.lumioSnapshot("first_run_duress") { DuressScreen(onMaybeLater = {}) }
+    fun duress() = compose.lumioSnapshot("first_run_duress") { DuressScreen(onSetUp = {}, onMaybeLater = {}) }
+
+    @Test
+    fun duressPassword() = compose.lumioSnapshot("first_run_duress_password") {
+        PasswordScreen(password = "", repeat = "", problem = null, copy = FirstRunPasswordCopy.Duress)
+    }
+
+    @Test
+    @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
+    fun duressPasswordSameAsLumioLight() = compose.lumioSnapshot("first_run_duress_password_same_light") {
+        PasswordScreen(
+            password = "Gh5%Rt8!Yu2#Pk6@Ws3Fn",
+            repeat = "Gh5%Rt8!Yu2#Pk6@Ws3Fn",
+            problem = NewPasswordProblem.SameAsLumio,
+            copy = FirstRunPasswordCopy.Duress,
+        )
+    }
 
     @Test
     fun deviceProtection() = compose.lumioSnapshot("first_run_device_protection") {
@@ -90,7 +107,12 @@ class FirstRunScreenshotTest {
     }
 
     @Composable
-    private fun PasswordScreen(password: String, repeat: String, problem: NewPasswordProblem?) {
+    private fun PasswordScreen(
+        password: String,
+        repeat: String,
+        problem: NewPasswordProblem?,
+        copy: FirstRunPasswordCopy = FirstRunPasswordCopy.Create,
+    ) {
         FirstRunPasswordScreen(
             password = password,
             repeat = repeat,
@@ -101,6 +123,7 @@ class FirstRunScreenshotTest {
             onRepeat = {},
             onToggleShown = {},
             onNext = {},
+            copy = copy,
         )
     }
 }

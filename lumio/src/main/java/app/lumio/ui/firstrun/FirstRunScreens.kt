@@ -321,17 +321,20 @@ private fun PrepareStep(number: Int, text: String) {
 }
 
 /**
- * Step I8: the duress question. Only "Maybe Later" is offered: Lumio has no duress password flow yet, so the mock's "Set Up Now" capsule and the
- * line about Settings → Security, which has no duress row, are not shown. They come with the flow (#732).
+ * Step I8: the duress question. Set Up Now opens the Duress Password page, and Maybe Later goes on to I9, leaving the Duress Password for the
+ * Finish Setting Up checklist and Settings → Security, which the line under the question names.
  */
 @Composable
-fun DuressScreen(onMaybeLater: () -> Unit) {
+fun DuressScreen(onSetUp: () -> Unit, onMaybeLater: () -> Unit) {
     val palette = LocalClearAirPalette.current
     FirstRunPage(
         step = FirstRunStep.Duress,
         eyebrow = "Protect · 2 of 3",
         title = "Create Duress Password Now?",
-        footer = { ClearAirTextAction(text = "Maybe Later", onClick = onMaybeLater) },
+        footer = {
+            ClearAirPrimaryButton(text = "Set Up Now", onClick = onSetUp)
+            ClearAirTextAction(text = "Maybe Later", onClick = onMaybeLater, modifier = Modifier.padding(top = ClearAirSpacing.xs))
+        },
         art = { Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { DuressArt() } },
         spacing = PageSpacing(barTop = 15.dp, artTop = 64.dp, eyebrowTop = 37.1.dp, titleTop = 10.dp, bodyTop = 13.7.dp),
     ) {
@@ -340,6 +343,8 @@ fun DuressScreen(onMaybeLater: () -> Unit) {
             style = ClearAirType.body,
             color = palette.ink2,
         )
+        Spacer(Modifier.height(6.dp))
+        Text(text = "You can set it up later in Settings → Security.", style = PageSmall, color = palette.ink2)
     }
 }
 

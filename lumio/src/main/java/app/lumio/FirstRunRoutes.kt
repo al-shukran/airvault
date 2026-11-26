@@ -25,6 +25,7 @@ import app.lensly.ui.theme.LumenTheme
 import app.lumio.ui.firstrun.DeviceProtectionScreen
 import app.lumio.ui.firstrun.DuressScreen
 import app.lumio.ui.firstrun.FirstRunIntro
+import app.lumio.ui.firstrun.FirstRunPasswordCopy
 import app.lumio.ui.firstrun.FirstRunPasswordScreen
 import app.lumio.ui.firstrun.FirstRunStep
 import app.lumio.ui.firstrun.NewPasswordProblem
@@ -110,12 +111,63 @@ internal fun NavGraphBuilder.firstRunRoutes(navController: NavHostController, ho
     }
     firstRunScreen(FirstRunStep.Duress) {
         BackHandler { leaveHidden(navController, holder) }
-        DuressScreen(onMaybeLater = { navController.navigate(FirstRunStep.DeviceProtection.route) })
+        DuressScreen(
+            onSetUp = { navController.navigate(FirstRunStep.DuressPassword.route) },
+            onMaybeLater = { navController.navigate(FirstRunStep.DeviceProtection.route) },
+        )
     }
+    firstRunScreen(FirstRunStep.DuressPassword) { DuressPasswordStep(navController, holder) }
     firstRunScreen(FirstRunStep.DeviceProtection) {
         BackHandler { leaveHidden(navController, holder) }
         DeviceProtectionStep(holder = holder, onDone = { navController.openHidden(home) })
     }
+}
+
+/**
+ * The Duress Password page that Set Up Now opens. The owner has just made the App Password, so the page asks for no current password. A password
+ * that is set goes on to I9, and Back returns to the question. A password that opens the real vault stays on the page with its words.
+ */
+@Composable
+private fun DuressPasswordStep(navController: NavHostController, holder: VaultHolder) {
+    val scope = rememberCoroutineScope()
+    var password by remember { mutableStateOf("") }
+    var repeat by remember { mutableStateOf("") }
+    var shown by remember { mutableStateOf(false) }
+    var problem by remember { mutableStateOf<NewPasswordProblem?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    // Leaving while the set runs would leave the owner not knowing whether the password took.
+    BackHandler(enabled = busy) {}
+    FirstRunPasswordScreen(
+        password = password,
+        repeat = repeat,
+        shown = shown,
+        problem = problem,
+        busy = busy,
+        onPassword = {
+            password = it
+            problem = null
+        },
+        onRepeat = {
+            repeat = it
+            problem = null
+        },
+        onToggleShown = { shown = !shown },
+        copy = FirstRunPasswordCopy.Duress,
+        onNext = submit@{
+            if (busy) return@submit
+            busy = true
+            scope.launch {
+                val outcome = setLumioDuressPassword(holder, current = null, password = password, repeat = repeat)
+                busy = false
+                when (outcome) {
+                    PasswordChange.Changed -> navController.navigate(FirstRunStep.DeviceProtection.route)
+                    is PasswordChange.NewPassword -> problem = outcome.problem
+                    PasswordChange.Locked -> navController.openHidden(GateRoutes.GATE)
+                    else -> navController.openHidden(GateRoutes.UNAVAILABLE)
+                }
+            }
+        },
+    )
 }
 
 /**

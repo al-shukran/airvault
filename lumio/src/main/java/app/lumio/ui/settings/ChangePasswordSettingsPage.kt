@@ -28,11 +28,37 @@ import app.lumio.ui.kit.ClearAirField
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import kotlinx.coroutines.launch
 
+/** The words of the three-field password page: Change Password is the App Password's change, and Duress Password sets the second password. */
+data class PasswordFormCopy(
+    val title: String,
+    val newLabel: String,
+    val repeatLabel: String,
+    val button: String,
+    val intro: String? = null,
+) {
+    companion object {
+        val Change = PasswordFormCopy(
+            title = "Change Password",
+            newLabel = "New Password",
+            repeatLabel = "Repeat New Password",
+            button = "Change Password",
+        )
+        val Duress = PasswordFormCopy(
+            title = "Duress Password",
+            newLabel = "Duress Password",
+            repeatLabel = "Repeat Duress Password",
+            button = "Set Duress Password",
+            intro = "It opens an empty Lumio if you're forced to unlock. It must differ from your Lumio password.",
+        )
+    }
+}
+
 /**
  * Change Password, the App Password's change in Settings → Security: the current password, then the new one and its repeat. The capsule stays off
  * until all three fields are filled, and a hint under the fields says so. A problem shows on the field it belongs to, in the gate's words, and a
  * wrong current password never says how close a lockout is. [onSubmit] runs the change, [onChanged] leaves the page once it is made, and
- * [onLocked] and [onUnavailable] take the owner to the gate's answer for a vault that cannot be used.
+ * [onLocked] and [onUnavailable] take the owner to the gate's answer for a vault that cannot be used. [copy] turns the page into the Duress Password's
+ * set, which asks for the current password in the same way.
  */
 @Composable
 fun ChangePasswordSettingsPage(
@@ -43,6 +69,7 @@ fun ChangePasswordSettingsPage(
     onUnavailable: () -> Unit,
     onBack: () -> Unit,
     onLock: () -> Unit,
+    copy: PasswordFormCopy = PasswordFormCopy.Change,
 ) {
     val palette = LocalClearAirPalette.current
     val scope = rememberCoroutineScope()
@@ -86,8 +113,12 @@ fun ChangePasswordSettingsPage(
         ClearAirEyeToggle(shown = shown, onToggle = { shown = !shown })
     }
 
-    SettingsFrame(title = "Change Password", offline = offline, onBack = onBack, onLock = onLock) {
+    SettingsFrame(title = copy.title, offline = offline, onBack = onBack, onLock = onLock) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter)) {
+            copy.intro?.let {
+                Text(text = it, style = ClearAirType.body, color = palette.ink2)
+                Spacer(Modifier.height(ClearAirSpacing.lg))
+            }
             ClearAirField(
                 label = "Current Password",
                 value = current,
@@ -102,7 +133,7 @@ fun ChangePasswordSettingsPage(
             )
             Spacer(Modifier.height(ClearAirSpacing.lg))
             ClearAirField(
-                label = "New Password",
+                label = copy.newLabel,
                 value = password,
                 onValueChange = {
                     password = it
@@ -116,7 +147,7 @@ fun ChangePasswordSettingsPage(
             )
             Spacer(Modifier.height(ClearAirSpacing.lg))
             ClearAirField(
-                label = "Repeat New Password",
+                label = copy.repeatLabel,
                 value = repeat,
                 onValueChange = {
                     repeat = it
@@ -134,7 +165,7 @@ fun ChangePasswordSettingsPage(
                 Spacer(Modifier.height(ClearAirSpacing.xs))
             }
             ClearAirPrimaryButton(
-                text = "Change Password",
+                text = copy.button,
                 onClick = { submit() },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = filled && !busy,

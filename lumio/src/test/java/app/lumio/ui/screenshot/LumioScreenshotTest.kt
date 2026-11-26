@@ -297,6 +297,25 @@ class LumioScreenshotTest {
             biometric = BiometricSwitch(on = true, canEnable = true),
             onEntryGesture = {},
             onChangePassword = {},
+            duressSet = false,
+            onDuress = {},
+            onBiometric = {},
+            checkPassword = { PasswordCheck.Accepted },
+            onAutoLock = {},
+            offline = null, onLock = {}, onBack = {},
+        )
+    }
+
+    /** The Security page once the Duress Password is set: its row reads "Set" in ink, where it reads "Not Set" in the spark's text colour before. */
+    @Test
+    fun settingsSecurityDuressSet() = compose.lumioSnapshot("settings_security_duress_set") {
+        SecuritySettingsPage(
+            lock = LockSettings(AutoLock.AFTER_ONE_MINUTE),
+            biometric = BiometricSwitch(on = true, canEnable = true),
+            onEntryGesture = {},
+            onChangePassword = {},
+            duressSet = true,
+            onDuress = {},
             onBiometric = {},
             checkPassword = { PasswordCheck.Accepted },
             onAutoLock = {},
@@ -311,6 +330,8 @@ class LumioScreenshotTest {
             biometric = BiometricSwitch(on = true, canEnable = true),
             onEntryGesture = {},
             onChangePassword = {},
+            duressSet = false,
+            onDuress = {},
             onBiometric = {},
             checkPassword = { PasswordCheck.Accepted },
             onAutoLock = {},
@@ -326,6 +347,8 @@ class LumioScreenshotTest {
             biometric = BiometricSwitch(on = true, canEnable = true),
             onEntryGesture = {},
             onChangePassword = {},
+            duressSet = false,
+            onDuress = {},
             onBiometric = {},
             checkPassword = { PasswordCheck.Accepted },
             onAutoLock = {},

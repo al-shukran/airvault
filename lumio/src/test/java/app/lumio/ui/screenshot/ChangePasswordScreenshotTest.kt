@@ -7,7 +7,9 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import app.lumio.PasswordChange
+import app.lumio.ui.firstrun.NewPasswordProblem
 import app.lumio.ui.settings.ChangePasswordSettingsPage
+import app.lumio.ui.settings.PasswordFormCopy
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -47,6 +49,46 @@ class ChangePasswordScreenshotTest {
             onUnavailable = {},
             onBack = {},
             onLock = {},
+        )
+    }
+
+    /** The Duress Password set that Security opens: its words, and the same three fields as Change Password. */
+    @Test
+    fun settingsDuressPassword() = compose.lumioSnapshot("settings_duress_password") {
+        ChangePasswordSettingsPage(
+            offline = null,
+            onSubmit = { _, _, _ -> PasswordChange.Changed },
+            onChanged = {},
+            onLocked = {},
+            onUnavailable = {},
+            onBack = {},
+            onLock = {},
+            copy = PasswordFormCopy.Duress,
+        )
+    }
+
+    /** A duress password that opens the real vault is refused on its own field. */
+    @Test
+    fun settingsDuressPasswordSameAsLumio() = compose.lumioSnapshot(
+        "settings_duress_password_same_as_lumio",
+        beforeCapture = {
+            mainClock.autoAdvance = true
+            val fields = onAllNodes(hasSetTextAction())
+            fields[0].performTextInput(NEW_PASSWORD)
+            fields[1].performTextInput(NEW_PASSWORD)
+            fields[2].performTextInput(NEW_PASSWORD)
+            onNode(hasText("Set Duress Password") and hasClickAction()).performClick()
+        },
+    ) {
+        ChangePasswordSettingsPage(
+            offline = null,
+            onSubmit = { _, _, _ -> PasswordChange.NewPassword(NewPasswordProblem.SameAsLumio) },
+            onChanged = {},
+            onLocked = {},
+            onUnavailable = {},
+            onBack = {},
+            onLock = {},
+            copy = PasswordFormCopy.Duress,
         )
     }
 }
