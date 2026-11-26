@@ -122,7 +122,7 @@ internal fun AssetPage(
     val palette = LocalClearAirPalette.current
     val senders = accounts.filter { it.onSend != null }
     // The frame's text action has 6 dp at each side.
-    val textActionModifier = Modifier.padding(horizontal = TEXT_ACTION_PAD)
+    val textActionModifier = Modifier.padding(horizontal = TEXT_ACTION_PAD).offset(y = -TEXT_ACTION_LIFT)
     var picker by remember { mutableStateOf<CoinPicker?>(null) }
     // The picker sheets are composed on the first open, not on the page's first frame. A tap composes them hidden, then the picker opens a frame
     // later, so the sheet still slides in.
@@ -458,6 +458,9 @@ private val ACTIONS_TOP = 6.dp
 private val ACTIONS_PAD = 6.dp
 private val ACTIONS_GAP = 18.dp
 private val TEXT_ACTION_PAD = 6.dp
+
+/** The frame sets the text action's label 1 dp above the capsule's centre line, where a centred action would put it on it. */
+private val TEXT_ACTION_LIFT = 1.dp
 private val SECTION_TOP = 18.dp
 private val ALL_STYLE = ClearAirType.rowTitle.copy(fontSize = 13.sp, lineHeight = 21.sp).inLineBox()
 private val CAPSULE_STYLE = ClearAirType.button.copy(lineHeight = 21.sp).inLineBox()

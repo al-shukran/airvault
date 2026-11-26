@@ -211,6 +211,16 @@ class AssetFrameTest {
     }
 
     @Test
+    fun theReceiveActionSitsOneDpAboveTheCapsulesCentreLine() {
+        show()
+
+        val send = compose.onNode(hasText("Send ETH")).fetchSemanticsNode().boundsInRoot
+        val receive = boundsOf("Receive")
+        val lift = ((send.top + send.bottom) - (receive.top + receive.bottom)) / 2f / 3f
+        assertEquals(1f, lift, 0.3f, "Receive is $lift dp above the capsule's centre")
+    }
+
+    @Test
     fun theAllActionKeepsItsTouchTargetAndTheFramesLine() {
         show()
 
