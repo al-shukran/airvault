@@ -53,7 +53,7 @@ internal fun FailureCapRoute(navController: NavHostController, holder: VaultHold
         savedErase = readEraseAfter(holder)
     }
     // The tries left are read each time the App Password is asked, so the warning counts the wrong tries just made.
-    LaunchedEffect(awaitingPassword) { if (awaitingPassword) triesLeft = holder.vault.triesBeforeErase() }
+    LaunchedEffect(awaitingPassword) { if (awaitingPassword) triesLeft = holder.triesBeforeErase() }
     DisposableEffect(Unit) {
         onDispose { password.clear() }
     }

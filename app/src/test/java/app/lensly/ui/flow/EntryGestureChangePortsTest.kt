@@ -75,58 +75,31 @@ class EntryGestureChangePortsTest {
     }
 
     @Test
-    fun aDecoySessionShowsTheSaveAsDoneButWritesNothing() {
-        // The real vault saves a gesture first, so there is a real value to protect.
-        holder.adopt(open(APP), holder.unlockEpoch())
-        assertTrue(runBlocking { ports.save(EntryGesture.THUMBNAIL_HOLD_SWIPE) })
-        holder.lock()
-
+    fun aGestureChangedInADecoyIsTheOneTheCameraTakes() {
         holder.adopt(open(DURESS), holder.unlockEpoch())
+
         assertTrue(runBlocking { ports.save(EntryGesture.SWITCH_THEN_SHUTTER_HOLD) })
 
-        assertEquals(EntryGesture.THUMBNAIL_HOLD_SWIPE, store.load())
-        assertEquals(EntryGesture.THUMBNAIL_HOLD_SWIPE, gestures.current)
+        // The camera reads the stored gesture while the vault is locked, so the decoy's change must reach it.
+        assertEquals(EntryGesture.SWITCH_THEN_SHUTTER_HOLD, store.load())
+        assertEquals(EntryGesture.SWITCH_THEN_SHUTTER_HOLD, EntryGestureHolder(store).current)
+        assertEquals(EntryGesture.SWITCH_THEN_SHUTTER_HOLD, gestures.current)
     }
 
     @Test
-    fun aDecoyListMarksTheChosenGestureAsCurrentLikeTheRealVaultDoes() {
-        val chosen = EntryGesture.SWITCH_THEN_SHUTTER_HOLD
+    fun aDecoyChangeLeavesTheSameGestureAsARealVaultsChange() {
         holder.adopt(open(APP), holder.unlockEpoch())
-        assertTrue(runBlocking { ports.save(chosen) })
-        val markedInRealVault = holder.decoyShown.entryGesture(gestures.current)
-        holder.lock()
+        assertTrue(runBlocking { ports.save(EntryGesture.PINCH_TRIPLE_TAP) })
+        val afterRealChange = store.load()
         store.reset()
         gestures = EntryGestureHolder(store)
         ports = EntryGestureChangePorts(holder, gestures)
-
-        holder.adopt(open(DURESS), holder.unlockEpoch())
-        assertTrue(runBlocking { ports.save(chosen) })
-
-        assertEquals(markedInRealVault, holder.decoyShown.entryGesture(gestures.current))
-        assertEquals(EntryGesture.DEFAULT, store.load())
-    }
-
-    @Test
-    fun aDecoysChoiceStaysForItsNextSessionAsARealVaultsDoes() {
-        holder.adopt(open(DURESS), holder.unlockEpoch())
-        assertTrue(runBlocking { ports.save(EntryGesture.PINCH_TRIPLE_TAP) })
         holder.lock()
 
-        assertEquals(gestures.current, holder.decoyShown.entryGesture(gestures.current))
-        holder.adopt(open(DURESS), holder.unlockEpoch())
-        assertEquals(EntryGesture.PINCH_TRIPLE_TAP, holder.decoyShown.entryGesture(gestures.current))
-        assertEquals(EntryGesture.DEFAULT, store.load())
-    }
-
-    @Test
-    fun aDecoysChoiceNeverShowsInTheRealVault() {
         holder.adopt(open(DURESS), holder.unlockEpoch())
         assertTrue(runBlocking { ports.save(EntryGesture.PINCH_TRIPLE_TAP) })
-        holder.lock()
 
-        holder.adopt(open(APP), holder.unlockEpoch())
-
-        assertEquals(gestures.current, holder.decoyShown.entryGesture(gestures.current))
+        assertEquals(afterRealChange, store.load())
     }
 
     private fun open(password: String): VaultSession = runBlocking {

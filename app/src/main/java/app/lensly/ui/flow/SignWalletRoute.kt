@@ -167,7 +167,7 @@ private fun ConfirmPasswordRoute(busy: Boolean, holder: VaultHolder, onConfirm: 
         onDispose { buffer.clear() }
     }
     // The tries left are read each time the App Password is asked, so the warning counts the wrong tries just made.
-    LaunchedEffect(busy) { if (!busy) triesLeft = holder.vault.triesBeforeErase() }
+    LaunchedEffect(busy) { if (!busy) triesLeft = holder.triesBeforeErase() }
 
     ConfirmPasswordScreen(
         length = length,

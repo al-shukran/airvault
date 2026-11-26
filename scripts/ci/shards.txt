@@ -712,3 +712,4 @@ shard-4 :lumio app.lumio.ui.search.WatchlistPickerTest
 shard-4 :lumio app.lumio.CoinNamesTest
 shard-2 :lumio app.lumio.data.price.CoinImagesTest
 shard-2 :lumio app.lumio.data.cache.CacheSizeTest
+shard-2 :shared app.lensly.app.DecoyShownTest

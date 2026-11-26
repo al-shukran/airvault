@@ -424,7 +424,7 @@ private fun UnlockRoute(
         onDispose { buffer.clear() }
     }
     LaunchedEffect(Unit) {
-        triesLeft = holder.vault.triesBeforeErase()
+        triesLeft = holder.triesBeforeErase()
         waitMs = holder.vault.waitRemainingMs()
     }
     // The biometric prompt opens only when the owner presses Done with nothing typed. The page never opens it by itself, and looks the same
@@ -492,7 +492,7 @@ private fun UnlockRoute(
                         // is read again too, so a refused try shows the countdown the next try faces.
                         GateOutcome.Rejected -> {
                             refused = true
-                            triesLeft = holder.vault.triesBeforeErase()
+                            triesLeft = holder.triesBeforeErase()
                             waitMs = holder.vault.waitRemainingMs()
                         }
                         // A cancelled check counted no try, and the field was cleared on submit, so nothing is read again.
