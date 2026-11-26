@@ -130,6 +130,25 @@ class CacheTest {
     }
 
     @Test
+    fun aDecoyOverTheCapStopsLookingAfterAFixedNumberOfRealRowsAndKeepsThemAll() = runBlocking {
+        val clock = FakeClock(0L)
+        val database = LumioDatabase.open(context, File(tmp.root, "many.db"))
+        val real = Cache(database.kv(), keys(seed = 1), clock)
+        val decoy = Cache(database.kv(), keys(seed = 2), clock, immutableCapBytes = 100L)
+        // More real rows than the walk's bound, and than SQLite's older limit of 999 bind variables.
+        val rows = 1_100
+        repeat(rows) { real.put(CachePolicy.Immutable, "r$it", ByteArray(1) { 1 }) }
+        clock.now = 1L
+
+        decoy.put(CachePolicy.Immutable, "x", ByteArray(100) { 2 })
+
+        assertEquals(rows + 1, database.kv().all().size)
+        assertNotNull(real.get(CachePolicy.Immutable, "r0"))
+        assertNotNull(real.get(CachePolicy.Immutable, "r${rows - 1}"))
+        database.close()
+    }
+
+    @Test
     fun lastKnownValuesStayUntilReplacedAndKeepTheirTime() = runBlocking {
         val clock = FakeClock(5_000L)
         val database = LumioDatabase.open(context, File(tmp.root, "last.db"))

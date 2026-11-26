@@ -39,8 +39,8 @@ interface KvDao {
     @Query("SELECT COALESCE(SUM(LENGTH(v)), 0) FROM kv WHERE policy = :policy")
     suspend fun totalBytes(policy: Int): Long
 
-    @Query("SELECT k FROM kv WHERE policy = :policy AND k NOT IN (:skip) ORDER BY atMs ASC, rowid ASC LIMIT 1")
-    suspend fun oldestKeyExcept(policy: Int, skip: List<ByteArray>): ByteArray?
+    @Query("SELECT k FROM kv WHERE policy = :policy ORDER BY atMs ASC, rowid ASC LIMIT :limit OFFSET :offset")
+    suspend fun oldestKeys(policy: Int, limit: Int, offset: Int): List<ByteArray>
 }
 
 /** One queued scan job. [payload] is the job sealed under the queue's key. [id] is set by the database. */
