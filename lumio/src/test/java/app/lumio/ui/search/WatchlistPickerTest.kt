@@ -28,7 +28,7 @@ class WatchlistPickerTest {
     private val solana = WatchedAsset(NetworkId(ChainId("solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"), testnet = false))
 
     private fun row(name: String, ticker: String, rank: MarketRank? = null, sameName: Int = 0) =
-        PickerRow(asset = bitcoin, name = name, ticker = ticker, icon = AssetIconSpec.Bitcoin, watched = false, rank = rank, sameName = sameName)
+        PickerRow(asset = bitcoin, name = name, ticker = ticker, logo = PickerLogo.Mark(AssetIconSpec.Bitcoin), watched = false, rank = rank, sameName = sameName)
 
     @Test
     fun theStarIsFilledForAWatchedAssetAndEmptyForTheOthers() {
@@ -40,12 +40,13 @@ class WatchlistPickerTest {
                     onQuery = {},
                     label = "Coins",
                     rows = listOf(
-                        PickerRow(bitcoin, "Bitcoin", "BTC", AssetIconSpec.Bitcoin, watched = true),
-                        PickerRow(solana, "Solana", "SOL", AssetIconSpec.Solana, watched = false),
+                        PickerRow(bitcoin, "Bitcoin", "BTC", PickerLogo.Mark(AssetIconSpec.Bitcoin), watched = true),
+                        PickerRow(solana, "Solana", "SOL", PickerLogo.Mark(AssetIconSpec.Solana), watched = false),
                     ),
                     onToggle = { toggled += it },
                     onBack = {},
                     onLock = {},
+                    image = { null },
                 )
             }
         }
@@ -67,6 +68,7 @@ class WatchlistPickerTest {
                     onToggle = {},
                     onBack = {},
                     onLock = {},
+                    image = { null },
                 )
             }
         }

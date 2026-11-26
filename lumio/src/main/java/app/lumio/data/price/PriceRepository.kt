@@ -1,12 +1,18 @@
 package app.lumio.data.price
 
+import app.lumio.data.WallClock
 import app.lumio.data.asset.AssetId
 import app.lumio.data.cache.Cache
 import app.lumio.data.cache.CachePolicy
 import app.lumio.data.cache.Codec
 import app.lumio.data.cache.jsonCodec
 import app.lumio.data.net.NetworkId
+import app.lumio.data.provider.CoinDirectory
+import app.lumio.data.provider.CoinDirectoryRead
+import app.lumio.data.provider.CoinMarkets
 import app.lumio.data.provider.FiatQuote
+import app.lumio.data.provider.MarketCoins
+import app.lumio.data.provider.TopCoins
 import app.lumio.data.provider.FiatRates
 import app.lumio.data.provider.BitcoinMarket
 import app.lumio.data.provider.MarketQuote
@@ -35,6 +41,11 @@ const val CHART_TTL_MS = 300_000L
 internal const val MARKET_KEY = "market-bitcoin"
 internal const val TRENDING_KEY = "trending-search"
 internal const val FIAT_KEY = "market-fiat"
+internal const val TOP_COINS_KEY = "market-top-coins"
+internal const val DIRECTORY_KEY = "market-directory"
+
+/** How long the coin directory is used before it is read again. It names every coin and its contracts, which change slowly. */
+const val DIRECTORY_TTL_MS = 24L * 60 * 60 * 1_000
 
 /**
  * A USD price of a network's native coin: [usd] per coin, the change over 24 hours in percent ([change24hPct] is null when the source gives none),
@@ -113,6 +124,59 @@ class PriceRepository(
     /** The trending coins, from a source or from memory within [PRICE_TTL_MS]. When no source answers, the last list kept, stale. */
     suspend fun trending(priority: Priority = Priority.VISIBLE): Kept<TrendingList>? =
         if (servesTrending()) kept(TRENDING_KEY, jsonCodec<TrendingList>(), TrendingCoins(), priority) else null
+
+    /** Whether a switched-on source serves the coins by market cap and the coin directory, which Add to Watchlist lists and searches. */
+    fun servesCoins(): Boolean = scheduler.serves(TopCoins()) && scheduler.serves(CoinDirectoryRead())
+
+    /** The coins by market cap, from a source or from memory within [PRICE_TTL_MS]. When no source answers, the last list kept, stale. */
+    suspend fun topCoins(priority: Priority = Priority.VISIBLE): Kept<MarketCoins>? =
+        (if (servesCoins()) kept(TOP_COINS_KEY, jsonCodec<MarketCoins>(), TopCoins(), priority) else null)?.also { lastTop = it.value }
+
+    /** The last coins by market cap kept in the vault's cache, with no source asked. */
+    suspend fun lastTopCoins(): Kept<MarketCoins>? =
+        (if (servesCoins()) lastKept(TOP_COINS_KEY, jsonCodec<MarketCoins>()) else null)?.also { lastTop = it.value }
+
+    /** The coins by market cap read this session, with no wait, so a page opened again shows them on its first frame. */
+    fun knownTopCoins(): MarketCoins? = lastTop
+
+    /** The directory read this session, with no wait. */
+    fun knownDirectory(): CoinDirectory? = lastDirectory
+
+    @Volatile
+    private var lastTop: MarketCoins? = null
+
+    /** The market rows of the coins [ids], or null when no source answers. They are not kept: a search asks for them as the owner types. */
+    suspend fun coinMarkets(ids: List<String>, priority: Priority = Priority.VISIBLE): MarketCoins? = try {
+        scheduler.run(CoinMarkets(ids), priority)
+    } catch (e: ProviderError) {
+        null
+    }
+
+    /**
+     * The coin directory. One read lasts [DIRECTORY_TTL_MS], in memory and in the vault's cache, and an older one is kept and returned while no source
+     * answers. Null when no source serves it, or none was ever kept and none answers.
+     */
+    suspend fun directory(priority: Priority = Priority.VISIBLE): CoinDirectory? {
+        if (!servesCoins()) return null
+        val now = WallClock.nowMs()
+        lastDirectory?.takeIf { now - it.asOfMs < DIRECTORY_TTL_MS }?.let { return it }
+        val store = cache()
+        val codec = jsonCodec<CoinDirectory>()
+        val kept = lastDirectory ?: store?.get(CachePolicy.LastKnown, DIRECTORY_KEY)?.let { decodeOrNull(codec, it.value) }
+        if (kept != null && now - kept.asOfMs < DIRECTORY_TTL_MS) return kept.also { lastDirectory = it }
+        return try {
+            scheduler.run(CoinDirectoryRead(), priority).also {
+                lastDirectory = it
+                store?.put(CachePolicy.LastKnown, DIRECTORY_KEY, codec.encode(it))
+            }
+        } catch (e: ProviderError) {
+            kept?.also { lastDirectory = it }
+        }
+    }
+
+    /** The directory last read this session, so a search does not decode it from the cache again. */
+    @Volatile
+    private var lastDirectory: CoinDirectory? = null
 
     /** The last market figures kept in the vault's cache, with no source asked. Null while the vault is locked, none was kept or no source is on. */
     suspend fun lastMarket(): Kept<MarketQuote>? = if (servesMarket()) lastKept(MARKET_KEY, jsonCodec<MarketQuote>()) else null

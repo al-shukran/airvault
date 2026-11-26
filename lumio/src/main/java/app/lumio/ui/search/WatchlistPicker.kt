@@ -1,6 +1,17 @@
 package app.lumio.ui.search
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,7 +46,6 @@ import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.ui.home.AssetIcon
 import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.kit.ClearAirDisc
-import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.ClearAirPageTopBar
@@ -50,15 +60,23 @@ sealed interface MarketRank {
     data object Unranked : MarketRank
 }
 
+/** The logo of a row: a [Mark] that Lumio ships, or the [Remote] image the market source names, which [WatchlistPicker] loads by its URL. */
+sealed interface PickerLogo {
+    data class Mark(val spec: AssetIconSpec) : PickerLogo
+
+    /** An image at [url], or an empty disc while it loads or when the source gives none ([url] null). */
+    data class Remote(val url: String?) : PickerLogo
+}
+
 /**
- * One asset the picker offers: its [name] and [ticker], its [icon], its [rank] (null when no source ranks it), how many other tokens share its name
- * ([sameName]), and whether it is on the watchlist ([watched]).
+ * One asset the picker offers: its [name] and [ticker], its [logo], its [rank] (null when no market row was read for it), how many other tokens share
+ * its name ([sameName]), and whether it is on the watchlist ([watched]).
  */
 data class PickerRow(
     val asset: WatchedAsset,
     val name: String,
     val ticker: String,
-    val icon: AssetIconSpec,
+    val logo: PickerLogo,
     val watched: Boolean,
     val rank: MarketRank? = null,
     val sameName: Int = 0,
@@ -92,12 +110,17 @@ private val UNTRIMMED = LineHeightStyle(alignment = LineHeightStyle.Alignment.Ce
 private val TITLE = ClearAirType.rowTitle.copy(lineHeightStyle = UNTRIMMED)
 private val DETAIL = ClearAirType.body.copy(fontSize = 12.5.sp, lineHeight = 17.sp, lineHeightStyle = UNTRIMMED)
 private val LOGO = 24.dp
+private val LABEL = ClearAirType.eyebrow.copy(lineHeightStyle = UNTRIMMED)
+
+/** The mock sets the rank in its own mono line box, which reaches 1 dp lower than the name's; a name line that ends in a rank is that much taller. */
+private val RANK_LINE_EXTRA = 1.dp
 private val STAR_BOX = 44.dp
 private val STAR = 22.dp
 
 /**
  * Add to Watchlist: a plain page with the search field, then [rows] under [label]. The star of each row adds the asset to the watchlist or takes it
- * off ([onToggle]); a filled star is on the list.
+ * off ([onToggle]); a filled star is on the list. [image] gives the bitmap of a [PickerLogo.Remote] logo, or null while it loads. Rows that are still
+ * loading ([loading]) show as empty rows of the same height.
  */
 @Composable
 fun WatchlistPicker(
@@ -108,28 +131,45 @@ fun WatchlistPicker(
     onToggle: (WatchedAsset) -> Unit,
     onBack: () -> Unit,
     onLock: () -> Unit,
+    image: @Composable (String) -> ImageBitmap?,
+    loading: Boolean = false,
 ) {
+    val palette = LocalClearAirPalette.current
     Column(modifier = Modifier.fillMaxSize()) {
         ClearAirPageTopBar(title = "Add to Watchlist", backLabel = "Home", onBack = onBack, onLock = onLock)
         SearchField(query = query, onQuery = onQuery, placeholder = "Name or ticker")
         LazyColumn(modifier = Modifier.fillMaxWidth()) {
             item(key = "label") {
-                ClearAirEyebrow(text = label, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
+                Text(
+                    text = label.uppercase(),
+                    style = LABEL,
+                    color = palette.ink2,
+                    modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = 18.dp, end = ClearAirSpacing.gutter, bottom = ClearAirSpacing.xxs),
+                )
+            }
+            if (loading) {
+                items(LOADING_ROWS) { index -> LoadingRow(divider = index > 0) }
             }
             itemsIndexed(rows, key = { _, row -> row.asset.toString() }) { index, row ->
-                PickerRowItem(row = row, divider = index > 0, onToggle = { onToggle(row.asset) })
+                PickerRowItem(row = row, divider = index > 0, image = image, onToggle = { onToggle(row.asset) })
             }
         }
     }
 }
 
-/** One row: the logo disc, the name with its rank, the line under it, and the star. A long name wraps, and the rank follows its last word. */
+/** The test tag of each asset row. */
+const val PICKER_ROW_TAG = "watchlist-picker-row"
+
+/** The rows a first load shows while the list is read: as many as fill the screen. */
+private const val LOADING_ROWS = 10
+
+/** The frame of a row: its height, the gutters, and the divider on its top edge, which starts where the text does. */
 @Composable
-private fun PickerRowItem(row: PickerRow, divider: Boolean, onToggle: () -> Unit) {
+private fun RowFrame(divider: Boolean, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     val palette = LocalClearAirPalette.current
     val inset = ClearAirSpacing.gutter + DISC + ClearAirSpacing.sm
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .drawBehind {
                 if (divider) {
@@ -139,8 +179,38 @@ private fun PickerRowItem(row: PickerRow, divider: Boolean, onToggle: () -> Unit
             .defaultMinSize(minHeight = ROW_HEIGHT)
             .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
-    ) {
-        ClearAirDisc { AssetIcon(spec = row.icon, size = LOGO) }
+        content = content,
+    )
+}
+
+/** A row of a first load: an empty disc and two bars on the sunk tone, as the kit's loading rows are drawn. */
+@Composable
+private fun LoadingRow(divider: Boolean) {
+    val palette = LocalClearAirPalette.current
+    RowFrame(divider = divider) {
+        ClearAirDisc {}
+        Spacer(Modifier.width(ClearAirSpacing.sm))
+        Column(modifier = Modifier.weight(1f)) {
+            Box(Modifier.width(120.dp).height(11.dp).clip(RoundedCornerShape(6.dp)).background(palette.raised))
+            Spacer(Modifier.height(ClearAirSpacing.xs))
+            Box(Modifier.width(48.dp).height(11.dp).clip(RoundedCornerShape(6.dp)).background(palette.raised))
+        }
+    }
+}
+
+/** One row: the logo disc, the name with its rank, the line under it, and the star. A long name wraps, and the rank follows its last word. */
+@Composable
+private fun PickerRowItem(row: PickerRow, divider: Boolean, image: @Composable (String) -> ImageBitmap?, onToggle: () -> Unit) {
+    val palette = LocalClearAirPalette.current
+    RowFrame(divider = divider, modifier = Modifier.testTag(PICKER_ROW_TAG)) {
+        ClearAirDisc {
+            when (val logo = row.logo) {
+                is PickerLogo.Mark -> AssetIcon(spec = logo.spec, size = LOGO)
+                is PickerLogo.Remote -> logo.url?.let { image(it) }?.let { bitmap ->
+                    Image(bitmap = bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(LOGO).clip(CircleShape))
+                }
+            }
+        }
         Spacer(Modifier.width(ClearAirSpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
             val rank = rankText(row.rank)
@@ -154,7 +224,7 @@ private fun PickerRowItem(row: PickerRow, divider: Boolean, onToggle: () -> Unit
                     }
                 }
             }
-            Text(text = title, style = TITLE, color = palette.ink)
+            Text(text = title, style = TITLE, color = palette.ink, modifier = if (rank != null) Modifier.padding(bottom = RANK_LINE_EXTRA) else Modifier)
             pickerDetail(row)?.let { Text(text = it, style = DETAIL, color = palette.ink2) }
         }
         Spacer(Modifier.width(ClearAirSpacing.sm))

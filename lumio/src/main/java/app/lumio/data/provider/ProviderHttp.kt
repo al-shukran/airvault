@@ -94,7 +94,7 @@ internal suspend fun fetchBytes(client: OkHttpClient, request: okhttp3.Request, 
  * Sends [request] off the main thread and returns the answer text. A status that is not a success becomes the [ProviderError] that
  * [failureFor] names. An IOException is left for the scheduler, which reads it as transient. [notFoundIsAnswer] is set for a lookup whose 404 means
  * "no such thing". [broadcast] is set for a transaction broadcast: a 400 whose body says the node already holds the transaction is then
- * [ProviderError.AlreadyKnown], and the body is read for that, and for nothing else.
+ * [ProviderError.AlreadyKnown], and the body is read for that, and for nothing else. [limit] is the largest answer read, in bytes.
  */
 internal suspend fun fetchText(
     client: OkHttpClient,
@@ -102,12 +102,13 @@ internal suspend fun fetchText(
     banMs: Long?,
     notFoundIsAnswer: Boolean = false,
     broadcast: Boolean = false,
+    limit: Long = MAX_ANSWER_BYTES,
 ): String = enqueueRead(client, request) { answer ->
     if (!answer.isSuccessful) {
         if (broadcast && answer.code == 400 && HTTP_ALREADY_KNOWN.containsMatchIn(answer.peekBody(MAX_REFUSAL_BYTES).string())) throw ProviderError.AlreadyKnown()
         throw failureFor(answer.code, answer.header("Retry-After"), banMs, notFoundIsAnswer)
     }
-    readAnswer(answer)
+    readAnswer(answer, limit)
 }
 
 /**
@@ -143,10 +144,10 @@ internal fun retryAfterMs(header: String?, nowMs: Long = System.currentTimeMilli
     }
 }
 
-/** Reads the answer, which must fit in [MAX_ANSWER_BYTES]. A longer answer is transient, so it is never cut short and used. */
-private fun readAnswer(response: Response): String {
+/** Reads the answer, which must fit in [limit] bytes. A longer answer is transient, so it is never cut short and used. */
+private fun readAnswer(response: Response, limit: Long): String {
     val source = (response.body ?: throw ProviderError.Transient(IOException("The answer has no body."))).source()
-    if (source.request(MAX_ANSWER_BYTES + 1)) throw ProviderError.Transient(IOException("The answer is larger than $MAX_ANSWER_BYTES bytes."))
+    if (source.request(limit + 1)) throw ProviderError.Transient(IOException("The answer is larger than $limit bytes."))
     return source.readUtf8()
 }
 
@@ -171,6 +172,16 @@ internal fun answerObject(text: String): JsonObject {
         throw ProviderError.Transient(e)
     }
     return root as? JsonObject ?: throw ProviderError.Transient(IOException("The answer is not a JSON object."))
+}
+
+/** The answer as a JSON array, read as [answerObject] reads an object. */
+internal fun answerArray(text: String): JsonArray {
+    val root = try {
+        Json.Default.parseToJsonElement(text)
+    } catch (e: SerializationException) {
+        throw ProviderError.Transient(e)
+    }
+    return root as? JsonArray ?: throw ProviderError.Transient(IOException("The answer is not a JSON array."))
 }
 
 internal fun JsonElement?.asObject(): JsonObject = this as? JsonObject ?: throw ProviderError.Fatal(SHAPE_MESSAGE)
