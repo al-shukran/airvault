@@ -271,14 +271,6 @@ jobs:
             done
             return 1
           }
-          # Closes the refresh PR only while it is still open, so a retry after a timed-out close never posts the comment twice.
-          close_refresh_pr() {
-            local state
-            state=$(gh pr view "$1" --repo "$GH_REPO" --json state -q .state) || return 1
-            [ "$state" = OPEN ] || return 0
-            gh pr close "$1" --repo "$GH_REPO" \
-              --comment "The nightly recording ($RUN_URL) matches the committed goldens again, so this refresh is not needed."
-          }
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -C goldens-refresh
@@ -287,7 +279,8 @@ jobs:
           if git diff --cached --quiet; then
             echo "The recorded goldens match the committed ones."
             if [ -n "$pr" ]; then
-              retry close_refresh_pr "$pr"
+              # Closes without a comment, then comments once, so a retry never posts the comment twice (#1443).
+              retry scripts/ci/close-refresh-pr.sh "$pr"
             fi
             echo "goldens_match=true" >> "$GITHUB_OUTPUT"
             exit 0

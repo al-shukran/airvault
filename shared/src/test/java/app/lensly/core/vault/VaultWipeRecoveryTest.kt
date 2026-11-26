@@ -57,7 +57,9 @@ class VaultWipeRecoveryTest {
 
         assertFailsWith<VaultException> { vault.wipe() }
 
+        // The folder is readable again, so the attempt below judges the vault itself and not the missing permissions.
         giveBack(layout.root)
+        assertNull(keys.folderKeyIds().firstOrNull())
         assertNeverOpens(attempt(APP))
     }
 
@@ -241,8 +243,11 @@ class VaultWipeRecoveryTest {
         assumeFalse(dir.canWrite())
     }
 
+    /** Restores every permission [deny] and the tests took, so a later assertion reads the folder as the app would. */
     private fun giveBack(dir: File) {
         dir.setWritable(true)
+        dir.setReadable(true)
+        dir.setExecutable(true)
     }
 
     /** Moves the clock past any failure delay, then tries [password]. */
