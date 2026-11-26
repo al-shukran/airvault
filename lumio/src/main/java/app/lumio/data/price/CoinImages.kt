@@ -41,7 +41,11 @@ class CoinImages(private val http: Http, private val cache: () -> Cache?, privat
             runCatching { store.delete(CachePolicy.LastKnown, key) }
             null
         }
-        kept?.let { return it.also { remember(store, url, it) } }
+        if (kept != null) {
+            if (decodes(kept)) return kept.also { remember(store, url, it) }
+            // A kept image that does not decode is dropped and fetched again.
+            runCatching { store.delete(CachePolicy.LastKnown, key) }.onFailure { if (it is CancellationException) throw it }
+        }
         val bytes = try {
             fetchBytes(http.noRedirects(), Request.Builder().url(address).get().build(), IMAGE_LIMIT_BYTES)
         } catch (e: ProviderError) {
@@ -50,12 +54,15 @@ class CoinImages(private val http: Http, private val cache: () -> Cache?, privat
             return null
         }
         // An image that does not decode within the size limit is neither kept nor shown.
-        if (!isLogo(bytes)) return null
+        if (!decodes(bytes)) return null
         remember(store, url, bytes)
         // The cache is best effort: a write that fails still shows the image, and it is read again next time.
         runCatching { store.put(CachePolicy.LastKnown, key, bytes) }.onFailure { if (it is CancellationException) throw it }
         return bytes
     }
+
+    /** Whether [bytes] decode in full to a logo within the size limit. */
+    private fun decodes(bytes: ByteArray): Boolean = decodeLogo(bytes)?.also { it.recycle() } != null
 
     /** The image kept in memory for [url] under the vault of [store], keeping [bytes] when given. A different vault, or none, empties the memory. */
     @Synchronized

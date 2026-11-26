@@ -1,5 +1,7 @@
 package app.lumio.data.price
 
+import android.graphics.Bitmap
+import android.graphics.Color
 import app.lumio.data.FakeKvDao
 import app.lumio.data.cache.Cache
 import app.lumio.data.cache.CacheKeys
@@ -8,6 +10,7 @@ import app.lumio.data.db.KvDao
 import app.lumio.data.db.KvRow
 import app.lumio.data.provider.Http
 import kotlinx.coroutines.runBlocking
+import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.util.zip.CRC32
 import okhttp3.MediaType.Companion.toMediaType
@@ -18,7 +21,7 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -60,7 +63,6 @@ class CoinImagesTest {
     fun anImageThatIsNoImageOrDeclaresTooManyPixelsIsNotKeptAndDoesNotCrash() = runBlocking {
         val dao = FakeKvDao()
         val vault = Cache(dao, CacheKeys(ByteArray(32) { 1 }, ByteArray(32) { 2 }), { 0L })
-        assertTrue(isLogo(pngDeclaring(64, 64)))
         for (bytes in listOf("not an image".toByteArray(), pngDeclaring(30_000, 30_000))) {
             val images = CoinImages(Http(serving(bytes)), { vault })
             assertNull(images.imageOf(LOGO))
@@ -73,7 +75,26 @@ class CoinImagesTest {
     @Test
     fun aLogoWithinTheLimitIsKeptAndDecoded() = runBlocking {
         val vault = vault()
-        val png = pngDeclaring(64, 64)
+        val png = realPng()
+        assertNotNull(decodeLogo(png))
+        assertArrayEquals(png, CoinImages(Http(serving(png)), { vault }).imageOf(LOGO))
+        assertArrayEquals(png, vault.get(CachePolicy.LastKnown, "coin-image:$LOGO")?.value)
+    }
+
+    @Test
+    fun aValidHeaderOverACorruptBodyIsNotKept() = runBlocking {
+        val vault = vault()
+        val png = corruptPng()
+        assertNull(decodeLogo(png))
+        assertNull(CoinImages(Http(serving(png)), { vault }).imageOf(LOGO))
+        assertNull(vault.get(CachePolicy.LastKnown, "coin-image:$LOGO"))
+    }
+
+    @Test
+    fun aKeptImageThatDoesNotDecodeIsDroppedAndFetchedAgain() = runBlocking {
+        val vault = vault()
+        vault.put(CachePolicy.LastKnown, "coin-image:$LOGO", corruptPng())
+        val png = realPng()
         assertArrayEquals(png, CoinImages(Http(serving(png)), { vault }).imageOf(LOGO))
         assertArrayEquals(png, vault.get(CachePolicy.LastKnown, "coin-image:$LOGO")?.value)
     }
@@ -83,7 +104,7 @@ class CoinImagesTest {
         val failing = object : KvDao by FakeKvDao() {
             override suspend fun put(row: KvRow) = throw IllegalStateException("database is full")
         }
-        val png = pngDeclaring(64, 64)
+        val png = realPng()
         val images = CoinImages(Http(serving(png)), { Cache(failing, CacheKeys(ByteArray(32) { 1 }, ByteArray(32) { 2 }), { 0L }) })
         assertArrayEquals(png, images.imageOf(LOGO))
     }
@@ -93,7 +114,21 @@ class CoinImagesTest {
         Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("OK").body(body.toResponseBody("image/png".toMediaType())).build()
     }.build()
 
-    /** A PNG that declares [width] x [height] pixels over a few bytes of pixel data: the bounds read sees the size, a full decode would fail. */
+    /** A small PNG that decodes in full. */
+    private fun realPng(): ByteArray {
+        val bitmap = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }
+        return ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+    }
+
+    /** A PNG whose header is valid, so its size reads, and whose pixel data is damaged, so it does not decode. */
+    private fun corruptPng(): ByteArray {
+        val png = realPng()
+        val pixels = String(png, Charsets.ISO_8859_1).indexOf("IDAT") + 4
+        for (i in pixels until pixels + 8) png[i] = (png[i].toInt() xor 0xFF).toByte()
+        return png
+    }
+
+    /** A PNG that declares [width] x [height] pixels over a few bytes of pixel data: the bounds read sees the size, a full decode does not. */
     private fun pngDeclaring(width: Int, height: Int): ByteArray {
         fun chunk(type: String, data: ByteArray): ByteArray {
             val body = type.toByteArray() + data
