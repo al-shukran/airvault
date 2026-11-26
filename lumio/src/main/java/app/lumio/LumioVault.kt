@@ -2,6 +2,7 @@ package app.lumio
 
 import app.lensly.app.SessionAttachment
 import app.lensly.core.vault.VaultSession
+import app.lumio.btc.AddressStatsCache
 import app.lumio.btc.BtcStore
 import app.lumio.data.Clock
 import app.lumio.data.WallClock
@@ -40,6 +41,9 @@ class LumioVault(val session: VaultSession, database: LumioDatabase, clock: Cloc
 
     /** The transaction history of this vault: its rows, their search index and the comments, under keys derived from [session]. */
     val txs: TxStore = TxStore(database.txs(), TxKeys.from(session))
+
+    /** The address readings that this session's scans, transaction feed and sends have taken. Memory only, and it goes with the vault. */
+    val addressStats = AddressStatsCache()
 
     /** The last known balances, read from the cache. */
     val store: BtcStore = BtcStore(cache)

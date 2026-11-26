@@ -17,7 +17,6 @@ import app.lensly.core.vault.BiometricUnlock
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
-import app.lumio.btc.AddressStatsCache
 import app.lumio.btc.networkId
 import app.lumio.btc.publicElectrumFor
 import app.lumio.btc.scanJob
@@ -211,9 +210,6 @@ class LumioApp : Application(), CoverApplication {
      */
     val scanRunner: ScanRunner by lazy { ScanRunner(scanQueue, parallelism = 4) { job, step -> scanJobOf(job, step) } }
 
-    /** The address statistics this session has read. Every scan shares them, and the transaction feed's Bitcoin reads too. */
-    internal val addressStats = AddressStatsCache()
-
     /** The public Electrum servers that read Bitcoin balances. One pool serves the session, so each server keeps one connection. */
     internal val electrum = ElectrumPool()
 
@@ -324,7 +320,7 @@ class LumioApp : Application(), CoverApplication {
             refs = bitcoinRefs(vault.session),
             scheduler = scheduler,
             store = vault.store,
-            memo = addressStats,
+            memo = vault.addressStats,
             nowMs = { System.currentTimeMillis() },
             step = step,
             electrumFor = publicElectrumOf(vault),

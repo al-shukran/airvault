@@ -158,6 +158,26 @@ class ScanRunnerTest {
     }
 
     @Test
+    fun aPassThatOutlivesTheSessionNeitherDeletesItsJobNorReportsIntoTheNextOne() = runTest {
+        val dao = FakeScanJobDao()
+        var rowsKey = key
+        val queue = ScanQueue { ScanRows(dao, rowsKey) }
+        val done = queue.add(mainnet, "account-a", Priority.VISIBLE)
+        val failing = queue.add(mainnet, "account-b", Priority.BACKGROUND)
+        // The owner locks and opens the decoy, whose key opens none of the real rows, while the pass still runs.
+        val runner = ScanRunner(queue, parallelism = 1) { job, _ ->
+            rowsKey = ByteArray(32) { 1 }
+            if (job.id == failing) throw ProviderError.Transient()
+        }
+
+        val events = eventsWhile(queue) { runner.pass(mainnet) }
+
+        assertEquals(emptyList(), events, "the decoy hears nothing of the real scans")
+        rowsKey = key
+        assertEquals(listOf(done, failing), queue.pending().map { it.id }, "both real jobs are still queued")
+    }
+
+    @Test
     fun aFailureIsNamedInWordsTheOwnerCanActOnWithoutTheServerDetail() {
         assertEquals("The servers are rate limiting Lumio. Try again later.", ScanRunner.messageOf(ProviderError.RateLimited(null)))
         assertEquals("A server refused the scan.", ScanRunner.messageOf(ProviderError.Fatal("A server refused the scan.")))

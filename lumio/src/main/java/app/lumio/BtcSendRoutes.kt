@@ -28,6 +28,7 @@ import app.lensly.core.btc.BtcNetwork
 import app.lensly.ui.components.groupAddress
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
+import app.lumio.btc.AddressStatsCache
 import app.lumio.btc.BtcAccountRef
 import app.lumio.btc.BtcAdvanced
 import app.lumio.btc.BtcPortfolio
@@ -40,6 +41,7 @@ import app.lumio.btc.FALLBACK_FEE_RATE_SAT_PER_VB
 import app.lumio.btc.btcText
 import app.lumio.btc.indexerOf
 import app.lumio.btc.networkId
+import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.FeeEstimates
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.Tx
@@ -113,6 +115,9 @@ private const val NETWORK_FAILED = "The Bitcoin network could not be read. Try a
 private const val NO_BROWSER = "No browser can open the explorer."
 private const val TIMING = "Usually 10–60 minutes for the first confirmation"
 private const val SETTLE_MS = 700L
+
+/** The open vault's address readings of [net]. A send reads them only while the vault is open; a locked one gets an empty memo that dies with the call. */
+private fun LumioApp.addressStatsOf(net: NetworkId) = (lumioVault()?.addressStats ?: AddressStatsCache()).forNetwork(net)
 
 /** The account a Bitcoin send is from: [Missing] when the vault has no such account on the side the owner chose. */
 private sealed interface BtcSendLoad {
@@ -194,7 +199,7 @@ internal fun BtcSendRoute(
         ?: BtcSend.spendable(
             selected.account,
             app.scheduler,
-            app.addressStats.forNetwork(network.networkId()),
+            app.addressStatsOf(network.networkId()),
             indexer = app.lumioVault()?.let { indexerOf(it.configs(), app.http) },
         )
 
@@ -316,7 +321,7 @@ internal fun BtcSendRoute(
                         broadcast = { signedTx ->
                             withContext(Dispatchers.IO) {
                                 BtcSend.broadcast(app.scheduler, planNetwork, signedTx)
-                                    .also { BtcSend.reserveChange(current.plan, app.addressStats.forNetwork(planNetwork.networkId())) }
+                                    .also { BtcSend.reserveChange(current.plan, app.addressStatsOf(planNetwork.networkId())) }
                             }
                         },
                         describe = { error -> SubmitFailure(ownerWords(error, BROADCAST_FAILED)) },

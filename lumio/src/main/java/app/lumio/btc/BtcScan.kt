@@ -60,8 +60,8 @@ internal fun EsploraAddressStats.reading(): AddressReading = AddressReading(used
 internal class ChainScan(val used: List<UsedAddress>)
 
 /**
- * The address readings that this session has taken, from Esplora or Electrum, by network. A rescan asks again only for the addresses that
- * need it (see [scanChain]). It is kept in memory and never saved, so a new session starts with an empty one.
+ * The address readings that one open vault has taken, from Esplora or Electrum, by network. A rescan asks again only for the addresses that
+ * need it (see [scanChain]). The vault owns it ([app.lumio.LumioVault.addressStats]), in memory and never saved, so a new session starts with an empty one.
  */
 class AddressStatsCache {
     private val byChain = ConcurrentHashMap<String, ConcurrentMap<String, MemoStats>>()

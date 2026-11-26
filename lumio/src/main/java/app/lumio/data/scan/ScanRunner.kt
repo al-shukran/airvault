@@ -16,6 +16,8 @@ import kotlinx.coroutines.withContext
  * before the rest. Each account's result is published as soon as it finishes, as [ScanEvent.Finished]. A job that fails stays queued and is published
  * as [ScanEvent.Failed]; the next pass runs it again. A job that a cancelled pass was running also stays queued. No job runs in two passes at once.
  *
+ * A job that the open vault's key does not open publishes nothing: a pass that outlives a lock must not report into the next session, a decoy.
+ *
  * [scanAccount] does the scan of one job. It reports progress through the callback it is given, and throws when the scan fails.
  */
 class ScanRunner(
@@ -49,12 +51,11 @@ class ScanRunner(
         val account = job.job.accountRef
         try {
             scanAccount(job) { checked -> queue.publish(ScanEvent.Progress(job.id, checked)) }
-            queue.complete(job.id)
-            queue.publish(ScanEvent.Finished(job.id, job.job.net, account))
+            if (queue.complete(job.id)) queue.publish(ScanEvent.Finished(job.id, job.job.net, account))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            queue.publish(ScanEvent.Failed(job.id, job.job.net, account, messageOf(e)))
+            if (queue.holds(job.id)) queue.publish(ScanEvent.Failed(job.id, job.job.net, account, messageOf(e)))
         } finally {
             withContext(NonCancellable) { lock.withLock { running -= job.id } }
         }

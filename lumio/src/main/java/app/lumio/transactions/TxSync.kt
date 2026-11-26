@@ -41,7 +41,7 @@ object TxSync {
                     scheduler = app.scheduler,
                     priority = Priority.VISIBLE,
                     nowMs = System.currentTimeMillis(),
-                    memo = app.addressStats.forNetwork(net),
+                    memo = vault.addressStats.forNetwork(net),
                     detail = true,
                     electrum = electrumFor(ref.account.network),
                     onTxs = { address, txs, tipHeight ->

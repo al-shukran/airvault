@@ -1,0 +1,1 @@
+Lumio keeps a locked vault's scan state out of the duress decoy: a scan still running at lock no longer deletes its queued job or reports into the decoy, and the address memo now ends with each vault session.

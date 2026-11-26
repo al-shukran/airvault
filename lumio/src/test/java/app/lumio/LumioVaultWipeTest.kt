@@ -3,7 +3,11 @@ package app.lumio
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
+import app.lumio.btc.AddressReading
+import app.lumio.btc.remember
 import app.lumio.data.db.LumioDatabase
+import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairedWallets
 import java.io.File
@@ -38,5 +42,19 @@ class LumioVaultWipeTest {
 
         assertFalse("A lock drops them.", PairedWallets.isKept(session))
         assertEquals("The next list reads them again.", listed, PairedWallets.list(session))
+    }
+
+    @Test
+    fun aNewVaultSessionStartsWithAnEmptyAddressMemo() {
+        val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 7 + 3).toByte() })
+        val database = LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "memo.db"))
+        val net = NetworkId(Networks.BTC_MAINNET, testnet = false)
+        val first = LumioVault(session, database)
+        first.addressStats.forNetwork(net).remember("bc1qaddress", AddressReading(used = true, confirmedSats = 0L, unconfirmedSats = 0L), nowMs = 1L)
+        assertEquals(1, first.addressStats.forNetwork(net).size)
+
+        val second = LumioVault(session, database)
+
+        assertTrue("The next session reads none of the last one's readings.", second.addressStats.forNetwork(net).isEmpty())
     }
 }
