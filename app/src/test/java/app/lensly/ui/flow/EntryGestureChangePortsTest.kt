@@ -30,7 +30,7 @@ import org.robolectric.RuntimeEnvironment
 /**
  * The Hidden Entry Gesture is the real vault's setting, kept outside the vault. The real vault saves it. A decoy session
  * reports the same success and shows the chosen gesture as current, as the real vault does, but it writes nothing, so a coerced
- * change never reaches the real entry. The decoy's choice ends with its session.
+ * change never reaches the real entry. The decoy's choice is kept in the decoy's own vault record.
  */
 @RunWith(RobolectricTestRunner::class)
 class EntryGestureChangePortsTest {
@@ -107,13 +107,25 @@ class EntryGestureChangePortsTest {
     }
 
     @Test
-    fun aDecoysChoiceEndsWithItsSession() {
+    fun aDecoysChoiceStaysForItsNextSessionAsARealVaultsDoes() {
         holder.adopt(open(DURESS), holder.unlockEpoch())
         assertTrue(runBlocking { ports.save(EntryGesture.PINCH_TRIPLE_TAP) })
         holder.lock()
 
         assertEquals(gestures.current, holder.decoyShown.entryGesture(gestures.current))
         holder.adopt(open(DURESS), holder.unlockEpoch())
+        assertEquals(EntryGesture.PINCH_TRIPLE_TAP, holder.decoyShown.entryGesture(gestures.current))
+        assertEquals(EntryGesture.DEFAULT, store.load())
+    }
+
+    @Test
+    fun aDecoysChoiceNeverShowsInTheRealVault() {
+        holder.adopt(open(DURESS), holder.unlockEpoch())
+        assertTrue(runBlocking { ports.save(EntryGesture.PINCH_TRIPLE_TAP) })
+        holder.lock()
+
+        holder.adopt(open(APP), holder.unlockEpoch())
+
         assertEquals(gestures.current, holder.decoyShown.entryGesture(gestures.current))
     }
 

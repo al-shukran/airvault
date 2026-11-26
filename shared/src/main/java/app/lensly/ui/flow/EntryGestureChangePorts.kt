@@ -3,6 +3,9 @@ package app.lensly.ui.flow
 import app.lensly.app.EntryGestureHolder
 import app.lensly.app.VaultHolder
 import app.lensly.ui.camera.EntryGesture
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 
 /**
  * The app's [EntryGesturePorts] for changing the Hidden Entry Gesture. The App Password goes through [checkAppPassword], as
@@ -17,13 +20,12 @@ class EntryGestureChangePorts(
 
     /**
      * Saves [gesture] as the camera's gesture. A decoy session never changes the stored gesture: it is the real vault's setting, and a
-     * coerced change in the decoy must not alter the real entry. A decoy keeps the choice in [VaultHolder.decoyShown] instead, so its
-     * list marks the chosen gesture as the real vault's does, and the choice ends with the session.
+     * coerced change in the decoy must not alter the real entry. A decoy keeps the choice in [VaultHolder.decoyShown] instead, in its
+     * own vault record, so its list marks the chosen gesture as the real vault's does, in this session and in later ones.
      */
     override suspend fun save(gesture: EntryGesture): Boolean {
         if (holder.openSession()?.isDecoy == true) {
-            holder.decoyShown.showEntryGesture(gesture)
-            return true
+            return withContext(Dispatchers.IO + NonCancellable) { holder.decoyShown.showEntryGesture(gesture) }
         }
         return gestures.save(gesture)
     }

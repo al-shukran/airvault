@@ -74,12 +74,24 @@ class FailureCapDecoyTest {
     }
 
     @Test
-    fun aDecoysLimitsEndWithItsSession() = runBlocking {
+    fun aDecoysLimitsStayForItsNextSessionAsARealVaultsDo() = runBlocking {
         holder.adopt(open(DURESS), holder.unlockEpoch())
         assertEquals(FailureCapOutcome.Saved, saveFailureLimits(holder, DURESS.toCharArray(), 10_000L, 5))
         holder.lock()
 
         holder.adopt(open(DURESS), holder.unlockEpoch())
+
+        assertEquals(FailureCapChoice.TEN_SECONDS, readFailureCap(holder))
+        assertEquals(5, readEraseAfter(holder))
+    }
+
+    @Test
+    fun aDecoysLimitsNeverShowInTheRealVault() = runBlocking {
+        holder.adopt(open(DURESS), holder.unlockEpoch())
+        assertEquals(FailureCapOutcome.Saved, saveFailureLimits(holder, DURESS.toCharArray(), 10_000L, 5))
+        holder.lock()
+
+        holder.adopt(open(APP), holder.unlockEpoch())
 
         assertEquals(FailureCapChoice.DEFAULT, readFailureCap(holder))
         assertEquals(FailureDelay.DEFAULT_WIPE_AFTER, readEraseAfter(holder))

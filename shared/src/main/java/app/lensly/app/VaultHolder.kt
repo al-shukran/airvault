@@ -10,7 +10,7 @@ import app.lensly.core.vault.VaultSession
  * An unlock takes [unlockEpoch] before it starts and hands it to [adopt] when it finishes. If the vault was locked
  * in between, the late session is closed and never kept, so a lock always wins.
  *
- * [decoyShown] keeps what a decoy session shows for settings of the real vault. It is cleared with the session.
+ * [decoyShown] keeps what a decoy session shows for settings of the real vault. It is opened with each session and cleared on lock.
  *
  * [attach] makes the state that an app keeps for each open session. The shared cover keeps none, so it defaults to nothing.
  */
@@ -49,8 +49,8 @@ class VaultHolder(
         }
         session?.close()
         attachment?.wipe()
-        decoyShown.clear()
         session = opened
+        decoyShown.open(opened)
         attachment = attach(opened)
         return true
     }

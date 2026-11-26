@@ -20,6 +20,7 @@ import app.lensly.ui.gate.eraseWarning
 import app.lensly.ui.settings.FailureCapChoice
 import app.lensly.ui.settings.FailureCapScreen
 import app.lensly.ui.settings.FailureCapStep
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -141,17 +142,19 @@ internal enum class FailureCapOutcome {
 /**
  * Checks the App Password and saves the cap and the erase count in one vault call. NonCancellable, so a check that has started runs
  * to its result, and the vault zeroes [password] on every path. A decoy's change is never written (see Vault). It is kept in
- * [VaultHolder.decoyShown] instead, so the decoy's screens show it as a real vault's show a saved change.
+ * [VaultHolder.decoyShown] instead, in the decoy's own vault record, so its screens show it as a real vault's show a saved change.
  */
 internal suspend fun saveFailureLimits(holder: VaultHolder, password: CharArray, capMs: Long?, eraseAfter: Int): FailureCapOutcome =
     withContext(NonCancellable) {
         try {
             val inDecoy = holder.openSession()?.isDecoy == true
             when (holder.vault.setFailureLimits(password, capMs, eraseAfter, inDecoy = inDecoy)) {
-                FailureCapResult.Saved -> {
-                    if (inDecoy) holder.decoyShown.showFailureLimits(capMs, eraseAfter)
-                    FailureCapOutcome.Saved
-                }
+                FailureCapResult.Saved ->
+                    if (!inDecoy || withContext(Dispatchers.IO) { holder.decoyShown.showFailureLimits(capMs, eraseAfter) }) {
+                        FailureCapOutcome.Saved
+                    } else {
+                        FailureCapOutcome.Unavailable
+                    }
                 FailureCapResult.Rejected -> FailureCapOutcome.Rejected
                 FailureCapResult.Erased -> FailureCapOutcome.Erased
             }
