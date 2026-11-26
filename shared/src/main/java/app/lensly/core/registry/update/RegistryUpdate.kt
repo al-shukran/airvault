@@ -83,6 +83,9 @@ object RegistryUpdate {
      * that cannot be read, and no floor anywhere, is [RegistryUpdateException.SequenceUnknown], not "nothing accepted yet": deleting
      * the files must not lower the floor. The files and the seal are written one by one. When a write fails, the files already written
      * are put back as they were and the new Keystore key is deleted, so a failure leaves nothing stored and the result says so.
+     * Accepting an equal sequence while no seal verifies assumes the publisher never issues two different packages with one
+     * sequence. Such a same-sequence recovery resets the whitelist carrier, so a kept whitelist from an earlier package is dropped
+     * until a package carrying a whitelist is installed.
      */
     fun install(
         bytes: ByteArray,
