@@ -93,7 +93,8 @@ private const val SCRIM_ALPHA = 0.6f
  * permission is asked for and no preview is drawn. It is null everywhere in the app, which runs the camera path exactly
  * as it did before the seam existed.
  *
- * [viewfinder] draws the dimmed frame and square outline over the camera. A caller that draws its own frame turns it off.
+ * [viewfinder] draws the theme's backdrop, the dimmed frame and the square outline over the camera. A caller that draws its own frame turns it off,
+ * and then the scanner draws nothing of its own: the caller's frame shows until the camera's first picture covers it.
  */
 @Composable
 fun QrScanner(
@@ -119,14 +120,14 @@ fun QrScanner(
     }
 
     Box(
-        modifier = modifier.background(MaterialTheme.colorScheme.background),
+        modifier = if (viewfinder) modifier.background(MaterialTheme.colorScheme.background) else modifier,
         contentAlignment = Alignment.Center,
     ) {
         if (injected != null) {
             FixtureDecoder(frameSource = injected, onText = onText, onFailed = { decodeFailed = it })
             if (viewfinder) ViewfinderOverlay(modifier = Modifier.fillMaxSize())
         } else if (granted) {
-            CameraDecoder(onText = onText, onFailed = { decodeFailed = it }, modifier = Modifier.fillMaxSize())
+            CameraDecoder(onText = onText, onFailed = { decodeFailed = it }, opaque = viewfinder, modifier = Modifier.fillMaxSize())
             if (viewfinder) ViewfinderOverlay(modifier = Modifier.fillMaxSize())
         } else {
             ScanPermissionPrompt(
@@ -181,6 +182,7 @@ private class OutcomeSink(
 private fun CameraDecoder(
     onText: (String) -> Unit,
     onFailed: (Boolean) -> Unit,
+    opaque: Boolean,
     modifier: Modifier,
 ) {
     val context = LocalContext.current
@@ -191,6 +193,8 @@ private fun CameraDecoder(
         PreviewView(context).apply {
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
             scaleType = PreviewView.ScaleType.FILL_CENTER
+            // The preview is black until the first picture. A caller's own frame shows through instead.
+            if (!opaque) setBackgroundColor(android.graphics.Color.TRANSPARENT)
         }
     }
 

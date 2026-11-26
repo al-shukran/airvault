@@ -17,12 +17,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -32,6 +36,17 @@ import kotlin.math.roundToInt
 private val CAMERA_RADIUS = 26.dp
 private const val SEGMENTS = 20
 private val SEGMENT_GAP = 3.dp
+
+/**
+ * The camera's backdrop, which shows until the camera's first picture covers it: the mock's radial gradient from [CAMERA_CENTRE] to [CAMERA_EDGE], an
+ * ellipse 120 percent of the frame wide and 90 percent tall, centred 40 percent down, that reaches the edge colour at 70 percent. Both themes draw it.
+ */
+private val CAMERA_CENTRE = Color(0xFF2A2630)
+private val CAMERA_EDGE = Color(0xFF0B0A0D)
+private const val BACKDROP_WIDTH = 1.2f
+private const val BACKDROP_HEIGHT = 0.9f
+private const val BACKDROP_TOP = 0.4f
+private const val BACKDROP_STOP = 0.7f
 
 /** One corner bracket: its box, the stroke, the radius of its outer corner, and where it sits in the camera (62 dp in from the sides and the foot, 46 dp from the top). */
 private val BRACKET_BOX = 34.dp
@@ -48,43 +63,48 @@ private val BAR_BOTTOM = 20.dp
 private val BAR_HEIGHT = 4.dp
 private const val BAR_TRACK_ALPHA = 0.22f
 
-/** The caption, 30 dp up from the foot of the camera, in paper at 85 percent, over a shade that fades up from the foot so it reads on any picture. */
+/** The caption: one line across the camera, 30 dp up from its foot, under the brackets and over the bar, in paper at 85 percent. */
 private val CAPTION_BOTTOM = 30.dp
-private val CAPTION_SIDE = 24.dp
-private val CAPTION_SHADE_TOP = 40.dp
 private const val CAPTION_ALPHA = 0.85f
-private const val CAPTION_SHADE = 0.55f
 
 /**
- * The viewfinder of the pairing scan, as the mock draws its frame: the camera in [viewport] with rounded corners, four paper corner brackets, the
- * [caption] near its foot and, under it, a bar of 20 segments that fills with [progress] (all of it when the code is [complete]). The tick per part and
- * the success haptic are the same as the other viewfinders'. The art is drawn over the camera and takes no part in reading the code.
+ * The viewfinder of the pairing scan, as the mock draws its frame: the camera in [viewport] over a dark backdrop, with rounded corners, four paper
+ * corner brackets, the [caption] on one line under them and, under it, a bar of 20 segments that fills with [progress] (all of it when the code is
+ * [complete]). The tick per part and the success haptic are the same as the other viewfinders'. The art is drawn over the camera and takes no part in
+ * reading the code.
  */
 @Composable
 fun SegmentedViewfinder(progress: Float?, complete: Boolean, caption: String, modifier: Modifier = Modifier, viewport: @Composable (Modifier) -> Unit) {
     ScanFeedback(progress = progress, complete = complete)
     val filled = if (complete) SEGMENTS else ((progress ?: 0f) * SEGMENTS).roundToInt().coerceIn(0, SEGMENTS)
-    Box(modifier = modifier.fillMaxWidth().height(ViewfinderHeight)) {
-        viewport(Modifier.fillMaxSize().clip(RoundedCornerShape(CAMERA_RADIUS)))
-        Caption(text = caption, modifier = Modifier.align(Alignment.BottomCenter))
+    Box(modifier = modifier.fillMaxWidth().height(ViewfinderHeight).clip(RoundedCornerShape(CAMERA_RADIUS)).drawBehind { drawCameraBackdrop() }) {
+        viewport(Modifier.fillMaxSize())
         Brackets(modifier = Modifier.fillMaxSize())
+        Text(
+            text = caption,
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = CAPTION_BOTTOM),
+            style = ClearAirType.time,
+            color = LocalClearAirPalette.current.paper.copy(alpha = CAPTION_ALPHA),
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         Bar(filled = filled, modifier = Modifier.align(Alignment.BottomCenter))
         CheckMark(visible = complete, modifier = Modifier.align(Alignment.Center))
     }
 }
 
-@Composable
-private fun Caption(text: String, modifier: Modifier) {
-    val palette = LocalClearAirPalette.current
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(bottomStart = CAMERA_RADIUS, bottomEnd = CAMERA_RADIUS))
-            .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = CAPTION_SHADE))))
-            .padding(start = CAPTION_SIDE, end = CAPTION_SIDE, top = CAPTION_SHADE_TOP, bottom = CAPTION_BOTTOM),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text = text, style = ClearAirType.time, color = palette.paper.copy(alpha = CAPTION_ALPHA), textAlign = TextAlign.Center)
+/** The camera's backdrop, shared by the scan cards: the ellipse is drawn as a circle squashed to the ellipse's height about its centre. */
+internal fun DrawScope.drawCameraBackdrop() {
+    val centre = Offset(size.width / 2, size.height * BACKDROP_TOP)
+    val radius = size.width * BACKDROP_WIDTH
+    val squash = size.height * BACKDROP_HEIGHT / radius
+    scale(scaleX = 1f, scaleY = squash, pivot = centre) {
+        drawRect(
+            brush = Brush.radialGradient(0f to CAMERA_CENTRE, BACKDROP_STOP to CAMERA_EDGE, center = centre, radius = radius),
+            topLeft = Offset(0f, centre.y - centre.y / squash),
+            size = Size(size.width, size.height / squash),
+        )
     }
 }
 

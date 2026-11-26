@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import app.lensly.app.export.PairingPayload
+import app.lensly.ui.camera.FrameSource
 import app.lensly.ui.camera.openAppSettings
 import app.lensly.ui.qr.QrScanner
 import app.lensly.ui.theme.ClearAirSpacing
@@ -28,10 +29,21 @@ import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.scan.rememberCameraAccess
 
-/** The camera scan for a pairing code: the Pair with Lensly page, with the live camera in it. [progress] shows for an animated code, and [status] says what the scan is doing. [complete] closes the ring. */
+/**
+ * The camera scan for a pairing code: the Pair with Lensly page, with the live camera in its frame. [progress] fills the bar for an animated code, [status]
+ * says what the scan is doing, and [complete] shows the check. The page draws the whole frame, so the scanner draws none of its own. [frameSource] is for
+ * tests, which pass their own frames.
+ */
 @Composable
-fun PairScanScreen(chrome: PairChrome, progress: Float?, status: String, onText: (String) -> Unit, complete: Boolean = false) {
-    val camera = rememberCameraAccess()
+fun PairScanScreen(
+    chrome: PairChrome,
+    progress: Float?,
+    status: String,
+    onText: (String) -> Unit,
+    complete: Boolean = false,
+    frameSource: FrameSource? = null,
+) {
+    val camera = rememberCameraAccess(frameSource)
     val context = LocalContext.current
     val denied = camera.refused && !camera.granted
     PairWithLensly(
@@ -42,7 +54,7 @@ fun PairScanScreen(chrome: PairChrome, progress: Float?, status: String, onText:
         denied = denied,
         onOpenSettings = { context.openAppSettings() },
     ) { viewport ->
-        if (camera.granted) QrScanner(onText = onText, modifier = viewport)
+        if (camera.granted) QrScanner(onText = onText, modifier = viewport, frameSource = frameSource, viewfinder = false)
     }
 }
 

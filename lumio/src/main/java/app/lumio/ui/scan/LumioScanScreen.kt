@@ -162,7 +162,7 @@ fun rememberCameraAccess(frameSource: FrameSource? = null): CameraAccess {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) granted = context.hasCameraPermission()
+            if (event == Lifecycle.Event.ON_RESUME) granted = frameSource != null || context.hasCameraPermission()
         }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }

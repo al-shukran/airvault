@@ -16,9 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -64,15 +62,7 @@ fun ReplyScanCard(
     Box(
         modifier = frame
             .clip(RoundedCornerShape(CARD_CORNER))
-            .drawBehind {
-                drawRect(
-                    Brush.radialGradient(
-                        colors = listOf(CARD_CENTRE, CARD_EDGE),
-                        center = Offset(size.width * 0.5f, size.height * 0.4f),
-                        radius = size.width * 0.9f,
-                    ),
-                )
-            },
+            .drawBehind { drawCameraBackdrop() },
     ) {
         if (camera.granted) QrScanner(onText = onText, modifier = Modifier.fillMaxSize(), frameSource = frameSource, viewfinder = false)
         Box(modifier = Modifier.fillMaxSize().drawBehind { drawBrackets(palette.paper.copy(alpha = BRACKET_ALPHA)) })
@@ -135,8 +125,6 @@ private fun DrawScope.drawBrackets(color: Color) {
 
 private val CARD_HEIGHT = 316.dp
 private val CARD_CORNER = 26.dp
-private val CARD_CENTRE = Color(0xFF2A2630)
-private val CARD_EDGE = Color(0xFF0B0A0D)
 private val BRACKET_ARM = 34.dp
 private val BRACKET_WIDTH = 3.dp
 private val BRACKET_RADIUS = 12.dp
