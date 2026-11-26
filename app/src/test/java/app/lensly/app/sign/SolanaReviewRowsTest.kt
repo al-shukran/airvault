@@ -141,6 +141,23 @@ class SolanaReviewRowsTest {
         ))).filter { it.first == "Unused Account" })
     }
 
+    /** #1419: a lookup-table slot that no instruction uses is in the signed bytes, so the review shows its table and index. */
+    @Test
+    fun aLookupSlotThatNoInstructionUsesIsShownAsAnUnusedLookupAccount() {
+        // Slots 0 and 5 are loaded as accounts 2 and 3. The instruction uses account 2 only. (Lensly refuses a transfer to a lookup account.)
+        val review = transaction(v0FromLookupTable(data = le32(9), writableIndexes = listOf(0, 5)))
+        val rows = solanaRows(review)
+        assertEquals(
+            listOf("Unused Lookup Account" to "lookup table $TABLE, index 5 (can't be checked offline)"),
+            rows.filter { it.first.startsWith("Unused") },
+        )
+        val labels = rows.map { it.first }
+        assertTrue(labels.indexOf("Fee Payer") < labels.indexOf("Unused Lookup Account"))
+        assertTrue(labels.indexOf("Unused Lookup Account") < labels.indexOf("Recent Blockhash"))
+        assertTrue(review.toReview().unaccounted().isEmpty())
+        assertEquals(emptyList(), solanaRows(transaction(v0FromLookupTable(data = le32(9)))).filter { it.first.startsWith("Unused") })
+    }
+
     /** R03, the review's tick: an instruction Lensly does not read needs the owner's tick, and a transfer it reads does not. */
     @Test
     fun anInstructionThatIsNotReadNeedsTheUnderstandingTick() {
@@ -592,9 +609,9 @@ class SolanaReviewRowsTest {
 
     /**
      * A v0 message with one System instruction on [data], from account 0 to account 2, where account 2 is loaded from [TABLE] at index 0.
-     * The default data is a transfer of 1000 lamports.
+     * The default data is a transfer of 1000 lamports. [writableIndexes] are the table slots the message loads, the first of which is account 2.
      */
-    private fun v0FromLookupTable(data: ByteArray = le32(2) + le64(1_000L)): ByteArray {
+    private fun v0FromLookupTable(data: ByteArray = le32(2) + le64(1_000L), writableIndexes: List<Int> = listOf(0)): ByteArray {
         val out = ByteArrayOutputStream()
         out.write(0x80)
         out.write(byteArrayOf(1, 0, 1))
@@ -610,8 +627,8 @@ class SolanaReviewRowsTest {
         out.write(data)
         out.write(1)
         out.write(Base58.decode(TABLE))
-        out.write(1)
-        out.write(0)
+        out.write(writableIndexes.size)
+        writableIndexes.forEach { out.write(it) }
         out.write(0)
         return out.toByteArray()
     }

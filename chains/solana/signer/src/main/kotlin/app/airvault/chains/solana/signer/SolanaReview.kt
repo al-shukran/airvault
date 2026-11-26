@@ -204,7 +204,9 @@ private fun SolanaRequestReview.rows(chain: ChainId): List<ReviewRow> = buildLis
     } else if (tx != null) {
         add(ReviewRow("Fee Payer", DisplayValue.Address(chain, tx.feePayer), Fields.feePayer))
         otherRequiredSigners.forEach { add(ReviewRow("Other Required Signer", DisplayValue.Address(chain, it), Fields.otherSigner)) }
-        unusedAccounts.forEach { add(ReviewRow("Unused Account", DisplayValue.Address(chain, it), Fields.unusedAccount)) }
+        unusedAccounts.forEach {
+            add(accountRow(if (it is SolanaMessageAccount.Lookup) "Unused Lookup Account" else "Unused Account", chain, it, Fields.unusedAccount))
+        }
         add(ReviewRow("Recent Blockhash", DisplayValue.Text(Base58.encode(tx.recentBlockhash)), Fields.recentBlockhash))
         instructions.forEach { addAll(instructionRows(it, chain)) }
     }
