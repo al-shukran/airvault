@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.ui.kit.ClearAirDraggableRows
 import app.lumio.ui.kit.ClearAirField
@@ -25,6 +26,12 @@ import app.lumio.ui.kit.ClearAirNumberedRow
 import app.lumio.ui.kit.ClearAirRadio
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirTextAction
+
+/**
+ * The most the Add action lays out tall: the 56 dp field less its 6 dp padding and its 2 dp edge. The mock's Add is a short text, so the field stays 56 dp, and the
+ * action's 48 dp press still reaches past this box.
+ */
+private val CUSTOM_RPC_ACTION_HEIGHT = 40.dp
 
 /**
  * The Network page (B4) of one chain. The built-in RPC row shows [builtInUrl], the address the built-in RPC reads from, and it cannot be deleted. The owner's own
@@ -108,6 +115,7 @@ fun NetworkPage(
                 onCommit = { addDraft() },
                 trailing = { ClearAirTextAction(text = "Add", onClick = { addDraft() }, enabled = !busy && draft.isNotBlank()) },
                 inputTag = "custom-rpc",
+                trailingHeight = CUSTOM_RPC_ACTION_HEIGHT,
             )
         }
         if (providers.isNotEmpty()) {
