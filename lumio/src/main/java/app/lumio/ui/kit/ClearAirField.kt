@@ -71,7 +71,7 @@ private val LABEL_OVERHANG = 9.dp
 private val LABEL_LINE = 21.sp
 private val VALUE_LINE = 21.sp
 
-/** The mock sets an address inside a field at 13.5 sp on a 20 sp line, a little larger than the 13 sp address style of a row. */
+/** The mock sets an address inside a field at 13.5 sp on a 20 sp line with no tracking, a little larger and looser than the address style of a row. */
 private val ADDRESS_VALUE_LINE = 20.sp
 
 /** A masked value is dots in the mono face, 0.14 em apart, as the mock sets a password. */
@@ -118,7 +118,7 @@ fun ClearAirField(
     val palette = LocalClearAirPalette.current
     val focus = LocalFocusManager.current
     val style = if (monospace) {
-        ClearAirType.address.copy(fontSize = 13.5.sp, lineHeight = ADDRESS_VALUE_LINE, lineHeightStyle = FieldLine)
+        ClearAirType.address.copy(fontSize = 13.5.sp, lineHeight = ADDRESS_VALUE_LINE, letterSpacing = 0.sp, lineHeightStyle = FieldLine)
     } else {
         ClearAirType.body.copy(lineHeight = VALUE_LINE, lineHeightStyle = FieldLine)
     }
