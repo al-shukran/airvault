@@ -31,6 +31,19 @@ class NativeCoinsTest {
     }
 
     @Test
+    fun solanaAndAlgorandMainnetArePricedAsTheirOwnCoins() {
+        assertEquals("solana", NativeCoins.coinOf(NetworkId(Networks.SOL_MAINNET, testnet = false)))
+        assertEquals("algorand", NativeCoins.coinOf(NetworkId(Networks.ALGO_MAINNET, testnet = false)))
+    }
+
+    @Test
+    fun aSolanaOrAlgorandTestnetHasNoPrice() {
+        assertNull(NativeCoins.coinOf(NetworkId(Networks.SOL_DEVNET, testnet = true)))
+        assertNull(NativeCoins.coinOf(NetworkId(Networks.ALGO_TESTNET, testnet = true)))
+        assertNull(NativeCoins.coinOf(NetworkId(Networks.SOL_MAINNET, testnet = true)))
+    }
+
+    @Test
     fun aTestnetHasNoPriceEvenUnderAMainnetChainId() {
         assertNull(NativeCoins.coinOf(evm("1", testnet = true)))
         assertNull(NativeCoins.coinOf(evm("143", testnet = true)))
