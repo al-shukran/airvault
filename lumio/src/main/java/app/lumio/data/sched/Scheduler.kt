@@ -8,6 +8,7 @@ import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.provider.Broadcast
 import app.lumio.data.provider.Http
+import app.lumio.data.provider.NotSent
 import app.lumio.data.provider.OpKey
 import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
@@ -314,7 +315,7 @@ class Scheduler(
                 }
                 Attempt.Cooling -> {
                     waiters.remove(w)
-                    w.refusal = ProviderError.Transient()
+                    w.refusal = ProviderError.Transient(NotSent("Every provider is cooling."))
                     w.wake.complete(null)
                 }
                 is Attempt.Waiting -> {

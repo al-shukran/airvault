@@ -1,0 +1,1 @@
+A send that was refused before any request left, because every provider was cooling or because Solana's block height could not be read, now says nothing was sent instead of "We Couldn't Confirm It Was Sent". An Algorand answer that cannot be read no longer says the network did not accept the transaction.

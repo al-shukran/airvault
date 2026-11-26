@@ -14,6 +14,7 @@ import app.lumio.data.provider.Provider
 import app.lumio.data.provider.ProviderError
 import app.lumio.data.provider.TipHeight
 import app.lumio.data.provider.Trait
+import app.lumio.send.outcomeUnknown
 import java.io.IOException
 import java.io.InterruptedIOException
 import java.net.ConnectException // CI_ALLOW_NETWORK_REFERENCE: exception type only, used as a fixture; no network access
@@ -141,6 +142,22 @@ class SchedulerTest {
 
         assertEquals(100L, s.run(TipHeight(ETH)))
         assertEquals(2, a.calls)
+    }
+
+    /** A broadcast that finds its only provider cooling is refused before any request, so its outcome is not unknown. */
+    @Test
+    fun aBroadcastRefusedForCoolingNeverLeftAndItsOutcomeIsKnown() = runTest {
+        val a = provider("a").apply { outcomes.add(ProviderError.RateLimited(retryAfterMs = 60_000)) }
+        val s = scheduler(a)
+
+        val first = runCatching { s.run(Broadcast(ETH, byteArrayOf(1))) }.exceptionOrNull()
+        assertEquals(1, a.calls)
+        assertTrue(first is ProviderError.Transient && first.neverSent)
+        assertFalse(outcomeUnknown(first!!))
+
+        val second = runCatching { s.run(Broadcast(ETH, byteArrayOf(1))) }.exceptionOrNull()
+        assertEquals(1, a.calls)
+        assertFalse(outcomeUnknown(second!!))
     }
 
     @Test

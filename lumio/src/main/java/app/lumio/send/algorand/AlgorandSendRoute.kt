@@ -117,6 +117,16 @@ private const val PREPARE_FAILED = "The send could not be prepared. Try again."
 private const val REQUEST_FAILED = "The sign request could not be made. Try again."
 private const val SIGNATURE_FAILED = "That code could not be used. Scan the signature again."
 private const val BROADCAST_FAILED = "The network did not accept the transaction. Check the balance, then try again."
+
+/**
+ * The words of a failed Algorand submission. A refusal by the node keeps [BROADCAST_FAILED]. An answer that cannot be read is a [ProviderError.Fatal]
+ * too, but the node may have taken the transaction, so it gets its own words, which agree with the page's "couldn't confirm" heading.
+ */
+internal fun algorandFailure(error: Throwable): SubmitFailure =
+    SubmitFailure(
+        if (error is ProviderError.Fatal && error !is ProviderError.Unreadable) BROADCAST_FAILED else AlgorandSend.ownerWords(error, BROADCAST_FAILED),
+    )
+
 private const val READ_FAILED = "The Algorand network could not be read. Try again."
 private const val PENDING_TEXT = "Waiting for the network to confirm the transaction."
 private const val NO_BROWSER = "No browser can open the explorer."
@@ -316,9 +326,7 @@ internal fun AlgorandSendRoute(
                     val machine = SubmitMachine(
                         signed = bytes,
                         broadcast = { signedBytes -> withContext(Dispatchers.IO) { AlgorandSend.broadcast(scheduler, current.plan, signedBytes) } },
-                        describe = { error ->
-                            SubmitFailure(if (error is ProviderError.Fatal) BROADCAST_FAILED else AlgorandSend.ownerWords(error, BROADCAST_FAILED))
-                        },
+                        describe = ::algorandFailure,
                     )
                     notice = null
                     step = AlgorandSendStep.Submit(current.plan, current.requestId, current.parts, machine)
