@@ -34,12 +34,12 @@ env:
   DEPS_CACHE_PATHS: |
     ~/.gradle/caches/modules-2
     ~/.gradle/wrapper/dists
-    ~/.gradle/caches/9.9.2/dependencies-accessors
-    ~/.gradle/caches/9.9.2/generated-gradle-jars
-    ~/.gradle/caches/9.9.2/kotlin-dsl
-    ~/.gradle/caches/9.9.2/scripts
-    ~/.gradle/caches/9.9.2/transforms
-    ~/.gradle/caches/jars-9
+    ~/.gradle/caches/*/dependencies-accessors
+    ~/.gradle/caches/*/generated-gradle-jars
+    ~/.gradle/caches/*/kotlin-dsl
+    ~/.gradle/caches/*/scripts
+    ~/.gradle/caches/*/transforms
+    ~/.gradle/caches/jars-*
 
 jobs:
   # Resolves the dependencies once, so the jobs below restore a complete cache. A miss resolves online, as pr-fast.yml's deps job does.
@@ -383,15 +383,7 @@ jobs:
       - name: Restore the Gradle dependency cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.gradle/caches/modules-2
-            ~/.gradle/wrapper/dists
-            ~/.gradle/caches/9.9.2/dependencies-accessors
-            ~/.gradle/caches/9.9.2/generated-gradle-jars
-            ~/.gradle/caches/9.9.2/kotlin-dsl
-            ~/.gradle/caches/9.9.2/scripts
-            ~/.gradle/caches/9.9.2/transforms
-            ~/.gradle/caches/jars-9
+          path: ${{ env.DEPS_CACHE_PATHS }}
           key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
           fail-on-cache-miss: true
 
