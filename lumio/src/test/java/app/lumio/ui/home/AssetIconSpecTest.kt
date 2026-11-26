@@ -100,6 +100,17 @@ class AssetIconSpecTest {
         assertEquals("?", letterOf("$"))
     }
 
+    @Test
+    fun lumioDrawsBitcoinBnbHypeAndUsdcAsRoundMarksAndKeepsTheOtherLogos() {
+        assertEquals(app.lumio.R.drawable.lumio_mark_bitcoin, roundMarkOf(AssetIconSpec.Bitcoin))
+        assertEquals(app.lumio.R.drawable.lumio_mark_bnb, roundMarkOf(AssetIconSpec.Chain(registry.network(56L))))
+        assertEquals(app.lumio.R.drawable.lumio_mark_hyperevm, roundMarkOf(AssetIconSpec.Chain(registry.network(999L))))
+        assertEquals(app.lumio.R.drawable.lumio_mark_usdc, roundMarkOf(AssetIconSpec.Token(registryToken(1L, "USDC"), ethereum)))
+        assertEquals(null, roundMarkOf(AssetIconSpec.Chain(ethereum)))
+        assertEquals(null, roundMarkOf(AssetIconSpec.Token(registryToken(1L, "USDT"), ethereum)))
+        assertEquals(null, roundMarkOf(AssetIconSpec.Solana))
+    }
+
     private fun registryToken(chainId: Long, symbol: String): TokenEntry =
         checkNotNull(registry.tokens().firstOrNull { it.chainId == chainId && it.symbol == symbol }) { "$symbol on $chainId is not in the registry" }
 

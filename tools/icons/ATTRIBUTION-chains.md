@@ -10,8 +10,6 @@
 
 abstract, apechain, arbitrum-nova, arbitrum-one, aurora, avalanche, base, berachain, binance-smart-chain, bitcoin, blast, bob, celo, cronos, cronos-zkevm, ethereum, ethereum-classic, fantom, fraxtal, fuse, gnosis, harmony, hyper-evm, immutable, ink, kaia, katana, kava, kroma, lens, linea, lisk, manta-pacific, mantle, mega-eth, metis-andromeda, mint, mode, monad, moonbeam, moonriver, okex, optimism, peaq, plasma, polygon, polygon-zkevm, pulsechain, ronin, rootstock, scroll, sei-network, soneium, sonic, taiko, telos, unichain, world, x-layer, zircuit, zksync, zora
 
-**Round marks:** `bitcoin`, `binance-smart-chain` and `hyper-evm` come from the `background` variant (`tokens/background/BTC.svg`, `tokens/background/BNB.svg`, `networks/background/hyper-evm.svg`), with the square background drawn as a circle, so they match the round marks that coin lists show. The BNB mark is white on BNB yellow.
-
 ## Not included
 
 No logo in the source set: opBNB, Hyperliquid L1, Story, Somnia, Eclipse, and most other pre-launch or niche L1s. If you need one, drop the official SVG here using the same kebab-case naming.

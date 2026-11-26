@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -29,6 +30,7 @@ import app.lensly.ui.components.SolanaIcon
 import app.lensly.ui.components.TokenIcon
 import app.lensly.ui.components.tokenIconDrawables
 import app.lumio.LumioApp
+import app.lumio.R
 import app.lumio.data.net.NetworkId
 import app.lumio.home.HomeAsset
 import app.lumio.home.TokenAsset
@@ -100,9 +102,32 @@ internal fun letterOf(symbol: String): String =
 internal fun chainIconOf(registry: Registry, chainId: Long, name: String): AssetIconSpec =
     registry.network(chainId)?.let { AssetIconSpec.Chain(it) } ?: AssetIconSpec.Letter(letterOf(name))
 
+/**
+ * The round mark Lumio draws in place of the shared logo of [spec], as coin lists show these four: Bitcoin, BNB, HyperEVM's HYPE and USDC. Null for
+ * every other logo. Lensly keeps the shared marks.
+ */
+internal fun roundMarkOf(spec: AssetIconSpec): Int? = when (spec) {
+    AssetIconSpec.Bitcoin -> R.drawable.lumio_mark_bitcoin
+    is AssetIconSpec.Chain -> when (spec.network?.chainId) {
+        BNB_CHAIN -> R.drawable.lumio_mark_bnb
+        HYPER_EVM -> R.drawable.lumio_mark_hyperevm
+        else -> null
+    }
+    is AssetIconSpec.Token -> if (spec.token.icon == USDC_ICON) R.drawable.lumio_mark_usdc else null
+    else -> null
+}
+
+private const val BNB_CHAIN = 56L
+private const val HYPER_EVM = 999L
+private const val USDC_ICON = "token_usdc"
+
 /** The icon of [spec] at [size]. It is decorative: the text beside it names the asset. */
 @Composable
 internal fun AssetIcon(spec: AssetIconSpec, size: Dp, modifier: Modifier = Modifier) {
+    roundMarkOf(spec)?.let { mark ->
+        Image(painter = painterResource(mark), contentDescription = null, modifier = modifier.size(size))
+        return
+    }
     when (spec) {
         AssetIconSpec.Bitcoin -> BitcoinIcon(size = size, modifier = modifier)
         AssetIconSpec.Solana -> SolanaIcon(size = size, modifier = modifier)

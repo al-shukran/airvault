@@ -297,6 +297,29 @@ class PriceRepositoryTest {
     }
 
     /** Answers each route from its own queue. A route with no answer left gets 500, so an unexpected call fails the test. */
+    @Test
+    fun aDirectoryReadOnceIsKnownAfterARestartFromTheVaultWithNoSourceAsked() = runBlocking {
+        routes.on(
+            "other",
+            MockResponse.Builder().body("""[{"id":"ethereum","chain_identifier":1}]""").build(),
+            MockResponse.Builder().body("""[{"id":"ousg","symbol":"ousg","name":"Ondo Fund","platforms":{"ethereum":"0x1b19c19393e2d034d8ff31ff34c81252fcbbee92"}}]""").build(),
+        )
+        assertEquals(listOf("ousg"), repository(live()).directory()?.coins?.map { it.id })
+        val asked = routes.total()
+
+        // A new process: nothing in memory, the same vault.
+        val restarted = repository(live())
+        assertEquals(null, restarted.knownDirectory())
+        assertEquals(listOf("ousg"), restarted.keptDirectory()?.coins?.map { it.id })
+        assertEquals(listOf("ousg"), restarted.knownDirectory()?.coins?.map { it.id })
+        assertEquals(asked, routes.total())
+    }
+
+    @Test
+    fun aLockedVaultKeepsNoDirectory() = runBlocking {
+        assertEquals(null, repository(live(), kept = null).keptDirectory())
+    }
+
     private class Routes : Dispatcher() {
         private val queues = HashMap<String, ArrayDeque<MockResponse>>()
         private val counts = HashMap<String, Int>()

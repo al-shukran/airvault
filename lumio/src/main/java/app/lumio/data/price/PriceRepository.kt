@@ -142,6 +142,13 @@ class PriceRepository(
     /** The directory read this session, with no wait. */
     fun knownDirectory(): CoinDirectory? = lastDirectory
 
+    /**
+     * The directory kept in the vault's cache, with no source asked, of any age, so the names it gives are known from the first screen after a start. Null
+     * while the vault is locked or none was kept.
+     */
+    suspend fun keptDirectory(): CoinDirectory? = lastDirectory
+        ?: cache()?.get(CachePolicy.LastKnown, DIRECTORY_KEY)?.let { decodeOrNull(jsonCodec<CoinDirectory>(), it.value) }?.also { lastDirectory = it }
+
     @Volatile
     private var lastTop: MarketCoins? = null
 

@@ -95,14 +95,27 @@ fun searchCandidates(matches: List<Pair<DirectoryCoin, WatchedAsset>>, markets: 
         .sortedWith(BY_RANK)
 }
 
-/** The ticker and name of each token of a directory, by the asset Lumio watches for it on each of its networks. */
+/**
+ * The names Lumio gives a coin where the market source's name differs: the locked kit titles USDC "USD Coin". Every other coin keeps the source's name.
+ */
+private val NAME_OVERRIDES: Map<String, String> = mapOf("usd-coin" to "USD Coin")
+
+/** The name Lumio shows for the market source's coin [id] named [name]. */
+fun coinDisplayName(id: String, name: String): String = NAME_OVERRIDES[id] ?: name
+
+/**
+ * The ticker and name of each coin of a directory, by the asset Lumio watches for it: a network's own coin as that coin, and a token on each of its
+ * networks.
+ */
 private class NameIndex(val directory: CoinDirectory) {
     val names: Map<WatchedAsset, Pair<String, String>> = buildMap {
         directory.coins.forEach { coin ->
+            val names = coin.symbol.uppercase() to coinDisplayName(coin.id, coin.name)
+            NativeCoins.networkOf(coin.id)?.let { putIfAbsent(WatchedAsset(it), names) }
             coin.contracts.forEach { (network, contract) ->
                 val chain = ChainId(network)
                 val token = if (chain.namespace == Networks.EIP155) contract.lowercase() else contract
-                putIfAbsent(WatchedAsset(NetworkId(chain, testnet = false), token), coin.symbol.uppercase() to coin.name)
+                putIfAbsent(WatchedAsset(NetworkId(chain, testnet = false), token), names)
             }
         }
     }
@@ -111,7 +124,7 @@ private class NameIndex(val directory: CoinDirectory) {
 @Volatile
 private var nameIndex: NameIndex? = null
 
-/** The ticker and name that [directory] gives the token [asset], or null when it lists none. The index is built once for each directory. */
+/** The ticker and name that [directory] gives [asset], or null when it lists none. The index is built once for each directory. */
 fun directoryNames(directory: CoinDirectory, asset: WatchedAsset): Pair<String, String>? {
     val index = nameIndex?.takeIf { it.directory === directory } ?: NameIndex(directory).also { nameIndex = it }
     return index.names[asset]

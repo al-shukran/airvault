@@ -703,3 +703,4 @@ shard-4 :lumio app.lumio.ui.search.WatchlistCandidatesTest
 shard-4 :lumio app.lumio.ui.search.WatchlistPickerGridTest
 shard-4 :lumio app.lumio.ui.search.WatchlistPickerTest
 shard-4 :lumio app.lumio.ui.home.FetchedLogoTest
+shard-4 :lumio app.lumio.CoinNamesTest

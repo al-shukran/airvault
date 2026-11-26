@@ -196,7 +196,7 @@ internal fun WatchlistAddRoute(
             else -> "Coins"
         },
         rows = candidates.orEmpty().map { candidate ->
-            val (symbol, name) = pickerNames(candidate, app)
+            val (symbol, name) = namesOf(candidate.asset, app, board.tokenHeld.values)
             PickerRow(
                 asset = candidate.asset,
                 name = name,
@@ -225,14 +225,6 @@ private const val SEARCH_SETTLE_MS = 400L
 private fun localCandidates(watched: List<WatchedAsset>): List<Candidate> = (FIRST_RUN_ASSETS + watched).distinct().map { asset ->
     val (symbol, name) = coinNames(asset)
     Candidate(coinId = asset.toString(), asset = asset, name = name, symbol = symbol, rank = null, image = null)
-}
-
-/** The ticker and name of a row: the registry's for a token it lists, as Home and the asset page name it, else the market source's. */
-private fun pickerNames(candidate: Candidate, app: LumioApp): Pair<String, String> {
-    val asset = candidate.asset
-    val contract = asset.contract
-    if (contract != null && asset.network.isEvm) app.registry.token(Networks.evmIdOf(asset.network.chain), contract)?.let { return it.symbol to it.name }
-    return candidate.symbol.uppercase() to candidate.name
 }
 
 /**

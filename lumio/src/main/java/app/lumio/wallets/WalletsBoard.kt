@@ -41,7 +41,9 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -556,8 +558,10 @@ internal class WalletsBoard(
      * The balances of [mode] from the vault's caches, and the tokens of its Ethereum accounts with the dollars of the ones that have a price. It reads
      * no balance from the network.
      */
-    private suspend fun load(mode: NetworkMode): Loaded {
+    private suspend fun load(mode: NetworkMode): Loaded = coroutineScope {
         val epoch = forgets
+        // The market directory names the watched coins and tokens, so it is read from the vault with the rest, before a row shows; once a session.
+        val directory = async(Dispatchers.IO) { repository.keptDirectory() }
         val view = WalletsLoader.read(app, session, mode)
         val held = heldTokensOf(view, mode)
         val tokenPrices = repository.lastPrices(held.values.flatMap { AssetRows.tokenIds(it) })
@@ -566,7 +570,8 @@ internal class WalletsBoard(
             Triple(repository.lastPrices(assetsOf(watchlists)), repository.lastMarket(), repository.lastTrending())
         }
         val dayCharts = withContext(Dispatchers.IO) { repository.lastDayCharts(assetsOf(watchlists)) }
-        return Loaded(
+        directory.await()
+        Loaded(
             view,
             tokenCounts = held.mapValues { (_, tokens) -> tokens.count { it.amount.signum() > 0 } },
             tokenUsd = held.mapNotNull { (account, tokens) -> AssetRows.tokensUsd(tokens, tokenPrices)?.let { account to it } }.toMap(),
