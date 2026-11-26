@@ -32,11 +32,20 @@ class ArrivalNotificationsTest {
         assertEquals("Camera", manager.notificationChannels.single().name)
     }
 
+    @Test
+    fun `arrival notice tag does not name the transaction`() {
+        ArrivalNotifications(context).post(TX_ID)
+
+        val tag = manager.activeNotifications.single().tag.orEmpty()
+        assertFalse("tag '$tag' names the transaction", tag.contains(TX_ID))
+    }
+
     private fun assertNoForbiddenWords(visible: String) {
         assertFalse("'$visible' names a coin, amount, address or crypto action", FORBIDDEN.containsMatchIn(visible))
     }
 
     private companion object {
+        const val TX_ID = "tx-4c9e1b7a"
         val FORBIDDEN = Regex(
             "wallet|crypto|coin|token|receiv|arriv|transaction|\\btx\\b|\\bsend|\\bsent\\b|address|amount|bitcoin|\\bbtc\\b|ether|" +
                 "\\beth\\b|solana|\\bsol\\b|algorand|\\balgo\\b|monad|\\bmon\\b|usdc|0x|bc1|\\d",

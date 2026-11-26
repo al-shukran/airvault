@@ -26,6 +26,10 @@ class ArrivalNotifications(private val context: Context) : ArrivalNotice {
         return permitted && NotificationManagerCompat.from(context).areNotificationsEnabled()
     }
 
+    /**
+     * Posts under a constant tag, so the notice names no transaction. [id] is not shown to any listener. A later arrival replaces the notice still
+     * in the shade, as the same transaction always did.
+     */
     @SuppressLint("MissingPermission") // canPost checks the permission before this is called.
     override fun post(id: String) {
         val manager = NotificationManagerCompat.from(context)
@@ -43,12 +47,15 @@ class ArrivalNotifications(private val context: Context) : ArrivalNotice {
             .setContentIntent(open)
             .setAutoCancel(true)
             .build()
-        manager.notify(id, 0, notification)
+        manager.notify(NOTICE_TAG, 0, notification)
     }
 
     private companion object {
         // The channel keeps its ID, so an install that already has it is renamed rather than left with an old channel.
         const val CHANNEL_ID = "arrivals"
+
+        // A constant tag: StatusBarNotification.getTag() is readable by any notification listener, so it must not carry the transaction id.
+        const val NOTICE_TAG = "arrival"
         const val COVER_TITLE = "Camera"
         const val COVER_TEXT = "Tap to open"
     }
