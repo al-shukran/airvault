@@ -125,15 +125,23 @@ fun ClearAirPageTopBar(
     }
 }
 
-/** An icon button in ink with the mock's 44 dp box, and a 48 dp touch target around it, labelled for TalkBack. Not [enabled], it takes no press and turns secondary ink. */
+/** An icon button in ink with the mock's 44 dp box, and a 48 dp touch target around it, labelled for TalkBack. Not [enabled], it takes no press and turns secondary ink. A [filled] glyph is solid, as a watched star is. */
 @Composable
-fun ClearAirIconButton(glyph: ClearAirGlyph, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+fun ClearAirIconButton(
+    glyph: ClearAirGlyph,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    filled: Boolean = false,
+    role: Role = Role.Button,
+) {
     val palette = LocalClearAirPalette.current
     Box(
-        modifier = modifier.iconBox().pressable(onClick = onClick, label = label, enabled = enabled),
+        modifier = modifier.iconBox().pressable(onClick = onClick, label = label, enabled = enabled, role = role),
         contentAlignment = Alignment.Center,
     ) {
-        ClearAirIcon(glyph = glyph, color = if (enabled) palette.ink else palette.ink2, size = ICON_SIZE)
+        ClearAirIcon(glyph = glyph, color = if (enabled) palette.ink else palette.ink2, size = ICON_SIZE, filled = filled)
     }
 }
 
@@ -149,8 +157,8 @@ private fun Modifier.iconBox(): Modifier = layout { measurable, _ ->
 }
 
 /** A press target with a button role and a spoken [label], which scales as a Clear Air press does. */
-private fun Modifier.pressable(onClick: () -> Unit, label: String, enabled: Boolean = true): Modifier =
+private fun Modifier.pressable(onClick: () -> Unit, label: String, enabled: Boolean = true, role: Role = Role.Button): Modifier =
     semantics {
-        role = Role.Button
+        this.role = role
         contentDescription = label
     }.lumioPress(scale = ClearAirMotion.PRESS_SCALE, enabled = enabled, releaseSpring = ClearAirMotion.press, onClick = onClick)

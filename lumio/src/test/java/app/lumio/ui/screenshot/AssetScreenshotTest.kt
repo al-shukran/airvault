@@ -7,7 +7,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.unit.dp
 import app.airvault.core.model.AccountId
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
@@ -72,7 +71,7 @@ class AssetScreenshotTest {
         AssetPage(
             name = "Ethereum",
             symbol = "ETH",
-            icon = { Spacer(Modifier.size(ICON_SIZE)) },
+            icon = { size -> Spacer(Modifier.size(size)) },
             priceText = "$4,285.70",
             change = PriceChange(text = "▼ 2.41% · −$105.82 Today", rising = false),
             series = series(),
@@ -133,6 +132,5 @@ class AssetScreenshotTest {
     private companion object {
         const val SAMPLE_POINTS = 25
         const val HOUR_MS = 3_600_000L
-        val ICON_SIZE = 48.dp
     }
 }

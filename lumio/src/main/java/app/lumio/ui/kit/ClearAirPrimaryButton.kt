@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirCapsule
@@ -63,19 +64,20 @@ fun ClearAirPrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier 
             text = text,
             icon = icon,
             color = if (enabled) palette.onPrimary else palette.ink2,
+            style = ClearAirType.button,
             modifier = if (fullWidth) Modifier else Modifier.padding(horizontal = HUG_PADDING),
         )
     }
 }
 
-/** The label of a capsule: an optional 18 dp [icon], 8 dp apart from the [text]. */
+/** The label of a capsule: an optional 18 dp [icon], 8 dp apart from the [text], which is set in [style]. */
 @Composable
-internal fun CapsuleLabel(text: String, icon: ClearAirGlyph?, color: Color, modifier: Modifier = Modifier) {
+internal fun CapsuleLabel(text: String, icon: ClearAirGlyph?, color: Color, modifier: Modifier = Modifier, style: TextStyle = ClearAirType.rowTitle) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         icon?.let {
             ClearAirIcon(glyph = it, color = color, size = 18.dp)
             Spacer(Modifier.width(ClearAirSpacing.xs))
         }
-        Text(text = text, style = ClearAirType.rowTitle, color = color, maxLines = 1)
+        Text(text = text, style = style, color = color, maxLines = 1)
     }
 }

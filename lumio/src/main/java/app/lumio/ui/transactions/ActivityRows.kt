@@ -17,9 +17,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import app.lensly.app.addressKeyOf
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirMotion
@@ -31,6 +33,7 @@ import app.lumio.home.Masking
 import app.lumio.transactions.ActivityText
 import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.kit.LocalFiat
+import app.lumio.ui.kit.cssLine
 import java.time.ZoneId
 
 /** The side of the disc that a direction mark sits in, and the mark's own side. The disc is the mock's sunk 36 dp circle. */
@@ -41,8 +44,18 @@ private val MARK = 18.dp
 private val SPARK = 5.dp
 private val SPARK_TOP = 7.dp
 
+/** The line boxes of a row's title and amount, and of its detail and value in dollars: 20 dp and 17 dp, as the mock sets them. */
+private val TITLE_LINE = 20.dp
+private val DETAIL_LINE = 17.dp
+
+/** How far Compose sets the detail's small face under the mock's, in dp. */
+private val SMALL_LIFT = 1.5.dp
+
+/** The value in dollars under an amount: the mono face at 12 sp, regular and a little tight, as the mock sets it. */
+private val USD_STYLE = ClearAirType.time.copy(fontWeight = FontWeight.Normal, letterSpacing = (-0.02).em)
+
 /** The height of an activity row with a one-line detail. A two-line detail takes the row a little taller. */
-private val ROW_MIN_HEIGHT = 64.dp
+private val ROW_MIN_HEIGHT = 62.dp
 
 /**
  * One row of the activity: its direction mark in a sunk disc, what it is and to or from whom, and the amount with its value in dollars on the right.
@@ -69,13 +82,13 @@ fun ActivityRowItem(item: TxFeedItem, names: Map<String, String>, zone: ZoneId, 
         ) {
             TxGlyphIcon(
                 glyph = glyphOf(tx.direction),
-                color = if (line.incoming) palette.vaultBlue else palette.ink,
+                color = palette.ink,
                 size = MARK,
             )
         }
         Spacer(Modifier.width(ClearAirSpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = line.title, style = ClearAirType.rowTitle, color = palette.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(text = line.title, style = ClearAirType.rowTitle, color = palette.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.cssLine(TITLE_LINE))
             Row(verticalAlignment = Alignment.Top) {
                 if (tx.status == TxStatus.PENDING) {
                     SparkMark(side = SPARK, modifier = Modifier.padding(top = SPARK_TOP))
@@ -83,11 +96,11 @@ fun ActivityRowItem(item: TxFeedItem, names: Map<String, String>, zone: ZoneId, 
                 }
                 Text(
                     text = line.detail,
-                    style = ClearAirType.body,
+                    style = ClearAirType.caption,
                     color = palette.ink2,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).cssLine(DETAIL_LINE, lift = SMALL_LIFT),
                 )
             }
         }
@@ -98,9 +111,10 @@ fun ActivityRowItem(item: TxFeedItem, names: Map<String, String>, zone: ZoneId, 
                 style = ClearAirType.rowValue,
                 color = if (line.incoming) palette.vaultBlue else palette.ink,
                 textAlign = TextAlign.End,
+                modifier = Modifier.cssLine(TITLE_LINE),
             )
             line.usd?.let {
-                Text(text = Masking.amount(LocalFiat.current.amount(it), hidden = !shown), style = ClearAirType.body, color = palette.ink2, textAlign = TextAlign.End)
+                Text(text = Masking.amount(LocalFiat.current.amount(it), hidden = !shown), style = USD_STYLE, color = palette.ink2, textAlign = TextAlign.End, modifier = Modifier.cssLine(DETAIL_LINE, lift = SMALL_LIFT))
             }
         }
     }

@@ -33,6 +33,7 @@ private val NumberFamily = FontFamily(
     Font(R.font.jetbrains_mono_variable, FontWeight.Light, variationSettings = FontVariation.Settings(FontVariation.weight(300))),
     Font(R.font.jetbrains_mono_variable, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
     Font(R.font.jetbrains_mono_variable, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
+    Font(R.font.jetbrains_mono_variable, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
 )
 
 /** A size and a line height, in sp, and the letter spacing of the mock's CSS, in em. */

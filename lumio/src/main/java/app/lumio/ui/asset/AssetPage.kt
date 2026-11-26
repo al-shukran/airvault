@@ -5,14 +5,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,31 +27,36 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.data.price.ChartFrame
 import app.lumio.data.price.PriceSeries
+import app.lumio.ui.home.AssetIconSpec
+import app.lumio.ui.home.ChainDots
 import app.lumio.ui.kit.ChoiceGroup
 import app.lumio.ui.kit.ChoiceRow
 import app.lumio.ui.kit.ClearAirAmount
-import app.lumio.ui.kit.ClearAirCapsuleSmall
 import app.lumio.ui.kit.ClearAirChangeLineStyle
 import app.lumio.ui.kit.ClearAirChoiceSheet
+import app.lumio.ui.kit.ClearAirDisc
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
-import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.ClearAirIconButton
+import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ClearAirSheet
 import app.lumio.ui.kit.ClearAirTextAction
-import app.lumio.ui.home.ChainDots
-import app.lumio.ui.home.AssetIconSpec
+import app.lumio.ui.kit.cssLine
 
 /**
  * A coin's holdings across the wallet: the amount, the accounts and chains it sits on, the logo of each chain in the order the holdings list gives them,
@@ -79,7 +85,7 @@ private enum class CoinPicker { SEND, RECEIVE }
 internal fun AssetPage(
     name: String,
     symbol: String,
-    icon: @Composable () -> Unit,
+    icon: @Composable (Dp) -> Unit,
     priceText: String?,
     change: PriceChange?,
     series: PriceSeries?,
@@ -98,6 +104,8 @@ internal fun AssetPage(
 ) {
     val palette = LocalClearAirPalette.current
     val senders = accounts.filter { it.onSend != null }
+    // The frame's text action has 6 dp at each side, and its label sits 1 dp higher than Compose sets it in its line.
+    val textActionModifier = Modifier.padding(horizontal = TEXT_ACTION_PAD).offset(y = -TEXT_ACTION_LIFT)
     var picker by remember { mutableStateOf<CoinPicker?>(null) }
     // The picker sheets are composed on the first open, not on the page's first frame. A tap composes them hidden, then the picker opens a frame
     // later, so the sheet still slides in.
@@ -113,62 +121,83 @@ internal fun AssetPage(
             opening = null
         }
     }
-    Column(modifier = Modifier.fillMaxSize().padding(vertical = ClearAirSpacing.md)) {
+    Column(modifier = Modifier.fillMaxSize()) {
         AssetTopBar(name = name, watched = watched, onWatch = onWatch, onBack = onBack, onLock = onLock)
         // A lazy list, so the sections below the fold are composed when they scroll in, not on the page's first frame.
-        LazyColumn(modifier = Modifier.weight(1f)) {
+        LazyColumn(modifier = Modifier.weight(1f), contentPadding = PaddingValues(bottom = ClearAirSpacing.md)) {
             item {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    icon()
-                    Spacer(Modifier.height(ClearAirSpacing.xs))
-                    ClearAirEyebrow(text = "$name · $symbol")
-                    ClearAirAmount(text = priceText ?: "—", style = ClearAirType.hero)
+                Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Spacer(Modifier.height(HEAD_TOP))
+                    ClearAirDisc(size = HEAD_DISC) { icon(HEAD_LOGO) }
+                    Spacer(Modifier.height(EYEBROW_GAP))
+                    ClearAirEyebrow(text = "$name · $symbol", top = 0.dp, bottom = 0.dp, modifier = Modifier.cssLine(EYEBROW_LINE))
+                    Spacer(Modifier.height(PRICE_GAP))
+                    Box(modifier = Modifier.fillMaxWidth().height(PRICE_BLOCK), contentAlignment = Alignment.TopCenter) {
+                        ClearAirAmount(text = priceText ?: "—", style = ClearAirType.hero, signGap = SIGN_GAP, modifier = Modifier.offset(y = PRICE_SHIFT))
+                    }
                     change?.let { value ->
                         Text(
                             text = value.text,
-                            style = ClearAirChangeLineStyle,
+                            style = ClearAirChangeLineStyle.copy(lineHeight = CHANGE_LINE),
                             color = if (value.rising) palette.vaultBlue else palette.rose,
+                            modifier = Modifier.cssLine(CHANGE_LINE_DP),
                         )
                     }
                 }
-                TickChart(series = series ?: PriceSeries(emptyList()), modifier = Modifier.padding(top = ClearAirSpacing.md))
-                RangeRow(selected = range, onSelect = onRange, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter))
-                if (!priceOnly) Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.md),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (held == null || senders.isEmpty()) {
-                        ClearAirCapsuleSmall(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE)
-                        if (senders.isEmpty()) return@Row
-                        Spacer(Modifier.width(ClearAirSpacing.md))
-                        ClearAirTextAction(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND)
-                    } else {
-                        ClearAirCapsuleSmall(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND)
-                        Spacer(Modifier.width(ClearAirSpacing.md))
-                        ClearAirTextAction(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE)
+                Spacer(Modifier.height(CHART_GAP))
+                TickChart(
+                    series = series ?: PriceSeries(emptyList()),
+                    modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter).testTag(CHART_TAG),
+                )
+                RangeRow(selected = range, onSelect = onRange)
+                if (!priceOnly) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = ACTIONS_TOP)
+                            .padding(horizontal = ClearAirSpacing.gutter, vertical = ACTIONS_PAD),
+                        horizontalArrangement = Arrangement.spacedBy(ACTIONS_GAP, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (held == null || senders.isEmpty()) {
+                            ClearAirPrimaryButton(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE, fullWidth = false)
+                            if (senders.isNotEmpty()) {
+                                ClearAirTextAction(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND, modifier = textActionModifier)
+                            }
+                        } else {
+                            ClearAirPrimaryButton(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND, fullWidth = false)
+                            ClearAirTextAction(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE, modifier = textActionModifier)
+                        }
                     }
                 }
             }
             if (priceOnly) return@LazyColumn
             item {
                 held?.let { coin ->
-                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter)) {
-                        ClearAirEyebrow(text = "Your $symbol")
-                    }
+                    ClearAirEyebrow(
+                        text = "Your $symbol",
+                        top = 0.dp,
+                        bottom = 0.dp,
+                        modifier = Modifier.padding(start = ClearAirSpacing.gutter, end = ClearAirSpacing.gutter, top = SECTION_TOP, bottom = ClearAirSpacing.xxs).cssLine(EYEBROW_LINE),
+                    )
                     HeldRow(coin = coin, icon = icon, onClick = onHoldings)
                 }
             }
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = ClearAirSpacing.gutter, end = ClearAirSpacing.gutter, top = SECTION_TOP, bottom = ClearAirSpacing.xxs),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    ClearAirEyebrow(text = "Activity")
-                    ClearAirTextAction(text = "All", onClick = onAllActivity)
+                    ClearAirEyebrow(text = "Activity", top = 0.dp, bottom = 0.dp, modifier = Modifier.cssLine(EYEBROW_LINE))
+                    Text(
+                        text = "All",
+                        style = ALL_STYLE,
+                        color = palette.ink,
+                        modifier = Modifier.cssLine(ALL_LINE).clickable(role = Role.Button, onClick = onAllActivity),
+                    )
                 }
             }
             item { activity() }
@@ -219,71 +248,75 @@ internal fun AssetPage(
 private fun AssetTopBar(name: String, watched: Boolean, onWatch: () -> Unit, onBack: () -> Unit, onLock: () -> Unit) {
     val palette = LocalClearAirPalette.current
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.xs),
+        modifier = Modifier.fillMaxWidth().height(TOP_BAR_HEIGHT).padding(horizontal = TOP_BAR_SIDE),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ClearAirIconButton(glyph = ClearAirGlyph.BACK, label = "Back", onClick = onBack)
         Text(
             text = name,
-            modifier = Modifier.weight(1f).padding(horizontal = ClearAirSpacing.xs),
-            style = ClearAirType.rowTitle,
+            modifier = Modifier.weight(1f).padding(start = TITLE_START),
+            style = ClearAirType.topBar,
             color = palette.ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clickable(role = Role.Checkbox, onClick = onWatch)
-                .semantics {
-                    contentDescription = if (watched) "Remove $name from the watchlist" else "Add $name to the watchlist"
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            ClearAirIcon(glyph = ClearAirGlyph.STAR, color = palette.ink, filled = watched)
-        }
+        ClearAirIconButton(
+            glyph = ClearAirGlyph.STAR,
+            label = if (watched) "Remove $name from the watchlist" else "Add $name to the watchlist",
+            onClick = onWatch,
+            filled = watched,
+            role = Role.Checkbox,
+        )
         ClearAirIconButton(glyph = ClearAirGlyph.LOCK, label = "Lock", onClick = onLock)
     }
 }
 
 /** The coin's holdings row, which opens Holdings Breakdown. Its value sits on the right when a price is read, and its chains' logos follow the count. */
 @Composable
-private fun HeldRow(coin: CoinHeld, icon: @Composable () -> Unit, onClick: () -> Unit) {
+private fun HeldRow(coin: CoinHeld, icon: @Composable (Dp) -> Unit, onClick: () -> Unit) {
     val palette = LocalClearAirPalette.current
     val value = coin.value
     val chains: (@Composable () -> Unit)? = if (coin.chainIcons.isEmpty()) null else { { ChainDots(coin.chainIcons) } }
-    if (value == null) {
-        ClearAirRow(title = coin.amount, description = coin.summary, descriptionSuffix = chains, leading = icon, onClick = onClick)
-    } else {
-        ClearAirRow(
-            title = coin.amount,
-            description = coin.summary,
-            descriptionSuffix = chains,
-            leading = icon,
-            trailing = { Text(text = value, style = ClearAirType.rowValue, color = palette.ink) },
-            onClick = onClick,
-        )
-    }
+    val trailing: (@Composable () -> Unit)? = if (value == null) null else { { Text(text = value, style = ClearAirType.rowValue, color = palette.ink) } }
+    ClearAirRow(
+        title = coin.amount,
+        titleStyle = HELD_TITLE,
+        description = coin.summary,
+        descriptionSuffix = chains,
+        leading = { ClearAirDisc { icon(ROW_LOGO) } },
+        trailing = trailing,
+        onClick = onClick,
+    )
 }
 
-/** The chart time frames as mono text. The chosen one is bold with the spark's diamond under it, and tapping one chooses it. */
+/**
+ * The chart time frames as mono text, spread across the page with 18 dp at each side. The chosen one is bold with the spark's diamond under it, and
+ * tapping one chooses it.
+ */
 @Composable
-private fun RangeRow(selected: ChartFrame, onSelect: (ChartFrame) -> Unit, modifier: Modifier = Modifier) {
+private fun RangeRow(selected: ChartFrame, onSelect: (ChartFrame) -> Unit) {
     val palette = LocalClearAirPalette.current
-    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = RANGE_SIDE, end = RANGE_SIDE, top = RANGE_TOP, bottom = RANGE_BOTTOM),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
         ChartFrame.entries.forEach { range ->
             val chosen = range == selected
-            Column(
-                modifier = Modifier.clickable(role = Role.Tab, onClick = { onSelect(range) }).padding(vertical = ClearAirSpacing.xxs),
-                horizontalAlignment = Alignment.CenterHorizontally,
+            Box(
+                modifier = Modifier
+                    .clickable(role = Role.Tab, onClick = { onSelect(range) })
+                    .semantics { this.selected = chosen },
             ) {
                 Text(
                     text = range.label,
-                    style = ClearAirType.address.copy(fontWeight = if (chosen) FontWeight.Bold else FontWeight.Normal),
+                    modifier = Modifier.padding(horizontal = RANGE_ITEM_X, vertical = RANGE_ITEM_Y).cssLine(RANGE_LINE),
+                    style = RANGE_STYLE.copy(fontWeight = if (chosen) FontWeight.Bold else FontWeight.Medium),
                     color = if (chosen) palette.ink else palette.ink2,
                 )
                 // Every range keeps the diamond's place, so the row does not move when the choice does.
                 Box(
                     modifier = Modifier
-                        .padding(top = ClearAirSpacing.xxs)
+                        .align(Alignment.BottomCenter)
                         .size(RANGE_SPARK)
                         .rotate(45f)
                         .background(if (chosen) palette.spark else Color.Transparent),
@@ -293,5 +326,46 @@ private fun RangeRow(selected: ChartFrame, onSelect: (ChartFrame) -> Unit, modif
     }
 }
 
+// The page's measures, from the approved frame, in dp. Each is the frame's own CSS value; the top bar is the frame's 52 dp row.
+private val TOP_BAR_HEIGHT = 52.dp
+private val TOP_BAR_SIDE = 8.dp
+private val TITLE_START = 6.dp
+private val HEAD_TOP = 4.dp
+private val HEAD_DISC = 48.dp
+private val HEAD_LOGO = 28.dp
+private val ROW_LOGO = 21.dp
+private val EYEBROW_GAP = 10.dp
+private val PRICE_GAP = 2.dp
+
+/** The price's block, 66.8 dp and the 4 dp before the change line, and how far the price sits down in it, as the frame's raised currency sign sets it. */
+private val PRICE_BLOCK = 70.8.dp
+private val PRICE_SHIFT = 5.9.dp
+/** The gap after the currency sign: the frame's 3 px margin plus what its lighter sign face leaves, measured against the frame's ink. */
+private val SIGN_GAP = 5.dp
+private val CHANGE_LINE = 17.sp
+private val CHANGE_LINE_DP = 17.dp
+private val EYEBROW_LINE = 14.dp
+private val ALL_LINE = 21.dp
+private val RANGE_LINE = 17.dp
+private val CHART_GAP = 12.dp
+private val RANGE_SIDE = 18.dp
+private val RANGE_TOP = 4.dp
+private val RANGE_BOTTOM = 2.dp
+private val RANGE_ITEM_X = 5.dp
+private val RANGE_ITEM_Y = 8.dp
+
 /** The side of the spark under the chosen range: a square, turned into a diamond. */
 private val RANGE_SPARK = 5.dp
+private val RANGE_STYLE = ClearAirType.address.copy(fontSize = 12.5.sp, lineHeight = 17.sp, letterSpacing = 0.sp)
+private val ACTIONS_TOP = 6.dp
+private val ACTIONS_PAD = 6.dp
+private val ACTIONS_GAP = 18.dp
+private val TEXT_ACTION_PAD = 6.dp
+private val TEXT_ACTION_LIFT = 1.dp
+private val SECTION_TOP = 18.dp
+private val ALL_STYLE = ClearAirType.rowTitle.copy(fontSize = 13.sp, lineHeight = 21.sp)
+private val HELD_TITLE = ClearAirType.rowValue.copy(fontSize = 15.sp)
+
+/** The test tag of the price chart. */
+internal const val CHART_TAG = "asset-chart"
+

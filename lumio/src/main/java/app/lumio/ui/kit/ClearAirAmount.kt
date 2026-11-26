@@ -9,6 +9,9 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 
@@ -20,7 +23,8 @@ const val HIDDEN_AMOUNT = "••••"
 /**
  * An amount, such as a balance, set in JetBrains Mono Light. Its currency sign is small and raised, and its decimal fraction is dimmed, so the whole
  * number reads first. With [dimUnit], the unit after the number is dimmed instead, as the hero's "T" is: a compact figure keeps its fraction in ink. A
- * hidden amount shows [HIDDEN_AMOUNT], which never shows how large the amount is.
+ * hidden amount shows [HIDDEN_AMOUNT], which never shows how large the amount is. A [signGap] sets the sign off from the figures, as the hero of the Asset
+ * page does.
  */
 @Composable
 fun ClearAirAmount(
@@ -30,9 +34,10 @@ fun ClearAirAmount(
     dimUnit: Boolean = false,
     style: TextStyle = ClearAirType.total,
     color: Color = LocalClearAirPalette.current.ink,
+    signGap: Dp = 0.dp,
 ) {
     Text(
-        text = if (hidden) AnnotatedString(HIDDEN_AMOUNT) else amountText(text, LocalClearAirPalette.current.ink2, dimUnit),
+        text = if (hidden) AnnotatedString(HIDDEN_AMOUNT) else amountText(text, LocalClearAirPalette.current.ink2, dimUnit, signGap),
         modifier = modifier,
         style = style,
         color = color,
@@ -40,11 +45,11 @@ fun ClearAirAmount(
     )
 }
 
-private fun amountText(text: String, dim: Color, dimUnit: Boolean): AnnotatedString {
+private fun amountText(text: String, dim: Color, dimUnit: Boolean, signGap: Dp): AnnotatedString {
     val parts = splitAmount(text)
     val dimmed = SpanStyle(color = dim)
     return buildAnnotatedString {
-        withStyle(ClearAirType.currencySign) { append(parts.prefix) }
+        withStyle(if (signGap > 0.dp) ClearAirType.currencySign.copy(letterSpacing = signGap.value.sp) else ClearAirType.currencySign) { append(parts.prefix) }
         append(parts.whole)
         withStyle(if (dimUnit) SpanStyle() else dimmed) { append(parts.fraction) }
         withStyle(if (dimUnit) dimmed else SpanStyle()) { append(parts.suffix) }
