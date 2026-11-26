@@ -1,11 +1,7 @@
 package app.lumio
 
-import android.graphics.BitmapFactory
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -18,9 +14,6 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NamedNavArgument
@@ -65,6 +58,7 @@ import app.lumio.ui.asset.holdingsSummary
 import app.lumio.ui.home.AssetIcon
 import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.home.changeText
+import app.lumio.ui.home.letterOf
 import app.lumio.ui.home.tokenIcon
 import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.receive.ReceiveFlowSheet
@@ -150,14 +144,6 @@ internal fun AssetRoute(
     val display = rememberDisplay(app)
     val (symbol, name) = namesOf(asset, app, board.tokenHeld.values)
     val coinIcon = coinIconOf(asset, symbol, app)
-    val logo by produceState<ImageBitmap?>(initialValue = null, asset) {
-        val contract = asset.contract
-        value = if (contract == null || coinIcon !is AssetIconSpec.Letter) {
-            null
-        } else {
-            withContext(Dispatchers.IO) { app.logos.imageOf(asset.network, contract)?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() } }
-        }
-    }
     val assetId = asset.assetId
     var range by rememberSaveable(stateSaver = FrameSaver) { mutableStateOf(ChartFrame.H1) }
     val series = rememberRangeChart(assetId, range, board.dayChartOf(assetId)) { app.prices.chart(assetId, it) }
@@ -210,7 +196,7 @@ internal fun AssetRoute(
     AssetPage(
         name = name,
         symbol = symbol,
-        icon = { CoinLogo(logo = logo, spec = coinIcon) },
+        icon = { AssetIcon(spec = coinIcon, size = ICON_SIZE) },
         priceText = price?.let { fiat.amount(it.usd) },
         change = price?.let { changeOf(it, fiat) },
         series = series,
@@ -351,7 +337,7 @@ private fun changeOf(price: Price, fiat: Fiat): PriceChange? {
  * [coinNames] gives.
  */
 internal fun namesOf(asset: WatchedAsset, app: LumioApp, held: Collection<List<TokenHolding>>): Pair<String, String> =
-    namesOf(asset, asset.contract?.let { app.registry.token(Networks.evmIdOf(asset.network.chain), it) }, held)
+    namesOf(asset, asset.contract?.takeIf { asset.network.isEvm }?.let { app.registry.token(Networks.evmIdOf(asset.network.chain), it) }, held)
 
 /** The symbol and the name of [asset], given [listed], the registry's entry for its token if it has one. */
 internal fun namesOf(asset: WatchedAsset, listed: TokenEntry?, held: Collection<List<TokenHolding>>): Pair<String, String> {
@@ -361,11 +347,18 @@ internal fun namesOf(asset: WatchedAsset, listed: TokenEntry?, held: Collection<
     return token?.let { it.symbol to it.name } ?: coinNames(asset)
 }
 
-/** The logo of [asset]: a native coin's icon, or a token's own logo when Lensly ships one, else the letter of its [symbol]. */
+/**
+ * The logo of [asset]: a native coin's icon, or a token's own logo when Lensly ships one, else the logo the price source has for it, which falls back
+ * to the letter of its [symbol] only when no source has one.
+ */
 internal fun coinIconOf(asset: WatchedAsset, symbol: String, app: LumioApp): AssetIconSpec {
     val contract = asset.contract ?: return AssetRows.nativeIcon(asset.network, symbol, app.registry::network)
+    if (!asset.network.isEvm) return AssetIconSpec.Fetched(asset.network, contract, letterOf(symbol))
     val chainId = Networks.evmIdOf(asset.network.chain)
-    return tokenIcon(app.registry.token(chainId, contract), app.registry.network(chainId), symbol)
+    return when (val shipped = tokenIcon(app.registry.token(chainId, contract), app.registry.network(chainId), symbol)) {
+        is AssetIconSpec.Letter -> AssetIconSpec.Fetched(asset.network, contract, shipped.letter)
+        else -> shipped
+    }
 }
 
 /**
@@ -378,15 +371,5 @@ private fun coinSendRoute(account: WalletAccount, asset: WatchedAsset, mode: Net
     } else {
         sendRoute(account, mode)
     }
-
-/** The coin's logo at 48 dp: the image a source served when there is one, else the icon [spec] draws. */
-@Composable
-private fun CoinLogo(logo: ImageBitmap?, spec: AssetIconSpec) {
-    if (logo == null) {
-        AssetIcon(spec = spec, size = ICON_SIZE)
-    } else {
-        Image(bitmap = logo, contentDescription = null, modifier = Modifier.size(ICON_SIZE).clip(CircleShape))
-    }
-}
 
 private val ICON_SIZE = 48.dp

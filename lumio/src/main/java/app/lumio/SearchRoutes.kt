@@ -32,6 +32,7 @@ import app.lumio.search.matching
 import app.lumio.send.algorand.AddAssetRows
 import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.home.changeText
+import app.lumio.ui.home.letterOf
 import app.lumio.ui.home.tokenIcon
 import app.lensly.ui.components.chainIconDrawables
 import java.util.concurrent.ConcurrentHashMap
@@ -192,7 +193,7 @@ internal fun WatchlistAddRoute(
                 asset = candidate.asset,
                 name = name,
                 ticker = symbol,
-                logo = shippedMark(candidate.asset, app)?.let { PickerLogo.Mark(it) } ?: PickerLogo.Remote(candidate.image),
+                logo = pickerLogo(candidate, app),
                 watched = candidate.asset in current.assets,
                 rank = candidate.rank,
                 sameName = candidate.sameName,
@@ -224,6 +225,16 @@ private fun pickerNames(candidate: Candidate, app: LumioApp): Pair<String, Strin
     val contract = asset.contract
     if (contract != null && asset.network.isEvm) app.registry.token(Networks.evmIdOf(asset.network.chain), contract)?.let { return it.symbol to it.name }
     return candidate.symbol.uppercase() to candidate.name
+}
+
+/**
+ * The logo of a row: the mark Lumio ships, else the image the market row names, else the logo the price source has for the token, as Home reads it.
+ */
+private fun pickerLogo(candidate: Candidate, app: LumioApp): PickerLogo {
+    shippedMark(candidate.asset, app)?.let { return PickerLogo.Mark(it) }
+    candidate.image?.let { return PickerLogo.Remote(it) }
+    val contract = candidate.asset.contract ?: return PickerLogo.Remote(null)
+    return PickerLogo.Mark(AssetIconSpec.Fetched(candidate.asset.network, contract, letterOf(candidate.symbol)))
 }
 
 /** The logo Lumio ships for [asset], or null when it ships none, so the market source's image shows instead. */

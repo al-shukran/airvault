@@ -73,8 +73,8 @@ import okhttp3.Request as HttpRequest
  *   per US dollar is its value over the `usd` value.
  * - Logo. `GET https://api.coingecko.com/api/v3/coins/{id}/contract/{contract_address}` (Coin Data by Token Address, in the Demo / Keyless list at
  *   https://docs.coingecko.com/demo/reference/coins-contract-address) answers the token's record, whose `image` object has `thumb`, `small` and `large`
- *   URLs. The image is read from `small`, or `thumb`. Only the EVM mainnets in [PLATFORMS] have an id, and the ids other than `ethereum` are not
- *   confirmed against the asset platforms list; a wrong id fails as a missing logo.
+ *   URLs. The image is read from `small`, or `thumb`. The EVM mainnets in [PLATFORMS] have a platform, and so do Solana (`solana`, by the mint,
+ *   whose case is kept) and Algorand (`algorand`, by the asset ID): both answered USDC's record on 2026-11-26.
  * - Coins by market cap. `GET https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1`, and with
  *   `ids={id},{id},..` for named coins, is in the Demo / Keyless endpoint overview (https://docs.coingecko.com/demo/reference/endpoint-overview.md,
  *   read on 2026-11-26). It answers `[{"id","symbol","name","image","market_cap_rank",..},..]`; `market_cap_rank` is null for a coin the source
@@ -257,7 +257,7 @@ class CoinGeckoProvider : Provider {
             .addPathSegment("coins")
             .addPathSegment(platform)
             .addPathSegment("contract")
-            .addPathSegment(req.contract.lowercase())
+            .addPathSegment(if (req.net.isEvm) req.contract.lowercase() else req.contract)
             .build()
         val image = answerObject(fetchText(http.noRedirects(), request(cfg, url), banMs = null, notFoundIsAnswer = true))["image"].asObject()
         val imageUrl = (image["small"].present() ?: image["thumb"]).text().toHttpUrlOrNull()?.takeIf { it.scheme == "https" }
@@ -272,8 +272,14 @@ class CoinGeckoProvider : Provider {
 
     private fun keyOf(cfg: ProviderConfig): String? = cfg.apiKey?.trim()?.takeIf { it.isNotEmpty() }
 
-    /** The CoinGecko platform of the EVM mainnet [net], or null for a network that has none, such as a testnet. */
-    private fun platformOf(net: NetworkId): String? = if (net.testnet || !net.isEvm) null else PLATFORMS[Networks.evmIdOf(net.chain)]
+    /** The CoinGecko platform of the mainnet [net], or null for a network that has none, such as a testnet. */
+    private fun platformOf(net: NetworkId): String? = when {
+        net.testnet -> null
+        net.isEvm -> PLATFORMS[Networks.evmIdOf(net.chain)]
+        net.chain == Networks.SOL_MAINNET -> "solana"
+        net.chain == Networks.ALGO_MAINNET -> "algorand"
+        else -> null
+    }
 
     /** This element, or null when it is absent or JSON null. */
     private fun JsonElement?.present(): JsonElement? = this?.takeUnless { it is JsonNull }
@@ -281,15 +287,65 @@ class CoinGeckoProvider : Provider {
 
 private const val BASE = "https://api.coingecko.com/api/v3/"
 
-/** The CoinGecko platform of each EVM mainnet, by chain ID. */
+/**
+ * The CoinGecko platform of each EVM mainnet of the registry, by chain ID, as `GET /asset_platforms` named them on 2026-11-26 (`chain_identifier` to
+ * `id`). A mainnet the source names no platform for has none.
+ */
 private val PLATFORMS: Map<Long, String> = mapOf(
     1L to "ethereum",
     10L to "optimistic-ethereum",
+    25L to "cronos",
+    30L to "rootstock",
+    40L to "telos",
     56L to "binance-smart-chain",
+    61L to "ethereum-classic",
+    100L to "xdai",
+    122L to "fuse",
+    130L to "unichain",
     137L to "polygon-pos",
+    143L to "monad",
+    146L to "sonic",
+    169L to "manta-pacific",
+    196L to "x-layer",
+    232L to "lens",
+    250L to "fantom",
+    252L to "fraxtal",
+    324L to "zksync",
+    369L to "pulsechain",
+    388L to "cronos-zkevm",
+    480L to "world-chain",
+    999L to "hyperevm",
+    1088L to "metis-andromeda",
+    1101L to "polygon-zkevm",
+    1284L to "moonbeam",
+    1285L to "moonriver",
+    1329L to "sei-v2",
+    1868L to "soneium",
+    2020L to "ronin",
+    2222L to "kava",
+    2741L to "abstract",
+    3338L to "peaq",
+    4326L to "megaeth",
+    5000L to "mantle",
+    8217L to "klay-token",
     8453L to "base",
+    9745L to "plasma",
+    13371L to "immutable",
+    33139L to "apechain",
     42161L to "arbitrum-one",
+    42170L to "arbitrum-nova",
+    42220L to "celo",
     43114L to "avalanche",
+    48900L to "zircuit",
+    57073L to "ink",
+    59144L to "linea",
+    80094L to "berachain",
+    167000L to "taiko",
+    534352L to "scroll",
+    747474L to "katana",
+    7777777L to "zora-network",
+    1313161554L to "aurora",
+    1666600000L to "harmony-shard-0",
 )
 
 /** The largest directory answer that is read, in bytes: four times its size on 2026-11-26. */

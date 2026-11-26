@@ -236,6 +236,16 @@ class CoinGeckoProviderTest {
     }
 
     @Test
+    fun aSolanaTokenLogoIsAskedForByItsMintWithItsCaseKept() {
+        server.enqueue(MockResponse.Builder().body("""{"image":{"small":"https://$IMAGE_HOST/img/small.png"}}""").build())
+        val mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+
+        call(TokenLogo(NetworkId(Networks.SOL_MAINNET, testnet = false), mint), client = logoHttp("logo-bytes".encodeToByteArray(), ArrayList()))
+
+        assertEquals("/api/v3/coins/solana/contract/$mint", server.takeRequest().target)
+    }
+
+    @Test
     fun aNullSmallLogoFallsBackToThumb() {
         server.enqueue(MockResponse.Builder().body("""{"image":{"small":null,"thumb":"https://$IMAGE_HOST/img/thumb.png"}}""").build())
         val served = ArrayList<HttpUrl>()
