@@ -54,6 +54,16 @@ class PortfolioStaleTest {
     }
 
     @Test
+    fun aMarkedRowKeepsItsLastKnownChange() {
+        val holding = holdingOf(NativeAsset("b1", "BTC", "x", ethereum, BigDecimal.ONE, usd = 10.0, change24h = 1.82), staleAsOfMs = 500L)
+
+        val row = PortfolioView.rows(listOf(holding), PortfolioFilter()).single()
+
+        assertEquals(500L, row.staleAsOfMs)
+        assertEquals(1.82, row.change24h!!, 1e-9)
+    }
+
+    @Test
     fun theCaptionShowsTheClockToday() {
         val at = Instant.parse("2026-11-26T09:05:00Z").toEpochMilli()
         assertEquals("as of 09:05", PortfolioFormat.asOf(at, now, ZoneOffset.UTC))

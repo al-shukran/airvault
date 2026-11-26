@@ -290,7 +290,7 @@ private fun AllocationLine(slices: List<AllocationSlice>) {
 
 /**
  * The value at the end of a row: its amount in dollars, and under it its change. A value made from a last-known price shows in the secondary colour,
- * and the time of that price, such as "as of 14:05", takes the place of the change, which is as old as the price.
+ * and the time of that price, such as "as of 14:05", follows the last-known change on its line: "▲ 1.82% · as of 14:05".
  */
 @Composable
 private fun RowValue(row: PortfolioRow, shown: Boolean, zone: ZoneId, nowMs: Long) {
@@ -303,10 +303,16 @@ private fun RowValue(row: PortfolioRow, shown: Boolean, zone: ZoneId, nowMs: Lon
             color = if (staleAsOfMs == null) palette.ink else palette.ink2,
             textAlign = TextAlign.End,
         )
-        if (staleAsOfMs != null) {
-            Text(text = PortfolioFormat.asOf(staleAsOfMs, nowMs, zone), style = ClearAirType.label, color = palette.ink2)
+        val change = row.change24h
+        if (staleAsOfMs == null) {
+            change?.let { ClearAirChangePercent(it) }
         } else {
-            row.change24h?.let { change -> ClearAirChangePercent(change) }
+            val asOf = PortfolioFormat.asOf(staleAsOfMs, nowMs, zone)
+            Row {
+                if (change != null) ClearAirChangePercent(change, Modifier.alignByBaseline())
+                val caption = if (change != null) " · $asOf" else asOf
+                Text(text = caption, modifier = Modifier.alignByBaseline(), style = ClearAirType.label, color = palette.ink2)
+            }
         }
     }
 }
