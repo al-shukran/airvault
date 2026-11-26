@@ -12,18 +12,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
@@ -58,9 +65,11 @@ class AssetFrameTest {
     private val logoSizes = mutableListOf<Dp>()
     private var paper = Color.Unspecified
     private var primary = Color.Unspecified
+    private var allTaps = 0
 
     private fun show(held: CoinHeld? = HELD, priceOnly: Boolean = false, senders: Boolean = true, range: ChartFrame = ChartFrame.D1) {
         logoSizes.clear()
+        allTaps = 0
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(3f)) {
                 ClearAirTheme {
@@ -98,7 +107,7 @@ class AssetFrameTest {
             accounts = listOf(CoinAccount("Savings", "Air 1 #0", "4 ETH", onSend = if (senders) ({}) else null, onReceive = {})),
             onBack = {},
             onLock = {},
-            onAllActivity = {},
+            onAllActivity = { allTaps++ },
             activity = { Text("No activity yet.") },
         )
     }
@@ -199,6 +208,41 @@ class AssetFrameTest {
         // A coin that an account can send is still offered as the text action beside it.
         compose.onNodeWithText("Send ETH").assertExists()
         compose.onNodeWithText("ACTIVITY").assertExists()
+    }
+
+    @Test
+    fun theAllActionKeepsItsTouchTargetAndTheFramesLine() {
+        show()
+
+        val all = compose.onNode(hasText("All").and(hasClickAction()))
+        val box = all.fetchSemanticsNode().boundsInRoot
+        assertTrue(box.width / 3f >= 48f && box.height / 3f >= 48f, "the target is ${box.width / 3f} x ${box.height / 3f} dp")
+        // The row stays the frame's 21 dp line, not the 48 dp target: the activity content starts under the eyebrow's line, 4 dp below it.
+        val gap = top(hasText("No activity yet.")) - top(hasText("ACTIVITY"))
+        assertTrue(gap < 30f, "the activity row is $gap dp under the eyebrow")
+        // A press 2 dp inside the target's top edge, above the 21 dp line the page lays out, reaches the action.
+        all.performTouchInput { click(Offset(width / 2f, 6f)) }
+        compose.waitForIdle()
+        assertEquals(1, allTaps)
+    }
+
+    @Test
+    fun aLongAmountWrapsInsteadOfClippingAndALongSummaryEndsInAnEllipsis() {
+        val amount = "123,456,789,012,345.123456789012 ETH"
+        show(held = CoinHeld(amount = amount, summary = "Savings, Spending, Vault, Travel, Joint and 5 more accounts · 3 chains", value = "$95,271.11"))
+
+        val title = compose.onNode(hasText(amount), useUnmergedTree = true).fetchSemanticsNode()
+        assertEquals(amount, title.config.getOrNull(SemanticsProperties.Text)?.joinToString { it.text })
+        val layout = title.textLayout()
+        assertTrue(!layout.didOverflowWidth && !layout.didOverflowHeight, "the amount is clipped")
+        val summary = compose.onNode(hasText("Savings", substring = true), useUnmergedTree = true).fetchSemanticsNode().textLayout()
+        assertTrue(summary.isLineEllipsized(summary.lineCount - 1), "the summary is cut without a mark")
+    }
+
+    private fun SemanticsNode.textLayout(): TextLayoutResult {
+        val results = mutableListOf<TextLayoutResult>()
+        config[SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+        return results.single()
     }
 
     /** The colour of the pixel [dx], [dy] dp inside the top left corner of the node with [text]. */

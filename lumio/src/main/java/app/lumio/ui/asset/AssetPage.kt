@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -40,8 +41,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -197,11 +200,19 @@ internal fun AssetPage(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     ClearAirEyebrow(text = "Activity", top = 0.dp, bottom = 0.dp, modifier = Modifier.cssLine(EYEBROW_LINE))
-                    Text(
+                    val measurer = rememberTextMeasurer()
+                    val allWidth = measurer.measure("All", ALL_STYLE).size.width
+                    ClearAirTextAction(
                         text = "All",
+                        onClick = onAllActivity,
+                        modifier = Modifier.layout { measurable, _ ->
+                            // The 48 dp target is measured, but the line is the frame's: its width is the text's and its height the line's, so the
+                            // press reaches past both and the eyebrow row, and the right edge of "All", stay where the frame sets them.
+                            val placeable = measurable.measure(Constraints())
+                            val line = ALL_STYLE.lineHeight.roundToPx()
+                            layout(allWidth, line) { placeable.place((allWidth - placeable.width) / 2, (line - placeable.height) / 2) }
+                        },
                         style = ALL_STYLE,
-                        color = palette.ink,
-                        modifier = Modifier.clickable(role = Role.Button, onClick = onAllActivity),
                     )
                 }
             }
@@ -345,13 +356,14 @@ private fun HeldRow(coin: CoinHeld, icon: @Composable (Dp) -> Unit, onClick: () 
         ClearAirDisc { icon(ROW_LOGO) }
         Spacer(Modifier.width(ClearAirSpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = coin.amount, style = HELD_TITLE, color = palette.ink, maxLines = 1)
+            Text(text = coin.amount, style = HELD_TITLE, color = palette.ink)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = coin.summary,
                     style = HELD_CAPTION,
                     color = palette.ink2,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 if (coin.chainIcons.isNotEmpty()) {
