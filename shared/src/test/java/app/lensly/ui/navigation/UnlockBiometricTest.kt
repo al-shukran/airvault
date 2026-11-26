@@ -70,12 +70,12 @@ class UnlockBiometricTest {
         session.close()
     }
 
-    private fun showUnlockPage() {
+    private fun showUnlockPage(biometricUnlock: BiometricUnlock? = unlock) {
         compose.setContent {
             nav = rememberNavController()
             NavHost(navController = nav, startDestination = LenslyRoute.CAMERA) {
                 composable(LenslyRoute.CAMERA) {}
-                hiddenArea(nav, holder, home = HOME, appName = "Test", biometric = unlock) { composable(HOME) {} }
+                hiddenArea(nav, holder, home = HOME, appName = "Test", biometric = biometricUnlock) { composable(HOME) {} }
             }
         }
         compose.runOnUiThread { nav.navigate(LenslyRoute.HIDDEN) { launchSingleTop = true } }
@@ -134,9 +134,39 @@ class UnlockBiometricTest {
         assertNull(holder.openSession())
     }
 
+    @Test
+    fun doneWithNothingTypedDoesNothingOnTheLenslyPathWithNoBiometricUnlock() {
+        turnBiometricOn()
+        showUnlockPage(biometricUnlock = null)
+
+        compose.onNodeWithContentDescription("Done").performClick()
+        compose.waitForIdle()
+
+        assertEquals(0, biometric.prompts)
+        assertEquals(GateRoutes.UNLOCK, route())
+        assertNull(holder.openSession())
+    }
+
+    @Test
+    fun aFailedBiometricTurnsBiometricUnlockOffAndCountsNoStrike() {
+        turnBiometricOn()
+        biometric.fails = true
+        showUnlockPage()
+        val triesBefore = runBlocking { vault.triesBeforeErase() }
+
+        compose.onNodeWithContentDescription("Done").performClick()
+        compose.waitUntil(timeoutMillis = 5_000) { !unlock.isOn() }
+        compose.waitForIdle()
+
+        assertEquals(GateRoutes.UNLOCK, route())
+        assertNull(holder.openSession())
+        assertEquals(triesBefore, runBlocking { vault.triesBeforeErase() })
+    }
+
     /** A pad in place of the Keystore cipher, and a prompt that passes or cancels as the test says. It counts the prompts. */
     private class CountingBiometric : BiometricCrypto {
         var passes = true
+        var fails = false
         var prompts = 0
         private val pad = ByteArray(64) { (it * 37 + 11).toByte() }
 
@@ -148,6 +178,7 @@ class UnlockBiometricTest {
 
         override suspend fun unwrap(wrapped: WrappedKey): ByteArray? {
             prompts++
+            if (fails) throw IllegalStateException("key invalidated")
             return if (passes) xor(wrapped.ciphertext) else null
         }
 
