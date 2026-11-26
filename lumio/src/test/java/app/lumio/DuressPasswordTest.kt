@@ -173,6 +173,34 @@ class DuressPasswordTest {
     }
 
     @Test
+    fun aChecklistRecordThatFailsAuthenticationDoesNotBlockTheSetAndIsReplaced() = runBlocking {
+        create()
+        val session = holder.openSession()!!
+        FinishSetupStore.tick(session, FinishItem.PAIR)
+        val file = session.vaultRecordFileForTesting(FinishSetupStore.RECORD)
+        val bytes = file.readBytes()
+        bytes[bytes.size - 1] = (bytes[bytes.size - 1].toInt() xor 1).toByte()
+        file.writeBytes(bytes)
+
+        assertEquals(PasswordChange.Changed, setLumioDuressPassword(holder, REAL, DURESS, DURESS))
+
+        assertEquals(setOf(FinishItem.DURESS), FinishSetupStore.read(holder.openSession()!!).done, "The record that fails authentication is reset, then ticked.")
+    }
+
+    @Test
+    fun aTickThatCannotBeWrittenAfterEnabledAnswersUnavailableAndTheRowReadsNotSet() = runBlocking {
+        create()
+        // A non-empty folder where the record file goes: the tick reads it as no record, and the write cannot replace it.
+        val file = holder.openSession()!!.vaultRecordFileForTesting(FinishSetupStore.RECORD)
+        file.mkdirs()
+        File(file, "blocker").writeText("x")
+
+        assertEquals(PasswordChange.Unavailable, setLumioDuressPassword(holder, REAL, DURESS, DURESS))
+
+        assertEquals(emptySet(), FinishSetupStore.read(holder.openSession()!!).done, "No tick was written, so the row reads Not Set.")
+    }
+
+    @Test
     fun aLockMidSetLeavesTheRowNotSet() = runBlocking {
         create()
         lockOnHeaderCheck = true

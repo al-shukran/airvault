@@ -1,5 +1,6 @@
 package app.lumio.data.config
 
+import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -34,21 +35,29 @@ object FinishSetupStore {
 
     private val json = Json
 
-    /** The checklist as stored in [session], or nothing ticked when none is stored or the record does not parse. */
+    /** The checklist as stored in [session], or nothing ticked when none is stored or the record does not authenticate or parse. */
     fun read(session: VaultSession): FinishSetup = try {
         load(session)
     } catch (e: UnreadableRecordException) {
         FinishSetup()
     }
 
-    /** The checklist stored in [session], or nothing ticked when none is stored. @throws UnreadableRecordException when the record does not parse. */
+    /**
+     * The checklist stored in [session], or nothing ticked when none is stored. @throws UnreadableRecordException when the record does not
+     * authenticate or parse. A closed session still throws its own [IllegalStateException].
+     */
     private fun load(session: VaultSession): FinishSetup {
-        val bytes = session.getVaultRecord(RECORD) ?: return FinishSetup()
+        val bytes = try {
+            session.getVaultRecord(RECORD)
+        } catch (e: VaultException) {
+            // The checklist holds no secrets, so a record that fails authentication is as good as one that does not parse.
+            throw UnreadableRecordException("setup checklist", e)
+        } ?: return FinishSetup()
         return decodeOrRefuse("setup checklist") { json.decodeFromString(FinishSetup.serializer(), bytes.decodeToString()) }
     }
 
     /**
-     * Ticks [item] off in [session]. Ticking an item that is already ticked changes nothing. A stored record that does not parse is left as it is, and
+     * Ticks [item] off in [session]. Ticking an item that is already ticked changes nothing. A stored record that does not authenticate or parse is left as it is, and
      * this throws [UnreadableRecordException], so one tick never resets the other items, unless [replaceUnreadable] is set: the record is then read
      * as nothing ticked and overwritten.
      */
