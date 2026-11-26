@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,6 +28,7 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirMotion
@@ -48,10 +50,13 @@ private val CHART_WIDTH = 56.dp
 private val CHART_HEIGHT = 22.dp
 private val VALUE_WIDTH = 88.dp
 
+/** The chart sits this far above the row's centre line, as the mock's does, so its ink centres on the price and change beside it. */
+private val CHART_LIFT = 0.75.dp
+
 /** The add row's dashed ring: its stroke, its dash and gap, and its plus. */
 private val ADD_STROKE = 1.5.dp
-private val ADD_DASH = 4.5.dp
-private val ADD_GAP = 3.dp
+private val ADD_DASH = 3.dp
+private val ADD_GAP = 1.5.dp
 private val ADD_PLUS = 18.dp
 
 /** Every line keeps its whole line height, top and bottom, so a wrapped name grows the row by 20 dp a line, as the mock's does. */
@@ -59,11 +64,11 @@ private val untrimmed = LineHeightStyle(alignment = LineHeightStyle.Alignment.Ce
 
 internal fun TextStyle.whole() = copy(lineHeightStyle = untrimmed)
 
-/** The name, Archivo 114 SemiBold 15 on 20; the ticker, Archivo 92 at 12.5 on 17; the price, JetBrains Mono Medium 14 on 20; the change, Mono 12 on 17. */
+/** The name, Archivo 114 SemiBold 15 on 20; the ticker, Archivo 92 at 12.5 on 17; the price, JetBrains Mono Medium 14 on 20; the change, Mono 12 on 17, both tracked -0.02 em. */
 private val nameStyle get() = ClearAirType.rowTitle.whole()
 private val tickerStyle get() = ClearAirType.body.copy(fontSize = 12.5.sp, lineHeight = 17.sp).whole()
 private val priceStyle get() = ClearAirType.rowValue.whole()
-private val changeStyle get() = ClearAirType.time.copy(fontWeight = FontWeight.Normal).whole()
+private val changeStyle get() = ClearAirType.time.copy(fontWeight = FontWeight.Normal, letterSpacing = (-0.02).em).whole()
 
 /** Which way a 24 h change went, at the two places it is shown to: it picks the colour and the arrow. */
 enum class ChangeTone { RISE, FALL, FLAT }
@@ -191,7 +196,7 @@ private fun PriceColumns(price: String?, change: Double?, ticks: List<Double>, v
     val palette = LocalClearAirPalette.current
     val tone = change?.let(::changeTone) ?: ticks.takeIf { it.size >= 2 }?.let { changeTone((it.last() - it.first()) / it.first() * 100) } ?: ChangeTone.FLAT
     Spacer(Modifier.width(ClearAirSpacing.sm))
-    TickChart(values = ticks, color = chartColor(tone), modifier = Modifier.size(CHART_WIDTH, CHART_HEIGHT))
+    TickChart(values = ticks, color = chartColor(tone), modifier = Modifier.offset(y = -CHART_LIFT).size(CHART_WIDTH, CHART_HEIGHT))
     Spacer(Modifier.width(ClearAirSpacing.sm))
     Column(modifier = Modifier.width(valueWidth), horizontalAlignment = Alignment.End) {
         price?.let { Text(text = it, style = priceStyle, color = palette.ink, textAlign = TextAlign.End, maxLines = 1) }

@@ -38,7 +38,7 @@ enum class ClearAirGlyph(private val data: List<String>) {
     CHECK(listOf("M5 12.5l4.5 4.5L19 7.5")),
     INFO(listOf(circle(12f, 12f, 8.5f), "M12 11v5.5M12 7.8v.1")),
     ALERT(listOf("M12 4l8.5 15H3.5z", "M12 10v4M12 16.8v.1")),
-    STAR(listOf("M12 4.3L14 10.05L20.08 10.17L15.23 13.85L17 19.68L12 16.2L7 19.68L8.77 13.85L3.92 10.17L10 10.05Z")),
+    STAR(listOf("M12 3.6l2.6 5.4 5.9.7-4.4 4 1.2 5.9L12 16.7l-5.3 2.9 1.2-5.9-4.4-4 5.9-.7z")),
     SCAN(listOf("M4 9V6.5A2.5 2.5 0 0 1 6.5 4H9M15 4h2.5A2.5 2.5 0 0 1 20 6.5V9M20 15v2.5a2.5 2.5 0 0 1-2.5 2.5H15M9 20H6.5A2.5 2.5 0 0 1 4 17.5V15M7.5 12h9")),
     PLUS(listOf("M12 5v14M5 12h14")),
     SORT(listOf("M12 5v14M7 14l5 5 5-5")),

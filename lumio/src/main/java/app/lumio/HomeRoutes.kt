@@ -21,6 +21,7 @@ import app.lensly.ui.components.groupAddress
 import app.lensly.ui.navigation.GateRoutes
 import app.lensly.ui.navigation.openHidden
 import app.lumio.chains.NATIVE_COINS
+import app.lumio.data.WallClock
 import app.lumio.data.config.Fiat
 import app.lumio.data.net.Networks
 import app.lumio.data.price.Price
@@ -42,6 +43,10 @@ import app.lumio.watchlist.WatchedAsset
 import app.lumio.watchlist.FIRST_RUN_ASSETS
 import app.lumio.watchlist.WatchlistSort
 import app.lumio.watchlist.ordered
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 /**
@@ -65,7 +70,7 @@ internal fun HomeRoute(
     }
     if (session == null) return
     val board = rememberWalletsBoard(app, selection.mode, listVersion) ?: return
-    LaunchedEffect(board) { board.refreshMarket() }
+    LaunchedEffect(board) { board.refreshPrices() }
     val scope = rememberCoroutineScope()
     val includeSpam = rememberTransactions(app).activityIncludesSpam
     val view = board.view
@@ -74,9 +79,9 @@ internal fun HomeRoute(
     val watchlist = wallet?.let { board.watchlists[it.id] }
     val sort = watchlist?.sort ?: WatchlistSort.MARKET_CAP
     val fiat = LocalFiat.current
-    val watched = watchlist?.ordered { board.prices[it.assetId]?.change24hPct }.orEmpty()
-    val rows = watched.map { asset -> rowOf(asset, board.tokenHeld, board.prices[asset.assetId], board.dayChartOf(asset.assetId), testnet, fiat, app) }
-    val footnote = if (testnet) null else footnoteOf(watched.mapNotNull { board.prices[it.assetId]?.asOfMs }.maxOrNull())
+    val watched = watchlist?.ordered { board.prices[it.assetId]?.change24hPct }
+    val rows = watched?.map { asset -> rowOf(asset, board.tokenHeld, board.prices[asset.assetId], board.dayChartOf(asset.assetId), testnet, fiat, app) }
+    val footnote = if (testnet) null else footnoteOf(watched.orEmpty().mapNotNull { board.prices[it.assetId]?.asOfMs }.maxOrNull(), WallClock.nowMs())
     var sortOpen by remember { mutableStateOf(DebugDemoData.flag("sort")) }
     var receiveOpen by remember { mutableStateOf(false) }
     var receiveOpening by remember { mutableIntStateOf(0) }
@@ -104,7 +109,7 @@ internal fun HomeRoute(
                     },
                     onSort = { sortOpen = true },
                     onAdd = { navController.navigate(LumioRoute.WATCHLIST_ADD) },
-                    onRestore = { wallet?.let { board.changeWatchlist(it.id) { list -> list.copy(assets = FIRST_RUN_ASSETS) } } },
+                    onRestore = wallet?.let { active -> { board.changeWatchlist(active.id) { list -> list.copy(assets = FIRST_RUN_ASSETS) } } },
                     onOpen = { asset ->
                         wallet?.let {
                             scope.launch {
@@ -136,8 +141,18 @@ internal fun HomeRoute(
     }
 }
 
-/** The line under the watchlist: when the newest shown price was read, and that the change is over 24 hours. Null before any price is read. */
-internal fun footnoteOf(asOfMs: Long?): String? = asOfMs?.let { "Prices at ${clockOf(it)}, change over 24 hours." }
+/**
+ * The line under the watchlist: when the newest shown price was read, and that the change is over 24 hours. A price from before today, [nowMs] in
+ * [zone], also gives its day, so a kept price never reads as today's. Null before any price is read.
+ */
+internal fun footnoteOf(asOfMs: Long?, nowMs: Long, zone: ZoneId = ZoneId.systemDefault()): String? = asOfMs?.let {
+    val day = Instant.ofEpochMilli(it).atZone(zone).toLocalDate()
+    val on = if (day == Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate()) "" else " on ${FOOTNOTE_DAY.format(day)}"
+    "Prices at ${clockOf(it, zone)}$on, change over 24 hours."
+}
+
+/** The day of a price from before today, as the footnote writes it: "25 Nov". */
+private val FOOTNOTE_DAY: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
 
 /**
  * The account that Home's Send sends from: the first one that holds some of its coin, else the first one. Null when the wallet has no account on the

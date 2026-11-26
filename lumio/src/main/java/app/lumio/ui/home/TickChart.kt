@@ -22,16 +22,20 @@ private const val INSET_Y = 2f
 private const val INSET_START = 1f
 private const val INSET_END = 9.2f
 
+/** The ticks a chart draws for a day, as the mock does: a longer series is sampled down to one more point than this, first and last kept. */
+internal const val TICKS = 22
+
 /** The shortest tick, in dp, so a still stretch of the day stays visible. */
 private const val MIN_TICK = 1.6f
 
 /**
- * The ticks of a row's chart of [values], in time order, in a [width] by [height] box, with [density] pixels to the dp. Each tick is the stroke between two
+ * The ticks of a row's chart of [series], in time order, at most [TICKS] of them, in a [width] by [height] box, with [density] pixels to the dp. Each tick is the stroke between two
  * neighbouring values, at least [MIN_TICK] tall around its middle. The height spans at least [CHART_FLOOR] of the middle price, centred on the day's range,
  * so a flat day sits on the middle line. Fewer than two values have no ticks.
  */
-internal fun ticksOf(values: List<Double>, width: Float, height: Float, density: Float = 1f): List<Tick> {
-    if (values.size < 2) return emptyList()
+internal fun ticksOf(series: List<Double>, width: Float, height: Float, density: Float = 1f): List<Tick> {
+    if (series.size < 2) return emptyList()
+    val values = if (series.size <= TICKS + 1) series else List(TICKS + 1) { i -> series[(i.toLong() * (series.size - 1) / TICKS).toInt()] }
     val low = values.min()
     val high = values.max()
     val mid = (low + high) / 2

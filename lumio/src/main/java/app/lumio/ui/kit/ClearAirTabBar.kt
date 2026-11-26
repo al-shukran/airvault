@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
@@ -39,6 +40,9 @@ enum class LumioTab(val label: String, val glyph: ClearAirGlyph) {
 /** The height of the tab bar's row, above the navigation bar. */
 private val TAB_BAR_HEIGHT = 58.dp
 
+/** The space at each end of the bar, inside its hairline, as the mock's 4 dp side padding. */
+private val TAB_BAR_SIDE = 4.dp
+
 /** The tab icon, as the mock draws it. */
 private val TAB_ICON = 23.dp
 
@@ -62,7 +66,8 @@ fun ClearAirTabBar(selected: LumioTab, onSelect: (LumioTab) -> Unit, modifier: M
             .navigationBarsPadding()
             .height(TAB_BAR_HEIGHT)
             .background(palette.background)
-            .drawBehind { drawRect(color = palette.hairline, size = Size(size.width, 1.dp.toPx())) },
+            .drawBehind { drawRect(color = palette.hairline, size = Size(size.width, 1.dp.toPx())) }
+            .padding(horizontal = TAB_BAR_SIDE),
     ) {
         LumioTab.entries.forEach { tab ->
             val active = tab == selected

@@ -13,16 +13,11 @@ import app.lumio.LumioApp
 import app.lumio.removeWalletHistory
 import app.lumio.LumioVault
 import app.lumio.data.asset.AssetId
-import app.lumio.data.cache.CachePolicy
-import app.lumio.data.cache.jsonCodec
 import app.lumio.data.db.LumioDatabase
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
-import app.lumio.data.price.Kept
-import app.lumio.data.price.MARKET_KEY
 import app.lumio.data.price.PriceRepository
 import app.lumio.data.price.Price
-import app.lumio.data.provider.MarketQuote
 import app.lumio.data.scan.ScanEvent
 import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.TxAsset
@@ -96,21 +91,17 @@ class WalletsBoardTest {
     }
 
     @Test
-    fun theBoardShowsTheLastMarketAndTheWatchlistKeptInTheVaultBeforeAnyNetworkRead() {
+    fun theBoardShowsTheWatchlistKeptInTheVaultBeforeAnyNetworkRead() {
         val session = VaultSession(VaultLayout(tmp.root), MemoryKeystore(), ByteArray(32) { (it * 5 + 1).toByte() })
         val database = LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "market.db"))
         val vault = LumioVault(session, database)
         PairedWallets.save(session, pairing(), nowMs = 100L)
         val wallet = PairedWallets.list(session).single()
-        val kept = MarketQuote(capUsd = 2.6e12, change24hPct = 2.14, asOfMs = 1_000L)
-        runBlocking { vault.cache.put(CachePolicy.LastKnown, MARKET_KEY, jsonCodec<MarketQuote>().encode(kept)) }
-
-        // No source is asked: the market and the watchlist come from the vault, so Home shows them on its first frame.
+        // No source is asked: the watchlist comes from the vault, so Home shows it on its first frame.
         val app = RuntimeEnvironment.getApplication() as LumioApp
         val board = WalletsBoard(app, vault, repository = PriceRepository(app.priceScheduler) { vault.cache }) { emptyMap<AssetId, Price>() }
         board.showSide(mode, listVersion = 0)
 
-        assertEquals(Kept(kept, stale = true), await { board.market })
         assertEquals(WalletWatchlist(assets = FIRST_RUN_ASSETS), await { board.watchlists[wallet.id] })
 
         board.close()

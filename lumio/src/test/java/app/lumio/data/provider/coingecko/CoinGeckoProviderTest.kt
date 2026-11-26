@@ -6,9 +6,7 @@ import app.lumio.data.config.ProviderConfig
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.provider.FiatRates
-import app.lumio.data.provider.BitcoinMarket
 import app.lumio.data.provider.Http
-import app.lumio.data.provider.MarketQuote
 import app.lumio.data.provider.NativePrice
 import app.lumio.data.provider.OpKey
 import app.lumio.data.provider.Ops
@@ -77,10 +75,6 @@ class CoinGeckoProviderTest {
             """"chf":{"name":"Swiss Franc","unit":"CHF","value":25000.0,"type":"fiat"}}}""",
     ).build()
 
-    private fun bitcoinAnswer(cap: String = "1175864307874.9705", change: String = "-1.6095249174253978") = MockResponse.Builder().body(
-        """{"bitcoin":{"usd":58451,"usd_market_cap":$cap,"usd_24h_change":$change,"last_updated_at":1795625974}}""",
-    ).build()
-
     @Test
     fun thePriceChangeAndTimeComeFromOneSimplePriceRequest() {
         server.enqueue(ethereumAnswer())
@@ -138,42 +132,6 @@ class CoinGeckoProviderTest {
     }
 
     @Test
-    fun theMarketAnswersWithoutAKeyAndTheKeyIsSentWhenSet() {
-        server.enqueue(bitcoinAnswer())
-        server.enqueue(bitcoinAnswer())
-
-        call(BitcoinMarket())
-        assertNull(server.takeRequest().headers["x-cg-demo-api-key"])
-        call(BitcoinMarket(), key = DEMO_KEY)
-        assertEquals(DEMO_KEY, server.takeRequest().headers["x-cg-demo-api-key"])
-    }
-
-    @Test
-    fun theMarketIsBitcoinsCapAndItsChangeAndTimeFromTheSimplePriceEndpoint() {
-        server.enqueue(bitcoinAnswer())
-
-        assertEquals(MarketQuote(capUsd = 1175864307874.9705, change24hPct = -1.6095249174253978, asOfMs = 1_795_625_974_000L), call(BitcoinMarket()))
-        val url = server.takeRequest().url
-        assertEquals("/api/v3/simple/price", url.encodedPath)
-        assertEquals("bitcoin", url.queryParameter("ids"))
-        assertEquals("true", url.queryParameter("include_market_cap"))
-    }
-
-    @Test
-    fun aMarketWithNoChangeHasNoChange() {
-        server.enqueue(bitcoinAnswer(change = "null"))
-
-        assertNull(call(BitcoinMarket()).change24hPct)
-    }
-
-    @Test
-    fun aMarketCapThatIsNotPositiveIsAFatalAnswer() {
-        server.enqueue(bitcoinAnswer(cap = "0"))
-
-        assertFailsWith<ProviderError.Fatal> { call(BitcoinMarket()) }
-    }
-
-    @Test
     fun theTrendingCoinsAreListedInTheSourcesOrderWithTheirPriceAndChange() {
         server.enqueue(
             MockResponse.Builder().body(
@@ -212,7 +170,6 @@ class CoinGeckoProviderTest {
         assertEquals(setOf(Trait.KEY_OPTIONAL), provider.traits)
         assertFalse(provider.supports(BTC, Ops.PRICE_NATIVE, ProviderConfig()))
         assertTrue(provider.supports(BTC, Ops.PRICE_NATIVE, ProviderConfig(apiKey = DEMO_KEY)))
-        assertTrue(provider.supports(BTC, Ops.MARKET_BITCOIN, ProviderConfig()))
         assertTrue(provider.supports(BTC, Ops.MARKET_TRENDING, ProviderConfig()))
         assertFalse(provider.supports(BTC, OpKey.on(BTC, "nativeBalance"), ProviderConfig()))
         assertFalse(provider.defaultLimits(ProviderConfig()) == provider.defaultLimits(ProviderConfig(apiKey = DEMO_KEY)))

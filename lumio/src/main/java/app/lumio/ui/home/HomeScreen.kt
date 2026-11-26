@@ -88,12 +88,12 @@ data class WatchlistRow(
 
 /**
  * The Home tab's body: Send and Receive, then the wallet's watchlist with its sort control and its add action, and a dashed row that adds an asset at the
- * end. [rows] are already in the order the list shows them. A test network shows no prices, because test coins have no value. [footnote] says where the
- * prices are from and when. An empty watchlist says so, with the add and [onRestore], which brings back the top coins. [logo] draws a row's disc.
+ * end. [rows] are already in the order the list shows them, and null until the watchlist is read, when only Send and Receive show. A test network shows no prices, because test coins have no value. [footnote] says where the
+ * prices are from and when. An empty watchlist says so, with the add and [onRestore], which brings back the top coins when there is a wallet to restore them to. [logo] draws a row's disc.
  */
 @Composable
 fun HomeScreen(
-    rows: List<WatchlistRow>,
+    rows: List<WatchlistRow>?,
     sort: WatchlistSort,
     testnet: Boolean,
     footnote: String?,
@@ -101,7 +101,7 @@ fun HomeScreen(
     onReceive: () -> Unit,
     onSort: () -> Unit,
     onAdd: () -> Unit,
-    onRestore: () -> Unit,
+    onRestore: (() -> Unit)?,
     onOpen: (WatchedAsset) -> Unit,
     logo: @Composable (WatchlistRow) -> Unit = { AssetDisc(it.icon) },
 ) {
@@ -114,6 +114,7 @@ fun HomeScreen(
         ClearAirPrimaryButton(text = "Send", onClick = onSend, modifier = Modifier.width(SEND_WIDTH), icon = ClearAirGlyph.SEND, fullWidth = false)
         ClearAirTextAction(text = "Receive", onClick = onReceive, icon = ClearAirGlyph.RECEIVE, modifier = Modifier.padding(horizontal = TEXT_ACTION_SIDE))
     }
+    if (rows == null) return
     if (rows.isEmpty()) {
         EmptyWatchlist(onAdd = onAdd, onRestore = onRestore)
         return
@@ -175,7 +176,7 @@ private fun HeaderAction(text: String, glyph: ClearAirGlyph, glyphFirst: Boolean
 
 /** The empty watchlist: the star mark with its spark, the title, what a watchlist is for, and the two ways to fill it. */
 @Composable
-private fun EmptyWatchlist(onAdd: () -> Unit, onRestore: () -> Unit) {
+private fun EmptyWatchlist(onAdd: () -> Unit, onRestore: (() -> Unit)?) {
     val palette = LocalClearAirPalette.current
     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(modifier = Modifier.padding(top = EMPTY_TOP).size(EMPTY_MARK).background(palette.raised, CircleShape), contentAlignment = Alignment.Center) {
@@ -201,6 +202,6 @@ private fun EmptyWatchlist(onAdd: () -> Unit, onRestore: () -> Unit) {
         )
         Spacer(Modifier.height(EMPTY_ACTIONS_TOP))
         ClearAirTextAction(text = "Add to Watchlist", onClick = onAdd, icon = ClearAirGlyph.PLUS, modifier = Modifier.height(EMPTY_ACTION))
-        ClearAirTextAction(text = "Restore Top Coins", onClick = onRestore, modifier = Modifier.height(EMPTY_ACTION))
+        onRestore?.let { ClearAirTextAction(text = "Restore Top Coins", onClick = it, modifier = Modifier.height(EMPTY_ACTION)) }
     }
 }

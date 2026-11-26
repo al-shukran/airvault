@@ -71,6 +71,17 @@ class MarketFormatTest {
     }
 
     @Test
+    fun aDayOfManyPointsIsDrawnAsTwentyTwoTicksOverTheSameSpan() {
+        val ticks = ticksOf(List(25) { 100.0 + it }, width = 56f, height = 22f)
+        assertEquals(22, ticks.size)
+        assertEquals(1f, ticks.first().x, 0.01f)
+        assertEquals(46.8f, ticks.last().x, 0.01f)
+        // The first and the last points are kept: the ink still runs from the bottom to the top, give or take half a short tick, as the mock's 20.4 dp is.
+        assertEquals(2f, ticks.minOf { it.top }, 0.5f)
+        assertEquals(20f, ticks.maxOf { it.bottom }, 0.5f)
+    }
+
+    @Test
     fun aFlatDaySitsOnTheMiddleLine() {
         val ticks = ticksOf(listOf(1.0, 1.0, 1.0), width = 56f, height = 22f)
         ticks.forEach { tick ->

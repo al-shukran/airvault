@@ -86,6 +86,13 @@ class HomeScreenshotTest {
     fun narrowEndLight() = frame("home_narrow_360_end_light", width = NARROW) { Home(rows = mockRows(), end = true) }
 
     @Test
+    fun fallLight() = frame("home_fall_light") { Home(rows = fallingRows()) }
+
+    @Test
+    @Config(qualifiers = LUMIO_DARK_QUALIFIERS)
+    fun fallDark() = frame("home_fall_dark") { Home(rows = fallingRows()) }
+
+    @Test
     @Config(qualifiers = LUMIO_DARK_QUALIFIERS)
     fun testnet() = frame("home_testnet") { Home(rows = mockRows(), testnet = true) }
 
@@ -178,6 +185,11 @@ class HomeScreenshotTest {
             change24hPct = row.change,
             ticks = row.ticks,
         )
+    }
+
+    /** The mock's rows with Bitcoin, Ethereum and Solana falling: their day turned over and their change made negative, so the rows show red ▼. */
+    private fun fallingRows(): List<WatchlistRow> = mockRows().map { row ->
+        if (row.name in setOf("Bitcoin", "Ethereum", "Solana")) row.copy(change24hPct = -(row.change24hPct ?: 0.0), ticks = row.ticks.map { 2 * row.ticks.last() - it }) else row
     }
 
     private companion object {

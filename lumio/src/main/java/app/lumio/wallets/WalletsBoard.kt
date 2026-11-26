@@ -19,7 +19,6 @@ import app.lumio.data.price.Kept
 import app.lumio.data.price.Price
 import app.lumio.data.price.PriceRepository
 import app.lumio.data.price.PriceSeries
-import app.lumio.data.provider.MarketQuote
 import app.lumio.data.provider.TrendingList
 import app.lumio.data.scan.ScanEvent
 import app.lumio.evm.EvmCatalog
@@ -58,7 +57,7 @@ private const val REFRESH_NOTICE = "Some balances could not be refreshed. The la
 
 /**
  * What a read of the vault gives the screens: the balances of one side, the tokens of its Ethereum accounts with their dollars, and the market figures
- * the vault kept last: the watchlists of the shown wallets, the last prices of their assets, the whole market and the trending coins.
+ * the vault kept last: the watchlists of the shown wallets, the last prices of their assets and the trending coins.
  */
 private class Loaded(
     val view: WalletsView,
@@ -67,7 +66,6 @@ private class Loaded(
     val tokenHeld: Map<WalletAccount, List<TokenHolding>>,
     val watchlists: Map<String, WalletWatchlist>,
     val prices: Map<AssetId, Price>,
-    val market: Kept<MarketQuote>?,
     val trending: Kept<TrendingList>?,
     val dayCharts: Map<AssetId, PriceSeries>,
     /** [WalletsBoard.forgets] when the read began. A wallet forgotten since may still be in the read's view and watchlists. */
@@ -110,7 +108,7 @@ internal class AccountReads(namespace: String) {
 internal class WalletsBoard(
     private val app: LumioApp,
     private val vault: LumioVault,
-    /** The price source of the market figures, the watched prices and the day charts. Its cache is the open vault's; a test gives one over its own vault. */
+    /** The price source of the watched prices, the day charts and the trending coins. Its cache is the open vault's; a test gives one over its own vault. */
     private val repository: PriceRepository = app.prices,
     /** The prices of [ids] that have one. The board reads each account's asset prices through it; a test stands in for the price sources. */
     private val readPrices: suspend (ids: Collection<AssetId>) -> Map<AssetId, Price> = { ids -> repository.assetPrices(ids) },
@@ -125,7 +123,7 @@ internal class WalletsBoard(
     private val accountReads = HashMap<String, AccountReads>()
     private val chartReads = mutableStateMapOf<AssetId, PriceSeries>()
     private val dayCharts = mutableStateMapOf<AssetId, PriceSeries>()
-    private var marketJob: Job? = null
+    private var pricesJob: Job? = null
 
     /** Takes turns between the reads that show the balances, so a read that began earlier never shows over one that began later. */
     private val shows = Mutex()
@@ -185,10 +183,6 @@ internal class WalletsBoard(
 
     /** The USD price of each watched asset: the last one kept, then the one a source answers now. */
     var prices by mutableStateOf<Map<AssetId, Price>>(emptyMap())
-        private set
-
-    /** The whole market's figures, the last ones kept or the ones a source answered, or null before any. */
-    var market by mutableStateOf<Kept<MarketQuote>?>(null)
         private set
 
     /** The trending coins, the last list kept or the one a source answered, or null before any. */
@@ -260,7 +254,7 @@ internal class WalletsBoard(
             if (pulled) refreshByPull = true
             return
         }
-        refreshMarket()
+        refreshPrices()
         readChains(mode, pulled, families = null)
     }
 
@@ -382,12 +376,12 @@ internal class WalletsBoard(
     fun dayChartOf(asset: AssetId): PriceSeries? = dayCharts[asset]
 
     /**
-     * Reads the whole market's figures, the prices of the watched assets and their day charts from the sources. Each answer is kept by the price repository,
+     * Reads the prices of the watched assets and their day charts from the sources. Each answer is kept by the price repository,
      * so the board shows the last one when a read fails. A read that starts while another runs replaces it.
      */
-    fun refreshMarket() {
-        marketJob?.cancel()
-        marketJob = scope.launch { readMarket() }
+    fun refreshPrices() {
+        pricesJob?.cancel()
+        pricesJob = scope.launch { readPrices() }
     }
 
     /** Reads the trending coins from the sources, for the search sheet's Trending tab. */
@@ -411,7 +405,7 @@ internal class WalletsBoard(
                 if (!saved) return@launch
                 watchlists = watchlists + (walletId to next)
             }
-            refreshMarket()
+            refreshPrices()
         }
     }
 
@@ -426,10 +420,8 @@ internal class WalletsBoard(
         }
     }
 
-    /** One pass of [refreshMarket]: the market, the watched prices and their day charts. Each read runs off the main thread, and its answer lands here. */
-    private suspend fun readMarket() {
-        if (!withContext(Dispatchers.IO) { repository.servesMarket() }) market = null
-        readOrNull { withContext(Dispatchers.IO) { repository.market() } }?.let { market = it }
+    /** One pass of [refreshPrices]: the watched prices and their day charts. Each read runs off the main thread, and its answer lands here. */
+    private suspend fun readPrices() {
         val assets = watchedAssets()
         readOrNull { withContext(Dispatchers.IO) { repository.assetPrices(assets) } }?.let { prices = prices + it }
         val days = readOrNull {
@@ -472,11 +464,10 @@ internal class WalletsBoard(
         accountReads.clear()
         chartReads.clear()
         dayCharts.clear()
-        marketJob?.cancel()
-        marketJob = null
+        pricesJob?.cancel()
+        pricesJob = null
         watchlists = emptyMap()
         prices = emptyMap()
-        market = null
         trending = null
         endRefresh()
         forgetReads()
@@ -506,7 +497,6 @@ internal class WalletsBoard(
         // A list or price read since the vault was read is newer than the vault, so it wins.
         watchlists = loaded.watchlists + watchlists
         prices = loaded.prices + prices
-        market = loaded.market ?: market
         trending = loaded.trending ?: trending
         // A day chart read since the vault was read is newer than the vault's copy, so it wins.
         dayCharts.putAll(loaded.dayCharts.filterKeys { it !in dayCharts })
@@ -562,8 +552,8 @@ internal class WalletsBoard(
         val held = heldTokensOf(view, mode)
         val tokenPrices = repository.lastPrices(held.values.flatMap { AssetRows.tokenIds(it) })
         val watchlists = withContext(Dispatchers.IO) { watchlistsOf(view.wallets) }
-        val (prices, market, trending) = withContext(Dispatchers.IO) {
-            Triple(repository.lastPrices(assetsOf(watchlists)), repository.lastMarket(), repository.lastTrending())
+        val (prices, trending) = withContext(Dispatchers.IO) {
+            repository.lastPrices(assetsOf(watchlists)) to repository.lastTrending()
         }
         val dayCharts = withContext(Dispatchers.IO) { repository.lastDayCharts(assetsOf(watchlists)) }
         return Loaded(
@@ -573,7 +563,6 @@ internal class WalletsBoard(
             tokenHeld = held,
             watchlists = watchlists,
             prices = prices,
-            market = market,
             trending = trending,
             dayCharts = dayCharts,
             forgets = epoch,
