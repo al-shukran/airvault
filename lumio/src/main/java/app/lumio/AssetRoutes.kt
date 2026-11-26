@@ -191,7 +191,7 @@ internal fun AssetRoute(
             title = accountName(account),
             detail = accountDetail(wallet.name, account),
             trailing = amount?.let { Masking.amount(amountText(it, symbol), hidden = !display.showAssets) },
-            onSend = { navController.navigate(coinSendRoute(account, asset, selection.mode)) },
+            onSend = coinSendRoute(account, asset, selection.mode)?.let { route -> { navController.navigate(route) } },
             onReceive = {
                 receive = receiveCoinStartOf(account, asset.network, symbol, name, coinIcon, networkIcon, held = total != null, wallets = view.wallets)
                 receiveOpening++
@@ -351,7 +351,7 @@ private fun changeOf(price: Price, fiat: Fiat): PriceChange? {
 /**
  * The symbol and the name of [asset], the same on Home, Add to Watchlist and the asset page: the names kept with it when it was starred from Add to
  * Watchlist, which are the market source's (see [WatchedLabel]). Else a token's come from the registry, else from the wallet's holdings of the token,
- * else the address that [coinNames] gives.
+ * else the address that [coinNames] gives. A holding names it only when it is on the asset's own network.
  */
 internal fun namesOf(asset: WatchedAsset, app: LumioApp, held: Collection<List<TokenHolding>>): Pair<String, String> = namesOf(
     asset,
@@ -365,7 +365,9 @@ internal fun namesOf(asset: WatchedAsset, listed: TokenEntry?, held: Collection<
     label?.let { return it.symbol to it.name }
     val contract = asset.contract ?: return coinNames(asset)
     listed?.let { return it.symbol to it.name }
-    val token = held.asSequence().flatten().firstOrNull { it.token.contract.equals(contract, ignoreCase = true) }?.token
+    val token = held.asSequence().flatten()
+        .firstOrNull { it.token.contract.equals(contract, ignoreCase = true) && Networks.evm(it.chain.chainId) == asset.network.chain && it.chain.testnet == asset.network.testnet }
+        ?.token
     return token?.let { it.symbol to it.name } ?: coinNames(asset)
 }
 
@@ -390,15 +392,14 @@ internal fun iconOf(asset: WatchedAsset, symbol: String, app: LumioApp, label: W
 }
 
 /**
- * The Send of [asset] from [account]. An Ethereum account opens the send on the asset's network with its token chosen, and other accounts send their
- * own coin.
+ * The Send of [asset] from [account]. An Ethereum account opens the send on the asset's network with its token chosen, and a native coin sends from its
+ * own account. A token of another family has no send, so it is null and the page does not offer it: it never opens the native coin's send.
  */
-private fun coinSendRoute(account: WalletAccount, asset: WatchedAsset, mode: NetworkMode): String =
-    if (account.namespace == Networks.EIP155 && asset.network.isEvm) {
-        LumioRoute.send(account.walletId, account.id, Networks.evmIdOf(asset.network.chain), asset.contract)
-    } else {
-        sendRoute(account, mode)
-    }
+internal fun coinSendRoute(account: WalletAccount, asset: WatchedAsset, mode: NetworkMode): String? = when {
+    account.namespace == Networks.EIP155 && asset.network.isEvm -> LumioRoute.send(account.walletId, account.id, Networks.evmIdOf(asset.network.chain), asset.contract)
+    asset.contract != null -> null
+    else -> sendRoute(account, mode)
+}
 
 /** The coin's logo at 48 dp: the image a source served when there is one, else the icon [spec] draws. */
 @Composable
