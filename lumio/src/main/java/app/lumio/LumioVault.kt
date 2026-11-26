@@ -23,6 +23,9 @@ import app.lumio.pair.FirstSyncImports
 import app.lumio.pair.PairedWallets
 import app.lumio.portfolio.ActivityPage
 import app.lumio.portfolio.PortfolioBoard
+import app.lumio.send.ArrivalNotice
+import app.lumio.send.NoArrivalNotice
+import app.lumio.send.SendArrivals
 import app.lumio.wallets.WalletsBoard
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +39,13 @@ import kotlinx.coroutines.flow.asStateFlow
  * What Lumio keeps for one open vault: the cache, the scan job rows, the last known balances and the provider settings. Every key in it comes
  * from [session], so when the vault locks, [app.lensly.app.VaultHolder] drops this object and nothing it holds can be read.
  */
-class LumioVault(val session: VaultSession, database: LumioDatabase, clock: Clock = WallClock) : SessionAttachment {
+class LumioVault(
+    val session: VaultSession,
+    database: LumioDatabase,
+    clock: Clock = WallClock,
+    arrivalNotice: ArrivalNotice = NoArrivalNotice,
+    foreground: () -> Boolean = { true },
+) : SessionAttachment {
     /** The cache of chain data. Its entries are sealed under keys derived from [session]. */
     val cache: Cache = Cache(database.kv(), CacheKeys.from(session), clock)
 
@@ -130,13 +139,20 @@ class LumioVault(val session: VaultSession, database: LumioDatabase, clock: Cloc
     internal var keptCoinActivity: Pair<CoinActivityKey, ActivityPage>? = null
 
     /**
-     * The scope of the work that reads or writes through this vault: scan passes, the first sync and the coin activity preload. Such work copies keys
+     * The scope of the work that reads or writes through this vault: scan passes, the first sync, the coin activity preload and the arrival watches. Such work copies keys
      * from [session], and closing the session zeroes only the Vault Key, so [wipe] cancels this scope: a locked vault holds nothing that is still running.
      */
     internal val scans = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    /**
+     * The sent transactions this vault watches. They poll on [scans] and read through this vault, so a watch ends with the vault and never reads through
+     * the next one that opens. An arrival notice that falls due while the vault is locked is given up, and the activity list shows the status on unlock.
+     */
+    internal val arrivals = SendArrivals(scans, arrivalNotice, foreground)
+
     override fun wipe() {
         scans.cancel()
+        arrivals.clear()
         keptCoinActivity = null
         wallets?.close()
         wallets = null

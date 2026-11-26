@@ -609,12 +609,14 @@ internal fun SendRoute(
             network = now.send.chain.name,
             timing = "Usually about 1 second on ${now.send.chain.name}",
             fromName = fromName,
-            arrival = ArrivalWatch(
-                arrivals = app.sendArrivals,
-                network = NetworkId(Networks.evm(now.send.chain.chainId), now.send.chain.testnet),
-                arrivedHeadline = "Your ${now.send.chain.symbol} Has Arrived",
-                read = EvmSendLanding(app.evmReadsFor(checkNotNull(session)), now.send)::landing,
-            ),
+            arrival = app.arrivalsOf(session)?.let { arrivals ->
+                ArrivalWatch(
+                    arrivals = arrivals,
+                    network = NetworkId(Networks.evm(now.send.chain.chainId), now.send.chain.testnet),
+                    arrivedHeadline = "Your ${now.send.chain.symbol} Has Arrived",
+                    read = EvmSendLanding(app.evmReadsFor(session), now.send)::landing,
+                )
+            },
             explorerUrl = { hash -> EvmSend.explorerLink(now.send.chain, hash) },
             onExplorer = { hash -> EvmSend.explorerLink(now.send.chain, hash)?.let(::openExplorer) },
             onSent = {},

@@ -192,9 +192,9 @@ internal suspend fun <T> onVault(default: T, block: suspend () -> T): T = withCo
 }
 
 /**
- * The first sync of the wallet [walletId], opened when its pairing is saved. Its reads run on the application's scope, so they go on when the owner
- * leaves. This is the last step of the onboarding, so only Continue leaves it, for the wallet. View Accounts opens the wallet above this step, and
- * the system back stays here.
+ * The first sync of the wallet [walletId], opened when its pairing is saved. Its reads run on the vault's scan scope, so they go on when the owner
+ * leaves and stop when the vault locks. This is the last step of the onboarding, so only Continue leaves it, for the wallet. View Accounts opens the
+ * wallet above this step, and the system back stays here.
  */
 @Composable
 internal fun FirstSyncRoute(navController: NavHostController, holder: VaultHolder, walletId: String, mode: NetworkMode, onLock: () -> Unit) {

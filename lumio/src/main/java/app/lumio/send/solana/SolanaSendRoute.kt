@@ -400,7 +400,7 @@ internal fun SolanaSendRoute(
      */
     fun finishSetup() {
         val from = account ?: return
-        notice = when (sentSignature?.let { app.sendArrivals.landingNow(network, it) }) {
+        notice = when (sentSignature?.let { app.arrivalsOf(session)?.landingNow(network, it) }) {
             Landing.LANDED -> SETUP_DONE
             Landing.REFUSED -> SETUP_FAILED
             else -> SETUP_PENDING
@@ -652,12 +652,14 @@ internal fun SolanaSendRoute(
             network = networkLabel,
             timing = "About 1 second on $networkLabel",
             fromName = fromName,
-            arrival = ArrivalWatch(
-                arrivals = app.sendArrivals,
-                network = current.plan.network,
-                arrivedHeadline = if (current.setup) null else "Your ${selected.symbol} Has Arrived",
-                read = SolanaSendLanding(scheduler, current.plan)::landing,
-            ),
+            arrival = app.arrivalsOf(session)?.let { arrivals ->
+                ArrivalWatch(
+                    arrivals = arrivals,
+                    network = current.plan.network,
+                    arrivedHeadline = if (current.setup) null else "Your ${selected.symbol} Has Arrived",
+                    read = SolanaSendLanding(scheduler, current.plan)::landing,
+                )
+            },
             explorerUrl = { signature -> SolanaSend.explorerTxUrl(current.plan.network, signature) },
             onExplorer = { signature -> openExplorer(SolanaSend.explorerTxUrl(current.plan.network, signature)) },
             onSent = { signature -> sentSignature = signature },

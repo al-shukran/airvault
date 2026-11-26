@@ -17,14 +17,19 @@ import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairedWallets
 import app.lumio.pair.SyncRow
 import app.lumio.pair.SyncStep
+import app.lumio.send.Landing
 import java.io.File
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.job
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -128,5 +133,70 @@ class LumioVaultWipeTest {
 
         assertTrue("The lock cancels the first sync.", running.isCancelled)
         assertFalse("No step ran after the lock.", later)
+    }
+
+    private fun vaultIn(dir: String): LumioVault {
+        val layout = VaultLayout(File(tmp.root, dir).apply { mkdirs() })
+        val session = VaultSession(layout, MemoryKeystore(), ByteArray(32) { (it * 5 + 1).toByte() })
+        return LumioVault(session, LumioDatabase.open(RuntimeEnvironment.getApplication(), File(tmp.root, "$dir.db")))
+    }
+
+    private val arrivalNet = NetworkId(Networks.BTC_MAINNET, testnet = false)
+
+    @Test
+    fun aLockEndsAnArrivalWatchAndADecoyUnlockIsNeverReadThrough() = runBlocking {
+        val real = vaultIn("real")
+        var live = real
+        val readThrough = mutableListOf<LumioVault>()
+        val firstRead = CompletableDeferred<Unit>()
+        real.arrivals.watch(arrivalNet, "txid", notify = true) {
+            readThrough += live
+            firstRead.complete(Unit)
+            Landing.PENDING
+        }
+        firstRead.await()
+
+        real.wipe()
+        live = vaultIn("decoy")
+        withTimeout(10_000) { real.scans.coroutineContext.job.children.toList().joinAll() }
+
+        assertTrue("The lock cancels the poll.", real.scans.coroutineContext.job.children.none { it.isActive })
+        assertEquals("The watch read once, through the vault that started it, and never after the lock.", listOf(real), readThrough)
+    }
+
+    @Test
+    fun aLockCancelsAReadThatIsInFlight() = runBlocking {
+        val vault = vaultIn("real")
+        val started = CompletableDeferred<Unit>()
+        val cancelled = CompletableDeferred<Unit>()
+        vault.arrivals.watch(arrivalNet, "txid", notify = true) {
+            started.complete(Unit)
+            try {
+                awaitCancellation()
+            } finally {
+                cancelled.complete(Unit)
+            }
+        }
+        started.await()
+
+        vault.wipe()
+
+        withTimeout(10_000) { cancelled.await() }
+    }
+
+    @Test
+    fun noPendingWatchSurvivesAWipe() = runBlocking {
+        val vault = vaultIn("real")
+        val started = CompletableDeferred<Unit>()
+        val before = vault.arrivals.watch(arrivalNet, "txid", notify = true) {
+            started.complete(Unit)
+            awaitCancellation()
+        }
+        started.await()
+        assertSame("Until the lock, the same transaction has one watch.", before, vault.arrivals.watch(arrivalNet, "txid", notify = true) { Landing.LANDED })
+
+        vault.wipe()
+
+        assertNotSame("The lock forgets the pending watch.", before, vault.arrivals.watch(arrivalNet, "txid", notify = true) { Landing.LANDED })
     }
 }
