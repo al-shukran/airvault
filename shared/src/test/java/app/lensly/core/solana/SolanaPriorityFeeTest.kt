@@ -15,6 +15,13 @@ class SolanaPriorityFeeTest {
         assertEquals(0L, SolanaPriorityFee.lamports(0L))
     }
 
+    /** A send with the switch on pays for three builtins: the nonce advance, the transfer and the price instruction itself, 9000 units. */
+    @Test
+    fun theSwitchPaysForTheComputeBudgetInstructionAsABuiltin() {
+        assertEquals(3_000L, SolanaPriorityFee.SYSTEM_UNITS)
+        assertEquals(900L, SolanaPriorityFee.lamports(3 * SolanaPriorityFee.SYSTEM_UNITS))
+    }
+
     /** SetComputeUnitPrice is instruction tag 3, then the price as a u64 little-endian: 100000 is A0 86 01 and five zero bytes. */
     @Test
     fun theInstructionDataIsTheTagThenThePriceLittleEndian() {

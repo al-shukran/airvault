@@ -367,6 +367,7 @@ internal fun AckCheckbox(label: String, checked: Boolean, onCheckedChange: (Bool
             .fillMaxWidth()
             .heightIn(min = 48.dp)
             .tapHaptic(haptics)
+            .ignoreObscuredTouches()
             .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -401,7 +402,8 @@ internal fun ReviewSection(title: String, modifier: Modifier = Modifier, content
 
 /**
  * The bottom of a review: the line that says what still stands between the owner and signing, the primary Hold to sign control at
- * full width, and Reject as a text button under it. The line keeps its height when it is empty, so the buttons do not move.
+ * full width, and Reject as a text button under it. The line keeps a minimum height when it is empty, so the buttons do not move, and
+ * it wraps at large font sizes.
  */
 @Composable
 internal fun ReviewActions(
@@ -416,7 +418,7 @@ internal fun ReviewActions(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(LenslySpacing.lg),
+                .heightIn(min = LenslySpacing.lg),
             contentAlignment = Alignment.Center,
         ) {
             if (hint != null) {
@@ -424,7 +426,7 @@ internal fun ReviewActions(
                     text = hint,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
+                    textAlign = TextAlign.Center,
                 )
             }
         }

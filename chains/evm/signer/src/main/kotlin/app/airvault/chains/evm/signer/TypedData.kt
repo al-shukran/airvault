@@ -3,6 +3,7 @@ package app.airvault.chains.evm.signer
 import java.io.ByteArrayOutputStream
 import java.math.BigInteger
 import java.nio.charset.StandardCharsets
+import app.lensly.core.wallet.toHex
 import org.web3j.crypto.Hash
 
 /** The name of the domain struct that every typed data message carries. */
@@ -55,6 +56,17 @@ class TypedData(
     /** The domain's chain ID, or null when the domain holds none. */
     val domainChainId: BigInteger?
         get() = (domain.fields["chainId"] as? TypedValue.IntValue)?.value
+
+    /** Every value of the message whose type is address, at any depth, as lowercase 0x hex. Bytes values are not addresses and are left out. */
+    fun messageAddresses(): List<String> = ArrayList<String>().also { addressesOf(primaryType, message, it) }
+
+    private fun addressesOf(type: String, value: TypedValue, into: MutableList<String>) {
+        when {
+            isArray(type) -> (value as TypedValue.ArrayValue).items.forEach { addressesOf(elementOf(type), it, into) }
+            type in types -> types.getValue(type).forEach { addressesOf(it.type, (value as TypedValue.StructValue).fields.getValue(it.name), into) }
+            type == "address" -> into += "0x" + (value as TypedValue.BytesValue).bytes.toHex()
+        }
+    }
 
     /** The digest that is signed: keccak256(0x1901 ‖ domainSeparator ‖ messageHash). */
     fun digest(): ByteArray = Hash.sha3(byteArrayOf(0x19, 0x01) + domainSeparator() + messageHash())

@@ -208,6 +208,8 @@ class DuressPasswordTest {
         create()
         // A non-empty folder where the record file goes: the tick reads it as no record, and the write cannot replace it.
         val file = holder.openSession()!!.vaultRecordFileForTesting(FinishSetupStore.RECORD)
+        // The vault starts with a file for every record, so it goes first.
+        file.delete()
         file.mkdirs()
         File(file, "blocker").writeText("x")
 

@@ -154,6 +154,60 @@ class ProtocolStepsTest {
         )
 
         assertEquals(listOf("Supply 71.06853 USDC to Aave V3 on behalf of 0x1593…5343"), steps.lines)
+        assertEquals(listOf("This supplies to 0x1593…5343, not you"), steps.warnings)
+    }
+
+    /**
+     * Every Aave step that pays or credits an address names it in the line and warns when it is not the signer, and warns of nothing when
+     * it is. A lookalike of an address the owner knows must not pass with the line alone.
+     */
+    @Test
+    fun anAaveStepThatPaysOrCreditsAnotherAddressWarnsAndOneForTheSignerDoesNot() {
+        val other = "0x1593d3980018812a3f95290cf896437f3ea25343"
+        val zero = abiWord(BigInteger.ZERO)
+        val amount = abiWord(BigInteger.valueOf(1_000_000L))
+        val asset = abiAddressWord(USDC)
+        val account = abiAddressWord(other)
+        val supplyPermitParams = AAVE_SUPPLY + listOf(
+            WhitelistParam("deadline", "uint256"),
+            WhitelistParam("permitV", "uint8"),
+            WhitelistParam("permitR", "bytes32"),
+            WhitelistParam("permitS", "bytes32"),
+        )
+        // The function, the contract, its calldata and params, and the warning it earns for [other].
+        class Case(val signature: String, val selector: String, val contract: String, val params: List<WhitelistParam>, val input: String, val warning: String)
+        val cases = listOf(
+            Case("supply(address,uint256,address,uint16)", "0x617ba037", AAVE_POOL, AAVE_SUPPLY, call("0x617ba037", asset, amount, account, zero), "This supplies to 0x1593…5343, not you"),
+            Case("withdraw(address,uint256,address)", "0x69328dec", AAVE_POOL, AAVE_WITHDRAW, call("0x69328dec", asset, amount, account), "This withdraws to 0x1593…5343, not you"),
+            Case("repay(address,uint256,uint256,address)", "0x573ade81", AAVE_POOL, AAVE_REPAY, call("0x573ade81", asset, amount, abiWord(BigInteger.valueOf(2)), account), "This repays the debt of 0x1593…5343, not you"),
+            Case(
+                "supplyWithPermit(address,uint256,address,uint16,uint256,uint8,bytes32,bytes32)",
+                "0x02c205f0",
+                AAVE_POOL,
+                supplyPermitParams,
+                call("0x02c205f0", asset, amount, account, zero, zero, zero, zero, zero),
+                "This supplies to 0x1593…5343, not you",
+            ),
+            Case(
+                "repayWithPermit(address,uint256,uint256,address,uint256,uint8,bytes32,bytes32)",
+                "0xee3e210b",
+                AAVE_POOL,
+                AAVE_REPAY_WITH_PERMIT,
+                call("0xee3e210b", asset, amount, abiWord(BigInteger.valueOf(2)), account, zero, zero, zero, zero),
+                "This repays the debt of 0x1593…5343, not you",
+            ),
+            Case("depositETH(address,address,uint16)", "0x474cf53d", AAVE_GATEWAY, AAVE_GATEWAY_DEPOSIT, call("0x474cf53d", zero, account, zero), "This supplies to 0x1593…5343, not you"),
+            Case("withdrawETH(address,uint256,address)", "0x80500d20", AAVE_GATEWAY, AAVE_GATEWAY_WITHDRAW, call("0x80500d20", zero, amount, account), "This withdraws to 0x1593…5343, not you"),
+            Case("repayETH(address,uint256,address)", "0xbcc3c255", AAVE_GATEWAY, AAVE_GATEWAY_REPAY, call("0xbcc3c255", zero, amount, account), "This repays the debt of 0x1593…5343, not you"),
+        )
+
+        for (case in cases) {
+            val another = assertNotNull(stepsOf(case.input, case.contract, case.selector, case.signature, case.params, from = SIGNER), case.signature)
+            val own = assertNotNull(stepsOf(case.input, case.contract, case.selector, case.signature, case.params, from = other), case.signature)
+
+            assertTrue(case.warning in another.warnings, "${case.signature}: ${another.warnings}")
+            assertTrue(own.warnings.none { it.endsWith("not you") }, "${case.signature}: ${own.warnings}")
+        }
     }
 
     @Test

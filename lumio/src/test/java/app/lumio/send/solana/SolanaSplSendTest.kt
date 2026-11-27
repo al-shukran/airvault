@@ -56,25 +56,25 @@ class SolanaSplSendTest {
 
     /**
      * The Priority Fee switch adds SetComputeUnitPrice after the advance. Its fee is the price times the default units of what the send pays for: the
-     * advance (3000) and the transfer (200000), and the token account (200000) when the send opens one. Lensly's review shows the same fee.
+     * advance (3000), the price instruction itself (3000) and the transfer (200000), and the token account (200000) when the send opens one. Lensly's review shows the same fee.
      */
     @Test
     fun thePrioritySwitchChargesTheDefaultUnitsOfItsInstructions() {
-        val existing = plan(priority = true, available = sol + BigInteger.valueOf(SolanaPriorityFee.lamports(203_000L)))
-        assertEquals(20_300L, existing.priorityFeeLamports)
+        val existing = plan(priority = true, available = sol + BigInteger.valueOf(SolanaPriorityFee.lamports(206_000L)))
+        assertEquals(20_600L, existing.priorityFeeLamports)
         assertContentEquals(
             SolanaSplTransfer.message(account.key, recipient, Base58.decode(mint), 1_234_567UL, 6, nonce, createRecipientAccount = false, priority = true),
             existing.message,
         )
-        assertEquals(20_300uL, reviewOf(existing, listOf(account.key)).priorityFeeLamports)
+        assertEquals(20_600uL, reviewOf(existing, listOf(account.key)).priorityFeeLamports)
 
         val opened = plan(
             priority = true,
             recipientAccountExists = false,
-            available = sol + BigInteger.valueOf(RENT_165_BYTES + SolanaPriorityFee.lamports(403_000L)),
+            available = sol + BigInteger.valueOf(RENT_165_BYTES + SolanaPriorityFee.lamports(406_000L)),
         )
-        assertEquals(40_300L, opened.priorityFeeLamports)
-        assertEquals(40_300uL, reviewOf(opened, listOf(account.key)).priorityFeeLamports)
+        assertEquals(40_600L, opened.priorityFeeLamports)
+        assertEquals(40_600uL, reviewOf(opened, listOf(account.key)).priorityFeeLamports)
     }
 
     @Test

@@ -310,7 +310,7 @@ class VaultPasswordFormTest {
     /** The Argon2 key of [text] as it is, with the slot key: what the vault derives for a slot, before any form is chosen. */
     private fun softKey(text: String, header: VaultHeader): ByteArray {
         val stretched = Argon2Kdf.derive(text.toCharArray(), header.salt, header.kdf)
-        return hkdfSha256(stretched + keys.slotMac(header.salt), salt = null, info = SLOT_INFO, length = VaultKeyFile.KEY_BYTES)
+        return hkdfSha256(stretched + keys.slotMac(stretched), salt = null, info = SLOT_INFO, length = VaultKeyFile.KEY_BYTES)
     }
 
     /**
@@ -327,7 +327,11 @@ class VaultPasswordFormTest {
         val hardwareWrapped = Aead.open(softKey(stored, header), VaultKeyFile.SOFTWARE_AAD, contents.sealedOf(index))
         val slot = VaultKeyFile.slotOf(vaultKey, Aead.seal(softKey(raw, header), VaultKeyFile.SOFTWARE_AAD, hardwareWrapped), SecureRandom())
         val slots = contents.slots.toMutableList().also { it[index] = slot }
-        layout.vaultKey.writeBytes(VaultKeyFile.encode(slots, SecureRandom()))
+        val bytes = VaultKeyFile.encode(slots, SecureRandom())
+        layout.vaultKey.writeBytes(bytes)
+        // The failure state names the file last written, as a commit records it.
+        val store = FailureStore(layout.root, keys)
+        store.recordKeyFile(store.load(clock), VaultKeyFile.digestOf(bytes), clock)
     }
 
     private companion object {

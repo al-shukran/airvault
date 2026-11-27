@@ -122,7 +122,7 @@ class DenylistTest {
     fun theShippedDenylistSeedsEverySelectorAndTheTypedPermit() {
         val entries = registry.denylistEntries()
 
-        assertEquals(7, entries.size)
+        assertEquals(13, entries.size)
         assertTrue(entries.all { it.severity == DenylistSeverity.WARN })
         assertTrue(entries.any { it.primaryType == "Permit" })
     }

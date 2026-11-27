@@ -40,6 +40,7 @@ import app.lensly.core.registry.isHypeSystemAddress
 import app.lensly.core.registry.isHyperEvm
 import app.lensly.core.registry.isSystemAddress
 import app.lensly.core.registry.isTokenSystemAddress
+import app.lensly.core.registry.offChainDomainOf
 import app.lensly.core.registry.offChainLabelOf
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger
@@ -147,6 +148,10 @@ class EvmReviewBuilder(
                     ReviewRow("Size", DisplayValue.Text(sizeText(bytes)), decode("evm.message")),
                 ),
             )
+            printableMessage(bytes)?.let(::lighterReview)?.let { lighter ->
+                sections.add(0, lighter.section)
+                warnings += lighter.warnings
+            }
             warnings += Warning(Danger.CAUTION, CODE_MESSAGE, PERSONAL_MESSAGE_WARNING)
             // An EIP-191 signature commits to no chain, so it is valid on every one, whichever chain the request names or none.
             val chainWarning = if (request.chainId == null) PERSONAL_MESSAGE_NO_CHAIN_WARNING else PERSONAL_MESSAGE_CHAIN_WARNING
@@ -169,7 +174,7 @@ class EvmReviewBuilder(
                 ?.let { checksum(it.bytes.toHex()) }
             // Typed data that names no chain is valid on every chain, so it is matched against the entries of all of them.
             val denyChains = if (domainChain == null) listOf<Long?>(null) else listOfNotNull(request.chainId, domainChain.longValueExact()).distinct()
-            val denied = denyChains.flatMap { registry.typedDenylistMatches(it, verifyingContract, typedData.primaryType) }
+            val denied = denyChains.flatMap { registry.typedDenylistMatches(it, verifyingContract, typedData.primaryType, typedData.messageAddresses()) }
             denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { throw Refusal(it.reason) }
             denied.forEach { warnings += denylistWarning(it, field = null) }
             header += ReviewRow("Type", DisplayValue.Text(TYPED_DATA_TYPE), null)
@@ -184,6 +189,7 @@ class EvmReviewBuilder(
                 if (offChain.hashesAction(typedData.primaryType)) header += ReviewRow(HASHED_ACTION_LABEL, DisplayValue.Text(HASHED_ACTION_NOTE), null)
             }
             actionWarning(typedData.primaryType, typedData.message, offChain)?.let { warnings += it }
+            otherTypeWarning(offChainDomainOf(typedData.domain), typedData.primaryType)?.let { warnings += it }
             val domainNetworkName = domainChain?.let { networkNameOf(it) } ?: networkName
             val part = typedPart(
                 typedData, registry, chainId, chain, networkName,
@@ -480,9 +486,13 @@ class EvmReviewBuilder(
             val token = registry.token(chainId, contract)
             val steps = CallSteps.describe(registry, chainId, contract, entry.selector, entry.signature, sender, value, arguments)
             val params = arguments.flatMapIndexed { index, argument ->
-                AbiRows.of(argument) { amount ->
+                AbiRows.typed(argument) { amount ->
                     if (token != null && argument.param.name in AMOUNT_PARAMS) amountText(amount, token) else null
-                }.map { (label, text) -> ParamRow(label, DisplayValue.Text(text), "arg[$index]") }
+                }.map { row ->
+                    // An address argument is shown as an address, so it gets the grouping, its names and the lookalike check.
+                    val shown = if (row.isAddress) DisplayValue.Address(chain, row.text) else DisplayValue.Text(row.text)
+                    ParamRow(row.label, shown, "arg[$index]")
+                }
             }
             return Gap.Approved(
                 signature = entry.signature,
@@ -880,11 +890,11 @@ private fun denylistWarning(entry: DenylistEntry, field: FieldPath?): Warning =
     Warning(Danger.DANGER, CODE_DENYLIST, entry.reason, field, ACK_DENYLIST)
 
 /**
- * An unsigned name or text as the review shows it. A line break or a tab is an escape, so it cannot start a row, and the rest is shown as
- * [printableOrHex] shows it. A text longer than [limit] bytes is cut between characters, and the bytes left out are counted.
+ * An unsigned name or text as the review shows it, as [printableOrHex] shows it, so a line break is an escape and cannot start a row. A text
+ * longer than [limit] bytes is cut between characters, and the bytes left out are counted.
  */
 private fun unsignedShown(text: String, limit: Int): String {
-    val shown = printableOrHex(text).replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+    val shown = printableOrHex(text)
     val bytes = shown.toByteArray(StandardCharsets.UTF_8)
     if (bytes.size <= limit) return shown
     var cut = limit
@@ -1141,9 +1151,9 @@ private const val CODE_TYPED_CHAIN = "evm.typed.chain"
 private const val CODE_OFF_CHAIN = "evm.typed.off-chain"
 private const val CODE_TYPED_ACTION = "evm.typed.action"
 private const val ACK_TYPED_CHAIN = "I understand this signature may be valid on another chain."
-private const val ACK_APPROVE_AGENT = "I understand this lets another key act for this account."
+internal const val ACK_APPROVE_AGENT = "I understand this lets another key act for this account."
 private const val ACK_WITHDRAW = "I understand this withdraws funds from this account."
-private const val APPROVE_AGENT_TEXT = "This approves another key to act for this account. Check the agent address and name before you sign."
+internal const val APPROVE_AGENT_TEXT = "This approves another key to act for this account. Check the agent address and name before you sign."
 private const val ACK_MULTI_SIG = "I understand this hands control of this account to other keys."
 private const val MULTI_SIG_TEXT = "This hands control of this account to the listed signers. Your own key can no longer act alone. " +
     "Check the signers and the threshold before you sign."

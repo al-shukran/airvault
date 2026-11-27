@@ -13,7 +13,7 @@ object SolanaPriorityFee {
     /** The price the switch pays, in micro-lamports per compute unit. */
     const val MICRO_LAMPORTS_PER_UNIT = 100_000L
 
-    /** The default compute units of a System Program instruction, which is a builtin. */
+    /** The default compute units of a builtin instruction: a System Program one, or the compute budget's own SetComputeUnitPrice. */
     const val SYSTEM_UNITS = 3_000L
 
     /** The default compute units of an instruction of any other program. */

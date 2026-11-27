@@ -1,0 +1,1 @@
+A signed denylist entry can now name an address that appears inside a request, such as the spender of an approval or permit, the operator of an NFT grant, or the recipient of a transfer, so a known drainer is caught where it is asked for.
