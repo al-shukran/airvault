@@ -104,7 +104,7 @@ rm -rf "$work/workflows"
 cp -R .github/workflows "$work/workflows"
 expect_pass "an unchanged copy of the workflows" guard_with
 mutate release.yml '.jobs.other = {"runs-on": "ubuntu-24.04", "steps": [{"run": "echo ${{ secrets.GITHUB_TOKEN }}"}]}'
-expect_pass "GITHUB_TOKEN read in a job with no refusal" guard_with
+expect_fail "GITHUB_TOKEN read in release.yml, which lists only the keystore secrets" guard_with
 mutate comment-run.yml 'sed:s/contains(fromJSON(.\[[^]]*\].), github.event.comment.author_association)/github.event.comment.author_association/'
 expect_fail "a bare author_association" guard_with
 mutate comment-run.yml 'sed:s/"OWNER","MEMBER","COLLABORATOR"/"OWNER","MEMBER","COLLABORATOR","NONE"/'
@@ -228,10 +228,24 @@ for cond in 'always()' '${{ failure() }}' '!cancelled()' 'success() || always()'
     mutate release.yml "$sign += {\"if\": \"$cond\"}"
     expect_fail "the signing step with if: $cond" guard_with
 done
+# After the refusal no step may have an if (any key outside name, id, run, env, uses, with fails), except the exact keystore cleanup step.
 mutate release.yml "$sign += {\"if\": \"github.ref_type == 'tag'\"}"
-expect_pass "the signing step with an if that calls no status function" guard_with
+expect_fail "the signing step with an if that calls no status function" guard_with
+for key in '"IF": "always()"' '"If": "failure()"' '"iF": "true"' '"continue-on-error": true' '"timeout-minutes": 1' '"shell": "bash"' '"working-directory": "/tmp"'; do
+    mutate release.yml "$sign += {$key}"
+    expect_fail "the signing step with the key $key" guard_with
+done
 mutate release.yml '.jobs.release.steps += [{"name": "Report", "if": "always()", "run": "true"}]'
-expect_pass "a step that reads no secret with if: always()" guard_with
+expect_fail "a step that reads no secret with if: always()" guard_with
+mutate release.yml '.jobs.release.steps += [{"name": "Report", "IF": "always()", "run": "true"}]'
+expect_fail "a step that reads no secret with IF: always()" guard_with
+mutate release.yml '.jobs.release.steps += [{"name": "Report", "run": "true"}]'
+expect_pass "a step after the refusal with only name and run" guard_with
+cleanup='(.jobs.release.steps[] | select(.name == "Delete the decoded keystore"))'
+for change in '.if = "failure()"' '.if = "always() || true"' '.if = "${{ always() }}"' 'del(.if)' '.IF = "always()"' '.continue-on-error = true' '.env.X = "1"' '.run = "echo ${{ secrets.LENSLY_KEYSTORE_PASS }}"'; do
+    mutate release.yml "$cleanup |= ($change)"
+    expect_fail "the keystore cleanup step changed by $change" guard_with
+done
 mutate release.yml '.jobs.release.steps += [{"name": "Late", "if": "failure()", "run": "echo ${{ secrets.LENSLY_KEYSTORE_PASS }}"}]'
 expect_fail "a late step that reads a secret with if: failure()" guard_with
 mutate release.yml '.jobs.release.if = "always()"'
@@ -281,7 +295,82 @@ jobs:
       - run: echo
         env:
           X: "${{ \x73ecrets.NVD_API_KEY }}"'
-expect_pass "NVD_API_KEY read written with an escape in another workflow" guard_with
+expect_fail "NVD_API_KEY read in a workflow other than nightly.yml" guard_with
+# Every secret read must be exactly a listed expression for its file: the secrets object filter, an index, toJSON, an unknown name, a
+# quoted inherit and a secrets: mapping all fail, in release.yml after the refusal and in every other workflow (#1481 review).
+expr_in_extra() {
+    # expr_in_extra <expression text>: extra.yml with a step that uses it.
+    extra "on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo \${{ $1 }}"
+}
+for expr in "join(secrets.*, '')" "secrets['NVD_API_KEY']" 'secrets.*' 'toJSON(secrets)' 'toJson( secrets )' 'secrets.UNKNOWN_NAME' 'secrets.NVD_API_KEY' 'SECRETS.GITHUB_TOKEN' \
+    "format('}}', secrets.GITHUB_TOKEN)" 'fromJSON(toJSON(secrets)).X' 'secrets . LENSLY_KEYSTORE_B64' 'secrets.LENSLY_KEYSTORE_PASS'; do
+    expr_in_extra "$expr"
+    expect_fail "the expression $expr in another workflow" guard_with
+done
+expr_in_extra 'secrets.GITHUB_TOKEN'
+expect_fail "secrets.GITHUB_TOKEN in a workflow that does not list it" guard_with
+expr_in_extra 'needs.secrets.result'
+expect_fail "needs.secrets.result in a workflow that does not list it" guard_with
+for read in "join(secrets.*, '')" "secrets['LENSLY_KEYSTORE_PASS']" 'secrets.*' 'toJSON(secrets)' 'secrets.UNKNOWN_NAME'; do
+    mutate release.yml "$sign |= (.env = {\"LENSLY_KEYSTORE_B64\": \"\${{ $read }}\"} | .if = \"always()\")"
+    expect_fail "the signing step reading only $read, with if: always()" guard_with
+    mutate release.yml "$sign |= (.env = {\"LENSLY_KEYSTORE_B64\": \"\${{ $read }}\"})"
+    expect_fail "the signing step reading only $read" guard_with
+done
+for inherit in 'secrets: "inherit"' '"secrets": inherit' "secrets: 'inherit'" 'secrets: inherit' 'Secrets: inherit' 'secrets: {X: "1"}' 'secrets: {}' 'secrets: "${{ toJSON(secrets) }}"'; do
+    extra "on: push
+jobs:
+  j:
+    uses: octo/repo/.github/workflows/x.yml@main
+    $inherit"
+    expect_fail "a reusable workflow call with $inherit" guard_with
+done
+extra 'on: push
+jobs:
+  j:
+    uses: octo/repo/.github/workflows/x.yml@main
+    secrets:
+      X: ${{ secrets.NVD_API_KEY }}'
+expect_fail "a reusable workflow call with a secrets: mapping" guard_with
+extra 'on: push
+jobs:
+  secrets:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo ${{ needs.secrets.result }} ${{ github.token }}'
+expect_fail "a job id secrets with a needs.secrets.result expression in an unlisted workflow" guard_with
+extra 'on: push
+jobs:
+  secrets:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo done'
+expect_pass "a job id named secrets" guard_with
+extra 'on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    env:
+      SECRETS: ok
+    steps:
+      - run: echo "no secrets are read here"'
+expect_pass "an env variable named SECRETS and the word secrets in text" guard_with
+extra 'on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    env:
+      X: ok
+      X: "${{ \x73ecrets.NVD_API_KEY }}"
+    steps:
+      - run: echo done'
+expect_fail "a repeated mapping key" guard_with
+
 # The step's run must be exactly the canonical refusal: no statement before or inside it may skip, override or neuter it (#1470).
 canon=$(yq "$refusal | .run" .github/workflows/release.yml)
 refuse_with() {
