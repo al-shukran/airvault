@@ -715,3 +715,5 @@ shard-5 :lumio app.lumio.data.price.CoinImagesTest
 shard-7 :lumio app.lumio.data.cache.CacheSizeTest
 shard-2 :shared app.lensly.app.DecoyShownTest
 shard-1 :shared app.lensly.core.vault.VaultPasswordFormTest
+shard-6 :shared app.lensly.core.vault.VaultDecoyChangeOracleTest
+shard-6 :shared app.lensly.ui.camera.CoverPhotoBothVaultsTest

@@ -22,7 +22,7 @@ import kotlinx.coroutines.withContext
  * that opens the real vault is refused as [NewPasswordProblem.SameAsLumio], and a step that fails leaves the vault as it was. The checklist tick is
  * written after the set returned Enabled, never before (see [tickDuress]); a tick that cannot be written then answers Unavailable or Locked, and the
  * row reads Not Set. NonCancellable from the session on, so a set that has started runs to its outcome. Setting it again replaces the Duress
- * Password and its decoy. In a Decoy Vault session the same call changes the decoy's own password, so that session shows no difference.
+ * Password and its decoy. In a Decoy Vault session the call changes nothing and answers as above, so that session shows no difference.
  */
 suspend fun setLumioDuressPassword(holder: VaultHolder, current: String?, password: String, repeat: String): PasswordChange {
     newPasswordProblem(password, repeat)?.let { return PasswordChange.NewPassword(it) }
