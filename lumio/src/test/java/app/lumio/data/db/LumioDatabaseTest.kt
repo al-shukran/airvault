@@ -5,6 +5,8 @@ import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import app.lumio.data.containsBytes
 import java.io.File
+import java.io.RandomAccessFile
+import java.nio.file.Files
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlinx.coroutines.runBlocking
@@ -111,6 +113,22 @@ class LumioDatabaseTest {
         db.close()
 
         assertMarkerGone()
+    }
+
+    /**
+     * A corrupt file of an older schema (its header is damaged, so SQLite reports "file is not a database" while the probe opens it) must be zeroed too.
+     * A hard link keeps each inode readable after the app unlinks the name, so the test sees what was in the blocks at the moment of the unlink.
+     */
+    @Test
+    fun aCorruptFileOfAnOlderSchemaIsZeroedBeforeItIsUnlinked() {
+        builtByAnEarlierBuild(version = 1)
+        RandomAccessFile(file, "rw").use { it.write(ByteArray(16) { 0x41 }) }
+        val keptDb = File(tmp.root, "kept-db").toPath().also { Files.createLink(it, file.toPath()) }
+        assertEquals(true, Files.readAllBytes(keptDb).containsBytes(marker), "the fixture holds the marker")
+
+        LumioDatabase.open(context, file).close()
+
+        assertFalse(Files.readAllBytes(keptDb).containsBytes(marker), "the corrupt database was unlinked with its bytes unzeroed")
     }
 
     private companion object {

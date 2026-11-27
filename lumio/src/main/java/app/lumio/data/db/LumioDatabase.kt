@@ -1,6 +1,7 @@
 package app.lumio.data.db
 
 import android.content.Context
+import android.database.DatabaseErrorHandler
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.Database
 import androidx.room.Room
@@ -54,7 +55,8 @@ abstract class LumioDatabase : RoomDatabase() {
         private fun eraseIfOfAnotherVersion(file: File) {
             if (!file.exists()) return
             val version = try {
-                SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY).use { it.version }
+                // The default handler would unlink a corrupt file without zeroing it, so the probe gets one that leaves the file for the loop below.
+                SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY, DatabaseErrorHandler { }).use { it.version }
             } catch (_: RuntimeException) {
                 -1
             }
