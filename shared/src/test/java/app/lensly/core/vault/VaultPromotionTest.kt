@@ -71,6 +71,11 @@ class VaultPromotionTest {
         assertEquals(decoy.wallets, again.listWallets())
         val next = setDuress(again, P3)
         again.close()
+        // The new vault's Duress Password is refused where it is only checked, as the first one was, and nothing changes.
+        val keyFile = layout.vaultKey.readBytes()
+        assertRejected(verify(P3))
+        assertContentEquals(keyFile, layout.vaultKey.readBytes())
+        assertFalse(layout.promotionMarker.exists())
         val reopened = unlocked(P2)
         assertEquals(decoy.wallets, reopened.listWallets())
         reopened.close()
