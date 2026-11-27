@@ -66,6 +66,27 @@ class VaultEraseTest {
     }
 
     @Test
+    fun aLeftoverVideoThatCannotBeDeletedStaysReportedAsErasedAndIsFinishedAtTheNextGate() {
+        // A folder with a file in it stands in for a recording that cannot be deleted.
+        val recording = File(tmp.root, "cache/recording.mp4").apply { mkdirs() }
+        File(recording, "in-the-way").writeBytes(byteArrayOf(1))
+        layout = VaultLayout(File(tmp.root, "vault"), recording = recording)
+        vault = Vault(layout, keys, clock, KDF)
+        createVault()
+        setEraseAfter(3)
+
+        repeat(2) { assertRejected(attempt(WRONG)) }
+        assertEquals(UnlockResult.Erased, attempt(WRONG))
+
+        // The leftover is not kept silently: the erase stays marked, so the vault stays shut and the next gate tries again.
+        assertTrue(layout.isPartial())
+        assertFalse(runBlocking { vault.finishPendingWipe() })
+        recording.deleteRecursively()
+        assertTrue(runBlocking { vault.finishPendingWipe() })
+        assertTrue(layout.isBeforeSetup())
+    }
+
+    @Test
     fun aKeyDeleteFailureStillErasesTheFilesOnTheLastWrongTry() {
         createVault()
         setEraseAfter(3)

@@ -179,6 +179,33 @@ class VaultDuressTest {
     }
 
     @Test
+    fun aDecoyWhoseRecordFilesCannotBeClaimedIsDroppedAndTheSetupFails() {
+        createVault()
+        val real = unlocked(attempt(APP))
+        real.createWallet()
+        val recordFiles = { layout.vaultRecords.listFiles()!!.count { it.isFile } }
+        val before = recordFiles()
+
+        // The decoy's second record name is taken by a folder with a file in it, so the rename of a spare onto it fails after the first one.
+        val result = runBlocking {
+            vault.setDuress(real, DURESS.toCharArray()) { decoy ->
+                decoy.createWallet()
+                val decoyKey = decoy.copyOfVaultKey()
+                val blocked = File(layout.vaultRecords, VaultRecordNames.fileName(decoyKey, VaultRecordNames.KNOWN[1]))
+                decoyKey.fill(0)
+                File(blocked, "in-the-way").apply { parentFile.mkdirs() }.writeBytes(byteArrayOf(1))
+            }
+        }
+
+        assertEquals(DuressResult.Failed, result)
+        // No decoy-named file is left half claimed: the folder holds as many files as before, and the Duress Password opens nothing.
+        assertEquals(before, recordFiles())
+        real.close()
+        assertRejected(unlockAfterDelay(DURESS))
+        unlocked(unlockAfterDelay(APP)).close()
+    }
+
+    @Test
     fun theAppPasswordChangeLeavesTheDecoyWorking() {
         createVault()
         val real = unlocked(attempt(APP))

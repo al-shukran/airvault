@@ -129,10 +129,54 @@ class VaultWipeTest {
         listOf<Throwable>(java.io.IOException("x"), IllegalStateException("x"), OutOfMemoryError("x")).forEach { failure ->
             val layout = withRecording()
 
-            assertTrue(layout.shredRecording { throw failure })
+            assertTrue(layout.shredRecording(overwrite = { throw failure }))
 
             assertFalse(layout.recording!!.exists())
         }
+    }
+
+    @Test
+    fun theFolderOfTheDeletedRecordingIsSyncedSoThePowerCutCannotBringItBack() {
+        val layout = withRecording()
+        val synced = mutableListOf<File>()
+
+        assertTrue(layout.shredRecording(sync = { synced += it }))
+
+        assertEquals(listOf(layout.recording!!.parentFile), synced)
+    }
+
+    @Test
+    fun aRecordingThatCannotBeDeletedIsReportedAndItsFolderIsNotSynced() {
+        val layout = withRecording()
+        layout.recording!!.delete()
+        File(layout.recording, "in-the-way").apply { parentFile.mkdirs() }.writeBytes(byteArrayOf(1))
+        val synced = mutableListOf<File>()
+
+        assertFalse(layout.shredRecording(sync = { synced += it }))
+
+        assertTrue(layout.recording!!.exists())
+        assertTrue(synced.isEmpty())
+    }
+
+    @Test
+    fun aFolderThatCannotBeSyncedStillShredsTheRecording() {
+        val layout = withRecording()
+
+        assertTrue(layout.shredRecording(sync = { throw java.io.IOException("no sync") }))
+
+        assertFalse(layout.recording!!.exists())
+    }
+
+    @Test
+    fun aWipeWithARecordingThatCannotBeDeletedFailsAndKeepsTheEraseMarked() {
+        val layout = withRecording()
+        layout.recording!!.delete()
+        File(layout.recording, "in-the-way").apply { parentFile.mkdirs() }.writeBytes(byteArrayOf(1))
+
+        assertFailsWith<VaultException> { wipeVault(layout) {} }
+
+        assertTrue(layout.wipeMarker.exists())
+        assertTrue(layout.isPartial())
     }
 
     @Test
