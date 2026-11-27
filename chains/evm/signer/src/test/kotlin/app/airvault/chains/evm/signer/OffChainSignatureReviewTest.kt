@@ -340,14 +340,27 @@ class OffChainSignatureReviewTest {
     }
 
     @Test
-    fun anAsterDexMessageWithoutTheAgentOnChain56IsNotAnAgentApprovalAndShowsItsWholeText() {
-        // The domain is the approval's, but a message that names no agentAddress parameter is not an approval.
-        for (msg in listOf("hello", ASTER_MASTER_MESSAGE)) {
+    fun anAsterDexMasterAccountMsgOnChain56IsNotAnAgentApprovalAndShowsItsWholeText() {
+        // The documented master-account msg, exactly, is not an approval.
+        val review = reviewed(asterMessage(56, ASTER_MASTER_MESSAGE), BNB)
+
+        assertShownWhole(review, ASTER_MASTER_MESSAGE)
+        assertTrue(dangersOf(review).isEmpty(), "the documented master message is a DANGER")
+        assertNoStoppingWarning(review)
+    }
+
+    @Test
+    fun anAsterDexMsgThatIsNotTheDocumentedFormIsADangerAndShownWhole() {
+        val spaced = ASTER_APPROVE_MESSAGE.replace("agentAddress", " agentAddress")
+        val escaped = ASTER_APPROVE_MESSAGE.replace("agentAddress", "agent%41ddress")
+        val reordered = "name=example&childAddress=$AGENT&nonce=1&user=$SENDER&childSignature=0xab"
+        val trailing = "$ASTER_MASTER_MESSAGE "
+        val escapedMaster = ASTER_MASTER_MESSAGE.replace("childAddress", "child%41ddress")
+        for (msg in listOf("hello", spaced, escaped, reordered, trailing, escapedMaster, "$ASTER_MASTER_MESSAGE&agentAddress=$AGENT")) {
             val review = reviewed(asterMessage(56, msg), BNB)
 
             assertShownWhole(review, msg)
-            assertTrue(dangersOf(review).isEmpty(), "a message without the agent is a DANGER: $msg")
-            assertNoStoppingWarning(review)
+            assertEquals(listOf(APPROVE_TEXT), dangersOf(review).map { it.message }, "no DANGER for: $msg")
         }
     }
 
@@ -617,5 +630,134 @@ class OffChainSignatureReviewTest {
             ),
             notSigned,
         )
+    }
+
+    /** A typed message of [primaryType] with one string member on the AsterSignTransaction domain of chain 56. */
+    private fun asterOther(primaryType: String, chainId: Int = 56) =
+        """{"types":{"EIP712Domain":[$DOMAIN_TYPES],"$primaryType":[{"name":"agent","type":"address"}]},"primaryType":"$primaryType",""" +
+            """"domain":{"name":"AsterSignTransaction","version":"1","chainId":$chainId,"verifyingContract":"$ZERO"},""" +
+            """"message":{"agent":"$AGENT"}}"""
+
+    @Test
+    fun anAsterDexTypeThatGrantsControlOrAssetsOnChain56IsADangerWithATick() {
+        for (type in listOf("ApproveAgent", "UpdateAgent", "ApproveBuilder", "UpdateBuilder", "UserAssetMigrate")) {
+            val review = reviewed(asterOther(type), BNB)
+
+            val dangers = dangersOf(review)
+            assertEquals(1, dangers.size, "$type needs exactly one DANGER: ${review.warnings}")
+            assertNotNull(dangers.single().acknowledge)
+            assertNoStoppingWarning(review)
+        }
+    }
+
+    @Test
+    fun anotherAsterDexTypeOnChain56IsACautionWithATickAndAnAsterDexTypeOnChain1666IsNotWarned() {
+        for (type in listOf("DelAgent", "DelBuilder", "Surprise")) {
+            val review = reviewed(asterOther(type), BNB)
+
+            assertTrue(dangersOf(review).isEmpty(), type)
+            assertTrue(cautionsOf(review).any { it.code == "evm.typed.aster-type" }, "no CAUTION for $type")
+        }
+        assertTrue(cautionsOf(reviewed(asterOther("UserAssetMigrate", 1666), BNB)).none { it.code == "evm.typed.aster-type" })
+    }
+
+    @Test
+    fun aPlainAsterDexMessageGetsNoOtherTypeWarning() {
+        val review = reviewed(asterMessage(56, ASTER_MASTER_MESSAGE), BNB)
+
+        assertTrue(review.warnings.none { it.code == "evm.typed.aster-type" })
+    }
+
+    // Lighter: github.com/elliottech/lighter-go, types/txtypes/utils.go templates, GetL1SignatureBody of each transaction.
+    private fun hex10(n: Long) = "0x" + "%016x".format(n)
+
+    private val lighterTransfer = "Transfer\n\nnonce: ${hex10(7)}\nfrom: ${hex10(3)} (route ${hex10(0)})\napi key: ${hex10(2)}\n" +
+        "to: ${hex10(4242)} (route ${hex10(1)})\nasset: ${hex10(3)}\namount: ${hex10(1_500_000)}\nfee: ${hex10(0)}\nchainId: ${hex10(304)}\n" +
+        "memo: ${"00".repeat(32)}\nOnly sign this message for a trusted client!"
+
+    private val lighterIntegrator = "Approve Integrator\n\nnonce: ${hex10(7)}\naccount index: ${hex10(3)}\napi key index: ${hex10(2)}\n" +
+        "integrator account index: ${hex10(99)}\nmax perps taker fee: ${hex10(500)}\nmax perps maker fee: ${hex10(100)}\n" +
+        "max spot taker fee: ${hex10(500)}\nmax spot maker fee: ${hex10(100)}\napproval expiry: ${hex10(1800000000000)}\n" +
+        "chainId: ${hex10(304)}\nOnly sign this message for a trusted client!"
+
+    private fun lighterReviewOf(text: String): Review =
+        assertIs<EvmReviewResult.Ok>(reviewOf(text.toByteArray(Charsets.UTF_8), null, DataType.PERSONAL_MESSAGE)).review
+
+    private fun lighterRows(review: Review): Map<String, String> =
+        review.sections.single { it.heading == "Lighter" }.rows.associate { it.label to it.value.text() }
+
+    @Test
+    fun aLighterRegisterMessageIsLabelledAndADanger() {
+        val review = lighterReviewOf(LIGHTER_MESSAGE)
+
+        val rows = lighterRows(review)
+        assertEquals("3", rows["Account index"])
+        assertEquals("2", rows["API key index"])
+        assertEquals("5", rows["Nonce"])
+        assertEquals(1, dangersOf(review).size)
+        assertShownWhole(review, LIGHTER_MESSAGE)
+        assertNoStoppingWarning(review)
+    }
+
+    @Test
+    fun aLighterApproveIntegratorMessageIsLabelledAndADanger() {
+        val review = lighterReviewOf(lighterIntegrator)
+
+        assertEquals("99", lighterRows(review)["Integrator account index"])
+        assertEquals(1, dangersOf(review).size)
+        assertShownWhole(review, lighterIntegrator)
+    }
+
+    @Test
+    fun aLighterTransferShowsTheDestinationAccountAndTheAmount() {
+        val review = lighterReviewOf(lighterTransfer)
+
+        val rows = lighterRows(review)
+        assertEquals("4242", rows["To account index"])
+        assertEquals("1500000 (smallest units of the asset)", rows["Amount"])
+        assertTrue(dangersOf(review).isEmpty())
+        assertTrue(cautionsOf(review).any { it.message.contains("account 4242") })
+        assertShownWhole(review, lighterTransfer)
+    }
+
+    @Test
+    fun aLighterSubAccountAndAirdropMessageAreLabelledWithoutADanger() {
+        val sub = "Create Lighter Sub Account\n\nmaster account index: ${hex10(3)}\nOnly sign this message for a trusted client!"
+        val airdrop = "Airdrop Allocation\n\nallocations: 1:100\nchainId: ${hex10(304)}\nOnly sign this message for a trusted client!"
+        for (text in listOf(sub, airdrop)) {
+            val review = lighterReviewOf(text)
+
+            assertEquals(1, review.sections.count { it.heading == "Lighter" })
+            assertTrue(dangersOf(review).isEmpty())
+            assertShownWhole(review, text)
+        }
+    }
+
+    @Test
+    fun aMessageThatOpensAsALighterMessageButDoesNotFitItsTemplateIsWarnedAndShownWhole() {
+        val variants = listOf(
+            LIGHTER_MESSAGE.replace("\nnonce: ", "\n nonce: "),
+            LIGHTER_MESSAGE.replace("Only sign", "Always sign"),
+            LIGHTER_MESSAGE + "\nExtra",
+            LIGHTER_MESSAGE.replace("account index: 0x0000000000000003", "account index: 3"),
+            LIGHTER_MESSAGE.replace("Register Lighter Account", "register lighter account"),
+            lighterTransfer.replace("to: ${hex10(4242)}", "to: 4242"),
+            lighterTransfer.replace("memo: ${"00".repeat(32)}", "memo: hello"),
+            lighterIntegrator.replace("\nchainId: ${hex10(304)}", ""),
+        )
+        for (text in variants) {
+            val review = lighterReviewOf(text)
+
+            assertTrue(cautionsOf(review).any { it.code == "evm.personal-message.lighter" }, "no warning for: $text")
+            assertTrue(rowsOf(review).none { it.label == "Action" }, "a malformed message is labelled: $text")
+            assertShownWhole(review, text)
+        }
+    }
+
+    @Test
+    fun aPersonalMessageThatIsNotLighterGetsNoLighterReview() {
+        for (text in listOf("Sign in to Example", "Transfer 5 ETH to Alice", "Please register")) {
+            assertTrue(lighterReviewOf(text).sections.none { it.heading == "Lighter" }, text)
+        }
     }
 }

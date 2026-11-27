@@ -39,6 +39,7 @@ import app.lensly.core.registry.isHypeSystemAddress
 import app.lensly.core.registry.isHyperEvm
 import app.lensly.core.registry.isSystemAddress
 import app.lensly.core.registry.isTokenSystemAddress
+import app.lensly.core.registry.offChainDomainOf
 import app.lensly.core.registry.offChainLabelOf
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger
@@ -146,6 +147,10 @@ class EvmReviewBuilder(
                     ReviewRow("Size", DisplayValue.Text(sizeText(bytes)), decode("evm.message")),
                 ),
             )
+            printableMessage(bytes)?.let(::lighterReview)?.let { lighter ->
+                sections.add(0, lighter.section)
+                warnings += lighter.warnings
+            }
             warnings += Warning(Danger.CAUTION, CODE_MESSAGE, PERSONAL_MESSAGE_WARNING)
             // An EIP-191 signature commits to no chain, so it is valid on every one, whichever chain the request names or none.
             val chainWarning = if (request.chainId == null) PERSONAL_MESSAGE_NO_CHAIN_WARNING else PERSONAL_MESSAGE_CHAIN_WARNING
@@ -182,6 +187,7 @@ class EvmReviewBuilder(
                 if (offChain.hashesAction) header += ReviewRow(HASHED_ACTION_LABEL, DisplayValue.Text(HASHED_ACTION_NOTE), null)
             }
             actionWarning(typedData.primaryType, typedData.message, offChain)?.let { warnings += it }
+            otherTypeWarning(offChainDomainOf(typedData.domain), typedData.primaryType)?.let { warnings += it }
             val domainNetworkName = domainChain?.let { networkNameOf(it) } ?: networkName
             val part = typedPart(typedData, registry, chainId, chain, networkName, domainNetworkName = domainNetworkName)
             decoded += part.decoded
@@ -1133,9 +1139,9 @@ private const val CODE_TYPED_CHAIN = "evm.typed.chain"
 private const val CODE_OFF_CHAIN = "evm.typed.off-chain"
 private const val CODE_TYPED_ACTION = "evm.typed.action"
 private const val ACK_TYPED_CHAIN = "I understand this signature may be valid on another chain."
-private const val ACK_APPROVE_AGENT = "I understand this lets another key act for this account."
+internal const val ACK_APPROVE_AGENT = "I understand this lets another key act for this account."
 private const val ACK_WITHDRAW = "I understand this withdraws funds from this account."
-private const val APPROVE_AGENT_TEXT = "This approves another key to act for this account. Check the agent address and name before you sign."
+internal const val APPROVE_AGENT_TEXT = "This approves another key to act for this account. Check the agent address and name before you sign."
 private const val WITHDRAW_TEXT = "This withdraws funds from this account. Check the destination and amount before you sign."
 
 /** The row that says a message carries a hash of its action, which Lensly cannot read. */

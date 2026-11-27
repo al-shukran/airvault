@@ -1,0 +1,1 @@
+Lensly now reads Lighter messages and shows their fields: registering an API key and approving an integrator carry a danger warning, and a transfer shows the destination account and amount. AsterDex agent approvals are caught even when their text is spelled oddly, and every AsterDex message type that Lensly cannot explain is warned about before you sign.
