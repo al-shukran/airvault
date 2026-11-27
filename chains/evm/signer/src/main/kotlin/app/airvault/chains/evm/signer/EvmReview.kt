@@ -147,6 +147,10 @@ class EvmReviewBuilder(
                 ),
             )
             warnings += Warning(Danger.CAUTION, CODE_MESSAGE, PERSONAL_MESSAGE_WARNING)
+            // A contract such as a Safe takes the signature of a 32-byte hash as the approval of a transaction this review cannot show.
+            if (bytes.size == WORD_BYTES && printableMessage(bytes) == null) {
+                warnings += Warning(Danger.DANGER, CODE_MESSAGE_HASH, MESSAGE_HASH_WARNING, FieldPath("evm.message"), ACK_MESSAGE_HASH)
+            }
             // An EIP-191 signature commits to no chain, so it is valid on every one, whichever chain the request names or none.
             val chainWarning = if (request.chainId == null) PERSONAL_MESSAGE_NO_CHAIN_WARNING else PERSONAL_MESSAGE_CHAIN_WARNING
             warnings += Warning(Danger.CAUTION, CODE_MESSAGE_CHAIN, chainWarning)
@@ -256,7 +260,8 @@ class EvmReviewBuilder(
             if (tx.nonce.bitLength() >= Long.SIZE_BITS) throw Refusal("The transaction nonce is too large to show")
             val to = tx.to ?: throw Refusal("Contract creation is not supported")
             val calldata = Numeric.hexStringToByteArray(tx.data)
-            val multicall = parsed.multicall
+            // A batch is read only on a contract known to run it. On any other contract the same calldata is an unknown call.
+            val multicall = parsed.multicall?.takeIf { isBatchContract(to, calldata) }
             val call = parsed.call
             val (title, summary) = when {
                 calldata.isEmpty() -> nativeTransaction(tx, to)
@@ -396,7 +401,7 @@ class EvmReviewBuilder(
                 val nested = inner.nested
                 val lone = inner.call
                 when {
-                    nested != null -> {
+                    nested != null && isBatchContract(contract, inner.calldata) -> {
                         val nestedShape = encodesAs(inner.calldata, nested) ?: throw Refusal(CANNOT_BE_READ)
                         callRows(rows, prefix, index, level, nestedShape.function, target, flags, note = null)
                         nested.deadline?.let { rows += ReviewRow(DEADLINE_LABEL, DisplayValue.Number(it), decode("$prefix.deadline"), level) }
@@ -767,6 +772,12 @@ class EvmReviewBuilder(
         private fun nativeAmount(wei: BigInteger): String =
             network?.let { "${Amounts.format(wei, it.nativeDecimals)} ${it.nativeSymbol}" } ?: "$wei $UNKNOWN_UNIT"
 
+        /** Whether [contract] is known to run the batch [calldata] holds: Multicall3 for its own shapes, or a contract the signed whitelist approves. */
+        private fun isBatchContract(contract: String, calldata: ByteArray): Boolean {
+            val shape = MulticallShape.of(calldata) ?: return false
+            return (shape.hasTarget && contract.equals(MULTICALL3_ADDRESS, ignoreCase = true)) || whitelistEntry(contract, calldata) != null
+        }
+
         private fun whitelistEntry(contract: String, calldata: ByteArray): WhitelistEntry? {
             if (calldata.size < SELECTOR_BYTES) return null
             return registry.whitelist(chainId, contract, "0x" + calldata.copyOfRange(0, SELECTOR_BYTES).toHex())
@@ -1088,6 +1099,12 @@ internal const val CODE_PROXY = "evm.proxy"
 internal const val CODE_STEPS = "evm.steps"
 internal const val CODE_MESSAGE = "evm.personal-message"
 private const val CODE_MESSAGE_CHAIN = "evm.personal-message.chain"
+internal const val CODE_MESSAGE_HASH = "evm.personal-message.hash"
+internal const val MESSAGE_HASH_WARNING = "This message is a 32-byte hash. A contract such as a Safe can accept its signature as approval " +
+    "of a transaction Lensly cannot show."
+
+/** The check the owner ticks for a personal message that is a 32-byte hash, by name. */
+internal const val ACK_MESSAGE_HASH = "I understand this signature may approve a transaction Lensly cannot show."
 private const val CODE_BIP44_ADDRESS = "evm.bip44-address"
 
 private const val SIGN_DATA_TOO_LARGE = "The data to sign is larger than 64 KiB"

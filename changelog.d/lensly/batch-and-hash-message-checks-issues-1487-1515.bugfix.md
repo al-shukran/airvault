@@ -1,0 +1,1 @@
+A batch call such as Multicall3 `aggregate3` is now reviewed as a batch only on a contract known to run it; on any other contract it is refused or marked DANGER like any unknown call, and a personal message that is a 32-byte hash now needs an acknowledgement, because a contract such as a Safe can take its signature as approval of a transaction Lensly cannot show.
