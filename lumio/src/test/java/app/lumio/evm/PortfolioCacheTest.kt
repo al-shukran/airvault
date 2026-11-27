@@ -6,6 +6,9 @@ import app.lensly.core.vault.VaultSession
 import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairedWallet
 import app.lumio.tokens.Reply
+import app.lumio.tokens.Token
+import app.lumio.tokens.TokenBalanceCache
+import app.lumio.tokens.TokenPortfolio
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -86,6 +89,33 @@ class PortfolioCacheTest {
         val kept = BalanceCache.read(session)
         assertEquals(2, kept.size)
         assertTrue(kept.all { it.atMs == 1_000L && it.wei == "1000000000000000000" })
+    }
+
+    @Test
+    fun aTokenRefreshOfTwoWalletsOnTwoChainsStoresEveryReadInTheCache() {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val result = Reply.aggregate(listOf(true to Reply.uint(5L)))
+                return MockResponse.Builder().body("""{"jsonrpc":"2.0","id":1,"result":"$result"}""").build()
+            }
+        }
+        server.start()
+        val url = server.url("/").toString()
+        val settings = EvmSettings(addressCount = 1, enabled = setOf(1L, 10L), rpc = mapOf(1L to rpcInUse(url), 10L to rpcInUse(url)))
+        val optimism = EvmChain(10L, "Optimism", "ETH", 18, testnet = false, explorerUrl = null)
+        val usdc = "0x" + "aa".repeat(20)
+        val wallets = listOf(wallet, wallet.copy(id = "w2"))
+
+        runBlocking {
+            TokenPortfolio.refresh(
+                session, wallets, settings, listOf(mainnet, optimism), { chain -> listOf(Token(chain.chainId, usdc, "USDC", "USD Coin", 6)) },
+                testReads(settings), nowMs = { 1_000L },
+            )
+        }
+
+        val stored = TokenBalanceCache.read(session)
+        assertEquals(setOf("w1" to 1L, "w1" to 10L, "w2" to 1L, "w2" to 10L), stored.map { it.walletId to it.chainId }.toSet())
+        assertTrue(stored.all { it.amount == "5" && it.atMs == 1_000L })
     }
 
     @Test
