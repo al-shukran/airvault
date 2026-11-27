@@ -117,10 +117,13 @@ internal object BulkerSteps {
         val amount = v[2].word()
         if (market.base != WETH_MAINNET) return null
         val to = v[1].address()
-        // The bulker's whole-amount value is not read, so it is named, and the recipient is still checked.
-        val what = if (amount == ContractCall.MAX_UINT256) "the whole value" else call.nativeAmount(amount)
-        val unread = if (amount == ContractCall.MAX_UINT256) " (the exact amount is not read)" else ""
-        val line = "Supply $what to Compound V3 (${market.symbol}) for ${call.who(to)}$unread"
+        // The maximum amount makes the bulker supply the sender's borrow balance and refund the rest of the value. The balance is not read.
+        val line = if (amount == ContractCall.MAX_UINT256) {
+            "Supply your borrow balance on Compound V3 (${market.symbol}) for ${call.who(to)}, up to the value sent, and get the rest back " +
+                "(the exact amount is not read)"
+        } else {
+            "Supply ${call.nativeAmount(amount)} to Compound V3 (${market.symbol}) for ${call.who(to)}"
+        }
         return CallSteps(listOf(line), notYou(call.from, "supplies to", to))
     }
 

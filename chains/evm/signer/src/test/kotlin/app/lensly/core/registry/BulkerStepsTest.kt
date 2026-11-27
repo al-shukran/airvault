@@ -109,7 +109,7 @@ class BulkerStepsTest {
             CallSteps.describe(STEP_REGISTRY, 1, BULKER, BULKER_SELECTOR, BULKER_SIGNATURE, SIGNER, BigInteger.ZERO, params),
         )
 
-        assertEquals(listOf("Supply the whole value to Compound V3 (cWETHv3) for 0x9ff4…B058 (the exact amount is not read)"), steps.lines)
+        assertEquals(listOf("Supply your borrow balance on Compound V3 (cWETHv3) for 0x9ff4…B058, up to the value sent, and get the rest back (the exact amount is not read)"), steps.lines)
         assertEquals(listOf("This supplies to 0x9ff4…B058, not you"), steps.warnings)
     }
 

@@ -759,6 +759,24 @@ class EvmReviewTest {
     }
 
     @Test
+    fun aNativeSendWithCallDataToATokenSystemAddressOnHyperEvmGetsTheSystemAddressDanger() {
+        // An unknown call is refused under the Block policy, so the warning is read under the Warn policy.
+        val warned = builder(HYPEREVM_REGISTRY, unknownCalls = UnknownCallPolicy.WARN)
+        val data = byteArrayOf(0x12, 0x34, 0x56, 0x78)
+        val to = org.web3j.crypto.Keys.toChecksumAddress(TOKEN_SYSTEM)
+        val review = reviewOf(txParsed(to, data, BigInteger.TEN.pow(18), chainId = 999), warned)
+        assertEquals(listOf(Danger.DANGER), review.warnings.filter { it.code == "evm.hypercore-system-destination" }.map { it.level })
+
+        // HYPE's own address, a zero value and another chain are not warned.
+        val toHype = reviewOf(txParsed(HYPE_SYSTEM, data, BigInteger.TEN.pow(18), chainId = 999), warned)
+        assertTrue(toHype.warnings.none { it.code == "evm.hypercore-system-destination" })
+        val noValue = reviewOf(txParsed(to, data, chainId = 999), warned)
+        assertTrue(noValue.warnings.none { it.code == "evm.hypercore-system-destination" })
+        val elsewhere = reviewOf(txParsed(to, data, BigInteger.TEN.pow(18), chainId = 1), builder(unknownCalls = UnknownCallPolicy.WARN))
+        assertTrue(elsewhere.warnings.none { it.code == "evm.hypercore-system-destination" })
+    }
+
+    @Test
     fun aSystemAddressTransferOutsideHyperEvmOrAtANearMissAddressIsNotLabelled() {
         assertEquals("Native Transfer", reviewOf(txParsed(HYPE_SYSTEM, ByteArray(0), BigInteger.TEN.pow(18), chainId = 1)).title)
         val tokenCall = ContractCall.Transfer(TOKEN_SYSTEM, BigInteger.valueOf(1_000_000)).encode()!!
