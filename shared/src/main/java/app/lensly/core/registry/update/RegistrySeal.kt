@@ -17,7 +17,8 @@ import java.security.MessageDigest
  * The seal also holds the SHA-256 of the installed package file and of the files that carry the kept whitelist and denylist, so a file
  * is used only when it is byte for byte the one this device accepted: a signed file planted in its place (by any key, revoked or not)
  * reads as unverified, never as the package that set the floor, and its revocations never count. It holds the key IDs that the installed
- * package revokes too, so a revocation stands when that file is deleted, cut short or replaced by an older package.
+ * package revokes too, so a revocation stands when that file is deleted, cut short or replaced by an older package. A seal that is itself
+ * deleted takes those with it, so the Keystore holds each revocation as well (see [RegistryUpdate.install]).
  *
  * With file access an attacker can replace, delete or copy back any file in the store, but not a Keystore key. So:
  * - a package swapped in below the floor, or an older whitelist carrier swapped in, no longer matches the sealed sequences or hashes;
