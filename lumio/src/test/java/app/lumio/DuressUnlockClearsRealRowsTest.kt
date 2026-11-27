@@ -21,7 +21,7 @@ import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
+import kotlin.test.assertNull
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
@@ -33,12 +33,13 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 /**
- * The database holds the real vault's rows next to the decoy's, and the decoy's key cannot read them. Opening a decoy session through
- * [LumioApp] must not run the purge of unreadable rows, or it would delete the real wallets' cache, scans and queued jobs.
+ * The database holds the real vault's rows, which the promoted vault's key cannot read. Unlocking with the Duress Password erases the
+ * real vault, so opening the promoted session through [LumioApp] runs the purge of unreadable rows, and the real wallets' cache, scans and
+ * queued jobs go with it.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = LumioApp::class)
-class DecoyKeepsRealRowsTest {
+class DuressUnlockClearsRealRowsTest {
 
     @get:Rule
     val tmp = TemporaryFolder()
@@ -46,7 +47,7 @@ class DecoyKeepsRealRowsTest {
     private val app: LumioApp get() = RuntimeEnvironment.getApplication() as LumioApp
 
     @Test
-    fun openingTheDecoyLeavesTheRealCacheScansAndJobsInPlace() = runBlocking {
+    fun theDuressUnlockClearsTheRealCacheScansAndJobs() = runBlocking {
         val clock = FakeClock()
         val vault = Vault(VaultLayout(File(tmp.root, "lumio-vault")), MemoryKeystore(), clock, KdfParams(memoryKiB = 8 * 1024, iterations = 1))
         assertEquals(CreateResult.Created, vault.create(REAL.toCharArray()))
@@ -58,8 +59,6 @@ class DecoyKeepsRealRowsTest {
         clock.advance(ONE_DAY_MS)
         val realSession = unlocked(vault.unlock(REAL.toCharArray()))
         clock.advance(ONE_DAY_MS)
-        val decoy = unlocked(vault.unlock(DURESS.toCharArray()))
-        assertTrue(decoy.isDecoy)
 
         // The real rows go in through a vault of their own, so no purge of the app's runs against them while they are seeded.
         val database = LumioDatabase.open(app, lumioDatabaseFile(VaultLayout.of(app)))
@@ -68,15 +67,21 @@ class DecoyKeepsRealRowsTest {
             seeded.store.save(SNAPSHOT)
             ScanQueue { seeded.scanRows }.enqueue(JOB)
         }
+        val reopenedBefore = LumioVault(realSession, database)
+        assertNotNull(reopenedBefore.cache.get(CachePolicy.LastKnown, "native-price:ETH"), "The rows are readable before the unlock.")
+
+        clock.advance(ONE_DAY_MS)
+        val promoted = unlocked(vault.unlock(DURESS.toCharArray()))
+        assertEquals(1, promoted.side)
         val appHolder = app.vaultHolder
-        appHolder.adopt(decoy, appHolder.unlockEpoch())
-        // The purge runs on the app's own scope, so a missing guard shows only after the scope has had time to run it.
+        appHolder.adopt(promoted, appHolder.unlockEpoch())
+        // The purge runs on the app's own scope, so it shows only after the scope has had time to run it.
         delay(SETTLE_MS)
 
         val reopened = LumioVault(realSession, database)
-        assertNotNull(reopened.cache.get(CachePolicy.LastKnown, "native-price:ETH"), "The real cache entry stays.")
-        assertNotNull(reopened.store.snapshot(SNAPSHOT.key), "The real scan stays.")
-        assertEquals(listOf(JOB), ScanQueue { reopened.scanRows }.pending().map { it.job }, "The real queued job stays.")
+        assertNull(reopened.cache.get(CachePolicy.LastKnown, "native-price:ETH"), "The real cache entry goes.")
+        assertNull(reopened.store.snapshot(SNAPSHOT.key), "The real scan goes.")
+        assertEquals(emptyList(), ScanQueue { reopened.scanRows }.pending().map { it.job }, "The real queued job goes.")
         appHolder.lock()
         realSession.close()
         database.close()

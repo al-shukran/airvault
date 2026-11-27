@@ -76,12 +76,12 @@ class DuressPasswordTest {
         holder.lock()
 
         val real = unlocked(unlockAfterDelay(REAL))
-        assertFalse(real.isDecoy)
+        assertEquals(0, real.side)
         assertEquals(listOf("Demo"), PairedWallets.list(real).map { it.name })
         real.close()
 
         val decoy = unlocked(unlockAfterDelay(DURESS))
-        assertTrue(decoy.isDecoy)
+        assertEquals(1, decoy.side)
         assertEquals(emptyList(), PairedWallets.list(decoy), "The decoy holds no paired wallet.")
         assertEquals(emptySet(), FinishSetupStore.read(decoy).done, "The decoy starts with nothing ticked.")
         decoy.close()
@@ -95,7 +95,7 @@ class DuressPasswordTest {
 
         assertEquals(setOf(FinishItem.DURESS), FinishSetupStore.read(holder.openSession()!!).done)
         holder.lock()
-        assertTrue(unlocked(unlockAfterDelay(DURESS)).also { it.close() }.isDecoy)
+        assertEquals(1, unlocked(unlockAfterDelay(DURESS)).also { it.close() }.side)
     }
 
     @Test
@@ -110,7 +110,7 @@ class DuressPasswordTest {
         assertEquals(emptySet(), FinishSetupStore.read(holder.openSession()!!).done, "Nothing is ticked.")
         holder.lock()
         // The App Password still opens the real vault, and no other password opens a decoy.
-        assertFalse(unlocked(unlockAfterDelay(REAL)).also { it.close() }.isDecoy)
+        assertEquals(0, unlocked(unlockAfterDelay(REAL)).also { it.close() }.side)
         assertEquals(UnlockResult.Rejected, unlockAfterDelay(DURESS))
     }
 
@@ -122,7 +122,7 @@ class DuressPasswordTest {
 
         holder.lock()
         assertEquals(UnlockResult.Rejected, unlockAfterDelay(DURESS))
-        assertFalse(unlocked(unlockAfterDelay(REAL)).also { it.close() }.isDecoy)
+        assertEquals(0, unlocked(unlockAfterDelay(REAL)).also { it.close() }.side)
     }
 
     @Test
@@ -143,31 +143,7 @@ class DuressPasswordTest {
         assertIs<PasswordChange.NewPassword>(changeLumioPassword(holder, REAL, DURESS, DURESS))
 
         holder.lock()
-        assertFalse(unlocked(unlockAfterDelay(REAL)).also { it.close() }.isDecoy)
-    }
-
-    @Test
-    fun aDecoySessionSetsNothingAndAnswersAsTheRealVaultDoes() = runBlocking {
-        create()
-        assertEquals(PasswordChange.Changed, setLumioDuressPassword(holder, REAL, DURESS, DURESS))
-        holder.lock()
-        holder.adopt(unlocked(unlockAfterDelay(DURESS)), holder.unlockEpoch())
-
-        // In the decoy, the current password is the duress one. A decoy holds no Duress Password of its own. The password that opened it is
-        // refused as the real vault refuses its App Password. Every other strong new password, the real App Password included, gets the same
-        // answer, and the answer never says whether that password is the real one.
-        assertEquals(PasswordChange.WrongCurrent, setLumioDuressPassword(holder, REAL, OTHER, OTHER))
-        assertEquals(PasswordChange.NewPassword(NewPasswordProblem.SameAsLumio), setLumioDuressPassword(holder, DURESS, DURESS, DURESS))
-        assertEquals(PasswordChange.Changed, setLumioDuressPassword(holder, DURESS, REAL, REAL))
-        assertEquals(PasswordChange.Changed, setLumioDuressPassword(holder, DURESS, OTHER, OTHER))
-        holder.lock()
-
-        assertTrue(unlocked(unlockAfterDelay(DURESS)).also { it.close() }.isDecoy, "The duress password still opens the decoy.")
-        assertEquals(UnlockResult.Rejected, unlockAfterDelay(OTHER), "No password set from the decoy opens anything.")
-        val real = unlocked(unlockAfterDelay(REAL))
-        assertFalse(real.isDecoy, "The real password still opens the real vault only.")
-        assertEquals(listOf("Demo"), PairedWallets.list(real).map { it.name }, "The real wallets are untouched.")
-        real.close()
+        assertEquals(0, unlocked(unlockAfterDelay(REAL)).also { it.close() }.side)
     }
 
     @Test
@@ -189,7 +165,7 @@ class DuressPasswordTest {
 
         assertEquals(setOf(FinishItem.DURESS), FinishSetupStore.read(holder.openSession()!!).done, "The unreadable record is reset, then ticked.")
         holder.lock()
-        assertTrue(unlocked(unlockAfterDelay(DURESS)).also { it.close() }.isDecoy)
+        assertEquals(1, unlocked(unlockAfterDelay(DURESS)).also { it.close() }.side)
     }
 
     @Test

@@ -289,9 +289,8 @@ class LumioApp : Application(), CoverApplication {
     }
 
     /**
-     * Opens Lumio's state for an unlocked vault, and resumes the scan jobs that an earlier session left pending. A decoy vault gets its own state, so
-     * it opens as an empty Lumio, with its screens and tab bar, and not as a blank screen. It purges and scans nothing: the database holds the real
-     * vault's rows too, which the decoy's key cannot read, and a purge of unreadable rows from the decoy would delete them.
+     * Opens Lumio's state for an unlocked vault, and resumes the scan jobs that an earlier session left pending. The purge removes the rows
+     * that this vault's key cannot read, which is how the rows of a vault that a Duress Password unlock replaced go.
      */
     private fun openVault(session: VaultSession): SessionAttachment? {
         val vault = LumioVault(
@@ -304,7 +303,6 @@ class LumioApp : Application(), CoverApplication {
         vault.portfolio = PortfolioBoard(this, vault)
         // Read now, so Settings is whole on its first frame.
         vault.scans.launch { vault.settingsFacts.refresh() }
-        if (session.isDecoy) return vault
         vault.scans.launch {
             vault.cache.purgeUnreadable()
             scanQueue.purgeUnreadable()

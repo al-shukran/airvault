@@ -50,7 +50,7 @@ class BiometricUnlockTest {
 
         val opened = assertIs<BiometricOutcome.Unlocked>(runBlocking { unlock.unlock(vault) }).session
 
-        assertFalse(opened.isDecoy)
+        assertEquals(0, opened.side)
         assertEquals(listOf(wallet), opened.listWallets())
         opened.close()
         assertIs<UnlockResult.Unlocked>(runBlocking { vault.unlock(APP.toCharArray()) }).session.close()
@@ -91,20 +91,6 @@ class BiometricUnlockTest {
 
         assertFalse(unlock.isOn())
         assertFalse(biometric.keyMade)
-    }
-
-    @Test
-    fun aDuressSessionNeverTurnsItOn() {
-        val real = openApp()
-        assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { decoy -> decoy.createWallet() } })
-        real.close()
-        val decoy = assertIs<UnlockResult.Unlocked>(runBlocking { vault.unlock(DURESS.toCharArray()) }).session
-        assertTrue(decoy.isDecoy)
-
-        assertFalse(runBlocking { unlock.enable(decoy) })
-        decoy.close()
-
-        assertFalse(unlock.isOn())
     }
 
     @Test
@@ -150,7 +136,7 @@ class BiometricUnlockTest {
         val session = openApp()
         assertTrue(runBlocking { unlock.enable(session) })
 
-        assertTrue(runBlocking { unlock.disable(session) })
+        runBlocking { unlock.disable() }
         session.close()
 
         assertFalse(unlock.isOn())
@@ -158,28 +144,35 @@ class BiometricUnlockTest {
     }
 
     @Test
-    fun aDuressSessionCannotTurnItOffAndTheRealSealedKeyStaysUsable() {
+    fun aDuressUnlockPromotesTheDecoyAndTurnsItOffForTheVaultThatWentAway() {
         val real = openApp()
         assertTrue(runBlocking { unlock.enable(real) })
-        val decoy = openDuress(real)
+        assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { decoy -> decoy.createWallet() } })
+        real.close()
 
-        assertFalse(runBlocking { unlock.disable(decoy) })
-        decoy.close()
+        val promoted = assertIs<UnlockResult.Unlocked>(runBlocking { vault.unlock(DURESS.toCharArray()) }).session
+        runBlocking { vault.awaitCleanupForTesting() }
 
-        assertTrue(unlock.isOn())
-        assertTrue(biometric.keyMade)
-        assertIs<BiometricOutcome.Unlocked>(runBlocking { unlock.unlock(vault) }).session.close()
+        assertEquals(1, promoted.side)
+        assertFalse(unlock.isOn(), "the sealed key of the old vault is removed with its files")
+        assertEquals(BiometricOutcome.Declined, runBlocking { unlock.unlock(vault) })
+        promoted.close()
     }
 
     @Test
-    fun aDuressSessionShowsItOffWhileTheRealVaultHasItOn() {
+    fun aPromotedVaultKeepsItsSideThroughBiometricUnlock() {
         val real = openApp()
-        assertTrue(runBlocking { unlock.enable(real) })
-        val decoy = openDuress(real)
+        assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { decoy -> decoy.createWallet() } })
+        real.close()
+        val promoted = assertIs<UnlockResult.Unlocked>(runBlocking { vault.unlock(DURESS.toCharArray()) }).session
+        runBlocking { vault.awaitCleanupForTesting() }
+        assertTrue(runBlocking { unlock.enable(promoted) })
+        promoted.close()
 
-        assertTrue(unlock.isOn())
-        assertFalse(unlock.isOn(decoy))
-        decoy.close()
+        val opened = assertIs<BiometricOutcome.Unlocked>(runBlocking { unlock.unlock(vault) }).session
+
+        assertEquals(1, opened.side)
+        opened.close()
     }
 
     @Test
@@ -256,13 +249,6 @@ class BiometricUnlockTest {
     }
 
     private fun openApp(): VaultSession = assertIs<UnlockResult.Unlocked>(runBlocking { vault.unlock(APP.toCharArray()) }).session
-
-    /** Sets a Duress Password on [real], closes it, and opens the Decoy Vault with the Duress Password. */
-    private fun openDuress(real: VaultSession): VaultSession {
-        assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { decoy -> decoy.createWallet() } })
-        real.close()
-        return assertIs<UnlockResult.Unlocked>(runBlocking { vault.unlock(DURESS.toCharArray()) }).session.also { assertTrue(it.isDecoy) }
-    }
 
     private fun ByteArray.holds(part: ByteArray): Boolean = (0..size - part.size).any { start ->
         part.indices.all { this[start + it] == part[it] }

@@ -29,6 +29,14 @@ class MemoryKeystore : KeystoreBackend {
     /** When true, the hardware key is gone for good, as after the screen lock was removed. */
     var hardwareKeyInvalidated = false
 
+    /** True once [deleteBiometricKey] has run. */
+    var biometricKeyDeleted = false
+        private set
+
+    override fun deleteBiometricKey() {
+        biometricKeyDeleted = true
+    }
+
     override fun createHardwareKey(): SecretKey = newAesKey().also { hardware = it }
 
     override fun hardwareKey(): SecretKey {

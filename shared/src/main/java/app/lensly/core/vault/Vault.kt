@@ -17,7 +17,12 @@ import java.util.Arrays
 import javax.crypto.AEADBadTagException
 import javax.crypto.SecretKey
 import kotlin.random.asKotlinRandom
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -38,15 +43,9 @@ sealed interface CreateResult {
 
     /** The packaged app allows Android to back up its data, so this build never creates a vault. Nothing was written. */
     data object BackupAllowed : CreateResult
-
-    /**
-     * A Decoy Vault's password change was not run: a Failure Delay is running, its try could not be counted, or the try was the last
-     * allowed one and the vault erased itself. Nothing was written. The caller locks, as at the gate.
-     */
-    data object Locked : CreateResult
 }
 
-/** Outcome of [Vault.unlock]. */
+/** Outcome of [Vault.unlock] and [Vault.verify]. */
 sealed interface UnlockResult {
     data class Unlocked(val session: VaultSession) : UnlockResult
 
@@ -65,13 +64,10 @@ sealed interface UnlockResult {
 
 /** Outcome of [Vault.setFailureLimits]. */
 sealed interface FailureCapResult {
-    /**
-     * The password was this vault's own, and the change is accepted. From the decoy, nothing is written, so the change appears
-     * to succeed without reaching the real cap.
-     */
+    /** The password was this vault's own, and the change is saved. */
     data object Saved : FailureCapResult
 
-    /** The password was not this vault's own, or a delay is running. Nothing was saved. */
+    /** The password was not this vault's own (a Duress Password is not), or a delay is running. Nothing was saved. */
     data object Rejected : FailureCapResult
 
     /** The password was wrong, and that try was the last one the owner allows, so the vault was erased. */
@@ -86,7 +82,7 @@ sealed interface DuressResult {
     /** The Duress Password failed [PasswordPolicy]. */
     data class PolicyRejected(val reason: PolicyReason) : DuressResult
 
-    /** The Duress Password is the password of the session that sets it: the App Password, or in a Decoy Vault the password that opened it. */
+    /** The Duress Password is the App Password of the session that sets it. */
     data object SameAsAppPassword : DuressResult
 
     /** The populate step left the Decoy Vault without a wallet, so the Duress Password was not enabled. */
@@ -146,8 +142,14 @@ class VaultFormatChangedException : VaultException(VAULT_FORMAT_CHANGED)
  *
  * `unlock.bin` holds two slots: one for the real vault and one for the Decoy Vault that a Duress Password opens. Its size
  * never changes (see [VaultKeyFile]). [unlock] derives `K_sw` once and tries it on both slots, so the Duress Password
- * costs what the App Password costs, and a refused password costs the same. Storage and timing do not say which vault
- * opened. Only [VaultSession.isDecoy] says so, and the app must never show it.
+ * costs what the App Password costs, and a refused password costs the same.
+ *
+ * Unlocking with the Duress Password erases the real vault and promotes the decoy to be the vault: [unlock] commits a new `unlock.bin`
+ * that holds the decoy's key under the same password in a real slot and random bytes in the other, so the old vault key is gone from that
+ * commit on, and the session that opens is an ordinary real session. The old vault's files are removed afterwards, in the background (see
+ * [VaultLayout.promotionMarker]). The promoted vault holds no Duress Password, and the next one makes an ordinary decoy, so a vault is
+ * never marked as a former decoy and the Duress Password can be used again and again. Every other password check ([verify],
+ * [setFailureLimits]) treats the Duress Password as a wrong password and never promotes.
  *
  * [unlock] rate-limits password checks with [FailureDelay], and both passwords share that delay. The cap is stored in the
  * failure state, so it is the same for both. While a delay runs, [unlock] returns [UnlockResult.Rejected] without checking
@@ -214,6 +216,21 @@ class Vault constructor(
 
     private val mutex = Mutex()
 
+    /** Runs the cleanup that follows a promotion (see [startPromotionCleanup]). */
+    private val cleanupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    @Volatile
+    private var cleanup: Job? = null
+
+    /** When true, an unlock starts no cleanup after a promotion, as if the process died right after the commit. For tests only. */
+    @Volatile
+    internal var skipCleanupForTesting = false
+
+    /** Waits for the cleanup that the last unlock started. For tests only. */
+    internal suspend fun awaitCleanupForTesting() {
+        cleanup?.join()
+    }
+
     /** True once a vault has been created and not wiped. An erase under way counts as a wipe (see [VaultLayout.exists]). */
     fun exists(): Boolean = layout.exists()
 
@@ -253,8 +270,9 @@ class Vault constructor(
         withContext(Dispatchers.IO) { mutex.withLock { createLocked(password) } }
 
     /**
-     * Unlocks the vault with [password]. The App Password opens the real vault, and a Duress Password opens the Decoy
-     * Vault. The session's [VaultSession.isDecoy] says which one opened.
+     * Unlocks the vault with [password]. The App Password opens the vault. The Duress Password erases the vault and promotes the Decoy Vault
+     * to be the vault: a new `unlock.bin` is committed first, and the result is the session of the promoted vault. When the commit fails, the
+     * unlock is refused and nothing changes. Use [verify] to check a password without this effect.
      *
      * Returns [UnlockResult.Rejected] for a password that opens neither, and for any attempt made during a failure delay.
      * A delay attempt does not check the password and does not add to the failure count, but it spends the same Argon2
@@ -264,16 +282,25 @@ class Vault constructor(
      * @throws VaultException if the password is correct but the stored state is damaged or the hardware key is gone.
      */
     suspend fun unlock(password: CharArray): UnlockResult =
-        withContext(Dispatchers.IO) { mutex.withLock { unlockLocked(password) } }
+        withContext(Dispatchers.IO) { mutex.withLock { unlockLocked(password, promote = true) } }
+
+    /**
+     * Checks [password] as [unlock] does, with the same Failure Delay, the same count and the same work, but never promotes: the Duress
+     * Password is a wrong password here, so it is refused and counted as a wrong try, and it erases nothing but at the owner's last allowed
+     * try. For every caller that only needs to know whether a password is the App Password, such as a confirmation or the gallery. The
+     * result holds the vault's session when the password is right, and the caller closes it.
+     */
+    suspend fun verify(password: CharArray): UnlockResult =
+        withContext(Dispatchers.IO) { mutex.withLock { unlockLocked(password, promote = false) } }
 
     /**
      * Opens the real vault from its Vault Key, for Lumio's biometric unlock, which keeps that key sealed under a biometric key (see
-     * [BiometricUnlock]). The key must name a slot of this vault's key file, or nothing opens and the result is null. No password is
+     * [BiometricUnlock]), and the [side] it was made on (see [VaultSession.side]). The key must name a slot of this vault's key file, or nothing opens and the result is null. No password is
      * checked, so no try is counted. An open clears the count of wrong passwords, as the right App Password does, so wrong tries made
      * while the owner only uses biometric unlock do not pile up toward the erase. The session takes its own copy of [vaultKey], and the
      * caller zeroes its own.
      */
-    suspend fun unlockWithVaultKey(vaultKey: ByteArray): VaultSession? =
+    suspend fun unlockWithVaultKey(vaultKey: ByteArray, side: Int): VaultSession? =
         withContext(Dispatchers.IO) {
             mutex.withLock {
                 // Biometric tries do not count toward the failure delay or erase count: the OS BIOMETRIC_STRONG lockout already limits them.
@@ -301,23 +328,22 @@ class Vault constructor(
                 bestEffort {
                     if (state != null && state.failures > 0 && !FailureDelay.unverified(state)) store.recordSuccess(state, clock)
                 }
-                openSessionLocked(vaultKey, isDecoy = false)
+                openSessionLocked(vaultKey, side)
             }
         }
 
     /**
      * Saves the Failure Delay cap, [capMs] in milliseconds within [FailureDelay.MIN_CAP_MS] to [FailureDelay.MAX_CAP_MS] or null
      * for Default, and the erase count [wipeAfter] (within [FailureDelay.MIN_WIPE_AFTER] to [FailureDelay.MAX_WIPE_AFTER]), or the
-     * saved erase count when [wipeAfter] is null. The password is checked exactly as [unlock] checks it, so a running delay refuses
+     * saved erase count when [wipeAfter] is null. The password is checked exactly as [verify] checks it, so a running delay refuses
      * the change and a wrong password counts as a failure. A right one resets the failure count. The limits live in the failure
-     * store, which both vaults share. Only the real vault writes them. A call from a decoy session ([inDecoy] true) takes only the
-     * Duress Password, and its change is accepted but nothing is written, so a decoy never changes the real limits. The check runs
-     * in every case, so a call takes as long as a save. The limits apply before unlock. [password] is zeroed before this returns.
+     * store, which both vaults share. The Duress Password is not this vault's own, so it is a wrong password here and never promotes
+     * (see [verify]). The limits apply before unlock. [password] is zeroed before this returns.
      *
      * @throws IllegalArgumentException if [capMs] or [wipeAfter] is outside the offered range.
      */
-    suspend fun setFailureLimits(password: CharArray, capMs: Long?, wipeAfter: Int? = null, inDecoy: Boolean = false): FailureCapResult =
-        withContext(Dispatchers.IO) { mutex.withLock { setFailureLimitsLocked(password, capMs, wipeAfter, inDecoy) } }
+    suspend fun setFailureLimits(password: CharArray, capMs: Long?, wipeAfter: Int? = null): FailureCapResult =
+        withContext(Dispatchers.IO) { mutex.withLock { setFailureLimitsLocked(password, capMs, wipeAfter) } }
 
     /**
      * The saved Failure Delay cap in milliseconds. Null means Default, and it is also the answer when no vault exists, so
@@ -341,21 +367,14 @@ class Vault constructor(
         }
 
     /**
-     * The tries left before this vault is erased, when that is [FailureDelay.WARN_TRIES_LEFT] or fewer, and null otherwise. It
-     * counts the wrong tries of both passwords, so it says nothing about which vault a password opens. Null when no vault exists, and
-     * after a right password until the next wrong try. A caller that shows another erase count than the stored one, as a Decoy Vault
-     * does, passes it as [shownEraseAfter], and the tries are then counted against the lower of it and the stored one, so the warning
-     * never comes after the real erase. The vault itself always erases at the stored count: a shown count above it warns early, and one
-     * below it never erases at the shown count.
+     * The tries left before this vault is erased, when that is [FailureDelay.WARN_TRIES_LEFT] or fewer, and null otherwise. Null when
+     * no vault exists, and after a right password until the next wrong try.
      */
-    suspend fun triesBeforeErase(shownEraseAfter: Int? = null): Int? =
+    suspend fun triesBeforeErase(): Int? =
         withContext(Dispatchers.IO) {
             mutex.withLock {
                 if (!layout.exists()) return@withLock null
-                val state = failureStore().load(clock)
-                FailureDelay.triesLeftToWarn(
-                    if (shownEraseAfter == null) state else state.copy(wipeAfter = minOf(shownEraseAfter, state.wipeAfter)),
-                )
+                FailureDelay.triesLeftToWarn(failureStore().load(clock))
             }
         }
 
@@ -382,17 +401,10 @@ class Vault constructor(
      * untouched, and the other slot is kept byte for byte. The new file is written to a temp file, read back and checked,
      * and only then renamed into place.
      *
-     * On the real vault, the new password may not open the decoy slot. It is refused with the reason of a weak password.
-     *
-     * On a decoy session, which keeps its own entry password, every change is one counted try in the real vault's failure state, with
-     * the Failure Delay and the erase count of a wrong password at the gate, and the try is never given back. A new password that opens the real slot is
-     * not written, and the result is [CreateResult.Created] all the same, so the answer never says whether the real password was
-     * hit. A delay, an uncountable try or the erase gives [CreateResult.Locked].
+     * The new password may not open the decoy slot. It is refused with the reason of a weak password.
      */
     suspend fun rekey(session: VaultSession, newPassword: CharArray): CreateResult =
-        withContext(Dispatchers.IO) {
-            mutex.withLock { if (session.isDecoy) rekeyDecoyLocked(session, newPassword) else rekeyLocked(session, newPassword) }
-        }
+        withContext(Dispatchers.IO) { mutex.withLock { rekeyLocked(session, newPassword) } }
 
     /**
      * Sets the Duress Password of the real vault, and creates the Decoy Vault it opens. A Duress Password that is already set
@@ -403,9 +415,8 @@ class Vault constructor(
      * the new decoy is complete. A failure removes what [populate] wrote, so the vault is as it was. [populate] must not use
      * the real session. Call this from a non-cancellable context, so that a cancelled call cannot leave decoy wallets behind.
      *
-     * A decoy cannot hold a decoy of its own, so on a decoy session the call changes nothing and its [populate] is not run. It runs the same
-     * policy check and the same derivations, and answers as the real vault does for its App Password: [DuressResult.SameAsAppPassword] for
-     * the password this decoy was unlocked with, [DuressResult.Enabled] for any other strong password. It never looks at the real slot.
+     * Unlocking with the Duress Password promotes the Decoy Vault to be the vault (see [unlock]). A promoted vault holds no Duress
+     * Password, so setting one makes an ordinary decoy.
      */
     suspend fun setDuress(
         session: VaultSession,
@@ -420,16 +431,11 @@ class Vault constructor(
      * Removes the Duress Password. The decoy slot becomes random bytes again, so the Duress Password opens nothing from then on,
      * and the Decoy Vault's wallets and records are deleted. The real vault's files are never touched. Without a Duress
      * Password this changes nothing visible, and the vault cannot tell the difference, so the owner may call it either way.
-     * On a decoy session it changes nothing, since a decoy holds no Duress Password of its own, and the call returns as the real vault's does.
      *
      * @throws VaultException if the new vault key file cannot be written, in which case nothing changed.
      */
     suspend fun removeDuress(session: VaultSession): Unit =
-        withContext(Dispatchers.IO) {
-            mutex.withLock {
-                if (!session.isDecoy) removeDuressLocked(session)
-            }
-        }
+        withContext(Dispatchers.IO) { mutex.withLock { removeDuressLocked(session) } }
 
     /**
      * Deletes the vault: its Keystore keys first, then every file, the real vault and the decoy vault alike. Call this on an
@@ -455,21 +461,6 @@ class Vault constructor(
                 !layout.isPartial()
             }
         }
-
-    /**
-     * Deletes only the Decoy Vault's contents, from a decoy session: its wallets and records go, and its slot stays under
-     * the same Duress Password. The real vault's slot, wallets and records are never touched, so the App Password still
-     * opens it. The Duress Password keeps working, but it opens an empty Decoy Vault, so a refused password never reveals
-     * that a decoy existed.
-     *
-     * The decoy's folders stay, refilled with random bytes, so the store's folder count and file shape do not change.
-     *
-     * @throws VaultException if the vault key file cannot be changed, in which case nothing changed.
-     */
-    fun wipeDecoy(session: VaultSession) {
-        require(session.isDecoy) { "Only a decoy session can wipe the Decoy Vault." }
-        removeOwnDecoyLocked(session)
-    }
 
     /**
      * The Keystore capabilities recorded when the vault was created. Without a vault, the device is probed. A header that does not verify
@@ -519,7 +510,7 @@ class Vault constructor(
                 val softKey = withContext(Dispatchers.Default) { deriveStoredKey(password, salt, kdf) }
                 try {
                     val realSlot = withHardwareAuth {
-                        sealSlot(softKey, keystore(HARDWARE_FAILURE) { keys.hardwareKey() }, vaultKey, VaultRole.REAL)
+                        sealSlot(softKey, keystore(HARDWARE_FAILURE) { keys.hardwareKey() }, vaultKey, VaultRole.REAL_SIDE_0)
                     }
                     val decoySlot = VaultKeyFile.randomSlot(random)
                     val keyFile = VaultKeyFile.encode(listOf(realSlot, decoySlot), random)
@@ -538,7 +529,7 @@ class Vault constructor(
                         // The record folder starts with its full set of files, so a Decoy Vault never adds one.
                         writeRecordPlaceholders(vaultKey)
                         // The store starts with its full set of wallet folders, so it never shows an empty one.
-                        withRealPad(vaultKey) { it.padTo(WALLET_SLOT_STEP) }
+                        withPadOf(vaultKey, 0) { it.padTo(WALLET_SLOT_STEP) }
                         // The Review Record pool starts with its first batch, so an empty vault shows the same pool as one with records.
                         ReviewPool(layout.reviewPool, vaultKey).use { it.ensureFirstBatch() }
                         // The header goes last. Its presence is what makes exists() true, so a crash earlier leaves no vault.
@@ -568,7 +559,7 @@ class Vault constructor(
                             layout,
                             keys,
                             vaultKey,
-                            pad = WalletPad(layout, keys, vaultKey, REAL_SECTION),
+                            pad = WalletPad(layout, keys, vaultKey, 0),
                         )
                         try {
                             // A photo key pair made before the first setup becomes this vault's own, so those photos open through it.
@@ -590,15 +581,17 @@ class Vault constructor(
         }
     }
 
-    private suspend fun unlockLocked(password: CharArray): UnlockResult {
+    private suspend fun unlockLocked(password: CharArray, promote: Boolean): UnlockResult {
         try {
-            val opened = when (val checked = checkPasswordLocked(password)) {
+            val opened = when (val checked = checkPasswordLocked(password, promote)) {
                 is Checked.Opened -> checked.slot
                 Checked.Refused -> return UnlockResult.Rejected
                 Checked.Erased -> return UnlockResult.Erased
             }
             try {
-                return UnlockResult.Unlocked(openSessionLocked(opened.vaultKey, isDecoy = opened.role == VaultRole.DECOY))
+                // Only [promote] lets a decoy slot through the check. Its vault becomes the vault, on the side it already has.
+                if (VaultRole.isDecoy(opened.role) && !promoteLocked(opened)) return UnlockResult.Rejected
+                return UnlockResult.Unlocked(openSessionLocked(opened.vaultKey, VaultRole.sideOf(opened.role)))
             } finally {
                 opened.close()
             }
@@ -608,24 +601,122 @@ class Vault constructor(
     }
 
     /**
-     * The session of the vault under [vaultKey], which is the Decoy Vault when [isDecoy] is true. The session takes its own copy of the
-     * key. The steps that bring the files to the layout run here, and a step that fails is run again by the next unlock.
+     * Commits the new `unlock.bin` that makes the decoy [opened] the vault: its key under the same password in a real slot, and random bytes
+     * in the other. From that commit on the old vault key is unrecoverable. The failure count is cleared as for any right password, after
+     * the commit. The cleanup of the old vault's files is left for the session that opens (see [startPromotionCleanup]). Returns false when
+     * the commit failed, and then nothing changed.
      */
-    private fun openSessionLocked(vaultKey: ByteArray, isDecoy: Boolean): VaultSession {
-        val session = VaultSession(
-            layout,
-            keys,
-            vaultKey.copyOf(),
-            isDecoy = isDecoy,
-            pad = WalletPad(layout, keys, vaultKey, if (isDecoy) DECOY_SECTION else REAL_SECTION),
-        )
+    private suspend fun promoteLocked(opened: OpenedSlot): Boolean {
+        val role = VaultRole.real(VaultRole.sideOf(opened.role))
+        val (hardwareKey, slot) = withHardwareAuth {
+            val key = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
+            key to sealSlot(opened.softKey, key, opened.vaultKey, role)
+        }
+        try {
+            commitKeyFile(listOf(slot, VaultKeyFile.randomSlot(random)), onDigest = ::writePromotionMarker) {
+                unwrapsTo(opened.softKey, hardwareKey, slot, opened.vaultKey + role)
+            }
+        } catch (e: VaultException) {
+            layout.promotionMarker.delete()
+            return false
+        } catch (e: IOException) {
+            layout.promotionMarker.delete()
+            return false
+        }
+        // The state is written even when it cannot be read back: the commit stands, and a count that stays is the stricter one.
+        bestEffort { opened.store.recordSuccess(opened.store.load(clock), clock) }
+        return true
+    }
+
+    /**
+     * Names the new `unlock.bin` by its [digest] before it replaces the old one, so a crash after the replace is found by the next unlock,
+     * and a crash before it is not (see [VaultLayout.promotionMarker]).
+     */
+    private fun writePromotionMarker(digest: String) {
+        writeAtomically(layout.promotionMarker, digest.toByteArray(Charsets.US_ASCII))
+        bestEffort { syncDirectory(layout.root) }
+    }
+
+    /**
+     * The session of the vault under [vaultKey], on [side]. The session takes its own copy of the key. The steps that bring the files to
+     * the layout run here, and a step that fails is run again by the next unlock.
+     */
+    private fun openSessionLocked(vaultKey: ByteArray, side: Int): VaultSession {
+        val session = VaultSession(layout, keys, vaultKey.copyOf(), side = side, pad = WalletPad(layout, keys, vaultKey, side))
         // The Review Record pool gets its first batch back when it is missing.
-        if (!session.isDecoy) bestEffort { session.ensureReviewPool() }
+        bestEffort { session.ensureReviewPool() }
         // The wallet folders and the free-slot list are brought to the layout on every unlock.
         bestEffort { session.ensurePadded() }
         // Each vault's photo key is made on its first unlock, so a vault from before photos were sealed gets one.
         bestEffort { session.ensurePhotoKey() }
+        startPromotionCleanup(session)
         return session
+    }
+
+    /**
+     * Starts the cleanup of a promotion that left its marker, in the background. The job waits for the vault's lock, which the unlock that
+     * starts it still holds, and holds the session's lock while it works, so nothing else changes the files meanwhile. A job that fails, or
+     * that finds the session closed, leaves the marker for the next unlock. [finishPromotionLocked] is idempotent.
+     */
+    private fun startPromotionCleanup(session: VaultSession) {
+        if (skipCleanupForTesting || !layout.promotionMarker.exists()) return
+        cleanup = cleanupScope.launch {
+            mutex.withLock {
+                try {
+                    finishPromotionLocked(session)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // The marker stays, and the next unlock runs the cleanup again.
+                }
+            }
+        }
+    }
+
+    /**
+     * Finishes the promotion that [VaultLayout.promotionMarker] records, for the vault of [session]: everything that the promoted key does not
+     * own is turned into what a vault that never had a Duress Password holds, and then the marker goes. A marker that names a file other than
+     * the `unlock.bin` in place is from a commit that never happened, and only the marker goes. Without a marker this does nothing. Every
+     * step can be run again after a crash, and the marker goes last.
+     *
+     * The old vault's wallets are released into the promoted vault's free-slot list, wallet by wallet, and their Keystore keys go. Its record
+     * files become spares, the photo copies of the old vault that no promoted photo has a twin for
+     * are shredded, and the sealed Vault Key of biometric unlock and its key go. Its review pool files are overwritten and deleted, since the
+     * promoted vault has a pool batch of its own. The caller holds the vault's lock.
+     *
+     * @throws IOException or [VaultException] when a step fails, and then the marker stays.
+     */
+    private fun finishPromotionLocked(session: VaultSession) {
+        val marker = layout.promotionMarker
+        if (!marker.isFile) return
+        val keyFile = readVaultFile(layout.vaultKey)
+        if (VaultKeyFile.digestOf(keyFile) != String(marker.readBytes(), Charsets.US_ASCII)) {
+            marker.delete()
+            return
+        }
+        val cleaned = session.withKeyLocked { key ->
+            // Only the vault that the promotion made opens this file, so no other key's files are ever taken for the old vault's.
+            if (VaultKeyFile.ownerIndex(VaultKeyFile.decode(keyFile), key) < 0) return@withKeyLocked false
+            purgeUnowned(listOf(key), session.side, removePoolFiles = true)
+            shredTwinlessPhotos(layout, session.side)
+            val sealedKey = File(layout.root, BiometricUnlock.BLOB_FILE_NAME)
+            if (sealedKey.exists()) {
+                overwriteBestEffort(sealedKey)
+                sealedKey.delete()
+            }
+            keystoreOrNull { keys.deleteBiometricKey() }
+            true
+        }
+        if (cleaned && !marker.delete() && marker.exists()) throw VaultException("The promotion marker could not be removed.")
+    }
+
+    /** [finishPromotionLocked] before a change that rewrites `unlock.bin`, so a marker is never left naming a file that is gone. */
+    private fun finishPendingPromotion(session: VaultSession) {
+        try {
+            finishPromotionLocked(session)
+        } catch (e: IOException) {
+            throw VaultException("The cleanup of the promoted vault could not be finished.", e)
+        }
     }
 
     /**
@@ -653,7 +744,7 @@ class Vault constructor(
         }
     }
 
-    private suspend fun setFailureLimitsLocked(password: CharArray, capMs: Long?, wipeAfter: Int?, inDecoy: Boolean): FailureCapResult {
+    private suspend fun setFailureLimitsLocked(password: CharArray, capMs: Long?, wipeAfter: Int?): FailureCapResult {
         try {
             if (capMs != null) {
                 require(capMs in FailureDelay.MIN_CAP_MS..FailureDelay.MAX_CAP_MS) { "cap must be between 10 s and 1 h" }
@@ -661,17 +752,14 @@ class Vault constructor(
             if (wipeAfter != null) {
                 require(wipeAfter in FailureDelay.MIN_WIPE_AFTER..FailureDelay.MAX_WIPE_AFTER) { "erase count must be between 3 and 20" }
             }
-            val opened = when (val checked = checkPasswordLocked(password)) {
+            // The Duress Password is a wrong password here: it must never promote.
+            val opened = when (val checked = checkPasswordLocked(password, promote = false)) {
                 is Checked.Opened -> checked.slot
                 Checked.Refused -> return FailureCapResult.Rejected
                 Checked.Erased -> return FailureCapResult.Erased
             }
             try {
-                // Each vault takes only its own password. The limits are shared by both vaults, so only the real vault writes them. A
-                // decoy's change is accepted and nothing is written, so a coerced change cannot weaken the real limits.
-                val own = if (inDecoy) VaultRole.DECOY else VaultRole.REAL
-                if (opened.role != own) return FailureCapResult.Rejected
-                if (!inDecoy) opened.store.recordLimits(opened.state, capMs, wipeAfter ?: opened.state.wipeAfter, clock)
+                opened.store.recordLimits(opened.state, capMs, wipeAfter ?: opened.state.wipeAfter, clock)
                 return FailureCapResult.Saved
             } finally {
                 opened.close()
@@ -693,7 +781,7 @@ class Vault constructor(
         data object Erased : Checked
     }
 
-    /** A password that opened one slot: its Vault Key and role, and the software key. The caller closes it. */
+    /** A password that opened one slot: its Vault Key and role (see [VaultRole]), and the software key. The caller closes it. */
     private class OpenedSlot(
         val softKey: ByteArray,
         val vaultKey: ByteArray,
@@ -709,7 +797,9 @@ class Vault constructor(
     }
 
     /**
-     * Checks [password] against the Failure Delay and against both slots. The result is [Checked.Refused] when the attempt is refused:
+     * Checks [password] against the Failure Delay and against both slots. A password that opens the decoy slot is a wrong password unless
+     * [promote], which only [unlock] sets: then the result holds the decoy slot, and the caller promotes it. The result is [Checked.Refused]
+     * when the attempt is refused:
      * during a delay, which is not checked and not counted, or when the try cannot be counted, which is found before the password is
      * checked. Otherwise the try is counted first, so a try that a restart or an error cuts short still counts. A password that opens
      * neither slot is a wrong try, and it is [Checked.Refused] too, unless it is the owner's last allowed wrong try: that erases the
@@ -717,10 +807,10 @@ class Vault constructor(
      * it. Both slots are tried with the one derivation, so the decoy costs what the real vault costs, and a refused password costs the
      * same as either.
      */
-    private suspend fun checkPasswordLocked(password: CharArray): Checked {
+    private suspend fun checkPasswordLocked(password: CharArray, promote: Boolean): Checked {
         val nfc = PasswordForm.nfcOrNull(password)
         try {
-            return checkPasswordLocked(password, nfc)
+            return checkPasswordLocked(password, nfc, promote)
         } finally {
             nfc?.fill('\u0000')
         }
@@ -732,7 +822,7 @@ class Vault constructor(
      * typed and never on the outcome: a real, a decoy and a wrong password cost the same, and the try is counted once. The typed text's key
      * wins when both open a slot, so a vault made from the raw text keeps opening. A vault made now holds the NFC form.
      */
-    private suspend fun checkPasswordLocked(password: CharArray, nfc: CharArray?): Checked {
+    private suspend fun checkPasswordLocked(password: CharArray, nfc: CharArray?, promote: Boolean): Checked {
         if (!layout.exists()) return Checked.Refused
         // A header that does not verify is unverifiable, so the vault is erased before the password is checked, as an unverifiable failure
         // state is (see [FailureDelay]). A header of another format version does not verify either (see [VaultHeader.decodeFile]).
@@ -790,18 +880,10 @@ class Vault constructor(
                 eraseLocked()
                 return Checked.Erased
             }
-            if (opened.isEmpty()) {
-                // The wrong try is counted already. The owner's last allowed one erases the vault.
-                if (FailureDelay.erases(counted)) {
-                    eraseLocked()
-                    return Checked.Erased
-                }
-                return Checked.Refused
-            }
+            if (opened.isEmpty()) return wrongTry(counted)
             // The software layer authenticated, so the password is right. Which vault it opened is known only from the hardware step, so the
-            // success is recorded after that step. A real password clears the count. A decoy password keeps the count from before this try,
-            // so opening the decoy never lowers the real vault's streak. A right password whose hardware step is cut short keeps its counted
-            // try (FailureDelay threat 15).
+            // success is recorded after that step. A right password whose hardware step is cut short keeps its counted try (FailureDelay
+            // threat 15). The decoy's password clears the count after its promotion is committed, not here (see [promoteLocked]).
             // A hardware key that is gone for good, or a slot that holds no vault key and role, cannot be repaired: the vault is erased.
             val unwrapped = withHardwareAuth {
                 val key = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
@@ -812,11 +894,12 @@ class Vault constructor(
                 return Checked.Erased
             }
             val (vaultKey, role) = unwrapped
-            val success = if (role == VaultRole.DECOY) {
-                store.recordDecoySuccess(counted, check.state, clock)
-            } else {
-                store.recordSuccess(counted, clock)
+            if (VaultRole.isDecoy(role) && !promote) {
+                // Not this vault's password: it is a wrong try, and it promotes nothing.
+                Arrays.fill(vaultKey, 0)
+                return wrongTry(counted)
             }
+            val success = if (VaultRole.isDecoy(role)) counted else store.recordSuccess(counted, clock)
             handedKey = softKey
             return Checked.Opened(OpenedSlot(softKey, vaultKey, role, store, success))
         } catch (e: VaultKeyInvalidatedException) {
@@ -827,6 +910,15 @@ class Vault constructor(
             if (handedKey !== typedKey) Arrays.fill(typedKey, 0)
             if (nfcKey != null && handedKey !== nfcKey) Arrays.fill(nfcKey, 0)
         }
+    }
+
+    /** The wrong try that [counted] holds: the owner's last allowed one erases the vault, and any other is refused. */
+    private fun wrongTry(counted: FailureState): Checked {
+        if (FailureDelay.erases(counted)) {
+            eraseLocked()
+            return Checked.Erased
+        }
+        return Checked.Refused
     }
 
     /** The slots [softKey] opens, as their index and hardware-wrapped blob. One key opens at most one. */
@@ -855,7 +947,9 @@ class Vault constructor(
             check(layout.exists()) { "There is no vault to rekey." }
 
             val header = verifiedHeaderOrThrow()
+            finishPendingPromotion(session)
             val vaultKey = session.copyOfVaultKey()
+            val role = VaultRole.real(session.side)
             try {
                 val softKey = withContext(Dispatchers.Default) { deriveStoredKey(newPassword, header.salt, header.kdf) }
                 try {
@@ -868,10 +962,10 @@ class Vault constructor(
                     }
                     val (hardwareKey, realSlot) = withHardwareAuth {
                         val key = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
-                        key to sealSlot(softKey, key, vaultKey, VaultRole.REAL)
+                        key to sealSlot(softKey, key, vaultKey, role)
                     }
                     commitKeyFile(listOf(realSlot, contents.slots[decoy])) {
-                        unwrapsTo(softKey, hardwareKey, realSlot, vaultKey + VaultRole.REAL)
+                        unwrapsTo(softKey, hardwareKey, realSlot, vaultKey + role)
                     }
                     return CreateResult.Created
                 } finally {
@@ -879,82 +973,6 @@ class Vault constructor(
                 }
             } finally {
                 Arrays.fill(vaultKey, 0)
-            }
-        } finally {
-            Arrays.fill(newPassword, '\u0000')
-        }
-    }
-
-    /**
-     * The decoy's entry password is the Duress Password. Changing it re-wraps the decoy slot under the new password, and the
-     * decoy's wallets stay as they are. The real slot is kept byte for byte.
-     *
-     * The new password could be the real App Password, which must not open the decoy. So the change is counted first, as one wrong try
-     * of the real vault (see [checkPasswordLocked]), before any slot is looked at, and it is never refunded. A password that opens the
-     * real slot gets the same work and the same answer as any other, and the key file keeps the old decoy slot.
-     */
-    private suspend fun rekeyDecoyLocked(session: VaultSession, newPassword: CharArray): CreateResult {
-        try {
-            val policy = PasswordPolicy.check(newPassword)
-            if (policy is PolicyResult.Refused) return CreateResult.PolicyRejected(policy.reason)
-            check(layout.exists()) { "There is no vault to change." }
-
-            val header = verifiedHeader() ?: run {
-                eraseLocked()
-                return CreateResult.Locked
-            }
-            val store = failureStore()
-            val check = store.checkDelay(clock, header.createdAtWallMs)
-            if (FailureDelay.unverified(check.state)) {
-                eraseLocked()
-                return CreateResult.Locked
-            }
-            if (check.blocked) {
-                spendKdfTime(header, 1)
-                return CreateResult.Locked
-            }
-            val counted = try {
-                store.recordFailure(check.state, clock)
-            } catch (e: VaultException) {
-                spendKdfTime(header, 1)
-                return CreateResult.Locked
-            } catch (e: IOException) {
-                spendKdfTime(header, 1)
-                return CreateResult.Locked
-            }
-            if (FailureDelay.erases(counted)) {
-                eraseLocked()
-                return CreateResult.Locked
-            }
-            // A key file that does not verify is unverifiable, so the vault is erased as at unlock, whatever the password. This comes after
-            // the try is counted and before any slot is looked at, so a hit and a miss still take the same path.
-            val contents = verifiedKeyFile(check.state) ?: run {
-                eraseLocked()
-                return CreateResult.Locked
-            }
-
-            val decoyKey = session.copyOfVaultKey()
-            try {
-                val softKey = withContext(Dispatchers.Default) { deriveStoredKey(newPassword, header.salt, header.kdf) }
-                try {
-                    val decoy = decoySlotOf(contents, decoyKey)
-                    val real = 1 - decoy
-                    // One password must never open both vaults, so a password that opens the real slot is not written. The check, the
-                    // sealing and the commit run either way, and the answer is the same.
-                    val hitsReal = opensSlot(newPassword, softKey, header, contents, real)
-                    val (hardwareKey, decoySlot) = withHardwareAuth {
-                        val key = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
-                        key to sealSlot(softKey, key, decoyKey, VaultRole.DECOY)
-                    }
-                    commitKeyFile(listOf(contents.slots[real], if (hitsReal) contents.slots[decoy] else decoySlot)) {
-                        unwrapsTo(softKey, hardwareKey, decoySlot, decoyKey + VaultRole.DECOY)
-                    }
-                    return CreateResult.Created
-                } finally {
-                    Arrays.fill(softKey, 0)
-                }
-            } finally {
-                Arrays.fill(decoyKey, 0)
             }
         } finally {
             Arrays.fill(newPassword, '\u0000')
@@ -972,18 +990,17 @@ class Vault constructor(
             check(layout.exists()) { "There is no vault to protect." }
 
             val header = verifiedHeaderOrThrow()
+            finishPendingPromotion(session)
             val vaultKey = session.copyOfVaultKey()
             val decoyKey = ByteArray(KEY_BYTES).also { random.nextBytes(it) }
             try {
                 val contents = VaultKeyFile.decode(layout.vaultKey.readBytes())
-                val own = if (session.isDecoy) decoySlotOf(contents, vaultKey) else realSlotOf(contents, vaultKey)
+                val own = realSlotOf(contents, vaultKey)
                 val softKey = withContext(Dispatchers.Default) { deriveStoredKey(duressPassword, header.salt, header.kdf) }
                 try {
                     // The Duress Password may not open the slot of the session that sets it: one password must never open both vaults.
-                    // A decoy session checks its own slot, never the real one, so it answers as the real vault does for its App Password.
                     if (opensSlot(duressPassword, softKey, header, contents, own)) return DuressResult.SameAsAppPassword
-                    if (session.isDecoy) return DuressResult.Enabled
-                    return installDecoy(vaultKey, decoyKey, softKey, contents, own, populate)
+                    return installDecoy(vaultKey, session.side, decoyKey, softKey, contents, own, populate)
                 } finally {
                     Arrays.fill(softKey, 0)
                 }
@@ -999,12 +1016,13 @@ class Vault constructor(
     }
 
     /**
-     * Makes the new decoy with [populate], then commits its slot in place of the old one. Nothing is committed unless the
-     * decoy holds a wallet, and a failure deletes the new decoy's files and nothing else. After a commit, the old decoy's
-     * files are purged, since no password opens them any longer.
+     * Makes the new decoy with [populate], then commits its slot in place of the old one. The decoy sits on the side that the vault on
+     * [side] does not use. Nothing is committed unless the decoy holds a wallet, and a failure deletes the new decoy's files and nothing
+     * else. After a commit, the old decoy's files are purged, since no password opens them any longer.
      */
     private suspend fun installDecoy(
         vaultKey: ByteArray,
+        side: Int,
         decoyKey: ByteArray,
         softKey: ByteArray,
         contents: VaultKeyFile.Contents,
@@ -1012,16 +1030,17 @@ class Vault constructor(
         populate: (VaultSession) -> Unit,
     ): DuressResult {
         // The new decoy starts with unused slots lent from the real vault, so populating it does not grow the store.
-        withPadOf(vaultKey, REAL_SECTION) { real -> withPadOf(decoyKey, DECOY_SECTION) { real.lend(it, WALLET_SLOT_STEP) } }
-        val decoy = VaultSession(layout, keys, decoyKey.copyOf(), isDecoy = true, pad = WalletPad(layout, keys, decoyKey, DECOY_SECTION))
+        val decoySide = 1 - side
+        withPadOf(vaultKey, side) { real -> withPadOf(decoyKey, decoySide) { real.lend(it, WALLET_SLOT_STEP) } }
+        val decoy = VaultSession(layout, keys, decoyKey.copyOf(), side = decoySide, pad = WalletPad(layout, keys, decoyKey, decoySide))
         try {
             populate(decoy)
             if (decoy.listWallets().isEmpty()) {
-                withRealPad(vaultKey) { discard(decoyKey, it) }
+                withPadOf(vaultKey, side) { discard(decoyKey, it) }
                 return DuressResult.DecoyEmpty
             }
         } catch (e: Exception) {
-            withRealPad(vaultKey) { discard(decoyKey, it) }
+            withPadOf(vaultKey, side) { discard(decoyKey, it) }
             return DuressResult.Failed
         } finally {
             decoy.close()
@@ -1030,10 +1049,10 @@ class Vault constructor(
         val committed = try {
             val (hardwareKey, decoySlot) = withHardwareAuth {
                 val key = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
-                key to sealSlot(softKey, key, decoyKey, VaultRole.DECOY)
+                key to sealSlot(softKey, key, decoyKey, VaultRole.decoy(decoySide))
             }
             commitKeyFile(listOf(contents.slots[real], decoySlot)) {
-                unwrapsTo(softKey, hardwareKey, decoySlot, decoyKey + VaultRole.DECOY)
+                unwrapsTo(softKey, hardwareKey, decoySlot, decoyKey + VaultRole.decoy(decoySide))
             }
             true
         } catch (e: VaultException) {
@@ -1042,7 +1061,7 @@ class Vault constructor(
             false
         }
         if (!committed) {
-            withRealPad(vaultKey) { discard(decoyKey, it) }
+            withPadOf(vaultKey, side) { discard(decoyKey, it) }
             return DuressResult.Failed
         }
         // The decoy takes the spare record files over only now, so a try that fails touches no record file of the old decoy, and writing a
@@ -1052,10 +1071,14 @@ class Vault constructor(
             claimSpareRecords(vaultKey, decoyKey)
             resetDecoyRecords(decoyKey)
         } catch (e: Exception) {
-            return dropDecoyAfterFailedClaim(vaultKey, contents.slots[real])
+            return dropDecoyAfterFailedClaim(vaultKey, side, contents.slots[real])
         }
         // The decoy is whole. A purge that fails leaves the old decoy's files for a later one.
-        bestEffort { purgeUnowned(listOf(vaultKey, decoyKey)) }
+        bestEffort {
+            purgeUnowned(listOf(vaultKey, decoyKey), side)
+            // The old decoy's photos go too, and the new decoy starts with none.
+            dropSidePhotos(layout, decoySide)
+        }
         return DuressResult.Enabled
     }
 
@@ -1064,19 +1087,20 @@ class Vault constructor(
      * owns turn back into spares. Always [DuressResult.Failed]. A slot that cannot be replaced leaves a decoy that lacks record files, which
      * cannot be verified, so the vault is erased (see [eraseLocked]) instead of kept.
      */
-    private fun dropDecoyAfterFailedClaim(vaultKey: ByteArray, realSlot: ByteArray): DuressResult {
+    private fun dropDecoyAfterFailedClaim(vaultKey: ByteArray, side: Int, realSlot: ByteArray): DuressResult {
         try {
             commitKeyFile(listOf(realSlot, VaultKeyFile.randomSlot(random))) { true }
         } catch (e: Exception) {
             eraseLocked()
             return DuressResult.Failed
         }
-        bestEffort { purgeUnowned(listOf(vaultKey)) }
+        bestEffort { purgeUnowned(listOf(vaultKey), side) }
         return DuressResult.Failed
     }
 
     private fun removeDuressLocked(session: VaultSession) {
         check(layout.exists()) { "There is no vault to change." }
+        finishPendingPromotion(session)
         val vaultKey = session.copyOfVaultKey()
         try {
             val contents = VaultKeyFile.decode(layout.vaultKey.readBytes())
@@ -1089,34 +1113,12 @@ class Vault constructor(
                 throw VaultException("The vault key file could not be changed.", e)
             }
             // The slot is already replaced, so a purge that fails leaves the old decoy's files for a later purge.
-            bestEffort { purgeUnowned(listOf(vaultKey)) }
+            bestEffort {
+                purgeUnowned(listOf(vaultKey), session.side)
+                dropSidePhotos(layout, 1 - session.side)
+            }
         } finally {
             Arrays.fill(vaultKey, 0)
-        }
-    }
-
-    /**
-     * A decoy session removes only its own decoy: its wallets and records are deleted. The slot stays under the Duress Password,
-     * so that password opens a fresh empty decoy.
-     */
-    private fun removeOwnDecoyLocked(session: VaultSession) {
-        check(layout.exists()) { "There is no vault to change." }
-        val decoyKey = session.copyOfVaultKey()
-        try {
-            val contents = VaultKeyFile.decode(layout.vaultKey.readBytes())
-            val decoy = decoySlotOf(contents, decoyKey)
-            // Keeping the slot leaves the Duress Password working, and only the decoy's files go. Unlocking with the same password
-            // lands in an empty vault rather than a refusal that names a decoy.
-            try {
-                commitKeyFile(listOf(contents.slots[1 - decoy], contents.slots[decoy])) { true }
-            } catch (e: IOException) {
-                throw VaultException("The vault key file could not be changed.", e)
-            }
-            // Only the files this key owns go. The real vault's wallets and records are not owned by this key.
-            withPadOf(decoyKey, DECOY_SECTION) { discard(decoyKey, it, keepListing = true) }
-            dropDecoyPhotos(layout)
-        } finally {
-            Arrays.fill(decoyKey, 0)
         }
     }
 
@@ -1179,7 +1181,7 @@ class Vault constructor(
         try {
             if (plain.size != KEY_BYTES + 1) return null
             val role = plain[KEY_BYTES]
-            if (role != VaultRole.REAL && role != VaultRole.DECOY) return null
+            if (!VaultRole.isValid(role)) return null
             return plain.copyOf(KEY_BYTES) to role
         } finally {
             Arrays.fill(plain, 0)
@@ -1218,9 +1220,10 @@ class Vault constructor(
 
     /**
      * Writes [slots] as the new `unlock.bin`, after reading it back. The file is committed only if every slot in [slots] is in it
-     * byte for byte and [verified] holds. Otherwise the temp file is removed and nothing changes.
+     * byte for byte and [verified] holds. Otherwise the temp file is removed and nothing changes. [onDigest] gets the digest of the verified
+     * new file before anything is replaced, and a failure in it stops the change.
      */
-    private fun commitKeyFile(slots: List<ByteArray>, verified: () -> Boolean) {
+    private fun commitKeyFile(slots: List<ByteArray>, onDigest: (String) -> Unit = {}, verified: () -> Boolean) {
         // The file in place must be the one last written. An older copy put back while the vault is open would have its other slot carried
         // into the new file, and the swap recorded as the owner's. The change is refused, and the next unlock erases the vault.
         val store = failureStore()
@@ -1243,6 +1246,12 @@ class Vault constructor(
         if (!intact) {
             temp.delete()
             throw VaultException("The new vault key file did not verify, so the vault was not changed.")
+        }
+        try {
+            onDigest(digest)
+        } catch (e: IOException) {
+            temp.delete()
+            throw VaultException("The new vault key file could not be announced, so the vault was not changed.", e)
         }
         // The failure state names the new file before the file replaces the old one, so an older copy put back later does not match. A
         // failed save or replace names the old file again, as far as it can: a save that wrote one copy leaves the new name behind. A crash
@@ -1330,35 +1339,16 @@ class Vault constructor(
         return index
     }
 
-    /** The index of the slot that holds the decoy vault for [decoyKey]. A file that names no slot for it is damaged. */
-    private fun decoySlotOf(contents: VaultKeyFile.Contents, decoyKey: ByteArray): Int {
-        val index = VaultKeyFile.ownerIndex(contents, decoyKey)
-        if (index < 0) throw VaultException("The vault key file does not hold this decoy's key.")
-        return index
-    }
-
     /**
-     * Deletes the wallets and vault records that [key] owns. This drops a decoy that was being set up, or wipes the decoy. A kept
-     * listing ([keepListing]: a decoy emptied but kept) frees its Review Record slots and folders through [pad], for its own reuse.
-     * A dropped decoy's pool files are overwritten, and its folders go to [pad] as unused slots.
+     * Deletes the wallets and vault records that [key] owns. This drops a decoy that was being set up. Its pool files are overwritten, and its
+     * folders go to [pad] as unused slots, which keeps the folder count. The record files stay as spares, so that folder's file count never
+     * changes (see [VaultRecordNames]).
      */
-    private fun discard(key: ByteArray, pad: WalletPad, keepListing: Boolean = false) {
+    private fun discard(key: ByteArray, pad: WalletPad) {
         val owned = layout.wallets.list()?.filter { ownsWallet(keys, layout, key, it) }.orEmpty()
-        ReviewPool(layout.reviewPool, key).use { pool ->
-            if (keepListing) {
-                owned.forEach { pool.release(it) }
-            } else {
-                pool.ownedNames().forEach { overwriteInPlace(File(layout.reviewPool, it)) }
-            }
-        }
-        // The folders stay, emptied and refilled with random bytes, so the store's folder count never falls.
+        ReviewPool(layout.reviewPool, key).use { pool -> pool.ownedNames().forEach { overwriteInPlace(File(layout.reviewPool, it)) } }
         pad.release(owned)
-        // The record files stay in either case, so the folder's file count never changes (see [VaultRecordNames]).
-        if (keepListing) {
-            resetDecoyRecords(key)
-        } else {
-            retireRecordFiles(VaultRecordNames.KNOWN.map { File(layout.vaultRecords, VaultRecordNames.fileName(key, it)) }.filter { it.isFile })
-        }
+        retireRecordFiles(VaultRecordNames.KNOWN.map { File(layout.vaultRecords, VaultRecordNames.fileName(key, it)) }.filter { it.isFile })
     }
 
     /**
@@ -1436,12 +1426,15 @@ class Vault constructor(
 
     /**
      * Deletes what neither key in [keep] owns: wallet folders that hold a key file, vault record files, and pool files. A folder
-     * without a key file is still being written, so it is left alone. This is how a dropped Decoy Vault's files go. A padded store
-     * keeps each dropped folder as an unused slot, so the folder count stays the same, and the real vault's pad takes them over.
-     * A pool file that no kept key owns is overwritten and kept, so the pool keeps its size. The first key in [keep] is the real vault's.
+     * without a key file is still being written, so it is left alone. This is how a dropped Decoy Vault's files go, and how a promotion
+     * removes the old vault. A padded store keeps each dropped folder as an unused slot, so the folder count stays the same, and the pad of
+     * the first key in [keep], the real vault's, on [side] takes them over. A pool file that no kept key owns is overwritten and kept, so
+     * the pool keeps its size, unless [removePoolFiles]: a promotion gives the promoted vault a pool batch of its own, so the old vault's
+     * files are overwritten and deleted, and the pool does not grow with every promotion. The record files that no kept key names become
+     * spares again.
      */
-    private fun purgeUnowned(keep: List<ByteArray>) {
-        withRealPad(keep.first()) { pad ->
+    private fun purgeUnowned(keep: List<ByteArray>, side: Int, removePoolFiles: Boolean = false) {
+        withPadOf(keep.first(), side) { pad ->
             val dropped = layout.wallets.list()?.filter { id ->
                 layout.walletKeyFile(id).isFile && keep.none { ownsWallet(keys, layout, it, id) }
             }.orEmpty()
@@ -1449,17 +1442,13 @@ class Vault constructor(
         }
         // The files that no kept key names, a gone decoy's or a failed one's, become spares again, so the file count stays the same.
         retireRecordFiles(spareRecordFiles(keep))
-        ReviewPool.shredExcept(layout.reviewPool, keep.flatMap { key -> ReviewPool(layout.reviewPool, key).use { it.ownedNames() } }.toSet())
-        // The Decoy Vault's photos are cleared too. A dropped decoy takes them with it, and a new decoy starts with none.
-        dropDecoyPhotos(layout)
+        val owned = keep.flatMap { key -> ReviewPool(layout.reviewPool, key).use { it.ownedNames() } }.toSet()
+        if (removePoolFiles) ReviewPool.removeExcept(layout.reviewPool, owned) else ReviewPool.shredExcept(layout.reviewPool, owned)
     }
 
-    /** The real vault's pad for the duration of [block]. Its key is zeroed afterwards. */
-    private inline fun <T> withRealPad(vaultKey: ByteArray, block: (WalletPad) -> T): T = withPadOf(vaultKey, REAL_SECTION, block)
-
-    /** The pad of the vault whose key is [vaultKey], section [section], for the duration of [block]. Its key is zeroed afterwards. */
-    private inline fun <T> withPadOf(vaultKey: ByteArray, section: Int, block: (WalletPad) -> T): T {
-        val pad = WalletPad(layout, keys, vaultKey, section)
+    /** The pad of the vault whose key is [vaultKey], on side [side], for the duration of [block]. Its key is zeroed afterwards. */
+    private inline fun <T> withPadOf(vaultKey: ByteArray, side: Int, block: (WalletPad) -> T): T {
+        val pad = WalletPad(layout, keys, vaultKey, side)
         try {
             return block(pad)
         } finally {
@@ -1672,14 +1661,29 @@ private fun shredFolderContents(dir: File) {
 }
 
 /**
- * Removes a dropped Decoy Vault's photos, and puts placeholder bytes back in its key file, so the photo folder lists the same files
- * whether or not a decoy exists. A key file that cannot be written keeps its old bytes, which reveal nothing without the decoy's password.
+ * Removes the photos of the dropped Decoy Vault on [side], and puts placeholder bytes back in its key file, so the photo folder lists the
+ * same files whether or not a decoy exists. A key file that cannot be written keeps its old bytes, which reveal nothing without the decoy's
+ * password.
  */
-private fun dropDecoyPhotos(layout: VaultLayout) {
-    shredFolderContents(layout.photoDir(decoy = true))
+private fun dropSidePhotos(layout: VaultLayout, side: Int) {
+    shredFolderContents(layout.photoDir(side))
     try {
-        writeAtomically(layout.photoKeyFile(decoy = true), placeholderPhotoKey())
+        writeAtomically(layout.photoKeyFile(side), placeholderPhotoKey())
     } catch (e: IOException) {
         // The next unlock of the decoy would replace it anyway; the drop itself must not fail half way.
+    }
+}
+
+/**
+ * Shreds the files of the other side's photo folder that the folder of [side] holds no file of the same name for. The cover saves every
+ * photo twice under one name, so a vault that never had a Duress Password holds a twin of each of its photos. After a promotion the old
+ * vault's folder is the twin folder, and a file there without a twin was deleted from the promoted vault's gallery, which a never-promoted
+ * vault does not show. The rest stay: no key opens them.
+ */
+private fun shredTwinlessPhotos(layout: VaultLayout, side: Int) {
+    val kept = layout.photoDir(side).list().orEmpty().toSet()
+    layout.photoDir(1 - side).listFiles().orEmpty().filter { it.name !in kept }.forEach { file ->
+        overwriteFiles(file)
+        file.deleteRecursively()
     }
 }

@@ -12,8 +12,8 @@ import java.io.File
 internal fun keyedStore(folder: File, privateKey: ByteArray = MediaEnvelope.newPrivateKey()): PhotoStore {
     val layout = VaultLayout(folder, File(folder, "photos"))
     layout.photos.mkdirs()
-    layout.photoKeyFile(decoy = false).writeBytes(MediaEnvelope.publicKeyOf(privateKey))
-    return PhotoStore.of(layout, decoy = false, privateKey = privateKey)
+    layout.photoKeyFile(0).writeBytes(MediaEnvelope.publicKeyOf(privateKey))
+    return PhotoStore.of(layout, side = 0, privateKey = privateKey)
 }
 
 /** True when [part] occurs in this array. */

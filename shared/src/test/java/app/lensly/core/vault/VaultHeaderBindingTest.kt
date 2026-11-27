@@ -114,10 +114,10 @@ class VaultHeaderBindingTest {
         val session = assertIs<UnlockResult.Unlocked>(attempt(made.vault, APP)).session
         val vaultKey = session.copyOfVaultKey()
         session.close()
-        assertNotNull(runBlocking { made.vault.unlockWithVaultKey(vaultKey) }).close()
+        assertNotNull(runBlocking { made.vault.unlockWithVaultKey(vaultKey, 0) }).close()
         flipByte(made.layout.header, VaultHeader.FIELDS_BYTES)
 
-        assertNull(runBlocking { made.vault.unlockWithVaultKey(vaultKey) })
+        assertNull(runBlocking { made.vault.unlockWithVaultKey(vaultKey, 0) })
         assertFalse(made.layout.header.exists())
     }
 

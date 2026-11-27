@@ -30,10 +30,10 @@ class VaultWipeTest {
         session.putRecord(wallet, "secret", byteArrayOf(10))
         session.putVaultRecord("settings", byteArrayOf(11))
         session.close()
-        layout.photoDir(decoy = false).mkdirs()
-        File(layout.photoDir(decoy = false), "IMG_1.jpg").writeBytes(byteArrayOf(12))
-        layout.photoDir(decoy = true).mkdirs()
-        File(layout.photoDir(decoy = true), "IMG_2.jpg").writeBytes(byteArrayOf(13))
+        layout.photoDir(0).mkdirs()
+        File(layout.photoDir(0), "IMG_1.jpg").writeBytes(byteArrayOf(12))
+        layout.photoDir(1).mkdirs()
+        File(layout.photoDir(1), "IMG_2.jpg").writeBytes(byteArrayOf(13))
         return layout
     }
 
@@ -55,8 +55,8 @@ class VaultWipeTest {
 
         wipeVault(layout) {}
 
-        assertFalse(layout.photoDir(decoy = false).exists())
-        assertFalse(layout.photoDir(decoy = true).exists())
+        assertFalse(layout.photoDir(0).exists())
+        assertFalse(layout.photoDir(1).exists())
         assertFalse(layout.photos.exists())
     }
 
@@ -101,7 +101,7 @@ class VaultWipeTest {
     @Test
     fun theStartupSweepShredsTheLeftoverVideoAndKeepsTheSealedMedia() {
         val layout = withRecording()
-        val sealed = File(layout.photoDir(decoy = false), "IMG_1.jpg")
+        val sealed = File(layout.photoDir(0), "IMG_1.jpg")
 
         assertTrue(layout.shredRecording())
 

@@ -54,13 +54,13 @@ class ReviewPoolTest {
         val realWallet = real.createWallet()
         real.putReview(realWallet, "review-real", byteArrayOf(1, 2, 3))
         val realPage = ReviewPool(layout.reviewPool, real.copyOfVaultKey()).pageFile(0)
-        assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { it.createWallet() } })
+        var decoyKey = ByteArray(0)
+        assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { decoyKey = it.also { d -> d.createWallet() }.copyOfVaultKey() } })
         real.close()
 
-        val decoy = unlock(DURESS)
-        assertTrue(decoy.isDecoy)
+        val decoy = VaultSession(layout, keys, decoyKey.copyOf(), side = 1)
         assertEquals(emptyList(), decoy.reviewNames(realWallet))
-        assertFailsWith<VaultException> { ReviewPool(layout.reviewPool, decoy.copyOfVaultKey()).decodePage(realPage, 0) }
+        assertFailsWith<VaultException> { ReviewPool(layout.reviewPool, decoyKey).decodePage(realPage, 0) }
         decoy.close()
     }
 
@@ -69,18 +69,16 @@ class ReviewPoolTest {
         create()
         val real = unlock()
         real.createWallet()
-        val realFree = WalletPad(layout, keys, real.copyOfVaultKey(), REAL_SECTION).freeSlotsForTesting()
+        val realFree = WalletPad(layout, keys, real.copyOfVaultKey(), 0).freeSlotsForTesting()
         assertEquals(WALLET_SLOT_STEP - 1, realFree.size)
-        assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { it.createWallet() } })
+        var decoyKey = ByteArray(0)
+        assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { decoyKey = it.also { d -> d.createWallet() }.copyOfVaultKey() } })
         real.close()
 
-        val decoy = unlock(DURESS)
-        val decoyKey = decoy.copyOfVaultKey()
         // The decoy's key opens its own section of the pad, and none of the real vault's.
-        assertEquals(emptySet(), WalletPad(layout, keys, decoyKey, REAL_SECTION).freeSlotsForTesting())
-        assertEquals(emptySet(), WalletPad(layout, keys, ByteArray(32) { 9 }, REAL_SECTION).freeSlotsForTesting())
-        assertTrue(WalletPad(layout, keys, decoyKey, DECOY_SECTION).freeSlotsForTesting().isNotEmpty())
-        decoy.close()
+        assertEquals(emptySet(), WalletPad(layout, keys, decoyKey, 0).freeSlotsForTesting())
+        assertEquals(emptySet(), WalletPad(layout, keys, ByteArray(32) { 9 }, 0).freeSlotsForTesting())
+        assertTrue(WalletPad(layout, keys, decoyKey, 1).freeSlotsForTesting().isNotEmpty())
     }
 
     @Test

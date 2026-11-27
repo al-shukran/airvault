@@ -94,7 +94,7 @@ class PhotoStoreTest {
     @Test
     fun aPhotoIsNotSavedBeforeTheVaultHasAKey() {
         // No key file yet: the vault has not been created or unlocked.
-        val store = PhotoStore.of(layout(), decoy = false)
+        val store = PhotoStore.of(layout(), side = 0)
 
         assertFalse(store.savePhoto(jpeg(9), nowMs = 1_000L))
 
@@ -105,7 +105,7 @@ class PhotoStoreTest {
     fun theCoversStoreSavesButOpensNothing() {
         keyedStore(folder.root)
         // The cover's store holds no private key, so it can save a photo and cannot open one.
-        val cover = PhotoStore.of(layout(), decoy = false)
+        val cover = PhotoStore.of(layout(), side = 0)
 
         assertTrue(cover.savePhoto(jpeg(10), nowMs = 1_000L))
 

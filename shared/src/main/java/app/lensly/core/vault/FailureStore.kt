@@ -166,19 +166,10 @@ internal class FailureStore(
      * Clears the failure count after a right password that opened the real vault, and marks the success (see
      * [FailureState.succeededSinceFailure]). The vault saves the count before the password is checked (see [recordFailure]), so a right
      * password makes this save as well. The state is written even when there was nothing to clear, so the reset costs the same two writes
-     * and fsyncs as a failed check's save. Which vault opened is known only after the hardware step, so the vault calls this, or
-     * [recordDecoySuccess], after that step.
+     * and fsyncs as a failed check's save. The vault calls this after the hardware step.
      */
     fun recordSuccess(counted: FailureState, clock: Clock): FailureState =
         saveSuccess(counted.copy(seq = counted.seq + 1, failures = 0), clock)
-
-    /**
-     * Records a right password that opened the Decoy Vault, and marks the success. It writes back [before], the state as it was before
-     * the try, so the decoy open leaves the real vault's count, wait and caps as they were: it can neither clear the count nor add to it.
-     * [counted] is the state the try was counted into, and the save follows it in sequence.
-     */
-    fun recordDecoySuccess(counted: FailureState, before: FailureState, clock: Clock): FailureState =
-        saveSuccess(before.copy(seq = counted.seq + 1), clock)
 
     /**
      * Saves a state after a right password. The count is already saved, so a Keystore that refuses this key does not refuse the password.

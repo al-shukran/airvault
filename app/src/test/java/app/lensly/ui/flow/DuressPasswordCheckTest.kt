@@ -4,14 +4,19 @@ import app.lensly.app.DecoyVault
 import app.lensly.app.VaultHolder
 import app.lensly.core.vault.CreateResult
 import app.lensly.core.vault.DuressResult
+import app.lensly.core.vault.FailureDelay
 import app.lensly.core.vault.FakeClock
 import app.lensly.core.vault.KdfParams
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultLayout
+import app.lensly.ui.navigation.FailureCapOutcome
+import app.lensly.ui.navigation.saveFailureLimits
 import java.io.File
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.job
@@ -23,8 +28,8 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * The shared App Password check accepts only the password of the vault the open session belongs to. A decoy takes the
- * Duress Password, and the real App Password is refused there, and the reverse holds in the real vault.
+ * The shared App Password check, and the other places the app only checks a password, take the App Password and refuse the Duress
+ * Password as a wrong one. Only an unlock promotes the Decoy Vault, so typing the Duress Password here never erases the real vault.
  */
 class DuressPasswordCheckTest {
 
@@ -32,16 +37,20 @@ class DuressPasswordCheckTest {
     val tmp = TemporaryFolder()
 
     private val clock = FakeClock()
+    private lateinit var layout: VaultLayout
     private lateinit var vault: Vault
     private lateinit var holder: VaultHolder
+    private lateinit var realWallet: String
 
     @Before
     fun setUp() {
-        vault = Vault(VaultLayout(File(tmp.root, "vault")), MemoryKeystore(), clock, KDF)
+        layout = VaultLayout(File(tmp.root, "vault"))
+        vault = Vault(layout, MemoryKeystore(), clock, KDF)
         holder = VaultHolder(vault)
         runBlocking {
             assertEquals(CreateResult.Created, vault.create(APP.toCharArray()))
             val real = (vault.unlock(APP.toCharArray()) as UnlockResult.Unlocked).session
+            realWallet = real.createWallet()
             assertEquals(DuressResult.Enabled, vault.setDuress(real, DURESS.toCharArray()) { DecoyVault.populate(it) })
             real.close()
         }
@@ -56,12 +65,25 @@ class DuressPasswordCheckTest {
     }
 
     @Test
-    fun inTheDecoyOnlyTheDuressPasswordIsAccepted() {
-        runBlocking { holder.adopt(open(DURESS), holder.unlockEpoch()) }
+    fun theDuressPasswordIsRefusedByTheCheckAndTheFailureLimitsAndPromotesNothing() {
+        runBlocking { holder.adopt(open(APP), holder.unlockEpoch()) }
+        val keyFile = layout.vaultKey.readBytes()
 
-        assertEquals(PasswordCheck.Accepted, runBlocking { checkAppPassword(holder, DURESS.toCharArray()) })
-        // The real App Password opens the real vault, but it is refused inside the decoy, so the decoy shows nothing of it.
-        assertEquals(PasswordCheck.Rejected, runBlocking { checkAppPassword(holder, APP.toCharArray()) })
+        assertEquals(PasswordCheck.Rejected, runBlocking { checkAppPassword(holder, DURESS.toCharArray()) })
+        clock.advance(FailureDelay.MAX_CAP_MS + 1)
+        assertEquals(FailureCapOutcome.Rejected, runBlocking { saveFailureLimits(holder, DURESS.toCharArray(), 10_000L, 5) })
+        clock.advance(FailureDelay.MAX_CAP_MS + 1)
+
+        // The real vault is as it was: same key file, no marker, and the App Password still opens its wallet.
+        assertContentEquals(keyFile, layout.vaultKey.readBytes())
+        assertFalse(layout.promotionMarker.exists())
+        assertEquals(PasswordCheck.Accepted, runBlocking { checkAppPassword(holder, APP.toCharArray()) })
+        holder.lock()
+        clock.advance(FailureDelay.MAX_CAP_MS + 1)
+        val reopened = open(APP)
+        assertEquals(0, reopened.side)
+        assertEquals(listOf(realWallet), reopened.listWallets())
+        reopened.close()
     }
 
     @Test

@@ -77,8 +77,8 @@ class PendingPhotoKeyTest {
 
         assertTrue(PhotoStore.forCover(layout).savePhoto(Random(6).nextBytes(300), nowMs = 1_000L))
 
-        assertEquals(1, layout.photoDir(decoy = false).listFiles().orEmpty().size)
-        assertEquals(1, layout.photoDir(decoy = true).listFiles().orEmpty().size)
+        assertEquals(1, layout.photoDir(0).listFiles().orEmpty().size)
+        assertEquals(1, layout.photoDir(1).listFiles().orEmpty().size)
     }
 
     @Test
@@ -133,8 +133,8 @@ class PendingPhotoKeyTest {
 
         assertNull(PendingPhotoKey.read(layout, keys))
 
-        assertTrue(PhotoStore.of(layout, decoy = false).list().isEmpty())
-        assertFalse(layout.photoKeyFile(decoy = false).exists())
+        assertTrue(PhotoStore.of(layout, side = 0).list().isEmpty())
+        assertFalse(layout.photoKeyFile(0).exists())
     }
 
     @Test
@@ -144,7 +144,7 @@ class PendingPhotoKeyTest {
 
         assertNull(PendingPhotoKey.read(layout, keys))
 
-        assertTrue(PhotoStore.of(layout, decoy = false).list().isEmpty())
+        assertTrue(PhotoStore.of(layout, side = 0).list().isEmpty())
     }
 
     @Test
@@ -161,12 +161,12 @@ class PendingPhotoKeyTest {
     /** What a shot does before the first setup: make the pair if there is none, then seal the photo to it. */
     private fun shoot(photo: ByteArray) {
         PendingPhotoKey.ensure(layout, keys)
-        assertTrue(PhotoStore.of(layout, decoy = false).savePhoto(photo.copyOf(), nowMs = 1_000L))
+        assertTrue(PhotoStore.of(layout, side = 0).savePhoto(photo.copyOf(), nowMs = 1_000L))
     }
 
     /** Opens the photo folder with [privateKey] and checks that [photo] is the only photo in it. */
     private fun assertOnlyPhotoOpens(photo: ByteArray, privateKey: ByteArray?) {
-        val store = PhotoStore.of(layout, decoy = false, privateKey = privateKey)
+        val store = PhotoStore.of(layout, side = 0, privateKey = privateKey)
         val opened = store.list().map { requireNotNull(store.photoBytes(it.file)) }
         assertEquals(1, opened.size)
         assertContentEquals(photo, opened.single())

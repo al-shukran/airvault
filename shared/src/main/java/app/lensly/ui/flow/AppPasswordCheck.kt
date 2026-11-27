@@ -9,23 +9,20 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
 /**
- * Checks the App Password through the vault's unlock, so the Failure Delay applies. The unlock opens a session only to prove
+ * Checks the App Password through the vault's verify, so the Failure Delay applies. The check opens a session only to prove
  * the password, and that session is closed at once. The open session is left alone. NonCancellable, so a session that was
  * opened is always closed, even if the screen left during the check. A caller that was cancelled meanwhile gets the cancellation
  * instead of the result, so a cancelled step never applies its change. [password] is zeroed by the vault.
  *
- * A password is accepted only when it opens the same vault as the open session. In a decoy, the password is the Duress
- * Password, and the real App Password is refused, so the check gives nothing away about the real vault.
+ * The Duress Password is a wrong password here: the check never promotes the Decoy Vault, which only an unlock does.
  */
 suspend fun checkAppPassword(holder: VaultHolder, password: CharArray): PasswordCheck =
     withContext(NonCancellable) {
-        val inDecoy = holder.openSession()?.isDecoy == true
         try {
-            when (val result = holder.vault.unlock(password)) {
+            when (val result = holder.vault.verify(password)) {
                 is UnlockResult.Unlocked -> {
-                    val sameVault = result.session.isDecoy == inDecoy
                     result.session.close()
-                    if (sameVault) PasswordCheck.Accepted else PasswordCheck.Rejected
+                    PasswordCheck.Accepted
                 }
                 UnlockResult.Rejected -> PasswordCheck.Rejected
                 // The last allowed try erased the vault, so the open session goes with it, as on a wipe.
