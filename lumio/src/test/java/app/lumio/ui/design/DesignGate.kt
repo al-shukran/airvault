@@ -29,6 +29,7 @@ import javax.imageio.ImageIO
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -106,7 +107,7 @@ class GateScreen(private val name: String, row: JsonObject, registry: JsonObject
         val result = Comparison(name, spec, themeSpec, expected, actual, texts, masks, tol).run()
         result.write(File("build/design-gate"), expected, actual, frameId, theme, known?.get("issue")?.jsonPrimitive?.content)
         val violation = result.findings.isNotEmpty()
-        val baseline = known?.let { Baseline(it) }
+        val baseline = known?.let { Baseline(it, tol.cellDp.toDouble()) }
         when {
             violation && baseline == null ->
                 throw AssertionError("$name differs from its approved frame $frameId ($theme) in ${result.findings.size} places. Fix the screen; do not loosen the tolerance or add a mask. A new known violation needs the design:approved-change label.\n${result.report(60)}")
@@ -120,28 +121,44 @@ class GateScreen(private val name: String, row: JsonObject, registry: JsonObject
 }
 
 /**
- * What a known violation may still differ in, recorded in design/registry.json from the gate's own output: the `layer:element` key of every difference
- * the frame's elements have (`findings`), and the count of the differences that have no stable element, the regions and the texts the frame lacks
- * (`regions`, `extra`). It is a ratchet: a new key or a higher count fails, and so does a recorded key that now passes, so the list shrinks with
- * every fix and a regression cannot hide among a screen's other differences.
+ * What a known violation may still differ in, recorded in design/registry.json from the gate's own output: per element of the frame (`findings`,
+ * `layer:element` to the fields that differ: `font size`, `color`, `fill, top`), the box and the number of cells of every region (`regionBoxes`, which have
+ * no stable element) and the count of the texts the frame lacks (`extra`). It is a ratchet: a new element, a new field of a recorded element, a
+ * region that is not inside a recorded one (up to [slackDp] on each side) or holds more cells than it, or a higher count fails, and so does a
+ * recorded element or field that now passes, so the list shrinks with every fix and a regression cannot hide among a screen's other differences.
  */
-internal class Baseline(row: JsonObject) {
-    private val keys = row["findings"]?.jsonArray.orEmpty().map { it.jsonPrimitive.content }.toSet()
-    private val regions = row["regions"]?.jsonPrimitive?.intOrNull ?: 0
+internal class Baseline(row: JsonObject, private val slackDp: Double = 4.0) {
+    private val fields: Map<String, Set<String>> = row["findings"]?.jsonObject.orEmpty().mapValues { (_, v) -> v.jsonArray.map { it.jsonPrimitive.content }.toSet() }
+    /** Each region as x, y, width, height and its cells. */
+    private val regions: List<List<Double>> = row["regionBoxes"]?.jsonArray.orEmpty().map { r -> r.jsonArray.map { it.jsonPrimitive.double() } }
     private val extra = row["extra"]?.jsonPrimitive?.intOrNull ?: 0
 
     fun errors(findings: List<Finding>): List<String> {
-        val now = findings.filter { it.counted() == null }.map { it.key() }.toSet()
+        val now = findings.filter { it.counted() == null }.groupBy { it.key() }.mapValues { (_, same) -> same.flatMap { it.fields() }.toSet() }
         val out = mutableListOf<String>()
-        (now - keys).sorted().takeIf { it.isNotEmpty() }?.let { out += "new differences, not in the baseline: ${it.joinToString(", ")}" }
-        (keys - now).sorted().takeIf { it.isNotEmpty() }?.let { out += "now match their frame, remove them from `findings` in known_violations: ${it.joinToString(", ")}" }
-        for ((what, have, limit) in listOf(Triple("regions", findings.count { it.counted() == "regions" }, regions), Triple("extra texts", findings.count { it.counted() == "extra" }, extra)))
-            if (have > limit) out += "$what: $have, the baseline allows $limit"
+        (now.keys - fields.keys).sorted().takeIf { it.isNotEmpty() }?.let { out += "new differences, not in the baseline: ${it.joinToString(", ")}" }
+        (fields.keys - now.keys).sorted().takeIf { it.isNotEmpty() }?.let { out += "now match their frame, remove them from `findings` in known_violations: ${it.joinToString(", ")}" }
+        for (key in (now.keys intersect fields.keys).sorted()) {
+            (now.getValue(key) - fields.getValue(key)).sorted().takeIf { it.isNotEmpty() }?.let { out += "$key differs in a field that is not in the baseline: ${it.joinToString(", ")}" }
+            (fields.getValue(key) - now.getValue(key)).sorted().takeIf { it.isNotEmpty() }?.let { out += "$key now matches in a field that is in the baseline, remove it from `findings`: ${it.joinToString(", ")}" }
+        }
+        val here = findings.filter { it.counted() == "regions" }
+        if (here.size > regions.size) out += "regions: ${here.size}, the baseline allows ${regions.size}"
+        for (f in here) {
+            val r = f.rect ?: continue
+            if (regions.none { b -> r[0] >= b[0] - slackDp && r[1] >= b[1] - slackDp && r[0] + r[2] <= b[0] + b[2] + slackDp && r[1] + r[3] <= b[1] + b[3] + slackDp && f.cells <= b[4] })
+                out += "region ${r[2].toInt()}x${r[3].toInt()} at ${r[0].toInt()},${r[1].toInt()} with ${f.cells} cells is not inside a region of the baseline, or holds more cells than it"
+        }
+        val texts = findings.count { it.counted() == "extra" }
+        if (texts > extra) out += "extra texts: $texts, the baseline allows $extra"
         return out
     }
 }
 
 internal fun Finding.key() = "$layer:$id"
+
+/** The fields a finding differs in: a field's name without the place it was measured at (`fill, top (12,34)` is `fill, top`). */
+internal fun Finding.fields() = diffs.map { it.first.substringBefore(" (") }
 
 /** The count a finding is ratcheted by when it has no stable element of the frame: a region, or a text the frame lacks. */
 internal fun Finding.counted(): String? = when {
@@ -164,6 +181,7 @@ internal class Tolerance(row: JsonObject) {
     val textColor = row.num("textColor").toInt()
     val sample = row.num("sample").toInt()
     val cell = row.num("cell").toInt()
+    val regionCell = row.num("regionCell").toInt()
     val cellDp = row.num("cellDp").toInt()
     val ink = row.num("ink").toInt()
     val iconColor = row.num("iconColor").toInt()
@@ -254,8 +272,8 @@ private fun List<Double>.rgb(bg: Int): Int {
     return ch(0, 16) shl 16 or (ch(1, 8) shl 8) or ch(2, 0)
 }
 
-/** One difference: the element it concerns and, per field, what the frame says and what the screen shows. */
-internal class Finding(val layer: String, val id: String, val label: String, val diffs: List<Triple<String, String, String>>, val rect: List<Double>?)
+/** One difference: the element it concerns and, per field, what the frame says and what the screen shows. A region also says how many cells it holds. */
+internal class Finding(val layer: String, val id: String, val label: String, val diffs: List<Triple<String, String, String>>, val rect: List<Double>?, val cells: Int = 0)
 
 internal class Result(val name: String, val findings: List<Finding>, val rows: List<JsonObject>, val bands: Pair<List<List<Int>>, List<List<Int>>>) {
     fun report(limit: Int): String {
@@ -273,6 +291,7 @@ internal class Result(val name: String, val findings: List<Finding>, val rows: L
                     JsonObject(mapOf(
                         "layer" to JsonPrimitive(f.layer), "element" to JsonPrimitive(f.id), "label" to JsonPrimitive(f.label),
                         "diffs" to JsonArray(f.diffs.map { (a, b, c) -> JsonObject(mapOf("field" to JsonPrimitive(a), "expected" to JsonPrimitive(b), "actual" to JsonPrimitive(c))) }),
+                        "rect" to (f.rect?.let { r -> JsonArray(r.map { JsonPrimitive(it) }) } ?: JsonNull), "cells" to JsonPrimitive(f.cells),
                     ))
                 }),
                 "elements" to JsonArray(rows),
@@ -318,6 +337,12 @@ internal class Result(val name: String, val findings: List<Finding>, val rows: L
     }
 }
 
+/** How far a logo's ink may be from the frame's, each way, as a share of it. */
+private const val LOGO_SIZE = 0.25
+
+/** The most a chart's ink may be, as a multiple of the frame's. */
+private const val CHART_INK = 3.0
+
 /** The checks of one screen against its frame. */
 internal class Comparison(
     val name: String,
@@ -334,6 +359,7 @@ internal class Comparison(
     private val bandGap = spec.num("bandGap").toInt()
     private val expected = masks.fold(expectedRaw) { img, m -> img.filled(m.rect, bg) }
     private val actual = masks.fold(actualRaw) { img, m -> img.filled(m.rect, bg) }
+    private val elements = themeSpec.getValue("elements").jsonArray.map { it.jsonObject }
     private val findings = mutableListOf<Finding>()
     private val rows = mutableListOf<JsonObject>()
 
@@ -342,9 +368,9 @@ internal class Comparison(
 
     private fun masked(x: Double, y: Double) = masks.any { it.contains(x, y) }
 
-    private fun row(layer: String, id: String, label: String, diffs: List<Triple<String, String, String>>, rect: List<Double>?) {
+    private fun row(layer: String, id: String, label: String, diffs: List<Triple<String, String, String>>, rect: List<Double>?, cells: Int = 0) {
         rows += JsonObject(mapOf("layer" to JsonPrimitive(layer), "element" to JsonPrimitive(id), "label" to JsonPrimitive(label), "ok" to JsonPrimitive(diffs.isEmpty()), "diffs" to JsonArray(diffs.map { (a, b, c) -> JsonObject(mapOf("field" to JsonPrimitive(a), "expected" to JsonPrimitive(b), "actual" to JsonPrimitive(c))) })))
-        if (diffs.isNotEmpty()) findings += Finding(layer, id, label, diffs, rect)
+        if (diffs.isNotEmpty()) findings += Finding(layer, id, label, diffs, rect, cells)
     }
 
     fun run(): Result {
@@ -355,7 +381,6 @@ internal class Comparison(
         val bandsWant = bandsOf(expected)
         val bandsGot = bandsOf(actual)
         checkBands(bandsWant, bandsGot)
-        val elements = themeSpec.getValue("elements").jsonArray.map { it.jsonObject }
         // A frame's constants claim their words first; a variable then takes the Text that sits where it does, whatever it says.
         val frameTexts = elements.filter { it.str("kind") == "text" }
         frameTexts.filter { !it.isVariable() }.forEach { checkText(it) }
@@ -585,24 +610,61 @@ internal class Comparison(
     }
 
     /**
-     * A logo, an avatar or a chart is the data's content: it must be there, and a logo at the frame's place and about its size; what it draws is not
-     * compared, and neither is the extent of a chart's line, which is the series' own. The container around it (the disc, its border, the fill behind a
-     * plot) is a box of the frame, compared as any box, and the pixels of the content are left out of the region cells, not masked.
+     * A logo or an avatar is the data's content: it must be there, at the frame's place and about its size (the width and the height of its ink within [LOGO_SIZE] of the frame's, or [Tolerance.textPosDp]);
+     * what it draws is not compared. The container around it (the disc, its border, the fill behind a plot) is a box of the frame, compared as any
+     * box, and the pixels of the content are left out of the region cells, not masked. A chart is [checkChart].
      */
     private fun checkVariableIcon(el: JsonObject, r: List<Double>) {
+        if (el.str("var") == "chart") return checkChart(el, r)
         val seen = inkBox(expected, r)
         val shown = inkBox(actual, r)
         val d = mutableListOf<Triple<String, String, String>>()
         if (shown == null) d += Triple("picture", "a ${el.str("var")} at ${r[0].f()},${r[1].f()}", "missing")
-        else if (seen != null && el.str("var") != "chart") {
+        else if (seen != null) {
             fun cmp(field: String, want: Double, got: Double) { if (abs(want - got) > tol.textPosDp) d += Triple(field, want.f(), got.f()) }
             cmp("picture centre x", (seen[0] + seen[2]) / 2, (shown[0] + shown[2]) / 2)
             cmp("picture centre y", (seen[1] + seen[3]) / 2, (shown[1] + shown[3]) / 2)
-            // The ink is read inside the frame's rectangle and 2 dp around it, so a picture that is too small is the one that can differ.
-            if (shown[2] - shown[0] < (seen[2] - seen[0]) / 2) d += Triple("picture width", (seen[2] - seen[0]).f(), (shown[2] - shown[0]).f())
-            if (shown[3] - shown[1] < (seen[3] - seen[1]) / 2) d += Triple("picture height", (seen[3] - seen[1]).f(), (shown[3] - shown[1]).f())
+            // The ink is read inside the frame's rectangle and 2 dp around it.
+            if (abs((shown[2] - shown[0]) - (seen[2] - seen[0])) > max(tol.textPosDp, (seen[2] - seen[0]) * LOGO_SIZE)) d += Triple("picture width", (seen[2] - seen[0]).f(), (shown[2] - shown[0]).f())
+            if (abs((shown[3] - shown[1]) - (seen[3] - seen[1])) > max(tol.textPosDp, (seen[3] - seen[1]) * LOGO_SIZE)) d += Triple("picture height", (seen[3] - seen[1]).f(), (shown[3] - shown[1]).f())
         }
         row("icon", el.str("id"), "${el.str("var")} ${el.str("node")} ${r[2].f()}x${r[3].f()} at ${r[0].f()},${r[1].f()}", d, r)
+    }
+
+    /**
+     * The colours a chart's line may be drawn in: the line of each chart of the frame, and the colour of each rise and fall arrow (U+25B2, U+25BC) of
+     * it, the positive and the negative that the series picks between. The shape of the line is the series' own, its colour is not.
+     */
+    private val lineColours: List<Int> by lazy {
+        val own = elements.filter { it.str("kind") == "icon" && it["var"]?.jsonPrimitive?.contentOrNull == "chart" }.mapNotNull { farthest(expected, rectOf(it)) }
+        val arrows = elements.filter { it.str("kind") == "text" && it.str("text").firstOrNull().let { c -> c == '\u25B2' || c == '\u25BC' } }
+            .map { it.getValue("color").jsonArray.map { v -> v.jsonPrimitive.double() }.rgb(bg) }
+        (own + arrows).distinct()
+    }
+
+    /** A chart must be there, drawn in a colour the frame uses for a line, with no more ink than a line has: the share of its rectangle that holds ink is at most [CHART_INK] times the frame's, so a block is seen. */
+    private fun checkChart(el: JsonObject, r: List<Double>) {
+        val d = mutableListOf<Triple<String, String, String>>()
+        if (inkBox(actual, r) == null) d += Triple("picture", "a chart at ${r[0].f()},${r[1].f()}", "missing")
+        else {
+            val line = farthest(actual, r)
+            if (line != null && lineColours.none { dist(it, line) <= tol.iconColor }) d += Triple("line colour", lineColours.joinToString(" or ") { hex(it) }, hex(line))
+            val want = inkShare(expected, r)
+            val got = inkShare(actual, r)
+            if (got > want * CHART_INK) d += Triple("ink share", "%.0f%%".format(want * 100), "%.0f%%".format(got * 100))
+        }
+        row("icon", el.str("id"), "chart ${el.str("node")} ${r[2].f()}x${r[3].f()} at ${r[0].f()},${r[1].f()}", d, r)
+    }
+
+    /** The share of the pixels of [rect] that differ from its top left pixel by more than [Tolerance.ink]. */
+    private fun inkShare(img: Px, rect: List<Double>): Double {
+        val x0 = max(0, rect[0].toInt()); val y0 = max(0, rect[1].toInt())
+        val x1 = min(img.w, (rect[0] + rect[2]).toInt() + 1); val y1 = min(img.h, (rect[1] + rect[3]).toInt() + 1)
+        if (x1 <= x0 || y1 <= y0) return 0.0
+        val base = img.at(x0, y0)
+        var n = 0
+        for (y in y0 until y1) for (x in x0 until x1) if (dist(img.at(x, y), base) > tol.ink) n++
+        return n.toDouble() / ((x1 - x0) * (y1 - y0))
     }
 
     private fun farthest(img: Px, rect: List<Double>): Int? {
@@ -665,20 +727,20 @@ internal class Comparison(
         val seen = Array(ch) { BooleanArray(cw) }
         var n = 0
         for (cy in 0 until ch) for (cx in 0 until cw) {
-            if (seen[cy][cx] || bad[cy][cx] <= tol.cell) continue
-            var minX = cx; var maxX = cx; var minY = cy; var maxY = cy; var worst = 0
+            if (seen[cy][cx] || bad[cy][cx] <= tol.regionCell) continue
+            var minX = cx; var maxX = cx; var minY = cy; var maxY = cy; var worst = 0; var cells = 0
             val stack = ArrayDeque(listOf(cx to cy))
             seen[cy][cx] = true
             while (stack.isNotEmpty()) {
                 val (px, py) = stack.removeLast()
-                minX = min(minX, px); maxX = max(maxX, px); minY = min(minY, py); maxY = max(maxY, py); worst = max(worst, bad[py][px])
+                minX = min(minX, px); maxX = max(maxX, px); minY = min(minY, py); maxY = max(maxY, py); worst = max(worst, bad[py][px]); cells++
                 for (dy in -1..1) for (dx in -1..1) {
                     val nx = px + dx; val ny = py + dy
-                    if (nx in 0 until cw && ny in 0 until ch && !seen[ny][nx] && bad[ny][nx] > tol.cell) { seen[ny][nx] = true; stack.addLast(nx to ny) }
+                    if (nx in 0 until cw && ny in 0 until ch && !seen[ny][nx] && bad[ny][nx] > tol.regionCell) { seen[ny][nx] = true; stack.addLast(nx to ny) }
                 }
             }
             val rect = listOf(minX * k.toDouble(), minY * k.toDouble(), (maxX - minX + 1) * k.toDouble(), (maxY - minY + 1) * k.toDouble())
-            row("region", "region${n++}", "region ${rect[2].f()}x${rect[3].f()} at ${rect[0].f()},${rect[1].f()}", listOf(Triple("average colour", "frame", "differs by up to $worst of 255")), rect)
+            row("region", "region${n++}", "region ${rect[2].f()}x${rect[3].f()} at ${rect[0].f()},${rect[1].f()}", listOf(Triple("average colour", "frame", "differs by up to $worst of 255")), rect, cells)
         }
     }
 }
