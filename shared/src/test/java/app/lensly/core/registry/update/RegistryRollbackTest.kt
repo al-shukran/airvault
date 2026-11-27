@@ -100,6 +100,28 @@ class RegistryRollbackTest {
     }
 
     @Test
+    fun aDeletedKeptWhitelistFileFlagsTheStoreInsteadOfFallingBackQuietly() {
+        install(signedAt(5, whitelist = swap("Swap"))).getOrThrow()
+        install(signedAt(6)).getOrThrow()
+        assertTrue(File(dir, RegistryUpdate.WHITELIST_FILE).delete())
+
+        assertTrue(view().installedUpdateUnverified)
+        assertEquals(baked.whitelistEntries().map { it.meaning }, whitelistMeanings())
+    }
+
+    @Test
+    fun anOlderSignedPackageSwappedInIsRepairedByInstallingTheSameSequence() {
+        install(signedAt(5)).getOrThrow()
+        File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(signedAt(3))
+        assertTrue(view().installedUpdateUnverified)
+
+        assertTrue(install(signedAt(5)).isSuccess)
+
+        assertFalse(view().installedUpdateUnverified)
+        assertIs<RegistryUpdateException.NotNewer>(install(signedAt(5)).exceptionOrNull())
+    }
+
+    @Test
     fun theStoredPackageStaysInUseWhenNothingWasTouched() {
         install(signedAt(5, whitelist = swap("Swap"))).getOrThrow()
         install(signedAt(6)).getOrThrow()
