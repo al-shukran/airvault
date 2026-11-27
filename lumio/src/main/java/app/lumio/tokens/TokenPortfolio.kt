@@ -69,51 +69,56 @@ object TokenBalanceCache {
 data class TokenHolding(val chain: EvmChain, val token: Token, val amount: BigInteger, val atMs: Long)
 
 /**
- * Reads the token balances of one wallet's shown addresses and stores them in the cache, chain by chain. Each chain is written as soon as it is read,
- * so the balances that have arrived are kept even when another chain fails. A chain that fails keeps the reads it had. A token that does not answer
- * keeps its earlier read too. Chains run side by side, and the addresses of one chain are read in order.
+ * Reads the token balances of the wallets' shown addresses and stores them in the cache with one write for the whole refresh, since every record
+ * write rewrites the whole records folder. The reads that have arrived are kept even when a chain fails. A chain that fails keeps the reads it had.
+ * A token that does not answer keeps its earlier read too. Chains run side by side, and the addresses of one chain are read in order.
  */
 object TokenPortfolio {
     /** One refresh at a time, as the native refresh has. */
     private val lock = Mutex()
 
-    /** Read-modify-write of the cache is one step at a time, so two chains never lose each other's reads. */
-    private val writes = Mutex()
+    /** What one chain read for one wallet: [fresh] replaces the cache's reads of [addresses] on [chainId]. */
+    private class ChainReads(val walletId: String, val chainId: Long, val addresses: Set<String>, val fresh: List<CachedTokenBalance>)
 
     /**
-     * Reads the tokens that [tokensOf] lists on each of [chains] for [wallet], through [reads], and stores the reads in the cache of [session]. A wallet
-     * without an EVM account key is skipped. Endpoint failures are not thrown: they leave the cache as it was for that chain.
+     * Reads the tokens that [tokensOf] lists on each of [chains] for each of [wallets], through [reads], and stores the reads in the cache of
+     * [session]. A wallet without an EVM account key is skipped. Endpoint failures are not thrown: they leave the cache as it was for that chain.
      */
     suspend fun refresh(
         session: VaultSession,
-        wallet: PairedWallet,
+        wallets: List<PairedWallet>,
         settings: EvmSettings,
         chains: List<EvmChain>,
         tokensOf: (EvmChain) -> List<Token>,
         reads: ContractReads,
         nowMs: () -> Long = System::currentTimeMillis,
     ) {
-        if (wallet.evmAddresses.isEmpty()) return
+        val shown = wallets.filter { it.evmAddresses.isNotEmpty() }
+        if (shown.isEmpty()) return
         lock.withLock {
-            val addresses = wallet.evmAddresses.take(settings.addressCount)
-            coroutineScope {
-                chains.map { chain ->
-                    async { readChain(session, wallet.id, addresses, chain, tokensOf(chain), reads, nowMs) }
+            val read = coroutineScope {
+                shown.flatMap { wallet ->
+                    val addresses = wallet.evmAddresses.take(settings.addressCount)
+                    chains.map { chain -> async { readChain(wallet.id, addresses, chain, tokensOf(chain), reads, nowMs) } }
                 }.awaitAll()
+            }.filterNotNull()
+            if (read.isEmpty()) return
+            withContext(Dispatchers.IO) {
+                val merged = read.fold(TokenBalanceCache.read(session)) { cache, r -> merged(cache, r.walletId, r.chainId, r.addresses, r.fresh) }
+                TokenBalanceCache.write(session, merged)
             }
         }
     }
 
     private suspend fun readChain(
-        session: VaultSession,
         walletId: String,
         addresses: List<String>,
         chain: EvmChain,
         tokens: List<Token>,
         reads: ContractReads,
         nowMs: () -> Long,
-    ) {
-        if (tokens.isEmpty()) return
+    ): ChainReads? {
+        if (tokens.isEmpty()) return null
         val fresh = ArrayList<CachedTokenBalance>()
         try {
             for (address in addresses) {
@@ -126,12 +131,7 @@ object TokenPortfolio {
         } catch (e: RpcFailure) {
             // The reads made before the failure are kept, and the rest keep their earlier reads.
         }
-        writes.withLock {
-            withContext(Dispatchers.IO) {
-                val merged = merged(TokenBalanceCache.read(session), walletId, chain.chainId, addresses.toSet(), fresh)
-                TokenBalanceCache.write(session, merged)
-            }
-        }
+        return ChainReads(walletId, chain.chainId, addresses.toSet(), fresh)
     }
 
     /**
