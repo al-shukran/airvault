@@ -197,8 +197,18 @@ private val PERMIT_LAYOUTS: Map<String, List<Pair<String, String>>> = mapOf(
     ),
     "PermitSingle" to listOf("details" to "PermitDetails", "spender" to "address", "sigDeadline" to "uint256"),
     "PermitBatch" to listOf("details" to "PermitDetails[]", "spender" to "address", "sigDeadline" to "uint256"),
-    "PermitTransferFrom" to listOf("permitted" to "TokenPermissions", "nonce" to "uint256", "deadline" to "uint256"),
-    "PermitBatchTransferFrom" to listOf("permitted" to "TokenPermissions[]", "nonce" to "uint256", "deadline" to "uint256"),
+    "PermitTransferFrom" to listOf(
+        "permitted" to "TokenPermissions",
+        "spender" to "address",
+        "nonce" to "uint256",
+        "deadline" to "uint256",
+    ),
+    "PermitBatchTransferFrom" to listOf(
+        "permitted" to "TokenPermissions[]",
+        "spender" to "address",
+        "nonce" to "uint256",
+        "deadline" to "uint256",
+    ),
 )
 
 private val PERMIT_NESTED_LAYOUTS: Map<String, List<Pair<String, String>>> = mapOf(
@@ -206,7 +216,6 @@ private val PERMIT_NESTED_LAYOUTS: Map<String, List<Pair<String, String>>> = map
     "TokenPermissions" to listOf("token" to "address", "amount" to "uint256"),
 )
 
-private const val ANY_SUBMITTER = "Anyone who submits this signature"
 private val MAX_INSTANT_SECONDS: BigInteger = BigInteger.valueOf(Instant.MAX.epochSecond)
 private val DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm 'UTC'", Locale.ENGLISH).withZone(ZoneOffset.UTC)
 
@@ -251,14 +260,14 @@ private fun permitSummary(typed: TypedData, registry: Registry, chainId: Long, c
             summary.date("Signature Deadline", uintOf(message, "sigDeadline"), field("sigDeadline"))
         }
         "PermitTransferFrom" -> {
-            summary.text("Spender", ANY_SUBMITTER, null)
+            summary.address("Spender", bytesOf(message, "spender"), field("spender"))
             val permitted = fieldsOf(message, "permitted")
             val token = summary.token("Token", bytesOf(permitted, "token"), field("permitted.token"))
             summary.amount("Amount", uintOf(permitted, "amount"), bits = 256, token = token, field = field("permitted.amount"))
             summary.date("Deadline", uintOf(message, "deadline"), field("deadline"))
         }
         "PermitBatchTransferFrom" -> {
-            summary.text("Spender", ANY_SUBMITTER, null)
+            summary.address("Spender", bytesOf(message, "spender"), field("spender"))
             val permitted = itemsOf(message, "permitted")
             permitted.forEachIndexed { index, item ->
                 val fields = (item as TypedValue.StructValue).fields

@@ -7,6 +7,7 @@ import kotlin.test.assertTrue
 import org.junit.Test
 
 private const val USDC_ADDRESS = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+private const val PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3"
 private const val PERMIT_REASON =
     "A signed permit lets a spender move your tokens without a transaction. Scam sites use it to drain wallets."
 
@@ -28,9 +29,16 @@ class TypedDenylistTest {
     }
 
     @Test
+    fun everyPermit2SignatureTypeMatchesAWarnEntryOnPermit2AndOnAnyChain() {
+        for (type in listOf("PermitSingle", "PermitBatch", "PermitTransferFrom", "PermitBatchTransferFrom", "PermitWitnessTransferFrom")) {
+            val match = registry.typedDenylistMatches(1, PERMIT2_ADDRESS, type).single()
+            assertEquals(DenylistSeverity.WARN, match.severity, type)
+            assertEquals(1, registry.typedDenylistMatches(8453, PERMIT2_ADDRESS, type).size, type)
+        }
+    }
+
+    @Test
     fun aTypedRequestOfAnotherTypeReachesReview() {
-        assertTrue(registry.typedDenylistMatches(1, USDC_ADDRESS, "PermitSingle").isEmpty())
-        assertTrue(registry.typedDenylistMatches(1, USDC_ADDRESS, "PermitTransferFrom").isEmpty())
         assertTrue(registry.typedDenylistMatches(1, USDC_ADDRESS, "Mail").isEmpty())
     }
 
