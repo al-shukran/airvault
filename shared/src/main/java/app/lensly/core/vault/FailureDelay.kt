@@ -84,6 +84,8 @@ data class FailureState(
     val createdBootCount: Int? = null,
     val fullCapWait: Boolean = false,
     val succeededSinceFailure: Boolean = false,
+    /** SHA-256 in hex of the `unlock.bin` last written, or empty when none is recorded. An older copy of the file does not match it. */
+    val keyFileDigest: String = "",
 )
 
 /**

@@ -103,9 +103,9 @@ internal object VaultKeystore {
     /** Deletes the key that wraps the private photo key of photos taken before the first setup, if the Keystore holds one. */
     fun deletePendingPhotoKey() = delete(PENDING_PHOTO_ALIAS)
 
-    /** The existing hardware wrapping key. Throws if it has been removed. */
+    /** The existing hardware wrapping key. Throws [VaultKeyInvalidatedException] if it has been removed, which no vault survives. */
     fun hardwareKey(): SecretKey =
-        get(HARDWARE_KEY_ALIAS) ?: throw VaultException("The vault's hardware key is missing from the Keystore.")
+        get(HARDWARE_KEY_ALIAS) ?: throw VaultKeyInvalidatedException("The vault's hardware key is missing from the Keystore.")
 
     /**
      * Creates the key that seals the Vault Key for biometric unlock, replacing any key there. Each use needs a strong biometric, and a new
@@ -166,14 +166,17 @@ internal object VaultKeystore {
         createHmacKey(HEADER_KEY_ALIAS, "vault header key")
     }
 
-    /** HMAC-SHA256 of [message] under the slot key. Throws if the key has been removed, or if the Keystore refuses the operation. */
+    /**
+     * HMAC-SHA256 of [message] under the slot key. Throws [VaultKeyInvalidatedException] if the key has been removed, which no vault
+     * survives, or [VaultException] if the Keystore refuses the operation.
+     */
     fun slotMac(message: ByteArray): ByteArray = macUnder(SLOT_KEY_ALIAS, "slot", message)
 
     /** HMAC-SHA256 of [message] under the header key. Throws if the key has been removed, or if the Keystore refuses the operation. */
     fun headerMac(message: ByteArray): ByteArray = macUnder(HEADER_KEY_ALIAS, "header", message)
 
     private fun macUnder(alias: String, what: String, message: ByteArray): ByteArray {
-        val key = get(alias) ?: throw VaultException("The vault's $what key is missing from the Keystore.")
+        val key = get(alias) ?: throw VaultKeyInvalidatedException("The vault's $what key is missing from the Keystore.")
         return Mac.getInstance("HmacSHA256").apply { init(key) }.doFinal(message)
     }
 

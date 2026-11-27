@@ -6,6 +6,7 @@ import java.io.File
 import java.security.GeneralSecurityException
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
@@ -84,11 +85,12 @@ class VaultDeviceAuthTest {
     }
 
     @Test
-    fun aDeletedKeyIsReportedAsInvalidatedWithoutAsking() {
+    fun aDeletedKeyErasesTheVaultWithoutAsking() {
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })
         keys.hardwareKeyInvalidated = true
 
-        assertFailsWith<VaultKeyInvalidatedException> { runBlocking { vault.unlock(APP.toCharArray()) } }
+        assertEquals(UnlockResult.Erased, runBlocking { vault.unlock(APP.toCharArray()) })
+        assertFalse(vault.exists())
         assertEquals(0, asked)
     }
 
