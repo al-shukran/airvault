@@ -367,6 +367,35 @@ class VaultPromotionTest {
     }
 
     @Test
+    fun theCleanupKeepsASealedKeyThatWasMadeAfterTheCommitAndDropsOneThatWasLeftBefore() {
+        create(P1)
+        val real = unlocked(P1)
+        setDuress(real, P2).key.fill(0)
+        real.close()
+        vault.skipCleanupForTesting = true
+        unlocked(P2).close()
+        val sealedKey = File(layout.root, BiometricUnlock.BLOB_FILE_NAME)
+        val promotedAt = layout.promotionMarker.lastModified()
+
+        // Biometric unlock turned on after the commit: newer than the marker.
+        sealedKey.writeBytes(ByteArray(64) { 7 })
+        sealedKey.setLastModified(promotedAt + 60_000L)
+        FailureStore.forget(layout.root)
+        vault = Vault(layout, keys, clock, KDF)
+        unlocked(P2).also { awaitCleanup() }.close()
+        assertFalse(layout.promotionMarker.exists())
+        assertTrue(sealedKey.exists(), "a sealed key that the owner made after the promotion is not the old vault's")
+
+        // The old vault's sealed key, left by a drop that failed: older than the marker.
+        layout.promotionMarker.writeBytes(VaultKeyFile.digestOf(layout.vaultKey.readBytes()).toByteArray(Charsets.US_ASCII))
+        sealedKey.setLastModified(layout.promotionMarker.lastModified() - 60_000L)
+        FailureStore.forget(layout.root)
+        vault = Vault(layout, keys, clock, KDF)
+        unlocked(P2).also { awaitCleanup() }.close()
+        assertFalse(sealedKey.exists(), "the backstop drops the old vault's sealed key")
+    }
+
+    @Test
     fun aDuressUnlockThatIsOnlyCheckedStartsNoCleanup() {
         create(P1)
         val real = unlocked(P1)
@@ -393,28 +422,42 @@ class VaultPromotionTest {
     }
 
     @Test
-    fun theOldUnlockFileIsOverwrittenWhereItsSecondNameLeftItsBytesReachable() {
+    fun theOldUnlockFileIsOverwrittenByTheCommitItselfNotByTheCleanupThatFollows() {
         create(P1)
         val real = unlocked(P1)
         setDuress(real, P2).key.fill(0)
         real.close()
         val oldBytes = layout.vaultKey.readBytes()
+        // Another name for the old file's bytes, as a snapshot of the folder would hold: the overwrite is in place, so it reaches that name too.
+        val spy = File(tmp.root, "spy")
+        Files.createLink(spy.toPath(), layout.vaultKey.toPath())
 
         vault.skipCleanupForTesting = true
         unlocked(P2).close()
-        // Another name for the old file's bytes, as a snapshot of the folder would hold: the cleanup overwrites them in place.
-        assertContentEquals(oldBytes, layout.promotionRemnant.readBytes())
-        val spy = File(tmp.root, "spy")
-        Files.createLink(spy.toPath(), layout.promotionRemnant.toPath())
-        FailureStore.forget(layout.root)
-        vault = Vault(layout, keys, clock, KDF)
-        val promoted = unlocked(P2)
-        awaitCleanup()
-        promoted.close()
 
+        // The cleanup never ran, so a kill or a lock right after the commit finds nothing of the old file.
+        assertTrue(layout.promotionMarker.exists())
         assertFalse(layout.promotionRemnant.exists())
         assertEquals(oldBytes.size, spy.length().toInt())
         assertFalse(spy.readBytes().contentEquals(oldBytes), "the old unlock.bin was overwritten, not only unlinked")
+    }
+
+    @Test
+    fun theTwinlessPhotosAreShreddedOffTheSealerThread() {
+        create(P1)
+        savePhotos(layout, "kept")
+        File(layout.photoDir(1), "twinless").writeBytes(ByteArray(10))
+        val threads = mutableListOf<String>()
+
+        shredTwinlessPhotos(layout, side = 0) { file ->
+            threads += Thread.currentThread().name
+            file.delete()
+        }
+
+        assertEquals(1, threads.size)
+        assertFalse(threads.single() == "lensly-seal", "the shredding must not hold up the thread that seals photos")
+        assertFalse(File(layout.photoDir(1), "twinless").exists())
+        assertTrue(File(layout.photoDir(1), "kept-a").exists(), "a photo with a twin stays")
     }
 
     @Test

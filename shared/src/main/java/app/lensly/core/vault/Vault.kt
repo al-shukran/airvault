@@ -628,6 +628,8 @@ class Vault constructor(
         // The vault key that the sealed Vault Key of biometric unlock holds is the old vault's, and the commit has made it useless. The blob
         // and its key go now, not with the cleanup, so no window is left in which they exist.
         dropBiometricUnlock()
+        // The old `unlock.bin` is reachable only under its second name now, and holds the old vault's wrapped key: it goes now too.
+        bestEffort { shredPromotionRemnant(readVaultFile(layout.vaultKey)) }
         // The state is written even when it cannot be read back: the commit stands, and a count that stays is the stricter one.
         bestEffort { opened.store.recordSuccess(opened.store.load(clock), clock) }
         return true
@@ -710,7 +712,7 @@ class Vault constructor(
      * The old vault's wallets are released into the promoted vault's free-slot list, wallet by wallet, and their Keystore keys go. Its record
      * files become spares, the photo copies of the old vault that no promoted photo has a twin for are shredded, and the sealed Vault Key of
      * biometric unlock and its key go. Its review pool files are overwritten and deleted, since the promoted vault has a pool batch of its
-     * own. The old `unlock.bin`, which the replace left only under its second name, is overwritten and deleted. The caller holds the vault's
+     * own. The old `unlock.bin`, which the replace left only under its second name, is overwritten and deleted first, as the commit has already done. The caller holds the vault's
      * lock. The session's lock is taken for one wallet folder or one file at a time, after the list of what to remove was made under it, so
      * a wallet or a record that the session writes meanwhile is never taken for the old vault's.
      *
@@ -720,6 +722,8 @@ class Vault constructor(
         val marker = layout.promotionMarker
         if (!marker.isFile) return
         val keyFile = readVaultFile(layout.vaultKey)
+        // First: a promotion that was cut short before it shredded the old `unlock.bin` leaves it the first thing a later unlock removes.
+        shredPromotionRemnant(keyFile)
         if (VaultKeyFile.digestOf(keyFile) != String(marker.readBytes(), Charsets.US_ASCII)) {
             dropPromotionMarker()
             return
@@ -728,8 +732,9 @@ class Vault constructor(
         if (!session.withKeyLocked { key -> VaultKeyFile.ownerIndex(VaultKeyFile.decode(keyFile), key) >= 0 }) return
         purgeOldVault(session)
         shredTwinlessPhotos(layout, session.side)
-        dropBiometricUnlock()
-        shredPromotionRemnant(keyFile)
+        // The commit dropped the old vault's sealed key already, so this is the backstop for a drop that failed. A sealed key newer than the marker
+        // was made by the promoted vault's owner after the commit, and it stays.
+        if (File(layout.root, BiometricUnlock.BLOB_FILE_NAME).lastModified() <= marker.lastModified()) dropBiometricUnlock()
         if (!marker.delete() && marker.exists()) throw VaultException("The promotion marker could not be removed.")
     }
 
@@ -1737,13 +1742,19 @@ private fun dropSidePhotos(layout: VaultLayout, side: Int) {
  * Shreds the files of the other side's photo folder that the folder of [side] holds no file of the same name for. The cover saves every
  * photo twice under one name, so a vault that never had a Duress Password holds a twin of each of its photos. After a promotion the old
  * vault's folder is the twin folder, and a file there without a twin was deleted from the promoted vault's gallery, which a never-promoted
- * vault does not show. The rest stay: no key opens them. The listing and the shredding run on the thread that seals the cover's photos (see
- * [PhotoStore.whileNoSaveRuns]), so a photo saved meanwhile keeps its twin and a file half written is not shredded.
+ * vault does not show. The rest stay: no key opens them. The listing runs on the thread that seals the cover's photos (see
+ * [PhotoStore.whileNoSaveRuns]), so a photo saved meanwhile keeps its twin and a file half written is not listed. The shredding runs after it.
  */
-private fun shredTwinlessPhotos(layout: VaultLayout, side: Int) = PhotoStore.whileNoSaveRuns {
-    val kept = layout.photoDir(side).list().orEmpty().toSet()
-    layout.photoDir(1 - side).listFiles().orEmpty().filter { it.name !in kept }.forEach { file ->
-        overwriteFiles(file)
-        file.deleteRecursively()
+internal fun shredTwinlessPhotos(layout: VaultLayout, side: Int, shred: (File) -> Unit = ::shredPhotoFile) {
+    val twinless = PhotoStore.whileNoSaveRuns {
+        val kept = layout.photoDir(side).list().orEmpty().toSet()
+        layout.photoDir(1 - side).listFiles().orEmpty().filter { it.name !in kept }
     }
+    // Outside the sealer: a new photo has a new name, so none of these files gains a twin, and the vault's lock is not held while a video seals.
+    twinless.forEach(shred)
+}
+
+private fun shredPhotoFile(file: File) {
+    overwriteFiles(file)
+    file.deleteRecursively()
 }
