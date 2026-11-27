@@ -63,13 +63,14 @@ class RegistryKeyRevocationTest {
     }
 
     @Test
-    fun theRevocationStaysInForceWhenTheSealCannotBeVerified() {
+    fun aFileWhoseSealCannotBeVerifiedRevokesNothingAndTheFloorStillHolds() {
         install(signedByFirst(1, revokedKeys = listOf(leaked))).getOrThrow()
-        // A lost or replaced seal leaves the store unverified: the catalog falls back to the built-in one, but the installed package
-        // still verifies against a trusted key, so the leaked key stays refused.
+        // A lost or replaced seal leaves the store unverified: nothing proves the file is the one that was accepted, so its revocations
+        // do not count (a planted file could carry any). The Keystore still names the floor, so an older package is refused.
         File(dir, RegistrySeal.FILE).delete()
 
-        assertIs<RegistryUpdateException.RevokedKey>(install(signedByLeaked(2)).exceptionOrNull())
+        install(signedByFirst(3)).getOrThrow()
+        assertIs<RegistryUpdateException.NotNewer>(install(signedByLeaked(2)).exceptionOrNull())
     }
 
     @Test
@@ -139,13 +140,13 @@ class RegistryKeyRevocationTest {
     }
 
     @Test
-    fun aRecoveryPackageStillReplacesTheInstalledSignerWhenTheSealIsGone() {
+    fun aRecoveryPackageDoesNotReplaceAnInstalledFileWhoseSealIsGone() {
         install(signedByLeaked(1_000_000)).getOrThrow()
         File(dir, RegistrySeal.FILE).delete()
 
-        install(signedByFirst(5, revokedKeys = listOf(leaked))).getOrThrow()
-
-        assertEquals(5L, assertNotNull(RegistryUpdate.installedPackage(baked, dir, keys, keystore)).sequence)
+        // The file is no longer proven to be the package that set the floor, so it cannot open the way to a lower one.
+        assertIs<RegistryUpdateException.NotNewer>(install(signedByFirst(5, revokedKeys = listOf(leaked))).exceptionOrNull())
+        assertEquals(1_000_000L, RegistrySeal.newestFloor(keystore))
     }
 
     @Test

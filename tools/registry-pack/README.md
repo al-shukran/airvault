@@ -51,14 +51,9 @@ device. Choose it above every sequence you have published, so that a device that
 
 The same holds once the app release lists the leaked key as `revoked`: a package that key signed no longer verifies, but it still names the
 floor, and any package signed by an active key that is newer than the build's own catalog replaces it whatever the installed sequence. That
-package must restate the whitelist and the denylist the replaced package carried, or it is refused. Neither exemption applies when the
-installed file has a sequence below the floor the device remembers, so an old package copied over it cannot lower the floor.
+package must restate the whitelist and the denylist the replaced package carried, or it is refused. Neither exemption applies unless the installed file is the one the seal names, with a sequence at the floor, so a planted or old package copied over it cannot lower the floor.
 
-Accepted residual: someone who holds a leaked key, whether or not a build lists it as `revoked`, and who can write into the app's private
-storage, can plant a package signed by it. While no build lists the key, that package can inject content (tokens, networks, the whitelist,
-fees) and drop the standing revocation list, not only block updates. Once a build lists it, the planted package is no longer used, but it
-still lets a public package signed by an active key replace it below the floor, so the floor can be lowered, down to the build's own catalog
-sequence. Closing this needs the seal to bind the installed file. List the key in the build as soon as you can.
+Accepted residual: the seal that the app keeps under a Keystore key names the installed package file by its SHA-256, and the whitelist and denylist files the same way. A package planted over the installed file is therefore not used, whatever key signed it, even one a build lists as `revoked`: it cannot stand in for the package that set the floor, so it cannot let a public package replace it below the floor, and its revocations never count. The revocations of the package the device installed stay in force when a later build revokes its signer. What remains is an attacker who can forge the seal's Keystore MAC (code execution inside the app), and a holder of a leaked key who gets a package signed by it imported before any build or revoking package lists it. File write access alone only denies registry updates and cannot lower the floor or add content. A store sealed by an older build reads as unverified until the next package is installed. List the key in the build as soon as you can.
 
 A device that never installs the revoking package keeps trusting the leaked key. So add the leaked key's ID to
 `tools/registry-data/revoked-keys.json`, the standing list that `sign-candidate.sh` writes into every bundle, and set the key to `revoked` in

@@ -1,0 +1,1 @@
+A registry update package that someone plants in Lensly's private storage is no longer used in place of the one you installed, even when it is signed by a leaked key, and it can no longer lower the registry's protection floor or cancel the key revocations that the installed package carries.
