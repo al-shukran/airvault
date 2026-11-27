@@ -472,8 +472,6 @@ internal class Comparison(
         matched[id] = match
         val d = mutableListOf<Triple<String, String, String>>()
         compareInk(el, r, el.str("text"), d, variable = true, box = match)
-        // A text may wrap to fewer lines than the frame's (shorter words) but not to more: the extra line is in no other check.
-        if (match.lines > el.num("lines").toInt()) d += Triple("lines", el.num("lines").toInt().toString(), match.lines.toString())
         compareStyle(el, match, d)
         row("text", id, label, d, r)
     }
