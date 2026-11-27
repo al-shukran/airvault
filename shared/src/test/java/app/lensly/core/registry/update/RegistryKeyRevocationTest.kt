@@ -152,13 +152,28 @@ class RegistryKeyRevocationTest {
     fun aCrashBetweenTheRecoveryPackageAndItsSealCanBeRetried() {
         install(signedByLeaked(1_000_000)).getOrThrow()
         val recovery = signedByFirst(5, revokedKeys = listOf(leaked))
-        // The file of the recovery package is written, and the process dies before the seal: the old seal and its key stay.
+        // The Keystore key of the recovery package is made and its file is written, and the process dies before the seal: the old seal stays.
+        keystore.createRegistryMacKey(5)
         File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(recovery)
 
         install(recovery).getOrThrow()
 
         assertEquals(5L, assertNotNull(RegistryUpdate.installedPackage(baked, dir, keys, keystore)).sequence)
         assertIs<RegistryUpdateException.RevokedKey>(install(signedByLeaked(2_000_000)).exceptionOrNull())
+    }
+
+    @Test
+    fun anOldRecoveryPackagePlantedOnDiskCannotRollTheFloorBack() {
+        val old = signedByFirst(5, revokedKeys = listOf(leaked))
+        install(old).getOrThrow()
+        install(signedByFirst(10, revokedKeys = listOf(leaked, "0123456789abcdef"))).getOrThrow()
+        // With access to the app's files, the old package replaces the newer one. The Keystore holds no key for its sequence.
+        File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(old)
+
+        val refused = install(old).exceptionOrNull()
+
+        assertIs<RegistryUpdateException.NotNewer>(refused)
+        assertEquals(10L, RegistrySeal.newestFloor(keystore))
     }
 
     @Test

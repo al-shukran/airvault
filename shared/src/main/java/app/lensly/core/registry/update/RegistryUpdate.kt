@@ -142,10 +142,15 @@ object RegistryUpdate {
             // key, a deleted package file or a replaced one: the seal alone names the floor, and the built-in catalog is in use until then.
             val verified = prior != null && installedUnder(prior, baked, dir, keys) != null
             // A recovery package that revokes the key of the installed package replaces it whatever its sequence, and so does the same
-            // package again after a crash between writing its file and its seal. The file is read without the seal, which that crash leaves stale.
+            // package again after a crash between writing its file and its seal. The file is read without the seal, which that crash leaves
+            // stale. Only an install that got as far as making the Keystore key of this sequence can have crashed there: a planted file
+            // whose sequence the Keystore never held would otherwise let an old package roll the floor back.
             val onDisk = packageOnDisk(dir, keys)
             val replacesInstalled = recovery && incoming.revokedKeys.isNotEmpty() && onDisk != null &&
-                (onDisk.first.signerKeyId in incoming.revokedKeys || (!verified && onDisk.second.contentEquals(bytes)))
+                (
+                    onDisk.first.signerKeyId in incoming.revokedKeys ||
+                        (!verified && onDisk.second.contentEquals(bytes) && incoming.sequence in keystore.registryMacKeySeqs())
+                    )
             if (!replacesInstalled && (incoming.sequence < accepted || (incoming.sequence == accepted && verified))) {
                 throw RegistryUpdateException.NotNewer(accepted, incoming.sequence)
             }
