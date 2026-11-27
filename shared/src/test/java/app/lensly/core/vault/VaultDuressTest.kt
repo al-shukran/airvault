@@ -228,33 +228,35 @@ class VaultDuressTest {
         assertEquals(CreateResult.Created, runBlocking { vault.rekey(decoy, OTHER.toCharArray()) })
         decoy.close()
 
-        assertRejected(unlockAfterDelay(DURESS))
-        val moved = unlocked(unlockAfterDelay(OTHER))
+        // The change above counted as a wrong try, and the wrong Duress Password just now as a second: the wait is past the learning cap.
+        assertRejected(afterTheFullWait(DURESS))
+        val moved = unlocked(afterTheFullWait(OTHER))
         assertTrue(moved.isDecoy)
         assertEquals(1, moved.listWallets().size)
         moved.close()
-        unlocked(unlockAfterDelay(APP)).close()
+        unlocked(afterTheFullWait(APP)).close()
     }
 
     @Test
-    fun aDecoyCannotTakeTheAppPasswordAsItsOwn() {
+    fun aDecoyAskedToTakeTheAppPasswordAsItsOwnKeepsItsOldPasswordAndAnswersAsForAnyOther() {
         createVault()
         val real = unlocked(attempt(APP))
         assertEquals(DuressResult.Enabled, setDuress(real))
         real.close()
 
         val decoy = unlocked(unlockAfterDelay(DURESS))
-        // The real vault's password would open both vaults, so the decoy refuses it as a weak one.
-        assertEquals(
-            CreateResult.PolicyRejected(PolicyReason.WEAK_SCORE),
-            runBlocking { vault.rekey(decoy, APP.toCharArray()) },
-        )
+        // The answer is the same as for any other password, so it never says that this one is the real App Password.
+        clock.advance(FailureDelay.LEARNING_CAP_MS)
+        assertEquals(CreateResult.Created, runBlocking { vault.rekey(decoy, APP.toCharArray()) })
         decoy.close()
-        unlocked(unlockAfterDelay(DURESS)).close()
+
+        // Nothing was written: the Duress Password still opens the decoy, and the App Password still opens the real vault only.
+        assertTrue(unlocked(unlockAfterDelay(DURESS)).also { it.close() }.isDecoy)
+        assertFalse(unlocked(unlockAfterDelay(APP)).also { it.close() }.isDecoy)
     }
 
     @Test
-    fun aDecoySettingItsDuressPasswordKeepsItsWalletsAndMovesThePassword() {
+    fun aDecoySettingItsDuressPasswordChangesNothingAndAnswersEnabled() {
         createVault()
         val real = unlocked(attempt(APP))
         assertEquals(DuressResult.Enabled, setDuress(real))
@@ -265,15 +267,15 @@ class VaultDuressTest {
         assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(decoy, OTHER.toCharArray()) { } })
         decoy.close()
 
-        assertRejected(unlockAfterDelay(DURESS))
-        val moved = unlocked(unlockAfterDelay(OTHER))
-        assertTrue(moved.isDecoy)
-        assertEquals(listOf(wallet), moved.listWallets())
-        moved.close()
+        assertRejected(unlockAfterDelay(OTHER))
+        val same = unlocked(unlockAfterDelay(DURESS))
+        assertTrue(same.isDecoy)
+        assertEquals(listOf(wallet), same.listWallets())
+        same.close()
     }
 
     @Test
-    fun aDecoyRemovingItsDuressPasswordLeavesTheRealWalletsAlone() {
+    fun aDecoyRemovingItsDuressPasswordChangesNothing() {
         createVault()
         val real = unlocked(attempt(APP))
         val realWallet = real.createWallet()
@@ -282,19 +284,15 @@ class VaultDuressTest {
 
         val decoy = unlocked(unlockAfterDelay(DURESS))
         val decoyWallet = decoy.listWallets().single()
-        val decoyKey = decoy.copyOfVaultKey()
         runBlocking { vault.removeDuress(decoy) }
         decoy.close()
 
-        assertRejected(unlockAfterDelay(DURESS))
-        // The folder stays, but its wallet no longer opens.
-        assertFalse(ownsWallet(keys, layout,decoyKey, decoyWallet))
-        decoyKey.fill(0)
+        val sameDecoy = unlocked(unlockAfterDelay(DURESS))
+        assertEquals(listOf(decoyWallet), sameDecoy.listWallets())
+        sameDecoy.close()
         val reopened = unlocked(unlockAfterDelay(APP))
         assertEquals(listOf(realWallet), reopened.listWallets())
-        assertFalse(reopened.listWallets().contains(decoyWallet))
         reopened.close()
-        assertEquals(WALLET_SLOT_STEP, walletFolders())
     }
 
     @Test

@@ -66,6 +66,7 @@ suspend fun changeAppPassword(holder: VaultHolder, password: CharArray): ChangeO
                 CreateResult.Created -> ChangeOutcome.Changed
                 is CreateResult.PolicyRejected -> ChangeOutcome.Refused(result.reason)
                 CreateResult.DeviceUnsupported, CreateResult.BackupAllowed -> ChangeOutcome.Unavailable
+                CreateResult.Locked -> ChangeOutcome.Locked
             }
         } catch (e: VaultException) {
             ChangeOutcome.Unavailable

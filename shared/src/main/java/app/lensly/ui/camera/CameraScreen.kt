@@ -134,8 +134,8 @@ fun CameraScreen(
     }
 
     if (granted) {
-        // The cover has no open session, so every photo it takes goes to the real vault's folder.
-        val store = remember(context) { PhotoStore.of(VaultLayout.of(context), decoy = false) }
+        // The cover has no open session, so every photo it takes is saved for both vaults.
+        val store = remember(context) { PhotoStore.forCover(VaultLayout.of(context)) }
         CameraViewfinder(
             store = store,
             onOpenGallery = onOpenGallery,
