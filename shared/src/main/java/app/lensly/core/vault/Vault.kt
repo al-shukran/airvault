@@ -275,7 +275,14 @@ class Vault constructor(
                     return@withLock null
                 }
                 val store = failureStore()
-                val state = store.load(clock)
+                // A state that cannot be read is left for the next password try too, so the key file is checked without its digest.
+                val state = try {
+                    store.load(clock)
+                } catch (e: VaultException) {
+                    null
+                } catch (e: IOException) {
+                    null
+                }
                 val contents = verifiedKeyFile(state) ?: run {
                     eraseLocked()
                     return@withLock null
@@ -283,7 +290,7 @@ class Vault constructor(
                 if (VaultKeyFile.ownerIndex(contents, vaultKey) < 0) return@withLock null
                 // A state that does not verify is left for the next password try, which erases the vault (FailureDelay threat 15).
                 bestEffort {
-                    if (state.failures > 0 && !FailureDelay.unverified(state)) store.recordSuccess(state, clock)
+                    if (state != null && state.failures > 0 && !FailureDelay.unverified(state)) store.recordSuccess(state, clock)
                 }
                 openSessionLocked(vaultKey, isDecoy = false)
             }
@@ -756,7 +763,13 @@ class Vault constructor(
             return Checked.Refused
         }
 
-        val typedKey = withContext(Dispatchers.Default) { deriveSoftKey(password, header.salt, header.kdf) }
+        // A slot key that is gone for good, as a hardware key is, leaves a vault that no password opens: it is erased.
+        val typedKey = try {
+            withContext(Dispatchers.Default) { deriveSoftKey(password, header.salt, header.kdf) }
+        } catch (e: VaultKeyInvalidatedException) {
+            eraseLocked()
+            return Checked.Erased
+        }
         var nfcKey: ByteArray? = null
         var handedKey: ByteArray? = null
         try {
@@ -1179,6 +1192,9 @@ class Vault constructor(
             bestEffort { store.recordKeyFile(store.load(clock), previous.keyFileDigest, clock) }
             throw e
         }
+        // The failure state names the new file already, so a power cut must not lose the rename. The file is in place, so a failed sync
+        // does not name the old one again.
+        syncDirectory(layout.root)
     }
 
     /**
@@ -1390,11 +1406,12 @@ class Vault constructor(
     /**
      * The contents of `unlock.bin`, or null when it is unverifiable, so the caller erases the vault: its digest is not the one in [state]
      * (an older copy was put back, or the file was edited), or it is not a key file of this format (another version, a wrong size or
-     * magic). A file that cannot be read throws [VaultException], which is not a verdict on the file.
+     * magic). A null [state], one that could not be read, skips the digest check. A file that cannot be read throws [VaultException], which
+     * is not a verdict on the file.
      */
-    private fun verifiedKeyFile(state: FailureState): VaultKeyFile.Contents? {
+    private fun verifiedKeyFile(state: FailureState?): VaultKeyFile.Contents? {
         val bytes = readVaultFile(layout.vaultKey)
-        if (VaultKeyFile.digestOf(bytes) != state.keyFileDigest) return null
+        if (state != null && VaultKeyFile.digestOf(bytes) != state.keyFileDigest) return null
         return try {
             VaultKeyFile.decode(bytes)
         } catch (e: VaultException) {

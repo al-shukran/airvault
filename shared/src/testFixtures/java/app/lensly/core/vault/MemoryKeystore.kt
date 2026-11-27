@@ -42,6 +42,11 @@ class MemoryKeystore : KeystoreBackend {
         slotKey = newHmacKey()
     }
 
+    /** Removes the slot key, as a Keystore that lost it would. */
+    fun removeSlotKey() {
+        slotKey = null
+    }
+
     override fun slotMac(message: ByteArray): ByteArray = macWith(slotKey, "slot", message)
 
     /** Replaces the header key. A header MACed under the old key no longer verifies, so the vault is unverifiable. */
@@ -52,7 +57,7 @@ class MemoryKeystore : KeystoreBackend {
     override fun headerMac(message: ByteArray): ByteArray = macWith(headerKey, "header", message)
 
     private fun macWith(key: SecretKey?, what: String, message: ByteArray): ByteArray {
-        val usable = key ?: throw VaultException("The vault's $what key is missing from the Keystore.")
+        val usable = key ?: throw VaultKeyInvalidatedException("The vault's $what key is missing from the Keystore.")
         return Mac.getInstance("HmacSHA256").apply { init(usable) }.doFinal(message)
     }
 

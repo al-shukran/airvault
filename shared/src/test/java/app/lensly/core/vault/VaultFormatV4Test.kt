@@ -116,6 +116,18 @@ class VaultFormatV4Test {
         assertEquals(1, rig.vault.failureCountForTesting())
     }
 
+    @Test
+    fun aMissingSlotKeyErasesTheVaultOnTheFirstTry() {
+        val rig = Rig("a")
+        rig.create()
+        rig.keys.removeSlotKey()
+
+        assertEquals(UnlockResult.Erased, rig.attempt(APP))
+
+        assertFalse(rig.layout.exists())
+        assertEquals(1, rig.erased)
+    }
+
     // A vault of an older format is rejected and erased, and nothing is read from it.
 
     @Test
