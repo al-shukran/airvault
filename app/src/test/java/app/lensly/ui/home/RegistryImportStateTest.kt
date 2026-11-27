@@ -24,6 +24,11 @@ class RegistryImportStateTest {
     }
 
     @Test
+    fun aLostKeystoreSaysOnlyTheRecoveryKeyInstalls() {
+        assertTrue(refusalReason(RegistryUpdateException.KeystoreReset()).contains("recovery key"))
+    }
+
+    @Test
     fun anUnsupportedFormatNamesTheVersionThisAppReads() {
         assertEquals(
             "Registry format version 1 is not supported. This application reads format version 2.",

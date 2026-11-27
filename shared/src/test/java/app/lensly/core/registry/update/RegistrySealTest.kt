@@ -166,17 +166,20 @@ class RegistrySealTest {
     }
 
     @Test
-    fun aLostKeyIsRecoveredByTheSameSequenceAndNeverByALowerOne() {
-        RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).getOrThrow()
+    fun aLostKeyIsRecoveredByTheSameSequenceOfARecoveryPackageAndNeverByALowerOne() {
+        val recovery = listOf(TrustedKey(TestPackages.PUBLIC_BYTES, role = KeyRole.RECOVERY))
+        RegistryUpdate.install(signedAt(5), recovery, baked, dir, keystore).getOrThrow()
         keystore.deleteRegistryMacKeysExcept(null)
 
         assertTrue(view().installedUpdateUnverified)
-        assertIs<RegistryUpdateException.NotNewer>(RegistryUpdate.install(signedAt(4), keys, baked, dir, keystore).exceptionOrNull())
+        assertIs<RegistryUpdateException.NotNewer>(RegistryUpdate.install(signedAt(4), recovery, baked, dir, keystore).exceptionOrNull())
+        // A package that a release key signed does not recover the store: the revocations in force are unknown (see RegistryKeystoreLossTest).
+        assertIs<RegistryUpdateException.KeystoreReset>(RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).exceptionOrNull())
 
-        RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).getOrThrow()
+        RegistryUpdate.install(signedAt(5), recovery, baked, dir, keystore).getOrThrow()
         assertEquals(listOf(5L), keystore.registryMacKeySeqs())
         assertFalse(view().installedUpdateUnverified)
-        assertIs<RegistryUpdateException.NotNewer>(RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).exceptionOrNull())
+        assertIs<RegistryUpdateException.NotNewer>(RegistryUpdate.install(signedAt(5), recovery, baked, dir, keystore).exceptionOrNull())
     }
 
     @Test

@@ -38,4 +38,11 @@ sealed class RegistryUpdateException(message: String) : Exception(message) {
      */
     class SequenceUnknown :
         RegistryUpdateException("the installed package is unreadable and its sequence is not recorded")
+
+    /**
+     * The Keystore lost its keys while the registry files survived, so the revocations in force cannot be known and only a package
+     * signed by a recovery key is taken, which then restates them.
+     */
+    class KeystoreReset :
+        RegistryUpdateException("the Keystore lost the catalog's rollback record; only a package signed by a recovery key can be installed")
 }
