@@ -10,7 +10,8 @@ import app.lensly.ui.camera.PhotoStore
 import app.lensly.ui.isEmulator
 import java.io.File
 import java.io.IOException
-import java.io.RandomAccessFile
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.GeneralSecurityException
 import java.security.MessageDigest
 import java.security.ProviderException
@@ -111,6 +112,9 @@ class VaultAuthRequiredException(message: String, cause: Throwable? = null) : Va
 
 /** Android deleted the hardware key, because the screen lock was removed or changed. The vault cannot be opened any more. */
 class VaultKeyInvalidatedException(message: String, cause: Throwable? = null) : VaultException(message, cause)
+
+/** The promotion's new `unlock.bin` could not be put in place after the state named it. The next unlock does it (see [Vault.recoverPromotionLocked]). */
+private class PromotionUnfinishedException(cause: Throwable) : VaultException("The promoted vault key file is not in place yet.", cause)
 
 /** The error for a Keystore refusal: a missing device authentication, a lost key, or any other failure. */
 internal fun keystoreFailure(message: String, e: GeneralSecurityException): VaultException = when (e) {
@@ -228,6 +232,9 @@ class Vault constructor(
     @Volatile
     internal var skipCleanupForTesting = false
 
+    /** Overwrites the old `unlock.bin` of a promotion. Tests swap it to fail, or to die at a step. */
+    internal var overwriteKeyFile: (File) -> Unit = ::overwriteInPlace
+
     /** Waits for the cleanup that the last unlock started. For tests only. */
     internal suspend fun awaitCleanupForTesting() {
         cleanup?.join()
@@ -321,6 +328,7 @@ class Vault constructor(
                 } catch (e: IOException) {
                     null
                 }
+                state?.let { recoverPromotionLocked(it.keyFileDigest) }
                 val contents = verifiedKeyFile(state) ?: run {
                     eraseLocked()
                     return@withLock null
@@ -606,12 +614,12 @@ class Vault constructor(
      * Commits the new `unlock.bin` that makes the decoy [opened] the vault: its key under the same password in a real slot, and random bytes
      * in the other. From that commit on the old vault key is unrecoverable. The failure count is cleared as for any right password, after
      * the commit. The cleanup of the old vault's files is left for the session that opens (see [startPromotionCleanup]). Returns false when
-     * the commit failed, and then nothing changed.
+     * the commit failed, and then nothing changed, or when only its last step failed, which the next unlock finishes (see
+     * [recoverPromotionLocked]).
      *
-     * The old `unlock.bin` is overwritten through a descriptor opened on it before the replace: the rename only unlinks the file, and the
-     * descriptor keeps its inode alive until the overwrite is done (a second name for the file would need a hard link, which Android
-     * refuses an app). A process that dies between the replace and the overwrite leaves the old bytes in freed blocks that no path reaches,
-     * as any deleted file does; the old key slots stay wrapped under the old password and the device's Keystore key.
+     * The old `unlock.bin` wraps the real vault's key under the old password, `k1`, `k2` and the Keystore, none of which a promotion can
+     * rotate, so its bytes must not outlive the commit. They are overwritten in place before the new file replaces it (see
+     * [rollForwardKeyFile]), and a crash at any step is recovered to the same end, so no moment leaves the old bytes behind.
      */
     private suspend fun promoteLocked(opened: OpenedSlot): Boolean {
         val role = VaultRole.real(VaultRole.sideOf(opened.role))
@@ -619,42 +627,36 @@ class Vault constructor(
             val key = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
             key to sealSlot(opened.softKey, key, opened.vaultKey, role)
         }
-        var oldKeyFile: RandomAccessFile? = null
         try {
-            try {
-                commitKeyFile(listOf(slot, VaultKeyFile.randomSlot(random)), onDigest = { digest ->
-                    writePromotionMarker(digest)
-                    oldKeyFile = RandomAccessFile(layout.vaultKey, "rw")
-                }) {
-                    unwrapsTo(opened.softKey, hardwareKey, slot, opened.vaultKey + role)
-                }
-            } catch (e: VaultException) {
-                dropPromotionMarker()
-                return false
-            } catch (e: IOException) {
-                dropPromotionMarker()
-                return false
+            commitKeyFile(listOf(slot, VaultKeyFile.randomSlot(random)), onDigest = ::writePromotionMarker, promotion = true) {
+                unwrapsTo(opened.softKey, hardwareKey, slot, opened.vaultKey + role)
             }
-            // The old `unlock.bin` is unlinked now and holds the old vault's wrapped key slots, so it is overwritten at once through the descriptor.
-            oldKeyFile?.let { old -> bestEffort { overwriteInPlace(old) } }
-        } finally {
-            oldKeyFile?.close()
+        } catch (e: PromotionUnfinishedException) {
+            // The commit stands and the marker and the new file are kept: the next unlock puts the file in place.
+            return false
+        } catch (e: VaultException) {
+            dropPromotionMarker()
+            return false
+        } catch (e: IOException) {
+            dropPromotionMarker()
+            return false
         }
         // The vault key that the sealed Vault Key of biometric unlock holds is the old vault's, and the commit has made it useless. The blob
         // and its key go now, not with the cleanup, so no window is left in which they exist.
-        dropBiometricUnlock()
+        bestEffort { dropBiometricUnlock() }
         // The state is written even when it cannot be read back: the commit stands, and a count that stays is the stricter one.
         bestEffort { opened.store.recordSuccess(opened.store.load(clock), clock) }
         return true
     }
 
     /**
-     * Names the new `unlock.bin` by its [digest] before it replaces the old one, so a crash after the replace is found by the next unlock,
-     * and a crash before it is not (see [VaultLayout.promotionMarker]).
+     * Names the new `unlock.bin` by its [digest] before anything changes, and makes the marker and the new file's directory entry durable.
+     * From then on a crash is found by the next unlock (see [recoverPromotionLocked] and [VaultLayout.promotionMarker]). A failure here
+     * stops the commit before the old file is touched.
      */
     private fun writePromotionMarker(digest: String) {
         writeAtomically(layout.promotionMarker, digest.toByteArray(Charsets.US_ASCII))
-        bestEffort { syncDirectory(layout.root) }
+        syncDirectory(layout.root)
     }
 
     /** Removes the marker of a commit that did not happen. Nothing is overwritten: the `unlock.bin` in place is still the vault's. */
@@ -903,6 +905,8 @@ class Vault constructor(
             eraseLocked()
             return Checked.Erased
         }
+        // A promotion that a crash cut short is finished or undone before the key file is read (see [recoverPromotionLocked]).
+        recoverPromotionLocked(check.state.keyFileDigest)
         // A key file that is not the one last written, or that cannot be read as a key file, is unverifiable too (see [verifiedKeyFile]).
         val contents = verifiedKeyFile(check.state) ?: run {
             eraseLocked()
@@ -1284,9 +1288,16 @@ class Vault constructor(
     /**
      * Writes [slots] as the new `unlock.bin`, after reading it back. The file is committed only if every slot in [slots] is in it
      * byte for byte and [verified] holds. Otherwise the temp file is removed and nothing changes. [onDigest] gets the digest of the verified
-     * new file before anything is replaced, and a failure in it stops the change.
+     * new file before anything is replaced, and a failure in it stops the change. A [promotion] retires the old file by overwriting it in place
+     * before the new one replaces it (see [rollForwardKeyFile]): from the moment the state names the new file the change only goes forward, and a
+     * step that fails then throws [PromotionUnfinishedException], with the temp file kept for [recoverPromotionLocked].
      */
-    private fun commitKeyFile(slots: List<ByteArray>, onDigest: (String) -> Unit = {}, verified: () -> Boolean) {
+    private fun commitKeyFile(
+        slots: List<ByteArray>,
+        onDigest: (String) -> Unit = {},
+        promotion: Boolean = false,
+        verified: () -> Boolean,
+    ) {
         // The file in place must be the one last written. An older copy put back while the vault is open would have its other slot carried
         // into the new file, and the swap recorded as the owner's. The change is refused, and the next unlock erases the vault.
         val store = failureStore()
@@ -1331,6 +1342,14 @@ class Vault constructor(
             nameOldFileAgain()
             throw VaultException("The new vault key file could not be recorded, so the vault was not changed.", e)
         }
+        if (promotion) {
+            try {
+                rollForwardKeyFile(temp)
+            } catch (e: IOException) {
+                throw PromotionUnfinishedException(e)
+            }
+            return
+        }
         try {
             commitTemp(temp, layout.vaultKey)
         } catch (e: Exception) {
@@ -1340,6 +1359,64 @@ class Vault constructor(
         // The failure state names the new file already, so a power cut must not lose the rename. The file is in place, so a failed sync
         // neither fails the change nor names the old file again.
         bestEffort { syncDirectory(layout.root) }
+    }
+
+    /**
+     * Puts the new `unlock.bin` in [temp] in place of the old one, once the failure state and the marker name it. The old file is overwritten
+     * first, in place and for its full length, and then the rename replaces it, so there is no moment at which the old bytes are unreachable
+     * but not overwritten. A crash anywhere in here is finished by [recoverPromotionLocked], which calls this again, so every step is safe to
+     * repeat.
+     *
+     * An overwrite that fails, with any exception, does not stop the replace: the state names the new file already and the old file may be
+     * half written, so the only vault that can still be opened is the promoted one. A failed overwrite is a failing disk, and the replace is
+     * what makes the old vault key unrecoverable by this app. A failed replace throws [IOException], with [temp] kept.
+     */
+    private fun rollForwardKeyFile(temp: File) {
+        overwriteBestEffort(layout.vaultKey, overwriteKeyFile)
+        Files.move(temp.toPath(), layout.vaultKey.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        bestEffort { syncDirectory(layout.root) }
+    }
+
+    /**
+     * Finishes or undoes a promotion commit that a crash cut short, before `unlock.bin` is read or any stray file is removed. The marker
+     * names the new `unlock.bin` ([stateDigest] is the digest that the failure state names). With a marker and another file in place:
+     *  - the state names the new file and a temp file holds it: the crash came after the state was recorded, so the commit rolls forward
+     *    ([rollForwardKeyFile]), and the vault is the promoted one;
+     *  - the state names the file in place: the crash came before the state was recorded, nothing was overwritten, and the marker and the
+     *    temp file go, so the vault is the old one;
+     *  - anything else (the state names the new file and no temp file holds it, or it names a third file) is unverifiable, and the check
+     *    that follows erases the vault, as for any unverifiable file.
+     * A crash cannot make the first half of the last case: the temp file is synced, then the marker and the directory are synced, then
+     * the state is recorded, and only then is anything overwritten or renamed. So a state that names the new file always has a durable
+     * temp file behind it, until the rename that is the last step.
+     *
+     * @throws VaultException when the roll forward fails: the next unlock tries again, and nothing is erased meanwhile.
+     */
+    private fun recoverPromotionLocked(stateDigest: String) {
+        val marker = layout.promotionMarker
+        if (!marker.isFile) return
+        val named = String(readVaultFile(marker), Charsets.US_ASCII)
+        val inPlace = VaultKeyFile.digestOf(readVaultFile(layout.vaultKey))
+        if (inPlace == named) return
+        val prefix = "${layout.vaultKey.name}."
+        val temp = layout.root.listFiles().orEmpty().firstOrNull { file ->
+            file.isFile && file.name.startsWith(prefix) && file.name.endsWith(".tmp") &&
+                try {
+                    VaultKeyFile.digestOf(file.readBytes()) == named
+                } catch (e: IOException) {
+                    false
+                }
+        }
+        if (stateDigest == named && temp != null) {
+            try {
+                rollForwardKeyFile(temp)
+            } catch (e: IOException) {
+                throw VaultException("The promotion could not be finished yet.", e)
+            }
+        } else if (stateDigest == inPlace) {
+            dropPromotionMarker()
+            temp?.delete()
+        }
     }
 
     /**

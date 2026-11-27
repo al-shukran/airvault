@@ -123,8 +123,9 @@ class VaultLayout(
 
     /**
      * Written before an unlock replaces `unlock.bin` to promote the Decoy Vault (see [Vault.unlock]), holding the SHA-256 of the new file,
-     * and removed once the old vault's files are gone. A marker that names a file other than the one in place was left by a commit that
-     * never happened, and is removed.
+     * and removed once the old vault's files are gone. A crash between the marker and the replace is recovered by the next unlock: the new
+     * file waits in a temp file beside `unlock.bin` (named `unlock.bin.<random>.tmp`) and is renamed into place, or, when the commit never
+     * got as far as the failure state, the marker and the temp file are removed.
      */
     val promotionMarker = File(root, "promote.bin")
 

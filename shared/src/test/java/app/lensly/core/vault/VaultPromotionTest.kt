@@ -15,6 +15,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -486,8 +487,9 @@ class VaultPromotionTest {
         armed = true
         assertFailsWith<Killed> { attempt(P2) }
 
-        // The marker is on disk, and the old file is still the vault's.
+        // The marker and the new file are on disk, and the old file is still the vault's.
         assertTrue(layout.promotionMarker.exists())
+        assertEquals(1, keyFileTemps().size)
         assertContentEquals(keyFile, layout.vaultKey.readBytes())
         FailureStore.forget(layout.root)
         vault = Vault(layout, keys, clock, KDF)
@@ -496,6 +498,7 @@ class VaultPromotionTest {
 
         assertEquals(listOf(wallet), reopened.listWallets())
         assertFalse(layout.promotionMarker.exists())
+        assertEquals(emptyList(), keyFileTemps(), "the new file of a commit that never happened is removed")
         assertContentEquals(keyFile, layout.vaultKey.readBytes(), "the live file was never overwritten")
         reopened.close()
         // The Duress Password still promotes the decoy.
@@ -504,7 +507,7 @@ class VaultPromotionTest {
     }
 
     @Test
-    fun aKillAfterTheStateNamesTheNewUnlockFileAndBeforeTheReplaceIsAnUnverifiableVaultAndErasesItAtTheNextUnlock() {
+    fun aKillAfterTheStateNamesTheNewUnlockFileAndBeforeTheOldOneIsOverwrittenIsRolledForwardByTheNextUnlock() {
         var armed = false
         var saves = 0
         val dying = object : KeystoreBackend by keys {
@@ -514,29 +517,137 @@ class VaultPromotionTest {
             }
 
             override fun deleteFailureMacKeysExcept(keepSeq: Long?) {
-                // After the commit's save has written both copies of the state, and before the new file replaces the old one.
+                // After the commit's save has written both copies of the state, and before anything is overwritten or replaced.
                 if (armed && saves >= 2) throw Killed()
                 keys.deleteFailureMacKeysExcept(keepSeq)
             }
         }
         vault = Vault(layout, dying, clock, KDF)
-        create(P1)
-        val real = unlocked(P1)
-        real.createWallet()
-        setDuress(real, P2).key.fill(0)
-        real.close()
+        val (oldBytes, decoy) = setUpForPromotion()
 
         armed = true
         assertFailsWith<Killed> { attempt(P2) }
         armed = false
         assertTrue(layout.promotionMarker.exists())
+        assertContentEquals(oldBytes, layout.vaultKey.readBytes(), "nothing was overwritten yet")
 
-        // The state names a file that is not in place, as after any crash between the two writes: the vault cannot be verified, so it is erased.
+        assertPromotedAfterReopen(oldBytes, decoy)
+    }
+
+    @Test
+    fun aKillAfterTheOldUnlockFileIsOverwrittenAndBeforeTheReplaceIsRolledForwardAndTheOldBytesAreNowhere() {
+        val (oldBytes, decoy) = setUpForPromotion()
+        vault.overwriteKeyFile = { file ->
+            overwriteInPlace(file)
+            throw Killed()
+        }
+
+        assertFailsWith<Killed> { attempt(P2) }
+
+        // The old file was overwritten before the new one replaced it, so a kill at this point leaves the old bytes nowhere.
+        assertEquals(1, keyFileTemps().size)
+        assertEquals(emptyList(), filesHolding(oldBytes))
+        assertPromotedAfterReopen(oldBytes, decoy)
+    }
+
+    @Test
+    fun aKillBeforeTheOldUnlockFileIsOverwrittenIsRolledForwardAndTheRollForwardOverwritesIt() {
+        val (oldBytes, decoy) = setUpForPromotion()
+        vault.overwriteKeyFile = { throw Killed() }
+
+        assertFailsWith<Killed> { attempt(P2) }
+
+        assertContentEquals(oldBytes, layout.vaultKey.readBytes())
+        assertPromotedAfterReopen(oldBytes, decoy)
+    }
+
+    @Test
+    fun anOverwriteThatFailsWithAnyExceptionStillCommitsThePromotionAndNothingAfterItIsSkipped() {
+        val (_, decoy) = setUpForPromotion()
+        val sealedKey = File(layout.root, BiometricUnlock.BLOB_FILE_NAME).apply { writeBytes(ByteArray(64) { 7 }) }
+        vault.overwriteKeyFile = { throw IllegalStateException("the disk refused") }
+        vault.skipCleanupForTesting = true
+
+        val session = unlocked(P2)
+
+        // The commit stands and every step after it ran: the new file is in place, the sealed key is gone, the count is clear.
+        assertEquals(VaultKeyFile.digestOf(layout.vaultKey.readBytes()), String(layout.promotionMarker.readBytes(), Charsets.US_ASCII))
+        assertEquals(emptyList(), keyFileTemps())
+        assertFalse(sealedKey.exists())
+        assertEquals(0, vault.failureCountForTesting())
+        assertEquals(decoy.wallets, session.listWallets())
+        session.close()
         FailureStore.forget(layout.root)
         vault = Vault(layout, keys, clock, KDF)
-        assertEquals(UnlockResult.Erased, attempt(P1))
+        assertRejected(attempt(P1))
+        assertEquals(decoy.wallets, walletsOf(P2))
+        decoy.key.fill(0)
+    }
+
+    @Test
+    fun aReplaceThatFailsAfterTheOverwriteLeavesAPromotionTheNextUnlockFinishes() {
+        val probe = tmp.newFolder("probe")
+        probe.setWritable(false)
+        val refusesWrites = !probe.canWrite()
+        probe.setWritable(true)
+        assumeTrue("a folder cannot be made read-only here (running as root)", refusesWrites)
+        val (oldBytes, decoy) = setUpForPromotion()
+        // The folder refuses the rename and still lets the file in it be written, as a full or read-only folder does.
+        vault.overwriteKeyFile = { file ->
+            overwriteInPlace(file)
+            layout.root.setWritable(false)
+        }
+        try {
+            assertRejected(attempt(P2))
+        } finally {
+            layout.root.setWritable(true)
+        }
+
+        assertTrue(layout.promotionMarker.exists())
+        assertEquals(1, keyFileTemps().size)
+        assertEquals(emptyList(), filesHolding(oldBytes))
+        assertPromotedAfterReopen(oldBytes, decoy)
+    }
+
+    @Test
+    fun aNewUnlockFileThatIsGoneAfterTheStateNamedItIsUnverifiableAndTheNextUnlockErases() {
+        val (_, decoy) = setUpForPromotion()
+        vault.overwriteKeyFile = { file ->
+            overwriteInPlace(file)
+            throw Killed()
+        }
+        assertFailsWith<Killed> { attempt(P2) }
+        keyFileTemps().forEach { it.delete() }
+
+        FailureStore.forget(layout.root)
+        vault = Vault(layout, keys, clock, KDF)
+        assertEquals(UnlockResult.Erased, attempt(P2))
         assertFalse(vault.exists())
         assertFalse(layout.promotionMarker.exists())
+        decoy.key.fill(0)
+    }
+
+    @Test
+    fun nothingThatRunsBeforeAnUnlockRemovesTheNewUnlockFileOfAnInterruptedPromotion() {
+        val (_, decoy) = setUpForPromotion()
+        vault.overwriteKeyFile = { file ->
+            overwriteInPlace(file)
+            throw Killed()
+        }
+        assertFailsWith<Killed> { attempt(P2) }
+
+        FailureStore.forget(layout.root)
+        vault = Vault(layout, keys, clock, KDF)
+        // What the gate runs when the app starts.
+        assertTrue(vault.exists())
+        assertFalse(vault.isPartial())
+        assertTrue(runBlocking { vault.finishPendingWipe() })
+        runBlocking { vault.waitRemainingMs() }
+        VaultRecordNames.rewriteAll(layout.vaultRecords)
+
+        assertEquals(1, keyFileTemps().size, "the new file is still there for the roll forward")
+        assertEquals(decoy.wallets, walletsOf(P2))
+        decoy.key.fill(0)
     }
 
     @Test
@@ -736,6 +847,48 @@ class VaultPromotionTest {
 
     private fun assertRejected(result: UnlockResult) {
         assertEquals(UnlockResult.Rejected, result)
+    }
+
+    /** A vault with a Duress Password, closed. Returns the bytes of its `unlock.bin` and the decoy. The caller zeroes the decoy's key. */
+    private fun setUpForPromotion(): Pair<ByteArray, Decoy> {
+        create(P1)
+        val real = unlocked(P1)
+        real.createWallet()
+        val decoy = setDuress(real, P2)
+        real.close()
+        return layout.vaultKey.readBytes() to decoy
+    }
+
+    /** The temp files that a commit of `unlock.bin` leaves beside it. */
+    private fun keyFileTemps(): List<File> =
+        layout.root.listFiles().orEmpty().filter { it.isFile && it.name.startsWith("unlock.bin.") && it.name.endsWith(".tmp") }
+
+    /** The files under the test folder that hold [bytes] anywhere in them. */
+    private fun filesHolding(bytes: ByteArray): List<File> = tmp.root.walkTopDown().filter { file ->
+        file.isFile && file.length() >= bytes.size && file.readBytes().let { data ->
+            (0..data.size - bytes.size).any { start -> bytes.indices.all { data[start + it] == bytes[it] } }
+        }
+    }.toList()
+
+    /**
+     * A new process opens the vault that a crash interrupted: the Duress Password's vault is the vault, the old password and the old bytes
+     * are gone, and the marker, the temp file and the old vault's files go with the cleanup.
+     */
+    private fun assertPromotedAfterReopen(oldBytes: ByteArray, decoy: Decoy) {
+        FailureStore.forget(layout.root)
+        vault = Vault(layout, keys, clock, KDF)
+        val promoted = unlocked(P2)
+        awaitCleanup()
+
+        assertEquals(decoy.wallets, promoted.listWallets())
+        assertEquals(1, promoted.side)
+        assertFalse(layout.promotionMarker.exists())
+        assertEquals(emptyList(), keyFileTemps())
+        assertEquals(emptyList(), filesHolding(oldBytes), "the old unlock.bin is nowhere on disk")
+        promoted.close()
+        assertRejected(attempt(P1))
+        assertEquals(decoy.wallets, walletsOf(P2))
+        decoy.key.fill(0)
     }
 
     private fun walletsOf(password: String): List<String> {
