@@ -127,12 +127,14 @@ private fun valueText(type: String, value: TypedValue): String = when (value) {
 }
 
 /**
- * [text] as a review shows it: the text itself when every character is printable, with line breaks and tabs escaped so the value stays on one
- * line, otherwise its UTF-8 bytes in hex.
+ * [text] as a review shows it: the text itself when every character is printable, otherwise its UTF-8 bytes in hex. A backslash, a line
+ * break, a tab and the Unicode line and paragraph separators are escaped, so the text stays on one line and two different strings never
+ * show the same.
  */
 internal fun printableOrHex(text: String): String =
     if (text.codePoints().allMatch(::isPrintableCodePoint)) {
-        text.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+        text.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+            .replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
     } else {
         "0x" + text.toByteArray(StandardCharsets.UTF_8).toHex() + " (not printable)"
     }

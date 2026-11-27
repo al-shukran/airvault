@@ -277,6 +277,8 @@ private class Document(text: String) {
         // The schema is checked before any value is read, so a struct that contains itself cannot recurse.
         TypedData.checkSchema(types)
         require(primaryType in types) { "primaryType ${primaryType.take(MAX_NAME_SHOWN)} is not one of the types" }
+        // eth-sig-util hashes no message for this primary type, so a signature over it would verify nowhere that matches the review.
+        require(primaryType != EIP712_DOMAIN) { "The primary type is the domain itself, which wallets do not sign as a message" }
         val domain = structOf(EIP712_DOMAIN, domainJson, types, "domain")
         checkDomainChainId(types, domain)
         checkColonTypeNames(types, domain)
