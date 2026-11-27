@@ -10,7 +10,7 @@ import java.security.MessageDigest
 
 /**
  * The registry store's rollback state, bound to the Keystore the way the vault's failure state is (see FailureStore): the [Seal] in
- * `registry-seal` holds the accepted floor and the sequence of the package that last carried a whitelist, MACed under the Keystore key
+ * `registry-seal` holds the accepted floor and the sequences of the packages that last carried a whitelist and a denylist, MACed under the Keystore key
  * of that floor. Each accepted package makes the key for its own sequence and then deletes every other, so the newest key's number is
  * the highest sequence this device has accepted, and it outlives the app's files. A seal verifies only while its own key is the newest.
  *
@@ -28,8 +28,11 @@ internal object RegistrySeal {
     /** The file holding the seal, beside the installed package. */
     const val FILE = "registry-seal"
 
-    /** [floor]: the highest accepted sequence. [whitelistSequence]: the sequence of the last package that carried a whitelist, or 0. */
-    class Seal(val floor: Long, val whitelistSequence: Long)
+    /**
+     * [floor]: the highest accepted sequence. [whitelistSequence] and [denylistSequence]: the sequence of the last package that carried
+     * a whitelist, or a denylist, or 0.
+     */
+    class Seal(val floor: Long, val whitelistSequence: Long, val denylistSequence: Long)
 
     sealed interface Reading {
         /** A seal that verifies under the newest key. */
@@ -42,7 +45,7 @@ internal object RegistrySeal {
         data object Unverified : Reading
     }
 
-    private const val PAYLOAD_SIZE = 8 + 8
+    private const val PAYLOAD_SIZE = 8 + 8 + 8
     private const val MAC_SIZE = 32
 
     fun read(dir: File, keys: KeystoreBackend): Reading {
@@ -53,7 +56,7 @@ internal object RegistrySeal {
             ?: return Reading.Unverified
         val payload = bytes.copyOf(PAYLOAD_SIZE)
         val buffer = ByteBuffer.wrap(payload)
-        val seal = Seal(floor = buffer.getLong(), whitelistSequence = buffer.getLong())
+        val seal = Seal(floor = buffer.getLong(), whitelistSequence = buffer.getLong(), denylistSequence = buffer.getLong())
         if (seal.floor != newest.maxOrNull()) return Reading.Unverified
         val key = keystoreOrNull { keys.registryMacKey(seal.floor) } ?: return Reading.Unverified
         val expected = keystoreOrNull { macOf(key, payload) } ?: return Reading.Unverified
@@ -66,7 +69,8 @@ internal object RegistrySeal {
 
     /** Makes the key for [seal]'s floor and returns the bytes of the seal under it. Every other key stays until [commit]. */
     fun create(seal: Seal, keys: KeystoreBackend): ByteArray = keystoreCall {
-        val payload = ByteBuffer.allocate(PAYLOAD_SIZE).putLong(seal.floor).putLong(seal.whitelistSequence).array()
+        val payload = ByteBuffer.allocate(PAYLOAD_SIZE)
+            .putLong(seal.floor).putLong(seal.whitelistSequence).putLong(seal.denylistSequence).array()
         payload + macOf(keys.createRegistryMacKey(seal.floor), payload)
     }
 

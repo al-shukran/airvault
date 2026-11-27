@@ -176,18 +176,20 @@ class RegistryUpdateTest {
     }
 
     @Test
-    fun anUnreadableInstalledPackageStillRefusesAnEqualOrOlderSequence() {
+    fun anUnreadableInstalledPackageStillRefusesAnOlderSequenceAndTheSameOneRepairsIt() {
         val baked = bakedRegistry()
         val dir = registryDir()
         RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 5)), keys, baked, dir, keystore).getOrThrow()
         File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(byteArrayOf(1, 2, 3))
 
-        val equal = assertIs<RegistryUpdateException.NotNewer>(
-            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 5)), keys, baked, dir, keystore)),
-        )
-        assertEquals(5L, equal.installed)
-        assertIs<RegistryUpdateException.NotNewer>(
+        val older = assertIs<RegistryUpdateException.NotNewer>(
             failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 4)), keys, baked, dir, keystore)),
+        )
+        assertEquals(5L, older.installed)
+        // The seal still names the floor, so the same package puts the store right, and then an equal one is refused again.
+        assertTrue(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 5)), keys, baked, dir, keystore).isSuccess)
+        assertIs<RegistryUpdateException.NotNewer>(
+            failure(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 5)), keys, baked, dir, keystore)),
         )
         assertTrue(RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 6)), keys, baked, dir, keystore).isSuccess)
     }

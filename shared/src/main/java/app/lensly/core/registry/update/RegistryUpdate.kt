@@ -1,5 +1,6 @@
 package app.lensly.core.registry.update
 
+import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.WhitelistEntry
@@ -13,7 +14,7 @@ import java.io.InputStream
  * Offline catalog updates. A registry package adds networks and tokens to the baked-in catalog. It can never
  * change or remove a baked entry. Its whitelist, denylist and wallets are the effective ones only when the package is newer by
  * sequence than the build's catalog; otherwise the build's lists stay. A list the package does not carry keeps the one in effect:
- * the whitelist keeps the last installed one that carried it, and the denylist and wallets keep the build's.
+ * the whitelist and the denylist keep the last installed ones that carried them (a kept denylist also keeps the build's entries it does not cover), and the wallets keep the build's.
  * A package is accepted only when a key the build trusts signed it (see [TrustedKeys]), and only when its sequence is higher than
  * every sequence accepted before. The highest accepted sequence, and the sequence of the package that supplied the kept whitelist, are
  * sealed under a Keystore key (see [RegistrySeal]), so replacing or deleting the stored files cannot roll the catalog back: a package
@@ -37,6 +38,9 @@ object RegistryUpdate {
      * keeps this one's, so the installed whitelist survives an update that does not restate it. Its sequence is the one in the seal.
      */
     const val WHITELIST_FILE = "whitelist.lrp"
+
+    /** The last accepted package that carried a denylist, kept the same way as [WHITELIST_FILE]. Its sequence is the one in the seal. */
+    const val DENYLIST_FILE = "denylist.lrp"
 
     private val installLock = Any()
 
@@ -79,16 +83,20 @@ object RegistryUpdate {
      * accepted one, which is the highest of the sealed floor, the Keystore's newest floor key and the installed package's own sequence.
      * An older sequence is refused with [RegistryUpdateException.NotNewer], and so is an equal one while the seal verifies. When no seal
      * verifies, an equal sequence is accepted and sealed again: a crash between making the Keystore key and writing the seal, or a lost
-     * key, would otherwise leave the store unverified until a higher package arrives. A directory that exists but holds a package
-     * that cannot be read, and no floor anywhere, is [RegistryUpdateException.SequenceUnknown], not "nothing accepted yet": deleting
-     * the files must not lower the floor. The files and the seal are written one by one. When a write fails, the files already written
+     * key, or a deleted package file, would otherwise leave the store unverified until a higher package arrives. A directory that
+     * holds a store file (a package, a seal or the old record) that cannot be read, and no floor anywhere, is
+     * [RegistryUpdateException.SequenceUnknown], not "nothing accepted yet": deleting the files must not lower the floor. A directory
+     * with no store file and no Keystore key holds nothing accepted yet, as after an install that died before its first write.
+     * A package that omits its whitelist is refused with [RegistryUpdateException.Conflict] when the whitelist it would keep names
+     * a chain that neither the build nor the package has, as the merged catalog would then not build.
+     * The files and the seal are written one by one. When a write fails, the files already written
      * are put back as they were, or deleted when they cannot be put back, and the new Keystore key is deleted, so a failure leaves the
      * previous package in use, or the built-in catalog when a file was deleted, and the result says so. A file that can be neither put
      * back nor deleted keeps the new key, so the store reads as unverified and the built-in catalog is in use until the same package
      * is installed again. [write] and [delete] are seams for tests.
      * Accepting an equal sequence while no seal verifies assumes the publisher never issues two different packages with one
-     * sequence. Such a same-sequence recovery resets the whitelist carrier, so a kept whitelist from an earlier package is dropped
-     * until a package carrying a whitelist is installed.
+     * sequence. Such a same-sequence recovery resets the whitelist and denylist carriers, so a kept list from an earlier package is dropped
+     * until a package carrying that list is installed.
      */
     fun install(
         bytes: ByteArray,
@@ -105,20 +113,27 @@ object RegistryUpdate {
             val prior = sealOf(dir, keystore)
             val newest = RegistrySeal.newestFloor(keystore)
             val accepted = acceptedSequence(dir, trustedKeys, prior, newest)
-            // With no verified seal the same sequence is accepted once more, to seal again after a crash or a lost key.
-            if (incoming.sequence < accepted || (incoming.sequence == accepted && prior != null)) {
+            // With no verified package the same sequence is accepted once more, to store and seal it again after a crash, a lost
+            // key, a deleted package file or a replaced one: the seal alone names the floor, and the built-in catalog is in use until then.
+            val verified = prior != null && installedUnder(prior, baked, dir, trustedKeys) != null
+            if (incoming.sequence < accepted || (incoming.sequence == accepted && verified)) {
                 throw RegistryUpdateException.NotNewer(accepted, incoming.sequence)
             }
+            if (incoming.whitelist == null && prior != null) checkKeptWhitelistFits(incoming, prior, baked, dir, trustedKeys)
             val created = !dir.isDirectory
-            check(!created || dir.mkdirs()) { "cannot create ${dir.path}" }
             // A package that omits its whitelist keeps the sealed carrier's. With no verified seal there is no carrier to keep.
             val carrier = if (incoming.whitelist != null) incoming.sequence else prior?.whitelistSequence ?: 0L
-            val seal = RegistrySeal.Seal(incoming.sequence, carrier)
+            val denyCarrier = if (incoming.denylist != null) incoming.sequence else prior?.denylistSequence ?: 0L
+            val seal = RegistrySeal.Seal(incoming.sequence, carrier, denyCarrier)
             try {
+                // The key is made before the folder, so a Keystore that refuses leaves no empty folder behind.
+                val sealBytes = RegistrySeal.create(seal, keystore)
+                check(!created || dir.mkdirs()) { "cannot create ${dir.path}" }
                 // The package goes first and the seal last: a seal is the proof that the files before it were all written.
                 val writes = linkedMapOf(INSTALLED_FILE to bytes)
                 if (incoming.whitelist != null) writes[WHITELIST_FILE] = bytes
-                writes[RegistrySeal.FILE] = RegistrySeal.create(seal, keystore)
+                if (incoming.denylist != null) writes[DENYLIST_FILE] = bytes
+                writes[RegistrySeal.FILE] = sealBytes
                 storeAll(dir, writes, created, write, delete)
             } catch (e: Unrestorable) {
                 // Keeping the new key leaves the seal below the newest key, so the store reads as unverified. Reverting the key to
@@ -153,7 +168,7 @@ object RegistryUpdate {
             val floor = maxOf(installed ?: 0L, carrier ?: 0L, recordedSequence(record) ?: 0L)
             if (floor == 0L) return
             try {
-                writeAtomically(File(dir, RegistrySeal.FILE), RegistrySeal.create(RegistrySeal.Seal(floor, carrier ?: 0L), keystore))
+                writeAtomically(File(dir, RegistrySeal.FILE), RegistrySeal.create(RegistrySeal.Seal(floor, carrier ?: 0L, 0L), keystore))
             } catch (e: Exception) {
                 RegistrySeal.keepOnly(null, keystore)
                 throw e
@@ -202,40 +217,102 @@ object RegistryUpdate {
      * The [registry] with the installed package in [dir] merged in. Installed networks and tokens are only added. The effective
      * whitelist, denylist and wallets come from one source only: the installed package's when its sequence is higher than the
      * build's [Registry.catalogSequence], otherwise the build's (a tie keeps the build's). A list the package does not carry keeps
-     * the one in effect: the whitelist keeps the last installed one that carried it, see [keptWhitelist]. The denylist and wallets
+     * the one in effect: the whitelist and the denylist keep the last installed ones that carried them, see [keptList]. The wallets
      * keep the build's. When there is no installed package, or it no longer verifies against [registry] (for
      * example because an app update bakes one of its chain IDs), [registry] is returned unchanged; a failed verification is
      * flagged on the result so Settings can say the built-in catalog is in use. A package that does not match the seal counts as
      * one that no longer verifies, and so does any store whose seal cannot be verified (see [RegistrySeal]).
      */
     fun withInstalled(registry: Registry, dir: File, trustedKeys: List<TrustedKey>, keystore: KeystoreBackend): Registry {
-        if (!File(dir, INSTALLED_FILE).isFile) return registry
+        // A missing package with a Keystore floor (or a seal) is a deleted one, never "nothing installed": flag it like any lost store.
+        if (!File(dir, INSTALLED_FILE).isFile) {
+            val unsealed = RegistrySeal.read(dir, keystore) == RegistrySeal.Reading.Unsealed
+            return if (unsealed) registry else registry.withInstalledUpdateUnverified()
+        }
         val seal = sealOf(dir, keystore) ?: return registry.withInstalledUpdateUnverified()
         val installed = installedUnder(seal, registry, dir, trustedKeys) ?: return registry.withInstalledUpdateUnverified()
+        // A merge that does not build must never throw out of the catalog: the built-in catalog is used, flagged.
+        return runCatching { merge(registry, installed, seal, dir, trustedKeys) }.getOrElse { registry.withInstalledUpdateUnverified() }
+    }
+
+    private fun merge(
+        registry: Registry,
+        installed: RegistryPackage,
+        seal: RegistrySeal.Seal,
+        dir: File,
+        trustedKeys: List<TrustedKey>,
+    ): Registry {
         val merged = registry.withAdditions(installed.networks, installed.tokens)
         if (installed.sequence <= registry.catalogSequence) return merged
+        // The seal names a carrier of each list that is newer than the build. When its file is gone or no longer matches, the
+        // built-in list must not take over silently: the throw makes [withInstalled] flag the built-in catalog.
+        val whitelist = installed.whitelist ?: keptWhitelist(seal, registry, dir, trustedKeys)
+        val denylist = installed.denylist ?: keptDenylist(seal, registry, dir, trustedKeys)?.let { withBuiltIn(it, registry) }
+        check(installed.whitelist != null || whitelist != null || seal.whitelistSequence <= registry.catalogSequence) {
+            "the whitelist that the seal names cannot be read"
+        }
+        check(installed.denylist != null || denylist != null || seal.denylistSequence <= registry.catalogSequence) {
+            "the denylist that the seal names cannot be read"
+        }
         return merged
-            .withWhitelist(installed.whitelist ?: keptWhitelist(seal, registry, dir, trustedKeys) ?: registry.whitelistEntries())
-            .withDenylist(installed.denylist ?: registry.denylistEntries())
+            .withWhitelist(whitelist ?: registry.whitelistEntries())
+            .withDenylist(denylist ?: registry.denylistEntries())
             .withWallets(installed.wallets ?: registry.walletEntries())
     }
 
     /**
-     * The whitelist of the last installed package that carried one, when it is the package the seal names, verifies against
-     * [registry] and is newer than its catalog, as the whitelist rule requires. A file with any other sequence is a replaced one.
-     * Null when there is none in effect.
+     * A kept denylist plus the built-in entries it does not cover, so entries that a later app build adds still apply on a device
+     * whose last denylist-carrying package predates them. An entry of [kept] wins over a built-in one for the same target, so a signed
+     * severity or reason is not overridden. The package that supplied [kept] cannot remove a built-in entry for good; only an app
+     * update can, as the built-in list is the floor of what the build knows to be dangerous.
      */
-    private fun keptWhitelist(
-        seal: RegistrySeal.Seal,
+    private fun withBuiltIn(kept: List<DenylistEntry>, registry: Registry): List<DenylistEntry> {
+        fun DenylistEntry.target() = listOf(chainId, contract, selector, primaryType, condition)
+        val covered = kept.mapTo(HashSet()) { it.target() }
+        return kept + registry.denylistEntries().filter { it.target() !in covered }
+    }
+
+    private fun checkKeptWhitelistFits(
+        incoming: RegistryPackage,
+        prior: RegistrySeal.Seal,
+        baked: Registry,
+        dir: File,
+        trustedKeys: List<TrustedKey>,
+    ) {
+        for (entry in keptWhitelist(prior, baked, dir, trustedKeys).orEmpty()) {
+            if (baked.network(entry.chainId) == null && incoming.networks.none { it.chainId == entry.chainId }) {
+                throw RegistryUpdateException.Conflict(
+                    "the kept whitelist has ${entry.signature} on chain ${entry.chainId}, which neither the build nor " +
+                        "this package has; restate the whitelist",
+                )
+            }
+        }
+    }
+
+    private fun keptWhitelist(seal: RegistrySeal.Seal, registry: Registry, dir: File, trustedKeys: List<TrustedKey>): List<WhitelistEntry>? =
+        keptList(WHITELIST_FILE, seal.whitelistSequence, registry, dir, trustedKeys, RegistryPackage::whitelist)
+
+    private fun keptDenylist(seal: RegistrySeal.Seal, registry: Registry, dir: File, trustedKeys: List<TrustedKey>): List<DenylistEntry>? =
+        keptList(DENYLIST_FILE, seal.denylistSequence, registry, dir, trustedKeys, RegistryPackage::denylist)
+
+    /**
+     * The list of the last installed package that carried one, read from [name], when that file is the package the seal names
+     * by [sequence], verifies against [registry] and is newer than its catalog, as the list rule requires. A file with any other
+     * sequence is a replaced one. Null when there is none in effect.
+     */
+    private fun <T> keptList(
+        name: String,
+        sequence: Long,
         registry: Registry,
         dir: File,
         trustedKeys: List<TrustedKey>,
-    ): List<WhitelistEntry>? {
-        val file = File(dir, WHITELIST_FILE)
-        if (seal.whitelistSequence == 0L || !file.isFile) return null
+        list: (RegistryPackage) -> List<T>?,
+    ): List<T>? {
+        val file = File(dir, name)
+        if (sequence == 0L || !file.isFile) return null
         val kept = verify(file.readBytes(), trustedKeys, registry).getOrNull() ?: return null
-        if (kept.sequence != seal.whitelistSequence || kept.sequence <= registry.catalogSequence) return null
-        return kept.whitelist
+        if (kept.sequence != sequence || kept.sequence <= registry.catalogSequence) return null
+        return list(kept)
     }
 
     /**
@@ -265,12 +342,13 @@ object RegistryUpdate {
     /**
      * The highest sequence accepted so far: the largest of the [prior] seal's floor, the Keystore's [newest] floor key and the
      * installed package's own sequence. The Keystore's key outlives the files, so deleting them leaves the floor in place. It is 0
-     * only when none of them exists and [dir] does not exist either. An existing [dir] with none of them is
+     * only when none of them exists and [dir] holds no store file either. A store file with none of them is
      * [RegistryUpdateException.SequenceUnknown], never 0.
      */
     private fun acceptedSequence(dir: File, trustedKeys: List<TrustedKey>, prior: RegistrySeal.Seal?, newest: Long?): Long {
         val known = listOfNotNull(sequenceOf(File(dir, INSTALLED_FILE), trustedKeys), prior?.floor, newest)
-        if (known.isEmpty() && dir.isDirectory) throw RegistryUpdateException.SequenceUnknown()
+        val storeFiles = listOf(INSTALLED_FILE, WHITELIST_FILE, DENYLIST_FILE, RegistrySeal.FILE, LEGACY_SEQUENCE_FILE)
+        if (known.isEmpty() && storeFiles.any { File(dir, it).exists() }) throw RegistryUpdateException.SequenceUnknown()
         return known.maxOrNull() ?: 0L
     }
 

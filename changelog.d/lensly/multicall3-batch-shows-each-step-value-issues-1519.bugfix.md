@@ -1,0 +1,1 @@
+A Multicall3 batch now shows each step with the amount it really receives, warns when the amount you send would stay in the contract, and is refused when its call values do not add up to the amount sent.

@@ -356,7 +356,7 @@ class EvmReviewBuilder(
             multicall.deadline?.let { header += ReviewRow(DEADLINE_LABEL, DisplayValue.Number(it), decode("evm.data.deadline")) }
             valueRow(tx.value, always = false)
             val rows = ArrayList<ReviewRow>()
-            checkCalls(tx, to, shape, multicall, level = 1, parent = "evm.data", rows = rows)
+            checkCalls(to, shape, multicall, tx.value, level = 1, parent = "evm.data", rows = rows)
             if (rows.isNotEmpty()) sections += ReviewSection("Calls", rows)
             val summary = listOf(SummaryPart.Text("Runs ${multicall.callCount()} calls in one transaction."))
             return shape.function to summary
@@ -364,18 +364,26 @@ class EvmReviewBuilder(
 
         /**
          * Decides each call of [multicall], whose calldata has [shape], and lists it in [rows] at [level]. A nested batch is checked against its
-         * own calldata, and its calls one level down. A call that fails any check refuses the whole request.
+         * own calldata, and its calls one level down. [value] is what the call that holds the batch sends. Each call is described with the
+         * value it really receives: its own value in `aggregate3Value`, zero in the other Multicall3 shapes, and [value] in Uniswap's
+         * `multicall`, which delegates. A call that fails any check refuses the whole request.
          */
         private fun checkCalls(
-            tx: UnsignedTx,
             to: String,
             shape: MulticallShape,
             multicall: Multicall,
+            value: BigInteger,
             level: Int,
             parent: String,
             rows: MutableList<ReviewRow>,
         ) {
+            if (shape.hasTarget && !shape.hasValue && value.signum() > 0) {
+                warnings += Warning(Danger.DANGER, CODE_STRANDED_VALUE, STRANDED_VALUE_WARNING, FieldPath("$parent.function"), ACK_STRANDED_VALUE)
+            }
+            if (shape.hasValue && multicall.calls.sumOf { it.value ?: BigInteger.ZERO } != value) throw Refusal(VALUE_MISMATCH_REFUSAL)
             multicall.calls.forEachIndexed { index, inner ->
+                // A Multicall3 call sends its own value, or none. A call of Uniswap's multicall delegates, so it sees the value of its batch.
+                val sent = if (shape.hasTarget) inner.value ?: BigInteger.ZERO else value
                 // A Multicall3 call names its own contract. Any other call goes to the contract its batch goes to.
                 val contract = inner.target ?: to
                 val prefix = "$parent.call[$index]"
@@ -392,7 +400,7 @@ class EvmReviewBuilder(
                         val nestedShape = encodesAs(inner.calldata, nested) ?: throw Refusal(CANNOT_BE_READ)
                         callRows(rows, prefix, index, level, nestedShape.function, target, flags, note = null)
                         nested.deadline?.let { rows += ReviewRow(DEADLINE_LABEL, DisplayValue.Number(it), decode("$prefix.deadline"), level) }
-                        checkCalls(tx, contract, nestedShape, nested, level + 1, prefix, rows)
+                        checkCalls(contract, nestedShape, nested, sent, level + 1, prefix, rows)
                     }
                     lone != null -> {
                         // The labels are shown only when the decoded call is exactly the calldata that gets signed.
@@ -402,7 +410,7 @@ class EvmReviewBuilder(
                         part.warnings.forEach { warnings += it.toWarning(prefix) }
                         if (part.unregistered) warnings += registryWarning(TOKEN_UNREGISTERED, FieldPath("$prefix.function"))
                     }
-                    else -> when (val gap = whitelisted(contract, inner.calldata, inner.value ?: tx.value)) {
+                    else -> when (val gap = whitelisted(contract, inner.calldata, sent)) {
                         is Gap.Approved -> {
                             callRows(
                                 rows,
@@ -1043,6 +1051,13 @@ internal const val ACK_UNLIMITED = "I understand this approval is unlimited."
 /** The check the owner ticks for an unknown call, by name. */
 internal const val ACK_UNKNOWN_CALL = "I understand Lensly cannot say what this call does."
 
+/** The warning on a Multicall3 batch that gets native currency but sends none of it to its calls. */
+internal const val STRANDED_VALUE_WARNING =
+    "This batch sends native currency, but its calls receive none of it. The amount stays in the Multicall3 contract and you cannot get it back."
+
+/** The check the owner ticks for a batch that strands the amount it sends, by name. */
+internal const val ACK_STRANDED_VALUE = "I understand this amount stays in the contract and is lost to me."
+
 /** The check the owner ticks for a request that the denylist warns about, by name. */
 internal const val ACK_DENYLIST = "I understand this request matches a known-dangerous request."
 
@@ -1065,6 +1080,7 @@ internal const val CODE_UNLIMITED = "evm.unlimited-approval"
 internal const val CODE_ALL_NFTS = "evm.approval-for-all"
 internal const val CODE_FOREIGN_FROM = "evm.foreign-from"
 internal const val CODE_UNKNOWN_CALL = "evm.unknown-call"
+internal const val CODE_STRANDED_VALUE = "evm.stranded-value"
 internal const val CODE_DENYLIST = "evm.denylist"
 internal const val CODE_REGISTRY = "evm.registry"
 internal const val CODE_WHITELIST = "evm.whitelisted-call"
@@ -1136,5 +1152,7 @@ private const val ASSUMED_DECIMALS = 18
 private const val SELECTOR_BYTES = 4
 private const val WORD_BYTES = 32
 private val AMOUNT_PARAMS = setOf("amount", "value", "wad")
+private const val VALUE_MISMATCH_REFUSAL =
+    "The values of the calls do not add up to the amount the batch sends, so the contract would reject it and Lensly cannot show it."
 private val TOO_DEEP_REFUSAL = "The calls nest deeper than ${ParserLimits.MAX_NESTED_DEPTH} levels, so Lensly cannot show every call."
 private val TOO_MANY_CALLS_REFUSAL = "The transaction holds more than ${ParserLimits.MAX_NESTED_CALLS} calls, so Lensly cannot show every call."

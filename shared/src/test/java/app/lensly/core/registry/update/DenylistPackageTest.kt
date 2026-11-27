@@ -171,4 +171,61 @@ class DenylistPackageTest {
 
         assertIs<RegistryUpdateException.InvalidEntry>(install(bytes).exceptionOrNull())
     }
+
+    private fun withDenylist(sequence: Long, reason: String?): ByteArray {
+        val entry = """{"condition":"ANY","reason":"$reason","selector":"0xf2fde38b","severity":"WARN"}"""
+        return TestPackages.signed(payload(sequence, reason?.let { ",\"denylist\":[$entry]" }.orEmpty()))
+    }
+
+    private fun denylistReasons(): List<String> =
+        RegistryUpdate.withInstalled(baked, dir(), TestPackages.TRUSTED, keystore).denylistEntries().map { it.reason }
+
+    @Test
+    fun aLaterPackageThatLeavesOutItsDenylistKeepsTheLastInstalledOne() {
+        install(withDenylist(5, "Signed list.")).getOrThrow()
+        install(withDenylist(6, null)).getOrThrow()
+
+        // The signed entry replaces the built-in one for its selector and the other built-in entries stay (see the union test below).
+        val builtIn = baked.denylistEntries().filter { it.selector != "0xf2fde38b" }.map { it.reason }
+        assertEquals(listOf("Signed list.") + builtIn, denylistReasons())
+        assertFalse(RegistryUpdate.withInstalled(baked, dir(), TestPackages.TRUSTED, keystore).installedUpdateUnverified)
+        // Control: a package that restates another denylist replaces it.
+        install(withDenylist(7, "Restated list.")).getOrThrow()
+        assertEquals(listOf("Restated list."), denylistReasons())
+    }
+
+    @Test
+    fun aReplacedDenylistFileIsNotKeptAndTheStoreIsFlagged() {
+        install(withDenylist(5, "Signed list.")).getOrThrow()
+        install(withDenylist(6, null)).getOrThrow()
+        File(dir(), RegistryUpdate.DENYLIST_FILE).writeBytes(withDenylist(3, "Older list."))
+
+        assertEquals(baked.denylistEntries().map { it.reason }, denylistReasons())
+        assertTrue(RegistryUpdate.withInstalled(baked, dir(), TestPackages.TRUSTED, keystore).installedUpdateUnverified)
+    }
+
+    @Test
+    fun aDeletedDenylistFileFlagsTheStoreInsteadOfFallingBackQuietly() {
+        install(withDenylist(5, "Signed list.")).getOrThrow()
+        install(withDenylist(6, null)).getOrThrow()
+        assertTrue(File(dir(), RegistryUpdate.DENYLIST_FILE).delete())
+
+        val effective = RegistryUpdate.withInstalled(baked, dir(), TestPackages.TRUSTED, keystore)
+
+        assertTrue(effective.installedUpdateUnverified)
+        assertEquals(baked.denylistEntries(), effective.denylistEntries())
+    }
+
+    @Test
+    fun aKeptDenylistKeepsTheBuiltInEntriesItDoesNotCoverAndWinsWhereItDoes() {
+        install(TestPackages.signed(payload(5, lists))).getOrThrow()
+        install(withDenylist(6, null)).getOrThrow()
+
+        val entries = RegistryUpdate.withInstalled(baked, dir(), TestPackages.TRUSTED, keystore).denylistEntries()
+
+        // The signed entry has the same target as the first built-in one and replaces it; the other built-in entries stay.
+        assertEquals("Test approval.", entries.single { it.selector == "0x095ea7b3" }.reason)
+        assertEquals(baked.denylistEntries().size, entries.size)
+        assertTrue(baked.denylistEntries().drop(1).all { it in entries })
+    }
 }
