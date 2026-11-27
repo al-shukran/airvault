@@ -18,6 +18,11 @@ internal object TestPackages {
     val OTHER_SEED = ByteArray(32) { (it * 5 + 11).toByte() }
     val OTHER_PUBLIC_BYTES: ByteArray = Ed25519PrivateKeyParameters(OTHER_SEED, 0).generatePublicKey().encoded
 
+    /** A third test key, a second release key. */
+    val THIRD_SEED = ByteArray(32) { (it * 7 + 13).toByte() }
+    val THIRD_PUBLIC_BYTES: ByteArray = Ed25519PrivateKeyParameters(THIRD_SEED, 0).generatePublicKey().encoded
+    val THIRD_KEY_ID: String = TrustedKey(THIRD_PUBLIC_BYTES).id
+
     /** The test key as a build lists it: active, so its packages are accepted. */
     val TRUSTED: List<TrustedKey> = listOf(TrustedKey(PUBLIC_BYTES))
 

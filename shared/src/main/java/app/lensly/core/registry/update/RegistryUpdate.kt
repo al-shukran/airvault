@@ -93,13 +93,13 @@ object RegistryUpdate {
      * a chain that neither the build nor the package has, as the merged catalog would then not build.
      * A package may revoke signing keys by ID. One that adds a revocation not yet in force must be signed by a [KeyRole.RECOVERY] key,
      * and is refused with [RegistryUpdateException.InvalidEntry] otherwise; one that only restates the revocations in force may be signed by
-     * any active key. From the moment it is installed, a package signed with a
+     * any active key, and so may one that restates a key the build itself lists as revoked. From the moment it is installed, a package signed with a
      * revoked key is refused as [RegistryUpdateException.RevokedKey], including the whitelist and denylist this store keeps from earlier
      * packages, so a package that revokes the key of a list it does not restate is refused with [RegistryUpdateException.Conflict]. Every
      * later package must revoke the same keys, or it is refused with [RegistryUpdateException.Conflict]: a revocation is never undone by
      * omission. The revocations of the installed package count whenever it verifies against a trusted key, whatever the seal says: a
-     * store that reads as unverified refuses more, never less. A package that revokes the key of the installed package is accepted
-     * whatever its sequence, and its sequence becomes the floor, so a leaked key cannot block its own revocation with a huge sequence.
+     * store that reads as unverified refuses more, never less. A recovery package that revokes the key of the installed package, or
+     * installs the installed file again, is accepted whatever its sequence, and its sequence becomes the floor, so a leaked key cannot block its own revocation with a huge sequence.
      * The files and the seal are written one by one. When a write fails, the files already written
      * are put back as they were, or deleted when they cannot be put back, and the new Keystore key is deleted, so a failure leaves the
      * previous package in use, or the built-in catalog when a file was deleted, and the result says so. A file that can be neither put
@@ -127,8 +127,11 @@ object RegistryUpdate {
                     "the installed package revokes keys that this package does not: ${(standing - incoming.revokedKeys.toSet()).sorted()}",
                 )
             }
-            // The everyday key signs every release, so a leak of it must not be able to revoke the backup key.
-            if (!(incoming.revokedKeys - standing).isEmpty() && keys.first { it.id == incoming.signerKeyId }.role != KeyRole.RECOVERY) {
+            // The everyday key signs every release, so a leak of it must not be able to revoke the backup key. A key the build itself lists
+            // as revoked is in force already, so a bundle that restates it needs no recovery key, on a fresh install too.
+            val inForce = standing + trustedKeys.filter { it.status == KeyStatus.REVOKED }.map { it.id }
+            val recovery = keys.first { it.id == incoming.signerKeyId }.role == KeyRole.RECOVERY
+            if (!recovery && (incoming.revokedKeys - inForce).isNotEmpty()) {
                 throw RegistryUpdateException.InvalidEntry("only a package signed by a recovery key can add a revocation")
             }
             adoptUnsealed(dir, trustedKeys, keystore)
@@ -137,11 +140,13 @@ object RegistryUpdate {
             val accepted = acceptedSequence(dir, keys, prior, newest)
             // With no verified package the same sequence is accepted once more, to store and seal it again after a crash, a lost
             // key, a deleted package file or a replaced one: the seal alone names the floor, and the built-in catalog is in use until then.
-            val installed = prior?.let { installedUnder(it, baked, dir, keys) }
-            val verified = installed != null
-            // A package that revokes the key of the installed package replaces it whatever its sequence.
-            val revokesInstalled = installed != null && installed.signerKeyId in incoming.revokedKeys
-            if (!revokesInstalled && (incoming.sequence < accepted || (incoming.sequence == accepted && verified))) {
+            val verified = prior != null && installedUnder(prior, baked, dir, keys) != null
+            // A recovery package that revokes the key of the installed package replaces it whatever its sequence, and so does the same
+            // package again after a crash between writing its file and its seal. The file is read without the seal, which that crash leaves stale.
+            val onDisk = packageOnDisk(dir, keys)
+            val replacesInstalled = recovery && incoming.revokedKeys.isNotEmpty() && onDisk != null &&
+                (onDisk.first.signerKeyId in incoming.revokedKeys || (!verified && onDisk.second.contentEquals(bytes)))
+            if (!replacesInstalled && (incoming.sequence < accepted || (incoming.sequence == accepted && verified))) {
                 throw RegistryUpdateException.NotNewer(accepted, incoming.sequence)
             }
             if (incoming.whitelist == null && prior != null) checkKeptWhitelistFits(incoming, prior, baked, dir, keys)
@@ -367,6 +372,14 @@ object RegistryUpdate {
         val file = File(dir, INSTALLED_FILE)
         if (!file.isFile) return emptySet()
         return runCatching { PackageFormat.read(file.readBytes(), trustedKeys).revokedKeys.toSet() }.getOrDefault(emptySet())
+    }
+
+    /** The installed package in [dir] and its bytes, when it verifies against [trustedKeys]. The seal is not asked. */
+    private fun packageOnDisk(dir: File, trustedKeys: List<TrustedKey>): Pair<RegistryPackage, ByteArray>? {
+        val file = File(dir, INSTALLED_FILE)
+        if (!file.isFile) return null
+        val bytes = runCatching { file.readBytes() }.getOrNull() ?: return null
+        return runCatching { PackageFormat.read(bytes, trustedKeys) }.getOrNull()?.let { it to bytes }
     }
 
     /** [trustedKeys] with every key whose ID is in [revoked] marked revoked. */

@@ -40,7 +40,7 @@ Revoking a key in the field, on builds that are already out: sign a package with
 `revokedKeys` (see below). Only a key pinned with `"role": "recovery"` can sign a package that adds a revocation, so a leaked everyday
 key cannot revoke the backup key; the app refuses such a package, and `build` refuses to write one unless `--pinned` names the signing key
 as `recovery` and `active`. A package that only restates revocations the device already holds may be signed by any active key, and `build`
-allows that when `--revoked` names a standing list that holds every listed key. A revoked key can never sign. From the moment a device
+allows that when `--revoked` names a standing list that holds every listed key. A key the build lists as `revoked` in `trusted-keys.json` counts as in force on every device, so a bundle that restates it needs no recovery key even on a fresh install. A revoked key can never sign. From the moment a device
 installs the revoking package, that device refuses every package signed with the leaked key, even when the device's own copy of the
 installed package is no longer verified. Every later package must list the same keys, or it is refused. A package cannot revoke the key
 that signed it.
@@ -50,9 +50,11 @@ leaked key cannot block its own revocation by installing a package with a huge s
 device. Choose it above every sequence you have published, so that a device that holds a published package still takes the later ones.
 
 A device that never installs the revoking package keeps trusting the leaked key. So add the leaked key's ID to
-`tools/registry-data/revoked-keys.json`, the standing list that `sign-candidate.sh` writes into every bundle, sign the bundle with the
-recovery key while the key is new to the list (sign before you commit the list: the script counts the keys committed at HEAD as in force),
-and ship it in the next app release. Later bundles restate the list and can be signed by the release key. A bundle that left a revocation out could not be installed on a device that holds it, and a test checks that the shipped
+`tools/registry-data/revoked-keys.json`, the standing list that `sign-candidate.sh` writes into every bundle, and set the key to `revoked` in
+`trusted-keys.json` in the same app release (a test checks that every ID in the list is marked revoked). Sign the bundle with the recovery key
+while the key is new to the list (sign before you commit the list: the script counts the keys committed at HEAD as in force), and ship it in
+the next app release. Later bundles restate the list and can be signed by the release key, also on a device that never installed the
+revoking package. A bundle that left a revocation out could not be installed on a device that holds it, and a test checks that the shipped
 bundle restates every ID in the list.
 
 The release key in use is pinned in `shared/src/main/assets/registry/trusted-keys.json`. Its passphrase is in the macOS keychain

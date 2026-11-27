@@ -104,6 +104,64 @@ class RegistryKeyRevocationTest {
     }
 
     @Test
+    fun aReleaseBundleRestatingAKeyTheBuildRevokesIsAcceptedOnAFreshDevice() {
+        val buildRevokes = listOf(TrustedKey(TestPackages.PUBLIC_BYTES, role = KeyRole.RECOVERY), TrustedKey(TestPackages.OTHER_PUBLIC_BYTES)) +
+            TrustedKey(TestPackages.THIRD_PUBLIC_BYTES, KeyStatus.REVOKED)
+        val third = TestPackages.THIRD_KEY_ID
+        fun bundle(vararg revoked: String) = TestPackages.signed(
+            TestPackages.payload(minSchemaVersion = 6, revokedKeys = revoked.toList()),
+            TestPackages.OTHER_SEED,
+        )
+
+        // Nothing is installed, so only the build's own list says the third key is revoked.
+        assertIs<RegistryUpdateException.InvalidEntry>(
+            RegistryUpdate.install(bundle(third, "0123456789abcdef"), buildRevokes, baked, dir, keystore).exceptionOrNull(),
+        )
+        assertTrue(RegistryUpdate.install(bundle(third), buildRevokes, baked, dir, keystore).isSuccess)
+    }
+
+    @Test
+    fun aReleaseKeyCannotRevokeTheInstalledReleaseSignerAndGetsNoSequenceExemption() {
+        val three = keys + TrustedKey(TestPackages.THIRD_PUBLIC_BYTES)
+        install(signedByLeaked(10)).getOrThrow()
+        val revokesInstalled = { sequence: Long ->
+            TestPackages.signed(
+                TestPackages.payload(sequence = sequence, minSchemaVersion = 6, revokedKeys = listOf(leaked)),
+                TestPackages.THIRD_SEED,
+            )
+        }
+
+        for (sequence in listOf(5L, 11L)) {
+            val refused = RegistryUpdate.install(revokesInstalled(sequence), three, baked, dir, keystore).exceptionOrNull()
+            assertIs<RegistryUpdateException.InvalidEntry>(refused, "sequence $sequence")
+        }
+        assertEquals(10L, assertNotNull(RegistryUpdate.installedPackage(baked, dir, three, keystore)).sequence)
+    }
+
+    @Test
+    fun aRecoveryPackageStillReplacesTheInstalledSignerWhenTheSealIsGone() {
+        install(signedByLeaked(1_000_000)).getOrThrow()
+        File(dir, RegistrySeal.FILE).delete()
+
+        install(signedByFirst(5, revokedKeys = listOf(leaked))).getOrThrow()
+
+        assertEquals(5L, assertNotNull(RegistryUpdate.installedPackage(baked, dir, keys, keystore)).sequence)
+    }
+
+    @Test
+    fun aCrashBetweenTheRecoveryPackageAndItsSealCanBeRetried() {
+        install(signedByLeaked(1_000_000)).getOrThrow()
+        val recovery = signedByFirst(5, revokedKeys = listOf(leaked))
+        // The file of the recovery package is written, and the process dies before the seal: the old seal and its key stay.
+        File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(recovery)
+
+        install(recovery).getOrThrow()
+
+        assertEquals(5L, assertNotNull(RegistryUpdate.installedPackage(baked, dir, keys, keystore)).sequence)
+        assertIs<RegistryUpdateException.RevokedKey>(install(signedByLeaked(2_000_000)).exceptionOrNull())
+    }
+
+    @Test
     fun aRevokedKeyCannotRestateARevocation() {
         install(signedByFirst(1, revokedKeys = listOf(leaked))).getOrThrow()
 
