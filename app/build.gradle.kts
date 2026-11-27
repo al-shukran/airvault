@@ -141,8 +141,7 @@ roborazzi {
 }
 
 // OWASP dependency-check (guideline 1.8, static security), run by the nightly workflow only.
-// It stays out of the PR lane: the task downloads the NVD feed on first use, so a cold run takes
-// 10 to 15 minutes against a 3-minute PR budget.
+// It stays out of the pull request gate: the task downloads the NVD feed, so it depends on NVD being reachable.
 dependencyCheck {
     // Fail on a high-severity finding, CVSS 7.0 and above. The plugin default is 11.0, which is
     // above the 10.0 maximum, so an unconfigured run never fails the build.
@@ -171,20 +170,9 @@ dependencyCheck {
 // Compose, Roborazzi). The fuzz targets, which need Jupiter, live in :shared.
 val junitJupiter = "5.14.4"
 
-// The 100 Roborazzi pixel tests in app.lensly.ui.screenshot push the PR `ui` partition past its
-// 3-minute budget (guideline 2.1), so over-budget work moves to the nightly verifyRoborazziDebug
-// run (guideline 2.7). scripts/ci/run-partition.sh passes -PprLane for that partition only, which
-// drops the pixel tests from the PR JVM while behaviour tests in the same packages still run.
-// Read through providers so the value is captured at configuration time and the task stays
-// configuration-cache safe.
-val prLane = providers.gradleProperty("prLane").isPresent
-
 tasks.withType<Test>().configureEach {
     jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
     useJUnitPlatform()
-    if (prLane) {
-        filter { excludeTestsMatching("app.lensly.ui.screenshot.*") }
-    }
 }
 
 dependencies {
