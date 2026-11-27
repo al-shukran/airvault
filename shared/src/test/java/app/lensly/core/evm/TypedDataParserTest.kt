@@ -147,6 +147,13 @@ class TypedDataParserTest {
     }
 
     @Test
+    fun aPrimaryTypeOfTheDomainItselfIsRefused() {
+        val json = """{"types":{"EIP712Domain":[{"name":"name","type":"string"}]},"primaryType":"EIP712Domain","domain":{"name":"x"},"message":{"name":"x"}}"""
+
+        assertTrue(refusal(json).contains("The primary type is the domain itself"))
+    }
+
+    @Test
     fun aPrimaryTypeThatIsNotDeclaredIsRefused() {
         assertTrue(refusal(doc(primary = "Nope")).contains("primaryType Nope is not one of the types"))
     }

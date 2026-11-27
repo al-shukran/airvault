@@ -6,6 +6,7 @@ import app.lensly.core.parse.BinderTransport
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.SandboxedParser
 import app.lensly.core.vault.Vault
+import app.lensly.core.vault.VaultLayout
 
 /**
  * Application object. It owns the single [VaultHolder], so an open vault is shared by every screen. Screens never close the vault
@@ -28,6 +29,8 @@ class LenslyApp : Application(), CoverApplication {
     override fun onCreate() {
         super.onCreate()
         logBackupExclusion()
+        // A video that an interrupted recording left in the cache is plain, so it goes at the start, whether or not a vault exists.
+        VaultLayout.of(this).shredRecording()
     }
 }
 

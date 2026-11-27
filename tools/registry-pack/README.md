@@ -67,7 +67,7 @@ The entries file is the source a package is built from. Entries may appear in an
 | Field | Meaning |
 | --- | --- |
 | `formatVersion` | Must be `2`. |
-| `minSchemaVersion` | Optional, default `1`. The catalog schema the package needs; `4` is the newest the application reads. A package with a `denylist` or `wallets` list needs `2`. A package with a whitelist argument that is dynamic, an array or a tuple, or that names tuple fields, needs `3`. A package with networks needs `4`. |
+| `minSchemaVersion` | Optional, default `1`. The catalog schema the package needs; `5` is the newest the application reads. A package with a `denylist` or `wallets` list needs `2`. A package with a whitelist argument that is dynamic, an array or a tuple, or that names tuple fields, needs `3`. A package with networks needs `4`. A package with a denylist `party` needs `5`. |
 | `sequence` | At least 1. The application refuses a package whose sequence is not higher than the last one it accepted. |
 | `createdAt` | ISO date, `yyyy-mm-dd`. |
 | `networks` | Networks the package adds. A package cannot add a testnet. Each network states `kind` (`LAYER_1`, or `LAYER_2` for a rollup), `parentChainId` (the chain a Layer 2 settles to, such as `1`, and `null` for a Layer 1) and `featured` (`true` when Lumio's Explore chains group lists it without an account). A Layer 2 needs a parent, a Layer 1 has none, and the parent must be a Layer 1. |
@@ -88,13 +88,14 @@ tick a check. A `BLOCK` entry refuses the request instead.
 | --- | --- |
 | `chainId` | Optional. Chain the entry applies to; omit it for every chain. Required when `contract` is set. |
 | `contract` | Optional. Lowercase `0x` address the entry applies to. |
+| `party` | Optional. Lowercase `0x` address that must appear in the request: any address word of the calldata, any address value of typed data, or the address the call goes to. Needs no `chainId`, and needs `minSchemaVersion` 5. |
 | `selector` | Optional. Lowercase `0x` and 8 hex digits: the Function Selector of the call. |
 | `primaryType` | Optional. An EIP-712 primary type such as `Permit`. It matches typed data of that type, never a transaction, and cannot be combined with `selector`. |
 | `condition` | `ANY` (default), `UNLIMITED` (the amount is unlimited, for approve and increaseAllowance) or `APPROVED` (an operator grant of `true`, for setApprovalForAll). Needs a `selector`. |
 | `severity` | `WARN` (the owner must confirm) or `BLOCK` (refused). |
 | `reason` | Printable, at most 240 characters. Shown on the warning or the refusal. |
 
-An entry names a `selector`, a `contract`, or a `primaryType`.
+An entry names a `selector`, a `contract`, a `party`, or a `primaryType`.
 
 ### Wallet entries
 

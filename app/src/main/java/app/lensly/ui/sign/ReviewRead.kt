@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.testTag
 import app.lensly.ui.theme.LenslySpacing
 
 /**
@@ -82,18 +83,23 @@ internal fun ColumnScope.ReviewBody(read: ReviewRead, content: @Composable Colum
         ) {
             Column(modifier = Modifier.fillMaxWidth().onSizeChanged { read.contentPx = it.height }, content = content)
         }
-        // A fade over the cut-off edge while more facts lie below, so the list reads as scrolling, not clipped.
-        if (!read.atEnd) {
+        // A fade over the cut-off edge while more facts lie below, so the list reads as scrolling, not clipped. A list that fits has
+        // nothing below, so it gets no fade over its last row.
+        if (!(read.atEnd || read.fits)) {
             ScrollFade(modifier = Modifier.align(Alignment.BottomCenter))
         }
     }
 }
+
+/** The test tag of the fade at the bottom of the list. */
+internal const val SCROLL_FADE_TAG = "review-scroll-fade"
 
 /** The fade at the bottom of the list. It runs from transparent to the page colour, so it sits over the content. */
 @Composable
 private fun ScrollFade(modifier: Modifier) {
     Box(
         modifier = modifier
+            .testTag(SCROLL_FADE_TAG)
             .fillMaxWidth()
             .height(LenslySpacing.xl)
             .background(Brush.verticalGradient(listOf(Color.Transparent, MaterialTheme.colorScheme.background))),

@@ -1,0 +1,1 @@
+On a review, the acknowledgement checkboxes ignore taps that come through a window drawn over them, a short review no longer fades its last row, and the line above Hold to Sign wraps instead of being cut off at large font sizes.

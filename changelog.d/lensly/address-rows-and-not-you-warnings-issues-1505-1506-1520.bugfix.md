@@ -1,0 +1,1 @@
+Address arguments of an approved contract call now show as addresses in groups of 4 with their account or Address Book name and the lookalike warning, an unnamed address in the summary sentence shows its grouped start and end instead of a cut in the middle, and Aave and Compound bulker steps that pay or credit another address now warn "not you".

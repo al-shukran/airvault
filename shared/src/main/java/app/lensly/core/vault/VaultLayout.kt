@@ -2,6 +2,7 @@ package app.lensly.core.vault
 
 import android.content.Context
 import java.io.File
+import java.io.IOException
 import java.security.MessageDigest
 import java.security.SecureRandom
 import javax.crypto.Mac
@@ -20,7 +21,15 @@ import javax.crypto.spec.SecretKeySpec
  * (see [photoDir]). Both exist from setup, and no file name says what a file is: its kind and capture time are sealed inside it.
  * [wipeVault] removes the whole folder, both vaults' photos with it.
  */
-class VaultLayout(val root: File, val photos: File = File(root, "photos")) {
+class VaultLayout(
+    val root: File,
+    val photos: File = File(root, "photos"),
+    /**
+     * The plain scratch file that a video is recorded into before it is sealed (`cacheDir/recording.mp4` in the app). Null in a layout that
+     * has none. A recording that was interrupted leaves it behind, so [shredRecording] removes it at the start of the app, and [wipeVault] too.
+     */
+    val recording: File? = null,
+) {
     val header = File(root, "header.bin")
     val vaultKey = File(root, "unlock.bin")
     val wallets = File(root, "items")
@@ -47,6 +56,17 @@ class VaultLayout(val root: File, val photos: File = File(root, "photos")) {
      * (see [PendingPhotoKey]).
      */
     fun isBeforeSetup(): Boolean = !exists() && !isPartial()
+
+    /** Overwrites, then deletes, the plain recording file that an interrupted recording left behind. True when none is left. */
+    fun shredRecording(): Boolean {
+        val file = recording ?: return true
+        try {
+            overwriteInPlace(file)
+        } catch (e: IOException) {
+            // Deleted below all the same.
+        }
+        return file.delete() || !file.exists()
+    }
 
     fun walletDir(walletId: String): File = File(wallets, walletId)
 
@@ -84,10 +104,13 @@ class VaultLayout(val root: File, val photos: File = File(root, "photos")) {
         /** The vault's folder under the app's no-backup files folder. Its name says nothing about what the folder holds. */
         const val DIR_NAME = "data"
 
+        /** The file name of the recording scratch in the cache folder, see [recording]. */
+        const val RECORDING_NAME = "recording.mp4"
+
         /** The app's layout: the vault under its no-backup files folder, and its photos under its files folder. */
         fun of(context: Context): VaultLayout {
             val app = context.applicationContext
-            return VaultLayout(File(app.noBackupFilesDir, DIR_NAME), File(app.filesDir, "photos"))
+            return VaultLayout(File(app.noBackupFilesDir, DIR_NAME), File(app.filesDir, "photos"), File(app.cacheDir, RECORDING_NAME))
         }
     }
 }
@@ -105,7 +128,7 @@ internal object VaultRole {
  * The vault format version. `header.bin` and `unlock.bin` both hold it after their magic, and the slot key label names it (see [Vault]).
  * A vault with a file of any other version is unverifiable, so an unlock erases it, and nothing is migrated (see [VaultFormatChangedException]).
  */
-internal const val VAULT_FORMAT_VERSION: Byte = 3
+internal const val VAULT_FORMAT_VERSION: Byte = 4
 
 /**
  * Contents of `unlock.bin`, which holds one slot for the real vault and one for the decoy vault that a Duress Password
@@ -137,8 +160,12 @@ internal object VaultKeyFile {
     private val TAG_LABEL = "lensly.vault.slot-tag".toByteArray(Charsets.US_ASCII)
 
     /** AAD of the two wrapping layers. It keeps the layers apart and ties each blob to this format. */
-    val SOFTWARE_AAD = "lensly.vault.key.sw.v3".toByteArray(Charsets.US_ASCII)
-    val HARDWARE_AAD = "lensly.vault.key.hw.v3".toByteArray(Charsets.US_ASCII)
+    val SOFTWARE_AAD = "lensly.vault.key.sw.v$VAULT_FORMAT_VERSION".toByteArray(Charsets.US_ASCII)
+    val HARDWARE_AAD = "lensly.vault.key.hw.v$VAULT_FORMAT_VERSION".toByteArray(Charsets.US_ASCII)
+
+    /** SHA-256 of the file [bytes] in lower-case hex. The Failure Delay state holds it, so only the file last written opens (see [FailureState.keyFileDigest]). */
+    fun digestOf(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it.toInt() and 0xff) }
 
     /** The two slots of a file, in file order. */
     class Contents internal constructor(val slots: List<ByteArray>) {

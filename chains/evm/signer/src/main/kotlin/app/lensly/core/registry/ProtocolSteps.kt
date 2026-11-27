@@ -24,6 +24,9 @@ internal object ProtocolSteps {
     private const val AAVE_V3 = "Aave V3"
     private const val AAVE_POOL_MAINNET = "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2"
     private const val AAVE_WETH_GATEWAY = "0xd01607c3c5ecaba394d8be377a08590149325722"
+    private const val SUPPLIES_TO = "supplies to"
+    private const val WITHDRAWS_TO = "withdraws to"
+    private const val REPAYS_DEBT_OF = "repays the debt of"
     private const val NO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
     /** Aave's variable interest rate mode. `BigInteger.TWO` needs a newer API level than the module's minimum, so it is built here. */
@@ -66,11 +69,11 @@ internal object ProtocolSteps {
     private val AAVE: Map<String, Known> = mapOf(
         "0x617ba037" to Known("supply(address,uint256,address,uint16)") { c ->
             val line = "Supply ${c.amount(c.uint(1), c.address(0))} to $AAVE_V3 on behalf of ${c.who(c.address(2))}${referral(c.uint(3))}"
-            CallSteps(listOf(line), emptyList())
+            CallSteps(listOf(line), notYou(c.from, SUPPLIES_TO, c.address(2)))
         },
         "0x69328dec" to Known("withdraw(address,uint256,address)") { c ->
             val line = "Withdraw ${amountOrAll(c, c.uint(1), c.address(0))} from $AAVE_V3 to ${c.who(c.address(2))}"
-            CallSteps(listOf(line), emptyList())
+            CallSteps(listOf(line), notYou(c.from, WITHDRAWS_TO, c.address(2)))
         },
         "0xa415bcad" to Known("borrow(address,uint256,uint256,uint16,address)") { c ->
             val mode = c.uint(2)
@@ -82,7 +85,7 @@ internal object ProtocolSteps {
             val mode = c.uint(2)
             val line = "Repay ${amountOrAll(c, c.uint(1), c.address(0))} to $AAVE_V3 at ${rateText(mode)} " +
                 "on behalf of ${c.who(c.address(3))}"
-            CallSteps(listOf(line), rateWarnings(mode))
+            CallSteps(listOf(line), rateWarnings(mode) + notYou(c.from, REPAYS_DEBT_OF, c.address(3)))
         },
         "0x5a3b74b9" to Known("setUserUseReserveAsCollateral(address,bool)") { c ->
             val symbol = c.symbolOf(c.address(0))
@@ -105,13 +108,13 @@ internal object ProtocolSteps {
         "0x02c205f0" to Known("supplyWithPermit(address,uint256,address,uint16,uint256,uint8,bytes32,bytes32)") { c ->
             val line = "Supply ${c.amount(c.uint(1), c.address(0))} to $AAVE_V3 on behalf of ${c.who(c.address(2))}" +
                 "${referral(c.uint(3))}, approved by a signed permit"
-            CallSteps(listOf(line), emptyList())
+            CallSteps(listOf(line), notYou(c.from, SUPPLIES_TO, c.address(2)))
         },
         "0xee3e210b" to Known("repayWithPermit(address,uint256,uint256,address,uint256,uint8,bytes32,bytes32)") { c ->
             val mode = c.uint(2)
             val line = "Repay ${amountOrAll(c, c.uint(1), c.address(0))} to $AAVE_V3 at ${rateText(mode)} " +
                 "on behalf of ${c.who(c.address(3))}, approved by a signed permit"
-            CallSteps(listOf(line), rateWarnings(mode))
+            CallSteps(listOf(line), rateWarnings(mode) + notYou(c.from, REPAYS_DEBT_OF, c.address(3)))
         },
         "0x2dad97d4" to Known("repayWithATokens(address,uint256,uint256)") { c ->
             val mode = c.uint(2)
@@ -128,17 +131,18 @@ internal object ProtocolSteps {
     private val AAVE_GATEWAY: Map<String, Known> = mapOf(
         "0x474cf53d" to Known("depositETH(address,address,uint16)") { c ->
             val line = "Supply ${c.nativeAmount(c.sent)} to $AAVE_V3 as WETH on behalf of ${c.who(c.address(1))}${referral(c.uint(2))}"
-            CallSteps(listOf(line), emptyList())
+            CallSteps(listOf(line), notYou(c.from, SUPPLIES_TO, c.address(1)))
         },
         "0x80500d20" to Known("withdrawETH(address,uint256,address)") { c ->
-            CallSteps(listOf("Withdraw ${nativeOrAll(c, c.uint(1))} from $AAVE_V3 to ${c.who(c.address(2))}"), emptyList())
+            val line = "Withdraw ${nativeOrAll(c, c.uint(1))} from $AAVE_V3 to ${c.who(c.address(2))}"
+            CallSteps(listOf(line), notYou(c.from, WITHDRAWS_TO, c.address(2)))
         },
         "0xbcc3c255" to Known("repayETH(address,uint256,address)") { c ->
             val amount = c.uint(1)
             val what = if (amount == ContractCall.MAX_UINT256) "all ETH owed" else "up to ${c.nativeAmount(amount)}"
             val line = "Repay $what to $AAVE_V3 at a variable rate on behalf of ${c.who(c.address(2))}, sending " +
                 "${c.nativeAmount(c.sent)} (any excess is refunded)"
-            CallSteps(listOf(line), emptyList())
+            CallSteps(listOf(line), notYou(c.from, REPAYS_DEBT_OF, c.address(2)))
         },
         "0xe74f7b85" to Known("borrowETH(address,uint256,uint16)") { c ->
             val line = "Borrow ${c.nativeAmount(c.uint(1))} from $AAVE_V3 at a variable rate, sent to you${referral(c.uint(2))}"
@@ -170,8 +174,7 @@ internal object ProtocolSteps {
             val asset = c.address(1)
             val collateral = if (asset == market.base) "" else " collateral"
             val line = "Withdraw ${amountOrAll(c, c.uint(2), asset)}$collateral from Compound V3 (${market.symbol}) to ${c.who(to)}"
-            val warnings = if (to == c.from) emptyList() else listOf("This withdraws to ${shortAddress(to)}, not you")
-            CallSteps(listOf(line), warnings)
+            CallSteps(listOf(line), notYou(c.from, WITHDRAWS_TO, to))
         },
     )
 
@@ -185,8 +188,7 @@ internal object ProtocolSteps {
             val asset = c.address(1)
             val collateral = if (asset == market.base) "" else " as collateral"
             val recipient = if (dst == c.from) "" else " for ${shortAddress(dst)}"
-            val warnings = if (dst == c.from) emptyList() else listOf("This supplies to ${shortAddress(dst)}, not you")
-            CallSteps(listOf("Supply ${c.amount(c.uint(2), asset)}$collateral to Compound V3 (${market.symbol})$recipient"), warnings)
+            CallSteps(listOf("Supply ${c.amount(c.uint(2), asset)}$collateral to Compound V3 (${market.symbol})$recipient"), notYou(c.from, SUPPLIES_TO, dst))
         },
         "0x26441318" to Known("withdrawFrom(address,address,address,uint256)") { c ->
             val src = c.address(0)
@@ -195,11 +197,7 @@ internal object ProtocolSteps {
             val collateral = if (asset == market.base) "" else " collateral"
             val account = if (src == c.from) "" else " of ${shortAddress(src)}"
             val line = "Withdraw ${amountOrAll(c, c.uint(3), asset)}$collateral from Compound V3 (${market.symbol})$account to ${c.who(to)}"
-            val warnings = buildList {
-                if (src != c.from) add("This withdraws from ${shortAddress(src)}, not you")
-                if (to != c.from) add("This withdraws to ${shortAddress(to)}, not you")
-            }
-            CallSteps(listOf(line), warnings)
+            CallSteps(listOf(line), notYou(c.from, "withdraws from", src) + notYou(c.from, WITHDRAWS_TO, to))
         },
     )
 

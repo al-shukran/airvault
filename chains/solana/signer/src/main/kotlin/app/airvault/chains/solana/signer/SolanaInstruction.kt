@@ -93,6 +93,84 @@ sealed interface SolanaInstruction {
     data class NonceSeed(val base: SolanaMessageAccount, val text: String)
 
     /**
+     * SPL Token or Token-2022 Approve (tag 4) or ApproveChecked (tag 13): lets [delegate] spend up to [amount] from [source]. [mint] and
+     * [decimals] are set only for the checked form.
+     */
+    data class TokenApprove(
+        override val programId: SolanaMessageAccount,
+        val source: SolanaMessageAccount,
+        val mint: SolanaMessageAccount?,
+        val delegate: SolanaMessageAccount,
+        val owner: SolanaMessageAccount,
+        val amount: ULong,
+        val decimals: Int?,
+    ) : SolanaInstruction
+
+    /**
+     * SPL Token or Token-2022 SetAuthority (tag 6): hands the [authorityType] authority of [account] from [currentAuthority] to
+     * [newAuthority], or removes it when [newAuthority] is null.
+     */
+    data class TokenSetAuthority(
+        override val programId: SolanaMessageAccount,
+        val account: SolanaMessageAccount,
+        val authorityType: Int,
+        val newAuthority: SolanaMessageAccount?,
+        val currentAuthority: SolanaMessageAccount,
+    ) : SolanaInstruction
+
+    /** SPL Token or Token-2022 CloseAccount (tag 9): closes [account], and its lamports go to [destination]. */
+    data class TokenCloseAccount(
+        override val programId: SolanaMessageAccount,
+        val account: SolanaMessageAccount,
+        val destination: SolanaMessageAccount,
+        val owner: SolanaMessageAccount,
+    ) : SolanaInstruction
+
+    /** SPL Token or Token-2022 Burn (tag 8) or BurnChecked (tag 15): destroys [amount] of [mint] held in [account]. [decimals] is set only for the checked form. */
+    data class TokenBurn(
+        override val programId: SolanaMessageAccount,
+        val account: SolanaMessageAccount,
+        val mint: SolanaMessageAccount,
+        val authority: SolanaMessageAccount,
+        val amount: ULong,
+        val decimals: Int?,
+    ) : SolanaInstruction
+
+    /** System Program CreateAccount (index 0) that is not a nonce setup: [funder] pays [lamports] into the new [account], which [owner] program owns. */
+    data class SystemCreateAccount(
+        override val programId: SolanaMessageAccount,
+        val funder: SolanaMessageAccount,
+        val account: SolanaMessageAccount,
+        val lamports: ULong,
+        val space: ULong,
+        val owner: String,
+    ) : SolanaInstruction
+
+    /** System Program Assign (index 1): hands [account] to the program [owner]. */
+    data class SystemAssign(
+        override val programId: SolanaMessageAccount,
+        val account: SolanaMessageAccount,
+        val owner: String,
+    ) : SolanaInstruction
+
+    /** System Program WithdrawNonceAccount (index 5): [authority] moves [lamports] out of [nonceAccount] to [to]. */
+    data class WithdrawNonce(
+        override val programId: SolanaMessageAccount,
+        val nonceAccount: SolanaMessageAccount,
+        val to: SolanaMessageAccount,
+        val authority: SolanaMessageAccount,
+        val lamports: ULong,
+    ) : SolanaInstruction
+
+    /** System Program AuthorizeNonceAccount (index 7): hands the authority of [nonceAccount] from [currentAuthority] to [newAuthority]. */
+    data class AuthorizeNonce(
+        override val programId: SolanaMessageAccount,
+        val nonceAccount: SolanaMessageAccount,
+        val currentAuthority: SolanaMessageAccount,
+        val newAuthority: SolanaMessageAccount,
+    ) : SolanaInstruction
+
+    /**
      * Any other program, or a known program with a shape this decoder does not read. [dataHex] is the instruction data, and
      * [accountIndices] are the instruction's indices into the message. [knownProgram] is set when the program is one this decoder reads
      * in some of its instructions, so the review can say the instruction is not read rather than that the program is unknown.

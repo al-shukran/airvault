@@ -214,7 +214,7 @@ internal fun summarySentence(
                     appendNamed(name, role, palette)
                     appendAddressStart(part.address, mono)
                 } else {
-                    appendMono(shortAddress(part.address), mono)
+                    appendMono(counterpartyText(part.address), mono)
                 }
             }
             is SummaryPart.Send -> {
@@ -230,10 +230,13 @@ internal fun summarySentence(
     }
 }
 
+/** An unnamed counterparty in a sentence: an EVM address as its first and last two groups of 4, any other address short. */
+private fun counterpartyText(address: String): String = if (address.startsWith("0x")) addressEnds(address) else shortAddress(address)
+
 /** A party of a send: its name in its role's colour, or its address in full in mono when no name is known. */
 private fun AnnotatedString.Builder.appendParty(address: String, name: PartyName?, mono: FontFamily, palette: LumenPalette) {
     if (name == null) {
-        appendMono(address, mono)
+        appendMono(if (address.startsWith("0x")) groupAddress(address) else address, mono)
     } else {
         appendNamed(name.text, name.role, palette)
         appendAddressStart(address, mono)
