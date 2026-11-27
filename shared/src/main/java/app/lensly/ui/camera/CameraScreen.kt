@@ -254,8 +254,9 @@ private fun CameraViewfinder(
     }
 
     fun beginVideo() {
-        // A scratch file that an interrupted recording left behind is shredded before this one starts.
-        shredFile(scratch)
+        // A scratch file that an interrupted recording left behind is shredded before this one starts. This waits for the shred that the
+        // start of the app runs in the background, so the recording never writes into the file being shredded.
+        VaultLayout.of(context).shredRecording()
         val started = controller.startRecording(
             context = context,
             file = scratch,

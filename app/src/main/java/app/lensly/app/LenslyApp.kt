@@ -8,6 +8,12 @@ import app.lensly.core.parse.SandboxedParser
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultLayout
 import app.lensly.ui.camera.EntryGesture
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 /**
@@ -32,7 +38,24 @@ class LenslyApp : Application(), CoverApplication {
         super.onCreate()
         logBackupExclusion()
         // A video that an interrupted recording left in the cache is plain, so it goes at the start, whether or not a vault exists.
-        VaultLayout.of(this).shredRecording()
+        // A large one takes seconds, so it goes in the background. A new recording waits for it (see [VaultLayout.shredRecording]).
+        startupShred = shredRecordingInBackground(VaultLayout.of(this))
+    }
+
+    /** The shred that the start of the app began, for tests to wait on. */
+    internal var startupShred: Job? = null
+}
+
+/** Shreds the leftover recording of [layout] on [dispatcher], and returns at once. A failed shred never crashes the app. */
+internal fun shredRecordingInBackground(
+    layout: VaultLayout,
+    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    shred: () -> Unit = { layout.shredRecording() },
+): Job = CoroutineScope(SupervisorJob() + dispatcher).launch {
+    try {
+        shred()
+    } catch (e: Exception) {
+        // The shred is best effort, and the next start tries again.
     }
 }
 

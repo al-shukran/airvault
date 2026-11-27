@@ -60,17 +60,22 @@ class VaultLayout(
     /**
      * Overwrites, then deletes, the plain recording file that an interrupted recording left behind. True when none is left. The folder is
      * synced after the delete, so a power cut cannot bring the entry back; a folder that cannot be synced does not fail the shred.
+     *
+     * One shred runs at a time in the process. The start of the app shreds in the background, and the camera calls this before it records
+     * into the same file, so a new recording waits until the leftover is gone and never writes into the file being shredded.
      */
     fun shredRecording(overwrite: (File) -> Unit = ::overwriteInPlace, sync: (File) -> Unit = ::syncDirectory): Boolean {
         val file = recording ?: return true
-        overwriteBestEffort(file, overwrite)
-        if (!file.delete() && file.exists()) return false
-        try {
-            file.parentFile?.let(sync)
-        } catch (e: IOException) {
-            // The file is deleted. The journal commits the delete within seconds.
+        synchronized(shredLock) {
+            overwriteBestEffort(file, overwrite)
+            if (!file.delete() && file.exists()) return false
+            try {
+                file.parentFile?.let(sync)
+            } catch (e: IOException) {
+                // The file is deleted. The journal commits the delete within seconds.
+            }
+            return true
         }
-        return true
     }
 
     fun walletDir(walletId: String): File = File(wallets, walletId)
@@ -106,6 +111,8 @@ class VaultLayout(
     val pendingKeyFile = File(photos, "pending.bin")
 
     companion object {
+        private val shredLock = Any()
+
         /** The vault's folder under the app's no-backup files folder. Its name says nothing about what the folder holds. */
         const val DIR_NAME = "data"
 
