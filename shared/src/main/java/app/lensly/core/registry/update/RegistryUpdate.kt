@@ -100,9 +100,9 @@ object RegistryUpdate {
      * revoked key is refused as [RegistryUpdateException.RevokedKey], including the whitelist and denylist this store keeps from earlier
      * packages, so a package that revokes the key of a list it does not restate is refused with [RegistryUpdateException.Conflict]. Every
      * later package must revoke the same keys, or it is refused with [RegistryUpdateException.Conflict]: a revocation is never undone by
-     * omission. The revocations of the installed package count whenever it verifies against a trusted key, whatever the seal says: a
-     * store that reads as unverified refuses more, never less. When the seal names the file by hash, they also count after a build
-     * revokes its signer. A recovery package that revokes the key of the installed package, or
+     * omission. The revocations of the installed package count when the seal names the file by hash, also after a build revokes its
+     * signer. When no seal does, they count only while a recovery key that the build trusts signed the file: a store that reads as
+     * unverified keeps what a recovery package revoked, and a release-signed restatement alone is not kept. A recovery package that revokes the key of the installed package, or
      * installs the installed file again, is accepted whatever its sequence, and so is any package signed by an active key when the build
      * lists the installed package's signer as revoked, provided it is newer than the build's catalog and restates the whitelist and the
      * denylist that the replaced package carried (or is refused with [RegistryUpdateException.Conflict]). The sequence of such a package
@@ -164,8 +164,11 @@ object RegistryUpdate {
             // The same package again after a crash between writing its file and its seal: the file is compared without the seal, which
             // that crash leaves stale. Only an install that got as far as making the Keystore key of this sequence can have crashed
             // there: a planted file whose sequence the Keystore never held would otherwise let an old package roll the floor back.
+            // With a verified-by-key seal the crash is one that lowers a floor (the recovery package's key sits below the sealed one), so a
+            // key of its sequence is enough. With no seal, the crash is an upgrade, whose key is the newest: an old package at the sealed
+            // floor of a crashed upgrade must not pass, or it would roll the floor back.
             val crashRetry = recovery && incoming.revokedKeys.isNotEmpty() && !verified && installedBytes(dir).contentEquals(bytes) &&
-                incoming.sequence in keystore.registryMacKeySeqs()
+                ((prior != null && incoming.sequence in keystore.registryMacKeySeqs()) || incoming.sequence == newest)
             val replacesInstalled = (setsFloor && (revokesSigner || signerRevokedByBuild)) || crashRetry
             if (setsFloor && signerRevokedByBuild && onDisk != null) checkReplacedListsRestated(incoming, onDisk, prior, baked, dir, keys)
             if (!replacesInstalled && (incoming.sequence < accepted || (incoming.sequence == accepted && verified))) {
@@ -419,13 +422,15 @@ object RegistryUpdate {
     /**
      * The IDs of the keys the installed package in [dir] revokes. When [seal] names the file by hash, this device accepted it, so its
      * revocations count even after a build revokes its signer: the seal proves they were accepted from a package that verified then.
-     * Any other file counts only while its signature verifies under an active key of [trustedKeys], as before seals existed, so a store
-     * whose seal is lost still refuses a revoked key, and a file signed by a key the build revokes revokes nothing. A planted file signed
-     * by a leaked active key can therefore only add revocations: that denies updates, and never accepts a revoked key.
+     * Any other file counts only while its signature verifies under an active [KeyRole.RECOVERY] key of [trustedKeys], the one role that
+     * may add a revocation (see [install]), so a store whose seal is lost still refuses a revoked key. A file signed by a release key or
+     * by a key the build revokes revokes nothing: a leaked everyday key must not lock out the others. A planted file signed by a leaked
+     * recovery key can therefore only add revocations: that denies updates, and never accepts a revoked key.
      */
     private fun revokedByInstalled(dir: File, seal: RegistrySeal.Seal?, trustedKeys: List<TrustedKey>): Set<String> {
         val installed = seal?.let { sealedOnDisk(dir, it, trustedKeys) }
             ?: installedBytes(dir)?.let { runCatching { PackageFormat.read(it, trustedKeys) }.getOrNull() }
+                ?.takeIf { pkg -> trustedKeys.any { it.id == pkg.signerKeyId && it.role == KeyRole.RECOVERY } }
         return installed?.revokedKeys?.toSet().orEmpty()
     }
 
