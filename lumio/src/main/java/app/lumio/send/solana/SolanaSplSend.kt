@@ -57,8 +57,9 @@ object SolanaSplSend {
         require(amount > 0UL) { "Enter an amount above 0" }
         require(balance.amount >= BigInteger(amount.toString())) { "This account does not hold enough of this token." }
         val rent = if (recipientAccountExists) 0L else rentLamports
-        // The units the priority fee pays for: the nonce advance, the token transfer, and the token account's creation when it is made.
-        val units = SolanaPriorityFee.SYSTEM_UNITS + SolanaPriorityFee.PROGRAM_UNITS + if (recipientAccountExists) 0L else SolanaPriorityFee.PROGRAM_UNITS
+        // The units the priority fee pays for: the nonce advance, the price instruction itself (both builtins), the token transfer, and the token
+        // account's creation when it is made.
+        val units = 2 * SolanaPriorityFee.SYSTEM_UNITS + SolanaPriorityFee.PROGRAM_UNITS + if (recipientAccountExists) 0L else SolanaPriorityFee.PROGRAM_UNITS
         val priorityFee = if (priority) SolanaPriorityFee.lamports(units) else 0L
         val needed = BigInteger.valueOf(SOLANA_FEE_LAMPORTS + priorityFee + SOLANA_RENT_RESERVE_LAMPORTS + rent)
         require(sol >= needed) { "This account does not hold enough SOL for the fee, the rent reserve and any new token account." }

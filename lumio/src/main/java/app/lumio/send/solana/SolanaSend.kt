@@ -110,10 +110,10 @@ object SolanaSend {
     private val random = SecureRandom()
 
     /**
-     * The priority fee of a SOL send when the Priority Fee switch is [priority]: one nonce advance and one transfer, both System Program instructions, so
-     * two builtins' units. Zero when the switch is off.
+     * The priority fee of a SOL send when the Priority Fee switch is [priority]: one nonce advance, one transfer and the price instruction itself, all builtins, so
+     * three builtins' units. Zero when the switch is off.
      */
-    fun sendPriorityFee(priority: Boolean): Long = if (priority) SolanaPriorityFee.lamports(2 * SolanaPriorityFee.SYSTEM_UNITS) else 0L
+    fun sendPriorityFee(priority: Boolean): Long = if (priority) SolanaPriorityFee.lamports(3 * SolanaPriorityFee.SYSTEM_UNITS) else 0L
 
     /**
      * The most that can be sent from [balance]: the balance less the fee, the priority fee when [priority] is set, and the rent reserve. While the one-time
