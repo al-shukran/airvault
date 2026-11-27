@@ -95,7 +95,10 @@ abstract class TxDao {
     @RawQuery
     abstract suspend fun count(query: SupportSQLiteQuery): Int
 
-    /** Runs `PRAGMA wal_checkpoint(TRUNCATE)` in [query]: the log's pages go into the file and the log is emptied, so no deleted row is left in it. */
+    /**
+     * Runs `PRAGMA wal_checkpoint(TRUNCATE)` in [query]: the log's pages go into the file and the log is truncated, so it holds no deleted row. Returns the
+     * busy column, which is non-zero when a reader kept the log from being truncated.
+     */
     @RawQuery
     abstract suspend fun truncateLog(query: SupportSQLiteQuery): Int
 
