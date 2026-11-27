@@ -88,7 +88,7 @@ tick a check. A `BLOCK` entry refuses the request instead.
 | --- | --- |
 | `chainId` | Optional. Chain the entry applies to; omit it for every chain. Required when `contract` is set. |
 | `contract` | Optional. Lowercase `0x` address the entry applies to. |
-| `party` | Optional. Lowercase `0x` address that must appear in the request: the spender or operator of an approval, `setApprovalForAll` or permit, the sender or recipient of a transfer, or the address the call goes to. Needs no `chainId`, and needs `minSchemaVersion` 5. |
+| `party` | Optional. Lowercase `0x` address that must appear in the request: any address word of the calldata, any address value of typed data, or the address the call goes to. Needs no `chainId`, and needs `minSchemaVersion` 5. |
 | `selector` | Optional. Lowercase `0x` and 8 hex digits: the Function Selector of the call. |
 | `primaryType` | Optional. An EIP-712 primary type such as `Permit`. It matches typed data of that type, never a transaction, and cannot be combined with `selector`. |
 | `condition` | `ANY` (default), `UNLIMITED` (the amount is unlimited, for approve and increaseAllowance) or `APPROVED` (an operator grant of `true`, for setApprovalForAll). Needs a `selector`. |
