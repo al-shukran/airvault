@@ -291,7 +291,6 @@ private fun AddCustomNetworkRoute(navController: NavHostController, holder: Vaul
 /**
  * The Security page: the App Password, whose row opens its change, Device Protection, whose switch turns Biometric Unlock off, or on through the App
  * Password step, the Hidden Entry Gesture, whose row opens the choice shared through :shared, and the lock. Each choice applies as the owner makes it.
- * In a Decoy Vault session the switch shows too, or its absence would tell that session apart, and turning it on there seals nothing.
  */
 @Composable
 private fun SecuritySettingsRoute(navController: NavHostController, holder: VaultHolder, lockChoices: LockSettingsState, onLock: () -> Unit) {
@@ -301,7 +300,7 @@ private fun SecuritySettingsRoute(navController: NavHostController, holder: Vaul
     val scope = rememberCoroutineScope()
     val canEnable = remember { biometric.canEnable() }
     // Read again each time this page comes back to the top, because the App Password step may have turned the setting on.
-    var on by remember(top) { mutableStateOf(biometric.isOn(session)) }
+    var on by remember(top) { mutableStateOf(biometric.isOn()) }
     SecuritySettingsPage(
         lock = lockChoices.settings,
         biometric = BiometricSwitch(on = on, canEnable = canEnable),
@@ -311,11 +310,11 @@ private fun SecuritySettingsRoute(navController: NavHostController, holder: Vaul
         onDuress = { navController.navigate(LumioRoute.DURESS_PASSWORD) },
         onBiometric = { want ->
             if (want) {
-                if (turningOnOpensPasswordStep(session)) navController.navigate(LumioRoute.DEVICE_PROTECTION_ENABLE)
+                navController.navigate(LumioRoute.DEVICE_PROTECTION_ENABLE)
             } else {
                 scope.launch {
-                    biometric.disable(session)
-                    on = biometric.isOn(session)
+                    biometric.disable()
+                    on = biometric.isOn()
                 }
             }
         },

@@ -121,7 +121,7 @@ class ActivityScreenTest {
             )
             ReviewHistory(real).append(realWallet, sampleHistory()[0])
 
-            val decoy = VaultSession(layout, keys, ByteArray(32) { 99 }, isDecoy = true)
+            val decoy = VaultSession(layout, keys, ByteArray(32) { 99 }, side = 1)
             try {
                 val decoyWallet = WalletStore(decoy).create(
                     name = "Everyday",

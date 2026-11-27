@@ -59,6 +59,16 @@ interface KeystoreBackend {
     /** The sequence numbers of the registry floor keys the Keystore holds. Throws if the Keystore cannot list them. */
     fun registryMacKeySeqs(): List<Long>
 
+    /**
+     * Anchors the revocation of the registry signing key [keyId] by making a Keystore key under it, unless one is there. File access
+     * cannot delete a Keystore key, so a revocation held here outlives the registry's files. A revocation is permanent: nothing removes
+     * these keys, and [deleteAll] leaves them.
+     */
+    fun anchorRegistryRevocation(keyId: String)
+
+    /** The IDs of the registry signing keys whose revocation is anchored. Throws if the Keystore cannot list them. */
+    fun registryRevokedKeyIds(): List<String>
+
     /** Creates the key of wallet folder [keyId], replacing any key under that id, and returns it. */
     fun createFolderKey(keyId: String): SecretKey
 
@@ -82,6 +92,9 @@ interface KeystoreBackend {
 
     /** Removes every key the vault uses on this device. */
     fun deleteAll()
+
+    /** Deletes the key that seals the Vault Key for biometric unlock, if there is one. A backend without one has nothing to delete. */
+    fun deleteBiometricKey() {}
 
     /** The `KeyInfo.securityLevel` that the Keystore reports for [key]. */
     fun securityLevel(key: SecretKey): Int
@@ -146,6 +159,10 @@ internal class AndroidKeystoreBackend(
 
     override fun registryMacKeySeqs(): List<Long> = VaultKeystore.registryMacKeySeqs()
 
+    override fun anchorRegistryRevocation(keyId: String) = VaultKeystore.anchorRegistryRevocation(keyId)
+
+    override fun registryRevokedKeyIds(): List<String> = VaultKeystore.registryRevokedKeyIds()
+
     override fun createFolderKey(keyId: String): SecretKey = VaultKeystore.createFolderKey(keyId)
 
     override fun folderKey(keyId: String): SecretKey? = VaultKeystore.folderKey(keyId)
@@ -161,6 +178,8 @@ internal class AndroidKeystoreBackend(
     override fun deletePendingPhotoKey() = VaultKeystore.deletePendingPhotoKey()
 
     override fun deleteAll() = VaultKeystore.deleteAll()
+
+    override fun deleteBiometricKey() = VaultKeystore.deleteBiometricKey()
 
     override fun securityLevel(key: SecretKey): Int = VaultKeystore.securityLevel(key)
 

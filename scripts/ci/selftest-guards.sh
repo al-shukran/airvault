@@ -759,6 +759,7 @@ expect_gradle true "a Kotlin file outside a module" tools/x.kt
 expect_gradle true "the version catalog" scripts/ci/run-step.sh gradle/libs.versions.toml
 expect_gradle true "a resource of :lumio" lumio/src/main/res/values/strings.xml
 expect_gradle true "a file of a nested module" chains/evm/signer/src/main/java/Signer.java
+expect_gradle true "a licence file" licenses/THIRD-PARTY-NOTICES.txt
 expect_gradle true "gradle.properties" gradle.properties
 expect_gradle true "the root build file" build.gradle.kts
 expect_gradle true "the wrapper script" gradlew

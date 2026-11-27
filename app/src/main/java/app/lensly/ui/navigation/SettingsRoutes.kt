@@ -328,9 +328,7 @@ private fun ChangePasswordRoute(navController: NavHostController, holder: VaultH
 }
 
 /**
- * Sets the Duress Password from the open session, with the decoy's first wallet made by [DecoyVault]. On a decoy session the
- * same call changes nothing: it refuses the decoy's own password as [ChangeOutcome.SameAsApp] and answers Changed to any other strong one.
- * NonCancellable, so a set that has started runs to its outcome. The vault zeroes [password] on every path.
+ * Sets the Duress Password from the open session, with the decoy's first wallet made by [DecoyVault]. NonCancellable, so a set that has started runs to its outcome. The vault zeroes [password] on every path.
  */
 private suspend fun setDuressWith(holder: VaultHolder, password: CharArray): ChangeOutcome =
     withContext(NonCancellable) {

@@ -76,6 +76,16 @@ abstract class TxDao {
     @Query("SELECT * FROM tx WHERE accountKey = :accountKey")
     abstract suspend fun rowsOf(accountKey: ByteArray): List<TxRow>
 
+    @Query("SELECT * FROM tx ORDER BY txId, accountKey LIMIT :limit OFFSET :offset")
+    abstract suspend fun rowsPage(limit: Int, offset: Int): List<TxRow>
+
+    /** Deletes the terms that name no row any more: a row's terms whose row is gone, and a comment's terms (under [commentKey]) whose comment is gone. */
+    @Query(
+        "DELETE FROM tx_term WHERE (accountKey != :commentKey AND NOT EXISTS (SELECT 1 FROM tx WHERE tx.txId = tx_term.txId AND tx.accountKey = tx_term.accountKey)) " +
+            "OR (accountKey = :commentKey AND NOT EXISTS (SELECT 1 FROM tx_comment WHERE tx_comment.txId = tx_term.txId))",
+    )
+    abstract suspend fun deleteOrphanTerms(commentKey: ByteArray)
+
     @Query("SELECT EXISTS(SELECT 1 FROM tx WHERE txId = :txId)")
     abstract suspend fun hasRow(txId: ByteArray): Boolean
 
@@ -84,6 +94,13 @@ abstract class TxDao {
 
     @RawQuery
     abstract suspend fun count(query: SupportSQLiteQuery): Int
+
+    /**
+     * Runs `PRAGMA wal_checkpoint(TRUNCATE)` in [query]: the log's pages go into the file and the log is truncated, so it holds no deleted row. Returns the
+     * busy column, which is non-zero when a reader kept the log from being truncated.
+     */
+    @RawQuery
+    abstract suspend fun truncateLog(query: SupportSQLiteQuery): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun insertComment(comment: TxComment)

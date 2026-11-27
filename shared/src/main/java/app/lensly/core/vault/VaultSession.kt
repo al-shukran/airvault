@@ -19,12 +19,6 @@ internal const val WALLET_SLOT_STEP = 16
 /** Names the file that lists the unused wallet slots. It sits outside `items/`, so it is never a wallet folder. */
 internal const val WALLET_PAD_FILE_NAME = "spare.bin"
 
-/** The section of [WALLET_PAD_FILE_NAME] that the real vault writes. */
-internal const val REAL_SECTION = 0
-
-/** The section of [WALLET_PAD_FILE_NAME] that the Decoy Vault writes. */
-internal const val DECOY_SECTION = 1
-
 /** The most wallet folders one vault's free list can name. A store holds at most this many folders. */
 internal const val PAD_CAPACITY = 1024
 
@@ -45,7 +39,7 @@ private const val PAD_PLAIN_BYTES = 4 + PAD_CAPACITY * WALLET_ID_BYTES
 /** One section of the pad file: IV, the sealed list, and the tag. */
 private const val PAD_SECTION_BYTES = Aead.IV_BYTES + PAD_PLAIN_BYTES + 16
 
-/** The pad file: one section for the real vault, then one for the Decoy Vault. Its size never changes. */
+/** The pad file: one section for each side (see [VaultRole]). Its size never changes. */
 private const val PAD_FILE_BYTES = 2 * PAD_SECTION_BYTES
 
 /**
@@ -69,7 +63,7 @@ internal object VaultRecordNames {
      */
     private val FILE_BYTES: Map<String, Int> = mapOf(
         // Under 100 bytes: a flag, a few codes, a key.
-        PHOTO_KEY to 256, DECOY_SHOWN to 256, "lumio-network-mode" to 256, "lumio-prefer-rpc" to 256,
+        PHOTO_KEY to 256, "lumio-network-mode" to 256, "lumio-prefer-rpc" to 256,
         // A few hundred bytes: settings, option records and the setup checklist.
         "settings" to 1024, "lumio-display-settings" to 1024, "lumio-evm-settings" to 1024, "lumio-finish-setup" to 1024,
         "lumio-providers" to 1024, "lumio-transaction-settings" to 1024,
@@ -95,9 +89,6 @@ internal object VaultRecordNames {
 
     /** The private half of a vault's photo key pair. See [VaultSession.ensurePhotoKey]. */
     const val PHOTO_KEY = "photo-key"
-
-    /** What a Decoy Vault shows for the real vault's lockout. See [app.lensly.app.DecoyShown]. */
-    const val DECOY_SHOWN = "decoy-shown"
 
     private val FOLDER_LOCK = Any()
 
@@ -234,7 +225,7 @@ class WalletPad(
     private val layout: VaultLayout,
     private val keys: KeystoreBackend,
     vaultKey: ByteArray,
-    /** The section this vault writes: [REAL_SECTION] or [DECOY_SECTION]. */
+    /** The section this vault writes: its side, 0 or 1 (see [VaultRole]). */
     private val section: Int,
 ) {
     private val random = SecureRandom()
@@ -401,7 +392,7 @@ class WalletPad(
             val theirs = 1 - section
             val other = readFile()?.copyOfRange(theirs * PAD_SECTION_BYTES, (theirs + 1) * PAD_SECTION_BYTES)
                 ?: ByteArray(PAD_SECTION_BYTES).also { random.nextBytes(it) }
-            writeAtomically(file, if (section == REAL_SECTION) mine + other else other + mine)
+            writeAtomically(file, if (section == 0) mine + other else other + mine)
         } finally {
             plain.fill(0)
         }
@@ -416,9 +407,9 @@ class WalletPad(
  * the wallet's folder, padded to a fixed size and sealed under the same key. [deleteWallet] deletes the folder's Keystore key first, which
  * shreds the wallet even if its files survive.
  *
- * A session is either the real vault or the Decoy Vault ([isDecoy]). Both vaults keep their wallets and records in the same
- * folders and pool, but a session lists, reads and deletes only the files its own key opens. A wallet of the other vault is treated
- * as absent. A decoy session therefore cannot see, change, or delete any real wallet, and the reverse holds too.
+ * A session is always the vault that its password opened, on one side ([side]). A vault and its Decoy Vault keep their wallets and
+ * records in the same folders and pool, but a session lists, reads and deletes only the files its own key opens. A wallet of the other
+ * vault is treated as absent.
  *
  * A padded store keeps a fixed number of wallet folders, so the folder count never says how many wallets exist. Unused
  * folders look like wallets; see [WalletPad].
@@ -432,8 +423,8 @@ class VaultSession constructor(
     private val layout: VaultLayout,
     private val keys: KeystoreBackend,
     vaultKey: ByteArray,
-    /** True for the Decoy Vault, which a Duress Password opens. The App Password never opens it. */
-    val isDecoy: Boolean = false,
+    /** The side of this vault, 0 or 1 (see [VaultRole]): its section of the wallet pad and its photo folder. */
+    val side: Int = 0,
     /** This vault's unused wallet slots, or null when the folder count is not padded (tests and plain folders). */
     private val pad: WalletPad? = null,
 ) {
@@ -776,8 +767,8 @@ class VaultSession constructor(
 
     /**
      * Makes this vault's photo key pair if it has none, and writes the public half to [VaultLayout.photoKeyFile] when that file differs.
-     * The private half is a vault record, so only this vault's password opens it. The real vault also makes sure the Decoy Vault's file
-     * exists, with a placeholder until a Decoy Vault has its own key. Called on unlock, and when a vault is created.
+     * The private half is a vault record, so only this vault's password opens it. The other side's file is made too, with a placeholder
+     * until a Decoy Vault of that side has its own key. Called on unlock, and when a vault is created.
      */
     internal fun ensurePhotoKey(): Unit = synchronized(this) {
         layout.makePhotoFolders()
@@ -785,10 +776,10 @@ class VaultSession constructor(
             ?: MediaEnvelope.newPrivateKey().also { putVaultRecord(VaultRecordNames.PHOTO_KEY, it) }
         val publicKey = MediaEnvelope.publicKeyOf(privateKey)
         privateKey.fill(0)
-        val file = layout.photoKeyFile(isDecoy)
+        val file = layout.photoKeyFile(side)
         if (!file.isFile || !file.readBytes().contentEquals(publicKey)) writeAtomically(file, publicKey)
-        val decoyFile = layout.photoKeyFile(decoy = true)
-        if (!isDecoy && !decoyFile.isFile) writeAtomically(decoyFile, placeholderPhotoKey())
+        val otherFile = layout.photoKeyFile(1 - side)
+        if (!otherFile.isFile) writeAtomically(otherFile, placeholderPhotoKey())
     }
 
     /**
@@ -823,6 +814,9 @@ class VaultSession constructor(
 
     /** A copy of the Vault Key, for [Vault.rekey], the Duress Password operations and [BiometricUnlock]. The caller zeroes it. */
     internal fun copyOfVaultKey(): ByteArray = synchronized(this) { requireOpen().copyOf() }
+
+    /** Runs [block] with the Vault Key while no other call on this session runs. The key is the session's own, and [block] must not keep it. */
+    internal fun <T> withKeyLocked(block: (ByteArray) -> T): T = synchronized(this) { block(requireOpen()) }
 
     /**
      * A key for [purpose], derived from the Vault Key with HKDF-SHA256 (RFC 5869), with [purpose] as the info. Each purpose gives its own key,

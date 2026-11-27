@@ -29,7 +29,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 
-/** The Hidden Entry Gesture goes back to the default after a real wipe, a wipe from the Decoy Vault, and an erase the vault runs by itself. */
+/** The Hidden Entry Gesture goes back to the default after a wipe and an erase the vault runs by itself. */
 @RunWith(RobolectricTestRunner::class)
 class WipeGestureTest {
 
@@ -67,27 +67,6 @@ class WipeGestureTest {
         assertFalse(vault.exists())
     }
 
-    @Test
-    fun aWipeFromTheDecoyResetsTheEntryGestureLikeARealWipeAndLeavesTheRealVaultAlone() = runBlocking<Unit> {
-        create()
-        val real = unlocked(APP)
-        val realWallet = real.createWallet()
-        assertEquals(DuressResult.Enabled, vault.setDuress(real, DURESS.toCharArray()) { it.createWallet() })
-        real.close()
-
-        assertTrue(gestures.save(EntryGesture.PINCH_TRIPLE_TAP))
-        adopt(unlocked(DURESS))
-
-        assertEquals(ShredOutcome.ERASED, WipeVaultPorts(holder, gestures).erase())
-
-        assertEquals(EntryGesture.DEFAULT, gestures.current)
-        assertEquals(EntryGesture.DEFAULT, EntryGestureStore(prefs).load())
-        assertTrue(vault.exists())
-
-        val reopened = unlocked(APP)
-        assertEquals(listOf(realWallet), reopened.listWallets())
-        reopened.close()
-    }
 
     @Test
     fun aFailedGestureResetIsReportedAndTheOldGestureStays() = runBlocking<Unit> {

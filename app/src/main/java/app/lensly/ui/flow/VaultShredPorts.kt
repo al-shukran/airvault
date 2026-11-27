@@ -46,11 +46,7 @@ internal class DeleteWalletPorts(
     }
 }
 
-/**
- * The app's [ShredPorts] for Wipe. The App Password goes through [checkAppPassword]. A real vault wipe removes the whole
- * vault; a wipe from the Decoy Vault removes only that decoy and leaves the real vault alone. Either one resets the Hidden Entry
- * Gesture, so the gesture never shows which vault was wiped.
- */
+/** The app's [ShredPorts] for Wipe. The App Password goes through [checkAppPassword]. The wipe removes the whole vault and resets the Hidden Entry Gesture. */
 internal class WipeVaultPorts(
     private val holder: VaultHolder,
     private val gestures: EntryGestureHolder? = null,
@@ -58,50 +54,27 @@ internal class WipeVaultPorts(
 
     override suspend fun checkPassword(password: CharArray): PasswordCheck = checkAppPassword(holder, password)
 
-    /**
-     * A decoy session wipes only its own vault, while its key is still open. A real session locks first, so the Vault Key
-     * is zeroed before any file goes. Both then reset the entry gesture. NonCancellable, so a wipe that has started runs
-     * to its end.
-     */
+    /** Locks first, so the Vault Key is zeroed before any file goes. NonCancellable, so a wipe that has started runs to its end. */
     override suspend fun erase(): ShredOutcome = withContext(Dispatchers.IO + NonCancellable) {
-        val session = holder.openSession()
-        if (session != null && session.isDecoy) {
-            val outcome = try {
-                holder.vault.wipeDecoy(session)
-                ShredOutcome.ERASED
-            } catch (e: VaultException) {
-                ShredOutcome.UNAVAILABLE
-            } catch (e: GeneralSecurityException) {
-                ShredOutcome.UNAVAILABLE
-            } catch (e: ProviderException) {
-                ShredOutcome.UNAVAILABLE
-            }
-            holder.lock()
-            // The gesture is reset as after a real wipe, so a custom gesture that still works never shows that a decoy was wiped.
+        holder.lock()
+        try {
+            holder.vault.wipe()
             val gestureReset = gestures?.reset() ?: true
-            if (gestureReset) outcome else ShredOutcome.UNAVAILABLE
-        } else {
-            holder.lock()
-            try {
-                holder.vault.wipe()
-                val gestureReset = gestures?.reset() ?: true
-                // A reset that failed leaves the old gesture in place, so the wipe is not reported as complete.
-                if (gestureReset) ShredOutcome.ERASED else ShredOutcome.UNAVAILABLE
-            } catch (e: VaultException) {
-                ShredOutcome.UNAVAILABLE
-            } catch (e: GeneralSecurityException) {
-                ShredOutcome.UNAVAILABLE
-            } catch (e: ProviderException) {
-                ShredOutcome.UNAVAILABLE
-            }
+            // A reset that failed leaves the old gesture in place, so the wipe is not reported as complete.
+            if (gestureReset) ShredOutcome.ERASED else ShredOutcome.UNAVAILABLE
+        } catch (e: VaultException) {
+            ShredOutcome.UNAVAILABLE
+        } catch (e: GeneralSecurityException) {
+            ShredOutcome.UNAVAILABLE
+        } catch (e: ProviderException) {
+            ShredOutcome.UNAVAILABLE
         }
     }
 }
 
 /**
  * The app's [ShredPorts] for Remove Duress Password. The App Password goes through [checkAppPassword]. The erase removes the
- * Duress Password, through the open session, so on a decoy session it removes that decoy only. NonCancellable, so a removal
- * that has started runs to its end.
+ * Duress Password, through the open session. NonCancellable, so a removal that has started runs to its end.
  */
 internal class RemoveDuressPorts(private val holder: VaultHolder) : ShredPorts {
 

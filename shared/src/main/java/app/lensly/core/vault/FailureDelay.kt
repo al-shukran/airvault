@@ -48,11 +48,10 @@ package app.lensly.core.vault
  *     current one, which shows no reboot since, so a reboot ends the week for good and an unreadable count ends it while it is
  *     unreadable. A clock that reads before the vault was made ends it too. Without the proof the owner's cap applies, so the wall
  *     clock never opens the learning week.
- * 17. Open the Decoy Vault: the right password is counted like any try (item 11), and its success writes back the count from before
- *     the try (FailureStore.recordDecoySuccess). So the Decoy Vault never clears or adds to the real vault's count or wait. The success
- *     is recorded after the hardware step, the first step that tells the two vaults apart, so a right password whose hardware step is
- *     cut short keeps its counted try (item 15). Every success sets the succeeded flag, which hides the tries-left warning until the
- *     next wrong try, so the warning does not tell a Decoy Vault open from a real one.
+ * 17. Open the Decoy Vault with the Duress Password: the right password is counted like any try (item 11), and the unlock promotes the
+ *     decoy to be the vault. Its success clears the count like any right password, once the promotion is committed, so a promotion
+ *     that fails keeps its counted try (item 15). Every success sets the succeeded flag, which hides the tries-left warning until the
+ *     next wrong try.
  */
 
 /**
@@ -183,7 +182,7 @@ class FailureDelay(
         /**
          * The tries left before the vault is erased, when that is [WARN_TRIES_LEFT] or fewer and a wrong try has been made. Null
          * otherwise: with the lowest erase count, [WARN_TRIES_LEFT] already covers a vault with no wrong tries, which must not warn.
-         * Null too after a right password, until the next wrong try, so the warning cannot tell a Decoy Vault open from a real one.
+         * Null too after a right password, until the next wrong try.
          */
         fun triesLeftToWarn(state: FailureState): Int? =
             (state.wipeAfter - state.failures).takeIf {

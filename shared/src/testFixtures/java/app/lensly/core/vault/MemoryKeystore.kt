@@ -14,6 +14,7 @@ class MemoryKeystore : KeystoreBackend {
     private var headerKey: SecretKey? = null
     private val failureMacs = mutableMapOf<Long, SecretKey>()
     private val registryMacs = mutableMapOf<Long, SecretKey>()
+    private val registryRevoked = mutableSetOf<String>()
     private val folderKeys = mutableMapOf<String, SecretKey>()
     private var pendingPhoto: SecretKey? = null
 
@@ -28,6 +29,14 @@ class MemoryKeystore : KeystoreBackend {
 
     /** When true, the hardware key is gone for good, as after the screen lock was removed. */
     var hardwareKeyInvalidated = false
+
+    /** True once [deleteBiometricKey] has run. */
+    var biometricKeyDeleted = false
+        private set
+
+    override fun deleteBiometricKey() {
+        biometricKeyDeleted = true
+    }
 
     override fun createHardwareKey(): SecretKey = newAesKey().also { hardware = it }
 
@@ -84,6 +93,17 @@ class MemoryKeystore : KeystoreBackend {
     }
 
     override fun registryMacKeySeqs(): List<Long> = registryMacs.keys.toList()
+
+    override fun anchorRegistryRevocation(keyId: String) {
+        registryRevoked += keyId
+    }
+
+    override fun registryRevokedKeyIds(): List<String> = registryRevoked.toList()
+
+    /** Forgets every anchored revocation, as a store sealed before revocations were anchored holds none. */
+    fun forgetRegistryRevocations() {
+        registryRevoked.clear()
+    }
 
     override fun createFolderKey(keyId: String): SecretKey = newAesKey().also { folderKeys[keyId] = it }
 

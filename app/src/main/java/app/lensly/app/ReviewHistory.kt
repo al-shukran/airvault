@@ -20,8 +20,8 @@ data class WalletReviewRecord(val walletId: String, val record: ReviewRecord)
 
 /**
  * The Review Records of the wallets that an open [VaultSession] holds. Each record is one slot in the shared Review Record pool,
- * sealed under the wallet's Per-Wallet Key. So Delete Wallet and Wipe overwrite it with the wallet, and a decoy session reads only
- * its own records. The record's name is a random id, so the name shows neither the time nor the content.
+ * sealed under the wallet's Per-Wallet Key. So Delete Wallet and Wipe overwrite it with the wallet, and a session reads only
+ * the records of its own wallets. The record's name is a random id, so the name shows neither the time nor the content.
  */
 class ReviewHistory(private val session: VaultSession) {
 
@@ -45,7 +45,7 @@ class ReviewHistory(private val session: VaultSession) {
 
     /**
      * The Review Records of every wallet this session holds, newest first, each with the wallet it belongs to. It reads each wallet
-     * the same way [list] does. A decoy session holds only its own wallets, so it lists only their records.
+     * the same way [list] does. A session holds only the wallets its key owns, so it lists only their records.
      */
     fun listAll(): List<WalletReviewRecord> = session.listWallets()
         .flatMap { walletId -> list(walletId).map { record -> WalletReviewRecord(walletId, record) } }

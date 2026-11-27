@@ -35,6 +35,9 @@ import javax.crypto.SecretKeyFactory
  * - `k9.<seq>`: HMAC-SHA256, one for each accepted registry package. It authenticates the registry seal with that floor. Only the
  *   newest is kept, so a seal that was copied back no longer verifies (see [app.lensly.core.registry.update.RegistrySeal]). Not a
  *   vault key: [deleteAll] leaves it, so erasing the vault does not reset the registry's rollback floor.
+ * - `k10.<id>`: HMAC-SHA256, one for each registry signing key whose revocation this device accepted, named by the key's ID. The key
+ *   is only a marker: file access cannot delete it, so the revocation outlives the registry's files (see
+ *   [app.lensly.core.registry.update.RegistryUpdate]). Never deleted, and [deleteAll] leaves it.
  * - `k8.<id>`: AES-256-GCM, one for each wallet folder, wallet or unused slot alike. The id is random and kept in
  *   the folder's key file (see [WalletFolder]). Deleting the key makes that folder's key file unreadable, even with the Vault Key.
  * - `k5`: AES-256-GCM. It wraps the private photo key of photos taken before the first setup
@@ -53,6 +56,9 @@ internal object VaultKeystore {
 
     /** Every registry floor key alias starts with this. */
     private const val REGISTRY_MAC_PREFIX = "k9"
+
+    /** Every registry revocation marker alias starts with this. */
+    private const val REGISTRY_REVOKED_PREFIX = "k10."
 
     /** Every wallet folder key alias starts with this. */
     private const val FOLDER_KEY_PREFIX = "k8."
@@ -149,6 +155,17 @@ internal object VaultKeystore {
     fun registryMacKeySeqs(): List<Long> = Collections.list(keyStore().aliases())
         .filter { it.startsWith("$REGISTRY_MAC_PREFIX.") }
         .mapNotNull { it.removePrefix("$REGISTRY_MAC_PREFIX.").toLongOrNull() }
+
+    /** Makes the marker key of a revoked registry signing key, unless there is one. Hardware-backed, as the registry floor key is. */
+    fun anchorRegistryRevocation(keyId: String) {
+        val alias = REGISTRY_REVOKED_PREFIX + keyId
+        if (!keyStore().containsAlias(alias)) createHmacKey(alias, "registry revocation key")
+    }
+
+    /** The IDs of the registry signing keys with a marker key. Throws a GeneralSecurityException if the Keystore cannot list them. */
+    fun registryRevokedKeyIds(): List<String> = Collections.list(keyStore().aliases())
+        .filter { it.startsWith(REGISTRY_REVOKED_PREFIX) }
+        .map { it.removePrefix(REGISTRY_REVOKED_PREFIX) }
 
     /**
      * Creates the slot key, the HMAC key that binds every slot's software key to this device, replacing any key under that name. It is
@@ -261,7 +278,7 @@ internal object VaultKeystore {
      * True for every alias the vault uses: the hardware key, the slot key, the probe, the pending photo key, the biometric key, and
      * every other folder or MAC key.
      */
-    private fun isVaultAlias(alias: String): Boolean =
+    internal fun isVaultAlias(alias: String): Boolean =
         alias == HARDWARE_KEY_ALIAS || alias == SLOT_KEY_ALIAS || alias == HEADER_KEY_ALIAS || alias == PROBE_ALIAS ||
             alias == PENDING_PHOTO_ALIAS || alias == BIOMETRIC_KEY_ALIAS || alias.startsWith(FAILURE_MAC_PREFIX) ||
             alias.startsWith(FOLDER_KEY_PREFIX)

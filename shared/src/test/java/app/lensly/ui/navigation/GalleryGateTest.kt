@@ -43,14 +43,6 @@ class GalleryGateTest {
     }
 
     @Test
-    fun aPhotoSavedForTheRealVaultIsNotListedInTheDecoy() {
-        val photo = saveRealPhoto()
-
-        assertEquals(listOf(photo), assertNotNull(galleryAfterDelay(APP)).list().map { it.file })
-        assertTrue(assertNotNull(galleryAfterDelay(DURESS)).list().isEmpty())
-    }
-
-    @Test
     fun theAppPasswordOpensTheRealVaultsPhotos() {
         val photo = saveRealPhoto()
 
@@ -61,22 +53,20 @@ class GalleryGateTest {
     }
 
     @Test
-    fun theDuressPasswordOpensTheDecoysFolderWithoutARealPhoto() {
-        saveRealPhoto()
-
-        val decoy = assertNotNull(galleryAfterDelay(DURESS))
-
-        assertEquals(PhotoStore.of(layout, decoy = true).directory, decoy.directory)
-        assertTrue(decoy.list().isEmpty())
-    }
-
-    @Test
-    fun theDecoysGalleryCannotOpenARealPhoto() {
+    fun theDuressPasswordOpensNoGalleryAndNeitherPromotesNorErasesTheRealVault() {
         val photo = saveRealPhoto()
+        val keyFile = layout.vaultKey.readBytes()
 
-        val decoy = assertNotNull(galleryAfterDelay(DURESS))
+        assertNull(galleryAfterDelay(DURESS))
 
-        assertNull(decoy.photoBytes(photo))
+        // The gallery only checks a password, so the Duress Password is a wrong one there: the real vault is as it was.
+        assertContentEquals(keyFile, layout.vaultKey.readBytes())
+        assertTrue(!layout.promotionMarker.exists())
+        val gallery = assertNotNull(galleryAfterDelay(APP))
+        assertEquals(listOf(photo), gallery.list().map { it.file })
+        val session = (runBlocking { clock.advance(FailureDelay.LEARNING_CAP_MS); vault.unlock(APP.toCharArray()) } as UnlockResult.Unlocked).session
+        assertEquals(listOf(realWallet), session.listWallets())
+        session.close()
     }
 
     @Test
@@ -104,13 +94,16 @@ class GalleryGateTest {
 
     /** Saves a photo the way the cover does, with no password: the vault's public key alone seals it. */
     private fun saveRealPhoto(): File {
-        assertTrue(PhotoStore.of(layout, decoy = false).savePhoto(PHOTO.copyOf(), nowMs = 1_000L))
-        return PhotoStore.of(layout, decoy = false).directory.listFiles().orEmpty().single()
+        assertTrue(PhotoStore.of(layout, side = 0).savePhoto(PHOTO.copyOf(), nowMs = 1_000L))
+        return PhotoStore.of(layout, side = 0).directory.listFiles().orEmpty().single()
     }
+
+    private lateinit var realWallet: String
 
     private fun createVaultWithDuress() {
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })
         val session = (runBlocking { vault.unlock(APP.toCharArray()) } as UnlockResult.Unlocked).session
+        realWallet = session.createWallet()
         assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { decoy -> decoy.createWallet() } })
         session.close()
     }

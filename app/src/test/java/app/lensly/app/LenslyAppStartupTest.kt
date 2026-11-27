@@ -18,6 +18,8 @@ class LenslyAppStartupTest {
     @Test
     fun startingTheAppShredsALeftoverPlainVideo() {
         val app = RuntimeEnvironment.getApplication() as LenslyApp
+        // Robolectric already started the app, so its startup shred must be over before the leftover is written.
+        runBlocking { app.startupShred!!.join() }
         val leftover = VaultLayout.of(app).recording!!
         leftover.parentFile!!.mkdirs()
         leftover.writeBytes(ByteArray(64) { 7 })

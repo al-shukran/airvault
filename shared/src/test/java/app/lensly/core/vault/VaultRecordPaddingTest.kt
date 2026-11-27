@@ -30,6 +30,8 @@ class VaultRecordPaddingTest {
         Vault(layout, keys, FakeClock(), KDF, readBootCount = { null }, onErased = {})
     }
 
+    private fun awaitCleanup() = runBlocking { vault.awaitCleanupForTesting() }
+
     private fun create() {
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })
     }
@@ -61,11 +63,12 @@ class VaultRecordPaddingTest {
         real.close()
         assertEquals(before, sizes())
 
-        val decoy = unlocked(DURESS)
-        writeAll(decoy)
-        decoy.close()
+        // The Duress Password promotes the decoy, and the old vault's record files become spares, so the folder keeps its sizes.
+        val promoted = unlocked(DURESS)
+        writeAll(promoted)
+        awaitCleanup()
+        promoted.close()
         assertEquals(before, sizes())
-
     }
 
     // 1596: the times and inodes of the folder.
@@ -107,74 +110,39 @@ class VaultRecordPaddingTest {
         real.close()
         assertFolderLooksUniform(before)
 
-        val decoy = unlocked(DURESS)
+        // The promotion retires the old vault's files and gives them new names, and a pass makes them look alike.
         Thread.sleep(50)
         before = stamps()
-        decoy.putVaultRecord("settings", byteArrayOf(4, 5, 6))
+        val promoted = unlocked(DURESS)
+        awaitCleanup()
         assertFolderLooksUniform(before)
 
-        // Wiping the Decoy Vault retires its files and resets them.
         Thread.sleep(50)
         before = stamps()
-        vault.wipeDecoy(decoy)
-        decoy.close()
+        promoted.putVaultRecord("settings", byteArrayOf(4, 5, 6))
         assertFolderLooksUniform(before)
+        promoted.close()
     }
 
     @Test
-    fun aWriteLeavesTheValuesOfTheOtherRecordsAndTheDecoyVaultIntact() {
+    fun aWriteLeavesTheValuesOfTheOtherRecordsIntactAndAPromotedVaultStartsWithNone() {
         create()
         val real = unlocked(APP)
         real.putVaultRecord("settings", byteArrayOf(1))
         real.putVaultRecord("address-book", byteArrayOf(2))
         assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { it.createWallet() } })
+        real.putVaultRecord("settings", byteArrayOf(3))
+        assertContentEquals(byteArrayOf(3), real.getVaultRecord("settings"))
+        assertContentEquals(byteArrayOf(2), real.getVaultRecord("address-book"))
         real.close()
-        val decoy = unlocked(DURESS)
-        decoy.putVaultRecord("settings", byteArrayOf(9))
-        decoy.close()
 
-        val again = unlocked(APP)
-        assertContentEquals(byteArrayOf(1), again.getVaultRecord("settings"))
-        assertContentEquals(byteArrayOf(2), again.getVaultRecord("address-book"))
-        again.close()
-        val decoyAgain = unlocked(DURESS)
-        assertContentEquals(byteArrayOf(9), decoyAgain.getVaultRecord("settings"))
-        decoyAgain.close()
-    }
-
-    @Test
-    fun aWipeOfTheDecoyVaultWaitsForARunningPassSoThePassCannotPutBackAStaleCopy() {
-        create()
-        val real = unlocked(APP)
-        assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { it.createWallet() } })
-        real.close()
-        val decoy = unlocked(DURESS)
-        decoy.putVaultRecord("settings", byteArrayOf(9))
-        val stale = decoy.vaultRecordFileForTesting("settings")
-
-        // A pass has read the decoy's settings file and is about to write it back when the wipe resets that file.
-        val inPass = java.util.concurrent.CountDownLatch(1)
-        VaultRecordNames.passHookForTesting = { file ->
-            // Only the first pass stalls: the wipe's own pass must run through.
-            if (file == stale && inPass.count > 0) {
-                inPass.countDown()
-                Thread.sleep(400)
-            }
-        }
-        try {
-            val writer = Thread { decoy.putVaultRecord("address-book", byteArrayOf(1)) }
-            writer.start()
-            assertTrue(inPass.await(10, java.util.concurrent.TimeUnit.SECONDS))
-            vault.wipeDecoy(decoy)
-            writer.join()
-        } finally {
-            VaultRecordNames.passHookForTesting = null
-        }
-        decoy.close()
-
-        val again = unlocked(DURESS)
-        assertNull(again.getVaultRecord("settings"), "A pass put the wiped record back")
-        again.close()
+        val promoted = unlocked(DURESS)
+        assertNull(promoted.getVaultRecord("settings"))
+        assertNull(promoted.getVaultRecord("address-book"))
+        promoted.putVaultRecord("settings", byteArrayOf(9))
+        assertContentEquals(byteArrayOf(9), promoted.getVaultRecord("settings"))
+        awaitCleanup()
+        promoted.close()
     }
 
     @Test
@@ -271,15 +239,16 @@ class VaultRecordPaddingTest {
         assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { it.createWallet() } })
         real.close()
 
-        val decoy = unlocked(DURESS)
+        val promoted = unlocked(DURESS)
         VaultRecordNames.KNOWN.forEach { name ->
             assertEquals(
                 VaultRecordNames.fileBytesOf(name).toLong(),
-                decoy.vaultRecordFileForTesting(name).length(),
+                promoted.vaultRecordFileForTesting(name).length(),
                 "The decoy file of $name is in another class than the real one.",
             )
         }
-        decoy.close()
+        awaitCleanup()
+        promoted.close()
     }
 
     @Test
