@@ -19,6 +19,7 @@ import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.Warning
 import app.airvault.core.model.checked
 import app.airvault.core.model.isPrintableCodePoint
+import app.airvault.core.model.isSingleLinePrintable
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.ParserLimits
 import app.lensly.core.registry.AbiRows
@@ -85,7 +86,7 @@ class EvmReviewBuilder(
         // The size and origin checks come first, in the order the sign pipeline runs them, so a request is refused for the same reason.
         if (request.signData.size > EthSignRequest.MAX_SIGN_DATA_BYTES) throw Refusal(SIGN_DATA_TOO_LARGE)
         val origin = request.origin
-        if (origin != null && !origin.codePoints().allMatch(::isPrintableCodePoint)) throw Refusal(UNREADABLE_ORIGIN)
+        if (origin != null && !isSingleLinePrintable(origin)) throw Refusal(UNREADABLE_ORIGIN)
         // Typed data is reviewed on the chain its domain names (see reviewChainId). A request that names no chain is refused.
         val chainId = reviewChainId(parsed) ?: throw Refusal(NO_NETWORK)
         EvmReviewResult.Ok(Build(parsed, sender, derivationPath, chainId).build().checked())

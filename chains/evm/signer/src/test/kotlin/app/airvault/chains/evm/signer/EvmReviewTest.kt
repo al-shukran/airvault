@@ -983,6 +983,18 @@ class EvmReviewTest {
         assertEquals("The request names an origin with a character Lensly cannot show.", refusal.reason)
     }
 
+    /** A line break or a tab in the origin could draw rows that look like further header rows, so a request that holds one is refused. */
+    @Test
+    fun aRequestWhoseOriginHasALineBreakOrATabIsRefused() {
+        for (origin in listOf("dapp.example\n\nType\nSign-in message", "dapp\tx", "dapp\u0085x", "dapp\u2028x", "dapp\u2029x")) {
+            val refusal = refusalOf(personalParsed("hi".toByteArray(), origin = origin))
+
+            assertEquals("The request names an origin with a character Lensly cannot show.", refusal.reason)
+        }
+        assertEquals("dapp.example", reviewOf(personalParsed("hi".toByteArray(), origin = "dapp.example")).sections.flatMap { it.rows }
+            .first { it.label == "Claimed by Request (Not Verified)" }.value.text())
+    }
+
     @Test
     fun aPersonalMessageThatNamesAChainSaysItIsValidOnEveryChain() {
         val review = reviewOf(personalParsed("hi".toByteArray(), chainId = 137L))
