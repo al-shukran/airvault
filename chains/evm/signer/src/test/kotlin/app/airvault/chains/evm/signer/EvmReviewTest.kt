@@ -497,6 +497,24 @@ class EvmReviewTest {
     }
 
     @Test
+    fun anAggregate3ValueCallThatMayFailAndCarriesValueHasACautionThatItsValueStaysInMulticall3() {
+        val review = reviewOf(txParsed(MULTICALL3, aggregate3ValueTransfer(allowFailure = true, value = BigInteger.ONE), value = BigInteger.ONE))
+
+        val caution = review.warnings.single { it.code == "evm.failing-call-value" }
+        assertEquals(Danger.CAUTION, caution.level)
+        assertEquals("If this step fails, its value stays in the Multicall3 contract and can be taken by anyone.", caution.message)
+    }
+
+    @Test
+    fun anAggregate3ValueCallThatCannotFailOrCarriesNoValueHasNoFailingValueCaution() {
+        val cannotFail = reviewOf(txParsed(MULTICALL3, aggregate3ValueTransfer(allowFailure = false, value = BigInteger.ONE), value = BigInteger.ONE))
+        val noValue = reviewOf(txParsed(MULTICALL3, aggregate3ValueTransfer(allowFailure = true, value = BigInteger.ZERO)))
+
+        assertTrue(cannotFail.warnings.none { it.code == "evm.failing-call-value" })
+        assertTrue(noValue.warnings.none { it.code == "evm.failing-call-value" })
+    }
+
+    @Test
     fun anAggregate3BatchThatSendsNothingHasNoStrandedValueWarning() {
         val batch = lidoBatch(MulticallShape.AGGREGATE3, null, null)
 
@@ -926,11 +944,30 @@ class EvmReviewTest {
     }
 
     @Test
-    fun aReadablePersonalMessageIsNotADangerWhateverItsLength() {
-        val text32 = "a".repeat(32)
+    fun aPersonalMessageOf32PrintableBytesIsDangerAndShowsItsBytesNextToTheText() {
+        // A hash ground until every byte prints as a character reads as text, so the size alone decides.
+        val text = "a".repeat(32)
+
+        val review = reviewOf(personalParsed(text.toByteArray()))
+
+        assertEquals(Danger.DANGER, review.warnings.single { it.code == "evm.personal-message.hash" }.level)
+        val rows = review.sections.single { it.heading == "Message" }.rows
+        assertEquals(text, rows.single { it.label == "Message" }.value.text())
+        assertEquals("0x" + "61".repeat(32), rows.single { it.label == "Message Bytes" }.value.text())
+    }
+
+    @Test
+    fun aPersonalMessageOfAnotherLengthShowsNoBytesRowWhenItReadsAsText() {
+        val rows = reviewOf(personalParsed("a".repeat(31).toByteArray())).sections.single { it.heading == "Message" }.rows
+
+        assertTrue(rows.none { it.label == "Message Bytes" })
+    }
+
+    @Test
+    fun aReadablePersonalMessageOfAnotherLengthIsNotADanger() {
         val text31 = "a".repeat(31)
 
-        for (text in listOf(text32, text31, "hi", "a".repeat(100))) {
+        for (text in listOf(text31, "hi", "a".repeat(100))) {
             val review = reviewOf(personalParsed(text.toByteArray()))
             assertTrue(review.warnings.none { it.level == Danger.DANGER }, text)
         }
@@ -1125,10 +1162,10 @@ private fun lidoBatch(shape: MulticallShape, first: BigInteger?, second: BigInte
     return encodeMulticall(shape, deadline = null, calls = calls)!!
 }
 
-/** `aggregate3Value` with one call: a transfer of nothing on USDC, which the registry knows, that sends 1 ETH along. */
-private fun aggregate3ValueTransfer(): ByteArray {
+/** `aggregate3Value` with one call: a transfer of nothing on USDC, which the registry knows, that sends [value] along (1 ETH by default). */
+private fun aggregate3ValueTransfer(allowFailure: Boolean = false, value: BigInteger = ONE_ETH): ByteArray {
     val transfer = ContractCall.Transfer("0x1111111111111111111111111111111111111111", BigInteger.ZERO).encode()!!
-    val call = InnerCall(USDC, allowFailure = false, value = ONE_ETH, calldata = transfer, call = ContractCall.decode(transfer), nested = null)
+    val call = InnerCall(USDC, allowFailure = allowFailure, value = value, calldata = transfer, call = ContractCall.decode(transfer), nested = null)
     return encodeMulticall(MulticallShape.AGGREGATE3_VALUE, deadline = null, calls = listOf(call))!!
 }
 
