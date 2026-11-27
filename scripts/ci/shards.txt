@@ -174,6 +174,7 @@ shard-2 :shared app.lensly.core.registry.DenylistTest
 shard-2 :shared app.lensly.core.ur.SolSignatureEncoderTest
 shard-2 :shared app.lensly.core.vault.MediaEnvelopeTest
 shard-4 :shared app.lensly.core.vault.VaultCreateTest
+shard-4 :shared app.lensly.core.vault.VaultFormatV4Test
 shard-2 :shared app.lensly.core.vault.VaultKeyFileTest
 shard-2 :shared app.lensly.core.wallet.PrivateKeyTest
 shard-2 :shared app.lensly.ui.gate.PasswordBufferTest

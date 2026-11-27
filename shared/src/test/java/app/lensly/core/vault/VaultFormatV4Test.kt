@@ -3,6 +3,8 @@ package app.lensly.core.vault
 import java.io.File
 import java.security.SecureRandom
 import javax.crypto.AEADBadTagException
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -27,10 +29,10 @@ class VaultFormatV4Test {
     val tmp = TemporaryFolder()
 
     /** One vault with its own folder, clock and Keystore. */
-    private inner class Rig(name: String, wrap: (KeystoreBackend) -> KeystoreBackend = { it }) {
+    private inner class Rig(name: String, folder: File = File(tmp.root, name), wrap: (KeystoreBackend) -> KeystoreBackend = { it }) {
         val clock = FakeClock()
         val keys = MemoryKeystore()
-        val layout = VaultLayout(File(tmp.root, name))
+        val layout = VaultLayout(folder)
         var erased = 0
 
         /** True while the boot count cannot be read, which makes the Failure Delay state unreadable. */
@@ -77,7 +79,7 @@ class VaultFormatV4Test {
     @Test
     fun theKeystoreMacsTheArgonOutputAndNotTheSalt() {
         val inputs = mutableListOf<ByteArray>()
-        val rig = Rig("a") { keys -> recording(keys, inputs) }
+        val rig = Rig("a", wrap = { keys -> recording(keys, inputs) })
         rig.create()
 
         val salt = rig.header().salt
@@ -89,7 +91,7 @@ class VaultFormatV4Test {
     @Test
     fun everyPasswordGuessAsksTheKeystoreForADifferentValue() {
         val inputs = mutableListOf<ByteArray>()
-        val rig = Rig("a") { keys -> recording(keys, inputs) }
+        val rig = Rig("a", wrap = { keys -> recording(keys, inputs) })
         rig.create()
         inputs.clear()
 
@@ -245,6 +247,22 @@ class VaultFormatV4Test {
     }
 
     @Test
+    fun everyRecordFileStartsWithTheBlobVersionWithAndWithoutADecoy() {
+        val rig = Rig("a")
+        rig.create()
+        assertEquals(emptyList(), recordFilesWithAnotherFirstByte(rig))
+
+        val real = rig.unlocked(APP)
+        rig.setDuress(real)
+        assertEquals(emptyList(), recordFilesWithAnotherFirstByte(rig))
+
+        // A retired file is replaced by a random one of its size.
+        runBlocking { rig.vault.removeDuress(real) }
+        real.close()
+        assertEquals(emptyList(), recordFilesWithAnotherFirstByte(rig))
+    }
+
+    @Test
     fun theRecordsFolderKeepsItsFilesWhenTheDuressPasswordIsRemovedOrReplaced() {
         val rig = Rig("a")
         rig.create()
@@ -347,6 +365,25 @@ class VaultFormatV4Test {
     }
 
     @Test
+    fun aHardwareLayerThatDoesNotAuthenticateErasesTheVault() {
+        val rig = Rig("a")
+        rig.create()
+        val session = rig.unlocked(APP)
+        val vaultKey = session.copyOfVaultKey()
+        session.close()
+        // The software layer opens under the password, and the hardware layer was sealed under another key.
+        val elsewhere = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
+        val slot = slotWithRole(rig, APP, vaultKey, role = VaultRole.REAL, hardwareKey = elsewhere)
+        rig.clock.advance(FailureDelay.LEARNING_CAP_MS)
+        rig.replaceKeyFile(VaultKeyFile.encode(listOf(slot, VaultKeyFile.randomSlot(SecureRandom())), SecureRandom()))
+
+        assertEquals(UnlockResult.Erased, rig.attempt(APP))
+
+        assertFalse(rig.layout.exists())
+        assertEquals(1, rig.erased)
+    }
+
+    @Test
     fun aCancelledDeviceAuthenticationKeepsTheVault() {
         val rig = Rig("a")
         rig.create()
@@ -373,8 +410,32 @@ class VaultFormatV4Test {
 
     // The key file's commit reaches the disk, and the biometric unlock reads the Failure Delay state best effort.
 
+    /** A folder that counts the times its path is opened, which is how a sync of the folder itself starts. */
+    private class WatchedFolder(path: File) : File(path.path) {
+        var opened = 0
+
+        override fun toPath(): java.nio.file.Path {
+            opened++
+            return super.toPath()
+        }
+    }
+
     @Test
-    fun aKeyFileCommitSyncsTheVaultFolderAndAFailedSyncDoesNotNameTheOldFileAgain() {
+    fun aKeyFileCommitSyncsTheVaultFolder() {
+        val folder = WatchedFolder(File(tmp.root, "a"))
+        val rig = Rig("a", folder)
+        rig.create()
+        val session = rig.unlocked(APP)
+        val before = folder.opened
+
+        assertEquals(CreateResult.Created, runBlocking { rig.vault.rekey(session, CHANGED.toCharArray()) })
+
+        assertTrue(folder.opened > before, "The commit did not sync the vault folder.")
+        session.close()
+    }
+
+    @Test
+    fun aFailedSyncOfTheVaultFolderDoesNotFailTheChange() {
         val rig = Rig("a")
         rig.create()
         val session = rig.unlocked(APP)
@@ -383,7 +444,7 @@ class VaultFormatV4Test {
         folder.setReadable(false)
         try {
             assumeFalse("The folder is still readable, so its sync cannot fail here.", folder.canRead())
-            assertFailsWith<java.io.IOException> { runBlocking { rig.vault.rekey(session, CHANGED.toCharArray()) } }
+            assertEquals(CreateResult.Created, runBlocking { rig.vault.rekey(session, CHANGED.toCharArray()) })
         } finally {
             folder.setReadable(true)
         }
@@ -392,6 +453,57 @@ class VaultFormatV4Test {
         // The new file is in place and the state names it, so the vault opens under the new password and is not erased.
         rig.unlocked(CHANGED).close()
         assertEquals(0, rig.erased)
+    }
+
+    @Test
+    fun aKeyFileSwappedWhileTheVaultIsOpenRefusesTheChangeAndTheNextUnlockErases() {
+        val rig = Rig("a")
+        rig.create()
+        val older = rig.layout.vaultKey.readBytes()
+        val real = rig.unlocked(APP)
+        rig.setDuress(real)
+        // An older copy, without the decoy slot, put back while the vault is open.
+        rig.layout.vaultKey.writeBytes(older)
+
+        assertFailsWith<VaultException> { runBlocking { rig.vault.removeDuress(real) } }
+        real.close()
+
+        assertContentEquals(older, rig.layout.vaultKey.readBytes())
+        assertEquals(UnlockResult.Erased, rig.attempt(APP))
+    }
+
+    @Test
+    fun aKeyFileThatCannotBeFullyRecordedNamesTheOldFileAgain() {
+        val folder = File(tmp.root, "a")
+        val backup = File(folder, FailureStore.BACKUP_FILE_NAME)
+        var armed = false
+        var saves = 0
+        var oldBackup = ByteArray(0)
+        // The first save after the vault is armed finds its backup copy blocked, as a full disk would leave it. The next one finds room.
+        val rig = Rig("a", folder, wrap = { keys ->
+            object : KeystoreBackend by keys {
+                override fun createFailureMacKey(seq: Long): SecretKey {
+                    if (armed && saves++ == 0) {
+                        oldBackup = backup.readBytes()
+                        backup.delete()
+                        File(backup, "blocker").apply { parentFile.mkdirs() }.writeBytes(byteArrayOf(1))
+                    } else if (armed && saves == 2) {
+                        backup.deleteRecursively()
+                        backup.writeBytes(oldBackup)
+                    }
+                    return keys.createFailureMacKey(seq)
+                }
+            }
+        })
+        rig.create()
+        val session = rig.unlocked(APP)
+        armed = true
+
+        assertFailsWith<VaultException> { runBlocking { rig.vault.rekey(session, CHANGED.toCharArray()) } }
+        session.close()
+
+        val state = FailureStore(folder, rig.keys).load(rig.clock)
+        assertEquals(VaultKeyFile.digestOf(rig.layout.vaultKey.readBytes()), state.keyFileDigest)
     }
 
     @Test
@@ -484,14 +596,23 @@ class VaultFormatV4Test {
         return rig.layout.vaultRecords.list().orEmpty().count { it in names }
     }
 
+    private fun recordFilesWithAnotherFirstByte(rig: Rig): List<String> =
+        rig.layout.vaultRecords.listFiles().orEmpty().filter { it.readBytes().firstOrNull() != BLOB_VERSION }.map { it.name }
+
     private fun recordFiles(rig: Rig): Int = rig.layout.vaultRecords.list().orEmpty().size
 
     /** The real vault's slot sealed under [password]'s key with [role] inside, as a damaged file would hold it. */
-    private fun slotWithRole(rig: Rig, password: String, vaultKey: ByteArray, role: Byte): ByteArray {
+    private fun slotWithRole(
+        rig: Rig,
+        password: String,
+        vaultKey: ByteArray,
+        role: Byte,
+        hardwareKey: SecretKey = rig.keys.hardwareKey(),
+    ): ByteArray {
         val header = rig.header()
         val stretched = Argon2Kdf.derive(password.toCharArray(), header.salt, header.kdf)
         val softKey = hkdfSha256(stretched + rig.keys.slotMac(stretched), salt = null, info = SLOT_INFO, length = VaultKeyFile.KEY_BYTES)
-        val hardwareWrapped = Aead.sealWithKeystore(rig.keys.hardwareKey(), VaultKeyFile.HARDWARE_AAD, vaultKey + role)
+        val hardwareWrapped = Aead.sealWithKeystore(hardwareKey, VaultKeyFile.HARDWARE_AAD, vaultKey + role)
         return VaultKeyFile.slotOf(vaultKey, Aead.seal(softKey, VaultKeyFile.SOFTWARE_AAD, hardwareWrapped), SecureRandom())
     }
 

@@ -1109,9 +1109,16 @@ class Vault constructor(
         null
     }
 
-    /** The Vault Key and role inside a hardware-wrapped blob, or null when the blob holds no key and role. The caller zeroes the key. */
+    /** The Vault Key and role inside a hardware-wrapped blob, or null when the blob does not open or holds no key and role. The caller zeroes the key. */
     private fun unwrapOpened(hardwareKey: SecretKey, hardwareWrapped: ByteArray): Pair<ByteArray, Byte>? {
-        val plain = keystore(HARDWARE_FAILURE) { Aead.openWithKeystore(hardwareKey, VaultKeyFile.HARDWARE_AAD, hardwareWrapped) }
+        // A hardware layer that does not authenticate under a software layer that did holds no vault key: the vault is erased.
+        val plain = keystore(HARDWARE_FAILURE) {
+            try {
+                Aead.openWithKeystore(hardwareKey, VaultKeyFile.HARDWARE_AAD, hardwareWrapped)
+            } catch (e: AEADBadTagException) {
+                return null
+            }
+        }
         try {
             if (plain.size != KEY_BYTES + 1) return null
             val role = plain[KEY_BYTES]
@@ -1157,6 +1164,13 @@ class Vault constructor(
      * byte for byte and [verified] holds. Otherwise the temp file is removed and nothing changes.
      */
     private fun commitKeyFile(slots: List<ByteArray>, verified: () -> Boolean) {
+        // The file in place must be the one last written. An older copy put back while the vault is open would have its other slot carried
+        // into the new file, and the swap recorded as the owner's. The change is refused, and the next unlock erases the vault.
+        val store = failureStore()
+        val previous = store.load(clock)
+        if (VaultKeyFile.digestOf(readVaultFile(layout.vaultKey)) != previous.keyFileDigest) {
+            throw VaultException("The vault key file is not the one last written, so the vault was not changed.")
+        }
         val temp = writeTemp(layout.vaultKey, VaultKeyFile.encode(slots, random))
         var digest = ""
         val intact = try {
@@ -1174,27 +1188,29 @@ class Vault constructor(
             throw VaultException("The new vault key file did not verify, so the vault was not changed.")
         }
         // The failure state names the new file before the file replaces the old one, so an older copy put back later does not match. A
-        // failed replace names the old file again. A crash between the two leaves them apart, and the next unlock erases the vault.
-        val store = failureStore()
-        val previous = store.load(clock)
+        // failed save or replace names the old file again, as far as it can: a save that wrote one copy leaves the new name behind. A crash
+        // between the two leaves them apart, and the next unlock erases the vault.
+        val nameOldFileAgain = { bestEffort { store.recordKeyFile(store.load(clock), previous.keyFileDigest, clock) } }
         try {
             store.recordKeyFile(previous, digest, clock)
         } catch (e: VaultException) {
             temp.delete()
+            nameOldFileAgain()
             throw VaultException("The new vault key file could not be recorded, so the vault was not changed.", e)
         } catch (e: IOException) {
             temp.delete()
+            nameOldFileAgain()
             throw VaultException("The new vault key file could not be recorded, so the vault was not changed.", e)
         }
         try {
             commitTemp(temp, layout.vaultKey)
         } catch (e: Exception) {
-            bestEffort { store.recordKeyFile(store.load(clock), previous.keyFileDigest, clock) }
+            nameOldFileAgain()
             throw e
         }
         // The failure state names the new file already, so a power cut must not lose the rename. The file is in place, so a failed sync
-        // does not name the old one again.
-        syncDirectory(layout.root)
+        // neither fails the change nor names the old file again.
+        bestEffort { syncDirectory(layout.root) }
     }
 
     /**
@@ -1342,7 +1358,11 @@ class Vault constructor(
 
     private fun sizeOf(file: File): Int = file.length().toInt().takeIf { it >= VaultRecordNames.UNSET_FILE_BYTES } ?: VaultRecordNames.UNSET_FILE_BYTES
 
-    private fun randomRecordFile(size: Int): ByteArray = ByteArray(size).also { random.nextBytes(it) }
+    /** Random bytes that start with the version byte, so a spare file reads like a sealed record (see [WalletFolder]'s unused files). */
+    private fun randomRecordFile(size: Int): ByteArray = ByteArray(size).also {
+        random.nextBytes(it)
+        it[0] = BLOB_VERSION
+    }
 
     /**
      * Deletes what neither key in [keep] owns: wallet folders that hold a key file, vault record files, and pool files. A folder
