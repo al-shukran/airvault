@@ -281,6 +281,11 @@ class EvmReviewBuilder(
             // A batch is read only on a contract known to run it. On any other contract the same calldata is an unknown call.
             val multicall = parsed.multicall?.takeIf { isBatchContract(to, calldata) }
             val call = parsed.call
+            // A token's system address takes no native coin, with or without call data: HyperCore may not credit it, and it may be lost.
+            // Only HYPE's own address moves HYPE.
+            if (tx.value.signum() > 0 && isHyperEvm(chainId) && isSystemAddress(to) && !isHypeSystemAddress(to)) {
+                warnings += Warning(Danger.DANGER, CODE_SYSTEM_DESTINATION, NATIVE_SYSTEM_DESTINATION_TEXT, FieldPath("evm.to"), ACK_SYSTEM_DESTINATION)
+            }
             val (title, summary) = when {
                 calldata.isEmpty() -> nativeTransaction(tx, to)
                 multicall != null -> multicallTransaction(tx, to, calldata, multicall)
@@ -304,10 +309,6 @@ class EvmReviewBuilder(
         private fun nativeTransaction(tx: UnsignedTx, to: String): Pair<String, List<SummaryPart>> {
             targetRow("To", to)
             valueRow(tx.value, always = true)
-            // A token's system address takes no native coin: HyperCore may not credit it, and it may be lost. Only HYPE's own address moves HYPE.
-            if (isHyperEvm(chainId) && isSystemAddress(to) && !isHypeSystemAddress(to)) {
-                warnings += Warning(Danger.DANGER, CODE_SYSTEM_DESTINATION, NATIVE_SYSTEM_DESTINATION_TEXT, FieldPath("evm.to"), ACK_SYSTEM_DESTINATION)
-            }
             val title = if (isHyperEvm(chainId) && isHypeSystemAddress(to)) MOVE_TO_HYPERCORE else "Native Transfer"
             return title to listOf(sendOf(tx.value, network?.nativeDecimals, network?.nativeSymbol, sender, to))
         }
