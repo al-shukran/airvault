@@ -34,4 +34,12 @@ class PrintableTest {
         assertEquals("Sign in$emoji", printableText("Sign in$emoji".toByteArray(Charsets.UTF_8)))
         assertNull(printableText("Sign in$tag".toByteArray(Charsets.UTF_8)))
     }
+
+    @Test
+    fun aSingleLineTextRefusesEveryCharacterThatCanStartARow() {
+        assertTrue(isSingleLinePrintable("app.example"))
+        for (breaker in listOf("\n", "\r", "\t", "\u0085", "\u2028", "\u2029")) {
+            assertFalse(isSingleLinePrintable("a${breaker}b"), "U+" + breaker.codePointAt(0).toString(16))
+        }
+    }
 }

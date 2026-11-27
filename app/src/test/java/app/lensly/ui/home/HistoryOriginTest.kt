@@ -8,7 +8,16 @@ class HistoryOriginTest {
     @Test
     fun aPrintableOriginShowsAsItIs() {
         assertEquals("app.example", historyOrigin("app.example"))
-        assertEquals("a\nb", historyOrigin("a\nb"))
+    }
+
+    /** A line break or a tab could start a row that looks like another line of the sheet, so the origin shows its bytes: 61, 0A, 62. */
+    @Test
+    fun aLineBreakOrATabShowsTheBytesOfTheOrigin() {
+        assertEquals("610a62", historyOrigin("a\nb"))
+        assertEquals("610962", historyOrigin("a\tb"))
+        assertEquals("61c28562", historyOrigin("a\u0085b")) // next line
+        assertEquals("61e280a862", historyOrigin("a\u2028b")) // line separator
+        assertEquals("61e280a962", historyOrigin("a\u2029b")) // paragraph separator
     }
 
     /** U+202E is a right-to-left override. It is not printable, so the origin shows its UTF-8 bytes in hex: 61, E2 80 AE, 62. */

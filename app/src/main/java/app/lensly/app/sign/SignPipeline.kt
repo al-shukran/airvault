@@ -8,7 +8,7 @@ import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.Review
 import app.airvault.core.model.ReviewRow
 import app.airvault.core.model.SummaryPart
-import app.airvault.core.model.isPrintableCodePoint
+import app.airvault.core.model.isSingleLinePrintable
 import app.lensly.app.AddressNotes
 import app.lensly.app.SigningAccount
 import app.lensly.app.autoAccountName
@@ -74,7 +74,7 @@ class SignPipeline(
         }
         // The origin is the wallet's claim, and the review shows it as text. A claim with a character the owner cannot read is refused.
         val origin = request.origin
-        if (origin != null && !origin.codePoints().allMatch(::isPrintableCodePoint)) return Prepared.Refused(UNREADABLE_ORIGIN)
+        if (origin != null && !isSingleLinePrintable(origin)) return Prepared.Refused(UNREADABLE_ORIGIN)
         val masterFingerprint = wallet.masterFingerprint
         val key: EvmKey
         val address: String

@@ -1,6 +1,6 @@
 package app.airvault.chains.solana.signer
 
-import app.airvault.core.model.isPrintableCodePoint
+import app.airvault.core.model.isSingleLinePrintable
 import app.lensly.core.registry.SolanaFees
 import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.ur.PathStep
@@ -322,7 +322,7 @@ object SolanaRequestCheck {
         unknownCalls: UnknownCallPolicy = UnknownCallPolicy.WARN,
         fees: SolanaFees = SolanaFees.DEFAULT,
     ): Result {
-        if (request.origin?.codePoints()?.allMatch(::isPrintableCodePoint) == false) return Result.Refused(UNREADABLE_ORIGIN)
+        if (request.origin?.let(::isSingleLinePrintable) == false) return Result.Refused(UNREADABLE_ORIGIN)
         val index = accountIndexOf(request.derivationPath) ?: return Result.Refused(PATH_REFUSED)
         val signer = accountKeys.getOrNull(index) ?: return Result.Refused(UNKNOWN_ACCOUNT)
         return checkSigner(request, index, signer, tokens, unknownCalls, fees)
