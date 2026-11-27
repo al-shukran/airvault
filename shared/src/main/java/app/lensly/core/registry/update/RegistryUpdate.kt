@@ -14,7 +14,7 @@ import java.io.InputStream
  * Offline catalog updates. A registry package adds networks and tokens to the baked-in catalog. It can never
  * change or remove a baked entry. Its whitelist, denylist and wallets are the effective ones only when the package is newer by
  * sequence than the build's catalog; otherwise the build's lists stay. A list the package does not carry keeps the one in effect:
- * the whitelist and the denylist keep the last installed ones that carried them, and the wallets keep the build's.
+ * the whitelist and the denylist keep the last installed ones that carried them (a kept denylist also keeps the build's entries it does not cover), and the wallets keep the build's.
  * A package is accepted only when a key the build trusts signed it (see [TrustedKeys]), and only when its sequence is higher than
  * every sequence accepted before. The highest accepted sequence, and the sequence of the package that supplied the kept whitelist, are
  * sealed under a Keystore key (see [RegistrySeal]), so replacing or deleting the stored files cannot roll the catalog back: a package
@@ -114,8 +114,8 @@ object RegistryUpdate {
             val newest = RegistrySeal.newestFloor(keystore)
             val accepted = acceptedSequence(dir, trustedKeys, prior, newest)
             // With no verified package the same sequence is accepted once more, to store and seal it again after a crash, a lost
-            // key or a deleted package file: the seal alone names the floor, and the built-in catalog is in use until then.
-            val verified = prior != null && File(dir, INSTALLED_FILE).isFile
+            // key, a deleted package file or a replaced one: the seal alone names the floor, and the built-in catalog is in use until then.
+            val verified = prior != null && installedUnder(prior, baked, dir, trustedKeys) != null
             if (incoming.sequence < accepted || (incoming.sequence == accepted && verified)) {
                 throw RegistryUpdateException.NotNewer(accepted, incoming.sequence)
             }
@@ -244,10 +244,32 @@ object RegistryUpdate {
     ): Registry {
         val merged = registry.withAdditions(installed.networks, installed.tokens)
         if (installed.sequence <= registry.catalogSequence) return merged
+        // The seal names a carrier of each list that is newer than the build. When its file is gone or no longer matches, the
+        // built-in list must not take over silently: the throw makes [withInstalled] flag the built-in catalog.
+        val whitelist = installed.whitelist ?: keptWhitelist(seal, registry, dir, trustedKeys)
+        val denylist = installed.denylist ?: keptDenylist(seal, registry, dir, trustedKeys)?.let { withBuiltIn(it, registry) }
+        check(installed.whitelist != null || whitelist != null || seal.whitelistSequence <= registry.catalogSequence) {
+            "the whitelist that the seal names cannot be read"
+        }
+        check(installed.denylist != null || denylist != null || seal.denylistSequence <= registry.catalogSequence) {
+            "the denylist that the seal names cannot be read"
+        }
         return merged
-            .withWhitelist(installed.whitelist ?: keptWhitelist(seal, registry, dir, trustedKeys) ?: registry.whitelistEntries())
-            .withDenylist(installed.denylist ?: keptDenylist(seal, registry, dir, trustedKeys) ?: registry.denylistEntries())
+            .withWhitelist(whitelist ?: registry.whitelistEntries())
+            .withDenylist(denylist ?: registry.denylistEntries())
             .withWallets(installed.wallets ?: registry.walletEntries())
+    }
+
+    /**
+     * A kept denylist plus the built-in entries it does not cover, so entries that a later app build adds still apply on a device
+     * whose last denylist-carrying package predates them. An entry of [kept] wins over a built-in one for the same target, so a signed
+     * severity or reason is not overridden. The package that supplied [kept] cannot remove a built-in entry for good; only an app
+     * update can, as the built-in list is the floor of what the build knows to be dangerous.
+     */
+    private fun withBuiltIn(kept: List<DenylistEntry>, registry: Registry): List<DenylistEntry> {
+        fun DenylistEntry.target() = listOf(chainId, contract, selector, primaryType, condition)
+        val covered = kept.mapTo(HashSet()) { it.target() }
+        return kept + registry.denylistEntries().filter { it.target() !in covered }
     }
 
     private fun checkKeptWhitelistFits(
