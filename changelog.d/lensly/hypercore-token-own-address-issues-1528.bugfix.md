@@ -1,0 +1,1 @@
+Lensly now titles a HyperEVM token transfer "Move to HyperCore" only when the destination is that token's own HyperCore system address. A transfer to the system address of another asset keeps its plain title and shows a danger warning, because HyperCore may not credit it.
