@@ -2,7 +2,7 @@
 # Checks the CI guards against broken inputs: each case must make its guard fail, and the real files must still pass. Needs yq and
 # python3, no Gradle and no network. Runs in the ci lane (run-partition.sh ci), so a guard that stops rejecting a case fails a pull request.
 #   check-cleartext-sources.sh   cleartext allowed outside src/debug/ (#1406, #1441)
-#   check-workflow-guards.sh     comment-run trusted gate and release refusal order (#1407, #1408, #1442, #1451)
+#   check-workflow-guards.sh     comment-run trusted gate and release refusal order (#1407, #1408, #1442, #1451, #1465, #1470, #1481)
 #   close-refresh-pr.sh          the refresh pull request is closed and the comment posted once (#1396, #1443)
 #
 # Usage: scripts/ci/selftest-guards.sh
@@ -103,8 +103,8 @@ expect_pass "the real workflows" "$guards"
 rm -rf "$work/workflows"
 cp -R .github/workflows "$work/workflows"
 expect_pass "an unchanged copy of the workflows" guard_with
-mutate release.yml '.jobs.release.steps[0].env.TOKEN = "${{ secrets.GITHUB_TOKEN }}"'
-expect_pass "GITHUB_TOKEN read before the refusal" guard_with
+mutate release.yml '.jobs.other = {"runs-on": "ubuntu-24.04", "steps": [{"run": "echo ${{ secrets.GITHUB_TOKEN }}"}]}'
+expect_fail "GITHUB_TOKEN read in release.yml, which lists only the keystore secrets" guard_with
 mutate comment-run.yml 'sed:s/contains(fromJSON(.\[[^]]*\].), github.event.comment.author_association)/github.event.comment.author_association/'
 expect_fail "a bare author_association" guard_with
 mutate comment-run.yml 'sed:s/"OWNER","MEMBER","COLLABORATOR"/"OWNER","MEMBER","COLLABORATOR","NONE"/'
@@ -178,6 +178,226 @@ for open_close in "cat <<'NOTE'|NOTE" 'cat <<NOTE|NOTE' 'cat <<"NOTE"|NOTE' 'cat
     mutate release.yml "($refusal | .run) = \"set -euo pipefail\\n${opener//\"/\\\"}\\nif ! $check; then\\n  exit 1\\nfi\\n${closer//\"/\\\"}\""
     expect_fail "a refusal inside $opener" guard_with
 done
+# Workflow- and job-level settings reach the refusal step too: another shell, working directory or environment (BASH_ENV, PATH, GIT_DIR,
+# GITHUB_SHA) can turn it into a no-op, so release.yml allows only a fixed set of keys at both levels.
+for level in '' '.jobs.release'; do
+    where=${level:-the workflow}
+    mutate release.yml "$level.defaults.run.shell = \"true {0}\""
+    expect_fail "defaults.run.shell in $where" guard_with
+    mutate release.yml "$level.defaults.run.working-directory = \"/tmp\""
+    expect_fail "defaults.run.working-directory in $where" guard_with
+    for var in BASH_ENV ENV PATH GIT_DIR GITHUB_SHA; do
+        mutate release.yml "$level.env.$var = \"/tmp/x\""
+        expect_fail "$var in the env of $where" guard_with
+    done
+done
+# The exit 1 must run in the step's own shell, not inside a command substitution or subshell that swallows it (#1465).
+mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  echo \\\"::error::refused\\\" \$(\\n    exit 1\\n  )\\n  exit 0\\nfi\""
+expect_fail "an exit 1 inside \$( )" guard_with
+mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  echo \\\"::error::refused\\\" \`\\n    exit 1\\n  \`\\n  exit 0\\nfi\""
+expect_fail "an exit 1 inside backticks" guard_with
+mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  (\\n    exit 1\\n  )\\nfi\""
+expect_fail "an exit 1 inside a subshell" guard_with
+mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  echo hi |&\\n  exit 1\\nfi\""
+expect_fail "an exit 1 in the pipeline that a line ending in |& continues" guard_with
+# Only the pinned checkout may run before the refusal: any other step can write BASH_ENV or PATH to $GITHUB_ENV / $GITHUB_PATH, or run
+# code from the repository (a local action), and so neuter the refusal.
+steps='.jobs.release.steps'
+checkout="\"uses\": \"actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1\", \"with\": {\"persist-credentials\": false, \"fetch-depth\": 0}"
+for early in '{"run": "echo BASH_ENV=/tmp/x >> $GITHUB_ENV"}' '{"run": "echo /tmp/bin >> $GITHUB_PATH"}' '{"uses": "./evil"}' \
+    '{"uses": "actions/cache@3d3c42e5aac5ba805825da76410c181273ba90b1"}' '{"uses": "actions/checkout@v7", "with": {"persist-credentials": false, "fetch-depth": 0}}' \
+    "{$checkout, \"env\": {\"GIT_DIR\": \"/tmp\"}}" "{$checkout, \"if\": \"false\"}" "{$checkout, \"run\": \"true\"}" \
+    '{"uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1", "with": {"path": "sub"}}'; do
+    mutate release.yml "$steps = [$early] + $steps"
+    expect_fail "a step before the refusal: $early" guard_with
+done
+mutate release.yml "$steps = [{$checkout}] + $steps"
+expect_pass "a second pinned checkout before the refusal" guard_with
+# No other workflow may read the signing secrets: a second workflow on tag pushes would sign with no refusal. Other secrets stay allowed by name.
+for read in '${{ secrets.LENSLY_KEYSTORE_PASS }}' "\${{ secrets['lumio_keystore_b64'] }}" '${{ toJSON(secrets) }}'; do
+    mutate nightly.yml ".env.X = \"$read\""
+    expect_fail "a keystore secret read in another workflow: $read" guard_with
+done
+mutate release.yml '.jobs.release.steps[0].name = "x"'
+yq '.on.push.tags = ["lensly-v*"] | .jobs.release.steps += [{"run": "echo ${{ secrets.LENSLY_KEYSTORE_PASS }}"}]' "$work/workflows/release.yml" >"$work/workflows/release2.yml"
+expect_fail "a second tag workflow that reads the keystore" guard_with
+# A step after the refusal that reads a secret must not run on a status function: always(), failure(), !cancelled() and success() || always()
+# run it even though the refusal failed. A job-level if or continue-on-error would do the same, and release.yml allows neither (#1481).
+sign='(.jobs.release.steps[] | select(.name == "Align and sign the APK"))'
+for cond in 'always()' '${{ failure() }}' '!cancelled()' 'success() || always()' 'ALWAYS()' '${{always ()}}' '${{ Failure( ) }}' 'success()' "cancelled() || github.ref_type == 'tag'"; do
+    mutate release.yml "$sign += {\"if\": \"$cond\"}"
+    expect_fail "the signing step with if: $cond" guard_with
+done
+# After the refusal no step may have an if (any key outside name, id, run, env, uses, with fails), except the exact keystore cleanup step.
+mutate release.yml "$sign += {\"if\": \"github.ref_type == 'tag'\"}"
+expect_fail "the signing step with an if that calls no status function" guard_with
+for key in '"IF": "always()"' '"If": "failure()"' '"iF": "true"' '"continue-on-error": true' '"timeout-minutes": 1' '"shell": "bash"' '"working-directory": "/tmp"'; do
+    mutate release.yml "$sign += {$key}"
+    expect_fail "the signing step with the key $key" guard_with
+done
+mutate release.yml '.jobs.release.steps += [{"name": "Report", "if": "always()", "run": "true"}]'
+expect_fail "a step that reads no secret with if: always()" guard_with
+mutate release.yml '.jobs.release.steps += [{"name": "Report", "IF": "always()", "run": "true"}]'
+expect_fail "a step that reads no secret with IF: always()" guard_with
+mutate release.yml '.jobs.release.steps += [{"name": "Report", "run": "true"}]'
+expect_pass "a step after the refusal with only name and run" guard_with
+cleanup='(.jobs.release.steps[] | select(.name == "Delete the decoded keystore"))'
+for change in '.if = "failure()"' '.if = "always() || true"' '.if = "${{ always() }}"' 'del(.if)' '.IF = "always()"' '.continue-on-error = true' '.env.X = "1"' '.run = "echo ${{ secrets.LENSLY_KEYSTORE_PASS }}"'; do
+    mutate release.yml "$cleanup |= ($change)"
+    expect_fail "the keystore cleanup step changed by $change" guard_with
+done
+mutate release.yml '.jobs.release.steps += [{"name": "Late", "if": "failure()", "run": "echo ${{ secrets.LENSLY_KEYSTORE_PASS }}"}]'
+expect_fail "a late step that reads a secret with if: failure()" guard_with
+mutate release.yml '.jobs.release.if = "always()"'
+expect_fail "a job-level if: always()" guard_with
+mutate release.yml '.jobs.release.continue-on-error = true'
+expect_fail "a job-level continue-on-error" guard_with
+# Another workflow's secret read written with a YAML double-quoted escape: only the parsed string shows the word secrets (#1481).
+extra() {
+    # extra <yaml text>: a fresh copy of the workflows plus extra.yml with that text.
+    rm -rf "$work/workflows"
+    cp -R .github/workflows "$work/workflows"
+    printf '%s\n' "$1" >"$work/workflows/extra.yml"
+}
+extra 'on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo done'
+expect_pass "an extra workflow that reads no secret" guard_with
+for name in '\x73' '\u0073' '\U00000073'; do
+    extra "on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo
+        env:
+          X: \"\${{ ${name}ecrets.LENSLY_KEYSTORE_B64 }}\""
+    expect_fail "a keystore secret read written with the escape $name in another workflow" guard_with
+done
+extra 'on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo
+        env:
+          X: "${{ sec\
+            rets.LENSLY_KEYSTORE_B64 }}"'
+expect_fail "a keystore secret read split by an escaped line break in another workflow" guard_with
+extra 'on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo
+        env:
+          X: "${{ \x73ecrets.NVD_API_KEY }}"'
+expect_fail "NVD_API_KEY read in a workflow other than nightly.yml" guard_with
+# Every secret read must be exactly a listed expression for its file: the secrets object filter, an index, toJSON, an unknown name, a
+# quoted inherit and a secrets: mapping all fail, in release.yml after the refusal and in every other workflow (#1481 review).
+expr_in_extra() {
+    # expr_in_extra <expression text>: extra.yml with a step that uses it.
+    extra "on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo \${{ $1 }}"
+}
+for expr in "join(secrets.*, '')" "secrets['NVD_API_KEY']" 'secrets.*' 'toJSON(secrets)' 'toJson( secrets )' 'secrets.UNKNOWN_NAME' 'secrets.NVD_API_KEY' 'SECRETS.GITHUB_TOKEN' \
+    "format('}}', secrets.GITHUB_TOKEN)" 'fromJSON(toJSON(secrets)).X' 'secrets . LENSLY_KEYSTORE_B64' 'secrets.LENSLY_KEYSTORE_PASS'; do
+    expr_in_extra "$expr"
+    expect_fail "the expression $expr in another workflow" guard_with
+done
+expr_in_extra 'secrets.GITHUB_TOKEN'
+expect_fail "secrets.GITHUB_TOKEN in a workflow that does not list it" guard_with
+expr_in_extra 'needs.secrets.result'
+expect_fail "needs.secrets.result in a workflow that does not list it" guard_with
+for read in "join(secrets.*, '')" "secrets['LENSLY_KEYSTORE_PASS']" 'secrets.*' 'toJSON(secrets)' 'secrets.UNKNOWN_NAME'; do
+    mutate release.yml "$sign |= (.env = {\"LENSLY_KEYSTORE_B64\": \"\${{ $read }}\"} | .if = \"always()\")"
+    expect_fail "the signing step reading only $read, with if: always()" guard_with
+    mutate release.yml "$sign |= (.env = {\"LENSLY_KEYSTORE_B64\": \"\${{ $read }}\"})"
+    expect_fail "the signing step reading only $read" guard_with
+done
+for inherit in 'secrets: "inherit"' '"secrets": inherit' "secrets: 'inherit'" 'secrets: inherit' 'Secrets: inherit' 'secrets: {X: "1"}' 'secrets: {}' 'secrets: "${{ toJSON(secrets) }}"'; do
+    extra "on: push
+jobs:
+  j:
+    uses: octo/repo/.github/workflows/x.yml@main
+    $inherit"
+    expect_fail "a reusable workflow call with $inherit" guard_with
+done
+extra 'on: push
+jobs:
+  j:
+    uses: octo/repo/.github/workflows/x.yml@main
+    secrets:
+      X: ${{ secrets.NVD_API_KEY }}'
+expect_fail "a reusable workflow call with a secrets: mapping" guard_with
+extra 'on: push
+jobs:
+  secrets:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo ${{ needs.secrets.result }} ${{ github.token }}'
+expect_fail "a job id secrets with a needs.secrets.result expression in an unlisted workflow" guard_with
+extra 'on: push
+jobs:
+  secrets:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo done'
+expect_pass "a job id named secrets" guard_with
+extra 'on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    env:
+      SECRETS: ok
+    steps:
+      - run: echo "no secrets are read here"'
+expect_pass "an env variable named SECRETS and the word secrets in text" guard_with
+extra 'on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    env:
+      X: ok
+      X: "${{ \x73ecrets.NVD_API_KEY }}"
+    steps:
+      - run: echo done'
+expect_fail "a repeated mapping key" guard_with
+
+# The step's run must be exactly the canonical refusal: no statement before or inside it may skip, override or neuter it (#1470).
+canon=$(yq "$refusal | .run" .github/workflows/release.yml)
+refuse_with() {
+    run=$1 mutate release.yml "($refusal | .run) = strenv(run)"
+}
+refuse_with "exit 0"$'\n'"$canon"
+expect_fail "an exit 0 before the refusal" guard_with
+refuse_with "trap 'exit 0' EXIT"$'\n'"$canon"
+expect_fail "an EXIT trap that overrides the exit status" guard_with
+refuse_with "GITHUB_SHA=origin/master"$'\n'"$canon"
+expect_fail "a GITHUB_SHA that is origin/master" guard_with
+refuse_with 'git update-ref refs/remotes/origin/master "$GITHUB_SHA"'$'\n'"$canon"
+expect_fail "an origin/master moved to the tag commit" guard_with
+refuse_with "shopt -s expand_aliases"$'\n'"alias exit=:"$'\n'"$canon"
+expect_fail "exit aliased to a no-op" guard_with
+refuse_with "${canon%exit 1*}exit 0"$'\n'"exit 1"$'\n'fi
+expect_fail "an exit 0 before the exit 1 in the block" guard_with
+refuse_with "${canon%exit 1*}"'echo hi |&'$'\n'"exit 1"$'\n'fi
+expect_fail "an exit 1 in the pipeline that a line ending in |& continues (canonical form)" guard_with
+# Python splits lines at more characters than bash does, so each of these hides "exit 1" inside an echo argument (real characters, not escapes).
+for sep in $'\v' $'\f' $'\r' $'\x1c' $'\x1d' $'\x1e' $'\xc2\x85' $'\xe2\x80\xa8' $'\xe2\x80\xa9'; do
+    pre=${canon%$'\n'*exit 1*}
+    refuse_with "$pre$sep"exit' 1'$'\n'fi
+    expect_fail "an exit 1 joined to the echo by the separator $(printf %s "$sep" | od -An -tx1 | tr -d ' \n')" guard_with
+done
+refuse_with "$canon"
+expect_pass "the canonical refusal rewritten from the workflow" guard_with
 mutate release.yml "$refusal += {\"id\": \"refuse\"}"
 expect_pass "a refusal with an id" guard_with
 
