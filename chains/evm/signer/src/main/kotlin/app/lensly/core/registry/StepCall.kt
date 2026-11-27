@@ -28,6 +28,13 @@ internal fun shortAddress(address: String): String {
 }
 
 /**
+ * The warning of a step that pays or credits [address], or an empty list when [address] is the signer. [what] is the action that reaches
+ * it, as the text "This <what> <address>, not you" reads: "withdraws to", "supplies for" or "repays the debt of".
+ */
+internal fun notYou(from: String, what: String, address: String): List<String> =
+    if (address == from) emptyList() else listOf("This $what ${shortAddress(address)}, not you")
+
+/**
  * [seconds] since the epoch, as a UTC date and time such as 2026-11-29 00:27 UTC, or the raw number when it is outside the dates a clock holds.
  * It is not truncated to a Long first, which would show a different date.
  */

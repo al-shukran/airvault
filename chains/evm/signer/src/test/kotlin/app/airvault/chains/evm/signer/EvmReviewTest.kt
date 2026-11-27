@@ -5,6 +5,7 @@ import app.airvault.abi.WhitelistParam
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.Coverage
 import app.airvault.core.model.Danger
+import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.FieldPath
 import app.airvault.core.model.NetworkLabel
 import app.airvault.core.model.Review
@@ -405,6 +406,15 @@ class EvmReviewTest {
         val approved = review.warnings.single { it.code == "evm.whitelisted-call" }
         assertEquals(Danger.CAUTION, approved.level)
         assertEquals(ACK_WHITELIST, approved.acknowledge)
+    }
+
+    @Test
+    fun anAddressArgumentOfAnApprovedCallIsAnAddressRow() {
+        val review = reviewOf(txParsed(NFT, fooCalldata()), builder(REGISTRY.withWhitelist(listOf(fooEntry()))))
+
+        val rows = review.sections.single { it.heading == "Arguments" }.rows
+        assertEquals(DisplayValue.Address(review.chain, SPENDER), rows.single { it.label == "to (address)" }.value)
+        assertIs<DisplayValue.Text>(rows.single { it.label == "amount (uint256)" }.value)
     }
 
     @Test
