@@ -2,7 +2,7 @@
 // outside, so it cannot share a module with the app: this is a com.android.test module that targets :app's benchmark
 // variant and runs in its own process, driving the app through UI Automator.
 //
-// The module is intentionally absent from every other lane: :app:testDebugUnitTest, :app:assembleDebug and
+// The module is intentionally absent from every other CI step: :app:testDebugUnitTest, :app:assembleDebug and
 // :app:verifyRoborazziDebug never configure or build it, because nothing here is a dependency of :app.
 plugins {
     alias(libs.plugins.android.test)
@@ -39,7 +39,7 @@ android {
 }
 
 // Build only the benchmark variant. The debug and release variants of a test module have nothing to measure here and
-// would add tasks that no lane calls.
+// would add tasks that no CI step calls.
 androidComponents {
     beforeVariants(selector().all()) { variantBuilder ->
         variantBuilder.enable = variantBuilder.buildType == "benchmark"

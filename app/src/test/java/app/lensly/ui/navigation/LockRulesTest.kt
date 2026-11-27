@@ -10,7 +10,7 @@ import org.junit.Test
  * idle timeout (thirty minutes by default), a switch that locks when the app is switched away from (off by default), and launches
  * that the app makes itself, which never lock. Lensly's policy is the one it has always had, and these rules keep it unchanged.
  *
- * The rules live in :shared, and this module runs them with the cover's other navigation tests (see the ui-a partition).
+ * The rules live in :shared, and this module runs them with the cover's other navigation tests.
  */
 class LockRulesTest {
 
