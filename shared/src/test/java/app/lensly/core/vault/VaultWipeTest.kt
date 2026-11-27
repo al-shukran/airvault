@@ -1,6 +1,7 @@
 package app.lensly.core.vault
 
 import java.io.File
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -107,6 +108,31 @@ class VaultWipeTest {
         assertFalse(layout.recording!!.exists())
         assertTrue(sealed.exists())
         assertTrue(layout.exists())
+    }
+
+    @Test
+    fun aRecordingLargerThanTheBufferIsFullyOverwrittenThenDeleted() {
+        val file = tmp.newFile("big.bin")
+        val original = ByteArray(10 * 1024 + 3) { 5 }
+        file.writeBytes(original)
+
+        overwriteInPlace(file, chunkSize = 1024)
+
+        val after = file.readBytes()
+        assertEquals(original.size, after.size)
+        // Every chunk is random: a chunk that kept its old bytes would still be all 5s.
+        after.toList().chunked(1024).forEach { chunk -> assertFalse(chunk.all { it == 5.toByte() }) }
+    }
+
+    @Test
+    fun aFailedOverwriteStillDeletesTheRecordingAndDoesNotThrow() {
+        listOf<Throwable>(java.io.IOException("x"), IllegalStateException("x"), OutOfMemoryError("x")).forEach { failure ->
+            val layout = withRecording()
+
+            assertTrue(layout.shredRecording { throw failure })
+
+            assertFalse(layout.recording!!.exists())
+        }
     }
 
     @Test

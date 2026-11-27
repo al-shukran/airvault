@@ -1636,13 +1636,7 @@ private fun markWipe(layout: VaultLayout) {
 
 /** Overwrites every file under [dir] in place. A file that cannot be overwritten is still deleted by the caller. */
 private fun overwriteFiles(dir: File) {
-    dir.walkTopDown().filter { it.isFile }.forEach { file ->
-        try {
-            overwriteInPlace(file)
-        } catch (e: IOException) {
-            // Deleted by the caller all the same.
-        }
-    }
+    dir.walkTopDown().filter { it.isFile }.forEach { overwriteBestEffort(it) }
 }
 
 /** Overwrites the files in [dir], then deletes them. The folder stays, since both photo folders exist whether or not a decoy does. */

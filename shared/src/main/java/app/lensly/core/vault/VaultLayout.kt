@@ -2,7 +2,6 @@ package app.lensly.core.vault
 
 import android.content.Context
 import java.io.File
-import java.io.IOException
 import java.security.MessageDigest
 import java.security.SecureRandom
 import javax.crypto.Mac
@@ -58,13 +57,9 @@ class VaultLayout(
     fun isBeforeSetup(): Boolean = !exists() && !isPartial()
 
     /** Overwrites, then deletes, the plain recording file that an interrupted recording left behind. True when none is left. */
-    fun shredRecording(): Boolean {
+    fun shredRecording(overwrite: (File) -> Unit = ::overwriteInPlace): Boolean {
         val file = recording ?: return true
-        try {
-            overwriteInPlace(file)
-        } catch (e: IOException) {
-            // Deleted below all the same.
-        }
+        overwriteBestEffort(file, overwrite)
         return file.delete() || !file.exists()
     }
 
