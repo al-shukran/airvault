@@ -342,8 +342,11 @@ class EvmReviewBuilder(
                 else -> return false
             }.lowercase()
             if (!isHyperEvm(chainId) || !isSystemAddress(recipient)) return false
-            if (recipient == hyperCoreSystemAddressOf(chainId, contract)) return true
-            warnings += Warning(Danger.DANGER, CODE_SYSTEM_DESTINATION, SYSTEM_DESTINATION_TEXT, field, ACK_SYSTEM_DESTINATION)
+            val own = hyperCoreSystemAddressOf(chainId, contract)
+            if (recipient == own) return true
+            // A token Lensly does not list has no known index, so Lensly cannot say which system address, if any, is its own.
+            val text = if (own == null) UNLISTED_SYSTEM_DESTINATION_TEXT else SYSTEM_DESTINATION_TEXT
+            warnings += Warning(Danger.DANGER, CODE_SYSTEM_DESTINATION, text, field, ACK_SYSTEM_DESTINATION)
             return false
         }
 
@@ -984,6 +987,8 @@ private const val MOVE_TO_HYPEREVM = "Move to HyperEVM"
 private const val CODE_SYSTEM_DESTINATION = "evm.hypercore-system-destination"
 private const val SYSTEM_DESTINATION_TEXT = "This sends tokens to a HyperCore system address that does not belong to this token. HyperCore may not " +
     "credit them, and they may be lost. Check the address before you sign."
+private const val UNLISTED_SYSTEM_DESTINATION_TEXT = "This sends tokens to a HyperCore system address. Lensly cannot confirm this system " +
+    "address belongs to this token. Funds sent to the wrong system address may be lost. Check the address before you sign."
 private const val NATIVE_SYSTEM_DESTINATION_TEXT = "This sends HYPE to a HyperCore system address that belongs to a token, not to HYPE. HyperCore may " +
     "not credit it, and it may be lost. Check the address before you sign."
 private const val ACK_SYSTEM_DESTINATION = "I understand these tokens may be lost."

@@ -702,6 +702,29 @@ class EvmReviewTest {
     }
 
     @Test
+    fun anErc20TransferOfAnUnlistedTokenToASystemAddressSaysLenslyCannotConfirmItBelongsToTheToken() {
+        val call = ContractCall.Transfer(TOKEN_SYSTEM, BigInteger.valueOf(1_000_000)).encode()!!
+        val review = reviewOf(txParsed(HYPEREVM_TOKEN, call, chainId = 999), builder(HYPEREVM_REGISTRY))
+
+        val warning = review.warnings.single { it.code == "evm.hypercore-system-destination" }
+        assertEquals(Danger.DANGER, warning.level)
+        assertEquals(
+            "This sends tokens to a HyperCore system address. Lensly cannot confirm this system address belongs to this token. " +
+                "Funds sent to the wrong system address may be lost. Check the address before you sign.",
+            warning.message,
+        )
+    }
+
+    @Test
+    fun anErc20TransferOfAListedTokenToAnotherTokensSystemAddressStillSaysItDoesNotBelongToIt() {
+        val foreign = ContractCall.Transfer(TOKEN_SYSTEM, BigInteger.valueOf(1_000_000)).encode()!!
+        val review = reviewOf(txParsed(HYPEREVM_USDT0_TX, foreign, chainId = 999), builder(HYPEREVM_REGISTRY))
+
+        val warning = review.warnings.single { it.code == "evm.hypercore-system-destination" }
+        assertTrue(warning.message.contains("does not belong to this token"))
+    }
+
+    @Test
     fun anErc20TransferByAnUnlinkedContractToATokenSystemAddressKeepsItsFunctionTitle() {
         val call = ContractCall.Transfer(TOKEN_SYSTEM, BigInteger.valueOf(1_000_000)).encode()!!
         val review = reviewOf(txParsed(HYPEREVM_UNLINKED, call, chainId = 999), builder(HYPEREVM_REGISTRY))
