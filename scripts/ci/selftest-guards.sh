@@ -5,6 +5,7 @@
 #   check-workflow-guards.sh     comment-run trusted gate, release refusal order, signing environment, sign-job steps and the always-run pr-ok (#1407, #1408, #1442, #1451, #1465, #1470, #1481, #1482, #1493, #1531, #1532, #1581, #1604)
 #   sign-release.sh              the hash, secrets and version-code checks that come before the APK is signed (#1493)
 #   close-refresh-pr.sh          the refresh pull request is closed and the comment posted once (#1396, #1443)
+#   gradle-needed.sh             Gradle runs for a build input, a diff that fails or an empty list, and is skipped for docs and CI scripts
 #   run-step.sh require_unit_tests  every module has a *Test.kt under src/test/java or src/test/kotlin, not under resources (#1625)
 #
 # Usage: scripts/ci/selftest-guards.sh
@@ -677,6 +678,19 @@ unit_tree app/src/test/java/AppTest.kt lumio/src/test/java/LumioTest.kt shared/s
 expect_pass "a *Test.kt under src/test/java in every module" units_guard
 unit_tree app/src/test/kotlin/AppTest.kt lumio/src/test/java/LumioTest.kt shared/src/test/java/SharedTest.kt
 expect_pass "a *Test.kt under src/test/kotlin" units_guard
+unit_tree lumio/src/test/java/LumioTest.kt shared/src/test/java/SharedTest.kt
+mkdir -p "$units/app/src/test/java/AppTest.kt"
+expect_fail "a directory named *Test.kt and no file under app" units_guard
+# run_unit must call the guard, or the unit step runs Gradle with no check (#1632). The copy with the call removed must be rejected.
+unit_calls_guard() {
+    sed -n '/^run_unit() {/,/^}/p' "$1" | grep -q '^    require_unit_tests$' || {
+        echo "error: run_unit does not call require_unit_tests" >&2
+        return 1
+    }
+}
+sed '/^    require_unit_tests$/d' "$root/scripts/ci/run-step.sh" >"$work/run-step-no-guard.sh"
+expect_pass "run_unit calls require_unit_tests" unit_calls_guard "$root/scripts/ci/run-step.sh"
+expect_fail "run_unit without the require_unit_tests call" unit_calls_guard "$work/run-step-no-guard.sh"
 
 # --- close-refresh-pr.sh: a stub gh whose first close fails (and records the comment first, as the old gh pr close --comment did).
 # Whether the first gh pr comment fails before posting ("drop") or after it ("lost"), the pull request ends closed with one comment.
@@ -729,6 +743,29 @@ for mode in ok drop lost; do
     [ "$(comment_count)" = 1 ] || fail "close-refresh-pr.sh commented again on a pull request it had already closed ($mode)"
 done
 RUN_URL= expect_fail "an empty RUN_URL" env PATH="$bin:$PATH" "$root/scripts/ci/close-refresh-pr.sh" 7
+
+# --- gradle-needed.sh: Gradle runs when any changed file is a build input, and when the list or the diff cannot be trusted.
+gradle_needed=$root/scripts/ci/gradle-needed.sh
+expect_gradle() {
+    # expect_gradle <true|false> <name> <changed file>...
+    local want=$1 name=$2 got
+    shift 2
+    got=$(printf '%s\n' "$@" | "$gradle_needed" --files 2>/dev/null) || got="the script failed"
+    [ "$got" = "$want" ] || fail "gradle-needed.sh said '$got' for $name, not $want"
+}
+expect_gradle false "scripts and docs only" scripts/ci/run-step.sh scripts/ci/selftest-guards.sh docs/testing/guideline.md CHANGELOG-lensly.md changelog.d/lensly/x.md .github/workflows/ci.yml
+expect_gradle true "a Kotlin file of :app" docs/a.md app/src/main/java/app/lensly/Foo.kt
+expect_gradle true "a Kotlin file outside a module" tools/x.kt
+expect_gradle true "the version catalog" scripts/ci/run-step.sh gradle/libs.versions.toml
+expect_gradle true "a resource of :lumio" lumio/src/main/res/values/strings.xml
+expect_gradle true "a file of a nested module" chains/evm/signer/src/main/java/Signer.java
+expect_gradle true "gradle.properties" gradle.properties
+expect_gradle true "the root build file" build.gradle.kts
+expect_gradle true "the wrapper script" gradlew
+expect_gradle true "an empty list"
+expect_gradle true "an empty line" ""
+[ "$("$gradle_needed" 0000000000000000000000000000000000000001 2>/dev/null)" = true ] || fail "gradle-needed.sh did not run Gradle when the diff failed"
+[ "$("$gradle_needed" 2>/dev/null)" = true ] || fail "gradle-needed.sh did not run Gradle with no base commit"
 
 if [ "$failed" -ne 0 ]; then
     exit 1
