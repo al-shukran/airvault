@@ -133,7 +133,7 @@ internal object VaultRole {
  * The vault format version. `header.bin` and `unlock.bin` both hold it after their magic, and the slot key label names it (see [Vault]).
  * A vault with a file of any other version is unverifiable, so an unlock erases it, and nothing is migrated (see [VaultFormatChangedException]).
  */
-internal const val VAULT_FORMAT_VERSION: Byte = 4
+internal const val VAULT_FORMAT_VERSION: Byte = 5
 
 /**
  * Contents of `unlock.bin`, which holds one slot for the real vault and one for the decoy vault that a Duress Password
