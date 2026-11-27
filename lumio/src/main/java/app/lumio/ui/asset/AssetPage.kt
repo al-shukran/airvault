@@ -404,7 +404,7 @@ private fun RangeRow(selected: ChartFrame, onSelect: (ChartFrame) -> Unit) {
                 Text(
                     text = range.label,
                     modifier = Modifier.padding(horizontal = RANGE_ITEM_X, vertical = RANGE_ITEM_Y),
-                    style = RANGE_STYLE.copy(fontWeight = if (chosen) FontWeight.Bold else FontWeight.Medium),
+                    style = if (chosen) RANGE_CHOSEN_STYLE else RANGE_STYLE.copy(fontWeight = FontWeight.Medium),
                     color = if (chosen) palette.ink else palette.ink2,
                 )
                 // Every range keeps the diamond's place, so the row does not move when the choice does.
@@ -455,6 +455,7 @@ private val RANGE_ITEM_Y = 8.dp
 /** The side of the spark under the chosen range: a square, turned into a diamond. */
 private val RANGE_SPARK = 5.dp
 private val RANGE_STYLE = ClearAirType.address.copy(fontSize = 12.5.sp, lineHeight = 17.sp, letterSpacing = 0.sp).inLineBox()
+private val RANGE_CHOSEN_STYLE = ClearAirType.addressBold.copy(fontSize = 12.5.sp, lineHeight = 17.sp, letterSpacing = 0.sp).inLineBox()
 private val ACTIONS_TOP = 6.dp
 private val ACTIONS_PAD = 6.dp
 private val ACTIONS_GAP = 18.dp
