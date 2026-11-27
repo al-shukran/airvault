@@ -90,6 +90,7 @@ shard-1 :lumio app.lumio.evm.PortfolioTotalsTest
 shard-1 :lumio app.lumio.evm.TokenSendTest
 shard-1 :lumio app.lumio.home.HomeAssetsTest
 shard-1 :lumio app.lumio.receive.ReceiveCapsuleTest
+shard-1 :lumio app.lumio.ui.asset.AssetFrameTest
 shard-1 :lumio app.lumio.ui.asset.AssetHoldingsTest
 shard-1 :lumio app.lumio.ui.home.MarketFormatTest
 shard-1 :lumio app.lumio.ui.kit.AddressGroupsTest

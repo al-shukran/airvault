@@ -4,7 +4,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Test
 
-/** The tick chart's geometry: one tick per price after the first, spread across the width, each from the price before it to its own. */
+/** The tick chart's geometry: one tick per price after the first, spread from the left edge to the right one, each from the price before it to its own. */
 class TickChartTest {
     @Test
     fun aSeriesOfOnePriceDrawsNoTick() {
@@ -12,10 +12,15 @@ class TickChartTest {
     }
 
     @Test
-    fun eachPriceAfterTheFirstMakesOneTickSpreadAcrossTheWidth() {
+    fun aSeriesOfTwoPricesDrawsItsOneTickAtTheRightEdgeSoTheDiamondIsNotCutAtTheLeft() {
+        assertEquals(listOf(200f), ticksOf(listOf(1.0, 2.0), width = 200f, height = 100f).map { it.x })
+    }
+
+    @Test
+    fun eachPriceAfterTheFirstMakesOneTickSpreadFromEdgeToEdge() {
         val ticks = ticksOf(listOf(1.0, 2.0, 3.0), width = 200f, height = 100f)
 
-        assertEquals(listOf(100f, 200f), ticks.map { it.x })
+        assertEquals(listOf(0f, 200f), ticks.map { it.x })
     }
 
     @Test
