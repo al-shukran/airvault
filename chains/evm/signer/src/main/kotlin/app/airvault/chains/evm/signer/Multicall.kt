@@ -30,6 +30,9 @@ data class InnerCall(
     val nested: Multicall?,
 )
 
+/** Multicall3, which is deployed at this address on every chain by deterministic deployment. */
+const val MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11"
+
 /**
  * The batch shapes Lensly reads: Uniswap's `multicall` in both of its forms, and the Multicall3 `aggregate` family. [selector] is the
  * Function Selector without 0x. A Multicall3 call is a tuple of its target, the flags its shape has, and its calldata.

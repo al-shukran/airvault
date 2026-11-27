@@ -27,6 +27,7 @@ import app.lensly.core.registry.CallSteps
 import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.FeeModel
+import app.lensly.core.registry.HyperliquidNetwork
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.OffChainDomain
 import app.lensly.core.registry.ProxyBinding
@@ -38,7 +39,7 @@ import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.registry.isHypeSystemAddress
 import app.lensly.core.registry.isHyperEvm
 import app.lensly.core.registry.isSystemAddress
-import app.lensly.core.registry.isTokenSystemAddress
+import app.lensly.core.registry.hyperCoreSystemAddressOf
 import app.lensly.core.registry.offChainDomainOf
 import app.lensly.core.registry.offChainLabelOf
 import app.lensly.core.wallet.toHex
@@ -152,6 +153,10 @@ class EvmReviewBuilder(
                 warnings += lighter.warnings
             }
             warnings += Warning(Danger.CAUTION, CODE_MESSAGE, PERSONAL_MESSAGE_WARNING)
+            // A contract such as a Safe takes the signature of a 32-byte hash as the approval of a transaction this review cannot show.
+            if (bytes.size == WORD_BYTES && printableMessage(bytes) == null) {
+                warnings += Warning(Danger.DANGER, CODE_MESSAGE_HASH, MESSAGE_HASH_WARNING, FieldPath("evm.message"), ACK_MESSAGE_HASH)
+            }
             // An EIP-191 signature commits to no chain, so it is valid on every one, whichever chain the request names or none.
             val chainWarning = if (request.chainId == null) PERSONAL_MESSAGE_NO_CHAIN_WARNING else PERSONAL_MESSAGE_CHAIN_WARNING
             warnings += Warning(Danger.CAUTION, CODE_MESSAGE_CHAIN, chainWarning)
@@ -184,12 +189,17 @@ class EvmReviewBuilder(
             if (offChain != null) {
                 header += ReviewRow(offChain.title, DisplayValue.Text(offChainNote(offChain.label)), null)
                 warnings += Warning(Danger.CAUTION, CODE_OFF_CHAIN, offChainCautionText(offChain.label), acknowledge = offChainAck(offChain.label))
-                if (offChain.hashesAction) header += ReviewRow(HASHED_ACTION_LABEL, DisplayValue.Text(HASHED_ACTION_NOTE), null)
+                offChain.hyperliquidNetwork(typedData.message)?.let { header += hyperliquidNetworkRow(it) }
+                if (offChain.hashesAction(typedData.primaryType)) header += ReviewRow(HASHED_ACTION_LABEL, DisplayValue.Text(HASHED_ACTION_NOTE), null)
             }
             actionWarning(typedData.primaryType, typedData.message, offChain)?.let { warnings += it }
             otherTypeWarning(offChainDomainOf(typedData.domain), typedData.primaryType)?.let { warnings += it }
             val domainNetworkName = domainChain?.let { networkNameOf(it) } ?: networkName
-            val part = typedPart(typedData, registry, chainId, chain, networkName, domainNetworkName = domainNetworkName)
+            val part = typedPart(
+                typedData, registry, chainId, chain, networkName,
+                domainNetworkName = domainNetworkName,
+                stringAddressMembers = offChain?.stringAddressMembers.orEmpty(),
+            )
             decoded += part.decoded
             warnings += part.warnings
             if (part.unknownToken) warnings += registryWarning(TOKEN_UNREGISTERED, field = null)
@@ -262,7 +272,8 @@ class EvmReviewBuilder(
             if (tx.nonce.bitLength() >= Long.SIZE_BITS) throw Refusal("The transaction nonce is too large to show")
             val to = tx.to ?: throw Refusal("Contract creation is not supported")
             val calldata = Numeric.hexStringToByteArray(tx.data)
-            val multicall = parsed.multicall
+            // A batch is read only on a contract known to run it. On any other contract the same calldata is an unknown call.
+            val multicall = parsed.multicall?.takeIf { isBatchContract(to, calldata) }
             val call = parsed.call
             val (title, summary) = when {
                 calldata.isEmpty() -> nativeTransaction(tx, to)
@@ -305,8 +316,12 @@ class EvmReviewBuilder(
             sections += ReviewSection("Arguments", rowsOf(part.params, "evm.data", 0) + noteRows(part.note))
             part.warnings.forEach { warnings += it.toWarning("evm.data") }
             if (part.unregistered) warnings += registryWarning(TOKEN_UNREGISTERED, FieldPath("evm.to"))
-            // The bridge title needs a registered token: a transfer by any other contract moves nothing from HyperCore.
-            val moves = call is ContractCall.Transfer && isHyperEvm(chainId) && isTokenSystemAddress(call.to) && token != null
+            // The bridge title needs the token's own system address. Any other transfer to a system address keeps its plain title and is warned.
+            val systemTo = (call as? ContractCall.Transfer)?.to?.lowercase()?.takeIf { isHyperEvm(chainId) && isSystemAddress(it) }
+            val moves = systemTo != null && systemTo == hyperCoreSystemAddressOf(chainId, to)
+            if (systemTo != null && !moves) {
+                warnings += Warning(Danger.DANGER, CODE_SYSTEM_DESTINATION, SYSTEM_DESTINATION_TEXT, FieldPath("evm.data"), ACK_SYSTEM_DESTINATION)
+            }
             return (if (moves) MOVE_TO_HYPERCORE else part.function) to part.sentence
         }
 
@@ -402,7 +417,7 @@ class EvmReviewBuilder(
                 val nested = inner.nested
                 val lone = inner.call
                 when {
-                    nested != null -> {
+                    nested != null && isBatchContract(contract, inner.calldata) -> {
                         val nestedShape = encodesAs(inner.calldata, nested) ?: throw Refusal(CANNOT_BE_READ)
                         callRows(rows, prefix, index, level, nestedShape.function, target, flags, note = null)
                         nested.deadline?.let { rows += ReviewRow(DEADLINE_LABEL, DisplayValue.Number(it), decode("$prefix.deadline"), level) }
@@ -777,6 +792,12 @@ class EvmReviewBuilder(
         private fun nativeAmount(wei: BigInteger): String =
             network?.let { "${Amounts.format(wei, it.nativeDecimals)} ${it.nativeSymbol}" } ?: "$wei $UNKNOWN_UNIT"
 
+        /** Whether [contract] is known to run the batch [calldata] holds: Multicall3 for its own shapes, or a contract the signed whitelist approves. */
+        private fun isBatchContract(contract: String, calldata: ByteArray): Boolean {
+            val shape = MulticallShape.of(calldata) ?: return false
+            return (shape.hasTarget && contract.equals(MULTICALL3_ADDRESS, ignoreCase = true)) || whitelistEntry(contract, calldata) != null
+        }
+
         private fun whitelistEntry(contract: String, calldata: ByteArray): WhitelistEntry? {
             if (calldata.size < SELECTOR_BYTES) return null
             return registry.whitelist(chainId, contract, "0x" + calldata.copyOfRange(0, SELECTOR_BYTES).toHex())
@@ -910,6 +931,11 @@ private fun offChainAck(label: String): String = "I understand this signature go
 /** The top label of a transfer that moves an asset from HyperCore to HyperEVM. */
 private const val MOVE_TO_HYPEREVM = "Move to HyperEVM"
 
+private const val CODE_SYSTEM_DESTINATION = "evm.hypercore-system-destination"
+private const val SYSTEM_DESTINATION_TEXT = "This sends tokens to a HyperCore system address that does not belong to this token. HyperCore may not " +
+    "credit them, and they may be lost. Check the address before you sign."
+private const val ACK_SYSTEM_DESTINATION = "I understand these tokens may be lost."
+
 /** The top label of a transfer that moves an asset from HyperEVM to HyperCore. */
 private const val MOVE_TO_HYPERCORE = "Move to HyperCore"
 
@@ -933,6 +959,8 @@ private fun hyperEvmMoveTitle(primaryType: String, message: TypedValue.StructVal
 private fun actionWarning(primaryType: String, message: TypedValue.StructValue, offChain: OffChainDomain?): Warning? = when {
     offChain?.isAgentApproval(primaryType, message) == true || primaryType.substringAfterLast(':') == "ApproveAgent" ->
         Warning(Danger.DANGER, CODE_TYPED_ACTION, APPROVE_AGENT_TEXT, acknowledge = ACK_APPROVE_AGENT)
+    primaryType.substringAfterLast(':') == "ConvertToMultiSigUser" ->
+        Warning(Danger.DANGER, CODE_TYPED_ACTION, MULTI_SIG_TEXT, acknowledge = ACK_MULTI_SIG)
     primaryType.substringAfterLast(':') in setOf("Withdraw", "withdraw3") ->
         Warning(Danger.DANGER, CODE_TYPED_ACTION, WITHDRAW_TEXT, acknowledge = ACK_WITHDRAW)
     else -> null
@@ -1098,6 +1126,12 @@ internal const val CODE_PROXY = "evm.proxy"
 internal const val CODE_STEPS = "evm.steps"
 internal const val CODE_MESSAGE = "evm.personal-message"
 private const val CODE_MESSAGE_CHAIN = "evm.personal-message.chain"
+internal const val CODE_MESSAGE_HASH = "evm.personal-message.hash"
+internal const val MESSAGE_HASH_WARNING = "This message is a 32-byte hash. A contract such as a Safe can accept its signature as approval " +
+    "of a transaction Lensly cannot show."
+
+/** The check the owner ticks for a personal message that is a 32-byte hash, by name. */
+internal const val ACK_MESSAGE_HASH = "I understand this signature may approve a transaction Lensly cannot show."
 private const val CODE_BIP44_ADDRESS = "evm.bip44-address"
 
 private const val SIGN_DATA_TOO_LARGE = "The data to sign is larger than 64 KiB"
@@ -1146,11 +1180,23 @@ private const val ACK_TYPED_CHAIN = "I understand this signature may be valid on
 internal const val ACK_APPROVE_AGENT = "I understand this lets another key act for this account."
 private const val ACK_WITHDRAW = "I understand this withdraws funds from this account."
 internal const val APPROVE_AGENT_TEXT = "This approves another key to act for this account. Check the agent address and name before you sign."
+private const val ACK_MULTI_SIG = "I understand this hands control of this account to other keys."
+private const val MULTI_SIG_TEXT = "This hands control of this account to the listed signers. Your own key can no longer act alone. " +
+    "Check the signers and the threshold before you sign."
 private const val WITHDRAW_TEXT = "This withdraws funds from this account. Check the destination and amount before you sign."
 
 /** The row that says a message carries a hash of its action, which Lensly cannot read. */
-private const val HASHED_ACTION_LABEL = "Order Details Are Hashed by Hyperliquid and Cannot Be Shown"
-private const val HASHED_ACTION_NOTE = "The connection ID is a hash of the action. Lensly cannot read the action, so it cannot show what the action does."
+private const val HASHED_ACTION_LABEL = "Action Details Are Hashed by Hyperliquid and Cannot Be Shown"
+private const val HASHED_ACTION_NOTE = "This message carries a hash of the action. Lensly cannot read the action, so it cannot show what it does. " +
+    "It can be an order, a transfer into a vault, a transfer between sub-accounts, or another action."
+
+/** The row that names the Hyperliquid network a message is for. Only the mainnet holds real funds. */
+private fun hyperliquidNetworkRow(network: HyperliquidNetwork): ReviewRow = ReviewRow(
+    "Network",
+    DisplayValue.Text(network.label),
+    null,
+    notes = if (network == HyperliquidNetwork.MAINNET) listOf("This is the live network. It holds real funds.") else emptyList(),
+)
 private const val L2_FEE_NOTE = "L1 data fee is not computable offline; total may be higher"
 private const val DEADLINE_LABEL = "deadline (uint256)"
 

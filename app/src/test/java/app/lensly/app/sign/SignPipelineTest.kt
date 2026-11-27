@@ -176,6 +176,17 @@ private val UNWRAP_ENTRY = WhitelistEntry(
     upgradeable = false,
 )
 
+/** The router's batch entry. A batch is read only on a contract the signed whitelist approves it on, or on Multicall3. */
+private val MULTICALL_ENTRY = WhitelistEntry(
+    chainId = ETHEREUM,
+    contract = ROUTER.lowercase(),
+    selector = "0x$SELECTOR_MULTICALL",
+    signature = "multicall(bytes[])",
+    meaning = "Run the calls in order.",
+    params = listOf(WhitelistParam("data", "bytes[]")),
+    upgradeable = false,
+)
+
 /** Two accounts, so index 1 is valid and index 2 is not. */
 private val VIEW by lazy {
     WalletView(
@@ -243,7 +254,7 @@ private val GUARDED: Registry = REGISTRY.withWhitelist(listOf(SWAP_ENTRY, PROXY_
 private val DENYLISTED: Registry = REGISTRY.withDenylist(shippedRegistry().denylistEntries())
 
 /** The registry of the batch tests: the router's two approved calls, and the approved swap and proxy the other tests use. */
-private val BATCH: Registry = REGISTRY.withWhitelist(listOf(SWEEP_ENTRY, UNWRAP_ENTRY, SWAP_ENTRY, PROXY_ENTRY))
+private val BATCH: Registry = REGISTRY.withWhitelist(listOf(MULTICALL_ENTRY, SWEEP_ENTRY, UNWRAP_ENTRY, SWAP_ENTRY, PROXY_ENTRY))
 
 private const val BLOCK_REASON = "Sweeps the whole balance of a token to one recipient."
 private const val WARN_REASON = "Unlimited approval: the spender can take every token."
@@ -271,6 +282,7 @@ private val BATCH_DENYLIST: Registry = BATCH.withDenylist(
 class SignPipelineTest {
 
     private val pipeline = SignPipeline(REGISTRY, inProcessSandboxParser)
+    private val batchPipeline = SignPipeline(BATCH, inProcessSandboxParser)
 
     /** The unlimited threshold is 2^160 - 1: that value and every larger one are warned, and the value one below it is not. */
     @Test
@@ -908,7 +920,7 @@ class SignPipelineTest {
     fun aTamperedCallInsideAMulticallIsRefusedByTheReEncodeCheck() {
         val approve = callOf(SELECTOR_APPROVE, addressWord(RECIPIENT), uintWord(BigInteger.TEN))
         val cbor = requestCbor(eip1559Tx(chainId = ETHEREUM, to = ROUTER, data = batchData(listOf(approve))), chainId = ETHEREUM)
-        assertIs<Prepared.Ready>(pipeline.prepare(parsedWith(cbor) { it }, VIEW))
+        assertIs<Prepared.Ready>(batchPipeline.prepare(parsedWith(cbor) { it }, VIEW))
 
         val relabelled = batchParse(cbor) { batch ->
             batch.copy(calls = listOf(batch.calls.single().copy(call = ContractCall.Approve(UNREGISTERED, BigInteger.TEN))))
@@ -918,8 +930,8 @@ class SignPipelineTest {
             batch.copy(calls = listOf(batch.calls.single().copy(calldata = bytes)))
         }
 
-        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(relabelled, VIEW))
-        assertEquals(Prepared.Refused(CANNOT_BE_READ), pipeline.prepare(flipped, VIEW))
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), batchPipeline.prepare(relabelled, VIEW))
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), batchPipeline.prepare(flipped, VIEW))
         assertEquals(
             "Unknown Contract Call",
             assertIs<Prepared.Refused>(pipeline.prepare(parsedWith(cbor) { it.copy(multicall = null) }, VIEW)).reason,
@@ -955,7 +967,7 @@ class SignPipelineTest {
     fun aMalformedBatchIsAnUndecodableCall() {
         val malformed = "0x" + SELECTOR_MULTICALL + uintWord(BigInteger.valueOf(4096)) + uintWord(BigInteger.ZERO)
 
-        assertEquals("Unknown Contract Call", assertIs<Prepared.Refused>(batch(malformed)).reason)
+        assertEquals("Unknown Contract Call", assertIs<Prepared.Refused>(batch(malformed, registry = REGISTRY)).reason)
     }
 
     @Test
@@ -970,8 +982,8 @@ class SignPipelineTest {
             ParserWire.encodeScanReply(evmReplyOf(parsed.copy(multicall = lying)))
         }
 
-        assertIs<Prepared.Ready>(throughSandbox(cbor, honest))
-        assertEquals(Prepared.Refused(CANNOT_BE_READ), throughSandbox(cbor, tampering))
+        assertIs<Prepared.Ready>(throughSandbox(cbor, honest, batchPipeline))
+        assertEquals(Prepared.Refused(CANNOT_BE_READ), throughSandbox(cbor, tampering, batchPipeline))
     }
 
     @Test
@@ -1183,14 +1195,14 @@ class SignPipelineTest {
             address = null,
             origin = ORIGIN,
         )
-        return pipeline.prepare(ParsedRequest(request, UnsignedTx.Result.Ok(tx), null, Multicall(null, calls)), VIEW)
+        return batchPipeline.prepare(ParsedRequest(request, UnsignedTx.Result.Ok(tx), null, Multicall(null, calls)), VIEW)
     }
 
     /** The request of a scanned [cbor] as a sandbox answers it. A sandbox that refuses the scan refuses the request. */
-    private fun throughSandbox(cbor: ByteArray, sandbox: SandboxTransport): Prepared {
+    private fun throughSandbox(cbor: ByteArray, sandbox: SandboxTransport, through: SignPipeline = pipeline): Prepared {
         val parts = listOf(framesOf(UR(EthSignRequest.UR_TYPE, cbor), WHOLE_REQUEST).first())
         return when (val scan = SandboxedParser(sandbox).scan(parts)) {
-            is ScanReply.App -> pipeline.prepare(assertNotNull(evmParsedOf(scan)), VIEW)
+            is ScanReply.App -> through.prepare(assertNotNull(evmParsedOf(scan)), VIEW)
             is ScanReply.Refused -> Prepared.Refused(scan.reason)
             else -> error("A single frame is a whole request or a refusal")
         }
