@@ -111,6 +111,50 @@ class VaultWipeTest {
     }
 
     @Test
+    fun aShredStartedWhileAnotherShredOverwritesTheFileWaitsForIt() {
+        val layout = withRecording()
+        val overwriting = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val startup = Thread { layout.shredRecording(overwrite = { overwriting.countDown(); release.await() }) }.apply { start() }
+        assertTrue(overwriting.await(5, java.util.concurrent.TimeUnit.SECONDS))
+
+        // What the camera runs before it records into the same file.
+        val recorder = Thread { layout.shredRecording() }.apply { start() }
+        recorder.join(300)
+        val recorderWaited = recorder.isAlive
+        val untouched = layout.recording!!.exists()
+        release.countDown()
+        startup.join(5000)
+        recorder.join(5000)
+
+        assertTrue(recorderWaited)
+        assertTrue(untouched)
+        assertFalse(layout.recording!!.exists())
+    }
+
+    @Test
+    fun aLateStartupShredLeavesARecordingThatBeganAfterAnotherShred() {
+        val layout = withRecording()
+        // The camera shreds before it records, then the recording begins.
+        assertTrue(layout.shredRecording())
+        layout.recording!!.writeBytes(ByteArray(64) { 3 })
+
+        // The startup shred, delayed past all of that.
+        assertTrue(layout.shredRecordingAtStartup())
+
+        assertEquals(64, layout.recording!!.length())
+    }
+
+    @Test
+    fun theStartupShredShredsTheLeftoverWhenNoOtherShredRan() {
+        val layout = withRecording()
+
+        assertTrue(layout.shredRecordingAtStartup())
+
+        assertFalse(layout.recording!!.exists())
+    }
+
+    @Test
     fun aRecordingLargerThanTheBufferIsFullyOverwrittenThenDeleted() {
         val file = tmp.newFile("big.bin")
         val original = ByteArray(10 * 1024 + 3) { 5 }
