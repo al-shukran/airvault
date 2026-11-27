@@ -63,17 +63,20 @@ class TxStore(private val dao: TxDao, private val keys: TxKeys) {
     /**
      * Deletes every row and comment that does not open under [keys], then the terms that name nothing. The rows of a vault that a Duress Password unlock
      * replaced are sealed under a key that no session holds, and their plain columns (network, time, amount, asset, direction, status) would stay readable
-     * in the database. Run once when the vault opens, as the cache and the scan queue are (see `Cache.purgeUnreadable`).
+     * in the database. Run once when the vault opens, as the cache and the scan queue are (see `Cache.purgeUnreadable`). A row that opens but does not
+     * decode is kept: only a row that no session can open is the old vault's. The log then drops the pages that held the deleted rows, so no copy of them
+     * stays in it, and this runs last of the purges for that reason.
      */
     suspend fun purgeUnreadable() {
         var kept = 0
         while (true) {
             val page = dao.rowsPage(PURGE_PAGE, kept)
             if (page.isEmpty()) break
-            for (row in page) if (open(row) == null) dao.removeRow(row.txId, row.accountKey) else kept++
+            for (row in page) if (!opens(row)) dao.removeRow(row.txId, row.accountKey) else kept++
         }
-        for (row in dao.comments()) if (openComment(row) == null) dao.writeComment(row.txId, COMMENT_KEY, comment = null, terms = emptyList())
+        for (row in dao.comments()) if (!opensComment(row)) dao.writeComment(row.txId, COMMENT_KEY, comment = null, terms = emptyList())
         dao.deleteOrphanTerms(COMMENT_KEY)
+        dao.truncateLog(SimpleSQLiteQuery("PRAGMA wal_checkpoint(TRUNCATE)"))
     }
 
     /** The counterparties of the account's transactions that are not spam: the addresses the account has dealt with. */
@@ -212,6 +215,20 @@ class TxStore(private val dao: TxDao, private val keys: TxKeys) {
         } catch (e: IllegalArgumentException) {
             null
         }
+    }
+
+    /** True when the payload of [row] opens under the key, whatever it holds. */
+    private fun opens(row: TxRow): Boolean = opensUnderKey(rowAad(row.txId, row.accountKey), row.payload)
+
+    private fun opensComment(row: TxComment): Boolean = opensUnderKey(commentAad(row.txId), row.text)
+
+    private fun opensUnderKey(aad: ByteArray, sealed: ByteArray): Boolean = try {
+        Aead.open(keys.encKey, aad, sealed)
+        true
+    } catch (e: GeneralSecurityException) {
+        false
+    } catch (e: IllegalArgumentException) {
+        false
     }
 
     private fun openComment(row: TxComment): TxNote? {

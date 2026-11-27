@@ -253,7 +253,7 @@ class LumioApp : Application(), CoverApplication {
 
     private var database: LumioDatabase? = null
 
-    /** The open vault's Lumio state, or null while the vault is locked. A decoy vault has its own, which starts empty. */
+    /** The open vault's Lumio state, or null while the vault is locked. */
     fun lumioVault(): LumioVault? = vaultHolder.sessionAttachment() as? LumioVault
 
     /**
@@ -309,6 +309,7 @@ class LumioApp : Application(), CoverApplication {
             receiveShareDir(this@LumioApp).deleteRecursively()
             vault.cache.purgeUnreadable()
             scanQueue.purgeUnreadable()
+            // Last, because it also empties the database log, which holds the rows that the purges before it deleted.
             vault.txs.purgeUnreadable()
             vault.store.retain(bitcoinRefs(session).map { it.key }.toSet())
             scanRunner.pass(selectedNetwork(session))

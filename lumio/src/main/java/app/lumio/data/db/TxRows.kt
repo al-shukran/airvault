@@ -95,6 +95,10 @@ abstract class TxDao {
     @RawQuery
     abstract suspend fun count(query: SupportSQLiteQuery): Int
 
+    /** Runs `PRAGMA wal_checkpoint(TRUNCATE)` in [query]: the log's pages go into the file and the log is emptied, so no deleted row is left in it. */
+    @RawQuery
+    abstract suspend fun truncateLog(query: SupportSQLiteQuery): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun insertComment(comment: TxComment)
 
