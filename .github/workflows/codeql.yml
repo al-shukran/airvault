@@ -1,9 +1,10 @@
 name: codeql
 
-# One full scan a day, on every push to master, and on demand from a /run-codeql comment. CodeQL takes longer than the
-# 3-minute PR budget, so it has no pull_request trigger: a pull request runs it only when a trusted commenter asks. A scheduled or
-# master run writes its result into one rolling issue labelled codeql, so the result is deduplicated across days; an on-demand
-# run reports on the pull request it was asked about.
+# One full scan a day, on every push to master, and on demand from a /run-codeql comment. It has no pull_request trigger, so it
+# never adds load to every pull request: a pull request runs it only when a trusted commenter asks. A scheduled or master run writes
+# its result into one rolling issue labelled codeql, so the result is deduplicated across days; an on-demand run reports on the
+# pull request it was asked about. The four languages run one at a time, cheapest first, so a run holds one runner and stops at
+# the first broken scan (the report then names every language that did not complete).
 #
 # GitHub starts scheduled workflows only on the default branch, and disables them
 # in a public repository after 60 days without repository activity.
@@ -106,7 +107,8 @@ jobs:
       contents: read
       security-events: write
     strategy:
-      fail-fast: false
+      fail-fast: true
+      max-parallel: 1
       matrix:
         languages: [actions, javascript-typescript, python, java-kotlin]
     steps:
@@ -340,9 +342,11 @@ jobs:
             } >> "$body"
           fi
           echo "$state: $total result(s) at $sha, broken languages:$broken"
-          echo "state=$state" >> "$GITHUB_OUTPUT"
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          echo "body=$body" >> "$GITHUB_OUTPUT"
+          {
+            echo "state=$state"
+            echo "sha=$sha"
+            echo "body=$body"
+          } >> "$GITHUB_OUTPUT"
           {
             echo "## codeql: $state"
             echo

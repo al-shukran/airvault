@@ -49,9 +49,11 @@ jobs:
           IS_PR: ${{ github.event.issue.pull_request != null }}
         run: |
           set -euo pipefail
-          echo "number=$NUMBER" >> "$GITHUB_OUTPUT"
-          echo "is_pr=$IS_PR" >> "$GITHUB_OUTPUT"
-          echo "ref=" >> "$GITHUB_OUTPUT"
+          {
+            echo "number=$NUMBER"
+            echo "is_pr=$IS_PR"
+            echo "ref="
+          } >> "$GITHUB_OUTPUT"
 
           deny() {
             echo "allowed=false" >> "$GITHUB_OUTPUT"

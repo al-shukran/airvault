@@ -93,22 +93,13 @@ case "$kind" in
         fi
         ;;
     security)
-        # Guideline 2.7: lint and OWASP together take 10 to 15 minutes. One Gradle invocation with
-        # --continue, so a lint failure still lets the scan report its result, and check-manifest.sh
-        # runs either way. Each step keeps its own line in the log, and the run exits non-zero when
-        # any of them failed (same shape as the nightly gates in guideline 2.5).
+        # Guideline 2.7: lint and OWASP in one Gradle invocation, then check-manifest.sh (offline, so it runs after the online
+        # call has fetched the dependencies). No --continue: the first failure stops the run.
         #
         # NVD_API_KEY is optional and read from the environment by app/build.gradle.kts. Without it
         # the NVD API is rate-limited, so the scan takes longer but still runs.
-        status=0
-        echo "run-security: :app:lintDebug :app:dependencyCheckAnalyze --continue"
-        ./gradlew :app:lintDebug :app:dependencyCheckAnalyze --continue || status=1
-        echo "run-security: check-manifest.sh"
-        "$ROOT/scripts/ci/check-manifest.sh" || status=1
-        if [ "$status" -ne 0 ]; then
-            echo "run-security: at least one security step failed" >&2
-        fi
-        exit "$status"
+        ./gradlew :app:lintDebug :app:dependencyCheckAnalyze
+        "$ROOT/scripts/ci/check-manifest.sh"
         ;;
     fuzz)
         targets="$(find "$ROOT/shared/src/test/java" -name '*Fuzz*.kt' 2>/dev/null || true)"

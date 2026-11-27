@@ -1,13 +1,13 @@
 name: master-red
 
-# Opens or comments on the one open `ci-red` issue when the blocking set (pr-fast) fails on master, and closes it once pr-fast's
-# latest run on master is green. Nightly checks never reach this file: each one opens its own issue (nightly.yml). It reads run
+# Opens or comments on the one open `ci-red` issue when the gate (ci.yml) fails on master, and closes it once ci's latest run on
+# master is green. Nightly checks never reach this file: each one opens its own issue (nightly.yml). It reads run
 # data and writes issues; it gates nothing. As with every workflow_run workflow, GitHub runs only the copy of this file on the
 # default branch.
 on:
   workflow_run:
-    # Every master push runs pr-fast, and its master runs decide whether master is red.
-    workflows: [pr-fast]
+    # Every master push runs ci, and its master runs decide whether master is red.
+    workflows: [ci]
     types: [completed]
 
 permissions:
@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
-      actions: read # the failed job names, and the latest master runs of pr-fast
+      actions: read # the failed job names, and the latest master runs of ci
       issues: write
     env:
       GH_TOKEN: ${{ github.token }}
@@ -64,13 +64,13 @@ jobs:
             success)
               n=$(open_issue)
               [ -n "$n" ] || exit 0
-              # The latest finished, non-cancelled run on master decides whether pr-fast is red, so a newer failed push keeps the issue open.
-              latest=$(gh run list --repo "$REPO" --workflow pr-fast.yml --branch master --limit 10 --json conclusion,status \
+              # The latest finished, non-cancelled run on master decides whether ci is red, so a newer failed push keeps the issue open.
+              latest=$(gh run list --repo "$REPO" --workflow ci.yml --branch master --limit 10 --json conclusion,status \
                 --jq '[.[] | select(.status == "completed" and .conclusion != "cancelled" and .conclusion != "skipped")][0].conclusion // empty')
               if [ "$latest" = failure ]; then
                 gh issue comment "$n" --repo "$REPO" --body "$WORKFLOW is green on master ($RUN_URL), but its latest master run failed. Still red."
               else
-                gh issue comment "$n" --repo "$REPO" --body "pr-fast is green on master again ($RUN_URL). Closing."
+                gh issue comment "$n" --repo "$REPO" --body "ci is green on master again ($RUN_URL). Closing."
                 gh issue close "$n" --repo "$REPO" --reason completed
               fi
               ;;

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Checks the CI guards against broken inputs: each case must make its guard fail, and the real files must still pass. Needs yq and
-# python3, no Gradle and no network. Runs in the ci lane (run-partition.sh ci), so a guard that stops rejecting a case fails a pull request.
+# python3, no Gradle and no network. Runs in the static step of ci.yml (run-step.sh static), so a guard that stops rejecting a case fails a pull request.
 #   check-cleartext-sources.sh   cleartext allowed outside src/debug/ (#1406, #1441)
 #   check-workflow-guards.sh     comment-run trusted gate, release refusal order, signing environment and sign-job steps (#1407, #1408, #1442, #1451, #1465, #1470, #1481, #1482, #1493, #1531, #1532)
 #   sign-release.sh              the hash, secrets and version-code checks that come before the APK is signed (#1493)

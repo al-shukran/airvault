@@ -11,7 +11,7 @@
 # permission, no Gradle, the secrets of one app only (#1493, GitHub advisory on repository-level signing secrets) and no step
 # other than the six of SIGN_STEPS (#1531, #1532).
 #
-# Usage: scripts/ci/check-workflow-guards.sh   (the ci lane: scripts/ci/run-partition.sh ci, in pr-fast.yml)
+# Usage: scripts/ci/check-workflow-guards.sh   (the static step: scripts/ci/run-step.sh static, in ci.yml)
 # WORKFLOWS_DIR names another directory of workflows; scripts/ci/selftest-guards.sh uses it to check the guard against broken copies.
 
 set -euo pipefail
@@ -35,14 +35,11 @@ expected="comment-run-\${{ github.event.issue.number }}-\${{ $gate }}"
 
 # (b) Secrets, in every workflow file, and the refusal order in release.yml (the python below; #624, #1408, #1451, #1465, #1470, #1481).
 # Every secret a workflow may read is listed here, one "file expression" per line. Anything else that mentions the secrets context
-# fails: secrets.*, secrets['x'], toJSON(secrets), a name not listed, a keystore name outside release.yml. needs.secrets.result is
-# the result of the pr-fast.yml job named "secrets" (gitleaks), not a secret read.
+# fails: secrets.*, secrets['x'], toJSON(secrets), a name not listed, a keystore name outside release.yml.
 secret_allow='
 cache-cleanup.yml secrets.GITHUB_TOKEN
 cla.yml secrets.GITHUB_TOKEN
-dco.yml secrets.GITHUB_TOKEN
 nightly.yml secrets.NVD_API_KEY
-pr-fast.yml needs.secrets.result
 release.yml secrets.LENSLY_KEYSTORE_B64
 release.yml secrets.LENSLY_KEYSTORE_PASS
 release.yml secrets.LUMIO_KEYSTORE_B64
