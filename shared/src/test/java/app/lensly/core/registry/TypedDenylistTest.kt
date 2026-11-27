@@ -30,7 +30,7 @@ class TypedDenylistTest {
 
     @Test
     fun everyPermit2SignatureTypeMatchesAWarnEntryOnPermit2AndOnAnyChain() {
-        for (type in listOf("PermitSingle", "PermitBatch", "PermitTransferFrom", "PermitBatchTransferFrom", "PermitWitnessTransferFrom")) {
+        for (type in listOf("PermitSingle", "PermitBatch", "PermitTransferFrom", "PermitBatchTransferFrom", "PermitWitnessTransferFrom", "PermitBatchWitnessTransferFrom")) {
             val match = registry.typedDenylistMatches(1, PERMIT2_ADDRESS, type).single()
             assertEquals(DenylistSeverity.WARN, match.severity, type)
             assertEquals(1, registry.typedDenylistMatches(8453, PERMIT2_ADDRESS, type).size, type)
