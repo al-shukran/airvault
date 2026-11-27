@@ -86,7 +86,7 @@ sealed interface DuressResult {
     /** The Duress Password failed [PasswordPolicy]. */
     data class PolicyRejected(val reason: PolicyReason) : DuressResult
 
-    /** The Duress Password is the App Password. One password must never open both vaults. */
+    /** The Duress Password is the password of the session that sets it: the App Password, or in a Decoy Vault the password that opened it. */
     data object SameAsAppPassword : DuressResult
 
     /** The populate step left the Decoy Vault without a wallet, so the Duress Password was not enabled. */
@@ -400,8 +400,9 @@ class Vault constructor(
      * the new decoy is complete. A failure removes what [populate] wrote, so the vault is as it was. [populate] must not use
      * the real session. Call this from a non-cancellable context, so that a cancelled call cannot leave decoy wallets behind.
      *
-     * On a decoy session the call changes nothing and answers [DuressResult.Enabled], so the decoy answers as the real vault does.
-     * The decoy's [populate] is not run.
+     * A decoy cannot hold a decoy of its own, so on a decoy session the call changes nothing and its [populate] is not run. It runs the same
+     * policy check and the same derivations, and answers as the real vault does for its App Password: [DuressResult.SameAsAppPassword] for
+     * the password this decoy was unlocked with, [DuressResult.Enabled] for any other strong password. It never looks at the real slot.
      */
     suspend fun setDuress(
         session: VaultSession,
@@ -409,9 +410,7 @@ class Vault constructor(
         populate: (VaultSession) -> Unit,
     ): DuressResult =
         withContext(Dispatchers.IO) {
-            mutex.withLock {
-                if (session.isDecoy) setDuressDecoyLocked(duressPassword) else setDuressLocked(session, duressPassword, populate)
-            }
+            mutex.withLock { setDuressLocked(session, duressPassword, populate) }
         }
 
     /**
@@ -974,12 +973,14 @@ class Vault constructor(
             val decoyKey = ByteArray(KEY_BYTES).also { random.nextBytes(it) }
             try {
                 val contents = VaultKeyFile.decode(layout.vaultKey.readBytes())
-                val real = realSlotOf(contents, vaultKey)
+                val own = if (session.isDecoy) decoySlotOf(contents, vaultKey) else realSlotOf(contents, vaultKey)
                 val softKey = withContext(Dispatchers.Default) { deriveStoredKey(duressPassword, header.salt, header.kdf) }
                 try {
-                    // The Duress Password may not open the real slot: one password must never open both vaults.
-                    if (opensSlot(duressPassword, softKey, header, contents, real)) return DuressResult.SameAsAppPassword
-                    return installDecoy(vaultKey, decoyKey, softKey, contents, real, populate)
+                    // The Duress Password may not open the slot of the session that sets it: one password must never open both vaults.
+                    // A decoy session checks its own slot, never the real one, so it answers as the real vault does for its App Password.
+                    if (opensSlot(duressPassword, softKey, header, contents, own)) return DuressResult.SameAsAppPassword
+                    if (session.isDecoy) return DuressResult.Enabled
+                    return installDecoy(vaultKey, decoyKey, softKey, contents, own, populate)
                 } finally {
                     Arrays.fill(softKey, 0)
                 }
@@ -989,23 +990,6 @@ class Vault constructor(
                 Arrays.fill(vaultKey, 0)
                 Arrays.fill(decoyKey, 0)
             }
-        } finally {
-            Arrays.fill(duressPassword, '\u0000')
-        }
-    }
-
-    /**
-     * A decoy cannot hold a decoy of its own, so Set Duress Password does nothing on a decoy session, as a decoy's change of the failure
-     * limits does nothing. It runs the policy check and the time of one derivation, writes nothing, and answers [DuressResult.Enabled]. It
-     * never looks at the slots, so it cannot tell whether the password is the real App Password.
-     */
-    private suspend fun setDuressDecoyLocked(duressPassword: CharArray): DuressResult {
-        try {
-            val policy = PasswordPolicy.check(duressPassword)
-            if (policy is PolicyResult.Refused) return DuressResult.PolicyRejected(policy.reason)
-            check(layout.exists()) { "There is no vault to protect." }
-            spendKdfTime(verifiedHeaderOrThrow(), 1)
-            return DuressResult.Enabled
         } finally {
             Arrays.fill(duressPassword, '\u0000')
         }
