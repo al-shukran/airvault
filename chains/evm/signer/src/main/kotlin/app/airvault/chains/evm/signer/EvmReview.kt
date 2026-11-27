@@ -474,9 +474,13 @@ class EvmReviewBuilder(
             val token = registry.token(chainId, contract)
             val steps = CallSteps.describe(registry, chainId, contract, entry.selector, entry.signature, sender, value, arguments)
             val params = arguments.flatMapIndexed { index, argument ->
-                AbiRows.of(argument) { amount ->
+                AbiRows.typed(argument) { amount ->
                     if (token != null && argument.param.name in AMOUNT_PARAMS) amountText(amount, token) else null
-                }.map { (label, text) -> ParamRow(label, DisplayValue.Text(text), "arg[$index]") }
+                }.map { row ->
+                    // An address argument is shown as an address, so it gets the grouping, its names and the lookalike check.
+                    val shown = if (row.isAddress) DisplayValue.Address(chain, row.text) else DisplayValue.Text(row.text)
+                    ParamRow(row.label, shown, "arg[$index]")
+                }
             }
             return Gap.Approved(
                 signature = entry.signature,

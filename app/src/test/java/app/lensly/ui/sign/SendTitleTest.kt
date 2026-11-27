@@ -20,6 +20,7 @@ import org.junit.Test
 private const val SENDER = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F"
 private const val TO_BOOK = "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2"
 private const val TO_ACCOUNT = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"
+private const val LOOKALIKE = "0x52908400098527886E0F7030069857D2E4169EE7"
 private const val TO_UNKNOWN = "ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXMPY"
 
 /** Two colours that differ, so a test can tell which role coloured a name. */
@@ -123,6 +124,23 @@ class SendTitleTest {
 
         assertEquals("Send 0.4 ALGO from ${isolated("VelvetEcho")}${at(SENDER)} to $TO_UNKNOWN?", title.text)
         assertEquals(testPalette.positive, colourOf(title, "VelvetEcho"))
+    }
+
+    @Test
+    fun anUnnamedEvmCounterpartyShowsTheEndsOfItsGroupsAndNeverACutInTheMiddle() {
+        val parts = listOf(SummaryPart.Text("Calls an unknown function on "), SummaryPart.Counterparty(LOOKALIKE), SummaryPart.Text("."))
+
+        val sentence = summarySentence(parts, emptyMap(), signer, FontFamily.Monospace, testPalette).text
+
+        assertEquals("Calls an unknown function on 0x5290 8400 \u2026 E416 9EE7.", sentence)
+        assertTrue(sentence, !sentence.contains("..."))
+    }
+
+    @Test
+    fun anUnnamedEvmSendPartyIsShownInGroupsOfFourSoItWrapsOnlyBetweenThem() {
+        val title = titleOf(send("1", "ETH", LOOKALIKE), emptyMap(), signer.copy(name = "Wallet 1 0"))
+
+        assertEquals("Send 1 ETH from ${isolated("Wallet 1 0")}${at(SENDER)} to 0x5290 8400 0985 2788 6E0F 7030 0698 57D2 E416 9EE7?", title.text)
     }
 
     @Test
