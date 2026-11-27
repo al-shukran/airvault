@@ -5,6 +5,7 @@ import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.vault.KeystoreBackend
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultException
+import app.lensly.core.vault.macOf
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -28,6 +29,8 @@ class RegistrySealTest {
 
     private fun signedAt(sequence: Long, whitelist: String? = null): ByteArray =
         TestPackages.signed(TestPackages.payload(sequence = sequence, whitelist = whitelist))
+
+    private fun install() = RegistryUpdate.install(signedAt(1), keys, baked, dir, keystore).getOrThrow()
 
     private fun swap(meaning: String) = TestPackages.LINEA_SWAP.replace("Swap tokens on the test route", meaning)
 
@@ -285,5 +288,42 @@ class RegistrySealTest {
 
         assertTrue(catalog.current().installedUpdateUnverified)
         assertEquals(baked.networks(), catalog.current().networks())
+    }
+
+    @Test
+    fun theSealRoundTripsTheRevokedKeyIds() {
+        val ids = setOf("fedcba9876543210", "0123456789abcdef")
+        dir.mkdirs()
+        val seal = RegistrySeal.Seal(3, 2, 1, RegistrySeal.NONE, RegistrySeal.NONE, RegistrySeal.NONE, ids)
+        File(dir, RegistrySeal.FILE).writeBytes(RegistrySeal.create(seal, keystore))
+
+        val read = assertIs<RegistrySeal.Reading.Sealed>(RegistrySeal.read(dir, keystore)).seal
+
+        assertEquals(ids, read.revokedKeys)
+        assertEquals(listOf(3L, 2L, 1L), listOf(read.floor, read.whitelistSequence, read.denylistSequence))
+    }
+
+    @Test
+    fun aSealWithTheRevokedKeysCutOrChangedReadsAsUnverified() {
+        dir.mkdirs()
+        val seal = RegistrySeal.Seal(3, 0, 0, RegistrySeal.NONE, RegistrySeal.NONE, RegistrySeal.NONE, setOf("0123456789abcdef"))
+        val bytes = RegistrySeal.create(seal, keystore)
+        val file = File(dir, RegistrySeal.FILE)
+
+        file.writeBytes(bytes.also { it[8 + 8 + 8 + 3 * 32 + 4] = 'f'.code.toByte() })
+        assertEquals(RegistrySeal.Reading.Unverified, RegistrySeal.read(dir, keystore))
+        file.writeBytes(bytes.copyOf(bytes.size - 1))
+        assertEquals(RegistrySeal.Reading.Unverified, RegistrySeal.read(dir, keystore))
+    }
+
+    @Test
+    fun aSealInTheOldFormatWithoutTheRevokedKeysReadsAsUnverified() {
+        install()
+        val file = File(dir, RegistrySeal.FILE)
+        // The old payload (three numbers and three hashes) and its MAC: the same length as before the revoked key IDs were added.
+        val payload = file.readBytes().copyOf(8 + 8 + 8 + 3 * 32)
+        file.writeBytes(payload + macOf(checkNotNull(keystore.registryMacKey(1)), payload))
+
+        assertEquals(RegistrySeal.Reading.Unverified, RegistrySeal.read(dir, keystore))
     }
 }
