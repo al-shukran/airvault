@@ -110,6 +110,22 @@ for message in errors:
 sys.exit(1 if errors else 0)
 ' || failed=1
 
+# (b2) No workflow other than release.yml reads a secret except GITHUB_TOKEN and NVD_API_KEY (nightly.yml): the keystore secrets are
+# read only where the refusal comes first. The scan is over the raw text, so a comment, a dynamic secrets[...] and toJSON(secrets) count too.
+find "$workflows" -maxdepth 1 \( -name '*.yml' -o -name '*.yaml' \) ! -name release.yml -print0 | xargs -0 python3 -I -c '
+import re
+import sys
+
+SECRET = re.compile(r"(?<![\w.-])secrets\s*(?:\.\s*([\w-]+)|\[)|toJSON\(\s*secrets|secrets:\s*inherit", re.I)
+bad = 0
+for path in sys.argv[1:]:
+    for m in SECRET.finditer(open(path).read()):
+        if (m.group(1) or "").lower() not in {"github_token", "nvd_api_key"}:
+            print("error: %s reads a secret other than GITHUB_TOKEN and NVD_API_KEY (%s); only release.yml may read the keystore secrets" % (path, m.group(0)), file=sys.stderr)
+            bad = 1
+sys.exit(bad)
+' || failed=1
+
 # (c) pr-fast.yml: pr-ok needs the design gate and its guard, its aggregate loop lists the gate, the gate cannot be skipped, and the guard job runs
 # guard.py from the base commit.
 prfast=$workflows/pr-fast.yml

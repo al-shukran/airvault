@@ -236,6 +236,14 @@ for early in '{"run": "echo BASH_ENV=/tmp/x >> $GITHUB_ENV"}' '{"run": "echo /tm
 done
 mutate release.yml "$steps = [{$checkout}] + $steps"
 expect_pass "a second pinned checkout before the refusal" guard_with
+# No other workflow may read the signing secrets: a second workflow on tag pushes would sign with no refusal. Other secrets stay allowed by name.
+for read in '${{ secrets.LENSLY_KEYSTORE_PASS }}' "\${{ secrets['lumio_keystore_b64'] }}" '${{ toJSON(secrets) }}'; do
+    mutate nightly.yml ".env.X = \"$read\""
+    expect_fail "a keystore secret read in another workflow: $read" guard_with
+done
+mutate release.yml '.jobs.release.steps[0].name = "x"'
+yq '.on.push.tags = ["lensly-v*"] | .jobs.release.steps += [{"run": "echo ${{ secrets.LENSLY_KEYSTORE_PASS }}"}]' "$work/workflows/release.yml" >"$work/workflows/release2.yml"
+expect_fail "a second tag workflow that reads the keystore" guard_with
 # The step's run must be exactly the canonical refusal: no statement before or inside it may skip, override or neuter it (#1470).
 canon=$(yq "$refusal | .run" .github/workflows/release.yml)
 refuse_with() {
