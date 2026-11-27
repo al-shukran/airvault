@@ -153,9 +153,11 @@ class DuressPasswordTest {
         holder.lock()
         holder.adopt(unlocked(unlockAfterDelay(DURESS)), holder.unlockEpoch())
 
-        // In the decoy, the current password is the duress one. A decoy holds no Duress Password of its own, so every strong new password,
-        // the real App Password included, gets the same answer, and the answer never says whether that password is the real one.
+        // In the decoy, the current password is the duress one. A decoy holds no Duress Password of its own. The password that opened it is
+        // refused as the real vault refuses its App Password. Every other strong new password, the real App Password included, gets the same
+        // answer, and the answer never says whether that password is the real one.
         assertEquals(PasswordChange.WrongCurrent, setLumioDuressPassword(holder, REAL, OTHER, OTHER))
+        assertEquals(PasswordChange.NewPassword(NewPasswordProblem.SameAsLumio), setLumioDuressPassword(holder, DURESS, DURESS, DURESS))
         assertEquals(PasswordChange.Changed, setLumioDuressPassword(holder, DURESS, REAL, REAL))
         assertEquals(PasswordChange.Changed, setLumioDuressPassword(holder, DURESS, OTHER, OTHER))
         holder.lock()

@@ -322,7 +322,7 @@ class VaultDuressTest {
     }
 
     @Test
-    fun aDecoySettingItsDuressPasswordChangesNothingAndAnswersEnabled() {
+    fun aDecoySettingItsDuressPasswordChangesNothingAndAnswersAsTheRealVaultDoes() {
         createVault()
         val real = unlocked(attempt(APP))
         assertEquals(DuressResult.Enabled, setDuress(real))
@@ -330,7 +330,14 @@ class VaultDuressTest {
 
         val decoy = unlocked(unlockAfterDelay(DURESS))
         val wallet = decoy.listWallets().single()
+        val filesBefore = fileContents()
+        // The decoy's own password is the decoy's "App Password": refused, as the real vault refuses its own. Any other strong password,
+        // the real App Password included, is accepted without a look at the real slot.
+        assertEquals(DuressResult.SameAsAppPassword, runBlocking { vault.setDuress(decoy, DURESS.toCharArray()) { } })
         assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(decoy, OTHER.toCharArray()) { } })
+        assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(decoy, APP.toCharArray()) { } })
+        assertTrue(runBlocking { vault.setDuress(decoy, "short".toCharArray()) { } } is DuressResult.PolicyRejected)
+        assertEquals(filesBefore, fileContents(), "A decoy session writes nothing, whatever the answer.")
         decoy.close()
 
         assertRejected(unlockAfterDelay(OTHER))
@@ -338,6 +345,21 @@ class VaultDuressTest {
         assertTrue(same.isDecoy)
         assertEquals(listOf(wallet), same.listWallets())
         same.close()
+    }
+
+    @Test
+    fun aDecoyRefusesItsOwnPasswordInEitherUnicodeFormAsTheRealVaultDoes() {
+        createVault()
+        val real = unlocked(attempt(APP))
+        assertEquals(DuressResult.Enabled, setDuress(real, password = DURESS_NFC))
+        real.close()
+
+        val decoy = unlocked(unlockAfterDelay(DURESS_NFD))
+        val filesBefore = fileContents()
+        assertEquals(DuressResult.SameAsAppPassword, runBlocking { vault.setDuress(decoy, DURESS_NFC.toCharArray()) { } })
+        assertEquals(DuressResult.SameAsAppPassword, runBlocking { vault.setDuress(decoy, DURESS_NFD.toCharArray()) { } })
+        assertEquals(filesBefore, fileContents())
+        decoy.close()
     }
 
     @Test
@@ -736,6 +758,10 @@ class VaultDuressTest {
         listOf(layout.header, layout.vaultKey, File(layout.root, "failures.bin"), File(layout.root, "failures.bak"))
             .associate { it.name to it.length() }
 
+    /** Every file under the vault root, by path, with its bytes. */
+    private fun fileContents(): Map<String, List<Byte>> =
+        layout.root.walkTopDown().filter { it.isFile }.associate { it.relativeTo(layout.root).path to it.readBytes().toList() }
+
     /** The number of wallet folders, whether they hold a wallet or are unused. */
     private fun walletFolders(): Int = layout.wallets.listFiles()?.count { it.isDirectory } ?: 0
 
@@ -751,6 +777,8 @@ class VaultDuressTest {
         const val WRONG = "Zx8#Vb2!Nm5\$Qw7%Ld4"
         const val DURESS = "Gh5%Rt8!Yu2#Pk6@Ws3Fn"
         const val DURESS_TWO = "Zt4&Mv8!Cn1%Bx6^Lk2Ra"
+        const val DURESS_NFC = "Gh5%Rt8!Yu2#Pk6-Caf\u00e9"
+        const val DURESS_NFD = "Gh5%Rt8!Yu2#Pk6-Cafe\u0301"
         val KDF = KdfParams(memoryKiB = 8 * 1024, iterations = 1)
     }
 }
