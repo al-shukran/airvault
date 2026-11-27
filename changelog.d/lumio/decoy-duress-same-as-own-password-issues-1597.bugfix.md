@@ -1,0 +1,1 @@
+Setting a Duress Password from inside the Decoy Vault now refuses the password that opened the Decoy Vault, with the same message the real vault gives for its own Lumio password, so the Decoy Vault no longer shows itself by accepting it.
