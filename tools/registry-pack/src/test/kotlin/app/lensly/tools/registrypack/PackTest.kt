@@ -128,7 +128,7 @@ class PackTest {
             "nativeDecimals above 36" to source.copy(networks = listOf(network.copy(nativeDecimals = 37))),
             "sequence zero" to source.copy(sequence = 0),
             "formatVersion one" to source.copy(formatVersion = 1),
-            "minSchemaVersion above this tool" to source.copy(minSchemaVersion = 5),
+            "minSchemaVersion above this tool" to source.copy(minSchemaVersion = 6),
             "minSchemaVersion zero" to source.copy(minSchemaVersion = 0),
             "networks without minSchemaVersion 4" to source.copy(minSchemaVersion = 3),
             "Layer 2 parent is itself" to source.copy(networks = listOf(network.copy(parentChainId = network.chainId))),
@@ -145,6 +145,19 @@ class PackTest {
             assertFailsWith<IllegalArgumentException>(label) {
                 Pack.build(json.encodeToString(PackageDto.serializer(), content), seed)
             }
+        }
+    }
+
+    @Test
+    fun aPartyEntryNeedsSchema5AndKeepsItsPartyInThePayload() {
+        val party = DenylistDto(party = "0x6666666666666666666666666666666666666666", severity = DenylistSeverity.BLOCK, reason = "Known drainer.")
+        val withParty = source.copy(minSchemaVersion = 5, denylist = source.denylist.orEmpty() + party)
+
+        val (bytes, _) = Pack.build(json.encodeToString(PackageDto.serializer(), withParty), seed)
+
+        assertEquals(withParty.denylist.orEmpty().toSet(), Pack.verify(bytes, publicKey).denylist.orEmpty().toSet())
+        assertFailsWith<IllegalArgumentException> {
+            Pack.build(json.encodeToString(PackageDto.serializer(), withParty.copy(minSchemaVersion = 4)), seed)
         }
     }
 

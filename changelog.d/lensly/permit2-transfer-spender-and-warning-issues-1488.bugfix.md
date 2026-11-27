@@ -1,0 +1,1 @@
+A Permit2 signature transfer now shows the one address allowed to submit it as the Spender, instead of saying anyone can, and every Permit2 signature type now raises a warning like an ERC-2612 permit does.

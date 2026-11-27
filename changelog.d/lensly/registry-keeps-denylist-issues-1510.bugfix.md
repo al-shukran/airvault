@@ -1,0 +1,1 @@
+A registry package that leaves out its denylist now keeps the denylist of the last package that carried one, instead of putting the built-in denylist back and dropping a safety list without any message. The built-in entries that kept denylist does not cover stay in force, and a store whose kept list file was deleted or replaced is flagged and uses the built-in catalog.

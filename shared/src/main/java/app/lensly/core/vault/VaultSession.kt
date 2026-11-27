@@ -48,8 +48,11 @@ private const val PAD_SECTION_BYTES = Aead.IV_BYTES + PAD_PLAIN_BYTES + 16
 private const val PAD_FILE_BYTES = 2 * PAD_SECTION_BYTES
 
 /**
- * File names of vault records. A record's file is named by a keyed hash of its name under the vault key, so the name shows
- * neither the record's name nor its vault. The real vault and the decoy vault keep their records apart in one folder.
+ * File names of vault records. A vault's file is named by a keyed hash of its name under that vault's key, so the name shows neither the
+ * record's name nor its vault, and no name can be computed without a key. A new vault gets twice as many files as there are record names:
+ * one set under its own key, and a set of spares under random names. A Decoy Vault takes the spares over by renaming them to names under
+ * its key, and gives them up as spares again when it goes (see [Vault]), so a Decoy Vault never adds a file to the folder. Every file
+ * holds sealed or random bytes of the same kind, so the folder shows neither which files are written nor whether a decoy exists.
  */
 internal object VaultRecordNames {
     /**
@@ -71,10 +74,44 @@ internal object VaultRecordNames {
     const val DECOY_SHOWN = "decoy-shown"
 
     /** The file name of record [name] under [vaultKey]. */
-    fun fileName(vaultKey: ByteArray, name: String): String {
-        val digest = labelledHmac(vaultKey, "lensly.vault.record-name\u0000$name")
-        return digest.joinToString(separator = "") { "%02x".format(it.toInt() and 0xff) } + ".bin"
+    fun fileName(vaultKey: ByteArray, name: String): String = fileNameOf(labelledHmac(vaultKey, "lensly.vault.record-name\u0000$name"))
+
+    /** A name that no key makes, of the same form as [fileName], for a spare file. */
+    fun randomFileName(random: SecureRandom): String = fileNameOf(ByteArray(SHA256_BYTES).also { random.nextBytes(it) })
+
+    private const val SHA256_BYTES = 32
+
+    private fun fileNameOf(digest: ByteArray): String = digest.joinToString(separator = "") { "%02x".format(it.toInt() and 0xff) } + ".bin"
+
+    /** A UUID never starts with "vault-record", so these AADs cannot collide with a wallet record's. */
+    fun aad(name: String): ByteArray = ("vault-record\u0000" + name).toByteArray(StandardCharsets.UTF_8)
+
+    private const val UNSET: Byte = 0
+    private const val SET: Byte = 1
+
+    /** The record file of [name] with [value] sealed under [vaultKey]. */
+    fun sealed(vaultKey: ByteArray, name: String, value: ByteArray): ByteArray = seal(vaultKey, name, byteArrayOf(SET) + value)
+
+    /** A record file of [name] under [vaultKey] that holds no value and is [fileBytes] long, so a file that is reset keeps its size. */
+    fun sealedUnset(vaultKey: ByteArray, name: String, fileBytes: Int = UNSET_FILE_BYTES): ByteArray =
+        seal(vaultKey, name, ByteArray(maxOf(1, fileBytes - FILE_OVERHEAD_BYTES)))
+
+    private fun seal(vaultKey: ByteArray, name: String, plain: ByteArray): ByteArray {
+        try {
+            return encodeBlob(Aead.seal(vaultKey, aad(name), plain))
+        } finally {
+            Arrays.fill(plain, 0)
+        }
     }
+
+    /** Blob version, IV and tag around the plaintext of a record file. */
+    private const val FILE_OVERHEAD_BYTES = 1 + Aead.IV_BYTES + 16
+
+    /** Bytes of a record file with no value, which random bytes of that size stand in for. */
+    const val UNSET_FILE_BYTES = FILE_OVERHEAD_BYTES + 1
+
+    /** The value in [plain], the opened plaintext of a record file, or null when the record has no value. */
+    fun valueOf(plain: ByteArray): ByteArray? = if (plain.isEmpty() || plain[0] == UNSET) null else plain.copyOfRange(1, plain.size)
 }
 
 /**
@@ -495,7 +532,7 @@ class VaultSession constructor(
         val walletKey = unwrapWalletKey(key, walletId)
             ?: throw IllegalArgumentException("No wallet with id $walletId.")
         try {
-            ReviewPool(layout.reviewPool, key).put(walletId, walletKey, name, bytes)
+            ReviewPool(layout.reviewPool, key).use { it.put(walletId, walletKey, name, bytes) }
         } finally {
             Arrays.fill(walletKey, 0)
         }
@@ -506,14 +543,15 @@ class VaultSession constructor(
         val key = requireOpen()
         requireWalletId(walletId)
         requireReviewName(name)
-        val pool = ReviewPool(layout.reviewPool, key)
-        // A record with no slot is absent. Checking that first means a deleted wallet's key file is never needed to say so.
-        if (pool.fileOf(walletId, name) == null) return@synchronized null
-        val walletKey = unwrapWalletKey(key, walletId) ?: return@synchronized null
-        try {
-            pool.get(walletId, walletKey, name)
-        } finally {
-            Arrays.fill(walletKey, 0)
+        ReviewPool(layout.reviewPool, key).use { pool ->
+            // A record with no slot is absent. Checking that first means a deleted wallet's key file is never needed to say so.
+            if (pool.fileOf(walletId, name) == null) return@synchronized null
+            val walletKey = unwrapWalletKey(key, walletId) ?: return@synchronized null
+            try {
+                pool.get(walletId, walletKey, name)
+            } finally {
+                Arrays.fill(walletKey, 0)
+            }
         }
     }
 
@@ -525,20 +563,21 @@ class VaultSession constructor(
         val key = requireOpen()
         requireWalletId(walletId)
         if (!ownsWallet(keys, layout, key, walletId)) return@synchronized emptyList()
-        val pool = ReviewPool(layout.reviewPool, key)
-        val slots = pool.slotsOf(walletId)
-        if (slots.isEmpty()) return@synchronized emptyList()
-        val walletKey = unwrapWalletKey(key, walletId) ?: return@synchronized emptyList()
-        try {
-            slots.toSortedMap().mapNotNull { (name, file) ->
-                try {
-                    name to pool.readSlot(walletKey, walletId, name, file)
-                } catch (e: VaultException) {
-                    null
+        ReviewPool(layout.reviewPool, key).use { pool ->
+            val slots = pool.slotsOf(walletId)
+            if (slots.isEmpty()) return@synchronized emptyList()
+            val walletKey = unwrapWalletKey(key, walletId) ?: return@synchronized emptyList()
+            try {
+                slots.toSortedMap().mapNotNull { (name, file) ->
+                    try {
+                        name to pool.readSlot(walletKey, walletId, name, file)
+                    } catch (e: VaultException) {
+                        null
+                    }
                 }
+            } finally {
+                Arrays.fill(walletKey, 0)
             }
-        } finally {
-            Arrays.fill(walletKey, 0)
         }
     }
 
@@ -547,7 +586,7 @@ class VaultSession constructor(
         val key = requireOpen()
         requireWalletId(walletId)
         if (!ownsWallet(keys, layout, key, walletId)) return@synchronized emptyList()
-        ReviewPool(layout.reviewPool, key).names(walletId)
+        ReviewPool(layout.reviewPool, key).use { it.names(walletId) }
     }
 
     /**
@@ -572,7 +611,7 @@ class VaultSession constructor(
             } else {
                 WalletFolder.retireKey(dir, keys).also { dir.deleteRecursively() }
             }
-            ReviewPool(layout.reviewPool, key).release(walletId)
+            ReviewPool(layout.reviewPool, key).use { it.release(walletId) }
             if (!erased) throw VaultException("The wallet was removed, but its Keystore key could not be deleted.")
         }
     }
@@ -589,7 +628,7 @@ class VaultSession constructor(
         val key = requireOpen()
         requireRecordName(name)
         layout.vaultRecords.mkdirs()
-        writeAtomically(vaultRecordFile(key, name), encodeBlob(Aead.seal(key, vaultRecordAad(name), bytes)))
+        writeAtomically(vaultRecordFile(key, name), VaultRecordNames.sealed(key, name, bytes))
     }
 
     /** The vault record [name], or null if it has never been stored. */
@@ -598,16 +637,21 @@ class VaultSession constructor(
         requireRecordName(name)
         val file = vaultRecordFile(key, name)
         if (!file.isFile) return@synchronized null
-        try {
-            Aead.open(key, vaultRecordAad(name), decodeBlob(file.readBytes()))
+        val plain = try {
+            Aead.open(key, VaultRecordNames.aad(name), decodeBlob(file.readBytes()))
         } catch (e: AEADBadTagException) {
             throw VaultException("Vault record '$name' failed authentication.", e)
+        }
+        try {
+            VaultRecordNames.valueOf(plain)
+        } finally {
+            Arrays.fill(plain, 0)
         }
     }
 
     /** Creates the pool's first batch if this vault has none, so an empty vault still shows a full pool. */
     internal fun ensureReviewPool(): Unit = synchronized(this) {
-        ReviewPool(layout.reviewPool, requireOpen()).ensureFirstBatch()
+        ReviewPool(layout.reviewPool, requireOpen()).use { it.ensureFirstBatch() }
     }
 
     /**
@@ -693,7 +737,7 @@ class VaultSession constructor(
 
     /** The pool file that holds Review Record [name] of wallet [walletId]. For tests only. */
     fun reviewFileForTesting(walletId: String, name: String): File? = synchronized(this) {
-        ReviewPool(layout.reviewPool, requireOpen()).fileOf(walletId, name)
+        ReviewPool(layout.reviewPool, requireOpen()).use { it.fileOf(walletId, name) }
     }
 
     private fun requireOpen(): ByteArray = vaultKey ?: throw IllegalStateException("The VaultSession is closed.")
@@ -751,10 +795,6 @@ class VaultSession constructor(
         fun requireRecordName(name: String) {
             require(name in VaultRecordNames.KNOWN) { "Unknown record name: add it to VaultRecordNames.KNOWN." }
         }
-
-        /** A UUID never starts with "vault-record", so these AADs cannot collide with a wallet record's. */
-        fun vaultRecordAad(name: String): ByteArray =
-            ("vault-record\u0000" + name).toByteArray(StandardCharsets.UTF_8)
     }
 }
 

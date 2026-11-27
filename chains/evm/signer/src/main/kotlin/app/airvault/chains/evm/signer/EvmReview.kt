@@ -39,6 +39,7 @@ import app.lensly.core.registry.isHypeSystemAddress
 import app.lensly.core.registry.isHyperEvm
 import app.lensly.core.registry.isSystemAddress
 import app.lensly.core.registry.isTokenSystemAddress
+import app.lensly.core.registry.offChainDomainOf
 import app.lensly.core.registry.offChainLabelOf
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger
@@ -146,6 +147,10 @@ class EvmReviewBuilder(
                     ReviewRow("Size", DisplayValue.Text(sizeText(bytes)), decode("evm.message")),
                 ),
             )
+            printableMessage(bytes)?.let(::lighterReview)?.let { lighter ->
+                sections.add(0, lighter.section)
+                warnings += lighter.warnings
+            }
             warnings += Warning(Danger.CAUTION, CODE_MESSAGE, PERSONAL_MESSAGE_WARNING)
             // An EIP-191 signature commits to no chain, so it is valid on every one, whichever chain the request names or none.
             val chainWarning = if (request.chainId == null) PERSONAL_MESSAGE_NO_CHAIN_WARNING else PERSONAL_MESSAGE_CHAIN_WARNING
@@ -168,7 +173,7 @@ class EvmReviewBuilder(
                 ?.let { checksum(it.bytes.toHex()) }
             // Typed data that names no chain is valid on every chain, so it is matched against the entries of all of them.
             val denyChains = if (domainChain == null) listOf<Long?>(null) else listOfNotNull(request.chainId, domainChain.longValueExact()).distinct()
-            val denied = denyChains.flatMap { registry.typedDenylistMatches(it, verifyingContract, typedData.primaryType) }
+            val denied = denyChains.flatMap { registry.typedDenylistMatches(it, verifyingContract, typedData.primaryType, typedData.messageAddresses()) }
             denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { throw Refusal(it.reason) }
             denied.forEach { warnings += denylistWarning(it, field = null) }
             header += ReviewRow("Type", DisplayValue.Text(TYPED_DATA_TYPE), null)
@@ -182,6 +187,7 @@ class EvmReviewBuilder(
                 if (offChain.hashesAction) header += ReviewRow(HASHED_ACTION_LABEL, DisplayValue.Text(HASHED_ACTION_NOTE), null)
             }
             actionWarning(typedData.primaryType, typedData.message, offChain)?.let { warnings += it }
+            otherTypeWarning(offChainDomainOf(typedData.domain), typedData.primaryType)?.let { warnings += it }
             val domainNetworkName = domainChain?.let { networkNameOf(it) } ?: networkName
             val part = typedPart(typedData, registry, chainId, chain, networkName, domainNetworkName = domainNetworkName)
             decoded += part.decoded
@@ -356,7 +362,7 @@ class EvmReviewBuilder(
             multicall.deadline?.let { header += ReviewRow(DEADLINE_LABEL, DisplayValue.Number(it), decode("evm.data.deadline")) }
             valueRow(tx.value, always = false)
             val rows = ArrayList<ReviewRow>()
-            checkCalls(tx, to, shape, multicall, level = 1, parent = "evm.data", rows = rows)
+            checkCalls(to, shape, multicall, tx.value, level = 1, parent = "evm.data", rows = rows)
             if (rows.isNotEmpty()) sections += ReviewSection("Calls", rows)
             val summary = listOf(SummaryPart.Text("Runs ${multicall.callCount()} calls in one transaction."))
             return shape.function to summary
@@ -364,18 +370,26 @@ class EvmReviewBuilder(
 
         /**
          * Decides each call of [multicall], whose calldata has [shape], and lists it in [rows] at [level]. A nested batch is checked against its
-         * own calldata, and its calls one level down. A call that fails any check refuses the whole request.
+         * own calldata, and its calls one level down. [value] is what the call that holds the batch sends. Each call is described with the
+         * value it really receives: its own value in `aggregate3Value`, zero in the other Multicall3 shapes, and [value] in Uniswap's
+         * `multicall`, which delegates. A call that fails any check refuses the whole request.
          */
         private fun checkCalls(
-            tx: UnsignedTx,
             to: String,
             shape: MulticallShape,
             multicall: Multicall,
+            value: BigInteger,
             level: Int,
             parent: String,
             rows: MutableList<ReviewRow>,
         ) {
+            if (shape.hasTarget && !shape.hasValue && value.signum() > 0) {
+                warnings += Warning(Danger.DANGER, CODE_STRANDED_VALUE, STRANDED_VALUE_WARNING, FieldPath("$parent.function"), ACK_STRANDED_VALUE)
+            }
+            if (shape.hasValue && multicall.calls.sumOf { it.value ?: BigInteger.ZERO } != value) throw Refusal(VALUE_MISMATCH_REFUSAL)
             multicall.calls.forEachIndexed { index, inner ->
+                // A Multicall3 call sends its own value, or none. A call of Uniswap's multicall delegates, so it sees the value of its batch.
+                val sent = if (shape.hasTarget) inner.value ?: BigInteger.ZERO else value
                 // A Multicall3 call names its own contract. Any other call goes to the contract its batch goes to.
                 val contract = inner.target ?: to
                 val prefix = "$parent.call[$index]"
@@ -392,7 +406,7 @@ class EvmReviewBuilder(
                         val nestedShape = encodesAs(inner.calldata, nested) ?: throw Refusal(CANNOT_BE_READ)
                         callRows(rows, prefix, index, level, nestedShape.function, target, flags, note = null)
                         nested.deadline?.let { rows += ReviewRow(DEADLINE_LABEL, DisplayValue.Number(it), decode("$prefix.deadline"), level) }
-                        checkCalls(tx, contract, nestedShape, nested, level + 1, prefix, rows)
+                        checkCalls(contract, nestedShape, nested, sent, level + 1, prefix, rows)
                     }
                     lone != null -> {
                         // The labels are shown only when the decoded call is exactly the calldata that gets signed.
@@ -402,7 +416,7 @@ class EvmReviewBuilder(
                         part.warnings.forEach { warnings += it.toWarning(prefix) }
                         if (part.unregistered) warnings += registryWarning(TOKEN_UNREGISTERED, FieldPath("$prefix.function"))
                     }
-                    else -> when (val gap = whitelisted(contract, inner.calldata, inner.value ?: tx.value)) {
+                    else -> when (val gap = whitelisted(contract, inner.calldata, sent)) {
                         is Gap.Approved -> {
                             callRows(
                                 rows,
@@ -466,9 +480,13 @@ class EvmReviewBuilder(
             val token = registry.token(chainId, contract)
             val steps = CallSteps.describe(registry, chainId, contract, entry.selector, entry.signature, sender, value, arguments)
             val params = arguments.flatMapIndexed { index, argument ->
-                AbiRows.of(argument) { amount ->
+                AbiRows.typed(argument) { amount ->
                     if (token != null && argument.param.name in AMOUNT_PARAMS) amountText(amount, token) else null
-                }.map { (label, text) -> ParamRow(label, DisplayValue.Text(text), "arg[$index]") }
+                }.map { row ->
+                    // An address argument is shown as an address, so it gets the grouping, its names and the lookalike check.
+                    val shown = if (row.isAddress) DisplayValue.Address(chain, row.text) else DisplayValue.Text(row.text)
+                    ParamRow(row.label, shown, "arg[$index]")
+                }
             }
             return Gap.Approved(
                 signature = entry.signature,
@@ -866,11 +884,11 @@ private fun denylistWarning(entry: DenylistEntry, field: FieldPath?): Warning =
     Warning(Danger.DANGER, CODE_DENYLIST, entry.reason, field, ACK_DENYLIST)
 
 /**
- * An unsigned name or text as the review shows it. A line break or a tab is an escape, so it cannot start a row, and the rest is shown as
- * [printableOrHex] shows it. A text longer than [limit] bytes is cut between characters, and the bytes left out are counted.
+ * An unsigned name or text as the review shows it, as [printableOrHex] shows it, so a line break is an escape and cannot start a row. A text
+ * longer than [limit] bytes is cut between characters, and the bytes left out are counted.
  */
 private fun unsignedShown(text: String, limit: Int): String {
-    val shown = printableOrHex(text).replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+    val shown = printableOrHex(text)
     val bytes = shown.toByteArray(StandardCharsets.UTF_8)
     if (bytes.size <= limit) return shown
     var cut = limit
@@ -1043,6 +1061,13 @@ internal const val ACK_UNLIMITED = "I understand this approval is unlimited."
 /** The check the owner ticks for an unknown call, by name. */
 internal const val ACK_UNKNOWN_CALL = "I understand Lensly cannot say what this call does."
 
+/** The warning on a Multicall3 batch that gets native currency but sends none of it to its calls. */
+internal const val STRANDED_VALUE_WARNING =
+    "This batch sends native currency, but its calls receive none of it. The amount stays in the Multicall3 contract and you cannot get it back."
+
+/** The check the owner ticks for a batch that strands the amount it sends, by name. */
+internal const val ACK_STRANDED_VALUE = "I understand this amount stays in the contract and is lost to me."
+
 /** The check the owner ticks for a request that the denylist warns about, by name. */
 internal const val ACK_DENYLIST = "I understand this request matches a known-dangerous request."
 
@@ -1065,6 +1090,7 @@ internal const val CODE_UNLIMITED = "evm.unlimited-approval"
 internal const val CODE_ALL_NFTS = "evm.approval-for-all"
 internal const val CODE_FOREIGN_FROM = "evm.foreign-from"
 internal const val CODE_UNKNOWN_CALL = "evm.unknown-call"
+internal const val CODE_STRANDED_VALUE = "evm.stranded-value"
 internal const val CODE_DENYLIST = "evm.denylist"
 internal const val CODE_REGISTRY = "evm.registry"
 internal const val CODE_WHITELIST = "evm.whitelisted-call"
@@ -1117,9 +1143,9 @@ private const val CODE_TYPED_CHAIN = "evm.typed.chain"
 private const val CODE_OFF_CHAIN = "evm.typed.off-chain"
 private const val CODE_TYPED_ACTION = "evm.typed.action"
 private const val ACK_TYPED_CHAIN = "I understand this signature may be valid on another chain."
-private const val ACK_APPROVE_AGENT = "I understand this lets another key act for this account."
+internal const val ACK_APPROVE_AGENT = "I understand this lets another key act for this account."
 private const val ACK_WITHDRAW = "I understand this withdraws funds from this account."
-private const val APPROVE_AGENT_TEXT = "This approves another key to act for this account. Check the agent address and name before you sign."
+internal const val APPROVE_AGENT_TEXT = "This approves another key to act for this account. Check the agent address and name before you sign."
 private const val WITHDRAW_TEXT = "This withdraws funds from this account. Check the destination and amount before you sign."
 
 /** The row that says a message carries a hash of its action, which Lensly cannot read. */
@@ -1136,5 +1162,7 @@ private const val ASSUMED_DECIMALS = 18
 private const val SELECTOR_BYTES = 4
 private const val WORD_BYTES = 32
 private val AMOUNT_PARAMS = setOf("amount", "value", "wad")
+private const val VALUE_MISMATCH_REFUSAL =
+    "The values of the calls do not add up to the amount the batch sends, so the contract would reject it and Lensly cannot show it."
 private val TOO_DEEP_REFUSAL = "The calls nest deeper than ${ParserLimits.MAX_NESTED_DEPTH} levels, so Lensly cannot show every call."
 private val TOO_MANY_CALLS_REFUSAL = "The transaction holds more than ${ParserLimits.MAX_NESTED_CALLS} calls, so Lensly cannot show every call."

@@ -5,6 +5,7 @@ import app.airvault.abi.WhitelistParam
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.Coverage
 import app.airvault.core.model.Danger
+import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.FieldPath
 import app.airvault.core.model.NetworkLabel
 import app.airvault.core.model.Review
@@ -175,6 +176,86 @@ class EvmReviewTest {
         assertTrue(review.warnings.any { it.code == "evm.registry" && it.acknowledge != null })
     }
 
+    private val DRAINER = "0x6666666666666666666666666666666666666666"
+
+    private fun drainerRegistry(chainId: Long? = null) = REGISTRY.withDenylist(
+        listOf(DenylistEntry(chainId = chainId, party = DRAINER, severity = DenylistSeverity.BLOCK, reason = "Known drainer.")),
+    )
+
+    @Test
+    fun aPartyEntryRefusesACallThatNamesTheDrainerAsSpenderOperatorOrRecipient() {
+        val reviewer = builder(drainerRegistry())
+        val calls = listOf(
+            USDC to ContractCall.Approve(DRAINER, BigInteger.valueOf(1000)),
+            NFT to ContractCall.SetApprovalForAll(DRAINER, true),
+            USDC to ContractCall.Transfer(DRAINER, BigInteger.ONE),
+            NFT to ContractCall.SafeTransferFrom(SENDER, DRAINER, BigInteger.ONE),
+        )
+
+        for ((target, call) in calls) {
+            assertEquals("Known drainer.", refusalOf(txParsed(target, call.encode()!!), reviewer).reason, call.name)
+        }
+    }
+
+    private fun word(address: String): ByteArray = ByteArray(12) + Numeric.hexStringToByteArray(address)
+
+    private fun selector(hex: String): ByteArray = Numeric.hexStringToByteArray(hex)
+
+    @Test
+    fun aPartyEntryRefusesCalldataThatDoesNotDecodeExactlyButNamesTheDrainerInAWord() {
+        // Under the default policy these calls are refused as unreadable anyway. Under WARN they reach the denylist, which must still refuse.
+        val reviewer = builder(drainerRegistry(), unknownCalls = UnknownCallPolicy.WARN)
+        val one = ByteArray(31) + byteArrayOf(1)
+        val dirtyUpperBytes = ByteArray(32) { 0xff.toByte() }.also { Numeric.hexStringToByteArray(DRAINER).copyInto(it, 12) }
+        val calls = mapOf(
+            "approve with a trailing byte" to selector("0x095ea7b3") + word(DRAINER) + one + byteArrayOf(1),
+            "approve with dirty upper bytes" to selector("0x095ea7b3") + dirtyUpperBytes + one,
+            "four-argument safeTransferFrom" to
+                selector("0xb88d4fde") + word(SENDER) + word(DRAINER) + one + word(SPENDER) + ByteArray(32) + ByteArray(32),
+            "ERC-1155 safeTransferFrom" to
+                selector("0xf242432a") + word(SENDER) + word(DRAINER) + one + one + word(SPENDER) + ByteArray(32),
+            "ERC-2612 permit" to
+                selector("0xd505accf") + word(SENDER) + word(DRAINER) + one + one + ByteArray(32) + ByteArray(32) + ByteArray(32),
+        )
+
+        for ((name, data) in calls) {
+            assertEquals("Known drainer.", refusalOf(txParsed(USDC, data), reviewer).reason, name)
+        }
+    }
+
+    @Test
+    fun aPartyEntryMatchesWholeWordsOnly() {
+        // The drainer's 20 bytes sit across two words, and its last bytes trail the calldata as a partial word.
+        val straddling = selector("0x095ea7b3") + ByteArray(32) + Numeric.hexStringToByteArray(DRAINER).copyOfRange(0, 10) +
+            ByteArray(32 - 10)
+        val partialWord = selector("0x095ea7b3") + ByteArray(32) + Numeric.hexStringToByteArray(DRAINER)
+
+        for (data in listOf(straddling, partialWord)) {
+            val result = builder(drainerRegistry(), unknownCalls = UnknownCallPolicy.WARN).review(txParsed(USDC, data), SENDER)
+            assertTrue(result !is EvmReviewResult.Refused || result.reason != "Known drainer.")
+        }
+    }
+
+    @Test
+    fun aPartyEntryLeavesACallToAnotherAddressAndAContractOnlyEntryAsTheyWere() {
+        val approveOther = ContractCall.Approve(SPENDER, BigInteger.valueOf(1000)).encode()!!
+
+        assertIs<EvmReviewResult.Ok>(builder(drainerRegistry()).review(txParsed(USDC, approveOther), SENDER))
+        // A contract entry still matches only the contract the call goes to, never a counterparty.
+        val contractOnly = REGISTRY.withDenylist(
+            listOf(DenylistEntry(chainId = 1, contract = DRAINER, severity = DenylistSeverity.BLOCK, reason = "Known drainer.")),
+        )
+        val approveDrainer = ContractCall.Approve(DRAINER, BigInteger.valueOf(1000)).encode()!!
+        assertIs<EvmReviewResult.Ok>(builder(contractOnly).review(txParsed(USDC, approveDrainer), SENDER))
+    }
+
+    @Test
+    fun aPartyEntryOfAnotherChainDoesNotMatch() {
+        val approveDrainer = ContractCall.Approve(DRAINER, BigInteger.valueOf(1000)).encode()!!
+
+        assertIs<EvmReviewResult.Ok>(builder(drainerRegistry(chainId = 10)).review(txParsed(USDC, approveDrainer), SENDER))
+    }
+
     @Test
     fun aBlockDenylistMatchRefusesTheRequestWithItsReason() {
         val blocked = REGISTRY.withDenylist(
@@ -328,6 +409,15 @@ class EvmReviewTest {
     }
 
     @Test
+    fun anAddressArgumentOfAnApprovedCallIsAnAddressRow() {
+        val review = reviewOf(txParsed(NFT, fooCalldata()), builder(REGISTRY.withWhitelist(listOf(fooEntry()))))
+
+        val rows = review.sections.single { it.heading == "Arguments" }.rows
+        assertEquals(DisplayValue.Address(review.chain, SPENDER), rows.single { it.label == "to (address)" }.value)
+        assertIs<DisplayValue.Text>(rows.single { it.label == "amount (uint256)" }.value)
+    }
+
+    @Test
     fun anApprovedCallShowsItsSelectorAndEveryWordAfterItWithTheAmountInTheHeader() {
         val calldata = fooCalldata()
 
@@ -356,15 +446,54 @@ class EvmReviewTest {
         val batch = encodeMulticall(MulticallShape.AGGREGATE3_VALUE, deadline = null, calls = listOf(call))!!
 
         val review = reviewOf(
-            txParsed(MULTICALL3, batch, value = BigInteger("2000000000000000")),
+            txParsed(MULTICALL3, batch, value = BigInteger("1000000000000000")),
             builder(REGISTRY.withWhitelist(listOf(fooEntry()))),
         )
 
-        // The batch's flags carry the call's value, and the header carries the transaction's amount. No row repeats the call's value.
-        assertEquals("0.002 ETH", review.sections.first().rows.single { it.label == "Amount" }.value.text())
+        // The call's value is what the batch sends, so the header amount equals it (the contract rejects a batch whose call values differ from the amount). The call's value shows once, in the batch's flags, and no row repeats it.
+        assertEquals("0.001 ETH", review.sections.first().rows.single { it.label == "Amount" }.value.text())
         val rows = review.sections.single { it.heading == "Calls" }.rows
         assertEquals("0.001 ETH", rows.single { it.label == "value (uint256)" }.value.text())
         assertTrue(rows.none { it.label == "Value" })
+    }
+
+    @Test
+    fun anAggregate3ValueBatchShowsEachStepWithItsOwnValue() {
+        val batch = lidoBatch(MulticallShape.AGGREGATE3_VALUE, ONE_ETH, TWO_ETH)
+
+        val review = reviewOf(txParsed(MULTICALL3, batch, value = THREE_ETH), builder(REGISTRY.withWhitelist(listOf(lidoEntry()))))
+
+        assertEquals("3 ETH", review.sections.first().rows.single { it.label == "Amount" }.value.text())
+        val lines = review.sections.single { it.heading == "Calls" }.rows.filter { it.label.startsWith("Stake ") }.map { it.label }
+        assertEquals(listOf("Stake 1 ETH with Lido for stETH", "Stake 2 ETH with Lido for stETH"), lines)
+    }
+
+    @Test
+    fun anAggregate3ValueBatchWhoseValuesDoNotAddUpToTheAmountIsRefused() {
+        val batch = lidoBatch(MulticallShape.AGGREGATE3_VALUE, ONE_ETH, TWO_ETH)
+
+        refusalOf(txParsed(MULTICALL3, batch, value = ONE_ETH), builder(REGISTRY.withWhitelist(listOf(lidoEntry()))))
+    }
+
+    @Test
+    fun anAggregate3BatchThatSendsAmountsShowsNoValueAndStrandsIt() {
+        val batch = lidoBatch(MulticallShape.AGGREGATE3, null, null)
+
+        val review = reviewOf(txParsed(MULTICALL3, batch, value = ONE_ETH), builder(REGISTRY.withWhitelist(listOf(lidoEntry()))))
+
+        // Multicall3 calls each target with zero value, so no step stakes 1 ETH, and the review says the amount is lost.
+        val lines = review.sections.single { it.heading == "Calls" }.rows.filter { it.label.startsWith("Stake ") }.map { it.label }
+        assertEquals(listOf("Stake 0 ETH with Lido for stETH", "Stake 0 ETH with Lido for stETH"), lines)
+        assertEquals(Danger.DANGER, review.warnings.single { it.code == "evm.stranded-value" }.level)
+    }
+
+    @Test
+    fun anAggregate3BatchThatSendsNothingHasNoStrandedValueWarning() {
+        val batch = lidoBatch(MulticallShape.AGGREGATE3, null, null)
+
+        val review = reviewOf(txParsed(MULTICALL3, batch), builder(REGISTRY.withWhitelist(listOf(lidoEntry()))))
+
+        assertTrue(review.warnings.none { it.code == "evm.stranded-value" })
     }
 
     @Test
@@ -857,4 +986,32 @@ private fun bytesCall(selector: String, payload: ByteArray): ByteArray {
 private fun word(value: BigInteger): ByteArray {
     val bytes = value.toByteArray().takeLast(32).toByteArray()
     return ByteArray(32 - bytes.size) + bytes
+}
+
+private const val LIDO = "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
+private val ONE_ETH = BigInteger("1000000000000000000")
+private val TWO_ETH = BigInteger("2000000000000000000")
+private val THREE_ETH = BigInteger("3000000000000000000")
+
+/** The approved Lido `submit(address)`, whose step line names the amount the call sends. */
+private fun lidoEntry(): WhitelistEntry {
+    val signature = "submit(address)"
+    return WhitelistEntry(
+        chainId = 1,
+        contract = LIDO,
+        selector = WhitelistEntry.selectorOf(signature),
+        signature = signature,
+        meaning = "Stakes the ETH the call sends.",
+        params = listOf(WhitelistParam("referral", "address")),
+        upgradeable = false,
+    )
+}
+
+/** A Multicall3 batch of two Lido `submit` calls. [first] and [second] are their values, or null for a shape that has none. */
+private fun lidoBatch(shape: MulticallShape, first: BigInteger?, second: BigInteger?): ByteArray {
+    val calldata = Numeric.hexStringToByteArray(lidoEntry().selector) + word(BigInteger.ZERO)
+    val calls = listOf(first, second).map {
+        InnerCall(target = LIDO, allowFailure = false, value = it, calldata = calldata, call = null, nested = null)
+    }
+    return encodeMulticall(shape, deadline = null, calls = calls)!!
 }

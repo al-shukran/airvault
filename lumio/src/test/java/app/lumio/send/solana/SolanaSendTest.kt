@@ -244,7 +244,7 @@ class SolanaSendTest {
 
     /**
      * The Priority Fee switch adds SetComputeUnitPrice right after the nonce advance, and the fee the plan charges is the fee Lensly's review shows for
-     * that message: the price of 100000 micro-lamports times the 6000 default units of the advance and the transfer, which is 600 lamports. Off, the
+     * that message: the price of 100000 micro-lamports times the 9000 default units of the advance, the transfer and the price instruction itself, which is 900 lamports. Off, the
      * message is the one the send always made.
      */
     @Test
@@ -254,18 +254,18 @@ class SolanaSendTest {
             account,
             recipient,
             lamports,
-            BigInteger.valueOf(lamports + SOLANA_FEE_LAMPORTS + 600L + SOLANA_RENT_RESERVE_LAMPORTS),
+            BigInteger.valueOf(lamports + SOLANA_FEE_LAMPORTS + 900L + SOLANA_RENT_RESERVE_LAMPORTS),
             blockhash,
             requestId,
             priority = true,
         )
-        assertEquals(600L, priced.priorityFeeLamports)
+        assertEquals(900L, priced.priorityFeeLamports)
         assertContentEquals(SolanaNonce.transferMessage(sender, recipient, lamports, blockhash, priority = true), priced.message)
 
         val review = reviewOf(priced, wallet)
         assertIs<SolanaInstruction.AdvanceNonce>(review.instructions.first())
         assertEquals(100_000uL, review.instructions.filterIsInstance<SolanaInstruction.SetComputeUnitPrice>().single().microLamports)
-        assertEquals(600uL, review.priorityFeeLamports)
+        assertEquals(900uL, review.priorityFeeLamports)
         assertTrue(review.priorityFeeIsBound)
 
         val plain = plan()
@@ -277,7 +277,7 @@ class SolanaSendTest {
     @Test
     fun thePrioritySwitchTakesItsFeeFromTheMostThatCanBeSent() {
         assertEquals(
-            1_000_000_000L - SOLANA_FEE_LAMPORTS - 600L - SOLANA_RENT_RESERVE_LAMPORTS,
+            1_000_000_000L - SOLANA_FEE_LAMPORTS - 900L - SOLANA_RENT_RESERVE_LAMPORTS,
             SolanaSend.maxLamports(BigInteger.valueOf(1_000_000_000L), priority = true),
         )
     }

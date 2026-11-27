@@ -119,7 +119,7 @@ internal class FailureStore(
         trySave(state.copy(seq = state.seq + 1), clock) ?: state
 
     /** Creates the initial state for a new vault: no failures, sequence 1. */
-    fun initialize(clock: Clock) {
+    fun initialize(clock: Clock, keyFileDigest: String = "") {
         save(
             FailureState(
                 seq = 1,
@@ -128,10 +128,15 @@ internal class FailureStore(
                 lastFailureElapsedMs = clock.elapsedMillis(),
                 createdElapsedMs = clock.elapsedMillis(),
                 createdBootCount = currentBootCount(),
+                keyFileDigest = keyFileDigest,
             ),
             clock,
         )
     }
+
+    /** Records the digest of the `unlock.bin` that is about to be written, and returns the new state. See [FailureState.keyFileDigest]. */
+    fun recordKeyFile(previous: FailureState, keyFileDigest: String, clock: Clock): FailureState =
+        save(previous.copy(seq = previous.seq + 1, keyFileDigest = keyFileDigest), clock)
 
     /**
      * Records one more failed check, made at [clock]'s current time, and returns the new state. The vault makes this call before it
@@ -276,6 +281,7 @@ internal class FailureStore(
             fullCapWait = true,
             // The success mark of the kept copy stays with its count, so a lock does not bring back a warning that a success hid.
             succeededSinceFailure = kept?.succeededSinceFailure == true,
+            keyFileDigest = kept?.keyFileDigest.orEmpty(),
         )
         return trySave(locked, clock) ?: locked.also { PENDING[seenKey] = it }
     }
@@ -427,9 +433,11 @@ internal class FailureStore(
             TRUE_ON_DISK -> true
             else -> return null
         }
+        val digest = ByteArray(DIGEST_BYTES).also { buffer.get(it) }
+        val keyFileDigest = if (digest.all { it == 0.toByte() }) "" else digest.joinToString("") { "%02x".format(it.toInt() and 0xff) }
         return FailureState(
             seq, failures, lastFailureWallMs, lastFailureElapsedMs, capMs, bootCount, elapsedAtSave, wipeAfter,
-            createdElapsedMs, createdBootCount, fullCapWait, succeededSinceFailure,
+            createdElapsedMs, createdBootCount, fullCapWait, succeededSinceFailure, keyFileDigest,
         )
     }
 
@@ -449,6 +457,7 @@ internal class FailureStore(
             .putInt(state.createdBootCount ?: NO_BOOT_COUNT)
             .put(if (state.fullCapWait) TRUE_ON_DISK else FALSE_ON_DISK)
             .put(if (state.succeededSinceFailure) TRUE_ON_DISK else FALSE_ON_DISK)
+            .put(if (state.keyFileDigest.isEmpty()) ByteArray(DIGEST_BYTES) else state.keyFileDigest.chunked(2).map { it.toInt(16).toByte() }.toByteArray())
             .array()
         return payload + keystore(STATE_UNAVAILABLE) { macOf(key, payload) }
     }
@@ -469,7 +478,7 @@ internal class FailureStore(
         private val MAGIC = "LNFS".toByteArray(Charsets.US_ASCII)
 
         /** The layout of a copy that this build writes and reads. A copy of any other version is not a copy, and no older layout is read. */
-        private const val VERSION: Byte = 6
+        private const val VERSION: Byte = 7
 
         /** The cap on disk when the owner chose Default. Zero is outside the offered range, so it cannot be a real cap. */
         private const val NO_CAP_ON_DISK = 0L
@@ -484,11 +493,13 @@ internal class FailureStore(
         private const val FALSE_ON_DISK: Byte = 0
         private const val TRUE_ON_DISK: Byte = 1
 
+        private const val DIGEST_BYTES = 32
+
         /**
          * magic (4), version (1), seq (8), failures (4), wall (8), elapsed (8), cap (8), boot count (4), time served (8), erase count (4),
-         * creation reading (8), creation boot count (4), full-cap flag (1), succeeded flag (1).
+         * creation reading (8), creation boot count (4), full-cap flag (1), succeeded flag (1), key file digest (32, zeros for none).
          */
-        private const val PAYLOAD_SIZE = 4 + 1 + 8 + 4 + 8 + 8 + 8 + 4 + 8 + 4 + 8 + 4 + 1 + 1
+        private const val PAYLOAD_SIZE = 4 + 1 + 8 + 4 + 8 + 8 + 8 + 4 + 8 + 4 + 8 + 4 + 1 + 1 + DIGEST_BYTES
         private const val MAC_SIZE = 32
 
         private const val STATE_UNAVAILABLE = "The Failure Delay state could not be read or written through the Keystore."

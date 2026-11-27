@@ -5,6 +5,7 @@ import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.security.SecureRandom
+import java.util.Arrays
 import javax.crypto.AEADBadTagException
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -52,9 +53,14 @@ internal object ReviewPoolFormat {
  *
  * Methods take the wallet's key from the caller, and the caller zeroes it. The pool itself holds only the vault key.
  */
-internal class ReviewPool(private val dir: File, private val vaultKey: ByteArray) {
+internal class ReviewPool(private val dir: File, private val vaultKey: ByteArray) : AutoCloseable {
     private val random = SecureRandom()
-    private val indexKey: ByteArray = labelledHmac(vaultKey, "lensly.pool.index")
+    internal val indexKey: ByteArray = labelledHmac(vaultKey, "lensly.pool.index")
+
+    /** Zeroes the index key. The caller owns [vaultKey] and zeroes it. */
+    override fun close() {
+        Arrays.fill(indexKey, 0)
+    }
 
     /** What one index entry says a slot holds. */
     internal data class Entry(val walletId: String, val name: String)

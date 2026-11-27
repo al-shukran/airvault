@@ -169,7 +169,7 @@ private fun CameraViewfinder(
     val scope = rememberCoroutineScope()
     val controller = remember { CameraController() }
     // A video is recorded in the app's cache, sealed into the vault, then shredded. Nothing is recorded anywhere else.
-    val scratch = remember(context) { File(context.cacheDir, "recording.mp4") }
+    val scratch = remember(context) { File(context.cacheDir, VaultLayout.RECORDING_NAME) }
     val slopPx = LocalViewConfiguration.current.touchSlop
     val swipePx = with(LocalDensity.current) { ENTRY_SWIPE_DISTANCE.toPx() }
     // One touch state for the life of the screen, so its control positions survive a change of gesture.
