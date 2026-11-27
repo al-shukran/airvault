@@ -36,6 +36,11 @@ Rotation: list the new key as `active` and sign with it, then set the old key's 
 package from a revoked key, including one already installed. The installed sequence stays recorded, so an older package
 still cannot be installed.
 
+Revoking a key in the field, on builds that are already out: sign a package with another active key and list the leaked key's ID in
+`revokedKeys` (see below). From the moment a device installs it, that device refuses every package signed with the leaked key. Every
+later package must list the same keys, or it is refused. A package cannot revoke the key that signed it. A device that never installs the
+revoking package keeps trusting the leaked key, so ship the revoking package in the next app release's `bundled.lrp` as well.
+
 The release key in use is pinned in `shared/src/main/assets/registry/trusted-keys.json`. Its passphrase is in the macOS keychain
 (service `lensly-registry-release`, account `registry-release`); its key file and fingerprint are in the keys folder outside the repository.
 
@@ -67,16 +72,18 @@ The entries file is the source a package is built from. Entries may appear in an
 | Field | Meaning |
 | --- | --- |
 | `formatVersion` | Must be `2`. |
-| `minSchemaVersion` | Optional, default `1`. The catalog schema the package needs; `5` is the newest the application reads. A package with a `denylist` or `wallets` list needs `2`. A package with a whitelist argument that is dynamic, an array or a tuple, or that names tuple fields, needs `3`. A package with networks needs `4`. A package with a denylist `party` needs `5`. |
+| `minSchemaVersion` | Optional, default `1`. The catalog schema the package needs; `6` is the newest the application reads. A package with a `denylist` or `wallets` list needs `2`. A package with a whitelist argument that is dynamic, an array or a tuple, or that names tuple fields, needs `3`. A package with networks needs `4`. A package with a denylist `party` needs `5`. A package with `solanaFees` or `revokedKeys` needs `6`. |
 | `sequence` | At least 1. The application refuses a package whose sequence is not higher than the last one it accepted. |
 | `createdAt` | ISO date, `yyyy-mm-dd`. |
-| `networks` | Networks the package adds. A package cannot add a testnet. Each network states `kind` (`LAYER_1`, or `LAYER_2` for a rollup), `parentChainId` (the chain a Layer 2 settles to, such as `1`, and `null` for a Layer 1) and `featured` (`true` when Lumio's Explore chains group lists it without an account). A Layer 2 needs a parent, a Layer 1 has none, and the parent must be a Layer 1. |
-| `tokens` | Tokens the package adds. Each token's chain must be baked into the application or added by this package. |
+| `networks` | Networks the package adds or corrects. A network with the chain ID of a baked one replaces it, so a wrong name, symbol, decimals or kind is fixed by the package; a correction must leave every baked Layer 2 settling to a Layer 1. A package cannot add a testnet. Each network states `kind` (`LAYER_1`, or `LAYER_2` for a rollup), `parentChainId` (the chain a Layer 2 settles to, such as `1`, and `null` for a Layer 1) and `featured` (`true` when Lumio's Explore chains group lists it without an account). A Layer 2 needs a parent, a Layer 1 has none, and the parent must be a Layer 1. |
+| `tokens` | Tokens the package adds or corrects. A token with the chain and contract of a baked one replaces it. Each token's chain must be baked into the application or in this package. |
 | `whitelist` | Optional. The contract calls that may be signed despite a Decode Gap (see below). Omitted, the application keeps the whitelist it has installed, or its built-in list when none is installed; `[]` clears it. |
 | `denylist` | Optional. Known-dangerous requests that get a warning or a refusal (see below). Omitted, the application keeps its built-in list; `[]` clears it. |
 | `wallets` | Optional. The Wallet Compatibility Registry: online wallets and their code formats (see below). Omitted, the application keeps its built-in list; `[]` clears it. |
+| `solanaFees` | Optional, needs `minSchemaVersion` 6. The network constants behind the Max Fee of a Solana review: `lamportsPerSignature` (the base fee of one signature), `defaultUnitsPerInstruction` (the compute units of an instruction of any other program when the transaction sets no limit), `builtinUnitsPerInstruction` (the same for a System Program or compute budget instruction) and `maxUnits` (the largest compute limit). Each is at least 1, and the unit counts are at most 4294967295. Omitted, the application uses its built-in constants (5000, 200000, 3000 and 1400000). |
+| `revokedKeys` | Optional, needs `minSchemaVersion` 6. The IDs (16 lowercase hex digits, as `keygen` prints them) of the signing keys the package revokes. See "Release key". Omitted when empty. |
 
-The application applies a package's `whitelist`, `denylist` and `wallets` only when its `sequence` is higher than the built-in catalog's.
+The application applies a package's `whitelist`, `denylist`, `wallets` and `solanaFees` only when its `sequence` is higher than the built-in catalog's.
 A list the package omits keeps the application's own.
 
 ### Denylist entries

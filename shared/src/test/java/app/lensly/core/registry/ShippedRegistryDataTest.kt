@@ -43,8 +43,20 @@ class ShippedRegistryDataTest {
 
         val bundled = RegistryUpdate.verify(bytes, releaseOnly, registry).getOrThrow()
 
-        assertEquals(1L, bundled.sequence)
+        assertEquals(2L, bundled.sequence)
         assertEquals(VERIFIED_CALLS, checkNotNull(bundled.whitelist).map { "${it.chainId} ${it.contract} ${it.selector}" }.sorted())
+    }
+
+    /** The call carries only an order ID, so the review cannot show the order's tokens, amounts or receiver: it must not be approved. */
+    @Test
+    fun theBundledPackageDoesNotApproveTheCowPreSignatureCall() {
+        val releaseOnly = TrustedKeys.load { path -> File(MAIN, path).takeIf { it.isFile }?.readText() }
+        val bundled = RegistryUpdate.verify(File(MAIN, BUNDLED_PATH).readBytes(), releaseOnly, registry).getOrThrow()
+
+        assertTrue(
+            checkNotNull(bundled.whitelist).none { it.contract == COW_SETTLEMENT || it.selector == COW_PRE_SIGNATURE },
+            "setPreSignature on the CoW settlement contract is in the bundled approved list",
+        )
     }
 
     @Test
@@ -160,6 +172,8 @@ class ShippedRegistryDataTest {
         const val MAIN = "src/main/assets"
         const val DEBUG = "src/debug/assets"
         const val BUNDLED_PATH = "registry/bundled.lrp"
+        const val COW_SETTLEMENT = "0x9008d19f58aabd9ed0d60971565aa8510560ab41"
+        const val COW_PRE_SIGNATURE = "0xec6cb13f"
         const val MONAD_TESTNET = 10143L
         val CONTRACT = Regex("0x[0-9a-f]{40}")
         val TESTNET_TRUE = Regex("\"testnet\"\\s*:\\s*true")
@@ -176,7 +190,6 @@ class ShippedRegistryDataTest {
             "1 0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45 0x5ae401dc",
             "1 0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45 0xac9650d8",
             "1 0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45 0xb858183f",
-            "1 0x9008d19f58aabd9ed0d60971565aa8510560ab41 0xec6cb13f",
         ).sorted()
     }
 }

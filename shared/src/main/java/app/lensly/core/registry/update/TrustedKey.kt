@@ -40,6 +40,9 @@ class TrustedKey(val publicKey: ByteArray, val status: KeyStatus = KeyStatus.ACT
  *
  * Rotation: list the new key as `active` and sign with it, then set the old key to `revoked`. Packages from a revoked key are
  * refused, including one already installed. The installed sequence stays recorded, so an older package still cannot be installed.
+ *
+ * A key can also be revoked after a build ships: an installed package lists the IDs it revokes (see [RegistryPackage.revokedKeys]), and
+ * [RegistryUpdate] then treats those keys as revoked on top of this list.
  */
 object TrustedKeys {
     const val RELEASE_PATH = "registry/trusted-keys.json"
