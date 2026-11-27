@@ -16,6 +16,7 @@ import java.security.SecureRandom
 import java.util.Arrays
 import javax.crypto.AEADBadTagException
 import javax.crypto.SecretKey
+import kotlin.random.asKotlinRandom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -129,8 +130,9 @@ class VaultFormatChangedException : VaultException(VAULT_FORMAT_CHANGED)
  *
  * The Vault Key is protected by three keys, and all are needed to recover it:
  * 1. Slot: a non-exportable Keystore HMAC-SHA256 key (`k2`) binds every guess to this device.
- * 2. Software: `K_sw = HKDF-SHA256(Argon2id(password, salt) || HMAC(slot key, salt), info = "lensly-vault-slot-v3")`, used with
- *    AES-256-GCM to wrap the hardware blob. Each guess needs the slot key, so copies of the vault files cannot be tested offline.
+ * 2. Software: `K_sw = HKDF-SHA256(Argon2id(password, salt) || HMAC(slot key, Argon2id(password, salt)), info = "lensly-vault-slot-v4")`,
+ *    used with AES-256-GCM to wrap the hardware blob. The Keystore sees the stretched password, so each guess needs the full Argon2
+ *    work and this device's slot key, and nothing stored lets a copy of the vault files be tested without both.
  * 3. Hardware: a non-exportable Keystore AES-256-GCM key (`k1`) wraps the Vault Key.
  *
  * `unlock.bin` holds two slots: one for the real vault and one for the Decoy Vault that a Duress Password opens. Its size
@@ -146,6 +148,9 @@ class VaultFormatChangedException : VaultException(VAULT_FORMAT_CHANGED)
  * verifies, the next attempt erases the vault before the password is checked, since the count is unknown (see [FailureDelay]).
  * Each try is counted before its password is checked, and a try whose count cannot be saved is refused without a verdict (see
  * [checkPasswordLocked]).
+ *
+ * `unlock.bin` is bound to the Failure Delay state, which holds its SHA-256 and is updated by every write of the file (see
+ * [FailureState.keyFileDigest]). An older copy put back no longer matches, so it is unverifiable and the vault is erased.
  *
  * The header (`header.bin`) is MACed under the header key. A header that does not verify is unverifiable, so [unlock] erases the vault
  * before it checks any password, as it does for an unverifiable failure state (see [VaultHeader]).
@@ -269,16 +274,23 @@ class Vault constructor(
                     eraseLocked()
                     return@withLock null
                 }
-                val contents = keyFileOrNull() ?: run {
+                val store = failureStore()
+                // A state that cannot be read is left for the next password try too, so the key file is checked without its digest.
+                val state = try {
+                    store.load(clock)
+                } catch (e: VaultException) {
+                    null
+                } catch (e: IOException) {
+                    null
+                }
+                val contents = verifiedKeyFile(state) ?: run {
                     eraseLocked()
                     return@withLock null
                 }
                 if (VaultKeyFile.ownerIndex(contents, vaultKey) < 0) return@withLock null
                 // A state that does not verify is left for the next password try, which erases the vault (FailureDelay threat 15).
                 bestEffort {
-                    val store = failureStore()
-                    val state = store.load(clock)
-                    if (state.failures > 0 && !FailureDelay.unverified(state)) store.recordSuccess(state, clock)
+                    if (state != null && state.failures > 0 && !FailureDelay.unverified(state)) store.recordSuccess(state, clock)
                 }
                 openSessionLocked(vaultKey, isDecoy = false)
             }
@@ -419,16 +431,17 @@ class Vault constructor(
     }
 
     /**
-     * Finishes an erase that stopped half way, which [wipeVault] left a marker for, then runs [onErased], so the stores outside the vault go
-     * even when the process died before its caller erased them. The gate calls it before it looks at the vault, so a vault that a reset has
-     * started to erase is never unlocked. Returns false while the marker is still there, when some file could not be removed: the vault then
-     * stays hidden, and the next gate tries again.
+     * Finishes an erase that stopped half way, which [wipeVault] left a marker for, and erases vault files that are left without a whole
+     * vault (see [isPartial]): they cannot be verified, so they go like any other unverifiable state. Then it runs [onErased], so the stores
+     * outside the vault go even when the process died before its caller erased them. The gate calls it before it looks at the vault, so a
+     * vault that a reset has started to erase is never unlocked. Returns false while vault files are still there, when some file could not
+     * be removed: the vault then stays hidden, and the next gate tries again.
      */
     suspend fun finishPendingWipe(): Boolean =
         withContext(Dispatchers.IO) {
             mutex.withLock {
-                if (layout.wipeMarker.exists()) eraseLocked()
-                !layout.wipeMarker.exists()
+                if (layout.isPartial()) eraseLocked()
+                !layout.isPartial()
             }
         }
 
@@ -498,22 +511,25 @@ class Vault constructor(
                         sealSlot(softKey, keystore(HARDWARE_FAILURE) { keys.hardwareKey() }, vaultKey, VaultRole.REAL)
                     }
                     val decoySlot = VaultKeyFile.randomSlot(random)
+                    val keyFile = VaultKeyFile.encode(listOf(realSlot, decoySlot), random)
                     layout.root.mkdirs()
                     // The files of this create all sit under the vault root, from the first one written on. A failure after that removes
                     // the root, so a failed create leaves no partial vault: the vault is as it was before the call.
                     var committed = false
                     try {
-                        if (!createFailureState()) {
+                        if (!createFailureState(VaultKeyFile.digestOf(keyFile))) {
                             // The hardware key was made a moment ago, and the directory may hold the first Delay State copies.
                             // Both go, so a refused creation leaves nothing behind. The directory is removed in the finally below.
                             keystoreOrNull { keys.deleteAll() }
                             return CreateResult.DeviceUnsupported
                         }
-                        writeAtomically(layout.vaultKey, VaultKeyFile.encode(listOf(realSlot, decoySlot), random))
+                        writeAtomically(layout.vaultKey, keyFile)
+                        // The record folder starts with its full set of files, so a Decoy Vault never adds one.
+                        writeRecordPlaceholders(vaultKey)
                         // The store starts with its full set of wallet folders, so it never shows an empty one.
-                        WalletPad(layout, keys, vaultKey, REAL_SECTION).padTo(WALLET_SLOT_STEP)
+                        withRealPad(vaultKey) { it.padTo(WALLET_SLOT_STEP) }
                         // The Review Record pool starts with its first batch, so an empty vault shows the same pool as one with records.
-                        ReviewPool(layout.reviewPool, vaultKey).ensureFirstBatch()
+                        ReviewPool(layout.reviewPool, vaultKey).use { it.ensureFirstBatch() }
                         // The header goes last. Its presence is what makes exists() true, so a crash earlier leaves no vault.
                         val header = VaultHeader(
                             kdf = kdf,
@@ -540,8 +556,8 @@ class Vault constructor(
                         val session = VaultSession(
                             layout,
                             keys,
-                            vaultKey.copyOf(),
-                            pad = WalletPad(layout, keys, vaultKey.copyOf(), REAL_SECTION),
+                            vaultKey,
+                            pad = WalletPad(layout, keys, vaultKey, REAL_SECTION),
                         )
                         try {
                             // A photo key pair made before the first setup becomes this vault's own, so those photos open through it.
@@ -723,41 +739,45 @@ class Vault constructor(
             eraseLocked()
             return Checked.Erased
         }
+        // A key file that is not the one last written, or that cannot be read as a key file, is unverifiable too (see [verifiedKeyFile]).
+        val contents = verifiedKeyFile(check.state) ?: run {
+            eraseLocked()
+            return Checked.Erased
+        }
         // During a delay the password is not checked, so it counts as neither a pass nor a failure. The KDF still runs
         // once, on a fixed input, so a refused attempt takes as long as a real one.
         val derivations = if (nfc == null) 1 else 2
-        if (check.blocked) {
-            spendKdfTime(header, derivations)
-            return Checked.Refused
-        }
+        if (check.blocked) return refusedAfterSpendingKdfTime(header, derivations)
         // The try is counted before the KDF and the verdict, so a try that a restart or an error cuts short still counts (FailureDelay
         // threat 15). A count that cannot be saved gives no verdict: the password is not checked, and the try is refused (threat 11).
         val counted = try {
             store.recordFailure(check.state, clock)
         } catch (e: VaultException) {
-            spendKdfTime(header, derivations)
-            return Checked.Refused
+            return refusedAfterSpendingKdfTime(header, derivations)
         } catch (e: IOException) {
-            spendKdfTime(header, derivations)
-            return Checked.Refused
+            return refusedAfterSpendingKdfTime(header, derivations)
         }
 
-        val typedKey = withContext(Dispatchers.Default) { deriveSoftKey(password, header.salt, header.kdf) }
+        // A slot key that is gone for good, as a hardware key is, leaves a vault that no password opens: it is erased.
+        val typedKey = try {
+            withContext(Dispatchers.Default) { deriveSoftKey(password, header.salt, header.kdf) }
+        } catch (e: VaultKeyInvalidatedException) {
+            eraseLocked()
+            return Checked.Erased
+        }
         var nfcKey: ByteArray? = null
         var handedKey: ByteArray? = null
         try {
             nfcKey = nfc?.let { form -> withContext(Dispatchers.Default) { deriveSoftKey(form, header.salt, header.kdf) } }
-            val contents = keyFileOrNull() ?: run {
-                eraseLocked()
-                return Checked.Erased
-            }
             val typedOpened = slotsOpenedBy(typedKey, contents)
             val nfcOpened = if (nfcKey == null) emptyList() else slotsOpenedBy(nfcKey, contents)
             val useNfc = typedOpened.isEmpty() && nfcOpened.isNotEmpty()
             val softKey = if (useNfc) nfcKey!! else typedKey
             val opened = if (useNfc) nfcOpened else typedOpened
             if (opened.size > 1) {
-                throw VaultException("The vault key file is damaged: two slots open with one password.")
+                // Two slots opening under one password is a damaged file, which is unverifiable, so the vault is erased.
+                eraseLocked()
+                return Checked.Erased
             }
             if (opened.isEmpty()) {
                 // The wrong try is counted already. The owner's last allowed one erases the vault.
@@ -771,11 +791,20 @@ class Vault constructor(
             // success is recorded after that step. A real password clears the count. A decoy password keeps the count from before this try,
             // so opening the decoy never lowers the real vault's streak. A right password whose hardware step is cut short keeps its counted
             // try (FailureDelay threat 15).
-            val (vaultKey, role) = withHardwareAuth {
-                val key = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
-                val (unwrapped, unwrappedRole) = unwrapOpened(key, opened.single().second)
-                Pair(unwrapped, unwrappedRole)
+            // A hardware key that is gone for good, or a slot that holds no vault key and role, cannot be repaired: the vault is erased.
+            val unwrapped = try {
+                withHardwareAuth {
+                    val key = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
+                    unwrapOpened(key, opened.single().second)
+                }
+            } catch (e: VaultKeyInvalidatedException) {
+                null
             }
+            if (unwrapped == null) {
+                eraseLocked()
+                return Checked.Erased
+            }
+            val (vaultKey, role) = unwrapped
             val success = if (role == VaultRole.DECOY) {
                 store.recordDecoySuccess(counted, check.state, clock)
             } else {
@@ -983,7 +1012,11 @@ class Vault constructor(
             withRealPad(vaultKey) { discard(decoyKey, it) }
             return DuressResult.Failed
         }
-        // The new decoy is committed, so a purge that fails leaves the old decoy's files for a later purge, and the result stays Enabled.
+        // The new decoy is committed, so a step that fails leaves its files for a later one, and the result stays Enabled. The decoy takes
+        // the spare record files over only now, so a try that fails touches no record file, and writing a record never adds one. They
+        // start with no value under its key.
+        bestEffort { claimSpareRecords(vaultKey, decoyKey) }
+        bestEffort { resetDecoyRecords(decoyKey) }
         bestEffort { purgeUnowned(listOf(vaultKey, decoyKey)) }
         return DuressResult.Enabled
     }
@@ -1046,6 +1079,15 @@ class Vault constructor(
         elapsedMs
     }
 
+    /** [spendKdfTime], then the refusal. A slot key that is gone for good leaves a vault no password opens, so that is erased instead. */
+    private suspend fun refusedAfterSpendingKdfTime(header: VaultHeader, derivations: Int): Checked = try {
+        spendKdfTime(header, derivations)
+        Checked.Refused
+    } catch (e: VaultKeyInvalidatedException) {
+        eraseLocked()
+        Checked.Erased
+    }
+
     /**
      * [derivations] derivations with the vault's own parameters and salt, on a fixed input that is not secret. The results are
      * discarded. Runs on [Dispatchers.Default].
@@ -1072,13 +1114,20 @@ class Vault constructor(
         null
     }
 
-    /** The Vault Key and role inside a hardware-wrapped blob. The caller zeroes the key. */
-    private fun unwrapOpened(hardwareKey: SecretKey, hardwareWrapped: ByteArray): Pair<ByteArray, Byte> {
-        val plain = keystore(HARDWARE_FAILURE) { Aead.openWithKeystore(hardwareKey, VaultKeyFile.HARDWARE_AAD, hardwareWrapped) }
+    /** The Vault Key and role inside a hardware-wrapped blob, or null when the blob does not open or holds no key and role. The caller zeroes the key. */
+    private fun unwrapOpened(hardwareKey: SecretKey, hardwareWrapped: ByteArray): Pair<ByteArray, Byte>? {
+        // A hardware layer that does not authenticate under a software layer that did holds no vault key: the vault is erased.
+        val plain = keystore(HARDWARE_FAILURE) {
+            try {
+                Aead.openWithKeystore(hardwareKey, VaultKeyFile.HARDWARE_AAD, hardwareWrapped)
+            } catch (e: AEADBadTagException) {
+                return null
+            }
+        }
         try {
-            if (plain.size != KEY_BYTES + 1) throw VaultException("The vault key is damaged.")
+            if (plain.size != KEY_BYTES + 1) return null
             val role = plain[KEY_BYTES]
-            if (role != VaultRole.REAL && role != VaultRole.DECOY) throw VaultException("The vault key is damaged.")
+            if (role != VaultRole.REAL && role != VaultRole.DECOY) return null
             return plain.copyOf(KEY_BYTES) to role
         } finally {
             Arrays.fill(plain, 0)
@@ -1120,9 +1169,19 @@ class Vault constructor(
      * byte for byte and [verified] holds. Otherwise the temp file is removed and nothing changes.
      */
     private fun commitKeyFile(slots: List<ByteArray>, verified: () -> Boolean) {
+        // The file in place must be the one last written. An older copy put back while the vault is open would have its other slot carried
+        // into the new file, and the swap recorded as the owner's. The change is refused, and the next unlock erases the vault.
+        val store = failureStore()
+        val previous = store.load(clock)
+        if (VaultKeyFile.digestOf(readVaultFile(layout.vaultKey)) != previous.keyFileDigest) {
+            throw VaultException("The vault key file is not the one last written, so the vault was not changed.")
+        }
         val temp = writeTemp(layout.vaultKey, VaultKeyFile.encode(slots, random))
+        var digest = ""
         val intact = try {
-            val contents = VaultKeyFile.decode(temp.readBytes())
+            val bytes = temp.readBytes()
+            val contents = VaultKeyFile.decode(bytes)
+            digest = VaultKeyFile.digestOf(bytes)
             slots.all { wanted -> contents.slots.any { it.contentEquals(wanted) } } && verified()
         } catch (e: VaultException) {
             false
@@ -1133,18 +1192,41 @@ class Vault constructor(
             temp.delete()
             throw VaultException("The new vault key file did not verify, so the vault was not changed.")
         }
-        commitTemp(temp, layout.vaultKey)
+        // The failure state names the new file before the file replaces the old one, so an older copy put back later does not match. A
+        // failed save or replace names the old file again, as far as it can: a save that wrote one copy leaves the new name behind. A crash
+        // between the two leaves them apart, and the next unlock erases the vault.
+        val nameOldFileAgain = { bestEffort { store.recordKeyFile(store.load(clock), previous.keyFileDigest, clock) } }
+        try {
+            store.recordKeyFile(previous, digest, clock)
+        } catch (e: VaultException) {
+            temp.delete()
+            nameOldFileAgain()
+            throw VaultException("The new vault key file could not be recorded, so the vault was not changed.", e)
+        } catch (e: IOException) {
+            temp.delete()
+            nameOldFileAgain()
+            throw VaultException("The new vault key file could not be recorded, so the vault was not changed.", e)
+        }
+        try {
+            commitTemp(temp, layout.vaultKey)
+        } catch (e: Exception) {
+            nameOldFileAgain()
+            throw e
+        }
+        // The failure state names the new file already, so a power cut must not lose the rename. The file is in place, so a failed sync
+        // neither fails the change nor names the old file again.
+        bestEffort { syncDirectory(layout.root) }
     }
 
     /**
-     * The software key of a slot: `K_sw = HKDF-SHA256(Argon2id(password, salt) || HMAC(slot key, salt), info = SLOT_INFO)`. The HMAC runs
-     * in the device's Keystore, so each guess needs this device. The call blocks, so a caller runs it on [Dispatchers.Default]. The caller
-     * zeroes the result.
+     * The software key of a slot: `K_sw = HKDF-SHA256(Argon2id(password, salt) || HMAC(slot key, Argon2id(password, salt)), info = SLOT_INFO)`.
+     * The HMAC runs in the device's Keystore on the stretched password, so each guess needs the full Argon2 work and this device. The call
+     * blocks, so a caller runs it on [Dispatchers.Default]. The caller zeroes the result.
      */
     private fun deriveSoftKey(password: CharArray, salt: ByteArray, kdf: KdfParams): ByteArray {
         val stretched = Argon2Kdf.derive(password, salt, kdf)
         try {
-            val bound = keystore(HARDWARE_FAILURE) { keys.slotMac(salt) }
+            val bound = keystore(HARDWARE_FAILURE) { keys.slotMac(stretched) }
             val ikm = stretched + bound
             try {
                 return hkdfSha256(ikm, salt = null, info = SLOT_INFO, length = KEY_BYTES)
@@ -1209,20 +1291,82 @@ class Vault constructor(
      */
     private fun discard(key: ByteArray, pad: WalletPad, keepListing: Boolean = false) {
         val owned = layout.wallets.list()?.filter { ownsWallet(keys, layout, key, it) }.orEmpty()
-        val pool = ReviewPool(layout.reviewPool, key)
-        if (keepListing) {
-            owned.forEach { pool.release(it) }
-        } else {
-            pool.ownedNames().forEach { overwriteInPlace(File(layout.reviewPool, it)) }
+        ReviewPool(layout.reviewPool, key).use { pool ->
+            if (keepListing) {
+                owned.forEach { pool.release(it) }
+            } else {
+                pool.ownedNames().forEach { overwriteInPlace(File(layout.reviewPool, it)) }
+            }
         }
         // The folders stay, emptied and refilled with random bytes, so the store's folder count never falls.
         pad.release(owned)
-        VaultRecordNames.KNOWN.forEach { name ->
-            val file = File(layout.vaultRecords, VaultRecordNames.fileName(key, name))
-            if (!file.isFile) return@forEach
-            // A wipe keeps the name and size of the record file, so the store's file shape does not change.
-            if (keepListing) overwriteWithRandom(file) else file.delete()
+        // The record files stay in either case, so the folder's file count never changes (see [VaultRecordNames]).
+        if (keepListing) {
+            resetDecoyRecords(key)
+        } else {
+            retireRecordFiles(VaultRecordNames.KNOWN.map { File(layout.vaultRecords, VaultRecordNames.fileName(key, it)) }.filter { it.isFile })
         }
+    }
+
+    /**
+     * Gives the folder of vault records its fixed set of files: one for each known name of the real vault, and as many spares under
+     * random names. A Decoy Vault takes the spares over (see [claimSpareRecords]), so it never adds a file. No name is computable
+     * without a key, and every file has the same size and kind of bytes.
+     */
+    private fun writeRecordPlaceholders(vaultKey: ByteArray) {
+        layout.vaultRecords.mkdirs()
+        VaultRecordNames.KNOWN.forEach { name ->
+            writeAtomically(File(layout.vaultRecords, VaultRecordNames.fileName(vaultKey, name)), VaultRecordNames.sealedUnset(vaultKey, name))
+            writeAtomically(File(layout.vaultRecords, VaultRecordNames.randomFileName(random)), randomRecordFile(VaultRecordNames.UNSET_FILE_BYTES))
+        }
+    }
+
+    /** The record files that [keys] name, as a set of file names. */
+    private fun recordNamesOf(keys: List<ByteArray>): Set<String> =
+        keys.flatMap { key -> VaultRecordNames.KNOWN.map { VaultRecordNames.fileName(key, it) } }.toSet()
+
+    /** The record files that none of [keys] names: the spares, and the files of a Decoy Vault that is gone. */
+    private fun spareRecordFiles(keys: List<ByteArray>): List<File> {
+        val named = recordNamesOf(keys)
+        return layout.vaultRecords.listFiles().orEmpty().filter { it.isFile && it.name.endsWith(".bin") && it.name !in named }
+    }
+
+    /** Renames the spare record files to the names that [decoyKey] gives the known records. A rename keeps a file's size and time. */
+    private fun claimSpareRecords(vaultKey: ByteArray, decoyKey: ByteArray) {
+        val spares = spareRecordFiles(listOf(vaultKey)).shuffled(random.asKotlinRandom())
+        if (spares.size < VaultRecordNames.KNOWN.size) throw VaultException("The folder of vault records lacks spare files.")
+        VaultRecordNames.KNOWN.zip(spares).forEach { (name, spare) ->
+            if (!spare.renameTo(File(layout.vaultRecords, VaultRecordNames.fileName(decoyKey, name)))) {
+                throw VaultException("A spare record file could not be renamed.")
+            }
+        }
+    }
+
+    /** Each decoy record file, rewritten to hold no value under [decoyKey]. The files keep their names and sizes. */
+    private fun resetDecoyRecords(decoyKey: ByteArray) {
+        VaultRecordNames.KNOWN.forEach { name ->
+            val file = File(layout.vaultRecords, VaultRecordNames.fileName(decoyKey, name))
+            writeAtomically(file, VaultRecordNames.sealedUnset(decoyKey, name, sizeOf(file)))
+        }
+    }
+
+    /**
+     * Turns [files] back into spares: random bytes of the same size under fresh random names, so nothing shows that a Decoy Vault
+     * was there. The file count stays the same.
+     */
+    private fun retireRecordFiles(files: List<File>) {
+        files.forEach { file ->
+            writeAtomically(File(layout.vaultRecords, VaultRecordNames.randomFileName(random)), randomRecordFile(sizeOf(file)))
+            file.delete()
+        }
+    }
+
+    private fun sizeOf(file: File): Int = file.length().toInt().takeIf { it >= VaultRecordNames.UNSET_FILE_BYTES } ?: VaultRecordNames.UNSET_FILE_BYTES
+
+    /** Random bytes that start with the version byte, so a spare file reads like a sealed record (see [WalletFolder]'s unused files). */
+    private fun randomRecordFile(size: Int): ByteArray = ByteArray(size).also {
+        random.nextBytes(it)
+        it[0] = BLOB_VERSION
     }
 
     /**
@@ -1238,11 +1382,9 @@ class Vault constructor(
             }.orEmpty()
             pad.release(dropped)
         }
-        val kept = keep.flatMap { key -> VaultRecordNames.KNOWN.map { VaultRecordNames.fileName(key, it) } }.toSet()
-        layout.vaultRecords.listFiles()?.forEach { file ->
-            if (file.name.endsWith(".bin") && file.name !in kept) file.delete()
-        }
-        ReviewPool.shredExcept(layout.reviewPool, keep.flatMap { ReviewPool(layout.reviewPool, it).ownedNames() }.toSet())
+        // The files that no kept key names, a gone decoy's or a failed one's, become spares again, so the file count stays the same.
+        retireRecordFiles(spareRecordFiles(keep))
+        ReviewPool.shredExcept(layout.reviewPool, keep.flatMap { key -> ReviewPool(layout.reviewPool, key).use { it.ownedNames() } }.toSet())
         // The Decoy Vault's photos are cleared too. A dropped decoy takes them with it, and a new decoy starts with none.
         dropDecoyPhotos(layout)
     }
@@ -1258,13 +1400,6 @@ class Vault constructor(
         } finally {
             pad.close()
         }
-    }
-
-    /** Writes random bytes over [file], keeping its length. Used when a wipe must not change the store's file shape. */
-    private fun overwriteWithRandom(file: File) {
-        val size = file.length().toInt()
-        if (size <= 0) return
-        file.writeBytes(ByteArray(size).also { random.nextBytes(it) })
     }
 
     private fun failureStore(): FailureStore = FailureStore(layout.root, keys, readBootCount)
@@ -1293,11 +1428,20 @@ class Vault constructor(
         headerMacOf(input)
     }
 
-    /** The contents of `unlock.bin`, or null when it is of another format version: unverifiable, so the caller erases the vault. */
-    private fun keyFileOrNull(): VaultKeyFile.Contents? = try {
-        VaultKeyFile.decode(readVaultFile(layout.vaultKey))
-    } catch (e: VaultFormatChangedException) {
-        null
+    /**
+     * The contents of `unlock.bin`, or null when it is unverifiable, so the caller erases the vault: its digest is not the one in [state]
+     * (an older copy was put back, or the file was edited), or it is not a key file of this format (another version, a wrong size or
+     * magic). A null [state], one that could not be read, skips the digest check. A file that cannot be read throws [VaultException], which
+     * is not a verdict on the file.
+     */
+    private fun verifiedKeyFile(state: FailureState?): VaultKeyFile.Contents? {
+        val bytes = readVaultFile(layout.vaultKey)
+        if (state != null && VaultKeyFile.digestOf(bytes) != state.keyFileDigest) return null
+        return try {
+            VaultKeyFile.decode(bytes)
+        } catch (e: VaultException) {
+            null
+        }
     }
 
     /** [verifiedHeader] for a change that needs the header. Without a verified header nothing is written, and the next unlock erases the vault. */
@@ -1317,8 +1461,8 @@ class Vault constructor(
      * Starts the Failure Delay state. Its first Keystore key is made here, so a device whose Keystore refuses it gets no vault.
      * Returns false in that case, and also when the first state cannot be saved.
      */
-    private fun createFailureState(): Boolean = try {
-        failureStore().initialize(clock)
+    private fun createFailureState(keyFileDigest: String): Boolean = try {
+        failureStore().initialize(clock, keyFileDigest)
         true
     } catch (e: VaultException) {
         false
@@ -1419,7 +1563,9 @@ fun wipeVault(layout: VaultLayout, deleteKeys: () -> Unit) {
         rootFiles.filter { it != layout.wipeMarker }.map { it.deleteRecursively() }.all { it }
     }
     val photosGone = layout.photos.deleteRecursively()
-    if (!rootGone || !photosGone || !(layout.wipeMarker.delete() || !layout.wipeMarker.exists())) {
+    // A plain video that an interrupted recording left in the cache goes with the vault.
+    val recordingGone = layout.shredRecording()
+    if (!rootGone || !photosGone || !recordingGone || !(layout.wipeMarker.delete() || !layout.wipeMarker.exists())) {
         throw VaultException("Some vault files could not be deleted.", keyFailure ?: markerFailure)
     }
     layout.root.delete()

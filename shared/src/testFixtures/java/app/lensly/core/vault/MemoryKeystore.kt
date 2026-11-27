@@ -34,12 +34,17 @@ class MemoryKeystore : KeystoreBackend {
     override fun hardwareKey(): SecretKey {
         if (hardwareKeyInvalidated) throw VaultKeyInvalidatedException("The hardware key was invalidated.")
         if (hardwareAuthRequired) throw VaultAuthRequiredException("The hardware key needs a device authentication.")
-        return hardware ?: throw VaultException("The vault's hardware key is missing from the Keystore.")
+        return hardware ?: throw VaultKeyInvalidatedException("The vault's hardware key is missing from the Keystore.")
     }
 
     /** Replaces the slot key. A vault sealed under the old key no longer opens, which is how a test shows the binding. */
     override fun createSlotKey() {
         slotKey = newHmacKey()
+    }
+
+    /** Removes the slot key, as a Keystore that lost it would. */
+    fun removeSlotKey() {
+        slotKey = null
     }
 
     override fun slotMac(message: ByteArray): ByteArray = macWith(slotKey, "slot", message)
@@ -52,7 +57,7 @@ class MemoryKeystore : KeystoreBackend {
     override fun headerMac(message: ByteArray): ByteArray = macWith(headerKey, "header", message)
 
     private fun macWith(key: SecretKey?, what: String, message: ByteArray): ByteArray {
-        val usable = key ?: throw VaultException("The vault's $what key is missing from the Keystore.")
+        val usable = key ?: throw VaultKeyInvalidatedException("The vault's $what key is missing from the Keystore.")
         return Mac.getInstance("HmacSHA256").apply { init(usable) }.doFinal(message)
     }
 

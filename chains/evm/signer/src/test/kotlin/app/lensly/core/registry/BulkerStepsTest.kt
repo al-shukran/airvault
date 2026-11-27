@@ -84,7 +84,15 @@ class BulkerStepsTest {
             ),
             steps.lines,
         )
-        assertEquals(listOf("This withdraws to 0x1801…24B5, not you"), steps.warnings)
+        assertEquals(listOf("This supplies to 0x1801…24B5, not you", "This withdraws to 0x1801…24B5, not you"), steps.warnings)
+    }
+
+    @Test
+    fun aNativeSupplyForAnotherAccountWarns() {
+        val steps = assertNotNull(stepsOf(StepVectors.BULKER_SUPPLY_NATIVE, "0x0000000000000000000000000000000000000abc", BigInteger("114000000000000000")))
+
+        assertEquals(listOf("Supply 0.114 ETH to Compound V3 (cWETHv3) for 0x9ff4…B058"), steps.lines)
+        assertEquals(listOf("This supplies to 0x9ff4…B058, not you"), steps.warnings)
     }
 
     @Test

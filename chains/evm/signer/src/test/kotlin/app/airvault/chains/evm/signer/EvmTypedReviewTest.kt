@@ -60,6 +60,24 @@ private fun permitSingleWithMemoJson(amount: String): String =
         """"message":{"details":{"token":"$TYPED_USDC","amount":"$amount","expiration":"1900000000","nonce":"0"},""" +
         """"spender":"$TYPED_SPENDER","sigDeadline":"1900000000","memo":"hi"}}"""
 
+/** A Permit2 signature transfer of USDC for [amount] that only [TYPED_SPENDER] can submit: the spender is part of what is signed. */
+private fun permitTransferFromJson(amount: String = "1000000"): String =
+    """{"types":{"PermitTransferFrom":[{"name":"permitted","type":"TokenPermissions"},{"name":"spender","type":"address"},""" +
+        """{"name":"nonce","type":"uint256"},{"name":"deadline","type":"uint256"}],""" +
+        """"TokenPermissions":[{"name":"token","type":"address"},{"name":"amount","type":"uint256"}]},""" +
+        """"primaryType":"PermitTransferFrom","domain":{"name":"Permit2","chainId":1,"verifyingContract":"$PERMIT2"},""" +
+        """"message":{"permitted":{"token":"$TYPED_USDC","amount":"$amount"},"spender":"$TYPED_SPENDER",""" +
+        """"nonce":"0","deadline":"1900000000"}}"""
+
+/** The batch form of [permitTransferFromJson] with two tokens. */
+private fun permitBatchTransferFromJson(): String =
+    """{"types":{"PermitBatchTransferFrom":[{"name":"permitted","type":"TokenPermissions[]"},{"name":"spender","type":"address"},""" +
+        """{"name":"nonce","type":"uint256"},{"name":"deadline","type":"uint256"}],""" +
+        """"TokenPermissions":[{"name":"token","type":"address"},{"name":"amount","type":"uint256"}]},""" +
+        """"primaryType":"PermitBatchTransferFrom","domain":{"name":"Permit2","chainId":1,"verifyingContract":"$PERMIT2"},""" +
+        """"message":{"permitted":[{"token":"$TYPED_USDC","amount":"5"},{"token":"$TYPED_USDC","amount":"6"}],""" +
+        """"spender":"$TYPED_SPENDER","nonce":"0","deadline":"1900000000"}}"""
+
 /** An ERC-2612 Permit of USDC for [value], with a memo member the Permit layout does not have. */
 private fun permitWithMemoJson(value: String): String =
     """{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},""" +
@@ -81,6 +99,30 @@ private fun mailJson(contents: String = "Hello"): String =
     """{"types":{"Mail":[{"name":"from","type":"address"},{"name":"contents","type":"string"},{"name":"amount","type":"uint256"}]},""" +
         """"primaryType":"Mail","domain":{"name":"Mailer","chainId":1},""" +
         """"message":{"from":"$OWNER","contents":"$contents","amount":"42"}}"""
+
+private const val TYPED_RECIPIENT = "0x6666666666666666666666666666666666666666"
+
+/** An EIP-3009 TransferWithAuthorization of USDC that pays [TYPED_RECIPIENT] through its `to` member. */
+private fun transferWithAuthorizationJson(): String =
+    """{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},""" +
+        """{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],""" +
+        """"TransferWithAuthorization":[{"name":"from","type":"address"},{"name":"to","type":"address"},{"name":"value","type":"uint256"},""" +
+        """{"name":"validAfter","type":"uint256"},{"name":"validBefore","type":"uint256"},{"name":"nonce","type":"bytes32"}]},""" +
+        """"primaryType":"TransferWithAuthorization",""" +
+        """"domain":{"name":"USD Coin","version":"2","chainId":1,"verifyingContract":"$TYPED_USDC"},""" +
+        """"message":{"from":"$OWNER","to":"$TYPED_RECIPIENT","value":"1000000","validAfter":"0","validBefore":"1900000000",""" +
+        """"nonce":"0x${"11".repeat(32)}"}}"""
+
+/** A message that holds [TYPED_RECIPIENT] as the `receiver` of a struct inside an array. */
+private fun nestedRecipientJson(): String =
+    """{"types":{"Orders":[{"name":"items","type":"Item[]"}],"Item":[{"name":"receiver","type":"address"},{"name":"amount","type":"uint256"}]},""" +
+        """"primaryType":"Orders","domain":{"name":"Shop","chainId":1},""" +
+        """"message":{"items":[{"receiver":"$OWNER","amount":"1"},{"receiver":"$TYPED_RECIPIENT","amount":"2"}]}}"""
+
+/** A message whose bytes20 member holds the bytes of [TYPED_RECIPIENT]: it is not an address. */
+private fun bytes20LookalikeJson(): String =
+    """{"types":{"Note":[{"name":"tag","type":"bytes20"}]},"primaryType":"Note","domain":{"name":"Shop","chainId":1},""" +
+        """"message":{"tag":"$TYPED_RECIPIENT"}}"""
 
 private fun typedRequest(json: String, chainId: Long? = 1): ParsedRequest = EvmRequestParser.parsedOf(
     EthSignRequest(
@@ -122,6 +164,51 @@ class EvmTypedReviewTest {
         assertEquals("1 USDC", rowOf(review, "Summary", "Amount").value.text())
         assertEquals("17 Mar 2030, 17:46 UTC", rowOf(review, "Summary", "Deadline").value.text())
         assertTrue(review.warnings.isEmpty())
+    }
+
+    @Test
+    fun aPermit2SignatureTransferShowsItsRealSpenderNeverAnyone() {
+        val single = typedReview(permitTransferFromJson())
+        val batch = typedReview(permitBatchTransferFromJson())
+
+        assertEquals(TYPED_SPENDER, rowOf(single, "Summary", "Spender").value.text())
+        assertEquals(TYPED_SPENDER, rowOf(batch, "Summary", "Spender").value.text())
+        for (review in listOf(single, batch)) {
+            assertTrue(review.sections.flatMap { it.rows }.none { "Anyone" in it.value.text() }, "no row says anyone may submit")
+        }
+    }
+
+    @Test
+    fun aPartyEntryMatchesTheSpenderOfAnErc2612PermitAndOfAPermit2SignatureTransfer() {
+        val registry = TYPED_REGISTRY.withDenylist(
+            listOf(DenylistEntry(party = TYPED_SPENDER, severity = DenylistSeverity.BLOCK, reason = "Known drainer.")),
+        )
+
+        for (json in listOf(permitJson(), permitTransferFromJson(), permitSingleWithMemoJson("5"))) {
+            val result = EvmReviewBuilder(registry, { calldata, params -> AbiDecoder.decode(calldata, params) })
+                .review(typedRequest(json), sender = OWNER)
+            assertEquals("Known drainer.", assertIs<EvmReviewResult.Refused>(result).reason, json.take(40))
+        }
+        // Control: a different spender reviews as before.
+        val other = registry.withDenylist(
+            listOf(DenylistEntry(party = "0x3333333333333333333333333333333333333333", severity = DenylistSeverity.BLOCK, reason = "No.")),
+        )
+        assertTrue(typedReview(permitJson(), other).warnings.isEmpty())
+    }
+
+    @Test
+    fun aPartyEntryMatchesAnyAddressValueOfTheMessageAtAnyDepth() {
+        val registry = TYPED_REGISTRY.withDenylist(
+            listOf(DenylistEntry(party = TYPED_RECIPIENT, severity = DenylistSeverity.BLOCK, reason = "Known drainer.")),
+        )
+
+        for (json in listOf(transferWithAuthorizationJson(), nestedRecipientJson())) {
+            val result = EvmReviewBuilder(registry, { calldata, params -> AbiDecoder.decode(calldata, params) })
+                .review(typedRequest(json), sender = OWNER)
+            assertEquals("Known drainer.", assertIs<EvmReviewResult.Refused>(result).reason, json.take(60))
+        }
+        // A bytes20 member that holds the same bytes is not an address.
+        assertTrue(typedReview(bytes20LookalikeJson(), registry).warnings.isEmpty())
     }
 
     @Test

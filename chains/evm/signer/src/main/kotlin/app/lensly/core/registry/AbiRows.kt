@@ -25,19 +25,26 @@ import org.web3j.crypto.Keys
  * top-level uint marked tokenRef, and returns null to keep it.
  */
 object AbiRows {
+    /** One row: its [label] and [text], and whether [text] is an address, so a review can show it as one. */
+    data class Row(val label: String, val text: String, val isAddress: Boolean = false)
+
     private const val PREVIEW_BYTES = 32
     private const val ADDRESS_HEX = 40
     private const val TWO_POW_256 = 256
 
-    /** The rows of [decoded], in the order the review lists them. */
-    fun of(decoded: DecodedParam, amountOf: (BigInteger) -> String? = { null }): List<Pair<String, String>> {
+    /** The rows of [decoded], in the order the review lists them, as label and text. */
+    fun of(decoded: DecodedParam, amountOf: (BigInteger) -> String? = { null }): List<Pair<String, String>> =
+        typed(decoded, amountOf).map { it.label to it.text }
+
+    /** The rows of [decoded] as [of] lists them, each marked when it is an address: an `address` argument, or an item or field of one. */
+    fun typed(decoded: DecodedParam, amountOf: (BigInteger) -> String? = { null }): List<Row> {
         val type = checkNotNull(AbiTypes.parse(decoded.param.type)) { "param type ${decoded.param.type} is not canonical" }
-        val rows = ArrayList<Pair<String, String>>()
+        val rows = ArrayList<Row>()
         node(decoded.param.name, type, decoded.param, decoded.value, rows)
         val atomic = type as? AtomicType
         val word = decoded.value as? AbiValue.Word
         if (decoded.param.tokenRef && atomic != null && word != null) {
-            amountOf(BigInteger(word.hex, 16))?.let { rows[0] = rows[0].first to it }
+            amountOf(BigInteger(word.hex, 16))?.let { rows[0] = rows[0].copy(text = it) }
         }
         return rows
     }
@@ -46,13 +53,13 @@ object AbiRows {
      * Adds the rows of [value], which has [type]. [shape] is the param whose components name the tuple at the base of [type], or null
      * when there are none to name.
      */
-    private fun node(label: String, type: AbiType, shape: WhitelistParam?, value: AbiValue, rows: MutableList<Pair<String, String>>) {
+    private fun node(label: String, type: AbiType, shape: WhitelistParam?, value: AbiValue, rows: MutableList<Row>) {
         when (type) {
-            is AtomicType -> rows += "$label (${type.canonical})" to wordText(type.canonical, (value as AbiValue.Word).hex)
-            is DynamicBytes -> rows += "$label (${type.canonical})" to dynamicText(type.canonical, (value as AbiValue.Dynamic).hex)
+            is AtomicType -> rows += Row("$label (${type.canonical})", wordText(type.canonical, (value as AbiValue.Word).hex), type.canonical == "address")
+            is DynamicBytes -> rows += Row("$label (${type.canonical})", dynamicText(type.canonical, (value as AbiValue.Dynamic).hex))
             is ArrayType -> {
                 val items = (value as AbiValue.Items).items
-                rows += "$label (${typeName(type)})" to itemCount(items.size)
+                rows += Row("$label (${typeName(type)})", itemCount(items.size))
                 items.forEachIndexed { index, item -> node("$label[$index]", type.element, shape, item, rows) }
             }
             is TupleType -> {

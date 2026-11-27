@@ -1,6 +1,10 @@
 package app.lensly.app.sign
 
 import app.airvault.core.model.DisplayValue
+import app.lensly.app.AddressBookEntry
+import app.lensly.app.EVM_FAMILY
+import app.lensly.app.addressNotesOf
+import app.lensly.app.notesOf
 import app.airvault.core.model.Review
 import app.airvault.core.model.text
 import app.airvault.abi.AbiValue
@@ -332,6 +336,24 @@ class SignPipelineTest {
         val reason = assertIs<Prepared.Refused>(underPolicy(UnknownCallPolicy.WARN, requestCbor(tx, chainId = MONAD_TESTNET))).reason
 
         assertTrue(reason.startsWith("The transaction is for chain 1, but the request is for chain 10143"), reason)
+    }
+
+    /**
+     * An address argument of an approved call is an address row, so the review names it, groups it and checks it against the Address Book
+     * as it does a token transfer's recipient. A lookalike of a saved address earns the lookalike note.
+     */
+    @Test
+    fun anAddressArgumentOfAnApprovedCallIsCheckedLikeATransferRecipient() {
+        val ready = assertIs<Prepared.Ready>(guarded(requestCbor(swapTx(ETHEREUM, WHITELISTED), chainId = ETHEREUM)))
+
+        val row = ready.review.sections.flatMap { it.rows }.single { it.label == "to (address)" }
+        assertEquals(DisplayValue.Address(ready.review.chain, RECIPIENT), row.value)
+        assertTrue(RECIPIENT in evmCounterparties(ready.review))
+        // A saved address that shares its first and last four characters with the recipient, so a glance at the ends takes one for the other.
+        val saved = (RECIPIENT.take(10) + "0".repeat(28) + RECIPIENT.takeLast(4)).lowercase()
+        val book = listOf(AddressBookEntry("saved", saved, "Mum", null))
+        val notes = addressNotesOf(evmCounterparties(ready.review), EVM_FAMILY, emptyMap(), book)
+        assertEquals("Mum", notes.notesOf(RECIPIENT)?.lookalike?.name)
     }
 
     @Test

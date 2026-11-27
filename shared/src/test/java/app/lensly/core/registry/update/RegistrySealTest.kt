@@ -276,7 +276,7 @@ class RegistrySealTest {
         // A package that dropped network 4242 is forced on disk under a seal that still names the carrier of the whitelist on 4242.
         val bare = TestPackages.signed(TestPackages.payload(sequence = 6, networks = "", tokens = ""))
         File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(bare)
-        File(dir, RegistrySeal.FILE).writeBytes(RegistrySeal.create(RegistrySeal.Seal(6, 5), keystore))
+        File(dir, RegistrySeal.FILE).writeBytes(RegistrySeal.create(RegistrySeal.Seal(6, 5, 0), keystore))
         RegistrySeal.keepOnly(6, keystore)
 
         val catalog = RegistryCatalog(baked, dir, keys, keystore)

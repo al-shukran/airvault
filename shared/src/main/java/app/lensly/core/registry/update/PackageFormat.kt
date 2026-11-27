@@ -50,9 +50,10 @@ internal object PackageFormat {
      * Schema 3 adds dynamic, array and tuple arguments to whitelist entries, and the names of tuple fields. The format itself
      * (`LRP2`, formatVersion 2) does not change: a package that uses none of these still reads as it did, and one that does
      * states schema 3, so an app that reads only schema 2 refuses it as Incompatible. Schema 4 adds each network's kind, parent
-     * chain and featured flag, which an app that reads only schema 3 refuses as Incompatible.
+     * chain and featured flag, which an app that reads only schema 3 refuses as Incompatible. Schema 5 adds the denylist's party,
+     * which an app that reads only schema 4 refuses as Incompatible.
      */
-    const val SCHEMA_VERSION = 4L
+    const val SCHEMA_VERSION = 5L
     const val MAX_BYTES = 1 shl 20
 
     /** The schema that adds dynamic, array and tuple arguments and named tuple fields to whitelist entries. */
@@ -60,6 +61,9 @@ internal object PackageFormat {
 
     /** The schema that adds each network's kind, parent chain and featured flag. */
     private const val NETWORKS_SCHEMA = 4L
+
+    /** The schema that adds the denylist's party. */
+    private const val PARTY_SCHEMA = 5L
 
     private val MAGIC = "LRP2".toByteArray(StandardCharsets.US_ASCII)
     private val MAGIC_PREFIX = "LRP".toByteArray(StandardCharsets.US_ASCII)
@@ -158,6 +162,9 @@ internal object PackageFormat {
         if (dto.networks.isNotEmpty() && dto.minSchemaVersion < NETWORKS_SCHEMA) {
             throw RegistryUpdateException.Malformed("networks need minSchemaVersion $NETWORKS_SCHEMA")
         }
+        if (dto.denylist.orEmpty().any { it.party != null } && dto.minSchemaVersion < PARTY_SCHEMA) {
+            throw RegistryUpdateException.Malformed("a denylist party needs minSchemaVersion $PARTY_SCHEMA")
+        }
         try {
             LocalDate.parse(dto.createdAt)
         } catch (e: DateTimeParseException) {
@@ -225,6 +232,7 @@ internal object PackageFormat {
                 DenylistEntry(
                     chainId = record.chainId,
                     contract = record.contract,
+                    party = record.party,
                     selector = record.selector,
                     primaryType = record.primaryType,
                     condition = record.condition,
@@ -358,6 +366,7 @@ internal object PackageFormat {
     private class DenylistRecord(
         val chainId: Long? = null,
         val contract: String? = null,
+        val party: String? = null,
         val selector: String? = null,
         val primaryType: String? = null,
         val condition: DenylistCondition = DenylistCondition.ANY,

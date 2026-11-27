@@ -9,6 +9,9 @@ private const val ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 /** The four members the SDKs of these domains declare. A domain that declares another member, such as a salt, is not labelled. */
 private val SDK_DOMAIN_MEMBERS = setOf("name", "version", "chainId", "verifyingContract")
 
+/** The keys of the documented AsterDex master-account msg, in the documented order (V3 futures doc, "Supported Signing Algorithms"). */
+private val ASTER_MASTER_MSG_KEYS = listOf("childAddress", "name", "nonce", "user", "childSignature")
+
 /**
  * The primary types that Hyperliquid's user-signed actions sign on the domain of chain 421614. hyperliquid-python-sdk, hyperliquid/utils/signing.py:
  * each action helper calls sign_user_signed_action, and that sets signatureChainId to 0x66eee.
@@ -48,10 +51,15 @@ data class OffChainDomain(
     /** The primary type that lets another key act for the account, or null. The review gives its message the DANGER of an ApproveAgent. */
     val agentApprovalType: String? = null,
     /**
-     * The msg parameter that names the agent of an approval, or null when the primary type alone is the approval. AsterDex sends its
-     * parameters as one msg text joined by ampersands, so a message of [agentApprovalType] without this parameter is not an approval.
+     * The keys, in order, of the one documented msg of [agentApprovalType] that is not an approval, or null when the primary type alone is the
+     * approval. AsterDex sends its parameters as one msg text joined by ampersands. A message of [agentApprovalType] is an approval unless its
+     * msg is exactly this documented form: the keys in this order, each with a value, with no percent-escape and no whitespace.
      */
-    val agentApprovalParam: String? = null,
+    val nonApprovalMsgKeys: List<String>? = null,
+    /** The primary types of this domain that hand control or funds to another party, each with the kind of grant it is. Any other type is unknown. */
+    val grantTypes: Map<String, Grant> = emptyMap(),
+    /** True when a primary type outside [primaryTypes] on this domain is warned about, since its field layout is not known. */
+    val warnsOtherTypes: Boolean = false,
 ) {
     /** The title the review gives the signature. */
     val title: String get() = "Off-Chain Signature for $label"
@@ -59,12 +67,25 @@ data class OffChainDomain(
     /** True when a message with [primaryType] and [message] lets another key act for the account. */
     fun isAgentApproval(primaryType: String, message: TypedValue.StructValue): Boolean {
         if (primaryType != agentApprovalType) return false
-        val param = agentApprovalParam ?: return true
-        // A msg that is absent or not text cannot be read for the parameter, so it counts as the approval: the check fails closed.
+        val keys = nonApprovalMsgKeys ?: return true
+        // A msg that is absent or not text, or not the documented form, counts as the approval: the check fails closed.
         val text = (message.fields["msg"] as? TypedValue.TextValue)?.value ?: return true
-        return text.split("&").any { it.substringBefore('=') == param }
+        return msgKeysOf(text) != keys
     }
 }
+
+/** What a primary type that is not a plain message hands over. */
+enum class Grant { AGENT, BUILDER, ASSET_MIGRATION }
+
+/** The keys of [msg] read as key=value pairs joined by ampersands, or null when it is not in that strict form (empty, whitespace, percent-escape). */
+private fun msgKeysOf(msg: String): List<String>? {
+    if (msg.any { it.isWhitespace() || it.isISOControl() || it == '%' }) return null
+    val pairs = msg.split("&").map { it.split("=", limit = 2) }
+    if (pairs.any { it.size != 2 || !MSG_KEY.matches(it[0]) || it[1].isEmpty() }) return null
+    return pairs.map { it[0] }
+}
+
+private val MSG_KEY = Regex("[A-Za-z][A-Za-z0-9]*")
 
 /**
  * The off-chain domains that get a product label. Each entry is the exact domain of a published message format, and its source is named beside it.
@@ -79,10 +100,18 @@ val OFF_CHAIN_DOMAINS: List<OffChainDomain> = listOf(
         agentApprovalType = "HyperliquidTransaction:ApproveAgent",
     ),
     // AsterDex agent approval, registerAndApproveAgent, for an EVM user. github.com/asterdex/api-docs, V3 futures doc,
-    // "Register and Approve Agent"; its primaryType is Message, and its msg names the agent with agentAddress.
+    // "Register and Approve Agent"; its primaryType is Message, and its msg names the agent with agentAddress. The only documented msg that is
+    // not an approval is the master-account one below. The demo, demo/aster-code.py, signs other primary types on this domain too, with layouts
+    // that are not yet settled (github.com/asterdex/api-docs/issues/126), so they are warned about, not labelled.
     OffChainDomain(
         "AsterSignTransaction", "1", 56, ZERO_ADDRESS, "AsterDex", setOf("Message"),
-        agentApprovalType = "Message", agentApprovalParam = "agentAddress",
+        agentApprovalType = "Message", nonApprovalMsgKeys = ASTER_MASTER_MSG_KEYS,
+        grantTypes = mapOf(
+            "ApproveAgent" to Grant.AGENT, "UpdateAgent" to Grant.AGENT,
+            "ApproveBuilder" to Grant.BUILDER, "UpdateBuilder" to Grant.BUILDER,
+            "UserAssetMigrate" to Grant.ASSET_MIGRATION,
+        ),
+        warnsOtherTypes = true,
     ),
     // AsterDex master-account signature, such as sub-account creation. The same doc, "Supported Signing Algorithms" (chainId=1666).
     OffChainDomain("AsterSignTransaction", "1", 1666, ZERO_ADDRESS, "AsterDex", setOf("Message")),

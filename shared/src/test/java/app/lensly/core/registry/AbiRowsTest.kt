@@ -59,6 +59,27 @@ class AbiRowsTest {
     }
 
     @Test
+    fun anAddressArgumentItsArrayItemsAndItsTupleFieldsAreMarkedAsAddresses() {
+        val owner = DecodedParam(WhitelistParam("owner", "address"), AbiValue.Word(word(ALICE)))
+        val owners = DecodedParam(WhitelistParam("owners", "address[]"), AbiValue.Items(listOf(AbiValue.Word(word(BOB)))))
+        val hop = DecodedParam(
+            WhitelistParam(
+                "hop",
+                "(address,uint24)",
+                components = listOf(WhitelistParam("token", "address"), WhitelistParam("fee", "uint24")),
+            ),
+            AbiValue.Items(listOf(AbiValue.Word(word(ALICE)), AbiValue.Word(word("0bb8")))),
+        )
+        val amount = DecodedParam(WhitelistParam("amount", "uint256"), AbiValue.Word(word("05")))
+
+        assertEquals(listOf(true), AbiRows.typed(owner).map { it.isAddress })
+        // The array's own row is its item count, and only its item is an address.
+        assertEquals(listOf(false, true), AbiRows.typed(owners).map { it.isAddress })
+        assertEquals(listOf(true, false), AbiRows.typed(hop).map { it.isAddress })
+        assertEquals(listOf(false), AbiRows.typed(amount).map { it.isAddress })
+    }
+
+    @Test
     fun aTokenAmountTakesTheShownQuantityWhenTheRegistryHasTheToken() {
         val amount = DecodedParam(WhitelistParam("amountIn", "uint256", tokenRef = true), AbiValue.Word(word("0f4240")))
 

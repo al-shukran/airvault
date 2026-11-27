@@ -109,7 +109,7 @@ internal object BulkerSteps {
         val asset = v[2].address()
         val collateral = if (asset == market.base) "" else " as collateral"
         val line = "Supply ${call.amount(v[3].word(), asset)}$collateral to Compound V3 (${market.symbol}) for ${call.who(to)}"
-        return CallSteps(listOf(line), emptyList())
+        return CallSteps(listOf(line), notYou(call.from, "supplies to", to))
     }
 
     private fun supplyNative(call: StepCall, v: List<AbiValue>): CallSteps? {
@@ -117,8 +117,9 @@ internal object BulkerSteps {
         val amount = v[2].word()
         // The bulker's whole-amount value repays the signer's whole borrow, which is not read, so only a fixed amount is shown.
         if (market.base != WETH_MAINNET || amount == ContractCall.MAX_UINT256) return null
-        val line = "Supply ${call.nativeAmount(amount)} to Compound V3 (${market.symbol}) for ${call.who(v[1].address())}"
-        return CallSteps(listOf(line), emptyList())
+        val to = v[1].address()
+        val line = "Supply ${call.nativeAmount(amount)} to Compound V3 (${market.symbol}) for ${call.who(to)}"
+        return CallSteps(listOf(line), notYou(call.from, "supplies to", to))
     }
 
     private fun withdrawNative(call: StepCall, v: List<AbiValue>): CallSteps? {
@@ -127,8 +128,7 @@ internal object BulkerSteps {
         val to = v[1].address()
         val amount = v[2].word()
         val what = if (amount == ContractCall.MAX_UINT256) "all ${call.network.nativeSymbol}" else call.nativeAmount(amount)
-        val warnings = if (to == call.from) emptyList() else listOf("This withdraws to ${shortAddress(to)}, not you")
-        return CallSteps(listOf("Withdraw $what from Compound V3 (${market.symbol}) to ${call.who(to)}"), warnings)
+        return CallSteps(listOf("Withdraw $what from Compound V3 (${market.symbol}) to ${call.who(to)}"), notYou(call.from, "withdraws to", to))
     }
 
     /** A withdrawal of any asset the market holds, from the signer's balance to [to]. A market it does not know is not described. */
@@ -139,7 +139,6 @@ internal object BulkerSteps {
         val amount = v[3].word()
         val collateral = if (asset == market.base) "" else " collateral"
         val what = if (amount == ContractCall.MAX_UINT256) "all ${call.symbolOf(asset)}" else call.amount(amount, asset)
-        val warnings = if (to == call.from) emptyList() else listOf("This withdraws to ${shortAddress(to)}, not you")
-        return CallSteps(listOf("Withdraw $what$collateral from Compound V3 (${market.symbol}) to ${call.who(to)}"), warnings)
+        return CallSteps(listOf("Withdraw $what$collateral from Compound V3 (${market.symbol}) to ${call.who(to)}"), notYou(call.from, "withdraws to", to))
     }
 }

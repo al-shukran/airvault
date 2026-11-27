@@ -121,7 +121,20 @@ internal fun HoldToSignButton(
 }
 
 /** True when the press reached the window through another window that covers it. */
-private fun PointerEvent.isObscured(): Boolean = ((motionEvent?.flags ?: 0) and OBSCURED_WINDOW_FLAGS) != 0
+internal fun PointerEvent.isObscured(): Boolean = ((motionEvent?.flags ?: 0) and OBSCURED_WINDOW_FLAGS) != 0
+
+/**
+ * Makes the controls after this modifier in the chain ignore touches that reach the window through a covering window. The touch is
+ * consumed before they see it, so a tapjacking overlay cannot tick an acknowledgement.
+ */
+internal fun Modifier.ignoreObscuredTouches(): Modifier = pointerInput(Unit) {
+    awaitPointerEventScope {
+        while (true) {
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            if (event.isObscured()) event.changes.forEach { it.consume() }
+        }
+    }
+}
 
 /** Waits for a press that starts in an unobscured window. A press through a covering window is skipped, so it starts no hold. */
 private suspend fun AwaitPointerEventScope.awaitUnobscuredDown() {
