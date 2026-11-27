@@ -175,6 +175,86 @@ class EvmReviewTest {
         assertTrue(review.warnings.any { it.code == "evm.registry" && it.acknowledge != null })
     }
 
+    private val DRAINER = "0x6666666666666666666666666666666666666666"
+
+    private fun drainerRegistry(chainId: Long? = null) = REGISTRY.withDenylist(
+        listOf(DenylistEntry(chainId = chainId, party = DRAINER, severity = DenylistSeverity.BLOCK, reason = "Known drainer.")),
+    )
+
+    @Test
+    fun aPartyEntryRefusesACallThatNamesTheDrainerAsSpenderOperatorOrRecipient() {
+        val reviewer = builder(drainerRegistry())
+        val calls = listOf(
+            USDC to ContractCall.Approve(DRAINER, BigInteger.valueOf(1000)),
+            NFT to ContractCall.SetApprovalForAll(DRAINER, true),
+            USDC to ContractCall.Transfer(DRAINER, BigInteger.ONE),
+            NFT to ContractCall.SafeTransferFrom(SENDER, DRAINER, BigInteger.ONE),
+        )
+
+        for ((target, call) in calls) {
+            assertEquals("Known drainer.", refusalOf(txParsed(target, call.encode()!!), reviewer).reason, call.name)
+        }
+    }
+
+    private fun word(address: String): ByteArray = ByteArray(12) + Numeric.hexStringToByteArray(address)
+
+    private fun selector(hex: String): ByteArray = Numeric.hexStringToByteArray(hex)
+
+    @Test
+    fun aPartyEntryRefusesCalldataThatDoesNotDecodeExactlyButNamesTheDrainerInAWord() {
+        // Under the default policy these calls are refused as unreadable anyway. Under WARN they reach the denylist, which must still refuse.
+        val reviewer = builder(drainerRegistry(), unknownCalls = UnknownCallPolicy.WARN)
+        val one = ByteArray(31) + byteArrayOf(1)
+        val dirtyUpperBytes = ByteArray(32) { 0xff.toByte() }.also { Numeric.hexStringToByteArray(DRAINER).copyInto(it, 12) }
+        val calls = mapOf(
+            "approve with a trailing byte" to selector("0x095ea7b3") + word(DRAINER) + one + byteArrayOf(1),
+            "approve with dirty upper bytes" to selector("0x095ea7b3") + dirtyUpperBytes + one,
+            "four-argument safeTransferFrom" to
+                selector("0xb88d4fde") + word(SENDER) + word(DRAINER) + one + word(SPENDER) + ByteArray(32) + ByteArray(32),
+            "ERC-1155 safeTransferFrom" to
+                selector("0xf242432a") + word(SENDER) + word(DRAINER) + one + one + word(SPENDER) + ByteArray(32),
+            "ERC-2612 permit" to
+                selector("0xd505accf") + word(SENDER) + word(DRAINER) + one + one + ByteArray(32) + ByteArray(32) + ByteArray(32),
+        )
+
+        for ((name, data) in calls) {
+            assertEquals("Known drainer.", refusalOf(txParsed(USDC, data), reviewer).reason, name)
+        }
+    }
+
+    @Test
+    fun aPartyEntryMatchesWholeWordsOnly() {
+        // The drainer's 20 bytes sit across two words, and its last bytes trail the calldata as a partial word.
+        val straddling = selector("0x095ea7b3") + ByteArray(32) + Numeric.hexStringToByteArray(DRAINER).copyOfRange(0, 10) +
+            ByteArray(32 - 10)
+        val partialWord = selector("0x095ea7b3") + ByteArray(32) + Numeric.hexStringToByteArray(DRAINER)
+
+        for (data in listOf(straddling, partialWord)) {
+            val result = builder(drainerRegistry(), unknownCalls = UnknownCallPolicy.WARN).review(txParsed(USDC, data), SENDER)
+            assertTrue(result !is EvmReviewResult.Refused || result.reason != "Known drainer.")
+        }
+    }
+
+    @Test
+    fun aPartyEntryLeavesACallToAnotherAddressAndAContractOnlyEntryAsTheyWere() {
+        val approveOther = ContractCall.Approve(SPENDER, BigInteger.valueOf(1000)).encode()!!
+
+        assertIs<EvmReviewResult.Ok>(builder(drainerRegistry()).review(txParsed(USDC, approveOther), SENDER))
+        // A contract entry still matches only the contract the call goes to, never a counterparty.
+        val contractOnly = REGISTRY.withDenylist(
+            listOf(DenylistEntry(chainId = 1, contract = DRAINER, severity = DenylistSeverity.BLOCK, reason = "Known drainer.")),
+        )
+        val approveDrainer = ContractCall.Approve(DRAINER, BigInteger.valueOf(1000)).encode()!!
+        assertIs<EvmReviewResult.Ok>(builder(contractOnly).review(txParsed(USDC, approveDrainer), SENDER))
+    }
+
+    @Test
+    fun aPartyEntryOfAnotherChainDoesNotMatch() {
+        val approveDrainer = ContractCall.Approve(DRAINER, BigInteger.valueOf(1000)).encode()!!
+
+        assertIs<EvmReviewResult.Ok>(builder(drainerRegistry(chainId = 10)).review(txParsed(USDC, approveDrainer), SENDER))
+    }
+
     @Test
     fun aBlockDenylistMatchRefusesTheRequestWithItsReason() {
         val blocked = REGISTRY.withDenylist(

@@ -151,6 +151,27 @@ class DenylistPackageTest {
         assertIs<RegistryUpdateException.Malformed>(install(TestPackages.signed(payload(2, unknown))).exceptionOrNull())
     }
 
+    @Test
+    fun aDenylistPartyNeedsSchemaFiveAndIsReadAsTheEntrysCounterparty() {
+        val party = "0x6666666666666666666666666666666666666666"
+        val entry = """{"condition":"ANY","party":"$party","reason":"Known drainer.","severity":"BLOCK"}"""
+        val withParty = { schema: Int ->
+            TestPackages.signed(payload(2, ",\"denylist\":[$entry]").replace("\"minSchemaVersion\":4", "\"minSchemaVersion\":$schema"))
+        }
+
+        assertIs<RegistryUpdateException.Malformed>(install(withParty(4)).exceptionOrNull())
+        assertTrue(install(withParty(5)).isSuccess)
+        assertEquals(listOf(party), RegistryUpdate.withInstalled(baked, dir(), TestPackages.TRUSTED, keystore).denylistEntries().map { it.party })
+    }
+
+    @Test
+    fun aDenylistPartyThatIsNotALowercaseAddressIsRefused() {
+        val entry = """{"condition":"ANY","party":"0xABC","reason":"Bad.","severity":"BLOCK"}"""
+        val bytes = TestPackages.signed(payload(2, ",\"denylist\":[$entry]").replace("\"minSchemaVersion\":4", "\"minSchemaVersion\":5"))
+
+        assertIs<RegistryUpdateException.InvalidEntry>(install(bytes).exceptionOrNull())
+    }
+
     private fun withDenylist(sequence: Long, reason: String?): ByteArray {
         val entry = """{"condition":"ANY","reason":"$reason","selector":"0xf2fde38b","severity":"WARN"}"""
         return TestPackages.signed(payload(sequence, reason?.let { ",\"denylist\":[$entry]" }.orEmpty()))
