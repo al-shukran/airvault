@@ -2,7 +2,7 @@
 # Checks the CI guards against broken inputs: each case must make its guard fail, and the real files must still pass. Needs yq and
 # python3, no Gradle and no network. Runs in the ci lane (run-partition.sh ci), so a guard that stops rejecting a case fails a pull request.
 #   check-cleartext-sources.sh   cleartext allowed outside src/debug/ (#1406, #1441)
-#   check-workflow-guards.sh     comment-run trusted gate and release refusal order (#1407, #1408, #1442, #1451, #1465, #1470)
+#   check-workflow-guards.sh     comment-run trusted gate and release refusal order (#1407, #1408, #1442, #1451, #1465, #1470, #1481)
 #   close-refresh-pr.sh          the refresh pull request is closed and the comment posted once (#1396, #1443)
 #
 # Usage: scripts/ci/selftest-guards.sh
@@ -221,6 +221,67 @@ done
 mutate release.yml '.jobs.release.steps[0].name = "x"'
 yq '.on.push.tags = ["lensly-v*"] | .jobs.release.steps += [{"run": "echo ${{ secrets.LENSLY_KEYSTORE_PASS }}"}]' "$work/workflows/release.yml" >"$work/workflows/release2.yml"
 expect_fail "a second tag workflow that reads the keystore" guard_with
+# A step after the refusal that reads a secret must not run on a status function: always(), failure(), !cancelled() and success() || always()
+# run it even though the refusal failed. A job-level if or continue-on-error would do the same, and release.yml allows neither (#1481).
+sign='(.jobs.release.steps[] | select(.name == "Align and sign the APK"))'
+for cond in 'always()' '${{ failure() }}' '!cancelled()' 'success() || always()' 'ALWAYS()' '${{always ()}}' '${{ Failure( ) }}' 'success()' "cancelled() || github.ref_type == 'tag'"; do
+    mutate release.yml "$sign += {\"if\": \"$cond\"}"
+    expect_fail "the signing step with if: $cond" guard_with
+done
+mutate release.yml "$sign += {\"if\": \"github.ref_type == 'tag'\"}"
+expect_pass "the signing step with an if that calls no status function" guard_with
+mutate release.yml '.jobs.release.steps += [{"name": "Report", "if": "always()", "run": "true"}]'
+expect_pass "a step that reads no secret with if: always()" guard_with
+mutate release.yml '.jobs.release.steps += [{"name": "Late", "if": "failure()", "run": "echo ${{ secrets.LENSLY_KEYSTORE_PASS }}"}]'
+expect_fail "a late step that reads a secret with if: failure()" guard_with
+mutate release.yml '.jobs.release.if = "always()"'
+expect_fail "a job-level if: always()" guard_with
+mutate release.yml '.jobs.release.continue-on-error = true'
+expect_fail "a job-level continue-on-error" guard_with
+# Another workflow's secret read written with a YAML double-quoted escape: only the parsed string shows the word secrets (#1481).
+extra() {
+    # extra <yaml text>: a fresh copy of the workflows plus extra.yml with that text.
+    rm -rf "$work/workflows"
+    cp -R .github/workflows "$work/workflows"
+    printf '%s\n' "$1" >"$work/workflows/extra.yml"
+}
+extra 'on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo done'
+expect_pass "an extra workflow that reads no secret" guard_with
+for name in '\x73' '\u0073' '\U00000073'; do
+    extra "on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo
+        env:
+          X: \"\${{ ${name}ecrets.LENSLY_KEYSTORE_B64 }}\""
+    expect_fail "a keystore secret read written with the escape $name in another workflow" guard_with
+done
+extra 'on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo
+        env:
+          X: "${{ sec\
+            rets.LENSLY_KEYSTORE_B64 }}"'
+expect_fail "a keystore secret read split by an escaped line break in another workflow" guard_with
+extra 'on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo
+        env:
+          X: "${{ \x73ecrets.NVD_API_KEY }}"'
+expect_pass "NVD_API_KEY read written with an escape in another workflow" guard_with
 # The step's run must be exactly the canonical refusal: no statement before or inside it may skip, override or neuter it (#1470).
 canon=$(yq "$refusal | .run" .github/workflows/release.yml)
 refuse_with() {

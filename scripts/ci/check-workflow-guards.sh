@@ -42,7 +42,11 @@ expected="comment-run-\${{ github.event.issue.number }}-\${{ $gate }}"
 #  - Only the checkout, pinned by SHA with persist-credentials false and fetch-depth 0, may run before the refusal: no other step can write
 #    BASH_ENV or PATH to $GITHUB_ENV / $GITHUB_PATH or run a local action ahead of it.
 #  - The workflow and each job have only the keys name, on, permissions, concurrency, jobs / name, runs-on, timeout-minutes, steps, so
-#    no defaults.run.shell, defaults.run.working-directory or env (BASH_ENV, PATH, GIT_DIR) reaches the refusal step.
+#    no defaults.run.shell, defaults.run.working-directory or env (BASH_ENV, PATH, GIT_DIR) reaches the refusal step. That also means
+#    no job-level if or continue-on-error that could run the job after the refusal fails.
+#  - A step after the refusal that reads a secret has no if, or an if with no always, failure, cancelled or success status function
+#    (any case, with or without ${{ }}): a status function runs the step even though the refusal failed (#1481 review). Steps that read
+#    no secret may keep such an if (the keystore cleanup runs always).
 yq -o=json '.' "$workflows/release.yml" | python3 -I -c '
 import json
 import re
@@ -54,6 +58,7 @@ COMMAND = "git merge-base --is-ancestor \"$GITHUB_SHA\" origin/master"
 HEAD = ["set -euo pipefail", "git fetch --no-tags origin \x27+refs/heads/master:refs/remotes/origin/master\x27", "if ! " + COMMAND + "; then"]
 ERROR = re.compile(r"echo \"::error::(?:[^\"$`\\\\!]|\$GITHUB_REF_NAME|\$GITHUB_SHA)*\"")
 TAIL = ["exit 1", "fi"]
+STATUS = re.compile(r"(?<![\w.-])(?:always|failure|cancelled|success)(?![\w-])", re.I)
 CHECKOUT = re.compile(r"actions/checkout@[0-9a-f]{40}")
 WORKFLOW_KEYS = {"name", "on", "permissions", "concurrency", "jobs"}
 JOB_KEYS = {"name", "runs-on", "timeout-minutes", "steps"}
@@ -98,6 +103,10 @@ for name, job in doc.get("jobs", {}).items():
         errors.append("release.yml job %s reads a secret in step %d and has no valid step that refuses a tag not on master" % (name, secret))
     elif secret is not None and refuse >= secret:
         errors.append("release.yml job %s refuses a tag not on master in step %d, not before the secret in step %d" % (name, refuse, secret))
+    if refuse is not None:
+        for i, step in enumerate(steps[refuse + 1 :], refuse + 1):
+            if reads_secret(step) and STATUS.search(json.dumps(step.get("if", ""))):
+                errors.append("release.yml job %s step %d reads a secret and its if uses a status function (always, failure, cancelled, success), so it runs after the refusal fails" % (name, i))
     refused = refused or refuse is not None
 if not refused:
     errors.append("release.yml has no valid step that refuses a tag not on master (only name, run and id keys; if ! git merge-base --is-ancestor against origin/master, then exit 1)")
@@ -107,18 +116,54 @@ sys.exit(1 if errors else 0)
 ' || failed=1
 
 # (b2) No workflow other than release.yml reads a secret except GITHUB_TOKEN and NVD_API_KEY (nightly.yml): the keystore secrets are
-# read only where the refusal comes first. The scan is over the raw text, so a comment, a dynamic secrets[...] and toJSON(secrets) count too.
+# read only where the refusal comes first. Each file is scanned twice: as raw text (a comment, a dynamic secrets[...] and toJSON(secrets)
+# count too) and as the parsed YAML strings, keys included, so a double-quoted escape such as "${{ \x73ecrets.X }}" is seen unescaped (#1481).
 find "$workflows" -maxdepth 1 \( -name '*.yml' -o -name '*.yaml' \) ! -name release.yml -print0 | xargs -0 python3 -I -c '
+import json
 import re
+import subprocess
 import sys
 
 SECRET = re.compile(r"(?<![\w.-])secrets\s*(?:\.\s*([\w-]+)|\[)|toJSON\(\s*secrets|secrets:\s*inherit", re.I)
+
+
+def strings(obj):
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            yield str(key)
+            yield from strings(value)
+    elif isinstance(obj, list):
+        for item in obj:
+            yield from strings(item)
+    elif isinstance(obj, str):
+        yield obj
+
+
+def parsed_strings(path):
+    out = subprocess.run(["yq", "-o=json", ".", path], capture_output=True, text=True, check=True).stdout
+    decoder, pos, found = json.JSONDecoder(), 0, []
+    while pos < len(out):
+        if out[pos].isspace():
+            pos += 1
+            continue
+        doc, pos = decoder.raw_decode(out, pos)
+        found.extend(strings(doc))
+    return found
+
+
 bad = 0
 for path in sys.argv[1:]:
-    for m in SECRET.finditer(open(path).read()):
-        if (m.group(1) or "").lower() not in {"github_token", "nvd_api_key"}:
-            print("error: %s reads a secret other than GITHUB_TOKEN and NVD_API_KEY (%s); only release.yml may read the keystore secrets" % (path, m.group(0)), file=sys.stderr)
-            bad = 1
+    try:
+        texts = [open(path).read()] + parsed_strings(path)
+    except (OSError, subprocess.CalledProcessError, ValueError) as e:
+        print("error: %s cannot be scanned for secret reads: %s" % (path, e), file=sys.stderr)
+        bad = 1
+        continue
+    for text in texts:
+        for m in SECRET.finditer(text):
+            if (m.group(1) or "").lower() not in {"github_token", "nvd_api_key"}:
+                print("error: %s reads a secret other than GITHUB_TOKEN and NVD_API_KEY (%s); only release.yml may read the keystore secrets" % (path, m.group(0)), file=sys.stderr)
+                bad = 1
 sys.exit(bad)
 ' || failed=1
 
