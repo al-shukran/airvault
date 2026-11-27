@@ -27,6 +27,9 @@ import java.security.MessageDigest
  * Every one of these reads as [Reading.Unverified]: the installed package is not used (the built-in catalog is, flagged), and an
  * install must reach the Keystore's floor, so signing is never blocked and an older package is never taken.
  *
+ * A seal file with no key at all is [Reading.KeyLost], a Keystore that lost its keys. Unlike the other unverified readings it also loses the
+ * anchored revocations, so [RegistryUpdate.install] takes only a recovery-signed package then.
+ *
  * A crash between making the new key and writing the new seal leaves a key newer than the seal, which reads as unverified until an
  * install of that sequence or a higher one seals it again. A Keystore that cannot list its keys also reads as unverified.
  */
@@ -57,6 +60,12 @@ internal object RegistrySeal {
         /** No seal and no registry key: a store from before seals existed, or an empty one. [RegistryUpdate.adoptUnsealed] seals it once. */
         data object Unsealed : Reading
 
+        /**
+         * A seal file and no registry key: the Keystore lost its keys while the files survived (an OEM or OTA reset). Nothing in the store
+         * can be verified, and the revocations the seal held, and the anchors, are gone with the keys.
+         */
+        data object KeyLost : Reading
+
         /** Anything else: a seal that is missing, altered, older than the newest key, or unreadable, or a Keystore that gave no answer. */
         data object Unverified : Reading
     }
@@ -70,6 +79,7 @@ internal object RegistrySeal {
         val newest = keystoreOrNull { keys.registryMacKeySeqs() } ?: return Reading.Unverified
         val file = File(dir, FILE)
         if (!file.isFile) return if (newest.isEmpty()) Reading.Unsealed else Reading.Unverified
+        if (newest.isEmpty()) return Reading.KeyLost
         val bytes = runCatching { file.readBytes() }.getOrNull()?.takeIf { it.size >= FIXED_SIZE + Int.SIZE_BYTES + MAC_SIZE }
             ?: return Reading.Unverified
         val buffer = ByteBuffer.wrap(bytes)

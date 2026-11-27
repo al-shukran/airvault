@@ -107,11 +107,17 @@ object RegistryUpdate {
      * deleted or replaced, and whatever the sequence of the package that follows. The seal holds them too, and so does an installed file
      * that a recovery key signed. When the Keystore cannot list them, an install is refused, and the built-in catalog is in use. A Keystore
      * that is wiped along with the app's data (uninstall, clear data) leaves no store to protect. One that is lost while the files survive
-     * (an OEM or OTA Keystore reset) takes the seal and the anchors with it: the store reads as unverified, so the built-in catalog is in
-     * use, flagged, and the floor comes from the installed file. Only the revocations of an installed file signed by a recovery key still
-     * count then, so a revocation that only a release-signed file restated is lost, and a package signed by that key and newer than the
-     * installed file can install. That is not closed: a release-signed file cannot count, or a leaked everyday key could lock out the
-     * others. A recovery package that revokes the key of the
+     * (an OEM or OTA Keystore reset) takes the seal and the anchors with it ([RegistrySeal.Reading.KeyLost]): the revocations in force
+     * are then unknown, because a release-signed file that restated one cannot be told from one that a leaked everyday key planted to
+     * lock out the others. The built-in catalog is in use, flagged, and an install is refused as [RegistryUpdateException.KeystoreReset]
+     * unless a recovery key signed it. That package restates the revocations it wants in force, which are anchored and sealed again, and the
+     * store then reads as verified. The floor in that state is the build's catalog sequence or the sequence of the installed file, whoever
+     * signed it, whichever is higher, so an old package cannot be installed again to drop a revocation. A file that a leaked key planted
+     * with a huge sequence pins it only until a recovery package that adds revocations, and is newer than the build's catalog, revokes the
+     * file's signer. Only a recovery key can install in that state, so a leaked everyday key can neither install nor lock out a recovery
+     * package. Every recovery package must restate all revocations in force, as one that omits a revocation of an earlier recovery file is
+     * refused as [RegistryUpdateException.Conflict].
+     * A recovery package that revokes the key of the
      * installed package, or installs the installed file again, is accepted whatever its sequence, and so is any package signed by an active key when the build
      * lists the installed package's signer as revoked, provided it is newer than the build's catalog and restates the whitelist and the
      * denylist that the replaced package carried (or is refused with [RegistryUpdateException.Conflict]). The sequence of such a package
@@ -138,10 +144,17 @@ object RegistryUpdate {
     ): Result<RegistryPackage> = synchronized(installLock) {
         runCatching {
             adoptUnsealed(dir, trustedKeys, keystore)
-            val prior = sealOf(dir, keystore)
+            val reading = RegistrySeal.read(dir, keystore)
+            val prior = sealOf(reading, keystore)
             val standing = standingRevoked(dir, prior, trustedKeys, keystore)
             val keys = withRevoked(trustedKeys, standing)
             val incoming = verify(bytes, keys, baked).getOrThrow()
+            val recovery = keys.first { it.id == incoming.signerKeyId }.role == KeyRole.RECOVERY
+            // With the Keystore's keys lost the revocations in force are unknown, and no file can name them: a release-signed one may be
+            // planted by a leaked key to lock out the others, or be the only holder of a revocation. Only a recovery key, which alone can
+            // add a revocation, then installs, and its package states them again.
+            val keyLost = reading == RegistrySeal.Reading.KeyLost
+            if (keyLost && !recovery) throw RegistryUpdateException.KeystoreReset()
             if (!incoming.revokedKeys.containsAll(standing)) {
                 throw RegistryUpdateException.Conflict(
                     "the installed package revokes keys that this package does not: ${(standing - incoming.revokedKeys.toSet()).sorted()}",
@@ -150,12 +163,14 @@ object RegistryUpdate {
             // The everyday key signs every release, so a leak of it must not be able to revoke the backup key. A key the build itself lists
             // as revoked is in force already, so a bundle that restates it needs no recovery key, on a fresh install too.
             val inForce = standing + trustedKeys.filter { it.status == KeyStatus.REVOKED }.map { it.id }
-            val recovery = keys.first { it.id == incoming.signerKeyId }.role == KeyRole.RECOVERY
             if (!recovery && (incoming.revokedKeys - inForce).isNotEmpty()) {
                 throw RegistryUpdateException.InvalidEntry("only a package signed by a recovery key can add a revocation")
             }
             val newest = RegistrySeal.newestFloor(keystore)
-            val accepted = acceptedSequence(dir, keys, prior, newest)
+            // With the Keystore's keys lost the installed file names the floor whoever signed it, with the revoked status of keys ignored, so an
+            // old package cannot be installed again. A planted file pins it only until a recovery package revokes its signer (see below).
+            val lostOnDisk = if (keyLost) readIgnoringRevoked(installedBytes(dir), trustedKeys) else null
+            val accepted = if (keyLost) maxOf(baked.catalogSequence, lostOnDisk?.sequence ?: 0L) else acceptedSequence(dir, keys, prior, newest)
             // With no verified package the same sequence is accepted once more, to store and seal it again after a crash, a lost
             // key, a deleted package file or a replaced one: the seal alone names the floor, and the built-in catalog is in use until then.
             val verified = prior != null && installedUnder(prior, baked, dir, keys) != null
@@ -178,7 +193,11 @@ object RegistryUpdate {
             // floor of a crashed upgrade must not pass, or it would roll the floor back.
             val crashRetry = recovery && incoming.revokedKeys.isNotEmpty() && !verified && installedBytes(dir).contentEquals(bytes) &&
                 ((prior != null && incoming.sequence in keystore.registryMacKeySeqs()) || incoming.sequence == newest)
-            val replacesInstalled = (setsFloor && (revokesSigner || signerRevokedByBuild)) || crashRetry
+            // With the Keystore's keys lost, a recovery package that adds revocations and revokes the signer of the installed file replaces it
+            // whatever its sequence, as above, so a leaked key's planted file cannot pin the floor for good. It must beat the build's catalog.
+            val lostEscape = keyLost && recovery && incoming.revokedKeys.isNotEmpty() && incoming.sequence > baked.catalogSequence &&
+                lostOnDisk?.signerKeyId in incoming.revokedKeys
+            val replacesInstalled = (setsFloor && (revokesSigner || signerRevokedByBuild)) || crashRetry || lostEscape
             if (setsFloor && signerRevokedByBuild && onDisk != null) checkReplacedListsRestated(incoming, onDisk, prior, baked, dir, keys)
             if (!replacesInstalled && (incoming.sequence < accepted || (incoming.sequence == accepted && verified))) {
                 throw RegistryUpdateException.NotNewer(accepted, incoming.sequence)
@@ -456,8 +475,12 @@ object RegistryUpdate {
      */
     private fun sealedOnDisk(dir: File, seal: RegistrySeal.Seal, trustedKeys: List<TrustedKey>): RegistryPackage? {
         val bytes = installedBytes(dir)?.takeIf { RegistrySeal.matches(it, seal.installedSha256) } ?: return null
-        return runCatching { PackageFormat.read(bytes, trustedKeys.map { TrustedKey(it.publicKey, KeyStatus.ACTIVE, it.role) }) }.getOrNull()
+        return readIgnoringRevoked(bytes, trustedKeys)
     }
+
+    /** The package in [bytes] with its signature verified and the revoked status of [trustedKeys] ignored. Null when there are none or it does not verify. */
+    private fun readIgnoringRevoked(bytes: ByteArray?, trustedKeys: List<TrustedKey>): RegistryPackage? =
+        bytes?.let { runCatching { PackageFormat.read(it, trustedKeys.map { key -> TrustedKey(key.publicKey, KeyStatus.ACTIVE, key.role) }) }.getOrNull() }
 
     private fun installedBytes(dir: File): ByteArray? =
         File(dir, INSTALLED_FILE).takeIf { it.isFile }?.let { runCatching { it.readBytes() }.getOrNull() }
@@ -512,8 +535,10 @@ object RegistryUpdate {
     }
 
     /** The seal that verifies, with the revocations it holds anchored in the Keystore, as a store sealed before they were anchored has none. */
-    private fun sealOf(dir: File, keystore: KeystoreBackend): RegistrySeal.Seal? =
-        (RegistrySeal.read(dir, keystore) as? RegistrySeal.Reading.Sealed)?.seal?.also { anchor(it.revokedKeys, keystore) }
+    private fun sealOf(dir: File, keystore: KeystoreBackend): RegistrySeal.Seal? = sealOf(RegistrySeal.read(dir, keystore), keystore)
+
+    private fun sealOf(reading: RegistrySeal.Reading, keystore: KeystoreBackend): RegistrySeal.Seal? =
+        (reading as? RegistrySeal.Reading.Sealed)?.seal?.also { anchor(it.revokedKeys, keystore) }
 
     /** Anchors [revoked] in the Keystore. Throws when it cannot, so an install that cannot make a revocation stand does not go on. */
     private fun anchor(revoked: Collection<String>, keystore: KeystoreBackend) {

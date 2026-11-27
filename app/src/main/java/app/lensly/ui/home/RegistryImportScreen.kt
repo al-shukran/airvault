@@ -63,6 +63,8 @@ fun refusalReason(error: Throwable): String = when (error) {
     is RegistryUpdateException.Incompatible -> "This phone cannot read this package. It was made for a newer Lensly."
     is RegistryUpdateException.SequenceUnknown ->
         "The installed catalog package is damaged and its sequence is not recorded, so no package can be shown to be newer."
+    is RegistryUpdateException.KeystoreReset ->
+        "This phone lost the record that keeps the catalog from rolling back. Only a package signed with the recovery key can be installed now."
     is RegistryUpdateException.NotNewer ->
         "Sequence ${error.offered} is not newer than the installed sequence ${error.installed}. " +
             "An older package cannot roll the catalog back."
