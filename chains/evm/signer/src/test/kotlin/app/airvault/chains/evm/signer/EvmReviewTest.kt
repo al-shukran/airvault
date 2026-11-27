@@ -874,6 +874,35 @@ class EvmReviewTest {
     }
 
     @Test
+    fun anUpgradeableWhitelistedBatchContractIsRefusedOrWarnedLikeAnyWhitelistedProxy() {
+        val approve = ContractCall.Approve(SPENDER, BigInteger.TEN).encode()!!
+        val call = InnerCall(target = null, allowFailure = null, value = null, calldata = approve, call = ContractCall.decode(approve), nested = null)
+        val batch = encodeMulticall(MulticallShape.BYTES_ARRAY, deadline = null, calls = listOf(call))!!
+        val entry = WhitelistEntry(
+            chainId = 1,
+            contract = FAKE_BATCH.lowercase(),
+            selector = "0x${MulticallShape.BYTES_ARRAY.selector}",
+            signature = MulticallShape.BYTES_ARRAY.signature,
+            meaning = "Runs the calls in order.",
+            params = listOf(WhitelistParam("data", "bytes[]")),
+            upgradeable = true,
+            proxy = ProxyBinding(implementationAddress = IMPLEMENTATION),
+        )
+        val registry = REGISTRY.withWhitelist(listOf(entry))
+
+        refusalOf(txParsed(FAKE_BATCH, batch), builder(registry))
+        refusalOf(txParsed(FAKE_BATCH, batch), builder(registry, proxyPolicy = ProxyPolicy.REFUSE_ALL_PROXIES))
+        val review = reviewOf(txParsed(FAKE_BATCH, batch), builder(registry, proxyPolicy = ProxyPolicy.WARN_AND_CONFIRM))
+
+        assertEquals("multicall", review.title)
+        val warning = review.warnings.single { it.code == "evm.proxy" }
+        assertEquals(Danger.DANGER, warning.level)
+        assertEquals(ACK_UPGRADE, warning.acknowledge)
+        assertEquals(IMPLEMENTATION, review.sections.first().rows.single { it.label == "Implementation" }.value.text())
+        assertNotNull(review.sections.singleOrNull { it.heading == "Calls" })
+    }
+
+    @Test
     fun aMulticall3CallShowsItsAllowFailureFlag() {
         val approveBytes = ContractCall.Approve(SPENDER, BigInteger.TEN).encode()!!
         val call = InnerCall(
