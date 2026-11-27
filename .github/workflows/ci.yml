@@ -11,12 +11,14 @@ name: ci
 # then fails by name, not by a network fetch, so a red run is never a dependency flake.
 on:
   pull_request:
-    # A pull request to another base (a stacked one) runs nothing, so it cannot merge into master until it is retargeted.
-    # Branch pushes never run CI: a pull request branch runs through pull_request only, so no push runs twice.
+    # A pull request to another base (a stacked one) runs nothing, so it cannot merge into master until it is retargeted, and a
+    # retarget starts no run either: push a commit to start the gate. Branch pushes never run CI: a pull request branch runs through
+    # pull_request only, so no push runs twice.
     branches: [master]
-    # closed starts no job (pr-ok skips it). It joins the pull request's concurrency group, which cancels a gate still running
-    # for a pull request that was closed or merged.
-    types: [opened, synchronize, reopened, closed]
+    # No closed: pr-ok must never be skipped. GitHub counts a skipped required check as passing and matches checks by name and
+    # commit, so a skipped pr-ok on a closed pull request's head commit would count as verified for any other pull request or push
+    # with that commit. A gate still running when its pull request closes runs to its end.
+    types: [opened, synchronize, reopened]
   push:
     branches: [master]
 
@@ -37,7 +39,7 @@ env:
     ~/.gradle/caches/*/transforms
     ~/.gradle/caches/jars-*
 
-# A newer push to a pull request, or closing it, cancels its running gate and frees the runner. Master pushes share one group and
+# A newer push to a pull request cancels its running gate and frees the runner. Master pushes share one group and
 # queue, never cancel: a running push always finishes, so no two runs replace the build cache at once, and master-red.yml always
 # sees a finished run of the newest master it judges. A push that waits behind a newer one is replaced by it (GitHub keeps one
 # pending run per group), and the newer commit contains it and is verified.
@@ -48,7 +50,6 @@ concurrency:
 jobs:
   pr-ok: # the single required check
     name: pr-ok
-    if: github.event.action != 'closed'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -62,7 +63,8 @@ jobs:
           persist-credentials: false
 
       # Every commit of the pull request carries a Signed-off-by trailer. The pull request's own copy of dco_check.py runs with a
-      # read-only token, so a pull request can only change its own DCO result; required review covers that.
+      # read-only token, so a pull request can change its own DCO result. Branch protection requires only the pr-ok check and no
+      # review, so what covers a pull request that edits this file or scripts/ci/ is the owner reading its diff before the merge.
       - name: DCO
         if: github.event_name == 'pull_request'
         env:
