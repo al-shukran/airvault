@@ -99,28 +99,48 @@ internal object VaultRecordNames {
     /** What a Decoy Vault shows for the real vault's lockout. See [app.lensly.app.DecoyShown]. */
     const val DECOY_SHOWN = "decoy-shown"
 
-    private val REWRITE_LOCK = Any()
+    private val FOLDER_LOCK = Any()
+
+    /** Test hook: called inside a pass, after a file's bytes are read and before they are written back. */
+    @Volatile
+    internal var passHookForTesting: ((File) -> Unit)? = null
 
     /**
-     * Runs [change], then rewrites every record file in [dir] with its own bytes in one pass, in file name order, all with the same
-     * modification time. A file that is written is replaced by a rename, so it gets a new inode, a new creation time and a new change
-     * time that the app cannot set. Rewriting every file gives all of them fresh ones, so the folder does not show which file was
-     * written, or that a Decoy Vault wrote. Each file is still replaced atomically, so a crash leaves it either old or new. Called
-     * after every write, create, claim, reset and retire. Needs no key: it copies the sealed bytes.
-     * One lock covers a pass and a write, so a pass never puts back a stale copy of a file.
+     * Runs [block] while no other thread writes, renames, deletes or rewrites a file in the records folder. Every such change goes through
+     * it, so a pass (see [rewriteAll]) never puts back a stale copy, recreates a renamed file or resurrects a deleted one. It guards only
+     * file operations, so no other lock is taken inside it.
      */
-    fun rewriteAll(dir: File, change: () -> Unit = {}): Unit = synchronized(REWRITE_LOCK) {
-        change()
-        val time = FileTime.fromMillis(System.currentTimeMillis())
-        dir.listFiles().orEmpty().filter { it.isFile && it.name.endsWith(".bin") }.sortedBy { it.name }.forEach { file ->
-            val temp = writeTemp(file, file.readBytes())
-            try {
-                Files.setLastModifiedTime(temp.toPath(), time)
-            } catch (e: Throwable) {
-                temp.delete()
-                throw e
+    fun <T> underFolderLock(block: () -> T): T = synchronized(FOLDER_LOCK) { block() }
+
+    /**
+     * Rewrites every record file in [dir] with its own bytes in one pass, in file name order, all with the same modification time. A file
+     * that is written is replaced by a rename, so it gets a new inode, a new creation time and a new change time that the app cannot set.
+     * Rewriting every file gives all of them fresh ones, so the folder does not show which file was written, or that a Decoy Vault wrote.
+     * Each file is still replaced atomically, so a crash leaves it either old or new. Called after every write, create, claim, reset and
+     * retire. It needs no key: it copies the sealed bytes. It also removes temp files that a crash left, which carry a record's hashed name.
+     *
+     * The change that came before is already saved, so a pass that fails (a full disk, an unreadable file) is not reported: the files it
+     * did not reach keep their earlier times until the next write runs a pass.
+     */
+    fun rewriteAll(dir: File): Unit = underFolderLock {
+        try {
+            val files = dir.listFiles().orEmpty()
+            files.filter { it.isFile && it.name.endsWith(".tmp") }.forEach { it.delete() }
+            val time = FileTime.fromMillis(System.currentTimeMillis())
+            files.filter { it.isFile && it.name.endsWith(".bin") }.sortedBy { it.name }.forEach { file ->
+                val bytes = file.readBytes()
+                passHookForTesting?.invoke(file)
+                val temp = writeTemp(file, bytes)
+                try {
+                    Files.setLastModifiedTime(temp.toPath(), time)
+                } catch (e: Throwable) {
+                    temp.delete()
+                    throw e
+                }
+                commitTemp(temp, file)
             }
-            commitTemp(temp, file)
+        } catch (e: IOException) {
+            // Best effort, as above.
         }
     }
 
@@ -697,16 +717,20 @@ class VaultSession constructor(
      *
      * @throws IllegalArgumentException if the name is not in [VaultRecordNames.KNOWN].
      */
-    fun putVaultRecord(name: String, bytes: ByteArray): Unit = synchronized(this) {
-        val key = requireOpen()
-        requireRecordName(name)
-        layout.vaultRecords.mkdirs()
-        val file = vaultRecordFile(key, name)
-        VaultRecordNames.rewriteAll(layout.vaultRecords) {
-            // The file keeps the size it has, so a written record stays in the size class of its placeholder or spare.
-            val floor = if (file.isFile) file.length().coerceAtMost(Int.MAX_VALUE.toLong()).toInt() else VaultRecordNames.fileBytesOf(name)
-            writeAtomically(file, VaultRecordNames.sealed(key, name, bytes, floor))
+    fun putVaultRecord(name: String, bytes: ByteArray) {
+        synchronized(this) {
+            val key = requireOpen()
+            requireRecordName(name)
+            layout.vaultRecords.mkdirs()
+            val file = vaultRecordFile(key, name)
+            VaultRecordNames.underFolderLock {
+                // The file keeps the size it has, so a written record stays in the size class of its placeholder or spare.
+                val floor = if (file.isFile) file.length().coerceAtMost(Int.MAX_VALUE.toLong()).toInt() else VaultRecordNames.fileBytesOf(name)
+                writeAtomically(file, VaultRecordNames.sealed(key, name, bytes, floor))
+            }
         }
+        // The pass copies sealed bytes and needs no key, so it runs outside the session lock and reads of other records are not held up.
+        VaultRecordNames.rewriteAll(layout.vaultRecords)
     }
 
     /** The vault record [name], or null if it has never been stored. */

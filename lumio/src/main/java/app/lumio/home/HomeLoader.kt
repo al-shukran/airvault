@@ -47,7 +47,7 @@ internal object HomeLoader {
             val failures = Portfolio.refresh(session, wallets, settings, chains, reads).values.flatten()
             // A token that fails keeps its earlier read, so the native result stands on its own.
             val tokensOf = app.tokensFor(session)
-            for (wallet in wallets) TokenPortfolio.refresh(session, wallet, settings, chains, tokensOf, reads)
+            TokenPortfolio.refresh(session, wallets, settings, chains, tokensOf, reads)
             failures
         }
     }

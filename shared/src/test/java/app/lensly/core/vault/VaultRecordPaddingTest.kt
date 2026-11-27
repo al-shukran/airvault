@@ -70,29 +70,24 @@ class VaultRecordPaddingTest {
 
     // 1596: the times and inodes of the folder.
 
-    private class Stamp(val modified: FileTime, val created: FileTime, val key: Any?)
+    private class Stamp(val modified: FileTime, val created: FileTime)
 
     private fun stamps(): Map<String, Stamp> = layout.vaultRecords.listFiles().orEmpty().associate {
         val a = Files.readAttributes(it.toPath(), BasicFileAttributes::class.java)
-        it.name to Stamp(a.lastModifiedTime(), a.creationTime(), a.fileKey())
+        it.name to Stamp(a.lastModifiedTime(), a.creationTime())
     }
 
     /**
-     * Every file shares one modification time, and none was left behind by a write: no file keeps an inode of the folder from before,
-     * and with [creationIsFresh] every creation time is newer than any before. A claim or a retire gives files new names, so files are
-     * told apart by inode, not by name.
+     * Every file shares one modification time, and with [creationIsFresh] every creation time is newer than any before. A claim or a retire
+     * gives files new names, so files are not told apart by name. Inode numbers are not compared: a file system may reuse a freed one.
      */
     private fun assertFolderLooksUniform(before: Map<String, Stamp>, creationIsFresh: Boolean = false) {
         val after = stamps()
         assertEquals(before.size, after.size)
         assertEquals(1, after.values.map { it.modified }.toSet().size, "Modification times differ: ${after.values.map { it.modified }}")
-        val oldKeys = before.values.mapNotNull { it.key }.toSet()
         val newestBefore = before.values.maxOf { it.created }
-        after.forEach { (name, now) ->
-            assertTrue(now.key == null || now.key !in oldKeys, "$name keeps an inode from before the write")
-            // Some file systems and the JDK keep creation times in whole seconds, so only a test that waited that long can check them.
-            if (creationIsFresh) assertTrue(now.created > newestBefore, "$name keeps its creation time")
-        }
+        // Some file systems and the JDK keep creation times in whole seconds, so only a test that waited that long can check them.
+        if (creationIsFresh) after.forEach { (name, now) -> assertTrue(now.created > newestBefore, "$name keeps its creation time") }
     }
 
     @Test
@@ -145,6 +140,72 @@ class VaultRecordPaddingTest {
         val decoyAgain = unlocked(DURESS)
         assertContentEquals(byteArrayOf(9), decoyAgain.getVaultRecord("settings"))
         decoyAgain.close()
+    }
+
+    @Test
+    fun aWipeOfTheDecoyVaultWaitsForARunningPassSoThePassCannotPutBackAStaleCopy() {
+        create()
+        val real = unlocked(APP)
+        assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { it.createWallet() } })
+        real.close()
+        val decoy = unlocked(DURESS)
+        decoy.putVaultRecord("settings", byteArrayOf(9))
+        val stale = decoy.vaultRecordFileForTesting("settings")
+
+        // A pass has read the decoy's settings file and is about to write it back when the wipe resets that file.
+        val inPass = java.util.concurrent.CountDownLatch(1)
+        VaultRecordNames.passHookForTesting = { file ->
+            // Only the first pass stalls: the wipe's own pass must run through.
+            if (file == stale && inPass.count > 0) {
+                inPass.countDown()
+                Thread.sleep(400)
+            }
+        }
+        try {
+            val writer = Thread { decoy.putVaultRecord("address-book", byteArrayOf(1)) }
+            writer.start()
+            assertTrue(inPass.await(10, java.util.concurrent.TimeUnit.SECONDS))
+            vault.wipeDecoy(decoy)
+            writer.join()
+        } finally {
+            VaultRecordNames.passHookForTesting = null
+        }
+        decoy.close()
+
+        val again = unlocked(DURESS)
+        assertNull(again.getVaultRecord("settings"), "A pass put the wiped record back")
+        again.close()
+    }
+
+    @Test
+    fun aPassThatFailsAfterTheRecordIsSavedDoesNotFailTheWrite() {
+        create()
+        val real = unlocked(APP)
+        val other = layout.vaultRecords.listFiles().orEmpty().first { it != real.vaultRecordFileForTesting("settings") }
+        other.setReadable(false)
+        try {
+            org.junit.Assume.assumeFalse("The file is still readable (running as root)", other.canRead())
+            real.putVaultRecord("settings", byteArrayOf(5))
+            assertContentEquals(byteArrayOf(5), real.getVaultRecord("settings"))
+        } finally {
+            other.setReadable(true)
+        }
+        real.close()
+    }
+
+    @Test
+    fun aPassRemovesTempFilesThatACrashLeft() {
+        create()
+        val real = unlocked(APP)
+        val leftover = File(layout.vaultRecords, "${real.vaultRecordFileForTesting("settings").name}.123.tmp")
+        leftover.writeBytes(ByteArray(1024))
+        val names = layout.vaultRecords.listFiles().orEmpty().map { it.name }.toSet()
+
+        real.putVaultRecord("settings", byteArrayOf(1))
+
+        assertFalse(leftover.exists())
+        assertEquals(names - leftover.name, layout.vaultRecords.listFiles().orEmpty().map { it.name }.toSet())
+        real.close()
     }
 
     @Test
