@@ -171,6 +171,7 @@ class RegistrySealTest {
         RegistryUpdate.install(signedAt(5), recovery, baked, dir, keystore).getOrThrow()
         keystore.deleteRegistryMacKeysExcept(null)
 
+        assertEquals(RegistrySeal.Reading.KeyLost, RegistrySeal.read(dir, keystore))
         assertTrue(view().installedUpdateUnverified)
         assertIs<RegistryUpdateException.NotNewer>(RegistryUpdate.install(signedAt(4), recovery, baked, dir, keystore).exceptionOrNull())
         // A package that a release key signed does not recover the store: the revocations in force are unknown (see RegistryKeystoreLossTest).

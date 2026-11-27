@@ -102,8 +102,64 @@ class RegistryKeystoreLossTest {
         File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(planted)
 
         assertIs<RegistryUpdateException.KeystoreReset>(install(byLeaked(1_000_001)).exceptionOrNull())
+        // The huge sequence pins the floor against a recovery package that does not revoke the planting key, and only against that.
+        assertIs<RegistryUpdateException.NotNewer>(install(byRecovery(3, listOf(TestPackages.THIRD_KEY_ID))).exceptionOrNull())
         assertEquals(3L, install(byRecovery(3)).getOrThrow().sequence)
         assertTrue(install(byRelease(4)).isSuccess)
+    }
+
+    @Test
+    fun aHugeSequenceFileOfAReleaseKeyIsEscapedByARecoveryPackageThatRevokesThatKey() {
+        install(byRecovery(1, emptyList())).getOrThrow()
+        install(byRelease(1_000_000, emptyList())).getOrThrow()
+        loseKeystore()
+
+        assertIs<RegistryUpdateException.NotNewer>(install(byRecovery(2, emptyList())).exceptionOrNull())
+        assertEquals(2L, install(byRecovery(2, listOf(TestPackages.THIRD_KEY_ID))).getOrThrow().sequence)
+        assertEquals(listOf(TestPackages.THIRD_KEY_ID), keystore.registryRevokedKeyIds())
+    }
+
+    @Test
+    fun anOldRecoveryPackageCannotBeInstalledAgainToDropARevocation() {
+        install(byRecovery(1, emptyList())).getOrThrow()
+        install(byRecovery(2)).getOrThrow()
+        install(byRelease(3)).getOrThrow()
+        loseKeystore()
+
+        assertIs<RegistryUpdateException.NotNewer>(install(byRecovery(1, emptyList())).exceptionOrNull())
+        assertIs<RegistryUpdateException.KeystoreReset>(install(byLeaked(4)).exceptionOrNull())
+        assertEquals(emptyList(), keystore.registryRevokedKeyIds())
+    }
+
+    @Test
+    fun aRecoveryPackageThatOmitsTheRevocationsOfAnOlderRecoveryFileIsRefused() {
+        install(byRecovery(1)).getOrThrow()
+        loseKeystore()
+
+        assertIs<RegistryUpdateException.Conflict>(install(byRecovery(2, emptyList())).exceptionOrNull())
+    }
+
+    @Test
+    fun aFailedRecoveryInstallLeavesTheStoreLost() {
+        restatedByRelease()
+        loseKeystore()
+        val fullDisk: (File, ByteArray) -> Unit = { _, _ -> throw java.io.IOException("No space left on device") }
+
+        assertTrue(RegistryUpdate.install(byRecovery(3), keys, baked, dir, keystore, fullDisk).isFailure)
+
+        assertEquals(RegistrySeal.Reading.KeyLost, RegistrySeal.read(dir, keystore))
+        assertIs<RegistryUpdateException.KeystoreReset>(install(byRelease(3)).exceptionOrNull())
+        assertIs<RegistryUpdateException.RevokedKey>(install(byLeaked(3)).exceptionOrNull())
+        assertEquals(3L, install(byRecovery(3)).getOrThrow().sequence)
+    }
+
+    @Test
+    fun aDeletedSealAfterTheLossStillKeepsTheRevocationTheInstalledFileRestates() {
+        restatedByRelease()
+        loseKeystore()
+        assertTrue(File(dir, RegistrySeal.FILE).delete())
+
+        assertIs<RegistryUpdateException.RevokedKey>(install(byLeaked(3)).exceptionOrNull())
     }
 
     @Test
