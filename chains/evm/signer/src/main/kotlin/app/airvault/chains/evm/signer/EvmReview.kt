@@ -396,6 +396,7 @@ class EvmReviewBuilder(
             if (multicall.callCount() > ParserLimits.MAX_NESTED_CALLS) throw Refusal(TOO_MANY_CALLS_REFUSAL)
             targetRow("Contract", to)
             functionRow(shape.signature)
+            header += rowsOf(batchProxyRows(to, calldata, tx.value, FieldPath("evm.data.function")), "evm.data", 0)
             multicall.deadline?.let { header += ReviewRow(DEADLINE_LABEL, DisplayValue.Number(it), decode("evm.data.deadline")) }
             valueRow(tx.value, always = false)
             val rows = ArrayList<ReviewRow>()
@@ -445,7 +446,8 @@ class EvmReviewBuilder(
                 when {
                     nested != null && isBatchContract(contract, inner.calldata) -> {
                         val nestedShape = encodesAs(inner.calldata, nested) ?: throw Refusal(CANNOT_BE_READ)
-                        callRows(rows, prefix, index, level, nestedShape.function, target, flags, note = null)
+                        val proxyRows = batchProxyRows(contract, inner.calldata, sent, FieldPath("$prefix.function"))
+                        callRows(rows, prefix, index, level, nestedShape.function, target, flags + proxyRows, note = null)
                         nested.deadline?.let { rows += ReviewRow(DEADLINE_LABEL, DisplayValue.Number(it), decode("$prefix.deadline"), level) }
                         checkCalls(contract, nestedShape, nested, sent, level + 1, prefix, rows)
                     }
@@ -509,8 +511,7 @@ class EvmReviewBuilder(
                 if (unknownCalls == UnknownCallPolicy.REFUSE) throw Refusal(UNKNOWN_CALL_REFUSAL, details)
                 return Gap.Unknown(calldata.copyOfRange(0, minOf(SELECTOR_BYTES, calldata.size)).toHex())
             }
-            if (entry.upgradeable && proxyPolicy == ProxyPolicy.BIND_TO_IMPLEMENTATION) throw Refusal(BOUND_PROXY_REFUSAL, details)
-            if (entry.upgradeable && proxyPolicy == ProxyPolicy.REFUSE_ALL_PROXIES) throw Refusal(ANY_PROXY_REFUSAL, details)
+            refuseProxy(entry, details)
             val arguments = when (val result = decodeCall(calldata, entry.params)) {
                 is CallDecode.Ok -> result.params
                 is CallDecode.Refused -> throw Refusal(result.reason, details)
@@ -540,6 +541,29 @@ class EvmReviewBuilder(
             )
         }
 
+        /** Refuses an upgradeable [entry] when the owner's proxy policy does not allow it. [details] are the rows the refusal shows. */
+        private fun refuseProxy(entry: WhitelistEntry, details: List<ReviewRow>) {
+            if (!entry.upgradeable) return
+            if (proxyPolicy == ProxyPolicy.BIND_TO_IMPLEMENTATION) throw Refusal(BOUND_PROXY_REFUSAL, details)
+            if (proxyPolicy == ProxyPolicy.REFUSE_ALL_PROXIES) throw Refusal(ANY_PROXY_REFUSAL, details)
+        }
+
+        /**
+         * The proxy checks of the contract that runs a whitelisted batch, which a batch skips because [whitelisted] decides only its calls.
+         * An upgradeable entry is refused or warned about as a normal whitelisted call is. It returns the implementation rows to show, or none.
+         */
+        private fun batchProxyRows(contract: String, calldata: ByteArray, value: BigInteger, field: FieldPath): List<ParamRow> {
+            val entry = whitelistEntry(contract, calldata)?.takeIf { it.upgradeable } ?: return emptyList()
+            refuseProxy(entry, undecodedRows(contract, value, calldata, entry.proxy))
+            warnings += Warning(Danger.DANGER, CODE_PROXY, PROXY_WARNING, field, ACK_UPGRADE)
+            return implementationRows(entry.proxy)
+        }
+
+        private fun implementationRows(proxy: ProxyBinding?): List<ParamRow> = buildList {
+            proxy?.implementationAddress?.let { add(ParamRow("Implementation", DisplayValue.Address(chain, it), null)) }
+            proxy?.implementationCodeHash?.let { add(ParamRow("Implementation Code Hash", DisplayValue.Text(it), null)) }
+        }
+
         /**
          * The rows of one call's arguments: the approved meaning first, then the arguments, then the selector, the signed calldata in full, and
          * each word after the selector. The arguments preview a bytes value, so the calldata row is what shows every byte of it. The proxy
@@ -552,8 +576,7 @@ class EvmReviewBuilder(
             add(ParamRow("Selector", DisplayValue.Text("0x" + calldata.copyOfRange(0, SELECTOR_BYTES).toHex()), "selector"))
             add(calldataRow(calldata))
             wordsOf(calldata).forEachIndexed { index, word -> add(ParamRow("Word ${index + 1}", DisplayValue.Bytes(word), null)) }
-            gap.proxy?.implementationAddress?.let { add(ParamRow("Implementation", DisplayValue.Address(chain, it), null)) }
-            gap.proxy?.implementationCodeHash?.let { add(ParamRow("Implementation Code Hash", DisplayValue.Text(it), null)) }
+            addAll(implementationRows(gap.proxy))
         }
 
         /** The warnings an approved call earns: its signed meaning, a proxy under Warn and confirm, and any step Lensly cannot read. */
