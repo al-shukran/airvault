@@ -64,7 +64,7 @@ jobs:
 
       # Every commit of the pull request carries a Signed-off-by trailer. The pull request's own copy of dco_check.py runs with a
       # read-only token, so a pull request can change its own DCO result. Branch protection requires only the pr-ok check and no
-      # review, so what covers a pull request that edits this file or scripts/ci/ is the owner reading its diff before the merge.
+      # review, so a pull request that edits this file or scripts/ci/ is covered only by reading its diff before the merge.
       - name: DCO
         if: github.event_name == 'pull_request'
         env:
