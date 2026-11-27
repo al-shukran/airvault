@@ -47,7 +47,8 @@ never print them, and each sign job gets the two secrets of its own app only.
 has more than `contents: read`, names Gradle, reads the secrets of both apps, or has any step other than these six, in this order:
 a checkout pinned by SHA, the refusal of a tag that is not on master, `actions/download-artifact` of the unsigned APK,
 `bash scripts/ci/sign-release.sh`, the keystore cleanup and `actions/upload-artifact` of the signed APK. Changing a sign job
-means changing the allowlist in the guard (`SIGN_STEPS`) in the same pull request.
+means changing the allowlist in the guard (`SIGN_STEPS`) in the same pull request. Changing `scripts/ci/sign-release.sh`
+needs the same scrutiny, because it runs with the signing secrets.
 
 ## What the Build and Sign Split Protects
 
@@ -59,12 +60,12 @@ The split does not protect the integrity of the APK:
 
 - The `build` job controls both the unsigned APK and the SHA-256 it reports. The sign job compares the two, which catches a
   swap in transit and nothing else. A malicious build can produce a malicious APK with a matching hash, and the sign job signs it.
-- `aapt2`, `zipalign` and `apksigner` parse that APK on the key-holding runner. A malicious APK reaches those tools while the
-  keystore is on disk.
+- `aapt2`, `zipalign` and `apksigner` parse that APK. A malicious APK reaches those tools on the runner
+  that holds the keys.
 - The `publish` job checks that the APK is signed with the v2 and v3 schemes by a single certificate. It does not compare the
   certificate with an expected fingerprint.
 
-What keeps the build honest is review: only commits on master are released, and the guard refuses a tag whose commit is not.
+What keeps the build honest is review: only commits on master are released, and the refusal step refuses a tag whose commit is not.
 
 Keep the keystore files and their passwords in a password manager or another secure store, never in the repository, a
 release note, an issue or a pull request. A lost keystore means installed copies can never be updated, because Android

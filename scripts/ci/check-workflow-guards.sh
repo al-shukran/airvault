@@ -126,6 +126,10 @@ CLEANUP_RUN = 'rm -f "$RUNNER_TEMP/release.keystore"'
 SIGN_STEPS = ["checkout", "refusal", "download", "sign", "cleanup", "upload"]
 SIGN_RUN = "bash scripts/ci/sign-release.sh"
 SIGN_ENV = {"APP", "EXPECTED_SHA256", "KEYSTORE_B64", "KEYSTORE_PASS"}
+# A sign job runs on the GitHub-hosted runner image and needs the build job, as release.yml does today; a self-hosted runner
+# would keep the decoded keystore. The env values of its sign step are exactly these, with the app and the secret names of the job.
+SIGN_RUNS_ON = "ubuntu-24.04"
+SIGN_NEEDS = "build"
 DOWNLOAD = re.compile(r"actions/download-artifact@[0-9a-f]{40}")
 UPLOAD = re.compile(r"actions/upload-artifact@[0-9a-f]{40}")
 DOWNLOAD_WITH = {"name": "unsigned-apk", "path": "unsigned"}
@@ -226,6 +230,15 @@ def refuses(step):
     )
 
 
+def sign_env(app):
+    return {
+        "APP": app,
+        "EXPECTED_SHA256": "${{ needs.build.outputs.sha256 }}",
+        "KEYSTORE_B64": "${{ secrets.%s_KEYSTORE_B64 }}" % app.upper(),
+        "KEYSTORE_PASS": "${{ secrets.%s_KEYSTORE_PASS }}" % app.upper(),
+    }
+
+
 def step_kind(step):
     keys = set(step)
     if early_ok(step):
@@ -267,6 +280,7 @@ def check_release(doc):
         if job.get("if") is not None and job["if"] not in JOB_IF:
             errors.append("release.yml job %s has an if that is not one of the expressions listed in JOB_IF in check-workflow-guards.sh: %s" % (name, job["if"]))
         if reads_secret(job):
+            apps = {m for text in strings(job) for m in SECRET_OF_APP.findall(fold(text))}
             if job.get("environment") != "release":
                 errors.append("release.yml job %s reads a signing secret without environment: release (a workflow on any branch could read repository-level secrets; the environment's tag rules cannot be reached from a branch)" % name)
             if job.get("permissions") != {"contents": "read"}:
@@ -276,9 +290,15 @@ def check_release(doc):
                 errors.append("release.yml job %s reads a signing secret, so its steps must be exactly %s (a SHA-pinned checkout, the refusal, download-artifact of the unsigned APK, `%s`, the keystore cleanup, upload-artifact of the signed APK), but they are %s" % (name, SIGN_STEPS, SIGN_RUN, kinds))
             if any(runs_gradle(text) for text in strings(job)):
                 errors.append("release.yml job %s reads a signing secret and runs Gradle (build dependencies would share a runner with the key)" % name)
-            apps = {m for text in strings(job) for m in SECRET_OF_APP.findall(fold(text))}
             if len(apps) > 1:
                 errors.append("release.yml job %s reads the secrets of more than one app (%s)" % (name, ", ".join(sorted(apps))))
+            if len(apps) == 1:
+                app = next(iter(apps))
+                for step, kind in zip(steps, kinds):
+                    if kind == "sign" and step["env"] != sign_env(app):
+                        errors.append("release.yml job %s sign step env is not exactly %s (the app and the keystore secrets of one app, the hash of the build job)" % (name, sign_env(app)))
+            if job.get("runs-on") != SIGN_RUNS_ON or job.get("needs") != SIGN_NEEDS:
+                errors.append("release.yml job %s reads a signing secret, so its runs-on must be %s and its needs %s" % (name, SIGN_RUNS_ON, SIGN_NEEDS))
         if reads_secret({k: v for k, v in job.items() if k != "steps"}):
             errors.append("release.yml job %s reads a secret outside its steps (job env, secrets:, a reusable workflow), before any step can refuse" % name)
         elif secret is not None and refuse is None:

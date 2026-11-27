@@ -526,6 +526,26 @@ for job in sign_lensly sign_lumio; do
 done
 mutate release.yml '.jobs.sign_lensly.steps[] |= (select(.name == "Check, align and sign the APK") | .env.LUMIO_KEYSTORE_PASS = "${{ secrets.LUMIO_KEYSTORE_PASS }}") // .'
 expect_environment_error "the Lensly sign job that also reads a Lumio secret" 'more than one app'
+# The sign step's env values and the job's runs-on and needs are pinned to release.yml's text (#1556).
+for job_app in sign_lensly:lensly:lumio sign_lumio:lumio:lensly; do
+    job=${job_app%%:*} app=${job_app#*:} other=${app#*:} app=${app%%:*}
+    app_up=$(tr a-z A-Z <<<"$app") other_up=$(tr a-z A-Z <<<"$other")
+    sign_of="(.jobs.$job.steps[] | select(.name == \"Check, align and sign the APK\"))"
+    mutate release.yml "$sign_of.env.KEYSTORE_PASS = \"\${{ secrets.${app_up}_KEYSTORE_B64 }}\""
+    expect_environment_error "$job with the keystore password read from the keystore secret" 'sign step env is not exactly'
+    mutate release.yml "$sign_of.env.KEYSTORE_B64 = \"\${{ secrets.${other_up}_KEYSTORE_B64 }}\""
+    expect_environment_error "$job with the other app's keystore secret" 'more than one app'
+    mutate release.yml "$sign_of.env.APP = \"../../tmp/x\""
+    expect_environment_error "$job with a path as APP" 'sign step env is not exactly'
+    mutate release.yml "$sign_of.env.APP = \"$other\""
+    expect_environment_error "$job with the other app as APP" 'sign step env is not exactly'
+    mutate release.yml "$sign_of.env.EXPECTED_SHA256 = \"0000\""
+    expect_environment_error "$job with a fixed EXPECTED_SHA256" 'sign step env is not exactly'
+    mutate release.yml ".jobs.$job.runs-on = \"self-hosted\""
+    expect_environment_error "$job on a self-hosted runner" 'runs-on must be'
+    mutate release.yml ".jobs.$job.needs = [\"build\", \"publish\"]"
+    expect_environment_error "$job with changed needs" 'needs must be\|runs-on must be'
+done
 mutate release.yml '.jobs.build.steps += [{"name": "Early", "run": "true", "env": {"K": "${{ secrets.LENSLY_KEYSTORE_PASS }}"}}]'
 expect_environment_error "the build job reading a keystore secret" 'without environment: release'
 mutate release.yml '.jobs.build.environment = "release" | .jobs.build.steps += [{"name": "Late", "run": "true", "env": {"K": "${{ secrets.LENSLY_KEYSTORE_PASS }}"}}]'
