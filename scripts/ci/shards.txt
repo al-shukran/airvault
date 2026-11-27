@@ -427,6 +427,7 @@ shard-6 :shared app.lensly.core.solana.SolanaRequestCheckTest
 shard-6 :shared app.lensly.core.ur.SolSignRequestTest
 shard-6 :shared app.lensly.core.vault.VaultWipeRecoveryTest
 shard-6 :shared app.lensly.ui.navigation.UnlockBiometricTest
+shard-6 :shared app.lensly.ui.navigation.UnlockOutcomeTest
 shard-9 :app app.lensly.app.ReviewHistoryTest
 shard-7 :app app.lensly.app.SolanaTokensHolderTest
 shard-7 :app app.lensly.app.WalletDraftMixedHashTest

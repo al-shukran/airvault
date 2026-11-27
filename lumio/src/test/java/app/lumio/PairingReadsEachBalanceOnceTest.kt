@@ -135,7 +135,7 @@ class PairingReadsEachBalanceOnceTest {
 
     /** An open vault with one paired wallet, saved as the pairing review saves it. */
     private fun pairedWallet(): String = runBlocking {
-        assertEquals(GateOutcome.Opened, createFirstVault(holder, PASSWORD.toCharArray(), context))
+        assertEquals(GateOutcome.Opened, createFirstVault(holder, PASSWORD.toCharArray()))
         val session = checkNotNull(holder.openSession())
         PairedWallets.save(session, PairFixtures.payloadOf(listOf(PairFixtures.ethereumAccount(0, "Account 0"))), nowMs = 100L).id
     }
