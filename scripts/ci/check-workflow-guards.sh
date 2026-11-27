@@ -37,22 +37,23 @@ expected="comment-run-\${{ github.event.issue.number }}-\${{ $gate }}"
 # (b) release.yml: in every job, a refusal step comes before the first step that reads a secret other than GITHUB_TOKEN.
 #  - A secret read is any "secrets." or "secrets[" reference, or toJSON(secrets), in the whole step as JSON (env, with, run, a shell
 #    comment in run, which Actions expands too). Job-level env, a job-level secrets: key, and workflow-level text count as before step 0.
-#  - The refusal is a step with only the keys name, run and id (no if, env, shell, continue-on-error) whose run holds the top-level
-#    line `if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then` followed by an unconditional `exit 1` in that block
-#    (not after `&&`/`||`, in an `else`, or in a nested if). Echoing the command or commenting it out does not count. The lines are
-#    matched as text, so a block with a heredoc (`<<`), a line with an unclosed quote (a string that spans lines), or a line with
-#    `(` or a backtick (a subshell or command substitution that can swallow the exit) is refused: the shell may not run the lines
-#    inside it (#1451, #1465).
+#  - The refusal is a step with only the keys name, run and id (no if, env, shell, continue-on-error) whose run is exactly the
+#    canonical form, line for line (blank lines aside): `set -euo pipefail`, the `git fetch` of origin/master, the top-level
+#    `if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then`, any number of `echo "::error::..."` lines that use
+#    no expansion but $GITHUB_REF_NAME and $GITHUB_SHA, `exit 1`, `fi`. Any other statement (an earlier `exit 0`, a trap, an alias,
+#    a change to GITHUB_SHA or to origin/master) or an operator the shell could read differently is refused, so the shell cannot
+#    skip, swallow or redirect the exit (#1451, #1465, #1470).
 yq -o=json '.' "$workflows/release.yml" | python3 -I -c '
 import json
 import re
-import shlex
 import sys
 
 doc = json.load(sys.stdin)
 SECRET = re.compile(r"(?<![\w.-])secrets\s*(?:\.\s*([\w-]+)|\[|(?=\s*[),}]))", re.I)
-OPENER = re.compile(r"(if|case|while|until|for|select)\b|.*\{$")
 COMMAND = "git merge-base --is-ancestor \"$GITHUB_SHA\" origin/master"
+HEAD = ["set -euo pipefail", "git fetch --no-tags origin \x27+refs/heads/master:refs/remotes/origin/master\x27", "if ! " + COMMAND + "; then"]
+ERROR = re.compile(r"echo \"::error::(?:[^\"$`\\\\!]|\$GITHUB_REF_NAME|\$GITHUB_SHA)*\"")
+TAIL = ["exit 1", "fi"]
 errors = []
 
 
@@ -63,32 +64,12 @@ def reads_secret(obj):
 def refuses(step):
     if not set(step) <= {"name", "run", "id"}:
         return False
-    depth = 0
-    armed = False
-    chained = False
-    for line in str(step.get("run", "")).splitlines():
-        text = line.strip()
-        if not text or text.startswith("#"):
-            continue
-        try:
-            shlex.split(text)
-        except ValueError:
-            return False
-        if "<<" in text or "(" in text or "`" in text:
-            return False
-        if depth == 0 and not chained and text == "if ! " + COMMAND + "; then":
-            armed = True
-        elif armed and depth == 1 and not chained and text == "exit 1":
-            return True
-        elif armed and text.startswith(("else", "elif")):
-            armed = False
-        if OPENER.match(text):
-            depth += 1
-        elif text in ("fi", "esac", "done", "}"):
-            depth -= 1
-            armed = armed and depth > 0
-        chained = text.endswith(("\\", "&&", "||", "|", "|&"))
-    return False
+    lines = [line.strip() for line in str(step.get("run", "")).splitlines() if line.strip()]
+    return (
+        lines[: len(HEAD)] == HEAD
+        and lines[len(lines) - len(TAIL) :] == TAIL
+        and all(ERROR.fullmatch(line) for line in lines[len(HEAD) : len(lines) - len(TAIL)])
+    )
 
 
 if reads_secret({k: v for k, v in doc.items() if k != "jobs"}):

@@ -2,7 +2,7 @@
 # Checks the CI guards against broken inputs: each case must make its guard fail, and the real files must still pass. Needs yq and
 # python3, no Gradle and no network. Runs in the ci lane (run-partition.sh ci), so a guard that stops rejecting a case fails a pull request.
 #   check-cleartext-sources.sh   cleartext allowed outside src/debug/ (#1406, #1441)
-#   check-workflow-guards.sh     comment-run trusted gate and release refusal order (#1407, #1408, #1442, #1451, #1465)
+#   check-workflow-guards.sh     comment-run trusted gate and release refusal order (#1407, #1408, #1442, #1451, #1465, #1470)
 #   close-refresh-pr.sh          the refresh pull request is closed and the comment posted once (#1396, #1443)
 #
 # Usage: scripts/ci/selftest-guards.sh
@@ -210,6 +210,27 @@ mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  (\\n    exit 1\\
 expect_fail "an exit 1 inside a subshell" guard_with
 mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  echo hi |&\\n  exit 1\\nfi\""
 expect_fail "an exit 1 in the pipeline that a line ending in |& continues" guard_with
+# The step's run must be exactly the canonical refusal: no statement before or inside it may skip, override or neuter it (#1470).
+canon=$(yq "$refusal | .run" .github/workflows/release.yml)
+refuse_with() {
+    run=$1 mutate release.yml "($refusal | .run) = strenv(run)"
+}
+refuse_with "exit 0"$'\n'"$canon"
+expect_fail "an exit 0 before the refusal" guard_with
+refuse_with "trap 'exit 0' EXIT"$'\n'"$canon"
+expect_fail "an EXIT trap that overrides the exit status" guard_with
+refuse_with "GITHUB_SHA=origin/master"$'\n'"$canon"
+expect_fail "a GITHUB_SHA that is origin/master" guard_with
+refuse_with 'git update-ref refs/remotes/origin/master "$GITHUB_SHA"'$'\n'"$canon"
+expect_fail "an origin/master moved to the tag commit" guard_with
+refuse_with "shopt -s expand_aliases"$'\n'"alias exit=:"$'\n'"$canon"
+expect_fail "exit aliased to a no-op" guard_with
+refuse_with "${canon%exit 1*}exit 0"$'\n'"exit 1"$'\n'fi
+expect_fail "an exit 0 before the exit 1 in the block" guard_with
+refuse_with "${canon%exit 1*}"'echo hi |&'$'\n'"exit 1"$'\n'fi
+expect_fail "an exit 1 in the pipeline that a line ending in |& continues (canonical form)" guard_with
+refuse_with "$canon"
+expect_pass "the canonical refusal rewritten from the workflow" guard_with
 mutate release.yml "$refusal += {\"id\": \"refuse\"}"
 expect_pass "a refusal with an id" guard_with
 
