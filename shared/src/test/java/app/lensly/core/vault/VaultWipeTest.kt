@@ -80,4 +80,37 @@ class VaultWipeTest {
         assertTrue(vaultStillThereWhenKeysWentAway)
         assertFalse(layout.root.exists())
     }
+
+    private fun withRecording(): VaultLayout {
+        val layout = populated().let { VaultLayout(it.root, it.photos, File(tmp.root, "cache/recording.mp4")) }
+        layout.recording!!.parentFile.mkdirs()
+        layout.recording!!.writeBytes(ByteArray(64) { 7 })
+        return layout
+    }
+
+    @Test
+    fun aWipeShredsAPlainVideoThatAnInterruptedRecordingLeft() {
+        val layout = withRecording()
+
+        wipeVault(layout) {}
+
+        assertFalse(layout.recording!!.exists())
+    }
+
+    @Test
+    fun theStartupSweepShredsTheLeftoverVideoAndKeepsTheSealedMedia() {
+        val layout = withRecording()
+        val sealed = File(layout.photoDir(decoy = false), "IMG_1.jpg")
+
+        assertTrue(layout.shredRecording())
+
+        assertFalse(layout.recording!!.exists())
+        assertTrue(sealed.exists())
+        assertTrue(layout.exists())
+    }
+
+    @Test
+    fun theSweepOfALayoutWithNoRecordingFileDoesNothing() {
+        assertTrue(populated().shredRecording())
+    }
 }

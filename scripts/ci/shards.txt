@@ -645,6 +645,7 @@ shard-10 :app app.lensly.app.SessionReadsTest
 shard-10 :app app.lensly.app.WalletStoreBitcoinTest
 shard-10 :app app.lensly.app.WalletStoreFirstAccountsTest
 shard-10 :app app.lensly.app.WipeGestureTest
+shard-10 :app app.lensly.app.LenslyAppStartupTest
 shard-10 :app app.lensly.app.export.AccountExportTest
 shard-10 :app app.lensly.ui.flow.RevealedSecretWipeTest
 shard-10 :app app.lensly.ui.navigation.AutoLockTest

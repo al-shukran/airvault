@@ -48,6 +48,24 @@ class VaultEraseTest {
     }
 
     @Test
+    fun theLastAllowedWrongTryShredsAPlainVideoThatAnInterruptedRecordingLeft() {
+        val recording = File(tmp.root, "cache/recording.mp4").apply {
+            parentFile.mkdirs()
+            writeBytes(ByteArray(64) { 7 })
+        }
+        layout = VaultLayout(File(tmp.root, "vault"), recording = recording)
+        vault = Vault(layout, keys, clock, KDF)
+        createVault()
+        setEraseAfter(3)
+
+        repeat(2) { assertRejected(attempt(WRONG)) }
+        assertTrue(recording.exists())
+        assertEquals(UnlockResult.Erased, attempt(WRONG))
+
+        assertFalse(recording.exists())
+    }
+
+    @Test
     fun aKeyDeleteFailureStillErasesTheFilesOnTheLastWrongTry() {
         createVault()
         setEraseAfter(3)
