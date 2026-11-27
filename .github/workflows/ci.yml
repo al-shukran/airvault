@@ -2,8 +2,9 @@ name: ci
 
 # The blocking gate for pull requests and master: one job, `pr-ok`, the single required check. Its steps run in order, cheapest
 # first, and the job stops at the first failing step: DCO, the static guards (no Gradle), the secrets scan, dependency review,
-# the dependency cache, the manifest guards, compile, the unit tests, then the fuzz seed replays. One job per pull request keeps
-# the load predictable: 15 open pull requests hold at most 15 runners, under the account's 20-job ceiling.
+# the dependency cache, the manifest guards, compile, the unit tests, then the fuzz seed replays. A pull request that changes no
+# Kotlin or Android build input (scripts/ci/gradle-needed.sh) skips every Gradle step, at step level: the job itself always runs.
+# One job per pull request keeps the load predictable: 15 open pull requests hold at most 15 runners, under the account's 20-job ceiling.
 # Lint, screenshot goldens, the APK and androidTest compile, the R8 build, OWASP, real fuzzing and the emulator runs are in
 # nightly.yml and never block a pull request.
 #
@@ -115,7 +116,17 @@ jobs:
         with:
           fail-on-severity: high
 
+      # Every step from here on that runs or prepares Gradle has `if: steps.scope.outputs.gradle == 'true'`. A step that skipped Gradle
+      # for a pull request without a build input is a skipped step, never a skipped job: pr-ok itself always runs and concludes.
+      # Any doubt (a push, a failed diff) runs Gradle (scripts/ci/gradle-needed.sh).
+      - name: Decide whether Gradle runs
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}
+        run: echo "gradle=$(scripts/ci/gradle-needed.sh "$BASE_SHA")" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        if: steps.scope.outputs.gradle == 'true'
         with:
           distribution: temurin
           java-version: '21.0.13+9'
@@ -123,6 +134,7 @@ jobs:
       # cache-disabled: setup-gradle's own cache entries were the poisoned ones (its cleanup purged plugin marker POMs). The
       # dependency and build caches below replace them.
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        if: steps.scope.outputs.gradle == 'true'
         with:
           cache-disabled: true
 
@@ -131,18 +143,20 @@ jobs:
       # cache-cleanup.yml deletes once the pull request closes).
       - name: Restore the Gradle dependency cache
         id: deps
+        if: steps.scope.outputs.gradle == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.DEPS_CACHE_PATHS }}
           key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
 
       - name: Resolve every configuration (online, on a cache miss only)
-        if: steps.deps.outputs.cache-hit != 'true'
+        if: steps.scope.outputs.gradle == 'true' && steps.deps.outputs.cache-hit != 'true'
         run: scripts/ci/run-step.sh resolve
 
       # The build cache that master saves. The configuration cache is not saved: it records the JDK home path, which differs
       # between runner images.
       - name: Restore the Gradle build cache
+        if: steps.scope.outputs.gradle == 'true'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.gradle/caches/build-cache-1
@@ -155,17 +169,20 @@ jobs:
         run: scripts/ci/prune-build-cache.sh age
 
       - name: Manifest guards
+        if: steps.scope.outputs.gradle == 'true'
         run: scripts/ci/run-step.sh manifest
 
       - name: Compile
+        if: steps.scope.outputs.gradle == 'true'
         run: scripts/ci/run-step.sh compile
 
       - name: Unit tests
+        if: steps.scope.outputs.gradle == 'true'
         run: scripts/ci/run-step.sh unit
 
       # Before the fuzz step, which reruns :shared:testDebugUnitTest and so replaces its result files.
       - name: Upload the JUnit results
-        if: always()
+        if: always() && steps.scope.outputs.gradle == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: junit
@@ -174,10 +191,11 @@ jobs:
           if-no-files-found: ignore
 
       - name: Fuzz seed replays
+        if: steps.scope.outputs.gradle == 'true'
         run: scripts/ci/run-step.sh fuzz
 
       - name: Stop the Gradle daemon before the cache is saved
-        if: always()
+        if: always() && steps.scope.outputs.gradle == 'true'
         run: ./gradlew --stop
 
       # Only a push to master saves the build cache, even after a failed step. A pull request saves nothing.
