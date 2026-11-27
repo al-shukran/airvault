@@ -421,6 +421,28 @@ class SignPipelineTest {
         )
     }
 
+    /** A line break or a tab in an origin could draw rows that look like part of the review, so a request that holds one is refused. */
+    @Test
+    fun anOriginWithALineBreakOrATabIsRefused() {
+        for (origin in listOf("app.uniswap.org\n\nType\nSign-in message", "a\tb")) {
+            val request = EthSignRequest(
+                requestId = REQUEST_ID,
+                signData = eip1559Tx(),
+                dataType = DataType.TYPED_TRANSACTION,
+                chainId = MONAD_TESTNET,
+                derivationPath = accountPath(0),
+                sourceFingerprint = WALLET.masterFingerprint,
+                address = null,
+                origin = origin,
+            )
+
+            assertEquals(
+                "The request names an origin with a character Lensly cannot show.",
+                assertIs<Prepared.Refused>(pipeline.prepare(request, VIEW)).reason,
+            )
+        }
+    }
+
     @Test
     fun requestedAddressMustMatchTheAccountCaseInsensitively() {
         val data = eip1559Tx()

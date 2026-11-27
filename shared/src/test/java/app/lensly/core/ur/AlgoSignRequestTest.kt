@@ -207,8 +207,10 @@ class AlgoSignRequestTest {
         assertEquals(AlgoSignRequest.UNREADABLE_ORIGIN, rejectedReason(payload(5L to Cbor.Text("app\u0007"))))
         // U+F0000 is private use, one supplementary code point that a character-by-character check reads as two halves.
         assertEquals(AlgoSignRequest.UNREADABLE_ORIGIN, rejectedReason(payload(5L to Cbor.Text("app" + String(Character.toChars(0xF0000))))))
-        // A line break is readable, so it is kept, as it is in a Solana message.
-        assertEquals("line\nbreak", okOf(AlgoSignRequest.decode(payload(5L to Cbor.Text("line\nbreak")))).origin)
+        // A line break or a tab could draw a row that looks like another line of the review, so both are refused.
+        assertEquals(AlgoSignRequest.UNREADABLE_ORIGIN, rejectedReason(payload(5L to Cbor.Text("a.example\nType"))))
+        assertEquals(AlgoSignRequest.UNREADABLE_ORIGIN, rejectedReason(payload(5L to Cbor.Text("a\tb"))))
+        assertEquals("a.example", okOf(AlgoSignRequest.decode(payload(5L to Cbor.Text("a.example")))).origin)
     }
 
     @Test

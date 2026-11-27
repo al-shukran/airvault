@@ -53,6 +53,12 @@ class SolanaOriginTest {
     }
 
     @Test
+    fun anOriginWithALineBreakOrATabIsRefused() {
+        assertEquals(SolanaRequestCheck.UNREADABLE_ORIGIN, assertIs<SolanaRequestCheck.Result.Refused>(checked("sol\n\nType\nSign-in")).reason)
+        assertEquals(SolanaRequestCheck.UNREADABLE_ORIGIN, assertIs<SolanaRequestCheck.Result.Refused>(checked("sol\tflare")).reason)
+    }
+
+    @Test
     fun anOriginWithAnInvisibleSupplementaryCharacterIsRefused() {
         // U+F0000 is private use and U+E0041 a tag character. Both are one code point each, so the check reads them whole.
         assertEquals(
