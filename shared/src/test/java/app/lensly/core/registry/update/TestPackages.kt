@@ -14,8 +14,17 @@ internal object TestPackages {
     val SEED = ByteArray(32) { (it * 3 + 7).toByte() }
     val PUBLIC_BYTES: ByteArray = Ed25519PrivateKeyParameters(SEED, 0).generatePublicKey().encoded
 
+    /** A second test key, for a package that revokes the first or the other way round. */
+    val OTHER_SEED = ByteArray(32) { (it * 5 + 11).toByte() }
+    val OTHER_PUBLIC_BYTES: ByteArray = Ed25519PrivateKeyParameters(OTHER_SEED, 0).generatePublicKey().encoded
+
     /** The test key as a build lists it: active, so its packages are accepted. */
     val TRUSTED: List<TrustedKey> = listOf(TrustedKey(PUBLIC_BYTES))
+
+    /** Both test keys, active. */
+    val TRUSTED_BOTH: List<TrustedKey> = listOf(TrustedKey(PUBLIC_BYTES), TrustedKey(OTHER_PUBLIC_BYTES))
+    val KEY_ID: String = TRUSTED.single().id
+    val OTHER_KEY_ID: String = TrustedKey(OTHER_PUBLIC_BYTES).id
 
     const val LINEA_NETWORK =
         """{"chainId":4242,"explorerName":"Lineascan","feeModel":"L2_ROLLUP","featured":false,"kind":"LAYER_2","name":"Linea","nativeDecimals":18,"nativeSymbol":"ETH","parentChainId":1,"testnet":false}"""
@@ -26,7 +35,8 @@ internal object TestPackages {
 
     /**
      * A payload holding [networks] and [tokens], which are already JSON text. A whitelist, also JSON text, is added only when
-     * given. [minSchemaVersion] is the catalog schema the package needs.
+     * given, and so are Solana fee constants ([solanaFees], JSON text) and the IDs of the keys the package revokes. [minSchemaVersion] is
+     * the catalog schema the package needs.
      */
     fun payload(
         sequence: Long = 1,
@@ -36,8 +46,12 @@ internal object TestPackages {
         minSchemaVersion: Int = 4,
         createdAt: String = "2026-11-10",
         whitelist: String? = null,
+        solanaFees: String? = null,
+        revokedKeys: List<String> = emptyList(),
     ): String {
-        val approvals = whitelist?.let { ""","whitelist":[$it]""" }.orEmpty()
+        val approvals = whitelist?.let { ""","whitelist":[$it]""" }.orEmpty() +
+            solanaFees?.let { ""","solanaFees":$it""" }.orEmpty() +
+            revokedKeys.takeIf { it.isNotEmpty() }?.let { ids -> ""","revokedKeys":[${ids.joinToString(",") { "\"$it\"" }}]""" }.orEmpty()
         return """{"createdAt":"$createdAt","formatVersion":$formatVersion,"minSchemaVersion":$minSchemaVersion,""" +
             """"networks":[$networks],"sequence":$sequence,"tokens":[$tokens]$approvals}"""
     }

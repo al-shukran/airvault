@@ -128,7 +128,7 @@ class PackTest {
             "nativeDecimals above 36" to source.copy(networks = listOf(network.copy(nativeDecimals = 37))),
             "sequence zero" to source.copy(sequence = 0),
             "formatVersion one" to source.copy(formatVersion = 1),
-            "minSchemaVersion above this tool" to source.copy(minSchemaVersion = 6),
+            "minSchemaVersion above this tool" to source.copy(minSchemaVersion = 7),
             "minSchemaVersion zero" to source.copy(minSchemaVersion = 0),
             "networks without minSchemaVersion 4" to source.copy(minSchemaVersion = 3),
             "Layer 2 parent is itself" to source.copy(networks = listOf(network.copy(parentChainId = network.chainId))),
@@ -158,6 +158,49 @@ class PackTest {
         assertEquals(withParty.denylist.orEmpty().toSet(), Pack.verify(bytes, publicKey).denylist.orEmpty().toSet())
         assertFailsWith<IllegalArgumentException> {
             Pack.build(json.encodeToString(PackageDto.serializer(), withParty.copy(minSchemaVersion = 4)), seed)
+        }
+    }
+
+    @Test
+    fun solanaFeesAndRevokedKeysNeedSchema6AndRoundTrip() {
+        val fees = SolanaFeesDto(7_000, 100_000, 1_000, 150_000)
+        val other = "0123456789abcdef"
+        val withBoth = source.copy(minSchemaVersion = 6, solanaFees = fees, revokedKeys = listOf(other))
+
+        val (bytes, _) = Pack.build(json.encodeToString(PackageDto.serializer(), withBoth), seed)
+
+        val read = Pack.verify(bytes, publicKey)
+        assertEquals(fees, read.solanaFees)
+        assertEquals(listOf(other), read.revokedKeys)
+        for ((label, content) in mapOf("fees at schema 5" to withBoth.copy(minSchemaVersion = 5, revokedKeys = emptyList()), "revocation at schema 5" to withBoth.copy(minSchemaVersion = 5, solanaFees = null))) {
+            assertFailsWith<IllegalArgumentException>(label) { Pack.build(json.encodeToString(PackageDto.serializer(), content), seed) }
+        }
+    }
+
+    @Test
+    fun aPackageWithNeitherKeepsTheBytesItHadBefore() {
+        val payload = String(Pack.canonicalPayload(source), StandardCharsets.UTF_8)
+
+        assertFalse("solanaFees" in payload || "revokedKeys" in payload)
+    }
+
+    @Test
+    fun badFeesAndBadRevokedKeysAreRefused() {
+        val fees = SolanaFeesDto(5_000, 200_000, 3_000, 1_400_000)
+        val own = Pack.keyIdOf(publicKey).toHex()
+        val cases = mapOf(
+            "no signature fee" to source.copy(minSchemaVersion = 6, solanaFees = fees.copy(lamportsPerSignature = 0)),
+            "no builtin units" to source.copy(minSchemaVersion = 6, solanaFees = fees.copy(builtinUnitsPerInstruction = 0)),
+            "a cap above 32 bits" to source.copy(minSchemaVersion = 6, solanaFees = fees.copy(maxUnits = 1L shl 32)),
+            "a short key ID" to source.copy(minSchemaVersion = 6, revokedKeys = listOf("abcd")),
+            "an uppercase key ID" to source.copy(minSchemaVersion = 6, revokedKeys = listOf("0123456789ABCDEF")),
+            "a repeated key ID" to source.copy(minSchemaVersion = 6, revokedKeys = listOf("0123456789abcdef", "0123456789abcdef")),
+            "the signing key itself" to source.copy(minSchemaVersion = 6, revokedKeys = listOf(own)),
+        )
+        for ((label, content) in cases) {
+            assertFailsWith<IllegalArgumentException>(label) {
+                Pack.build(json.encodeToString(PackageDto.serializer(), content), seed)
+            }
         }
     }
 

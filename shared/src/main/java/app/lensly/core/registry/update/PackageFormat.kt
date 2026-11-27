@@ -10,6 +10,7 @@ import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.ProxyBinding
+import app.lensly.core.registry.SolanaFees
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.WalletEntry
 import app.lensly.core.registry.WhitelistEntry
@@ -51,9 +52,9 @@ internal object PackageFormat {
      * (`LRP2`, formatVersion 2) does not change: a package that uses none of these still reads as it did, and one that does
      * states schema 3, so an app that reads only schema 2 refuses it as Incompatible. Schema 4 adds each network's kind, parent
      * chain and featured flag, which an app that reads only schema 3 refuses as Incompatible. Schema 5 adds the denylist's party,
-     * which an app that reads only schema 4 refuses as Incompatible.
+     * which an app that reads only schema 4 refuses as Incompatible. Schema 6 adds the Solana fee constants and the revoked key IDs.
      */
-    const val SCHEMA_VERSION = 5L
+    const val SCHEMA_VERSION = 6L
     const val MAX_BYTES = 1 shl 20
 
     /** The schema that adds dynamic, array and tuple arguments and named tuple fields to whitelist entries. */
@@ -64,6 +65,9 @@ internal object PackageFormat {
 
     /** The schema that adds the denylist's party. */
     private const val PARTY_SCHEMA = 5L
+
+    /** The schema that adds the Solana fee constants and the revoked key IDs. */
+    private const val FEES_AND_REVOCATION_SCHEMA = 6L
 
     private val MAGIC = "LRP2".toByteArray(StandardCharsets.US_ASCII)
     private val MAGIC_PREFIX = "LRP".toByteArray(StandardCharsets.US_ASCII)
@@ -76,10 +80,14 @@ internal object PackageFormat {
     private const val MAX_MEANING = 240
     private const val MAX_DECIMALS = 36
     private val CONTRACT = Regex("0x[0-9a-f]{40}")
+    private val KEY_ID = Regex("[0-9a-f]{${TrustedKey.ID_BYTES * 2}}")
     private val json = Json
 
     /** The verified content of [bytes]: structure, signing key, signature, format, compatibility and entry rules, in that order. */
-    fun read(bytes: ByteArray, trustedKeys: List<TrustedKey>): RegistryPackage = decode(open(bytes, trustedKeys))
+    fun read(bytes: ByteArray, trustedKeys: List<TrustedKey>): RegistryPackage {
+        val (keyId, payload) = open(bytes, trustedKeys)
+        return decode(payload, keyId)
+    }
 
     /** The version named by a registry magic other than this app's (`LRP1`, `LRP3`, ...), or null for any other file. */
     private fun otherMagicVersion(bytes: ByteArray): Long? {
@@ -89,8 +97,8 @@ internal object PackageFormat {
         return if (digit in '0'..'9') (digit - '0').toLong() else null
     }
 
-    /** The payload inside [bytes], once the size, magic, length, key, key status and signature checks pass. */
-    private fun open(bytes: ByteArray, trustedKeys: List<TrustedKey>): ByteArray {
+    /** The signing key ID and the payload inside [bytes], once the size, magic, length, key, key status and signature checks pass. */
+    private fun open(bytes: ByteArray, trustedKeys: List<TrustedKey>): Pair<String, ByteArray> {
         if (bytes.size > MAX_BYTES) throw RegistryUpdateException.Malformed("larger than $MAX_BYTES bytes")
         otherMagicVersion(bytes)?.let { throw RegistryUpdateException.UnsupportedFormat(it, FORMAT_VERSION) }
         if (bytes.size <= HEADER_BYTES + SIGNATURE_BYTES) throw RegistryUpdateException.Malformed("truncated")
@@ -108,14 +116,14 @@ internal object PackageFormat {
         val key = trustedKeys.firstOrNull { it.id == idText } ?: throw RegistryUpdateException.UnknownKey(idText)
         if (key.status == KeyStatus.REVOKED) throw RegistryUpdateException.RevokedKey(idText)
         if (!verifies(key.publicKey, keyId + payload, signature)) throw RegistryUpdateException.BadSignature()
-        return payload
+        return idText to payload
     }
 
     /**
      * Parses and validates a signed payload's content. Checks the payload's own rules only. The caller checks
      * the baked catalog.
      */
-    private fun decode(payload: ByteArray): RegistryPackage {
+    private fun decode(payload: ByteArray, signerKeyId: String): RegistryPackage {
         val text = try {
             StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(payload)).toString()
         } catch (e: CharacterCodingException) {
@@ -142,7 +150,7 @@ internal object PackageFormat {
             // SerializationException is a subclass: unknown or missing fields, wrong types, unknown fee model.
             throw RegistryUpdateException.Malformed("payload does not match the schema: ${e.message}")
         }
-        return validated(dto)
+        return validated(dto, signerKeyId)
     }
 
     private fun verifies(publicKey: ByteArray, signed: ByteArray, signature: ByteArray): Boolean {
@@ -157,13 +165,23 @@ internal object PackageFormat {
      * Checks every rule before any entry object is built, so each value failure is an
      * [RegistryUpdateException.InvalidEntry].
      */
-    private fun validated(dto: Payload): RegistryPackage {
+    private fun validated(dto: Payload, signerKeyId: String): RegistryPackage {
         if (dto.sequence < 1) throw RegistryUpdateException.Malformed("sequence must be at least 1")
         if (dto.networks.isNotEmpty() && dto.minSchemaVersion < NETWORKS_SCHEMA) {
             throw RegistryUpdateException.Malformed("networks need minSchemaVersion $NETWORKS_SCHEMA")
         }
         if (dto.denylist.orEmpty().any { it.party != null } && dto.minSchemaVersion < PARTY_SCHEMA) {
             throw RegistryUpdateException.Malformed("a denylist party needs minSchemaVersion $PARTY_SCHEMA")
+        }
+        if ((dto.solanaFees != null || dto.revokedKeys.isNotEmpty()) && dto.minSchemaVersion < FEES_AND_REVOCATION_SCHEMA) {
+            throw RegistryUpdateException.Malformed("Solana fees and revoked keys need minSchemaVersion $FEES_AND_REVOCATION_SCHEMA")
+        }
+        if (dto.revokedKeys.any { !KEY_ID.matches(it) } || dto.revokedKeys.toSet().size != dto.revokedKeys.size) {
+            throw RegistryUpdateException.InvalidEntry("a revoked key is a key ID of 16 lowercase hex digits, listed once")
+        }
+        // Revoking the key that signed this package would make the package refuse itself the next time it is read.
+        if (signerKeyId in dto.revokedKeys) {
+            throw RegistryUpdateException.InvalidEntry("a package cannot revoke the key that signed it")
         }
         try {
             LocalDate.parse(dto.createdAt)
@@ -279,6 +297,13 @@ internal object PackageFormat {
                 throw RegistryUpdateException.InvalidEntry("whitelist ${record.signature}: ${e.message}")
             }
         }
+        val solanaFees = dto.solanaFees?.let {
+            try {
+                SolanaFees(it.lamportsPerSignature, it.defaultUnitsPerInstruction, it.builtinUnitsPerInstruction, it.maxUnits)
+            } catch (e: IllegalArgumentException) {
+                throw RegistryUpdateException.InvalidEntry("Solana fees: ${e.message}")
+            }
+        }
         if (whitelist.orEmpty().any { entry -> entry.params.any { AbiTypes.parse(it.type) !is AtomicType || it.components != null } } &&
             dto.minSchemaVersion < ARGUMENTS_SCHEMA
         ) {
@@ -292,6 +317,8 @@ internal object PackageFormat {
             whitelist = whitelist,
             denylist = denylist,
             wallets = wallets,
+            solanaFees = solanaFees,
+            revokedKeys = dto.revokedKeys.sorted(),
         )
     }
 
@@ -384,6 +411,14 @@ internal object PackageFormat {
     )
 
     @Serializable
+    private class SolanaFeesRecord(
+        val lamportsPerSignature: Long,
+        val defaultUnitsPerInstruction: Long,
+        val builtinUnitsPerInstruction: Long,
+        val maxUnits: Long,
+    )
+
+    @Serializable
     private class Payload(
         val formatVersion: Long,
         val minSchemaVersion: Long,
@@ -397,5 +432,9 @@ internal object PackageFormat {
         val denylist: List<DenylistRecord>? = null,
         /** Optional. Omitted, the build's wallets stay in force. An empty list clears them. */
         val wallets: List<WalletRecord>? = null,
+        /** Optional. Omitted, the build's Solana fee constants stay in force. */
+        val solanaFees: SolanaFeesRecord? = null,
+        /** Optional. The IDs of the signing keys this package revokes. Needs minSchemaVersion 6. */
+        val revokedKeys: List<String> = emptyList(),
     )
 }

@@ -1,6 +1,7 @@
 package app.airvault.chains.solana.signer
 
 import app.airvault.core.model.isPrintableCodePoint
+import app.lensly.core.registry.SolanaFees
 import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.ur.PathStep
 import fr.acinq.bitcoin.Base58
@@ -63,7 +64,7 @@ enum class SolanaWarning {
  * its 32-byte public key. A transaction holds its parsed [message] and its [instructions], in order. A message to sign holds its parsed
  * [offchainMessage]. [lookups] lists each lookup-table account that the instructions use, in the order they first appear. [tokens] names
  * the mints the review shows. [cluster] is the cluster the request states, or null when it states none. [origin] is the origin the wallet
- * names: a claim the review shows as unverified. Every field holds public data only.
+ * names: a claim the review shows as unverified. [fees] are the network constants its fees are computed with. Every field holds public data only.
  */
 class SolanaRequestReview internal constructor(
     val signType: SolSignType,
@@ -76,6 +77,7 @@ class SolanaRequestReview internal constructor(
     val tokens: SolanaTokenList,
     val cluster: SolCluster?,
     val origin: String?,
+    val fees: SolanaFees = SolanaFees.DEFAULT,
 ) {
     /** The address of the signing account, in base58. */
     val signerAddress: String get() = Base58.encode(signer)
@@ -116,9 +118,9 @@ class SolanaRequestReview internal constructor(
     val priorityFeeIsBound: Boolean
         get() = computeUnitLimit == null && instructions.any { it is SolanaInstruction.SetComputeUnitPrice }
 
-    /** The base fee in lamports: [LAMPORTS_PER_SIGNATURE] for each signature the transaction requires. Zero for a message. */
+    /** The base fee in lamports: [SolanaFees.lamportsPerSignature] for each signature the transaction requires. Zero for a message. */
     val baseFeeLamports: ULong
-        get() = (message?.header?.numRequiredSignatures ?: 0).toULong() * LAMPORTS_PER_SIGNATURE
+        get() = (message?.header?.numRequiredSignatures ?: 0).toULong() * fees.lamportsPerSignature.toULong()
 
     /**
      * The most the transaction can cost in fees: the base fee and the priority fee, capped at the largest u64 when their sum would wrap. It is
@@ -155,12 +157,23 @@ class SolanaRequestReview internal constructor(
 
     /**
      * The units a transaction with no limit pays for, as the runtime allocates them: each instruction of the message is counted by its
-     * program, capped at [MAX_UNITS]. A nonce setup is two instructions, so it counts twice.
+     * program, capped at [SolanaFees.maxUnits]. A nonce setup is two instructions, so it counts twice.
      */
     private fun defaultUnits(): UInt {
         val tx = message ?: return 0u
-        return minOf(tx.instructions.sumOf { defaultUnitsOf(tx.account(it.programIdIndex)) }, MAX_UNITS)
+        return minOf(tx.instructions.sumOf { defaultUnitsOf(tx.account(it.programIdIndex)) }, fees.maxUnits).toUInt()
     }
+
+    /**
+     * The default compute units of one instruction, by the program it calls. A System Program or compute budget instruction is a builtin and
+     * gets [SolanaFees.builtinUnitsPerInstruction]: the runtime counts a compute budget instruction too when the transaction sets no limit.
+     * Any other program, including one a lookup table names, gets [SolanaFees.defaultUnitsPerInstruction].
+     */
+    private fun defaultUnitsOf(program: SolanaMessageAccount): Long =
+        when ((program as? SolanaMessageAccount.Static)?.address) {
+            SYSTEM_PROGRAM, COMPUTE_BUDGET_PROGRAM -> fees.builtinUnitsPerInstruction
+            else -> fees.defaultUnitsPerInstruction
+        }
 
     /** Every warning this review shows, in a fixed order. */
     val warnings: List<SolanaWarning>
@@ -207,32 +220,6 @@ fun priorityFee(units: UInt, microLamportsPerUnit: ULong): ULong {
 }
 
 private val MICRO_LAMPORTS_PER_LAMPORT: BigInteger = BigInteger.valueOf(1_000_000)
-
-/** The base fee of one signature, in lamports. */
-private val LAMPORTS_PER_SIGNATURE: ULong = 5_000uL
-
-/** The compute units an instruction is given when its transaction sets no limit, for an instruction that is not a built-in. */
-private val DEFAULT_UNITS_PER_INSTRUCTION: UInt = 200_000u
-
-/**
- * The compute units an instruction of the System Program is given when its transaction sets no limit. The runtime's
- * MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT, from SIMD-0170: a builtin uses far fewer units than the default for other programs.
- */
-private val MAX_BUILTIN_UNITS: UInt = 3_000u
-
-/** The largest compute limit a transaction can request. */
-private val MAX_UNITS: UInt = 1_400_000u
-
-/**
- * The default compute units of one instruction, by the program it calls. A System Program or compute budget instruction is a builtin and
- * gets [MAX_BUILTIN_UNITS]: the runtime counts a compute budget instruction too when the transaction sets no limit. Any other program,
- * including one a lookup table names, gets [DEFAULT_UNITS_PER_INSTRUCTION].
- */
-private fun defaultUnitsOf(program: SolanaMessageAccount): UInt =
-    when ((program as? SolanaMessageAccount.Static)?.address) {
-        SYSTEM_PROGRAM, COMPUTE_BUDGET_PROGRAM -> MAX_BUILTIN_UNITS
-        else -> DEFAULT_UNITS_PER_INSTRUCTION
-    }
 
 /** The programs a new account can be given to without a warning. */
 private val SYSTEM_AND_TOKEN_PROGRAMS = setOf(SYSTEM_PROGRAM, TOKEN_PROGRAM, TOKEN_2022_PROGRAM)
@@ -330,11 +317,12 @@ object SolanaRequestCheck {
         accountKeys: List<ByteArray>,
         tokens: SolanaTokenList = SolanaTokenList.EMPTY,
         unknownCalls: UnknownCallPolicy = UnknownCallPolicy.WARN,
+        fees: SolanaFees = SolanaFees.DEFAULT,
     ): Result {
         if (request.origin?.codePoints()?.allMatch(::isPrintableCodePoint) == false) return Result.Refused(UNREADABLE_ORIGIN)
         val index = accountIndexOf(request.derivationPath) ?: return Result.Refused(PATH_REFUSED)
         val signer = accountKeys.getOrNull(index) ?: return Result.Refused(UNKNOWN_ACCOUNT)
-        return checkSigner(request, index, signer, tokens, unknownCalls)
+        return checkSigner(request, index, signer, tokens, unknownCalls, fees)
     }
 
     /**
@@ -348,13 +336,14 @@ object SolanaRequestCheck {
         signer: ByteArray,
         tokens: SolanaTokenList = SolanaTokenList.EMPTY,
         unknownCalls: UnknownCallPolicy = UnknownCallPolicy.WARN,
+        fees: SolanaFees = SolanaFees.DEFAULT,
     ): Result {
         val named = request.address
         if (named != null && !named.contentEquals(signer)) return Result.Refused(DIFFERENT_ADDRESS)
         return when (request.signType) {
             SolSignType.TRANSACTION ->
-                transaction(request.signData, index, signer, tokens, unknownCalls, request.cluster, request.origin)
-            SolSignType.MESSAGE -> messageToSign(request.signData, index, signer, tokens, request.cluster, request.origin)
+                transaction(request.signData, index, signer, tokens, unknownCalls, request.cluster, request.origin, fees)
+            SolSignType.MESSAGE -> messageToSign(request.signData, index, signer, tokens, request.cluster, request.origin, fees)
         }
     }
 
@@ -366,6 +355,7 @@ object SolanaRequestCheck {
         unknownCalls: UnknownCallPolicy,
         cluster: SolCluster?,
         origin: String?,
+        fees: SolanaFees,
     ): Result {
         val message = when (val decoded = SolanaMessage.decode(bytes)) {
             is SolanaMessage.Result.Ok -> decoded.message
@@ -406,6 +396,7 @@ object SolanaRequestCheck {
                 tokens = tokens,
                 cluster = cluster,
                 origin = origin,
+                fees = fees,
             ),
         )
     }
@@ -433,6 +424,7 @@ object SolanaRequestCheck {
         tokens: SolanaTokenList,
         cluster: SolCluster?,
         origin: String?,
+        fees: SolanaFees,
     ): Result {
         if (SolanaMessage.decode(bytes) is SolanaMessage.Result.Ok) return Result.Refused(TRANSACTION_AS_MESSAGE)
         val offchain = when (val parsed = SolanaOffchainMessage.parse(bytes)) {
@@ -452,6 +444,7 @@ object SolanaRequestCheck {
                 tokens = tokens,
                 cluster = cluster,
                 origin = origin,
+                fees = fees,
             ),
         )
     }
