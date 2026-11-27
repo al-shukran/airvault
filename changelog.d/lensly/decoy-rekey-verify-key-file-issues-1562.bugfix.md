@@ -1,0 +1,1 @@
+Changing the Decoy Vault password now erases the vault at once if its key file is damaged or has been altered, instead of showing a vague "Unavailable" message and waiting for the next unlock to erase it.
