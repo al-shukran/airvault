@@ -228,12 +228,13 @@ class VaultDuressTest {
         assertEquals(CreateResult.Created, runBlocking { vault.rekey(decoy, OTHER.toCharArray()) })
         decoy.close()
 
-        assertRejected(unlockAfterDelay(DURESS))
-        val moved = unlocked(unlockAfterDelay(OTHER))
+        // The change above counted as a wrong try, and the wrong Duress Password just now as a second: the wait is past the learning cap.
+        assertRejected(afterTheFullWait(DURESS))
+        val moved = unlocked(afterTheFullWait(OTHER))
         assertTrue(moved.isDecoy)
         assertEquals(1, moved.listWallets().size)
         moved.close()
-        unlocked(unlockAfterDelay(APP)).close()
+        unlocked(afterTheFullWait(APP)).close()
     }
 
     @Test
