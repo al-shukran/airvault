@@ -1,6 +1,7 @@
 package app.lensly.core.vault
 
 import java.io.File
+import javax.crypto.SecretKey
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -203,6 +204,44 @@ class VaultDuressTest {
         real.close()
         assertRejected(unlockAfterDelay(DURESS))
         unlocked(unlockAfterDelay(APP)).close()
+    }
+
+    @Test
+    fun aClaimThatFailsAndARollbackThatFailsEraseTheVault() {
+        // After the decoy's slot is committed, every save of the failure state fails: the claim below fails, and so does the rollback.
+        var armed = false
+        var saves = 0
+        val failing = object : KeystoreBackend by keys {
+            override fun createFailureMacKey(seq: Long): SecretKey {
+                if (armed && ++saves > 1) throw VaultException("The Keystore refused the key.")
+                return keys.createFailureMacKey(seq)
+            }
+        }
+        var erasedCalls = 0
+        vault = Vault(layout, failing, clock, KDF, onErased = { erasedCalls++ })
+        createVault()
+        val real = unlocked(attempt(APP))
+        real.createWallet()
+
+        val result = runBlocking {
+            vault.setDuress(real, DURESS.toCharArray()) { decoy ->
+                decoy.createWallet()
+                armed = true
+                val decoyKey = decoy.copyOfVaultKey()
+                val blocked = File(layout.vaultRecords, VaultRecordNames.fileName(decoyKey, VaultRecordNames.KNOWN[1]))
+                decoyKey.fill(0)
+                File(blocked, "in-the-way").apply { parentFile.mkdirs() }.writeBytes(byteArrayOf(1))
+            }
+        }
+
+        // The half-built decoy is not kept: the whole vault is erased, so the Duress Password opens nothing and neither does the App Password.
+        assertEquals(DuressResult.Failed, result)
+        assertFalse(layout.root.exists())
+        assertFalse(vault.exists())
+        assertEquals(1, erasedCalls)
+        real.close()
+        assertRejected(unlockAfterDelay(DURESS))
+        assertRejected(unlockAfterDelay(APP))
     }
 
     @Test
