@@ -1,0 +1,1 @@
+The Solana review now counts the compute budget instruction in its default fee, shows a nonce account's funds as a deposit that its authority can withdraw, reads token approvals, authority changes, burns, closes and nonce withdrawals instead of showing raw bytes, and no longer marks a request as a testnet from a cluster that the sender merely claims.

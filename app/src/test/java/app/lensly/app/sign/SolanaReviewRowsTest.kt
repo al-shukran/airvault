@@ -10,6 +10,7 @@ import app.airvault.chains.solana.signer.solanaWarningText
 import app.airvault.chains.solana.signer.toReview
 import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.model.Danger
+import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.text
 import app.airvault.core.model.unaccounted
 import app.airvault.core.signer.AppRequest
@@ -180,9 +181,25 @@ class SolanaReviewRowsTest {
             readonly = 2,
         )
         val facts = solanaFacts(transaction(signData)).toMap()
-        assertEquals("up to 3000 lamports", facts["Priority Fee"])
+        assertEquals("up to 6000 lamports", facts["Priority Fee"])
         assertEquals("5000 lamports", facts["Base Fee"])
-        assertEquals("up to 8000 lamports", facts["Max Fee"])
+        assertEquals("up to 11000 lamports", facts["Max Fee"])
+    }
+
+    /** #1484: the compute budget instruction is a builtin too, so a price with no limit counts it: 6,000 units here, not 3,000. */
+    @Test
+    fun aPriceWithNoLimitCountsTheComputeBudgetInstructionAsABuiltin() {
+        val signData = legacy(
+            keys = listOf(key(1), key(9), SYSTEM, COMPUTE_BUDGET),
+            instructions = listOf(
+                Instruction(program = 3, accounts = emptyList(), data = byteArrayOf(3) + le64(1_000_000_000_000L)),
+                transfer(from = 0, to = 1, lamports = 5L),
+            ),
+            readonly = 2,
+        )
+        val review = transaction(signData)
+        assertEquals(6_000_000_000uL, review.priorityFeeLamports)
+        assertEquals(6_000_005_000uL, review.maxFeeLamports)
     }
 
     /** A priority fee at the largest u64 gives a maximum fee at that largest u64 too, never a wrapped sum below the priority fee. */
@@ -203,18 +220,15 @@ class SolanaReviewRowsTest {
         assertEquals("${ULong.MAX_VALUE} lamports", solanaFacts(review).toMap()["Max Fee"])
     }
 
-    /** The network row's testnet mark follows the manifest: devnet and testnet are test networks, mainnet-beta and no cluster are not. */
+    /** #1491: a message commits to no cluster, so a cluster the request states never marks the header as a test network. */
     @Test
-    fun theTestnetMarkFollowsTheClusterInTheManifest() {
-        fun testnetOf(cluster: SolCluster?): Boolean =
-            review(request(offchain("hello"), signType = SolSignType.MESSAGE, cluster = cluster)).toReview().network.testnet
-        assertTrue(testnetOf(SolCluster.DEVNET))
-        assertTrue(testnetOf(SolCluster.TESTNET))
-        assertFalse(testnetOf(SolCluster.MAINNET_BETA))
-        assertFalse(testnetOf(null))
+    fun aClusterTheRequestStatesNeverMarksTheHeaderAsATestnet() {
+        for (cluster in listOf(SolCluster.DEVNET, SolCluster.TESTNET, SolCluster.MAINNET_BETA, null)) {
+            val tx = review(request(legacy(keys = listOf(key(1), key(9), SYSTEM), instructions = listOf(transfer(0, 1, 5L))), cluster = cluster))
+            assertFalse(tx.toReview().network.testnet, "cluster $cluster")
+        }
     }
 
-    /** An off-chain message shows its signer, its application domain, its format and its text, as the owner reads it. */
     @Test
     fun aMessageToSignShowsTheSignerTheApplicationDomainAndTheText() {
         val review = review(request(offchain("hello", domain = key(5)), signType = SolSignType.MESSAGE))
@@ -362,12 +376,12 @@ class SolanaReviewRowsTest {
     }
 
     /**
-     * The one-time setup shows its account, its rent in SOL, its authority and its payer, and the facts count both of its instructions.
+     * The one-time setup shows its account, its deposit in SOL, its authority and its payer, and the facts count both of its instructions.
      */
     @Test
-    fun aNonceAccountSetupShowsTheAccountRentAndAuthority() {
+    fun aNonceAccountSetupShowsTheAccountDepositAndAuthority() {
         val review = transaction(nonceSetup(authority = key(1)))
-        assertEquals("Create a nonce account ${address(2)}, rent 0.00144768 SOL, authority ${address(1)}.", solanaSentence(review))
+        assertEquals("Create a nonce account ${address(2)}, deposit 0.00144768 SOL, authority ${address(1)}.", solanaSentence(review))
         assertEquals(
             listOf(
                 "Signer" to address(1),
@@ -376,7 +390,7 @@ class SolanaReviewRowsTest {
                 "Recent Blockhash" to BLOCKHASH,
                 "Program" to SYSTEM_ADDRESS,
                 "Create a Nonce Account" to address(2),
-                "Rent" to "0.00144768 SOL",
+                "Deposit" to "0.00144768 SOL",
                 "Nonce Authority" to address(1),
                 "Paid by" to address(1),
             ),
@@ -391,10 +405,10 @@ class SolanaReviewRowsTest {
      * the base, the seed and the System owner. The payer is the signer, and is also the base.
      */
     @Test
-    fun aSeededNonceSetupShowsItsBaseSeedAccountRentAuthorityAndPayer() {
+    fun aSeededNonceSetupShowsItsBaseSeedAccountDepositAuthorityAndPayer() {
         val account = SolanaAccount.addressOf(seededAccount(key(1), SEED))
         val review = transaction(seededNonceSetup(account))
-        assertEquals("Create a nonce account $account, rent 0.00144768 SOL, authority ${address(1)}.", solanaSentence(review))
+        assertEquals("Create a nonce account $account, deposit 0.00144768 SOL, authority ${address(1)}.", solanaSentence(review))
         assertEquals(
             listOf(
                 "Signer" to address(1),
@@ -404,7 +418,7 @@ class SolanaReviewRowsTest {
                 "Create a Nonce Account" to account,
                 "Base Account" to address(1),
                 "Seed" to SEED,
-                "Rent" to "0.00144768 SOL",
+                "Deposit" to "0.00144768 SOL",
                 "Nonce Authority" to address(1),
                 "Paid by" to address(1),
             ),
@@ -432,6 +446,70 @@ class SolanaReviewRowsTest {
             val warning = review.toReview().warnings.single { it.code == "solana.nonce-authority" }
             assertEquals(Danger.DANGER, warning.level)
             assertNotNull(warning.acknowledge)
+        }
+    }
+
+    /**
+     * #1485: a nonce setup that funds an account whose authority is someone else, beside a small send, is not summarised as the small send.
+     * Its funds are a deposit, not rent, and the warning says the authority can withdraw them.
+     */
+    @Test
+    fun aNonceSetupBesideASendIsADepositTheAuthorityCanWithdrawAndIsNotSummarisedAsTheSend() {
+        val signData = legacy(
+            keys = listOf(key(1), key(2), key(3), SYSTEM, RECENT_BLOCKHASHES, RENT),
+            instructions = listOf(
+                Instruction(program = 3, accounts = listOf(0, 1), data = le32(0) + le64(100_000_000_000L) + le64(80L) + ByteArray(32)),
+                Instruction(program = 3, accounts = listOf(1, 4, 5), data = le32(6) + key(9)),
+                transfer(from = 0, to = 2, lamports = 1_000_000L, program = 3),
+            ),
+            signers = 2,
+            readonly = 3,
+        )
+        val review = transaction(signData)
+        assertTrue(review.toReview().summary.none { it is SummaryPart.Send }, solanaSentence(review))
+        assertFalse(solanaRows(review).any { it.first == "Rent" })
+        assertContains(solanaRows(review), "Deposit" to "100 SOL")
+        assertContains(solanaWarningText(SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER), "withdraw all of its deposit")
+        assertEquals(listOf(SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER), review.warnings)
+    }
+
+    /** #1486: each token and System instruction that spends or hands over control shows rows that name its target, and is not raw hex. */
+    @Test
+    fun instructionsThatSpendOrHandOverControlAreDecodedNotRaw() {
+        // Keys: 0 signer and owner, 1 token account, 2 the other address, 3 mint, 4 Token, 5 System, 6 RecentBlockhashes, 7 Rent.
+        fun review(program: Int, accounts: List<Int>, data: ByteArray) = transaction(
+            legacy(
+                keys = listOf(key(1), key(3), key(9), key(4), TOKEN, SYSTEM, RECENT_BLOCKHASHES, RENT),
+                instructions = listOf(Instruction(program, accounts, data)),
+                readonly = 4,
+            ),
+        )
+        val cases = listOf(
+            // Approve (4): [source, delegate, owner], u64 amount. ApproveChecked (13): [source, mint, delegate, owner], u64 amount, decimals.
+            Triple(review(4, listOf(1, 2, 0), byteArrayOf(4) + le64(1000L)), "Delegate" to address(9), true),
+            Triple(review(4, listOf(1, 3, 2, 0), byteArrayOf(13) + le64(1000L) + byteArrayOf(6)), "Delegate" to address(9), true),
+            // SetAuthority (6): [account, current authority], authority type, flag 1 and the new authority. Flag 0 removes the authority.
+            Triple(review(4, listOf(1, 0), byteArrayOf(6, 2, 1) + key(9)), "New Authority" to address(9), true),
+            Triple(review(4, listOf(1, 0), byteArrayOf(6, 3, 0)), "New Authority" to "None (the authority is removed for good)", true),
+            // CloseAccount (9): [account, destination, owner]. Burn (8): [account, mint, authority]. BurnChecked (15) adds decimals.
+            Triple(review(4, listOf(1, 2, 0), byteArrayOf(9)), "Remaining SOL To" to address(9), false),
+            Triple(review(4, listOf(1, 3, 0), byteArrayOf(8) + le64(5L)), "Token Burn" to "5 base units, decimals unknown", false),
+            Triple(review(4, listOf(1, 3, 0), byteArrayOf(15) + le64(5L) + byteArrayOf(0)), "Token Burn" to "5 of an unknown token", false),
+            // WithdrawNonceAccount (5): [nonce, to, RecentBlockhashes, Rent, authority], u64 lamports. AuthorizeNonceAccount (7): [nonce,
+            // authority], the new authority. Assign (1): [account], the new owner. CreateAccount (0): [funder, new], lamports, space, owner.
+            Triple(review(5, listOf(1, 2, 6, 7, 0), le32(5) + le64(2_000_000_000L)), "Nonce Withdrawal" to "2 SOL", false),
+            Triple(review(5, listOf(1, 0), le32(7) + key(9)), "New Nonce Authority" to address(9), true),
+            Triple(review(5, listOf(1), le32(1) + key(9)), "New Owner Program" to address(9), true),
+            Triple(review(5, listOf(0, 1), le32(0) + le64(3_000_000_000L) + le64(10L) + key(9)), "Deposit" to "3 SOL", false),
+        )
+        for ((review, row, hasControlWarning) in cases) {
+            val rows = solanaRows(review)
+            assertContains(rows, row)
+            assertTrue(rows.none { it.first == "Unknown Program" || it.first.startsWith("Program not decoded") }, "$row: $rows")
+            assertEquals(hasControlWarning, SolanaWarning.HANDS_OVER_CONTROL in review.warnings, "$row")
+            assertTrue(SolanaWarning.UNKNOWN_PROGRAM !in review.warnings, "$row")
+            val warning = review.toReview().warnings.singleOrNull { it.code == "solana.hands-over-control" }
+            assertEquals(hasControlWarning, warning?.acknowledge != null, "$row")
         }
     }
 
@@ -583,8 +661,8 @@ class SolanaReviewRowsTest {
 
     private class Instruction(val program: Int, val accounts: List<Int>, val data: ByteArray)
 
-    private fun transfer(from: Int, to: Int, lamports: Long): Instruction = Instruction(
-        program = 2,
+    private fun transfer(from: Int, to: Int, lamports: Long, program: Int = 2): Instruction = Instruction(
+        program = program,
         accounts = listOf(from, to),
         data = ByteBuffer.allocate(12).order(ByteOrder.LITTLE_ENDIAN).putInt(2).putLong(lamports).array(),
     )

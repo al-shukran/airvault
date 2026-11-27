@@ -3,7 +3,6 @@ package app.airvault.chains.solana.signer
 import app.airvault.chains.solana.SOLANA_DEVNET
 import app.airvault.chains.solana.SOLANA_MAINNET
 import app.airvault.chains.solana.SOLANA_TESTNET
-import app.airvault.chains.solana.solanaManifest
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.Coverage
 import app.airvault.core.model.Danger
@@ -21,6 +20,9 @@ import java.math.BigDecimal
 
 /** The label the owner ticks for an instruction Lensly does not read. Sentence case, beside its checkbox. */
 private const val UNDERSTAND = "I understand Lensly cannot say what this does."
+
+/** The label the owner ticks for an instruction that hands control to another address. Sentence case, beside its checkbox. */
+private const val ACK_CONTROL = "I understand this gives another address control."
 
 /** The label the owner ticks for a durable nonce whose authority is not this account. Sentence case, beside its checkbox. */
 private const val ACK_NONCE_AUTHORITY = "I understand the nonce authority is not this account."
@@ -72,6 +74,10 @@ private object Fields {
     val seedText = FieldPath("solana.seedText")
     val units = FieldPath("solana.computeUnitLimit")
     val microLamports = FieldPath("solana.computeUnitPrice")
+    val delegate = FieldPath("solana.delegate")
+    val newAuthority = FieldPath("solana.newAuthority")
+    val authorityType = FieldPath("solana.authorityType")
+    val space = FieldPath("solana.space")
     val data = FieldPath("solana.data")
     val accounts = FieldPath("solana.accounts")
 }
@@ -85,7 +91,8 @@ fun SolanaRequestReview.toReview(): Review {
     return Review(
         title = "Review",
         chain = chain,
-        network = NetworkLabel(name = "Solana", testnet = chain.isTestnet(), detail = null, row = clusterRow()),
+        // A message commits to no cluster, so the cluster the request states is shown only in its own row, never as a testnet mark.
+        network = NetworkLabel(name = "Solana", testnet = false, detail = null, row = clusterRow()),
         summary = listOf(sentence()),
         facts = facts(),
         sections = listOf(ReviewSection(if (message == null) "Message" else "Instructions", rows(chain))),
@@ -99,7 +106,8 @@ fun solanaWarningText(warning: SolanaWarning): String = when (warning) {
     SolanaWarning.UNKNOWN_PROGRAM ->
         "Unknown or undecoded instruction. Lensly does not read it, so Lensly cannot say what it does. Its raw bytes are shown below."
     SolanaWarning.NONCE_AUTHORITY_NOT_SIGNER ->
-        "Nonce authority is not this account. Only the authority can advance a durable nonce, and this account is not the authority."
+        "Nonce authority is not this account. Only the authority can advance a durable nonce, and this account is not the authority. " +
+            "For a new nonce account, the authority can also withdraw all of its deposit."
     SolanaWarning.DURABLE_NONCE ->
         "Durable nonce. This transaction has no expiry. It stays valid until the nonce advances, and advancing the nonce cancels it."
     SolanaWarning.LOOKUP_TABLE ->
@@ -111,6 +119,9 @@ fun solanaWarningText(warning: SolanaWarning): String = when (warning) {
     SolanaWarning.TOKEN_2022 ->
         "Token-2022 token. Its mint may carry extensions that Lensly cannot read offline. A transfer fee means the recipient can get " +
             "less than the amount shown. A transfer hook runs another program on each transfer. A permanent delegate can move the tokens later."
+    SolanaWarning.HANDS_OVER_CONTROL ->
+        "This gives another address control. An approval lets its delegate spend the tokens, and an authority change lets the new authority " +
+            "act as the owner. Check that you trust the address shown."
 }
 
 /** The chain a cluster is: mainnet-beta when the request states none, as Lensly's Solana family is. */
@@ -119,9 +130,6 @@ private fun clusterChain(cluster: SolCluster?): ChainId = when (cluster) {
     SolCluster.TESTNET -> SOLANA_TESTNET
     SolCluster.MAINNET_BETA, null -> SOLANA_MAINNET
 }
-
-/** Whether this chain is a test cluster, as the Solana manifest marks it. */
-private fun ChainId.isTestnet(): Boolean = solanaManifest.networks.single { it.chainId == this }.testnet
 
 /** The network row of the header: the cluster that Lumio states, marked as stated by Lumio, or "Not stated" when the request names none. */
 private fun SolanaRequestReview.clusterRow(): ReviewRow {
@@ -142,16 +150,12 @@ private fun clusterName(cluster: SolCluster): String = when (cluster) {
  */
 private fun SolanaRequestReview.sentence(): SummaryPart {
     if (offchainMessage != null) return SummaryPart.Text("Signs a message as text.")
-    (instructions.singleOrNull() as? SolanaInstruction.CreateNonceAccount)?.let {
-        return SummaryPart.Text(
-            "Create a nonce account ${accountText(it.account)}, rent ${lamportsText(it.lamports)} SOL, " +
-                "authority ${accountText(it.authority)}.",
+    // A send is named only when it is the one instruction that moves value or control, so no deposit or approval hides behind it.
+    return when (val only = instructions.filter { it.movesValueOrControl }.singleOrNull()) {
+        is SolanaInstruction.CreateNonceAccount -> SummaryPart.Text(
+            "Create a nonce account ${accountText(only.account)}, deposit ${lamportsText(only.lamports)} SOL, " +
+                "authority ${accountText(only.authority)}.",
         )
-    }
-    val transfers = instructions.filter {
-        it is SolanaInstruction.SystemTransfer || it is SolanaInstruction.TokenTransfer || it is SolanaInstruction.TokenTransferChecked
-    }
-    return when (val only = transfers.singleOrNull()) {
         is SolanaInstruction.SystemTransfer ->
             SummaryPart.Send(lamportsText(only.lamports), "SOL", accountText(only.from), accountText(only.to))
         is SolanaInstruction.TokenTransferChecked -> SummaryPart.Send(
@@ -165,6 +169,11 @@ private fun SolanaRequestReview.sentence(): SummaryPart {
         else -> SummaryPart.Text("Signs a transaction with ${messageInstructionCount()} instructions.")
     }
 }
+
+/** Whether this instruction moves SOL or tokens, or hands control of an account over. A decoded instruction that does neither is not one. */
+private val SolanaInstruction.movesValueOrControl: Boolean
+    get() = this !is SolanaInstruction.Raw && this !is SolanaInstruction.AdvanceNonce && this !is SolanaInstruction.SetComputeUnitLimit &&
+        this !is SolanaInstruction.SetComputeUnitPrice && this !is SolanaInstruction.AssociatedTokenCreate
 
 /**
  * The short facts under the sentence: the instruction count, the fee payer, the base, priority and most fee in lamports, and the mint when a
@@ -260,6 +269,65 @@ private fun SolanaRequestReview.detailRows(instruction: SolanaInstruction, chain
         accountRow("Nonce Authority", chain, instruction.authority, Fields.authority),
     )
     is SolanaInstruction.CreateNonceAccount -> nonceSetupRows(instruction, chain)
+    is SolanaInstruction.TokenApprove -> buildList {
+        val token = instruction.mint?.let(::tokenOf)
+        add(textRow("Token Approval", approvalAmountText(instruction, token), Fields.amount))
+        add(accountRow("Delegate", chain, instruction.delegate, Fields.delegate))
+        if (instruction.mint != null) {
+            add(textRow("Token", tokenNameText(token), Fields.mint))
+            add(accountRow("Mint", chain, instruction.mint, Fields.mint))
+        }
+        add(accountRow("Token Account", chain, instruction.source, Fields.source))
+        add(accountRow("Owner", chain, instruction.owner, Fields.owner))
+    }
+    is SolanaInstruction.TokenSetAuthority -> listOf(
+        textRow("Change Authority", authorityTypeText(instruction.authorityType), Fields.authorityType),
+        accountRow("Token Account", chain, instruction.account, Fields.account),
+        instruction.newAuthority?.let { accountRow("New Authority", chain, it, Fields.newAuthority) }
+            ?: textRow("New Authority", "None (the authority is removed for good)", Fields.newAuthority),
+        accountRow("Current Authority", chain, instruction.currentAuthority, Fields.authority),
+    )
+    is SolanaInstruction.TokenCloseAccount -> listOf(
+        accountRow("Close Token Account", chain, instruction.account, Fields.account),
+        accountRow("Remaining SOL To", chain, instruction.destination, Fields.destination),
+        accountRow("Owner", chain, instruction.owner, Fields.owner),
+    )
+    is SolanaInstruction.TokenBurn -> {
+        val token = tokenOf(instruction.mint)
+        listOf(
+            textRow(
+                "Token Burn",
+                instruction.decimals?.let { tokenAmountText(instruction.amount, it, token) } ?: "${instruction.amount} base units, decimals unknown",
+                Fields.amount,
+            ),
+            textRow("Token", tokenNameText(token), Fields.mint),
+            accountRow("Mint", chain, instruction.mint, Fields.mint),
+            accountRow("From Token Account", chain, instruction.account, Fields.account),
+            accountRow("Authority", chain, instruction.authority, Fields.authority),
+        )
+    }
+    is SolanaInstruction.SystemCreateAccount -> listOf(
+        accountRow("Create Account", chain, instruction.account, Fields.account),
+        textRow("Deposit", "${lamportsText(instruction.lamports)} SOL", Fields.lamports),
+        textRow("Space", "${instruction.space} bytes", Fields.space),
+        accountRow("Owner Program", chain, SolanaMessageAccount.Static(instruction.owner), Fields.owner),
+        accountRow("Paid by", chain, instruction.funder, Fields.funder),
+    )
+    is SolanaInstruction.SystemAssign -> listOf(
+        accountRow("Assign Account", chain, instruction.account, Fields.account),
+        accountRow("New Owner Program", chain, SolanaMessageAccount.Static(instruction.owner), Fields.owner),
+    )
+    is SolanaInstruction.WithdrawNonce -> listOf(
+        textRow("Nonce Withdrawal", "${lamportsText(instruction.lamports)} SOL", Fields.lamports),
+        accountRow("From Nonce Account", chain, instruction.nonceAccount, Fields.nonceAccount),
+        accountRow("To", chain, instruction.to, Fields.to),
+        accountRow("Nonce Authority", chain, instruction.authority, Fields.authority),
+    )
+    is SolanaInstruction.AuthorizeNonce -> listOf(
+        accountRow("Change Nonce Authority", chain, instruction.nonceAccount, Fields.nonceAccount),
+        accountRow("New Nonce Authority", chain, instruction.newAuthority, Fields.newAuthority),
+        accountRow("Current Nonce Authority", chain, instruction.currentAuthority, Fields.authority),
+    )
     is SolanaInstruction.SetComputeUnitLimit -> listOf(textRow("Compute Limit", "${instruction.units} units", Fields.units))
     is SolanaInstruction.SetComputeUnitPrice ->
         listOf(textRow("Compute Price", "${instruction.microLamports} micro-lamports per unit", Fields.microLamports))
@@ -284,8 +352,8 @@ private fun SolanaRequestReview.rawRows(raw: SolanaInstruction.Raw, chain: Chain
 private const val NOT_DECODED = "Program not decoded: instruction is not read"
 
 /**
- * The rows of a nonce setup: the account it creates, and when the account is derived from a seed, the base and the seed. Then its rent,
- * its authority, and who pays for it.
+ * The rows of a nonce setup: the account it creates, and when the account is derived from a seed, the base and the seed. Then its deposit,
+ * its authority, and who pays for it. The deposit is not rent: the authority can withdraw all of it.
  */
 private fun nonceSetupRows(instruction: SolanaInstruction.CreateNonceAccount, chain: ChainId): List<ReviewRow> = buildList {
     add(accountRow("Create a Nonce Account", chain, instruction.account, Fields.account))
@@ -293,9 +361,22 @@ private fun nonceSetupRows(instruction: SolanaInstruction.CreateNonceAccount, ch
         add(accountRow("Base Account", chain, it.base, Fields.seedBase))
         add(textRow("Seed", it.text, Fields.seedText))
     }
-    add(textRow("Rent", "${lamportsText(instruction.lamports)} SOL", Fields.lamports))
+    add(textRow("Deposit", "${lamportsText(instruction.lamports)} SOL", Fields.lamports))
     add(accountRow("Nonce Authority", chain, instruction.authority, Fields.authority))
     add(accountRow("Paid by", chain, instruction.funder, Fields.funder))
+}
+
+/** The amount an approval lets the delegate spend. An unchecked approval names no mint, so its amount is in base units. */
+private fun approvalAmountText(approval: SolanaInstruction.TokenApprove, token: SolanaToken?): String =
+    approval.decimals?.let { tokenAmountText(approval.amount, it, token) } ?: "${approval.amount} base units, decimals unknown"
+
+/** The authority an SPL Token SetAuthority changes. Token-2022 adds more types, which are shown by number. */
+private fun authorityTypeText(type: Int): String = when (type) {
+    0 -> "Mint tokens"
+    1 -> "Freeze account"
+    2 -> "Account owner"
+    3 -> "Close account"
+    else -> "Authority type $type"
 }
 
 private fun textRow(label: String, value: String, field: FieldPath) = ReviewRow(label, DisplayValue.Text(value), field)
@@ -357,6 +438,8 @@ private fun warningOf(warning: SolanaWarning): Warning = when (warning) {
     SolanaWarning.UNKNOWN_TOKEN -> Warning(Danger.CAUTION, "solana.unknown-token", solanaWarningText(warning))
     SolanaWarning.DECIMALS_UNKNOWN -> Warning(Danger.CAUTION, "solana.decimals-unknown", solanaWarningText(warning))
     SolanaWarning.TOKEN_2022 -> Warning(Danger.CAUTION, "solana.token-2022", solanaWarningText(warning))
+    SolanaWarning.HANDS_OVER_CONTROL ->
+        Warning(Danger.DANGER, "solana.hands-over-control", solanaWarningText(warning), acknowledge = ACK_CONTROL)
 }
 
 /** The signers of an off-chain message other than the signing account, in the order the message gives them. */
@@ -408,6 +491,22 @@ private fun decodedFieldsOf(instruction: SolanaInstruction): Set<FieldPath> = bu
             addAll(listOf(Fields.funder, Fields.account, Fields.lamports, Fields.authority))
             if (instruction.seed != null) addAll(listOf(Fields.seedBase, Fields.seedText))
         }
+        is SolanaInstruction.TokenApprove -> {
+            addAll(listOf(Fields.source, Fields.delegate, Fields.owner, Fields.amount))
+            if (instruction.mint != null) add(Fields.mint)
+            if (instruction.decimals != null) add(Fields.decimals)
+        }
+        is SolanaInstruction.TokenSetAuthority ->
+            addAll(listOf(Fields.account, Fields.authorityType, Fields.newAuthority, Fields.authority))
+        is SolanaInstruction.TokenCloseAccount -> addAll(listOf(Fields.account, Fields.destination, Fields.owner))
+        is SolanaInstruction.TokenBurn -> {
+            addAll(listOf(Fields.account, Fields.mint, Fields.authority, Fields.amount))
+            if (instruction.decimals != null) add(Fields.decimals)
+        }
+        is SolanaInstruction.SystemCreateAccount -> addAll(listOf(Fields.funder, Fields.account, Fields.lamports, Fields.space, Fields.owner))
+        is SolanaInstruction.SystemAssign -> addAll(listOf(Fields.account, Fields.owner))
+        is SolanaInstruction.WithdrawNonce -> addAll(listOf(Fields.nonceAccount, Fields.to, Fields.authority, Fields.lamports))
+        is SolanaInstruction.AuthorizeNonce -> addAll(listOf(Fields.nonceAccount, Fields.newAuthority, Fields.authority))
         is SolanaInstruction.Raw -> {
             add(Fields.data)
             if (instruction.accounts.isNotEmpty()) add(Fields.accounts)

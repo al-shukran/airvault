@@ -120,7 +120,8 @@ class SolanaRequestCheckTest {
 
     /**
      * R03: a price with no limit pays for the default units. A System Program transfer is a builtin, so it is given 3,000 units, not the
-     * 200,000 of a program that is not a builtin. At one lamport per unit here, the fee is 3,000 lamports.
+     * 200,000 of a program that is not a builtin. The compute price instruction is a builtin too and adds 3,000. At one lamport per unit here,
+     * the fee is 6,000 lamports.
      */
     @Test
     fun aPriceWithNoLimitHasAPriorityFeeAtTheDefaultUnits() {
@@ -131,13 +132,13 @@ class SolanaRequestCheckTest {
         )
         val review = review(request(signData), listOf(key(1)))
         assertNull(review.computeUnitLimit)
-        assertEquals(3_000uL, review.priorityFeeLamports)
+        assertEquals(6_000uL, review.priorityFeeLamports)
         assertTrue(review.priorityFeeIsBound)
     }
 
     /**
-     * R03: a nonce advance and a transfer are two System Program instructions, so they are two builtin defaults: 6,000 units. The nonce
-     * advance comes first, as a durable nonce requires.
+     * R03: a nonce advance and a transfer are two System Program instructions, so they are two builtin defaults, and the compute price
+     * instruction a third: 9,000 units. The nonce advance comes first, as a durable nonce requires.
      */
     @Test
     fun aNonceAdvanceAndATransferPayForTwoBuiltinDefaults() {
@@ -154,15 +155,15 @@ class SolanaRequestCheckTest {
         )
         val review = review(request(signData), listOf(key(1)))
         assertNull(review.computeUnitLimit)
-        assertEquals(6_000uL, review.priorityFeeLamports)
+        assertEquals(9_000uL, review.priorityFeeLamports)
     }
 
-    /** R03: an SPL TransferChecked is not a builtin, so it pays for the full 200,000 units by default. */
+    /** R03: an SPL TransferChecked is not a builtin, so it pays for the full 200,000 units by default, and the compute price instruction adds 3,000. */
     @Test
     fun aTokenTransferPaysForTheFullDefaultUnits() {
         val review = review(request(tokenTransfers(count = 1)), listOf(key(1)))
         assertNull(review.computeUnitLimit)
-        assertEquals(200_000uL, review.priorityFeeLamports)
+        assertEquals(203_000uL, review.priorityFeeLamports)
     }
 
     /** R03: the default units are capped at the 1,400,000 a transaction can request: eight token transfers would be 1,600,000. */

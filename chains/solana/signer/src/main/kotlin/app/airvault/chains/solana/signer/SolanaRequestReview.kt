@@ -37,6 +37,13 @@ enum class SolanaWarning {
      * the tokens later. The review shows this at CAUTION.
      */
     TOKEN_2022,
+
+    /**
+     * An instruction hands control to another address: a token approval gives a delegate the right to spend, an authority change or a
+     * nonce authority change gives the new authority the account, and an assign gives the account to another program. The review shows
+     * this at error level, as the owner cannot take it back by signing again.
+     */
+    HANDS_OVER_CONTROL,
 }
 
 /**
@@ -73,6 +80,8 @@ class SolanaRequestReview internal constructor(
             when (instruction) {
                 is SolanaInstruction.TokenTransferChecked -> instruction.mint
                 is SolanaInstruction.AssociatedTokenCreate -> instruction.mint
+                is SolanaInstruction.TokenApprove -> instruction.mint
+                is SolanaInstruction.TokenBurn -> instruction.mint
                 else -> null
             }
         }.distinct()
@@ -151,6 +160,7 @@ class SolanaRequestReview internal constructor(
             if (mints.any { tokenOf(it) == null }) add(SolanaWarning.UNKNOWN_TOKEN)
             if (lookups.isNotEmpty()) add(SolanaWarning.LOOKUP_TABLE)
             if (instructions.any { it.isToken2022Transfer }) add(SolanaWarning.TOKEN_2022)
+            if (instructions.any { it.handsOverControl }) add(SolanaWarning.HANDS_OVER_CONTROL)
         }
 
     /**
@@ -196,16 +206,20 @@ private val MAX_BUILTIN_UNITS: UInt = 3_000u
 private val MAX_UNITS: UInt = 1_400_000u
 
 /**
- * The default compute units of one instruction, by the program it calls. A System Program instruction is a builtin and gets
- * [MAX_BUILTIN_UNITS]. The compute budget program's instructions set the limit and price, so they pay for nothing by default. Any other
- * program, including one a lookup table names, gets [DEFAULT_UNITS_PER_INSTRUCTION].
+ * The default compute units of one instruction, by the program it calls. A System Program or compute budget instruction is a builtin and
+ * gets [MAX_BUILTIN_UNITS]: the runtime counts a compute budget instruction too when the transaction sets no limit. Any other program,
+ * including one a lookup table names, gets [DEFAULT_UNITS_PER_INSTRUCTION].
  */
 private fun defaultUnitsOf(program: SolanaMessageAccount): UInt =
     when ((program as? SolanaMessageAccount.Static)?.address) {
-        SYSTEM_PROGRAM -> MAX_BUILTIN_UNITS
-        COMPUTE_BUDGET_PROGRAM -> 0u
+        SYSTEM_PROGRAM, COMPUTE_BUDGET_PROGRAM -> MAX_BUILTIN_UNITS
         else -> DEFAULT_UNITS_PER_INSTRUCTION
     }
+
+/** Whether this instruction gives another address the right to spend an account's tokens, or ownership of an account. */
+private val SolanaInstruction.handsOverControl: Boolean
+    get() = this is SolanaInstruction.TokenApprove || this is SolanaInstruction.TokenSetAuthority ||
+        this is SolanaInstruction.AuthorizeNonce || this is SolanaInstruction.SystemAssign
 
 /** Whether this instruction is a token transfer that the Token-2022 program runs. */
 private val SolanaInstruction.isToken2022Transfer: Boolean
@@ -366,11 +380,15 @@ object SolanaRequestCheck {
         )
     }
 
-    /** The accounts an instruction moves value to: the SOL recipient, and the token destination and authority. */
+    /** The accounts an instruction moves value or control to: the SOL recipient, the token destination and authority, a delegate, a new authority. */
     private fun valueRecipients(instruction: SolanaInstruction): List<SolanaMessageAccount> = when (instruction) {
         is SolanaInstruction.SystemTransfer -> listOf(instruction.to)
         is SolanaInstruction.TokenTransfer -> listOf(instruction.destination, instruction.authority)
         is SolanaInstruction.TokenTransferChecked -> listOf(instruction.destination, instruction.authority)
+        is SolanaInstruction.TokenApprove -> listOf(instruction.delegate)
+        is SolanaInstruction.TokenSetAuthority -> listOfNotNull(instruction.newAuthority)
+        is SolanaInstruction.TokenCloseAccount -> listOf(instruction.destination)
+        is SolanaInstruction.WithdrawNonce -> listOf(instruction.to)
         else -> emptyList()
     }
 

@@ -74,9 +74,45 @@ private fun systemInstruction(
     return when (u32(data, 0)) {
         2u -> systemTransfer(program, accounts, data)
         4u -> if (first) advanceNonce(program, accounts, data) else null
+        0u -> systemCreateAccount(program, accounts, data)
+        1u -> systemAssign(program, accounts, data)
+        5u -> withdrawNonce(program, accounts, data)
+        7u -> authorizeNonce(program, accounts, data)
         else -> null
     }
 }
+
+/** CreateAccount outside a nonce setup: u32 LE 0, u64 LE lamports, u64 LE space, then the 32-byte owner. Accounts are [funder, new]. */
+private fun systemCreateAccount(program: SolanaMessageAccount, accounts: List<SolanaMessageAccount>, data: ByteArray): SolanaInstruction? {
+    if (data.size != 52 || accounts.size != 2) return null
+    return SolanaInstruction.SystemCreateAccount(
+        program, funder = accounts[0], account = accounts[1], lamports = u64(data, 4), space = u64(data, 12), owner = key58(data, 20),
+    )
+}
+
+/** Assign: u32 LE 1, then the 32-byte owner. Accounts are [account]. */
+private fun systemAssign(program: SolanaMessageAccount, accounts: List<SolanaMessageAccount>, data: ByteArray): SolanaInstruction? {
+    if (data.size != 36 || accounts.size != 1) return null
+    return SolanaInstruction.SystemAssign(program, account = accounts[0], owner = key58(data, 4))
+}
+
+/** WithdrawNonceAccount: u32 LE 5, then u64 LE lamports. Accounts are [nonce, to, RecentBlockhashes sysvar, Rent sysvar, authority]. */
+private fun withdrawNonce(program: SolanaMessageAccount, accounts: List<SolanaMessageAccount>, data: ByteArray): SolanaInstruction? {
+    if (data.size != 12 || accounts.size != 5 || !accounts[2].isStatic(RECENT_BLOCKHASHES_SYSVAR) || !accounts[3].isStatic(RENT_SYSVAR)) {
+        return null
+    }
+    return SolanaInstruction.WithdrawNonce(program, nonceAccount = accounts[0], to = accounts[1], authority = accounts[4], lamports = u64(data, 4))
+}
+
+/** AuthorizeNonceAccount: u32 LE 7, then the 32-byte new authority. Accounts are [nonce, current authority]. */
+private fun authorizeNonce(program: SolanaMessageAccount, accounts: List<SolanaMessageAccount>, data: ByteArray): SolanaInstruction? {
+    if (data.size != 36 || accounts.size != 2) return null
+    return SolanaInstruction.AuthorizeNonce(
+        program, nonceAccount = accounts[0], currentAuthority = accounts[1], newAuthority = SolanaMessageAccount.Static(key58(data, 4)),
+    )
+}
+
+private fun key58(data: ByteArray, at: Int): String = Base58.encode(data.copyOfRange(at, at + 32))
 
 /** Transfer: u32 LE index 2, then u64 LE lamports. Accounts are [from, to]. */
 private fun systemTransfer(
@@ -206,38 +242,75 @@ private fun computeBudget(
 
 /**
  * Transfer (tag 3): accounts [source, destination, authority]. TransferChecked (tag 12): accounts [source, mint, destination,
- * authority], then one decimals byte. A Token-2022 transfer hook adds accounts, so any other count stays raw.
+ * authority], then one decimals byte. Approve (4): [source, delegate, owner]. ApproveChecked (13): [source, mint, delegate, owner], then
+ * decimals. SetAuthority (6): [account, current authority], then the authority type, and a flag byte with the new authority when it is 1.
+ * CloseAccount (9): [account, destination, owner]. Burn (8): [account, mint, authority]. BurnChecked (15): the same, then decimals. A
+ * multisig authority or a Token-2022 transfer hook adds accounts, so any other count stays raw.
  */
 private fun token(
     program: SolanaMessageAccount,
     accounts: List<SolanaMessageAccount>,
     data: ByteArray,
-): SolanaInstruction? = when (data.getOrNull(0)?.toInt()) {
-    3 -> if (data.size == 9 && accounts.size == 3) {
-        SolanaInstruction.TokenTransfer(
-            program,
-            source = accounts[0],
-            destination = accounts[1],
-            authority = accounts[2],
-            amount = u64(data, 1),
-        )
-    } else {
-        null
+): SolanaInstruction? {
+    val amount = if (data.size >= 9) u64(data, 1) else 0uL
+    // The decimals byte of a checked form is the last byte of its data.
+    val decimals = data.lastOrNull()?.toUByte()?.toInt() ?: 0
+    return when (data.getOrNull(0)?.toInt()) {
+        3 -> if (data.size == 9 && accounts.size == 3) {
+            SolanaInstruction.TokenTransfer(program, source = accounts[0], destination = accounts[1], authority = accounts[2], amount = amount)
+        } else {
+            null
+        }
+        12 -> if (data.size == 10 && accounts.size == 4) {
+            SolanaInstruction.TokenTransferChecked(
+                program, source = accounts[0], mint = accounts[1], destination = accounts[2], authority = accounts[3],
+                amount = amount, decimals = decimals,
+            )
+        } else {
+            null
+        }
+        4 -> if (data.size == 9 && accounts.size == 3) {
+            SolanaInstruction.TokenApprove(program, accounts[0], null, delegate = accounts[1], owner = accounts[2], amount = amount, decimals = null)
+        } else {
+            null
+        }
+        13 -> if (data.size == 10 && accounts.size == 4) {
+            SolanaInstruction.TokenApprove(
+                program, accounts[0], mint = accounts[1], delegate = accounts[2], owner = accounts[3], amount = amount, decimals = decimals,
+            )
+        } else {
+            null
+        }
+        6 -> tokenSetAuthority(program, accounts, data)
+        9 -> if (data.size == 1 && accounts.size == 3) {
+            SolanaInstruction.TokenCloseAccount(program, account = accounts[0], destination = accounts[1], owner = accounts[2])
+        } else {
+            null
+        }
+        8 -> if (data.size == 9 && accounts.size == 3) {
+            SolanaInstruction.TokenBurn(program, accounts[0], mint = accounts[1], authority = accounts[2], amount = amount, decimals = null)
+        } else {
+            null
+        }
+        15 -> if (data.size == 10 && accounts.size == 3) {
+            SolanaInstruction.TokenBurn(program, accounts[0], mint = accounts[1], authority = accounts[2], amount = amount, decimals = decimals)
+        } else {
+            null
+        }
+        else -> null
     }
-    12 -> if (data.size == 10 && accounts.size == 4) {
-        SolanaInstruction.TokenTransferChecked(
-            program,
-            source = accounts[0],
-            mint = accounts[1],
-            destination = accounts[2],
-            authority = accounts[3],
-            amount = u64(data, 1),
-            decimals = data[9].toUByte().toInt(),
-        )
-    } else {
-        null
+}
+
+private fun tokenSetAuthority(program: SolanaMessageAccount, accounts: List<SolanaMessageAccount>, data: ByteArray): SolanaInstruction? {
+    if (accounts.size != 2 || data.size < 3) return null
+    val newAuthority = when {
+        data.size == 3 && data[2].toInt() == 0 -> null
+        data.size == 35 && data[2].toInt() == 1 -> SolanaMessageAccount.Static(key58(data, 3))
+        else -> return null
     }
-    else -> null
+    return SolanaInstruction.TokenSetAuthority(
+        program, account = accounts[0], authorityType = data[1].toUByte().toInt(), newAuthority = newAuthority, currentAuthority = accounts[1],
+    )
 }
 
 /**
