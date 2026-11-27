@@ -50,7 +50,7 @@ class LenslyApp : Application(), CoverApplication {
 internal fun shredRecordingInBackground(
     layout: VaultLayout,
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
-    shred: () -> Unit = { layout.shredRecording() },
+    shred: () -> Unit = { layout.shredRecordingAtStartup() },
 ): Job = CoroutineScope(SupervisorJob() + dispatcher).launch {
     try {
         shred()

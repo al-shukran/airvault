@@ -67,15 +67,32 @@ class VaultLayout(
     fun shredRecording(overwrite: (File) -> Unit = ::overwriteInPlace, sync: (File) -> Unit = ::syncDirectory): Boolean {
         val file = recording ?: return true
         synchronized(shredLock) {
-            overwriteBestEffort(file, overwrite)
-            if (!file.delete() && file.exists()) return false
-            try {
-                file.parentFile?.let(sync)
-            } catch (e: IOException) {
-                // The file is deleted. The journal commits the delete within seconds.
-            }
-            return true
+            val gone = shredLocked(file, overwrite, sync)
+            if (gone) shredPaths += file.path
+            return gone
         }
+    }
+
+    /**
+     * The shred that the start of the app runs. It does nothing once another [shredRecording] has finished in this process, because the
+     * camera or an erase has then taken the file, and a recording that has begun since is not a leftover and must not be shredded.
+     */
+    fun shredRecordingAtStartup(): Boolean {
+        val file = recording ?: return true
+        synchronized(shredLock) {
+            return file.path in shredPaths || shredLocked(file, ::overwriteInPlace, ::syncDirectory)
+        }
+    }
+
+    private fun shredLocked(file: File, overwrite: (File) -> Unit, sync: (File) -> Unit): Boolean {
+        overwriteBestEffort(file, overwrite)
+        if (!file.delete() && file.exists()) return false
+        try {
+            file.parentFile?.let(sync)
+        } catch (e: IOException) {
+            // The file is deleted. The journal commits the delete within seconds.
+        }
+        return true
     }
 
     fun walletDir(walletId: String): File = File(wallets, walletId)
@@ -112,6 +129,9 @@ class VaultLayout(
 
     companion object {
         private val shredLock = Any()
+
+        /** The recording files that a [shredRecording] has finished with in this process. Guarded by [shredLock]. */
+        private val shredPaths = HashSet<String>()
 
         /** The vault's folder under the app's no-backup files folder. Its name says nothing about what the folder holds. */
         const val DIR_NAME = "data"

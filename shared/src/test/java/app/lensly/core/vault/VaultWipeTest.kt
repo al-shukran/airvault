@@ -133,6 +133,28 @@ class VaultWipeTest {
     }
 
     @Test
+    fun aLateStartupShredLeavesARecordingThatBeganAfterAnotherShred() {
+        val layout = withRecording()
+        // The camera shreds before it records, then the recording begins.
+        assertTrue(layout.shredRecording())
+        layout.recording!!.writeBytes(ByteArray(64) { 3 })
+
+        // The startup shred, delayed past all of that.
+        assertTrue(layout.shredRecordingAtStartup())
+
+        assertEquals(64, layout.recording!!.length())
+    }
+
+    @Test
+    fun theStartupShredShredsTheLeftoverWhenNoOtherShredRan() {
+        val layout = withRecording()
+
+        assertTrue(layout.shredRecordingAtStartup())
+
+        assertFalse(layout.recording!!.exists())
+    }
+
+    @Test
     fun aRecordingLargerThanTheBufferIsFullyOverwrittenThenDeleted() {
         val file = tmp.newFile("big.bin")
         val original = ByteArray(10 * 1024 + 3) { 5 }
