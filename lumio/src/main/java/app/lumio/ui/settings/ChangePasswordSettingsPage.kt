@@ -1,6 +1,7 @@
 package app.lumio.ui.settings
 
 import app.lumio.DebugDemoData
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,12 +16,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import app.lensly.ui.gate.MIN_PASSWORD_LENGTH
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.PasswordChange
+import app.lumio.R
 import app.lumio.ui.firstrun.NewPasswordProblem
 import app.lumio.ui.firstrun.policyMessage
 import app.lumio.ui.kit.ClearAirEyeToggle
@@ -28,13 +31,14 @@ import app.lumio.ui.kit.ClearAirField
 import app.lumio.ui.kit.ClearAirPrimaryButton
 import kotlinx.coroutines.launch
 
-/** The words of the three-field password page: Change Password is the App Password's change, and Duress Password sets the second password. */
+/** The words of the three-field password page: Change Password is the App Password's change, and Duress Password sets the second password. [warning] is a string resource shown under [intro]. */
 data class PasswordFormCopy(
     val title: String,
     val newLabel: String,
     val repeatLabel: String,
     val button: String,
     val intro: String? = null,
+    @StringRes val warning: Int? = null,
 ) {
     companion object {
         val Change = PasswordFormCopy(
@@ -49,6 +53,7 @@ data class PasswordFormCopy(
             repeatLabel = "Repeat Duress Password",
             button = "Set Duress Password",
             intro = "It opens an empty Lumio if you're forced to unlock. It must differ from your Lumio password.",
+            warning = R.string.duress_password_warning,
         )
     }
 }
@@ -117,8 +122,12 @@ fun ChangePasswordSettingsPage(
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter)) {
             copy.intro?.let {
                 Text(text = it, style = ClearAirType.body, color = palette.ink2)
-                Spacer(Modifier.height(ClearAirSpacing.lg))
+                Spacer(Modifier.height(ClearAirSpacing.sm))
             }
+            copy.warning?.let {
+                Text(text = stringResource(it), style = ClearAirType.body, color = palette.ink2)
+            }
+            if (copy.intro != null || copy.warning != null) Spacer(Modifier.height(ClearAirSpacing.lg))
             ClearAirField(
                 label = "Current Password",
                 value = current,

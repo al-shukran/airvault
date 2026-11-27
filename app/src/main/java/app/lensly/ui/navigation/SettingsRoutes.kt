@@ -8,10 +8,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import app.lensly.BuildConfig
+import app.lensly.R
 import app.lensly.app.AppSettings
 import app.lensly.app.DecoyVault
 import app.lensly.app.HideDelay
@@ -313,7 +315,11 @@ private fun BitcoinFeeWarningRoute(navController: NavHostController, holder: Vau
 private fun ChangePasswordRoute(navController: NavHostController, holder: VaultHolder, duress: Boolean = false) {
     ChangePasswordFlow(
         holder = holder,
-        copy = if (duress) ChangeCopy.DURESS_PASSWORD else ChangeCopy.APP_PASSWORD,
+        copy = if (duress) {
+            ChangeCopy.DURESS_PASSWORD.copy(warning = stringResource(R.string.duress_password_warning))
+        } else {
+            ChangeCopy.APP_PASSWORD
+        },
         change = { password -> if (duress) setDuressWith(holder, password) else changeAppPassword(holder, password) },
         onLeave = { navController.popBackStack() },
         onLocked = { leaveHidden(navController, holder) },
