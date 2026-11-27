@@ -112,6 +112,21 @@ class RegistryRevocationAnchorTest {
     }
 
     @Test
+    fun aRevocationAnchoredByAnInstallThatFailedToWriteStandsAndTheRetryFinishes() {
+        install(byLeaked(1)).getOrThrow()
+        val fullDisk: (File, ByteArray) -> Unit = { _, _ -> throw java.io.IOException("No space left on device") }
+
+        // The crash between anchoring and the file write: the revocation stands and nothing of the package is installed.
+        assertTrue(RegistryUpdate.install(byRecovery(2), keys, baked, dir, keystore, fullDisk).isFailure)
+        assertEquals(listOf(leaked), keystore.registryRevokedKeyIds())
+        assertIs<RegistryUpdateException.RevokedKey>(install(byLeaked(3)).exceptionOrNull())
+
+        // The same recovery package then installs, although the package it replaces was signed by the key it revokes.
+        assertEquals(2L, install(byRecovery(2)).getOrThrow().sequence)
+        assertFalse(RegistryUpdate.withInstalled(baked, dir, keys, keystore).installedUpdateUnverified)
+    }
+
+    @Test
     fun aKeystoreThatCannotListTheAnchoredRevocationsRefusesInstallsAndNeverTakesThemForNone() {
         install(byRecovery(1)).getOrThrow()
         deleteSeal()
