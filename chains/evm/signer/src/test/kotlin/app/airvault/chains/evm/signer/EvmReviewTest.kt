@@ -368,6 +368,45 @@ class EvmReviewTest {
     }
 
     @Test
+    fun anAggregate3ValueBatchShowsEachStepWithItsOwnValue() {
+        val batch = lidoBatch(MulticallShape.AGGREGATE3_VALUE, ONE_ETH, TWO_ETH)
+
+        val review = reviewOf(txParsed(MULTICALL3, batch, value = THREE_ETH), builder(REGISTRY.withWhitelist(listOf(lidoEntry()))))
+
+        assertEquals("3 ETH", review.sections.first().rows.single { it.label == "Amount" }.value.text())
+        val lines = review.sections.single { it.heading == "Calls" }.rows.filter { it.label.startsWith("Stake ") }.map { it.label }
+        assertEquals(listOf("Stake 1 ETH with Lido for stETH", "Stake 2 ETH with Lido for stETH"), lines)
+    }
+
+    @Test
+    fun anAggregate3ValueBatchWhoseValuesDoNotAddUpToTheAmountIsRefused() {
+        val batch = lidoBatch(MulticallShape.AGGREGATE3_VALUE, ONE_ETH, TWO_ETH)
+
+        refusalOf(txParsed(MULTICALL3, batch, value = ONE_ETH), builder(REGISTRY.withWhitelist(listOf(lidoEntry()))))
+    }
+
+    @Test
+    fun anAggregate3BatchThatSendsAmountsShowsNoValueAndStrandsIt() {
+        val batch = lidoBatch(MulticallShape.AGGREGATE3, null, null)
+
+        val review = reviewOf(txParsed(MULTICALL3, batch, value = ONE_ETH), builder(REGISTRY.withWhitelist(listOf(lidoEntry()))))
+
+        // Multicall3 calls each target with zero value, so no step stakes 1 ETH, and the review says the amount is lost.
+        val lines = review.sections.single { it.heading == "Calls" }.rows.filter { it.label.startsWith("Stake ") }.map { it.label }
+        assertEquals(listOf("Stake 0 ETH with Lido for stETH", "Stake 0 ETH with Lido for stETH"), lines)
+        assertEquals(Danger.DANGER, review.warnings.single { it.code == "evm.stranded-value" }.level)
+    }
+
+    @Test
+    fun anAggregate3BatchThatSendsNothingHasNoStrandedValueWarning() {
+        val batch = lidoBatch(MulticallShape.AGGREGATE3, null, null)
+
+        val review = reviewOf(txParsed(MULTICALL3, batch), builder(REGISTRY.withWhitelist(listOf(lidoEntry()))))
+
+        assertTrue(review.warnings.none { it.code == "evm.stranded-value" })
+    }
+
+    @Test
     fun anApprovedCallThatSendsNoNativeValueShowsNoValueRow() {
         val review = reviewOf(txParsed(NFT, fooCalldata()), builder(REGISTRY.withWhitelist(listOf(fooEntry()))))
 
@@ -857,4 +896,32 @@ private fun bytesCall(selector: String, payload: ByteArray): ByteArray {
 private fun word(value: BigInteger): ByteArray {
     val bytes = value.toByteArray().takeLast(32).toByteArray()
     return ByteArray(32 - bytes.size) + bytes
+}
+
+private const val LIDO = "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
+private val ONE_ETH = BigInteger("1000000000000000000")
+private val TWO_ETH = BigInteger("2000000000000000000")
+private val THREE_ETH = BigInteger("3000000000000000000")
+
+/** The approved Lido `submit(address)`, whose step line names the amount the call sends. */
+private fun lidoEntry(): WhitelistEntry {
+    val signature = "submit(address)"
+    return WhitelistEntry(
+        chainId = 1,
+        contract = LIDO,
+        selector = WhitelistEntry.selectorOf(signature),
+        signature = signature,
+        meaning = "Stakes the ETH the call sends.",
+        params = listOf(WhitelistParam("referral", "address")),
+        upgradeable = false,
+    )
+}
+
+/** A Multicall3 batch of two Lido `submit` calls. [first] and [second] are their values, or null for a shape that has none. */
+private fun lidoBatch(shape: MulticallShape, first: BigInteger?, second: BigInteger?): ByteArray {
+    val calldata = Numeric.hexStringToByteArray(lidoEntry().selector) + word(BigInteger.ZERO)
+    val calls = listOf(first, second).map {
+        InnerCall(target = LIDO, allowFailure = false, value = it, calldata = calldata, call = null, nested = null)
+    }
+    return encodeMulticall(shape, deadline = null, calls = calls)!!
 }
