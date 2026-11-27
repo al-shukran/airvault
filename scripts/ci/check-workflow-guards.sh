@@ -8,7 +8,8 @@
 # release.yml: the step that refuses a tag whose commit is not on master comes before the first step that reads any secret other
 # than GITHUB_TOKEN, in the same job, so an off-master tag is never signed (#624, #1408). Every job that reads a signing secret
 # also has environment: release (whose tag rules keep a branch workflow from reading the secrets), contents: read as its only
-# permission, no Gradle, and the secrets of one app only (#1493, GitHub advisory on repository-level signing secrets).
+# permission, no Gradle, the secrets of one app only (#1493, GitHub advisory on repository-level signing secrets) and no step
+# other than the six of SIGN_STEPS (#1531, #1532).
 #
 # Usage: scripts/ci/check-workflow-guards.sh   (the ci lane: scripts/ci/run-partition.sh ci, in pr-fast.yml)
 # WORKFLOWS_DIR names another directory of workflows; scripts/ci/selftest-guards.sh uses it to check the guard against broken copies.
@@ -75,8 +76,12 @@ release.yml secrets.LUMIO_KEYSTORE_PASS
 #    reaches the refusal step, and no continue-on-error can let a job pass after its refusal failed. A job-level if is one of JOB_IF
 #    only (the app of the tag, or publish after a sign job succeeded); the refusal is a step of the same job, so it still runs.
 #  - A job that reads a secret has environment exactly "release", permissions exactly contents: read (no id-token, no attestations,
-#    no write), no mention of gradle anywhere in it, and secrets of one app only (LENSLY_ or LUMIO_), so a poisoned build step never
+#    no write), no Gradle (the word gradle or gradlew as a token, after quotes, backslashes and invisible characters are removed, so
+#    gr""adlew counts and an unrelated word does not), and secrets of one app only (LENSLY_ or LUMIO_), so a poisoned build step never
 #    shares a runner with a key, and a Lensly release never exposes the Lumio key.
+#  - Such a job has exactly the steps of SIGN_STEPS, in that order, and each has exactly the keys and values the script expects. The
+#    only run steps are the refusal, `bash scripts/ci/sign-release.sh` and the keystore cleanup, so no extra step can send the
+#    decoded keystore (in $RUNNER_TEMP) anywhere, and the two artifact steps move only the unsigned and the signed APK.
 #  - Every step after the refusal has only the keys name, id, run, env, uses and with, so no if (in any letter case), continue-on-error
 #    or timeout-minutes can make a step run, or keep running, after the refusal failed. The one exception is the keystore cleanup
 #    step: name "Delete the decoded keystore", only name, if and run, with if exactly "always()", which reads no secret.
@@ -116,12 +121,29 @@ JOB_IF = {
 SECRET_OF_APP = re.compile(r"secrets\.([a-z]+)_")
 STEP_KEYS = {"name", "id", "run", "env", "uses", "with"}
 CLEANUP = "Delete the decoded keystore"
+CLEANUP_RUN = 'rm -f "$RUNNER_TEMP/release.keystore"'
+# The steps of a job that reads a signing secret, in order. release.yml's sign jobs are exactly this list (#1531).
+SIGN_STEPS = ["checkout", "refusal", "download", "sign", "cleanup", "upload"]
+SIGN_RUN = "bash scripts/ci/sign-release.sh"
+SIGN_ENV = {"APP", "EXPECTED_SHA256", "KEYSTORE_B64", "KEYSTORE_PASS"}
+DOWNLOAD = re.compile(r"actions/download-artifact@[0-9a-f]{40}")
+UPLOAD = re.compile(r"actions/upload-artifact@[0-9a-f]{40}")
+DOWNLOAD_WITH = {"name": "unsigned-apk", "path": "unsigned"}
+UPLOAD_WITH = {"name": "signed-apk", "path": "signed/", "if-no-files-found": "error", "retention-days": 3}
+# gradle or gradlew as a token: not inside a longer word, so gradle/actions, setup-gradle, ./gradlew and gradlew.bat match and an
+# unrelated word does not. Quotes, backslashes and invisible characters are removed first, so ./gr""adlew and gr\adlew match too.
+GRADLE = re.compile(r"(?<!\w)gradlew?(?!\w)")
 errors = []
 
 
 def fold(text):
     # The form names are compared in: NFKC (a full-width or long s becomes s), then case-folded.
     return unicodedata.normalize("NFKC", text).casefold()
+
+
+def runs_gradle(text):
+    plain = "".join(c for c in fold(text) if c not in "\"'`\\" and unicodedata.category(c) != "Cf")
+    return bool(GRADLE.search(plain))
 
 
 class Duplicate(ValueError):
@@ -204,6 +226,25 @@ def refuses(step):
     )
 
 
+def step_kind(step):
+    keys = set(step)
+    if early_ok(step):
+        return "checkout"
+    if refuses(step):
+        return "refusal"
+    uses = str(step.get("uses", ""))
+    if keys == {"name", "uses", "with"} or keys == {"uses", "with"}:
+        if DOWNLOAD.fullmatch(uses) and step["with"] == DOWNLOAD_WITH:
+            return "download"
+        if UPLOAD.fullmatch(uses) and step["with"] == UPLOAD_WITH:
+            return "upload"
+    if keys - {"name"} == {"env", "run"} and step["run"] == SIGN_RUN and isinstance(step["env"], dict) and set(step["env"]) == SIGN_ENV:
+        return "sign"
+    if keys == {"name", "if", "run"} and step["name"] == CLEANUP and step["if"] == "always()" and step["run"] == CLEANUP_RUN:
+        return "cleanup"
+    return "other"
+
+
 def check_release(doc):
     if set(doc) - WORKFLOW_KEYS:
         errors.append("release.yml has workflow keys outside %s (defaults and env change how the refusal step runs): %s" % (sorted(WORKFLOW_KEYS), sorted(set(doc) - WORKFLOW_KEYS)))
@@ -230,7 +271,10 @@ def check_release(doc):
                 errors.append("release.yml job %s reads a signing secret without environment: release (a workflow on any branch could read repository-level secrets; the environment's tag rules cannot be reached from a branch)" % name)
             if job.get("permissions") != {"contents": "read"}:
                 errors.append("release.yml job %s reads a signing secret but its permissions are not exactly contents: read (no id-token, attestations or write)" % name)
-            if any("gradle" in fold(text) for text in strings(job)):
+            kinds = [step_kind(step) for step in steps]
+            if kinds != SIGN_STEPS:
+                errors.append("release.yml job %s reads a signing secret, so its steps must be exactly %s (a SHA-pinned checkout, the refusal, download-artifact of the unsigned APK, `%s`, the keystore cleanup, upload-artifact of the signed APK), but they are %s" % (name, SIGN_STEPS, SIGN_RUN, kinds))
+            if any(runs_gradle(text) for text in strings(job)):
                 errors.append("release.yml job %s reads a signing secret and runs Gradle (build dependencies would share a runner with the key)" % name)
             apps = {m for text in strings(job) for m in SECRET_OF_APP.findall(fold(text))}
             if len(apps) > 1:

