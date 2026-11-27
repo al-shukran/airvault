@@ -1,6 +1,7 @@
 package app.lensly.core.ur
 
 import app.lensly.core.parse.ParserLimits
+import com.sparrowwallet.hummingbird.UR
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -61,6 +62,18 @@ class UrScannerTest {
         val declared = "ur:eth-sign-request/1-${ParserLimits.MAX_UR_PARTS + 1}/aa"
         assertEquals("The request has more than ${ParserLimits.MAX_UR_PARTS} parts.", urPartRefusal(declared))
         assertFalse(UrScanner().receive(declared))
+    }
+
+    @Test
+    fun aTrailingOrDoubleSlashCannotSkipTheLimitOfParts() {
+        // Ten bytes per fragment over 5,120 fragments gives a real frame that declares 5,120 parts, far above the limit.
+        val parts = ParserLimits.MAX_UR_PARTS * 5
+        val frame = framesOf(UR("eth-sign-request", ByteArray(parts * 10)), maxFragment = 10).first().lowercase()
+        assertTrue(frame.startsWith("ur:eth-sign-request/1-$parts/"), frame.take(40))
+        assertFalse(UrScanner().receive(frame))
+        for (variant in listOf("$frame/", "$frame//", frame.replaceFirst("/1-", "//1-"))) {
+            assertFalse(UrScanner().receive(variant), variant.take(40))
+        }
     }
 
     @Test
