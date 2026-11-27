@@ -87,7 +87,7 @@ def refuses(step):
         elif text in ("fi", "esac", "done", "}"):
             depth -= 1
             armed = armed and depth > 0
-        chained = text.endswith(("\\", "&&", "||", "|"))
+        chained = text.endswith(("\\", "&&", "||", "|", "|&"))
     return False
 
 

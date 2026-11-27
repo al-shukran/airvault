@@ -208,6 +208,8 @@ mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  echo \\\"::error
 expect_fail "an exit 1 inside backticks" guard_with
 mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  (\\n    exit 1\\n  )\\nfi\""
 expect_fail "an exit 1 inside a subshell" guard_with
+mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  echo hi |&\\n  exit 1\\nfi\""
+expect_fail "an exit 1 in the pipeline that a line ending in |& continues" guard_with
 mutate release.yml "$refusal += {\"id\": \"refuse\"}"
 expect_pass "a refusal with an id" guard_with
 
