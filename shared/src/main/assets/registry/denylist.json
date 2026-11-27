@@ -55,6 +55,12 @@
       "reason": "A Permit2 signature lets the spender take this token without a transaction. Scam sites use it to drain wallets."
     },
     {
+      "primaryType": "PermitBatchWitnessTransferFrom",
+      "condition": "ANY",
+      "severity": "WARN",
+      "reason": "A Permit2 signature lets the spender take several tokens without a transaction. Scam sites use it to drain wallets."
+    },
+    {
       "selector": "0xf2fde38b",
       "condition": "ANY",
       "severity": "WARN",
