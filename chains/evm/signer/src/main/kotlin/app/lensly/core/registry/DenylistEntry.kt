@@ -5,6 +5,8 @@ import app.lensly.core.wallet.toHex
 import kotlinx.serialization.Serializable
 
 private const val SELECTOR_BYTES = 4
+private const val WORD_BYTES = 32
+private const val ADDRESS_BYTES = 20
 private val DENYLIST_SELECTOR = Regex("0x[0-9a-f]{8}")
 private val DENYLIST_CONTRACT = Regex("0x[0-9a-f]{40}")
 
@@ -23,8 +25,8 @@ enum class DenylistCondition { ANY, UNLIMITED, APPROVED }
  * One known-dangerous request in the denylist. An entry names a Function Selector, a contract on a chain, a [party], or a mix.
  * [condition] narrows a selector to the calls that carry the risk, so an ordinary limited approval is not flagged. [primaryType]
  * names an EIP-712 type such as Permit. It matches typed data of that type, and no transaction, so it names no selector. [party]
- * names an address that appears inside a request: the spender or operator of an approval or permit, the recipient or sender of a
- * transfer, or the address a call goes to. [reason] is the short line the owner reads on the warning or the refusal.
+ * names an address that appears inside a request: any address word of the calldata, any address value of typed data, or the
+ * address a call goes to. [reason] is the short line the owner reads on the warning or the refusal.
  */
 @Serializable
 data class DenylistEntry(
@@ -75,13 +77,21 @@ fun matchingDenylist(
     if (entries.isEmpty()) return emptyList()
     val selector = if (calldata.size >= SELECTOR_BYTES) "0x" + calldata.copyOfRange(0, SELECTOR_BYTES).toHex() else null
     val call = ContractCall.decode(calldata)
-    val parties = listOf(contract) + call?.parties.orEmpty()
+    // A party is matched against the low 20 bytes of every whole word after the selector, so calldata that does not decode
+    // exactly (a trailing byte, dirty upper bytes, a call with no decoder) still names its addresses, as the contract reads them.
+    val parties = if (entries.any { it.party != null }) listOf(contract) + wordAddresses(calldata) else emptyList()
     return entries.filter { it.matches(chainId, contract, selector, call, parties) }
 }
 
+/** The low 20 bytes of every whole 32-byte word after the selector, as lowercase 0x hex. A trailing partial word is not an address. */
+private fun wordAddresses(calldata: ByteArray): List<String> =
+    (SELECTOR_BYTES..calldata.size - WORD_BYTES step WORD_BYTES).map { start ->
+        "0x" + calldata.copyOfRange(start + WORD_BYTES - ADDRESS_BYTES, start + WORD_BYTES).toHex()
+    }
+
 /**
  * The entries that typed data of [primaryType] matches: a message whose domain names [chainId] and, when the domain names one,
- * [verifyingContract], and whose message names [parties] as its spender or operator. An entry matches only when it names that
+ * [verifyingContract], and whose message holds [parties] as address values. An entry matches only when it names that
  * primary type or a party, and its chain, contract and party when it names them. A null [chainId] is a message that names no chain,
  * so it matches the entries of every chain.
  */

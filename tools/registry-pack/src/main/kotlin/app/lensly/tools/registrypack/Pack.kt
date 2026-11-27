@@ -149,8 +149,9 @@ internal object Pack {
     /** The schema that adds each network's kind, parent chain and featured flag. */
     private const val NETWORKS_SCHEMA = 4
 
-/** The schema that adds the denylist's party. */
-private const val PARTY_SCHEMA = 5
+    /** The schema that adds the denylist's party. */
+    private const val PARTY_SCHEMA = 5
+
     const val MAX_BYTES = 1 shl 20
 
     private val MAGIC = "LRP2".toByteArray(StandardCharsets.US_ASCII)
@@ -220,16 +221,17 @@ private const val PARTY_SCHEMA = 5
         { it.reason },
     )
 
-    private fun denylistMap(entry: DenylistDto): Map<String, Any?> = mapOf(
-        "chainId" to entry.chainId,
-        "condition" to entry.condition.name,
-        "contract" to entry.contract,
-        "party" to entry.party,
-        "primaryType" to entry.primaryType,
-        "reason" to entry.reason,
-        "selector" to entry.selector,
-        "severity" to entry.severity.name,
-    )
+    /** The party key is left out when unset, so a package that names no party keeps the canonical bytes it was signed with. */
+    private fun denylistMap(entry: DenylistDto): Map<String, Any?> = buildMap {
+        put("chainId", entry.chainId)
+        put("condition", entry.condition.name)
+        put("contract", entry.contract)
+        entry.party?.let { put("party", it) }
+        put("primaryType", entry.primaryType)
+        put("reason", entry.reason)
+        put("selector", entry.selector)
+        put("severity", entry.severity.name)
+    }
 
     private fun walletMap(wallet: WalletDto): Map<String, Any?> = mapOf(
         "ecosystems" to wallet.ecosystems,

@@ -196,6 +196,45 @@ class EvmReviewTest {
         }
     }
 
+    private fun word(address: String): ByteArray = ByteArray(12) + Numeric.hexStringToByteArray(address)
+
+    private fun selector(hex: String): ByteArray = Numeric.hexStringToByteArray(hex)
+
+    @Test
+    fun aPartyEntryRefusesCalldataThatDoesNotDecodeExactlyButNamesTheDrainerInAWord() {
+        // Under the default policy these calls are refused as unreadable anyway. Under WARN they reach the denylist, which must still refuse.
+        val reviewer = builder(drainerRegistry(), unknownCalls = UnknownCallPolicy.WARN)
+        val one = ByteArray(31) + byteArrayOf(1)
+        val dirtyUpperBytes = ByteArray(32) { 0xff.toByte() }.also { Numeric.hexStringToByteArray(DRAINER).copyInto(it, 12) }
+        val calls = mapOf(
+            "approve with a trailing byte" to selector("0x095ea7b3") + word(DRAINER) + one + byteArrayOf(1),
+            "approve with dirty upper bytes" to selector("0x095ea7b3") + dirtyUpperBytes + one,
+            "four-argument safeTransferFrom" to
+                selector("0xb88d4fde") + word(SENDER) + word(DRAINER) + one + word(SPENDER) + ByteArray(32) + ByteArray(32),
+            "ERC-1155 safeTransferFrom" to
+                selector("0xf242432a") + word(SENDER) + word(DRAINER) + one + one + word(SPENDER) + ByteArray(32),
+            "ERC-2612 permit" to
+                selector("0xd505accf") + word(SENDER) + word(DRAINER) + one + one + ByteArray(32) + ByteArray(32) + ByteArray(32),
+        )
+
+        for ((name, data) in calls) {
+            assertEquals("Known drainer.", refusalOf(txParsed(USDC, data), reviewer).reason, name)
+        }
+    }
+
+    @Test
+    fun aPartyEntryMatchesWholeWordsOnly() {
+        // The drainer's 20 bytes sit across two words, and its last bytes trail the calldata as a partial word.
+        val straddling = selector("0x095ea7b3") + ByteArray(32) + Numeric.hexStringToByteArray(DRAINER).copyOfRange(0, 10) +
+            ByteArray(32 - 10)
+        val partialWord = selector("0x095ea7b3") + ByteArray(32) + Numeric.hexStringToByteArray(DRAINER)
+
+        for (data in listOf(straddling, partialWord)) {
+            val result = builder(drainerRegistry(), unknownCalls = UnknownCallPolicy.WARN).review(txParsed(USDC, data), SENDER)
+            assertTrue(result !is EvmReviewResult.Refused || result.reason != "Known drainer.")
+        }
+    }
+
     @Test
     fun aPartyEntryLeavesACallToAnotherAddressAndAContractOnlyEntryAsTheyWere() {
         val approveOther = ContractCall.Approve(SPENDER, BigInteger.valueOf(1000)).encode()!!

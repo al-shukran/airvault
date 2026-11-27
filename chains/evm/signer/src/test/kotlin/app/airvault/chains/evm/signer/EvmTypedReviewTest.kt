@@ -100,6 +100,30 @@ private fun mailJson(contents: String = "Hello"): String =
         """"primaryType":"Mail","domain":{"name":"Mailer","chainId":1},""" +
         """"message":{"from":"$OWNER","contents":"$contents","amount":"42"}}"""
 
+private const val TYPED_RECIPIENT = "0x6666666666666666666666666666666666666666"
+
+/** An EIP-3009 TransferWithAuthorization of USDC that pays [TYPED_RECIPIENT] through its `to` member. */
+private fun transferWithAuthorizationJson(): String =
+    """{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},""" +
+        """{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],""" +
+        """"TransferWithAuthorization":[{"name":"from","type":"address"},{"name":"to","type":"address"},{"name":"value","type":"uint256"},""" +
+        """{"name":"validAfter","type":"uint256"},{"name":"validBefore","type":"uint256"},{"name":"nonce","type":"bytes32"}]},""" +
+        """"primaryType":"TransferWithAuthorization",""" +
+        """"domain":{"name":"USD Coin","version":"2","chainId":1,"verifyingContract":"$TYPED_USDC"},""" +
+        """"message":{"from":"$OWNER","to":"$TYPED_RECIPIENT","value":"1000000","validAfter":"0","validBefore":"1900000000",""" +
+        """"nonce":"0x${"11".repeat(32)}"}}"""
+
+/** A message that holds [TYPED_RECIPIENT] as the `receiver` of a struct inside an array. */
+private fun nestedRecipientJson(): String =
+    """{"types":{"Orders":[{"name":"items","type":"Item[]"}],"Item":[{"name":"receiver","type":"address"},{"name":"amount","type":"uint256"}]},""" +
+        """"primaryType":"Orders","domain":{"name":"Shop","chainId":1},""" +
+        """"message":{"items":[{"receiver":"$OWNER","amount":"1"},{"receiver":"$TYPED_RECIPIENT","amount":"2"}]}}"""
+
+/** A message whose bytes20 member holds the bytes of [TYPED_RECIPIENT]: it is not an address. */
+private fun bytes20LookalikeJson(): String =
+    """{"types":{"Note":[{"name":"tag","type":"bytes20"}]},"primaryType":"Note","domain":{"name":"Shop","chainId":1},""" +
+        """"message":{"tag":"$TYPED_RECIPIENT"}}"""
+
 private fun typedRequest(json: String, chainId: Long? = 1): ParsedRequest = EvmRequestParser.parsedOf(
     EthSignRequest(
         requestId = null,
@@ -170,6 +194,21 @@ class EvmTypedReviewTest {
             listOf(DenylistEntry(party = "0x3333333333333333333333333333333333333333", severity = DenylistSeverity.BLOCK, reason = "No.")),
         )
         assertTrue(typedReview(permitJson(), other).warnings.isEmpty())
+    }
+
+    @Test
+    fun aPartyEntryMatchesAnyAddressValueOfTheMessageAtAnyDepth() {
+        val registry = TYPED_REGISTRY.withDenylist(
+            listOf(DenylistEntry(party = TYPED_RECIPIENT, severity = DenylistSeverity.BLOCK, reason = "Known drainer.")),
+        )
+
+        for (json in listOf(transferWithAuthorizationJson(), nestedRecipientJson())) {
+            val result = EvmReviewBuilder(registry, { calldata, params -> AbiDecoder.decode(calldata, params) })
+                .review(typedRequest(json), sender = OWNER)
+            assertEquals("Known drainer.", assertIs<EvmReviewResult.Refused>(result).reason, json.take(60))
+        }
+        // A bytes20 member that holds the same bytes is not an address.
+        assertTrue(typedReview(bytes20LookalikeJson(), registry).warnings.isEmpty())
     }
 
     @Test

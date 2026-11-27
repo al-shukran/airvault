@@ -74,7 +74,7 @@ class Registry constructor(
 
     /**
      * The denylist entries that typed data of [primaryType] matches. Its domain names [chainId], and [verifyingContract] when the domain
-     * names one, and whose message names [parties] as its spender or operator. A null [chainId] is typed data that names no chain,
+     * names one, and whose message holds [parties] as address values. A null [chainId] is typed data that names no chain,
      * which matches the entries of every chain.
      */
     fun typedDenylistMatches(
