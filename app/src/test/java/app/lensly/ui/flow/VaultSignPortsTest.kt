@@ -156,7 +156,7 @@ class VaultSignPortsTest {
             val ports = VaultSignPorts(
                 context,
                 holderOf(session),
-                checkSolana = { _, _, _, _ -> throw IllegalStateException("the check failed") },
+                checkSolana = { _, _, _, _, _ -> throw IllegalStateException("the check failed") },
             )
             val request = solanaRequest(legacyTransfer(ByteArray(32) { 1 }), fingerprintOf(ports))
 

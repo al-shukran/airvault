@@ -69,6 +69,7 @@ import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.ScanReply
 import app.lensly.core.parse.WireException
+import app.lensly.core.registry.SolanaFees
 import app.lensly.core.registry.UnknownCallPolicy
 import app.airvault.chains.solana.signer.SolanaRequestCheck
 import app.airvault.chains.solana.signer.SolanaTokenList
@@ -132,7 +133,7 @@ internal class VaultSignPorts(
     private val holder: VaultHolder,
     private val parser: RequestParser = context.requestParser(),
     /** Checks a Solana request against the wallet's keys and token list. A test replaces it with one that throws. */
-    private val checkSolana: (SolSignRequest, List<ByteArray>, SolanaTokenList, UnknownCallPolicy) -> SolanaRequestCheck.Result =
+    private val checkSolana: (SolSignRequest, List<ByteArray>, SolanaTokenList, UnknownCallPolicy, SolanaFees) -> SolanaRequestCheck.Result =
         SolanaRequestCheck::check,
     /** Writes [ReviewRecord] [record] of wallet [walletId] through [session]. */
     private val writeRecord: (VaultSession, String, ReviewRecord) -> Unit = { session, walletId, record ->
@@ -261,7 +262,7 @@ internal class VaultSignPorts(
         val keys = readWallet { WalletStore(it).solanaKeys(walletId) }
         val unknownCalls = readWallet { SettingsStore(it).load().unknownCallPolicy }
         val checked = guardedCheck(SOLANA_UNREADABLE, { SolanaRequestCheck.Result.Refused(it) }) {
-            checkSolana(request, keys, SolanaTokensHolder.get(context), unknownCalls)
+            checkSolana(request, keys, SolanaTokensHolder.get(context), unknownCalls, RegistryHolder.get(context).solanaFees)
         }
         when (checked) {
             is SolanaRequestCheck.Result.Ok -> {

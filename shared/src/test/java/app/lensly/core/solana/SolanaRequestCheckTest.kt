@@ -8,6 +8,7 @@ import app.airvault.chains.solana.signer.SolanaOffchainMessage
 import app.airvault.chains.solana.signer.SolanaRequestCheck
 import app.airvault.chains.solana.signer.SolanaRequestReview
 import app.airvault.chains.solana.signer.SolanaWarning
+import app.lensly.core.registry.SolanaFees
 import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.ur.Cbor
 import app.lensly.core.ur.PathStep
@@ -187,6 +188,35 @@ class SolanaRequestCheckTest {
         assertFalse(review.priorityFeeIsBound)
     }
 
+    /** The fee constants come from the [SolanaFees] the check is given, so a signed package can correct them: here every constant differs from the default. */
+    @Test
+    fun theFeeIsComputedFromTheGivenConstants() {
+        val fees = SolanaFees(lamportsPerSignature = 7_000, defaultUnitsPerInstruction = 300_000, builtinUnitsPerInstruction = 4_000, maxUnits = 1_500_000)
+        val transfer = legacyMessage(
+            keys = listOf(key(1), key(9), system(), computeBudget()),
+            instructions = listOf(computePrice(1_000_000L), transfer(from = 0, to = 1)),
+            readonlyUnsigned = 2,
+        )
+
+        val review = review(request(transfer), listOf(key(1)), fees = fees)
+
+        assertEquals(7_000uL, review.baseFeeLamports)
+        // Two builtin instructions at 4,000 units, at one lamport per unit.
+        assertEquals(8_000uL, review.priorityFeeLamports)
+        assertEquals(15_000uL, review.maxFeeLamports)
+        // Five token transfers at 300,000 units and the price instruction at 4,000 are 1,504,000 units, capped at 1,500,000.
+        assertEquals(1_500_000uL, review(request(tokenTransfers(count = 5)), listOf(key(1)), fees = fees).priorityFeeLamports)
+    }
+
+    /** Without constants the review uses the ones this build ships: 5,000 lamports a signature. */
+    @Test
+    fun theFeeUsesTheBuiltInConstantsWhenNoneAreGiven() {
+        val review = review(request(tokenTransfers(count = 1)), listOf(key(1)))
+
+        assertEquals(5_000uL, review.baseFeeLamports)
+        assertEquals(SolanaFees.DEFAULT, review.fees)
+    }
+
     /** R03: a transaction that sets its compute limit twice is refused, since its fee cannot be read from one limit. */
     @Test
     fun aTransactionThatSetsItsComputeLimitTwiceIsRefused() {
@@ -340,9 +370,10 @@ class SolanaRequestCheckTest {
         request: ByteArray,
         keys: List<ByteArray>,
         unknownCalls: UnknownCallPolicy = UnknownCallPolicy.WARN,
+        fees: SolanaFees = SolanaFees.DEFAULT,
     ): SolanaRequestReview {
         val parsed = assertIs<SolSignRequest.Result.Ok>(SolSignRequest.decode(request)).request
-        return assertIs<SolanaRequestCheck.Result.Ok>(SolanaRequestCheck.check(parsed, keys, unknownCalls = unknownCalls)).review
+        return assertIs<SolanaRequestCheck.Result.Ok>(SolanaRequestCheck.check(parsed, keys, unknownCalls = unknownCalls, fees = fees)).review
     }
 
     private fun refusal(

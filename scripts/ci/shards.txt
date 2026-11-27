@@ -232,6 +232,9 @@ shard-3 :shared app.lensly.core.parse.BinderTransportTest
 shard-3 :shared app.lensly.core.parse.TypedDataWireTest
 shard-3 :shared app.lensly.core.qr.QrDecodeLimitsTest
 shard-3 :shared app.lensly.core.registry.update.NetworkPackageTest
+shard-3 :shared app.lensly.core.registry.update.RegistryCorrectionTest
+shard-3 :shared app.lensly.core.registry.update.RegistryKeyRevocationTest
+shard-3 :shared app.lensly.core.registry.update.SolanaFeesPackageTest
 shard-3 :shared app.lensly.core.registry.update.RegistryWhitelistSourceTest
 shard-3 :shared app.lensly.core.registry.update.TrustedKeysTest
 shard-3 :shared app.lensly.core.solana.SolanaSignatureTest
@@ -427,6 +430,7 @@ shard-6 :shared app.lensly.core.solana.SolanaRequestCheckTest
 shard-6 :shared app.lensly.core.ur.SolSignRequestTest
 shard-6 :shared app.lensly.core.vault.VaultWipeRecoveryTest
 shard-6 :shared app.lensly.ui.navigation.UnlockBiometricTest
+shard-6 :shared app.lensly.ui.navigation.UnlockOutcomeTest
 shard-9 :app app.lensly.app.ReviewHistoryTest
 shard-7 :app app.lensly.app.SolanaTokensHolderTest
 shard-7 :app app.lensly.app.WalletDraftMixedHashTest

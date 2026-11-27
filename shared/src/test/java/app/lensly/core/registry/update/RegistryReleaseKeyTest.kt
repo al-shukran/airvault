@@ -26,7 +26,7 @@ class RegistryReleaseKeyTest {
     fun theBundledPackageVerifiesWithThePinnedReleaseKey() {
         val pkg = RegistryUpdate.verify(bundled, releaseKeys, baked).getOrThrow()
 
-        assertEquals(11, pkg.whitelist?.size)
+        assertEquals(10, pkg.whitelist?.size)
     }
 
     @Test
