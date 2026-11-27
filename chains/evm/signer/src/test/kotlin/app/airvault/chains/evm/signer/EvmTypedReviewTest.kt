@@ -60,6 +60,24 @@ private fun permitSingleWithMemoJson(amount: String): String =
         """"message":{"details":{"token":"$TYPED_USDC","amount":"$amount","expiration":"1900000000","nonce":"0"},""" +
         """"spender":"$TYPED_SPENDER","sigDeadline":"1900000000","memo":"hi"}}"""
 
+/** A Permit2 signature transfer of USDC for [amount] that only [TYPED_SPENDER] can submit: the spender is part of what is signed. */
+private fun permitTransferFromJson(amount: String = "1000000"): String =
+    """{"types":{"PermitTransferFrom":[{"name":"permitted","type":"TokenPermissions"},{"name":"spender","type":"address"},""" +
+        """{"name":"nonce","type":"uint256"},{"name":"deadline","type":"uint256"}],""" +
+        """"TokenPermissions":[{"name":"token","type":"address"},{"name":"amount","type":"uint256"}]},""" +
+        """"primaryType":"PermitTransferFrom","domain":{"name":"Permit2","chainId":1,"verifyingContract":"$PERMIT2"},""" +
+        """"message":{"permitted":{"token":"$TYPED_USDC","amount":"$amount"},"spender":"$TYPED_SPENDER",""" +
+        """"nonce":"0","deadline":"1900000000"}}"""
+
+/** The batch form of [permitTransferFromJson] with two tokens. */
+private fun permitBatchTransferFromJson(): String =
+    """{"types":{"PermitBatchTransferFrom":[{"name":"permitted","type":"TokenPermissions[]"},{"name":"spender","type":"address"},""" +
+        """{"name":"nonce","type":"uint256"},{"name":"deadline","type":"uint256"}],""" +
+        """"TokenPermissions":[{"name":"token","type":"address"},{"name":"amount","type":"uint256"}]},""" +
+        """"primaryType":"PermitBatchTransferFrom","domain":{"name":"Permit2","chainId":1,"verifyingContract":"$PERMIT2"},""" +
+        """"message":{"permitted":[{"token":"$TYPED_USDC","amount":"5"},{"token":"$TYPED_USDC","amount":"6"}],""" +
+        """"spender":"$TYPED_SPENDER","nonce":"0","deadline":"1900000000"}}"""
+
 /** An ERC-2612 Permit of USDC for [value], with a memo member the Permit layout does not have. */
 private fun permitWithMemoJson(value: String): String =
     """{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},""" +
@@ -122,6 +140,18 @@ class EvmTypedReviewTest {
         assertEquals("1 USDC", rowOf(review, "Summary", "Amount").value.text())
         assertEquals("17 Mar 2030, 17:46 UTC", rowOf(review, "Summary", "Deadline").value.text())
         assertTrue(review.warnings.isEmpty())
+    }
+
+    @Test
+    fun aPermit2SignatureTransferShowsItsRealSpenderNeverAnyone() {
+        val single = typedReview(permitTransferFromJson())
+        val batch = typedReview(permitBatchTransferFromJson())
+
+        assertEquals(TYPED_SPENDER, rowOf(single, "Summary", "Spender").value.text())
+        assertEquals(TYPED_SPENDER, rowOf(batch, "Summary", "Spender").value.text())
+        for (review in listOf(single, batch)) {
+            assertTrue(review.sections.flatMap { it.rows }.none { "Anyone" in it.value.text() }, "no row says anyone may submit")
+        }
     }
 
     @Test
