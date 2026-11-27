@@ -2,6 +2,7 @@ package app.lensly.core.vault
 
 import android.content.Context
 import java.io.File
+import java.io.IOException
 import java.security.MessageDigest
 import java.security.SecureRandom
 import javax.crypto.Mac
@@ -56,11 +57,20 @@ class VaultLayout(
      */
     fun isBeforeSetup(): Boolean = !exists() && !isPartial()
 
-    /** Overwrites, then deletes, the plain recording file that an interrupted recording left behind. True when none is left. */
-    fun shredRecording(overwrite: (File) -> Unit = ::overwriteInPlace): Boolean {
+    /**
+     * Overwrites, then deletes, the plain recording file that an interrupted recording left behind. True when none is left. The folder is
+     * synced after the delete, so a power cut cannot bring the entry back; a folder that cannot be synced does not fail the shred.
+     */
+    fun shredRecording(overwrite: (File) -> Unit = ::overwriteInPlace, sync: (File) -> Unit = ::syncDirectory): Boolean {
         val file = recording ?: return true
         overwriteBestEffort(file, overwrite)
-        return file.delete() || !file.exists()
+        if (!file.delete() && file.exists()) return false
+        try {
+            file.parentFile?.let(sync)
+        } catch (e: IOException) {
+            // The file is deleted. The journal commits the delete within seconds.
+        }
+        return true
     }
 
     fun walletDir(walletId: String): File = File(wallets, walletId)

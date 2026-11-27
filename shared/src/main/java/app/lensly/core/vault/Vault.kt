@@ -834,7 +834,8 @@ class Vault constructor(
     /**
      * Erases the vault after the owner's last allowed wrong try: the same wipe as [wipe], then [onErased], so the app can remove what the
      * wipe does not reach. A failure is not reported here: the wipe has already tried the keys and every file, even when its marker could
-     * not be written, and the result is the erased outcome either way.
+     * not be written, and the result is the erased outcome either way. A file that could not be deleted, such as the plain recording, is not
+     * kept silently: the marker stays, so the next gate finishes the erase (see [finishPendingWipe]), and the app start shreds the recording.
      */
     private fun eraseLocked() {
         try {
@@ -1057,13 +1058,36 @@ class Vault constructor(
             withRealPad(vaultKey) { discard(decoyKey, it) }
             return DuressResult.Failed
         }
-        // The new decoy is committed, so a step that fails leaves its files for a later one, and the result stays Enabled. The decoy takes
-        // the spare record files over only now, so a try that fails touches no record file, and writing a record never adds one. They
-        // start with no value under its key.
-        bestEffort { claimSpareRecords(vaultKey, decoyKey) }
-        bestEffort { resetDecoyRecords(decoyKey) }
+        // The decoy takes the spare record files over only now, so a try that fails touches no record file of the old decoy, and writing a
+        // record never adds one. They start with no value under its key. No unlock can repeat this (it holds one key, and the spares are
+        // told by the real key), so a decoy that lacks a record file is not kept: its slot goes, and the setup fails.
+        try {
+            claimSpareRecords(vaultKey, decoyKey)
+            resetDecoyRecords(decoyKey)
+        } catch (e: IOException) {
+            return dropDecoyAfterFailedClaim(vaultKey, contents.slots[real])
+        } catch (e: VaultException) {
+            return dropDecoyAfterFailedClaim(vaultKey, contents.slots[real])
+        }
+        // The decoy is whole. A purge that fails leaves the old decoy's files for a later one.
         bestEffort { purgeUnowned(listOf(vaultKey, decoyKey)) }
         return DuressResult.Enabled
+    }
+
+    /**
+     * Undoes a committed decoy whose record files could not be taken over: the decoy slot becomes random bytes, and the files that no key
+     * owns turn back into spares. Always [DuressResult.Failed]. A slot that cannot be replaced either leaves the decoy as it is.
+     */
+    private fun dropDecoyAfterFailedClaim(vaultKey: ByteArray, realSlot: ByteArray): DuressResult {
+        try {
+            commitKeyFile(listOf(realSlot, VaultKeyFile.randomSlot(random))) { true }
+        } catch (e: IOException) {
+            return DuressResult.Failed
+        } catch (e: VaultException) {
+            return DuressResult.Failed
+        }
+        bestEffort { purgeUnowned(listOf(vaultKey)) }
+        return DuressResult.Failed
     }
 
     private fun removeDuressLocked(session: VaultSession) {
