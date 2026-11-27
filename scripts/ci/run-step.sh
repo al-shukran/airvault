@@ -135,8 +135,8 @@ run_compile() {
 require_unit_tests() {
     local module
     for module in app lumio shared; do
-        if [ -z "$(find "$module/src/test" -name '*Test.kt' -print -quit 2>/dev/null)" ]; then
-            echo "error: $module/src/test is missing or holds no *Test.kt file; the unit step would pass with no $module tests" >&2
+        if [ -z "$(find "$module/src/test/java" "$module/src/test/kotlin" -name '*Test.kt' -print -quit 2>/dev/null)" ]; then
+            echo "error: no *Test.kt file under $module/src/test/java or $module/src/test/kotlin; the unit step would pass with no $module tests" >&2
             exit 1
         fi
     done
