@@ -874,11 +874,11 @@ private fun denylistWarning(entry: DenylistEntry, field: FieldPath?): Warning =
     Warning(Danger.DANGER, CODE_DENYLIST, entry.reason, field, ACK_DENYLIST)
 
 /**
- * An unsigned name or text as the review shows it. A line break or a tab is an escape, so it cannot start a row, and the rest is shown as
- * [printableOrHex] shows it. A text longer than [limit] bytes is cut between characters, and the bytes left out are counted.
+ * An unsigned name or text as the review shows it, as [printableOrHex] shows it, so a line break is an escape and cannot start a row. A text
+ * longer than [limit] bytes is cut between characters, and the bytes left out are counted.
  */
 private fun unsignedShown(text: String, limit: Int): String {
-    val shown = printableOrHex(text).replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+    val shown = printableOrHex(text)
     val bytes = shown.toByteArray(StandardCharsets.UTF_8)
     if (bytes.size <= limit) return shown
     var cut = limit
