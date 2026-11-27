@@ -228,6 +228,25 @@ class PackTest {
     }
 
     @Test
+    fun aReleaseKeyBuildsAPackageThatOnlyRestatesTheStandingRevocations() {
+        val inForce = "0123456789abcdef"
+        fun revoking(vararg ids: String) =
+            json.encodeToString(PackageDto.serializer(), source.copy(minSchemaVersion = 6, revokedKeys = ids.toList()))
+        val standing = File(folder.root, "standing.json").also { it.writeText("""{"revokedKeys":["$inForce"]}""") }.toPath()
+        val key = File(folder.root, "release.key").also { it.writeText(encryptSeed(seed, passphrase)) }.path
+        fun entries(text: String) = File(folder.root, "entries-${text.hashCode()}.json").also { it.writeText(text) }.path
+        val out = File(folder.root, "restating.lrp").path
+
+        assertEquals(setOf(inForce), standingRevocations(standing))
+        assertEquals(0, tool("build", "--in", entries(revoking(inForce)), "--key", key, "--out", out, "--revoked", standing.toString()))
+        assertEquals(listOf(inForce), Pack.verify(File(out).readBytes(), publicKey).revokedKeys)
+        assertEquals(
+            1,
+            tool("build", "--in", entries(revoking(inForce, "fedcba9876543210")), "--key", key, "--out", out, "--revoked", standing.toString()),
+        )
+    }
+
+    @Test
     fun unknownFieldsAreRefused() {
         val withExtra = sourceJson.replaceFirst("\"sequence\"", "\"extra\": true, \"sequence\"")
 

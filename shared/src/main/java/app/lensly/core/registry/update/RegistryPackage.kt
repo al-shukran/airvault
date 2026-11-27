@@ -14,8 +14,7 @@ import app.lensly.core.registry.WhitelistEntry
  * [whitelist], [denylist] and [wallets] are null when the package does not carry one, and then the list in effect stays in force
  * (see [RegistryUpdate.withInstalled]): a package cannot clear a list by leaving it out. An empty list is one the package carries,
  * and it clears the build's. [solanaFees] is null the same way, and the build's constants stay. [revokedKeys] are the IDs of the
- * signing keys the package revokes (see [RegistryUpdate.install]); only a package signed by a [KeyRole.RECOVERY] key carries any.
- * [signerKeyId] is the ID of the key that signed it.
+ * signing keys the package revokes (see [RegistryUpdate.install]). [signerKeyId] is the ID of the key that signed it.
  */
 data class RegistryPackage(
     val sequence: Long,

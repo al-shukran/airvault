@@ -91,7 +91,9 @@ object RegistryUpdate {
      * with no store file and no Keystore key holds nothing accepted yet, as after an install that died before its first write.
      * A package that omits its whitelist is refused with [RegistryUpdateException.Conflict] when the whitelist it would keep names
      * a chain that neither the build nor the package has, as the merged catalog would then not build.
-     * A package signed by a [KeyRole.RECOVERY] key may revoke signing keys by ID. From the moment it is installed, a package signed with a
+     * A package may revoke signing keys by ID. One that adds a revocation not yet in force must be signed by a [KeyRole.RECOVERY] key,
+     * and is refused with [RegistryUpdateException.InvalidEntry] otherwise; one that only restates the revocations in force may be signed by
+     * any active key. From the moment it is installed, a package signed with a
      * revoked key is refused as [RegistryUpdateException.RevokedKey], including the whitelist and denylist this store keeps from earlier
      * packages, so a package that revokes the key of a list it does not restate is refused with [RegistryUpdateException.Conflict]. Every
      * later package must revoke the same keys, or it is refused with [RegistryUpdateException.Conflict]: a revocation is never undone by
@@ -124,6 +126,10 @@ object RegistryUpdate {
                 throw RegistryUpdateException.Conflict(
                     "the installed package revokes keys that this package does not: ${(standing - incoming.revokedKeys.toSet()).sorted()}",
                 )
+            }
+            // The everyday key signs every release, so a leak of it must not be able to revoke the backup key.
+            if (!(incoming.revokedKeys - standing).isEmpty() && keys.first { it.id == incoming.signerKeyId }.role != KeyRole.RECOVERY) {
+                throw RegistryUpdateException.InvalidEntry("only a package signed by a recovery key can add a revocation")
             }
             adoptUnsealed(dir, trustedKeys, keystore)
             val prior = sealOf(dir, keystore)

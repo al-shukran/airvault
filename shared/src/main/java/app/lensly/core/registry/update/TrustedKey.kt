@@ -13,8 +13,8 @@ enum class KeyStatus {
 }
 
 /**
- * What a trusted key may sign. Only a [RECOVERY] key can sign a package that revokes keys, so the everyday key, which signs every
- * release and is the likelier to leak, cannot revoke the backup key.
+ * What a trusted key may sign. Only a [RECOVERY] key can sign a package that adds a revocation, so the everyday key, which signs every
+ * release and is the likelier to leak, cannot revoke the backup key. Any active key can restate the revocations already in force.
  */
 @Serializable
 enum class KeyRole {
@@ -56,7 +56,7 @@ class TrustedKey(
  * refused, including one already installed. The installed sequence stays recorded, so an older package still cannot be installed.
  *
  * A key can also be revoked after a build ships: an installed package lists the IDs it revokes (see [RegistryPackage.revokedKeys]), and
- * [RegistryUpdate] then treats those keys as revoked on top of this list. Only a package signed by a [KeyRole.RECOVERY] key can do so.
+ * [RegistryUpdate] then treats those keys as revoked on top of this list. Only a package signed by a [KeyRole.RECOVERY] key can add a revocation.
  */
 object TrustedKeys {
     const val RELEASE_PATH = "registry/trusted-keys.json"

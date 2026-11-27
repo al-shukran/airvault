@@ -1,4 +1,4 @@
 {
-  "note": "The signing keys every shipped package revokes, as key IDs (16 lowercase hex digits). Empty until a key has been revoked in the field. sign-candidate.sh writes this list into the bundled package as revokedKeys, which only a recovery key may sign, and ShippedRegistryDataTest checks that the bundle restates every ID here. Never remove an ID: a package that omits a revocation the device holds is refused.",
+  "note": "The signing keys every shipped package revokes, as key IDs (16 lowercase hex digits). Empty until a key has been revoked in the field. sign-candidate.sh writes this list into the bundled package as revokedKeys, which only a recovery key may sign while a key is new to the list, and ShippedRegistryDataTest checks that the bundle restates every ID here. Never remove an ID: a package that omits a revocation the device holds is refused.",
   "revokedKeys": []
 }

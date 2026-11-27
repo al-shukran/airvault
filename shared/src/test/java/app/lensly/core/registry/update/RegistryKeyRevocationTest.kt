@@ -32,8 +32,8 @@ class RegistryKeyRevocationTest {
         TestPackages.payload(sequence = sequence, minSchemaVersion = 6, whitelist = whitelist, revokedKeys = revokedKeys),
     )
 
-    private fun signedByLeaked(sequence: Long, whitelist: String? = null) = TestPackages.signed(
-        TestPackages.payload(sequence = sequence, minSchemaVersion = 6, whitelist = whitelist),
+    private fun signedByLeaked(sequence: Long, whitelist: String? = null, revokedKeys: List<String> = emptyList()) = TestPackages.signed(
+        TestPackages.payload(sequence = sequence, minSchemaVersion = 6, whitelist = whitelist, revokedKeys = revokedKeys),
         TestPackages.OTHER_SEED,
     )
 
@@ -88,6 +88,26 @@ class RegistryKeyRevocationTest {
         )
 
         assertIs<RegistryUpdateException.InvalidEntry>(install(revoking).exceptionOrNull())
+    }
+
+    @Test
+    fun aReleaseKeyMayRestateARevocationInForceButNotAddOne() {
+        val other = "0123456789abcdef"
+        val another = "fedcba9876543210"
+        install(signedByFirst(1, revokedKeys = listOf(other))).getOrThrow()
+
+        // Adding a revocation that is not in force is the recovery key's alone.
+        assertIs<RegistryUpdateException.InvalidEntry>(install(signedByLeaked(2, revokedKeys = listOf(other, another))).exceptionOrNull())
+        // Restating the one in force is open to any active key.
+        assertTrue(install(signedByLeaked(2, revokedKeys = listOf(other))).isSuccess)
+        assertEquals(listOf(other), assertNotNull(RegistryUpdate.installedPackage(baked, dir, keys, keystore)).revokedKeys)
+    }
+
+    @Test
+    fun aRevokedKeyCannotRestateARevocation() {
+        install(signedByFirst(1, revokedKeys = listOf(leaked))).getOrThrow()
+
+        assertIs<RegistryUpdateException.RevokedKey>(install(signedByLeaked(2, revokedKeys = listOf(leaked))).exceptionOrNull())
     }
 
     @Test

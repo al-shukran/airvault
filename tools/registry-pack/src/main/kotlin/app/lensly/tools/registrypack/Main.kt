@@ -32,10 +32,11 @@ private const val MIN_PASSPHRASE_CHARS = 12
 
 private val USAGE = """usage:
   keygen --out <dir>
-  build  --in <entries.json> --key <release.key> --out <file.lrp> [--pinned <trusted-keys.json>]
+  build  --in <entries.json> --key <release.key> --out <file.lrp> [--pinned <trusted-keys.json>] [--revoked <revoked-keys.json>]
   verify --pub <release.pub> <file.lrp>
 Paths are relative to the repository root when run as: ./gradlew :tools:registry-pack:run --args="..."
---pinned names the trusted key list: a package that revokes keys is built only when it lists the signing key with role recovery.
+--pinned names the trusted key list: a package that adds a revocation is built only when it lists the signing key with role recovery.
+--revoked names the standing revocation list: a package that only restates its keys needs no recovery key.
 The passphrase comes from $PASSPHRASE_ENV, or is typed at the terminal (keygen asks twice).
 Exit codes: 0 success, 1 refused (invalid input, wrong passphrase or signature), 2 usage error."""
 
@@ -47,7 +48,7 @@ internal fun runTool(args: List<String>, out: PrintStream, err: PrintStream, pas
     val rest = args.drop(1)
     when (args.firstOrNull()) {
         "keygen" -> keygen(parseOptions(rest, setOf("--out")), out, passphrase)
-        "build" -> build(parseOptions(rest, setOf("--in", "--key", "--out", "--pinned")), out, passphrase)
+        "build" -> build(parseOptions(rest, setOf("--in", "--key", "--out", "--pinned", "--revoked")), out, passphrase)
         "verify" -> verify(parseOptions(rest, setOf("--pub")), out)
         else -> throw UsageError("")
     }
@@ -85,11 +86,16 @@ private fun build(options: Options, out: PrintStream, passphrase: PassphraseSour
     val seed = decryptSeed(Files.readString(Paths.get(options.required("--key"))), passphrase(false))
     val target = Paths.get(options.required("--out"))
     val recovery = options.optional("--pinned")?.let { isRecoveryKey(Paths.get(it), Pack.publicKeyOf(seed)) } ?: false
-    val (bytes, content) = Pack.build(entries, seed, recovery)
+    val standing = options.optional("--revoked")?.let { standingRevocations(Paths.get(it)) }.orEmpty()
+    val (bytes, content) = Pack.build(entries, seed, recovery, standing)
     Files.write(target, bytes)
     out.println("wrote $target: ${bytes.size} bytes, sha256 ${sha256(bytes)}")
     out.println(summary(content))
 }
+
+/** The key IDs in the standing revocation list at [path]. */
+internal fun standingRevocations(path: Path): Set<String> =
+    Json.parseToJsonElement(Files.readString(path)).jsonObject.getValue("revokedKeys").jsonArray.map { it.jsonPrimitive.content }.toSet()
 
 /** Whether the trusted key list at [pinned] lists [publicKey] as an active key with role `recovery`. */
 internal fun isRecoveryKey(pinned: Path, publicKey: ByteArray): Boolean {

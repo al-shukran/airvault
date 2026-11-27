@@ -183,10 +183,6 @@ internal object PackageFormat {
         if (signer.id in dto.revokedKeys) {
             throw RegistryUpdateException.InvalidEntry("a package cannot revoke the key that signed it")
         }
-        // The everyday key signs every release, so a leak of it must not be able to revoke the backup key.
-        if (dto.revokedKeys.isNotEmpty() && signer.role != KeyRole.RECOVERY) {
-            throw RegistryUpdateException.InvalidEntry("only a package signed by a recovery key can revoke keys")
-        }
         try {
             LocalDate.parse(dto.createdAt)
         } catch (e: DateTimeParseException) {

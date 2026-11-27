@@ -15,7 +15,9 @@
 #
 # The keys in tools/registry-data/revoked-keys.json are written into the package as revokedKeys, so the bundle restates every revocation
 # a device may already hold. While that list is empty the package has no revokedKeys and keeps the bytes it had. Once it lists a key, only
-# a key pinned with role "recovery" can sign: pass the recovery key's file as --key and its passphrase in LENSLY_REGISTRY_PASSPHRASE.
+# a key pinned with role "recovery" can sign when the list gains a key. Keys already committed in the list count as in force: a package
+# that only restates them can be signed by any active key. A key added since the last commit needs the recovery key's file as --key
+# and its passphrase in LENSLY_REGISTRY_PASSPHRASE, so sign before you commit the list. The app refuses a release-signed package that adds a revocation.
 #
 # The passphrase comes from LENSLY_REGISTRY_PASSPHRASE, or else from the macOS keychain item
 # (service lensly-registry-release, account registry-release). It is never printed.
@@ -78,6 +80,10 @@ jq -n --slurpfile cand "$CANDIDATE" --slurpfile rev "$REVOKED" --rawfile sel "$S
   | if ($rev[0].revokedKeys | length) > 0 then . + { minSchemaVersion: 6, revokedKeys: $rev[0].revokedKeys } else . end
 ' > "$WORK/entries.json" || die "could not build the entries from $SELECTION"
 
+# The revocations in force are the ones already committed; a key added to the list since is new and needs the recovery key.
+git -C "$ROOT" show "HEAD:tools/registry-data/revoked-keys.json" > "$WORK/in-force.json" 2>/dev/null \
+  || echo '{"revokedKeys":[]}' > "$WORK/in-force.json"
+
 if [ -z "${LENSLY_REGISTRY_PASSPHRASE:-}" ] && command -v security >/dev/null 2>&1; then
   LENSLY_REGISTRY_PASSPHRASE="$(security find-generic-password -a registry-release -s lensly-registry-release -w 2>/dev/null || true)"
   export LENSLY_REGISTRY_PASSPHRASE
@@ -86,7 +92,7 @@ fi
 
 cd "$ROOT"
 ./gradlew --max-workers=4 -q :tools:registry-pack:run \
-  --args="build --in $WORK/entries.json --key $KEY --out $OUT --pinned $PINNED"
+  --args="build --in $WORK/entries.json --key $KEY --out $OUT --pinned $PINNED --revoked $WORK/in-force.json"
 ./gradlew --max-workers=4 -q :tools:registry-pack:run \
   --args="verify --pub $PUB $OUT"
 echo "entries: $(jq '.whitelist | length' "$WORK/entries.json") whitelist entries, $(jq '.revokedKeys // [] | length' "$WORK/entries.json") revoked keys, sequence $SEQUENCE, created $CREATED"

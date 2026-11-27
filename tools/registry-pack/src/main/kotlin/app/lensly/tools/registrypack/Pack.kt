@@ -198,14 +198,21 @@ internal object Pack {
     private val json = Json
 
     /**
-     * Builds a signed package from entries JSON. The same entries and seed always give the same bytes. A package that revokes keys
-     * is built only when [recoveryKey] says the seed is a recovery key's: the app refuses one signed by any other.
+     * Builds a signed package from entries JSON. The same entries and seed always give the same bytes. A package may add a
+     * revocation only when [recoveryKey] says the seed is a recovery key's: the app refuses one signed by any other. The keys in
+     * [standing] (the revocations already in force) may be restated by any key.
      */
-    fun build(entriesJson: String, seed: ByteArray, recoveryKey: Boolean = false): Pair<ByteArray, PackageDto> {
+    fun build(
+        entriesJson: String,
+        seed: ByteArray,
+        recoveryKey: Boolean = false,
+        standing: Set<String> = emptySet(),
+    ): Pair<ByteArray, PackageDto> {
         val content = json.decodeFromString<PackageDto>(entriesJson)
         validate(content)
-        require(content.revokedKeys.isEmpty() || recoveryKey) {
-            "only a package signed by a recovery key can revoke keys; pass --pinned with the trusted key list that names this key as recovery"
+        require(recoveryKey || standing.containsAll(content.revokedKeys)) {
+            "only a package signed by a recovery key can add a revocation; pass --pinned with the trusted key list that names this key as " +
+                "recovery, or --revoked with the standing list when the package only restates it"
         }
         requireNotSelfRevoking(content, publicKeyOf(seed))
         val bytes = encode(canonicalPayload(content), seed)
