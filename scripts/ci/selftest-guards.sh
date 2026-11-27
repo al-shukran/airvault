@@ -103,8 +103,8 @@ expect_pass "the real workflows" "$guards"
 rm -rf "$work/workflows"
 cp -R .github/workflows "$work/workflows"
 expect_pass "an unchanged copy of the workflows" guard_with
-mutate release.yml '.jobs.release.steps[0].env.TOKEN = "${{ secrets.GITHUB_TOKEN }}"'
-expect_pass "GITHUB_TOKEN read before the refusal" guard_with
+mutate release.yml '.jobs.other = {"runs-on": "ubuntu-24.04", "steps": [{"run": "echo ${{ secrets.GITHUB_TOKEN }}"}]}'
+expect_pass "GITHUB_TOKEN read in a job with no refusal" guard_with
 mutate comment-run.yml 'sed:s/contains(fromJSON(.\[[^]]*\].), github.event.comment.author_association)/github.event.comment.author_association/'
 expect_fail "a bare author_association" guard_with
 mutate comment-run.yml 'sed:s/"OWNER","MEMBER","COLLABORATOR"/"OWNER","MEMBER","COLLABORATOR","NONE"/'
@@ -223,6 +223,19 @@ mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  (\\n    exit 1\\
 expect_fail "an exit 1 inside a subshell" guard_with
 mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  echo hi |&\\n  exit 1\\nfi\""
 expect_fail "an exit 1 in the pipeline that a line ending in |& continues" guard_with
+# Only the pinned checkout may run before the refusal: any other step can write BASH_ENV or PATH to $GITHUB_ENV / $GITHUB_PATH, or run
+# code from the repository (a local action), and so neuter the refusal.
+steps='.jobs.release.steps'
+checkout="\"uses\": \"actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1\", \"with\": {\"persist-credentials\": false, \"fetch-depth\": 0}"
+for early in '{"run": "echo BASH_ENV=/tmp/x >> $GITHUB_ENV"}' '{"run": "echo /tmp/bin >> $GITHUB_PATH"}' '{"uses": "./evil"}' \
+    '{"uses": "actions/cache@3d3c42e5aac5ba805825da76410c181273ba90b1"}' '{"uses": "actions/checkout@v7", "with": {"persist-credentials": false, "fetch-depth": 0}}' \
+    "{$checkout, \"env\": {\"GIT_DIR\": \"/tmp\"}}" "{$checkout, \"if\": \"false\"}" "{$checkout, \"run\": \"true\"}" \
+    '{"uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1", "with": {"path": "sub"}}'; do
+    mutate release.yml "$steps = [$early] + $steps"
+    expect_fail "a step before the refusal: $early" guard_with
+done
+mutate release.yml "$steps = [{$checkout}] + $steps"
+expect_pass "a second pinned checkout before the refusal" guard_with
 # The step's run must be exactly the canonical refusal: no statement before or inside it may skip, override or neuter it (#1470).
 canon=$(yq "$refusal | .run" .github/workflows/release.yml)
 refuse_with() {

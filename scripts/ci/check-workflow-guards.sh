@@ -43,6 +43,8 @@ expected="comment-run-\${{ github.event.issue.number }}-\${{ $gate }}"
 #    no expansion but $GITHUB_REF_NAME and $GITHUB_SHA, `exit 1`, `fi`. Any other statement (an earlier `exit 0`, a trap, an alias,
 #    a change to GITHUB_SHA or to origin/master) or an operator the shell could read differently is refused, so the shell cannot
 #    skip, swallow or redirect the exit (#1451, #1465, #1470).
+#  - Only the checkout, pinned by SHA with persist-credentials false and fetch-depth 0, may run before the refusal: no other step can write
+#    BASH_ENV or PATH to $GITHUB_ENV / $GITHUB_PATH or run a local action ahead of it.
 #  - The workflow and each job have only the keys name, on, permissions, concurrency, jobs / name, runs-on, timeout-minutes, steps, so
 #    no defaults.run.shell, defaults.run.working-directory or env (BASH_ENV, PATH, GIT_DIR) reaches the refusal step.
 yq -o=json '.' "$workflows/release.yml" | python3 -I -c '
@@ -56,6 +58,7 @@ COMMAND = "git merge-base --is-ancestor \"$GITHUB_SHA\" origin/master"
 HEAD = ["set -euo pipefail", "git fetch --no-tags origin \x27+refs/heads/master:refs/remotes/origin/master\x27", "if ! " + COMMAND + "; then"]
 ERROR = re.compile(r"echo \"::error::(?:[^\"$`\\\\!]|\$GITHUB_REF_NAME|\$GITHUB_SHA)*\"")
 TAIL = ["exit 1", "fi"]
+CHECKOUT = re.compile(r"actions/checkout@[0-9a-f]{40}")
 WORKFLOW_KEYS = {"name", "on", "permissions", "concurrency", "jobs"}
 JOB_KEYS = {"name", "runs-on", "timeout-minutes", "steps"}
 errors = []
@@ -63,6 +66,10 @@ errors = []
 
 def reads_secret(obj):
     return any((m.group(1) or "").lower() != "github_token" for m in SECRET.finditer(json.dumps(obj)))
+
+
+def early_ok(step):
+    return set(step) <= {"name", "uses", "with"} and bool(CHECKOUT.fullmatch(str(step.get("uses", "")))) and step.get("with") == {"persist-credentials": False, "fetch-depth": 0}
 
 
 def refuses(step):
@@ -87,6 +94,8 @@ for name, job in doc.get("jobs", {}).items():
     secret = next((i for i, step in enumerate(steps) if reads_secret(step)), None)
     if set(job) - JOB_KEYS:
         errors.append("release.yml job %s has keys outside %s (defaults and env change how the refusal step runs): %s" % (name, sorted(JOB_KEYS), sorted(set(job) - JOB_KEYS)))
+    if refuse is not None and not all(early_ok(step) for step in steps[:refuse]):
+        errors.append("release.yml job %s runs a step other than the SHA-pinned checkout (persist-credentials false, fetch-depth 0) before the refusal" % name)
     if "secrets" in job or reads_secret({k: v for k, v in job.items() if k != "steps"}):
         errors.append("release.yml job %s reads a secret outside its steps (job env, secrets:, a reusable workflow), before any step can refuse" % name)
     elif secret is not None and refuse is None:
