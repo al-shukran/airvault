@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
@@ -213,7 +214,7 @@ internal fun AssetRoute(
     AssetPage(
         name = name,
         symbol = symbol,
-        icon = { CoinLogo(logo = logo, spec = coinIcon) },
+        icon = { size -> CoinLogo(logo = logo, spec = coinIcon, size = size) },
         priceText = price?.let { fiat.amount(it.usd) },
         change = price?.let { changeOf(it, fiat) },
         series = series,
@@ -246,6 +247,7 @@ internal fun AssetRoute(
                         zone = ZoneId.systemDefault(),
                         shown = display.showAssets,
                         onClick = { wallet?.let { navController.navigate(LumioRoute.transaction(it.id, item.tx.account, item.tx.id)) } },
+                        frame = true,
                     )
                 }
             }
@@ -403,14 +405,13 @@ internal fun coinSendRoute(account: WalletAccount, asset: WatchedAsset, mode: Ne
     else -> sendRoute(account, mode)
 }
 
-/** The coin's logo at 48 dp: the image a source served when there is one, else the icon [spec] draws. */
+/** The coin's logo at [size]: the image a source served when there is one, else the icon [spec] draws. */
 @Composable
-private fun CoinLogo(logo: ImageBitmap?, spec: AssetIconSpec) {
+private fun CoinLogo(logo: ImageBitmap?, spec: AssetIconSpec, size: Dp) {
     if (logo == null) {
-        AssetIcon(spec = spec, size = ICON_SIZE)
+        AssetIcon(spec = spec, size = size)
     } else {
-        Image(bitmap = logo, contentDescription = null, modifier = Modifier.size(ICON_SIZE).clip(CircleShape))
+        Image(bitmap = logo, contentDescription = null, modifier = Modifier.size(size).clip(CircleShape))
     }
 }
 
-private val ICON_SIZE = 48.dp

@@ -155,11 +155,11 @@ fun ClearAirRow(
     }
 }
 
-/** A logo, monogram or glyph on the 36 dp raised disc that leads a row. */
+/** A logo, monogram or glyph on the raised disc that leads a row, 36 dp unless a page head sets its own [size]. */
 @Composable
-fun ClearAirDisc(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun ClearAirDisc(modifier: Modifier = Modifier, size: Dp = DISC, content: @Composable () -> Unit) {
     Box(
-        modifier = modifier.size(DISC).clip(CircleShape).background(LocalClearAirPalette.current.raised),
+        modifier = modifier.size(size).clip(CircleShape).background(LocalClearAirPalette.current.raised),
         contentAlignment = Alignment.Center,
     ) { content() }
 }

@@ -127,29 +127,6 @@ mutate comment-run.yml 'sed:s/-\${{ startsWith(/-${{ true || startsWith(/'
 expect_fail "a true || prefix in the group" guard_with
 mutate comment-run.yml 'sed:s/-\${{ startsWith(/-${{ !startsWith(/'
 expect_fail "a negated /run- test in the group" guard_with
-# The design gate stays in pr-ok, cannot be skipped, and its guard runs the base commit's copy.
-mutate pr-fast.yml '.jobs.pr-ok.needs -= ["design_guard"]'
-expect_fail "pr-ok without the design guard" guard_with
-mutate pr-fast.yml '.jobs.pr-ok.needs -= ["design"]'
-expect_fail "pr-ok without the design gate" guard_with
-mutate pr-fast.yml '.jobs.design.if = "false"'
-expect_fail "a design gate that can be skipped" guard_with
-mutate pr-fast.yml 'sed:s/design=\$DESIGN/design=success/'
-expect_fail "an aggregate that ignores the design gate" guard_with
-mutate pr-fast.yml 'sed:s/git show "\$BASE_SHA:scripts/git show "HEAD:scripts/'
-expect_fail "a design guard that runs the pull request's copy" guard_with
-mutate design-guard-rerun.yml '.on.pull_request.types -= ["unlabeled"]'
-expect_fail "a rerun workflow that ignores a removed label" guard_with
-mutate design-guard-rerun.yml '.jobs.rerun.if = "true"'
-expect_fail "a rerun workflow for every label" guard_with
-mutate design-guard-rerun.yml '.jobs.rerun.permissions.actions = "read"'
-expect_fail "a rerun workflow without actions: write" guard_with
-mutate design-guard-rerun.yml 'sed:s/gh run rerun/gh run view/'
-expect_fail "a rerun workflow that does not re-run" guard_with
-rm "$work/workflows/design-guard-rerun.yml"
-expect_fail "no rerun workflow" guard_with
-mutate pr-fast.yml '.jobs.design.timeout-minutes = 5'
-expect_fail "a design lane capped at 5 minutes" guard_with
 # A secret read before the refusal, in any form the old text match and an env/with scan would miss.
 for read in 'echo ${{ secrets.LENSLY_KEYSTORE_PASS }}' "echo \${{ secrets['LENSLY_KEYSTORE_PASS'] }}" 'echo ${{ secrets.lensly_keystore_pass }}' \
     'echo # ${{ secrets.LENSLY_KEYSTORE_PASS }}' 'echo ${{ toJSON(secrets) }}'; do

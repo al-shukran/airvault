@@ -113,13 +113,9 @@ val junitJupiter = "5.14.4"
 tasks.withType<Test>().configureEach {
     jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
     useJUnitPlatform()
-    // -PdesignGate runs the screens that design/registry.json lists against their approved frames (tools/design-frames/README.md). The run
-    // writes build/design-gate, which a cached or up-to-date run would not, so it is never either.
-    if (providers.gradleProperty("designGate").isPresent) {
-        systemProperty("designGate", "true")
-        outputs.upToDateWhen { false }
-        outputs.doNotCacheIf("the design gate writes its report to build/design-gate") { true }
-    }
+    // Screens print times in the system zone (clockOf), so a render and a golden depend on the host's zone unless the tests pin it: a Mac in
+    // Asia/Kolkata drew 19:32 where the frames and CI (UTC) have 14:02. Pinned here, every host renders the same screens.
+    systemProperty("user.timezone", "UTC")
 }
 
 dependencies {

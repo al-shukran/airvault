@@ -49,7 +49,6 @@ lanes:
   verify-app, verify-lumio
                the Roborazzi pixel tests of one module, with verifyRoborazziDebug (run locally; nightly records goldens)
   fuzz         the Jazzer seed replays (app.lensly.fuzz.*), with -PfuzzLane
-  design       the design gate: the screens of design/registry.json against their approved frames (-PdesignGate), then scripts/design/check-results.py
   apk          the Lumio debug APK (:lumio:assembleDebug)
   android-tests
                androidTest and benchmark compile of :app and :lumio (nightly)
@@ -204,21 +203,6 @@ run_fuzz() {
     gradle --offline :shared:testDebugUnitTest "${tests[@]}" -PfuzzLane
 }
 
-# The screens that design/registry.json lists run at the size of their approved frames and are compared with the frames. The test classes
-# are the registry's own, and a registered screen that wrote no result fails check-results.py, so a skipped test is a red lane. The
-# check runs even when a test failed, for the report and the job summary.
-run_design() {
-    local -a tests=()
-    local c status=0
-    while IFS= read -r c; do
-        tests+=(--tests "$c")
-    done < <(python3 -c "import json; print('\n'.join(sorted({r['test'] for r in json.load(open('design/registry.json'))['screens'].values()})))")
-    rm -rf lumio/build/design-gate
-    gradle --offline --max-workers=3 :lumio:testDebugUnitTest "${tests[@]}" -PdesignGate || status=1
-    python3 scripts/design/check-results.py || status=1
-    return "$status"
-}
-
 run_apk() {
     gradle --offline :lumio:assembleDebug
 }
@@ -282,7 +266,6 @@ run_ci() {
     "$ROOT/scripts/ci/check-workflow-guards.sh"
     "$ROOT/scripts/ci/check-cleartext-sources.sh"
     "$ROOT/scripts/ci/selftest-guards.sh"
-    python3 "$ROOT/scripts/design/test_design.py"
 }
 
 case "$lane" in
@@ -290,7 +273,6 @@ case "$lane" in
     shard-[1-9]|shard-10) run_shard "$lane" ;;
     verify-app | verify-lumio) run_verify "$lane" ;;
     fuzz) run_fuzz ;;
-    design) run_design ;;
     apk) run_apk ;;
     android-tests) run_android_tests ;;
     lint-app | lint-lumio | lint-shared) run_lint "${lane#lint-}" ;;

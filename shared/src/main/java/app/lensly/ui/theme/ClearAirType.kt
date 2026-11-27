@@ -35,6 +35,12 @@ private val NumberFamily = FontFamily(
     Font(R.font.jetbrains_mono_variable, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
 )
 
+// The one true Bold face of the mono type, for the Asset page's chosen range. It is a family of its own, so no other mono text changes its weight.
+@OptIn(ExperimentalTextApi::class)
+private val NumberBoldFamily = FontFamily(
+    Font(R.font.jetbrains_mono_variable, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
+)
+
 /** A size and a line height, in sp, and the letter spacing of the mock's CSS, in em. */
 private class ClearAirStep(val size: Float, val line: Float, val tracking: Float = 0f)
 
@@ -143,6 +149,9 @@ object ClearAirType {
 
     /** An address, set in groups of four: JetBrains Mono Regular. */
     val address = clearAirStyle(NumberFamily, FontWeight.Normal, ClearAirScale.address)
+
+    /** The address style in JetBrains Mono Bold, which only the Asset page's chosen range uses. */
+    val addressBold = clearAirStyle(NumberBoldFamily, FontWeight.Bold, ClearAirScale.address)
 
     /** A status in words, and the testnet band: Archivo 92 SemiBold. */
     val label = clearAirStyle(BodyFamily, FontWeight.SemiBold, ClearAirScale.label)
