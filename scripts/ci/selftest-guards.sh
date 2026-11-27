@@ -2,7 +2,7 @@
 # Checks the CI guards against broken inputs: each case must make its guard fail, and the real files must still pass. Needs yq and
 # python3, no Gradle and no network. Runs in the ci lane (run-partition.sh ci), so a guard that stops rejecting a case fails a pull request.
 #   check-cleartext-sources.sh   cleartext allowed outside src/debug/ (#1406, #1441)
-#   check-workflow-guards.sh     comment-run trusted gate and release refusal order (#1407, #1408, #1442, #1451, #1465, #1470, #1481)
+#   check-workflow-guards.sh     comment-run trusted gate and release refusal order (#1407, #1408, #1442, #1451, #1465, #1470, #1481, #1482)
 #   close-refresh-pr.sh          the refresh pull request is closed and the comment posted once (#1396, #1443)
 #
 # Usage: scripts/ci/selftest-guards.sh
@@ -370,6 +370,98 @@ jobs:
     steps:
       - run: echo done'
 expect_fail "a repeated mapping key" guard_with
+
+# A secret may appear only in the env of a run step. A uses: step (a remote action with a pre script runs it before every step, so
+# before the refusal) must not get one in with or env, and a run text must not hold one (#1482).
+cache='{"uses": "actions/cache@3d3c42e5aac5ba805825da76410c181273ba90b1"'
+for step in "$cache, \"with\": {\"key\": \"\${{ secrets.LENSLY_KEYSTORE_PASS }}\"}}" "$cache, \"env\": {\"K\": \"\${{ secrets.LENSLY_KEYSTORE_PASS }}\"}}" \
+    "$cache, \"with\": {\"key\": \"\${{ secrets.LUMIO_KEYSTORE_B64 }}\"}, \"env\": {\"K\": \"\${{ secrets.LUMIO_KEYSTORE_PASS }}\"}}" \
+    '{"name": "Late", "run": "echo ${{ secrets.LENSLY_KEYSTORE_PASS }}"}' '{"name": "Late", "uses": "./local", "env": {"K": "${{ secrets.LENSLY_KEYSTORE_PASS }}"}}' \
+    '{"name": "Late", "run": "true", "with": {"K": "${{ secrets.LENSLY_KEYSTORE_PASS }}"}}'; do
+    mutate release.yml "$steps += [$step]"
+    expect_fail "a step after the refusal with a secret outside the env of a run step: $step" guard_with
+done
+mutate release.yml "$steps += [{\"name\": \"Late\", \"run\": \"true\", \"env\": {\"K\": \"\${{ secrets.LENSLY_KEYSTORE_PASS }}\"}}]"
+expect_pass "a run step after the refusal with a secret in its env" guard_with
+# A YAML merge key hides keys from yq, so any "<<" key fails, in release.yml and in every other workflow; a comment or a heredoc does not (#1482).
+insert_after() {
+    # insert_after <file> <exact line> <line to add after it>
+    rm -rf "$work/workflows"
+    cp -R .github/workflows "$work/workflows"
+    awk -v after="$2" -v add="$3" '{ print } $0 == after { print add }' ".github/workflows/$1" >"$work/workflows/$1"
+    if cmp -s ".github/workflows/$1" "$work/workflows/$1"; then fail "the insertion into $1 changed nothing: $3"; fi
+}
+for merge in '<<: {if: always()}' '<<: {continue-on-error: true}' '<<: {}' '"<<": {}' "'<<': {}" '? <<' '<< : {}'; do
+    insert_after release.yml '      - name: Align and sign the APK' "        $merge"
+    expect_fail "a merge key in the signing step: $merge" guard_with
+done
+extra 'on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    env: &e {X: ok}
+    steps:
+      - run: echo
+        env:
+          <<: *e'
+expect_fail "an alias merge <<: *anchor" guard_with
+extra 'on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    steps:
+      - &base
+        run: echo
+      - <<: *base
+        name: x'
+expect_fail "a merge of a step anchor into a step" guard_with
+extra 'on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    steps:
+      - {name: x, <<: {if: always()}, run: echo}'
+expect_fail "a merge key in a flow mapping" guard_with
+extra 'on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    steps:
+      # <<: {if: always()}
+      - run: |
+          cat <<EOF
+          text
+          EOF
+          grep x <<< "y"'
+expect_pass "<< in a comment, a heredoc and a here-string" guard_with
+# Names are compared NFKC-normalised and case-folded: the long s and a full-width s spell secrets too (#1482).
+long_s=$'\xc5\xbf' wide_s=$'\xef\xbd\x93'
+for letter in "$long_s" "$wide_s"; do
+    extra "on: push
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo
+        env:
+          X: \${{ ${letter}ecrets.LENSLY_KEYSTORE_PASS }}"
+    expect_fail "a keystore secret read written with the letter $letter in another workflow" guard_with
+    mutate release.yml "$sign |= (.env.LENSLY_KEYSTORE_PASS = \"\${{ ${letter}ecrets.UNKNOWN_NAME }}\")"
+    expect_fail "an unlisted secret read written with the letter $letter in release.yml" guard_with
+    extra "on: push
+jobs:
+  j:
+    uses: octo/repo/.github/workflows/x.yml@main
+    ${letter}ecrets: inherit"
+    expect_fail "a reusable workflow call with the key ${letter}ecrets" guard_with
+done
+# release.yml runs on a push of the lensly-v* and lumio-v* tags and nothing else (#1482).
+for change in '.on.pull_request_target.branches = ["master"]' '.on.pull_request = {}' '.on.workflow_dispatch = {}' '.on.workflow_run.workflows = ["x"]' \
+    '.on.workflow_call = {}' '.on.schedule = [{"cron": "0 0 * * *"}]' '.on.push.branches = ["master"]' '.on.push.tags += ["v*"]' '.on.push.tags = ["lensly-v*"]' \
+    '.on.push.tags-ignore = ["x"]' '.on.push.paths = ["x"]' '.on = "push"' '.on = ["push"]' 'del(.on)' '.on.release = {}' '.on.issue_comment = {}'; do
+    mutate release.yml "$change"
+    expect_fail "release.yml with the trigger change $change" guard_with
+done
 
 # The step's run must be exactly the canonical refusal: no statement before or inside it may skip, override or neuter it (#1470).
 canon=$(yq "$refusal | .run" .github/workflows/release.yml)
