@@ -99,13 +99,18 @@ class Registry constructor(
     /**
      * This registry with the networks and tokens of an installed package merged in. The signed lists are kept. An
      * entry with the chain ID of a network already present, or the chain and contract of a token already present, replaces it, so a signed
-     * package corrects a baked entry; any other entry is added.
+     * package corrects a baked entry; any other entry is added. A correction that names no icon keeps the icon of the entry it replaces.
      */
-    fun withPackageEntries(packageNetworks: List<NetworkEntry>, packageTokens: List<TokenEntry>): Registry =
-        copy(
-            networks = (networkList + packageNetworks).associateBy { it.chainId }.values.toList(),
-            tokens = (tokenList + packageTokens).associateBy { it.chainId to it.contract }.values.toList(),
-        )
+    fun withPackageEntries(packageNetworks: List<NetworkEntry>, packageTokens: List<TokenEntry>): Registry {
+        val merged = networkList.associateByTo(LinkedHashMap()) { it.chainId }
+        for (entry in packageNetworks) merged[entry.chainId] = entry.copy(icon = entry.icon ?: merged[entry.chainId]?.icon)
+        val mergedTokens = tokenList.associateByTo(LinkedHashMap()) { it.chainId to it.contract }
+        for (entry in packageTokens) {
+            val key = entry.chainId to entry.contract
+            mergedTokens[key] = entry.copy(icon = entry.icon ?: mergedTokens[key]?.icon)
+        }
+        return copy(networks = merged.values.toList(), tokens = mergedTokens.values.toList())
+    }
 
     /**
      * This registry with its whitelist replaced by [entries]. A signed package replaces the whole whitelist, so the entries

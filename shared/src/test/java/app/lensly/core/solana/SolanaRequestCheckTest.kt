@@ -191,7 +191,7 @@ class SolanaRequestCheckTest {
     /** The fee constants come from the [SolanaFees] the check is given, so a signed package can correct them: here every constant differs from the default. */
     @Test
     fun theFeeIsComputedFromTheGivenConstants() {
-        val fees = SolanaFees(lamportsPerSignature = 7_000, defaultUnitsPerInstruction = 100_000, builtinUnitsPerInstruction = 1_000, maxUnits = 150_000)
+        val fees = SolanaFees(lamportsPerSignature = 7_000, defaultUnitsPerInstruction = 300_000, builtinUnitsPerInstruction = 4_000, maxUnits = 1_500_000)
         val transfer = legacyMessage(
             keys = listOf(key(1), key(9), system(), computeBudget()),
             instructions = listOf(computePrice(1_000_000L), transfer(from = 0, to = 1)),
@@ -201,11 +201,11 @@ class SolanaRequestCheckTest {
         val review = review(request(transfer), listOf(key(1)), fees = fees)
 
         assertEquals(7_000uL, review.baseFeeLamports)
-        // Two builtin instructions at 1,000 units, at one lamport per unit.
-        assertEquals(2_000uL, review.priorityFeeLamports)
-        assertEquals(9_000uL, review.maxFeeLamports)
-        // Two token transfers at 100,000 units and the price instruction at 1,000 are 201,000 units, capped at 150,000.
-        assertEquals(150_000uL, review(request(tokenTransfers(count = 2)), listOf(key(1)), fees = fees).priorityFeeLamports)
+        // Two builtin instructions at 4,000 units, at one lamport per unit.
+        assertEquals(8_000uL, review.priorityFeeLamports)
+        assertEquals(15_000uL, review.maxFeeLamports)
+        // Five token transfers at 300,000 units and the price instruction at 4,000 are 1,504,000 units, capped at 1,500,000.
+        assertEquals(1_500_000uL, review(request(tokenTransfers(count = 5)), listOf(key(1)), fees = fees).priorityFeeLamports)
     }
 
     /** Without constants the review uses the ones this build ships: 5,000 lamports a signature. */

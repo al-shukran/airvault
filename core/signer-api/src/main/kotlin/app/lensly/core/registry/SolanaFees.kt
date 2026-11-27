@@ -2,7 +2,8 @@ package app.lensly.core.registry
 
 /**
  * The network constants behind the fee a Solana review shows. A signed registry package can carry its own, so a change on the network does
- * not leave a locked build showing the wrong Max Fee; a build without one uses [DEFAULT].
+ * not leave a locked build showing the wrong Max Fee; a build without one uses [DEFAULT]. Each constant is at least the build's own
+ * and at most [CEILING_FACTOR] times it, so a package can raise the fee a review shows but never understate it, and the fee cannot wrap.
  *
  * [lamportsPerSignature] is the base fee of one signature. [defaultUnitsPerInstruction] is the compute units an instruction of any other
  * program gets when its transaction sets no limit, and [builtinUnitsPerInstruction] the units a System Program or compute budget
@@ -15,22 +16,31 @@ data class SolanaFees(
     val maxUnits: Long,
 ) {
     init {
-        require(lamportsPerSignature > 0) { "lamportsPerSignature must be positive" }
-        require(builtinUnitsPerInstruction in 1..UNITS_LIMIT) { "builtinUnitsPerInstruction must be 1 to $UNITS_LIMIT" }
-        require(defaultUnitsPerInstruction in 1..UNITS_LIMIT) { "defaultUnitsPerInstruction must be 1 to $UNITS_LIMIT" }
-        require(maxUnits in 1..UNITS_LIMIT) { "maxUnits must be 1 to $UNITS_LIMIT" }
+        requireBounded("lamportsPerSignature", lamportsPerSignature, LAMPORTS)
+        requireBounded("builtinUnitsPerInstruction", builtinUnitsPerInstruction, BUILTIN_UNITS)
+        requireBounded("defaultUnitsPerInstruction", defaultUnitsPerInstruction, DEFAULT_UNITS)
+        requireBounded("maxUnits", maxUnits, MAX_UNITS)
     }
 
     companion object {
-        /** The largest unit count a review computes with, the largest `UInt`. */
-        private const val UNITS_LIMIT = 0xFFFF_FFFFL
+        /** How many times a build's own constant a package's may be at most. The largest ceiling, 1,400,000,000 units, stays under the largest `UInt`. */
+        const val CEILING_FACTOR = 1_000L
+
+        private const val LAMPORTS = 5_000L
+        private const val DEFAULT_UNITS = 200_000L
+        private const val BUILTIN_UNITS = 3_000L
+        private const val MAX_UNITS = 1_400_000L
+
+        private fun requireBounded(name: String, value: Long, floor: Long) {
+            require(value in floor..floor * CEILING_FACTOR) { "$name must be $floor to ${floor * CEILING_FACTOR}" }
+        }
 
         /** The values of the network when this build was made: 5,000 lamports a signature, 200,000 and 3,000 units (SIMD-0170), a 1,400,000 cap. */
         val DEFAULT = SolanaFees(
-            lamportsPerSignature = 5_000,
-            defaultUnitsPerInstruction = 200_000,
-            builtinUnitsPerInstruction = 3_000,
-            maxUnits = 1_400_000,
+            lamportsPerSignature = LAMPORTS,
+            defaultUnitsPerInstruction = DEFAULT_UNITS,
+            builtinUnitsPerInstruction = BUILTIN_UNITS,
+            maxUnits = MAX_UNITS,
         )
     }
 }

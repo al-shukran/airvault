@@ -12,8 +12,9 @@ import java.io.InputStream
 
 /**
  * Offline catalog updates. A registry package adds networks and tokens to the baked-in catalog, and an entry with the chain ID (or the
- * chain and contract) of a baked one corrects it. It can never remove a baked entry. Its whitelist, denylist, wallets and Solana fee
- * constants are the effective ones only when the package is newer by sequence than the build's catalog; otherwise the build's stay. A
+ * chain and contract) of a baked one corrects it, and an icon it omits stays the baked one. It can never remove a baked entry. Its
+ * whitelist, denylist and wallets are the effective ones only when the package is newer by sequence than the build's catalog; otherwise
+ * the build's stay. Its Solana fee constants are always the effective ones (see [SolanaFees]). A
  * package can also revoke signing keys (see [install]). A list the package does not carry keeps the one in effect:
  * the whitelist and the denylist keep the last installed ones that carried them (a kept denylist also keeps the build's entries it does not cover), and the wallets keep the build's.
  * A package is accepted only when a key the build trusts signed it (see [TrustedKeys]), and only when its sequence is higher than
@@ -90,11 +91,13 @@ object RegistryUpdate {
      * with no store file and no Keystore key holds nothing accepted yet, as after an install that died before its first write.
      * A package that omits its whitelist is refused with [RegistryUpdateException.Conflict] when the whitelist it would keep names
      * a chain that neither the build nor the package has, as the merged catalog would then not build.
-     * A package may revoke signing keys by ID. From the moment it is installed, a package signed with a revoked key is refused as
-     * [RegistryUpdateException.RevokedKey], including the whitelist and denylist this store keeps from earlier packages, so a package
-     * that revokes the key of a list it does not restate is refused with [RegistryUpdateException.Conflict]. Every later package must
-     * revoke the same keys, or it is refused with [RegistryUpdateException.Conflict]: a revocation is never undone by omission. The
-     * revocations count only while the installed package verifies under the seal; a store that reads as unverified has none in force.
+     * A package signed by a [KeyRole.RECOVERY] key may revoke signing keys by ID. From the moment it is installed, a package signed with a
+     * revoked key is refused as [RegistryUpdateException.RevokedKey], including the whitelist and denylist this store keeps from earlier
+     * packages, so a package that revokes the key of a list it does not restate is refused with [RegistryUpdateException.Conflict]. Every
+     * later package must revoke the same keys, or it is refused with [RegistryUpdateException.Conflict]: a revocation is never undone by
+     * omission. The revocations of the installed package count whenever it verifies against a trusted key, whatever the seal says: a
+     * store that reads as unverified refuses more, never less. A package that revokes the key of the installed package is accepted
+     * whatever its sequence, and its sequence becomes the floor, so a leaked key cannot block its own revocation with a huge sequence.
      * The files and the seal are written one by one. When a write fails, the files already written
      * are put back as they were, or deleted when they cannot be put back, and the new Keystore key is deleted, so a failure leaves the
      * previous package in use, or the built-in catalog when a file was deleted, and the result says so. A file that can be neither put
@@ -114,7 +117,7 @@ object RegistryUpdate {
         delete: (File) -> Boolean = File::delete,
     ): Result<RegistryPackage> = synchronized(installLock) {
         runCatching {
-            val standing = revokedByInstalled(sealOf(dir, keystore), dir, trustedKeys)
+            val standing = revokedByInstalled(dir, trustedKeys)
             val keys = withRevoked(trustedKeys, standing)
             val incoming = verify(bytes, keys, baked).getOrThrow()
             if (!incoming.revokedKeys.containsAll(standing)) {
@@ -128,8 +131,11 @@ object RegistryUpdate {
             val accepted = acceptedSequence(dir, keys, prior, newest)
             // With no verified package the same sequence is accepted once more, to store and seal it again after a crash, a lost
             // key, a deleted package file or a replaced one: the seal alone names the floor, and the built-in catalog is in use until then.
-            val verified = prior != null && installedUnder(prior, baked, dir, keys) != null
-            if (incoming.sequence < accepted || (incoming.sequence == accepted && verified)) {
+            val installed = prior?.let { installedUnder(it, baked, dir, keys) }
+            val verified = installed != null
+            // A package that revokes the key of the installed package replaces it whatever its sequence.
+            val revokesInstalled = installed != null && installed.signerKeyId in incoming.revokedKeys
+            if (!revokesInstalled && (incoming.sequence < accepted || (incoming.sequence == accepted && verified))) {
                 throw RegistryUpdateException.NotNewer(accepted, incoming.sequence)
             }
             if (incoming.whitelist == null && prior != null) checkKeptWhitelistFits(incoming, prior, baked, dir, keys)
@@ -229,10 +235,10 @@ object RegistryUpdate {
 
     /**
      * The [registry] with the installed package in [dir] merged in. An installed network or token replaces the baked one with the same key, and any other is added. The effective
-     * whitelist, denylist, wallets and Solana fee constants come from one source only: the installed package's when its sequence is
+     * whitelist, denylist and wallets come from one source only: the installed package's when its sequence is
      * higher than the build's [Registry.catalogSequence], otherwise the build's (a tie keeps the build's). A list the package does not
      * carry keeps the one in effect: the whitelist and the denylist keep the last installed ones that carried them, see [keptList]. The
-     * wallets and the Solana fee constants keep the build's. When there is no installed package, or it no longer verifies against
+     * wallets keep the build's. The Solana fee constants are the installed package's when it carries them, otherwise the build's. When there is no installed package, or it no longer verifies against
      * [registry] (for example because an app update bakes a chain that its tokens need), [registry] is returned unchanged; a failed verification is
      * flagged on the result so Settings can say the built-in catalog is in use. A package that does not match the seal counts as
      * one that no longer verifies, and so does any store whose seal cannot be verified (see [RegistrySeal]).
@@ -244,7 +250,7 @@ object RegistryUpdate {
             return if (unsealed) registry else registry.withInstalledUpdateUnverified()
         }
         val seal = sealOf(dir, keystore) ?: return registry.withInstalledUpdateUnverified()
-        val keys = withRevoked(trustedKeys, revokedByInstalled(seal, dir, trustedKeys))
+        val keys = withRevoked(trustedKeys, revokedByInstalled(dir, trustedKeys))
         val installed = installedUnder(seal, registry, dir, keys) ?: return registry.withInstalledUpdateUnverified()
         // A merge that does not build must never throw out of the catalog: the built-in catalog is used, flagged.
         return runCatching { merge(registry, installed, seal, dir, keys) }.getOrElse { registry.withInstalledUpdateUnverified() }
@@ -258,6 +264,7 @@ object RegistryUpdate {
         trustedKeys: List<TrustedKey>,
     ): Registry {
         val merged = registry.withPackageEntries(installed.networks, installed.tokens)
+            .withSolanaFees(installed.solanaFees ?: registry.solanaFees)
         if (installed.sequence <= registry.catalogSequence) return merged
         // The seal names a carrier of each list that is newer than the build. When its file is gone or no longer matches, the
         // built-in list must not take over silently: the throw makes [withInstalled] flag the built-in catalog.
@@ -273,7 +280,6 @@ object RegistryUpdate {
             .withWhitelist(whitelist ?: registry.whitelistEntries())
             .withDenylist(denylist ?: registry.denylistEntries())
             .withWallets(installed.wallets ?: registry.walletEntries())
-            .withSolanaFees(installed.solanaFees ?: registry.solanaFees)
     }
 
     /**
@@ -337,7 +343,7 @@ object RegistryUpdate {
      * verified, or its sequence is below the sealed floor (a replaced file).
      */
     fun installedPackage(registry: Registry, dir: File, trustedKeys: List<TrustedKey>, keystore: KeystoreBackend): RegistryPackage? =
-        sealOf(dir, keystore)?.let { installedUnder(it, registry, dir, withRevoked(trustedKeys, revokedByInstalled(it, dir, trustedKeys))) }
+        sealOf(dir, keystore)?.let { installedUnder(it, registry, dir, withRevoked(trustedKeys, revokedByInstalled(dir, trustedKeys))) }
 
     private fun installedUnder(seal: RegistrySeal.Seal, registry: Registry, dir: File, trustedKeys: List<TrustedKey>): RegistryPackage? {
         val file = File(dir, INSTALLED_FILE)
@@ -347,20 +353,19 @@ object RegistryUpdate {
     }
 
     /**
-     * The IDs of the keys the installed package in [dir] revokes. Only a package that the seal vouches for revokes: with no [seal], or
-     * with an installed file that is unreadable or below the sealed floor, none is in force. [trustedKeys] reads the file, so a package
-     * signed by a key that the build itself lists as revoked revokes nothing.
+     * The IDs of the keys the installed package in [dir] revokes, whenever it verifies against [trustedKeys]. The seal is not asked: a
+     * revocation can only make the build refuse more, so a store that reads as unverified keeps it. A package signed by a key that the
+     * build itself lists as revoked, or an unreadable file, revokes nothing.
      */
-    private fun revokedByInstalled(seal: RegistrySeal.Seal?, dir: File, trustedKeys: List<TrustedKey>): Set<String> {
+    private fun revokedByInstalled(dir: File, trustedKeys: List<TrustedKey>): Set<String> {
         val file = File(dir, INSTALLED_FILE)
-        if (seal == null || !file.isFile) return emptySet()
-        val installed = runCatching { PackageFormat.read(file.readBytes(), trustedKeys) }.getOrNull() ?: return emptySet()
-        return if (installed.sequence >= seal.floor) installed.revokedKeys.toSet() else emptySet()
+        if (!file.isFile) return emptySet()
+        return runCatching { PackageFormat.read(file.readBytes(), trustedKeys).revokedKeys.toSet() }.getOrDefault(emptySet())
     }
 
     /** [trustedKeys] with every key whose ID is in [revoked] marked revoked. */
     private fun withRevoked(trustedKeys: List<TrustedKey>, revoked: Set<String>): List<TrustedKey> =
-        if (revoked.isEmpty()) trustedKeys else trustedKeys.map { if (it.id in revoked) TrustedKey(it.publicKey, KeyStatus.REVOKED) else it }
+        if (revoked.isEmpty()) trustedKeys else trustedKeys.map { if (it.id in revoked) TrustedKey(it.publicKey, KeyStatus.REVOKED, it.role) else it }
 
     /**
      * Refuses [incoming] when it revokes the key that signed a list this store keeps for it: the whitelist or the denylist it does not

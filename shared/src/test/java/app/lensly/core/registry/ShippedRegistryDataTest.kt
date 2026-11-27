@@ -6,6 +6,10 @@ import app.lensly.core.registry.update.TrustedKeys
 import app.lensly.ui.components.chainIconDrawables
 import app.lensly.ui.components.tokenIconDrawables
 import java.io.File
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Test
@@ -45,6 +49,22 @@ class ShippedRegistryDataTest {
 
         assertEquals(2L, bundled.sequence)
         assertEquals(VERIFIED_CALLS, checkNotNull(bundled.whitelist).map { "${it.chainId} ${it.contract} ${it.selector}" }.sorted())
+    }
+
+    /**
+     * Every package must restate the revocations in force, or the app refuses it, so a bundle that left one out could never be installed
+     * on a device that holds the revoking package. sign-candidate.sh writes this list into the bundle.
+     */
+    @Test
+    fun theBundledPackageRestatesEveryKeyOfTheStandingRevocationList() {
+        val standing = Json.parseToJsonElement(File(STANDING_REVOCATIONS).readText()).jsonObject.getValue("revokedKeys").jsonArray
+            .map { it.jsonPrimitive.content }
+        val releaseOnly = TrustedKeys.load { path -> File(MAIN, path).takeIf { it.isFile }?.readText() }
+
+        val bundled = RegistryUpdate.verify(File(MAIN, BUNDLED_PATH).readBytes(), releaseOnly, registry).getOrThrow()
+
+        assertTrue(standing.all { Regex("[0-9a-f]{16}").matches(it) }, "a key ID is 16 lowercase hex digits")
+        assertEquals(standing.sorted(), bundled.revokedKeys)
     }
 
     /** The call carries only an order ID, so the review cannot show the order's tokens, amounts or receiver: it must not be approved. */
@@ -172,6 +192,7 @@ class ShippedRegistryDataTest {
         const val MAIN = "src/main/assets"
         const val DEBUG = "src/debug/assets"
         const val BUNDLED_PATH = "registry/bundled.lrp"
+        const val STANDING_REVOCATIONS = "../tools/registry-data/revoked-keys.json"
         const val COW_SETTLEMENT = "0x9008d19f58aabd9ed0d60971565aa8510560ab41"
         const val COW_PRE_SIGNATURE = "0xec6cb13f"
         const val MONAD_TESTNET = 10143L

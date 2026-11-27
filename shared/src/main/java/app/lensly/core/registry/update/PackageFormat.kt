@@ -85,8 +85,8 @@ internal object PackageFormat {
 
     /** The verified content of [bytes]: structure, signing key, signature, format, compatibility and entry rules, in that order. */
     fun read(bytes: ByteArray, trustedKeys: List<TrustedKey>): RegistryPackage {
-        val (keyId, payload) = open(bytes, trustedKeys)
-        return decode(payload, keyId)
+        val (signer, payload) = open(bytes, trustedKeys)
+        return decode(payload, signer)
     }
 
     /** The version named by a registry magic other than this app's (`LRP1`, `LRP3`, ...), or null for any other file. */
@@ -97,8 +97,8 @@ internal object PackageFormat {
         return if (digit in '0'..'9') (digit - '0').toLong() else null
     }
 
-    /** The signing key ID and the payload inside [bytes], once the size, magic, length, key, key status and signature checks pass. */
-    private fun open(bytes: ByteArray, trustedKeys: List<TrustedKey>): Pair<String, ByteArray> {
+    /** The signing key and the payload inside [bytes], once the size, magic, length, key, key status and signature checks pass. */
+    private fun open(bytes: ByteArray, trustedKeys: List<TrustedKey>): Pair<TrustedKey, ByteArray> {
         if (bytes.size > MAX_BYTES) throw RegistryUpdateException.Malformed("larger than $MAX_BYTES bytes")
         otherMagicVersion(bytes)?.let { throw RegistryUpdateException.UnsupportedFormat(it, FORMAT_VERSION) }
         if (bytes.size <= HEADER_BYTES + SIGNATURE_BYTES) throw RegistryUpdateException.Malformed("truncated")
@@ -116,14 +116,14 @@ internal object PackageFormat {
         val key = trustedKeys.firstOrNull { it.id == idText } ?: throw RegistryUpdateException.UnknownKey(idText)
         if (key.status == KeyStatus.REVOKED) throw RegistryUpdateException.RevokedKey(idText)
         if (!verifies(key.publicKey, keyId + payload, signature)) throw RegistryUpdateException.BadSignature()
-        return idText to payload
+        return key to payload
     }
 
     /**
      * Parses and validates a signed payload's content. Checks the payload's own rules only. The caller checks
      * the baked catalog.
      */
-    private fun decode(payload: ByteArray, signerKeyId: String): RegistryPackage {
+    private fun decode(payload: ByteArray, signer: TrustedKey): RegistryPackage {
         val text = try {
             StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(payload)).toString()
         } catch (e: CharacterCodingException) {
@@ -150,7 +150,7 @@ internal object PackageFormat {
             // SerializationException is a subclass: unknown or missing fields, wrong types, unknown fee model.
             throw RegistryUpdateException.Malformed("payload does not match the schema: ${e.message}")
         }
-        return validated(dto, signerKeyId)
+        return validated(dto, signer)
     }
 
     private fun verifies(publicKey: ByteArray, signed: ByteArray, signature: ByteArray): Boolean {
@@ -165,7 +165,7 @@ internal object PackageFormat {
      * Checks every rule before any entry object is built, so each value failure is an
      * [RegistryUpdateException.InvalidEntry].
      */
-    private fun validated(dto: Payload, signerKeyId: String): RegistryPackage {
+    private fun validated(dto: Payload, signer: TrustedKey): RegistryPackage {
         if (dto.sequence < 1) throw RegistryUpdateException.Malformed("sequence must be at least 1")
         if (dto.networks.isNotEmpty() && dto.minSchemaVersion < NETWORKS_SCHEMA) {
             throw RegistryUpdateException.Malformed("networks need minSchemaVersion $NETWORKS_SCHEMA")
@@ -180,8 +180,12 @@ internal object PackageFormat {
             throw RegistryUpdateException.InvalidEntry("a revoked key is a key ID of 16 lowercase hex digits, listed once")
         }
         // Revoking the key that signed this package would make the package refuse itself the next time it is read.
-        if (signerKeyId in dto.revokedKeys) {
+        if (signer.id in dto.revokedKeys) {
             throw RegistryUpdateException.InvalidEntry("a package cannot revoke the key that signed it")
+        }
+        // The everyday key signs every release, so a leak of it must not be able to revoke the backup key.
+        if (dto.revokedKeys.isNotEmpty() && signer.role != KeyRole.RECOVERY) {
+            throw RegistryUpdateException.InvalidEntry("only a package signed by a recovery key can revoke keys")
         }
         try {
             LocalDate.parse(dto.createdAt)
@@ -319,6 +323,7 @@ internal object PackageFormat {
             wallets = wallets,
             solanaFees = solanaFees,
             revokedKeys = dto.revokedKeys.sorted(),
+            signerKeyId = signer.id,
         )
     }
 

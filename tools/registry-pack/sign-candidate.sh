@@ -13,6 +13,10 @@
 # Every line must match exactly one candidate entry, or the script stops. The package is built by :tools:registry-pack (the writer
 # the app reads), verified with the public key, and refused unless that public key is an active key pinned in trusted-keys.json.
 #
+# The keys in tools/registry-data/revoked-keys.json are written into the package as revokedKeys, so the bundle restates every revocation
+# a device may already hold. While that list is empty the package has no revokedKeys and keeps the bytes it had. Once it lists a key, only
+# a key pinned with role "recovery" can sign: pass the recovery key's file as --key and its passphrase in LENSLY_REGISTRY_PASSPHRASE.
+#
 # The passphrase comes from LENSLY_REGISTRY_PASSPHRASE, or else from the macOS keychain item
 # (service lensly-registry-release, account registry-release). It is never printed.
 set -euo pipefail
@@ -21,6 +25,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 REG_DATA="$ROOT/tools/registry-data/approved-contracts"
 CANDIDATE="$REG_DATA/candidate-whitelist.json"
 SELECTION="$REG_DATA/verified-selectors.txt"
+REVOKED="$ROOT/tools/registry-data/revoked-keys.json"
 PINNED="$ROOT/shared/src/main/assets/registry/trusted-keys.json"
 KEY=""
 OUT="$ROOT/shared/src/main/assets/registry/bundled.lrp"
@@ -35,7 +40,7 @@ while [ $# -gt 0 ]; do
     --created) CREATED="${2:-}"; shift 2 ;;
     --key) KEY="${2:-}"; shift 2 ;;
     --out) OUT="${2:-}"; shift 2 ;;
-    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
     *) die "unknown argument $1" ;;
   esac
 done
@@ -49,6 +54,7 @@ PUB="${KEY%.key}.pub"
 [ -f "$PUB" ] || die "no public key at $PUB"
 [ -f "$CANDIDATE" ] || die "no candidate at $CANDIDATE"
 [ -f "$SELECTION" ] || die "no selection at $SELECTION"
+[ -f "$REVOKED" ] || die "no revocation list at $REVOKED"
 
 # Refuse to sign with a key the app does not pin as active.
 PUB_HEX="$(tr -d ' \n\r\t' < "$PUB")"
@@ -59,7 +65,7 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/registry-sign.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 # The entries file: the selected candidate entries, in the package's own shape. Networks and tokens are not part of this package.
-jq -n --slurpfile cand "$CANDIDATE" --rawfile sel "$SELECTION" --arg created "$CREATED" --argjson seq "$SEQUENCE" '
+jq -n --slurpfile cand "$CANDIDATE" --slurpfile rev "$REVOKED" --rawfile sel "$SELECTION" --arg created "$CREATED" --argjson seq "$SEQUENCE" '
   [ $sel | split("\n")[] | select(length > 0 and (startswith("#") | not)) | split(" ")
     | { chainId: (.[0] | tonumber), contract: .[1], selector: .[2] } ] as $want
   | [ $cand[0].whitelist[] | . as $e
@@ -69,6 +75,7 @@ jq -n --slurpfile cand "$CANDIDATE" --rawfile sel "$SELECTION" --arg created "$C
     else . end
   | { formatVersion: 2, minSchemaVersion: 3, sequence: $seq, createdAt: $created,
       networks: [], tokens: [], whitelist: $keep }
+  | if ($rev[0].revokedKeys | length) > 0 then . + { minSchemaVersion: 6, revokedKeys: $rev[0].revokedKeys } else . end
 ' > "$WORK/entries.json" || die "could not build the entries from $SELECTION"
 
 if [ -z "${LENSLY_REGISTRY_PASSPHRASE:-}" ] && command -v security >/dev/null 2>&1; then
@@ -79,8 +86,8 @@ fi
 
 cd "$ROOT"
 ./gradlew --max-workers=4 -q :tools:registry-pack:run \
-  --args="build --in $WORK/entries.json --key $KEY --out $OUT"
+  --args="build --in $WORK/entries.json --key $KEY --out $OUT --pinned $PINNED"
 ./gradlew --max-workers=4 -q :tools:registry-pack:run \
   --args="verify --pub $PUB $OUT"
-echo "entries: $(jq '.whitelist | length' "$WORK/entries.json") whitelist entries, sequence $SEQUENCE, created $CREATED"
+echo "entries: $(jq '.whitelist | length' "$WORK/entries.json") whitelist entries, $(jq '.revokedKeys // [] | length' "$WORK/entries.json") revoked keys, sequence $SEQUENCE, created $CREATED"
 echo "wrote $OUT (sha256 $(shasum -a 256 "$OUT" | cut -d' ' -f1))"

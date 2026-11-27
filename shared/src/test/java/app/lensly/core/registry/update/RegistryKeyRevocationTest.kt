@@ -63,11 +63,53 @@ class RegistryKeyRevocationTest {
     }
 
     @Test
+    fun theRevocationStaysInForceWhenTheSealCannotBeVerified() {
+        install(signedByFirst(1, revokedKeys = listOf(leaked))).getOrThrow()
+        // A lost or replaced seal leaves the store unverified: the catalog falls back to the built-in one, but the installed package
+        // still verifies against a trusted key, so the leaked key stays refused.
+        File(dir, RegistrySeal.FILE).delete()
+
+        assertIs<RegistryUpdateException.RevokedKey>(install(signedByLeaked(2)).exceptionOrNull())
+    }
+
+    @Test
     fun aLaterPackageMustKeepRevokingTheSameKeys() {
         install(signedByFirst(1, revokedKeys = listOf(leaked))).getOrThrow()
 
         assertIs<RegistryUpdateException.Conflict>(install(signedByFirst(2)).exceptionOrNull())
         assertTrue(install(signedByFirst(2, revokedKeys = listOf(leaked))).isSuccess)
+    }
+
+    @Test
+    fun aReleaseKeyCannotRevokeKeys() {
+        val revoking = TestPackages.signed(
+            TestPackages.payload(minSchemaVersion = 6, revokedKeys = listOf(TestPackages.KEY_ID)),
+            TestPackages.OTHER_SEED,
+        )
+
+        assertIs<RegistryUpdateException.InvalidEntry>(install(revoking).exceptionOrNull())
+    }
+
+    @Test
+    fun aRecoveryPackageThatRevokesTheInstalledSignerIsAcceptedWhateverItsSequence() {
+        // The leaked key installs a package with a huge sequence, which would otherwise outrank every honest package.
+        install(signedByLeaked(1_000_000)).getOrThrow()
+
+        install(signedByFirst(5, revokedKeys = listOf(leaked))).getOrThrow()
+
+        assertEquals(5L, assertNotNull(RegistryUpdate.installedPackage(baked, dir, keys, keystore)).sequence)
+        assertIs<RegistryUpdateException.RevokedKey>(install(signedByLeaked(2_000_000)).exceptionOrNull())
+        assertTrue(install(signedByFirst(6, revokedKeys = listOf(leaked))).isSuccess)
+        assertIs<RegistryUpdateException.NotNewer>(install(signedByFirst(6, revokedKeys = listOf(leaked))).exceptionOrNull())
+    }
+
+    @Test
+    fun aRevokingPackageThatDoesNotRevokeTheInstalledSignerStillNeedsAHigherSequence() {
+        install(signedByFirst(10)).getOrThrow()
+
+        val refused = install(signedByFirst(5, revokedKeys = listOf(leaked))).exceptionOrNull()
+
+        assertIs<RegistryUpdateException.NotNewer>(refused)
     }
 
     @Test

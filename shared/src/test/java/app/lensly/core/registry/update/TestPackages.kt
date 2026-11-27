@@ -21,8 +21,8 @@ internal object TestPackages {
     /** The test key as a build lists it: active, so its packages are accepted. */
     val TRUSTED: List<TrustedKey> = listOf(TrustedKey(PUBLIC_BYTES))
 
-    /** Both test keys, active. */
-    val TRUSTED_BOTH: List<TrustedKey> = listOf(TrustedKey(PUBLIC_BYTES), TrustedKey(OTHER_PUBLIC_BYTES))
+    /** Both test keys, active: the first is the recovery key, which alone can sign a package that revokes keys, and the second a release key. */
+    val TRUSTED_BOTH: List<TrustedKey> = listOf(TrustedKey(PUBLIC_BYTES, role = KeyRole.RECOVERY), TrustedKey(OTHER_PUBLIC_BYTES))
     val KEY_ID: String = TRUSTED.single().id
     val OTHER_KEY_ID: String = TrustedKey(OTHER_PUBLIC_BYTES).id
 

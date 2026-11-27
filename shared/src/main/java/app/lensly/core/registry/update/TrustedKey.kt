@@ -13,10 +13,24 @@ enum class KeyStatus {
 }
 
 /**
+ * What a trusted key may sign. Only a [RECOVERY] key can sign a package that revokes keys, so the everyday key, which signs every
+ * release and is the likelier to leak, cannot revoke the backup key.
+ */
+@Serializable
+enum class KeyRole {
+    @SerialName("release") RELEASE,
+    @SerialName("recovery") RECOVERY,
+}
+
+/**
  * An Ed25519 public key that a build may accept registry packages from. A [KeyStatus.REVOKED] key stays listed, so a package
  * it signed is refused by name rather than as an unknown key.
  */
-class TrustedKey(val publicKey: ByteArray, val status: KeyStatus = KeyStatus.ACTIVE) {
+class TrustedKey(
+    val publicKey: ByteArray,
+    val status: KeyStatus = KeyStatus.ACTIVE,
+    val role: KeyRole = KeyRole.RELEASE,
+) {
     init {
         require(publicKey.size == 32) { "public key must be 32 bytes" }
     }
@@ -33,7 +47,7 @@ class TrustedKey(val publicKey: ByteArray, val status: KeyStatus = KeyStatus.ACT
 }
 
 /**
- * The keys a build trusts. Each entry has an `id`, a `publicKey` (64 hexadecimal characters) and a `status`.
+ * The keys a build trusts. Each entry has an `id`, a `publicKey` (64 hexadecimal characters), a `status` and a `role` (see [KeyRole]).
  *
  * Release keys are listed in [RELEASE_PATH]. The development key is listed in [DEBUG_PATH], which exists only in the debug source
  * set, so a release build can never accept a package signed with it.
@@ -42,7 +56,7 @@ class TrustedKey(val publicKey: ByteArray, val status: KeyStatus = KeyStatus.ACT
  * refused, including one already installed. The installed sequence stays recorded, so an older package still cannot be installed.
  *
  * A key can also be revoked after a build ships: an installed package lists the IDs it revokes (see [RegistryPackage.revokedKeys]), and
- * [RegistryUpdate] then treats those keys as revoked on top of this list.
+ * [RegistryUpdate] then treats those keys as revoked on top of this list. Only a package signed by a [KeyRole.RECOVERY] key can do so.
  */
 object TrustedKeys {
     const val RELEASE_PATH = "registry/trusted-keys.json"
@@ -63,7 +77,7 @@ object TrustedKeys {
             require(hex.length == 64 && hex.all { it.digitToIntOrNull(16) != null }) {
                 "$path: public key must be 64 hexadecimal characters"
             }
-            val key = TrustedKey(ByteArray(32) { hex.substring(2 * it, 2 * it + 2).toInt(16).toByte() }, record.status)
+            val key = TrustedKey(ByteArray(32) { hex.substring(2 * it, 2 * it + 2).toInt(16).toByte() }, record.status, record.role)
             // The ID is written out so a reader can match it to a package, and checked so a mistyped key is caught here.
             require(key.id == record.id) { "$path: key ID ${record.id} does not belong to its public key (${key.id})" }
             key
@@ -77,5 +91,5 @@ object TrustedKeys {
     )
 
     @Serializable
-    private class KeyRecord(val id: String, val publicKey: String, val status: KeyStatus)
+    private class KeyRecord(val id: String, val publicKey: String, val status: KeyStatus, val role: KeyRole)
 }

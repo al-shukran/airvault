@@ -58,6 +58,19 @@ class RegistryCorrectionTest {
     }
 
     @Test
+    fun aCorrectionThatOmitsTheIconKeepsTheBakedIcon() {
+        val network = assertNotNull(baked.network(1L))
+        val token = assertNotNull(baked.token(1L, USDC_ETHEREUM))
+        assertNotNull(network.icon)
+        assertNotNull(token.icon)
+
+        val merged = install(TestPackages.payload(networks = ethereum(), tokens = usdc(decimals = 7)))
+
+        assertEquals(network.icon, assertNotNull(merged.network(1L)).icon)
+        assertEquals(token.icon, assertNotNull(merged.token(1L, USDC_ETHEREUM)).icon)
+    }
+
+    @Test
     fun aCorrectionDoesNotTouchTheOtherBakedEntries() {
         val merged = install(TestPackages.payload(networks = ethereum(), tokens = ""))
 

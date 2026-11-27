@@ -4,7 +4,8 @@
     {
       "id": "12e61e595818a5e3",
       "publicKey": "a9808516c011dbc40f9ab28cd51b41421b8de2de3253c90c3c941f35d04d7db9",
-      "status": "active"
+      "status": "active",
+      "role": "release"
     }
   ]
 }

@@ -168,8 +168,17 @@ internal object Pack {
     /** The schema that adds the Solana fee constants and the revoked key IDs. */
     private const val FEES_AND_REVOCATION_SCHEMA = 6
 
-    /** The largest unit count a review computes with, the largest unsigned 32-bit integer. */
-    private const val UNITS_LIMIT = 0xFFFF_FFFFL
+    /**
+     * The smallest value of each Solana fee constant, the build's own (`SolanaFees.DEFAULT`), and the factor of it that a package may reach
+     * at most. A package can raise a fee but never understate one. The app enforces the same bounds; keep the two equal.
+     */
+    private val FEE_FLOORS = linkedMapOf(
+        "lamportsPerSignature" to 5_000L,
+        "defaultUnitsPerInstruction" to 200_000L,
+        "builtinUnitsPerInstruction" to 3_000L,
+        "maxUnits" to 1_400_000L,
+    )
+    private const val FEE_CEILING_FACTOR = 1_000L
 
     const val MAX_BYTES = 1 shl 20
 
@@ -188,10 +197,16 @@ internal object Pack {
     private val CODE_HASH = Regex("0x[0-9a-f]{64}")
     private val json = Json
 
-    /** Builds a signed package from entries JSON. The same entries and seed always give the same bytes. */
-    fun build(entriesJson: String, seed: ByteArray): Pair<ByteArray, PackageDto> {
+    /**
+     * Builds a signed package from entries JSON. The same entries and seed always give the same bytes. A package that revokes keys
+     * is built only when [recoveryKey] says the seed is a recovery key's: the app refuses one signed by any other.
+     */
+    fun build(entriesJson: String, seed: ByteArray, recoveryKey: Boolean = false): Pair<ByteArray, PackageDto> {
         val content = json.decodeFromString<PackageDto>(entriesJson)
         validate(content)
+        require(content.revokedKeys.isEmpty() || recoveryKey) {
+            "only a package signed by a recovery key can revoke keys; pass --pinned with the trusted key list that names this key as recovery"
+        }
         requireNotSelfRevoking(content, publicKeyOf(seed))
         val bytes = encode(canonicalPayload(content), seed)
         require(bytes.size <= MAX_BYTES) { "package is ${bytes.size} bytes; the limit is $MAX_BYTES" }
@@ -423,13 +438,16 @@ internal object Pack {
             (content.solanaFees == null && content.revokedKeys.isEmpty()) || content.minSchemaVersion >= FEES_AND_REVOCATION_SCHEMA,
         ) { "Solana fees and revoked keys need minSchemaVersion $FEES_AND_REVOCATION_SCHEMA" }
         content.solanaFees?.let { fees ->
-            require(fees.lamportsPerSignature > 0) { "Solana fees: lamportsPerSignature must be positive" }
-            for ((name, units) in listOf(
+            val values = mapOf(
+                "lamportsPerSignature" to fees.lamportsPerSignature,
                 "defaultUnitsPerInstruction" to fees.defaultUnitsPerInstruction,
                 "builtinUnitsPerInstruction" to fees.builtinUnitsPerInstruction,
                 "maxUnits" to fees.maxUnits,
-            )) {
-                require(units in 1..UNITS_LIMIT) { "Solana fees: $name must be 1 to $UNITS_LIMIT" }
+            )
+            for ((name, floor) in FEE_FLOORS) {
+                require(values.getValue(name) in floor..floor * FEE_CEILING_FACTOR) {
+                    "Solana fees: $name must be $floor to ${floor * FEE_CEILING_FACTOR}"
+                }
             }
         }
         require(content.revokedKeys.all { KEY_ID.matches(it) } && content.revokedKeys.distinct().size == content.revokedKeys.size) {

@@ -118,7 +118,10 @@ class SolanaRequestReview internal constructor(
     val priorityFeeIsBound: Boolean
         get() = computeUnitLimit == null && instructions.any { it is SolanaInstruction.SetComputeUnitPrice }
 
-    /** The base fee in lamports: [SolanaFees.lamportsPerSignature] for each signature the transaction requires. Zero for a message. */
+    /**
+     * The base fee in lamports: [SolanaFees.lamportsPerSignature] for each signature the transaction requires. Zero for a message. The
+     * product cannot wrap: a message header counts at most 255 signatures and [SolanaFees] caps the fee of one far below 2^64 / 255.
+     */
     val baseFeeLamports: ULong
         get() = (message?.header?.numRequiredSignatures ?: 0).toULong() * fees.lamportsPerSignature.toULong()
 
