@@ -47,7 +47,7 @@ release.yml secrets.LUMIO_KEYSTORE_PASS
 '
 # For each workflow file, as raw text and as the parsed YAML (every string, keys included, so "${{ \x73ecrets.X }}" and a quoted
 # "secrets": inherit are seen as written), a ${{ }} expression is allowed only when it is exactly a listed expression. Text after a
-# ${{ that still names secrets (case-insensitive) fails, so a join(secrets.*, ''), a secrets['x'], a toJSON(secrets) or a "}}" inside
+# ${{ that still names secrets (NFKC, case-folded) fails, so a join(secrets.*, ''), a secrets['x'], a toJSON(secrets) or a "}}" inside
 # a string literal cannot hide. A mapping key named secrets fails anywhere (any letter case directly under the workflow or a job)
 # except as a job id: no workflow uses a reusable workflow.
 #
@@ -60,6 +60,12 @@ release.yml secrets.LUMIO_KEYSTORE_PASS
 #    skip, swallow or redirect the exit.
 #  - Only the checkout, pinned by SHA with persist-credentials false and fetch-depth 0, may run before the refusal: no other step can write
 #    BASH_ENV or PATH to $GITHUB_ENV / $GITHUB_PATH or run a local action ahead of it.
+#  - A secret expression appears only in the env of a step that has a run and no uses, never in a uses: step (its with or env: a remote
+#    action's pre script runs before every step, so it would get the secret before the refusal) and never in the run text.
+#  - on: is exactly a push of the tags lensly-v* and lumio-v* (no pull_request_target, workflow_dispatch, workflow_run, workflow_call,
+#    schedule, branches).
+#  - No workflow file has a YAML merge key (<<) or merge tag, which yq drops, so keys hidden in one are never checked.
+#  - Names are compared NFKC-normalised and case-folded, so a long s or a full-width letter cannot spell secrets past the check.
 #  - The first step that mentions the secrets context comes after the refusal, in the same job. Job-level env, a job-level secrets: key,
 #    and workflow-level text count as before step 0.
 #  - The workflow and each job have only the keys name, on, permissions, concurrency, jobs / name, runs-on, timeout-minutes, steps, so
@@ -74,6 +80,7 @@ import os
 import re
 import subprocess
 import sys
+import unicodedata
 from pathlib import Path
 
 ALLOW = {}
@@ -82,6 +89,11 @@ for line in os.environ["SECRET_ALLOW"].splitlines():
         name, expression = line.split(None, 1)
         ALLOW.setdefault(name, set()).add(expression.strip())
 EXPRESSION = re.compile(r"\$\{\{(.*?)\}\}", re.S)
+# A YAML merge key (<<: ..., "<<": ..., ? <<) or a merge tag in a line that is not a comment. yq drops an inline merge, so its keys
+# (an if, a continue-on-error) would never be checked.
+MERGE = re.compile(r"(?:^|[\s{,\[])[\"']?<<[\"']?\s*:(?:\s|$)|\?\s*[\"']?<<|!!merge|tag:yaml\.org,2002:merge")
+# release.yml runs on a push of one of these tags and on nothing else: any other trigger could give the refusal a master commit.
+TRIGGER = {"push": {"tags": ["lensly-v*", "lumio-v*"]}}
 COMMAND = "git merge-base --is-ancestor \"$GITHUB_SHA\" origin/master"
 HEAD = ["set -euo pipefail", "git fetch --no-tags origin '+refs/heads/master:refs/remotes/origin/master'", "if ! " + COMMAND + "; then"]
 ERROR = re.compile(r"echo \"::error::(?:[^\"$`\\!]|\$GITHUB_REF_NAME|\$GITHUB_SHA)*\"")
@@ -92,6 +104,11 @@ JOB_KEYS = {"name", "runs-on", "timeout-minutes", "steps"}
 STEP_KEYS = {"name", "id", "run", "env", "uses", "with"}
 CLEANUP = "Delete the decoded keystore"
 errors = []
+
+
+def fold(text):
+    # The form names are compared in: NFKC (a full-width or long s becomes s), then case-folded.
+    return unicodedata.normalize("NFKC", text).casefold()
 
 
 class Duplicate(ValueError):
@@ -132,7 +149,8 @@ def strings(obj):
 def unlisted(text, allowed, per_line=False):
     # The text without its listed expressions: a ${{ followed by secrets (on the same line, for raw text) is a read that is not listed.
     rest = EXPRESSION.sub(lambda m: "" if m.group(1).strip() in allowed else m.group(0), text)
-    return any("${{" in part and "secrets" in part[part.index("${{") :].lower() for part in (rest.split("\n") if per_line else [rest]))
+    parts = [fold(part) for part in (rest.split("\n") if per_line else [rest])]
+    return any("${{" in part and "secrets" in part[part.index("${{") :] for part in parts)
 
 
 def reads_secret(obj):
@@ -147,7 +165,7 @@ def secret_keys(doc):
 
     def walk(obj):
         if isinstance(obj, dict):
-            found.extend(key for key in obj if obj is not jobs and (key == "secrets" or (any(obj is t for t in top) and str(key).lower() == "secrets")))
+            found.extend(key for key in obj if obj is not jobs and (key == "secrets" or (any(obj is t for t in top) and fold(str(key)) == "secrets")))
             for value in obj.values():
                 walk(value)
         elif isinstance(obj, list):
@@ -176,6 +194,8 @@ def refuses(step):
 def check_release(doc):
     if set(doc) - WORKFLOW_KEYS:
         errors.append("release.yml has workflow keys outside %s (defaults and env change how the refusal step runs): %s" % (sorted(WORKFLOW_KEYS), sorted(set(doc) - WORKFLOW_KEYS)))
+    if doc.get("on") != TRIGGER:
+        errors.append("release.yml on: is not exactly a push of the tags %s (any other trigger, a branch or a second event could run the release from a master commit)" % TRIGGER["push"]["tags"])
     if reads_secret({k: v for k, v in doc.items() if k != "jobs"}):
         errors.append("release.yml reads a secret outside its jobs, before any step can refuse")
     refused = False
@@ -196,6 +216,9 @@ def check_release(doc):
             errors.append("release.yml job %s reads a secret in step %d and has no valid step that refuses a tag not on master" % (name, secret))
         elif secret is not None and refuse >= secret:
             errors.append("release.yml job %s refuses a tag not on master in step %d, not before the secret in step %d" % (name, refuse, secret))
+        for i, step in enumerate(steps):
+            if reads_secret(step) and not ("run" in step and "uses" not in step and isinstance(step.get("env"), dict) and not reads_secret({k: v for k, v in step.items() if k != "env"})):
+                errors.append("release.yml job %s step %d reads a secret outside the env of a run step (a uses: step, its with or env, or a run text; a remote action's pre script runs before the refusal)" % (name, i))
         for i, step in enumerate(steps[refuse + 1 :] if refuse is not None else [], (refuse or 0) + 1):
             if step.get("name") == CLEANUP:
                 if set(step) != {"name", "if", "run"} or step["if"] != "always()" or reads_secret(step):
@@ -215,6 +238,8 @@ for path in files:
     allowed = ALLOW.get(path.name, set())
     try:
         text = path.read_text()
+        if any(MERGE.search(line) for line in text.split("\n") if not line.lstrip().startswith("#")):
+            errors.append("%s has a YAML merge key (<<) or merge tag, which yq drops and GitHub does not document" % path.name)
         docs = parse(path)
     except (OSError, UnicodeDecodeError, subprocess.CalledProcessError, ValueError) as e:
         errors.append("%s cannot be scanned for secret reads: %s" % (path.name, e))
