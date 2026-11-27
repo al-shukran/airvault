@@ -49,6 +49,14 @@ The revoking package is accepted whatever its sequence when it revokes the key t
 leaked key cannot block its own revocation by installing a package with a huge sequence. Its sequence then becomes the floor on that
 device. Choose it above every sequence you have published, so that a device that holds a published package still takes the later ones.
 
+The same holds once the app release lists the leaked key as `revoked`: a package that key signed no longer verifies, but it still names the
+floor, and any package signed by an active key replaces it whatever its sequence. Neither exemption applies when the installed file has a
+sequence below the floor the device remembers, so an old package copied over it cannot lower the floor.
+
+Accepted residual: someone who holds a leaked key that no build lists as revoked yet, and who can write into the app's private storage, can
+plant a package signed by it. That package can inject content (tokens, networks, the whitelist, fees) and drop the standing revocation list,
+not only block updates. List the key in the build as soon as you can.
+
 A device that never installs the revoking package keeps trusting the leaked key. So add the leaked key's ID to
 `tools/registry-data/revoked-keys.json`, the standing list that `sign-candidate.sh` writes into every bundle, and set the key to `revoked` in
 `trusted-keys.json` in the same app release (a test checks that every ID in the list is marked revoked). Sign the bundle with the recovery key
