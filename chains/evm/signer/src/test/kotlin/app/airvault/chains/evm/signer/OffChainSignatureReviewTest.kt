@@ -55,6 +55,11 @@ private const val ASTER_CAUTION = "This signature is for AsterDex. It can author
 private const val HL_ACK = "I understand this signature goes to Hyperliquid, and Lensly cannot tell what it does."
 private const val ANY_CHAIN_NOTE = "The domain names no chain ID, so this signature is valid on any chain."
 private const val APPROVE_TEXT = "This approves another key to act for this account. Check the agent address and name before you sign."
+private const val BUILDER_FEE_TEXT = "This lets the builder take a fee of up to the maximum fee rate on every order you place. " +
+    "Check the builder address and the maximum fee rate before you sign."
+private const val TOKEN_DELEGATE_TEXT = "This stakes HYPE with a validator, or takes it back from one. Staked HYPE is locked for a while. " +
+    "Check the validator, the amount and whether it undelegates before you sign."
+private const val SUB_ACCOUNT_TEXT = "This sends from a sub-account, not from the account that signs. Check the sub-account address before you sign."
 private const val WITHDRAW_TEXT = "This withdraws funds from this account. Check the destination and amount before you sign."
 
 private const val ASTER_APPROVE_MESSAGE = "user=$SENDER&nonce=1748310859508867&agentName=example&agentAddress=$AGENT" +
@@ -282,6 +287,60 @@ class OffChainSignatureReviewTest {
 
         assertEquals(listOf(MULTI_SIG_TEXT), dangersOf(review).map { it.message })
         assertEquals(listOf("I understand this hands control of this account to other keys."), dangersOf(review).map { it.acknowledge })
+        assertNoStoppingWarning(review)
+    }
+
+    @Test
+    fun hyperliquidApproveBuilderFeeIsADangerWithATickAndShowsTheBuilderAsAnAddress() {
+        val approve = userSigned(
+            "HyperliquidTransaction:ApproveBuilderFee",
+            """{"name":"hyperliquidChain","type":"string"},{"name":"maxFeeRate","type":"string"},{"name":"builder","type":"string"},""" +
+                """{"name":"nonce","type":"uint64"}""",
+            """"hyperliquidChain":"Mainnet","maxFeeRate":"0.1%","builder":"$AGENT","nonce":1687816341423,""" +
+                """"type":"approveBuilderFee","signatureChainId":"0x66eee"""",
+        )
+        val review = reviewed(approve, ARBITRUM)
+
+        assertEquals(listOf(BUILDER_FEE_TEXT), dangersOf(review).map { it.message })
+        assertEquals(listOf("I understand this lets another party take a fee on my orders."), dangersOf(review).map { it.acknowledge })
+        assertNoStoppingWarning(review)
+        val message = review.sections.single { it.heading == "Message" }.rows.associateBy { it.label }
+        assertEquals("0.1%", message.getValue("maxFeeRate (string)").value.text())
+        assertEquals(DisplayValue.Address(ChainId("eip155:421614"), AGENT_CHECKSUM), message.getValue("builder (string)").value)
+    }
+
+    @Test
+    fun hyperliquidTokenDelegateIsADangerWithATickAndShowsTheValidatorAmountAndDirection() {
+        val delegate = userSigned(
+            "HyperliquidTransaction:TokenDelegate",
+            """{"name":"hyperliquidChain","type":"string"},{"name":"validator","type":"address"},{"name":"wei","type":"uint64"},""" +
+                """{"name":"isUndelegate","type":"bool"},{"name":"nonce","type":"uint64"}""",
+            """"hyperliquidChain":"Mainnet","validator":"$AGENT","wei":100000000,"isUndelegate":true,"nonce":1687816341423,""" +
+                """"type":"tokenDelegate","signatureChainId":"0x66eee"""",
+        )
+        val review = reviewed(delegate, ARBITRUM)
+
+        assertEquals(listOf(TOKEN_DELEGATE_TEXT), dangersOf(review).map { it.message })
+        assertEquals(listOf("I understand this moves HYPE to or from a validator."), dangersOf(review).map { it.acknowledge })
+        assertNoStoppingWarning(review)
+        val message = review.sections.single { it.heading == "Message" }.rows.associate { it.label to it.value.text() }
+        assertEquals(AGENT_CHECKSUM, message["validator (address)"])
+        assertEquals("100000000", message["wei (uint64)"])
+        assertEquals("true", message["isUndelegate (bool)"])
+    }
+
+    @Test
+    fun aSendAssetFromASubAccountShowsItAsAnAddressRowWithACautionAndAPlainSendAssetDoesNot() {
+        val plain = reviewed(sendAsset(AGENT), ARBITRUM)
+        val plainRow = plain.sections.single { it.heading == "Message" }.rows.single { it.label == "fromSubAccount (string)" }
+        assertEquals("(empty)", plainRow.value.text())
+        assertTrue(cautionsOf(plain).none { it.message == SUB_ACCOUNT_TEXT })
+
+        val review = reviewed(sendAsset(AGENT).replace(""""fromSubAccount":""""", """"fromSubAccount":"$AGENT""""), ARBITRUM)
+        val row = review.sections.single { it.heading == "Message" }.rows.single { it.label == "fromSubAccount (string)" }
+        assertEquals(DisplayValue.Address(ChainId("eip155:421614"), AGENT_CHECKSUM), row.value)
+        assertEquals(listOf(SUB_ACCOUNT_TEXT), cautionsOf(review).map { it.message }.filter { it == SUB_ACCOUNT_TEXT })
+        assertTrue(cautionsOf(review).any { it.acknowledge == "I understand this sends from a sub-account." })
         assertNoStoppingWarning(review)
     }
 

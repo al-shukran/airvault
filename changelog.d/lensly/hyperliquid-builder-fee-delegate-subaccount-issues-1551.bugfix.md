@@ -1,0 +1,1 @@
+Hyperliquid reviews now warn with a danger when a message approves a builder fee or stakes or unstakes HYPE with a validator, and show the builder and the sending sub-account as grouped addresses. A send from a sub-account now needs a tick.
