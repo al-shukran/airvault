@@ -212,6 +212,19 @@ class VaultDecoyChangeOracleTest {
         decoy.close()
     }
 
+    @Test
+    fun aKeyFileThatDoesNotVerifyErasesTheVaultAtOnceWhenTheDecoyChangesItsPassword() {
+        val decoy = unlocked(DURESS)
+        val bytes = layout.vaultKey.readBytes()
+        bytes[bytes.size - 1] = (bytes[bytes.size - 1].toInt() xor 1).toByte()
+        layout.vaultKey.writeBytes(bytes)
+
+        assertEquals(CreateResult.Locked, change(decoy, guess(1)))
+
+        assertFalse(vault.exists())
+        assertFalse(layout.root.exists())
+    }
+
     private fun failureState(): FailureState = FailureStore(layout.root, keys).load(clock)
 
     private fun filesUnderRoot(): Map<String, Long> =
