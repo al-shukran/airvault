@@ -99,7 +99,11 @@ object RegistryUpdate {
      * later package must revoke the same keys, or it is refused with [RegistryUpdateException.Conflict]: a revocation is never undone by
      * omission. The revocations of the installed package count whenever it verifies against a trusted key, whatever the seal says: a
      * store that reads as unverified refuses more, never less. A recovery package that revokes the key of the installed package, or
-     * installs the installed file again, is accepted whatever its sequence, and its sequence becomes the floor, so a leaked key cannot block its own revocation with a huge sequence.
+     * installs the installed file again, is accepted whatever its sequence, and so is any package signed by an active key when the build
+     * lists the installed package's signer as revoked, provided it is newer than the build's catalog and restates the whitelist and the
+     * denylist that the replaced package carried (or is refused with [RegistryUpdateException.Conflict]). The sequence of such a package
+     * becomes the floor, so a leaked key cannot block its own revocation with a huge sequence. A package replaces the installed one for its signer's sake only when the installed one has a sequence
+     * at or above every floor the device knows, so an old package copied over the installed file cannot lower the floor.
      * The files and the seal are written one by one. When a write fails, the files already written
      * are put back as they were, or deleted when they cannot be put back, and the new Keystore key is deleted, so a failure leaves the
      * previous package in use, or the built-in catalog when a file was deleted, and the result says so. A file that can be neither put
@@ -141,16 +145,24 @@ object RegistryUpdate {
             // With no verified package the same sequence is accepted once more, to store and seal it again after a crash, a lost
             // key, a deleted package file or a replaced one: the seal alone names the floor, and the built-in catalog is in use until then.
             val verified = prior != null && installedUnder(prior, baked, dir, keys) != null
-            // A recovery package that revokes the key of the installed package replaces it whatever its sequence, and so does the same
-            // package again after a crash between writing its file and its seal. The file is read without the seal, which that crash leaves
-            // stale. Only an install that got as far as making the Keystore key of this sequence can have crashed there: a planted file
-            // whose sequence the Keystore never held would otherwise let an old package roll the floor back.
-            val onDisk = packageOnDisk(dir, keys)
-            val replacesInstalled = recovery && incoming.revokedKeys.isNotEmpty() && onDisk != null &&
-                (
-                    onDisk.first.signerKeyId in incoming.revokedKeys ||
-                        (!verified && onDisk.second.contentEquals(bytes) && incoming.sequence in keystore.registryMacKeySeqs())
-                    )
+            // The package on disk may be replaced whatever the sequence of the incoming one only when it is the one that set the floor
+            // (its sequence is at or above every floor the device knows): an old package copied over it must not open the way to a lower
+            // floor. Then a recovery package that revokes its signer replaces it, and so does any valid package when the build itself
+            // lists its signer as revoked, as the build's list is authoritative and a leaked key's package must not pin the floor for good.
+            // It is read with the revoked status of keys ignored, and its signature must still verify.
+            val onDisk = packageOnDisk(dir, keys.map { TrustedKey(it.publicKey, KeyStatus.ACTIVE, it.role) })
+            val setsFloor = onDisk != null && onDisk.first.sequence >= maxOf(prior?.floor ?: 0L, newest ?: 0L)
+            val revokesSigner = recovery && incoming.revokedKeys.isNotEmpty() && onDisk?.first?.signerKeyId in incoming.revokedKeys
+            // Only a package newer than the build's own catalog takes this way, which bounds how far down a planted file can pull the floor.
+            val signerRevokedByBuild = incoming.sequence > baked.catalogSequence &&
+                trustedKeys.any { it.status == KeyStatus.REVOKED && it.id == onDisk?.first?.signerKeyId }
+            // The same package again after a crash between writing its file and its seal: the file is read without the seal, which that
+            // crash leaves stale. Only an install that got as far as making the Keystore key of this sequence can have crashed there: a
+            // planted file whose sequence the Keystore never held would otherwise let an old package roll the floor back.
+            val crashRetry = recovery && incoming.revokedKeys.isNotEmpty() && !verified && onDisk?.second.contentEquals(bytes) &&
+                incoming.sequence in keystore.registryMacKeySeqs()
+            val replacesInstalled = (setsFloor && (revokesSigner || signerRevokedByBuild)) || crashRetry
+            if (setsFloor && signerRevokedByBuild && onDisk != null) checkReplacedListsRestated(incoming, onDisk.first, prior, baked, dir, keys)
             if (!replacesInstalled && (incoming.sequence < accepted || (incoming.sequence == accepted && verified))) {
                 throw RegistryUpdateException.NotNewer(accepted, incoming.sequence)
             }
@@ -418,6 +430,30 @@ object RegistryUpdate {
         }
         if (incoming.denylist == null && keptDenylist(prior, baked, dir, keys) != null && keptDenylist(prior, baked, dir, after) == null) {
             throw RegistryUpdateException.Conflict("the kept denylist was signed with a key this package revokes; restate the denylist")
+        }
+    }
+
+    /**
+     * Refuses [incoming] when it omits a whitelist or a denylist that the [replaced] package, whose signer the build revokes, carried or
+     * kept for it. Those lists cannot be read any more, so the store would read as unverified and the built-in catalog would be in use.
+     */
+    private fun checkReplacedListsRestated(
+        incoming: RegistryPackage,
+        replaced: RegistryPackage,
+        prior: RegistrySeal.Seal?,
+        baked: Registry,
+        dir: File,
+        keys: List<TrustedKey>,
+    ) {
+        val whitelistLost = replaced.whitelist != null ||
+            prior != null && prior.whitelistSequence > baked.catalogSequence && keptWhitelist(prior, baked, dir, keys) == null
+        if (incoming.whitelist == null && whitelistLost) {
+            throw RegistryUpdateException.Conflict("the whitelist was signed with a key the build revokes; restate the whitelist")
+        }
+        val denylistLost = replaced.denylist != null ||
+            prior != null && prior.denylistSequence > baked.catalogSequence && keptDenylist(prior, baked, dir, keys) == null
+        if (incoming.denylist == null && denylistLost) {
+            throw RegistryUpdateException.Conflict("the denylist was signed with a key the build revokes; restate the denylist")
         }
     }
 
