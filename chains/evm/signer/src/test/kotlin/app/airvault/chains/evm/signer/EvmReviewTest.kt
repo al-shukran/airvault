@@ -175,6 +175,47 @@ class EvmReviewTest {
         assertTrue(review.warnings.any { it.code == "evm.registry" && it.acknowledge != null })
     }
 
+    private val DRAINER = "0x6666666666666666666666666666666666666666"
+
+    private fun drainerRegistry(chainId: Long? = null) = REGISTRY.withDenylist(
+        listOf(DenylistEntry(chainId = chainId, party = DRAINER, severity = DenylistSeverity.BLOCK, reason = "Known drainer.")),
+    )
+
+    @Test
+    fun aPartyEntryRefusesACallThatNamesTheDrainerAsSpenderOperatorOrRecipient() {
+        val reviewer = builder(drainerRegistry())
+        val calls = mapOf(
+            USDC to ContractCall.Approve(DRAINER, BigInteger.valueOf(1000)),
+            NFT to ContractCall.SetApprovalForAll(DRAINER, true),
+            USDC.lowercase() to ContractCall.Transfer(DRAINER, BigInteger.ONE),
+            NFT.lowercase() to ContractCall.SafeTransferFrom(SENDER, DRAINER, BigInteger.ONE),
+        )
+
+        for ((target, call) in calls) {
+            assertEquals("Known drainer.", refusalOf(txParsed(target, call.encode()!!), reviewer).reason, call.name)
+        }
+    }
+
+    @Test
+    fun aPartyEntryLeavesACallToAnotherAddressAndAContractOnlyEntryAsTheyWere() {
+        val approveOther = ContractCall.Approve(SPENDER, BigInteger.valueOf(1000)).encode()!!
+
+        assertIs<EvmReviewResult.Ok>(builder(drainerRegistry()).review(txParsed(USDC, approveOther), SENDER))
+        // A contract entry still matches only the contract the call goes to, never a counterparty.
+        val contractOnly = REGISTRY.withDenylist(
+            listOf(DenylistEntry(chainId = 1, contract = DRAINER, severity = DenylistSeverity.BLOCK, reason = "Known drainer.")),
+        )
+        val approveDrainer = ContractCall.Approve(DRAINER, BigInteger.valueOf(1000)).encode()!!
+        assertIs<EvmReviewResult.Ok>(builder(contractOnly).review(txParsed(USDC, approveDrainer), SENDER))
+    }
+
+    @Test
+    fun aPartyEntryOfAnotherChainDoesNotMatch() {
+        val approveDrainer = ContractCall.Approve(DRAINER, BigInteger.valueOf(1000)).encode()!!
+
+        assertIs<EvmReviewResult.Ok>(builder(drainerRegistry(chainId = 10)).review(txParsed(USDC, approveDrainer), SENDER))
+    }
+
     @Test
     fun aBlockDenylistMatchRefusesTheRequestWithItsReason() {
         val blocked = REGISTRY.withDenylist(

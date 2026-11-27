@@ -31,13 +31,15 @@ data class PackageDto(
 )
 
 /**
- * One known-dangerous request. It names a selector, a contract on a chain, or both, or a typed-data [primaryType]. [condition] narrows
+ * One known-dangerous request. It names a selector, a contract on a chain, or both, or a typed-data [primaryType], or a [party]: an
+ * address that appears in the request as its spender, operator, sender or recipient. [condition] narrows
  * a selector to the risky calls: UNLIMITED for an unlimited amount, APPROVED for an operator grant of true.
  */
 @Serializable
 data class DenylistDto(
     val chainId: Long? = null,
     val contract: String? = null,
+    val party: String? = null,
     val selector: String? = null,
     val primaryType: String? = null,
     val condition: DenylistCondition = DenylistCondition.ANY,
@@ -139,13 +141,16 @@ enum class NetworkKind { LAYER_1, LAYER_2 }
 internal object Pack {
     const val FORMAT_VERSION = 2
     /** The newest catalog schema the app reads. A package may not need a newer one. */
-    const val SCHEMA_VERSION = 4
+    const val SCHEMA_VERSION = 5
 
     /** The schema that adds dynamic, array and tuple arguments, and the names of tuple fields, to whitelist entries. */
     private const val ARGUMENTS_SCHEMA = 3
 
     /** The schema that adds each network's kind, parent chain and featured flag. */
     private const val NETWORKS_SCHEMA = 4
+
+/** The schema that adds the denylist's party. */
+private const val PARTY_SCHEMA = 5
     const val MAX_BYTES = 1 shl 20
 
     private val MAGIC = "LRP2".toByteArray(StandardCharsets.US_ASCII)
@@ -207,6 +212,7 @@ internal object Pack {
     private val DENYLIST_ORDER = compareBy<DenylistDto>(
         { it.chainId ?: 0L },
         { it.contract.orEmpty() },
+        { it.party.orEmpty() },
         { it.selector.orEmpty() },
         { it.primaryType.orEmpty() },
         { it.condition.name },
@@ -218,6 +224,7 @@ internal object Pack {
         "chainId" to entry.chainId,
         "condition" to entry.condition.name,
         "contract" to entry.contract,
+        "party" to entry.party,
         "primaryType" to entry.primaryType,
         "reason" to entry.reason,
         "selector" to entry.selector,
@@ -371,6 +378,9 @@ internal object Pack {
         require(content.networks.isEmpty() || content.minSchemaVersion >= NETWORKS_SCHEMA) {
             "a package with networks needs minSchemaVersion $NETWORKS_SCHEMA"
         }
+        require(content.denylist.orEmpty().none { it.party != null } || content.minSchemaVersion >= PARTY_SCHEMA) {
+            "a denylist party needs minSchemaVersion $PARTY_SCHEMA"
+        }
         val newLists = content.denylist != null || content.wallets != null
         require(!newLists || content.minSchemaVersion >= 2) { "a denylist or wallets list needs minSchemaVersion 2" }
         content.denylist?.forEachIndexed { index, entry -> validateDenylist(index + 1, entry) }
@@ -412,9 +422,10 @@ internal object Pack {
         entry.selector?.let {
             require(SELECTOR.matches(it)) { "$what: selector must be 0x and 8 lowercase hex digits: $it" }
         }
+        entry.party?.let { require(CONTRACT.matches(it)) { "$what: party must be 0x followed by 40 lowercase hex digits: $it" } }
         entry.primaryType?.let { requireText("$what primaryType", it) }
-        require(entry.selector != null || entry.contract != null || entry.primaryType != null) {
-            "$what names a selector, a contract or a primaryType"
+        require(entry.selector != null || entry.contract != null || entry.primaryType != null || entry.party != null) {
+            "$what names a selector, a contract, a party or a primaryType"
         }
         require(entry.primaryType == null || entry.selector == null) { "$what names a selector or a primaryType, not both" }
         require(entry.condition == DenylistCondition.ANY || entry.selector != null) {

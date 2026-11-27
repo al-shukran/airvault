@@ -43,6 +43,18 @@ sealed class ContractCall(val name: String, val signature: String) {
     class SafeTransferFrom(val from: String, val to: String, val tokenId: BigInteger) :
         ContractCall("safeTransferFrom", "safeTransferFrom(address,address,uint256)")
 
+    /** The addresses this call names besides its contract: spender, operator, sender and recipient. */
+    val parties: List<String>
+        get() = when (this) {
+            is Transfer -> listOf(to)
+            is Approve -> listOf(spender)
+            is TransferFrom -> listOf(from, to)
+            is IncreaseAllowance -> listOf(spender)
+            is DecreaseAllowance -> listOf(spender)
+            is SetApprovalForAll -> listOf(operator)
+            is SafeTransferFrom -> listOf(from, to)
+        }
+
     /**
      * The calldata of this call, rebuilt from its arguments the way [decode] reads them: the selector, then one 32-byte word for
      * each argument. Comparing it with the signed calldata shows that the labels are what is signed. Null for an address that is

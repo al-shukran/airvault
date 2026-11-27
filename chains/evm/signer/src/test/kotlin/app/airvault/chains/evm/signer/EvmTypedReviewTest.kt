@@ -155,6 +155,24 @@ class EvmTypedReviewTest {
     }
 
     @Test
+    fun aPartyEntryMatchesTheSpenderOfAnErc2612PermitAndOfAPermit2SignatureTransfer() {
+        val registry = TYPED_REGISTRY.withDenylist(
+            listOf(DenylistEntry(party = TYPED_SPENDER, severity = DenylistSeverity.BLOCK, reason = "Known drainer.")),
+        )
+
+        for (json in listOf(permitJson(), permitTransferFromJson(), permitSingleWithMemoJson("5"))) {
+            val result = EvmReviewBuilder(registry, { calldata, params -> AbiDecoder.decode(calldata, params) })
+                .review(typedRequest(json), sender = OWNER)
+            assertEquals("Known drainer.", assertIs<EvmReviewResult.Refused>(result).reason, json.take(40))
+        }
+        // Control: a different spender reviews as before.
+        val other = registry.withDenylist(
+            listOf(DenylistEntry(party = "0x3333333333333333333333333333333333333333", severity = DenylistSeverity.BLOCK, reason = "No.")),
+        )
+        assertTrue(typedReview(permitJson(), other).warnings.isEmpty())
+    }
+
+    @Test
     fun anUnlimitedPermitWarnsAgainstAnUnlimitedApprovalAsItDoesToday() {
         val review = typedReview(permitJson(value = TYPED_MAX_UINT256))
 
