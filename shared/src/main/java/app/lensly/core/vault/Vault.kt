@@ -747,20 +747,15 @@ class Vault constructor(
         // During a delay the password is not checked, so it counts as neither a pass nor a failure. The KDF still runs
         // once, on a fixed input, so a refused attempt takes as long as a real one.
         val derivations = if (nfc == null) 1 else 2
-        if (check.blocked) {
-            spendKdfTime(header, derivations)
-            return Checked.Refused
-        }
+        if (check.blocked) return refusedAfterSpendingKdfTime(header, derivations)
         // The try is counted before the KDF and the verdict, so a try that a restart or an error cuts short still counts (FailureDelay
         // threat 15). A count that cannot be saved gives no verdict: the password is not checked, and the try is refused (threat 11).
         val counted = try {
             store.recordFailure(check.state, clock)
         } catch (e: VaultException) {
-            spendKdfTime(header, derivations)
-            return Checked.Refused
+            return refusedAfterSpendingKdfTime(header, derivations)
         } catch (e: IOException) {
-            spendKdfTime(header, derivations)
-            return Checked.Refused
+            return refusedAfterSpendingKdfTime(header, derivations)
         }
 
         // A slot key that is gone for good, as a hardware key is, leaves a vault that no password opens: it is erased.
@@ -987,9 +982,6 @@ class Vault constructor(
         withPadOf(vaultKey, REAL_SECTION) { real -> withPadOf(decoyKey, DECOY_SECTION) { real.lend(it, WALLET_SLOT_STEP) } }
         val decoy = VaultSession(layout, keys, decoyKey.copyOf(), isDecoy = true, pad = WalletPad(layout, keys, decoyKey, DECOY_SECTION))
         try {
-            // The decoy takes the spare record files over, so writing a record never adds one. They start with no value under its key.
-            claimSpareRecords(vaultKey, decoyKey)
-            resetDecoyRecords(decoyKey)
             populate(decoy)
             if (decoy.listWallets().isEmpty()) {
                 withRealPad(vaultKey) { discard(decoyKey, it) }
@@ -1020,7 +1012,11 @@ class Vault constructor(
             withRealPad(vaultKey) { discard(decoyKey, it) }
             return DuressResult.Failed
         }
-        // The new decoy is committed, so a purge that fails leaves the old decoy's files for a later purge, and the result stays Enabled.
+        // The new decoy is committed, so a step that fails leaves its files for a later one, and the result stays Enabled. The decoy takes
+        // the spare record files over only now, so a try that fails touches no record file, and writing a record never adds one. They
+        // start with no value under its key.
+        bestEffort { claimSpareRecords(vaultKey, decoyKey) }
+        bestEffort { resetDecoyRecords(decoyKey) }
         bestEffort { purgeUnowned(listOf(vaultKey, decoyKey)) }
         return DuressResult.Enabled
     }
@@ -1081,6 +1077,15 @@ class Vault constructor(
         val elapsedMs = (System.nanoTime() - started) / 1_000_000L
         Arrays.fill(out, 0)
         elapsedMs
+    }
+
+    /** [spendKdfTime], then the refusal. A slot key that is gone for good leaves a vault no password opens, so that is erased instead. */
+    private suspend fun refusedAfterSpendingKdfTime(header: VaultHeader, derivations: Int): Checked = try {
+        spendKdfTime(header, derivations)
+        Checked.Refused
+    } catch (e: VaultKeyInvalidatedException) {
+        eraseLocked()
+        Checked.Erased
     }
 
     /**

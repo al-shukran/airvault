@@ -263,6 +263,24 @@ class VaultFormatV4Test {
     }
 
     @Test
+    fun aFailedSecondDuressPasswordTouchesNoRecordFile() {
+        val rig = Rig("a")
+        rig.create()
+        writeRecords(rig)
+        val real = rig.unlocked(APP)
+        rig.setDuress(real)
+        val before = recordContents(rig)
+
+        rig.keys.hardwareAuthRequired = true
+        val result = runBlocking { rig.vault.setDuress(real, CHANGED.toCharArray()) { it.createWallet() } }
+        rig.keys.hardwareAuthRequired = false
+        real.close()
+
+        assertEquals(DuressResult.Failed, result)
+        assertEquals(before, recordContents(rig))
+    }
+
+    @Test
     fun theRecordsFolderKeepsItsFilesWhenTheDuressPasswordIsRemovedOrReplaced() {
         val rig = Rig("a")
         rig.create()
@@ -381,6 +399,37 @@ class VaultFormatV4Test {
 
         assertFalse(rig.layout.exists())
         assertEquals(1, rig.erased)
+    }
+
+    @Test
+    fun aMissingSlotKeyErasesTheVaultDuringAFailureDelayToo() {
+        val rig = Rig("a")
+        rig.create()
+        assertEquals(UnlockResult.Rejected, rig.attempt(WRONG))
+        // The wrong try started a delay, and an attempt inside it is refused after a derivation on a fixed input.
+        rig.keys.removeSlotKey()
+
+        assertEquals(UnlockResult.Erased, rig.attempt(APP))
+
+        assertFalse(rig.layout.exists())
+        assertEquals(1, rig.erased)
+    }
+
+    @Test
+    fun aMissingSlotKeyErasesTheVaultWhenTheTryCannotBeCounted() {
+        val rig = Rig("a")
+        rig.create()
+        rig.keys.removeSlotKey()
+        val folder = rig.layout.root
+        // A folder that cannot be written, so the count of the try cannot be saved.
+        folder.setWritable(false)
+        try {
+            assumeFalse("The folder is still writable, so the count cannot fail here.", folder.canWrite())
+            assertEquals(UnlockResult.Erased, rig.attempt(APP))
+            assertEquals(1, rig.erased)
+        } finally {
+            folder.setWritable(true)
+        }
     }
 
     @Test
@@ -595,6 +644,10 @@ class VaultFormatV4Test {
         }.toSet()
         return rig.layout.vaultRecords.list().orEmpty().count { it in names }
     }
+
+    /** Every record file's name and bytes, as a list that compares. */
+    private fun recordContents(rig: Rig): List<Pair<String, List<Byte>>> =
+        rig.layout.vaultRecords.listFiles().orEmpty().sortedBy { it.name }.map { it.name to it.readBytes().toList() }
 
     private fun recordFilesWithAnotherFirstByte(rig: Rig): List<String> =
         rig.layout.vaultRecords.listFiles().orEmpty().filter { it.readBytes().firstOrNull() != BLOB_VERSION }.map { it.name }

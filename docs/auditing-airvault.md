@@ -301,6 +301,7 @@ Goal: find a working path from the phone (each variant in 3.2) to the mnemonic, 
 - [ ] Compare erase behavior: the count shown, the delay after a wrong try, and when the warning appears.
 - [ ] Accepted residual tells of the decoy's erase count, so do not file them as new findings: the vault always erases at the real count, and a decoy that shows another count only moves the tries-left warning. Shown above real: the warning counts against the lower of the two, so it can come earlier than the shown count says. Shown below real: the warning runs down to the shown count and no erase follows. Erasing the real vault early to hide this is unacceptable, because it destroys data.
 - [ ] The entry gesture is one device-level setting that the camera reads while the vault is locked. A decoy change writes that one real gesture, so it differs from the real vault's only if the owner changes it from a decoy. Only the lockout (cap and shown erase count) is kept in the decoy's own record.
+- [ ] Accepted residual: the vault's record files (`records/`) all start unlike any plain data, and there are the same number of them with or without a Decoy Vault, but a written record is larger than an unset placeholder or a spare file. A reader of the folder can tell which records hold a value, and that a Decoy Vault has been used. Record it as accepted. Size-class padding is the proposed fix, tracked as an issue; do not report the sizes as a new finding.
 - [ ] With the file system visible, list every file that differs when a decoy exists.
 
 #### Stage 7: Brute-Force Economics
