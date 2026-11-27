@@ -13,8 +13,10 @@ import java.io.InputStream
 import java.io.SequenceInputStream
 import java.nio.ByteBuffer
 import java.util.UUID
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
+import java.util.concurrent.FutureTask
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.withContext
 
@@ -165,6 +167,20 @@ class PhotoStore(
          */
         internal val sealer: Executor = Executors.newSingleThreadExecutor { task ->
             Thread(task, "lensly-seal").apply { isDaemon = true }
+        }
+
+        /**
+         * Runs [block] on [sealer] and waits for it. Every save and every shred of the cover runs there, one after another, so a block that
+         * lists and shreds photo files sees no save half way, and a photo saved meanwhile waits for the block.
+         */
+        internal fun <T> whileNoSaveRuns(block: () -> T): T {
+            val task = FutureTask(block)
+            sealer.execute(task)
+            try {
+                return task.get()
+            } catch (e: ExecutionException) {
+                throw e.cause ?: e
+            }
         }
 
         /**

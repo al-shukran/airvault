@@ -276,4 +276,44 @@ class TxStoreTest {
             assertFalse(bytes.containsBytes(secret.toByteArray()), "$secret must not be in the file in clear")
         }
     }
+
+    @Test
+    fun purgeUnreadableDeletesTheRowsCommentsAndTermsOfAnotherKeyAndKeepsItsOwn() = runBlocking {
+        // Rows and a comment that an older vault key sealed, as a replaced vault leaves them in the shared database.
+        val older = TxStore(database.txs(), keys(seed = 2))
+        older.put(listOf(rows[0], rows[1]))
+        older.setComment(rows[0].id, "old note", 1L)
+        store.put(listOf(rows[2]))
+        store.setComment(rows[2].id, "own note", 2L)
+        assertEquals(3, rowsIn("tx"))
+
+        store.purgeUnreadable()
+
+        assertEquals(1, rowsIn("tx"), "only the open key's row is left")
+        assertEquals(1, rowsIn("tx_comment"), "only the open key's comment is left")
+        assertEquals(0, rowsIn("tx_term WHERE txId NOT IN (SELECT txId FROM tx UNION SELECT txId FROM tx_comment)"), "no term names a deleted row")
+        assertEquals(listOf(3), store.page(TxQuery(), 0, 10).numbers())
+        assertEquals(listOf(rows[2].id), store.comments().map { it.txId })
+        assertEquals(true, rowsIn("tx_term") > 0, "the own row's terms are kept")
+    }
+
+    @Test
+    fun purgeUnreadableWalksPastTheRowsItKeepsAndDeletesThoseBetween() = runBlocking {
+        val older = TxStore(database.txs(), keys(seed = 2))
+        // More rows than one page, of two keys.
+        val many = (1..450).map { tx(it, it * 10L, BigInteger.ONE) }
+        older.put(many.filter { it.timestampMs % 20L == 0L })
+        store.put(many.filter { it.timestampMs % 20L != 0L })
+
+        store.purgeUnreadable()
+
+        assertEquals(225, rowsIn("tx"))
+        assertEquals(225, store.count(TxQuery(includeSpam = true)))
+    }
+
+    /** The number of rows that the raw SQL [from] names, whatever key they are sealed under. */
+    private fun rowsIn(from: String): Int = database.openHelper.readableDatabase.query("SELECT COUNT(*) FROM $from").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getInt(0)
+    }
 }

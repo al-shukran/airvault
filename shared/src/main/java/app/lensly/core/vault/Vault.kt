@@ -6,9 +6,11 @@ import android.provider.Settings
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.UserNotAuthenticatedException
 import app.lensly.shared.BuildConfig
+import app.lensly.ui.camera.PhotoStore
 import app.lensly.ui.isEmulator
 import java.io.File
 import java.io.IOException
+import java.nio.file.Files
 import java.security.GeneralSecurityException
 import java.security.MessageDigest
 import java.security.ProviderException
@@ -328,7 +330,7 @@ class Vault constructor(
                 bestEffort {
                     if (state != null && state.failures > 0 && !FailureDelay.unverified(state)) store.recordSuccess(state, clock)
                 }
-                openSessionLocked(vaultKey, side)
+                openSessionLocked(vaultKey, side, finishPromotion = false)
             }
         }
 
@@ -591,7 +593,7 @@ class Vault constructor(
             try {
                 // Only [promote] lets a decoy slot through the check. Its vault becomes the vault, on the side it already has.
                 if (VaultRole.isDecoy(opened.role) && !promoteLocked(opened)) return UnlockResult.Rejected
-                return UnlockResult.Unlocked(openSessionLocked(opened.vaultKey, VaultRole.sideOf(opened.role)))
+                return UnlockResult.Unlocked(openSessionLocked(opened.vaultKey, VaultRole.sideOf(opened.role), finishPromotion = promote))
             } finally {
                 opened.close()
             }
@@ -617,12 +619,15 @@ class Vault constructor(
                 unwrapsTo(opened.softKey, hardwareKey, slot, opened.vaultKey + role)
             }
         } catch (e: VaultException) {
-            layout.promotionMarker.delete()
+            dropPromotionMarker()
             return false
         } catch (e: IOException) {
-            layout.promotionMarker.delete()
+            dropPromotionMarker()
             return false
         }
+        // The vault key that the sealed Vault Key of biometric unlock holds is the old vault's, and the commit has made it useless. The blob
+        // and its key go now, not with the cleanup, so no window is left in which they exist.
+        dropBiometricUnlock()
         // The state is written even when it cannot be read back: the commit stands, and a count that stays is the stricter one.
         bestEffort { opened.store.recordSuccess(opened.store.load(clock), clock) }
         return true
@@ -634,14 +639,36 @@ class Vault constructor(
      */
     private fun writePromotionMarker(digest: String) {
         writeAtomically(layout.promotionMarker, digest.toByteArray(Charsets.US_ASCII))
+        // A second name for the old `unlock.bin`, so that the replace leaves its bytes reachable and the cleanup can overwrite them.
+        bestEffort {
+            layout.promotionRemnant.delete()
+            Files.createLink(layout.promotionRemnant.toPath(), layout.vaultKey.toPath())
+        }
         bestEffort { syncDirectory(layout.root) }
+    }
+
+    /** Removes the marker and the extra name of the old `unlock.bin` of a commit that did not happen. Nothing is overwritten: that file is still the vault's. */
+    private fun dropPromotionMarker() {
+        layout.promotionRemnant.delete()
+        layout.promotionMarker.delete()
+    }
+
+    /** Overwrites and deletes the sealed Vault Key of biometric unlock, and deletes its Keystore key. Safe to run again. */
+    private fun dropBiometricUnlock() {
+        val sealedKey = File(layout.root, BiometricUnlock.BLOB_FILE_NAME)
+        if (sealedKey.exists()) {
+            overwriteBestEffort(sealedKey)
+            sealedKey.delete()
+        }
+        keystoreOrNull { keys.deleteBiometricKey() }
     }
 
     /**
      * The session of the vault under [vaultKey], on [side]. The session takes its own copy of the key. The steps that bring the files to
-     * the layout run here, and a step that fails is run again by the next unlock.
+     * the layout run here, and a step that fails is run again by the next unlock. Only an [unlock] ([finishPromotion]) finishes the cleanup
+     * of a promotion: a password check, or a biometric unlock, opens a session that touches nothing of the kind.
      */
-    private fun openSessionLocked(vaultKey: ByteArray, side: Int): VaultSession {
+    private fun openSessionLocked(vaultKey: ByteArray, side: Int, finishPromotion: Boolean): VaultSession {
         val session = VaultSession(layout, keys, vaultKey.copyOf(), side = side, pad = WalletPad(layout, keys, vaultKey, side))
         // The Review Record pool gets its first batch back when it is missing.
         bestEffort { session.ensureReviewPool() }
@@ -649,14 +676,15 @@ class Vault constructor(
         bestEffort { session.ensurePadded() }
         // Each vault's photo key is made on its first unlock, so a vault from before photos were sealed gets one.
         bestEffort { session.ensurePhotoKey() }
-        startPromotionCleanup(session)
+        if (finishPromotion) startPromotionCleanup(session)
         return session
     }
 
     /**
      * Starts the cleanup of a promotion that left its marker, in the background. The job waits for the vault's lock, which the unlock that
-     * starts it still holds, and holds the session's lock while it works, so nothing else changes the files meanwhile. A job that fails, or
-     * that finds the session closed, leaves the marker for the next unlock. [finishPromotionLocked] is idempotent.
+     * starts it still holds, and then takes the session's lock one step at a time (see [finishPromotionLocked]), so the promoted vault is
+     * never blocked for longer than one wallet folder or one file takes. A job that fails, or that finds the session closed, leaves the
+     * marker for the next unlock. [finishPromotionLocked] is idempotent.
      */
     private fun startPromotionCleanup(session: VaultSession) {
         if (skipCleanupForTesting || !layout.promotionMarker.exists()) return
@@ -680,9 +708,11 @@ class Vault constructor(
      * step can be run again after a crash, and the marker goes last.
      *
      * The old vault's wallets are released into the promoted vault's free-slot list, wallet by wallet, and their Keystore keys go. Its record
-     * files become spares, the photo copies of the old vault that no promoted photo has a twin for
-     * are shredded, and the sealed Vault Key of biometric unlock and its key go. Its review pool files are overwritten and deleted, since the
-     * promoted vault has a pool batch of its own. The caller holds the vault's lock.
+     * files become spares, the photo copies of the old vault that no promoted photo has a twin for are shredded, and the sealed Vault Key of
+     * biometric unlock and its key go. Its review pool files are overwritten and deleted, since the promoted vault has a pool batch of its
+     * own. The old `unlock.bin`, which the replace left only under its second name, is overwritten and deleted. The caller holds the vault's
+     * lock. The session's lock is taken for one wallet folder or one file at a time, after the list of what to remove was made under it, so
+     * a wallet or a record that the session writes meanwhile is never taken for the old vault's.
      *
      * @throws IOException or [VaultException] when a step fails, and then the marker stays.
      */
@@ -691,23 +721,54 @@ class Vault constructor(
         if (!marker.isFile) return
         val keyFile = readVaultFile(layout.vaultKey)
         if (VaultKeyFile.digestOf(keyFile) != String(marker.readBytes(), Charsets.US_ASCII)) {
-            marker.delete()
+            dropPromotionMarker()
             return
         }
-        val cleaned = session.withKeyLocked { key ->
-            // Only the vault that the promotion made opens this file, so no other key's files are ever taken for the old vault's.
-            if (VaultKeyFile.ownerIndex(VaultKeyFile.decode(keyFile), key) < 0) return@withKeyLocked false
-            purgeUnowned(listOf(key), session.side, removePoolFiles = true)
-            shredTwinlessPhotos(layout, session.side)
-            val sealedKey = File(layout.root, BiometricUnlock.BLOB_FILE_NAME)
-            if (sealedKey.exists()) {
-                overwriteBestEffort(sealedKey)
-                sealedKey.delete()
+        // Only the vault that the promotion made opens this file, so no other key's files are ever taken for the old vault's.
+        if (!session.withKeyLocked { key -> VaultKeyFile.ownerIndex(VaultKeyFile.decode(keyFile), key) >= 0 }) return
+        purgeOldVault(session)
+        shredTwinlessPhotos(layout, session.side)
+        dropBiometricUnlock()
+        shredPromotionRemnant(keyFile)
+        if (!marker.delete() && marker.exists()) throw VaultException("The promotion marker could not be removed.")
+    }
+
+    /** Overwrites and deletes the second name of the old `unlock.bin`, unless it is the file in place, which only a failed rename leaves. */
+    private fun shredPromotionRemnant(keyFile: ByteArray) {
+        val remnant = layout.promotionRemnant
+        if (!remnant.exists()) return
+        if (!MessageDigest.isEqual(remnant.readBytes(), keyFile)) overwriteBestEffort(remnant)
+        if (!remnant.delete() && remnant.exists()) throw VaultException("The old vault key file could not be removed.")
+    }
+
+    /**
+     * Removes what the key of [session] does not own: wallet folders that hold a key file, vault record files and review pool files. Each
+     * wallet folder is checked and released under the session's lock on its own, and the lists of record files and pool files are made under it,
+     * and each file is then taken under it on its own. A folder without a
+     * key file is still being written, so it is left alone. The folders become unused slots in the promoted vault's pad, so the
+     * folder count stays the same, and the record files become spares again. The pool files are overwritten and deleted, since the promoted
+     * vault has a pool batch of its own and the pool must not grow with every promotion.
+     */
+    private fun purgeOldVault(session: VaultSession) {
+        val side = session.side
+        // A folder is checked and released under one hold of the lock, so a wallet that the session makes meanwhile is owned when it is checked.
+        layout.wallets.list().orEmpty().forEach { id ->
+            session.withKeyLocked { key ->
+                if (layout.walletKeyFile(id).isFile && !ownsWallet(keys, layout, key, id)) withPadOf(key, side) { it.release(listOf(id)) }
             }
-            keystoreOrNull { keys.deleteBiometricKey() }
-            true
         }
-        if (cleaned && !marker.delete() && marker.exists()) throw VaultException("The promotion marker could not be removed.")
+        val records = session.withKeyLocked { key -> spareRecordFiles(listOf(key)) }
+        records.forEach { file -> session.withKeyLocked { retireRecordFiles(listOf(file).filter { it.isFile }) } }
+        val pool = session.withKeyLocked { key ->
+            val owned = ReviewPool(layout.reviewPool, key).use { it.ownedNames() }
+            layout.reviewPool.listFiles()?.filter { it.isFile && it.name !in owned }.orEmpty()
+        }
+        pool.forEach { file ->
+            session.withKeyLocked {
+                overwriteBestEffort(file)
+                file.delete()
+            }
+        }
     }
 
     /** [finishPromotionLocked] before a change that rewrites `unlock.bin`, so a marker is never left naming a file that is gone. */
@@ -1429,11 +1490,9 @@ class Vault constructor(
      * without a key file is still being written, so it is left alone. This is how a dropped Decoy Vault's files go, and how a promotion
      * removes the old vault. A padded store keeps each dropped folder as an unused slot, so the folder count stays the same, and the pad of
      * the first key in [keep], the real vault's, on [side] takes them over. A pool file that no kept key owns is overwritten and kept, so
-     * the pool keeps its size, unless [removePoolFiles]: a promotion gives the promoted vault a pool batch of its own, so the old vault's
-     * files are overwritten and deleted, and the pool does not grow with every promotion. The record files that no kept key names become
-     * spares again.
+     * the pool keeps its size. The record files that no kept key names become spares again.
      */
-    private fun purgeUnowned(keep: List<ByteArray>, side: Int, removePoolFiles: Boolean = false) {
+    private fun purgeUnowned(keep: List<ByteArray>, side: Int) {
         withPadOf(keep.first(), side) { pad ->
             val dropped = layout.wallets.list()?.filter { id ->
                 layout.walletKeyFile(id).isFile && keep.none { ownsWallet(keys, layout, it, id) }
@@ -1443,7 +1502,7 @@ class Vault constructor(
         // The files that no kept key names, a gone decoy's or a failed one's, become spares again, so the file count stays the same.
         retireRecordFiles(spareRecordFiles(keep))
         val owned = keep.flatMap { key -> ReviewPool(layout.reviewPool, key).use { it.ownedNames() } }.toSet()
-        if (removePoolFiles) ReviewPool.removeExcept(layout.reviewPool, owned) else ReviewPool.shredExcept(layout.reviewPool, owned)
+        ReviewPool.shredExcept(layout.reviewPool, owned)
     }
 
     /** The pad of the vault whose key is [vaultKey], on side [side], for the duration of [block]. Its key is zeroed afterwards. */
@@ -1678,9 +1737,10 @@ private fun dropSidePhotos(layout: VaultLayout, side: Int) {
  * Shreds the files of the other side's photo folder that the folder of [side] holds no file of the same name for. The cover saves every
  * photo twice under one name, so a vault that never had a Duress Password holds a twin of each of its photos. After a promotion the old
  * vault's folder is the twin folder, and a file there without a twin was deleted from the promoted vault's gallery, which a never-promoted
- * vault does not show. The rest stay: no key opens them.
+ * vault does not show. The rest stay: no key opens them. The listing and the shredding run on the thread that seals the cover's photos (see
+ * [PhotoStore.whileNoSaveRuns]), so a photo saved meanwhile keeps its twin and a file half written is not shredded.
  */
-private fun shredTwinlessPhotos(layout: VaultLayout, side: Int) {
+private fun shredTwinlessPhotos(layout: VaultLayout, side: Int) = PhotoStore.whileNoSaveRuns {
     val kept = layout.photoDir(side).list().orEmpty().toSet()
     layout.photoDir(1 - side).listFiles().orEmpty().filter { it.name !in kept }.forEach { file ->
         overwriteFiles(file)

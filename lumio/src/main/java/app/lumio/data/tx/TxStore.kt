@@ -60,6 +60,22 @@ class TxStore(private val dao: TxDao, private val keys: TxKeys) {
         txIds.distinctBy { it.asList() }.filterNot { dao.hasRow(it) }.forEach { dao.writeComment(it, COMMENT_KEY, comment = null, terms = emptyList()) }
     }
 
+    /**
+     * Deletes every row and comment that does not open under [keys], then the terms that name nothing. The rows of a vault that a Duress Password unlock
+     * replaced are sealed under a key that no session holds, and their plain columns (network, time, amount, asset, direction, status) would stay readable
+     * in the database. Run once when the vault opens, as the cache and the scan queue are (see `Cache.purgeUnreadable`).
+     */
+    suspend fun purgeUnreadable() {
+        var kept = 0
+        while (true) {
+            val page = dao.rowsPage(PURGE_PAGE, kept)
+            if (page.isEmpty()) break
+            for (row in page) if (open(row) == null) dao.removeRow(row.txId, row.accountKey) else kept++
+        }
+        for (row in dao.comments()) if (openComment(row) == null) dao.writeComment(row.txId, COMMENT_KEY, comment = null, terms = emptyList())
+        dao.deleteOrphanTerms(COMMENT_KEY)
+    }
+
     /** The counterparties of the account's transactions that are not spam: the addresses the account has dealt with. */
     suspend fun counterparties(account: String): Set<String> =
         dao.rowsOf(accountKeyOf(account)).asSequence().filter { !it.spam }.mapNotNull { open(it)?.counterparty }.toSet()
@@ -236,6 +252,7 @@ class TxStore(private val dao: TxDao, private val keys: TxKeys) {
         private const val ACCOUNT_LABEL = "account"
         private const val ASSET_LABEL = "asset"
         private const val TERM_LABEL = "term"
+        private const val PURGE_PAGE = 200
 
         /** The key that a comment's terms are filed under. No keyed hash is all zeros, so it never names a row. */
         private val COMMENT_KEY = ByteArray(32)

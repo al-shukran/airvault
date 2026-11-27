@@ -516,7 +516,8 @@ suspend fun createVault(holder: VaultHolder, password: CharArray): GateOutcome =
 }
 
 /**
- * Unlocks with [password], which the vault zeroes, and keeps the session if the vault was not locked meanwhile.
+ * Unlocks with [password], which the vault zeroes, and keeps the session if the vault was not locked meanwhile, else the result is
+ * [GateOutcome.Cancelled].
  * A deleted vault key erases the vault inside the unlock, so it gives [GateOutcome.Erased]. Any other vault error, such as a damaged
  * vault or a Keystore refusal, gives [GateOutcome.Unavailable].
  */
@@ -528,7 +529,9 @@ internal suspend fun unlockWith(holder: VaultHolder, password: CharArray): GateO
                 // Adopting attaches the session, which removes the wallets a crash left unfinished: file and Keystore work, so it runs off
                 // Main. It runs under NonCancellable, so an opened session is always adopted, or closed if the vault was locked meanwhile.
                 val kept = withContext(Dispatchers.IO + NonCancellable) { holder.adopt(result.session, epoch) }
-                if (kept) GateOutcome.Opened else GateOutcome.Rejected
+                // A vault locked meanwhile is no wrong password. The Duress Password may just have been promoted, so it is not shown as one: the
+                // field is cleared, nothing is counted, and the same password opens the vault on the next try.
+                if (kept) GateOutcome.Opened else GateOutcome.Cancelled
             }
             UnlockResult.Rejected -> GateOutcome.Rejected
             UnlockResult.Erased -> GateOutcome.Erased

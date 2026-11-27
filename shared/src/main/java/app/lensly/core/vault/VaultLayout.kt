@@ -129,6 +129,12 @@ class VaultLayout(
     val promotionMarker = File(root, "promote.bin")
 
     /**
+     * A second name for the old `unlock.bin`, made with the marker, so that the replace leaves the old file's bytes reachable and the cleanup
+     * can overwrite them (a rename alone frees them unwritten). Removed with the marker.
+     */
+    val promotionRemnant = File(root, "promote.old")
+
+    /**
      * The private half of the photo key pair that photos taken before the first setup are sealed to, wrapped under a Keystore key (see
      * [PendingPhotoKey]). It sits in the photo folder, so a wipe removes it with the photos.
      */

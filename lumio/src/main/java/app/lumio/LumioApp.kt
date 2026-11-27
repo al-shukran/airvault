@@ -290,7 +290,8 @@ class LumioApp : Application(), CoverApplication {
 
     /**
      * Opens Lumio's state for an unlocked vault, and resumes the scan jobs that an earlier session left pending. The purge removes the rows
-     * that this vault's key cannot read, which is how the rows of a vault that a Duress Password unlock replaced go.
+     * that this vault's key cannot read, which is how the rows of a vault that a Duress Password unlock replaced go, and the shared receive code,
+     * which names an address of the vault that went.
      */
     private fun openVault(session: VaultSession): SessionAttachment? {
         val vault = LumioVault(
@@ -304,8 +305,11 @@ class LumioApp : Application(), CoverApplication {
         // Read now, so Settings is whole on its first frame.
         vault.scans.launch { vault.settingsFacts.refresh() }
         vault.scans.launch {
+            // A code shared in an earlier session names an address, and the vault that owned it may be gone.
+            receiveShareDir(this@LumioApp).deleteRecursively()
             vault.cache.purgeUnreadable()
             scanQueue.purgeUnreadable()
+            vault.txs.purgeUnreadable()
             vault.store.retain(bitcoinRefs(session).map { it.key }.toSet())
             scanRunner.pass(selectedNetwork(session))
         }

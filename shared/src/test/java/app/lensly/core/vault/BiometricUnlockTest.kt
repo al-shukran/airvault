@@ -160,6 +160,26 @@ class BiometricUnlockTest {
     }
 
     @Test
+    fun theSealedKeyIsGoneAtTheCommitWithoutTheCleanupAndACopyOfItOpensNothing() {
+        val real = openApp()
+        assertTrue(runBlocking { unlock.enable(real) })
+        assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { decoy -> decoy.createWallet() } })
+        real.close()
+        val file = File(layout.root, BiometricUnlock.BLOB_FILE_NAME)
+        val copy = file.readBytes()
+
+        vault.skipCleanupForTesting = true
+        val promoted = assertIs<UnlockResult.Unlocked>(runBlocking { vault.unlock(DURESS.toCharArray()) }).session
+        promoted.close()
+
+        assertFalse(unlock.isOn(), "no sealed key is left once the commit is in, whether or not the cleanup runs")
+        // A copy of the old sealed key, put back, holds the old vault's key: it opens nothing and turns itself off.
+        file.writeBytes(copy)
+        assertEquals(BiometricOutcome.TurnedOff, runBlocking { unlock.unlock(vault) })
+        assertFalse(unlock.isOn())
+    }
+
+    @Test
     fun aPromotedVaultKeepsItsSideThroughBiometricUnlock() {
         val real = openApp()
         assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { decoy -> decoy.createWallet() } })

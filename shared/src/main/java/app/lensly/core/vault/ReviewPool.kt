@@ -287,14 +287,6 @@ internal class ReviewPool(private val dir: File, private val vaultKey: ByteArray
             dir.listFiles()?.filter { it.isFile && it.name !in keep }?.forEach { overwriteInPlace(it) }
         }
 
-        /** Overwrites, then deletes, every file in [dir] whose name is not in [keep]. */
-        fun removeExcept(dir: File, keep: Set<String>) {
-            dir.listFiles()?.filter { it.isFile && it.name !in keep }?.forEach {
-                overwriteBestEffort(it)
-                it.delete()
-            }
-        }
-
         /** Overwrites every file in [dir] with random bytes and syncs it. The files stay, so the pool keeps its shape. */
         fun shredAll(dir: File) = shredExcept(dir, emptySet())
     }

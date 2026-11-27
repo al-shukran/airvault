@@ -1,9 +1,16 @@
 package app.lensly.core.vault
 
+import app.lensly.ui.camera.PhotoStore
 import java.io.File
+import java.nio.file.Files
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.crypto.SecretKey
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -341,6 +348,328 @@ class VaultPromotionTest {
         assertEquals(UnlockResult.Erased, verify(P2))
         assertFalse(vault.exists())
     }
+
+    @Test
+    fun theSealedKeyOfBiometricUnlockAndItsKeystoreKeyAreGoneAtTheCommitEvenWhenTheCleanupNeverRuns() {
+        create(P1)
+        val real = unlocked(P1)
+        setDuress(real, P2).key.fill(0)
+        real.close()
+        val sealedKey = File(layout.root, BiometricUnlock.BLOB_FILE_NAME).apply { writeBytes(ByteArray(64) { 7 }) }
+        assertFalse(keys.biometricKeyDeleted)
+
+        vault.skipCleanupForTesting = true
+        unlocked(P2).close()
+
+        assertTrue(layout.promotionMarker.exists(), "the cleanup did not run")
+        assertFalse(sealedKey.exists(), "the sealed Vault Key of the old vault is gone with the commit")
+        assertTrue(keys.biometricKeyDeleted, "its Keystore key is gone with the commit")
+    }
+
+    @Test
+    fun aDuressUnlockThatIsOnlyCheckedStartsNoCleanup() {
+        create(P1)
+        val real = unlocked(P1)
+        val realWallet = real.createWallet()
+        setDuress(real, P2).key.fill(0)
+        real.close()
+        vault.skipCleanupForTesting = true
+        unlocked(P2).close()
+        // A new process, and the App Password of the promoted vault is only checked.
+        FailureStore.forget(layout.root)
+        vault = Vault(layout, keys, clock, KDF)
+        val checked = verify(P2)
+        awaitCleanup()
+        (checked as UnlockResult.Unlocked).session.close()
+
+        assertTrue(layout.promotionMarker.exists(), "a password check leaves the cleanup to the next unlock")
+        assertTrue(layout.walletKeyFile(realWallet).isFile)
+
+        val promoted = unlocked(P2)
+        awaitCleanup()
+        promoted.close()
+        assertFalse(layout.promotionMarker.exists())
+        assertTrue(WalletFolder.isUnused(layout.walletDir(realWallet)))
+    }
+
+    @Test
+    fun theOldUnlockFileIsOverwrittenWhereItsSecondNameLeftItsBytesReachable() {
+        create(P1)
+        val real = unlocked(P1)
+        setDuress(real, P2).key.fill(0)
+        real.close()
+        val oldBytes = layout.vaultKey.readBytes()
+
+        vault.skipCleanupForTesting = true
+        unlocked(P2).close()
+        // Another name for the old file's bytes, as a snapshot of the folder would hold: the cleanup overwrites them in place.
+        assertContentEquals(oldBytes, layout.promotionRemnant.readBytes())
+        val spy = File(tmp.root, "spy")
+        Files.createLink(spy.toPath(), layout.promotionRemnant.toPath())
+        FailureStore.forget(layout.root)
+        vault = Vault(layout, keys, clock, KDF)
+        val promoted = unlocked(P2)
+        awaitCleanup()
+        promoted.close()
+
+        assertFalse(layout.promotionRemnant.exists())
+        assertEquals(oldBytes.size, spy.length().toInt())
+        assertFalse(spy.readBytes().contentEquals(oldBytes), "the old unlock.bin was overwritten, not only unlinked")
+    }
+
+    @Test
+    fun aKillBetweenTheMarkerAndTheNewUnlockFileLeavesTheOldVaultAndTheNextUnlockRemovesTheMarkerAndTheExtraName() {
+        var armed = false
+        var saves = 0
+        val dying = object : KeystoreBackend by keys {
+            override fun createFailureMacKey(seq: Long): SecretKey {
+                // The first save is the counted try. The second is the commit's, which the process does not survive.
+                if (armed && ++saves >= 2) throw Killed()
+                return keys.createFailureMacKey(seq)
+            }
+        }
+        vault = Vault(layout, dying, clock, KDF)
+        create(P1)
+        val real = unlocked(P1)
+        val wallet = real.createWallet()
+        val decoy = setDuress(real, P2)
+        real.close()
+        val keyFile = layout.vaultKey.readBytes()
+
+        armed = true
+        assertFailsWith<Killed> { attempt(P2) }
+
+        // The marker and the extra name of the old file are on disk, and the old file is still the vault's.
+        assertTrue(layout.promotionMarker.exists())
+        assertTrue(layout.promotionRemnant.exists())
+        assertContentEquals(keyFile, layout.vaultKey.readBytes())
+        FailureStore.forget(layout.root)
+        vault = Vault(layout, keys, clock, KDF)
+        val reopened = unlocked(P1)
+        awaitCleanup()
+
+        assertEquals(listOf(wallet), reopened.listWallets())
+        assertFalse(layout.promotionMarker.exists())
+        assertFalse(layout.promotionRemnant.exists())
+        assertContentEquals(keyFile, layout.vaultKey.readBytes(), "the live file was never overwritten")
+        reopened.close()
+        // The Duress Password still promotes the decoy.
+        assertEquals(decoy.wallets, walletsOf(P2))
+        decoy.key.fill(0)
+    }
+
+    @Test
+    fun aKillAfterTheStateNamesTheNewUnlockFileAndBeforeTheReplaceIsAnUnverifiableVaultAndErasesItAtTheNextUnlock() {
+        var armed = false
+        var saves = 0
+        val dying = object : KeystoreBackend by keys {
+            override fun createFailureMacKey(seq: Long): SecretKey {
+                if (armed) saves++
+                return keys.createFailureMacKey(seq)
+            }
+
+            override fun deleteFailureMacKeysExcept(keepSeq: Long?) {
+                // After the commit's save has written both copies of the state, and before the new file replaces the old one.
+                if (armed && saves >= 2) throw Killed()
+                keys.deleteFailureMacKeysExcept(keepSeq)
+            }
+        }
+        vault = Vault(layout, dying, clock, KDF)
+        create(P1)
+        val real = unlocked(P1)
+        real.createWallet()
+        setDuress(real, P2).key.fill(0)
+        real.close()
+
+        armed = true
+        assertFailsWith<Killed> { attempt(P2) }
+        armed = false
+        assertTrue(layout.promotionMarker.exists())
+
+        // The state names a file that is not in place, as after any crash between the two writes: the vault cannot be verified, so it is erased.
+        FailureStore.forget(layout.root)
+        vault = Vault(layout, keys, clock, KDF)
+        assertEquals(UnlockResult.Erased, attempt(P1))
+        assertFalse(vault.exists())
+        assertFalse(layout.promotionMarker.exists())
+        assertFalse(layout.promotionRemnant.exists())
+    }
+
+    @Test
+    fun aCrashHalfWayThroughTheCleanupIsFinishedByTheNextUnlockAndTheVaultIsThatOfOneThatNeverHadADuressPassword() {
+        val fresh = freshShape()
+        create(P1)
+        val real = unlocked(P1)
+        val wallets = List(3) { real.createWallet() }
+        savePhotos(layout, "before")
+        val realKey = real.copyOfVaultKey()
+        val decoy = setDuress(real, P2)
+        savePhotos(layout, "after")
+        real.close()
+
+        // The process dies while the second wallet folder of the old vault is released.
+        var releases = 0
+        var armed = false
+        val dying = object : KeystoreBackend by keys {
+            override fun deleteFolderKey(keyId: String) {
+                if (armed && ++releases == 2) throw IllegalStateException("The process died.")
+                keys.deleteFolderKey(keyId)
+            }
+        }
+        vault = Vault(layout, dying, clock, KDF)
+        armed = true
+        val promoted = unlocked(P2)
+        awaitCleanup()
+        promoted.close()
+        armed = false
+
+        val kept = wallets.count { ownsWallet(keys, layout, realKey, it) }
+        assertTrue(kept in 1 until wallets.size, "the purge stopped half way: $kept of ${wallets.size} old wallets are still there")
+        assertTrue(layout.promotionMarker.exists(), "an unfinished cleanup keeps its marker")
+
+        FailureStore.forget(layout.root)
+        vault = Vault(layout, keys, clock, KDF)
+        val again = unlocked(P2)
+        awaitCleanup()
+
+        assertFalse(layout.promotionMarker.exists())
+        assertFalse(layout.promotionRemnant.exists())
+        assertEquals(decoy.wallets, again.listWallets())
+        assertTrue(wallets.all { WalletFolder.isUnused(layout.walletDir(it)) })
+        assertFalse(ownsWallet(keys, layout, realKey, wallets[0]))
+        assertSameShape(fresh, shape(layout, keys))
+        again.close()
+        realKey.fill(0)
+        decoy.key.fill(0)
+    }
+
+    @Test
+    fun theSessionIsNotBlockedWhileTheCleanupWorksBetweenItsSteps() {
+        create(P1)
+        val real = unlocked(P1)
+        real.createWallet()
+        setDuress(real, P2).key.fill(0)
+        real.close()
+        // The second call of this is the cleanup's: it runs after the purge, so it must run outside the session's lock.
+        val parked = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        var calls = 0
+        val slow = object : KeystoreBackend by keys {
+            override fun deleteBiometricKey() {
+                if (++calls == 2) {
+                    parked.countDown()
+                    release.await(10, TimeUnit.SECONDS)
+                }
+                keys.deleteBiometricKey()
+            }
+        }
+        vault = Vault(layout, slow, clock, KDF)
+
+        val promoted = unlocked(P2)
+        assertTrue(parked.await(10, TimeUnit.SECONDS), "the cleanup reached its last step")
+        val listing = Executors.newSingleThreadExecutor().submit<List<String>> { promoted.listWallets() }
+        try {
+            assertEquals(1, listing.get(2, TimeUnit.SECONDS).size, "the promoted vault answers while the cleanup runs")
+        } finally {
+            release.countDown()
+        }
+        awaitCleanup()
+        assertFalse(layout.promotionMarker.exists())
+        promoted.close()
+    }
+
+    @Test
+    fun aPhotoSavedWhileTheCleanupRunsKeepsItsTwinAndAHalfWrittenOneIsNotShredded() {
+        create(P1)
+        val real = unlocked(P1)
+        setDuress(real, P2).key.fill(0)
+        real.close()
+        val sawPhotoStep = CountDownLatch(1)
+        var calls = 0
+        val watching = object : KeystoreBackend by keys {
+            override fun deleteBiometricKey() {
+                // The cleanup's call comes after its photo step.
+                if (++calls == 2) sawPhotoStep.countDown()
+                keys.deleteBiometricKey()
+            }
+        }
+        vault = Vault(layout, watching, clock, KDF)
+        layout.makePhotoFolders()
+        // A cover save that is half done: the photo is in the old lane, and its twin is not in the promoted lane yet.
+        val started = CountDownLatch(1)
+        val finish = CountDownLatch(1)
+        PhotoStore.sealer.execute {
+            File(layout.photoDir(0), "new").writeBytes(ByteArray(8))
+            started.countDown()
+            finish.await(10, TimeUnit.SECONDS)
+            File(layout.photoDir(1), "new").writeBytes(ByteArray(8))
+        }
+        assertTrue(started.await(10, TimeUnit.SECONDS))
+
+        val promoted = unlocked(P2)
+        // The cleanup waits for the save: it does not get past the photo step while the save runs.
+        assertFalse(sawPhotoStep.await(700, TimeUnit.MILLISECONDS), "the photo step ran while a save was half done")
+        assertTrue(File(layout.photoDir(0), "new").exists(), "the half-written photo was not shredded")
+        finish.countDown()
+        awaitCleanup()
+
+        assertTrue(File(layout.photoDir(0), "new").exists() && File(layout.photoDir(1), "new").exists(), "the saved photo kept its twin")
+        assertFalse(layout.promotionMarker.exists())
+        promoted.close()
+    }
+
+    @Test
+    fun theCleanupWithSixteenWalletsLeavesTheShapeOfAFreshVaultAndNeverBlocksTheSessionLong() {
+        val fresh = freshShape()
+        create(P1)
+        val real = unlocked(P1)
+        repeat(16) { real.createWallet() }
+        savePhotos(layout, "before")
+        val decoy = setDuress(real, P2)
+        savePhotos(layout, "after")
+        real.close()
+        val folders = layout.wallets.list().orEmpty().size
+
+        val promoteStart = System.nanoTime()
+        val promoted = unlocked(P2)
+        val promoteMs = (System.nanoTime() - promoteStart) / 1_000_000
+        // A reader on the promoted session, as the first screen is: how long does one call wait during the cleanup?
+        var worstMs = 0L
+        var reads = 0
+        val cleanupStart = System.nanoTime()
+        val done = AtomicBoolean(false)
+        val reader = Thread {
+            while (!done.get()) {
+                val start = System.nanoTime()
+                promoted.listWallets()
+                worstMs = maxOf(worstMs, (System.nanoTime() - start) / 1_000_000)
+                reads++
+                Thread.sleep(2)
+            }
+        }
+        reader.start()
+        awaitCleanup()
+        done.set(true)
+        reader.join()
+        val cleanupMs = (System.nanoTime() - cleanupStart) / 1_000_000
+        println("promotion with 16 wallets: unlock ${promoteMs} ms, cleanup ${cleanupMs} ms, $reads reads, longest wait of one read ${worstMs} ms")
+
+        assertFalse(layout.promotionMarker.exists())
+        // The store keeps the folder count it grew to for 16 wallets, so it is compared apart from the folders: each is the decoy's wallet or unused.
+        val after = shape(layout, keys)
+        assertEquals(fresh.rootFiles, after.rootFiles)
+        assertEquals(fresh.records, after.records)
+        assertEquals(fresh.pool, after.pool)
+        assertEquals(fresh.lanes, after.lanes)
+        assertEquals(folders, layout.wallets.list().orEmpty().size)
+        assertEquals(decoy.wallets, promoted.listWallets())
+        decoy.key.fill(0)
+        assertTrue(worstMs < cleanupMs || reads == 0, "a read waited as long as the whole cleanup")
+        promoted.close()
+    }
+
+    /** A process that dies at the point where it is thrown: nothing catches it, so no cleanup after it runs. */
+    private class Killed : Error()
 
     private fun create(password: String) {
         assertEquals(CreateResult.Created, runBlocking { vault.create(password.toCharArray()) })
