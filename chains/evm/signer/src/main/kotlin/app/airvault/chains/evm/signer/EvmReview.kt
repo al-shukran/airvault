@@ -142,20 +142,25 @@ class EvmReviewBuilder(
         private fun message(): Review {
             val bytes = request.signData
             header += ReviewRow("Type", DisplayValue.Text(PERSONAL_MESSAGE_TYPE), null)
+            // A 32-byte message may be a hash that happens to read as text, so its bytes are always shown, next to the text.
+            val hashRows = if (bytes.size == WORD_BYTES && printableMessage(bytes) != null) {
+                listOf(ReviewRow("Message Bytes", DisplayValue.Bytes(bytes), decode("evm.message")))
+            } else {
+                emptyList()
+            }
             sections += ReviewSection(
                 "Message",
-                listOf(
-                    ReviewRow("Message", messageValue(bytes), decode("evm.message")),
+                listOf(ReviewRow("Message", messageValue(bytes), decode("evm.message"))) + hashRows +
                     ReviewRow("Size", DisplayValue.Text(sizeText(bytes)), decode("evm.message")),
-                ),
             )
             printableMessage(bytes)?.let(::lighterReview)?.let { lighter ->
                 sections.add(0, lighter.section)
                 warnings += lighter.warnings
             }
             warnings += Warning(Danger.CAUTION, CODE_MESSAGE, PERSONAL_MESSAGE_WARNING)
-            // A contract such as a Safe takes the signature of a 32-byte hash as the approval of a transaction this review cannot show.
-            if (bytes.size == WORD_BYTES && printableMessage(bytes) == null) {
+            // A contract such as a Safe takes the signature of a 32-byte hash as the approval of a transaction this review cannot show. A hash
+            // can be ground until every byte is a printable character, so any 32-byte message gets the warning, whether or not it reads as text.
+            if (bytes.size == WORD_BYTES) {
                 warnings += Warning(Danger.DANGER, CODE_MESSAGE_HASH, MESSAGE_HASH_WARNING, FieldPath("evm.message"), ACK_MESSAGE_HASH)
             }
             // An EIP-191 signature commits to no chain, so it is valid on every one, whichever chain the request names or none.
@@ -415,6 +420,10 @@ class EvmReviewBuilder(
                 denied.forEach { warnings += denylistWarning(it, FieldPath("$prefix.function")) }
                 val target = inner.target?.let(::checksum)
                 val flags = flagsOf(shape, inner)
+                // Multicall3 keeps the value of a call that fails when the batch lets it fail.
+                if (shape.hasValue && inner.allowFailure == true && sent.signum() > 0) {
+                    warnings += Warning(Danger.CAUTION, CODE_FAILING_CALL_VALUE, FAILING_CALL_VALUE_WARNING, FieldPath("$prefix.function"))
+                }
                 val nested = inner.nested
                 val lone = inner.call
                 when {
@@ -1094,6 +1103,10 @@ internal const val ACK_UNKNOWN_CALL = "I understand Lensly cannot say what this 
 internal const val STRANDED_VALUE_WARNING =
     "This batch sends native currency, but its calls receive none of it. The amount stays in the Multicall3 contract and you cannot get it back."
 
+/** The CAUTION on a Multicall3 call that may fail and carries native currency. */
+internal const val FAILING_CALL_VALUE_WARNING =
+    "If this step fails, its value stays in the Multicall3 contract and can be taken by anyone."
+
 /** The check the owner ticks for a batch that strands the amount it sends, by name. */
 internal const val ACK_STRANDED_VALUE = "I understand this amount stays in the contract and is lost to me."
 
@@ -1120,6 +1133,7 @@ internal const val CODE_ALL_NFTS = "evm.approval-for-all"
 internal const val CODE_FOREIGN_FROM = "evm.foreign-from"
 internal const val CODE_UNKNOWN_CALL = "evm.unknown-call"
 internal const val CODE_STRANDED_VALUE = "evm.stranded-value"
+internal const val CODE_FAILING_CALL_VALUE = "evm.failing-call-value"
 internal const val CODE_DENYLIST = "evm.denylist"
 internal const val CODE_REGISTRY = "evm.registry"
 internal const val CODE_WHITELIST = "evm.whitelisted-call"
@@ -1128,8 +1142,8 @@ internal const val CODE_STEPS = "evm.steps"
 internal const val CODE_MESSAGE = "evm.personal-message"
 private const val CODE_MESSAGE_CHAIN = "evm.personal-message.chain"
 internal const val CODE_MESSAGE_HASH = "evm.personal-message.hash"
-internal const val MESSAGE_HASH_WARNING = "This message is a 32-byte hash. A contract such as a Safe can accept its signature as approval " +
-    "of a transaction Lensly cannot show."
+internal const val MESSAGE_HASH_WARNING = "This message is 32 bytes long, so it may be a hash. A contract such as a Safe can accept its " +
+    "signature as approval of a transaction Lensly cannot show."
 
 /** The check the owner ticks for a personal message that is a 32-byte hash, by name. */
 internal const val ACK_MESSAGE_HASH = "I understand this signature may approve a transaction Lensly cannot show."
