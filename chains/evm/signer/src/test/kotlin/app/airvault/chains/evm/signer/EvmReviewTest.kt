@@ -356,12 +356,12 @@ class EvmReviewTest {
         val batch = encodeMulticall(MulticallShape.AGGREGATE3_VALUE, deadline = null, calls = listOf(call))!!
 
         val review = reviewOf(
-            txParsed(MULTICALL3, batch, value = BigInteger("2000000000000000")),
+            txParsed(MULTICALL3, batch, value = BigInteger("1000000000000000")),
             builder(REGISTRY.withWhitelist(listOf(fooEntry()))),
         )
 
-        // The batch's flags carry the call's value, and the header carries the transaction's amount. No row repeats the call's value.
-        assertEquals("0.002 ETH", review.sections.first().rows.single { it.label == "Amount" }.value.text())
+        // The call's value is what the batch sends, so the header amount equals it (the contract rejects a batch whose call values differ from the amount). The call's value shows once, in the batch's flags, and no row repeats it.
+        assertEquals("0.001 ETH", review.sections.first().rows.single { it.label == "Amount" }.value.text())
         val rows = review.sections.single { it.heading == "Calls" }.rows
         assertEquals("0.001 ETH", rows.single { it.label == "value (uint256)" }.value.text())
         assertTrue(rows.none { it.label == "Value" })
