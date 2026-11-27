@@ -229,6 +229,12 @@ refuse_with "${canon%exit 1*}exit 0"$'\n'"exit 1"$'\n'fi
 expect_fail "an exit 0 before the exit 1 in the block" guard_with
 refuse_with "${canon%exit 1*}"'echo hi |&'$'\n'"exit 1"$'\n'fi
 expect_fail "an exit 1 in the pipeline that a line ending in |& continues (canonical form)" guard_with
+# Python splits lines at more characters than bash does, so each of these hides "exit 1" inside an echo argument (real characters, not escapes).
+for sep in $'\v' $'\f' $'\r' $'\x1c' $'\x1d' $'\x1e' $'\xc2\x85' $'\xe2\x80\xa8' $'\xe2\x80\xa9'; do
+    pre=${canon%$'\n'*exit 1*}
+    refuse_with "$pre$sep"exit' 1'$'\n'fi
+    expect_fail "an exit 1 joined to the echo by the separator $(printf %s "$sep" | od -An -tx1 | tr -d ' \n')" guard_with
+done
 refuse_with "$canon"
 expect_pass "the canonical refusal rewritten from the workflow" guard_with
 mutate release.yml "$refusal += {\"id\": \"refuse\"}"

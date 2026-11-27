@@ -64,7 +64,7 @@ def reads_secret(obj):
 def refuses(step):
     if not set(step) <= {"name", "run", "id"}:
         return False
-    lines = [line.strip() for line in str(step.get("run", "")).splitlines() if line.strip()]
+    lines = [line.strip(" \t") for line in str(step.get("run", "")).split("\n") if line.strip(" \t")]
     return (
         lines[: len(HEAD)] == HEAD
         and lines[len(lines) - len(TAIL) :] == TAIL
