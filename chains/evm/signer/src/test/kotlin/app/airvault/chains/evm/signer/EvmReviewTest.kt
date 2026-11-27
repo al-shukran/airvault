@@ -184,11 +184,11 @@ class EvmReviewTest {
     @Test
     fun aPartyEntryRefusesACallThatNamesTheDrainerAsSpenderOperatorOrRecipient() {
         val reviewer = builder(drainerRegistry())
-        val calls = mapOf(
+        val calls = listOf(
             USDC to ContractCall.Approve(DRAINER, BigInteger.valueOf(1000)),
             NFT to ContractCall.SetApprovalForAll(DRAINER, true),
-            USDC.lowercase() to ContractCall.Transfer(DRAINER, BigInteger.ONE),
-            NFT.lowercase() to ContractCall.SafeTransferFrom(SENDER, DRAINER, BigInteger.ONE),
+            USDC to ContractCall.Transfer(DRAINER, BigInteger.ONE),
+            NFT to ContractCall.SafeTransferFrom(SENDER, DRAINER, BigInteger.ONE),
         )
 
         for ((target, call) in calls) {
