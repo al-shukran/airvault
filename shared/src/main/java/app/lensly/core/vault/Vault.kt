@@ -78,7 +78,7 @@ sealed interface FailureCapResult {
     data object Erased : FailureCapResult
 }
 
-/** Outcome of [Vault.setDuress]. Only [Enabled] changes the real vault. Every other outcome leaves it as it was. */
+/** Outcome of [Vault.setDuress]. Only [Enabled] changes the real vault, and [Failed] erases it when the undo fails too. Others leave it as it was. */
 sealed interface DuressResult {
     /** The Duress Password is set. It opens a Decoy Vault that holds at least one wallet. */
     data object Enabled : DuressResult
@@ -92,7 +92,10 @@ sealed interface DuressResult {
     /** The populate step left the Decoy Vault without a wallet, so the Duress Password was not enabled. */
     data object DecoyEmpty : DuressResult
 
-    /** The new vault key file could not be written and read back, or the decoy could not be made. */
+    /**
+     * The new vault key file could not be written and read back, or the decoy could not be made. When the undo of a half-made decoy fails
+     * too, the vault is erased, and the next gate finds no vault.
+     */
     data object Failed : DuressResult
 }
 
@@ -1060,14 +1063,17 @@ class Vault constructor(
 
     /**
      * Undoes a committed decoy whose record files could not be taken over: the decoy slot becomes random bytes, and the files that no key
-     * owns turn back into spares. Always [DuressResult.Failed]. A slot that cannot be replaced either leaves the decoy as it is.
+     * owns turn back into spares. Always [DuressResult.Failed]. A slot that cannot be replaced leaves a decoy that lacks record files, which
+     * cannot be verified, so the vault is erased (see [eraseLocked]) instead of kept.
      */
     private fun dropDecoyAfterFailedClaim(vaultKey: ByteArray, realSlot: ByteArray): DuressResult {
         try {
             commitKeyFile(listOf(realSlot, VaultKeyFile.randomSlot(random))) { true }
         } catch (e: IOException) {
+            eraseLocked()
             return DuressResult.Failed
         } catch (e: VaultException) {
+            eraseLocked()
             return DuressResult.Failed
         }
         bestEffort { purgeUnowned(listOf(vaultKey)) }
