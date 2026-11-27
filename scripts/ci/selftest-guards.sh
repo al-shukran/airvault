@@ -2,7 +2,8 @@
 # Checks the CI guards against broken inputs: each case must make its guard fail, and the real files must still pass. Needs yq and
 # python3, no Gradle and no network. Runs in the ci lane (run-partition.sh ci), so a guard that stops rejecting a case fails a pull request.
 #   check-cleartext-sources.sh   cleartext allowed outside src/debug/ (#1406, #1441)
-#   check-workflow-guards.sh     comment-run trusted gate and release refusal order (#1407, #1408, #1442, #1451, #1465, #1470, #1481, #1482)
+#   check-workflow-guards.sh     comment-run trusted gate, release refusal order and signing environment (#1407, #1408, #1442, #1451, #1465, #1470, #1481, #1482, #1493)
+#   sign-release.sh              the hash, secrets and version-code checks that come before the APK is signed (#1493)
 #   close-refresh-pr.sh          the refresh pull request is closed and the comment posted once (#1396, #1443)
 #
 # Usage: scripts/ci/selftest-guards.sh
@@ -113,15 +114,15 @@ mutate comment-run.yml 'sed:s/ || github.run_id }}/ }}/'
 expect_fail "no per-run fallback" guard_with
 mutate release.yml 'sed:s/^\( *\)if ! git merge-base/\1# if ! git merge-base/'
 expect_fail "a commented-out refusal" guard_with
-mutate release.yml '(.jobs.release.steps[] | select(.name | test("^Refuse")) | .run) = "true"'
+mutate release.yml '(.jobs.sign_lensly.steps[] | select(.name | test("^Refuse")) | .run) = "true"'
 { echo '# git merge-base --is-ancestor "$GITHUB_SHA" origin/master'; cat "$work/workflows/release.yml"; } >"$work/release.yml"
 mv "$work/release.yml" "$work/workflows/release.yml"
 expect_fail "a refusal that only a YAML comment quotes" guard_with
-mutate release.yml '(.jobs.release.steps[] | select(.name | test("^Refuse")) | .run) = "true" | .jobs.release.steps += [{"name": "late", "run": "git merge-base --is-ancestor \"$GITHUB_SHA\" origin/master"}]'
+mutate release.yml '(.jobs.sign_lensly.steps[] | select(.name | test("^Refuse")) | .run) = "true" | .jobs.sign_lensly.steps += [{"name": "late", "run": "git merge-base --is-ancestor \"$GITHUB_SHA\" origin/master"}]'
 expect_fail "a refusal after the keystore secret" guard_with
-mutate release.yml '.jobs.release.steps[0].env.EARLY = "${{ secrets.LENSLY_KEYSTORE_PASS }}"'
+mutate release.yml '.jobs.sign_lensly.steps[0].env.EARLY = "${{ secrets.LENSLY_KEYSTORE_PASS }}"'
 expect_fail "a keystore secret read before the refusal" guard_with
-mutate release.yml 'del(.jobs.release.steps[] | select(.name | test("^Refuse")))'
+mutate release.yml 'del(.jobs.sign_lensly.steps[] | select(.name | test("^Refuse")))'
 expect_fail "no refusal step" guard_with
 mutate comment-run.yml 'sed:s/-\${{ startsWith(/-${{ true || startsWith(/'
 expect_fail "a true || prefix in the group" guard_with
@@ -130,29 +131,29 @@ expect_fail "a negated /run- test in the group" guard_with
 # A secret read before the refusal, in any form the old text match and an env/with scan would miss.
 for read in 'echo ${{ secrets.LENSLY_KEYSTORE_PASS }}' "echo \${{ secrets['LENSLY_KEYSTORE_PASS'] }}" 'echo ${{ secrets.lensly_keystore_pass }}' \
     'echo # ${{ secrets.LENSLY_KEYSTORE_PASS }}' 'echo ${{ toJSON(secrets) }}'; do
-    mutate release.yml ".jobs.release.steps[0].run = \"$read\""
+    mutate release.yml ".jobs.sign_lensly.steps[0].run = \"$read\""
     expect_fail "a secret read in run before the refusal: $read" guard_with
 done
-mutate release.yml '.jobs.release.steps[0].env.ALL = "${{ toJSON(secrets) }}"'
+mutate release.yml '.jobs.sign_lensly.steps[0].env.ALL = "${{ toJSON(secrets) }}"'
 expect_fail "toJSON(secrets) in env before the refusal" guard_with
-mutate release.yml '.jobs.release.env.PASS = "${{ secrets.LENSLY_KEYSTORE_PASS }}"'
+mutate release.yml '.jobs.sign_lensly.env.PASS = "${{ secrets.LENSLY_KEYSTORE_PASS }}"'
 expect_fail "a job-level secret" guard_with
 mutate release.yml '.jobs.sign = {"uses": "./.github/workflows/sign.yml", "secrets": "inherit"}'
 expect_fail "a reusable workflow that inherits secrets" guard_with
 mutate release.yml '.jobs.sign = {"runs-on": "ubuntu-24.04", "steps": [{"run": "echo ${{ secrets.LENSLY_KEYSTORE_PASS }}"}]}'
 expect_fail "a second job that reads a secret with no refusal" guard_with
-mutate release.yml '(.jobs.release.steps[] | select(.name | test("^Refuse"))) += {"if": "false"}'
+mutate release.yml '(.jobs.sign_lensly.steps[] | select(.name | test("^Refuse"))) += {"if": "false"}'
 expect_fail "a refusal with if: false" guard_with
-mutate release.yml '(.jobs.release.steps[] | select(.name | test("^Refuse"))) += {"continue-on-error": true}'
+mutate release.yml '(.jobs.sign_lensly.steps[] | select(.name | test("^Refuse"))) += {"continue-on-error": true}'
 expect_fail "a refusal with continue-on-error" guard_with
-mutate release.yml '(.jobs.release.steps[] | select(.name | test("^Refuse")) | .run) = "echo git merge-base --is-ancestor \"$GITHUB_SHA\" origin/master"'
+mutate release.yml '(.jobs.sign_lensly.steps[] | select(.name | test("^Refuse")) | .run) = "echo git merge-base --is-ancestor \"$GITHUB_SHA\" origin/master"'
 expect_fail "a refusal that only echoes the command" guard_with
 mutate release.yml 'sed:s/^\( *\)exit 1$/\1true/'
 expect_fail "a refusal without exit 1" guard_with
 mutate release.yml 'sed:s/^\( *\)if ! git merge-base \(.*\); then$/\1echo ok # if ! git merge-base \2; then/'
 expect_fail "a refusal behind a trailing comment" guard_with
 # The refusal step may only have name, run and id, and its exit must run whenever the ancestor check fails (#1448).
-refusal='(.jobs.release.steps[] | select(.name | test("^Refuse")))'
+refusal='(.jobs.sign_lensly.steps[] | select(.name | test("^Refuse")))'
 check='git merge-base --is-ancestor \"$GITHUB_SHA\" origin/master'
 mutate release.yml "$refusal += {\"env\": {\"GITHUB_SHA\": \"abc\"}}"
 expect_fail "a refusal with its own env" guard_with
@@ -180,7 +181,7 @@ for open_close in "cat <<'NOTE'|NOTE" 'cat <<NOTE|NOTE' 'cat <<"NOTE"|NOTE' 'cat
 done
 # Workflow- and job-level settings reach the refusal step too: another shell, working directory or environment (BASH_ENV, PATH, GIT_DIR,
 # GITHUB_SHA) can turn it into a no-op, so release.yml allows only a fixed set of keys at both levels.
-for level in '' '.jobs.release'; do
+for level in '' '.jobs.sign_lensly'; do
     where=${level:-the workflow}
     mutate release.yml "$level.defaults.run.shell = \"true {0}\""
     expect_fail "defaults.run.shell in $where" guard_with
@@ -202,7 +203,7 @@ mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  echo hi |&\\n  e
 expect_fail "an exit 1 in the pipeline that a line ending in |& continues" guard_with
 # Only the pinned checkout may run before the refusal: any other step can write BASH_ENV or PATH to $GITHUB_ENV / $GITHUB_PATH, or run
 # code from the repository (a local action), and so neuter the refusal.
-steps='.jobs.release.steps'
+steps='.jobs.sign_lensly.steps'
 checkout="\"uses\": \"actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1\", \"with\": {\"persist-credentials\": false, \"fetch-depth\": 0}"
 for early in '{"run": "echo BASH_ENV=/tmp/x >> $GITHUB_ENV"}' '{"run": "echo /tmp/bin >> $GITHUB_PATH"}' '{"uses": "./evil"}' \
     '{"uses": "actions/cache@3d3c42e5aac5ba805825da76410c181273ba90b1"}' '{"uses": "actions/checkout@v7", "with": {"persist-credentials": false, "fetch-depth": 0}}' \
@@ -218,12 +219,12 @@ for read in '${{ secrets.LENSLY_KEYSTORE_PASS }}' "\${{ secrets['lumio_keystore_
     mutate nightly.yml ".env.X = \"$read\""
     expect_fail "a keystore secret read in another workflow: $read" guard_with
 done
-mutate release.yml '.jobs.release.steps[0].name = "x"'
-yq '.on.push.tags = ["lensly-v*"] | .jobs.release.steps += [{"run": "echo ${{ secrets.LENSLY_KEYSTORE_PASS }}"}]' "$work/workflows/release.yml" >"$work/workflows/release2.yml"
+mutate release.yml '.jobs.sign_lensly.steps[0].name = "x"'
+yq '.on.push.tags = ["lensly-v*"] | .jobs.sign_lensly.steps += [{"run": "echo ${{ secrets.LENSLY_KEYSTORE_PASS }}"}]' "$work/workflows/release.yml" >"$work/workflows/release2.yml"
 expect_fail "a second tag workflow that reads the keystore" guard_with
 # A step after the refusal that reads a secret must not run on a status function: always(), failure(), !cancelled() and success() || always()
 # run it even though the refusal failed. A job-level if or continue-on-error would do the same, and release.yml allows neither (#1481).
-sign='(.jobs.release.steps[] | select(.name == "Align and sign the APK"))'
+sign='(.jobs.sign_lensly.steps[] | select(.name == "Check, align and sign the APK"))'
 for cond in 'always()' '${{ failure() }}' '!cancelled()' 'success() || always()' 'ALWAYS()' '${{always ()}}' '${{ Failure( ) }}' 'success()' "cancelled() || github.ref_type == 'tag'"; do
     mutate release.yml "$sign += {\"if\": \"$cond\"}"
     expect_fail "the signing step with if: $cond" guard_with
@@ -235,22 +236,22 @@ for key in '"IF": "always()"' '"If": "failure()"' '"iF": "true"' '"continue-on-e
     mutate release.yml "$sign += {$key}"
     expect_fail "the signing step with the key $key" guard_with
 done
-mutate release.yml '.jobs.release.steps += [{"name": "Report", "if": "always()", "run": "true"}]'
+mutate release.yml '.jobs.sign_lensly.steps += [{"name": "Report", "if": "always()", "run": "true"}]'
 expect_fail "a step that reads no secret with if: always()" guard_with
-mutate release.yml '.jobs.release.steps += [{"name": "Report", "IF": "always()", "run": "true"}]'
+mutate release.yml '.jobs.sign_lensly.steps += [{"name": "Report", "IF": "always()", "run": "true"}]'
 expect_fail "a step that reads no secret with IF: always()" guard_with
-mutate release.yml '.jobs.release.steps += [{"name": "Report", "run": "true"}]'
+mutate release.yml '.jobs.sign_lensly.steps += [{"name": "Report", "run": "true"}]'
 expect_pass "a step after the refusal with only name and run" guard_with
-cleanup='(.jobs.release.steps[] | select(.name == "Delete the decoded keystore"))'
+cleanup='(.jobs.sign_lensly.steps[] | select(.name == "Delete the decoded keystore"))'
 for change in '.if = "failure()"' '.if = "always() || true"' '.if = "${{ always() }}"' 'del(.if)' '.IF = "always()"' '.continue-on-error = true' '.env.X = "1"' '.run = "echo ${{ secrets.LENSLY_KEYSTORE_PASS }}"'; do
     mutate release.yml "$cleanup |= ($change)"
     expect_fail "the keystore cleanup step changed by $change" guard_with
 done
-mutate release.yml '.jobs.release.steps += [{"name": "Late", "if": "failure()", "run": "echo ${{ secrets.LENSLY_KEYSTORE_PASS }}"}]'
+mutate release.yml '.jobs.sign_lensly.steps += [{"name": "Late", "if": "failure()", "run": "echo ${{ secrets.LENSLY_KEYSTORE_PASS }}"}]'
 expect_fail "a late step that reads a secret with if: failure()" guard_with
-mutate release.yml '.jobs.release.if = "always()"'
+mutate release.yml '.jobs.sign_lensly.if = "always()"'
 expect_fail "a job-level if: always()" guard_with
-mutate release.yml '.jobs.release.continue-on-error = true'
+mutate release.yml '.jobs.sign_lensly.continue-on-error = true'
 expect_fail "a job-level continue-on-error" guard_with
 # Another workflow's secret read written with a YAML double-quoted escape: only the parsed string shows the word secrets (#1481).
 extra() {
@@ -392,7 +393,7 @@ insert_after() {
     if cmp -s ".github/workflows/$1" "$work/workflows/$1"; then fail "the insertion into $1 changed nothing: $3"; fi
 }
 for merge in '<<: {if: always()}' '<<: {continue-on-error: true}' '<<: {}' '"<<": {}' "'<<': {}" '? <<' '<< : {}'; do
-    insert_after release.yml '      - name: Align and sign the APK' "        $merge"
+    insert_after release.yml '      - name: Check, align and sign the APK' "        $merge"
     expect_fail "a merge key in the signing step: $merge" guard_with
 done
 extra 'on: push
@@ -492,6 +493,83 @@ refuse_with "$canon"
 expect_pass "the canonical refusal rewritten from the workflow" guard_with
 mutate release.yml "$refusal += {\"id\": \"refuse\"}"
 expect_pass "a refusal with an id" guard_with
+
+# --- Signing secrets live in the release environment, in jobs that run no Gradle (#1493, and the advisory on repository-level secrets).
+# The old release.yml, one job that built and signed with repository secrets and no environment, must stay rejected.
+expect_environment_error() {
+    # expect_environment_error <name> <pattern>: the guard rejects the workflows and its message matches the pattern.
+    local name=$1 output
+    if output=$(guard_with 2>&1); then fail "$name was accepted"; elif ! grep -q "$2" <<<"$output"; then fail "$name was rejected for another reason: $output"; fi
+}
+rm -rf "$work/workflows"
+cp -R .github/workflows "$work/workflows"
+cp scripts/ci/fixtures/release-single-job.yml "$work/workflows/release.yml"
+expect_environment_error "the old single-job release.yml with repository secrets and no environment" 'without environment: release'
+for job in sign_lensly sign_lumio; do
+    mutate release.yml "del(.jobs.$job.environment)"
+    expect_environment_error "$job without environment: release" 'without environment: release'
+    mutate release.yml ".jobs.$job.environment = \"production\""
+    expect_environment_error "$job in another environment" 'without environment: release'
+    mutate release.yml ".jobs.$job.permissions.id-token = \"write\""
+    expect_environment_error "$job with id-token: write" 'permissions are not exactly contents: read'
+    mutate release.yml ".jobs.$job.permissions.attestations = \"write\""
+    expect_environment_error "$job with attestations: write" 'permissions are not exactly contents: read'
+    mutate release.yml "del(.jobs.$job.permissions)"
+    expect_environment_error "$job without a permissions block" 'permissions are not exactly contents: read'
+    mutate release.yml ".jobs.$job.steps += [{\"name\": \"Build\", \"run\": \"./gradlew :app:assembleRelease\"}]"
+    expect_environment_error "$job running Gradle" 'runs Gradle'
+    mutate release.yml ".jobs.$job.steps += [{\"uses\": \"gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c\"}]"
+    expect_environment_error "$job setting up Gradle" 'runs Gradle'
+done
+mutate release.yml '.jobs.sign_lensly.steps[] |= (select(.name == "Check, align and sign the APK") | .env.LUMIO_KEYSTORE_PASS = "${{ secrets.LUMIO_KEYSTORE_PASS }}") // .'
+expect_environment_error "the Lensly sign job that also reads a Lumio secret" 'more than one app'
+mutate release.yml '.jobs.build.steps += [{"name": "Early", "run": "true", "env": {"K": "${{ secrets.LENSLY_KEYSTORE_PASS }}"}}]'
+expect_environment_error "the build job reading a keystore secret" 'without environment: release'
+mutate release.yml '.jobs.build.environment = "release" | .jobs.build.steps += [{"name": "Late", "run": "true", "env": {"K": "${{ secrets.LENSLY_KEYSTORE_PASS }}"}}]'
+expect_environment_error "the build job with the release environment that reads a keystore secret and runs Gradle" 'runs Gradle'
+mutate release.yml '.jobs.publish.steps += [{"name": "Late", "run": "true", "env": {"K": "${{ secrets.LENSLY_KEYSTORE_PASS }}"}}]'
+expect_environment_error "the publish job reading a keystore secret" 'without environment: release'
+mutate release.yml '.jobs.build.if = "always()"'
+expect_environment_error "a build job that runs on always()" 'not one of the expressions listed in JOB_IF'
+mutate release.yml '.jobs.sign_lumio.steps += [{"name": "Report", "run": "true"}]'
+expect_pass "a step after the refusal with only name and run in a sign job" guard_with
+
+# --- sign-release.sh: the hash check, the secrets check and the version-code check come before anything is signed.
+signer=$root/scripts/ci/sign-release.sh
+sdir=$work/sign
+rm -rf "$sdir"
+mkdir -p "$sdir/unsigned" "$sdir/tools" "$sdir/tmp"
+printf 'apk bytes' >"$sdir/unsigned/lensly.apk"
+good_sha=$(sha256sum "$sdir/unsigned/lensly.apk" | cut -d' ' -f1)
+cat >"$sdir/tools/aapt2" <<'STUB'
+#!/usr/bin/env bash
+echo "package: name='app.lensly' versionCode='$FAKE_VERSION_CODE' versionName='1.0.0' platformBuildVersionName='15'"
+STUB
+cat >"$sdir/tools/zipalign" <<'STUB'
+#!/usr/bin/env bash
+cp "$5" "$6"
+STUB
+cat >"$sdir/tools/apksigner" <<'STUB'
+#!/usr/bin/env bash
+[ "${KEYSTORE_PASS:-}" = secret ] || exit 3
+while [ $# -gt 1 ]; do [ "$1" = --out ] && out=$2; shift; done
+cp "$1" "$out"
+STUB
+chmod +x "$sdir/tools/"*
+sign_with() {
+    # sign_with <expected sha> <version code> <keystore b64> <password>
+    (cd "$sdir" && rm -rf signed && env APP=lensly EXPECTED_SHA256="$1" FAKE_VERSION_CODE="$2" KEYSTORE_B64="$3" KEYSTORE_PASS="$4" \
+        BUILD_TOOLS="$sdir/tools" RUNNER_TEMP="$sdir/tmp" bash "$signer")
+}
+keystore_b64=$(printf 'keystore bytes' | base64)
+expect_fail "an APK whose SHA-256 differs from the build job's" sign_with "$(printf %064d 0)" 7 "$keystore_b64" secret
+expect_fail "an empty expected SHA-256" sign_with "" 7 "$keystore_b64" secret
+expect_fail "a missing keystore secret" sign_with "$good_sha" 7 "" secret
+expect_fail "a missing keystore password" sign_with "$good_sha" 7 "$keystore_b64" ""
+expect_fail "version code 1" sign_with "$good_sha" 1 "$keystore_b64" secret
+expect_fail "no version code" sign_with "$good_sha" "" "$keystore_b64" secret
+expect_pass "an APK that matches its hash, with version code 7" sign_with "$good_sha" 7 "$keystore_b64" secret
+[ -f "$sdir/signed/lensly.apk" ] || fail "sign-release.sh wrote no signed/lensly.apk"
 
 # --- close-refresh-pr.sh: a stub gh whose first close fails (and records the comment first, as the old gh pr close --comment did).
 # Whether the first gh pr comment fails before posting ("drop") or after it ("lost"), the pull request ends closed with one comment.
