@@ -962,8 +962,14 @@ private fun actionWarning(primaryType: String, message: TypedValue.StructValue, 
         Warning(Danger.DANGER, CODE_TYPED_ACTION, APPROVE_AGENT_TEXT, acknowledge = ACK_APPROVE_AGENT)
     primaryType.substringAfterLast(':') == "ConvertToMultiSigUser" ->
         Warning(Danger.DANGER, CODE_TYPED_ACTION, MULTI_SIG_TEXT, acknowledge = ACK_MULTI_SIG)
+    primaryType.substringAfterLast(':') == "ApproveBuilderFee" ->
+        Warning(Danger.DANGER, CODE_TYPED_ACTION, BUILDER_FEE_TEXT, acknowledge = ACK_BUILDER_FEE)
+    primaryType.substringAfterLast(':') == "TokenDelegate" ->
+        Warning(Danger.DANGER, CODE_TYPED_ACTION, TOKEN_DELEGATE_TEXT, acknowledge = ACK_TOKEN_DELEGATE)
     primaryType.substringAfterLast(':') in setOf("Withdraw", "withdraw3") ->
         Warning(Danger.DANGER, CODE_TYPED_ACTION, WITHDRAW_TEXT, acknowledge = ACK_WITHDRAW)
+    primaryType.substringAfterLast(':') == "SendAsset" && (message.fields["fromSubAccount"] as? TypedValue.TextValue)?.value?.isNotEmpty() == true ->
+        Warning(Danger.CAUTION, CODE_TYPED_ACTION, SUB_ACCOUNT_TEXT, acknowledge = ACK_SUB_ACCOUNT)
     else -> null
 }
 
@@ -1184,6 +1190,14 @@ internal const val APPROVE_AGENT_TEXT = "This approves another key to act for th
 private const val ACK_MULTI_SIG = "I understand this hands control of this account to other keys."
 private const val MULTI_SIG_TEXT = "This hands control of this account to the listed signers. Your own key can no longer act alone. " +
     "Check the signers and the threshold before you sign."
+private const val ACK_BUILDER_FEE = "I understand this lets another party take a fee on my orders."
+private const val BUILDER_FEE_TEXT = "This lets the builder take a fee of up to the maximum fee rate on every order you place. " +
+    "Check the builder address and the maximum fee rate before you sign."
+private const val ACK_TOKEN_DELEGATE = "I understand this moves HYPE to or from a validator."
+private const val TOKEN_DELEGATE_TEXT = "This stakes HYPE with a validator, or takes it back from one. Staked HYPE is locked for a while. " +
+    "Check the validator, the amount and whether it undelegates before you sign."
+private const val ACK_SUB_ACCOUNT = "I understand this sends from a sub-account."
+private const val SUB_ACCOUNT_TEXT = "This sends from a sub-account, not from the account that signs. Check the sub-account address before you sign."
 private const val WITHDRAW_TEXT = "This withdraws funds from this account. Check the destination and amount before you sign."
 
 /** The row that says a message carries a hash of its action, which Lensly cannot read. */

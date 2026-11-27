@@ -120,7 +120,7 @@ val OFF_CHAIN_DOMAINS: List<OffChainDomain> = listOf(
     // Hyperliquid user-signed actions. signing.py, user_signed_payload; sign_user_signed_action sets signatureChainId to 0x66eee (421614).
     OffChainDomain(
         "HyperliquidSignTransaction", "1", 421614, ZERO_ADDRESS, "Hyperliquid", HYPERLIQUID_USER_SIGNED,
-        hashedActionTypes = setOf("HyperliquidTransaction:SendMultiSig"), stringAddressMembers = setOf("destination"),
+        hashedActionTypes = setOf("HyperliquidTransaction:SendMultiSig"), stringAddressMembers = setOf("destination", "builder", "fromSubAccount"),
         agentApprovalType = "HyperliquidTransaction:ApproveAgent",
     ),
     // AsterDex agent approval, registerAndApproveAgent, for an EVM user. github.com/asterdex/api-docs, V3 futures doc,
