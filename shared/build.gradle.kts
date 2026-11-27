@@ -68,9 +68,8 @@ android {
 // Jazzer and Robolectric cannot share a JVM. Once a fuzz target has run, Jazzer's agent instruments the classes Robolectric
 // defines in its sandbox, and the injected code calls com.code_intelligence.jazzer.runtime.JazzerInternal, which is not on the
 // class path as a top-level class. The next Robolectric test then fails with NoClassDefFoundError: JazzerInternal. The shared
-// unit-test JVM therefore skips the fuzz package, and -PfuzzLane is the lane that runs the committed seeds: one Gradle
-// invocation per target, always without Robolectric. scripts/ci/run-partition.sh, scripts/ci/fuzz-nightly.sh and the nightly
-// workflow pass it.
+// unit-test JVM therefore skips the fuzz package, and -PfuzzLane runs the committed seeds in a Gradle invocation of their own,
+// always without Robolectric. scripts/ci/run-step.sh (the fuzz step) and scripts/ci/fuzz-nightly.sh pass it.
 //
 // jazzer-junit is a JUnit 5 artifact, so the unit-test JVM runs the JUnit Platform. The engine pair is explicit: Jupiter runs
 // the Jazzer fuzz targets, Vintage runs every existing JUnit 4 test (unit and Robolectric). Keep the two versions equal; 5.14

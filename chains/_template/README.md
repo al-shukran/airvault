@@ -21,7 +21,7 @@ To add a chain `<id>`:
    `core/conformance/build.gradle.kts`), so add it to `everySignerPassesTheManifestChecks` and the
    key-scope test instead.
 6. Add the signer to `InstalledSigners.kt` and the wallet to `InstalledWallets.kt`, and the wallet
-   dependency to `lumio/build.gradle.kts` (spec 2.5 step 4). Add the CI partition arm for the new
-   test modules (`scripts/ci/run-partition.sh`).
+   dependency to `lumio/build.gradle.kts` (spec 2.5 step 4). The CI gate finds a new
+   module's tests on its own (`scripts/ci/run-step.sh`).
 
 There is no generator (spec 12, item 6). Copy by hand.

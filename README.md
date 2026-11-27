@@ -133,7 +133,7 @@ You need a JDK and the Android SDK.
 ./gradlew :lumio:testDebugUnitTest
 ```
 
-To run one CI partition locally, use `scripts/ci/run-partition.sh <partition>`. See [docs/testing/README.md](docs/testing/README.md) for the partition names.
+To run one CI step locally, use `scripts/ci/run-step.sh <step>`. See [docs/testing/README.md](docs/testing/README.md) for the step names.
 
 ## Repository Layout
 
