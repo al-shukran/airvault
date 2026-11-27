@@ -53,19 +53,44 @@ private const val PAD_FILE_BYTES = 2 * PAD_SECTION_BYTES
  * one set under its own key, and a set of spares under random names. A Decoy Vault takes the spares over by renaming them to names under
  * its key, and gives them up as spares again when it goes (see [Vault]), so a Decoy Vault never adds a file to the folder. Every file
  * holds sealed or random bytes of the same kind, so the folder shows neither which files are written nor whether a decoy exists.
+ *
+ * Every file is exactly one size class long: [CLASS_BYTES] (256 B, 1 KiB, 4 KiB, 16 KiB), or a multiple of the largest class for a record
+ * that holds more. A file of a name starts in the class that fits the most that record is expected to hold ([FILE_BYTES]), as a placeholder
+ * and as a spare, and writing a value keeps the file's size unless the value does not fit, so a written file stays in the class of its
+ * placeholder. The padding sits inside the sealed bytes (see [valueOf]).
  */
 internal object VaultRecordNames {
     /**
-     * The record names the apps write. Removing a Decoy Vault keeps the files of these names under the real key and deletes
-     * the other files, and a wipe deletes these files. A new vault record name must be added here:
+     * The record names the apps write, each with the size of its file when it holds no more than expected. Removing a Decoy Vault keeps
+     * the files of these names under the real key and deletes the other files, and a wipe deletes these files. A new vault record name
+     * must be added here, in the smallest size class that holds what it usually stores (a record that outgrows its class moves up):
      * [VaultSession.putVaultRecord] and [VaultSession.getVaultRecord] refuse any other name.
      */
-    val KNOWN: List<String> = listOf(
-        "settings", "address-book", PHOTO_KEY, DECOY_SHOWN,
-        "lumio-address-books", "lumio-balance-cache", "lumio-custom-tokens", "lumio-display-settings", "lumio-evm-settings",
-        "lumio-finish-setup", "lumio-native-balance-cache", "lumio-network-mode", "lumio-prefer-rpc", "lumio-providers",
-        "lumio-token-balances", "lumio-transaction-settings", "lumio-watchlist",
+    private val FILE_BYTES: Map<String, Int> = mapOf(
+        // Under 100 bytes: a flag, a few codes, a key.
+        PHOTO_KEY to 256, DECOY_SHOWN to 256, "lumio-network-mode" to 256, "lumio-prefer-rpc" to 256,
+        // A few hundred bytes: settings, option records and the setup checklist.
+        "settings" to 1024, "lumio-display-settings" to 1024, "lumio-evm-settings" to 1024, "lumio-finish-setup" to 1024,
+        "lumio-providers" to 1024, "lumio-transaction-settings" to 1024,
+        // Lists that the owner grows: dozens of entries.
+        "address-book" to 4096, "lumio-address-books" to 4096, "lumio-custom-tokens" to 4096, "lumio-watchlist" to 4096,
+        // Caches that hold one read of about 200 bytes for every address of every paired wallet on every chain.
+        "lumio-balance-cache" to 16384, "lumio-native-balance-cache" to 16384, "lumio-token-balances" to 16384,
     )
+
+    val KNOWN: List<String> = FILE_BYTES.keys.toList()
+
+    /** The size of the file of record [name] while it holds no more than expected. */
+    fun fileBytesOf(name: String): Int = FILE_BYTES.getValue(name)
+
+    /** The sizes a record file can have, up to the largest class. A larger file is a multiple of the largest class. */
+    private val CLASS_BYTES = intArrayOf(256, 1024, 4096, 16384)
+
+    /** The smallest file size, in bytes, that holds [bytes]: the first class that is as long, or the next multiple of the largest class. */
+    fun classFor(bytes: Int): Int {
+        val top = CLASS_BYTES.last()
+        return CLASS_BYTES.firstOrNull { it >= bytes } ?: ((bytes + top - 1) / top * top)
+    }
 
     /** The private half of a vault's photo key pair. See [VaultSession.ensurePhotoKey]. */
     const val PHOTO_KEY = "photo-key"
@@ -89,12 +114,24 @@ internal object VaultRecordNames {
     private const val UNSET: Byte = 0
     private const val SET: Byte = 1
 
-    /** The record file of [name] with [value] sealed under [vaultKey]. */
-    fun sealed(vaultKey: ByteArray, name: String, value: ByteArray): ByteArray = seal(vaultKey, name, byteArrayOf(SET) + value)
+    /** The plain record: [UNSET] or [SET] (1), the value's length (4), the value, then zeros up to the end of the size class. */
+    private const val HEADER_BYTES = 1 + 4
+
+    /**
+     * The record file of [name] with [value] sealed under [vaultKey]. The file is [floor] bytes long, or the next size class up when the
+     * value does not fit. A write passes the size of the file it replaces, so a written record never shrinks out of its class.
+     */
+    fun sealed(vaultKey: ByteArray, name: String, value: ByteArray, floor: Int = fileBytesOf(name)): ByteArray {
+        val plain = ByteArray(classFor(maxOf(floor, FILE_OVERHEAD_BYTES + HEADER_BYTES + value.size)) - FILE_OVERHEAD_BYTES)
+        plain[0] = SET
+        ByteBuffer.wrap(plain, 1, 4).putInt(value.size)
+        value.copyInto(plain, HEADER_BYTES)
+        return seal(vaultKey, name, plain)
+    }
 
     /** A record file of [name] under [vaultKey] that holds no value and is [fileBytes] long, so a file that is reset keeps its size. */
-    fun sealedUnset(vaultKey: ByteArray, name: String, fileBytes: Int = UNSET_FILE_BYTES): ByteArray =
-        seal(vaultKey, name, ByteArray(maxOf(1, fileBytes - FILE_OVERHEAD_BYTES)))
+    fun sealedUnset(vaultKey: ByteArray, name: String, fileBytes: Int = fileBytesOf(name)): ByteArray =
+        seal(vaultKey, name, ByteArray(classFor(fileBytes) - FILE_OVERHEAD_BYTES))
 
     private fun seal(vaultKey: ByteArray, name: String, plain: ByteArray): ByteArray {
         try {
@@ -107,11 +144,21 @@ internal object VaultRecordNames {
     /** Blob version, IV and tag around the plaintext of a record file. */
     private const val FILE_OVERHEAD_BYTES = 1 + Aead.IV_BYTES + 16
 
-    /** Bytes of a record file with no value, which random bytes of that size stand in for. */
-    const val UNSET_FILE_BYTES = FILE_OVERHEAD_BYTES + 1
-
-    /** The value in [plain], the opened plaintext of a record file, or null when the record has no value. */
-    fun valueOf(plain: ByteArray): ByteArray? = if (plain.isEmpty() || plain[0] == UNSET) null else plain.copyOfRange(1, plain.size)
+    /**
+     * The value in [plain], the opened plaintext of a record file, or null when the record has no value.
+     *
+     * @throws VaultException when the record is not whole: its size is not a size class, its flag or length is invalid, or a padding byte
+     * is not zero. The padding is sealed with the value, so this holds only for a file that was sealed that way.
+     */
+    fun valueOf(plain: ByteArray): ByteArray? {
+        val damaged = VaultException("A vault record is damaged or not in a format this application reads.")
+        if (plain.size < HEADER_BYTES || classFor(plain.size + FILE_OVERHEAD_BYTES) != plain.size + FILE_OVERHEAD_BYTES) throw damaged
+        val flag = plain[0]
+        val length = ByteBuffer.wrap(plain, 1, 4).int
+        if ((flag != SET && flag != UNSET) || length < 0 || (flag == UNSET && length != 0) || length > plain.size - HEADER_BYTES) throw damaged
+        if ((HEADER_BYTES + length until plain.size).any { plain[it] != 0.toByte() }) throw damaged
+        return if (flag == UNSET) null else plain.copyOfRange(HEADER_BYTES, HEADER_BYTES + length)
+    }
 }
 
 /**
@@ -628,7 +675,10 @@ class VaultSession constructor(
         val key = requireOpen()
         requireRecordName(name)
         layout.vaultRecords.mkdirs()
-        writeAtomically(vaultRecordFile(key, name), VaultRecordNames.sealed(key, name, bytes))
+        val file = vaultRecordFile(key, name)
+        // The file keeps the size it has, so a written record stays in the size class of its placeholder or spare.
+        val floor = if (file.isFile) file.length().coerceAtMost(Int.MAX_VALUE.toLong()).toInt() else VaultRecordNames.fileBytesOf(name)
+        writeAtomically(file, VaultRecordNames.sealed(key, name, bytes, floor))
     }
 
     /** The vault record [name], or null if it has never been stored. */

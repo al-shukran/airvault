@@ -136,7 +136,7 @@ class VaultFormatChangedException : VaultException(VAULT_FORMAT_CHANGED)
  *
  * The Vault Key is protected by three keys, and all are needed to recover it:
  * 1. Slot: a non-exportable Keystore HMAC-SHA256 key (`k2`) binds every guess to this device.
- * 2. Software: `K_sw = HKDF-SHA256(Argon2id(password, salt) || HMAC(slot key, Argon2id(password, salt)), info = "lensly-vault-slot-v4")`,
+ * 2. Software: `K_sw = HKDF-SHA256(Argon2id(password, salt) || HMAC(slot key, Argon2id(password, salt)), info = "lensly-vault-slot-v5")`,
  *    used with AES-256-GCM to wrap the hardware blob. The Keystore sees the stretched password, so each guess needs the full Argon2
  *    work and this device's slot key, and nothing stored lets a copy of the vault files be tested without both.
  * 3. Hardware: a non-exportable Keystore AES-256-GCM key (`k1`) wraps the Vault Key.
@@ -1378,14 +1378,14 @@ class Vault constructor(
 
     /**
      * Gives the folder of vault records its fixed set of files: one for each known name of the real vault, and as many spares under
-     * random names. A Decoy Vault takes the spares over (see [claimSpareRecords]), so it never adds a file. No name is computable
-     * without a key, and every file has the same size and kind of bytes.
+     * random names, in the same size class as the name's record (see [VaultRecordNames]). A Decoy Vault takes the spares over (see
+     * [claimSpareRecords]), so it never adds a file. No name is computable without a key, and every file is sealed or random bytes.
      */
     private fun writeRecordPlaceholders(vaultKey: ByteArray) {
         layout.vaultRecords.mkdirs()
         VaultRecordNames.KNOWN.forEach { name ->
             writeAtomically(File(layout.vaultRecords, VaultRecordNames.fileName(vaultKey, name)), VaultRecordNames.sealedUnset(vaultKey, name))
-            writeAtomically(File(layout.vaultRecords, VaultRecordNames.randomFileName(random)), randomRecordFile(VaultRecordNames.UNSET_FILE_BYTES))
+            writeAtomically(File(layout.vaultRecords, VaultRecordNames.randomFileName(random)), randomRecordFile(VaultRecordNames.fileBytesOf(name)))
         }
     }
 
@@ -1399,11 +1399,14 @@ class Vault constructor(
         return layout.vaultRecords.listFiles().orEmpty().filter { it.isFile && it.name.endsWith(".bin") && it.name !in named }
     }
 
-    /** Renames the spare record files to the names that [decoyKey] gives the known records. A rename keeps a file's size and time. */
+    /**
+     * Renames the spare record files to the names that [decoyKey] gives the known records, the largest spare to the record with the largest
+     * size class and so on, so each record keeps the class of its placeholder. A rename keeps a file's size and time.
+     */
     private fun claimSpareRecords(vaultKey: ByteArray, decoyKey: ByteArray) {
-        val spares = spareRecordFiles(listOf(vaultKey)).shuffled(random.asKotlinRandom())
+        val spares = spareRecordFiles(listOf(vaultKey)).shuffled(random.asKotlinRandom()).sortedByDescending { it.length() }
         if (spares.size < VaultRecordNames.KNOWN.size) throw VaultException("The folder of vault records lacks spare files.")
-        VaultRecordNames.KNOWN.zip(spares).forEach { (name, spare) ->
+        VaultRecordNames.KNOWN.sortedByDescending { VaultRecordNames.fileBytesOf(it) }.zip(spares).forEach { (name, spare) ->
             if (!spare.renameTo(File(layout.vaultRecords, VaultRecordNames.fileName(decoyKey, name)))) {
                 throw VaultException("A spare record file could not be renamed.")
             }
@@ -1429,7 +1432,8 @@ class Vault constructor(
         }
     }
 
-    private fun sizeOf(file: File): Int = file.length().toInt().takeIf { it >= VaultRecordNames.UNSET_FILE_BYTES } ?: VaultRecordNames.UNSET_FILE_BYTES
+    /** The size class of [file]: a record file is always one, so this is its length. */
+    private fun sizeOf(file: File): Int = VaultRecordNames.classFor(file.length().coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
 
     /** Random bytes that start with the version byte, so a spare file reads like a sealed record (see [WalletFolder]'s unused files). */
     private fun randomRecordFile(size: Int): ByteArray = ByteArray(size).also {

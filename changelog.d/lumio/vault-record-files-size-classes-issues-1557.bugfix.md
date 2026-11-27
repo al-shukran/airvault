@@ -1,0 +1,1 @@
+Lumio's saved data is now stored in files of a few fixed sizes, so the file sizes no longer show what Lumio has saved. Because of this, Lumio clears its saved data the first time you unlock it after this update. Set Lumio up again, then pair your wallets with Lensly again. [Issue #1557](https://github.com/al-shukran/airvault/issues/1557)

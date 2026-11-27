@@ -675,6 +675,6 @@ class VaultFormatV4Test {
         const val DURESS = "TEST_ONLY_Gh5%Rt8!Yu2#Pk6@Ws3Fn"
         const val CHANGED = "TEST_ONLY_Mk3#Jd9!Xc6@Bv1Lq5Sy"
         val KDF = KdfParams(memoryKiB = 8 * 1024, iterations = 1)
-        val SLOT_INFO = "lensly-vault-slot-v4".toByteArray(Charsets.US_ASCII)
+        val SLOT_INFO = "lensly-vault-slot-v5".toByteArray(Charsets.US_ASCII)
     }
 }
