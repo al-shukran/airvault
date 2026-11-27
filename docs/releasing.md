@@ -48,7 +48,8 @@ has more than `contents: read`, names Gradle, reads the secrets of both apps, or
 a checkout pinned by SHA, the refusal of a tag that is not on master, `actions/download-artifact` of the unsigned APK,
 `bash scripts/ci/sign-release.sh`, the keystore cleanup and `actions/upload-artifact` of the signed APK. Changing a sign job
 means changing the allowlist in the guard (`SIGN_STEPS`) in the same pull request. Changing `scripts/ci/sign-release.sh`
-needs the same scrutiny, because it runs with the signing secrets.
+needs the same scrutiny, because it runs with the signing secrets, and the guard pins its SHA-256 (`SIGN_SCRIPT_SHA256`), so the
+same pull request updates that constant.
 
 ## What the Build and Sign Split Protects
 

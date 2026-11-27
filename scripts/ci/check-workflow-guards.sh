@@ -11,14 +11,20 @@
 # permission, no Gradle, the secrets of one app only (#1493, GitHub advisory on repository-level signing secrets) and no step
 # other than the six of SIGN_STEPS (#1531, #1532).
 #
+# scripts/ci/sign-release.sh, the one script a sign job runs with the keystore and its password, must hash to SIGN_SCRIPT_SHA256 (#1581).
+# Changing the script means changing that constant in the same pull request: run `shasum -a 256 scripts/ci/sign-release.sh`
+# (or `sha256sum`) and paste the hash into SIGN_SCRIPT_SHA256 below, so a reviewer sees both edits together.
+#
 # Usage: scripts/ci/check-workflow-guards.sh   (the static step: scripts/ci/run-step.sh static, in ci.yml)
-# WORKFLOWS_DIR names another directory of workflows; scripts/ci/selftest-guards.sh uses it to check the guard against broken copies.
+# WORKFLOWS_DIR names another directory of workflows and SIGN_SCRIPT another sign script; scripts/ci/selftest-guards.sh uses them to
+# check the guard against broken copies.
 
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$root"
 workflows=${WORKFLOWS_DIR:-.github/workflows}
+sign_script=${SIGN_SCRIPT:-scripts/ci/sign-release.sh}
 
 failed=0
 fail() {
@@ -78,11 +84,13 @@ release.yml secrets.LUMIO_KEYSTORE_PASS
 #    shares a runner with a key, and a Lensly release never exposes the Lumio key.
 #  - Such a job has exactly the steps of SIGN_STEPS, in that order, and each has exactly the keys and values the script expects. The
 #    only run steps are the refusal, `bash scripts/ci/sign-release.sh` and the keystore cleanup, so no extra step can send the
-#    decoded keystore (in $RUNNER_TEMP) anywhere, and the two artifact steps move only the unsigned and the signed APK.
+#    decoded keystore (in $RUNNER_TEMP) anywhere, and the two artifact steps move only the unsigned and the signed APK. The bytes of
+#    sign-release.sh are pinned by SIGN_SCRIPT_SHA256, so a command added to the script cannot send it either.
 #  - Every step after the refusal has only the keys name, id, run, env, uses and with, so no if (in any letter case), continue-on-error
 #    or timeout-minutes can make a step run, or keep running, after the refusal failed. The one exception is the keystore cleanup
 #    step: name "Delete the decoded keystore", only name, if and run, with if exactly "always()", which reads no secret.
-SECRET_ALLOW=$secret_allow python3 -I - "$workflows" <<'PY' || failed=1
+SECRET_ALLOW=$secret_allow python3 -I - "$workflows" "$sign_script" <<'PY' || failed=1
+import hashlib
 import json
 import os
 import re
@@ -122,6 +130,9 @@ CLEANUP_RUN = 'rm -f "$RUNNER_TEMP/release.keystore"'
 # The steps of a job that reads a signing secret, in order. release.yml's sign jobs are exactly this list (#1531).
 SIGN_STEPS = ["checkout", "refusal", "download", "sign", "cleanup", "upload"]
 SIGN_RUN = "bash scripts/ci/sign-release.sh"
+# The SHA-256 of scripts/ci/sign-release.sh (#1581). The script runs with the keystore and its password, so its bytes are as much part
+# of the trust boundary as the workflow. After a deliberate edit of the script, replace this with `shasum -a 256 scripts/ci/sign-release.sh`.
+SIGN_SCRIPT_SHA256 = "42b3599188ad65a4fed0f0f4e7eebca67b968547bdc343ceab963dd40a7bd302"
 SIGN_ENV = {"APP", "EXPECTED_SHA256", "KEYSTORE_B64", "KEYSTORE_PASS"}
 # A sign job runs on the GitHub-hosted runner image and needs the build job, as release.yml does today; a self-hosted runner
 # would keep the decoded keystore. The env values of its sign step are exactly these, with the app and the secret names of the job.
@@ -340,6 +351,13 @@ for path in files:
             check_release(docs[0])
         else:
             errors.append("release.yml is not a single YAML mapping")
+try:
+    sign_hash = hashlib.sha256(Path(sys.argv[2]).read_bytes()).hexdigest()
+except OSError as e:
+    errors.append("%s cannot be read to check its SHA-256: %s" % (sys.argv[2], e))
+else:
+    if sign_hash != SIGN_SCRIPT_SHA256:
+        errors.append("%s has SHA-256 %s, not the SIGN_SCRIPT_SHA256 pinned in check-workflow-guards.sh. It runs with the signing keystore: review the change, then replace the constant with this hash" % (sys.argv[2], sign_hash))
 for message in errors:
     print("error: " + message, file=sys.stderr)
 sys.exit(1 if errors else 0)
