@@ -41,6 +41,8 @@ internal fun typedPart(
     networkName: String,
     /** The name the domain's chain ID row gives it: the request's network, or the off-chain domain that names another chain. */
     domainNetworkName: String = networkName,
+    /** The top-level `string` members of the message that hold an address. One that is a valid 0x address is shown as an address. */
+    stringAddressMembers: Set<String> = emptySet(),
 ): TypedPart {
     val decoded = HashSet<FieldPath>()
     val domain = typed.types.getValue(EIP712_DOMAIN).map { member ->
@@ -59,7 +61,17 @@ internal fun typedPart(
     val permit = permitSummary(typed, registry, chainId, chain)
     val fields = ArrayList<ReviewRow>()
     for (member in typed.types.getValue(typed.primaryType)) {
-        addRows(member.name, member.name, member.type, typed.message.fields.getValue(member.name), 0, typed.types, chain, fields, decoded)
+        val value = typed.message.fields.getValue(member.name)
+        val address = (value as? TypedValue.TextValue)?.value
+            ?.takeIf { member.type == "string" && member.name in stringAddressMembers && STRING_ADDRESS.matches(it) }
+        if (address == null) {
+            addRows(member.name, member.name, member.type, value, 0, typed.types, chain, fields, decoded)
+        } else {
+            // The signed value stays the string. Only its display changes: checksummed, grouped and matched like any other address.
+            val field = FieldPath("eip712.${member.name}")
+            decoded += field
+            fields += ReviewRow("${member.name} (${member.type})", DisplayValue.Address(chain, Keys.toChecksumAddress(address)), field)
+        }
     }
     return TypedPart(
         domain = domain,
@@ -70,6 +82,8 @@ internal fun typedPart(
         unknownToken = permit?.unknownToken == true,
     )
 }
+
+private val STRING_ADDRESS = Regex("0x[0-9a-fA-F]{40}")
 
 /** Adds the rows of one value: a header row for a struct or an array, then its members one level deeper, or one value row. */
 private fun addRows(

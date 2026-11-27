@@ -1,5 +1,6 @@
 package app.airvault.chains.evm.signer
 
+import app.airvault.core.model.ChainId
 import app.airvault.core.model.Danger
 import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.Review
@@ -17,6 +18,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import org.web3j.crypto.Keys
 
 /*
  * Real off-chain payloads of Hyperliquid and AsterDex, parsed and reviewed. Sources, per payload:
@@ -41,8 +43,11 @@ private const val HL_NOTE = "The domain matches Hyperliquid's published message 
     "Lensly cannot tell what the requester does with the signature."
 private const val ASTER_NOTE = "The domain matches AsterDex's published message format. " +
     "Lensly cannot tell what the requester does with the signature."
-private const val HASHED_LABEL = "Order Details Are Hashed by Hyperliquid and Cannot Be Shown"
-private const val HASHED_NOTE = "The connection ID is a hash of the action. Lensly cannot read the action, so it cannot show what the action does."
+private const val HASHED_LABEL = "Action Details Are Hashed by Hyperliquid and Cannot Be Shown"
+private const val HASHED_NOTE = "This message carries a hash of the action. Lensly cannot read the action, so it cannot show what it does. " +
+    "It can be an order, a transfer into a vault, a transfer between sub-accounts, or another action."
+private const val MULTI_SIG_TEXT = "This hands control of this account to the listed signers. Your own key can no longer act alone. " +
+    "Check the signers and the threshold before you sign."
 private const val HL_CAUTION = "This signature is for Hyperliquid. It can authorize actions in your Hyperliquid account. " +
     "Check the message before you sign."
 private const val ASTER_CAUTION = "This signature is for AsterDex. It can authorize actions in your AsterDex account. " +
@@ -237,6 +242,68 @@ class OffChainSignatureReviewTest {
     }
 
     @Test
+    fun theHyperliquidNetworkIsNamedFromSourceAndFromHyperliquidChain() {
+        val mainnet = reviewed(l1Agent("a", DUMMY_CONNECTION_ID), ARBITRUM)
+        val mainnetRow = assertNotNull(rowsOf(mainnet).singleOrNull { it.label == "Network" })
+        assertEquals("Hyperliquid Mainnet", mainnetRow.value.text())
+        assertTrue(mainnetRow.notes.isNotEmpty(), "the mainnet row says it holds real funds")
+        assertEquals("Hyperliquid Testnet", rowsOf(reviewed(l1Agent("b", DUMMY_CONNECTION_ID), ARBITRUM)).single { it.label == "Network" }.value.text())
+        // A user-signed action names its network in hyperliquidChain.
+        assertEquals("Hyperliquid Testnet", rowsOf(reviewed(USD_SEND, ARBITRUM)).single { it.label == "Network" }.value.text())
+        assertEquals("Hyperliquid Mainnet", rowsOf(reviewed(spotSend(AGENT), ARBITRUM)).single { it.label == "Network" }.value.text())
+        // A source the SDK does not write names no network.
+        assertTrue(rowsOf(reviewed(l1Agent("c", DUMMY_CONNECTION_ID), ARBITRUM)).none { it.label == "Network" })
+    }
+
+    @Test
+    fun aSendMultiSigMessageShowsTheHashedActionNoteAndAUsdSendDoesNot() {
+        val multiSig = userSigned(
+            "HyperliquidTransaction:SendMultiSig",
+            """{"name":"hyperliquidChain","type":"string"},{"name":"multiSigActionHash","type":"bytes32"},{"name":"nonce","type":"uint64"}""",
+            """"hyperliquidChain":"Mainnet","multiSigActionHash":"$DUMMY_CONNECTION_ID","nonce":1687816341423,""" +
+                """"type":"sendMultiSig","signatureChainId":"0x66eee"""",
+        )
+        val review = reviewed(multiSig, ARBITRUM)
+
+        noteOf(review, HASHED_LABEL, HASHED_NOTE)
+        assertShownWhole(review, DUMMY_CONNECTION_ID)
+        assertTrue(rowsOf(reviewed(USD_SEND, ARBITRUM)).none { it.label == HASHED_LABEL })
+    }
+
+    @Test
+    fun hyperliquidConvertToMultiSigUserIsADangerWithATick() {
+        val convert = userSigned(
+            "HyperliquidTransaction:ConvertToMultiSigUser",
+            """{"name":"hyperliquidChain","type":"string"},{"name":"signers","type":"string"},{"name":"nonce","type":"uint64"}""",
+            """"hyperliquidChain":"Mainnet","signers":"{\"authorizedUsers\":[\"$AGENT\"],\"threshold\":1}","nonce":1687816341423,""" +
+                """"type":"convertToMultiSigUser","signatureChainId":"0x66eee"""",
+        )
+        val review = reviewed(convert, ARBITRUM)
+
+        assertEquals(listOf(MULTI_SIG_TEXT), dangersOf(review).map { it.message })
+        assertEquals(listOf("I understand this hands control of this account to other keys."), dangersOf(review).map { it.acknowledge })
+        assertNoStoppingWarning(review)
+    }
+
+    @Test
+    fun aHyperliquidDestinationThatIsAnAddressIsShownAsAChecksummedAddressRow() {
+        val withdraw = userSigned(
+            "HyperliquidTransaction:Withdraw",
+            TRANSFER_FIELDS,
+            """"type":"withdraw3","destination":"$AGENT","amount":"1","time":1687816341423,"signatureChainId":"0x66eee",""" +
+                """"hyperliquidChain":"Mainnet"""",
+        )
+        val row = reviewed(withdraw, ARBITRUM).sections.single { it.heading == "Message" }.rows.single { it.label == "destination (string)" }
+
+        assertEquals(DisplayValue.Address(ChainId("eip155:421614"), AGENT_CHECKSUM), row.value)
+        // Other string members stay text, and a destination that is not an address stays text.
+        val notAddress = withdraw.replace(AGENT, "not an address")
+        val other = reviewed(notAddress, ARBITRUM).sections.single { it.heading == "Message" }.rows.associateBy { it.label }
+        assertEquals(DisplayValue.Text("not an address"), other.getValue("destination (string)").value)
+        assertEquals(DisplayValue.Text("1"), other.getValue("amount (string)").value)
+    }
+
+    @Test
     fun hyperliquidL1ActionOfTheProductionOrderShowsItsWholeConnectionIdOnTestnetToo() {
         assertShownWhole(reviewed(l1Agent("a", PRODUCTION_CONNECTION_ID), ARBITRUM), PRODUCTION_CONNECTION_ID)
         assertShownWhole(reviewed(l1Agent("b", DUMMY_CONNECTION_ID), ARBITRUM), DUMMY_CONNECTION_ID)
@@ -249,7 +316,7 @@ class OffChainSignatureReviewTest {
         assertEquals("HyperliquidTransaction:UsdSend", review.title)
         noteOf(review, HYPERLIQUID_L1_LABEL, HL_NOTE)
         val message = review.sections.single { it.heading == "Message" }.rows.associate { it.label to it.value.text() }
-        assertEquals(AGENT, message["destination (string)"])
+        assertEquals(AGENT_CHECKSUM, message["destination (string)"])
         assertEquals("1", message["amount (string)"])
         assertEquals("1687816341423", message["time (uint64)"])
         assertEquals(
@@ -462,7 +529,7 @@ class OffChainSignatureReviewTest {
 
         assertEquals("Move to HyperEVM", review.title)
         val message = review.sections.single { it.heading == "Message" }.rows.associate { it.label to it.value.text() }
-        assertEquals(TOKEN_SYSTEM, message["destination (string)"])
+        assertEquals(Keys.toChecksumAddress(TOKEN_SYSTEM), message["destination (string)"])
         assertEquals("spot", message["sourceDex (string)"])
         assertTrue(HL_CAUTION in cautionTexts(review))
         assertNoStoppingWarning(review)

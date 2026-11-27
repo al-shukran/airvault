@@ -43,8 +43,10 @@ data class OffChainDomain(
     val label: String,
     /** The primary types the product signs on this domain. */
     val primaryTypes: Set<String>,
-    /** True when the message carries a hash of the action and not the action, so the review cannot show what the action does. */
-    val hashesAction: Boolean = false,
+    /** The primary types whose message carries a hash of the action and not the action, so the review cannot show what the action does. */
+    val hashedActionTypes: Set<String> = emptySet(),
+    /** The top-level `string` members that hold an address, such as a destination. The review shows one that is a valid 0x address as an address. */
+    val stringAddressMembers: Set<String> = emptySet(),
     /** The primary type that lets another key act for the account, or null. The review gives its message the DANGER of an ApproveAgent. */
     val agentApprovalType: String? = null,
     /**
@@ -56,6 +58,24 @@ data class OffChainDomain(
     /** The title the review gives the signature. */
     val title: String get() = "Off-Chain Signature for $label"
 
+    /** True when a message with [primaryType] carries a hash of the action and not the action. */
+    fun hashesAction(primaryType: String): Boolean = primaryType in hashedActionTypes
+
+    /**
+     * The Hyperliquid network that [message] is for, from its `source` ("a" or "b", the phantom agent of an L1 action) or its `hyperliquidChain`
+     * ("Mainnet" or "Testnet", a user-signed action), or null for another product or a value the SDK does not write.
+     */
+    fun hyperliquidNetwork(message: TypedValue.StructValue): HyperliquidNetwork? {
+        if (label != "Hyperliquid") return null
+        val source = (message.fields["source"] as? TypedValue.TextValue)?.value
+        val chain = (message.fields["hyperliquidChain"] as? TypedValue.TextValue)?.value
+        return when {
+            source == "a" || chain == "Mainnet" -> HyperliquidNetwork.MAINNET
+            source == "b" || chain == "Testnet" -> HyperliquidNetwork.TESTNET
+            else -> null
+        }
+    }
+
     /** True when a message with [primaryType] and [message] lets another key act for the account. */
     fun isAgentApproval(primaryType: String, message: TypedValue.StructValue): Boolean {
         if (primaryType != agentApprovalType) return false
@@ -66,16 +86,20 @@ data class OffChainDomain(
     }
 }
 
+/** The two environments of Hyperliquid. Only the mainnet holds real funds. */
+enum class HyperliquidNetwork(val label: String) { MAINNET("Hyperliquid Mainnet"), TESTNET("Hyperliquid Testnet") }
+
 /**
  * The off-chain domains that get a product label. Each entry is the exact domain of a published message format, and its source is named beside it.
  */
 val OFF_CHAIN_DOMAINS: List<OffChainDomain> = listOf(
     // Hyperliquid L1 action, the phantom agent of source "a" or "b", primary type Agent. hyperliquid-python-sdk,
     // hyperliquid/utils/signing.py, l1_payload.
-    OffChainDomain("Exchange", "1", 1337, ZERO_ADDRESS, "Hyperliquid", setOf("Agent"), hashesAction = true),
+    OffChainDomain("Exchange", "1", 1337, ZERO_ADDRESS, "Hyperliquid", setOf("Agent"), hashedActionTypes = setOf("Agent")),
     // Hyperliquid user-signed actions. signing.py, user_signed_payload; sign_user_signed_action sets signatureChainId to 0x66eee (421614).
     OffChainDomain(
         "HyperliquidSignTransaction", "1", 421614, ZERO_ADDRESS, "Hyperliquid", HYPERLIQUID_USER_SIGNED,
+        hashedActionTypes = setOf("HyperliquidTransaction:SendMultiSig"), stringAddressMembers = setOf("destination"),
         agentApprovalType = "HyperliquidTransaction:ApproveAgent",
     ),
     // AsterDex agent approval, registerAndApproveAgent, for an EVM user. github.com/asterdex/api-docs, V3 futures doc,
