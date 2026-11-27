@@ -160,6 +160,21 @@ class VaultDecoyChangeOracleTest {
     }
 
     @Test
+    fun aDecoyDuressSetCostsTheSameDerivationsWhetherOrNotItRefusesAndAsTheRealVaultRefusing() {
+        val real = unlocked(APP)
+        val realRefusal = derivationsOf { setDuress(real, APP) }
+        real.close()
+        val decoy = unlocked(DURESS)
+
+        val refused = derivationsOf { assertEquals(DuressResult.SameAsAppPassword, setDuress(decoy, DURESS)) }
+        val accepted = derivationsOf { assertEquals(DuressResult.Enabled, setDuress(decoy, guess(1))) }
+        decoy.close()
+
+        assertEquals(refused, accepted)
+        assertEquals(realRefusal, refused)
+    }
+
+    @Test
     fun aHitCostsTheSameDerivationsAsAMissWhateverFormOfANonAsciiPasswordIsTyped() {
         build(APP_NFC)
         val decoy = unlocked(DURESS)
@@ -243,6 +258,9 @@ class VaultDecoyChangeOracleTest {
         clock.advance(FailureDelay.MAX_CAP_MS + 1)
         return runBlocking { vault.rekey(decoy, password.toCharArray()) }
     }
+
+    private fun setDuress(session: VaultSession, password: String): DuressResult =
+        runBlocking { vault.setDuress(session, password.toCharArray()) { it.createWallet() } }
 
     private fun unlocked(password: String): VaultSession {
         clock.advance(FailureDelay.MAX_CAP_MS + 1)
