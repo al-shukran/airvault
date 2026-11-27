@@ -94,12 +94,35 @@ class VaultDeviceAuthTest {
         assertEquals(0, asked)
     }
 
+    @Test
+    fun aSlotKeyLostWhileTheNfcFormIsDerivedErasesTheVault() {
+        val lossy = LosesSlotKeyOnSecondUse(keys)
+        val own = Vault(VaultLayout(File(tmp.root, "nfc")), lossy, clock, KDF)
+        assertEquals(CreateResult.Created, runBlocking { own.create(APP.toCharArray()) })
+        lossy.armed = true
+
+        // A password that is not in NFC derives two keys, the typed text's first and then its NFC form's.
+        assertEquals(UnlockResult.Erased, runBlocking { own.unlock(DECOMPOSED.toCharArray()) })
+        assertFalse(own.exists())
+    }
+
+    private class LosesSlotKeyOnSecondUse(private val inner: MemoryKeystore) : KeystoreBackend by inner {
+        var armed = false
+        private var uses = 0
+
+        override fun slotMac(message: ByteArray): ByteArray {
+            if (armed && ++uses > 1) throw VaultKeyInvalidatedException("The vault's slot key is missing from the Keystore.")
+            return inner.slotMac(message)
+        }
+    }
+
     private fun closeIfOpen(result: UnlockResult) {
         if (result is UnlockResult.Unlocked) result.session.close()
     }
 
     private companion object {
         const val APP = "TEST_ONLY_q7Vn!2Lx#Rb9Tm4Wc8Zp"
+        const val DECOMPOSED = "TEST_ONLY_e\u0301q7Vn!2Lx#Rb9Tm4Wc8Zp"
         const val WRONG = "TEST_ONLY_Zx8#Vb2!Nm5\$Qw7%Ld4"
         val KDF = KdfParams(memoryKiB = 8 * 1024, iterations = 1)
     }

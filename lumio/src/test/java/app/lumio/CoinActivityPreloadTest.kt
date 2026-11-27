@@ -50,7 +50,7 @@ class CoinActivityPreloadTest {
     private val key = CoinActivityKey(WatchedAsset(NetworkId(Networks.BTC_MAINNET, testnet = false)), NetworkMode.MAINNET, includeSpam = false)
 
     private fun open(): LumioVault = runBlocking {
-        assertEquals(GateOutcome.Opened, createFirstVault(holder, PASSWORD.toCharArray(), context))
+        assertEquals(GateOutcome.Opened, createFirstVault(holder, PASSWORD.toCharArray()))
         checkNotNull(holder.sessionAttachment() as? LumioVault)
     }
 

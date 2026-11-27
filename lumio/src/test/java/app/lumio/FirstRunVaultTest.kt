@@ -1,7 +1,5 @@
 package app.lumio
 
-import android.content.Context
-import androidx.test.core.app.ApplicationProvider
 import app.lensly.app.VaultHolder
 import app.lensly.core.vault.CreateResult
 import app.lensly.core.vault.FakeClock
@@ -33,11 +31,10 @@ class FirstRunVaultTest {
     private val clock = FakeClock()
     private val vault by lazy { Vault(VaultLayout(File(tmp.root, "lumio-vault")), MemoryKeystore(), clock, KDF) }
     private val holder by lazy { VaultHolder(vault) }
-    private val context: Context get() = ApplicationProvider.getApplicationContext()
 
     @Test
     fun theFirstTryMakesAndOpensTheVault(): Unit = runBlocking {
-        assertEquals(GateOutcome.Opened, createFirstVault(holder, FIRST.toCharArray(), context))
+        assertEquals(GateOutcome.Opened, createFirstVault(holder, FIRST.toCharArray()))
         assertNotNull(holder.openSession())
     }
 
@@ -46,7 +43,7 @@ class FirstRunVaultTest {
         assertEquals(CreateResult.Created, vault.create(FIRST.toCharArray()))
         val second = SECOND.toCharArray()
 
-        assertNull(createFirstVault(holder, second, context))
+        assertNull(createFirstVault(holder, second))
 
         assertEquals(CharArray(second.size).concatToString(), second.concatToString())
         clock.advance(ONE_DAY_MS)

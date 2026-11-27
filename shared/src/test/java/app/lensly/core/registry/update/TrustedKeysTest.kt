@@ -19,8 +19,8 @@ private fun releaseList(vararg entries: String): (String) -> String? = { path ->
     if (path == TrustedKeys.RELEASE_PATH) """{"keys":[${entries.joinToString(",")}]}""" else null
 }
 
-private fun entry(id: String, publicKey: String, status: String = "active") =
-    """{"id":"$id","publicKey":"$publicKey","status":"$status"}"""
+private fun entry(id: String, publicKey: String, status: String = "active", role: String = "release") =
+    """{"id":"$id","publicKey":"$publicKey","status":"$status","role":"$role"}"""
 
 private val TEST_HEX = TestPackages.PUBLIC_BYTES.joinToString("") { "%02x".format(it) }
 private val TEST_ID = TrustedKey(TestPackages.PUBLIC_BYTES).id
@@ -42,6 +42,22 @@ class TrustedKeysTest {
 
         assertEquals(listOf(TEST_ID), keys.map { it.id })
         assertEquals(KeyStatus.REVOKED, keys.single().status)
+    }
+
+    @Test
+    fun aKeyHasARoleAndTheBackupKeyIsTheOnlyRecoveryKeyOfTheRelease() {
+        val keys = TrustedKeys.load(fileReader(MAIN))
+
+        assertEquals(listOf(KeyRole.RELEASE, KeyRole.RECOVERY), keys.map { it.role })
+        assertEquals(KeyRole.RECOVERY, TrustedKeys.load(releaseList(entry(TEST_ID, TEST_HEX, role = "recovery"))).single().role)
+    }
+
+    @Test
+    fun anEntryWithoutARoleOrWithAnUnknownOneIsRefused() {
+        assertFailsWith<IllegalArgumentException> {
+            TrustedKeys.load(releaseList("""{"id":"$TEST_ID","publicKey":"$TEST_HEX","status":"active"}"""))
+        }
+        assertFailsWith<IllegalArgumentException> { TrustedKeys.load(releaseList(entry(TEST_ID, TEST_HEX, role = "admin"))) }
     }
 
     @Test

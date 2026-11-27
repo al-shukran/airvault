@@ -14,6 +14,10 @@ import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.system.exitProcess
 import org.bouncycastle.crypto.generators.SCrypt
 import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
@@ -28,9 +32,11 @@ private const val MIN_PASSPHRASE_CHARS = 12
 
 private val USAGE = """usage:
   keygen --out <dir>
-  build  --in <entries.json> --key <release.key> --out <file.lrp>
+  build  --in <entries.json> --key <release.key> --out <file.lrp> [--pinned <trusted-keys.json>] [--revoked <revoked-keys.json>]
   verify --pub <release.pub> <file.lrp>
 Paths are relative to the repository root when run as: ./gradlew :tools:registry-pack:run --args="..."
+--pinned names the trusted key list: a package that adds a revocation is built only when it lists the signing key with role recovery.
+--revoked names the standing revocation list: a package that only restates its keys needs no recovery key.
 The passphrase comes from $PASSPHRASE_ENV, or is typed at the terminal (keygen asks twice).
 Exit codes: 0 success, 1 refused (invalid input, wrong passphrase or signature), 2 usage error."""
 
@@ -42,7 +48,7 @@ internal fun runTool(args: List<String>, out: PrintStream, err: PrintStream, pas
     val rest = args.drop(1)
     when (args.firstOrNull()) {
         "keygen" -> keygen(parseOptions(rest, setOf("--out")), out, passphrase)
-        "build" -> build(parseOptions(rest, setOf("--in", "--key", "--out")), out, passphrase)
+        "build" -> build(parseOptions(rest, setOf("--in", "--key", "--out", "--pinned", "--revoked")), out, passphrase)
         "verify" -> verify(parseOptions(rest, setOf("--pub")), out)
         else -> throw UsageError("")
     }
@@ -70,7 +76,7 @@ private fun keygen(options: Options, out: PrintStream, passphrase: PassphraseSou
     out.println("public key ${publicKey.toHex()}, key ID $keyId")
     out.println(
         """entry for shared/src/main/assets/registry/trusted-keys.json: """ +
-            """{"id":"$keyId","publicKey":"${publicKey.toHex()}","status":"active"}""",
+            """{"id":"$keyId","publicKey":"${publicKey.toHex()}","status":"active","role":"release"}""",
     )
 }
 
@@ -79,10 +85,26 @@ private fun build(options: Options, out: PrintStream, passphrase: PassphraseSour
     val entries = Files.readString(Paths.get(options.required("--in")))
     val seed = decryptSeed(Files.readString(Paths.get(options.required("--key"))), passphrase(false))
     val target = Paths.get(options.required("--out"))
-    val (bytes, content) = Pack.build(entries, seed)
+    val recovery = options.optional("--pinned")?.let { isRecoveryKey(Paths.get(it), Pack.publicKeyOf(seed)) } ?: false
+    val standing = options.optional("--revoked")?.let { standingRevocations(Paths.get(it)) }.orEmpty()
+    val (bytes, content) = Pack.build(entries, seed, recovery, standing)
     Files.write(target, bytes)
     out.println("wrote $target: ${bytes.size} bytes, sha256 ${sha256(bytes)}")
     out.println(summary(content))
+}
+
+/** The key IDs in the standing revocation list at [path]. */
+internal fun standingRevocations(path: Path): Set<String> =
+    Json.parseToJsonElement(Files.readString(path)).jsonObject.getValue("revokedKeys").jsonArray.map { it.jsonPrimitive.content }.toSet()
+
+/** Whether the trusted key list at [pinned] lists [publicKey] as an active key with role `recovery`. */
+internal fun isRecoveryKey(pinned: Path, publicKey: ByteArray): Boolean {
+    val keys = Json.parseToJsonElement(Files.readString(pinned)).jsonObject.getValue("keys").jsonArray
+    return keys.map { it.jsonObject }.any { key ->
+        key["publicKey"]?.jsonPrimitive?.content == publicKey.toHex() &&
+            key["status"]?.jsonPrimitive?.content == "active" &&
+            key["role"]?.jsonPrimitive?.content == "recovery"
+    }
 }
 
 private fun verify(options: Options, out: PrintStream) {
@@ -186,6 +208,8 @@ private class UsageError(message: String) : IllegalStateException(message)
 
 private class Options(private val values: Map<String, String>, val positional: List<String>) {
     fun required(name: String): String = values[name] ?: throw UsageError("missing $name")
+
+    fun optional(name: String): String? = values[name]
 
     fun requireNoPositional() {
         positional.firstOrNull()?.let { throw UsageError("unexpected argument $it") }

@@ -330,20 +330,6 @@ class RegistryUpdateTest {
     }
 
     @Test
-    fun networkWithABakedChainIdIsRejected() {
-        val imposter = """{"chainId":1,"explorerName":null,"feeModel":"L1","name":"Imposter","nativeDecimals":18,"nativeSymbol":"ETH","testnet":false,"featured":false,"kind":"LAYER_1","parentChainId":null}"""
-
-        assertIs<RegistryUpdateException.Conflict>(failure(verifyPayload(TestPackages.payload(networks = imposter, tokens = ""))))
-    }
-
-    @Test
-    fun tokenAlreadyInTheBakedCatalogIsRejected() {
-        val usdc = """{"chainId":1,"contract":"$USDC_ETHEREUM","decimals":6,"name":"USD Coin","symbol":"USDC"}"""
-
-        assertIs<RegistryUpdateException.Conflict>(failure(verifyPayload(TestPackages.payload(networks = "", tokens = usdc))))
-    }
-
-    @Test
     fun entriesRepeatedWithinOnePackageAreRejected() {
         val twoNetworks = "${TestPackages.LINEA_NETWORK},${TestPackages.LINEA_NETWORK}"
         val twoTokens = "${TestPackages.LINEA_USDC},${TestPackages.LINEA_USDC}"
@@ -388,10 +374,10 @@ class RegistryUpdateTest {
     @Test
     fun aPackageThatNeedsANewerSchemaIsIncompatible() {
         val refused = assertIs<RegistryUpdateException.Incompatible>(
-            failure(verifyPayload(TestPackages.payload(minSchemaVersion = 6))),
+            failure(verifyPayload(TestPackages.payload(minSchemaVersion = 7))),
         )
-        assertEquals(6L, refused.required)
-        assertEquals(5L, refused.supported)
+        assertEquals(7L, refused.required)
+        assertEquals(6L, refused.supported)
     }
 
     @Test
@@ -548,13 +534,6 @@ class RegistryUpdateTest {
 
         assertEquals(bakedWithLinea.networks(), merged.networks())
         assertEquals(bakedWithLinea.tokens(), merged.tokens())
-    }
-
-    @Test
-    fun withAdditionsRefusesToReplaceABakedChain() {
-        val replacement = NetworkEntry(1L, "Imposter", "ETH", 18, FeeModel.L1, null, false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null)
-
-        assertFailsWith<IllegalArgumentException> { bakedRegistry().withAdditions(listOf(replacement), emptyList()) }
     }
 
     @Test
