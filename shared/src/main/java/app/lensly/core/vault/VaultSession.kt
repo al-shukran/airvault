@@ -48,10 +48,11 @@ private const val PAD_SECTION_BYTES = Aead.IV_BYTES + PAD_PLAIN_BYTES + 16
 private const val PAD_FILE_BYTES = 2 * PAD_SECTION_BYTES
 
 /**
- * File names of vault records. The real vault's file is named by a keyed hash of its name under the vault key, so the name shows
- * neither the record's name nor its vault. The Decoy Vault's files are named by a hash of the name alone: its key is made only when a
- * Duress Password is set, and its files exist from the vault's creation (see [Vault]), so a Decoy Vault never adds a file to the folder.
- * Every file holds sealed or random bytes of the same kind, so the folder shows neither which files are written nor whether a decoy exists.
+ * File names of vault records. A vault's file is named by a keyed hash of its name under that vault's key, so the name shows neither the
+ * record's name nor its vault, and no name can be computed without a key. A new vault gets twice as many files as there are record names:
+ * one set under its own key, and a set of spares under random names. A Decoy Vault takes the spares over by renaming them to names under
+ * its key, and gives them up as spares again when it goes (see [Vault]), so a Decoy Vault never adds a file to the folder. Every file
+ * holds sealed or random bytes of the same kind, so the folder shows neither which files are written nor whether a decoy exists.
  */
 internal object VaultRecordNames {
     /**
@@ -75,11 +76,10 @@ internal object VaultRecordNames {
     /** The file name of record [name] under [vaultKey]. */
     fun fileName(vaultKey: ByteArray, name: String): String = fileNameOf(labelledHmac(vaultKey, "lensly.vault.record-name\u0000$name"))
 
-    /** The file name of the Decoy Vault's record [name]. */
-    fun decoyFileName(name: String): String =
-        fileNameOf(labelledHmac(DECOY_NAME_KEY, "lensly.vault.record-name\u0000$name"))
+    /** A name that no key makes, of the same form as [fileName], for a spare file. */
+    fun randomFileName(random: SecureRandom): String = fileNameOf(ByteArray(SHA256_BYTES).also { random.nextBytes(it) })
 
-    private val DECOY_NAME_KEY = "lensly.vault.decoy-record-name".toByteArray(StandardCharsets.US_ASCII)
+    private const val SHA256_BYTES = 32
 
     private fun fileNameOf(digest: ByteArray): String = digest.joinToString(separator = "") { "%02x".format(it.toInt() and 0xff) } + ".bin"
 
@@ -762,7 +762,7 @@ class VaultSession constructor(
     }
 
     private fun vaultRecordFile(vaultKey: ByteArray, name: String): File =
-        File(layout.vaultRecords, if (isDecoy) VaultRecordNames.decoyFileName(name) else VaultRecordNames.fileName(vaultKey, name))
+        File(layout.vaultRecords, VaultRecordNames.fileName(vaultKey, name))
 
     /**
      * Returns the Per-Wallet Key, or null if the wallet has no key file. A key file this vault does not own is an error. The caller zeroes

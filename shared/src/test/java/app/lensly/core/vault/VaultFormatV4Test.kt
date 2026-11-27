@@ -235,6 +235,24 @@ class VaultFormatV4Test {
     }
 
     @Test
+    fun noRecordFileNameCanBeComputedWithoutAKeyAndTheSizesNeverShowADecoy() {
+        val rig = Rig("a")
+        rig.create()
+        val without = recordSizes(rig)
+        assertEquals(0, publicRecordNames(rig))
+
+        val real = rig.unlocked(APP)
+        rig.setDuress(real)
+        assertEquals(without, recordSizes(rig))
+        assertEquals(0, publicRecordNames(rig))
+
+        runBlocking { rig.vault.removeDuress(real) }
+        assertEquals(without, recordSizes(rig))
+        assertEquals(0, publicRecordNames(rig))
+        real.close()
+    }
+
+    @Test
     fun aRecordStillReadsAsAbsentUntilItIsWritten() {
         val rig = Rig("a")
         rig.create()
@@ -352,6 +370,18 @@ class VaultFormatV4Test {
         session.putVaultRecord("settings", byteArrayOf(1))
         session.putVaultRecord("address-book", byteArrayOf(2))
         session.close()
+    }
+
+    /** The sorted sizes of the record files: a decoy must not change them. */
+    private fun recordSizes(rig: Rig): List<Long> = rig.layout.vaultRecords.listFiles().orEmpty().map { it.length() }.sorted()
+
+    /** How many record files carry a name that anyone can compute: the names that a fixed public key and the record names make. */
+    private fun publicRecordNames(rig: Rig): Int {
+        val publicKey = "lensly.vault.decoy-record-name".toByteArray(Charsets.US_ASCII)
+        val names = VaultRecordNames.KNOWN.map { name ->
+            labelledHmac(publicKey, "lensly.vault.record-name\u0000$name").joinToString("") { "%02x".format(it.toInt() and 0xff) } + ".bin"
+        }.toSet()
+        return rig.layout.vaultRecords.list().orEmpty().count { it in names }
     }
 
     private fun recordFiles(rig: Rig): Int = rig.layout.vaultRecords.list().orEmpty().size

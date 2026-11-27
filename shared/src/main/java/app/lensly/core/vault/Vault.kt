@@ -16,6 +16,7 @@ import java.security.SecureRandom
 import java.util.Arrays
 import javax.crypto.AEADBadTagException
 import javax.crypto.SecretKey
+import kotlin.random.asKotlinRandom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -973,7 +974,8 @@ class Vault constructor(
         withPadOf(vaultKey, REAL_SECTION) { real -> withPadOf(decoyKey, DECOY_SECTION) { real.lend(it, WALLET_SLOT_STEP) } }
         val decoy = VaultSession(layout, keys, decoyKey.copyOf(), isDecoy = true, pad = WalletPad(layout, keys, decoyKey, DECOY_SECTION))
         try {
-            // The decoy's record files are there already, so writing a record never adds one. They start with no value under its key.
+            // The decoy takes the spare record files over, so writing a record never adds one. They start with no value under its key.
+            claimSpareRecords(vaultKey, decoyKey)
             resetDecoyRecords(decoyKey)
             populate(decoy)
             if (decoy.listWallets().isEmpty()) {
@@ -1262,31 +1264,63 @@ class Vault constructor(
         // The folders stay, emptied and refilled with random bytes, so the store's folder count never falls.
         pad.release(owned)
         // The record files stay in either case, so the folder's file count never changes (see [VaultRecordNames]).
-        if (keepListing) resetDecoyRecords(key) else overwriteDecoyRecords()
+        if (keepListing) {
+            resetDecoyRecords(key)
+        } else {
+            retireRecordFiles(VaultRecordNames.KNOWN.map { File(layout.vaultRecords, VaultRecordNames.fileName(key, it)) }.filter { it.isFile })
+        }
     }
 
-    /** Gives the folder of vault records its fixed set of files: one for each known name of the real vault, and one for each of the decoy. */
+    /**
+     * Gives the folder of vault records its fixed set of files: one for each known name of the real vault, and as many spares under
+     * random names. A Decoy Vault takes the spares over (see [claimSpareRecords]), so it never adds a file. No name is computable
+     * without a key, and every file has the same size and kind of bytes.
+     */
     private fun writeRecordPlaceholders(vaultKey: ByteArray) {
         layout.vaultRecords.mkdirs()
         VaultRecordNames.KNOWN.forEach { name ->
             writeAtomically(File(layout.vaultRecords, VaultRecordNames.fileName(vaultKey, name)), VaultRecordNames.sealedUnset(vaultKey, name))
-            writeAtomically(File(layout.vaultRecords, VaultRecordNames.decoyFileName(name)), randomRecordFile(VaultRecordNames.UNSET_FILE_BYTES))
+            writeAtomically(File(layout.vaultRecords, VaultRecordNames.randomFileName(random)), randomRecordFile(VaultRecordNames.UNSET_FILE_BYTES))
+        }
+    }
+
+    /** The record files that [keys] name, as a set of file names. */
+    private fun recordNamesOf(keys: List<ByteArray>): Set<String> =
+        keys.flatMap { key -> VaultRecordNames.KNOWN.map { VaultRecordNames.fileName(key, it) } }.toSet()
+
+    /** The record files that none of [keys] names: the spares, and the files of a Decoy Vault that is gone. */
+    private fun spareRecordFiles(keys: List<ByteArray>): List<File> {
+        val named = recordNamesOf(keys)
+        return layout.vaultRecords.listFiles().orEmpty().filter { it.isFile && it.name.endsWith(".bin") && it.name !in named }
+    }
+
+    /** Renames the spare record files to the names that [decoyKey] gives the known records. A rename keeps a file's size and time. */
+    private fun claimSpareRecords(vaultKey: ByteArray, decoyKey: ByteArray) {
+        val spares = spareRecordFiles(listOf(vaultKey)).shuffled(random.asKotlinRandom())
+        if (spares.size < VaultRecordNames.KNOWN.size) throw VaultException("The folder of vault records lacks spare files.")
+        VaultRecordNames.KNOWN.zip(spares).forEach { (name, spare) ->
+            if (!spare.renameTo(File(layout.vaultRecords, VaultRecordNames.fileName(decoyKey, name)))) {
+                throw VaultException("A spare record file could not be renamed.")
+            }
         }
     }
 
     /** Each decoy record file, rewritten to hold no value under [decoyKey]. The files keep their names and sizes. */
     private fun resetDecoyRecords(decoyKey: ByteArray) {
         VaultRecordNames.KNOWN.forEach { name ->
-            val file = File(layout.vaultRecords, VaultRecordNames.decoyFileName(name))
+            val file = File(layout.vaultRecords, VaultRecordNames.fileName(decoyKey, name))
             writeAtomically(file, VaultRecordNames.sealedUnset(decoyKey, name, sizeOf(file)))
         }
     }
 
-    /** Each decoy record file, rewritten as random bytes, for a Decoy Vault that is gone. The files keep their names and sizes. */
-    private fun overwriteDecoyRecords() {
-        VaultRecordNames.KNOWN.forEach { name ->
-            val file = File(layout.vaultRecords, VaultRecordNames.decoyFileName(name))
-            writeAtomically(file, randomRecordFile(sizeOf(file)))
+    /**
+     * Turns [files] back into spares: random bytes of the same size under fresh random names, so nothing shows that a Decoy Vault
+     * was there. The file count stays the same.
+     */
+    private fun retireRecordFiles(files: List<File>) {
+        files.forEach { file ->
+            writeAtomically(File(layout.vaultRecords, VaultRecordNames.randomFileName(random)), randomRecordFile(sizeOf(file)))
+            file.delete()
         }
     }
 
@@ -1307,12 +1341,8 @@ class Vault constructor(
             }.orEmpty()
             pad.release(dropped)
         }
-        // The decoy's record files stay either way: they hold its records while it exists, and random bytes once it is gone.
-        if (keep.size == 1) overwriteDecoyRecords()
-        val kept = VaultRecordNames.KNOWN.flatMap { listOf(VaultRecordNames.fileName(keep.first(), it), VaultRecordNames.decoyFileName(it)) }.toSet()
-        layout.vaultRecords.listFiles()?.forEach { file ->
-            if (file.name.endsWith(".bin") && file.name !in kept) file.delete()
-        }
+        // The files that no kept key names, a gone decoy's or a failed one's, become spares again, so the file count stays the same.
+        retireRecordFiles(spareRecordFiles(keep))
         ReviewPool.shredExcept(layout.reviewPool, keep.flatMap { key -> ReviewPool(layout.reviewPool, key).use { it.ownedNames() } }.toSet())
         // The Decoy Vault's photos are cleared too. A dropped decoy takes them with it, and a new decoy starts with none.
         dropDecoyPhotos(layout)
