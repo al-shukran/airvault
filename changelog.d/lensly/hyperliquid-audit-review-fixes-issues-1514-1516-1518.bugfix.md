@@ -1,0 +1,1 @@
+Hyperliquid reviews now warn with a danger when a message hands your account to other signers, name the network as Hyperliquid Mainnet or Testnet, note that any hashed action may be more than an order, and show a withdrawal or transfer destination as a grouped address.

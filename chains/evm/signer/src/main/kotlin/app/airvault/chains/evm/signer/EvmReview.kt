@@ -27,6 +27,7 @@ import app.lensly.core.registry.CallSteps
 import app.lensly.core.registry.DenylistEntry
 import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.FeeModel
+import app.lensly.core.registry.HyperliquidNetwork
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.OffChainDomain
 import app.lensly.core.registry.ProxyBinding
@@ -188,12 +189,17 @@ class EvmReviewBuilder(
             if (offChain != null) {
                 header += ReviewRow(offChain.title, DisplayValue.Text(offChainNote(offChain.label)), null)
                 warnings += Warning(Danger.CAUTION, CODE_OFF_CHAIN, offChainCautionText(offChain.label), acknowledge = offChainAck(offChain.label))
-                if (offChain.hashesAction) header += ReviewRow(HASHED_ACTION_LABEL, DisplayValue.Text(HASHED_ACTION_NOTE), null)
+                offChain.hyperliquidNetwork(typedData.message)?.let { header += hyperliquidNetworkRow(it) }
+                if (offChain.hashesAction(typedData.primaryType)) header += ReviewRow(HASHED_ACTION_LABEL, DisplayValue.Text(HASHED_ACTION_NOTE), null)
             }
             actionWarning(typedData.primaryType, typedData.message, offChain)?.let { warnings += it }
             otherTypeWarning(offChainDomainOf(typedData.domain), typedData.primaryType)?.let { warnings += it }
             val domainNetworkName = domainChain?.let { networkNameOf(it) } ?: networkName
-            val part = typedPart(typedData, registry, chainId, chain, networkName, domainNetworkName = domainNetworkName)
+            val part = typedPart(
+                typedData, registry, chainId, chain, networkName,
+                domainNetworkName = domainNetworkName,
+                stringAddressMembers = offChain?.stringAddressMembers.orEmpty(),
+            )
             decoded += part.decoded
             warnings += part.warnings
             if (part.unknownToken) warnings += registryWarning(TOKEN_UNREGISTERED, field = null)
@@ -944,6 +950,8 @@ private fun hyperEvmMoveTitle(primaryType: String, message: TypedValue.StructVal
 private fun actionWarning(primaryType: String, message: TypedValue.StructValue, offChain: OffChainDomain?): Warning? = when {
     offChain?.isAgentApproval(primaryType, message) == true || primaryType.substringAfterLast(':') == "ApproveAgent" ->
         Warning(Danger.DANGER, CODE_TYPED_ACTION, APPROVE_AGENT_TEXT, acknowledge = ACK_APPROVE_AGENT)
+    primaryType.substringAfterLast(':') == "ConvertToMultiSigUser" ->
+        Warning(Danger.DANGER, CODE_TYPED_ACTION, MULTI_SIG_TEXT, acknowledge = ACK_MULTI_SIG)
     primaryType.substringAfterLast(':') in setOf("Withdraw", "withdraw3") ->
         Warning(Danger.DANGER, CODE_TYPED_ACTION, WITHDRAW_TEXT, acknowledge = ACK_WITHDRAW)
     else -> null
@@ -1163,11 +1171,23 @@ private const val ACK_TYPED_CHAIN = "I understand this signature may be valid on
 internal const val ACK_APPROVE_AGENT = "I understand this lets another key act for this account."
 private const val ACK_WITHDRAW = "I understand this withdraws funds from this account."
 internal const val APPROVE_AGENT_TEXT = "This approves another key to act for this account. Check the agent address and name before you sign."
+private const val ACK_MULTI_SIG = "I understand this hands control of this account to other keys."
+private const val MULTI_SIG_TEXT = "This hands control of this account to the listed signers. Your own key can no longer act alone. " +
+    "Check the signers and the threshold before you sign."
 private const val WITHDRAW_TEXT = "This withdraws funds from this account. Check the destination and amount before you sign."
 
 /** The row that says a message carries a hash of its action, which Lensly cannot read. */
-private const val HASHED_ACTION_LABEL = "Order Details Are Hashed by Hyperliquid and Cannot Be Shown"
-private const val HASHED_ACTION_NOTE = "The connection ID is a hash of the action. Lensly cannot read the action, so it cannot show what the action does."
+private const val HASHED_ACTION_LABEL = "Action Details Are Hashed by Hyperliquid and Cannot Be Shown"
+private const val HASHED_ACTION_NOTE = "This message carries a hash of the action. Lensly cannot read the action, so it cannot show what it does. " +
+    "It can be an order, a transfer into a vault, a transfer between sub-accounts, or another action."
+
+/** The row that names the Hyperliquid network a message is for. Only the mainnet holds real funds. */
+private fun hyperliquidNetworkRow(network: HyperliquidNetwork): ReviewRow = ReviewRow(
+    "Network",
+    DisplayValue.Text(network.label),
+    null,
+    notes = if (network == HyperliquidNetwork.MAINNET) listOf("This is the live network. It holds real funds.") else emptyList(),
+)
 private const val L2_FEE_NOTE = "L1 data fee is not computable offline; total may be higher"
 private const val DEADLINE_LABEL = "deadline (uint256)"
 
