@@ -5,6 +5,7 @@
 #   check-workflow-guards.sh     comment-run trusted gate, release refusal order, signing environment, sign-job steps and the always-run pr-ok (#1407, #1408, #1442, #1451, #1465, #1470, #1481, #1482, #1493, #1531, #1532, #1581, #1604)
 #   sign-release.sh              the hash, secrets and version-code checks that come before the APK is signed (#1493)
 #   close-refresh-pr.sh          the refresh pull request is closed and the comment posted once (#1396, #1443)
+#   run-step.sh require_unit_tests  every module has a *Test.kt under src/test/java or src/test/kotlin, not under resources (#1625)
 #
 # Usage: scripts/ci/selftest-guards.sh
 
@@ -656,6 +657,26 @@ expect_fail "version code 1" sign_with "$good_sha" 1 "$keystore_b64" secret
 expect_fail "no version code" sign_with "$good_sha" "" "$keystore_b64" secret
 expect_pass "an APK that matches its hash, with version code 7" sign_with "$good_sha" 7 "$keystore_b64" secret
 [ -f "$sdir/signed/lensly.apk" ] || fail "sign-release.sh wrote no signed/lensly.apk"
+
+# --- run-step.sh require_unit_tests: the function is copied out of the script, so the self-test checks the code CI runs (#1625).
+units=$work/units
+unit_tree() {
+    # unit_tree <path>...: a fresh tree holding one empty file at each path.
+    local path
+    rm -rf "$units"
+    for path in "$@"; do
+        mkdir -p "$units/$(dirname "$path")"
+        echo 'class Stub' >"$units/$path"
+    done
+}
+sed -n '/^require_unit_tests() {/,/^}/p' "$root/scripts/ci/run-step.sh" >"$work/require_unit_tests.sh"
+units_guard() { (cd "$units" && . "$work/require_unit_tests.sh" && require_unit_tests); }
+unit_tree app/src/test/java/AppTest.kt lumio/src/test/java/LumioTest.kt shared/src/test/resources/SharedTest.kt
+expect_fail "a module whose only *Test.kt is under src/test/resources" units_guard
+unit_tree app/src/test/java/AppTest.kt lumio/src/test/java/LumioTest.kt shared/src/test/java/SharedTest.kt
+expect_pass "a *Test.kt under src/test/java in every module" units_guard
+unit_tree app/src/test/kotlin/AppTest.kt lumio/src/test/java/LumioTest.kt shared/src/test/java/SharedTest.kt
+expect_pass "a *Test.kt under src/test/kotlin" units_guard
 
 # --- close-refresh-pr.sh: a stub gh whose first close fails (and records the comment first, as the old gh pr close --comment did).
 # Whether the first gh pr comment fails before posting ("drop") or after it ("lost"), the pull request ends closed with one comment.
