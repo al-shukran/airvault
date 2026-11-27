@@ -1,9 +1,10 @@
 name: codeql
 
-# One full scan a day, on every push to master, and on demand from a /run-codeql comment. CodeQL takes longer than the
-# 3-minute PR budget, so it has no pull_request trigger: a pull request runs it only when a trusted commenter asks. A scheduled or
-# master run writes its result into one rolling issue labelled codeql, so the result is deduplicated across days; an on-demand
-# run reports on the pull request it was asked about.
+# One full scan a day, on every push to master, and on demand from a /run-codeql comment. It has no pull_request trigger, so it
+# never adds load to every pull request: a pull request runs it only when a trusted commenter asks. A scheduled or master run writes
+# its result into one rolling issue labelled codeql, so the result is deduplicated across days; an on-demand run reports on the
+# pull request it was asked about. The four languages run one at a time, cheapest first, so a run holds one runner and stops at
+# the first broken scan (the report then names every language that did not complete).
 #
 # GitHub starts scheduled workflows only on the default branch, and disables them
 # in a public repository after 60 days without repository activity.
@@ -98,15 +99,45 @@ jobs:
             --jq .id)
           echo "id=$id" >> "$GITHUB_OUTPUT"
 
+  # Every master push is scanned, so a scheduled run on a master that a successful run already scanned skips the analysis.
+  changes:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      skip: ${{ steps.last.outputs.skip }}
+    steps:
+      - name: Compare master with the last successful run
+        id: last
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          # A failed lookup counts as a change, so the checks run.
+          last=$(gh run list --workflow codeql.yml --branch master --status success --limit 1 --json headSha --jq '.[0].headSha // ""' || true)
+          if [ "$last" = "$GITHUB_SHA" ]; then
+            echo "master is still $GITHUB_SHA, which the last successful run already checked"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
   analyze:
     name: analyze ${{ matrix.languages }}
+    needs: changes
+    # changes runs on the schedule only; on a push, a manual run or a request it is skipped, and the analysis runs.
+    if: ${{ !cancelled() && needs.changes.outputs.skip != 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
       security-events: write
     strategy:
-      fail-fast: false
+      fail-fast: true
+      max-parallel: 1
       matrix:
         languages: [actions, javascript-typescript, python, java-kotlin]
     steps:
@@ -223,8 +254,8 @@ jobs:
   # on it. A request reports on the page that carried the command.
   report:
     name: report the result
-    needs: [analyze, announce]
-    if: always()
+    needs: [changes, analyze, announce]
+    if: always() && needs.changes.outputs.skip != 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -340,9 +371,11 @@ jobs:
             } >> "$body"
           fi
           echo "$state: $total result(s) at $sha, broken languages:$broken"
-          echo "state=$state" >> "$GITHUB_OUTPUT"
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          echo "body=$body" >> "$GITHUB_OUTPUT"
+          {
+            echo "state=$state"
+            echo "sha=$sha"
+            echo "body=$body"
+          } >> "$GITHUB_OUTPUT"
           {
             echo "## codeql: $state"
             echo

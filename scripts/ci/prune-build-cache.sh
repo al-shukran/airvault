@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Keeps only the build-cache entries one CI run used, so a lane's saved cache does not grow with every master push (#1115).
+# Keeps only the build-cache entries one CI run used, so the saved build cache does not grow with every master push (#1115).
 #   prune-build-cache.sh age    after the cache restore: every entry gets an access time of 1970, and the run's start is marked
 #   prune-build-cache.sh prune  after the run: deletes the entries nobody read or stored since that mark
 # Gradle reads an entry it reuses and writes one it stores, so those two kinds have a newer access time than the mark. This needs

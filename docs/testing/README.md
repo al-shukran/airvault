@@ -13,7 +13,7 @@ Run from the repo root. These wrap the Gradle commands in the guideline.
 
 | Command | What it runs |
 |---|---|
-| `scripts/ci/run-partition.sh <partition>` | One PR partition. Names: `core-wallet`, `core-ur-evm`, `core-parse`, `core-vault`, `core-registry`, `core-btc`, `ui-a`, `ui-b`, `ui-c`, `lumio-a`, `lumio-apk`, `lumio-b`, `lumio-c`, `lumio-d`, `app`, `registry-pack`, `chain-api`, `manifest`, `ci`. |
+| `scripts/ci/run-step.sh <step>` | One CI step. The gate (`ci.yml`) runs `static`, `manifest`, `compile`, `unit` and `fuzz` in that order; nightly runs `lint`, `apk` and `android-tests`. `resolve` is the online dependency fetch the others need first. |
 | `scripts/ci/run-extended.sh <kind>` | One nightly layer. Kinds: `instrumented`, `e2e`, `screenshot-testing`, `perf`, `security`, `fuzz`. |
 | `scripts/ci/fuzz-nightly.sh` | Jazzer targets, 15 min each. Slow: CI only. |
 | `scripts/ci/benchmark-gate.sh <result.json>` | Compares a benchmark result against the reference-device baseline; fails past 10% regression. `--record` rewrites the baseline. |
@@ -31,5 +31,5 @@ It creates the demo vault with a fixed App Password, or opens it when it already
 
 ## Notes
 
-- Add `-PprLane` to a local Gradle run to match the PR lane for `ui` (skips pixel tests).
+- Add `-PskipScreenshotTests` to a local unit-test run to match the gate: it skips the Roborazzi pixel tests (`*ScreenshotTest`) of `:app` and `:lumio`.
 - `scripts/ci/run-extended.sh` exits 0 for layers that are not configured yet; set `CI=true` to make that a failure.

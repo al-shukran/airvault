@@ -50,11 +50,11 @@ would say nothing, and a red one would only ever report the host view.
 
 - `AccessibilityTest` stays in `androidTest` as a **tripwire**, not a gate. It asserts that the three screens and the
   broken screen each report only the host `AndroidComposeView`. If a Compose or Espresso upgrade starts reporting Compose
-  nodes, that assertion fails and the spike has to be run again and this decision remade. It runs in the emulator lane,
+  nodes, that assertion fails and the spike has to be run again and this decision remade. It runs in the nightly emulator job,
   not on every PR.
-- The PR lane checks what it can, cheaply: **semantics assertions on the JVM** (`app.lensly.ui.a11y.SemanticsTest`).
+- The pull request gate checks what it can, cheaply: **semantics assertions on the JVM** (`app.lensly.ui.a11y.SemanticsTest`).
 
-## What the PR lane checks
+## What the Pull Request Gate Checks
 
 `./gradlew :app:testDebugUnitTest --tests 'app.lensly.ui.*'` runs `app.lensly.ui.a11y.SemanticsTest` on Robolectric. For
 the highest-risk controls it asserts:

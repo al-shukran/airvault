@@ -1,6 +1,6 @@
 name: dependency-graph
 
-# dependency-review-action in the PR fast lane needs a submitted dependency graph to diff
+# dependency-review-action in the ci.yml gate needs a submitted dependency graph to diff
 # against. GitHub cannot read a Gradle graph without a submission, so this job submits one on
 # every push to a long-lived branch. Without it, a PR that touches a dependency file fails
 # with "Dependency review is not supported on this repository".
@@ -11,7 +11,7 @@ name: dependency-graph
 #   2. Settings -> Secrets and variables -> Actions -> Variables: add DEPENDENCY_GRAPH_ENABLED=true.
 on:
   push:
-    branches: [master, phase-1-5]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -25,7 +25,7 @@ concurrency:
 jobs:
   submit:
     # Neither half can work without the other: the submission API is off while the graph is off,
-    # and dependency_review in pr-fast.yml stays skipped until the variable is set.
+    # and the Dependency review step of ci.yml stays skipped until the variable is set.
     if: vars.DEPENDENCY_GRAPH_ENABLED == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -41,7 +41,7 @@ jobs:
           distribution: temurin
           java-version: '21.0.13+9'
 
-      # cache-disabled, as in pr-fast.yml: the repository's cache limit is held by the build-cache entries (scripts/ci/README.md).
+      # cache-disabled, as in ci.yml: the repository's cache limit is held by the build-cache entries (scripts/ci/README.md).
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           cache-disabled: true

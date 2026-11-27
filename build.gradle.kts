@@ -73,9 +73,9 @@ subprojects {
 }
 
 // Robolectric runs offline. Robolectric 4.17 downloads the Android SDK jar of the API level a test runs at (sdk = 36 here) from
-// Maven Central during the test, with no retry, and a failed download failed the partition. Here the jar is a Gradle dependency:
-// Gradle fetches it with its retries and keeps it in the Gradle user home, which cache-warm saves on master, so the PR partitions
-// find it in the restored cache. robolectric.offline=true turns a missing jar into an error rather than a download.
+// Maven Central during the test, with no retry, and a failed download failed the CI run. Here the jar is a Gradle dependency:
+// Gradle fetches it with its retries and keeps it in the Gradle user home, which the CI dependency cache holds, so the offline CI
+// steps find it in the restored cache. robolectric.offline=true turns a missing jar into an error rather than a download.
 // 16-robolectric-13921718-i7 is the sdk = 36 jar of Robolectric 4.17 (DefaultSdkProvider); a Robolectric upgrade moves it.
 val robolectricSdk by configurations.creating {
     isCanBeConsumed = false
@@ -102,7 +102,18 @@ listOf("app", "lumio", "shared").forEach { module ->
     }
 }
 
-// Lint analysis is cacheable. AGP leaves lintAnalyze tasks uncacheable, so every lint lane re-analyzed the Android modules
+// -PskipScreenshotTests leaves the Roborazzi pixel tests (*ScreenshotTest) of :app and :lumio out of the unit-test run. The CI gate
+// passes it (scripts/ci/run-step.sh unit): goldens come only from the Linux runner, and nightly.yml records them there.
+val skipScreenshotTests = providers.gradleProperty("skipScreenshotTests").isPresent
+if (skipScreenshotTests) {
+    listOf("app", "lumio").forEach { module ->
+        project(":$module").tasks.withType<Test>().configureEach {
+            filter { excludeTestsMatching("*ScreenshotTest") }
+        }
+    }
+}
+
+// Lint analysis is cacheable. AGP leaves lintAnalyze tasks uncacheable, so every lint run re-analyzed the Android modules
 // (about four minutes) with no source change. The analysis reads only the module's inputs, and the lint report task still
 // fails the build on an error, so this only skips re-analysis. The outputs keep absolute paths, so an entry is valid on the
 // same checkout path, which CI always uses.
@@ -113,9 +124,9 @@ subprojects {
 }
 
 // resolveAll resolves every resolvable configuration of every project and every buildscript classpath. That covers the
-// robolectricSdk configuration above, which holds the Robolectric android-all jar the tests read. CI's deps job runs it
-// online to fill the Gradle module cache; every other CI job runs with --offline against that cache, so a missing artifact
-// fails by name instead of being fetched. See .github/workflows/pr-fast.yml.
+// robolectricSdk configuration above, which holds the Robolectric android-all jar the tests read. CI runs it online on a
+// dependency-cache miss to fill the Gradle module cache; every other CI step runs with --offline against that cache, so a
+// missing artifact fails by name instead of being fetched. See scripts/ci/run-step.sh.
 // Each project resolves its own configurations in its own task: Gradle rejects resolving another project's configuration
 // from a task. Not configuration-cache compatible: the task reads the project's configurations at execution time.
 // AGP's per-variant classpaths (for example benchmarkCompileClasspath) match several variants when no artifact type is

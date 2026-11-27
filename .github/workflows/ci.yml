@@ -1,0 +1,201 @@
+name: ci
+
+# The blocking gate for pull requests and master: one job, `pr-ok`, the single required check. Its steps run in order, cheapest
+# first, and the job stops at the first failing step: DCO, the static guards (no Gradle), the secrets scan, dependency review,
+# the dependency cache, the manifest guards, compile, the unit tests, then the fuzz seed replays. One job per pull request keeps
+# the load predictable: 15 open pull requests hold at most 15 runners, under the account's 20-job ceiling.
+# Lint, screenshot goldens, the APK and androidTest compile, the R8 build, OWASP, real fuzzing and the emulator runs are in
+# nightly.yml and never block a pull request.
+#
+# Gradle runs offline in every step except the dependency resolve, which runs only on a dependency-cache miss. A missing artifact
+# then fails by name, not by a network fetch, so a red run is never a dependency flake.
+on:
+  pull_request:
+    # A pull request to another base (a stacked one) runs nothing, so it cannot merge into master until it is retargeted.
+    # Branch pushes never run CI: a pull request branch runs through pull_request only, so no push runs twice.
+    branches: [master]
+    # closed starts no job (pr-ok skips it). It joins the pull request's concurrency group, which cancels a gate still running
+    # for a pull request that was closed or merged.
+    types: [opened, synchronize, reopened, closed]
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+env:
+  # The Gradle user-home directories the dependency cache holds. The configuration cache names the generated ones (version-catalog
+  # accessors, transformed and instrumented jars, compiled build scripts) as inputs, so a restore must bring them back too.
+  # The * stands for the Gradle version that gradle-wrapper.properties pins, so a wrapper bump needs no edit here.
+  DEPS_CACHE_PATHS: |
+    ~/.gradle/caches/modules-2
+    ~/.gradle/wrapper/dists
+    ~/.gradle/caches/*/dependencies-accessors
+    ~/.gradle/caches/*/generated-gradle-jars
+    ~/.gradle/caches/*/kotlin-dsl
+    ~/.gradle/caches/*/scripts
+    ~/.gradle/caches/*/transforms
+    ~/.gradle/caches/jars-*
+
+# A newer push to a pull request, or closing it, cancels its running gate and frees the runner. Master pushes share one group and
+# queue, never cancel: a running push always finishes, so no two runs replace the build cache at once, and master-red.yml always
+# sees a finished run of the newest master it judges. A push that waits behind a newer one is replaced by it (GitHub keeps one
+# pending run per group), and the newer commit contains it and is verified.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  pr-ok: # the single required check
+    name: pr-ok
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: read # DCO reads the commits of the pull request
+      actions: write # a master push deletes the build-cache key it replaces; no other event deletes anything
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Every commit of the pull request carries a Signed-off-by trailer. The pull request's own copy of dco_check.py runs with a
+      # read-only token, so a pull request can only change its own DCO result; required review covers that.
+      - name: DCO
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/dco_check.py
+
+      # A reminder, not a gate: a master push that changed product code without a changelog fragment gets a warning.
+      - name: Changelog fragments reminder
+        if: github.event_name == 'push'
+        env:
+          BASE_SHA: ${{ github.event.before }}
+        run: |
+          python3 scripts/changelog_fragments.py --check --base "$BASE_SHA" \
+            || echo "::warning::A commit on master changed product code without a changelog fragment. Add one under changelog.d/ in the next pull request."
+
+      # No Gradle: bash -n on every script, the test-network, mnemonic, cleartext and workflow guards, and the guard self-test.
+      - name: Static guards
+        run: scripts/ci/run-step.sh static
+
+      # gitleaks CLI instead of gitleaks-action: the action v3 requires a license key for organization repositories
+      # (GITLEAKS_LICENSE), and this repository has none. The tarball is checked against the SHA-256 published with the release.
+      # The range is the commit range of the event (the pull request or the push), so only changed content is checked.
+      # .gitleaks.toml keeps the default rules and allowlists shared/src/test/resources/vectors.
+      - name: Scan the commits of the event for secrets
+        env:
+          GITLEAKS_VERSION: 8.30.0
+          GITLEAKS_SHA256: 79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$archive"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
+          if [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA="$(git rev-parse HEAD~1)"
+          fi
+          "$RUNNER_TEMP/gitleaks" git --config .gitleaks.toml --redact \
+            --log-opts="${BASE_SHA}..${HEAD_SHA}" --exit-code 1 .
+
+      # Diffs the dependency graph that dependency-graph.yml submits on master. It needs Settings -> Code security -> Dependency
+      # graph on and the repository variable DEPENDENCY_GRAPH_ENABLED=true; until then it skips. A high-severity finding fails.
+      - name: Dependency review
+        if: github.event_name == 'pull_request' && vars.DEPENDENCY_GRAPH_ENABLED == 'true'
+        uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
+        with:
+          fail-on-severity: high
+
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+
+      # cache-disabled: setup-gradle's own cache entries were the poisoned ones (its cleanup purged plugin marker POMs). The
+      # dependency and build caches below replace them.
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-disabled: true
+
+      # The key covers the files that decide what Gradle resolves, so a dependency change always makes a new key. A miss resolves
+      # online below, and this step saves the result at the end of the job (a pull request saves under its own ref, which
+      # cache-cleanup.yml deletes once the pull request closes).
+      - name: Restore the Gradle dependency cache
+        id: deps
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DEPS_CACHE_PATHS }}
+          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
+
+      - name: Resolve every configuration (online, on a cache miss only)
+        if: steps.deps.outputs.cache-hit != 'true'
+        run: scripts/ci/run-step.sh resolve
+
+      # The build cache that master saves. The configuration cache is not saved: it records the JDK home path, which differs
+      # between runner images.
+      - name: Restore the Gradle build cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/caches/build-cache-1
+          key: bc-master
+
+      # A master push adds its new outputs to the entry, so an unpruned entry grows with each push. On a master push, the entries
+      # the run does not read or store are dropped before the save.
+      - name: Mark the build-cache entries as unused
+        if: github.event_name == 'push'
+        run: scripts/ci/prune-build-cache.sh age
+
+      - name: Manifest guards
+        run: scripts/ci/run-step.sh manifest
+
+      - name: Compile
+        run: scripts/ci/run-step.sh compile
+
+      - name: Unit tests
+        run: scripts/ci/run-step.sh unit
+
+      # Before the fuzz step, which reruns :shared:testDebugUnitTest and so replaces its result files.
+      - name: Upload the JUnit results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: junit
+          path: '**/build/test-results/**/*.xml'
+          retention-days: 3
+          if-no-files-found: ignore
+
+      - name: Fuzz seed replays
+        run: scripts/ci/run-step.sh fuzz
+
+      - name: Stop the Gradle daemon before the cache is saved
+        if: always()
+        run: ./gradlew --stop
+
+      # Only a push to master saves the build cache, even after a failed step. A pull request saves nothing.
+      - name: Drop the build-cache entries this run did not use
+        if: always() && github.event_name == 'push'
+        run: scripts/ci/prune-build-cache.sh prune
+
+      # GitHub cache entries cannot be overwritten, so the push deletes the key before it saves it again.
+      - name: Delete the build cache this run replaces
+        id: replace
+        if: always() && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          KEY: bc-master
+        run: gh cache list --ref refs/heads/master --key "$KEY" --limit 100 --json id,key --jq '.[] | select(.key == env.KEY) | .id' | xargs -r -n1 gh cache delete
+
+      - name: Save the Gradle build cache
+        if: always() && github.event_name == 'push' && steps.replace.outcome == 'success'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/caches/build-cache-1
+          key: bc-master

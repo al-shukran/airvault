@@ -1,0 +1,4 @@
+# actionlint configuration. android-ref is the self-hosted reference phone runner that /run-perf uses (comment-run.yml).
+self-hosted-runner:
+  labels:
+    - android-ref

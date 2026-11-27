@@ -49,9 +49,11 @@ jobs:
           IS_PR: ${{ github.event.issue.pull_request != null }}
         run: |
           set -euo pipefail
-          echo "number=$NUMBER" >> "$GITHUB_OUTPUT"
-          echo "is_pr=$IS_PR" >> "$GITHUB_OUTPUT"
-          echo "ref=" >> "$GITHUB_OUTPUT"
+          {
+            echo "number=$NUMBER"
+            echo "is_pr=$IS_PR"
+            echo "ref="
+          } >> "$GITHUB_OUTPUT"
 
           deny() {
             echo "allowed=false" >> "$GITHUB_OUTPUT"
@@ -94,8 +96,10 @@ jobs:
     # or an issue, and a called workflow may only use permissions that the
     # calling job grants it: its analyze job uses contents:read and
     # security-events:write, its announce and report jobs use checks:write and
-    # issues:write. Anything wider here is granted to nothing.
+    # issues:write, and its changes job (skipped on a request) declares actions:read.
+    # Anything wider here is granted to nothing.
     permissions:
+      actions: read
       contents: read
       security-events: write
       checks: write

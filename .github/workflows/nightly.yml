@@ -1,17 +1,18 @@
 name: nightly
 
-# Checks that never block a pull request, and checks too slow for the 3-minute PR budget. The blocking set is pr-fast.yml (deps,
-# shard, fuzz, ci, secrets, manifest, dependency_review), and pr-ok is its only required check. This workflow runs on the schedule
-# and on every push to master, except `shard` (schedule only: pr-fast already ran it on the pull request). A failing check opens or
-# refreshes one issue for that check (`report`). It never opens the ci-red alarm (master-red.yml watches pr-fast only).
+# Checks that never block a pull request. The gate is ci.yml, and pr-ok is its only required check. This workflow runs on the
+# schedule and on every push to master. A failing check opens or refreshes one issue for that check (`report`). It never opens the
+# ci-red alarm (master-red.yml watches ci.yml only).
 #
-# `screenshots` re-records the Roborazzi goldens on the Linux runner (the image they must come from), and a changed golden goes to
-# the goldens-refresh pull request for review rather than failing the run. `lint` and `android` (the Lumio APK and androidTest
-# compile) run on every push to master too. The R8 build, OWASP, real fuzzing, and the emulator, end-to-end and benchmark runs are
-# schedule-only.
+# Fail-fast order: `build` runs first (dependencies, lint, the Lumio APK, the androidTest compile; on the schedule also the unit
+# tests), and `screenshots`, `fuzz` and `emulator` need it, so a master that does not lint or compile stops there. On a master
+# push only `build` and then `screenshots` run: one job at a time. `screenshots` re-records the Roborazzi goldens on the Linux
+# runner (the image they must come from), and a changed golden goes to the goldens-refresh pull request for review rather than
+# failing the run. `full` (the R8 build and OWASP), `fuzz` (real fuzzing) and `emulator` (instrumented tests and benchmarks)
+# are schedule-only. A scheduled run on an unchanged master runs `full` only (`changes`).
 #
-# Nightly saves no build cache: its setup-gradle steps run with cache-disabled or cache-read-only. `deps` saves the dependency
-# cache only on a miss, under the key pr-fast.yml uses.
+# Nightly saves no build cache: its setup-gradle steps run with cache-disabled or cache-read-only. `build` saves the dependency
+# cache only on a miss, under the key ci.yml uses.
 
 on:
   schedule:
@@ -29,7 +30,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'push' }}
 
-# The dependency cache the jobs below restore. These are the paths and the key of pr-fast.yml's deps job.
+# The dependency cache the jobs below restore. These are the paths and the key of ci.yml.
 env:
   DEPS_CACHE_PATHS: |
     ~/.gradle/caches/modules-2
@@ -42,10 +43,43 @@ env:
     ~/.gradle/caches/jars-*
 
 jobs:
-  # Resolves the dependencies once, so the jobs below restore a complete cache. A miss resolves online, as pr-fast.yml's deps job does.
-  deps:
+  # A scheduled run skips `build` and the jobs that need it when master has not changed since the last successful scheduled run:
+  # they would check the same commit again. `full` still runs, because new CVEs appear without a code change.
+  changes:
+    if: github.event_name == 'schedule'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      skip: ${{ steps.last.outputs.skip }}
+    steps:
+      - name: Compare master with the last successful run
+        id: last
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          # A failed lookup counts as a change, so the checks run.
+          last=$(gh run list --workflow nightly.yml --event schedule --branch master --status success --limit 1 --json headSha --jq '.[0].headSha // ""' || true)
+          if [ "$last" = "$GITHUB_SHA" ]; then
+            echo "master is still $GITHUB_SHA, which the last successful run already checked"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Resolves the dependencies (online on a cache miss only, as ci.yml does), so the jobs after it restore a complete cache, then
+  # runs the cheap checks in order: lint, the Lumio debug APK, the androidTest and benchmark compile, and on the schedule the unit
+  # tests (ci.yml already ran them on the pull request and on the master push).
+  build:
+    name: lint and android build
+    needs: changes
+    # changes runs on the schedule only; on a push or a manual run it is skipped, and build runs.
+    if: ${{ !cancelled() && needs.changes.outputs.skip != 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -69,11 +103,34 @@ jobs:
 
       - name: Resolve every configuration (online, on a cache miss only)
         if: steps.deps.outputs.cache-hit != 'true'
-        run: ./scripts/ci/run-partition.sh resolve
+        run: scripts/ci/run-step.sh resolve
 
-  # The release build of :app is minified by R8 (app/build.gradle.kts, app/proguard-rules.pro). It runs here and not in the
-  # PR lane: a cold R8 build does not fit the 5-minute lane cap (guideline 2.1). mapping.txt is written only when minify
-  # runs, so a build that skipped R8 fails this step. `if` keeps it running after an earlier failure, as the OWASP steps do.
+      - name: Lint
+        run: scripts/ci/run-step.sh lint
+
+      - name: Assemble the Lumio debug APK
+        run: scripts/ci/run-step.sh apk
+
+      - name: Compile androidTest and benchmark
+        run: scripts/ci/run-step.sh android-tests
+
+      - name: Unit tests
+        if: github.event_name != 'push'
+        run: scripts/ci/run-step.sh unit
+
+      - name: Upload the JUnit results
+        if: always() && github.event_name != 'push'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: junit
+          path: '**/build/test-results/**/*.xml'
+          retention-days: 3
+          if-no-files-found: ignore
+
+  # The release build of :app is minified by R8 (app/build.gradle.kts, app/proguard-rules.pro), then the OWASP CVE scan. It runs
+  # here and not in the pull request gate: a cold R8 build is slow, and OWASP depends on NVD being reachable. mapping.txt is written
+  # only when minify runs, so a build that skipped R8 fails this step. It needs no `build`, and the OWASP steps run after a failed
+  # R8 build (`if: !cancelled()`), so a broken build never hides a CVE.
   full:
     if: github.event_name != 'push'
     runs-on: ubuntu-24.04
@@ -84,7 +141,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      # The app compiles to Java 21 (compileOptions in app/build.gradle.kts); the JDK here is 21, as in pr-fast.yml.
+      # The app compiles to Java 21 (compileOptions in app/build.gradle.kts); the JDK here is 21, as in ci.yml.
       - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
@@ -168,57 +225,12 @@ jobs:
           fi
           ./gradlew :app:dependencyCheckAnalyze -PowaspAutoUpdate=false
 
-  # The unit tests of :app, :lumio, :shared and the pure JVM modules, in ten balanced lanes (scripts/ci/shards.txt). pr-fast.yml runs
-  # the same lanes on every pull request, so this schedule run does not repeat them on a push to master.
-  shard:
-    if: github.event_name != 'push'
-    name: shard ${{ matrix.shard }}
-    needs: deps
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    strategy:
-      fail-fast: true
-      matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
-        with:
-          distribution: temurin
-          java-version: '21.0.13+9'
-
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-disabled: true
-
-      - name: Restore the Gradle dependency cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.DEPS_CACHE_PATHS }}
-          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
-          fail-on-cache-miss: true
-
-      - name: Run shard-${{ matrix.shard }}
-        run: ./scripts/ci/run-partition.sh shard-${{ matrix.shard }}
-
-      - name: Upload the JUnit results
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: junit-shard-${{ matrix.shard }}
-          path: '**/build/test-results/**/*.xml'
-          retention-days: 3
-          if-no-files-found: ignore
-
   # Records the Roborazzi goldens on the Linux runner (record-goldens.yml does the same by hand). A pixel change does not fail
   # the run: a changed golden goes to the goldens-refresh pull request, which a coordinator reviews and merges. A test that
-  # cannot run fails the job, and `report` opens its issue. The refresh pull request gets no pr-fast run, because a workflow
+  # cannot run fails the job, and `report` opens its issue. The refresh pull request gets no ci run, because a workflow
   # token creates it and GitHub does not start workflows from such events.
   screenshots:
-    needs: deps
+    needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -250,7 +262,7 @@ jobs:
           fail-on-cache-miss: true
 
       - name: Record goldens
-        run: ./gradlew --offline :app:recordRoborazziDebug :lumio:recordRoborazziDebug --continue
+        run: ./gradlew --offline :app:recordRoborazziDebug :lumio:recordRoborazziDebug
 
       # Runs only after a clean recording. The branch always starts from this run's commit, so it never carries stale goldens.
       - name: Propose the changed goldens
@@ -316,89 +328,13 @@ jobs:
           done
           exit 1
 
-  # Android lint, one leg per module (scripts/ci/run-partition.sh lint-<module>). Each leg compiles its module and the modules it
-  # depends on, then lints the main sources.
-  lint:
-    name: lint ${{ matrix.module }}
-    needs: deps
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    strategy:
-      fail-fast: true
-      matrix:
-        module: [app, lumio, shared]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
-        with:
-          distribution: temurin
-          java-version: '21.0.13+9'
-
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-disabled: true
-
-      - name: Restore the Gradle dependency cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.DEPS_CACHE_PATHS }}
-          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
-          fail-on-cache-miss: true
-
-      - name: Lint :${{ matrix.module }}
-        run: ./scripts/ci/run-partition.sh lint-${{ matrix.module }}
-
-  # Lumio's debug APK, and the androidTest and benchmark sources of both apps compiled. The instrumented jobs below run them.
-  android:
-    name: lumio apk and androidTest compile
-    needs: deps
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
-        with:
-          distribution: temurin
-          java-version: '21.0.13+9'
-
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-disabled: true
-
-      - name: Restore the Gradle dependency cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.DEPS_CACHE_PATHS }}
-          key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
-          fail-on-cache-miss: true
-
-      - name: Assemble the Lumio debug APK
-        run: ./scripts/ci/run-partition.sh apk
-
-      - name: Compile androidTest and benchmark
-        run: ./scripts/ci/run-partition.sh android-tests
-
-  # Real fuzzing: one matrix leg per Jazzer target, so a crash in one target does not hide the other four. fuzz-nightly.sh keeps
-  # the 15 minutes per target from the @FuzzTest annotation; the timeout below covers one target plus a cold build.
+  # Real fuzzing: fuzz-nightly.sh fuzzes the five Jazzer targets one after another, 15 minutes each (the @FuzzTest annotation).
+  # It fuzzes every target even after one crashes, so one crash does not hide the other four.
   fuzz:
     if: github.event_name != 'push'
+    needs: build
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        target:
-          - app.lensly.fuzz.UrScannerFuzzTest
-          - app.lensly.fuzz.CborFuzzTest
-          - app.lensly.fuzz.EthSignRequestFuzzTest
-          - app.lensly.fuzz.UnsignedTxFuzzTest
-          - app.lensly.fuzz.AlgorandRequestFuzzTest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -413,8 +349,6 @@ jobs:
         with:
           cache-read-only: true
 
-      # Every leg restores the dependency cache that master's pr-fast run saved (the paths and key of pr-fast.yml's deps job). A cold
-      # resolve of the same set from Maven Central hit HTTP 429 in these legs (#770), so a miss fails here by name instead.
       - name: Restore the Gradle dependency cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -422,14 +356,16 @@ jobs:
           key: deps-v3-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'settings.gradle.kts', 'gradle.properties') }}
           fail-on-cache-miss: true
 
-      - name: Fuzz ${{ matrix.target }}
-        run: ./scripts/ci/fuzz-nightly.sh "${{ matrix.target }}"
+      - name: Fuzz every target
+        run: scripts/ci/fuzz-nightly.sh
 
-  instrumented:
-    # Guideline 1.3 on an emulator, separate from the host-only gates in `full`.
+  # One emulator for guideline 1.3 (instrumented, which includes the 1.6 end-to-end sign flows in app.lensly.e2e) and 1.7
+  # (microbenchmarks, trend data only). The script stops at the first failing line.
+  emulator:
     if: github.event_name != 'push'
+    needs: build
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -456,150 +392,40 @@ jobs:
           sudo chmod 0666 /dev/kvm
           test -w /dev/kvm
 
-      - name: Run connected debug tests on an emulator
+      # Instrumented: the benchmark classes need AndroidBenchmarkRunner, which only the benchmark variant gets; the debug runner
+      # cannot run them, so that package is skipped (same as run-extended.sh).
+      # Benchmarks (guideline 1.7): emulator numbers are trend data only. The 10% gate needs the reference device and runs there
+      # through /run-perf; nothing here claims a gate verdict. androidx.benchmark aborts on an emulator without EMULATOR, and
+      # NOT-AOT-COMPILED is suppressed because the CI emulator runs the app without a profile-guided AOT compile. The package
+      # filter keeps a11y/e2e/vault out of the benchmark run. :benchmark (macrobenchmark) stays deferred; see its README.
+      - name: Run the instrumented tests and the microbenchmarks on an emulator
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 34
           target: google_apis
           arch: x86_64
           disable-animations: true
-          # The benchmark classes need AndroidBenchmarkRunner, which only the benchmark variant
-          # gets; the debug runner cannot run them, so skip that package (same as run-extended.sh).
-          script: >-
-            ./gradlew :app:connectedDebugAndroidTest
-            -Pandroid.testInstrumentationRunnerArguments.notPackage=app.lensly.benchmark
+          script: |
+            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notPackage=app.lensly.benchmark
+            ./gradlew :app:connectedBenchmarkAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=app.lensly.benchmark -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.suppressErrors=EMULATOR,NOT-AOT-COMPILED
 
-      - name: Upload connected test results on failure
+      - name: Upload the emulator test results on failure
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: instrumented-test-results
+          name: emulator-test-results
           path: |
             **/build/outputs/androidTest-results/**
             **/build/reports/androidTests/**
           retention-days: 7
           if-no-files-found: ignore
-
-  e2e:
-    # Guideline 1.6: the wallet sign flow on an emulator, separate from `instrumented` so one
-    # error report names the layer.
-    if: github.event_name != 'push'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-
-      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
-        with:
-          distribution: temurin
-          java-version: '21.0.13+9'
-
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-read-only: true
-
-      - name: Allow the runner to use KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-          sudo udevadm settle
-          sudo chmod 0666 /dev/kvm
-          test -w /dev/kvm
-
-      - name: Run WalletSignFlowTest on an emulator
-        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
-        with:
-          api-level: 34
-          target: google_apis
-          arch: x86_64
-          disable-animations: true
-          script: >-
-            ./gradlew :app:connectedDebugAndroidTest
-            -Pandroid.testInstrumentationRunnerArguments.class=app.lensly.e2e.WalletSignFlowTest
-
-      - name: Upload e2e test results on failure
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: e2e-test-results
-          path: |
-            **/build/outputs/androidTest-results/**
-            **/build/reports/androidTests/**
-          retention-days: 7
-          if-no-files-found: ignore
-
-  benchmark:
-    # Guideline 1.7: emulator numbers are trend data only. The 10% gate needs the reference
-    # device and runs there through /run-perf; nothing here claims a gate verdict.
-    # :benchmark (macrobenchmark) stays deferred; see its README.
-    if: github.event_name != 'push'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-
-      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
-        with:
-          distribution: temurin
-          java-version: '21.0.13+9'
-
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-read-only: true
-
-      - name: Allow the runner to use KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-          sudo udevadm settle
-          sudo chmod 0666 /dev/kvm
-          test -w /dev/kvm
-
-      - name: Run microbenchmarks on an emulator
-        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
-        with:
-          api-level: 34
-          target: google_apis
-          arch: x86_64
-          disable-animations: true
-          # Trend data, not the reference-device gate; androidx.benchmark aborts on an emulator without EMULATOR.
-          # NOT-AOT-COMPILED: the CI emulator runs the app without a profile-guided AOT compile, so the runner refuses
-          # to time it. Suppressed for the same reason as EMULATOR: these numbers are trend data, never a gate.
-          # The package filter keeps a11y/e2e/vault out of the run. The `class` argument takes exact class names; the
-          # earlier `.*` glob named no class, so no benchmark ever ran.
-          script: >-
-            ./gradlew :app:connectedBenchmarkAndroidTest
-            -Pandroid.testInstrumentationRunnerArguments.package=app.lensly.benchmark
-            -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.suppressErrors=EMULATOR,NOT-AOT-COMPILED
-
-      - name: Upload benchmark test results on failure
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: benchmark-test-results
-          path: |
-            **/build/outputs/androidTest-results/**
-            **/build/reports/androidTests/**
-          retention-days: 7
-          if-no-files-found: ignore
-
-      - name: Confirm trend-only
-        run: echo "Emulator results are trend data; the 10% gate runs on the reference device only."
 
   report:
     # Guideline 2.5: one issue per failing check, named for the check. A run that fails a check with an open issue comments on
-    # that issue instead. Parallel jobs cannot open a dozen issues, because this one job reads the needs results.
+    # that issue instead. This one job reads the needs results, so parallel failures cannot open several issues.
     # Only master reports: a manual run on a branch cannot restore master's dependency cache once the branch changes a Gradle file
     # (fuzz fails on that miss by design), and it checks code that is not on master, so its failures are not master's.
-    needs: [deps, shard, full, screenshots, lint, android, fuzz, instrumented, e2e, benchmark]
+    needs: [build, full, screenshots, fuzz, emulator]
     if: failure() && github.ref == 'refs/heads/master'
     runs-on: ubuntu-24.04
     timeout-minutes: 5

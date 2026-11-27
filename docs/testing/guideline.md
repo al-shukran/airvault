@@ -4,7 +4,7 @@ Status: implemented on `phase-1-5` (Phase 1.5). Describes the shipped state; see
 
 Today on `master`: JUnit 4 and `kotlin.test` unit tests under `shared/src/test` (the code Lensly and Lumio share: `core/*`, `fuzz`, and the shared screens and components) and under `app/src/test` (the Lensly-only code). `androidTest` sources, Robolectric, Compose UI tests, and `.github/workflows` exist. `org.gradle.caching=true` is set; configuration cache is not.
 
-Packages: `core/wallet`, `core/ur`, `core/vault`, `ui/camera`, `ui/gate`, `ui/wallet`, `ui/components`, `ui/theme`, `ui/navigation`. `core/evm` and `core/registry` are planned; their CI partitions are reserved (2.2).
+Packages: `core/wallet`, `core/ur`, `core/vault`, `ui/camera`, `ui/gate`, `ui/wallet`, `ui/components`, `ui/theme`, `ui/navigation`. `core/evm` and `core/registry` are planned.
 
 ---
 
@@ -72,7 +72,7 @@ Run commands assume the wrapper at the repo root.
 - **Static:** Android Lint security checks (`./gradlew :app:lintDebug`, `SECURITY` issues as errors). Dependencies: OWASP `org.owasp.dependencycheck` nightly; `actions/dependency-review-action` on PRs touching dependency files. Secrets: `gitleaks` on changed files, allowlisting only `vectors/**`.
 - **Manifest guard:** check the merged manifest, since libraries add permissions during merge. Assert no `android.permission.INTERNET`, no `ACCESS_NETWORK_STATE`, and `android:allowBackup="false"`. Script: `scripts/ci/check-manifest.sh` after `:app:processDebugMainManifest`.
 - **Exact-match vectors:** BIP39 (mnemonic-to-seed), BIP32 (test vectors 1 and 2), EIP-155 and EIP-1559 signing examples, in `shared/src/test/resources/vectors/<standard>/`. Each directory has a `README.md` with the source URL and retrieval date.
-- **Fuzzing (Jazzer, `com.code-intelligence:jazzer-junit`):** `UrScanner`/`UrFrames`, `Cbor`, `EthSignRequest`, the RLP transaction decoder (`UnsignedTx`), and the Algorand request parser. The pr-fast `fuzz` job replays seeds as regular tests (JUnit regression mode), in their own JVM through `-PfuzzLane`: Jazzer's agent and Robolectric's sandbox cannot share one. Nightly fuzzes each target for 15 minutes. Minimized crashes become inputs in `shared/src/test/resources/fuzz-regressions/`.
+- **Fuzzing (Jazzer, `com.code-intelligence:jazzer-junit`):** `UrScanner`/`UrFrames`, `Cbor`, `EthSignRequest`, the RLP transaction decoder (`UnsignedTx`), and the Algorand request parser. The gate's `fuzz` step replays seeds as regular tests (JUnit regression mode), in their own JVM through `-PfuzzLane`: Jazzer's agent and Robolectric's sandbox cannot share one. Nightly fuzzes each target for 15 minutes. Minimized crashes become inputs in `shared/src/test/resources/fuzz-regressions/`.
 
 ### 1.9 Accessibility
 
@@ -82,7 +82,7 @@ Run commands assume the wrapper at the repo root.
 
 ### 1.10 Regression
 
-Each fixed bug lands with a failing test in the layer where it was found. Nightly runs every layer across the whole module, which catches cross-package breakage that path filters miss.
+Each fixed bug lands with a failing test in the layer where it was found. Nightly runs the layers the gate leaves out (2.5).
 
 ---
 
@@ -90,109 +90,37 @@ Each fixed bug lands with a failing test in the layer where it was found. Nightl
 
 ### 2.1 Hard requirements
 
-- **No test demand for untouched code.** A partition runs only when its own paths change. No repo-wide coverage gate; any JaCoCo report is informational and limited to changed files.
-- **Each PR lane finishes in 5 minutes wall clock** (budget of 300 s, raised from 3 minutes in #943 on 2026-11-24, because the cache-miss work of a cold lane does not fit in 3 minutes), covering checkout, JDK, cache restore and Gradle. `scripts/ci/lane-budget.sh` measures every lane of every `pr-fast` run. It warns above 240 s, before the 5-minute job timeout, and on master files a `ci-budget` issue for a lane over 300 s.
-- **2.1 amendment (2026-11-12): pr-fast test cap 5 min because** the ui-a partition took 180 s on PR 125 with the Gradle cache restored, and earlier PR runs on the same partitions were killed at the 3-minute cap. Cold work that the cache cannot skip (configuration of about 40 s, since no configuration cache survives to CI, and main and test Kotlin compile of about 55 s) does not fit reliably in 3 minutes. The `test` job sets `timeout-minutes: 5`; the other jobs keep their caps.
-- **Over-budget work moves** to a nightly schedule and a comment command (2.5, 2.6).
-- **Docs, text, and non-build config changes run zero test jobs.** The aggregate job in 2.4 keeps branch protection satisfied.
+- **Fail fast.** The gate runs the cheapest checks that catch the most failures first and stops at the first failure: DCO, the static guards, the secrets scan and dependency review, then the manifest guards, compile, the unit tests and the fuzz seed replays. No `continue-on-error` on a gating step, no Gradle `--continue`, and every test task runs with `--fail-fast`. Finishing fast matters less than failing fast; there is no time budget per job.
+- **Predictable load.** The account runs at most 20 jobs at once, and 5 to 15 pull requests are usually open. Each pull request push starts one gate job (plus the seconds-long `CLA` status job), and a newer push to the same pull request cancels the running gate. Fifteen open pull requests therefore hold at most 15 runners. Heavy or optional work runs nightly, on master, or on a `/run-*` comment, never on every pull request push.
+- **Every pull request runs the whole gate.** There are no path filters: a docs change runs the same job, so the one required check is always meaningful. No repo-wide coverage gate; any JaCoCo report is informational and limited to changed files.
+- **Work that needs a device, the network or a long run goes** to nightly and to comment commands (2.5, 2.6).
 
-### 2.2 Partition map
+### 2.2 What the gate runs
 
-| Partition | Triggers (paths) | Selector |
+`.github/workflows/ci.yml` has one job, `pr-ok`, the single required check. It runs on every pull request to `master` and on every push to `master`. `scripts/ci/run-step.sh <step>` holds the commands of each Gradle step, so a step runs the same way locally.
+
+| Order | Step | Checks |
 |---|---|---|
-| `core-wallet` | `shared`: `core/wallet/**`, `core/solana/**`, `core/algorand/**`, their tests, `vectors/bip39/**`, `vectors/bip32/**` | `:shared` `app.lensly.core.wallet.*`, `app.lensly.core.solana.*`, `app.lensly.core.algorand.*` |
-| `core-ur-evm` | `shared`: `core/ur/**`, `core/evm/**`, their tests, `keystone/**`, `vectors/eip155/**`, `vectors/eip1559/**`, `fuzz/**`, `fuzz-seeds/**` | `:shared` `app.lensly.core.ur.*`, `app.lensly.core.evm.*` and `app.lensly.fuzz.*` |
-| `core-vault` | `shared`: `core/vault/**`, its tests | `:shared` `app.lensly.core.vault.*` (`BackupExclusionTest` runs in `app`) |
-| `core-registry` | `shared`: `core/registry/**`, its tests, the shipped catalogs under `assets/registry/` | `:shared` `app.lensly.core.registry.*` |
-| `core-btc` | `shared`: `core/btc/**`, its tests, `vectors/bitcoin/**` | `:shared` `app.lensly.core.btc.*` |
-| `ui-a` | `ui/**` in `app` and `shared`, their tests, `shared/src/testFixtures/`, `res/values/strings.xml` (same paths as `ui-b`) | `:app` `app.lensly.ui.{settings,wallet,navigation,a11y,screenshot}.*`; `:shared` `app.lensly.ui.{camera,qr,theme,navigation,settings}.*` (`screenshot` is excluded by `-PprLane`) |
-| `ui-b` | same as `ui-a` | `:app` `app.lensly.ui.{flow,profile,components}.*`; `:shared` `app.lensly.ui.{components,gate}.*` and `app.lensly.ui.SecureWindowTest` |
-| `ui-c` | same as `ui-a` | `:app` `app.lensly.ui.{home,sign}.*` |
-| `lumio-a` | `lumio/**`, `shared/**`, the root build files (same paths as `lumio-b`) | `:lumio:testDebugUnitTest` `app.lumio.ui.*` |
-| `lumio-apk` | same as `lumio-a` | `:lumio:assembleDebug` (no tests; dexing alone takes about 85 s on a cold cache) |
-| `lumio-b` | same as `lumio-a` | `:lumio:testDebugUnitTest` `app.lumio.{chains,evm,home,network,pair,send,tokens,wallets}.*`, `app.lumio.LumioBackdropTest`, `app.lumio.EntryGestureSettingTest`, `app.lumio.CoverLockTest` and `app.lumio.SendRouteTest` |
-| `lumio-c` | same as `lumio-a` | `:lumio:testDebugUnitTest` `app.lumio.btc.*` |
-| `lumio-d` | same as `lumio-a` | `:lumio:testDebugUnitTest` `app.lumio.data.*` |
-| `manifest` | `app/src/**/AndroidManifest.xml`, `shared/src/**/AndroidManifest.xml`, `lumio/src/**/AndroidManifest.xml`, `gradle/libs.versions.toml`, `app/build.gradle.kts`, `shared/build.gradle.kts`, `lumio/build.gradle.kts`, `scripts/ci/check-manifest.sh` | `check-manifest.sh` (`:app` offline, `:lumio` allow-list) |
-| `ci` | `scripts/ci/**`, `.github/workflows/**`, `.gitleaks.toml`, and the test source sets `app/src/test/**`, `shared/src/test/**`, `lumio/src/test/**` | `bash -n` on every script, then `check-partitions.sh` and `check-test-network.sh` |
+| 1 | DCO | Every commit of the pull request has a matching `Signed-off-by` trailer (`scripts/dco_check.py`; pull requests only). |
+| 2 | `static` | `bash -n` on every script, the test-network guard (3), the mnemonic, cleartext and workflow guards, and the guard self-test. No Gradle. |
+| 3 | Secrets scan, dependency review | gitleaks over the commits of the event; `dependency-review-action` fails on a high-severity finding (pull requests only). |
+| 4 | Dependencies | Restores the dependency cache; on a miss, `resolve` fetches every configuration online with retries. Every later step runs `--offline`. |
+| 5 | `manifest` | `check-manifest.sh` (`:app` offline, `:lumio` allow-list), the release manifest of `:app`, no OkHttp on its release classpath. |
+| 6 | `compile` | The main and unit-test code of `:app`, `:lumio`, `:shared` and every pure JVM module with tests. |
+| 7 | `unit` | Every unit test, with `-PskipScreenshotTests` (the Roborazzi pixel tests of `:app` and `:lumio` are recorded nightly, 2.5). |
+| 8 | `fuzz` | The Jazzer seed replays, in their own JVM through `-PfuzzLane`. |
 
-The `ui` tests split in three so each stays under its cap, and the `lumio` tests and debug APK split into five so each `test` job of `pr-fast` stays under its 5-minute cap. Every test class in `app`, `shared` and `lumio` must be listed in exactly one arm of `run-partition.sh`, in the Gradle call for the module that holds it. A package can hold classes in two modules (`app.lensly.ui.navigation` has one in each), so the match is per module and per class. `check-partitions.sh` fails the `ci` partition when a class is in no arm or in two. It also runs on any PR that touches a test source set, so a new test class is checked on its own PR.
-
-Build paths (`build.gradle.kts`, `gradle.properties`, `settings.gradle.kts`, `gradle/**`) trigger every unit partition. This is the one exception to "touched code only", because build changes can affect any package. Needs confirmation.
-
-A `core` change does not run `ui`; `ui` depends on `core`, and the nightly run covers that gap.
+New test classes and new pure JVM modules need no CI change: the unit step runs each module's whole test task and finds JVM modules by their `src/test` directory.
 
 ### 2.3 Speed levers
 
-- Enable `org.gradle.configuration-cache=true`. Build cache is already on.
-- `gradle/actions/setup-gradle` caches the Gradle user home (saved on `master`, restored on PRs). Also cache `~/.m2/repository/org/robolectric`, keyed on the Robolectric version.
-- One filtered Gradle task per job; the build cache absorbs unchanged compile tasks. Split or move any lane over the 5-minute budget.
+- `org.gradle.configuration-cache=true` and the build cache are on. CI never saves the configuration cache (it records the runner's JDK path).
+- The dependency cache is keyed on the build files; master saves one pruned build cache (`bc-master`) that pull requests restore (`scripts/ci/README.md`).
+- Gradle runs the modules' tasks in parallel inside the one job (`org.gradle.parallel=true`), so splitting the gate into more jobs would only add queueing.
 
-### 2.4 PR fast lane
+### 2.4 Master and the ci-red alarm
 
-```yaml
-# .github/workflows/pr-fast.yml
-name: pr-fast
-on:
-  pull_request:
-    branches: [master]
-concurrency:
-  group: pr-fast-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-permissions:
-  contents: read
-jobs:
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      partitions: ${{ steps.filter.outputs.changes }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            core-wallet:
-              - 'shared/src/main/java/app/lensly/core/wallet/**'
-              - 'shared/src/test/java/app/lensly/core/wallet/**'
-              - 'shared/src/main/java/app/lensly/core/solana/**'
-              - 'shared/src/test/java/app/lensly/core/solana/**'
-              - 'shared/src/main/java/app/lensly/core/algorand/**'
-              - 'shared/src/test/java/app/lensly/core/algorand/**'
-              - 'shared/src/test/resources/vectors/bip39/**'
-              - 'shared/src/test/resources/vectors/bip32/**'
-              - 'build.gradle.kts'
-              - 'app/build.gradle.kts'
-              - 'shared/build.gradle.kts'
-              - 'gradle/**'
-              - 'gradle.properties'
-            # one entry per row of the 2.2 table
-  test:
-    needs: changes
-    if: needs.changes.outputs.partitions != '[]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    strategy:
-      fail-fast: false
-      matrix:
-        partition: ${{ fromJSON(needs.changes.outputs.partitions) }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-      - run: scripts/ci/run-partition.sh "${{ matrix.partition }}"
-  pr-ok:                       # the single required check
-    needs: [changes, test]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - run: '! { [ "${{ needs.test.result }}" = failure ] || [ "${{ needs.test.result }}" = cancelled ]; }'
-```
-
-`scripts/ci/run-partition.sh` maps each name to its selector (2.2) and runs `check-manifest.sh` for `manifest`.
+The same `ci.yml` job runs on every push to `master`, so what a pull request verified is what master builds after it lands. On a master push it also saves the build cache and warns (never fails) when product code changed without a changelog fragment. `master-red.yml` opens or comments on the one open `ci-red` issue when that run fails on master, and closes it once master is green again.
 
 ### 2.5 Nightly, issue on failure
 
@@ -217,13 +145,13 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew test lintDebug verifyRoborazziDebug dependencyCheckAnalyze --continue
+      - run: ./gradlew test lintDebug verifyRoborazziDebug dependencyCheckAnalyze
   # A single report job (needs: every job, if: failure()) opens or comments on the
   # nightly-failure issue once, listing the failed jobs. .github/workflows/nightly.yml
   # holds the gh commands; no job copies them.
 ```
 
-Create the `nightly-failure` label once. Device and fuzz jobs are added to this file as separate jobs. Instead of a copy of the issue step in each job, one `report` job takes `needs` on every job, runs `if: failure()`, and opens or comments once with the run URL and the list of failed jobs, so parallel failures cannot open several issues.
+Create the `nightly-failure` label once. The shipped file runs `build` (lint and the Android build) first and the goldens, fuzzing and one emulator job after it, so a master that does not build stops there; the R8 build and OWASP run on their own. Instead of a copy of the issue step in each job, one `report` job takes `needs` on every job, runs `if: failure()`, and opens or comments once with the run URL and the list of failed jobs, so parallel failures cannot open several issues.
 
 ### 2.6 Comment-triggered runs
 
@@ -271,15 +199,14 @@ Durations are estimates, to be measured in Phase 1.5.
 
 | Test type | Trigger | Expected wall clock |
 |---|---|---|
-| Unit `core/*` | PR fast lane, partition paths | 1 to 2 min warm |
-| Integration and UI (Robolectric) | PR fast lane, `ui-a`, `ui-b` and `ui-c` partitions | up to 5 min each; split or move if over |
-| Manifest guard | PR fast lane, manifest and dependency paths | about 1 min |
-| Secrets scan, dependency review | PR fast lane, changed files | under 30 s |
+| Unit, integration and UI (Robolectric), seed replays | gate (`ci.yml`), every pull request and master push | one job; no time budget |
+| Manifest guard | gate | about 1 min |
+| Secrets scan, dependency review | gate, the commits of the event | under 30 s |
 | Screenshot (Roborazzi record) | nightly, on each master push and at 03:17 UTC; `/run-screenshot-testing` | 5 to 10 min |
 | Lint (security) and OWASP | nightly; `/run-security` | 10 to 15 min |
 | Instrumented (emulator) | nightly; `/run-instrumented` | 15 to 25 min |
 | E2E flow (emulator) | nightly; `/run-e2e` | 20 to 30 min |
-| Fuzz (5 targets in parallel) | nightly; `/run-fuzz` | about 20 min |
+| Fuzz (5 targets, one after another) | nightly; `/run-fuzz` | about 75 min nightly, 5 min on `/run-fuzz` |
 | Benchmarks | nightly trend (emulator); `/run-perf` gates on device | 20 to 30 min |
 | Manual Rabby and MetaMask | release checklist | not CI |
 
@@ -289,7 +216,7 @@ Durations are estimates, to be measured in Phase 1.5.
 
 - **Names:** `<Subject>Test.kt` mirrors the main package. Methods are camelCase and state the expectation (`addressZeroMatchesStandardVector`), in `androidTest` too.
 - **Vectors:** `shared/src/test/resources/vectors/<standard>/`, or `keystone/` for UR captures. Assert exact bytes or addresses, never "not null".
-- **No network:** release has no INTERNET permission. Tests use local fixtures only. The PR lane fails if test code references `java.net.`, `HttpURLConnection`, or `URL(`.
+- **No network:** release has no INTERNET permission. Tests use local fixtures only. The gate fails if test code references `java.net.`, `HttpURLConnection`, or `URL(`.
 - **Determinism:** inject `Clock` (`core/vault/Clock.kt`; `FakeClock` exists) and an entropy interface. Use seeded `kotlin.random.Random` in tests. No wall-clock time or `Thread.sleep`. For `SecureRandom` output, assert length and uniqueness only.
 - **Secrets:** fixtures hold only public material: the BIP39 `abandon … about` mnemonic and published vectors. Fixture passwords start with `TEST_ONLY_`. Never a key that has held funds. `gitleaks` allowlists `vectors/**` only.
 - **Test-only code** lives in `src/test` and `src/androidTest`, never in `src/main`.
@@ -299,9 +226,9 @@ Durations are estimates, to be measured in Phase 1.5.
 ## 4. Phase 1.5 implementation checklist
 
 1. Enable `org.gradle.configuration-cache=true`; confirm the build passes.
-2. Add `scripts/ci/run-partition.sh`, `run-extended.sh`, `check-manifest.sh`.
-3. Add `pr-fast.yml` (2.4) with a filter row for each partition in 2.2. Create the `area:ci` label.
-4. Add `gitleaks`, the manifest guard, and dependency review to the PR lane. Measure PR runs; move anything that takes over 5 minutes to nightly.
+2. Add `scripts/ci/run-step.sh`, `run-extended.sh`, `check-manifest.sh`.
+3. Add `ci.yml` (2.2) with `pr-ok` as the required check. Create the `area:ci` label.
+4. Add `gitleaks`, the manifest guard, and dependency review to the gate. Anything that needs a device or the network goes to nightly.
 5. Add catalog entries: `ui-test-junit4`, Robolectric, Roborazzi, `espresso-accessibility`, UI Automator, Microbenchmark, Macrobenchmark, Jazzer. Pin versions at least two weeks old.
 6. Add the WCAG contrast test for `ui/theme/Color.kt` and the standard vectors with exact-match tests.
 7. Add Jazzer targets for `UrScanner`, `Cbor`, `EthSignRequest`; commit seeds; enable PR replay.
@@ -318,17 +245,15 @@ Durations are estimates, to be measured in Phase 1.5.
 Where the shipped build differs from the text above:
 
 - **JDK:** CI uses temurin `21.0.13+9` (pinned, not the floating `21`), not the `java-version: '17'` in the 2.4 and 2.5 YAML. The application still targets Java 17.
-- **Partitions:** the PR lane also has `core-parse`, `app` and `registry-pack`, because tests already live in those packages. `core-ur-evm` also selects `app.lensly.core.evm.*`.
-- **`ui` and pixels:** the `ui-a`, `ui-b` and `ui-c` partitions pass `-PprLane`, which excludes `app.lensly.ui.screenshot.*` from the PR lane. Pixel tests run nightly, where the `screenshots` job records the goldens.
-- **Dependency graph:** enabled. The repository variable `DEPENDENCY_GRAPH_ENABLED=true` keeps both halves live: the submission job in `dependency-graph.yml` submits the Gradle graph and succeeds, and `dependency_review` in `pr-fast.yml` diffs it on dependency changes. There is no `continue-on-error`, so a high-severity finding fails `pr-ok`. Reference: https://github.com/al-shukran/airvault/settings/security_analysis.
+- **Pixels:** the gate's unit step passes `-PskipScreenshotTests`, which excludes every `*ScreenshotTest` of `:app` and `:lumio`. Pixel tests run nightly, where the `screenshots` job records the goldens.
+- **Dependency graph:** enabled. The repository variable `DEPENDENCY_GRAPH_ENABLED=true` keeps both halves live: the submission job in `dependency-graph.yml` submits the Gradle graph and succeeds, and the Dependency review step of `ci.yml` diffs it on dependency changes. There is no `continue-on-error`, so a high-severity finding fails `pr-ok`. Reference: https://github.com/al-shukran/airvault/settings/security_analysis.
 - **OWASP:** `dependencyCheckAnalyze` runs nightly and reads an optional `NVD_API_KEY`. A cold run takes 10 to 15 min.
-- **Fuzz isolation:** Jazzer and Robolectric cannot share a JVM. Running a fuzz target first corrupts the Robolectric sandbox, and later Robolectric tests fail with `NoClassDefFoundError: JazzerInternal`. The fuzz tests therefore sit behind `-PfuzzLane`, which `run-partition.sh`, `fuzz-nightly.sh` and `nightly.yml` each pass in a separate Gradle invocation.
-- **Benchmark lane:** the benchmark variant needs `benchmarkImplementation` so `androidx.benchmark.IsolationActivity` merges into the application APK; without it every run fails with "Unable to resolve activity for androidx.benchmark.IsolationActivity". The lane runs only `app.lensly.benchmark.*`. Baselines need a manual AOT compile on a reference device, because a Gradle run reinstalls and clears the compiled code; the procedure is in `app/src/androidTest/benchmark-baselines/README.md`.
+- **Fuzz isolation:** Jazzer and Robolectric cannot share a JVM. Running a fuzz target first corrupts the Robolectric sandbox, and later Robolectric tests fail with `NoClassDefFoundError: JazzerInternal`. The fuzz tests therefore sit behind `-PfuzzLane`, which `run-step.sh` (the fuzz step) and `fuzz-nightly.sh` each pass in a separate Gradle invocation.
+- **Benchmark run:** the benchmark variant needs `benchmarkImplementation` so `androidx.benchmark.IsolationActivity` merges into the application APK; without it every run fails with "Unable to resolve activity for androidx.benchmark.IsolationActivity". The run covers only `app.lensly.benchmark.*`. Baselines need a manual AOT compile on a reference device, because a Gradle run reinstalls and clears the compiled code; the procedure is in `app/src/androidTest/benchmark-baselines/README.md`.
 - **Macrobenchmark:** lives in the separate `:benchmark` module (`com.android.test`). Baselines must be recorded on the reference device.
-- **Cache warm:** `scripts/ci/cache-warm.yml` warms the Gradle cache on pushes to `master` and `phase-1-5`. A cold branch previously hit the 3-minute job cap.
 - **E2E:** the `FrameSource` seam plus `app.lensly.e2e.WalletSignFlowTest` are verified on an API 36 arm64 emulator. The `/run-*` comment commands only work once the workflow exists on the default branch.
 - **Policy, `FixtureDecoder` in `src/main`:** `FixtureDecoder` and the public `frameSource` parameter ship in `src/main` so the E2E can feed frames through the real decoder. This is a deliberate exception to §3; moving it to `src/test` would change the application's camera API.
 - **Policy, benchmark gate scope:** the 10% gate enforces only on the reference device (`--reference-device`, or `BENCHMARK_REFERENCE_DEVICE=1`). Elsewhere it prints "no verdict" and never passes silently.
-- **Policy, required check:** `pr-ok` is the required check; `master` and `phase-1-5` are protected and require it, and admins may bypass.
+- **Policy, required check:** `pr-ok` is the required check; `master` is protected and requires it, and admins may bypass.
 - **Policy, `/run-fuzz` and `/run-perf`:** `/run-fuzz` runs each Jazzer target for 60 seconds; `/run-perf` runs on the self-hosted `android-ref` runner, not an emulator.
 - **Policy, interactive borders:** interactive input borders use `LenslyOutlineInteractive` (3:1 contrast); `LenslyOutline` stays decorative.

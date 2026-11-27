@@ -65,16 +65,14 @@ Never commit a video. `.gitignore` ignores `*.mp4`, `*.mov`, and `*.webm`, and t
 
 CI is the gate. `.github/workflows/` holds one file per workflow:
 
-- `pr-fast.yml` runs the blocking checks (unit-test shards that also compile both apps' debug code, fuzz seed replays, CI guards, secrets scan, dependency review, manifest guard) on pull requests, the merge queue, and master, then aggregates them into `pr-ok`, the only required check. Each one finishes in about 3 minutes or less.
-- `changelog.yml` warns on master pushes that change product code without a changelog fragment. It never blocks.
+- `ci.yml` is the gate on pull requests and master: one job, `pr-ok`, the only required check. Its steps run cheapest first and stop at the first failure: DCO (every commit has a matching `Signed-off-by` trailer), the static guards, the secrets scan, dependency review, the manifest guards, compile, the unit tests, and the fuzz seed replays. On a master push it also warns when product code changed without a changelog fragment; that warning never blocks.
 - `cla.yml` sets the `CLA` status on every pull request.
-- `dco.yml` checks that every commit in a pull request has a matching `Signed-off-by` trailer.
-- `nightly.yml` runs on master pushes and on a schedule: screenshot golden refresh, lint, and APK compile. The schedule adds the unit-test shards, the R8 build, CVE scan, real fuzzing, emulator, end-to-end, and benchmark jobs. Nothing in it blocks a pull request; a failing check opens or refreshes one issue for that check.
-- `codeql.yml` scans four languages on a schedule and on master pushes, and `codeql-command.yml` runs it on `/run-codeql`. Neither runs on pull requests by itself.
+- `nightly.yml` runs on master pushes and on a schedule: lint, the APK and androidTest compile, then the screenshot golden refresh. The schedule adds the unit tests, the R8 build, the CVE scan, real fuzzing, and one emulator job for the instrumented, end-to-end and benchmark tests. Nothing in it blocks a pull request; a failing check opens or refreshes one issue for that check.
+- `codeql.yml` scans four languages, one at a time, on a schedule and on master pushes, and `codeql-command.yml` runs it on `/run-codeql`. Neither runs on pull requests by itself.
 - `comment-run.yml` runs host, emulator, and device jobs from trusted `/run-*` comments.
 - `dependency-graph.yml` submits the Gradle dependency graph so dependency review can diff it.
 - `release.yml` builds the APK for a `lensly-v*` or `lumio-v*` tag and publishes that app's changelog section with the release notes.
-- `master-red.yml` opens the rolling `ci-red` issue when `pr-fast` fails on master. `cache-cleanup.yml` maintains stale caches, and `record-goldens.yml` records screenshot goldens on demand.
+- `master-red.yml` opens the rolling `ci-red` issue when `ci` fails on master. `cache-cleanup.yml` maintains stale caches, and `record-goldens.yml` records screenshot goldens on demand.
 
 Nothing about a change is verified until CI says so. Before you push, run the checks that finish quickly:
 
@@ -83,7 +81,7 @@ python3 scripts/changelog_fragments.py --check --base origin/master
 ./gradlew :app:testDebugUnitTest :lumio:testDebugUnitTest
 ```
 
-For a single CI partition, use `scripts/ci/run-partition.sh <partition>`. The partition names are in [docs/testing/README.md](docs/testing/README.md). Gradle needs a JDK and the Android SDK.
+For a single gate step, use `scripts/ci/run-step.sh <step>`. The step names are in [docs/testing/README.md](docs/testing/README.md). Gradle needs a JDK and the Android SDK.
 
 ## Releasing
 

@@ -169,5 +169,5 @@ entries file has one.
 
 ## Tests
 
-`./gradlew :tools:registry-pack:test` (also `scripts/ci/run-partition.sh registry-pack`) covers the round trip with a
+`./gradlew :tools:registry-pack:test` (also part of `scripts/ci/run-step.sh unit`) covers the round trip with a
 passphrase, a wrong passphrase, tampering, invalid entries, and that the committed sample verifies with the debug key.

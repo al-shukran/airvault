@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Jazzer fuzzing run: 15 minutes per target by default (docs/testing/guideline.md 1.8, checklist 7).
 #
-# The PR lane runs the same targets in regression mode with no flags: Jazzer replays the committed seeds as
+# The ci.yml gate runs the same targets in regression mode with no flags: Jazzer replays the committed seeds as
 # ordinary JUnit tests. Here JAZZER_FUZZ turns one target at a time into a real fuzzing run.
 #
 # Duration comes from the @FuzzTest annotation (maxDuration = "15m"), which Jazzer passes to libFuzzer as
@@ -13,8 +13,8 @@
 # run replays as soon as the file is committed.
 #
 # Usage: scripts/ci/fuzz-nightly.sh [--list] [--seconds N] [target]
-#   no target  fuzzes all five, one Gradle invocation each (about 75 minutes at 15 minutes per target)
-#   target     fuzzes that one target only; the nightly workflow uses one matrix job per target
+#   no target  fuzzes all five, one Gradle invocation each (about 75 minutes at 15 minutes per target); nightly runs this
+#   target     fuzzes that one target only
 #   --seconds  cap each target at N seconds instead of the 15-minute annotation (/run-fuzz uses 60)
 set -euo pipefail
 
@@ -106,11 +106,10 @@ else
     label="15 minutes"
 fi
 
-# The fuzz lane runs no Robolectric test, so it does not fetch the Robolectric SDK jar (-x). Its remaining Maven Central
-# downloads get a longer retry budget than gradle.properties sets (-D, Gradle's repository retry): a HTTP 429 burst from
-# Maven Central outlasted that budget in nightly fuzz legs. Changing gradle.properties or a build script would also change the
-# dependency-cache key in pr-fast.yml and force an online resolve in the PR lane, so the longer budget is set here, for the
-# fuzz lane only.
+# Fuzzing runs no Robolectric test, so it does not fetch the Robolectric SDK jar (-x). Its remaining Maven Central
+# downloads get more retries than gradle.properties sets (-D, Gradle's repository retry): a HTTP 429 burst from Maven Central
+# outlasted that setting in nightly fuzz runs. Changing gradle.properties or a build script would also change the
+# dependency-cache key in ci.yml and force an online resolve in the gate, so the extra retries are set here, for fuzzing only.
 fuzz_flags=(-x :syncRobolectricSdk -Dorg.gradle.internal.repository.max.tentatives=8)
 
 status=0
