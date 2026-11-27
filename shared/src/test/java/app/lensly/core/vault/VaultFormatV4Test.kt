@@ -8,8 +8,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
+import org.junit.Assume.assumeFalse
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -29,7 +32,17 @@ class VaultFormatV4Test {
         val keys = MemoryKeystore()
         val layout = VaultLayout(File(tmp.root, name))
         var erased = 0
-        val vault = Vault(layout, wrap(keys), clock, KDF, onErased = { erased++ })
+
+        /** True while the boot count cannot be read, which makes the Failure Delay state unreadable. */
+        var stateUnreadable = false
+        val vault = Vault(
+            layout,
+            wrap(keys),
+            clock,
+            KDF,
+            readBootCount = { if (stateUnreadable) throw VaultException("The boot count cannot be read.") else null },
+            onErased = { erased++ },
+        )
 
         fun create(password: String = APP) {
             assertEquals(CreateResult.Created, runBlocking { vault.create(password.toCharArray()) })
@@ -355,6 +368,81 @@ class VaultFormatV4Test {
         assertTrue(runBlocking { rig.vault.finishPendingWipe() })
 
         assertTrue(rig.vault.isBeforeSetup())
+        assertEquals(1, rig.erased)
+    }
+
+    // The key file's commit reaches the disk, and the biometric unlock reads the Failure Delay state best effort.
+
+    @Test
+    fun aKeyFileCommitSyncsTheVaultFolderAndAFailedSyncDoesNotNameTheOldFileAgain() {
+        val rig = Rig("a")
+        rig.create()
+        val session = rig.unlocked(APP)
+        val folder = rig.layout.root
+        // A folder that can be written and entered but not opened for reading: only the sync of the folder itself fails.
+        folder.setReadable(false)
+        try {
+            assumeFalse("The folder is still readable, so its sync cannot fail here.", folder.canRead())
+            assertFailsWith<java.io.IOException> { runBlocking { rig.vault.rekey(session, CHANGED.toCharArray()) } }
+        } finally {
+            folder.setReadable(true)
+        }
+        session.close()
+
+        // The new file is in place and the state names it, so the vault opens under the new password and is not erased.
+        rig.unlocked(CHANGED).close()
+        assertEquals(0, rig.erased)
+    }
+
+    @Test
+    fun anUnreadableFailureStateDoesNotStopTheBiometricUnlockAndDoesNotResetTheCount() {
+        val rig = Rig("a")
+        rig.create()
+        val session = rig.unlocked(APP)
+        val vaultKey = session.copyOfVaultKey()
+        session.close()
+        assertEquals(UnlockResult.Rejected, rig.attempt(WRONG))
+        assertEquals(1, rig.vault.failureCountForTesting())
+
+        rig.stateUnreadable = true
+        val opened = assertNotNull(runBlocking { rig.vault.unlockWithVaultKey(vaultKey) })
+        opened.close()
+        rig.stateUnreadable = false
+
+        assertEquals(1, rig.vault.failureCountForTesting())
+    }
+
+    @Test
+    fun anUnreadableFailureStateStillErasesAKeyFileThatIsNotOne() {
+        val rig = Rig("a")
+        rig.create()
+        val session = rig.unlocked(APP)
+        val vaultKey = session.copyOfVaultKey()
+        session.close()
+        rig.layout.vaultKey.writeBytes(rig.layout.vaultKey.readBytes().copyOf(VaultKeyFile.FILE_BYTES - 1))
+
+        rig.stateUnreadable = true
+        assertNull(runBlocking { rig.vault.unlockWithVaultKey(vaultKey) })
+
+        assertFalse(rig.layout.exists())
+        assertEquals(1, rig.erased)
+    }
+
+    @Test
+    fun anOlderKeyFileErasesTheVaultOnTheBiometricPathAndTheCountIsNotReset() {
+        val rig = Rig("a")
+        rig.create()
+        val older = rig.layout.vaultKey.readBytes()
+        val session = rig.unlocked(APP)
+        val vaultKey = session.copyOfVaultKey()
+        assertEquals(CreateResult.Created, runBlocking { rig.vault.rekey(session, CHANGED.toCharArray()) })
+        session.close()
+        assertEquals(UnlockResult.Rejected, rig.attempt(WRONG))
+        rig.layout.vaultKey.writeBytes(older)
+
+        assertNull(runBlocking { rig.vault.unlockWithVaultKey(vaultKey) })
+
+        assertFalse(rig.layout.exists())
         assertEquals(1, rig.erased)
     }
 
