@@ -130,7 +130,20 @@ run_compile() {
     gradle "${tasks[@]}"
 }
 
+# Gradle reports NO-SOURCE, and passes, for a module whose src/test folder was renamed or removed, so the unit step would go green
+# with no tests. Each of the three Android modules must keep a test source file.
+require_unit_tests() {
+    local module
+    for module in app lumio shared; do
+        if [ -z "$(find "$module/src/test" -name '*Test.kt' -print -quit 2>/dev/null)" ]; then
+            echo "error: $module/src/test is missing or holds no *Test.kt file; the unit step would pass with no $module tests" >&2
+            exit 1
+        fi
+    done
+}
+
 run_unit() {
+    require_unit_tests
     # -PskipScreenshotTests leaves out the pixel tests of :app and :lumio (root build.gradle.kts); nightly records their goldens.
     # :shared leaves out the fuzz targets unless -PfuzzLane is set (shared/build.gradle.kts), so the fuzz step runs them alone.
     local -a tasks=(

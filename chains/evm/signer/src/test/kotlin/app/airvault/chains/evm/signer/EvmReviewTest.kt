@@ -702,6 +702,29 @@ class EvmReviewTest {
     }
 
     @Test
+    fun anErc20TransferOfAnUnlistedTokenToASystemAddressSaysLenslyCannotConfirmItBelongsToTheToken() {
+        val call = ContractCall.Transfer(TOKEN_SYSTEM, BigInteger.valueOf(1_000_000)).encode()!!
+        val review = reviewOf(txParsed(HYPEREVM_TOKEN, call, chainId = 999), builder(HYPEREVM_REGISTRY))
+
+        val warning = review.warnings.single { it.code == "evm.hypercore-system-destination" }
+        assertEquals(Danger.DANGER, warning.level)
+        assertEquals(
+            "This sends tokens to a HyperCore system address. Lensly cannot confirm this system address belongs to this token. " +
+                "Funds sent to the wrong system address may be lost. Check the address before you sign.",
+            warning.message,
+        )
+    }
+
+    @Test
+    fun anErc20TransferOfAListedTokenToAnotherTokensSystemAddressStillSaysItDoesNotBelongToIt() {
+        val foreign = ContractCall.Transfer(TOKEN_SYSTEM, BigInteger.valueOf(1_000_000)).encode()!!
+        val review = reviewOf(txParsed(HYPEREVM_USDT0_TX, foreign, chainId = 999), builder(HYPEREVM_REGISTRY))
+
+        val warning = review.warnings.single { it.code == "evm.hypercore-system-destination" }
+        assertTrue(warning.message.contains("does not belong to this token"))
+    }
+
+    @Test
     fun anErc20TransferByAnUnlinkedContractToATokenSystemAddressKeepsItsFunctionTitle() {
         val call = ContractCall.Transfer(TOKEN_SYSTEM, BigInteger.valueOf(1_000_000)).encode()!!
         val review = reviewOf(txParsed(HYPEREVM_UNLINKED, call, chainId = 999), builder(HYPEREVM_REGISTRY))
@@ -755,6 +778,24 @@ class EvmReviewTest {
         val toHype = reviewOf(txParsed(HYPE_SYSTEM, ByteArray(0), BigInteger.TEN.pow(18), chainId = 999), builder(HYPEREVM_REGISTRY))
         assertTrue(toHype.warnings.none { it.code == "evm.hypercore-system-destination" })
         val elsewhere = reviewOf(txParsed(org.web3j.crypto.Keys.toChecksumAddress(TOKEN_SYSTEM), ByteArray(0), BigInteger.TEN.pow(18), chainId = 1))
+        assertTrue(elsewhere.warnings.none { it.code == "evm.hypercore-system-destination" })
+    }
+
+    @Test
+    fun aNativeSendWithCallDataToATokenSystemAddressOnHyperEvmGetsTheSystemAddressDanger() {
+        // An unknown call is refused under the Block policy, so the warning is read under the Warn policy.
+        val warned = builder(HYPEREVM_REGISTRY, unknownCalls = UnknownCallPolicy.WARN)
+        val data = byteArrayOf(0x12, 0x34, 0x56, 0x78)
+        val to = org.web3j.crypto.Keys.toChecksumAddress(TOKEN_SYSTEM)
+        val review = reviewOf(txParsed(to, data, BigInteger.TEN.pow(18), chainId = 999), warned)
+        assertEquals(listOf(Danger.DANGER), review.warnings.filter { it.code == "evm.hypercore-system-destination" }.map { it.level })
+
+        // HYPE's own address, a zero value and another chain are not warned.
+        val toHype = reviewOf(txParsed(HYPE_SYSTEM, data, BigInteger.TEN.pow(18), chainId = 999), warned)
+        assertTrue(toHype.warnings.none { it.code == "evm.hypercore-system-destination" })
+        val noValue = reviewOf(txParsed(to, data, chainId = 999), warned)
+        assertTrue(noValue.warnings.none { it.code == "evm.hypercore-system-destination" })
+        val elsewhere = reviewOf(txParsed(to, data, BigInteger.TEN.pow(18), chainId = 1), builder(unknownCalls = UnknownCallPolicy.WARN))
         assertTrue(elsewhere.warnings.none { it.code == "evm.hypercore-system-destination" })
     }
 
