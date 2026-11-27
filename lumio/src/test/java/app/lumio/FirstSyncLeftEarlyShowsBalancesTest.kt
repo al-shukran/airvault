@@ -110,7 +110,7 @@ class FirstSyncLeftEarlyShowsBalancesTest {
 
     @Test
     fun leavingTheFirstSyncEarlyStillShowsTheBalancesItReads() {
-        assertEquals(GateOutcome.Opened, runBlocking { createFirstVault(holder, PASSWORD.toCharArray(), context) })
+        assertEquals(GateOutcome.Opened, runBlocking { createFirstVault(holder, PASSWORD.toCharArray()) })
         val rpcUrl = rpc.url("/").toString()
         EvmSettingsStore.write(
             checkNotNull(holder.openSession()),

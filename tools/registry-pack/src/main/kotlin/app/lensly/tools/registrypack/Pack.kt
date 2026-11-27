@@ -28,6 +28,19 @@ data class PackageDto(
     val denylist: List<DenylistDto>? = null,
     /** Optional. Omitted, the app keeps its built-in wallets. An empty list clears them. Needs minSchemaVersion 2. */
     val wallets: List<WalletDto>? = null,
+    /** Optional. Omitted, the app keeps its built-in Solana fee constants. Needs minSchemaVersion 6. */
+    val solanaFees: SolanaFeesDto? = null,
+    /** The IDs (16 lowercase hex digits) of the signing keys this package revokes. Needs minSchemaVersion 6. Omitted when empty. */
+    val revokedKeys: List<String> = emptyList(),
+)
+
+/** The network constants behind a Solana review's fee: the base fee of a signature, the default compute units of an instruction, and the cap. */
+@Serializable
+data class SolanaFeesDto(
+    val lamportsPerSignature: Long,
+    val defaultUnitsPerInstruction: Long,
+    val builtinUnitsPerInstruction: Long,
+    val maxUnits: Long,
 )
 
 /**
@@ -141,7 +154,7 @@ enum class NetworkKind { LAYER_1, LAYER_2 }
 internal object Pack {
     const val FORMAT_VERSION = 2
     /** The newest catalog schema the app reads. A package may not need a newer one. */
-    const val SCHEMA_VERSION = 5
+    const val SCHEMA_VERSION = 6
 
     /** The schema that adds dynamic, array and tuple arguments, and the names of tuple fields, to whitelist entries. */
     private const val ARGUMENTS_SCHEMA = 3
@@ -151,6 +164,21 @@ internal object Pack {
 
     /** The schema that adds the denylist's party. */
     private const val PARTY_SCHEMA = 5
+
+    /** The schema that adds the Solana fee constants and the revoked key IDs. */
+    private const val FEES_AND_REVOCATION_SCHEMA = 6
+
+    /**
+     * The smallest value of each Solana fee constant, the build's own (`SolanaFees.DEFAULT`), and the factor of it that a package may reach
+     * at most. A package can raise a fee but never understate one. The app enforces the same bounds; keep the two equal.
+     */
+    private val FEE_FLOORS = linkedMapOf(
+        "lamportsPerSignature" to 5_000L,
+        "defaultUnitsPerInstruction" to 200_000L,
+        "builtinUnitsPerInstruction" to 3_000L,
+        "maxUnits" to 1_400_000L,
+    )
+    private const val FEE_CEILING_FACTOR = 1_000L
 
     const val MAX_BYTES = 1 shl 20
 
@@ -165,13 +193,28 @@ internal object Pack {
     private const val MAX_DECIMALS = 36
     private val CONTRACT = Regex("0x[0-9a-f]{40}")
     private val SELECTOR = Regex("0x[0-9a-f]{8}")
+    private val KEY_ID = Regex("[0-9a-f]{${KEY_ID_BYTES * 2}}")
     private val CODE_HASH = Regex("0x[0-9a-f]{64}")
     private val json = Json
 
-    /** Builds a signed package from entries JSON. The same entries and seed always give the same bytes. */
-    fun build(entriesJson: String, seed: ByteArray): Pair<ByteArray, PackageDto> {
+    /**
+     * Builds a signed package from entries JSON. The same entries and seed always give the same bytes. A package may add a
+     * revocation only when [recoveryKey] says the seed is a recovery key's: the app refuses one signed by any other. The keys in
+     * [standing] (the revocations already in force) may be restated by any key.
+     */
+    fun build(
+        entriesJson: String,
+        seed: ByteArray,
+        recoveryKey: Boolean = false,
+        standing: Set<String> = emptySet(),
+    ): Pair<ByteArray, PackageDto> {
         val content = json.decodeFromString<PackageDto>(entriesJson)
         validate(content)
+        require(recoveryKey || standing.containsAll(content.revokedKeys)) {
+            "only a package signed by a recovery key can add a revocation; pass --pinned with the trusted key list that names this key as " +
+                "recovery, or --revoked with the standing list when the package only restates it"
+        }
+        requireNotSelfRevoking(content, publicKeyOf(seed))
         val bytes = encode(canonicalPayload(content), seed)
         require(bytes.size <= MAX_BYTES) { "package is ${bytes.size} bytes; the limit is $MAX_BYTES" }
         verify(bytes, publicKeyOf(seed)) // refuse to write a package that does not read back
@@ -183,8 +226,14 @@ internal object Pack {
         val payload = open(bytes, publicKey)
         val content = json.decodeFromString<PackageDto>(String(payload, StandardCharsets.UTF_8))
         validate(content)
+        requireNotSelfRevoking(content, publicKey)
         require(canonicalPayload(content).contentEquals(payload)) { "payload is not in canonical form" }
         return content
+    }
+
+    /** A package that revokes the key that signed it would refuse itself the next time the app reads it. */
+    private fun requireNotSelfRevoking(content: PackageDto, publicKey: ByteArray) {
+        require(keyIdOf(publicKey).toHex() !in content.revokedKeys) { "a package cannot revoke the key that signed it" }
     }
 
     fun publicKeyOf(seed: ByteArray): ByteArray =
@@ -205,6 +254,8 @@ internal object Pack {
             content.whitelist?.let { put("whitelist", it.sortedWith(WHITELIST_ORDER).map(::whitelistMap)) }
             content.denylist?.let { put("denylist", it.sortedWith(DENYLIST_ORDER).map(::denylistMap)) }
             content.wallets?.let { put("wallets", it.sortedBy { wallet -> wallet.name }.map(::walletMap)) }
+            content.solanaFees?.let { put("solanaFees", feesMap(it)) }
+            if (content.revokedKeys.isNotEmpty()) put("revokedKeys", content.revokedKeys.sorted())
         },
     ).toByteArray(StandardCharsets.UTF_8)
 
@@ -232,6 +283,13 @@ internal object Pack {
         put("selector", entry.selector)
         put("severity", entry.severity.name)
     }
+
+    private fun feesMap(fees: SolanaFeesDto): Map<String, Any?> = mapOf(
+        "builtinUnitsPerInstruction" to fees.builtinUnitsPerInstruction,
+        "defaultUnitsPerInstruction" to fees.defaultUnitsPerInstruction,
+        "lamportsPerSignature" to fees.lamportsPerSignature,
+        "maxUnits" to fees.maxUnits,
+    )
 
     private fun walletMap(wallet: WalletDto): Map<String, Any?> = mapOf(
         "ecosystems" to wallet.ecosystems,
@@ -382,6 +440,25 @@ internal object Pack {
         }
         require(content.denylist.orEmpty().none { it.party != null } || content.minSchemaVersion >= PARTY_SCHEMA) {
             "a denylist party needs minSchemaVersion $PARTY_SCHEMA"
+        }
+        require(
+            (content.solanaFees == null && content.revokedKeys.isEmpty()) || content.minSchemaVersion >= FEES_AND_REVOCATION_SCHEMA,
+        ) { "Solana fees and revoked keys need minSchemaVersion $FEES_AND_REVOCATION_SCHEMA" }
+        content.solanaFees?.let { fees ->
+            val values = mapOf(
+                "lamportsPerSignature" to fees.lamportsPerSignature,
+                "defaultUnitsPerInstruction" to fees.defaultUnitsPerInstruction,
+                "builtinUnitsPerInstruction" to fees.builtinUnitsPerInstruction,
+                "maxUnits" to fees.maxUnits,
+            )
+            for ((name, floor) in FEE_FLOORS) {
+                require(values.getValue(name) in floor..floor * FEE_CEILING_FACTOR) {
+                    "Solana fees: $name must be $floor to ${floor * FEE_CEILING_FACTOR}"
+                }
+            }
+        }
+        require(content.revokedKeys.all { KEY_ID.matches(it) } && content.revokedKeys.distinct().size == content.revokedKeys.size) {
+            "a revoked key is a key ID of 16 lowercase hex digits, listed once"
         }
         val newLists = content.denylist != null || content.wallets != null
         require(!newLists || content.minSchemaVersion >= 2) { "a denylist or wallets list needs minSchemaVersion 2" }

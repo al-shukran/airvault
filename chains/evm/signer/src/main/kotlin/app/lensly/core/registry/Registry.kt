@@ -18,6 +18,8 @@ class Registry constructor(
     val installedUpdateUnverified: Boolean = false,
     denylist: List<DenylistEntry> = emptyList(),
     wallets: List<WalletEntry> = emptyList(),
+    /** The network constants behind a Solana review's fee. An installed package that carries its own replaces them. */
+    val solanaFees: SolanaFees = SolanaFees.DEFAULT,
 ) {
     private val networkList: List<NetworkEntry> = networks.sortedBy { it.chainId }
     private val tokenList: List<TokenEntry> =
@@ -95,40 +97,49 @@ class Registry constructor(
     fun walletEntries(): List<WalletEntry> = walletList
 
     /**
-     * This registry plus [additionalNetworks] and [additionalTokens], used to merge an installed package. The signed lists are kept.
-     * Throws IllegalArgumentException when an addition reuses a chain ID or token already present, so baked
-     * entries are never replaced.
+     * This registry with the networks and tokens of an installed package merged in. The signed lists are kept. An
+     * entry with the chain ID of a network already present, or the chain and contract of a token already present, replaces it, so a signed
+     * package corrects a baked entry; any other entry is added. A correction that names no icon keeps the icon of the entry it replaces.
      */
-    fun withAdditions(additionalNetworks: List<NetworkEntry>, additionalTokens: List<TokenEntry>): Registry =
-        Registry(
-            networkList + additionalNetworks,
-            tokenList + additionalTokens,
-            whitelistList,
-            catalogSequence,
-            installedUpdateUnverified,
-            denylistList,
-            walletList,
-        )
+    fun withPackageEntries(packageNetworks: List<NetworkEntry>, packageTokens: List<TokenEntry>): Registry {
+        val merged = networkList.associateByTo(LinkedHashMap()) { it.chainId }
+        for (entry in packageNetworks) merged[entry.chainId] = entry.copy(icon = entry.icon ?: merged[entry.chainId]?.icon)
+        val mergedTokens = tokenList.associateByTo(LinkedHashMap()) { it.chainId to it.contract }
+        for (entry in packageTokens) {
+            val key = entry.chainId to entry.contract
+            mergedTokens[key] = entry.copy(icon = entry.icon ?: mergedTokens[key]?.icon)
+        }
+        return copy(networks = merged.values.toList(), tokens = mergedTokens.values.toList())
+    }
 
     /**
      * This registry with its whitelist replaced by [entries]. A signed package replaces the whole whitelist, so the entries
      * that were here before are gone.
      */
-    fun withWhitelist(entries: List<WhitelistEntry>): Registry =
-        Registry(networkList, tokenList, entries, catalogSequence, installedUpdateUnverified, denylistList, walletList)
+    fun withWhitelist(entries: List<WhitelistEntry>): Registry = copy(whitelist = entries)
 
     /** This registry with its denylist replaced by [entries]. A signed package replaces the whole denylist. */
-    fun withDenylist(entries: List<DenylistEntry>): Registry =
-        Registry(networkList, tokenList, whitelistList, catalogSequence, installedUpdateUnverified, entries, walletList)
+    fun withDenylist(entries: List<DenylistEntry>): Registry = copy(denylist = entries)
 
     /** This registry with its wallets replaced by [entries]. A signed package replaces the whole Wallet Compatibility Registry. */
-    fun withWallets(entries: List<WalletEntry>): Registry =
-        Registry(networkList, tokenList, whitelistList, catalogSequence, installedUpdateUnverified, denylistList, entries)
+    fun withWallets(entries: List<WalletEntry>): Registry = copy(wallets = entries)
+
+    /** This registry with the Solana fee constants [fees], which a signed package carries. */
+    fun withSolanaFees(fees: SolanaFees): Registry = copy(solanaFees = fees)
 
     /**
      * This registry with the flag that says an installed package could not be verified. The baked whitelist stays in force,
      * and Settings shows that the built-in catalog is in use.
      */
-    fun withInstalledUpdateUnverified(): Registry =
-        Registry(networkList, tokenList, whitelistList, catalogSequence, true, denylistList, walletList)
+    fun withInstalledUpdateUnverified(): Registry = copy(installedUpdateUnverified = true)
+
+    private fun copy(
+        networks: List<NetworkEntry> = networkList,
+        tokens: List<TokenEntry> = tokenList,
+        whitelist: List<WhitelistEntry> = whitelistList,
+        installedUpdateUnverified: Boolean = this.installedUpdateUnverified,
+        denylist: List<DenylistEntry> = denylistList,
+        wallets: List<WalletEntry> = walletList,
+        solanaFees: SolanaFees = this.solanaFees,
+    ): Registry = Registry(networks, tokens, whitelist, catalogSequence, installedUpdateUnverified, denylist, wallets, solanaFees)
 }

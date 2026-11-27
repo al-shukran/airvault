@@ -48,7 +48,7 @@ class WhitelistPackageTest {
     /**
      * A schema 2 or 3 package cannot carry networks, so the chain its whitelist names is baked for those tests.
      */
-    private val bakedLinea: Registry = baked.withAdditions(
+    private val bakedLinea: Registry = baked.withPackageEntries(
         listOf(
             NetworkEntry(
                 chainId = 4242, name = "Linea", nativeSymbol = "ETH", feeModel = FeeModel.L2_ROLLUP, explorerName = "Lineascan",

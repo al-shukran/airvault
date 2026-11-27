@@ -1,0 +1,4 @@
+{
+  "note": "The signing keys every shipped package revokes, as key IDs (16 lowercase hex digits). Empty until a key has been revoked in the field. To revoke one, sign a package with the recovery key, add the ID here, and mark the key revoked in trusted-keys.json in the same app release. sign-candidate.sh writes this list into the bundled package as revokedKeys, which only a recovery key may sign while a key is new to the list. ShippedRegistryDataTest checks that the bundle restates every ID here and that trusted-keys.json marks each one revoked, so a build always accepts a later release-signed bundle that restates them, even on a fresh install. Never remove an ID: a package that omits a revocation the device holds is refused.",
+  "revokedKeys": []
+}

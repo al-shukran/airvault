@@ -2,11 +2,13 @@ package app.lensly.app
 
 import android.content.Context
 import android.content.res.AssetManager
+import android.util.Log
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.registry.update.RegistryCatalog
 import app.lensly.core.registry.update.RegistryPackage
 import app.lensly.core.registry.update.RegistryUpdate
+import app.lensly.core.registry.update.RegistryUpdateException
 import app.lensly.core.registry.update.TrustedKey
 import app.lensly.core.registry.update.TrustedKeys
 import app.lensly.core.vault.KeystoreBackend
@@ -25,6 +27,8 @@ object RegistryHolder {
 
     /** The signed package the APK ships (shared assets), installed on first load when it is newer than the stored one. */
     private const val BUNDLED_PATH = "registry/bundled.lrp"
+
+    private const val TAG = "RegistryHolder"
 
     private var catalog: RegistryCatalog? = null
 
@@ -62,6 +66,7 @@ object RegistryHolder {
     /**
      * Installs the signed package the APK ships, through the same checks as an offline update: its signature, its key, and its
      * sequence against the stored one. An equal or older bundled package is refused, so a newer package from storage stays in effect.
+     * Any other refusal is logged with its reason, since the bundled approvals then stay unused.
      */
     private fun installBundled(
         assets: AssetManager,
@@ -75,7 +80,9 @@ object RegistryHolder {
         } catch (e: FileNotFoundException) {
             return
         }
-        RegistryUpdate.install(bytes, trustedKeys, baked, dir, keystore)
+        RegistryUpdate.install(bytes, trustedKeys, baked, dir, keystore).onFailure { e ->
+            if (e !is RegistryUpdateException.NotNewer) Log.w(TAG, "the bundled registry package was refused: ${e.message}")
+        }
     }
 
     private fun readAsset(assets: AssetManager, path: String): String? = try {

@@ -6,7 +6,7 @@ two must agree on the wire format (`LRP2`, see `PackageFormat.kt`).
 
 ```
 ./gradlew :tools:registry-pack:run --args="keygen --out <dir>"
-./gradlew :tools:registry-pack:run --args="build --in <entries.json> --key <dir>/release.key --out <file.lrp>"
+./gradlew :tools:registry-pack:run --args="build --in <entries.json> --key <dir>/release.key --out <file.lrp> [--pinned <trusted-keys.json>]"
 ./gradlew :tools:registry-pack:run --args="verify --pub <dir>/release.pub <file.lrp>"
 ```
 
@@ -29,12 +29,33 @@ AES-256-GCM. The AES key comes from scrypt (N = 2^17, r = 8, p = 1). A lost pass
 ## Release key
 
 1. `keygen --out <dir>` writes `release.key` and `release.pub`, and prints the entry for the release key list.
-2. Add that entry to `shared/src/main/assets/registry/trusted-keys.json` with `"status": "active"`.
+2. Add that entry to `shared/src/main/assets/registry/trusted-keys.json` with `"status": "active"` and a `"role"`: `"release"` for the everyday key, or `"recovery"` for the offline backup key.
 3. Sign packages with `build --key <dir>/release.key`.
 
 Rotation: list the new key as `active` and sign with it, then set the old key's `status` to `revoked`. The application refuses a
 package from a revoked key, including one already installed. The installed sequence stays recorded, so an older package
 still cannot be installed.
+
+Revoking a key in the field, on builds that are already out: sign a package with the recovery key and list the leaked key's ID in
+`revokedKeys` (see below). Only a key pinned with `"role": "recovery"` can sign a package that adds a revocation, so a leaked everyday
+key cannot revoke the backup key; the app refuses such a package, and `build` refuses to write one unless `--pinned` names the signing key
+as `recovery` and `active`. A package that only restates revocations the device already holds may be signed by any active key, and `build`
+allows that when `--revoked` names a standing list that holds every listed key. A key the build lists as `revoked` in `trusted-keys.json` counts as in force on every device, so a bundle that restates it needs no recovery key even on a fresh install. A revoked key can never sign. From the moment a device
+installs the revoking package, that device refuses every package signed with the leaked key, even when the device's own copy of the
+installed package is no longer verified. Every later package must list the same keys, or it is refused. A package cannot revoke the key
+that signed it.
+
+The revoking package is accepted whatever its sequence when it revokes the key that signed the package installed on the device, so a
+leaked key cannot block its own revocation by installing a package with a huge sequence. Its sequence then becomes the floor on that
+device. Choose it above every sequence you have published, so that a device that holds a published package still takes the later ones.
+
+A device that never installs the revoking package keeps trusting the leaked key. So add the leaked key's ID to
+`tools/registry-data/revoked-keys.json`, the standing list that `sign-candidate.sh` writes into every bundle, and set the key to `revoked` in
+`trusted-keys.json` in the same app release (a test checks that every ID in the list is marked revoked). Sign the bundle with the recovery key
+while the key is new to the list (sign before you commit the list: the script counts the keys committed at HEAD as in force), and ship it in
+the next app release. Later bundles restate the list and can be signed by the release key, also on a device that never installed the
+revoking package. A bundle that left a revocation out could not be installed on a device that holds it, and a test checks that the shipped
+bundle restates every ID in the list.
 
 The release key in use is pinned in `shared/src/main/assets/registry/trusted-keys.json`. Its passphrase is in the macOS keychain
 (service `lensly-registry-release`, account `registry-release`); its key file and fingerprint are in the keys folder outside the repository.
@@ -50,6 +71,10 @@ outside the repository.
 ```
 tools/registry-pack/sign-candidate.sh --sequence <N> --key <dir>/release.key [--created yyyy-mm-dd]
 ```
+
+While `tools/registry-data/revoked-keys.json` is empty, the bundle has no `revokedKeys` and its bytes do not change. When a key is added to
+it, sign with the recovery key (`--key <dir>/release.key` of the backup key, with its passphrase in `LENSLY_REGISTRY_PASSPHRASE`). A bundle
+that only restates the committed list can be signed by any active key.
 
 The script keeps only the entries listed in `tools/registry-data/approved-contracts/verified-selectors.txt` from
 `candidate-whitelist.json`, writes the entries file in a scratch directory, builds and verifies the package, and refuses a key that is
@@ -67,17 +92,20 @@ The entries file is the source a package is built from. Entries may appear in an
 | Field | Meaning |
 | --- | --- |
 | `formatVersion` | Must be `2`. |
-| `minSchemaVersion` | Optional, default `1`. The catalog schema the package needs; `5` is the newest the application reads. A package with a `denylist` or `wallets` list needs `2`. A package with a whitelist argument that is dynamic, an array or a tuple, or that names tuple fields, needs `3`. A package with networks needs `4`. A package with a denylist `party` needs `5`. |
+| `minSchemaVersion` | Optional, default `1`. The catalog schema the package needs; `6` is the newest the application reads. A package with a `denylist` or `wallets` list needs `2`. A package with a whitelist argument that is dynamic, an array or a tuple, or that names tuple fields, needs `3`. A package with networks needs `4`. A package with a denylist `party` needs `5`. A package with `solanaFees` or `revokedKeys` needs `6`. |
 | `sequence` | At least 1. The application refuses a package whose sequence is not higher than the last one it accepted. |
 | `createdAt` | ISO date, `yyyy-mm-dd`. |
-| `networks` | Networks the package adds. A package cannot add a testnet. Each network states `kind` (`LAYER_1`, or `LAYER_2` for a rollup), `parentChainId` (the chain a Layer 2 settles to, such as `1`, and `null` for a Layer 1) and `featured` (`true` when Lumio's Explore chains group lists it without an account). A Layer 2 needs a parent, a Layer 1 has none, and the parent must be a Layer 1. |
-| `tokens` | Tokens the package adds. Each token's chain must be baked into the application or added by this package. |
+| `networks` | Networks the package adds or corrects. A network with the chain ID of a baked one replaces it, so a wrong name, symbol, decimals or kind is fixed by the package; a correction must leave every baked Layer 2 settling to a Layer 1. A package cannot add a testnet. Each network states `kind` (`LAYER_1`, or `LAYER_2` for a rollup), `parentChainId` (the chain a Layer 2 settles to, such as `1`, and `null` for a Layer 1) and `featured` (`true` when Lumio's Explore chains group lists it without an account). A Layer 2 needs a parent, a Layer 1 has none, and the parent must be a Layer 1. |
+| `tokens` | Tokens the package adds or corrects. A token with the chain and contract of a baked one replaces it. Each token's chain must be baked into the application or in this package. |
 | `whitelist` | Optional. The contract calls that may be signed despite a Decode Gap (see below). Omitted, the application keeps the whitelist it has installed, or its built-in list when none is installed; `[]` clears it. |
 | `denylist` | Optional. Known-dangerous requests that get a warning or a refusal (see below). Omitted, the application keeps its built-in list; `[]` clears it. |
 | `wallets` | Optional. The Wallet Compatibility Registry: online wallets and their code formats (see below). Omitted, the application keeps its built-in list; `[]` clears it. |
+| `solanaFees` | Optional, needs `minSchemaVersion` 6. The network constants behind the Max Fee of a Solana review: `lamportsPerSignature` (the base fee of one signature), `defaultUnitsPerInstruction` (the compute units of an instruction of any other program when the transaction sets no limit), `builtinUnitsPerInstruction` (the same for a System Program or compute budget instruction) and `maxUnits` (the largest compute limit). Each is at least the application's own constant (5000, 200000, 3000 and 1400000) and at most 1000 times it, so a package can raise a fee but never understate one. Omitted, the application uses its built-in constants. |
+| `revokedKeys` | Optional, needs `minSchemaVersion` 6. A key ID that the device does not already revoke needs a package signed by a recovery key. The IDs (16 lowercase hex digits, as `keygen` prints them) of the signing keys the package revokes. See "Release key". Omitted when empty. |
 
-The application applies a package's `whitelist`, `denylist` and `wallets` only when its `sequence` is higher than the built-in catalog's.
-A list the package omits keeps the application's own.
+The application applies a package's `whitelist`, `denylist` and `wallets` only when its `sequence` is higher than the built-in catalog's, and
+its `solanaFees` whenever the package carries them. A list the package omits keeps the application's own. A network or token that corrects a
+baked one and names no `icon` keeps the baked icon.
 
 ### Denylist entries
 
