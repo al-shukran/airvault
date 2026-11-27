@@ -302,20 +302,23 @@ private const val OVERWRITE_CHUNK_BYTES = 64 * 1024
  */
 internal fun overwriteInPlace(file: File, chunkSize: Int = OVERWRITE_CHUNK_BYTES) {
     if (!file.isFile) return
+    RandomAccessFile(file, "rw").use { overwriteInPlace(it, chunkSize) }
+}
+
+/** Overwrites the whole of [raf] with random bytes and syncs it, through the descriptor, so it also reaches a file that is unlinked already. */
+internal fun overwriteInPlace(raf: RandomAccessFile, chunkSize: Int = OVERWRITE_CHUNK_BYTES) {
     val random = SecureRandom()
     val buffer = ByteArray(chunkSize)
     try {
-        RandomAccessFile(file, "rw").use { raf ->
-            var remaining = raf.length()
-            raf.seek(0)
-            while (remaining > 0) {
-                val n = minOf(remaining, buffer.size.toLong()).toInt()
-                random.nextBytes(buffer)
-                raf.write(buffer, 0, n)
-                remaining -= n
-            }
-            raf.fd.sync()
+        var remaining = raf.length()
+        raf.seek(0)
+        while (remaining > 0) {
+            val n = minOf(remaining, buffer.size.toLong()).toInt()
+            random.nextBytes(buffer)
+            raf.write(buffer, 0, n)
+            remaining -= n
         }
+        raf.fd.sync()
     } finally {
         buffer.fill(0)
     }

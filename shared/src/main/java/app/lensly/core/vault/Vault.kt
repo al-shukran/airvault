@@ -10,7 +10,7 @@ import app.lensly.ui.camera.PhotoStore
 import app.lensly.ui.isEmulator
 import java.io.File
 import java.io.IOException
-import java.nio.file.Files
+import java.io.RandomAccessFile
 import java.security.GeneralSecurityException
 import java.security.MessageDigest
 import java.security.ProviderException
@@ -607,6 +607,11 @@ class Vault constructor(
      * in the other. From that commit on the old vault key is unrecoverable. The failure count is cleared as for any right password, after
      * the commit. The cleanup of the old vault's files is left for the session that opens (see [startPromotionCleanup]). Returns false when
      * the commit failed, and then nothing changed.
+     *
+     * The old `unlock.bin` is overwritten through a descriptor opened on it before the replace: the rename only unlinks the file, and the
+     * descriptor keeps its inode alive until the overwrite is done (a second name for the file would need a hard link, which Android
+     * refuses an app). A process that dies between the replace and the overwrite leaves the old bytes in freed blocks that no path reaches,
+     * as any deleted file does; the old key slots stay wrapped under the old password and the device's Keystore key.
      */
     private suspend fun promoteLocked(opened: OpenedSlot): Boolean {
         val role = VaultRole.real(VaultRole.sideOf(opened.role))
@@ -614,22 +619,30 @@ class Vault constructor(
             val key = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
             key to sealSlot(opened.softKey, key, opened.vaultKey, role)
         }
+        var oldKeyFile: RandomAccessFile? = null
         try {
-            commitKeyFile(listOf(slot, VaultKeyFile.randomSlot(random)), onDigest = ::writePromotionMarker) {
-                unwrapsTo(opened.softKey, hardwareKey, slot, opened.vaultKey + role)
+            try {
+                commitKeyFile(listOf(slot, VaultKeyFile.randomSlot(random)), onDigest = { digest ->
+                    writePromotionMarker(digest)
+                    oldKeyFile = RandomAccessFile(layout.vaultKey, "rw")
+                }) {
+                    unwrapsTo(opened.softKey, hardwareKey, slot, opened.vaultKey + role)
+                }
+            } catch (e: VaultException) {
+                dropPromotionMarker()
+                return false
+            } catch (e: IOException) {
+                dropPromotionMarker()
+                return false
             }
-        } catch (e: VaultException) {
-            dropPromotionMarker()
-            return false
-        } catch (e: IOException) {
-            dropPromotionMarker()
-            return false
+            // The old `unlock.bin` is unlinked now and holds the old vault's wrapped key slots, so it is overwritten at once through the descriptor.
+            oldKeyFile?.let { old -> bestEffort { overwriteInPlace(old) } }
+        } finally {
+            oldKeyFile?.close()
         }
         // The vault key that the sealed Vault Key of biometric unlock holds is the old vault's, and the commit has made it useless. The blob
         // and its key go now, not with the cleanup, so no window is left in which they exist.
         dropBiometricUnlock()
-        // The old `unlock.bin` is reachable only under its second name now, and holds the old vault's wrapped key: it goes now too.
-        bestEffort { shredPromotionRemnant(readVaultFile(layout.vaultKey)) }
         // The state is written even when it cannot be read back: the commit stands, and a count that stays is the stricter one.
         bestEffort { opened.store.recordSuccess(opened.store.load(clock), clock) }
         return true
@@ -641,17 +654,11 @@ class Vault constructor(
      */
     private fun writePromotionMarker(digest: String) {
         writeAtomically(layout.promotionMarker, digest.toByteArray(Charsets.US_ASCII))
-        // A second name for the old `unlock.bin`, so that the replace leaves its bytes reachable and the cleanup can overwrite them.
-        bestEffort {
-            layout.promotionRemnant.delete()
-            Files.createLink(layout.promotionRemnant.toPath(), layout.vaultKey.toPath())
-        }
         bestEffort { syncDirectory(layout.root) }
     }
 
-    /** Removes the marker and the extra name of the old `unlock.bin` of a commit that did not happen. Nothing is overwritten: that file is still the vault's. */
+    /** Removes the marker of a commit that did not happen. Nothing is overwritten: the `unlock.bin` in place is still the vault's. */
     private fun dropPromotionMarker() {
-        layout.promotionRemnant.delete()
         layout.promotionMarker.delete()
     }
 
@@ -712,7 +719,7 @@ class Vault constructor(
      * The old vault's wallets are released into the promoted vault's free-slot list, wallet by wallet, and their Keystore keys go. Its record
      * files become spares, the photo copies of the old vault that no promoted photo has a twin for are shredded, and the sealed Vault Key of
      * biometric unlock and its key go. Its review pool files are overwritten and deleted, since the promoted vault has a pool batch of its
-     * own. The old `unlock.bin`, which the replace left only under its second name, is overwritten and deleted first, as the commit has already done. The caller holds the vault's
+     * own. The caller holds the vault's
      * lock. The session's lock is taken for one wallet folder or one file at a time, after the list of what to remove was made under it, so
      * a wallet or a record that the session writes meanwhile is never taken for the old vault's.
      *
@@ -722,8 +729,6 @@ class Vault constructor(
         val marker = layout.promotionMarker
         if (!marker.isFile) return
         val keyFile = readVaultFile(layout.vaultKey)
-        // First: a promotion that was cut short before it shredded the old `unlock.bin` leaves it the first thing a later unlock removes.
-        shredPromotionRemnant(keyFile)
         if (VaultKeyFile.digestOf(keyFile) != String(marker.readBytes(), Charsets.US_ASCII)) {
             dropPromotionMarker()
             return
@@ -736,14 +741,6 @@ class Vault constructor(
         // was made by the promoted vault's owner after the commit, and it stays.
         if (File(layout.root, BiometricUnlock.BLOB_FILE_NAME).lastModified() <= marker.lastModified()) dropBiometricUnlock()
         if (!marker.delete() && marker.exists()) throw VaultException("The promotion marker could not be removed.")
-    }
-
-    /** Overwrites and deletes the second name of the old `unlock.bin`, unless it is the file in place, which only a failed rename leaves. */
-    private fun shredPromotionRemnant(keyFile: ByteArray) {
-        val remnant = layout.promotionRemnant
-        if (!remnant.exists()) return
-        if (!MessageDigest.isEqual(remnant.readBytes(), keyFile)) overwriteBestEffort(remnant)
-        if (!remnant.delete() && remnant.exists()) throw VaultException("The old vault key file could not be removed.")
     }
 
     /**

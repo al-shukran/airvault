@@ -442,7 +442,6 @@ class VaultPromotionTest {
 
         // The cleanup never ran, so a kill or a lock right after the commit finds nothing of the old file.
         assertTrue(layout.promotionMarker.exists())
-        assertFalse(layout.promotionRemnant.exists())
         assertEquals(oldBytes.size, spy.length().toInt())
         assertFalse(spy.readBytes().contentEquals(oldBytes), "the old unlock.bin was overwritten, not only unlinked")
     }
@@ -466,7 +465,7 @@ class VaultPromotionTest {
     }
 
     @Test
-    fun aKillBetweenTheMarkerAndTheNewUnlockFileLeavesTheOldVaultAndTheNextUnlockRemovesTheMarkerAndTheExtraName() {
+    fun aKillBetweenTheMarkerAndTheNewUnlockFileLeavesTheOldVaultAndTheNextUnlockRemovesTheMarker() {
         var armed = false
         var saves = 0
         val dying = object : KeystoreBackend by keys {
@@ -487,9 +486,8 @@ class VaultPromotionTest {
         armed = true
         assertFailsWith<Killed> { attempt(P2) }
 
-        // The marker and the extra name of the old file are on disk, and the old file is still the vault's.
+        // The marker is on disk, and the old file is still the vault's.
         assertTrue(layout.promotionMarker.exists())
-        assertTrue(layout.promotionRemnant.exists())
         assertContentEquals(keyFile, layout.vaultKey.readBytes())
         FailureStore.forget(layout.root)
         vault = Vault(layout, keys, clock, KDF)
@@ -498,7 +496,6 @@ class VaultPromotionTest {
 
         assertEquals(listOf(wallet), reopened.listWallets())
         assertFalse(layout.promotionMarker.exists())
-        assertFalse(layout.promotionRemnant.exists())
         assertContentEquals(keyFile, layout.vaultKey.readBytes(), "the live file was never overwritten")
         reopened.close()
         // The Duress Password still promotes the decoy.
@@ -540,7 +537,6 @@ class VaultPromotionTest {
         assertEquals(UnlockResult.Erased, attempt(P1))
         assertFalse(vault.exists())
         assertFalse(layout.promotionMarker.exists())
-        assertFalse(layout.promotionRemnant.exists())
     }
 
     @Test
@@ -581,7 +577,6 @@ class VaultPromotionTest {
         awaitCleanup()
 
         assertFalse(layout.promotionMarker.exists())
-        assertFalse(layout.promotionRemnant.exists())
         assertEquals(decoy.wallets, again.listWallets())
         assertTrue(wallets.all { WalletFolder.isUnused(layout.walletDir(it)) })
         assertFalse(ownsWallet(keys, layout, realKey, wallets[0]))

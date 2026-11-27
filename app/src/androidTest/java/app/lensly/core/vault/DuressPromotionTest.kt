@@ -100,7 +100,6 @@ class DuressPromotionTest {
         assertEquals(secondDecoy, second.listWallets())
         awaitCleanup()
         assertFalse(layout.promotionMarker.exists())
-        assertFalse(layout.promotionRemnant.exists())
         second.close()
         assertRejected(attempt(B))
         unlocked(C).close()
