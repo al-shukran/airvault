@@ -96,8 +96,10 @@ jobs:
     # or an issue, and a called workflow may only use permissions that the
     # calling job grants it: its analyze job uses contents:read and
     # security-events:write, its announce and report jobs use checks:write and
-    # issues:write. Anything wider here is granted to nothing.
+    # issues:write, and its changes job (skipped on a request) declares actions:read.
+    # Anything wider here is granted to nothing.
     permissions:
+      actions: read
       contents: read
       security-events: write
       checks: write

@@ -18,15 +18,17 @@ permissions:
   pull-requests: write
   statuses: write
 
-# One run per pull request. cancel-in-progress stays false so a comment that
-# arrives while a pull request event runs is queued rather than dropped.
-concurrency:
-  group: cla-${{ github.event.issue.number || github.event.pull_request.number }}
-  cancel-in-progress: false
-
 jobs:
   cla:
     name: CLA
+    # Every comment on any issue or pull request starts this workflow. Only a pull request comment that can be the signing
+    # sentence starts a job (cla_check.py sign still requires the exact sentence); any other comment ends here without a runner.
+    if: github.event_name == 'pull_request_target' || (github.event.issue.pull_request && contains(github.event.comment.body, 'I hereby sign the CLA'))
+    # One job per pull request at a time. cancel-in-progress stays false so a signature that arrives while a pull request event
+    # runs is queued rather than dropped. The group is on the job, so a comment that starts no job never replaces a queued one.
+    concurrency:
+      group: cla-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

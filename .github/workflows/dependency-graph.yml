@@ -11,7 +11,7 @@ name: dependency-graph
 #   2. Settings -> Secrets and variables -> Actions -> Variables: add DEPENDENCY_GRAPH_ENABLED=true.
 on:
   push:
-    branches: [master, phase-1-5]
+    branches: [master]
   workflow_dispatch:
 
 permissions:

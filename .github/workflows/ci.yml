@@ -12,7 +12,11 @@ name: ci
 on:
   pull_request:
     # A pull request to another base (a stacked one) runs nothing, so it cannot merge into master until it is retargeted.
-    branches: [master, phase-1-5]
+    # Branch pushes never run CI: a pull request branch runs through pull_request only, so no push runs twice.
+    branches: [master]
+    # closed starts no job (pr-ok skips it). It joins the pull request's concurrency group, which cancels a gate still running
+    # for a pull request that was closed or merged.
+    types: [opened, synchronize, reopened, closed]
   push:
     branches: [master]
 
@@ -33,9 +37,10 @@ env:
     ~/.gradle/caches/*/transforms
     ~/.gradle/caches/jars-*
 
-# A newer push to a pull request cancels its running gate and frees the runner. Master pushes share one group and queue, never
-# cancel: a running push always finishes, so no two runs replace the build cache at once. A push that waits behind a newer one is
-# replaced by it, and the newer commit contains it and is verified.
+# A newer push to a pull request, or closing it, cancels its running gate and frees the runner. Master pushes share one group and
+# queue, never cancel: a running push always finishes, so no two runs replace the build cache at once, and master-red.yml always
+# sees a finished run of the newest master it judges. A push that waits behind a newer one is replaced by it (GitHub keeps one
+# pending run per group), and the newer commit contains it and is verified.
 concurrency:
   group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -43,6 +48,7 @@ concurrency:
 jobs:
   pr-ok: # the single required check
     name: pr-ok
+    if: github.event.action != 'closed'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -155,6 +161,16 @@ jobs:
       - name: Unit tests
         run: scripts/ci/run-step.sh unit
 
+      # Before the fuzz step, which reruns :shared:testDebugUnitTest and so replaces its result files.
+      - name: Upload the JUnit results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: junit
+          path: '**/build/test-results/**/*.xml'
+          retention-days: 3
+          if-no-files-found: ignore
+
       - name: Fuzz seed replays
         run: scripts/ci/run-step.sh fuzz
 
@@ -183,12 +199,3 @@ jobs:
         with:
           path: ~/.gradle/caches/build-cache-1
           key: bc-master
-
-      - name: Upload the JUnit results
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: junit
-          path: '**/build/test-results/**/*.xml'
-          retention-days: 3
-          if-no-files-found: ignore

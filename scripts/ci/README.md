@@ -36,10 +36,19 @@ New tests need no CI change: `unit` runs the whole test task of each module, and
 
 ## Load
 
-One job per pull request push (plus the `CLA` status job, which takes seconds). A newer push to the same pull request cancels the
-running gate. With 15 open pull requests that is at most 15 gate jobs, under the account's ceiling of 20 concurrent jobs. A master
-push adds the `ci` run, then nightly `build` followed by `screenshots`, CodeQL one language at a time, and the dependency-graph
-submission: about four jobs at once.
+One job per pull request push (plus the `CLA` status job, which takes seconds). A newer push to the same pull request, or closing
+it, cancels the running gate. With 15 open pull requests that is at most 15 gate jobs, under the account's ceiling of 20
+concurrent jobs. A master push adds the `ci` run, then nightly `build` followed by `screenshots`, CodeQL one language at a time,
+and the dependency-graph submission: about four jobs at once.
+
+Runs that never start a job:
+
+- A branch push runs no workflow except on master. A pull request branch runs through `pull_request` only.
+- A comment starts `comment-run`, `codeql-command` and `CLA`, and each skips its job unless the comment is its command (for `CLA`,
+  the signing sentence on a pull request).
+- `master-red` starts only for `ci` runs on master.
+- A scheduled `nightly` or `codeql` run on a master that the last successful run already checked skips its checks (`changes`),
+  except the OWASP scan in nightly `full`.
 
 ## Dependencies and the build cache
 

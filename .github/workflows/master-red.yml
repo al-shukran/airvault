@@ -6,9 +6,11 @@ name: master-red
 # default branch.
 on:
   workflow_run:
-    # Every master push runs ci, and its master runs decide whether master is red.
+    # Every master push runs ci, and its master runs decide whether master is red. The branch filter keeps pull request runs of
+    # ci from starting this workflow at all.
     workflows: [ci]
     types: [completed]
+    branches: [master]
 
 permissions:
   contents: read

@@ -9,7 +9,7 @@ name: nightly
 # push only `build` and then `screenshots` run: one job at a time. `screenshots` re-records the Roborazzi goldens on the Linux
 # runner (the image they must come from), and a changed golden goes to the goldens-refresh pull request for review rather than
 # failing the run. `full` (the R8 build and OWASP), `fuzz` (real fuzzing) and `emulator` (instrumented tests and benchmarks)
-# are schedule-only.
+# are schedule-only. A scheduled run on an unchanged master runs `full` only (`changes`).
 #
 # Nightly saves no build cache: its setup-gradle steps run with cache-disabled or cache-read-only. `build` saves the dependency
 # cache only on a miss, under the key ci.yml uses.
@@ -43,11 +43,41 @@ env:
     ~/.gradle/caches/jars-*
 
 jobs:
+  # A scheduled run skips `build` and the jobs that need it when master has not changed since the last successful scheduled run:
+  # they would check the same commit again. `full` still runs, because new CVEs appear without a code change.
+  changes:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      skip: ${{ steps.last.outputs.skip }}
+    steps:
+      - name: Compare master with the last successful run
+        id: last
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          # A failed lookup counts as a change, so the checks run.
+          last=$(gh run list --workflow nightly.yml --event schedule --branch master --status success --limit 1 --json headSha --jq '.[0].headSha // ""' || true)
+          if [ "$last" = "$GITHUB_SHA" ]; then
+            echo "master is still $GITHUB_SHA, which the last successful run already checked"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
   # Resolves the dependencies (online on a cache miss only, as ci.yml does), so the jobs after it restore a complete cache, then
   # runs the cheap checks in order: lint, the Lumio debug APK, the androidTest and benchmark compile, and on the schedule the unit
   # tests (ci.yml already ran them on the pull request and on the master push).
   build:
     name: lint and android build
+    needs: changes
+    # changes runs on the schedule only; on a push or a manual run it is skipped, and build runs.
+    if: ${{ !cancelled() && needs.changes.outputs.skip != 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
