@@ -291,7 +291,6 @@ private fun AddCustomNetworkRoute(navController: NavHostController, holder: Vaul
 /**
  * The Security page: the App Password, whose row opens its change, Device Protection, whose switch turns Biometric Unlock off, or on through the App
  * Password step, the Hidden Entry Gesture, whose row opens the choice shared through :shared, and the lock. Each choice applies as the owner makes it.
- * In a Decoy Vault session the switch shows too, or its absence would tell that session apart, and turning it on there seals nothing.
  */
 @Composable
 private fun SecuritySettingsRoute(navController: NavHostController, holder: VaultHolder, lockChoices: LockSettingsState, onLock: () -> Unit) {
