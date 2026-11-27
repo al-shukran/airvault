@@ -39,7 +39,7 @@ import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.registry.isHypeSystemAddress
 import app.lensly.core.registry.isHyperEvm
 import app.lensly.core.registry.isSystemAddress
-import app.lensly.core.registry.isTokenSystemAddress
+import app.lensly.core.registry.hyperCoreSystemAddressOf
 import app.lensly.core.registry.offChainDomainOf
 import app.lensly.core.registry.offChainLabelOf
 import app.lensly.core.wallet.toHex
@@ -316,8 +316,12 @@ class EvmReviewBuilder(
             sections += ReviewSection("Arguments", rowsOf(part.params, "evm.data", 0) + noteRows(part.note))
             part.warnings.forEach { warnings += it.toWarning("evm.data") }
             if (part.unregistered) warnings += registryWarning(TOKEN_UNREGISTERED, FieldPath("evm.to"))
-            // The bridge title needs a registered token: a transfer by any other contract moves nothing from HyperCore.
-            val moves = call is ContractCall.Transfer && isHyperEvm(chainId) && isTokenSystemAddress(call.to) && token != null
+            // The bridge title needs the token's own system address. Any other transfer to a system address keeps its plain title and is warned.
+            val systemTo = (call as? ContractCall.Transfer)?.to?.lowercase()?.takeIf { isHyperEvm(chainId) && isSystemAddress(it) }
+            val moves = systemTo != null && systemTo == hyperCoreSystemAddressOf(chainId, to)
+            if (systemTo != null && !moves) {
+                warnings += Warning(Danger.DANGER, CODE_SYSTEM_DESTINATION, SYSTEM_DESTINATION_TEXT, FieldPath("evm.data"), ACK_SYSTEM_DESTINATION)
+            }
             return (if (moves) MOVE_TO_HYPERCORE else part.function) to part.sentence
         }
 
@@ -926,6 +930,11 @@ private fun offChainAck(label: String): String = "I understand this signature go
 
 /** The top label of a transfer that moves an asset from HyperCore to HyperEVM. */
 private const val MOVE_TO_HYPEREVM = "Move to HyperEVM"
+
+private const val CODE_SYSTEM_DESTINATION = "evm.hypercore-system-destination"
+private const val SYSTEM_DESTINATION_TEXT = "This sends tokens to a HyperCore system address that does not belong to this token. HyperCore may not " +
+    "credit them, and they may be lost. Check the address before you sign."
+private const val ACK_SYSTEM_DESTINATION = "I understand these tokens may be lost."
 
 /** The top label of a transfer that moves an asset from HyperEVM to HyperCore. */
 private const val MOVE_TO_HYPERCORE = "Move to HyperCore"

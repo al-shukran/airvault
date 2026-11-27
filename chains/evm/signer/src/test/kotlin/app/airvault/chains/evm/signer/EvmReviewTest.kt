@@ -73,6 +73,11 @@ private const val TOKEN_SYSTEM = "0x20000000000000000000000000000000000000c8"
 private const val HYPE_NEAR_MISS = "0x2222222222222222222222222222222222222223"
 private const val TOKEN_NEAR_MISS = "0x21000000000000000000000000000000000000c8"
 private const val HYPEREVM_TOKEN = "0x1111111111111111111111111111111111111111"
+/** USDT0 on HyperEVM, linked to HyperCore token 268 (0x10c), so its own system address is 0x2000...010c. */
+private const val HYPEREVM_USDT0 = "0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb"
+/** A transaction names its contract in checksum form. */
+private val HYPEREVM_USDT0_TX = org.web3j.crypto.Keys.toChecksumAddress(HYPEREVM_USDT0)
+private const val USDT0_SYSTEM = "0x200000000000000000000000000000000000010c"
 private const val HYPEREVM_UNLINKED = "0x3333333333333333333333333333333333333333"
 
 /** HyperEVM mainnet (999) and testnet (998), as the registry names them. HYPEREVM_TOKEN is the one registered token. */
@@ -81,7 +86,10 @@ private val HYPEREVM_REGISTRY = Registry(
         NetworkEntry(999, "HyperEVM", "HYPE", 18, FeeModel.L1, null, testnet = false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null),
         NetworkEntry(998, "HyperEVM Testnet", "HYPE", 18, FeeModel.L1, null, testnet = true, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null),
     ),
-    tokens = listOf(TokenEntry(999, HYPEREVM_TOKEN, "HYT", "HyperEVM Test Token", 18)),
+    tokens = listOf(
+        TokenEntry(999, HYPEREVM_TOKEN, "HYT", "HyperEVM Test Token", 18),
+        TokenEntry(999, HYPEREVM_USDT0, "USDT0", "USDT0", 6),
+    ),
 )
 
 /** Monad testnet (10143), as the debug catalog names it, and Ethereum with USDC. */
@@ -641,13 +649,38 @@ class EvmReviewTest {
     }
 
     @Test
-    fun anErc20TransferToATokenSystemAddressOnHyperEvmIsLabelledMoveToHyperCore() {
+    fun anErc20TransferToItsOwnTokenSystemAddressOnHyperEvmIsLabelledMoveToHyperCore() {
+        val call = ContractCall.Transfer(USDT0_SYSTEM, BigInteger.valueOf(1_000_000)).encode()!!
+        val review = reviewOf(txParsed(HYPEREVM_USDT0_TX, call, chainId = 999), builder(HYPEREVM_REGISTRY))
+
+        assertEquals("Move to HyperCore", review.title)
+        assertTrue(review.warnings.none { it.code == "evm.hypercore-system-destination" })
+        // The label adds to the review: the call's function and its recipient are still shown.
+        assertTrue(review.sections.flatMap { it.rows }.any { it.label == "to" }, "the recipient row is still shown")
+    }
+
+    @Test
+    fun anErc20TransferToAnotherTokensSystemAddressKeepsItsFunctionTitleAndIsADanger() {
+        // USDT0 (index 268) sent to the system address of token 200 (0xc8): HyperCore may not credit it.
+        val call = ContractCall.Transfer(TOKEN_SYSTEM, BigInteger.valueOf(1_000_000)).encode()!!
+        val review = reviewOf(txParsed(HYPEREVM_USDT0_TX, call, chainId = 999), builder(HYPEREVM_REGISTRY))
+
+        assertEquals("transfer", review.title)
+        assertEquals(listOf(Danger.DANGER), review.warnings.filter { it.code == "evm.hypercore-system-destination" }.map { it.level })
+        // The HYPE system address belongs to no ERC20 token either.
+        val toHype = ContractCall.Transfer(HYPE_SYSTEM, BigInteger.valueOf(1_000_000)).encode()!!
+        val hypeReview = reviewOf(txParsed(HYPEREVM_USDT0_TX, toHype, chainId = 999), builder(HYPEREVM_REGISTRY))
+        assertEquals("transfer", hypeReview.title)
+        assertTrue(hypeReview.warnings.any { it.code == "evm.hypercore-system-destination" })
+    }
+
+    @Test
+    fun anErc20TransferOfATokenWithNoKnownHyperCoreIndexToASystemAddressKeepsItsFunctionTitleAndIsADanger() {
         val call = ContractCall.Transfer(TOKEN_SYSTEM, BigInteger.valueOf(1_000_000)).encode()!!
         val review = reviewOf(txParsed(HYPEREVM_TOKEN, call, chainId = 999), builder(HYPEREVM_REGISTRY))
 
-        assertEquals("Move to HyperCore", review.title)
-        // The label adds to the review: the call's function and its recipient are still shown.
-        assertTrue(review.sections.flatMap { it.rows }.any { it.label == "to" }, "the recipient row is still shown")
+        assertEquals("transfer", review.title)
+        assertTrue(review.warnings.any { it.code == "evm.hypercore-system-destination" && it.level == Danger.DANGER })
     }
 
     @Test
