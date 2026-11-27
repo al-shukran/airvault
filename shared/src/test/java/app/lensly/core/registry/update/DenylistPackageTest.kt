@@ -1,5 +1,7 @@
 package app.lensly.core.registry.update
 
+import app.lensly.core.registry.DenylistEntry
+import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
 import app.lensly.core.vault.MemoryKeystore
@@ -227,5 +229,50 @@ class DenylistPackageTest {
         assertEquals("Test approval.", entries.single { it.selector == "0x095ea7b3" }.reason)
         assertEquals(baked.denylistEntries().size, entries.size)
         assertTrue(baked.denylistEntries().drop(1).all { it in entries })
+    }
+
+    @Test
+    fun aKeptEntryForOnePartyDoesNotDropTheBuiltInEntryForAnotherParty() {
+        val partyA = "0x6666666666666666666666666666666666666666"
+        val partyB = "0x7777777777777777777777777777777777777777"
+        val builtIn = DenylistEntry(party = partyB, severity = DenylistSeverity.BLOCK, reason = "Built-in drainer.")
+        val build = baked.withDenylist(listOf(builtIn))
+        val entry = """{"condition":"ANY","party":"$partyA","reason":"Signed drainer.","severity":"BLOCK"}"""
+        val withParty = { sequence: Long, list: String ->
+            TestPackages.signed(payload(sequence, list).replace("\"minSchemaVersion\":4", "\"minSchemaVersion\":5"))
+        }
+        install(withParty(5, ",\"denylist\":[$entry]"), build = build).getOrThrow()
+        install(withParty(6, ""), build = build).getOrThrow()
+
+        val entries = RegistryUpdate.withInstalled(build, dir(), TestPackages.TRUSTED, keystore).denylistEntries()
+
+        assertEquals(listOf(partyA, partyB), entries.map { it.party })
+    }
+
+    /** A store as Lensly 1.2.0 wrote it: its installed package carries the denylist, and no seal or Keystore key exists. */
+    private fun write1_2_0StoreWithDenylist() {
+        dir().mkdirs()
+        File(dir(), RegistryUpdate.INSTALLED_FILE).writeBytes(withDenylist(5, "Signed list."))
+        File(dir(), RegistryUpdate.LEGACY_SEQUENCE_FILE).writeText("5")
+    }
+
+    @Test
+    fun anAdoptedStoreKeepsTheDenylistOfItsInstalledPackageThroughALaterPackageWithoutOne() {
+        write1_2_0StoreWithDenylist()
+
+        install(withDenylist(6, null)).getOrThrow()
+
+        val builtIn = baked.denylistEntries().filter { it.selector != "0xf2fde38b" }.map { it.reason }
+        assertEquals(listOf("Signed list.") + builtIn, denylistReasons())
+        assertFalse(RegistryUpdate.withInstalled(baked, dir(), TestPackages.TRUSTED, keystore).installedUpdateUnverified)
+    }
+
+    @Test
+    fun anAdoptedStoreFlagsALostDenylistFileInsteadOfFallingBackQuietly() {
+        write1_2_0StoreWithDenylist()
+        install(withDenylist(6, null)).getOrThrow()
+        assertTrue(File(dir(), RegistryUpdate.DENYLIST_FILE).delete())
+
+        assertTrue(RegistryUpdate.withInstalled(baked, dir(), TestPackages.TRUSTED, keystore).installedUpdateUnverified)
     }
 }

@@ -199,12 +199,21 @@ object RegistryUpdate {
         synchronized(installLock) {
             if (RegistrySeal.read(dir, keystore) != RegistrySeal.Reading.Unsealed) return
             val record = File(dir, LEGACY_SEQUENCE_FILE)
-            val installed = sequenceOf(File(dir, INSTALLED_FILE), trustedKeys)
+            val installedFile = File(dir, INSTALLED_FILE)
+            val installedBytes = installedFile.takeIf { it.isFile }?.readBytes()
+            val installed = installedBytes?.let { runCatching { PackageFormat.read(it, trustedKeys) }.getOrNull() }
             val carrier = sequenceOf(File(dir, WHITELIST_FILE), trustedKeys)
-            val floor = maxOf(installed ?: 0L, carrier ?: 0L, recordedSequence(record) ?: 0L)
+            val floor = maxOf(installed?.sequence ?: 0L, carrier ?: 0L, recordedSequence(record) ?: 0L)
             if (floor == 0L) return
+            // 1.2.0 kept a denylist only inside the installed package, so that package becomes the denylist carrier: its file is written
+            // out and its sequence sealed, and a later package that omits a denylist then keeps it, or flags the store when the file is lost.
+            val denyCarrier = installed?.takeIf { it.denylist != null }?.sequence ?: 0L
             try {
-                writeAtomically(File(dir, RegistrySeal.FILE), RegistrySeal.create(RegistrySeal.Seal(floor, carrier ?: 0L, 0L), keystore))
+                val sealBytes = RegistrySeal.create(RegistrySeal.Seal(floor, carrier ?: 0L, denyCarrier), keystore)
+                val writes = linkedMapOf<String, ByteArray>()
+                if (denyCarrier != 0L) writes[DENYLIST_FILE] = installedBytes!!
+                writes[RegistrySeal.FILE] = sealBytes
+                storeAll(dir, writes, created = false, ::writeAtomically, File::delete)
             } catch (e: Exception) {
                 RegistrySeal.keepOnly(null, keystore)
                 throw e
@@ -305,7 +314,7 @@ object RegistryUpdate {
      * update can, as the built-in list is the floor of what the build knows to be dangerous.
      */
     private fun withBuiltIn(kept: List<DenylistEntry>, registry: Registry): List<DenylistEntry> {
-        fun DenylistEntry.target() = listOf(chainId, contract, selector, primaryType, condition)
+        fun DenylistEntry.target() = listOf(chainId, contract, selector, primaryType, condition, party)
         val covered = kept.mapTo(HashSet()) { it.target() }
         return kept + registry.denylistEntries().filter { it.target() !in covered }
     }
