@@ -513,6 +513,51 @@ class SolanaReviewRowsTest {
         }
     }
 
+    /** A new account owned by a program that is not System or a token program, and a token account closed to another address, each warn at CAUTION. */
+    @Test
+    fun aCreateAccountForAnotherProgramAndACloseToAnotherAddressWarnAtCaution() {
+        // Keys: 0 signer, 1 the new or token account, 2 the other address, 3 Token, 4 System.
+        fun review(program: Int, accounts: List<Int>, data: ByteArray) = transaction(
+            legacy(
+                keys = listOf(key(1), key(3), key(9), TOKEN, SYSTEM),
+                instructions = listOf(Instruction(program, accounts, data)),
+                readonly = 2,
+            ),
+        )
+        fun createAccount(owner: ByteArray) = review(4, listOf(0, 1), le32(0) + le64(3_000_000_000L) + le64(10L) + owner)
+        val otherProgram = createAccount(key(9))
+        assertContains(otherProgram.warnings, SolanaWarning.NEW_ACCOUNT_OWNER)
+        assertEquals(Danger.CAUTION, otherProgram.toReview().warnings.single { it.code == "solana.new-account-owner" }.level)
+        for (owner in listOf(SYSTEM, TOKEN, Base58.decode(TOKEN_2022_ADDRESS))) {
+            assertFalse(SolanaWarning.NEW_ACCOUNT_OWNER in createAccount(owner).warnings)
+        }
+
+        val toOther = review(3, listOf(1, 2, 0), byteArrayOf(9))
+        assertContains(toOther.warnings, SolanaWarning.CLOSE_TO_OTHER_ADDRESS)
+        assertEquals(Danger.CAUTION, toOther.toReview().warnings.single { it.code == "solana.close-to-other-address" }.level)
+        assertFalse(SolanaWarning.CLOSE_TO_OTHER_ADDRESS in review(3, listOf(1, 0, 0), byteArrayOf(9)).warnings)
+    }
+
+    /** An instruction Lensly does not read could do anything, so beside a transfer the headline is not a send. */
+    @Test
+    fun aRawInstructionBesideATransferKeepsTheHeadlineNeutral() {
+        val signData = legacy(
+            keys = listOf(key(1), key(9), SYSTEM, key(7)),
+            instructions = listOf(transfer(from = 0, to = 1, lamports = 5L), Instruction(program = 3, accounts = listOf(0), data = byteArrayOf(9))),
+            readonly = 2,
+        )
+        val review = transaction(signData)
+        assertTrue(review.toReview().summary.none { it is SummaryPart.Send })
+        assertEquals("Signs a transaction with 2 instructions.", solanaSentence(review))
+    }
+
+    /** One instruction is not "1 instructions". */
+    @Test
+    fun theHeadlineNamesOneInstructionInTheSingular() {
+        val signData = legacy(keys = listOf(key(1), key(7)), instructions = listOf(Instruction(1, listOf(0), byteArrayOf(9, 9))))
+        assertEquals("Signs a transaction with 1 instruction.", solanaSentence(transaction(signData)))
+    }
+
     /** Key 0 signs and pays, key 1 is the recipient and key 2 the nonce account. The advance is first, then 1.5 SOL from 0 to 1. */
     private fun nonceTransfer(authority: Int): ByteArray = legacy(
         keys = listOf(key(1), key(9), key(2), SYSTEM, RECENT_BLOCKHASHES),
@@ -716,6 +761,7 @@ class SolanaReviewRowsTest {
         const val TABLE = "CUDp5gcuAm64fAXUdWviywAdmrnTbrMbFPmP5u7tUL8q"
         const val SYSTEM_ADDRESS = "11111111111111111111111111111111"
         const val TOKEN_ADDRESS = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        const val TOKEN_2022_ADDRESS = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
         const val COMPUTE_BUDGET_ADDRESS = "ComputeBudget111111111111111111111111111111"
         val SYSTEM: ByteArray = Base58.decode(SYSTEM_ADDRESS)
         val TOKEN: ByteArray = Base58.decode(TOKEN_ADDRESS)

@@ -10,7 +10,7 @@ import java.nio.charset.StandardCharsets
 
 internal const val SYSTEM_PROGRAM = "11111111111111111111111111111111"
 internal const val COMPUTE_BUDGET_PROGRAM = "ComputeBudget111111111111111111111111111111"
-private const val TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+internal const val TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 internal const val TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
 private const val ASSOCIATED_TOKEN_PROGRAM = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
 private const val RECENT_BLOCKHASHES_SYSVAR = "SysvarRecentB1ockHashes11111111111111111111"
@@ -224,7 +224,7 @@ private fun seedText(bytes: ByteArray): String? = try {
 }
 
 /** Whether this account is the key [expected] that the message lists. An account from a lookup table is not one. */
-private fun SolanaMessageAccount.isStatic(expected: String): Boolean = (this as? SolanaMessageAccount.Static)?.address == expected
+internal fun SolanaMessageAccount.isStatic(expected: String): Boolean = (this as? SolanaMessageAccount.Static)?.address == expected
 
 /** SetComputeUnitLimit is tag 2 with a u32; SetComputeUnitPrice is tag 3 with a u64. The program takes no accounts. */
 private fun computeBudget(

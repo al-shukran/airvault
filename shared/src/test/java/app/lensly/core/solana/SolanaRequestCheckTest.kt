@@ -198,6 +198,36 @@ class SolanaRequestCheckTest {
         assertEquals(SolanaRequestCheck.DUPLICATE_COMPUTE_BUDGET, refusal(request(signData), listOf(key(1))))
     }
 
+    /**
+     * The network applies a compute budget instruction by its tag, whatever its accounts or extra bytes, so one that Lensly cannot read
+     * exactly would charge a fee the review does not show. Each such request is refused: a price with a trailing byte, a price with an account,
+     * and a limit with a trailing byte beside a price that is read.
+     */
+    @Test
+    fun aComputeBudgetInstructionThatIsNotReadExactlyIsRefused() {
+        val price = 1_000_000_000_000L
+        val cases = mapOf(
+            "price with a trailing byte" to listOf(Compiled(3, emptyList(), byteArrayOf(3) + le64(price) + byteArrayOf(0))),
+            "price with an account" to listOf(Compiled(3, listOf(1), byteArrayOf(3) + le64(price))),
+            "limit with a trailing byte beside a read price" to listOf(
+                Compiled(3, emptyList(), byteArrayOf(2) + le32(1_400_000) + byteArrayOf(0)),
+                computePrice(price),
+            ),
+            "limit with an account" to listOf(Compiled(3, listOf(1), byteArrayOf(2) + le32(1_400_000))),
+            "an instruction of another compute budget tag" to listOf(Compiled(3, emptyList(), byteArrayOf(1) + le32(65_536))),
+        )
+        for ((name, budget) in cases) {
+            val signData = legacyMessage(
+                keys = listOf(key(1), key(9), system(), computeBudget()),
+                instructions = budget + transfer(from = 0, to = 1),
+                readonlyUnsigned = 2,
+            )
+            for (policy in UnknownCallPolicy.entries) {
+                assertEquals(SolanaRequestCheck.UNREAD_COMPUTE_BUDGET, refusal(request(signData), listOf(key(1)), policy), "$name, $policy")
+            }
+        }
+    }
+
     /** R06: a durable-nonce advance warns that the transaction has no expiry, which the review shows as information. */
     @Test
     fun aDurableNonceAdvanceWarnsThatItHasNoExpiry() {

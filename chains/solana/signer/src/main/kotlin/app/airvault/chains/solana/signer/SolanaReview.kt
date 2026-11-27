@@ -122,6 +122,12 @@ fun solanaWarningText(warning: SolanaWarning): String = when (warning) {
     SolanaWarning.HANDS_OVER_CONTROL ->
         "This gives another address control. An approval lets its delegate spend the tokens, and an authority change lets the new authority " +
             "act as the owner. Check that you trust the address shown."
+    SolanaWarning.NEW_ACCOUNT_OWNER ->
+        "New account for another program. The account is given to a program that is not the System Program or a token program. That " +
+            "program decides what the deposit can do. Check the owner program shown."
+    SolanaWarning.CLOSE_TO_OTHER_ADDRESS ->
+        "Remaining SOL goes to another address. Closing the token account sends its remaining SOL to an address that is not this account. " +
+            "Check the address shown."
 }
 
 /** The chain a cluster is: mainnet-beta when the request states none, as Lensly's Solana family is. */
@@ -150,8 +156,10 @@ private fun clusterName(cluster: SolCluster): String = when (cluster) {
  */
 private fun SolanaRequestReview.sentence(): SummaryPart {
     if (offchainMessage != null) return SummaryPart.Text("Signs a message as text.")
-    // A send is named only when it is the one instruction that moves value or control, so no deposit or approval hides behind it.
-    return when (val only = instructions.filter { it.movesValueOrControl }.singleOrNull()) {
+    // A send is named only when it is the one instruction that moves value or control, so no deposit or approval hides behind it. An
+    // instruction Lensly does not read could do anything, so with one beside it the headline stays neutral.
+    val only = if (instructions.any { it is SolanaInstruction.Raw }) null else instructions.filter { it.movesValueOrControl }.singleOrNull()
+    return when (only) {
         is SolanaInstruction.CreateNonceAccount -> SummaryPart.Text(
             "Create a nonce account ${accountText(only.account)}, deposit ${lamportsText(only.lamports)} SOL, " +
                 "authority ${accountText(only.authority)}.",
@@ -166,7 +174,7 @@ private fun SolanaRequestReview.sentence(): SummaryPart {
         )
         is SolanaInstruction.TokenTransfer ->
             SummaryPart.Send("${only.amount}", "base units", accountText(only.authority), accountText(only.destination))
-        else -> SummaryPart.Text("Signs a transaction with ${messageInstructionCount()} instructions.")
+        else -> messageInstructionCount().let { SummaryPart.Text("Signs a transaction with $it ${if (it == 1) "instruction" else "instructions"}.") }
     }
 }
 
@@ -440,6 +448,8 @@ private fun warningOf(warning: SolanaWarning): Warning = when (warning) {
     SolanaWarning.TOKEN_2022 -> Warning(Danger.CAUTION, "solana.token-2022", solanaWarningText(warning))
     SolanaWarning.HANDS_OVER_CONTROL ->
         Warning(Danger.DANGER, "solana.hands-over-control", solanaWarningText(warning), acknowledge = ACK_CONTROL)
+    SolanaWarning.NEW_ACCOUNT_OWNER -> Warning(Danger.CAUTION, "solana.new-account-owner", solanaWarningText(warning))
+    SolanaWarning.CLOSE_TO_OTHER_ADDRESS -> Warning(Danger.CAUTION, "solana.close-to-other-address", solanaWarningText(warning))
 }
 
 /** The signers of an off-chain message other than the signing account, in the order the message gives them. */

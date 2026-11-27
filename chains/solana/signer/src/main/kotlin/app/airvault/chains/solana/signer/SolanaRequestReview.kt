@@ -44,6 +44,18 @@ enum class SolanaWarning {
      * this at error level, as the owner cannot take it back by signing again.
      */
     HANDS_OVER_CONTROL,
+
+    /**
+     * An instruction creates an account and gives it to a program that is not the System Program or a token program. That program decides
+     * what the deposit can do afterwards. The review shows this at CAUTION.
+     */
+    NEW_ACCOUNT_OWNER,
+
+    /**
+     * An instruction closes a token account and sends its remaining SOL to an address that is not the signing account. The review shows
+     * this at CAUTION.
+     */
+    CLOSE_TO_OTHER_ADDRESS,
 }
 
 /**
@@ -161,6 +173,12 @@ class SolanaRequestReview internal constructor(
             if (lookups.isNotEmpty()) add(SolanaWarning.LOOKUP_TABLE)
             if (instructions.any { it.isToken2022Transfer }) add(SolanaWarning.TOKEN_2022)
             if (instructions.any { it.handsOverControl }) add(SolanaWarning.HANDS_OVER_CONTROL)
+            if (instructions.any { it is SolanaInstruction.SystemCreateAccount && it.owner !in SYSTEM_AND_TOKEN_PROGRAMS }) {
+                add(SolanaWarning.NEW_ACCOUNT_OWNER)
+            }
+            if (instructions.any { it is SolanaInstruction.TokenCloseAccount && it.destination != SolanaMessageAccount.Static(signerAddress) }) {
+                add(SolanaWarning.CLOSE_TO_OTHER_ADDRESS)
+            }
         }
 
     /**
@@ -216,6 +234,9 @@ private fun defaultUnitsOf(program: SolanaMessageAccount): UInt =
         else -> DEFAULT_UNITS_PER_INSTRUCTION
     }
 
+/** The programs a new account can be given to without a warning. */
+private val SYSTEM_AND_TOKEN_PROGRAMS = setOf(SYSTEM_PROGRAM, TOKEN_PROGRAM, TOKEN_2022_PROGRAM)
+
 /** Whether this instruction gives another address the right to spend an account's tokens, or ownership of an account. */
 private val SolanaInstruction.handsOverControl: Boolean
     get() = this is SolanaInstruction.TokenApprove || this is SolanaInstruction.TokenSetAuthority ||
@@ -253,6 +274,12 @@ object SolanaRequestCheck {
 
     /** The reason for a transaction that sets its compute limit or its compute price more than once. */
     const val DUPLICATE_COMPUTE_BUDGET = "The transaction sets its compute limit or its compute price more than once."
+
+    /**
+     * The reason for a transaction with a compute budget instruction that Lensly does not read exactly. The network applies such an instruction
+     * whatever its accounts or extra bytes, so the fee shown could be less than the fee charged.
+     */
+    const val UNREAD_COMPUTE_BUDGET = "The transaction has a compute budget instruction that Lensly cannot read, so it cannot show the fee."
 
     /** The reason for a transaction that sends to an account from an address lookup table, which Lensly cannot check offline. */
     const val LOOKUP_RECIPIENT_REFUSAL =
@@ -352,6 +379,9 @@ object SolanaRequestCheck {
             instructions.count { it is SolanaInstruction.SetComputeUnitPrice } > 1
         ) {
             return Result.Refused(DUPLICATE_COMPUTE_BUDGET)
+        }
+        if (instructions.any { it is SolanaInstruction.Raw && it.programId.isStatic(COMPUTE_BUDGET_PROGRAM) }) {
+            return Result.Refused(UNREAD_COMPUTE_BUDGET)
         }
         if (unknownCalls == UnknownCallPolicy.REFUSE && instructions.any { it is SolanaInstruction.Raw }) {
             return Result.Refused(UNKNOWN_PROGRAM_REFUSAL)
