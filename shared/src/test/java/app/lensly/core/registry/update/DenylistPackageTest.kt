@@ -150,4 +150,33 @@ class DenylistPackageTest {
 
         assertIs<RegistryUpdateException.Malformed>(install(TestPackages.signed(payload(2, unknown))).exceptionOrNull())
     }
+
+    private fun withDenylist(sequence: Long, reason: String?): ByteArray {
+        val entry = """{"condition":"ANY","reason":"$reason","selector":"0xf2fde38b","severity":"WARN"}"""
+        return TestPackages.signed(payload(sequence, reason?.let { ",\"denylist\":[$entry]" }.orEmpty()))
+    }
+
+    private fun denylistReasons(): List<String> =
+        RegistryUpdate.withInstalled(baked, dir(), TestPackages.TRUSTED, keystore).denylistEntries().map { it.reason }
+
+    @Test
+    fun aLaterPackageThatLeavesOutItsDenylistKeepsTheLastInstalledOne() {
+        install(withDenylist(5, "Signed list.")).getOrThrow()
+        install(withDenylist(6, null)).getOrThrow()
+
+        assertEquals(listOf("Signed list."), denylistReasons())
+        assertFalse(RegistryUpdate.withInstalled(baked, dir(), TestPackages.TRUSTED, keystore).installedUpdateUnverified)
+        // Control: a package that restates another denylist replaces it.
+        install(withDenylist(7, "Restated list.")).getOrThrow()
+        assertEquals(listOf("Restated list."), denylistReasons())
+    }
+
+    @Test
+    fun aReplacedDenylistFileIsNotKept() {
+        install(withDenylist(5, "Signed list.")).getOrThrow()
+        install(withDenylist(6, null)).getOrThrow()
+        File(dir(), RegistryUpdate.DENYLIST_FILE).writeBytes(withDenylist(3, "Older list."))
+
+        assertEquals(baked.denylistEntries().map { it.reason }, denylistReasons())
+    }
 }
