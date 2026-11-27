@@ -391,6 +391,8 @@ shard-5 :shared app.lensly.ui.theme.ClearAirColorsTest
 shard-5 :shared app.lensly.ui.theme.SystemBarIconsTest
 shard-6 :abi *
 shard-6 :app app.lensly.ui.flow.PairWizardTest
+shard-6 :app app.lensly.ui.sign.AckCheckboxTest
+shard-6 :app app.lensly.ui.sign.ReviewBodyTest
 shard-6 :chains:algorand:wallet *
 shard-6 :chains:evm:common *
 shard-6 :core:signer-api *
