@@ -1,6 +1,8 @@
 package app.lumio
 
+import app.lensly.app.EntryGestureHolder
 import app.lensly.app.VaultHolder
+import app.lensly.app.eraseGestureAfterVaultErase
 import app.lensly.core.vault.VaultLayout
 import app.lumio.data.config.LockSettingsStore
 import app.lumio.data.db.LumioDatabase
@@ -26,7 +28,8 @@ internal fun eraseLumioStores(holder: VaultHolder, databaseFile: File, receiveSh
 /**
  * What Lumio erases after the vault erased itself, on the last allowed wrong try or an unverifiable file, while the vault's lock is held. The
  * open session locks first, so its Vault Key is zeroed and no screen or scan reads the closed database, then [closeDatabase] closes the
- * database handle, and the stores outside the vault go even when the close throws.
+ * database handle, and the stores outside the vault go even when the close throws. The Hidden Entry Gesture goes back to the default last, so the
+ * cover shows no sign that a hidden area existed. Reset Lumio keeps it.
  */
 internal fun eraseAfterVaultErase(
     holder: VaultHolder,
@@ -34,12 +37,17 @@ internal fun eraseAfterVaultErase(
     databaseFile: File,
     receiveShares: File,
     lock: LockSettingsStore,
+    gestures: EntryGestureHolder,
 ) {
     holder.lock()
     try {
         closeDatabase()
     } finally {
-        eraseOutsideVault(databaseFile, receiveShares, lock)
+        try {
+            eraseOutsideVault(databaseFile, receiveShares, lock)
+        } finally {
+            eraseGestureAfterVaultErase(gestures)()
+        }
     }
 }
 

@@ -15,6 +15,8 @@ import java.nio.ByteBuffer
 import java.util.UUID
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
+import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.withContext
 
 private const val TEMP_SUFFIX = ".tmp"
 
@@ -206,6 +208,13 @@ private fun withoutRecord(plain: ByteArray): ByteArray {
     plain.fill(0)
     return body
 }
+
+/**
+ * Runs [shred] in [shredContext], then [start] on the caller's thread, and says whether the recording began. A scratch file that [shred]
+ * could not remove stops the recording: a late shred of the start of the app could destroy a recording written into it.
+ */
+internal suspend fun shredThenStart(shred: () -> Boolean, shredContext: CoroutineContext, start: () -> Boolean): Boolean =
+    withContext(shredContext) { shred() } && start()
 
 /** Overwrites [file] with random bytes, then deletes it. A file that cannot be overwritten is deleted all the same. True when it is gone. */
 internal fun shredFile(file: File): Boolean {
