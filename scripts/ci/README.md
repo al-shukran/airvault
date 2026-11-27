@@ -9,6 +9,10 @@ after one `./gradlew resolveAll` (online) fills the Gradle module cache.
 it lands. It is one job, `pr-ok`, the single required check. Its steps run in this order and the job stops at the first failure,
 so the cheapest checks that catch the most mistakes report first:
 
+`pr-ok` is never skipped: a skipped required check counts as passing, so the job has no `if`, and `ci.yml` does not run on `closed`
+(`check-workflow-guards.sh` enforces both). A gate still running when its pull request closes runs to its end, and a retarget to
+master starts no run, so push a commit to start the gate.
+
 1. DCO (`scripts/dco_check.py`, pull requests only).
 2. `static`: no Gradle.
 3. The secrets scan (gitleaks over the commits of the event) and dependency review (pull requests only, once
@@ -22,7 +26,7 @@ so the cheapest checks that catch the most mistakes report first:
 | `static` | `bash -n` on every script, `check-test-network.sh`, `check-mnemonics.sh`, `check-cleartext-sources.sh`, `check-workflow-guards.sh`, `selftest-guards.sh` | `ci.yml` |
 | `manifest` | merged manifests (no INTERNET or ACCESS_NETWORK_STATE in `:app`, Lumio's allow-list), no OkHttp on `:app`'s release classpath | `ci.yml` |
 | `compile` | the main and unit-test code of `:app`, `:lumio`, `:shared` and every pure JVM module with a `src/test` set | `ci.yml` |
-| `unit` | every unit test with `--fail-fast`, except the pixel tests of `:app` and `:lumio` (`-PskipScreenshotTests` leaves out `*ScreenshotTest`) and the fuzz targets | `ci.yml`; nightly `build` on the schedule |
+| `unit` | every unit test with `--fail-fast` (it fails first when `app`, `lumio` or `shared` has no `src/test` folder with a `*Test.kt` file, which Gradle would pass as NO-SOURCE), except the pixel tests of `:app` and `:lumio` (`-PskipScreenshotTests` leaves out `*ScreenshotTest`) and the fuzz targets | `ci.yml`; nightly `build` on the schedule |
 | `fuzz` | the Jazzer seed replays, `app.lensly.fuzz.*`, with `-PfuzzLane` in their own JVM | `ci.yml` |
 | `lint` | `lintReportDebug` of the main sources of `:app`, `:lumio` and `:shared` | nightly `build` |
 | `apk` | the Lumio debug APK, `:lumio:assembleDebug` | nightly `build` |
@@ -87,7 +91,7 @@ module's `src/` outside `src/debug/` (so quotes, spacing, case and `shared/` res
 ## Guard self-test — `selftest-guards.sh`
 
 Runs in the `static` step. It feeds `check-cleartext-sources.sh` and `check-workflow-guards.sh` broken copies (single quotes, upper case,
-a shared resource, a bare `author_association`, a commented-out or late release refusal, an extra step in a sign job, a quoted `gr""adlew`, a command added to `sign-release.sh`) and expects each to fail, and it runs
+a shared resource, a bare `author_association`, a commented-out or late release refusal, an extra step in a sign job, a quoted `gr""adlew`, a command added to `sign-release.sh`, an `if` on `pr-ok`, a `closed` pull request type) and expects each to fail, and it runs
 `close-refresh-pr.sh` against a stub `gh` whose first close fails and expects one comment. Add a case here with every change to a guard.
 
 ## Release classpath guard — `check-release-classpath.sh`

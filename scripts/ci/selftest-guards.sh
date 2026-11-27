@@ -2,7 +2,7 @@
 # Checks the CI guards against broken inputs: each case must make its guard fail, and the real files must still pass. Needs yq and
 # python3, no Gradle and no network. Runs in the static step of ci.yml (run-step.sh static), so a guard that stops rejecting a case fails a pull request.
 #   check-cleartext-sources.sh   cleartext allowed outside src/debug/ (#1406, #1441)
-#   check-workflow-guards.sh     comment-run trusted gate, release refusal order, signing environment and sign-job steps (#1407, #1408, #1442, #1451, #1465, #1470, #1481, #1482, #1493, #1531, #1532, #1581)
+#   check-workflow-guards.sh     comment-run trusted gate, release refusal order, signing environment, sign-job steps and the always-run pr-ok (#1407, #1408, #1442, #1451, #1465, #1470, #1481, #1482, #1493, #1531, #1532, #1581, #1604)
 #   sign-release.sh              the hash, secrets and version-code checks that come before the APK is signed (#1493)
 #   close-refresh-pr.sh          the refresh pull request is closed and the comment posted once (#1396, #1443)
 #
@@ -597,6 +597,17 @@ for job in sign_lensly sign_lumio; do
 done
 # A job that reads no signing secret keeps its freedom: the build and publish jobs have many steps.
 expect_pass "the real workflows, after the step mutations" "$guards"
+
+# --- The required check pr-ok must never end as skipped: no job-level if, and no closed pull request type, which writes a skipped
+# pr-ok onto the head commit of a closed or merged pull request (#1604).
+mutate ci.yml '.jobs."pr-ok".if = "github.event.action != '"'"'closed'"'"'"'
+expect_environment_error "pr-ok with a job-level if" 'pr-ok has a job-level if'
+mutate ci.yml '.jobs."pr-ok".if = "github.event_name == '"'"'push'"'"'"'
+expect_environment_error "pr-ok with another job-level if" 'pr-ok has a job-level if'
+mutate ci.yml '.on.pull_request.types += ["closed"]'
+expect_environment_error "a closed pull request type in ci.yml" 'closed'
+mutate ci.yml 'del(.jobs."pr-ok")'
+expect_environment_error "ci.yml without the pr-ok job" 'no pr-ok job'
 
 # --- The Gradle ban in a job that reads a signing secret matches the word as a token, not as a substring (#1532).
 # Each of these hides Gradle behind quoting, a backslash or an invisible character; the steps are the real ones, so only the ban can reject them.

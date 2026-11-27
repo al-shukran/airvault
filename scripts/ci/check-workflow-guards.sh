@@ -11,6 +11,10 @@
 # permission, no Gradle, the secrets of one app only (#1493, GitHub advisory on repository-level signing secrets) and no step
 # other than the six of SIGN_STEPS (#1531, #1532).
 #
+# ci.yml: the required check pr-ok never ends as skipped. GitHub counts a skipped required check as passing and matches checks by name and
+# commit, so the job has no job-level if, and the pull_request types have no closed (a closed or merged pull request would write a skipped
+# pr-ok onto its head commit, which then counts as verified for any pull request or push that carries it) (#1604).
+#
 # scripts/ci/sign-release.sh, the one script a sign job runs with the keystore and its password, must hash to SIGN_SCRIPT_SHA256 (#1581).
 # Changing the script means changing that constant in the same pull request: run `shasum -a 256 scripts/ci/sign-release.sh`
 # (or `sha256sum`) and paste the hash into SIGN_SCRIPT_SHA256 below, so a reviewer sees both edits together.
@@ -327,10 +331,24 @@ def check_release(doc):
         errors.append("release.yml has no valid step that refuses a tag not on master (only name, run and id keys; if ! git merge-base --is-ancestor against origin/master, then exit 1)")
 
 
+def check_ci(doc):
+    job = doc.get("jobs", {}).get("pr-ok") if isinstance(doc, dict) else None
+    if not isinstance(job, dict):
+        errors.append("ci.yml has no pr-ok job, the required check")
+        return
+    if "if" in job:
+        errors.append("ci.yml pr-ok has a job-level if (%s): a skipped required check counts as passing, so the job must always run" % job["if"])
+    types = (doc.get("on") or {}).get("pull_request", {}).get("types") or []
+    if "closed" in types:
+        errors.append("ci.yml has the pull_request type closed: closing a pull request would write a skipped, therefore passing, pr-ok onto its head commit")
+
+
 directory = Path(sys.argv[1])
 files = sorted(p for p in directory.iterdir() if p.suffix in (".yml", ".yaml") and p.is_file())
 if not (directory / "release.yml").is_file():
     errors.append("release.yml is missing from %s" % directory)
+if not (directory / "ci.yml").is_file():
+    errors.append("ci.yml is missing from %s" % directory)
 for path in files:
     allowed = ALLOW.get(path.name, set())
     try:
@@ -351,6 +369,8 @@ for path in files:
             check_release(docs[0])
         else:
             errors.append("release.yml is not a single YAML mapping")
+    if path.name == "ci.yml":
+        check_ci(docs[0] if len(docs) == 1 else None)
 try:
     sign_hash = hashlib.sha256(Path(sys.argv[2]).read_bytes()).hexdigest()
 except OSError as e:
@@ -366,4 +386,4 @@ PY
 if [ "$failed" -ne 0 ]; then
     exit 1
 fi
-echo "check-workflow-guards: comment-run concurrency gate, release refusal order and signing environment hold"
+echo "check-workflow-guards: comment-run concurrency gate, release refusal order, signing environment and the always-run pr-ok hold"
