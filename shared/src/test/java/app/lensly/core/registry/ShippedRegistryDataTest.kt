@@ -1,11 +1,16 @@
 package app.lensly.core.registry
 
 import app.airvault.chains.evm.evmManifest
+import app.lensly.core.registry.update.KeyStatus
 import app.lensly.core.registry.update.RegistryUpdate
 import app.lensly.core.registry.update.TrustedKeys
 import app.lensly.ui.components.chainIconDrawables
 import app.lensly.ui.components.tokenIconDrawables
 import java.io.File
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Test
@@ -43,8 +48,50 @@ class ShippedRegistryDataTest {
 
         val bundled = RegistryUpdate.verify(bytes, releaseOnly, registry).getOrThrow()
 
-        assertEquals(1L, bundled.sequence)
+        assertEquals(2L, bundled.sequence)
         assertEquals(VERIFIED_CALLS, checkNotNull(bundled.whitelist).map { "${it.chainId} ${it.contract} ${it.selector}" }.sorted())
+    }
+
+    /**
+     * Every package must restate the revocations in force, or the app refuses it, so a bundle that left one out could never be installed
+     * on a device that holds the revoking package. sign-candidate.sh writes this list into the bundle.
+     */
+    @Test
+    fun theBundledPackageRestatesEveryKeyOfTheStandingRevocationList() {
+        val standing = Json.parseToJsonElement(File(STANDING_REVOCATIONS).readText()).jsonObject.getValue("revokedKeys").jsonArray
+            .map { it.jsonPrimitive.content }
+        val releaseOnly = TrustedKeys.load { path -> File(MAIN, path).takeIf { it.isFile }?.readText() }
+
+        val bundled = RegistryUpdate.verify(File(MAIN, BUNDLED_PATH).readBytes(), releaseOnly, registry).getOrThrow()
+
+        assertTrue(standing.all { Regex("[0-9a-f]{16}").matches(it) }, "a key ID is 16 lowercase hex digits")
+        assertEquals(standing.sorted(), bundled.revokedKeys)
+    }
+
+    /**
+     * A bundle that restates a key is accepted without a recovery key only when the build itself lists that key as revoked, as on a fresh
+     * install. So a key goes into the standing list and into trusted-keys.json as revoked in the same release.
+     */
+    @Test
+    fun everyKeyOfTheStandingRevocationListIsMarkedRevokedInTheTrustedKeys() {
+        val standing = Json.parseToJsonElement(File(STANDING_REVOCATIONS).readText()).jsonObject.getValue("revokedKeys").jsonArray
+            .map { it.jsonPrimitive.content }
+        val revoked = TrustedKeys.load { path -> File(MAIN, path).takeIf { it.isFile }?.readText() }
+            .filter { it.status == KeyStatus.REVOKED }.map { it.id }
+
+        assertEquals(emptyList(), standing - revoked.toSet(), "keys in revoked-keys.json that trusted-keys.json does not mark revoked")
+    }
+
+    /** The call carries only an order ID, so the review cannot show the order's tokens, amounts or receiver: it must not be approved. */
+    @Test
+    fun theBundledPackageDoesNotApproveTheCowPreSignatureCall() {
+        val releaseOnly = TrustedKeys.load { path -> File(MAIN, path).takeIf { it.isFile }?.readText() }
+        val bundled = RegistryUpdate.verify(File(MAIN, BUNDLED_PATH).readBytes(), releaseOnly, registry).getOrThrow()
+
+        assertTrue(
+            checkNotNull(bundled.whitelist).none { it.contract == COW_SETTLEMENT || it.selector == COW_PRE_SIGNATURE },
+            "setPreSignature on the CoW settlement contract is in the bundled approved list",
+        )
     }
 
     @Test
@@ -160,6 +207,9 @@ class ShippedRegistryDataTest {
         const val MAIN = "src/main/assets"
         const val DEBUG = "src/debug/assets"
         const val BUNDLED_PATH = "registry/bundled.lrp"
+        const val STANDING_REVOCATIONS = "../tools/registry-data/revoked-keys.json"
+        const val COW_SETTLEMENT = "0x9008d19f58aabd9ed0d60971565aa8510560ab41"
+        const val COW_PRE_SIGNATURE = "0xec6cb13f"
         const val MONAD_TESTNET = 10143L
         val CONTRACT = Regex("0x[0-9a-f]{40}")
         val TESTNET_TRUE = Regex("\"testnet\"\\s*:\\s*true")
@@ -176,7 +226,6 @@ class ShippedRegistryDataTest {
             "1 0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45 0x5ae401dc",
             "1 0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45 0xac9650d8",
             "1 0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45 0xb858183f",
-            "1 0x9008d19f58aabd9ed0d60971565aa8510560ab41 0xec6cb13f",
         ).sorted()
     }
 }

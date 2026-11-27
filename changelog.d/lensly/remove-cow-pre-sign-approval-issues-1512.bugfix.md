@@ -1,0 +1,1 @@
+Removed the CoW order pre-signing call from the approved contract calls, because the call carries only an order ID and Lensly could not show the order's tokens, amounts or receiver. Lensly now treats it as an unknown contract call.

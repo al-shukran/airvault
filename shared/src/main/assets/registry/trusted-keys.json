@@ -1,15 +1,17 @@
 {
-  "note": "RELEASE KEYS. Each entry is a public key this build accepts registry packages from. The key that signs the shipped bundled package (registry/bundled.lrp) is pinned here: created 2026-11-16 with tools/registry-pack keygen; its private half is kept outside the repository. The second entry is an offline backup key, created 2026-11-21 the same way and also active, so that a lost release key does not end catalog updates. Rotation: add the new key as active and sign with it, then set the old key to revoked. Test keys never go in this file (see the debug source set).",
+  "note": "RELEASE KEYS. Each entry is a public key this build accepts registry packages from. The key that signs the shipped bundled package (registry/bundled.lrp) is pinned here: created 2026-11-16 with tools/registry-pack keygen; its private half is kept outside the repository. The second entry is an offline backup key, created 2026-11-21 the same way and also active, so that a lost release key does not end catalog updates. Only a key with role recovery (the backup key) can sign a package that revokes keys. Rotation: add the new key as active and sign with it, then set the old key to revoked. Test keys never go in this file (see the debug source set).",
   "keys": [
     {
       "id": "3c209f38eacc250c",
       "publicKey": "91f1d61c25da829f852c2bb521bbaea4164f5d73b2582d30ff1c65b5a0ac94e8",
-      "status": "active"
+      "status": "active",
+      "role": "release"
     },
     {
       "id": "8f0627c7e94d8174",
       "publicKey": "264601a66cfd3d39691f031a1a4435eb48877657c5a41acbad37ca458b59f211",
-      "status": "active"
+      "status": "active",
+      "role": "recovery"
     }
   ]
 }

@@ -128,7 +128,7 @@ class PackTest {
             "nativeDecimals above 36" to source.copy(networks = listOf(network.copy(nativeDecimals = 37))),
             "sequence zero" to source.copy(sequence = 0),
             "formatVersion one" to source.copy(formatVersion = 1),
-            "minSchemaVersion above this tool" to source.copy(minSchemaVersion = 6),
+            "minSchemaVersion above this tool" to source.copy(minSchemaVersion = 7),
             "minSchemaVersion zero" to source.copy(minSchemaVersion = 0),
             "networks without minSchemaVersion 4" to source.copy(minSchemaVersion = 3),
             "Layer 2 parent is itself" to source.copy(networks = listOf(network.copy(parentChainId = network.chainId))),
@@ -159,6 +159,91 @@ class PackTest {
         assertFailsWith<IllegalArgumentException> {
             Pack.build(json.encodeToString(PackageDto.serializer(), withParty.copy(minSchemaVersion = 4)), seed)
         }
+    }
+
+    @Test
+    fun solanaFeesAndRevokedKeysNeedSchema6AndRoundTrip() {
+        val fees = SolanaFeesDto(7_000, 300_000, 4_000, 1_500_000)
+        val other = "0123456789abcdef"
+        val withBoth = source.copy(minSchemaVersion = 6, solanaFees = fees, revokedKeys = listOf(other))
+
+        val (bytes, _) = Pack.build(json.encodeToString(PackageDto.serializer(), withBoth), seed, recoveryKey = true)
+
+        val read = Pack.verify(bytes, publicKey)
+        assertEquals(fees, read.solanaFees)
+        assertEquals(listOf(other), read.revokedKeys)
+        for ((label, content) in mapOf("fees at schema 5" to withBoth.copy(minSchemaVersion = 5, revokedKeys = emptyList()), "revocation at schema 5" to withBoth.copy(minSchemaVersion = 5, solanaFees = null))) {
+            assertFailsWith<IllegalArgumentException>(label) { Pack.build(json.encodeToString(PackageDto.serializer(), content), seed, recoveryKey = true) }
+        }
+    }
+
+    @Test
+    fun aPackageWithNeitherKeepsTheBytesItHadBefore() {
+        val payload = String(Pack.canonicalPayload(source), StandardCharsets.UTF_8)
+
+        assertFalse("solanaFees" in payload || "revokedKeys" in payload)
+    }
+
+    @Test
+    fun badFeesAndBadRevokedKeysAreRefused() {
+        val fees = SolanaFeesDto(5_000, 200_000, 3_000, 1_400_000)
+        val own = Pack.keyIdOf(publicKey).toHex()
+        val cases = mapOf(
+            "no signature fee" to source.copy(minSchemaVersion = 6, solanaFees = fees.copy(lamportsPerSignature = 0)),
+            "no builtin units" to source.copy(minSchemaVersion = 6, solanaFees = fees.copy(builtinUnitsPerInstruction = 0)),
+            "a cap above 32 bits" to source.copy(minSchemaVersion = 6, solanaFees = fees.copy(maxUnits = 1L shl 32)),
+            "a fee that wraps the base fee" to source.copy(minSchemaVersion = 6, solanaFees = fees.copy(lamportsPerSignature = 6_148_914_691_236_517_206)),
+            "a fee below the build's" to source.copy(minSchemaVersion = 6, solanaFees = fees.copy(lamportsPerSignature = 4_999)),
+            "default units below the build's" to source.copy(minSchemaVersion = 6, solanaFees = fees.copy(defaultUnitsPerInstruction = 199_999)),
+            "a cap above a thousand times the build's" to source.copy(minSchemaVersion = 6, solanaFees = fees.copy(maxUnits = 1_400_000_001)),
+            "a short key ID" to source.copy(minSchemaVersion = 6, revokedKeys = listOf("abcd")),
+            "an uppercase key ID" to source.copy(minSchemaVersion = 6, revokedKeys = listOf("0123456789ABCDEF")),
+            "a repeated key ID" to source.copy(minSchemaVersion = 6, revokedKeys = listOf("0123456789abcdef", "0123456789abcdef")),
+            "the signing key itself" to source.copy(minSchemaVersion = 6, revokedKeys = listOf(own)),
+        )
+        for ((label, content) in cases) {
+            assertFailsWith<IllegalArgumentException>(label) {
+                Pack.build(json.encodeToString(PackageDto.serializer(), content), seed, recoveryKey = true)
+            }
+        }
+    }
+
+    @Test
+    fun aPackageThatRevokesKeysIsBuiltOnlyWithARecoveryKey() {
+        val revoking = json.encodeToString(PackageDto.serializer(), source.copy(minSchemaVersion = 6, revokedKeys = listOf("0123456789abcdef")))
+        val pinned = { role: String ->
+            File(folder.root, "trusted-$role.json").also {
+                it.writeText("""{"keys":[{"id":"x","publicKey":"${publicKey.toHex()}","status":"active","role":"$role"}]}""")
+            }.path
+        }
+        val key = File(folder.root, "release.key").also { it.writeText(encryptSeed(seed, passphrase)) }.path
+        val entries = File(folder.root, "revoking.json").also { it.writeText(revoking) }.path
+        val out = File(folder.root, "revoking.lrp").path
+
+        assertFailsWith<IllegalArgumentException> { Pack.build(revoking, seed) }
+        assertEquals(1, tool("build", "--in", entries, "--key", key, "--out", out))
+        assertEquals(1, tool("build", "--in", entries, "--key", key, "--out", out, "--pinned", pinned("release")))
+        assertEquals(0, tool("build", "--in", entries, "--key", key, "--out", out, "--pinned", pinned("recovery")))
+        assertEquals(listOf("0123456789abcdef"), Pack.verify(File(out).readBytes(), publicKey).revokedKeys)
+    }
+
+    @Test
+    fun aReleaseKeyBuildsAPackageThatOnlyRestatesTheStandingRevocations() {
+        val inForce = "0123456789abcdef"
+        fun revoking(vararg ids: String) =
+            json.encodeToString(PackageDto.serializer(), source.copy(minSchemaVersion = 6, revokedKeys = ids.toList()))
+        val standing = File(folder.root, "standing.json").also { it.writeText("""{"revokedKeys":["$inForce"]}""") }.toPath()
+        val key = File(folder.root, "release.key").also { it.writeText(encryptSeed(seed, passphrase)) }.path
+        fun entries(text: String) = File(folder.root, "entries-${text.hashCode()}.json").also { it.writeText(text) }.path
+        val out = File(folder.root, "restating.lrp").path
+
+        assertEquals(setOf(inForce), standingRevocations(standing))
+        assertEquals(0, tool("build", "--in", entries(revoking(inForce)), "--key", key, "--out", out, "--revoked", standing.toString()))
+        assertEquals(listOf(inForce), Pack.verify(File(out).readBytes(), publicKey).revokedKeys)
+        assertEquals(
+            1,
+            tool("build", "--in", entries(revoking(inForce, "fedcba9876543210")), "--key", key, "--out", out, "--revoked", standing.toString()),
+        )
     }
 
     @Test

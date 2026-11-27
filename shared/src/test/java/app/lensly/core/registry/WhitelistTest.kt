@@ -155,7 +155,7 @@ class WhitelistRegistryTest {
 
     @Test
     fun addingNetworksKeepsTheWhitelist() {
-        val added = registry.withAdditions(listOf(NetworkEntry(10L, "Optimism", "ETH", 18, FeeModel.L2_ROLLUP, null, false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null)), emptyList())
+        val added = registry.withPackageEntries(listOf(NetworkEntry(10L, "Optimism", "ETH", 18, FeeModel.L2_ROLLUP, null, false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null)), emptyList())
 
         assertEquals(SWAP_SIGNATURE, added.whitelist(1L, CONTRACT, SWAP_SELECTOR)?.signature)
     }
