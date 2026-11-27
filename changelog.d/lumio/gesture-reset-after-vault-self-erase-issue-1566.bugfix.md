@@ -1,0 +1,1 @@
+Lumio now resets the Hidden Entry Gesture to the default when the vault erases itself, so the camera cover no longer shows a custom gesture after a last wrong App Password try or an unverifiable vault. Reset Lumio still keeps the gesture.

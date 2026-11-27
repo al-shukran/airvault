@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import app.lensly.ui.camera.EntryGesture
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 /**
@@ -74,4 +75,13 @@ class EntryGestureHolder(private val store: EntryGestureStore) {
         if (reset) current = EntryGesture.DEFAULT
         return reset
     }
+}
+
+/**
+ * What runs after the vault erases itself, on its last allowed wrong try or on a vault it cannot verify: the Hidden Entry Gesture goes back to
+ * the default, as after a Wipe, so the camera never shows that a hidden area existed. A removal that fails is replaced by a write of the
+ * default, since a gesture that cannot be proven reset must not be kept.
+ */
+fun eraseGestureAfterVaultErase(gestures: EntryGestureHolder): () -> Unit = {
+    runBlocking { if (!gestures.reset()) gestures.save(EntryGesture.DEFAULT) }
 }
