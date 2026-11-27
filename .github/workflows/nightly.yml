@@ -24,7 +24,7 @@ on:
 permissions:
   contents: read
 
-# One run per event and ref, never cancelled: a master push cannot replace a queued scheduled run, and a running run finishes.
+# One run per event and ref. A newer push to master cancels the older run; scheduled and manual runs are never cancelled.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'push' }}
