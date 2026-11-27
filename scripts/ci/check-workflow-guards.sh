@@ -38,11 +38,13 @@ expected="comment-run-\${{ github.event.issue.number }}-\${{ $gate }}"
 #  - A secret read is any "secrets." or "secrets[" reference, or toJSON(secrets), in the whole step as JSON (env, with, run, a shell
 #    comment in run, which Actions expands too). Job-level env, a job-level secrets: key, and workflow-level text count as before step 0.
 #  - The refusal is a step with only the keys name, run and id (no if, env, shell, continue-on-error) whose run is exactly the
-#    canonical form, line for line (blank lines aside): `set -euo pipefail`, the `git fetch` of origin/master, the top-level
+#    canonical form, line for line (lines split at "\n" only, as bash does; blank lines aside): `set -euo pipefail`, the `git fetch` of origin/master, the top-level
 #    `if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then`, any number of `echo "::error::..."` lines that use
 #    no expansion but $GITHUB_REF_NAME and $GITHUB_SHA, `exit 1`, `fi`. Any other statement (an earlier `exit 0`, a trap, an alias,
 #    a change to GITHUB_SHA or to origin/master) or an operator the shell could read differently is refused, so the shell cannot
 #    skip, swallow or redirect the exit (#1451, #1465, #1470).
+#  - The workflow and each job have only the keys name, on, permissions, concurrency, jobs / name, runs-on, timeout-minutes, steps, so
+#    no defaults.run.shell, defaults.run.working-directory or env (BASH_ENV, PATH, GIT_DIR) reaches the refusal step.
 yq -o=json '.' "$workflows/release.yml" | python3 -I -c '
 import json
 import re
@@ -54,6 +56,8 @@ COMMAND = "git merge-base --is-ancestor \"$GITHUB_SHA\" origin/master"
 HEAD = ["set -euo pipefail", "git fetch --no-tags origin \x27+refs/heads/master:refs/remotes/origin/master\x27", "if ! " + COMMAND + "; then"]
 ERROR = re.compile(r"echo \"::error::(?:[^\"$`\\\\!]|\$GITHUB_REF_NAME|\$GITHUB_SHA)*\"")
 TAIL = ["exit 1", "fi"]
+WORKFLOW_KEYS = {"name", "on", "permissions", "concurrency", "jobs"}
+JOB_KEYS = {"name", "runs-on", "timeout-minutes", "steps"}
 errors = []
 
 
@@ -72,6 +76,8 @@ def refuses(step):
     )
 
 
+if set(doc) - WORKFLOW_KEYS:
+    errors.append("release.yml has workflow keys outside %s (defaults and env change how the refusal step runs): %s" % (sorted(WORKFLOW_KEYS), sorted(set(doc) - WORKFLOW_KEYS)))
 if reads_secret({k: v for k, v in doc.items() if k != "jobs"}):
     errors.append("release.yml reads a secret outside its jobs, before any step can refuse")
 refused = False
@@ -79,6 +85,8 @@ for name, job in doc.get("jobs", {}).items():
     steps = job.get("steps", [])
     refuse = next((i for i, step in enumerate(steps) if refuses(step)), None)
     secret = next((i for i, step in enumerate(steps) if reads_secret(step)), None)
+    if set(job) - JOB_KEYS:
+        errors.append("release.yml job %s has keys outside %s (defaults and env change how the refusal step runs): %s" % (name, sorted(JOB_KEYS), sorted(set(job) - JOB_KEYS)))
     if "secrets" in job or reads_secret({k: v for k, v in job.items() if k != "steps"}):
         errors.append("release.yml job %s reads a secret outside its steps (job env, secrets:, a reusable workflow), before any step can refuse" % name)
     elif secret is not None and refuse is None:

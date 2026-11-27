@@ -201,6 +201,19 @@ for open_close in "cat <<'NOTE'|NOTE" 'cat <<NOTE|NOTE' 'cat <<"NOTE"|NOTE' 'cat
     mutate release.yml "($refusal | .run) = \"set -euo pipefail\\n${opener//\"/\\\"}\\nif ! $check; then\\n  exit 1\\nfi\\n${closer//\"/\\\"}\""
     expect_fail "a refusal inside $opener" guard_with
 done
+# Workflow- and job-level settings reach the refusal step too: another shell, working directory or environment (BASH_ENV, PATH, GIT_DIR,
+# GITHUB_SHA) can turn it into a no-op, so release.yml allows only a fixed set of keys at both levels.
+for level in '' '.jobs.release'; do
+    where=${level:-the workflow}
+    mutate release.yml "$level.defaults.run.shell = \"true {0}\""
+    expect_fail "defaults.run.shell in $where" guard_with
+    mutate release.yml "$level.defaults.run.working-directory = \"/tmp\""
+    expect_fail "defaults.run.working-directory in $where" guard_with
+    for var in BASH_ENV ENV PATH GIT_DIR GITHUB_SHA; do
+        mutate release.yml "$level.env.$var = \"/tmp/x\""
+        expect_fail "$var in the env of $where" guard_with
+    done
+done
 # The exit 1 must run in the step's own shell, not inside a command substitution or subshell that swallows it (#1465).
 mutate release.yml "($refusal | .run) = \"if ! $check; then\\n  echo \\\"::error::refused\\\" \$(\\n    exit 1\\n  )\\n  exit 0\\nfi\""
 expect_fail "an exit 1 inside \$( )" guard_with
