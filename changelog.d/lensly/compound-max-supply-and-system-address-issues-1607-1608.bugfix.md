@@ -1,0 +1,1 @@
+A Compound V3 native supply with the maximum amount is now described as supplying your borrow balance, up to the value sent, with the rest sent back, and a HyperEVM native send with call data to a token's HyperCore system address now shows the same warning as a plain send.
