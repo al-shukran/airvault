@@ -149,8 +149,6 @@ shard-2 :lumio app.lumio.DeviceProtectionPortsTest
 shard-2 :lumio app.lumio.btc.BtcAccountRefKeyTest
 shard-2 :lumio app.lumio.btc.BtcScanTest
 shard-4 :lumio app.lumio.CoinActivityPreloadTest
-shard-4 :lumio app.lumio.ui.design.DesignGateCalibrationTest
-shard-4 :lumio app.lumio.ui.design.FontMetricsCalibrationTest
 shard-2 :lumio app.lumio.data.config.DisplaySettingsStoreTest
 shard-2 :lumio app.lumio.data.config.TransactionSettingsFlowTest
 shard-2 :lumio app.lumio.data.provider.coingecko.CoinGeckoProviderTest

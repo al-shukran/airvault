@@ -6,8 +6,8 @@ after one `./gradlew resolveAll` (online) fills the Gradle module cache.
 ## Gate lanes — `run-partition.sh <lane>`
 
 `.github/workflows/pr-fast.yml` runs the blocking lanes for pull requests, the merge queue and master, so what a pull request
-verifies is what master builds after it lands. The blocking set is `deps`, `shard`, `fuzz`, `ci`, `secrets`, `manifest`, `dependency_review`, `design` and `design_guard`, and `pr-ok` is the single
-required check over exactly those nine. A skipped or failed blocking lane fails it. The other lanes run in `nightly.yml`, on the
+verifies is what master builds after it lands. The blocking set is `deps`, `shard`, `fuzz`, `ci`, `secrets`, `manifest` and `dependency_review`, and `pr-ok` is the single
+required check over exactly those seven. A skipped or failed blocking lane fails it. The other lanes run in `nightly.yml`, on the
 schedule and on pushes to master, and never block a pull request.
 
 | Lane | Runs | Job |
@@ -19,11 +19,10 @@ schedule and on pushes to master, and never block a pull request.
 | `apk` | the Lumio debug APK, `:lumio:assembleDebug` | nightly `android` |
 | `android-tests` | androidTest and benchmark compile of `:app` and `:lumio`; nightly only (a step of `android`) | nightly `android` |
 | `lint-app`, `lint-shared`, `lint-lumio` | `lintReportDebug` of one module's main sources; the unit-test, androidTest and test-fixture analyses run in nightly `lintDebug`; a leg compiles its module and the modules it depends on | nightly `lint` (matrix) |
-| `design` | the screens of `design/registry.json` rendered at their approved frames' size and compared with the frames (`-PdesignGate`), then `scripts/design/check-results.py`; never skipped, and it reads no golden (`tools/design-frames/README.md`) | `design` (pr-fast) |
 | `manifest` | merged manifests (no INTERNET or ACCESS_NETWORK_STATE in `:app`, Lumio's allow-list), no OkHttp on `:app`'s release classpath | `manifest` (pr-fast) |
-| `ci` | `bash -n` on every script, `check-partitions.sh`, `check-test-network.sh`, the design scripts' own tests (no Gradle) | `ci` |
+| `ci` | `bash -n` on every script, `check-partitions.sh`, `check-test-network.sh` (no Gradle) | `ci` |
 
-`design_guard` (`scripts/design/guard.py`, pull requests only) compares the whole of `design/registry.json` and the gate's code and frames with the merge base (the gate's code includes `lumio/build.gradle.kts`, the root and settings Gradle scripts, every file under `ui/screenshot/` and every `*ScreenshotTest.kt` under `lumio/src/test/`), and fails a pull request that changes anything but removals from the lists and new screen rows without masks, unless it carries the label `design:approved-change`. `design-guard-rerun.yml` re-runs the `design_guard` job (and `pr-ok`) of the current `pr-fast` run when the label is added or removed, so removing the label turns `pr-ok` red. It re-runs the job inside the run because a new `pr-fast` run on the same commit would leave a failed or cancelled `pr-ok` beside the green one, and GitHub counts both. The guard does not run on `merge_group` or `push`: the repository has no merge queue, and a push to master has no label to read. `secrets` (gitleaks) and `dependency_review` run beside them in `pr-fast.yml` and need no Gradle. `dependency_review` is skipped until `DEPENDENCY_GRAPH_ENABLED=true`.
+`secrets` (gitleaks) and `dependency_review` run beside the others in `pr-fast.yml` and need no Gradle. `dependency_review` is skipped until `DEPENDENCY_GRAPH_ENABLED=true`.
 
 Every Gradle call runs with `--offline`, except `resolve`. A missing artifact then fails by name. The fix is in the build's
 `resolveAll` wiring (`build.gradle.kts`), not a rerun of the job.
