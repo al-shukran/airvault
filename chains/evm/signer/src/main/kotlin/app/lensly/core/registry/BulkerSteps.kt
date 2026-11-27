@@ -115,10 +115,12 @@ internal object BulkerSteps {
     private fun supplyNative(call: StepCall, v: List<AbiValue>): CallSteps? {
         val market = ProtocolSteps.compoundMarket(MAINNET, v[0].address()) ?: return null
         val amount = v[2].word()
-        // The bulker's whole-amount value repays the signer's whole borrow, which is not read, so only a fixed amount is shown.
-        if (market.base != WETH_MAINNET || amount == ContractCall.MAX_UINT256) return null
+        if (market.base != WETH_MAINNET) return null
         val to = v[1].address()
-        val line = "Supply ${call.nativeAmount(amount)} to Compound V3 (${market.symbol}) for ${call.who(to)}"
+        // The bulker's whole-amount value is not read, so it is named, and the recipient is still checked.
+        val what = if (amount == ContractCall.MAX_UINT256) "the whole value" else call.nativeAmount(amount)
+        val unread = if (amount == ContractCall.MAX_UINT256) " (the exact amount is not read)" else ""
+        val line = "Supply $what to Compound V3 (${market.symbol}) for ${call.who(to)}$unread"
         return CallSteps(listOf(line), notYou(call.from, "supplies to", to))
     }
 

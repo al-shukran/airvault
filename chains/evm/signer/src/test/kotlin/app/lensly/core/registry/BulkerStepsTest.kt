@@ -96,6 +96,24 @@ class BulkerStepsTest {
     }
 
     @Test
+    fun aWholeAmountNativeSupplyForAnotherAccountStillWarns() {
+        val action = "ACTION_SUPPLY_NATIVE_TOKEN".toByteArray(Charsets.US_ASCII).copyOf(WORD).toHex()
+        val market = "a17581a9e3356d9a858b789d68b4d866e593ae94".padStart(WORD * 2, '0')
+        val to = "9ff44cbe82dbd26c83397cd2e674c373ebcbb058".padStart(WORD * 2, '0')
+        val params = listOf(
+            DecodedParam(BULKER_PARAMS[0], AbiValue.Items(listOf(AbiValue.Word(action)))),
+            DecodedParam(BULKER_PARAMS[1], AbiValue.Items(listOf(AbiValue.Dynamic(market + to + "ff".repeat(WORD))))),
+        )
+
+        val steps = assertNotNull(
+            CallSteps.describe(STEP_REGISTRY, 1, BULKER, BULKER_SELECTOR, BULKER_SIGNATURE, SIGNER, BigInteger.ZERO, params),
+        )
+
+        assertEquals(listOf("Supply the whole value to Compound V3 (cWETHv3) for 0x9ff4…B058 (the exact amount is not read)"), steps.lines)
+        assertEquals(listOf("This supplies to 0x9ff4…B058, not you"), steps.warnings)
+    }
+
+    @Test
     fun anActionLenslyDoesNotReadIsShownRawAndWarns() {
         // Transaction 0x5ab615b0, Compound V3 bulker: ACTION_SUPPLY_STETH, which is not a base bulker action, then a native withdrawal.
         val steps = assertNotNull(stepsOf(StepVectors.BULKER_SUPPLY_STETH, "0xe6705fccaf951870ef24463c88a81f31610efba4"))
