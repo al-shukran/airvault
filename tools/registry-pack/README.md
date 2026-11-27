@@ -50,12 +50,15 @@ leaked key cannot block its own revocation by installing a package with a huge s
 device. Choose it above every sequence you have published, so that a device that holds a published package still takes the later ones.
 
 The same holds once the app release lists the leaked key as `revoked`: a package that key signed no longer verifies, but it still names the
-floor, and any package signed by an active key replaces it whatever its sequence. Neither exemption applies when the installed file has a
-sequence below the floor the device remembers, so an old package copied over it cannot lower the floor.
+floor, and any package signed by an active key that is newer than the build's own catalog replaces it whatever the installed sequence. That
+package must restate the whitelist and the denylist the replaced package carried, or it is refused. Neither exemption applies when the
+installed file has a sequence below the floor the device remembers, so an old package copied over it cannot lower the floor.
 
-Accepted residual: someone who holds a leaked key that no build lists as revoked yet, and who can write into the app's private storage, can
-plant a package signed by it. That package can inject content (tokens, networks, the whitelist, fees) and drop the standing revocation list,
-not only block updates. List the key in the build as soon as you can.
+Accepted residual: someone who holds a leaked key, whether or not a build lists it as `revoked`, and who can write into the app's private
+storage, can plant a package signed by it. While no build lists the key, that package can inject content (tokens, networks, the whitelist,
+fees) and drop the standing revocation list, not only block updates. Once a build lists it, the planted package is no longer used, but it
+still lets a public package signed by an active key replace it below the floor, so the floor can be lowered, down to the build's own catalog
+sequence. Closing this needs the seal to bind the installed file. List the key in the build as soon as you can.
 
 A device that never installs the revoking package keeps trusting the leaked key. So add the leaked key's ID to
 `tools/registry-data/revoked-keys.json`, the standing list that `sign-candidate.sh` writes into every bundle, and set the key to `revoked` in

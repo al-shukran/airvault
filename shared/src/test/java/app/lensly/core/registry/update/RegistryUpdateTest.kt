@@ -139,12 +139,12 @@ class RegistryUpdateTest {
             TrustedKey(TestPackages.PUBLIC_BYTES, KeyStatus.REVOKED),
             TrustedKey(TestPackages.publicKeyOf(newSeed)),
         )
-        RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 2)), keys, baked, dir, keystore).getOrThrow()
+        RegistryUpdate.install(TestPackages.signed(TestPackages.payload(sequence = 5)), keys, baked, dir, keystore).getOrThrow()
 
         // The installed package is signed by the revoked key, so it no longer counts for the catalog...
         assertNull(RegistryUpdate.installedPackage(baked, dir, rotated, keystore))
         assertEquals(baked.networks(), RegistryUpdate.withInstalled(baked, dir, rotated, keystore).networks())
-        // ...and the build's own list decides: any package from an active key replaces it, whatever its sequence, so a leaked key cannot pin the floor.
+        // ...and the build's own list decides: any package from an active key replaces it, even below its sequence.
         fun fromNewKey(sequence: Long) = TestPackages.signed(TestPackages.payload(sequence = sequence), newSeed)
         assertTrue(RegistryUpdate.install(fromNewKey(3), rotated, baked, dir, keystore).isSuccess)
         // From then on the new key's own sequence blocks rollback again.

@@ -211,6 +211,44 @@ class RegistryKeyRevocationTest {
         )
     }
 
+    private val buildRevokesLeaked = listOf(
+        keys[0],
+        TrustedKey(TestPackages.OTHER_PUBLIC_BYTES, KeyStatus.REVOKED),
+        TrustedKey(TestPackages.THIRD_PUBLIC_BYTES),
+    )
+
+    private fun signedByThird(sequence: Long, whitelist: String? = null) = TestPackages.signed(
+        TestPackages.payload(sequence = sequence, minSchemaVersion = 6, whitelist = whitelist),
+        TestPackages.THIRD_SEED,
+    )
+
+    @Test
+    fun aBuildRevokedSignerOnlyYieldsToAPackageNewerThanTheBuildsCatalog() {
+        val sealedBuild = RegistryLoader.load { path ->
+            if (path == RegistryLoader.WHITELIST_PATH) """{"sequence":4,"whitelist":[]}""" else File("src/main/assets", path).takeIf { it.isFile }?.readText()
+        }
+        RegistryUpdate.install(signedByLeaked(1_000_000), keys, sealedBuild, dir, keystore).getOrThrow()
+
+        val refused = RegistryUpdate.install(signedByThird(3), buildRevokesLeaked, sealedBuild, dir, keystore).exceptionOrNull()
+
+        assertIs<RegistryUpdateException.NotNewer>(refused)
+        assertTrue(RegistryUpdate.install(signedByThird(5), buildRevokesLeaked, sealedBuild, dir, keystore).isSuccess)
+    }
+
+    @Test
+    fun aBuildRevokedSignersListsMustBeRestatedByThePackageThatReplacesIt() {
+        install(signedByLeaked(10, whitelist = TestPackages.LINEA_SWAP)).getOrThrow()
+
+        val refused = RegistryUpdate.install(signedByThird(12), buildRevokesLeaked, baked, dir, keystore).exceptionOrNull()
+        assertIs<RegistryUpdateException.Conflict>(refused)
+        assertEquals(10L, RegistrySeal.newestFloor(keystore))
+
+        RegistryUpdate.install(signedByThird(12, whitelist = TestPackages.LINEA_SWAP), buildRevokesLeaked, baked, dir, keystore).getOrThrow()
+        val view = RegistryUpdate.withInstalled(baked, dir, buildRevokesLeaked, keystore)
+        assertFalse(view.installedUpdateUnverified)
+        assertNotNull(view.whitelist(4242L, "0x5555555555555555555555555555555555555555", "0x6e17e9f6"))
+    }
+
     @Test
     fun anOldPackageOfAKeyTheBuildRevokesCannotRollTheFloorBack() {
         val build = listOf(keys[0], TrustedKey(TestPackages.OTHER_PUBLIC_BYTES, KeyStatus.REVOKED), TrustedKey(TestPackages.THIRD_PUBLIC_BYTES))
