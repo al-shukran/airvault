@@ -34,7 +34,7 @@ class MemoryKeystore : KeystoreBackend {
     override fun hardwareKey(): SecretKey {
         if (hardwareKeyInvalidated) throw VaultKeyInvalidatedException("The hardware key was invalidated.")
         if (hardwareAuthRequired) throw VaultAuthRequiredException("The hardware key needs a device authentication.")
-        return hardware ?: throw VaultException("The vault's hardware key is missing from the Keystore.")
+        return hardware ?: throw VaultKeyInvalidatedException("The vault's hardware key is missing from the Keystore.")
     }
 
     /** Replaces the slot key. A vault sealed under the old key no longer opens, which is how a test shows the binding. */

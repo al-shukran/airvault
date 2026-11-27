@@ -103,9 +103,9 @@ internal object VaultKeystore {
     /** Deletes the key that wraps the private photo key of photos taken before the first setup, if the Keystore holds one. */
     fun deletePendingPhotoKey() = delete(PENDING_PHOTO_ALIAS)
 
-    /** The existing hardware wrapping key. Throws if it has been removed. */
+    /** The existing hardware wrapping key. Throws [VaultKeyInvalidatedException] if it has been removed, which no vault survives. */
     fun hardwareKey(): SecretKey =
-        get(HARDWARE_KEY_ALIAS) ?: throw VaultException("The vault's hardware key is missing from the Keystore.")
+        get(HARDWARE_KEY_ALIAS) ?: throw VaultKeyInvalidatedException("The vault's hardware key is missing from the Keystore.")
 
     /**
      * Creates the key that seals the Vault Key for biometric unlock, replacing any key there. Each use needs a strong biometric, and a new

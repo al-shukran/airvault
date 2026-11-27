@@ -105,7 +105,7 @@ internal object VaultRole {
  * The vault format version. `header.bin` and `unlock.bin` both hold it after their magic, and the slot key label names it (see [Vault]).
  * A vault with a file of any other version is unverifiable, so an unlock erases it, and nothing is migrated (see [VaultFormatChangedException]).
  */
-internal const val VAULT_FORMAT_VERSION: Byte = 3
+internal const val VAULT_FORMAT_VERSION: Byte = 4
 
 /**
  * Contents of `unlock.bin`, which holds one slot for the real vault and one for the decoy vault that a Duress Password
@@ -137,8 +137,12 @@ internal object VaultKeyFile {
     private val TAG_LABEL = "lensly.vault.slot-tag".toByteArray(Charsets.US_ASCII)
 
     /** AAD of the two wrapping layers. It keeps the layers apart and ties each blob to this format. */
-    val SOFTWARE_AAD = "lensly.vault.key.sw.v3".toByteArray(Charsets.US_ASCII)
-    val HARDWARE_AAD = "lensly.vault.key.hw.v3".toByteArray(Charsets.US_ASCII)
+    val SOFTWARE_AAD = "lensly.vault.key.sw.v$VAULT_FORMAT_VERSION".toByteArray(Charsets.US_ASCII)
+    val HARDWARE_AAD = "lensly.vault.key.hw.v$VAULT_FORMAT_VERSION".toByteArray(Charsets.US_ASCII)
+
+    /** SHA-256 of the file [bytes] in lower-case hex. The Failure Delay state holds it, so only the file last written opens (see [FailureState.keyFileDigest]). */
+    fun digestOf(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it.toInt() and 0xff) }
 
     /** The two slots of a file, in file order. */
     class Contents internal constructor(val slots: List<ByteArray>) {
