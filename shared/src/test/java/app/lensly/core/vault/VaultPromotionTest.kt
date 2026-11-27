@@ -2,6 +2,8 @@ package app.lensly.core.vault
 
 import app.lensly.ui.camera.PhotoStore
 import java.io.File
+import java.io.IOException
+import java.io.RandomAccessFile
 import java.nio.file.Files
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -558,6 +560,68 @@ class VaultPromotionTest {
         assertFailsWith<Killed> { attempt(P2) }
 
         assertContentEquals(oldBytes, layout.vaultKey.readBytes())
+        // A descriptor on the old file sees the bytes change only if the roll forward overwrites it in place before the replace.
+        RandomAccessFile(layout.vaultKey, "r").use { held ->
+            var overwrites = 0
+            assertPromotedAfterReopen(oldBytes, decoy) { reopened ->
+                reopened.overwriteKeyFile = { file ->
+                    overwrites++
+                    overwriteInPlace(file)
+                }
+            }
+            val seen = ByteArray(oldBytes.size)
+            held.seek(0)
+            held.readFully(seen)
+            assertEquals(1, overwrites, "the roll forward overwrites the old unlock.bin once")
+            assertFalse(oldBytes.contentEquals(seen), "the old file was overwritten in place before it was replaced")
+        }
+    }
+
+    @Test
+    fun thePromotionFolderIsSyncedAfterTheStateNamesTheNewFileAndBeforeTheOldFileIsOverwritten() {
+        val (_, decoy) = setUpForPromotion()
+        val events = mutableListOf<String>()
+        val recording = object : KeystoreBackend by keys {
+            override fun deleteFailureMacKeysExcept(keepSeq: Long?) {
+                events += "state saved"
+                keys.deleteFailureMacKeysExcept(keepSeq)
+            }
+        }
+        vault = Vault(layout, recording, clock, KDF)
+        vault.syncPromotionFolder = { dir ->
+            events += "sync ${dir.name}"
+            syncDirectory(dir)
+        }
+        vault.overwriteKeyFile = { file ->
+            events += "overwrite"
+            overwriteInPlace(file)
+        }
+
+        val session = unlocked(P2)
+
+        val order = events.dropWhile { it != "sync ${layout.root.name}" }
+        assertEquals(listOf("sync ${layout.root.name}", "overwrite"), order.take(2), "the sync comes right before the overwrite")
+        assertTrue(events.indexOf("state saved") in 0 until events.indexOf("sync ${layout.root.name}"), "the state is saved before the sync")
+        session.close()
+        decoy.key.fill(0)
+    }
+
+    @Test
+    fun aFolderSyncThatFailsBeforeTheOverwriteStopsThePromotionBeforeAnythingIsOverwrittenAndTheNextUnlockFinishesIt() {
+        val (oldBytes, decoy) = setUpForPromotion()
+        var overwrites = 0
+        vault.syncPromotionFolder = { throw IOException("the folder cannot be synced") }
+        vault.overwriteKeyFile = { file ->
+            overwrites++
+            overwriteInPlace(file)
+        }
+
+        assertRejected(attempt(P2))
+
+        assertEquals(0, overwrites, "nothing is overwritten while the state may not be durable")
+        assertContentEquals(oldBytes, layout.vaultKey.readBytes())
+        assertTrue(layout.promotionMarker.exists())
+        assertEquals(1, keyFileTemps().size)
         assertPromotedAfterReopen(oldBytes, decoy)
     }
 
@@ -874,9 +938,10 @@ class VaultPromotionTest {
      * A new process opens the vault that a crash interrupted: the Duress Password's vault is the vault, the old password and the old bytes
      * are gone, and the marker, the temp file and the old vault's files go with the cleanup.
      */
-    private fun assertPromotedAfterReopen(oldBytes: ByteArray, decoy: Decoy) {
+    private fun assertPromotedAfterReopen(oldBytes: ByteArray, decoy: Decoy, onReopen: (Vault) -> Unit = {}) {
         FailureStore.forget(layout.root)
         vault = Vault(layout, keys, clock, KDF)
+        onReopen(vault)
         val promoted = unlocked(P2)
         awaitCleanup()
 

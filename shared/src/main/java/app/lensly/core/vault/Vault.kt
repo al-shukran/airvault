@@ -235,6 +235,9 @@ class Vault constructor(
     /** Overwrites the old `unlock.bin` of a promotion. Tests swap it to fail, or to die at a step. */
     internal var overwriteKeyFile: (File) -> Unit = ::overwriteInPlace
 
+    /** Syncs the folder of the vault before a promotion overwrites the old `unlock.bin`. Tests swap it to fail, or to see the order. */
+    internal var syncPromotionFolder: (File) -> Unit = ::syncDirectory
+
     /** Waits for the cleanup that the last unlock started. For tests only. */
     internal suspend fun awaitCleanupForTesting() {
         cleanup?.join()
@@ -1370,8 +1373,13 @@ class Vault constructor(
      * An overwrite that fails, with any exception, does not stop the replace: the state names the new file already and the old file may be
      * half written, so the only vault that can still be opened is the promoted one. A failed overwrite is a failing disk, and the replace is
      * what makes the old vault key unrecoverable by this app. A failed replace throws [IOException], with [temp] kept.
+     *
+     * The folder is synced first, and a failure of that sync stops the roll forward before anything is overwritten: the failure state was
+     * saved without a folder sync (see [FailureStore]), so a power cut could leave the old state beside the overwritten file, which the next
+     * unlock would erase the promoted vault for. The sync throws [IOException], and the next unlock does the roll forward again.
      */
     private fun rollForwardKeyFile(temp: File) {
+        syncPromotionFolder(layout.root)
         overwriteBestEffort(layout.vaultKey, overwriteKeyFile)
         Files.move(temp.toPath(), layout.vaultKey.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
         bestEffort { syncDirectory(layout.root) }
