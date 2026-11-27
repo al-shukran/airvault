@@ -202,4 +202,86 @@ class RegistrySealTest {
         assertEquals(listOf(8L), keystore.registryMacKeySeqs())
         assertFalse(view().installedUpdateUnverified)
     }
+
+    @Test
+    fun aDeletedInstalledPackageIsFlaggedAndTheSamePackageInstalledAgainRepairsIt() {
+        RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).getOrThrow()
+        File(dir, RegistryUpdate.INSTALLED_FILE).delete()
+
+        assertTrue(view().installedUpdateUnverified)
+        assertTrue(RegistryCatalog(baked, dir, keys, keystore).current().installedUpdateUnverified)
+        assertIs<RegistryUpdateException.NotNewer>(RegistryUpdate.install(signedAt(4), keys, baked, dir, keystore).exceptionOrNull())
+
+        RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).getOrThrow()
+
+        assertFalse(view().installedUpdateUnverified)
+        assertNotNull(view().network(4242L))
+        assertIs<RegistryUpdateException.NotNewer>(RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).exceptionOrNull())
+    }
+
+    @Test
+    fun aRegistryFolderLeftEmptyByAnInterruptedFirstInstallDoesNotRefuseTheNextOne() {
+        dir.mkdirs()
+
+        RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).getOrThrow()
+
+        assertEquals(5L, RegistryUpdate.installedPackage(baked, dir, keys, keystore)?.sequence)
+    }
+
+    @Test
+    fun aKeystoreThatRefusesTheFirstKeyLeavesNoFolderAndTheNextInstallSucceeds() {
+        var refusals = 1
+        val flaky = object : KeystoreBackend by keystore {
+            override fun createRegistryMacKey(seq: Long) =
+                if (refusals-- > 0) throw VaultException("The Keystore refused the key.") else keystore.createRegistryMacKey(seq)
+        }
+
+        assertTrue(RegistryUpdate.install(signedAt(5), keys, baked, dir, flaky).isFailure)
+        assertFalse(dir.exists())
+
+        RegistryUpdate.install(signedAt(5), keys, baked, dir, flaky).getOrThrow()
+        assertTrue(File(dir, RegistryUpdate.INSTALLED_FILE).isFile)
+        assertTrue(File(dir, RegistrySeal.FILE).isFile)
+        assertFalse(view().installedUpdateUnverified)
+    }
+
+    @Test
+    fun aFolderWithAnUnreadablePackageAndNoFloorIsStillRefused() {
+        dir.mkdirs()
+        File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(byteArrayOf(1, 2, 3))
+
+        assertIs<RegistryUpdateException.SequenceUnknown>(RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore).exceptionOrNull())
+    }
+
+    @Test
+    fun aPackageWithoutAWhitelistThatDropsANetworkTheKeptWhitelistUsesIsRefusedAndStoresNothing() {
+        RegistryUpdate.install(signedAt(5, whitelist = swap("Kept")), keys, baked, dir, keystore).getOrThrow()
+        val installedBefore = File(dir, RegistryUpdate.INSTALLED_FILE).readBytes()
+        val bare = TestPackages.signed(TestPackages.payload(sequence = 6, networks = "", tokens = ""))
+
+        assertIs<RegistryUpdateException.Conflict>(RegistryUpdate.install(bare, keys, baked, dir, keystore).exceptionOrNull())
+
+        assertTrue(installedBefore.contentEquals(File(dir, RegistryUpdate.INSTALLED_FILE).readBytes()))
+        assertEquals(listOf(5L), keystore.registryMacKeySeqs())
+        assertEquals(listOf("Kept"), view().whitelistEntries().map { it.meaning })
+        assertFalse(view().installedUpdateUnverified)
+        // Control: the same package that keeps the network installs.
+        RegistryUpdate.install(signedAt(6), keys, baked, dir, keystore).getOrThrow()
+        assertEquals(listOf("Kept"), view().whitelistEntries().map { it.meaning })
+    }
+
+    @Test
+    fun aStoredMergeThatDoesNotBuildFallsBackToTheBuiltInCatalogInsteadOfThrowing() {
+        RegistryUpdate.install(signedAt(5, whitelist = swap("Kept")), keys, baked, dir, keystore).getOrThrow()
+        // A package that dropped network 4242 is forced on disk under a seal that still names the carrier of the whitelist on 4242.
+        val bare = TestPackages.signed(TestPackages.payload(sequence = 6, networks = "", tokens = ""))
+        File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(bare)
+        File(dir, RegistrySeal.FILE).writeBytes(RegistrySeal.create(RegistrySeal.Seal(6, 5), keystore))
+        RegistrySeal.keepOnly(6, keystore)
+
+        val catalog = RegistryCatalog(baked, dir, keys, keystore)
+
+        assertTrue(catalog.current().installedUpdateUnverified)
+        assertEquals(baked.networks(), catalog.current().networks())
+    }
 }
