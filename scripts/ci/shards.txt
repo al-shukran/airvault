@@ -130,8 +130,8 @@ shard-2 :shared app.lensly.app.AddressLookalikeTest
 shard-2 :shared app.lensly.app.PlainNameTest
 shard-2 :app app.lensly.app.AddressBookScanTest
 shard-2 :app app.lensly.app.AddressNotesTest
-shard-2 :app app.lensly.app.WalletStoreKindTest
-shard-2 :app app.lensly.app.WalletStorePairingBookTest
+shard-9 :app app.lensly.app.WalletStoreKindTest
+shard-4 :app app.lensly.app.WalletStorePairingBookTest
 shard-2 :app app.lensly.app.sign.SignPipelineTest
 shard-2 :app app.lensly.app.sign.SolanaSplRowsTest
 shard-2 :app app.lensly.ui.components.WalletArtSeedHuesTest
@@ -141,7 +141,7 @@ shard-6 :app app.lensly.ui.home.HistoryDetailSheetTest
 shard-2 :app app.lensly.ui.home.HistoryOriginTest
 shard-2 :app app.lensly.ui.home.HomeBackupTest
 shard-5 :app app.lensly.ui.settings.AddressBookScreenTest
-shard-2 :app app.lensly.ui.sign.ReviewScreenTest
+shard-4 :app app.lensly.ui.sign.ReviewScreenTest
 shard-2 :app app.lensly.ui.sign.SendTitleTest
 shard-2 :app app.lensly.ui.wallet.Bip39AutocompleteTest
 shard-2 :app app.lensly.ui.wallet.EntropyProgressTest
@@ -160,12 +160,12 @@ shard-2 :lumio app.lumio.data.tx.TxStoreTest
 shard-2 :lumio app.lumio.pair.PairDemoBrotliGoldenTest
 shard-2 :lumio app.lumio.send.algorand.AlgorandSendTest
 shard-2 :lumio app.lumio.tokens.CustomTokenLookupTest
-shard-2 :lumio app.lumio.ui.firstrun.FirstRunIntroTest
+shard-9 :lumio app.lumio.ui.firstrun.FirstRunIntroTest
 shard-2 :lumio app.lumio.ui.home.AssetIconSpecTest
 shard-2 :lumio app.lumio.ui.kit.SecretInputTest
-shard-2 :lumio app.lumio.ui.settings.BitcoinServersSettingsTest
+shard-5 :lumio app.lumio.ui.settings.BitcoinServersSettingsTest
 shard-2 :lumio app.lumio.wallets.AccountActivityTest
-shard-2 :shared app.lensly.app.export.PairingCodecTest
+shard-1 :shared app.lensly.app.export.PairingCodecTest
 shard-2 :shared app.lensly.core.btc.BtcReviewWarningsTest
 shard-2 :shared app.lensly.core.btc.BtcWatchOnlyTest
 shard-2 :shared app.lensly.core.evm.TxSignerTest
@@ -173,7 +173,7 @@ shard-2 :shared app.lensly.core.parse.SolanaScanWireTest
 shard-2 :shared app.lensly.core.registry.DenylistTest
 shard-2 :shared app.lensly.core.ur.SolSignatureEncoderTest
 shard-2 :shared app.lensly.core.vault.MediaEnvelopeTest
-shard-2 :shared app.lensly.core.vault.VaultCreateTest
+shard-4 :shared app.lensly.core.vault.VaultCreateTest
 shard-2 :shared app.lensly.core.vault.VaultKeyFileTest
 shard-2 :shared app.lensly.core.wallet.PrivateKeyTest
 shard-2 :shared app.lensly.ui.gate.PasswordBufferTest
@@ -196,7 +196,7 @@ shard-3 :lumio app.lumio.LumioBarIconsTest
 shard-3 :lumio app.lumio.LumioNavGraphTest
 shard-3 :lumio app.lumio.PasswordChangeTest
 shard-3 :lumio app.lumio.DecoyKeepsRealRowsTest
-shard-3 :lumio app.lumio.DuressPasswordTest
+shard-1 :lumio app.lumio.DuressPasswordTest
 shard-3 :lumio app.lumio.SideReadTest
 shard-3 :lumio app.lumio.btc.BtcReadStepTest
 shard-8 :lumio app.lumio.btc.BtcSendNetworkTest
@@ -653,7 +653,7 @@ shard-10 :app app.lensly.ui.profile.ProfileSwatchTest
 shard-10 :app app.lensly.ui.sign.BitcoinReviewScreenTest
 shard-10 :chains:evm:wallet *
 shard-10 :lumio app.lumio.BackLabelTest
-shard-10 :lumio app.lumio.LumioBackdropTest
+shard-4 :lumio app.lumio.LumioBackdropTest
 shard-10 :lumio app.lumio.ScanToPayRouteTest
 shard-10 :lumio app.lumio.SeenInCountTest
 shard-10 :lumio app.lumio.TokenRoutesTest
@@ -693,7 +693,7 @@ shard-10 :shared app.lensly.core.registry.update.RegistryCatalogTest
 shard-10 :shared app.lensly.core.solana.SolanaNonceTest
 shard-10 :shared app.lensly.core.ur.CborTest
 shard-10 :shared app.lensly.core.ur.SolSignatureTest
-shard-10 :shared app.lensly.core.vault.BiometricUnlockTest
+shard-7 :shared app.lensly.core.vault.BiometricUnlockTest
 shard-10 :shared app.lensly.core.vault.FailureStoreEqualCostTest
 shard-10 :shared app.lensly.core.vault.FailureStoreTest
 shard-10 :shared app.lensly.core.vault.KeystorePolicyTest
@@ -711,7 +711,7 @@ shard-4 :lumio app.lumio.ui.search.WatchlistPickerGridTest
 shard-4 :lumio app.lumio.ui.search.WatchlistPickerTest
 shard-4 :lumio app.lumio.CoinNamesTest
 shard-4 :app app.lensly.ui.home.WalletHistoryScreenTest
-shard-2 :lumio app.lumio.data.price.CoinImagesTest
-shard-2 :lumio app.lumio.data.cache.CacheSizeTest
+shard-5 :lumio app.lumio.data.price.CoinImagesTest
+shard-7 :lumio app.lumio.data.cache.CacheSizeTest
 shard-2 :shared app.lensly.app.DecoyShownTest
 shard-1 :shared app.lensly.core.vault.VaultPasswordFormTest
