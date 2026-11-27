@@ -5,6 +5,7 @@ import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.nio.file.attribute.FileTime
 import java.security.GeneralSecurityException
 import java.security.ProviderException
 import java.security.SecureRandom
@@ -97,6 +98,31 @@ internal object VaultRecordNames {
 
     /** What a Decoy Vault shows for the real vault's lockout. See [app.lensly.app.DecoyShown]. */
     const val DECOY_SHOWN = "decoy-shown"
+
+    private val REWRITE_LOCK = Any()
+
+    /**
+     * Runs [change], then rewrites every record file in [dir] with its own bytes in one pass, in file name order, all with the same
+     * modification time. A file that is written is replaced by a rename, so it gets a new inode, a new creation time and a new change
+     * time that the app cannot set. Rewriting every file gives all of them fresh ones, so the folder does not show which file was
+     * written, or that a Decoy Vault wrote. Each file is still replaced atomically, so a crash leaves it either old or new. Called
+     * after every write, create, claim, reset and retire. Needs no key: it copies the sealed bytes.
+     * One lock covers a pass and a write, so a pass never puts back a stale copy of a file.
+     */
+    fun rewriteAll(dir: File, change: () -> Unit = {}): Unit = synchronized(REWRITE_LOCK) {
+        change()
+        val time = FileTime.fromMillis(System.currentTimeMillis())
+        dir.listFiles().orEmpty().filter { it.isFile && it.name.endsWith(".bin") }.sortedBy { it.name }.forEach { file ->
+            val temp = writeTemp(file, file.readBytes())
+            try {
+                Files.setLastModifiedTime(temp.toPath(), time)
+            } catch (e: Throwable) {
+                temp.delete()
+                throw e
+            }
+            commitTemp(temp, file)
+        }
+    }
 
     /** The file name of record [name] under [vaultKey]. */
     fun fileName(vaultKey: ByteArray, name: String): String = fileNameOf(labelledHmac(vaultKey, "lensly.vault.record-name\u0000$name"))
@@ -676,9 +702,11 @@ class VaultSession constructor(
         requireRecordName(name)
         layout.vaultRecords.mkdirs()
         val file = vaultRecordFile(key, name)
-        // The file keeps the size it has, so a written record stays in the size class of its placeholder or spare.
-        val floor = if (file.isFile) file.length().coerceAtMost(Int.MAX_VALUE.toLong()).toInt() else VaultRecordNames.fileBytesOf(name)
-        writeAtomically(file, VaultRecordNames.sealed(key, name, bytes, floor))
+        VaultRecordNames.rewriteAll(layout.vaultRecords) {
+            // The file keeps the size it has, so a written record stays in the size class of its placeholder or spare.
+            val floor = if (file.isFile) file.length().coerceAtMost(Int.MAX_VALUE.toLong()).toInt() else VaultRecordNames.fileBytesOf(name)
+            writeAtomically(file, VaultRecordNames.sealed(key, name, bytes, floor))
+        }
     }
 
     /** The vault record [name], or null if it has never been stored. */

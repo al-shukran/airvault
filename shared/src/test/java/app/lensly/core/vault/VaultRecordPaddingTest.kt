@@ -1,6 +1,9 @@
 package app.lensly.core.vault
 
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.attribute.FileTime
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -63,6 +66,98 @@ class VaultRecordPaddingTest {
         decoy.close()
         assertEquals(before, sizes())
 
+    }
+
+    // 1596: the times and inodes of the folder.
+
+    private class Stamp(val modified: FileTime, val created: FileTime, val key: Any?)
+
+    private fun stamps(): Map<String, Stamp> = layout.vaultRecords.listFiles().orEmpty().associate {
+        val a = Files.readAttributes(it.toPath(), BasicFileAttributes::class.java)
+        it.name to Stamp(a.lastModifiedTime(), a.creationTime(), a.fileKey())
+    }
+
+    /**
+     * Every file shares one modification time, and none was left behind by a write: no file keeps an inode of the folder from before,
+     * and with [creationIsFresh] every creation time is newer than any before. A claim or a retire gives files new names, so files are
+     * told apart by inode, not by name.
+     */
+    private fun assertFolderLooksUniform(before: Map<String, Stamp>, creationIsFresh: Boolean = false) {
+        val after = stamps()
+        assertEquals(before.size, after.size)
+        assertEquals(1, after.values.map { it.modified }.toSet().size, "Modification times differ: ${after.values.map { it.modified }}")
+        val oldKeys = before.values.mapNotNull { it.key }.toSet()
+        val newestBefore = before.values.maxOf { it.created }
+        after.forEach { (name, now) ->
+            assertTrue(now.key == null || now.key !in oldKeys, "$name keeps an inode from before the write")
+            // Some file systems and the JDK keep creation times in whole seconds, so only a test that waited that long can check them.
+            if (creationIsFresh) assertTrue(now.created > newestBefore, "$name keeps its creation time")
+        }
+    }
+
+    @Test
+    fun everyRecordFileHasTheSameTimesAfterTheRealVaultAndTheDecoyVaultWriteRecords() {
+        create()
+        assertEquals(1, stamps().values.map { it.modified }.toSet().size, "A new vault shows different modification times")
+
+        val real = unlocked(APP)
+        Thread.sleep(1100)
+        var before = stamps()
+        real.putVaultRecord("settings", byteArrayOf(1, 2, 3))
+        assertFolderLooksUniform(before, creationIsFresh = true)
+
+        Thread.sleep(50)
+        before = stamps()
+        assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { it.createWallet() } })
+        real.close()
+        assertFolderLooksUniform(before)
+
+        val decoy = unlocked(DURESS)
+        Thread.sleep(50)
+        before = stamps()
+        decoy.putVaultRecord("settings", byteArrayOf(4, 5, 6))
+        assertFolderLooksUniform(before)
+
+        // Wiping the Decoy Vault retires its files and resets them.
+        Thread.sleep(50)
+        before = stamps()
+        vault.wipeDecoy(decoy)
+        decoy.close()
+        assertFolderLooksUniform(before)
+    }
+
+    @Test
+    fun aWriteLeavesTheValuesOfTheOtherRecordsAndTheDecoyVaultIntact() {
+        create()
+        val real = unlocked(APP)
+        real.putVaultRecord("settings", byteArrayOf(1))
+        real.putVaultRecord("address-book", byteArrayOf(2))
+        assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { it.createWallet() } })
+        real.close()
+        val decoy = unlocked(DURESS)
+        decoy.putVaultRecord("settings", byteArrayOf(9))
+        decoy.close()
+
+        val again = unlocked(APP)
+        assertContentEquals(byteArrayOf(1), again.getVaultRecord("settings"))
+        assertContentEquals(byteArrayOf(2), again.getVaultRecord("address-book"))
+        again.close()
+        val decoyAgain = unlocked(DURESS)
+        assertContentEquals(byteArrayOf(9), decoyAgain.getVaultRecord("settings"))
+        decoyAgain.close()
+    }
+
+    @Test
+    fun aPassOverTheWholeFolderIsFast() {
+        create()
+        val real = unlocked(APP)
+        real.putVaultRecord("settings", byteArrayOf(1))
+        val started = System.nanoTime()
+        repeat(20) { real.putVaultRecord("settings", byteArrayOf(it.toByte())) }
+        val millis = (System.nanoTime() - started) / 20 / 1_000_000
+        println("record write incl. whole-folder pass: $millis ms, ${layout.vaultRecords.listFiles()!!.size} files, ${sizes().sum()} bytes")
+        assertTrue(millis < 1000, "A record write takes $millis ms")
+        real.close()
     }
 
     @Test

@@ -1387,6 +1387,7 @@ class Vault constructor(
             writeAtomically(File(layout.vaultRecords, VaultRecordNames.fileName(vaultKey, name)), VaultRecordNames.sealedUnset(vaultKey, name))
             writeAtomically(File(layout.vaultRecords, VaultRecordNames.randomFileName(random)), randomRecordFile(VaultRecordNames.fileBytesOf(name)))
         }
+        VaultRecordNames.rewriteAll(layout.vaultRecords)
     }
 
     /** The record files that [keys] name, as a set of file names. */
@@ -1419,6 +1420,7 @@ class Vault constructor(
             val file = File(layout.vaultRecords, VaultRecordNames.fileName(decoyKey, name))
             writeAtomically(file, VaultRecordNames.sealedUnset(decoyKey, name, sizeOf(file)))
         }
+        VaultRecordNames.rewriteAll(layout.vaultRecords)
     }
 
     /**
@@ -1430,6 +1432,7 @@ class Vault constructor(
             writeAtomically(File(layout.vaultRecords, VaultRecordNames.randomFileName(random)), randomRecordFile(sizeOf(file)))
             file.delete()
         }
+        if (files.isNotEmpty()) VaultRecordNames.rewriteAll(layout.vaultRecords)
     }
 
     /** The size class of [file]: a record file is always one, so this is its length. */
