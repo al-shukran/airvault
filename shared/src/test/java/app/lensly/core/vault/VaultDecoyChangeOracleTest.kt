@@ -146,8 +146,9 @@ class VaultDecoyChangeOracleTest {
         assertEquals(1, afterSecondMiss.failures - afterHit.failures)
         assertEquals(afterMiss.seq - start.seq, afterHit.seq - afterMiss.seq)
         assertEquals(afterHit.seq - afterMiss.seq, afterSecondMiss.seq - afterHit.seq)
-        assertEquals(afterMiss.copy(seq = 0, failures = 0, lastFailureWallMs = 0, lastFailureElapsedMs = 0, elapsedAtSave = 0),
-            afterHit.copy(seq = 0, failures = 0, lastFailureWallMs = 0, lastFailureElapsedMs = 0, elapsedAtSave = 0))
+        // The digest of the key file is left out: a commit writes the two slots in random order, so it differs between two equal files.
+        assertEquals(afterMiss.copy(seq = 0, failures = 0, lastFailureWallMs = 0, lastFailureElapsedMs = 0, elapsedAtSave = 0, keyFileDigest = ""),
+            afterHit.copy(seq = 0, failures = 0, lastFailureWallMs = 0, lastFailureElapsedMs = 0, elapsedAtSave = 0, keyFileDigest = ""))
     }
 
     @Test
