@@ -91,7 +91,7 @@ module's `src/` outside `src/debug/` (so quotes, spacing, case and `shared/` res
 ## Guard self-test — `selftest-guards.sh`
 
 Runs in the `static` step. It feeds `check-cleartext-sources.sh` and `check-workflow-guards.sh` broken copies (single quotes, upper case,
-a shared resource, a bare `author_association`, a commented-out or late release refusal, an extra step in a sign job, a quoted `gr""adlew`, a command added to `sign-release.sh`, an `if` on `pr-ok`, a `closed` pull request type) and expects each to fail, and it runs
+a shared resource, a bare `author_association`, a commented-out or late release refusal, an extra step in a sign job, a quoted `gr""adlew`, a command added to `sign-release.sh`, an `if` on `pr-ok`, a `closed` pull request type) and expects each to fail, it checks that `require_unit_tests` in `run-step.sh` fails for a module whose only `*Test.kt` is under `src/test/resources`, and it runs
 `close-refresh-pr.sh` against a stub `gh` whose first close fails and expects one comment. Add a case here with every change to a guard.
 
 ## Release classpath guard — `check-release-classpath.sh`
