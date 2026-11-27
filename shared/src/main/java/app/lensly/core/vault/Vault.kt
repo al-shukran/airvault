@@ -184,6 +184,7 @@ class Vault constructor(
      * does not run it, since its caller already knows the vault is gone.
      */
     private val onErased: () -> Unit = {},
+    private val random: SecureRandom = SecureRandom(),
 ) {
     constructor(context: Context, clock: Clock = RealClock, onErased: () -> Unit = {}) : this(context, clock, null, onErased)
 
@@ -212,7 +213,6 @@ class Vault constructor(
     )
 
     private val mutex = Mutex()
-    private val random = SecureRandom()
 
     /** True once a vault has been created and not wiped. An erase under way counts as a wipe (see [VaultLayout.exists]). */
     fun exists(): Boolean = layout.exists()
@@ -1051,9 +1051,7 @@ class Vault constructor(
         try {
             claimSpareRecords(vaultKey, decoyKey)
             resetDecoyRecords(decoyKey)
-        } catch (e: IOException) {
-            return dropDecoyAfterFailedClaim(vaultKey, contents.slots[real])
-        } catch (e: VaultException) {
+        } catch (e: Exception) {
             return dropDecoyAfterFailedClaim(vaultKey, contents.slots[real])
         }
         // The decoy is whole. A purge that fails leaves the old decoy's files for a later one.
@@ -1069,10 +1067,7 @@ class Vault constructor(
     private fun dropDecoyAfterFailedClaim(vaultKey: ByteArray, realSlot: ByteArray): DuressResult {
         try {
             commitKeyFile(listOf(realSlot, VaultKeyFile.randomSlot(random))) { true }
-        } catch (e: IOException) {
-            eraseLocked()
-            return DuressResult.Failed
-        } catch (e: VaultException) {
+        } catch (e: Exception) {
             eraseLocked()
             return DuressResult.Failed
         }

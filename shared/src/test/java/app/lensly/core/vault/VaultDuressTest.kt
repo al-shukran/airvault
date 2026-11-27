@@ -1,6 +1,7 @@
 package app.lensly.core.vault
 
 import java.io.File
+import java.security.SecureRandom
 import javax.crypto.SecretKey
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -238,6 +239,65 @@ class VaultDuressTest {
         assertEquals(DuressResult.Failed, result)
         assertFalse(layout.root.exists())
         assertFalse(vault.exists())
+        assertEquals(1, erasedCalls)
+        real.close()
+        assertRejected(unlockAfterDelay(DURESS))
+        assertRejected(unlockAfterDelay(APP))
+    }
+
+    @Test
+    fun aClaimThatFailsWithAnyExceptionIsRolledBackLikeAnIoFailure() {
+        // The claim is the first to ask for randomness after the decoy's commit, and its RuntimeException is neither an IOException nor a
+        // VaultException.
+        val random = ClaimBreaker()
+        var armed = false
+        var saves = 0
+        val counting = object : KeystoreBackend by keys {
+            override fun createFailureMacKey(seq: Long): SecretKey {
+                if (armed && ++saves == 1) random.failNext = true
+                return keys.createFailureMacKey(seq)
+            }
+        }
+        var erasedCalls = 0
+        vault = Vault(layout, counting, clock, KDF, onErased = { erasedCalls++ }, random = random)
+        createVault()
+        val real = unlocked(attempt(APP))
+        real.createWallet()
+
+        val result = setDuressArmed(real) { armed = true }
+
+        // The setup fails and the vault stays as it was: the App Password still opens it and the Duress Password opens nothing.
+        assertEquals(DuressResult.Failed, result)
+        assertEquals(0, erasedCalls)
+        real.close()
+        assertRejected(unlockAfterDelay(DURESS))
+        unlocked(unlockAfterDelay(APP)).close()
+    }
+
+    @Test
+    fun aClaimAndARollbackThatFailWithAnyExceptionEraseTheVault() {
+        val random = ClaimBreaker()
+        var armed = false
+        var saves = 0
+        val failing = object : KeystoreBackend by keys {
+            override fun createFailureMacKey(seq: Long): SecretKey {
+                if (!armed) return keys.createFailureMacKey(seq)
+                // The decoy's commit is the first save: the claim fails after it, and so does every later save (the rollback).
+                if (++saves == 1) random.failNext = true
+                if (saves > 1) throw RuntimeException("The rollback broke.")
+                return keys.createFailureMacKey(seq)
+            }
+        }
+        var erasedCalls = 0
+        vault = Vault(layout, failing, clock, KDF, onErased = { erasedCalls++ }, random = random)
+        createVault()
+        val real = unlocked(attempt(APP))
+        real.createWallet()
+
+        val result = setDuressArmed(real) { armed = true }
+
+        assertEquals(DuressResult.Failed, result)
+        assertFalse(layout.root.exists())
         assertEquals(1, erasedCalls)
         real.close()
         assertRejected(unlockAfterDelay(DURESS))
@@ -741,6 +801,27 @@ class VaultDuressTest {
     ): DuressResult = runBlocking {
         vault.setDuress(session, password.toCharArray()) { decoy ->
             repeat(wallets) { decoy.createWallet() }
+        }
+    }
+
+    /** Like [setDuress], with [arm] run once the decoy is populated, so the next save of the failure state is the decoy's commit. */
+    private fun setDuressArmed(session: VaultSession, arm: () -> Unit): DuressResult = runBlocking {
+        vault.setDuress(session, DURESS.toCharArray()) { decoy ->
+            decoy.createWallet()
+            arm()
+        }
+    }
+
+    /** The next request for randomness fails with a RuntimeException. The claim of the spare record files is the first one after the decoy's commit. */
+    private class ClaimBreaker : SecureRandom() {
+        var failNext = false
+
+        override fun nextBytes(bytes: ByteArray) {
+            if (failNext) {
+                failNext = false
+                throw RuntimeException("The claim broke.")
+            }
+            super.nextBytes(bytes)
         }
     }
 
