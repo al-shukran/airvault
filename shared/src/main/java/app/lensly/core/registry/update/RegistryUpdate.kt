@@ -20,7 +20,8 @@ import java.io.InputStream
  * A package is accepted only when a key the build trusts signed it (see [TrustedKeys]), and only when its sequence is higher than
  * every sequence accepted before. The highest accepted sequence, and the sequence of the package that supplied the kept whitelist, are
  * sealed under a Keystore key (see [RegistrySeal]), so replacing or deleting the stored files cannot roll the catalog back: a package
- * or whitelist that does not match the seal (by sequence and by file hash) is not used, and an install must beat the floor the Keystore remembers.
+ * or whitelist that does not match the seal (by sequence and by file hash) is not used, and an install must beat the floor the
+ * Keystore remembers.
  *
  * Packages arrive on removable storage. This object checks them before anything is stored. Reading them from
  * storage is the caller's job.
@@ -47,6 +48,8 @@ object RegistryUpdate {
     private val installLock = Any()
 
     private const val READ_CHUNK_BYTES = 8 * 1024
+
+    private val STORE_FILES = listOf(INSTALLED_FILE, WHITELIST_FILE, DENYLIST_FILE, RegistrySeal.FILE, LEGACY_SEQUENCE_FILE)
 
     /**
      * Checks [bytes] against [trustedKeys] and the [baked] catalog without storing anything. The sequence
@@ -97,14 +100,15 @@ object RegistryUpdate {
      * revoked key is refused as [RegistryUpdateException.RevokedKey], including the whitelist and denylist this store keeps from earlier
      * packages, so a package that revokes the key of a list it does not restate is refused with [RegistryUpdateException.Conflict]. Every
      * later package must revoke the same keys, or it is refused with [RegistryUpdateException.Conflict]: a revocation is never undone by
-     * omission. The revocations of the installed package count only when the seal names that file by hash, so this device accepted it, and
-     * then also when the build has revoked its signer since. A file the seal does not name, or any file while the seal does not verify,
-     * revokes nothing: it could have been planted. A recovery package that revokes the key of the installed package, or
+     * omission. The revocations of the installed package count whenever it verifies against a trusted key, whatever the seal says: a
+     * store that reads as unverified refuses more, never less. When the seal names the file by hash, they also count after a build
+     * revokes its signer. A recovery package that revokes the key of the installed package, or
      * installs the installed file again, is accepted whatever its sequence, and so is any package signed by an active key when the build
      * lists the installed package's signer as revoked, provided it is newer than the build's catalog and restates the whitelist and the
      * denylist that the replaced package carried (or is refused with [RegistryUpdateException.Conflict]). The sequence of such a package
-     * becomes the floor, so a leaked key cannot block its own revocation with a huge sequence. A package replaces the installed one for its signer's sake only when the installed file is the one the seal names by hash,
-     * with a sequence at the floor, so a package planted over it, or an old one copied over it, cannot lower the floor.
+     * becomes the floor, so a leaked key cannot block its own revocation with a huge sequence. A package replaces the installed one for
+     * its signer's sake only when the installed file is the one the seal names by hash, with a sequence at the floor, so a package
+     * planted over it, or an old one copied over it, cannot lower the floor.
      * The files and the seal are written one by one. When a write fails, the files already written
      * are put back as they were, or deleted when they cannot be put back, and the new Keystore key is deleted, so a failure leaves the
      * previous package in use, or the built-in catalog when a file was deleted, and the result says so. A file that can be neither put
@@ -126,7 +130,7 @@ object RegistryUpdate {
         runCatching {
             adoptUnsealed(dir, trustedKeys, keystore)
             val prior = sealOf(dir, keystore)
-            val standing = revokedBySealed(dir, prior, trustedKeys)
+            val standing = revokedByInstalled(dir, prior, trustedKeys)
             val keys = withRevoked(trustedKeys, standing)
             val incoming = verify(bytes, keys, baked).getOrThrow()
             if (!incoming.revokedKeys.containsAll(standing)) {
@@ -158,8 +162,8 @@ object RegistryUpdate {
             val signerRevokedByBuild = incoming.sequence > baked.catalogSequence &&
                 trustedKeys.any { it.status == KeyStatus.REVOKED && it.id == onDisk?.signerKeyId }
             // The same package again after a crash between writing its file and its seal: the file is compared without the seal, which
-            // that crash leaves stale. Only an install that got as far as making the Keystore key of this sequence can have crashed there: a
-            // planted file whose sequence the Keystore never held would otherwise let an old package roll the floor back.
+            // that crash leaves stale. Only an install that got as far as making the Keystore key of this sequence can have crashed
+            // there: a planted file whose sequence the Keystore never held would otherwise let an old package roll the floor back.
             val crashRetry = recovery && incoming.revokedKeys.isNotEmpty() && !verified && installedBytes(dir).contentEquals(bytes) &&
                 incoming.sequence in keystore.registryMacKeySeqs()
             val replacesInstalled = (setsFloor && (revokesSigner || signerRevokedByBuild)) || crashRetry
@@ -204,15 +208,19 @@ object RegistryUpdate {
     }
 
     /**
-     * Seals a store that has no seal and whose Keystore holds no registry key: one that Lensly 1.2.0 wrote, which kept the floor in
-     * [LEGACY_SEQUENCE_FILE] where a file edit could change it. The floor becomes the highest sequence among the installed package, the
-     * whitelist carrier and that record, and the carrier's sequence is sealed with it. This runs once: the key it makes means the next
-     * read finds a seal. A failure leaves the store as it was, to be tried again.
+     * Seals a store that has no seal and whose Keystore holds no registry key. That is either a store that Lensly 1.2.0 wrote, which
+     * kept the floor in [LEGACY_SEQUENCE_FILE] where a file edit could change it, or a store with no file at all, which gets a seal
+     * for floor 0 with no file named, so that the first launch of a new device already has its seal and key. For a 1.2.0 store the
+     * floor becomes the highest sequence among the installed package, the whitelist carrier and that record, and the carrier's
+     * sequence is sealed with it. This runs once: the key it makes means the next read finds a seal. A failure leaves the store as it
+     * was, to be tried again.
      *
-     * Adopting is safe because this state cannot be reached by file access alone: a store that was ever sealed has a Keystore key,
-     * which an attacker without the Keystore cannot delete, so a deleted or copied seal reads as unverified, never as unsealed. What
-     * gets adopted is what the store held when the app first ran with seals, which is all that 1.2.0 ever protected. It is not
-     * trusted beyond what verifies: the packages must still carry a trusted signature, and only their sequences are taken.
+     * Adopting is safe because a store with files in this state is one that 1.2.0 wrote, not one that file access can reach: every
+     * store this build touches is sealed at its first launch, and a store that was ever sealed has a Keystore key, which an attacker
+     * without the Keystore cannot delete, so a deleted or copied seal reads as unverified, never as unsealed. A file planted on a new
+     * device after that first launch matches no seal, so it is never adopted. What gets adopted is what the store held when the app
+     * first ran with seals, which is all that 1.2.0 ever protected. It is not trusted beyond what verifies: the packages must still
+     * carry a trusted signature, and only their sequences are taken.
      */
     fun adoptUnsealed(dir: File, trustedKeys: List<TrustedKey>, keystore: KeystoreBackend) {
         synchronized(installLock) {
@@ -224,7 +232,8 @@ object RegistryUpdate {
             val whitelistBytes = File(dir, WHITELIST_FILE).takeIf { it.isFile }?.readBytes()
             val carrier = whitelistBytes?.let { runCatching { PackageFormat.read(it, trustedKeys).sequence }.getOrNull() }
             val floor = maxOf(installed?.sequence ?: 0L, carrier ?: 0L, recordedSequence(record) ?: 0L)
-            if (floor == 0L) return
+            // A store with no file at all is sealed empty. One with files that give no floor is left for the install to refuse.
+            if (floor == 0L && STORE_FILES.any { File(dir, it).exists() }) return
             // 1.2.0 kept a denylist only inside the installed package, so that package becomes the denylist carrier: its file is written
             // out and its sequence sealed, and a later package that omits a denylist then keeps it, or flags the store when the file is lost.
             val denyCarrier = installed?.takeIf { it.denylist != null }?.sequence ?: 0L
@@ -236,10 +245,12 @@ object RegistryUpdate {
                     if (denyCarrier != 0L) installedSha else RegistrySeal.NONE,
                 )
                 val sealBytes = RegistrySeal.create(seal, keystore)
+                val created = !dir.isDirectory
+                check(!created || dir.mkdirs()) { "cannot create ${dir.path}" }
                 val writes = linkedMapOf<String, ByteArray>()
                 if (denyCarrier != 0L) writes[DENYLIST_FILE] = installedBytes!!
                 writes[RegistrySeal.FILE] = sealBytes
-                storeAll(dir, writes, created = false, ::writeAtomically, File::delete)
+                storeAll(dir, writes, created, ::writeAtomically, File::delete)
             } catch (e: Exception) {
                 RegistrySeal.keepOnly(null, keystore)
                 throw e
@@ -296,12 +307,14 @@ object RegistryUpdate {
      */
     fun withInstalled(registry: Registry, dir: File, trustedKeys: List<TrustedKey>, keystore: KeystoreBackend): Registry {
         // A missing package with a Keystore floor (or a seal) is a deleted one, never "nothing installed": flag it like any lost store.
+        // Only a store with no floor has nothing installed: an unsealed one, or one sealed empty at its first launch.
         if (!File(dir, INSTALLED_FILE).isFile) {
-            val unsealed = RegistrySeal.read(dir, keystore) == RegistrySeal.Reading.Unsealed
-            return if (unsealed) registry else registry.withInstalledUpdateUnverified()
+            val reading = RegistrySeal.read(dir, keystore)
+            val empty = reading == RegistrySeal.Reading.Unsealed || (reading as? RegistrySeal.Reading.Sealed)?.seal?.floor == 0L
+            return if (empty) registry else registry.withInstalledUpdateUnverified()
         }
         val seal = sealOf(dir, keystore) ?: return registry.withInstalledUpdateUnverified()
-        val keys = withRevoked(trustedKeys, revokedBySealed(dir, seal, trustedKeys))
+        val keys = withRevoked(trustedKeys, revokedByInstalled(dir, seal, trustedKeys))
         val installed = installedUnder(seal, registry, dir, keys) ?: return registry.withInstalledUpdateUnverified()
         // A merge that does not build must never throw out of the catalog: the built-in catalog is used, flagged.
         return runCatching { merge(registry, installed, seal, dir, keys) }.getOrElse { registry.withInstalledUpdateUnverified() }
@@ -395,7 +408,7 @@ object RegistryUpdate {
      * verified, or its sequence is below the sealed floor (a replaced file).
      */
     fun installedPackage(registry: Registry, dir: File, trustedKeys: List<TrustedKey>, keystore: KeystoreBackend): RegistryPackage? =
-        sealOf(dir, keystore)?.let { installedUnder(it, registry, dir, withRevoked(trustedKeys, revokedBySealed(dir, it, trustedKeys))) }
+        sealOf(dir, keystore)?.let { installedUnder(it, registry, dir, withRevoked(trustedKeys, revokedByInstalled(dir, it, trustedKeys))) }
 
     private fun installedUnder(seal: RegistrySeal.Seal, registry: Registry, dir: File, trustedKeys: List<TrustedKey>): RegistryPackage? {
         val bytes = installedBytes(dir)?.takeIf { RegistrySeal.matches(it, seal.installedSha256) } ?: return null
@@ -404,13 +417,17 @@ object RegistryUpdate {
     }
 
     /**
-     * The IDs of the keys that the installed package revokes, when [seal] names the file in [dir] by hash, so this device accepted it.
-     * Its signer may be revoked since: the seal proves the revocations were accepted from a package that verified then, and a build
-     * that revokes the signer later must not drop them. A file that is not the sealed one, or a store whose seal does not verify, revokes
-     * nothing: such a file could be planted, and counting its revocations would let it revoke any key.
+     * The IDs of the keys the installed package in [dir] revokes. When [seal] names the file by hash, this device accepted it, so its
+     * revocations count even after a build revokes its signer: the seal proves they were accepted from a package that verified then.
+     * Any other file counts only while its signature verifies under an active key of [trustedKeys], as before seals existed, so a store
+     * whose seal is lost still refuses a revoked key, and a file signed by a key the build revokes revokes nothing. A planted file signed
+     * by a leaked active key can therefore only add revocations: that denies updates, and never accepts a revoked key.
      */
-    private fun revokedBySealed(dir: File, seal: RegistrySeal.Seal?, trustedKeys: List<TrustedKey>): Set<String> =
-        seal?.let { sealedOnDisk(dir, it, trustedKeys) }?.revokedKeys?.toSet().orEmpty()
+    private fun revokedByInstalled(dir: File, seal: RegistrySeal.Seal?, trustedKeys: List<TrustedKey>): Set<String> {
+        val installed = seal?.let { sealedOnDisk(dir, it, trustedKeys) }
+            ?: installedBytes(dir)?.let { runCatching { PackageFormat.read(it, trustedKeys) }.getOrNull() }
+        return installed?.revokedKeys?.toSet().orEmpty()
+    }
 
     /**
      * The package in [dir] that [seal] names by hash, with the revoked status of [trustedKeys] ignored but its signature still verified.
@@ -491,8 +508,7 @@ object RegistryUpdate {
      */
     private fun acceptedSequence(dir: File, trustedKeys: List<TrustedKey>, prior: RegistrySeal.Seal?, newest: Long?): Long {
         val known = listOfNotNull(prior?.floor, newest).ifEmpty { listOfNotNull(sequenceOf(File(dir, INSTALLED_FILE), trustedKeys)) }
-        val storeFiles = listOf(INSTALLED_FILE, WHITELIST_FILE, DENYLIST_FILE, RegistrySeal.FILE, LEGACY_SEQUENCE_FILE)
-        if (known.isEmpty() && storeFiles.any { File(dir, it).exists() }) throw RegistryUpdateException.SequenceUnknown()
+        if (known.isEmpty() && STORE_FILES.any { File(dir, it).exists() }) throw RegistryUpdateException.SequenceUnknown()
         return known.maxOrNull() ?: 0L
     }
 

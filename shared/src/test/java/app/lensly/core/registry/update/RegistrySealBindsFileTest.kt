@@ -86,22 +86,38 @@ class RegistrySealBindsFileTest {
     }
 
     @Test
-    fun aPlantedFilesRevocationsAreIgnored() {
-        install(signed(TestPackages.THIRD_SEED, 10)).getOrThrow()
-        // A recovery package planted over the installed file revokes the key that signs the legitimate packages.
-        installedFile.writeBytes(signed(TestPackages.SEED, 11, revoked = listOf(TestPackages.THIRD_KEY_ID)))
+    fun aFileSignedByAKeyTheBuildRevokesRevokesNothingUnlessTheSealNamesIt() {
+        install(signed(TestPackages.THIRD_SEED, 10), buildRevokesLeaked).getOrThrow()
+        // A planted file signed by the revoked key revokes the key that signs the legitimate packages. It is not the sealed file.
+        installedFile.writeBytes(signed(TestPackages.OTHER_SEED, 11, revoked = listOf(TestPackages.THIRD_KEY_ID)))
 
-        install(signed(TestPackages.THIRD_SEED, 12)).getOrThrow()
+        install(signed(TestPackages.THIRD_SEED, 12), buildRevokesLeaked).getOrThrow()
     }
 
     @Test
-    fun aStoreWhoseSealIsGoneCountsNoRevocationsFromItsFileAndRefusesTheRecoveryExemption() {
-        install(signed(TestPackages.OTHER_SEED, 1_000_000)).getOrThrow()
-        File(dir, RegistrySeal.FILE).delete()
+    fun aFileSignedByAnActiveKeyStillRevokesWhenItIsNotTheSealedOne() {
+        install(signed(TestPackages.THIRD_SEED, 10)).getOrThrow()
+        installedFile.writeBytes(signed(TestPackages.SEED, 11, revoked = listOf(TestPackages.THIRD_KEY_ID)))
 
-        // Nothing proves the file is the one that was accepted, so it does not open the way to a lower floor.
-        assertIs<RegistryUpdateException.NotNewer>(install(signed(TestPackages.SEED, 5, revoked = listOf(leaked))).exceptionOrNull())
-        install(signed(TestPackages.THIRD_SEED, 1_000_001)).getOrThrow()
+        // Denial of updates, never the acceptance of a revoked key: the same refusal as before the seal named the file.
+        assertIs<RegistryUpdateException.RevokedKey>(install(signed(TestPackages.THIRD_SEED, 12)).exceptionOrNull())
+    }
+
+    @Test
+    fun aFreshDevicesPlantedPackageIsNeverAdopted() {
+        val first = RegistryCatalog(baked, dir, active, keystore)
+        assertFalse(first.current().installedUpdateUnverified)
+        assertEquals(listOf(0L), keystore.registryMacKeySeqs())
+        installedFile.writeBytes(signed(TestPackages.OTHER_SEED, 1_000_000))
+
+        val restarted = RegistryCatalog(baked, dir, active, keystore)
+
+        assertTrue(restarted.current().installedUpdateUnverified)
+        assertEquals(null, restarted.installed())
+        assertEquals(listOf(0L), keystore.registryMacKeySeqs())
+        // The planted sequence pins nothing: an honest package still installs.
+        restarted.install(signed(TestPackages.THIRD_SEED, 5)).getOrThrow()
+        assertFalse(restarted.current().installedUpdateUnverified)
     }
 
     @Test

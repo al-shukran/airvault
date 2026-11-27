@@ -316,7 +316,7 @@ class RegistryUpdateTest {
     }
 
     @Test
-    fun aFailedFirstInstallLeavesNoDirectory() {
+    fun aFailedFirstInstallLeavesNothingInstalled() {
         val baked = bakedRegistry()
         val dir = registryDir()
         val sealFails: (File, ByteArray) -> Unit = { file, bytes ->
@@ -326,8 +326,10 @@ class RegistryUpdateTest {
 
         assertTrue(RegistryUpdate.install(signedAt(5), keys, baked, dir, keystore, sealFails).isFailure)
 
-        assertFalse(dir.exists())
-        assertEquals(emptyList(), keystore.registryMacKeySeqs())
+        // Only the empty seal of a new store remains: its floor-0 key and the seal file, and no package.
+        assertEquals(listOf(RegistrySeal.FILE), dir.list()?.toList())
+        assertEquals(listOf(0L), keystore.registryMacKeySeqs())
+        assertFalse(RegistryUpdate.withInstalled(baked, dir, keys, keystore).installedUpdateUnverified)
     }
 
     @Test
