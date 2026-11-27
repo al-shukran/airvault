@@ -1,6 +1,7 @@
 package app.lensly.core.vault
 
 import java.io.File
+import java.io.IOException
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
@@ -291,19 +292,48 @@ internal class ReviewPool(private val dir: File, private val vaultKey: ByteArray
     }
 }
 
+/** The size of the buffer that [overwriteInPlace] fills with random bytes, so a file of any length is overwritten in constant memory. */
+private const val OVERWRITE_CHUNK_BYTES = 64 * 1024
+
 /**
  * Overwrites [file] with random bytes of its own length, in place, and syncs it. A file that is only renamed or deleted keeps
- * its old bytes on disk until the storage reuses them, so the bytes are replaced first.
+ * its old bytes on disk until the storage reuses them, so the bytes are replaced first. The bytes go out in chunks of [chunkSize],
+ * so a video of any length is overwritten without a buffer of its own size.
  */
-internal fun overwriteInPlace(file: File) {
+internal fun overwriteInPlace(file: File, chunkSize: Int = OVERWRITE_CHUNK_BYTES) {
     if (!file.isFile) return
     val random = SecureRandom()
-    RandomAccessFile(file, "rw").use { raf ->
-        val bytes = ByteArray(raf.length().toInt()).also { random.nextBytes(it) }
-        raf.seek(0)
-        raf.write(bytes)
-        raf.fd.sync()
-        bytes.fill(0)
+    val buffer = ByteArray(chunkSize)
+    try {
+        RandomAccessFile(file, "rw").use { raf ->
+            var remaining = raf.length()
+            raf.seek(0)
+            while (remaining > 0) {
+                val n = minOf(remaining, buffer.size.toLong()).toInt()
+                random.nextBytes(buffer)
+                raf.write(buffer, 0, n)
+                remaining -= n
+            }
+            raf.fd.sync()
+        }
+    } finally {
+        buffer.fill(0)
+    }
+}
+
+/**
+ * [overwrite]s [file], and swallows a failure of it: the caller deletes the file all the same, and a failed overwrite must never stop
+ * the start of the app or an erase.
+ */
+internal fun overwriteBestEffort(file: File, overwrite: (File) -> Unit = ::overwriteInPlace) {
+    try {
+        overwrite(file)
+    } catch (e: IOException) {
+        // Deleted by the caller all the same.
+    } catch (e: RuntimeException) {
+        // Same.
+    } catch (e: OutOfMemoryError) {
+        // Same.
     }
 }
 
