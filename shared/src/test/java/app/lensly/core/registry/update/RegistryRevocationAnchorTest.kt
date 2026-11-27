@@ -29,12 +29,12 @@ class RegistryRevocationAnchorTest {
     private val dir: File get() = folder.root.resolve("registry")
     private val leaked = TestPackages.OTHER_KEY_ID
 
-    private fun signed(sequence: Long, seed: ByteArray, revoked: List<String> = emptyList()) =
-        TestPackages.signed(TestPackages.payload(sequence = sequence, minSchemaVersion = 6, revokedKeys = revoked), seed)
+    private fun signed(sequence: Long, seed: ByteArray, revoked: List<String> = emptyList(), whitelist: String? = null) =
+        TestPackages.signed(TestPackages.payload(sequence = sequence, minSchemaVersion = 6, revokedKeys = revoked, whitelist = whitelist), seed)
 
     private fun byRecovery(sequence: Long, revoked: List<String> = listOf(leaked)) = signed(sequence, TestPackages.SEED, revoked)
 
-    private fun byLeaked(sequence: Long) = signed(sequence, TestPackages.OTHER_SEED)
+    private fun byLeaked(sequence: Long, whitelist: String? = null) = signed(sequence, TestPackages.OTHER_SEED, whitelist = whitelist)
 
     private fun install(bytes: ByteArray, store: KeystoreBackend = keystore) = RegistryUpdate.install(bytes, keys, baked, dir, store)
 
@@ -95,6 +95,48 @@ class RegistryRevocationAnchorTest {
         assertIs<RegistryUpdateException.InvalidEntry>(install(signed(1, TestPackages.THIRD_SEED, listOf(leaked))).exceptionOrNull())
 
         assertEquals(emptyList(), keystore.registryRevokedKeyIds())
+    }
+
+    @Test
+    fun aRecoveryPackageRefusedAsNotNewerAnchorsNothing() {
+        install(signed(2, TestPackages.SEED)).getOrThrow()
+        val before = storeBytes()
+
+        assertIs<RegistryUpdateException.NotNewer>(install(byRecovery(1, listOf(leaked))).exceptionOrNull())
+
+        assertRefusedAnchoringNothing(before)
+    }
+
+    @Test
+    fun aRecoveryPackageRefusedForADroppedKeptListAnchorsNothing() {
+        install(byLeaked(1, whitelist = TestPackages.LINEA_SWAP)).getOrThrow()
+        val before = storeBytes()
+
+        // It revokes the key that signed the kept whitelist and does not restate it.
+        assertIs<RegistryUpdateException.Conflict>(install(byRecovery(2, listOf(leaked))).exceptionOrNull())
+
+        assertRefusedAnchoringNothing(before)
+    }
+
+    @Test
+    fun anInstallThatCannotAnchorFailsAndWritesNothing() {
+        install(byLeaked(1)).getOrThrow()
+        val before = storeBytes()
+        val failing = object : KeystoreBackend by keystore {
+            override fun anchorRegistryRevocation(keyId: String) = throw GeneralSecurityException("The Keystore refuses a new key.")
+        }
+
+        assertTrue(install(byRecovery(2), failing).isFailure)
+
+        assertRefusedAnchoringNothing(before)
+        assertEquals(listOf(1L), keystore.registryMacKeySeqs())
+    }
+
+    private fun storeBytes() = dir.listFiles().orEmpty().associate { it.name to it.readBytes().toList() }
+
+    private fun assertRefusedAnchoringNothing(before: Map<String, List<Byte>>) {
+        assertEquals(emptyList(), keystore.registryRevokedKeyIds())
+        assertEquals(before, storeBytes())
     }
 
     @Test

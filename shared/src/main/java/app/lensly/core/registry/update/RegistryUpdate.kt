@@ -106,7 +106,12 @@ object RegistryUpdate {
      * revocation stands also after a build revokes the signer of the package that made it, when the installed file or the seal is
      * deleted or replaced, and whatever the sequence of the package that follows. The seal holds them too, and so does an installed file
      * that a recovery key signed. When the Keystore cannot list them, an install is refused, and the built-in catalog is in use. A Keystore
-     * that is wiped takes the app's data with it, which makes the device a fresh install. A recovery package that revokes the key of the
+     * that is wiped along with the app's data (uninstall, clear data) leaves no store to protect. One that is lost while the files survive
+     * (an OEM or OTA Keystore reset) takes the seal and the anchors with it: the store reads as unverified, so the built-in catalog is in
+     * use, flagged, and the floor comes from the installed file. Only the revocations of an installed file signed by a recovery key still
+     * count then, so a revocation that only a release-signed file restated is lost, and a package signed by that key and newer than the
+     * installed file can install. That is not closed: a release-signed file cannot count, or a leaked everyday key could lock out the
+     * others. A recovery package that revokes the key of the
      * installed package, or installs the installed file again, is accepted whatever its sequence, and so is any package signed by an active key when the build
      * lists the installed package's signer as revoked, provided it is newer than the build's catalog and restates the whitelist and the
      * denylist that the replaced package carried (or is refused with [RegistryUpdateException.Conflict]). The sequence of such a package

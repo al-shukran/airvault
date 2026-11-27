@@ -278,7 +278,7 @@ internal object VaultKeystore {
      * True for every alias the vault uses: the hardware key, the slot key, the probe, the pending photo key, the biometric key, and
      * every other folder or MAC key.
      */
-    private fun isVaultAlias(alias: String): Boolean =
+    internal fun isVaultAlias(alias: String): Boolean =
         alias == HARDWARE_KEY_ALIAS || alias == SLOT_KEY_ALIAS || alias == HEADER_KEY_ALIAS || alias == PROBE_ALIAS ||
             alias == PENDING_PHOTO_ALIAS || alias == BIOMETRIC_KEY_ALIAS || alias.startsWith(FAILURE_MAC_PREFIX) ||
             alias.startsWith(FOLDER_KEY_PREFIX)
