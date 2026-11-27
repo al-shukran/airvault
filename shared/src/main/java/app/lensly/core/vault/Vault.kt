@@ -923,12 +923,17 @@ class Vault constructor(
                 eraseLocked()
                 return CreateResult.Locked
             }
+            // A key file that does not verify is unverifiable, so the vault is erased as at unlock, whatever the password. This comes after
+            // the try is counted and before any slot is looked at, so a hit and a miss still take the same path.
+            val contents = verifiedKeyFile(check.state) ?: run {
+                eraseLocked()
+                return CreateResult.Locked
+            }
 
             val decoyKey = session.copyOfVaultKey()
             try {
                 val softKey = withContext(Dispatchers.Default) { deriveStoredKey(newPassword, header.salt, header.kdf) }
                 try {
-                    val contents = VaultKeyFile.decode(layout.vaultKey.readBytes())
                     val decoy = decoySlotOf(contents, decoyKey)
                     val real = 1 - decoy
                     // One password must never open both vaults, so a password that opens the real slot is not written. The check, the
