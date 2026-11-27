@@ -78,7 +78,7 @@ sealed interface FailureCapResult {
     data object Erased : FailureCapResult
 }
 
-/** Outcome of [Vault.setDuress]. Only [Enabled] changes the real vault. Every other outcome leaves it as it was. */
+/** Outcome of [Vault.setDuress]. Only [Enabled] changes the real vault, and [Failed] erases it when the undo fails too. Others leave it as it was. */
 sealed interface DuressResult {
     /** The Duress Password is set. It opens a Decoy Vault that holds at least one wallet. */
     data object Enabled : DuressResult
@@ -92,7 +92,10 @@ sealed interface DuressResult {
     /** The populate step left the Decoy Vault without a wallet, so the Duress Password was not enabled. */
     data object DecoyEmpty : DuressResult
 
-    /** The new vault key file could not be written and read back, or the decoy could not be made. */
+    /**
+     * The new vault key file could not be written and read back, or the decoy could not be made. When the undo of a half-made decoy fails
+     * too, the vault is erased, and the next gate finds no vault.
+     */
     data object Failed : DuressResult
 }
 
@@ -1060,14 +1063,17 @@ class Vault constructor(
 
     /**
      * Undoes a committed decoy whose record files could not be taken over: the decoy slot becomes random bytes, and the files that no key
-     * owns turn back into spares. Always [DuressResult.Failed]. A slot that cannot be replaced either leaves the decoy as it is.
+     * owns turn back into spares. Always [DuressResult.Failed]. A slot that cannot be replaced leaves a decoy that lacks record files, which
+     * cannot be verified, so the vault is erased (see [eraseLocked]) instead of kept.
      */
     private fun dropDecoyAfterFailedClaim(vaultKey: ByteArray, realSlot: ByteArray): DuressResult {
         try {
             commitKeyFile(listOf(realSlot, VaultKeyFile.randomSlot(random))) { true }
         } catch (e: IOException) {
+            eraseLocked()
             return DuressResult.Failed
         } catch (e: VaultException) {
+            eraseLocked()
             return DuressResult.Failed
         }
         bestEffort { purgeUnowned(listOf(vaultKey)) }
@@ -1367,9 +1373,12 @@ class Vault constructor(
      */
     private fun writeRecordPlaceholders(vaultKey: ByteArray) {
         layout.vaultRecords.mkdirs()
-        VaultRecordNames.KNOWN.forEach { name ->
-            writeAtomically(File(layout.vaultRecords, VaultRecordNames.fileName(vaultKey, name)), VaultRecordNames.sealedUnset(vaultKey, name))
-            writeAtomically(File(layout.vaultRecords, VaultRecordNames.randomFileName(random)), randomRecordFile(VaultRecordNames.fileBytesOf(name)))
+        VaultRecordNames.underFolderLock {
+            VaultRecordNames.KNOWN.forEach { name ->
+                writeAtomically(File(layout.vaultRecords, VaultRecordNames.fileName(vaultKey, name)), VaultRecordNames.sealedUnset(vaultKey, name))
+                writeAtomically(File(layout.vaultRecords, VaultRecordNames.randomFileName(random)), randomRecordFile(VaultRecordNames.fileBytesOf(name)))
+            }
+            VaultRecordNames.rewriteAll(layout.vaultRecords)
         }
     }
 
@@ -1387,7 +1396,7 @@ class Vault constructor(
      * Renames the spare record files to the names that [decoyKey] gives the known records, the largest spare to the record with the largest
      * size class and so on, so each record keeps the class of its placeholder. A rename keeps a file's size and time.
      */
-    private fun claimSpareRecords(vaultKey: ByteArray, decoyKey: ByteArray) {
+    private fun claimSpareRecords(vaultKey: ByteArray, decoyKey: ByteArray) = VaultRecordNames.underFolderLock {
         val spares = spareRecordFiles(listOf(vaultKey)).shuffled(random.asKotlinRandom()).sortedByDescending { it.length() }
         if (spares.size < VaultRecordNames.KNOWN.size) throw VaultException("The folder of vault records lacks spare files.")
         VaultRecordNames.KNOWN.sortedByDescending { VaultRecordNames.fileBytesOf(it) }.zip(spares).forEach { (name, spare) ->
@@ -1398,11 +1407,12 @@ class Vault constructor(
     }
 
     /** Each decoy record file, rewritten to hold no value under [decoyKey]. The files keep their names and sizes. */
-    private fun resetDecoyRecords(decoyKey: ByteArray) {
+    private fun resetDecoyRecords(decoyKey: ByteArray) = VaultRecordNames.underFolderLock {
         VaultRecordNames.KNOWN.forEach { name ->
             val file = File(layout.vaultRecords, VaultRecordNames.fileName(decoyKey, name))
             writeAtomically(file, VaultRecordNames.sealedUnset(decoyKey, name, sizeOf(file)))
         }
+        VaultRecordNames.rewriteAll(layout.vaultRecords)
     }
 
     /**
@@ -1410,9 +1420,13 @@ class Vault constructor(
      * was there. The file count stays the same.
      */
     private fun retireRecordFiles(files: List<File>) {
-        files.forEach { file ->
-            writeAtomically(File(layout.vaultRecords, VaultRecordNames.randomFileName(random)), randomRecordFile(sizeOf(file)))
-            file.delete()
+        if (files.isEmpty()) return
+        VaultRecordNames.underFolderLock {
+            files.forEach { file ->
+                writeAtomically(File(layout.vaultRecords, VaultRecordNames.randomFileName(random)), randomRecordFile(sizeOf(file)))
+                file.delete()
+            }
+            VaultRecordNames.rewriteAll(layout.vaultRecords)
         }
     }
 
@@ -1608,15 +1622,20 @@ fun wipeVault(layout: VaultLayout, deleteKeys: () -> Unit) {
         e as? VaultException ?: VaultException("The vault keys could not be deleted.", e)
     }
     // Each file is overwritten before it is deleted, so no record, key file, pool slot or photo survives in the storage.
-    overwriteFiles(layout.root)
-    overwriteFiles(layout.photos)
+    // A pass over the records folder (see [VaultRecordNames.rewriteAll]) must not put a record back, so the files go under its lock.
+    VaultRecordNames.underFolderLock {
+        overwriteFiles(layout.root)
+        overwriteFiles(layout.photos)
+    }
     FailureStore.forget(layout.root)
-    // A root that exists but cannot be listed still holds files that could not be deleted, so it does not count as empty.
-    val rootFiles = layout.root.listFiles()
-    val rootGone = if (rootFiles == null) {
-        !layout.root.exists()
-    } else {
-        rootFiles.filter { it != layout.wipeMarker }.map { it.deleteRecursively() }.all { it }
+    val rootGone = VaultRecordNames.underFolderLock {
+        // A root that exists but cannot be listed still holds files that could not be deleted, so it does not count as empty.
+        val rootFiles = layout.root.listFiles()
+        if (rootFiles == null) {
+            !layout.root.exists()
+        } else {
+            rootFiles.filter { it != layout.wipeMarker }.map { it.deleteRecursively() }.all { it }
+        }
     }
     val photosGone = layout.photos.deleteRecursively()
     // A plain video that an interrupted recording left in the cache goes with the vault.
