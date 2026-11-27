@@ -986,7 +986,7 @@ class EvmReviewTest {
     /** A line break or a tab in the origin could draw rows that look like further header rows, so a request that holds one is refused. */
     @Test
     fun aRequestWhoseOriginHasALineBreakOrATabIsRefused() {
-        for (origin in listOf("dapp.example\n\nType\nSign-in message", "dapp\tx")) {
+        for (origin in listOf("dapp.example\n\nType\nSign-in message", "dapp\tx", "dapp\u0085x", "dapp\u2028x", "dapp\u2029x")) {
             val refusal = refusalOf(personalParsed("hi".toByteArray(), origin = origin))
 
             assertEquals("The request names an origin with a character Lensly cannot show.", refusal.reason)

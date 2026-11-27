@@ -424,7 +424,7 @@ class SignPipelineTest {
     /** A line break or a tab in an origin could draw rows that look like part of the review, so a request that holds one is refused. */
     @Test
     fun anOriginWithALineBreakOrATabIsRefused() {
-        for (origin in listOf("app.uniswap.org\n\nType\nSign-in message", "a\tb")) {
+        for (origin in listOf("app.uniswap.org\n\nType\nSign-in message", "a\tb", "a\u0085b", "a\u2028b", "a\u2029b")) {
             val request = EthSignRequest(
                 requestId = REQUEST_ID,
                 signData = eip1559Tx(),

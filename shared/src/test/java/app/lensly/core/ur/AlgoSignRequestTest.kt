@@ -210,6 +210,9 @@ class AlgoSignRequestTest {
         // A line break or a tab could draw a row that looks like another line of the review, so both are refused.
         assertEquals(AlgoSignRequest.UNREADABLE_ORIGIN, rejectedReason(payload(5L to Cbor.Text("a.example\nType"))))
         assertEquals(AlgoSignRequest.UNREADABLE_ORIGIN, rejectedReason(payload(5L to Cbor.Text("a\tb"))))
+        for (separator in listOf("\u0085", "\u2028", "\u2029")) {
+            assertEquals(AlgoSignRequest.UNREADABLE_ORIGIN, rejectedReason(payload(5L to Cbor.Text("a${separator}b"))))
+        }
         assertEquals("a.example", okOf(AlgoSignRequest.decode(payload(5L to Cbor.Text("a.example")))).origin)
     }
 

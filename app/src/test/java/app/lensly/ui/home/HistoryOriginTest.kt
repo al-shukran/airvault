@@ -15,6 +15,9 @@ class HistoryOriginTest {
     fun aLineBreakOrATabShowsTheBytesOfTheOrigin() {
         assertEquals("610a62", historyOrigin("a\nb"))
         assertEquals("610962", historyOrigin("a\tb"))
+        assertEquals("61c28562", historyOrigin("a\u0085b")) // next line
+        assertEquals("61e280a862", historyOrigin("a\u2028b")) // line separator
+        assertEquals("61e280a962", historyOrigin("a\u2029b")) // paragraph separator
     }
 
     /** U+202E is a right-to-left override. It is not printable, so the origin shows its UTF-8 bytes in hex: 61, E2 80 AE, 62. */

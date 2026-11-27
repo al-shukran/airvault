@@ -56,6 +56,9 @@ class SolanaOriginTest {
     fun anOriginWithALineBreakOrATabIsRefused() {
         assertEquals(SolanaRequestCheck.UNREADABLE_ORIGIN, assertIs<SolanaRequestCheck.Result.Refused>(checked("sol\n\nType\nSign-in")).reason)
         assertEquals(SolanaRequestCheck.UNREADABLE_ORIGIN, assertIs<SolanaRequestCheck.Result.Refused>(checked("sol\tflare")).reason)
+        for (separator in listOf("\u0085", "\u2028", "\u2029")) {
+            assertEquals(SolanaRequestCheck.UNREADABLE_ORIGIN, assertIs<SolanaRequestCheck.Result.Refused>(checked("sol${separator}flare")).reason)
+        }
     }
 
     @Test

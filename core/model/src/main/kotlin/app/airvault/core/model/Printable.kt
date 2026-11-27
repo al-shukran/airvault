@@ -36,8 +36,13 @@ fun isPrintableCodePoint(codePoint: Int): Boolean = when (codePoint) {
 }
 
 /**
- * True when every code point of [text] is one [isPrintableCodePoint] accepts and none is a control character, so a line break or a tab cannot
- * start a row. Each code point is checked as one character, so a character outside the Basic Multilingual Plane is not hidden in two units.
+ * True when every code point of [text] is one [isPrintableCodePoint] accepts and none is a control character (which covers the line break, the
+ * tab and the next-line character U+0085) or a line or paragraph separator (U+2028, U+2029), so nothing can start a row. Each code point is
+ * checked as one character, so a character outside the Basic Multilingual Plane is not hidden in two units.
  */
-fun isSingleLinePrintable(text: String): Boolean =
-    text.codePoints().allMatch { isPrintableCodePoint(it) && Character.getType(it) != Character.CONTROL.toInt() }
+fun isSingleLinePrintable(text: String): Boolean = text.codePoints().allMatch {
+    isPrintableCodePoint(it) && when (Character.getType(it)) {
+        Character.CONTROL.toInt(), Character.LINE_SEPARATOR.toInt(), Character.PARAGRAPH_SEPARATOR.toInt() -> false
+        else -> true
+    }
+}
