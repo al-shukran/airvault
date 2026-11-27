@@ -22,7 +22,7 @@ master starts no run, so push a commit to start the gate.
 
 A pull request that changes no Kotlin or Android build input skips steps 4 and 5 (and the Java and Gradle setup before them) at step
 level; `pr-ok` itself always runs. `gradle-needed.sh <base-sha>` decides: Gradle runs when any changed file is under
-a Gradle module directory, is a `.kt`, `.kts` or `.java` file, is under `gradle/`, `build-logic/` or `buildSrc/`, or is `gradlew*`,
+a Gradle module directory, is a `.kt`, `.kts` or `.java` file, is under `gradle/`, `build-logic/`, `buildSrc/` or `licenses/`, or is `gradlew*`,
 `gradle.properties` or a root settings or build file. Docs, changelog fragments, `scripts/` and `.github/` do not run Gradle. A push
 to master, a failed diff and an empty list run it. Nightly runs everything.
 
