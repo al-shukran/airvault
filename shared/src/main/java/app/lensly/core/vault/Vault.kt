@@ -1563,7 +1563,9 @@ fun wipeVault(layout: VaultLayout, deleteKeys: () -> Unit) {
         rootFiles.filter { it != layout.wipeMarker }.map { it.deleteRecursively() }.all { it }
     }
     val photosGone = layout.photos.deleteRecursively()
-    if (!rootGone || !photosGone || !(layout.wipeMarker.delete() || !layout.wipeMarker.exists())) {
+    // A plain video that an interrupted recording left in the cache goes with the vault.
+    val recordingGone = layout.shredRecording()
+    if (!rootGone || !photosGone || !recordingGone || !(layout.wipeMarker.delete() || !layout.wipeMarker.exists())) {
         throw VaultException("Some vault files could not be deleted.", keyFailure ?: markerFailure)
     }
     layout.root.delete()

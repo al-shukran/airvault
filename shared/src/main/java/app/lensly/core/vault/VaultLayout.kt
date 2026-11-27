@@ -2,6 +2,7 @@ package app.lensly.core.vault
 
 import android.content.Context
 import java.io.File
+import java.io.IOException
 import java.security.MessageDigest
 import java.security.SecureRandom
 import javax.crypto.Mac
@@ -20,7 +21,15 @@ import javax.crypto.spec.SecretKeySpec
  * (see [photoDir]). Both exist from setup, and no file name says what a file is: its kind and capture time are sealed inside it.
  * [wipeVault] removes the whole folder, both vaults' photos with it.
  */
-class VaultLayout(val root: File, val photos: File = File(root, "photos")) {
+class VaultLayout(
+    val root: File,
+    val photos: File = File(root, "photos"),
+    /**
+     * The plain scratch file that a video is recorded into before it is sealed (`cacheDir/recording.mp4` in the app). Null in a layout that
+     * has none. A recording that was interrupted leaves it behind, so [shredRecording] removes it at the start of the app, and [wipeVault] too.
+     */
+    val recording: File? = null,
+) {
     val header = File(root, "header.bin")
     val vaultKey = File(root, "unlock.bin")
     val wallets = File(root, "items")
@@ -47,6 +56,17 @@ class VaultLayout(val root: File, val photos: File = File(root, "photos")) {
      * (see [PendingPhotoKey]).
      */
     fun isBeforeSetup(): Boolean = !exists() && !isPartial()
+
+    /** Overwrites, then deletes, the plain recording file that an interrupted recording left behind. True when none is left. */
+    fun shredRecording(): Boolean {
+        val file = recording ?: return true
+        try {
+            overwriteInPlace(file)
+        } catch (e: IOException) {
+            // Deleted below all the same.
+        }
+        return file.delete() || !file.exists()
+    }
 
     fun walletDir(walletId: String): File = File(wallets, walletId)
 
@@ -84,10 +104,13 @@ class VaultLayout(val root: File, val photos: File = File(root, "photos")) {
         /** The vault's folder under the app's no-backup files folder. Its name says nothing about what the folder holds. */
         const val DIR_NAME = "data"
 
+        /** The file name of the recording scratch in the cache folder, see [recording]. */
+        const val RECORDING_NAME = "recording.mp4"
+
         /** The app's layout: the vault under its no-backup files folder, and its photos under its files folder. */
         fun of(context: Context): VaultLayout {
             val app = context.applicationContext
-            return VaultLayout(File(app.noBackupFilesDir, DIR_NAME), File(app.filesDir, "photos"))
+            return VaultLayout(File(app.noBackupFilesDir, DIR_NAME), File(app.filesDir, "photos"), File(app.cacheDir, RECORDING_NAME))
         }
     }
 }
